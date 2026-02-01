@@ -127,6 +127,7 @@ Uses **Repository Pattern** with SQLite:
 |----------|-------------|
 | [CLAUDE.md](./CLAUDE.md) | Guidance for Claude Code instances |
 | [AGENTS.md](./AGENTS.md) | Agent system architecture |
+| [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md) | AI agent contribution guidelines |
 | [Architecture](./docs/architecture/) | System design and patterns |
 | [Concepts](./docs/concepts/) | Core domain concepts |
 | [Guides](./docs/guides/) | User guides and tutorials |
@@ -135,7 +136,7 @@ Uses **Repository Pattern** with SQLite:
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for human contributors and [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md) for AI agents.
 
 ## License
 
