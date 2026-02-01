@@ -204,7 +204,7 @@ pnpm unlink --global @shep-ai/cli
 
 ### Database Development
 
-Development database location: `~/.shep-dev/repos/...`
+Development database location: `~/.shep/repos/...`
 
 ```bash
 # Reset development database

@@ -56,7 +56,7 @@ src/
 │   └── services/     # Application services
 ├── infrastructure/   # External concerns implementation
 │   ├── repositories/ # SQLite implementations of repository interfaces
-│   ├── agents/       # CrewAI-style agent implementations
+│   ├── agents/       # LangGraph-based agent implementations
 │   ├── persistence/  # Database connection, migrations
 │   └── services/     # External service integrations
 └── presentation/     # User interfaces
@@ -77,11 +77,12 @@ src/
 
 ### Feature
 Central entity tracking a piece of work through the SDLC lifecycle.
-- `id`, `name`, `description`
+- `id`, `name`, `description`, `repoPath`
 - `lifecycle: SdlcLifecycle` (Requirements | Plan | Implementation | Test | Deploy | Maintenance)
 - `requirements: Requirement[]`
 - `tasks: Task[]`
 - `artifacts: Artifact[]`
+- `createdAt` (readonly timestamp)
 
 ### Task
 Work item within a Feature, contains Action Items.
@@ -89,30 +90,39 @@ Work item within a Feature, contains Action Items.
 - `status: TaskStatus`
 - `actionItems: ActionItem[]`
 - `dependsOn: string[]` (Task IDs)
+- `orderIndex`, `createdAt` (readonly timestamp)
 
 ### ActionItem
 Granular step within a Task.
 - `id`, `taskId`, `title`
 - `status: TaskStatus`
 - `dependsOn: string[]` (ActionItem IDs)
+- `orderIndex`, `createdAt` (readonly timestamp)
 
 ### Artifact
 Generated document attached to a Feature.
 - `id`, `featureId`, `type: ArtifactType` (PRD | RFC | Design | TechPlan | Other)
 - `title`, `content`, `filePath`
+- `createdAt` (readonly timestamp)
+
+### Requirement
+User or inferred requirement attached to a Feature.
+- `id`, `featureId`, `description`
+- `source: RequirementSource` ('user' | 'inferred' | 'clarified')
+- `createdAt` (readonly timestamp)
 
 ## Agent System
 
-Located in `infrastructure/agents/`, implements CrewAI-style patterns in TypeScript:
+Located in `infrastructure/agents/`, implements LangGraph StateGraph patterns in TypeScript:
 
 | Agent | Responsibility |
 |-------|---------------|
-| RepositoryAnalysisAgent | Analyzes codebase structure, patterns, dependencies |
-| RequirementsAgent | Gathers requirements through conversational interaction |
-| PlanningAgent | Breaks features into Tasks, ActionItems, and Artifacts |
-| ImplementationAgent | Executes code changes based on plan |
+| analyzeNode | Analyzes codebase structure, patterns, dependencies |
+| requirementsNode | Gathers requirements through conversational interaction |
+| planNode | Breaks features into Tasks, ActionItems, and Artifacts |
+| implementNode | Executes code changes based on plan |
 
-Agents communicate through a message-passing system. See [AGENTS.md](./AGENTS.md) for details.
+Nodes communicate through typed state updates in the StateGraph. See [AGENTS.md](./AGENTS.md) for details.
 
 ## Data Storage
 

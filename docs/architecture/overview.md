@@ -166,7 +166,7 @@ Requirements ──→ Plan ──→ Implementation ──→ Test ──→ De
 | Design System | Storybook | Component documentation, visual testing, design tokens |
 | Build Tool | Vite | Fast builds, modern tooling |
 | Database | SQLite | Zero setup, portable, sufficient for local use |
-| Agent Pattern | CrewAI-style | Proven multi-agent orchestration model |
+| Agent Pattern | LangGraph | State-based workflow orchestration with typed graphs |
 | Unit Testing | Vitest | Fast, ESM-native, Vite-compatible |
 | E2E Testing | Playwright | Cross-browser, reliable, great DX |
 | Methodology | TDD | Red-Green-Refactor, confidence, design quality |

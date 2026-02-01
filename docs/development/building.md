@@ -17,7 +17,7 @@ Shep uses **Vite** for building:
 
 ```bash
 # Watch mode with hot reload
-npm run dev
+pnpm dev
 ```
 
 This starts Vite in watch mode, rebuilding on file changes.
@@ -25,7 +25,7 @@ This starts Vite in watch mode, rebuilding on file changes.
 ### Production Build
 
 ```bash
-npm run build
+pnpm build
 ```
 
 Output goes to `dist/`:
@@ -42,16 +42,16 @@ dist/
 
 ```bash
 # Check types without emitting
-npm run typecheck
+pnpm typecheck
 
 # Watch mode
-npm run typecheck:watch
+pnpm typecheck:watch
 ```
 
 ### Full CI Build
 
 ```bash
-npm run build:ci
+pnpm build:ci
 ```
 
 Runs: typecheck → lint → test → build
@@ -233,7 +233,7 @@ For distribution, we use `prebuild`:
 ### Clean Build
 
 ```bash
-npm run clean && npm run build
+pnpm clean && pnpm build
 ```
 
 Clean script:
@@ -249,7 +249,7 @@ Clean script:
 ### Package for npm
 
 ```bash
-npm run build
+pnpm build
 npm pack
 ```
 
@@ -258,7 +258,7 @@ Creates `shep-ai-cli-x.x.x.tgz`.
 ### Publish
 
 ```bash
-npm run build
+pnpm build
 npm publish --access public
 ```
 
@@ -296,7 +296,7 @@ build: {
 ### Analyze Bundle
 
 ```bash
-npm run build -- --debug
+pnpm build -- --debug
 ```
 
 Or use rollup-plugin-visualizer:
@@ -312,7 +312,7 @@ plugins: [
 ### Check Output Size
 
 ```bash
-npm run build
+pnpm build
 du -sh dist/*
 ```
 
@@ -339,7 +339,7 @@ jobs:
         with:
           node-version: ${{ matrix.node }}
       - run: npm ci
-      - run: npm run build
+      - run: pnpm build
 ```
 
 ### Release Build
@@ -355,7 +355,7 @@ jobs:
         with:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
-      - run: npm run build:ci
+      - run: pnpm build:ci
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

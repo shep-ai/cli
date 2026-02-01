@@ -203,7 +203,7 @@ export async function requirementsNode(
 **Capabilities:**
 - Task decomposition with dependency analysis
 - ActionItem granularity optimization
-- Artifact generation (PRD, RFC, Design, TechPlan)
+- Artifact generation (PRD, RFC, Design, TechPlan, Other)
 - Dependency graph validation (no cycles)
 
 **Output:** `plan`, `tasks[]`, `artifacts[]` state fields populated
