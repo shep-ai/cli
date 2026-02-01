@@ -42,21 +42,20 @@ shep
 
 On first run, Shep launches a TUI wizard to configure authentication:
 
-```mermaid
-flowchart TD
-    subgraph Setup["Shep AI CLI Setup"]
-        Welcome["Welcome to Shep!<br/>Let's set up your Claude Code access."]
-        Question["How would you like to authenticate?"]
-        Welcome --> Question
-        Question --> Option1["○ Use existing Claude session"]
-        Question --> Option2["○ Set up new token"]
-    end
-
-    style Setup fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#1e293b
-    style Welcome fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-    style Question fill:#ffffff,stroke:#94a3b8,color:#374151
-    style Option1 fill:#ffffff,stroke:#94a3b8,stroke-dasharray: 5 5,color:#374151
-    style Option2 fill:#ffffff,stroke:#94a3b8,stroke-dasharray: 5 5,color:#374151
+```
+┌─────────────────────────────────────────────┐
+│      Shep AI CLI Setup                      │
+├─────────────────────────────────────────────┤
+│                                             │
+│  Welcome to Shep!                           │
+│  Let's set up your Claude Code access.      │
+│                                             │
+│  How would you like to authenticate?        │
+│                                             │
+│  ○ Use existing Claude session              │
+│  ○ Set up new token                         │
+│                                             │
+└─────────────────────────────────────────────┘
 ```
 
 > **Note:** User selects one authentication option to proceed.
@@ -81,26 +80,16 @@ To use a new API token:
 
 After authentication, Shep analyzes your repository:
 
-```mermaid
-flowchart TD
-    subgraph Analysis["Analyzing Repository... (75%)"]
-        direction TB
-        Step1["✓ Architecture analysis complete"]
-        Step2["✓ Dependency analysis complete"]
-        Step3["● Pattern detection in progress..."]
-        Step4["○ Convention extraction pending"]
+```
+Analyzing Repository... [████████░░░░░░░░] (75%)
 
-        Step1 --> Step2 --> Step3 --> Step4
-    end
-
-    style Analysis fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#1e293b
-    style Step1 fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style Step2 fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style Step3 fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style Step4 fill:#f1f5f9,stroke:#94a3b8,stroke-dasharray: 5 5,color:#64748b
+✓ Architecture analysis complete
+✓ Dependency analysis complete
+● Pattern detection in progress...
+○ Convention extraction pending
 ```
 
-> **Note:** Progress bar shows 75% completion. Green = complete, Yellow = in progress, Gray = pending.
+> **Note:** Progress indicators: ✓ = complete, ● = in progress, ○ = pending.
 
 This analysis runs once per repository and is cached for future sessions.
 
@@ -128,25 +117,23 @@ Navigate to `http://localhost:3030/` in your browser.
 
 The AI greets you with contextual options based on your repository:
 
-```mermaid
-flowchart TD
-    subgraph WelcomePanel["Welcome to my-app"]
-        Intro["I've analyzed your React application with Express backend.<br/>What would you like to work on?"]
-        Suggestions["Suggested features based on your codebase:"]
-        Intro --> Suggestions
-        Suggestions --> F1["□ Add user authentication"]
-        Suggestions --> F2["□ Implement API rate limiting"]
-        Suggestions --> F3["□ Add unit tests for API endpoints"]
-        Suggestions --> F4["□ Other (describe your feature)"]
-    end
-
-    style WelcomePanel fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#1e293b
-    style Intro fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-    style Suggestions fill:#ffffff,stroke:#94a3b8,color:#374151
-    style F1 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style F2 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style F3 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style F4 fill:#ffffff,stroke:#94a3b8,stroke-dasharray: 5 5,color:#374151
+```
+┌──────────────────────────────────────────────┐
+│          Welcome to my-app                   │
+├──────────────────────────────────────────────┤
+│                                              │
+│  I've analyzed your React application with   │
+│  Express backend. What would you like to     │
+│  work on?                                    │
+│                                              │
+│  Suggested features based on your codebase:  │
+│                                              │
+│  □ Add user authentication                   │
+│  □ Implement API rate limiting               │
+│  □ Add unit tests for API endpoints          │
+│  □ Other (describe your feature)             │
+│                                              │
+└──────────────────────────────────────────────┘
 ```
 
 > **Note:** User selects a suggested feature or describes a custom one.
@@ -155,28 +142,38 @@ flowchart TD
 
 Select an option or describe your feature. The AI guides you through requirements:
 
-```mermaid
-flowchart TD
-    subgraph Chat["Requirements Gathering Conversation"]
-        U1["👤 User: Add user authentication"]
-        S1["🤖 Shep: Great! Let's define the authentication requirements.<br/>Which authentication method would you like?"]
-        O1["□ Email/password<br/>□ OAuth (Google, GitHub)<br/>□ Magic links<br/>□ All of the above"]
-        U2["👤 User: OAuth (Google, GitHub)"]
-        S2["🤖 Shep: Got it. For OAuth, I'll need to know:<br/>Should users be able to link multiple OAuth providers?"]
-        O2["□ Yes, allow linking multiple accounts<br/>□ No, one provider per user"]
-        More["...continued..."]
-
-        U1 --> S1 --> O1 --> U2 --> S2 --> O2 --> More
-    end
-
-    style Chat fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#1e293b
-    style U1 fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style U2 fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style S1 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-    style S2 fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
-    style O1 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style O2 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style More fill:#f1f5f9,stroke:#94a3b8,stroke-dasharray: 5 5,color:#64748b
+```
+┌──────────────────────────────────────────────────────┐
+│   Requirements Gathering Conversation                │
+├──────────────────────────────────────────────────────┤
+│                                                      │
+│  👤 User:                                            │
+│     Add user authentication                          │
+│                                                      │
+│  🤖 Shep:                                            │
+│     Great! Let's define the authentication           │
+│     requirements. Which authentication method        │
+│     would you like?                                  │
+│                                                      │
+│     □ Email/password                                 │
+│     □ OAuth (Google, GitHub)                         │
+│     □ Magic links                                    │
+│     □ All of the above                               │
+│                                                      │
+│  👤 User:                                            │
+│     OAuth (Google, GitHub)                           │
+│                                                      │
+│  🤖 Shep:                                            │
+│     Got it. For OAuth, I'll need to know:            │
+│     Should users be able to link multiple OAuth      │
+│     providers?                                       │
+│                                                      │
+│     □ Yes, allow linking multiple accounts           │
+│     □ No, one provider per user                      │
+│                                                      │
+│  ...continued...                                     │
+│                                                      │
+└──────────────────────────────────────────────────────┘
 ```
 
 > **Note:** Conversational flow where Shep asks clarifying questions based on user selections.
@@ -185,47 +182,34 @@ flowchart TD
 
 Once requirements are complete, Shep generates a plan:
 
-```mermaid
-flowchart TD
-    subgraph PlanReview["Feature: User Authentication | Lifecycle: Plan"]
-        direction TB
-
-        subgraph Tasks["TASKS (5)"]
-            T1["□ Set up OAuth provider configuration"]
-            T2["□ Create user model and migrations"]
-            T3["□ Implement OAuth callback handlers"]
-            T4["□ Add authentication middleware"]
-            T5["□ Create login/logout UI components"]
-        end
-
-        subgraph Docs["DOCUMENTATION (3)"]
-            D1["📄 Product Requirements Document"]
-            D2["📄 Technical RFC"]
-            D3["📄 Implementation Tech Plan"]
-        end
-
-        subgraph Actions["Actions"]
-            Implement["[Implement]"]
-            EditPlan["[Edit Plan]"]
-        end
-
-        Tasks --> Docs --> Actions
-    end
-
-    style PlanReview fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#1e293b
-    style Tasks fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style Docs fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style Actions fill:#dbeafe,stroke:#3b82f6,color:#1e3a5f
-    style Implement fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style EditPlan fill:#ffffff,stroke:#94a3b8,color:#374151
-    style T1 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style T2 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style T3 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style T4 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style T5 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style D1 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style D2 fill:#ffffff,stroke:#94a3b8,color:#374151
-    style D3 fill:#ffffff,stroke:#94a3b8,color:#374151
+```
+┌───────────────────────────────────────────────────┐
+│ Feature: User Authentication | Lifecycle: Plan    │
+├───────────────────────────────────────────────────┤
+│                                                   │
+│ ┌─ TASKS (5) ─────────────────────────────────┐  │
+│ │                                              │  │
+│ │  □ Set up OAuth provider configuration       │  │
+│ │  □ Create user model and migrations          │  │
+│ │  □ Implement OAuth callback handlers         │  │
+│ │  □ Add authentication middleware             │  │
+│ │  □ Create login/logout UI components         │  │
+│ │                                              │  │
+│ └──────────────────────────────────────────────┘  │
+│                                                   │
+│ ┌─ DOCUMENTATION (3) ──────────────────────────┐  │
+│ │                                              │  │
+│ │  📄 Product Requirements Document            │  │
+│ │  📄 Technical RFC                            │  │
+│ │  📄 Implementation Tech Plan                 │  │
+│ │                                              │  │
+│ └──────────────────────────────────────────────┘  │
+│                                                   │
+│ ┌─ Actions ────────────────────────────────────┐  │
+│ │  [Implement]    [Edit Plan]                  │  │
+│ └──────────────────────────────────────────────┘  │
+│                                                   │
+└───────────────────────────────────────────────────┘
 ```
 
 > **Note:** User can click [Implement] to start autonomous code generation or [Edit Plan] to modify tasks.
@@ -234,32 +218,18 @@ flowchart TD
 
 Click "Implement" to begin autonomous code generation:
 
-```mermaid
-flowchart TD
-    subgraph Implementation["Implementing: User Authentication | Progress: 2/5 tasks complete"]
-        direction TB
-        T1["✓ Set up OAuth provider configuration"]
-        T2["✓ Create user model and migrations"]
-        T3["● Implement OAuth callback handlers"]
-        T3Detail["└─ Creating src/routes/auth.ts"]
-        T4["○ Add authentication middleware"]
-        T5["○ Create login/logout UI components"]
+```
+Implementing: User Authentication | Progress: 2/5 tasks complete
 
-        T1 --> T2 --> T3
-        T3 --> T3Detail
-        T3 --> T4 --> T5
-    end
-
-    style Implementation fill:#f8fafc,stroke:#64748b,stroke-width:2px,color:#1e293b
-    style T1 fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style T2 fill:#d1fae5,stroke:#10b981,color:#064e3b
-    style T3 fill:#fef3c7,stroke:#f59e0b,color:#78350f
-    style T3Detail fill:#fef3c7,stroke:#f59e0b,stroke-dasharray: 3 3,color:#78350f
-    style T4 fill:#f1f5f9,stroke:#94a3b8,stroke-dasharray: 5 5,color:#64748b
-    style T5 fill:#f1f5f9,stroke:#94a3b8,stroke-dasharray: 5 5,color:#64748b
+✓ Set up OAuth provider configuration
+✓ Create user model and migrations
+● Implement OAuth callback handlers
+  └─ Creating src/routes/auth.ts
+○ Add authentication middleware
+○ Create login/logout UI components
 ```
 
-> **Note:** Green = completed tasks, Yellow = in progress (with current file being modified), Gray = pending tasks.
+> **Note:** ✓ = completed tasks, ● = in progress (with current file being modified), ○ = pending tasks.
 
 ## Next Steps
 
