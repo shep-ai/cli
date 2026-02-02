@@ -1,0 +1,73 @@
+# =============================================================================
+# Release Workflow
+# =============================================================================
+# Automates versioning and publishing using semantic-release.
+#
+# Triggers on pushes to main branch after CI passes.
+# Publishes to npm registry (registry.npmjs.org).
+#
+# Required secrets:
+#   - NPM_TOKEN: npm access token for publishing
+#
+# @see https://semantic-release.gitbook.io/
+# @see specs/002-semantic-release-cicd/
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Prevent concurrent releases
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-latest
+
+    # Skip release commits to avoid infinite loops
+    # The [skip ci] tag is added by semantic-release git plugin
+    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+
+    permissions:
+      contents: write # Create releases and push version commits
+      issues: write # Comment on released issues
+      pull-requests: write # Comment on released PRs
+      id-token: write # Enable npm provenance (OIDC)
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for semantic-release
+          persist-credentials: false # Use GITHUB_TOKEN for pushing
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify dependency integrity
+        run: pnpm audit signatures || true # Don't fail on audit issues
+
+      - name: Build project
+        run: pnpm run build
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: npx semantic-release

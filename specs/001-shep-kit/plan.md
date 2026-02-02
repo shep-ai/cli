@@ -10,8 +10,8 @@
 ## Architecture Overview
 
 ```
-.claude/skills/shep-kit/
-├── new-feature/
+.claude/skills/
+├── shep-kit:new-feature/
 │   ├── SKILL.md                    # Main instructions
 │   ├── templates/
 │   │   ├── spec.md                 # Spec template with {{PLACEHOLDERS}}
@@ -25,14 +25,14 @@
 │   └── scripts/
 │       └── init-feature.sh         # Scaffolds spec directory
 │
-├── research/
+├── shep-kit:research/
 │   ├── SKILL.md
 │   ├── templates/
 │   │   └── research.md
 │   └── examples/
 │       └── sample-research.md
 │
-└── plan/
+└── shep-kit:plan/
     ├── SKILL.md
     ├── templates/
     │   ├── plan.md

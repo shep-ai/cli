@@ -40,7 +40,7 @@ if ! [[ "$FEATURE_NAME" =~ ^[a-z][a-z0-9]*(-[a-z0-9]+)*$ ]]; then
 fi
 
 SPEC_DIR="specs/${NNN}-${FEATURE_NAME}"
-SKILL_DIR=".claude/skills/shep-kit/new-feature"
+SKILL_DIR=".claude/skills/shep-kit:new-feature"
 
 # Check if spec directory already exists
 if [ -d "$SPEC_DIR" ]; then

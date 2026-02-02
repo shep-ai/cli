@@ -7,7 +7,7 @@
 _Automate the entire development cycle from idea to deploy_
 
 [![CI](https://github.com/shep-ai/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/cli/actions/workflows/ci.yml)
-[![npm version](https://img.shields.io/npm/v/@shep-ai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shep-ai/cli)
+[![npm version](https://img.shields.io/npm/v/@shepai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shepai/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-≥18-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
@@ -31,13 +31,13 @@ Shep is an intelligent CLI tool that transforms how you build software. Point it
 ## Installation
 
 ```bash
-pnpm add -g @shep-ai/cli
+pnpm add -g @shepai/cli
 ```
 
 Or with npm:
 
 ```bash
-npm install -g @shep-ai/cli
+npm install -g @shepai/cli
 ```
 
 ## Quick Start

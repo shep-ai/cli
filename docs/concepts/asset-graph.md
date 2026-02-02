@@ -37,7 +37,7 @@ The standard set of 13 asset types:
 | Type             | Description               | Example              |
 | ---------------- | ------------------------- | -------------------- |
 | `file`           | Source file               | `src/auth/login.ts`  |
-| `module`         | Package/module/namespace  | `@shep-ai/cli`       |
+| `module`         | Package/module/namespace  | `@shepai/cli`        |
 | `component`      | UI component              | `LoginForm`          |
 | `function`       | Function/method           | `validatePassword()` |
 | `class`          | Class definition          | `UserService`        |

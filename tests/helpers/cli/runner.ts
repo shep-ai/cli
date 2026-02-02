@@ -181,7 +181,7 @@ export function createCliRunner(options: CliRunnerOptions = {}, useDist = false)
  *
  * @example
  * const result = runCli('version');
- * expect(result.stdout).toContain('@shep-ai/cli');
+ * expect(result.stdout).toContain('@shepai/cli');
  */
 export function runCli(args: string): CliResult {
   const runner = createCliRunner();

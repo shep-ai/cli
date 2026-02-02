@@ -232,6 +232,34 @@ When contributing:
 - Add JSDoc comments for public APIs
 - Update README.md for user-facing changes
 
+## Release Process
+
+Releases are fully automated using [semantic-release](https://semantic-release.gitbook.io/).
+
+### How It Works
+
+1. **Commit to main** - When PRs are merged to `main`, semantic-release analyzes commits
+2. **Version bump** - Based on commit types (`feat` → minor, `fix` → patch, `BREAKING CHANGE` → major)
+3. **Publish** - Package is published to npm registry (`npm install @shepai/cli`)
+4. **Release** - GitHub Release is created with auto-generated changelog
+5. **Changelog** - `CHANGELOG.md` is updated and committed
+
+### What Triggers a Release
+
+| Commit Type       | Version Bump  | Example                            |
+| ----------------- | ------------- | ---------------------------------- |
+| `feat`            | Minor (0.x.0) | `feat(cli): add new command`       |
+| `fix`             | Patch (0.0.x) | `fix(agents): resolve memory leak` |
+| `perf`            | Patch         | `perf(cli): improve startup time`  |
+| `BREAKING CHANGE` | Major (x.0.0) | Footer with `BREAKING CHANGE:`     |
+
+Commits with types `docs`, `style`, `refactor`, `test`, `build`, `ci`, `chore` do **not** trigger releases.
+
+### For Maintainers
+
+- Ensure `NPM_TOKEN` secret is configured in repository settings
+- The `@shepai` npm organization must exist and have publish permissions
+
 ## Questions?
 
 - Open a [Discussion](https://github.com/shep-ai/cli/discussions) for questions

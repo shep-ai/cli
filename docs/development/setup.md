@@ -199,7 +199,7 @@ pnpm link --global
 shep --help
 
 # Unlink when done
-pnpm unlink --global @shep-ai/cli
+pnpm unlink --global @shepai/cli
 ```
 
 ### Database Development

@@ -20,7 +20,7 @@
  *   revert   - Revert previous commit
  *
  * Scopes (optional):
- *   specs, cli, tui, web, api, domain, agents, deployment, tsp, deps, config
+ *   specs, cli, tui, web, api, domain, agents, deployment, tsp, deps, config, dx, release, ci
  *
  * Examples:
  *   feat(cli): add new analyze command
@@ -72,6 +72,7 @@ export default {
         'config', // Configuration files
         'dx', // Developer experience
         'release', // Release related
+        'ci', // CI/CD workflows
       ],
     ],
 

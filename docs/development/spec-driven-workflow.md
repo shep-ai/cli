@@ -198,17 +198,17 @@ Spec-driven development integrates with our existing practices:
 Skills are located at:
 
 ```
-.claude/skills/shep-kit/
-├── new-feature/
+.claude/skills/
+├── shep-kit:new-feature/
 │   ├── SKILL.md
 │   ├── templates/
 │   ├── examples/
 │   └── scripts/
-├── research/
+├── shep-kit:research/
 │   ├── SKILL.md
 │   ├── templates/
 │   └── examples/
-└── plan/
+└── shep-kit:plan/
     ├── SKILL.md
     ├── templates/
     └── examples/
