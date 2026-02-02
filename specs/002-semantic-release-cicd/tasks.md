@@ -11,40 +11,40 @@
 
 ### Phase 1: Dependencies & Configuration
 
-- [ ] Install semantic-release core package
-- [ ] Install @semantic-release/commit-analyzer
-- [ ] Install @semantic-release/release-notes-generator
-- [ ] Install @semantic-release/changelog
-- [ ] Install @amanda-mitchell/semantic-release-npm-multiple
-- [ ] Install @semantic-release/github
-- [ ] Install @semantic-release/git
-- [ ] Create `release.config.mjs` with plugin configuration
-- [ ] Configure multi-registry in release.config.mjs (npm + GitHub)
-- [ ] Add `release` scope to commitlint.config.mjs
+- [x] Install semantic-release core package
+- [x] Install @semantic-release/commit-analyzer
+- [x] Install @semantic-release/release-notes-generator
+- [x] Install @semantic-release/changelog
+- [x] Install @amanda-mitchell/semantic-release-npm-multiple
+- [x] Install @semantic-release/github
+- [x] Install @semantic-release/git
+- [x] Create `release.config.mjs` with plugin configuration
+- [x] Configure multi-registry in release.config.mjs (npm + GitHub)
+- [x] Add `release` scope to commitlint.config.mjs (already existed)
 
 ### Phase 2: GitHub Actions Workflow
 
-- [ ] Create `.github/workflows/release.yml`
-- [ ] Configure trigger on main branch push only
-- [ ] Set required permissions (contents, issues, pull-requests, id-token)
-- [ ] Add checkout step with fetch-depth: 0
-- [ ] Add pnpm and Node.js setup steps
-- [ ] Add npm audit signatures step
-- [ ] Add semantic-release execution step
-- [ ] Configure environment variables (GITHUB_TOKEN, NPM_TOKEN)
+- [x] Create `.github/workflows/release.yml`
+- [x] Configure trigger on main branch push only
+- [x] Set required permissions (contents, issues, pull-requests, id-token)
+- [x] Add checkout step with fetch-depth: 0
+- [x] Add pnpm and Node.js setup steps
+- [x] Add npm audit signatures step
+- [x] Add semantic-release execution step
+- [x] Configure environment variables (GITHUB_TOKEN, NPM_TOKEN)
 
 ### Phase 3: Package & Documentation [P]
 
-- [ ] Add `publishConfig` to package.json for GitHub registry
-- [ ] Create initial `CHANGELOG.md` (header only)
-- [ ] Add "Release Process" section to CONTRIBUTING.md
-- [ ] Document NPM_TOKEN secret requirement in CONTRIBUTING.md
+- [x] Add `publishConfig` to package.json for GitHub registry
+- [x] Create initial `CHANGELOG.md` (header only)
+- [x] Add "Release Process" section to CONTRIBUTING.md
+- [x] Document NPM_TOKEN secret requirement in CONTRIBUTING.md
 
 ### Phase 4: Validation
 
-- [ ] Run `pnpm install` to verify dependencies
-- [ ] Run `pnpm lint` to verify config files
-- [ ] Verify workflow YAML syntax
+- [x] Run `pnpm install` to verify dependencies
+- [x] Run `pnpm lint` to verify config files
+- [x] Verify workflow YAML syntax
 - [ ] Create PR for review
 - [ ] Test release after merge (first actual release)
 
@@ -58,20 +58,20 @@ Before merging, these must be configured in GitHub:
 
 ## Parallelization Notes
 
-- [P] Phase 3 tasks can run in parallel (independent file updates)
-- Phase 1 must complete before Phase 2 (workflow references deps)
+- [P] Phase 3 tasks ran in parallel (independent file updates)
+- Phase 1 completed before Phase 2 (workflow references deps)
 - Phase 4 depends on all prior phases
 
 ## Acceptance Checklist
 
 Before marking feature complete:
 
-- [ ] All tasks completed
-- [ ] Dependencies installed (`pnpm install`)
-- [ ] Linting clean (`pnpm lint`)
-- [ ] Types valid (`pnpm typecheck`)
-- [ ] Workflow YAML valid
-- [ ] Documentation updated
+- [x] All implementation tasks completed
+- [x] Dependencies installed (`pnpm install`)
+- [x] Linting clean (`pnpm lint`)
+- [x] Types valid (`pnpm typecheck`)
+- [x] Workflow YAML valid
+- [x] Documentation updated
 - [ ] PR created and reviewed
 - [ ] NPM_TOKEN secret configured
 - [ ] First release triggered successfully after merge
