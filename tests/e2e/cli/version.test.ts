@@ -6,7 +6,13 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { runCli } from '../../helpers/cli/index.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const pkg = JSON.parse(readFileSync(resolve(__dirname, '../../../package.json'), 'utf-8'));
 
 describe('CLI: version', () => {
   describe('shep version', () => {
@@ -65,8 +71,8 @@ describe('CLI: version', () => {
       // Act
       const result = runCli('--version');
 
-      // Assert - version should match package.json (currently 0.1.0)
-      expect(result.stdout).toBe('0.1.0');
+      // Assert - version should match package.json
+      expect(result.stdout).toBe(pkg.version);
     });
   });
 
