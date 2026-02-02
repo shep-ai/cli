@@ -4,31 +4,20 @@
 # Single unified workflow for all quality checks and releases.
 #
 # Pipeline Structure:
-#
-#   PR (parallel fast checks):
-#   ┌─────────┬───────────┬────────────┐
-#   │  Lint   │ Typecheck │ Unit Tests │
-#   └─────────┴───────────┴────────────┘
-#
-#   Push to main/develop (full pipeline):
-#   ┌─────────┬───────────┬────────────┐
-#   │  Lint   │ Typecheck │ Unit Tests │  (parallel)
-#   └────┬────┴─────┬─────┴────────────┘
-#        └──────────┤
-#                   ▼
-#             ┌──────────┐
-#             │  Build   │
-#             └────┬─────┘
-#        ┌─────────┼─────────┐
-#        ▼         ▼         ▼
-#   ┌─────────┬─────────┬─────────┐
-#   │ E2E CLI │ E2E TUI │ E2E Web │  (parallel)
-#   └────┬────┴────┬────┴────┬────┘
-#        └─────────┼─────────┘
-#                  ▼
-#           ┌───────────┐
-#           │  Release  │  (main only)
-#           └───────────┘
+#   ┌─────────┬───────────┬────────────┬─────────┐
+#   │  Lint   │ Typecheck │ Unit Tests │  Build  │  (parallel)
+#   └─────────┴───────────┴────────────┴────┬────┘
+#                                           │
+#                    ┌──────────────────────┼──────────────────────┐
+#                    ▼                      ▼                      ▼
+#              ┌─────────┐            ┌─────────┐            ┌─────────┐
+#              │ E2E CLI │            │ E2E TUI │            │ E2E Web │  (parallel)
+#              └────┬────┘            └────┬────┘            └────┬────┘
+#                   └──────────────────────┼──────────────────────┘
+#                                          ▼
+#                                    ┌───────────┐
+#                                    │  Release  │  (main only)
+#                                    └───────────┘
 #
 # @see https://docs.github.com/en/actions
 
@@ -98,13 +87,11 @@ jobs:
           fail_ci_if_error: false
 
   # ===========================================================================
-  # Stage 2: Build (push only, requires lint + typecheck)
+  # Build (runs in parallel with lint/typecheck/tests)
   # ===========================================================================
   build:
     name: Build
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
-    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -121,13 +108,12 @@ jobs:
           retention-days: 1
 
   # ===========================================================================
-  # Stage 3: E2E Tests (push only, parallel, requires build)
+  # E2E Tests (parallel, requires build for artifact)
   # ===========================================================================
   test-e2e-cli:
     name: E2E (CLI)
     runs-on: ubuntu-latest
     needs: [build]
-    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -146,7 +132,6 @@ jobs:
     name: E2E (TUI)
     runs-on: ubuntu-latest
     needs: [build]
-    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -165,7 +150,6 @@ jobs:
     name: E2E (Web)
     runs-on: ubuntu-latest
     needs: [build]
-    if: github.event_name == 'push'
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
