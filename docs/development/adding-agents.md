@@ -43,8 +43,8 @@ export const FeatureState = Annotation.Root({
   // For arrays, use reducers
   myItems: Annotation<MyItem[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
-  })
+    default: () => [],
+  }),
 });
 
 export type FeatureStateType = typeof FeatureState.State;
@@ -52,12 +52,12 @@ export type FeatureStateType = typeof FeatureState.State;
 
 **State Field Guidelines:**
 
-| Pattern | Use Case | Example |
-|---------|----------|---------|
-| Simple field | Single value output | `analysis: Annotation<Analysis \| null>` |
-| Array with reducer | Accumulating items | `tasks: Annotation<Task[]>({ reducer: ... })` |
-| Status/phase field | Tracking progress | `currentPhase: Annotation<SdlcLifecycle>` |
-| Error field | Error handling | `error: Annotation<string \| null>` |
+| Pattern            | Use Case            | Example                                       |
+| ------------------ | ------------------- | --------------------------------------------- |
+| Simple field       | Single value output | `analysis: Annotation<Analysis \| null>`      |
+| Array with reducer | Accumulating items  | `tasks: Annotation<Task[]>({ reducer: ... })` |
+| Status/phase field | Tracking progress   | `currentPhase: Annotation<SdlcLifecycle>`     |
+| Error field        | Error handling      | `error: Annotation<string \| null>`           |
 
 ### Step 2: Create the Node Function
 
@@ -70,7 +70,7 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { FeatureStateType } from '../state';
 
 const model = new ChatAnthropic({
-  modelName: 'claude-sonnet-4-20250514'
+  modelName: 'claude-sonnet-4-20250514',
 });
 
 /**
@@ -84,16 +84,14 @@ const model = new ChatAnthropic({
  * - myNodeOutput: The processed result
  * - currentPhase: Updated lifecycle phase
  */
-export async function myNode(
-  state: FeatureStateType
-): Promise<Partial<FeatureStateType>> {
+export async function myNode(state: FeatureStateType): Promise<Partial<FeatureStateType>> {
   // 1. Extract needed state
   const { repoAnalysis, requirements } = state;
 
   // 2. Validate inputs
   if (!repoAnalysis) {
     return {
-      error: 'Repository analysis required before this step'
+      error: 'Repository analysis required before this step',
     };
   }
 
@@ -103,7 +101,7 @@ export async function myNode(
   // 4. Return partial state update
   return {
     myNodeOutput: result,
-    currentPhase: SdlcLifecycle.NextPhase
+    currentPhase: SdlcLifecycle.NextPhase,
   };
 }
 
@@ -134,20 +132,22 @@ Register your node in the appropriate graph:
 import { StateGraph, START, END } from '@langchain/langgraph';
 import { FeatureState } from '../state';
 import { analyzeNode, requirementsNode, planNode, implementNode } from '../nodes';
-import { myNode } from '../nodes/my-node.node';  // NEW
+import { myNode } from '../nodes/my-node.node'; // NEW
 
 export function createFeatureGraph() {
-  return new StateGraph(FeatureState)
-    .addNode('analyze', analyzeNode)
-    .addNode('requirements', requirementsNode)
-    .addNode('myNode', myNode)  // NEW
-    .addNode('plan', planNode)
-    .addNode('implement', implementNode)
+  return (
+    new StateGraph(FeatureState)
+      .addNode('analyze', analyzeNode)
+      .addNode('requirements', requirementsNode)
+      .addNode('myNode', myNode) // NEW
+      .addNode('plan', planNode)
+      .addNode('implement', implementNode)
 
-    // Define flow (see Step 4)
-    .addEdge(START, 'analyze')
-    // ...
-    .compile();
+      // Define flow (see Step 4)
+      .addEdge(START, 'analyze')
+      // ...
+      .compile()
+  );
 }
 ```
 
@@ -172,7 +172,7 @@ graph.addConditionalEdges('myNode', (state) => {
     return 'error_handler';
   }
   if (needsMoreWork(state)) {
-    return 'myNode';  // Loop back
+    return 'myNode'; // Loop back
   }
   return 'next_step';
 });
@@ -183,9 +183,12 @@ graph.addConditionalEdges('myNode', (state) => {
 ```typescript
 graph.addConditionalEdges('decision_point', (state) => {
   switch (state.decisionType) {
-    case 'typeA': return 'handleA';
-    case 'typeB': return 'handleB';
-    default: return 'handleDefault';
+    case 'typeA':
+      return 'handleA';
+    case 'typeB':
+      return 'handleB';
+    default:
+      return 'handleDefault';
   }
 });
 ```
@@ -211,10 +214,12 @@ describe('myNode', () => {
     // Arrange
     const state = {
       repoPath: '/test/repo',
-      repoAnalysis: { /* mock data */ },
+      repoAnalysis: {
+        /* mock data */
+      },
       requirements: [{ id: '1', text: 'Requirement' }],
       myNodeOutput: null,
-      currentPhase: SdlcLifecycle.Requirements
+      currentPhase: SdlcLifecycle.Requirements,
     };
 
     // Act
@@ -228,10 +233,10 @@ describe('myNode', () => {
   it('should return error when analysis missing', async () => {
     const state = {
       repoPath: '/test/repo',
-      repoAnalysis: null,  // Missing!
+      repoAnalysis: null, // Missing!
       requirements: [],
       myNodeOutput: null,
-      currentPhase: SdlcLifecycle.Requirements
+      currentPhase: SdlcLifecycle.Requirements,
     };
 
     const result = await myNode(state);
@@ -242,10 +247,12 @@ describe('myNode', () => {
   it('should handle empty requirements gracefully', async () => {
     const state = {
       repoPath: '/test/repo',
-      repoAnalysis: { /* mock data */ },
-      requirements: [],  // Empty
+      repoAnalysis: {
+        /* mock data */
+      },
+      requirements: [], // Empty
       myNodeOutput: null,
-      currentPhase: SdlcLifecycle.Requirements
+      currentPhase: SdlcLifecycle.Requirements,
     };
 
     const result = await myNode(state);
@@ -272,7 +279,7 @@ describe('FeatureGraph with myNode', () => {
     // Stream to track node execution
     const stream = await graph.stream({
       repoPath: './test-fixtures/sample-repo',
-      featureDescription: 'Test feature'
+      featureDescription: 'Test feature',
     });
 
     for await (const event of stream) {
@@ -297,15 +304,12 @@ If your node needs external capabilities, create or use tools:
 ```typescript
 import { contextQueryTool, fileSystemTool } from '../tools';
 
-const modelWithTools = model.bindTools([
-  contextQueryTool,
-  fileSystemTool
-]);
+const modelWithTools = model.bindTools([contextQueryTool, fileSystemTool]);
 
 export async function myNode(state: FeatureStateType) {
   const response = await modelWithTools.invoke([
     { role: 'system', content: MY_NODE_PROMPT },
-    { role: 'user', content: state.featureDescription }
+    { role: 'user', content: state.featureDescription },
   ]);
 
   // Handle tool calls if any
@@ -333,8 +337,8 @@ export const myTool = tool(
     description: 'Clear description of what this tool does and when to use it',
     schema: z.object({
       param1: z.string().describe('Description of param1'),
-      param2: z.number().optional().describe('Optional numeric parameter')
-    })
+      param2: z.number().optional().describe('Optional numeric parameter'),
+    }),
   }
 );
 ```
@@ -356,15 +360,13 @@ export async function gatheringNode(state: FeatureStateType) {
   const newItems = await gatherMore(state);
 
   return {
-    items: newItems,  // Reducer appends to existing
-    gatheringComplete: newItems.length === 0
+    items: newItems, // Reducer appends to existing
+    gatheringComplete: newItems.length === 0,
   };
 }
 
 // In graph:
-graph.addConditionalEdges('gathering', (state) =>
-  state.gatheringComplete ? 'next' : 'gathering'
-);
+graph.addConditionalEdges('gathering', (state) => (state.gatheringComplete ? 'next' : 'gathering'));
 ```
 
 ### Human-in-the-Loop
@@ -377,7 +379,7 @@ export async function approvalNode(state: FeatureStateType) {
   const approved = await interrupt({
     type: 'approval_required',
     message: 'Please review the plan',
-    data: state.plan
+    data: state.plan,
   });
 
   if (!approved) {
@@ -400,16 +402,14 @@ export async function safeNode(state: FeatureStateType) {
     return {
       result: null,
       error: error instanceof Error ? error.message : 'Unknown error',
-      currentPhase: SdlcLifecycle.Error
+      currentPhase: SdlcLifecycle.Error,
     };
   }
 }
 
 // Add error handler node
 graph.addNode('error_handler', errorHandlerNode);
-graph.addConditionalEdges('safeNode', (state) =>
-  state.error ? 'error_handler' : 'next'
-);
+graph.addConditionalEdges('safeNode', (state) => (state.error ? 'error_handler' : 'next'));
 ```
 
 ### Parallel Execution
@@ -420,13 +420,13 @@ export async function parallelNode(state: FeatureStateType) {
   const [result1, result2, result3] = await Promise.all([
     processTypeA(state),
     processTypeB(state),
-    processTypeC(state)
+    processTypeC(state),
   ]);
 
   return {
     resultsA: result1,
     resultsB: result2,
-    resultsC: result3
+    resultsC: result3,
   };
 }
 ```
@@ -473,12 +473,14 @@ Before submitting your new node:
 ## Maintaining This Document
 
 **Update when:**
+
 - New patterns emerge
 - LangGraph API changes
 - Common issues are discovered
 - Testing strategies evolve
 
 **Related docs:**
+
 - [AGENTS.md](../../AGENTS.md) - Agent reference
 - [langgraph-agents.md](../guides/langgraph-agents.md) - Working with agents
 - [context-layer.md](../architecture/context-layer.md) - Vector DB integration

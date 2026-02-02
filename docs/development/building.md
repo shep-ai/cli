@@ -69,30 +69,33 @@ export default defineConfig({
     lib: {
       entry: {
         index: resolve(__dirname, 'src/index.ts'),
-        cli: resolve(__dirname, 'src/presentation/cli/index.ts')
+        cli: resolve(__dirname, 'src/presentation/cli/index.ts'),
       },
-      formats: ['es', 'cjs']
+      formats: ['es', 'cjs'],
     },
     rollupOptions: {
       external: [
         // Node built-ins
-        'fs', 'path', 'os', 'crypto', 'child_process',
+        'fs',
+        'path',
+        'os',
+        'crypto',
+        'child_process',
         // External dependencies
-        'better-sqlite3', 'commander'
-      ]
+        'better-sqlite3',
+        'commander',
+      ],
     },
     target: 'node18',
     minify: false,
-    sourcemap: true
+    sourcemap: true,
   },
-  plugins: [
-    dts({ rollupTypes: true })
-  ],
+  plugins: [dts({ rollupTypes: true })],
   resolve: {
     alias: {
-      '@': resolve(__dirname, 'src')
-    }
-  }
+      '@': resolve(__dirname, 'src'),
+    },
+  },
 });
 ```
 
@@ -287,7 +290,7 @@ Enabled in production for debugging:
 
 ```typescript
 build: {
-  sourcemap: true
+  sourcemap: true;
 }
 ```
 
@@ -304,9 +307,7 @@ Or use rollup-plugin-visualizer:
 ```typescript
 import { visualizer } from 'rollup-plugin-visualizer';
 
-plugins: [
-  visualizer({ open: true })
-]
+plugins: [visualizer({ open: true })];
 ```
 
 ### Check Output Size
@@ -317,6 +318,7 @@ du -sh dist/*
 ```
 
 Target sizes:
+
 - `index.js`: < 200KB
 - `cli.js`: < 50KB
 
@@ -366,11 +368,13 @@ jobs:
 ## Maintaining This Document
 
 **Update when:**
+
 - Build tooling changes
 - Vite configuration changes
 - New build targets added
 - Dependency requirements change
 
 **Related docs:**
+
 - [setup.md](./setup.md) - Development setup
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - Release process

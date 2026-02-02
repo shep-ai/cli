@@ -18,11 +18,11 @@ Shows the big picture: your system and its relationships with users and external
 ```mermaid
 C4Context
     title System Context for Banking System
-    
+
     Person(customer, "Customer", "A banking customer")
     System(banking, "Banking System", "Allows customers to manage accounts")
     System_Ext(email, "Email System", "Sends emails")
-    
+
     Rel(customer, banking, "Uses")
     Rel(banking, email, "Sends emails via")
 ```
@@ -30,6 +30,7 @@ C4Context
 ### Elements
 
 **People:**
+
 ```mermaid
 C4Context
     Person(user, "User", "Description")
@@ -37,6 +38,7 @@ C4Context
 ```
 
 **Systems:**
+
 ```mermaid
 C4Context
     System(internal, "Internal System", "Description")
@@ -48,6 +50,7 @@ C4Context
 ```
 
 **Relationships:**
+
 ```mermaid
 C4Context
     Rel(from, to, "Label")
@@ -60,29 +63,29 @@ C4Context
 ```mermaid
 C4Context
     title System Context - E-Commerce Platform
-    
+
     Person(customer, "Customer", "Shops online")
     Person(admin, "Administrator", "Manages products and orders")
     Person_Ext(delivery, "Delivery Personnel", "Delivers orders")
-    
+
     System(ecommerce, "E-Commerce Platform", "Online shopping platform")
-    
+
     System_Ext(payment, "Payment Gateway", "Processes payments")
     System_Ext(email, "Email Service", "Sends notifications")
     System_Ext(sms, "SMS Service", "Sends SMS alerts")
     System_Ext(analytics, "Analytics Platform", "Tracks user behavior")
     SystemQueue_Ext(shipping, "Shipping API", "Calculates shipping rates")
-    
+
     Rel(customer, ecommerce, "Browses products, places orders")
     Rel(admin, ecommerce, "Manages catalog, reviews orders")
     Rel(delivery, ecommerce, "Updates delivery status")
-    
+
     Rel(ecommerce, payment, "Processes payments via", "HTTPS/REST")
     Rel(ecommerce, email, "Sends emails via", "SMTP")
     Rel(ecommerce, sms, "Sends SMS via", "REST API")
     Rel(ecommerce, analytics, "Tracks events", "JavaScript SDK")
     Rel(ecommerce, shipping, "Gets shipping rates", "REST API")
-    
+
     UpdateRelStyle(customer, ecommerce, $offsetX="-50", $offsetY="-30")
     UpdateRelStyle(admin, ecommerce, $offsetX="50", $offsetY="-30")
 ```
@@ -96,15 +99,15 @@ Zooms into the system to show containers (applications, databases, services).
 ```mermaid
 C4Container
     title Container Diagram for Banking System
-    
+
     Person(customer, "Customer")
-    
+
     Container_Boundary(banking, "Banking System") {
         Container(web, "Web Application", "React", "Delivers static content")
         Container(api, "API Application", "Node.js", "Provides banking API")
         ContainerDb(db, "Database", "PostgreSQL", "Stores account data")
     }
-    
+
     Rel(customer, web, "Uses", "HTTPS")
     Rel(web, api, "Makes API calls", "HTTPS/JSON")
     Rel(api, db, "Reads/writes", "SQL/TCP")
@@ -135,17 +138,17 @@ C4Container
 ```mermaid
 C4Container
     title Container Diagram - E-Commerce Platform
-    
+
     Person(customer, "Customer")
     Person(admin, "Admin")
     System_Ext(payment, "Payment Gateway")
     System_Ext(email, "Email Service")
-    
+
     Container_Boundary(frontend, "Frontend") {
         Container(web, "Web App", "React", "Delivers UI")
         Container(mobile, "Mobile App", "React Native", "Mobile UI")
     }
-    
+
     Container_Boundary(backend, "Backend Services") {
         Container(api, "API Gateway", "Node.js/Express", "Routes requests")
         Container(auth, "Auth Service", "Node.js", "Handles authentication")
@@ -153,32 +156,32 @@ C4Container
         Container(order, "Order Service", "Java/Spring", "Processes orders")
         Container(notification, "Notification Service", "Node.js", "Sends notifications")
     }
-    
+
     Container_Boundary(data, "Data Layer") {
         ContainerDb(postgres, "Main Database", "PostgreSQL", "Stores core data")
         ContainerDb(mongo, "Product DB", "MongoDB", "Product catalog")
         ContainerDb(redis, "Cache", "Redis", "Session & caching")
         ContainerQueue(queue, "Message Queue", "RabbitMQ", "Async processing")
     }
-    
+
     Rel(customer, web, "Uses", "HTTPS")
     Rel(customer, mobile, "Uses", "HTTPS")
     Rel(admin, web, "Manages via", "HTTPS")
-    
+
     Rel(web, api, "Makes calls", "HTTPS/JSON")
     Rel(mobile, api, "Makes calls", "HTTPS/JSON")
-    
+
     Rel(api, auth, "Authenticates", "gRPC")
     Rel(api, catalog, "Gets products", "REST")
     Rel(api, order, "Creates orders", "REST")
-    
+
     Rel(auth, postgres, "Reads/writes users", "SQL")
     Rel(catalog, mongo, "Reads/writes products", "MongoDB Protocol")
     Rel(order, postgres, "Reads/writes orders", "SQL")
-    
+
     Rel(auth, redis, "Stores sessions", "Redis Protocol")
     Rel(api, redis, "Caches data", "Redis Protocol")
-    
+
     Rel(order, queue, "Publishes events", "AMQP")
     Rel(notification, queue, "Consumes events", "AMQP")
     Rel(notification, email, "Sends via", "SMTP")
@@ -194,18 +197,18 @@ Zooms into a container to show its internal components.
 ```mermaid
 C4Component
     title Component Diagram for API Application
-    
+
     Container(web, "Web App", "React")
     ContainerDb(db, "Database", "PostgreSQL")
     System_Ext(email, "Email System")
-    
+
     Container_Boundary(api, "API Application") {
         Component(controller, "Controller", "Express Router", "Handles HTTP")
         Component(service, "Business Logic", "Service Layer", "Core logic")
         Component(repository, "Data Access", "Repository", "DB operations")
         Component(emailClient, "Email Client", "Client", "Sends emails")
     }
-    
+
     Rel(web, controller, "Makes requests", "HTTPS")
     Rel(controller, service, "Uses")
     Rel(service, repository, "Uses")
@@ -219,13 +222,13 @@ C4Component
 ```mermaid
 C4Component
     title Component Diagram - Order Service
-    
+
     Container(api_gateway, "API Gateway", "Node.js")
     ContainerDb(postgres, "Database", "PostgreSQL")
     ContainerQueue(queue, "Message Queue", "RabbitMQ")
     System_Ext(payment, "Payment Gateway")
     System_Ext(inventory, "Inventory Service")
-    
+
     Container_Boundary(order_service, "Order Service") {
         Component(controller, "REST Controllers", "Spring MVC", "HTTP endpoints")
         Component(order_logic, "Order Manager", "Service", "Order processing logic")
@@ -235,17 +238,17 @@ C4Component
         Component(event_publisher, "Event Publisher", "Component", "Publishes domain events")
         Component(validator, "Order Validator", "Component", "Validates orders")
     }
-    
+
     Rel(api_gateway, controller, "Routes requests", "HTTPS/REST")
-    
+
     Rel(controller, order_logic, "Delegates to")
     Rel(controller, validator, "Validates with")
-    
+
     Rel(order_logic, payment_client, "Processes payment")
     Rel(order_logic, inventory_client, "Checks stock")
     Rel(order_logic, repository, "Persists orders")
     Rel(order_logic, event_publisher, "Publishes events")
-    
+
     Rel(payment_client, payment, "Calls", "HTTPS/REST")
     Rel(inventory_client, inventory, "Calls", "HTTPS/REST")
     Rel(repository, postgres, "Reads/writes", "JDBC/SQL")
@@ -257,23 +260,23 @@ C4Component
 ```mermaid
 C4Container
     title Microservices Architecture - Streaming Platform
-    
+
     Person(user, "User", "Platform user")
     Person(creator, "Content Creator", "Uploads videos")
     System_Ext(cdn, "CDN", "Delivers media")
     System_Ext(storage, "Object Storage", "Stores videos")
     System_Ext(transcoding, "Transcoding Service", "Processes videos")
-    
+
     Container_Boundary(frontend, "Frontend Layer") {
         Container(web, "Web Application", "Next.js", "Server-rendered UI")
         Container(mobile, "Mobile Apps", "React Native", "iOS/Android apps")
     }
-    
+
     Container_Boundary(api_layer, "API Layer") {
         Container(api_gateway, "API Gateway", "Kong", "Routing, auth, rate limiting")
         Container(graphql, "GraphQL Gateway", "Apollo", "Unified API")
     }
-    
+
     Container_Boundary(services, "Microservices") {
         Container(auth, "Auth Service", "Go", "Authentication & authorization")
         Container(user, "User Service", "Node.js", "User profiles & preferences")
@@ -283,7 +286,7 @@ C4Container
         Container(search, "Search Service", "Elasticsearch", "Content search")
         Container(comment, "Comment Service", "Node.js", "Comments & discussions")
     }
-    
+
     Container_Boundary(data, "Data Layer") {
         ContainerDb(user_db, "User Database", "PostgreSQL", "User data")
         ContainerDb(video_db, "Video Database", "MongoDB", "Video metadata")
@@ -292,33 +295,33 @@ C4Container
         ContainerQueue(event_bus, "Event Bus", "Kafka", "Event streaming")
         ContainerDb(search_index, "Search Index", "Elasticsearch", "Search data")
     }
-    
+
     Rel(user, web, "Uses", "HTTPS")
     Rel(creator, web, "Uploads via", "HTTPS")
     Rel(user, mobile, "Uses", "HTTPS")
-    
+
     Rel(web, api_gateway, "API calls", "HTTPS/REST")
     Rel(mobile, api_gateway, "API calls", "HTTPS/REST")
     Rel(web, graphql, "Queries", "HTTPS/GraphQL")
-    
+
     Rel(api_gateway, auth, "Authenticates", "gRPC")
     Rel(graphql, video, "Gets videos", "gRPC")
     Rel(graphql, user, "Gets users", "gRPC")
     Rel(graphql, recommendation, "Gets recommendations", "gRPC")
-    
+
     Rel(video, storage, "Stores videos", "S3 API")
     Rel(video, transcoding, "Sends for transcoding", "REST")
     Rel(video, cdn, "Publishes to", "API")
-    
+
     Rel(auth, user_db, "Manages credentials", "SQL")
     Rel(user, user_db, "Stores profiles", "SQL")
     Rel(video, video_db, "Stores metadata", "MongoDB")
     Rel(analytics, analytics_db, "Stores metrics", "SQL")
-    
+
     Rel(auth, cache, "Sessions", "Redis")
     Rel(video, cache, "Caches metadata", "Redis")
     Rel(search, search_index, "Indexes & queries", "REST")
-    
+
     Rel(video, event_bus, "Publishes VideoUploaded", "Kafka")
     Rel(analytics, event_bus, "Publishes ViewStarted", "Kafka")
     Rel(recommendation, event_bus, "Consumes events", "Kafka")
@@ -335,45 +338,47 @@ C4Container
 6. **Update regularly** - Keep diagrams in sync with architecture
 7. **Use boundaries** - Group related containers/components logically
 8. **Document protocols** - Show communication methods (REST, gRPC, messaging)
-9. **Highlight external systems** - Use *_Ext variants for clarity
+9. **Highlight external systems** - Use \*\_Ext variants for clarity
 10. **Start simple** - Begin with Context, drill down as needed
 
 ## Common Architecture Patterns
 
 ### Monolithic Application
+
 ```mermaid
 C4Container
     Person(user, "User")
-    
+
     Container_Boundary(system, "Application") {
         Container(app, "Web Application", "Ruby on Rails", "Monolithic application")
         ContainerDb(db, "Database", "PostgreSQL", "Application database")
         ContainerDb(cache, "Cache", "Redis", "Session store")
     }
-    
+
     Rel(user, app, "Uses", "HTTPS")
     Rel(app, db, "Reads/writes", "SQL")
     Rel(app, cache, "Caches", "Redis Protocol")
 ```
 
 ### Three-Tier Architecture
+
 ```mermaid
 C4Container
     Person(user, "User")
-    
+
     Container_Boundary(presentation, "Presentation Tier") {
         Container(web, "Web Server", "Nginx", "Static content")
         Container(app, "App Server", "Node.js", "Application logic")
     }
-    
+
     Container_Boundary(business, "Business Tier") {
         Container(api, "API Server", "Java", "Business logic")
     }
-    
+
     Container_Boundary(data, "Data Tier") {
         ContainerDb(db, "Database", "MySQL", "Data storage")
     }
-    
+
     Rel(user, web, "Uses", "HTTPS")
     Rel(web, app, "Proxies to", "HTTP")
     Rel(app, api, "Calls", "REST")
@@ -381,30 +386,31 @@ C4Container
 ```
 
 ### Event-Driven Architecture
+
 ```mermaid
 C4Container
     Person(user, "User")
-    
+
     Container(frontend, "Frontend", "React", "User interface")
     Container(api, "API Gateway", "Kong", "API routing")
-    
+
     Container_Boundary(services, "Services") {
         Container(order, "Order Service", "Java", "Order processing")
         Container(inventory, "Inventory Service", "Go", "Stock management")
         Container(notification, "Notification Service", "Node.js", "Alerts")
     }
-    
+
     ContainerQueue(events, "Event Bus", "Kafka", "Event streaming")
     ContainerDb(db, "Databases", "Various", "Service databases")
-    
+
     Rel(user, frontend, "Uses")
     Rel(frontend, api, "Calls")
     Rel(api, order, "Routes to")
-    
+
     Rel(order, events, "Publishes OrderCreated")
     Rel(events, inventory, "Consumes events")
     Rel(events, notification, "Consumes events")
-    
+
     Rel(order, db, "Persists")
     Rel(inventory, db, "Persists")
 ```

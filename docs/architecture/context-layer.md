@@ -35,11 +35,11 @@ flowchart TB
 
 ## Technology Stack
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| Vector DB | [LanceDB](https://lancedb.com/) | File-based vector storage with SQL-like queries |
-| Embeddings | [Transformers.js](https://huggingface.co/docs/transformers.js) | Local embedding generation |
-| Models | Multiple (configurable) | MiniLM, BGE, E5, GTE |
+| Component  | Technology                                                     | Purpose                                         |
+| ---------- | -------------------------------------------------------------- | ----------------------------------------------- |
+| Vector DB  | [LanceDB](https://lancedb.com/)                                | File-based vector storage with SQL-like queries |
+| Embeddings | [Transformers.js](https://huggingface.co/docs/transformers.js) | Local embedding generation                      |
+| Models     | Multiple (configurable)                                        | MiniLM, BGE, E5, GTE                            |
 
 ### Why LanceDB?
 
@@ -81,16 +81,16 @@ Generates embeddings locally using Transformers.js with configurable models.
 import { pipeline, type Pipeline } from '@huggingface/transformers';
 
 export type EmbeddingModel =
-  | 'Xenova/all-MiniLM-L6-v2'      // 22MB, 384-dim, fast (default)
-  | 'Xenova/bge-small-en-v1.5'     // 33MB, 384-dim, better quality
-  | 'Xenova/e5-small-v2'           // 33MB, 384-dim, good for retrieval
-  | 'Xenova/gte-small';            // 33MB, 384-dim, general purpose
+  | 'Xenova/all-MiniLM-L6-v2' // 22MB, 384-dim, fast (default)
+  | 'Xenova/bge-small-en-v1.5' // 33MB, 384-dim, better quality
+  | 'Xenova/e5-small-v2' // 33MB, 384-dim, good for retrieval
+  | 'Xenova/gte-small'; // 33MB, 384-dim, general purpose
 
 export const EMBEDDING_MODELS: Record<EmbeddingModel, EmbeddingConfig> = {
   'Xenova/all-MiniLM-L6-v2': { dimensions: 384, maxTokens: 256 },
   'Xenova/bge-small-en-v1.5': { dimensions: 384, maxTokens: 512 },
   'Xenova/e5-small-v2': { dimensions: 384, maxTokens: 512 },
-  'Xenova/gte-small': { dimensions: 384, maxTokens: 512 }
+  'Xenova/gte-small': { dimensions: 384, maxTokens: 512 },
 };
 
 export class LocalEmbeddingService implements IEmbeddingService {
@@ -103,7 +103,7 @@ export class LocalEmbeddingService implements IEmbeddingService {
 
   async initialize(): Promise<void> {
     this.extractor = await pipeline('feature-extraction', this.config.model, {
-      quantized: true  // Use quantized models for speed
+      quantized: true, // Use quantized models for speed
     });
   }
 
@@ -112,7 +112,7 @@ export class LocalEmbeddingService implements IEmbeddingService {
 
     const output = await this.extractor!(text, {
       pooling: 'mean',
-      normalize: true
+      normalize: true,
     });
 
     return Array.from(output.data);
@@ -150,20 +150,15 @@ export class LanceVectorStore implements IVectorStore {
       this.assetsTable = await this.db.openTable('assets');
     } catch {
       this.assetsTable = await this.db.createTable('assets', [
-        { id: '', type: '', name: '', path: '', vector: new Array(384).fill(0) }
+        { id: '', type: '', name: '', path: '', vector: new Array(384).fill(0) },
       ]);
     }
 
     // Similar for chunks table
   }
 
-  async searchAssets(
-    queryVector: number[],
-    options: SearchOptions = {}
-  ): Promise<Asset[]> {
-    let query = this.assetsTable
-      .search(queryVector)
-      .limit(options.limit ?? 10);
+  async searchAssets(queryVector: number[], options: SearchOptions = {}): Promise<Asset[]> {
+    let query = this.assetsTable.search(queryVector).limit(options.limit ?? 10);
 
     // SQL-like filtering
     if (options.filter) {
@@ -216,7 +211,7 @@ export class AssetGraphService implements IAssetGraph {
         this.relations.push({
           fromId: fileAsset.id,
           toId: asset.id,
-          type: 'contains'
+          type: 'contains',
         });
       }
     }
@@ -249,9 +244,7 @@ export class AssetGraphService implements IAssetGraph {
       const { id, currentDepth } = queue.shift()!;
       if (currentDepth >= depth) continue;
 
-      const directRelations = this.relations.filter(
-        r => r.fromId === id || r.toId === id
-      );
+      const directRelations = this.relations.filter((r) => r.fromId === id || r.toId === id);
 
       for (const rel of directRelations) {
         const otherId = rel.fromId === id ? rel.toId : rel.fromId;
@@ -262,14 +255,16 @@ export class AssetGraphService implements IAssetGraph {
       }
     }
 
-    return Array.from(related).map(id => this.assets.get(id)!).filter(Boolean);
+    return Array.from(related)
+      .map((id) => this.assets.get(id)!)
+      .filter(Boolean);
   }
 
   async findSimilar(query: string, type?: AssetType): Promise<Asset[]> {
     const queryVector = await this.embeddingService.embed(query);
     return this.vectorStore.searchAssets(queryVector, {
       filter: type ? `type = '${type}'` : undefined,
-      limit: 10
+      limit: 10,
     });
   }
 }
@@ -284,8 +279,8 @@ Chunks code into semantic units for embedding.
 
 export interface CodeChunk {
   id: string;
-  assetId: string;      // Parent file asset
-  content: string;      // Chunk text
+  assetId: string; // Parent file asset
+  content: string; // Chunk text
   startLine: number;
   endLine: number;
   type: 'function' | 'class' | 'block' | 'comment' | 'import';
@@ -295,9 +290,9 @@ export interface CodeChunk {
 export class CodeChunkerService {
   constructor(
     private config: ChunkingConfig = {
-      chunkSize: 200,       // tokens per chunk
-      chunkOverlap: 50,     // overlap between chunks
-      respectBoundaries: true  // Don't split functions/classes
+      chunkSize: 200, // tokens per chunk
+      chunkOverlap: 50, // overlap between chunks
+      respectBoundaries: true, // Don't split functions/classes
     }
   ) {}
 
@@ -331,12 +326,7 @@ In `~/.shep/config.json`:
       "batchSize": 32
     },
     "indexing": {
-      "excludePatterns": [
-        "**/node_modules/**",
-        "**/dist/**",
-        "**/.git/**",
-        "**/coverage/**"
-      ],
+      "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/.git/**", "**/coverage/**"],
       "maxFileSize": 1048576,
       "chunkSize": 200,
       "chunkOverlap": 50
@@ -366,19 +356,23 @@ export const contextQueryTool = tool(
 
     const results = await vectorStore.searchAssets(embedding, {
       filter: assetType ? `type = '${assetType}'` : undefined,
-      limit
+      limit,
     });
 
     return JSON.stringify(results);
   },
   {
     name: 'context_query',
-    description: 'Search the codebase knowledge graph for relevant code, components, or documentation',
+    description:
+      'Search the codebase knowledge graph for relevant code, components, or documentation',
     schema: z.object({
       query: z.string().describe('Natural language query'),
-      assetType: z.string().optional().describe('Filter by asset type (file, function, class, component, etc.)'),
-      limit: z.number().default(10)
-    })
+      assetType: z
+        .string()
+        .optional()
+        .describe('Filter by asset type (file, function, class, component, etc.)'),
+      limit: z.number().default(10),
+    }),
   }
 );
 ```
@@ -390,20 +384,20 @@ export const contextQueryTool = tool(
 const relevantComponents = await contextQueryTool.invoke({
   query: 'authentication related components',
   assetType: 'component',
-  limit: 5
+  limit: 5,
 });
 
 // In requirements node
 const existingPatterns = await contextQueryTool.invoke({
   query: 'how is user data handled',
-  limit: 10
+  limit: 10,
 });
 
 // In implement node
 const relatedTests = await contextQueryTool.invoke({
   query: state.currentTask.description,
   assetType: 'test',
-  limit: 3
+  limit: 3,
 });
 ```
 
@@ -489,12 +483,14 @@ export interface IAssetGraph {
 ## Maintaining This Document
 
 **Update when:**
+
 - New embedding models are supported
 - Vector store implementation changes
 - Indexing workflow changes
 - Performance optimizations are added
 
 **Related docs:**
+
 - [AGENTS.md](../../AGENTS.md) - Agent integration
 - [../concepts/asset-graph.md](../concepts/asset-graph.md) - Asset types and relations
 - [../api/repository-interfaces.md](../api/repository-interfaces.md) - Port specifications

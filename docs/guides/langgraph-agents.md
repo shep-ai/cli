@@ -23,11 +23,11 @@ const workflow = createFeatureGraph();
 
 const result = await workflow.invoke({
   repoPath: '/path/to/repo',
-  featureDescription: 'Add user authentication with OAuth'
+  featureDescription: 'Add user authentication with OAuth',
 });
 
-console.log(result.tasks);      // Generated tasks
-console.log(result.artifacts);  // Generated PRD, RFC, etc.
+console.log(result.tasks); // Generated tasks
+console.log(result.artifacts); // Generated PRD, RFC, etc.
 ```
 
 ### Streaming Execution
@@ -35,7 +35,7 @@ console.log(result.artifacts);  // Generated PRD, RFC, etc.
 ```typescript
 const stream = await workflow.stream({
   repoPath: '/path/to/repo',
-  featureDescription: 'Add dark mode toggle'
+  featureDescription: 'Add dark mode toggle',
 });
 
 for await (const event of stream) {
@@ -65,14 +65,14 @@ export const FeatureState = Annotation.Root({
   // Array fields with reducers (append-only)
   requirements: Annotation<Requirement[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
+    default: () => [],
   }),
 
   // Messages for conversation history
   messages: Annotation<BaseMessage[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
-  })
+    default: () => [],
+  }),
 });
 ```
 
@@ -81,21 +81,20 @@ export const FeatureState = Annotation.Root({
 ### Nodes
 
 Nodes are async functions that:
+
 1. Receive current state
 2. Process/transform it
 3. Return partial state updates
 
 ```typescript
-export async function analyzeNode(
-  state: FeatureStateType
-): Promise<Partial<FeatureStateType>> {
+export async function analyzeNode(state: FeatureStateType): Promise<Partial<FeatureStateType>> {
   // Do work
   const analysis = await analyzeRepository(state.repoPath);
 
   // Return partial update (only changed fields)
   return {
     repoAnalysis: analysis,
-    currentPhase: SdlcLifecycle.Requirements
+    currentPhase: SdlcLifecycle.Requirements,
   };
 }
 ```
@@ -115,7 +114,7 @@ graph.addConditionalEdges('requirements', (state) => {
   if (allRequirementsClear(state)) {
     return 'plan';
   }
-  return 'requirements';  // Loop back
+  return 'requirements'; // Loop back
 });
 ```
 
@@ -137,8 +136,8 @@ export const myTool = tool(
     description: 'What this tool does',
     schema: z.object({
       param1: z.string().describe('First parameter'),
-      param2: z.number().optional()
-    })
+      param2: z.number().optional(),
+    }),
   }
 );
 ```
@@ -154,7 +153,7 @@ import { Annotation } from '@langchain/langgraph';
 export const MyWorkflowState = Annotation.Root({
   input: Annotation<string>,
   intermediate: Annotation<string | null>,
-  output: Annotation<string | null>
+  output: Annotation<string | null>,
 });
 ```
 
@@ -202,13 +201,10 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { contextQueryTool, fileSystemTool } from '../tools';
 
 const model = new ChatAnthropic({
-  modelName: 'claude-sonnet-4-20250514'
+  modelName: 'claude-sonnet-4-20250514',
 });
 
-const modelWithTools = model.bindTools([
-  contextQueryTool,
-  fileSystemTool
-]);
+const modelWithTools = model.bindTools([contextQueryTool, fileSystemTool]);
 ```
 
 ### Tool-Using Node
@@ -217,7 +213,7 @@ const modelWithTools = model.bindTools([
 export async function researchNode(state: FeatureStateType) {
   const response = await modelWithTools.invoke([
     { role: 'system', content: 'Research the codebase for relevant context.' },
-    { role: 'user', content: state.featureDescription }
+    { role: 'user', content: state.featureDescription },
   ]);
 
   // Model may have called tools - extract results
@@ -225,7 +221,7 @@ export async function researchNode(state: FeatureStateType) {
 
   return {
     messages: [response],
-    context: extractContext(toolCalls)
+    context: extractContext(toolCalls),
   };
 }
 ```
@@ -239,7 +235,7 @@ graph.addConditionalEdges('gather', (state) => {
   if (isComplete(state)) {
     return 'next_step';
   }
-  return 'gather';  // Loop back
+  return 'gather'; // Loop back
 });
 ```
 
@@ -252,7 +248,7 @@ export async function approvalNode(state: FeatureStateType) {
   // Pause execution and wait for human approval
   const approved = await interrupt({
     type: 'approval_required',
-    data: state.plan
+    data: state.plan,
   });
 
   if (!approved) {
@@ -271,14 +267,14 @@ For complex multi-agent orchestration:
 async function supervisorNode(state: SupervisorStateType) {
   const response = await model.invoke([
     { role: 'system', content: SUPERVISOR_PROMPT },
-    ...state.messages
+    ...state.messages,
   ]);
 
   const decision = parseDecision(response.content);
 
   return new Command({
     goto: decision.nextAgent,
-    update: { messages: [response] }
+    update: { messages: [response] },
   });
 }
 
@@ -302,14 +298,10 @@ export function createSupervisorGraph() {
 ```typescript
 // Run multiple nodes in parallel
 graph.addNode('parallel_tasks', async (state) => {
-  const [result1, result2, result3] = await Promise.all([
-    task1(state),
-    task2(state),
-    task3(state)
-  ]);
+  const [result1, result2, result3] = await Promise.all([task1(state), task2(state), task3(state)]);
 
   return {
-    results: [result1, result2, result3]
+    results: [result1, result2, result3],
   };
 });
 ```
@@ -328,7 +320,7 @@ describe('analyzeNode', () => {
     const state = {
       repoPath: '/test/repo',
       repoAnalysis: null,
-      currentPhase: SdlcLifecycle.Requirements
+      currentPhase: SdlcLifecycle.Requirements,
     };
 
     const result = await analyzeNode(state);
@@ -352,7 +344,7 @@ describe('FeatureGraph', () => {
 
     const result = await graph.invoke({
       repoPath: './test-fixtures/sample-repo',
-      featureDescription: 'Add logging'
+      featureDescription: 'Add logging',
     });
 
     expect(result.requirements.length).toBeGreaterThan(0);
@@ -374,7 +366,7 @@ process.env.LANGCHAIN_TRACING_V2 = 'true';
 process.env.LANGCHAIN_API_KEY = 'your-key';
 
 const result = await graph.invoke(input, {
-  callbacks: [new ConsoleCallbackHandler()]
+  callbacks: [new ConsoleCallbackHandler()],
 });
 ```
 
@@ -434,7 +426,7 @@ export async function safeNode(state: FeatureStateType) {
     return {
       result: null,
       error: error.message,
-      currentPhase: SdlcLifecycle.Error
+      currentPhase: SdlcLifecycle.Error,
     };
   }
 }
@@ -447,9 +439,7 @@ export async function safeNode(state: FeatureStateType) {
 export type FeatureStateType = typeof FeatureState.State;
 
 // Use in nodes
-export async function myNode(
-  state: FeatureStateType
-): Promise<Partial<FeatureStateType>> {
+export async function myNode(state: FeatureStateType): Promise<Partial<FeatureStateType>> {
   // TypeScript catches invalid state updates
 }
 ```
@@ -459,11 +449,13 @@ export async function myNode(
 ## Maintaining This Document
 
 **Update when:**
+
 - LangGraph API changes
 - New patterns are adopted
 - New examples are added
 
 **Related docs:**
+
 - [AGENTS.md](../../AGENTS.md) - Agent reference
 - [../architecture/agent-system.md](../architecture/agent-system.md) - Full architecture
 - [../development/adding-agents.md](../development/adding-agents.md) - Adding new agents

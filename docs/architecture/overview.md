@@ -58,11 +58,11 @@ flowchart LR
 
 Entry points for user interaction:
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| CLI | Commander | Command-line interface (`shep` commands) |
-| TUI | [OpenTUI](https://opentui.com/) | Terminal UI for interactive wizards (Yoga flexbox, React bindings) |
-| Web UI | Next.js + shadcn/ui | Browser-based interface at `localhost:3030` |
+| Component | Technology                      | Purpose                                                            |
+| --------- | ------------------------------- | ------------------------------------------------------------------ |
+| CLI       | Commander                       | Command-line interface (`shep` commands)                           |
+| TUI       | [OpenTUI](https://opentui.com/) | Terminal UI for interactive wizards (Yoga flexbox, React bindings) |
+| Web UI    | Next.js + shadcn/ui             | Browser-based interface at `localhost:3030`                        |
 
 All presentation components use the Application layer - they never directly access Domain or Infrastructure.
 
@@ -155,21 +155,21 @@ Requirements ──→ Plan ──→ Implementation ──→ Test ──→ De
 
 ## Technology Decisions
 
-| Concern | Choice | Rationale |
-|---------|--------|-----------|
-| Language | TypeScript | Type safety, ecosystem, developer experience |
-| Package Manager | pnpm | Fast, disk efficient, strict by default |
-| CLI Framework | Commander | Mature, well-documented, standard |
-| TUI Framework | OpenTUI | Yoga-powered flexbox layout, Tree-sitter highlighting, React/Solid bindings |
-| Web Framework | Next.js 14+ | App Router, Server Components, built-in optimizations |
-| UI Components | shadcn/ui | Radix primitives + Tailwind, accessible, customizable |
-| Design System | Storybook | Component documentation, visual testing, design tokens |
-| Build Tool | Vite | Fast builds, modern tooling |
-| Database | SQLite | Zero setup, portable, sufficient for local use |
-| Agent Pattern | LangGraph | State-based workflow orchestration with typed graphs |
-| Unit Testing | Vitest | Fast, ESM-native, Vite-compatible |
-| E2E Testing | Playwright | Cross-browser, reliable, great DX |
-| Methodology | TDD | Red-Green-Refactor, confidence, design quality |
+| Concern         | Choice      | Rationale                                                                   |
+| --------------- | ----------- | --------------------------------------------------------------------------- |
+| Language        | TypeScript  | Type safety, ecosystem, developer experience                                |
+| Package Manager | pnpm        | Fast, disk efficient, strict by default                                     |
+| CLI Framework   | Commander   | Mature, well-documented, standard                                           |
+| TUI Framework   | OpenTUI     | Yoga-powered flexbox layout, Tree-sitter highlighting, React/Solid bindings |
+| Web Framework   | Next.js 14+ | App Router, Server Components, built-in optimizations                       |
+| UI Components   | shadcn/ui   | Radix primitives + Tailwind, accessible, customizable                       |
+| Design System   | Storybook   | Component documentation, visual testing, design tokens                      |
+| Build Tool      | Vite        | Fast builds, modern tooling                                                 |
+| Database        | SQLite      | Zero setup, portable, sufficient for local use                              |
+| Agent Pattern   | LangGraph   | State-based workflow orchestration with typed graphs                        |
+| Unit Testing    | Vitest      | Fast, ESM-native, Vite-compatible                                           |
+| E2E Testing     | Playwright  | Cross-browser, reliable, great DX                                           |
+| Methodology     | TDD         | Red-Green-Refactor, confidence, design quality                              |
 
 ## Related Documentation
 
@@ -183,12 +183,14 @@ Requirements ──→ Plan ──→ Implementation ──→ Test ──→ De
 ## Maintaining This Document
 
 **Update when:**
+
 - New subsystems are added
 - Major data flow changes
 - Technology stack updates
 - File system structure changes
 
 **Keep current:**
+
 - ASCII diagrams should reflect actual implementation
 - Technology choices should match package.json
 - File paths should be accurate

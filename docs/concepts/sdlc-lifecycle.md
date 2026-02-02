@@ -11,7 +11,7 @@ export enum SdlcLifecycle {
   Implementation = 'implementation',
   Test = 'test',
   Deploy = 'deploy',
-  Maintenance = 'maintenance'
+  Maintenance = 'maintenance',
 }
 ```
 
@@ -22,15 +22,18 @@ export enum SdlcLifecycle {
 **Purpose:** Gather and validate feature requirements through conversational AI.
 
 **Entry criteria:**
+
 - Feature created with name and description
 
 **Activities:**
+
 - AI proposes options based on repository analysis
 - User selects or provides custom requirements
 - AI detects and resolves ambiguities
 - Requirements validated for completeness
 
 **Exit criteria:**
+
 - All requirements captured
 - No open questions remain
 - User confirms requirements
@@ -42,21 +45,25 @@ export enum SdlcLifecycle {
 **Purpose:** Break down requirements into executable work items.
 
 **Entry criteria:**
+
 - Requirements phase complete
 - User triggers planning
 
 **Activities:**
+
 - Decompose feature into Tasks
 - Create ActionItems within Tasks
 - Establish dependency relationships
 - Generate documentation artifacts
 
 **Exit criteria:**
+
 - All Tasks defined
 - Dependencies validated (no cycles)
 - Required artifacts generated
 
 **Artifacts produced:**
+
 - PRD (Product Requirements Document)
 - RFC (Request for Comments)
 - Design Document
@@ -67,16 +74,19 @@ export enum SdlcLifecycle {
 **Purpose:** Execute code changes according to plan.
 
 **Entry criteria:**
+
 - Plan phase complete
 - User triggers implementation
 
 **Activities:**
+
 - Execute Tasks respecting dependencies
 - Generate/modify code
 - Update documentation
 - Track progress
 
 **Exit criteria:**
+
 - All Tasks completed
 - Code changes committed
 
@@ -87,15 +97,18 @@ export enum SdlcLifecycle {
 **Purpose:** Validate implementation meets requirements.
 
 **Entry criteria:**
+
 - Implementation phase complete
 
 **Activities:**
+
 - Run automated tests
 - Validate against requirements
 - Performance testing if applicable
 - Security review if applicable
 
 **Exit criteria:**
+
 - All tests pass
 - Requirements verified
 
@@ -106,14 +119,17 @@ export enum SdlcLifecycle {
 **Purpose:** Release changes to target environment.
 
 **Entry criteria:**
+
 - Test phase complete
 
 **Activities:**
+
 - Deploy to staging/production
 - Monitor for issues
 - Rollback if necessary
 
 **Exit criteria:**
+
 - Successfully deployed
 - No critical issues
 
@@ -124,9 +140,11 @@ export enum SdlcLifecycle {
 **Purpose:** Ongoing support and iteration.
 
 **Entry criteria:**
+
 - Deploy phase complete
 
 **Activities:**
+
 - Bug fixes
 - Performance optimization
 - Minor enhancements
@@ -173,19 +191,19 @@ export enum SdlcLifecycle {
 
 Valid transitions are forward-only with specific exceptions:
 
-| From | To | Allowed | Reason |
-|------|-----|---------|--------|
-| Requirements | Plan | Yes | Normal flow |
-| Requirements | Implementation | No | Must plan first |
-| Plan | Implementation | Yes | Normal flow |
-| Plan | Requirements | Yes | Need more requirements |
-| Implementation | Test | Yes | Normal flow |
-| Implementation | Plan | Yes | Re-planning needed |
-| Test | Deploy | Yes | Normal flow |
-| Test | Implementation | Yes | Fixes needed |
-| Deploy | Maintenance | Yes | Normal flow |
-| Deploy | Implementation | Yes | Hotfixes |
-| Maintenance | Requirements | Yes | New feature iteration |
+| From           | To             | Allowed | Reason                 |
+| -------------- | -------------- | ------- | ---------------------- |
+| Requirements   | Plan           | Yes     | Normal flow            |
+| Requirements   | Implementation | No      | Must plan first        |
+| Plan           | Implementation | Yes     | Normal flow            |
+| Plan           | Requirements   | Yes     | Need more requirements |
+| Implementation | Test           | Yes     | Normal flow            |
+| Implementation | Plan           | Yes     | Re-planning needed     |
+| Test           | Deploy         | Yes     | Normal flow            |
+| Test           | Implementation | Yes     | Fixes needed           |
+| Deploy         | Maintenance    | Yes     | Normal flow            |
+| Deploy         | Implementation | Yes     | Hotfixes               |
+| Maintenance    | Requirements   | Yes     | New feature iteration  |
 
 ## Implementation
 
@@ -200,7 +218,7 @@ export class LifecycleRules {
     [SdlcLifecycle.Implementation, [SdlcLifecycle.Test, SdlcLifecycle.Plan]],
     [SdlcLifecycle.Test, [SdlcLifecycle.Deploy, SdlcLifecycle.Implementation]],
     [SdlcLifecycle.Deploy, [SdlcLifecycle.Maintenance, SdlcLifecycle.Implementation]],
-    [SdlcLifecycle.Maintenance, [SdlcLifecycle.Requirements]]
+    [SdlcLifecycle.Maintenance, [SdlcLifecycle.Requirements]],
   ]);
 
   static canTransition(from: SdlcLifecycle, to: SdlcLifecycle): boolean {
@@ -232,10 +250,12 @@ In the web UI, lifecycle is shown as a progress indicator:
 ## Maintaining This Document
 
 **Update when:**
+
 - New lifecycle phases are added
 - Transition rules change
 - Phase activities evolve
 
 **Related docs:**
+
 - [feature-model.md](./feature-model.md) - Feature entity owns lifecycle
 - [../guides/web-ui.md](../guides/web-ui.md) - UI lifecycle visualization

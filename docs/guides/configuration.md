@@ -19,11 +19,7 @@ Located at `~/.shep/config.json`:
     "host": "localhost"
   },
   "analysis": {
-    "excludePatterns": [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/.git/**"
-    ],
+    "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/.git/**"],
     "maxFileSize": 1048576,
     "maxFiles": 10000
   },
@@ -150,10 +146,7 @@ Add repository-specific exclusions:
 ```json
 {
   "analysis": {
-    "additionalExcludes": [
-      "**/vendor/**",
-      "**/generated/**"
-    ]
+    "additionalExcludes": ["**/vendor/**", "**/generated/**"]
   }
 }
 ```
@@ -165,7 +158,7 @@ Prevent analysis of large files:
 ```json
 {
   "analysis": {
-    "maxFileSize": 1048576,  // 1MB
+    "maxFileSize": 1048576, // 1MB
     "maxFiles": 10000
   }
 }
@@ -215,7 +208,7 @@ Prevent runaway agent execution:
 ```json
 {
   "agents": {
-    "timeoutMs": 300000,  // 5 minutes
+    "timeoutMs": 300000, // 5 minutes
     "retryAttempts": 3
   }
 }
@@ -229,9 +222,9 @@ Control implementation behavior:
 {
   "agents": {
     "implementation": {
-      "requireApproval": true,    // Pause before each task
-      "maxParallelTasks": 2,      // Limit parallel task execution
-      "autoCommit": false         // Don't auto-commit changes
+      "requireApproval": true, // Pause before each task
+      "maxParallelTasks": 2, // Limit parallel task execution
+      "autoCommit": false // Don't auto-commit changes
     }
   }
 }
@@ -246,7 +239,7 @@ Set UI theme:
 ```json
 {
   "ui": {
-    "theme": "system"  // "light", "dark", or "system"
+    "theme": "system" // "light", "dark", or "system"
   }
 }
 ```
@@ -297,12 +290,12 @@ shep config reset --all
 
 Override configuration with environment variables:
 
-| Variable | Config Path | Description |
-|----------|-------------|-------------|
-| `SHEP_PORT` | `server.port` | Server port |
-| `SHEP_HOST` | `server.host` | Server host |
-| `SHEP_API_KEY` | `auth.token` | Claude API key |
-| `SHEP_LOG_LEVEL` | `logging.level` | Log verbosity |
+| Variable         | Config Path     | Description    |
+| ---------------- | --------------- | -------------- |
+| `SHEP_PORT`      | `server.port`   | Server port    |
+| `SHEP_HOST`      | `server.host`   | Server host    |
+| `SHEP_API_KEY`   | `auth.token`    | Claude API key |
+| `SHEP_LOG_LEVEL` | `logging.level` | Log verbosity  |
 
 Example:
 
@@ -355,19 +348,10 @@ Configuration is resolved in this order (highest to lowest):
 ```json
 {
   "analysis": {
-    "excludePatterns": [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/vendor/**",
-      "**/*.generated.*"
-    ],
+    "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/vendor/**", "**/*.generated.*"],
     "maxFileSize": 524288,
     "maxFiles": 5000,
-    "perspectives": [
-      "architecture",
-      "dependencies",
-      "tech-stack"
-    ]
+    "perspectives": ["architecture", "dependencies", "tech-stack"]
   },
   "agents": {
     "maxConcurrentAgents": 2
@@ -380,11 +364,13 @@ Configuration is resolved in this order (highest to lowest):
 ## Maintaining This Document
 
 **Update when:**
+
 - New configuration options are added
 - Default values change
 - Configuration precedence changes
 - New environment variables are added
 
 **Related docs:**
+
 - [getting-started.md](./getting-started.md) - Initial setup
 - [cli-commands.md](./cli-commands.md) - Config commands

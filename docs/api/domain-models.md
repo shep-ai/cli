@@ -313,7 +313,7 @@ export enum SdlcLifecycle {
   Deploy = 'deploy',
 
   /** Ongoing support and iteration */
-  Maintenance = 'maintenance'
+  Maintenance = 'maintenance',
 }
 
 /**
@@ -325,7 +325,7 @@ export const LIFECYCLE_DISPLAY_NAMES: Record<SdlcLifecycle, string> = {
   [SdlcLifecycle.Implementation]: 'Implementation',
   [SdlcLifecycle.Test]: 'Test',
   [SdlcLifecycle.Deploy]: 'Deploy',
-  [SdlcLifecycle.Maintenance]: 'Maintenance'
+  [SdlcLifecycle.Maintenance]: 'Maintenance',
 };
 ```
 
@@ -348,7 +348,7 @@ export enum TaskStatus {
   Completed = 'completed',
 
   /** Blocked by dependency or error */
-  Blocked = 'blocked'
+  Blocked = 'blocked',
 }
 ```
 
@@ -374,7 +374,7 @@ export enum ArtifactType {
   TechPlan = 'tech_plan',
 
   /** Custom artifact type */
-  Other = 'other'
+  Other = 'other',
 }
 
 /**
@@ -385,7 +385,7 @@ export const ARTIFACT_TYPE_NAMES: Record<ArtifactType, string> = {
   [ArtifactType.RFC]: 'Technical RFC',
   [ArtifactType.Design]: 'Design Document',
   [ArtifactType.TechPlan]: 'Technical Plan',
-  [ArtifactType.Other]: 'Document'
+  [ArtifactType.Other]: 'Document',
 };
 ```
 
@@ -441,9 +441,7 @@ export class DependencyValidator {
    * Check for circular dependencies.
    * @param items - Items with dependsOn arrays
    */
-  static hasCycles<T extends { id: string; dependsOn: string[] }>(
-    items: T[]
-  ): boolean;
+  static hasCycles<T extends { id: string; dependsOn: string[] }>(items: T[]): boolean;
 
   /**
    * Topological sort of items by dependencies.
@@ -451,9 +449,7 @@ export class DependencyValidator {
    * @returns Sorted items (dependencies first)
    * @throws CircularDependencyError if cycle exists
    */
-  static topologicalSort<T extends { id: string; dependsOn: string[] }>(
-    items: T[]
-  ): T[];
+  static topologicalSort<T extends { id: string; dependsOn: string[] }>(items: T[]): T[];
 }
 
 interface ValidationResult {
@@ -525,12 +521,14 @@ export class InvalidStatusTransitionError extends DomainError {
 ## Maintaining This Document
 
 **Update when:**
+
 - Entity properties change
 - New entities are added
 - Value objects change
 - Domain services evolve
 
 **Related docs:**
+
 - [repository-interfaces.md](./repository-interfaces.md) - Persistence
 - [../concepts/](../concepts/) - Conceptual explanations
 - [../architecture/clean-architecture.md](../architecture/clean-architecture.md) - Layer context

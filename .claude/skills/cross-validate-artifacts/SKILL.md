@@ -10,6 +10,7 @@ Cross-validate documentation and artifacts across the codebase for consistency, 
 ## Trigger
 
 Use this skill when the user:
+
 - Asks to "cross-validate", "validate docs", "check documentation consistency"
 - Wants to find conflicts or contradictions in documentation
 - Asks to audit or review documentation for accuracy
@@ -46,13 +47,13 @@ docs/ folder:
 
 Split validation into parallel sub-tasks for efficiency. Each category should be handled by a dedicated subagent:
 
-| Category | Description | Key Files to Compare |
-|----------|-------------|---------------------|
-| **domain-models** | Entity definitions, fields, enums | CLAUDE.md, docs/api/domain-models.md, docs/concepts/*.md |
-| **agent-system** | Agent names, tools, state schema, workflow | AGENTS.md, docs/architecture/agent-system.md, docs/guides/langgraph-agents.md |
-| **tech-stack** | Framework versions, library references | README.md, CLAUDE.md, docs/architecture/overview.md |
-| **architecture** | Layer descriptions, folder structure, patterns | CLAUDE.md, docs/architecture/*.md, CONTRIBUTING.md |
-| **cli-commands** | pnpm scripts, paths, configuration | CLAUDE.md, docs/development/*.md, docs/guides/*.md |
+| Category          | Description                                    | Key Files to Compare                                                          |
+| ----------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| **domain-models** | Entity definitions, fields, enums              | CLAUDE.md, docs/api/domain-models.md, docs/concepts/\*.md                     |
+| **agent-system**  | Agent names, tools, state schema, workflow     | AGENTS.md, docs/architecture/agent-system.md, docs/guides/langgraph-agents.md |
+| **tech-stack**    | Framework versions, library references         | README.md, CLAUDE.md, docs/architecture/overview.md                           |
+| **architecture**  | Layer descriptions, folder structure, patterns | CLAUDE.md, docs/architecture/\*.md, CONTRIBUTING.md                           |
+| **cli-commands**  | pnpm scripts, paths, configuration             | CLAUDE.md, docs/development/_.md, docs/guides/_.md                            |
 
 ### Step 3: Launch Parallel Subagents
 
@@ -68,6 +69,7 @@ Launch 5 subagents simultaneously:
 ```
 
 Each subagent should:
+
 1. Read all relevant files for its category
 2. Compare definitions, names, values across files
 3. Identify discrepancies with exact file:line references
@@ -81,31 +83,37 @@ Aggregate all subagent results into a summary table:
 ## Validation Results Summary
 
 ### Critical Violations (Must Fix)
-| # | Category | Issue | Files Affected | Details |
-|---|----------|-------|----------------|---------|
-| 1 | ... | ... | file.md:line | ... |
+
+| #   | Category | Issue | Files Affected | Details |
+| --- | -------- | ----- | -------------- | ------- |
+| 1   | ...      | ...   | file.md:line   | ...     |
 
 ### High Priority Violations
-| # | Category | Issue | Files Affected | Details |
-|---|----------|-------|----------------|---------|
+
+| #   | Category | Issue | Files Affected | Details |
+| --- | -------- | ----- | -------------- | ------- |
 
 ### Medium Priority Violations
+
 ...
 
 ### Consistent Items (No Issues)
-| Category | Status |
-|----------|--------|
-| ... | Consistent |
+
+| Category | Status     |
+| -------- | ---------- |
+| ...      | Consistent |
 ```
 
 ### Step 5: Present or Fix
 
 **If no "fix" argument provided:**
+
 1. Present the summary table to the user
 2. Ask: "Would you like me to fix these violations?"
 3. Wait for user confirmation before proceeding
 
 **If "fix" argument provided:**
+
 1. Present the summary table
 2. Automatically proceed to fix all violations using parallel subagents
 
@@ -125,6 +133,7 @@ Task tool with subagent_type=general-purpose for each fix task:
 ```
 
 Each fix subagent should:
+
 1. Read the file(s) needing fixes
 2. Apply minimal, targeted edits using the Edit tool
 3. Preserve existing formatting and structure
@@ -141,12 +150,14 @@ Each fix subagent should:
 ## Validation Checks by Category
 
 ### Domain Models Checks
-- Entity fields match across CLAUDE.md, api/domain-models.md, concepts/*.md
+
+- Entity fields match across CLAUDE.md, api/domain-models.md, concepts/\*.md
 - Enum values consistent (SdlcLifecycle, TaskStatus, ArtifactType)
 - All entities documented (Feature, Task, ActionItem, Artifact, Requirement)
 - Field types match (string, number, arrays, etc.)
 
 ### Agent System Checks
+
 - Framework name consistent (LangGraph vs CrewAI)
 - Agent/node naming consistent (class names vs function names)
 - State schema fields match across docs
@@ -154,18 +165,21 @@ Each fix subagent should:
 - Workflow stages match
 
 ### Tech Stack Checks
+
 - Framework versions specified consistently
 - Library names match (Next.js, Vite, Vitest, etc.)
 - Package manager consistent (pnpm everywhere)
 - Database technology consistent (SQLite, LanceDB)
 
 ### Architecture Checks
+
 - Layer names and hierarchy consistent
 - Folder structure matches across docs
 - Dependency rules documented consistently
 - Use case names match (PascalCase vs kebab-case)
 
 ### CLI Commands Checks
+
 - pnpm script names consistent
 - Command descriptions match
 - Data paths consistent (~/.shep/repos/...)
@@ -178,21 +192,24 @@ Each fix subagent should:
 ## Documentation Cross-Validation Results
 
 ### Critical Violations (4 issues)
-| # | Category | Issue | Files | Details |
-|---|----------|-------|-------|---------|
-| 1 | agent-system | CrewAI vs LangGraph | CLAUDE.md:59,106 | Uses "CrewAI-style" but implementation is LangGraph |
-| 2 | cli-commands | npm vs pnpm | building.md:20-358 | Uses `npm run` instead of `pnpm` |
-| 3 | domain-models | Missing entity | CLAUDE.md | Requirement entity not documented |
-| 4 | agent-system | Wrong naming | CLAUDE.md:110-113 | Uses class names instead of node functions |
+
+| #   | Category      | Issue               | Files              | Details                                             |
+| --- | ------------- | ------------------- | ------------------ | --------------------------------------------------- |
+| 1   | agent-system  | CrewAI vs LangGraph | CLAUDE.md:59,106   | Uses "CrewAI-style" but implementation is LangGraph |
+| 2   | cli-commands  | npm vs pnpm         | building.md:20-358 | Uses `npm run` instead of `pnpm`                    |
+| 3   | domain-models | Missing entity      | CLAUDE.md          | Requirement entity not documented                   |
+| 4   | agent-system  | Wrong naming        | CLAUDE.md:110-113  | Uses class names instead of node functions          |
 
 ### Consistent Items
-| Category | Status |
-|----------|--------|
+
+| Category          | Status     |
+| ----------------- | ---------- |
 | Database (SQLite) | Consistent |
 | Build tool (Vite) | Consistent |
-| Data paths | Consistent |
+| Data paths        | Consistent |
 
 ---
+
 Would you like me to fix these violations?
 ```
 

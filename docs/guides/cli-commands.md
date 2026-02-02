@@ -6,13 +6,13 @@ Complete reference for all Shep AI CLI commands.
 
 These options work with any command:
 
-| Option | Description |
-|--------|-------------|
-| `--version`, `-v` | Show version number |
-| `--help`, `-h` | Show help |
-| `--verbose` | Enable verbose output |
-| `--quiet`, `-q` | Suppress non-essential output |
-| `--config <path>` | Use specific config file |
+| Option            | Description                   |
+| ----------------- | ----------------------------- |
+| `--version`, `-v` | Show version number           |
+| `--help`, `-h`    | Show help                     |
+| `--verbose`       | Enable verbose output         |
+| `--quiet`, `-q`   | Suppress non-essential output |
+| `--config <path>` | Use specific config file      |
 
 ## Commands
 
@@ -26,12 +26,12 @@ shep [options]
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `--init` | Force initialization even if already configured |
-| `--port <number>` | Specify web UI port (default: 3030) |
-| `--no-browser` | Don't open browser automatically |
-| `--shallow` | Use shallow analysis (faster) |
+| Option            | Description                                     |
+| ----------------- | ----------------------------------------------- |
+| `--init`          | Force initialization even if already configured |
+| `--port <number>` | Specify web UI port (default: 3030)             |
+| `--no-browser`    | Don't open browser automatically                |
+| `--shallow`       | Use shallow analysis (faster)                   |
 
 **Examples:**
 
@@ -59,10 +59,10 @@ shep init [options]
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `--force` | Reinitialize even if already configured |
-| `--shallow` | Use shallow repository analysis |
+| Option      | Description                             |
+| ----------- | --------------------------------------- |
+| `--force`   | Reinitialize even if already configured |
+| `--shallow` | Use shallow repository analysis         |
 
 **Examples:**
 
@@ -84,12 +84,12 @@ shep auth [command]
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `shep auth` | Interactive authentication setup |
-| `shep auth status` | Show current auth status |
-| `shep auth reset` | Clear stored credentials |
-| `shep auth token <key>` | Set API token directly |
+| Command                 | Description                      |
+| ----------------------- | -------------------------------- |
+| `shep auth`             | Interactive authentication setup |
+| `shep auth status`      | Show current auth status         |
+| `shep auth reset`       | Clear stored credentials         |
+| `shep auth token <key>` | Set API token directly           |
 
 **Examples:**
 
@@ -117,11 +117,11 @@ shep analyze [options]
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `--fresh` | Force fresh analysis (ignore cache) |
-| `--perspective <name>` | Run specific perspective only |
-| `--output <path>` | Custom output directory |
+| Option                 | Description                         |
+| ---------------------- | ----------------------------------- |
+| `--fresh`              | Force fresh analysis (ignore cache) |
+| `--perspective <name>` | Run specific perspective only       |
+| `--output <path>`      | Custom output directory             |
 
 **Examples:**
 
@@ -149,11 +149,12 @@ shep status [options]
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
+| Option   | Description    |
+| -------- | -------------- |
 | `--json` | Output as JSON |
 
 **Output includes:**
+
 - Analysis status and age
 - Active features and their lifecycle states
 - Server status (if running)
@@ -178,13 +179,13 @@ shep feature <command> [options]
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `shep feature list` | List all features |
-| `shep feature show <id>` | Show feature details |
+| Command                      | Description                   |
+| ---------------------------- | ----------------------------- |
+| `shep feature list`          | List all features             |
+| `shep feature show <id>`     | Show feature details          |
 | `shep feature create <name>` | Create new feature (CLI mode) |
-| `shep feature delete <id>` | Delete a feature |
-| `shep feature export <id>` | Export feature data |
+| `shep feature delete <id>`   | Delete a feature              |
+| `shep feature export <id>`   | Export feature data           |
 
 **Examples:**
 
@@ -215,13 +216,13 @@ shep config <command> [options]
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `shep config list` | Show all configuration |
-| `shep config get <key>` | Get specific config value |
-| `shep config set <key> <value>` | Set config value |
-| `shep config reset [key]` | Reset config to default |
-| `shep config edit` | Open config in editor |
+| Command                         | Description               |
+| ------------------------------- | ------------------------- |
+| `shep config list`              | Show all configuration    |
+| `shep config get <key>`         | Get specific config value |
+| `shep config set <key> <value>` | Set config value          |
+| `shep config reset [key]`       | Reset config to default   |
+| `shep config edit`              | Open config in editor     |
 
 **Examples:**
 
@@ -255,19 +256,19 @@ shep server <command> [options]
 
 **Subcommands:**
 
-| Command | Description |
-|---------|-------------|
-| `shep server start` | Start web server |
-| `shep server stop` | Stop running server |
-| `shep server status` | Check server status |
-| `shep server restart` | Restart server |
+| Command               | Description         |
+| --------------------- | ------------------- |
+| `shep server start`   | Start web server    |
+| `shep server stop`    | Stop running server |
+| `shep server status`  | Check server status |
+| `shep server restart` | Restart server      |
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `--port <number>` | Specify port |
-| `--daemon` | Run in background |
+| Option            | Description       |
+| ----------------- | ----------------- |
+| `--port <number>` | Specify port      |
+| `--daemon`        | Run in background |
 
 **Examples:**
 
@@ -295,10 +296,10 @@ shep logs [options]
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `--follow`, `-f` | Follow log output |
-| `--lines <n>` | Show last n lines |
+| Option            | Description         |
+| ----------------- | ------------------- |
+| `--follow`, `-f`  | Follow log output   |
+| `--lines <n>`     | Show last n lines   |
 | `--level <level>` | Filter by log level |
 
 **Examples:**
@@ -327,12 +328,12 @@ shep clean [options]
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
+| Option       | Description              |
+| ------------ | ------------------------ |
 | `--analysis` | Clean analysis data only |
-| `--features` | Clean feature data only |
-| `--all` | Clean everything |
-| `--force` | Skip confirmation |
+| `--features` | Clean feature data only  |
+| `--all`      | Clean everything         |
+| `--force`    | Skip confirmation        |
 
 **Examples:**
 
@@ -353,6 +354,7 @@ shep doctor
 ```
 
 **Checks:**
+
 - Node.js version
 - npm version
 - Authentication status
@@ -378,14 +380,14 @@ All checks passed!
 
 ## Exit Codes
 
-| Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | General error |
-| 2 | Invalid arguments |
-| 3 | Authentication error |
-| 4 | Network error |
-| 5 | Database error |
+| Code | Meaning              |
+| ---- | -------------------- |
+| 0    | Success              |
+| 1    | General error        |
+| 2    | Invalid arguments    |
+| 3    | Authentication error |
+| 4    | Network error        |
+| 5    | Database error       |
 
 ## Shell Completion
 
@@ -407,11 +409,13 @@ shep completion fish > ~/.config/fish/completions/shep.fish
 ## Maintaining This Document
 
 **Update when:**
+
 - New commands are added
 - Command options change
 - Exit codes change
 - Examples need updates
 
 **Related docs:**
+
 - [getting-started.md](./getting-started.md) - Basic usage
 - [configuration.md](./configuration.md) - Config command details

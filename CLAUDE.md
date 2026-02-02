@@ -22,10 +22,12 @@ pnpm test:int        # Run integration tests only
 pnpm test:e2e        # Run Playwright e2e tests
 pnpm test:single <path>  # Run a single test file
 
-# Linting
+# Linting & Formatting
 pnpm lint            # Run ESLint
 pnpm lint:fix        # Fix auto-fixable lint issues
-pnpm format          # Run Prettier
+pnpm format          # Format all files with Prettier
+pnpm format:check    # Check formatting without fixing
+pnpm validate        # Run all checks (lint, format, typecheck, tsp)
 
 # CLI Testing
 pnpm cli             # Run CLI locally (ts-node)
@@ -38,6 +40,11 @@ pnpm storybook:build # Build Storybook for deployment
 # Web UI (Next.js)
 pnpm web:dev         # Start Next.js dev server
 pnpm web:build       # Build Next.js for production
+
+# TypeSpec (Domain Models)
+pnpm tsp:compile     # Compile TypeSpec to OpenAPI
+pnpm tsp:format      # Format TypeSpec files
+pnpm tsp:watch       # Watch mode for TypeSpec compilation
 ```
 
 ## Architecture
@@ -76,7 +83,9 @@ src/
 ## Domain Models
 
 ### Feature
+
 Central entity tracking a piece of work through the SDLC lifecycle.
+
 - `id`, `name`, `description`, `repoPath`
 - `lifecycle: SdlcLifecycle` (Requirements | Plan | Implementation | Test | Deploy | Maintenance)
 - `requirements: Requirement[]`
@@ -85,7 +94,9 @@ Central entity tracking a piece of work through the SDLC lifecycle.
 - `createdAt` (readonly timestamp)
 
 ### Task
+
 Work item within a Feature, contains Action Items.
+
 - `id`, `featureId`, `title`, `description`
 - `status: TaskStatus`
 - `actionItems: ActionItem[]`
@@ -93,20 +104,26 @@ Work item within a Feature, contains Action Items.
 - `orderIndex`, `createdAt` (readonly timestamp)
 
 ### ActionItem
+
 Granular step within a Task.
+
 - `id`, `taskId`, `title`
 - `status: TaskStatus`
 - `dependsOn: string[]` (ActionItem IDs)
 - `orderIndex`, `createdAt` (readonly timestamp)
 
 ### Artifact
+
 Generated document attached to a Feature.
+
 - `id`, `featureId`, `type: ArtifactType` (PRD | RFC | Design | TechPlan | Other)
 - `title`, `content`, `filePath`
 - `createdAt` (readonly timestamp)
 
 ### Requirement
+
 User or inferred requirement attached to a Feature.
+
 - `id`, `featureId`, `description`
 - `source: RequirementSource` ('user' | 'inferred' | 'clarified')
 - `createdAt` (readonly timestamp)
@@ -115,12 +132,12 @@ User or inferred requirement attached to a Feature.
 
 Located in `infrastructure/agents/`, implements LangGraph StateGraph patterns in TypeScript:
 
-| Agent | Responsibility |
-|-------|---------------|
-| analyzeNode | Analyzes codebase structure, patterns, dependencies |
+| Agent            | Responsibility                                          |
+| ---------------- | ------------------------------------------------------- |
+| analyzeNode      | Analyzes codebase structure, patterns, dependencies     |
 | requirementsNode | Gathers requirements through conversational interaction |
-| planNode | Breaks features into Tasks, ActionItems, and Artifacts |
-| implementNode | Executes code changes based on plan |
+| planNode         | Breaks features into Tasks, ActionItems, and Artifacts  |
+| implementNode    | Executes code changes based on plan                     |
 
 Nodes communicate through typed state updates in the StateGraph. See [AGENTS.md](./AGENTS.md) for details.
 
@@ -131,20 +148,46 @@ Nodes communicate through typed state updates in the StateGraph. See [AGENTS.md]
 - **Analysis docs**: `docs/` subdirectory
 - **Config**: `~/.shep/config.json` for global settings
 
+## TypeSpec Domain Models
+
+Domain models are defined in TypeSpec at `tsp/` following SRP (one model per file):
+
+```
+tsp/
+├── common/           # Base types, scalars, enums
+│   ├── base.tsp      # BaseEntity, SoftDeletableEntity, AuditableEntity
+│   ├── scalars.tsp   # UUID scalar type
+│   ├── ask.tsp       # Askable interface pattern
+│   └── enums/        # Enum definitions (lifecycle, states, etc.)
+├── domain/           # Domain entities
+│   ├── entities/     # One file per entity (feature, plan, task, etc.)
+│   └── value-objects/# Embedded value objects (gantt, etc.)
+├── agents/           # Agent system models
+└── deployment/       # Deployment configuration models
+```
+
+Compile with `pnpm tsp:compile`. Output goes to `apis/`:
+
+- `apis/openapi/` - OpenAPI 3.x specs
+- `apis/json-schema/` - JSON Schema definitions (one per model)
+
 ## Key Patterns
 
 ### Adding a New Use Case
+
 1. Define interface in `application/ports/input/`
 2. Create use case class in `application/use-cases/`
 3. Inject repository interfaces via constructor
 4. Wire up in DI container
 
 ### Adding a New Repository
+
 1. Define interface in `application/ports/output/`
 2. Implement in `infrastructure/repositories/`
 3. Register in DI container
 
 ### Adding a CLI Command
+
 1. Create command in `presentation/cli/commands/`
 2. Use Commander's fluent API
 3. Call appropriate use case
@@ -155,6 +198,7 @@ Nodes communicate through typed state updates in the StateGraph. See [AGENTS.md]
 This project follows **Test-Driven Development (TDD)** with the Red-Green-Refactor cycle.
 
 ### Test Layers
+
 - **Unit tests** (`tests/unit/`): Domain entities and use cases (mock repositories)
 - **Integration tests** (`tests/integration/`): Repository implementations with test SQLite
 - **E2E tests** (`tests/e2e/`): Playwright for web UI, CLI command execution
@@ -170,22 +214,58 @@ See [docs/development/tdd-guide.md](./docs/development/tdd-guide.md) for detaile
 ## Presentation Layer Technologies
 
 ### TUI (Terminal UI)
+
 - **Framework**: [OpenTUI](https://opentui.com/) - TypeScript library for rich terminal UIs
 - **Features**: Flexbox layout, React/Solid bindings, keyboard handling
 - **Location**: `src/presentation/tui/`
 
 ### Web UI
+
 - **Framework**: Next.js 14+ (App Router)
 - **Components**: shadcn/ui (Radix primitives + Tailwind)
 - **Design System**: Storybook with all component variants
 - **E2E Testing**: Playwright
 - **Location**: `src/presentation/web/`
 
+## Code Quality & Commits
+
+### Linting Stack
+
+- **ESLint 9** - Flat config (`eslint.config.mjs`) with TypeScript support
+- **Prettier 3** - Code formatting with TypeSpec plugin
+- **lint-staged** - Run linters on staged files only
+- **commitlint** - Enforce Conventional Commits
+
+### Commit Message Format
+
+Follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <subject>
+
+Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
+Scopes: cli, tui, web, api, domain, agents, deployment, tsp, deps, config, dx
+```
+
+Examples:
+
+- `feat(cli): add analyze command`
+- `fix(agents): resolve memory leak in feature agent`
+- `docs(tsp): update domain model documentation`
+
+### Pre-commit Hooks
+
+Husky runs automatically on commit:
+
+1. **pre-commit**: lint-staged (ESLint + Prettier on staged files)
+2. **commit-msg**: commitlint (validates commit message format)
+
 ---
 
 ## Maintaining This Document
 
 **Update when:**
+
 - New commands are added
 - Architecture layers change
 - New domain models are introduced

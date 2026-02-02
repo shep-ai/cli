@@ -5,6 +5,7 @@ Guide to using Shep's browser-based interface.
 ## Overview
 
 The web UI provides a visual interface for:
+
 - Creating and managing features
 - Interactive requirements gathering
 - Plan visualization and editing
@@ -13,14 +14,15 @@ The web UI provides a visual interface for:
 
 ## Technology Stack
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
-| Framework | Next.js 14+ | App Router, Server Components |
-| UI Components | shadcn/ui | Radix primitives + Tailwind CSS |
-| Design System | Storybook | Component documentation and testing |
-| E2E Testing | Playwright | Browser-based automated tests |
+| Component     | Technology  | Purpose                             |
+| ------------- | ----------- | ----------------------------------- |
+| Framework     | Next.js 14+ | App Router, Server Components       |
+| UI Components | shadcn/ui   | Radix primitives + Tailwind CSS     |
+| Design System | Storybook   | Component documentation and testing |
+| E2E Testing   | Playwright  | Browser-based automated tests       |
 
 The Web UI is built with modern React patterns:
+
 - **Server Components** for data fetching and initial renders
 - **Client Components** for interactivity (chat, real-time updates)
 - **shadcn/ui** for accessible, customizable UI primitives
@@ -116,6 +118,7 @@ The chat interface guides you through requirements:
 ```
 
 Chat features:
+
 - Click options to select
 - Type custom responses
 - Review gathered requirements on the side
@@ -154,11 +157,11 @@ After requirements, view the generated plan:
 
 #### Tabs
 
-| Tab | Content |
-|-----|---------|
-| TICKETS | Tasks and action items |
+| Tab           | Content                              |
+| ------------- | ------------------------------------ |
+| TICKETS       | Tasks and action items               |
 | DOCUMENTATION | Generated artifacts (PRD, RFC, etc.) |
-| REQUIREMENTS | Gathered requirements list |
+| REQUIREMENTS  | Gathered requirements list           |
 
 #### Actions
 
@@ -199,11 +202,11 @@ During implementation, track progress:
 
 #### Controls
 
-| Button | Action |
-|--------|--------|
-| Pause | Pause execution after current task |
-| View Changes | Open diff viewer |
-| Cancel | Stop execution (requires confirmation) |
+| Button       | Action                                 |
+| ------------ | -------------------------------------- |
+| Pause        | Pause execution after current task     |
+| View Changes | Open diff viewer                       |
+| Cancel       | Stop execution (requires confirmation) |
 
 ### Artifact Viewer
 
@@ -237,6 +240,7 @@ View and edit generated documentation:
 ```
 
 Features:
+
 - Markdown rendering
 - Inline editing
 - Export to file
@@ -271,13 +275,13 @@ Access via gear icon:
 
 ## Keyboard Shortcuts
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl/Cmd + N` | New feature |
-| `Ctrl/Cmd + S` | Save current |
-| `Ctrl/Cmd + Enter` | Submit in chat |
-| `Escape` | Close modal/cancel |
-| `?` | Show all shortcuts |
+| Shortcut           | Action             |
+| ------------------ | ------------------ |
+| `Ctrl/Cmd + N`     | New feature        |
+| `Ctrl/Cmd + S`     | Save current       |
+| `Ctrl/Cmd + Enter` | Submit in chat     |
+| `Escape`           | Close modal/cancel |
+| `?`                | Show all shortcuts |
 
 ## Responsive Design
 
@@ -315,6 +319,7 @@ pnpm storybook:build
 ```
 
 Storybook includes:
+
 - All shadcn/ui component variants
 - Feature-specific components
 - Interactive documentation
@@ -359,6 +364,7 @@ src/presentation/web/
 ## Maintaining This Document
 
 **Update when:**
+
 - UI layout changes
 - New features are added
 - Keyboard shortcuts change
@@ -366,6 +372,7 @@ src/presentation/web/
 - Component library updates
 
 **Related docs:**
+
 - [getting-started.md](./getting-started.md) - First-time setup
 - [cli-commands.md](./cli-commands.md) - Server commands
 - [../development/testing.md](../development/testing.md) - E2E testing guide

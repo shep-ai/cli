@@ -4,13 +4,13 @@ Core domain concepts and business logic for Shep AI CLI.
 
 ## Contents
 
-| Document | Description |
-|----------|-------------|
+| Document                                 | Description                              |
+| ---------------------------------------- | ---------------------------------------- |
 | [sdlc-lifecycle.md](./sdlc-lifecycle.md) | Feature lifecycle states and transitions |
-| [feature-model.md](./feature-model.md) | Feature entity and relationships |
-| [task-model.md](./task-model.md) | Tasks and Action Items |
-| [artifacts.md](./artifacts.md) | Generated documentation artifacts |
-| [repo-analysis.md](./repo-analysis.md) | Repository analysis system |
+| [feature-model.md](./feature-model.md)   | Feature entity and relationships         |
+| [task-model.md](./task-model.md)         | Tasks and Action Items                   |
+| [artifacts.md](./artifacts.md)           | Generated documentation artifacts        |
+| [repo-analysis.md](./repo-analysis.md)   | Repository analysis system               |
 
 ## Domain Overview
 
@@ -47,6 +47,7 @@ Core domain concepts and business logic for Shep AI CLI.
 ## Reading Order
 
 For new contributors:
+
 1. [sdlc-lifecycle.md](./sdlc-lifecycle.md) - Understand the phases
 2. [feature-model.md](./feature-model.md) - Learn the central entity
 3. [task-model.md](./task-model.md) - Understand work breakdown
@@ -58,11 +59,13 @@ For new contributors:
 ## Maintaining This Directory
 
 **Update when:**
+
 - New domain concepts are introduced
 - Existing concepts change significantly
 - Relationships between concepts evolve
 
 **File naming:**
+
 - Use kebab-case
 - Name after the concept (e.g., `feature-model.md`)
 - Keep names singular

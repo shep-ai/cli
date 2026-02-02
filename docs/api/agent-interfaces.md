@@ -69,11 +69,7 @@ Agent type identifiers.
 /**
  * Identifies the type of agent.
  */
-export type AgentType =
-  | 'repository-analysis'
-  | 'requirements'
-  | 'planning'
-  | 'implementation';
+export type AgentType = 'repository-analysis' | 'requirements' | 'planning' | 'implementation';
 ```
 
 ### AgentStatus
@@ -85,12 +81,12 @@ Agent lifecycle states.
  * Agent execution status.
  */
 export type AgentStatus =
-  | 'idle'         // Ready to accept tasks
+  | 'idle' // Ready to accept tasks
   | 'initializing' // Setting up
-  | 'executing'    // Processing a task
-  | 'paused'       // Temporarily stopped
-  | 'error'        // Error state
-  | 'shutdown';    // Terminated
+  | 'executing' // Processing a task
+  | 'paused' // Temporarily stopped
+  | 'error' // Error state
+  | 'shutdown'; // Terminated
 ```
 
 ### AgentCapability
@@ -381,10 +377,7 @@ export interface IMessageBus {
    * @param handler - Handler function
    * @returns Unsubscribe function
    */
-  subscribe(
-    type: MessageType,
-    handler: (message: AgentMessage) => Promise<void>
-  ): () => void;
+  subscribe(type: MessageType, handler: (message: AgentMessage) => Promise<void>): () => void;
 
   /**
    * Send a request and wait for response.
@@ -392,10 +385,7 @@ export interface IMessageBus {
    * @param timeout - Timeout in milliseconds
    * @returns Response message
    */
-  request(
-    message: Omit<AgentMessage, 'id' | 'timestamp'>,
-    timeout?: number
-  ): Promise<AgentMessage>;
+  request(message: Omit<AgentMessage, 'id' | 'timestamp'>, timeout?: number): Promise<AgentMessage>;
 }
 ```
 
@@ -537,10 +527,7 @@ export interface IRequirementsAgent extends IAgent {
    * @param context - Analysis context
    * @returns Gathered requirements
    */
-  gatherRequirements(
-    feature: Feature,
-    context: AnalysisSummary
-  ): Promise<Requirement[]>;
+  gatherRequirements(feature: Feature, context: AnalysisSummary): Promise<Requirement[]>;
 }
 ```
 
@@ -590,11 +577,13 @@ export interface ImplementationResult {
 ## Maintaining This Document
 
 **Update when:**
+
 - Agent interfaces change
 - New agent types are added
 - Message types change
 - Orchestrator API evolves
 
 **Related docs:**
+
 - [AGENTS.md](../../AGENTS.md) - High-level agent overview
 - [../architecture/agent-system.md](../architecture/agent-system.md) - Implementation details

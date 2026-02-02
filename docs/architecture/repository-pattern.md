@@ -207,7 +207,7 @@ export class FeatureMapper {
       row.lifecycle as SdlcLifecycle,
       [], // Requirements loaded separately
       [], // Tasks loaded separately
-      []  // Artifacts loaded separately
+      [] // Artifacts loaded separately
     );
   }
 
@@ -217,7 +217,7 @@ export class FeatureMapper {
       name: feature.name,
       description: feature.description,
       lifecycle: feature.lifecycle,
-      repo_path: feature.repoPath
+      repo_path: feature.repoPath,
     };
   }
 }
@@ -236,10 +236,7 @@ export class SqliteFeatureRepository implements IFeatureRepository {
   ) {}
 
   async findById(id: string): Promise<Feature | null> {
-    const row = await this.db.get<FeatureRow>(
-      'SELECT * FROM features WHERE id = ?',
-      [id]
-    );
+    const row = await this.db.get<FeatureRow>('SELECT * FROM features WHERE id = ?', [id]);
 
     if (!row) return null;
 
@@ -247,7 +244,7 @@ export class SqliteFeatureRepository implements IFeatureRepository {
     const [tasks, artifacts, requirements] = await Promise.all([
       this.taskRepository.findByFeatureId(id),
       this.artifactRepository.findByFeatureId(id),
-      this.requirementRepository.findByFeatureId(id)
+      this.requirementRepository.findByFeatureId(id),
     ]);
 
     return FeatureMapper.toDomain(row, tasks, artifacts, requirements);
@@ -256,7 +253,8 @@ export class SqliteFeatureRepository implements IFeatureRepository {
   async save(feature: Feature): Promise<void> {
     const data = FeatureMapper.toPersistence(feature);
 
-    await this.db.run(`
+    await this.db.run(
+      `
       INSERT INTO features (id, name, description, lifecycle, repo_path, updated_at)
       VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
       ON CONFLICT(id) DO UPDATE SET
@@ -264,7 +262,9 @@ export class SqliteFeatureRepository implements IFeatureRepository {
         description = excluded.description,
         lifecycle = excluded.lifecycle,
         updated_at = CURRENT_TIMESTAMP
-    `, [data.id, data.name, data.description, data.lifecycle, data.repo_path]);
+    `,
+      [data.id, data.name, data.description, data.lifecycle, data.repo_path]
+    );
   }
 }
 ```
@@ -330,18 +330,13 @@ export async function runMigrations(db: Database): Promise<void> {
     )
   `);
 
-  const applied = await db.all<{ name: string }>(
-    'SELECT name FROM migrations'
-  );
-  const appliedNames = new Set(applied.map(m => m.name));
+  const applied = await db.all<{ name: string }>('SELECT name FROM migrations');
+  const appliedNames = new Set(applied.map((m) => m.name));
 
   for (const migration of migrations) {
     if (!appliedNames.has(migration.name)) {
       await migration.up(db);
-      await db.run(
-        'INSERT INTO migrations (name) VALUES (?)',
-        [migration.name]
-      );
+      await db.run('INSERT INTO migrations (name) VALUES (?)', [migration.name]);
     }
   }
 }
@@ -361,12 +356,14 @@ The interface-based design allows for:
 ## Maintaining This Document
 
 **Update when:**
+
 - Schema changes occur
 - New repositories are added
 - Migration strategy changes
 - New persistence features are introduced
 
 **Related docs:**
+
 - [clean-architecture.md](./clean-architecture.md) - Layer context
 - [../api/repository-interfaces.md](../api/repository-interfaces.md) - Full interface specs
 - [../api/domain-models.md](../api/domain-models.md) - Entity definitions

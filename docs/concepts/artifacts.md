@@ -19,14 +19,14 @@ export class Artifact {
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | `string` | Unique identifier (UUID) |
-| `featureId` | `string` | Parent feature reference |
-| `type` | `ArtifactType` | Document type |
-| `title` | `string` | Document title |
-| `content` | `string` | Markdown content |
-| `filePath` | `string` | Relative path in artifacts directory |
+| Property    | Type           | Description                          |
+| ----------- | -------------- | ------------------------------------ |
+| `id`        | `string`       | Unique identifier (UUID)             |
+| `featureId` | `string`       | Parent feature reference             |
+| `type`      | `ArtifactType` | Document type                        |
+| `title`     | `string`       | Document title                       |
+| `content`   | `string`       | Markdown content                     |
+| `filePath`  | `string`       | Relative path in artifacts directory |
 
 ## ArtifactType Enum
 
@@ -36,7 +36,7 @@ export enum ArtifactType {
   RFC = 'rfc',
   Design = 'design',
   TechPlan = 'tech_plan',
-  Other = 'other'
+  Other = 'other',
 }
 ```
 
@@ -47,6 +47,7 @@ export enum ArtifactType {
 **Purpose:** Define what the feature should do from a user perspective.
 
 **Contents:**
+
 - Problem statement
 - User stories
 - Acceptance criteria
@@ -54,24 +55,30 @@ export enum ArtifactType {
 - Out of scope items
 
 **Template:**
+
 ```markdown
 # PRD: [Feature Name]
 
 ## Problem Statement
+
 [What problem are we solving?]
 
 ## User Stories
+
 - As a [user type], I want to [action] so that [benefit]
 
 ## Acceptance Criteria
+
 - [ ] Criterion 1
 - [ ] Criterion 2
 
 ## Success Metrics
+
 - Metric 1: [target]
 - Metric 2: [target]
 
 ## Out of Scope
+
 - Item 1
 - Item 2
 ```
@@ -81,6 +88,7 @@ export enum ArtifactType {
 **Purpose:** Propose a technical approach and solicit feedback.
 
 **Contents:**
+
 - Summary
 - Motivation
 - Detailed design
@@ -89,33 +97,44 @@ export enum ArtifactType {
 - Open questions
 
 **Template:**
+
 ```markdown
 # RFC: [Proposal Title]
 
 ## Summary
+
 [One paragraph summary]
 
 ## Motivation
+
 [Why is this needed?]
 
 ## Detailed Design
+
 [Technical specification]
 
 ## Alternatives Considered
+
 ### Alternative A
+
 [Description and tradeoffs]
 
 ### Alternative B
+
 [Description and tradeoffs]
 
 ## Implications
+
 ### Security
+
 [Security considerations]
 
 ### Performance
+
 [Performance implications]
 
 ## Open Questions
+
 - Question 1
 - Question 2
 ```
@@ -125,6 +144,7 @@ export enum ArtifactType {
 **Purpose:** Capture UI/UX decisions or system design details.
 
 **Contents:**
+
 - Design goals
 - User flows
 - Component specifications
@@ -132,24 +152,31 @@ export enum ArtifactType {
 - Interaction patterns
 
 **Template:**
+
 ```markdown
 # Design: [Feature Name]
 
 ## Design Goals
+
 - Goal 1
 - Goal 2
 
 ## User Flows
+
 ### Flow 1: [Name]
+
 1. Step 1
 2. Step 2
 3. Step 3
 
 ## Components
+
 ### Component A
+
 [Specification]
 
 ## Visual References
+
 - [Link to mockup 1]
 - [Link to wireframe 2]
 ```
@@ -159,6 +186,7 @@ export enum ArtifactType {
 **Purpose:** Detail the implementation approach at a code level.
 
 **Contents:**
+
 - Architecture overview
 - Component breakdown
 - API contracts
@@ -167,29 +195,36 @@ export enum ArtifactType {
 - Migration plan (if applicable)
 
 **Template:**
+
 ```markdown
 # Technical Plan: [Feature Name]
 
 ## Architecture Overview
+
 [High-level description with diagram]
 
 ## Components
 
 ### Component A
+
 **Location:** `src/path/to/component`
 **Responsibility:** [What it does]
 
 ### Component B
+
 **Location:** `src/path/to/component`
 **Responsibility:** [What it does]
 
 ## API Contracts
+
 ### Endpoint 1
 ```
+
 POST /api/v1/resource
 Request: { ... }
 Response: { ... }
-```
+
+````
 
 ## Data Models
 ### Model A
@@ -198,15 +233,18 @@ interface ModelA {
   field1: string;
   field2: number;
 }
-```
+````
 
 ## Dependencies
+
 - New: package-name@version
 - Updated: existing-package@new-version
 
 ## Migration Plan
+
 1. Step 1
 2. Step 2
+
 ```
 
 ## File Storage
@@ -214,14 +252,16 @@ interface ModelA {
 Artifacts are stored in the Shep data directory:
 
 ```
+
 ~/.shep/repos/<encoded-repo-path>/
 └── artifacts/
-    └── <feature-id>/
-        ├── prd.md
-        ├── rfc.md
-        ├── design.md
-        └── tech-plan.md
-```
+└── <feature-id>/
+├── prd.md
+├── rfc.md
+├── design.md
+└── tech-plan.md
+
+````
 
 ## Generation Process
 
@@ -259,7 +299,7 @@ class PlanningAgent {
     return artifacts;
   }
 }
-```
+````
 
 ## Artifact Lifecycle
 
@@ -316,7 +356,7 @@ const customArtifact = new Artifact({
   type: ArtifactType.Other,
   title: 'Security Assessment',
   content: securityContent,
-  filePath: `artifacts/${feature.id}/security-assessment.md`
+  filePath: `artifacts/${feature.id}/security-assessment.md`,
 });
 ```
 
@@ -325,12 +365,14 @@ const customArtifact = new Artifact({
 ## Maintaining This Document
 
 **Update when:**
+
 - New artifact types are added
 - Template formats change
 - Generation process evolves
 - Storage structure changes
 
 **Related docs:**
+
 - [feature-model.md](./feature-model.md) - Parent entity
 - [sdlc-lifecycle.md](./sdlc-lifecycle.md) - When artifacts are created
 - [../architecture/agent-system.md](../architecture/agent-system.md) - PlanningAgent details

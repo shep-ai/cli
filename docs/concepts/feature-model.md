@@ -24,27 +24,27 @@ export class Feature {
 
 ### Identity
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | `string` | Unique identifier (UUID) |
-| `repoPath` | `string` | Absolute path to repository |
-| `createdAt` | `Date` | Creation timestamp |
+| Property    | Type     | Description                 |
+| ----------- | -------- | --------------------------- |
+| `id`        | `string` | Unique identifier (UUID)    |
+| `repoPath`  | `string` | Absolute path to repository |
+| `createdAt` | `Date`   | Creation timestamp          |
 
 ### Core
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `name` | `string` | Human-readable feature name |
-| `description` | `string` | Detailed feature description |
-| `lifecycle` | `SdlcLifecycle` | Current lifecycle phase |
+| Property      | Type            | Description                  |
+| ------------- | --------------- | ---------------------------- |
+| `name`        | `string`        | Human-readable feature name  |
+| `description` | `string`        | Detailed feature description |
+| `lifecycle`   | `SdlcLifecycle` | Current lifecycle phase      |
 
 ### Relationships
 
-| Property | Type | Description |
-|----------|------|-------------|
+| Property       | Type            | Description           |
+| -------------- | --------------- | --------------------- |
 | `requirements` | `Requirement[]` | Gathered requirements |
-| `tasks` | `Task[]` | Planned work items |
-| `artifacts` | `Artifact[]` | Generated documents |
+| `tasks`        | `Task[]`        | Planned work items    |
+| `artifacts`    | `Artifact[]`    | Generated documents   |
 
 ## Relationships Diagram
 
@@ -89,14 +89,14 @@ export class Feature {
 
 Feature lifecycle determines available operations:
 
-| Lifecycle | Allowed Operations |
-|-----------|-------------------|
-| Requirements | Add/modify requirements |
-| Plan | Add/modify tasks, artifacts |
-| Implementation | Update task status |
-| Test | Update test results |
-| Deploy | Update deployment status |
-| Maintenance | All (new iteration) |
+| Lifecycle      | Allowed Operations          |
+| -------------- | --------------------------- |
+| Requirements   | Add/modify requirements     |
+| Plan           | Add/modify tasks, artifacts |
+| Implementation | Update task status          |
+| Test           | Update test results         |
+| Deploy         | Update deployment status    |
+| Maintenance    | All (new iteration)         |
 
 ## Aggregate Rules
 
@@ -121,7 +121,7 @@ export class Feature {
       new Date(),
       [], // requirements
       [], // tasks
-      []  // artifacts
+      [] // artifacts
     );
   }
 }
@@ -223,14 +223,16 @@ interface IFeatureRepository {
 const feature = Feature.create({
   name: 'User Authentication',
   description: 'Implement OAuth2 login flow',
-  repoPath: '/home/user/myapp'
+  repoPath: '/home/user/myapp',
 });
 
 // Add requirements (Requirements phase)
-feature.addRequirement(new Requirement({
-  description: 'Support Google OAuth',
-  source: 'user'
-}));
+feature.addRequirement(
+  new Requirement({
+    description: 'Support Google OAuth',
+    source: 'user',
+  })
+);
 
 // Transition to Plan
 feature.transitionTo(SdlcLifecycle.Plan);
@@ -251,12 +253,14 @@ console.log(feature.progress); // { completed: 2, total: 5, percentage: 40 }
 ## Maintaining This Document
 
 **Update when:**
+
 - Feature entity properties change
 - New domain methods are added
 - Aggregate rules evolve
 - Relationship structure changes
 
 **Related docs:**
+
 - [sdlc-lifecycle.md](./sdlc-lifecycle.md) - Lifecycle details
 - [task-model.md](./task-model.md) - Task entity
 - [artifacts.md](./artifacts.md) - Artifact entity

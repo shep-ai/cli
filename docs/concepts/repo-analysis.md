@@ -199,11 +199,7 @@ In `~/.shep/config.json`:
 ```json
 {
   "analysis": {
-    "excludePatterns": [
-      "**/node_modules/**",
-      "**/dist/**",
-      "**/.git/**"
-    ],
+    "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/.git/**"],
     "maxFileSize": 1048576,
     "maxFiles": 10000,
     "perspectives": [
@@ -250,7 +246,7 @@ export class RepositoryAnalysisAgent extends BaseAgent {
       this.detectPatterns(files),
       this.extractConventions(files),
       this.identifyTechStack(repoPath, files),
-      this.inventoryDocumentation(files)
+      this.inventoryDocumentation(files),
     ]);
 
     // Generate summary
@@ -306,12 +302,14 @@ class PlanningAgent {
 ## Maintaining This Document
 
 **Update when:**
+
 - New analysis perspectives are added
 - Storage structure changes
 - Configuration options change
 - Analysis process evolves
 
 **Related docs:**
+
 - [../architecture/agent-system.md](../architecture/agent-system.md) - RepositoryAnalysisAgent
 - [../guides/configuration.md](../guides/configuration.md) - Config options
 - [AGENTS.md](../../AGENTS.md) - Agent overview

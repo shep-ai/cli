@@ -37,11 +37,11 @@ tests/
 
 ## Test Frameworks
 
-| Framework | Purpose | Location |
-|-----------|---------|----------|
-| **Vitest** | Unit & Integration tests | `tests/unit/`, `tests/integration/` |
-| **Playwright** | E2E tests (CLI + Web UI) | `tests/e2e/` |
-| **Storybook** | Component visual testing | `src/presentation/web/stories/` |
+| Framework      | Purpose                  | Location                            |
+| -------------- | ------------------------ | ----------------------------------- |
+| **Vitest**     | Unit & Integration tests | `tests/unit/`, `tests/integration/` |
+| **Playwright** | E2E tests (CLI + Web UI) | `tests/e2e/`                        |
+| **Storybook**  | Component visual testing | `src/presentation/web/stories/`     |
 
 ## Running Tests
 
@@ -120,7 +120,7 @@ describe('Feature', () => {
       const feature = Feature.create({
         name: 'Test Feature',
         description: 'Description',
-        repoPath: '/test/repo'
+        repoPath: '/test/repo',
       });
 
       expect(feature.canTransitionTo(SdlcLifecycle.Plan)).toBe(true);
@@ -130,7 +130,7 @@ describe('Feature', () => {
       const feature = Feature.create({
         name: 'Test Feature',
         description: 'Description',
-        repoPath: '/test/repo'
+        repoPath: '/test/repo',
       });
 
       expect(feature.canTransitionTo(SdlcLifecycle.Implementation)).toBe(false);
@@ -140,7 +140,7 @@ describe('Feature', () => {
       const feature = Feature.create({
         name: 'Test Feature',
         description: 'Description',
-        repoPath: '/test/repo'
+        repoPath: '/test/repo',
       });
 
       expect(() => {
@@ -182,7 +182,7 @@ describe('SqliteFeatureRepository', () => {
       const feature = Feature.create({
         name: 'Test Feature',
         description: 'Description',
-        repoPath: '/test/repo'
+        repoPath: '/test/repo',
       });
 
       await repository.save(feature);
@@ -199,12 +199,12 @@ describe('SqliteFeatureRepository', () => {
       const feature1 = Feature.create({
         name: 'Feature 1',
         description: 'Desc',
-        repoPath: '/repo/a'
+        repoPath: '/repo/a',
       });
       const feature2 = Feature.create({
         name: 'Feature 2',
         description: 'Desc',
-        repoPath: '/repo/b'
+        repoPath: '/repo/b',
       });
 
       await repository.save(feature1);
@@ -245,7 +245,7 @@ describe('shep init', () => {
   it('should initialize shep in a repository', () => {
     const result = execSync('pnpm tsx src/presentation/cli/index.ts init', {
       cwd: testDir,
-      encoding: 'utf8'
+      encoding: 'utf8',
     });
 
     expect(result).toContain('Initialized');
@@ -467,7 +467,7 @@ export function createFeature(overrides: Partial<FeatureProps> = {}): Feature {
     name: 'Test Feature',
     description: 'Test Description',
     repoPath: '/test/repo',
-    ...overrides
+    ...overrides,
   });
 }
 
@@ -477,7 +477,7 @@ export function createTask(overrides: Partial<TaskProps> = {}): Task {
     title: 'Test Task',
     description: 'Task description',
     dependsOn: [],
-    ...overrides
+    ...overrides,
   });
 }
 ```
@@ -494,11 +494,11 @@ import type { ILLMClient } from '@/infrastructure/services/llm-client';
 export function createMockLLMClient(): ILLMClient {
   return {
     complete: vi.fn().mockResolvedValue({
-      content: 'Mock response'
+      content: 'Mock response',
     }),
     chat: vi.fn().mockResolvedValue({
-      content: 'Mock chat response'
-    })
+      content: 'Mock chat response',
+    }),
   };
 }
 
@@ -515,7 +515,7 @@ export function createMockFeatureRepository(): IFeatureRepository {
     delete: vi.fn((id) => {
       features.delete(id);
       return Promise.resolve();
-    })
+    }),
   };
 }
 ```
@@ -581,7 +581,7 @@ describe('RepositoryAnalysisAgent', () => {
     const result = await agent.execute({
       id: 'task_1',
       type: 'analyze',
-      payload: { repoPath: fixtureRepoPath }
+      payload: { repoPath: fixtureRepoPath },
     });
 
     expect(result.status).toBe('success');
@@ -592,12 +592,12 @@ describe('RepositoryAnalysisAgent', () => {
 
 ## Coverage Requirements
 
-| Layer | Minimum Coverage |
-|-------|-----------------|
-| Domain | 90% |
-| Application | 85% |
-| Infrastructure | 75% |
-| Presentation | 60% |
+| Layer          | Minimum Coverage |
+| -------------- | ---------------- |
+| Domain         | 90%              |
+| Application    | 85%              |
+| Infrastructure | 75%              |
+| Presentation   | 60%              |
 
 ## Continuous Integration
 
@@ -694,11 +694,13 @@ jobs:
 ## Maintaining This Document
 
 **Update when:**
+
 - Testing framework changes
 - Coverage requirements change
 - New testing patterns emerge
 - Test utilities are added
 
 **Related docs:**
+
 - [setup.md](./setup.md) - Development setup
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - PR requirements

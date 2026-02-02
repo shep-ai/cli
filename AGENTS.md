@@ -8,12 +8,12 @@ Shep uses a **LangGraph-based** multi-agent system implemented in TypeScript. Ag
 
 ## Technology Stack
 
-| Component | Technology | Purpose |
-|-----------|------------|---------|
+| Component     | Technology                                                                 | Purpose                        |
+| ------------- | -------------------------------------------------------------------------- | ------------------------------ |
 | Orchestration | [@langchain/langgraph](https://www.npmjs.com/package/@langchain/langgraph) | StateGraph workflow management |
-| Core | [@langchain/core](https://www.npmjs.com/package/@langchain/core) | Tools, messages, prompts |
-| LLM | [@langchain/anthropic](https://www.npmjs.com/package/@langchain/anthropic) | Claude integration |
-| Validation | [zod](https://www.npmjs.com/package/zod) | Schema validation for tools |
+| Core          | [@langchain/core](https://www.npmjs.com/package/@langchain/core)           | Tools, messages, prompts       |
+| LLM           | [@langchain/anthropic](https://www.npmjs.com/package/@langchain/anthropic) | Claude integration             |
+| Validation    | [zod](https://www.npmjs.com/package/zod)                                   | Schema validation for tools    |
 
 ## Agent Architecture
 
@@ -70,15 +70,15 @@ flowchart LR
 
 ## LangGraph Concepts
 
-| Concept | Description |
-|---------|-------------|
-| **StateGraph** | Core workflow definition with typed state schema |
-| **Node** | Function that processes state and returns partial updates |
-| **Edge** | Connection between nodes (direct or conditional) |
-| **State** | Typed object (Annotation) passed through the graph |
-| **Checkpoint** | Persistence point for durable execution |
-| **Tool** | External capability agents can invoke |
-| **Command** | Directive to route to next node with state update |
+| Concept        | Description                                               |
+| -------------- | --------------------------------------------------------- |
+| **StateGraph** | Core workflow definition with typed state schema          |
+| **Node**       | Function that processes state and returns partial updates |
+| **Edge**       | Connection between nodes (direct or conditional)          |
+| **State**      | Typed object (Annotation) passed through the graph        |
+| **Checkpoint** | Persistence point for durable execution                   |
+| **Tool**       | External capability agents can invoke                     |
+| **Command**    | Directive to route to next node with state update         |
 
 ## State Schema
 
@@ -100,27 +100,27 @@ export const FeatureState = Annotation.Root({
   // Workflow outputs
   requirements: Annotation<Requirement[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
+    default: () => [],
   }),
   plan: Annotation<Plan | null>,
   tasks: Annotation<Task[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
+    default: () => [],
   }),
   artifacts: Annotation<Artifact[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
+    default: () => [],
   }),
 
   // Conversation history
   messages: Annotation<BaseMessage[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
+    default: () => [],
   }),
 
   // Status tracking
   currentPhase: Annotation<SdlcLifecycle>,
-  error: Annotation<string | null>
+  error: Annotation<string | null>,
 });
 ```
 
@@ -131,10 +131,12 @@ export const FeatureState = Annotation.Root({
 **Purpose:** Analyze repository structure and build context for other nodes.
 
 **Triggers:**
+
 - Initial `shep` or `shep --init` command
 - Manual re-analysis request
 
 **Capabilities:**
+
 - Uses `context_query` tool to search codebase
 - File system traversal and pattern detection
 - Dependency graph construction
@@ -145,13 +147,11 @@ export const FeatureState = Annotation.Root({
 ```typescript
 // src/infrastructure/agents/langgraph/nodes/analyze.node.ts
 
-export async function analyzeNode(
-  state: FeatureStateType
-): Promise<Partial<FeatureStateType>> {
+export async function analyzeNode(state: FeatureStateType): Promise<Partial<FeatureStateType>> {
   const analysis = await analyzeRepository(state.repoPath);
   return {
     repoAnalysis: analysis,
-    currentPhase: SdlcLifecycle.Requirements
+    currentPhase: SdlcLifecycle.Requirements,
   };
 }
 ```
@@ -161,10 +161,12 @@ export async function analyzeNode(
 **Purpose:** Gather and refine requirements through conversational interaction.
 
 **Triggers:**
+
 - User initiates new feature
 - Conditional loop back for clarification
 
 **Capabilities:**
+
 - Context-aware questioning based on repo analysis
 - Option generation and presentation
 - Ambiguity detection and resolution
@@ -180,7 +182,7 @@ export async function requirementsNode(
 ): Promise<Partial<FeatureStateType>> {
   const response = await model.invoke([
     { role: 'system', content: REQUIREMENTS_PROMPT },
-    ...state.messages
+    ...state.messages,
   ]);
 
   const requirements = extractRequirements(response.content);
@@ -188,7 +190,7 @@ export async function requirementsNode(
   return {
     requirements,
     messages: [response],
-    currentPhase: allClear(requirements) ? SdlcLifecycle.Plan : state.currentPhase
+    currentPhase: allClear(requirements) ? SdlcLifecycle.Plan : state.currentPhase,
   };
 }
 ```
@@ -198,9 +200,11 @@ export async function requirementsNode(
 **Purpose:** Break down requirements into executable Tasks, ActionItems, and Artifacts.
 
 **Triggers:**
+
 - Requirements phase complete (all requirements clear)
 
 **Capabilities:**
+
 - Task decomposition with dependency analysis
 - ActionItem granularity optimization
 - Artifact generation (PRD, RFC, Design, TechPlan, Other)
@@ -211,9 +215,7 @@ export async function requirementsNode(
 ```typescript
 // src/infrastructure/agents/langgraph/nodes/plan.node.ts
 
-export async function planNode(
-  state: FeatureStateType
-): Promise<Partial<FeatureStateType>> {
+export async function planNode(state: FeatureStateType): Promise<Partial<FeatureStateType>> {
   const plan = await generatePlan(state.requirements, state.repoAnalysis);
   const artifacts = await generateArtifacts(plan);
 
@@ -221,7 +223,7 @@ export async function planNode(
     plan,
     tasks: plan.tasks,
     artifacts,
-    currentPhase: SdlcLifecycle.Implementation
+    currentPhase: SdlcLifecycle.Implementation,
   };
 }
 ```
@@ -231,9 +233,11 @@ export async function planNode(
 **Purpose:** Execute code changes according to the plan.
 
 **Triggers:**
+
 - Planning phase complete
 
 **Capabilities:**
+
 - Code generation and modification
 - Test creation following TDD
 - Respects task dependency graph
@@ -244,13 +248,11 @@ export async function planNode(
 ```typescript
 // src/infrastructure/agents/langgraph/nodes/implement.node.ts
 
-export async function implementNode(
-  state: FeatureStateType
-): Promise<Partial<FeatureStateType>> {
+export async function implementNode(state: FeatureStateType): Promise<Partial<FeatureStateType>> {
   const results = await executeTaskGraph(state.tasks);
   return {
     tasks: results.updatedTasks,
-    currentPhase: SdlcLifecycle.Test
+    currentPhase: SdlcLifecycle.Test,
   };
 }
 ```
@@ -263,22 +265,24 @@ export async function implementNode(
 import { StateGraph, START, END } from '@langchain/langgraph';
 
 export function createFeatureGraph() {
-  return new StateGraph(FeatureState)
-    .addNode('analyze', analyzeNode)
-    .addNode('requirements', requirementsNode)
-    .addNode('plan', planNode)
-    .addNode('implement', implementNode)
+  return (
+    new StateGraph(FeatureState)
+      .addNode('analyze', analyzeNode)
+      .addNode('requirements', requirementsNode)
+      .addNode('plan', planNode)
+      .addNode('implement', implementNode)
 
-    // Define flow
-    .addEdge(START, 'analyze')
-    .addEdge('analyze', 'requirements')
-    .addConditionalEdges('requirements', (state) => {
-      return allRequirementsClear(state) ? 'plan' : 'requirements';
-    })
-    .addEdge('plan', 'implement')
-    .addEdge('implement', END)
+      // Define flow
+      .addEdge(START, 'analyze')
+      .addEdge('analyze', 'requirements')
+      .addConditionalEdges('requirements', (state) => {
+        return allRequirementsClear(state) ? 'plan' : 'requirements';
+      })
+      .addEdge('plan', 'implement')
+      .addEdge('implement', END)
 
-    .compile();
+      .compile()
+  );
 }
 ```
 
@@ -296,10 +300,10 @@ import { z } from 'zod';
 
 export const contextQueryTool = tool(
   async ({ query, assetType, limit }) => {
-    const results = await vectorStore.searchAssets(
-      await embed(query),
-      { filter: assetType ? `type = '${assetType}'` : undefined, limit }
-    );
+    const results = await vectorStore.searchAssets(await embed(query), {
+      filter: assetType ? `type = '${assetType}'` : undefined,
+      limit,
+    });
     return JSON.stringify(results);
   },
   {
@@ -308,8 +312,8 @@ export const contextQueryTool = tool(
     schema: z.object({
       query: z.string().describe('Natural language query'),
       assetType: z.string().optional().describe('Filter: file|function|class|component|...'),
-      limit: z.number().default(10)
-    })
+      limit: z.number().default(10),
+    }),
   }
 );
 ```
@@ -322,9 +326,13 @@ Read, write, and list files in the repository.
 export const fileSystemTool = tool(
   async ({ action, path, content }) => {
     switch (action) {
-      case 'read': return await readFile(path);
-      case 'write': await writeFile(path, content!); return 'Written';
-      case 'list': return JSON.stringify(await listDir(path));
+      case 'read':
+        return await readFile(path);
+      case 'write':
+        await writeFile(path, content!);
+        return 'Written';
+      case 'list':
+        return JSON.stringify(await listDir(path));
     }
   },
   {
@@ -333,8 +341,8 @@ export const fileSystemTool = tool(
     schema: z.object({
       action: z.enum(['read', 'write', 'list']),
       path: z.string(),
-      content: z.string().optional()
-    })
+      content: z.string().optional(),
+    }),
   }
 );
 ```
@@ -354,8 +362,8 @@ export const codeExecTool = tool(
     description: 'Execute shell commands for testing and validation',
     schema: z.object({
       command: z.string(),
-      cwd: z.string().optional()
-    })
+      cwd: z.string().optional(),
+    }),
   }
 );
 ```
@@ -370,12 +378,12 @@ For complex orchestration, use a supervisor pattern:
 async function supervisorNode(state: SupervisorStateType) {
   const response = await model.invoke([
     { role: 'system', content: SUPERVISOR_PROMPT },
-    ...state.messages
+    ...state.messages,
   ]);
 
   return new Command({
     goto: parseDecision(response.content).nextAgent,
-    update: { messages: [response] }
+    update: { messages: [response] },
   });
 }
 
@@ -464,6 +472,7 @@ See [docs/guides/langgraph-agents.md](./docs/guides/langgraph-agents.md) for det
 ## Maintaining This Document
 
 **Update when:**
+
 - New nodes are added
 - New tools are added
 - State schema changes
@@ -471,6 +480,7 @@ See [docs/guides/langgraph-agents.md](./docs/guides/langgraph-agents.md) for det
 - LangGraph patterns evolve
 
 **Related docs:**
+
 - [docs/architecture/agent-system.md](./docs/architecture/agent-system.md) - Detailed implementation
 - [docs/architecture/context-layer.md](./docs/architecture/context-layer.md) - Vector DB integration
 - [docs/guides/langgraph-agents.md](./docs/guides/langgraph-agents.md) - Working with agents

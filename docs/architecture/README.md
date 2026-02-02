@@ -4,12 +4,12 @@ This directory contains documentation about Shep AI CLI's system architecture an
 
 ## Contents
 
-| Document | Description |
-|----------|-------------|
-| [overview.md](./overview.md) | High-level system architecture and component interactions |
-| [clean-architecture.md](./clean-architecture.md) | Clean Architecture implementation details |
-| [repository-pattern.md](./repository-pattern.md) | Data persistence and repository pattern |
-| [agent-system.md](./agent-system.md) | Multi-agent system design and implementation |
+| Document                                         | Description                                               |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| [overview.md](./overview.md)                     | High-level system architecture and component interactions |
+| [clean-architecture.md](./clean-architecture.md) | Clean Architecture implementation details                 |
+| [repository-pattern.md](./repository-pattern.md) | Data persistence and repository pattern                   |
+| [agent-system.md](./agent-system.md)             | Multi-agent system design and implementation              |
 
 ## Quick Reference
 
@@ -31,6 +31,7 @@ Presentation → Application → Domain ← Infrastructure
 ## Getting Started
 
 New contributors should read:
+
 1. [overview.md](./overview.md) - Understand the big picture
 2. [clean-architecture.md](./clean-architecture.md) - Learn the layer structure
 3. Specific pattern docs as needed
@@ -40,16 +41,19 @@ New contributors should read:
 ## Maintaining This Directory
 
 **Update when:**
+
 - New architectural patterns are introduced
 - Major refactoring occurs
 - New subsystems are added
 
 **File naming:**
+
 - Use kebab-case
 - Be descriptive but concise
 - Suffix with `.md`
 
 **Cross-references:**
+
 - Link to related docs in other directories
 - Keep links relative
 - Verify links after moves/renames

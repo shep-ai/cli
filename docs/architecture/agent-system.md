@@ -49,17 +49,17 @@ export const FeatureState = Annotation.Root({
   repoAnalysis: Annotation<RepoAnalysis | null>,
   requirements: Annotation<Requirement[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
+    default: () => [],
   }),
   plan: Annotation<Plan | null>,
   tasks: Annotation<Task[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
+    default: () => [],
   }),
   messages: Annotation<BaseMessage[]>({
     reducer: (prev, next) => [...prev, ...next],
-    default: () => []
-  })
+    default: () => [],
+  }),
 });
 
 export type FeatureStateType = typeof FeatureState.State;
@@ -75,13 +75,15 @@ export async function analyzeNode(state: FeatureStateType): Promise<Partial<Feat
   return { repoAnalysis: analysis };
 }
 
-export async function requirementsNode(state: FeatureStateType): Promise<Partial<FeatureStateType>> {
+export async function requirementsNode(
+  state: FeatureStateType
+): Promise<Partial<FeatureStateType>> {
   const model = new ChatAnthropic({ modelName: 'claude-sonnet-4-20250514' });
   const modelWithTools = model.bindTools([contextQueryTool, fileSystemTool]);
 
   const response = await modelWithTools.invoke([
     { role: 'system', content: 'Gather requirements...' },
-    ...state.messages
+    ...state.messages,
   ]);
 
   return { messages: [response] };
@@ -99,7 +101,7 @@ graph.addEdge('analyze', 'requirements');
 // Conditional edge: choose based on state
 graph.addConditionalEdges('requirements', (state) => {
   if (allRequirementsClear(state)) return 'plan';
-  return 'requirements';  // Loop back for clarification
+  return 'requirements'; // Loop back for clarification
 });
 ```
 
@@ -124,20 +126,20 @@ export const contextQueryTool = tool(
     schema: z.object({
       query: z.string().describe('Natural language query'),
       type: z.string().optional().describe('Asset type filter'),
-      limit: z.number().default(10)
-    })
+      limit: z.number().default(10),
+    }),
   }
 );
 ```
 
 ## Workflow Stages
 
-| Stage | Node | Responsibility |
-|-------|------|-----------------|
-| **Analyze** | `analyzeNode` | Parse codebase structure, patterns, tech stack |
-| **Requirements** | `requirementsNode` | Gather requirements via conversation, validate clarity |
-| **Plan** | `planNode` | Decompose into tasks, create artifacts (PRD, RFC, Tech Plan) |
-| **Implement** | `implementNode` | Execute tasks respecting dependency graph |
+| Stage            | Node               | Responsibility                                               |
+| ---------------- | ------------------ | ------------------------------------------------------------ |
+| **Analyze**      | `analyzeNode`      | Parse codebase structure, patterns, tech stack               |
+| **Requirements** | `requirementsNode` | Gather requirements via conversation, validate clarity       |
+| **Plan**         | `planNode`         | Decompose into tasks, create artifacts (PRD, RFC, Tech Plan) |
+| **Implement**    | `implementNode`    | Execute tasks respecting dependency graph                    |
 
 ## Practical Example
 
@@ -150,12 +152,14 @@ For implementation details, see [docs/development/adding-agents.md](../developme
 ## Maintaining This Document
 
 **Update when:**
+
 - StateGraph structure changes
 - New workflow stages added
 - Node functions added or modified
 - Tool schemas change
 
 **Related docs:**
+
 - [AGENTS.md](../../AGENTS.md) - Detailed LangGraph implementation
 - [../guides/langgraph-agents.md](../guides/langgraph-agents.md) - Working with LangGraph
 - [../development/adding-agents.md](../development/adding-agents.md) - Adding new nodes

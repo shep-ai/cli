@@ -6,22 +6,22 @@ Complete guide to setting up a development environment for Shep AI CLI.
 
 ### Required
 
-| Tool | Version | Purpose |
-|------|---------|---------|
-| Node.js | 18+ | Runtime |
-| pnpm | 8+ | Package management |
-| Git | 2.30+ | Version control |
+| Tool    | Version | Purpose            |
+| ------- | ------- | ------------------ |
+| Node.js | 18+     | Runtime            |
+| pnpm    | 8+      | Package management |
+| Git     | 2.30+   | Version control    |
 
 Install pnpm: `npm install -g pnpm`
 
 ### Recommended
 
-| Tool | Purpose |
-|------|---------|
-| VS Code | IDE with TypeScript support |
-| SQLite Browser | Database inspection |
-| Playwright VS Code Extension | E2E test debugging |
-| HTTPie/curl | API testing |
+| Tool                         | Purpose                     |
+| ---------------------------- | --------------------------- |
+| VS Code                      | IDE with TypeScript support |
+| SQLite Browser               | Database inspection         |
+| Playwright VS Code Extension | E2E test debugging          |
+| HTTPie/curl                  | API testing                 |
 
 ## Initial Setup
 
@@ -322,6 +322,7 @@ pnpm build
 ### Tests Failing on CI But Not Locally
 
 Check for:
+
 - Environment variable differences
 - File system timing issues
 - Hardcoded paths
@@ -348,12 +349,14 @@ pnpm test:e2e --debug
 ## Maintaining This Document
 
 **Update when:**
+
 - Prerequisites change
 - Project structure changes
 - New tooling is adopted
 - Common issues are discovered
 
 **Related docs:**
+
 - [testing.md](./testing.md) - Testing details
 - [building.md](./building.md) - Build process
 - [CONTRIBUTING.md](../../CONTRIBUTING.md) - Contribution flow

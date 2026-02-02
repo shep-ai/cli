@@ -4,11 +4,11 @@ Technical reference documentation for Shep AI CLI interfaces and models.
 
 ## Contents
 
-| Document | Description |
-|----------|-------------|
-| [repository-interfaces.md](./repository-interfaces.md) | Data access interfaces |
-| [domain-models.md](./domain-models.md) | Core entity definitions |
-| [agent-interfaces.md](./agent-interfaces.md) | Agent system interfaces |
+| Document                                               | Description             |
+| ------------------------------------------------------ | ----------------------- |
+| [repository-interfaces.md](./repository-interfaces.md) | Data access interfaces  |
+| [domain-models.md](./domain-models.md)                 | Core entity definitions |
+| [agent-interfaces.md](./agent-interfaces.md)           | Agent system interfaces |
 
 ## Overview
 
@@ -59,11 +59,13 @@ This documentation is for:
 ## Maintaining This Directory
 
 **Update when:**
+
 - New interfaces are added
 - Existing interfaces change
 - New models are introduced
 
 **Format:**
+
 - Use TypeScript code blocks
 - Include JSDoc comments
 - Show example implementations

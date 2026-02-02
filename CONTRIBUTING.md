@@ -50,6 +50,7 @@ shep --help
 ### Reporting Issues
 
 Before creating an issue:
+
 1. Search existing issues to avoid duplicates
 2. Use the issue templates when available
 3. Include reproduction steps for bugs
@@ -87,6 +88,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 ```
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation only
@@ -96,6 +98,7 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 - `chore`: Maintenance tasks
 
 **Examples:**
+
 ```
 feat(agents): add repository analysis caching
 fix(cli): resolve config path resolution on Windows
@@ -114,6 +117,7 @@ docs(readme): update installation instructions
 ### Architecture
 
 Follow Clean Architecture principles:
+
 - Domain layer has no external dependencies
 - Use interfaces for external concerns
 - One use case per file
@@ -122,11 +126,13 @@ Follow Clean Architecture principles:
 ### Testing (TDD Required)
 
 We follow Test-Driven Development:
+
 1. **Write failing test first** (RED)
 2. **Write minimal code to pass** (GREEN)
 3. **Refactor while keeping tests green** (REFACTOR)
 
 Test layers:
+
 - **Unit tests**: Domain logic (Vitest)
 - **Integration tests**: Repositories with SQLite (Vitest)
 - **E2E tests**: CLI and Web UI (Playwright)
@@ -155,6 +161,7 @@ src/
 ### Review Criteria
 
 PRs are reviewed for:
+
 - Correctness and completeness
 - Architecture alignment
 - Test coverage
@@ -198,6 +205,7 @@ pnpm build
 ## Documentation
 
 When contributing:
+
 - Update relevant docs in `docs/`
 - Keep CLAUDE.md current for AI tooling
 - Add JSDoc comments for public APIs
@@ -213,11 +221,13 @@ When contributing:
 ## Maintaining This Document
 
 **Update when:**
+
 - Contribution process changes
 - New tooling is adopted
 - Repository structure changes
 - Community channels are established
 
 **Related docs:**
+
 - [docs/development/setup.md](./docs/development/setup.md) - Detailed dev environment setup
 - [docs/development/testing.md](./docs/development/testing.md) - Testing guidelines

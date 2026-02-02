@@ -57,6 +57,7 @@ src/domain/
 ```
 
 **Rules:**
+
 - No imports from other layers
 - No framework dependencies
 - No I/O operations
@@ -64,6 +65,7 @@ src/domain/
 - Rich domain models (behavior + data)
 
 **Example Entity:**
+
 ```typescript
 // src/domain/entities/feature.ts
 export class Feature {
@@ -121,6 +123,7 @@ src/application/
 ```
 
 **Rules:**
+
 - Depends only on Domain layer
 - Defines interfaces (ports) for external concerns
 - One use case per file
@@ -128,6 +131,7 @@ src/application/
 - No knowledge of how ports are implemented
 
 **Example Use Case:**
+
 ```typescript
 // src/application/use-cases/create-plan.ts
 export class CreatePlanUseCase {
@@ -161,6 +165,7 @@ export class CreatePlanUseCase {
 ```
 
 **Example Port:**
+
 ```typescript
 // src/application/ports/output/feature-repository.port.ts
 export interface IFeatureRepository {
@@ -200,12 +205,14 @@ src/infrastructure/
 ```
 
 **Rules:**
+
 - Implements interfaces from Application layer
 - Contains all external dependencies
 - Handles data mapping between layers
 - No business logic (only technical concerns)
 
 **Example Repository:**
+
 ```typescript
 // src/infrastructure/repositories/sqlite/feature.repository.ts
 export class SqliteFeatureRepository implements IFeatureRepository {
@@ -264,6 +271,7 @@ src/presentation/
 | Design System | Storybook | Component documentation and testing |
 
 **Rules:**
+
 - Only interacts with Application layer
 - Handles user input/output formatting
 - No business logic
@@ -286,14 +294,11 @@ export function createContainer(config: Config): Container {
   const planningAgent = new PlanningAgent(config.agentConfig);
 
   // Use Cases
-  const createPlanUseCase = new CreatePlanUseCase(
-    featureRepository,
-    planningAgent
-  );
+  const createPlanUseCase = new CreatePlanUseCase(featureRepository, planningAgent);
 
   return {
     useCases: { createPlanUseCase },
-    repositories: { featureRepository, taskRepository }
+    repositories: { featureRepository, taskRepository },
   };
 }
 ```
@@ -302,16 +307,17 @@ export function createContainer(config: Config): Container {
 
 We follow **Test-Driven Development** (Red-Green-Refactor) across all layers.
 
-| Layer | Test Type | Framework | Dependencies |
-|-------|-----------|-----------|--------------|
-| Domain | Unit | Vitest | None (pure) |
-| Application | Unit | Vitest | Mock ports |
-| Infrastructure | Integration | Vitest | Real DB (in-memory SQLite) |
-| Presentation (CLI) | E2E | Vitest | CLI execution |
-| Presentation (Web) | E2E | Playwright | Full browser stack |
-| Components | Visual | Storybook | Component isolation |
+| Layer              | Test Type   | Framework  | Dependencies               |
+| ------------------ | ----------- | ---------- | -------------------------- |
+| Domain             | Unit        | Vitest     | None (pure)                |
+| Application        | Unit        | Vitest     | Mock ports                 |
+| Infrastructure     | Integration | Vitest     | Real DB (in-memory SQLite) |
+| Presentation (CLI) | E2E         | Vitest     | CLI execution              |
+| Presentation (Web) | E2E         | Playwright | Full browser stack         |
+| Components         | Visual      | Storybook  | Component isolation        |
 
 **TDD Workflow:**
+
 1. **RED** - Write a failing test that defines expected behavior
 2. **GREEN** - Write minimal code to make the test pass
 3. **REFACTOR** - Improve code while keeping tests green
@@ -323,11 +329,13 @@ See [docs/development/tdd-guide.md](../development/tdd-guide.md) for detailed TD
 ## Maintaining This Document
 
 **Update when:**
+
 - New layers or sublayers are added
 - Dependency rules change
 - New patterns are introduced
 - Example code becomes outdated
 
 **Related docs:**
+
 - [repository-pattern.md](./repository-pattern.md) - Data access details
 - [../api/repository-interfaces.md](../api/repository-interfaces.md) - Port specifications

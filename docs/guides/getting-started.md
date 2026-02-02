@@ -244,6 +244,7 @@ Implementing: User Authentication | Progress: 2/5 tasks complete
 Large repositories may take longer. You can:
 
 1. Add exclusions to `.shep/config.json`:
+
    ```json
    {
      "analysis": {
@@ -281,11 +282,13 @@ shep --port 3031
 ## Maintaining This Document
 
 **Update when:**
+
 - Installation process changes
 - Setup wizard flow changes
 - New features affect getting started
 - Troubleshooting items are discovered
 
 **Related docs:**
+
 - [configuration.md](./configuration.md) - Detailed config
 - [cli-commands.md](./cli-commands.md) - CLI reference

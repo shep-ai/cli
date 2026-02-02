@@ -5,6 +5,7 @@ The Asset Graph is a knowledge representation of your codebase, enabling semanti
 ## Overview
 
 The Asset Graph breaks down a codebase into:
+
 - **Assets**: Individual code elements (files, functions, classes, etc.)
 - **Relations**: Connections between assets (imports, extends, calls, etc.)
 - **Embeddings**: Vector representations for semantic search
@@ -33,21 +34,21 @@ flowchart TB
 
 The standard set of 13 asset types:
 
-| Type | Description | Example |
-|------|-------------|---------|
-| `file` | Source file | `src/auth/login.ts` |
-| `module` | Package/module/namespace | `@shep-ai/cli` |
-| `component` | UI component | `LoginForm` |
-| `function` | Function/method | `validatePassword()` |
-| `class` | Class definition | `UserService` |
-| `interface` | Interface/type definition | `IUserRepository` |
-| `api-endpoint` | REST/GraphQL endpoint | `POST /api/users` |
-| `database-table` | Database table/schema | `users` |
-| `test` | Test file/suite | `login.test.ts` |
-| `config` | Configuration file | `tsconfig.json` |
-| `documentation` | Documentation file | `README.md` |
-| `person` | Code owner/contributor | `@johndoe` |
-| `feature` | Shep feature entity | `feat_auth_oauth` |
+| Type             | Description               | Example              |
+| ---------------- | ------------------------- | -------------------- |
+| `file`           | Source file               | `src/auth/login.ts`  |
+| `module`         | Package/module/namespace  | `@shep-ai/cli`       |
+| `component`      | UI component              | `LoginForm`          |
+| `function`       | Function/method           | `validatePassword()` |
+| `class`          | Class definition          | `UserService`        |
+| `interface`      | Interface/type definition | `IUserRepository`    |
+| `api-endpoint`   | REST/GraphQL endpoint     | `POST /api/users`    |
+| `database-table` | Database table/schema     | `users`              |
+| `test`           | Test file/suite           | `login.test.ts`      |
+| `config`         | Configuration file        | `tsconfig.json`      |
+| `documentation`  | Documentation file        | `README.md`          |
+| `person`         | Code owner/contributor    | `@johndoe`           |
+| `feature`        | Shep feature entity       | `feat_auth_oauth`    |
 
 ## Asset Entity
 
@@ -70,13 +71,13 @@ export type AssetType =
   | 'feature';
 
 export interface Asset {
-  id: string;                        // Unique identifier
-  type: AssetType;                   // Asset category
-  name: string;                      // Display name
-  path?: string;                     // File path (if applicable)
-  description?: string;              // Human-readable description
+  id: string; // Unique identifier
+  type: AssetType; // Asset category
+  name: string; // Display name
+  path?: string; // File path (if applicable)
+  description?: string; // Human-readable description
   metadata: Record<string, unknown>; // Type-specific metadata
-  embedding?: number[];              // 384-dim vector
+  embedding?: number[]; // 384-dim vector
   createdAt: Date;
   updatedAt: Date;
 }
@@ -143,19 +144,19 @@ export interface Asset {
 
 11 relation types connecting assets:
 
-| Type | Description | Example |
-|------|-------------|---------|
-| `imports` | File imports another | `login.ts` → `utils.ts` |
-| `exports` | Module exports | `index.ts` → `LoginForm` |
-| `extends` | Class inheritance | `AdminUser` → `User` |
+| Type         | Description              | Example                           |
+| ------------ | ------------------------ | --------------------------------- |
+| `imports`    | File imports another     | `login.ts` → `utils.ts`           |
+| `exports`    | Module exports           | `index.ts` → `LoginForm`          |
+| `extends`    | Class inheritance        | `AdminUser` → `User`              |
 | `implements` | Interface implementation | `UserService` → `IUserRepository` |
-| `calls` | Function invocation | `login()` → `validatePassword()` |
-| `tests` | Test coverage | `login.test.ts` → `login.ts` |
-| `documents` | Documentation describes | `README.md` → `UserService` |
-| `owns` | Code ownership | `@johndoe` → `auth/` |
-| `depends_on` | Package dependency | `cli` → `lancedb` |
-| `contains` | Containment hierarchy | `file` → `function` |
-| `references` | General reference | Any cross-reference |
+| `calls`      | Function invocation      | `login()` → `validatePassword()`  |
+| `tests`      | Test coverage            | `login.test.ts` → `login.ts`      |
+| `documents`  | Documentation describes  | `README.md` → `UserService`       |
+| `owns`       | Code ownership           | `@johndoe` → `auth/`              |
+| `depends_on` | Package dependency       | `cli` → `lancedb`                 |
+| `contains`   | Containment hierarchy    | `file` → `function`               |
+| `references` | General reference        | Any cross-reference               |
 
 ## AssetRelation Entity
 
@@ -176,10 +177,10 @@ export type RelationType =
   | 'references';
 
 export interface AssetRelation {
-  fromId: string;                      // Source asset ID
-  toId: string;                        // Target asset ID
-  type: RelationType;                  // Relation category
-  metadata?: Record<string, unknown>;  // Type-specific metadata
+  fromId: string; // Source asset ID
+  toId: string; // Target asset ID
+  type: RelationType; // Relation category
+  metadata?: Record<string, unknown>; // Type-specific metadata
 }
 ```
 
@@ -225,7 +226,7 @@ Find assets similar to a natural language query:
 ```typescript
 const results = await assetGraph.findSimilar(
   'authentication and password validation',
-  'function'  // optional type filter
+  'function' // optional type filter
 );
 
 // Returns functions related to auth/passwords
@@ -255,7 +256,7 @@ Combine vector search with metadata filters:
 ```typescript
 const results = await vectorStore.searchAssets(queryVector, {
   filter: "type = 'component' AND metadata.framework = 'react'",
-  limit: 10
+  limit: 10,
 });
 ```
 
@@ -292,12 +293,12 @@ The graph is built during repository indexing:
 
 Different parsers for different languages:
 
-| Language | Parser |
-|----------|--------|
+| Language              | Parser                  |
+| --------------------- | ----------------------- |
 | TypeScript/JavaScript | TypeScript compiler API |
-| Python | tree-sitter-python |
-| Go | tree-sitter-go |
-| Rust | tree-sitter-rust |
+| Python                | tree-sitter-python      |
+| Go                    | tree-sitter-go          |
+| Rust                  | tree-sitter-rust        |
 
 ## Use Cases
 
@@ -306,10 +307,7 @@ Different parsers for different languages:
 When gathering requirements, query related components:
 
 ```typescript
-const existingAuth = await assetGraph.findSimilar(
-  'user authentication',
-  'component'
-);
+const existingAuth = await assetGraph.findSimilar('user authentication', 'component');
 // Shows user what auth components already exist
 ```
 
@@ -320,7 +318,7 @@ Find what might be affected by a change:
 ```typescript
 const affected = await assetGraph.queryRelated(
   'function:validatePassword',
-  2  // 2 hops: direct callers + their callers
+  2 // 2 hops: direct callers + their callers
 );
 ```
 
@@ -329,10 +327,7 @@ const affected = await assetGraph.queryRelated(
 Find relevant tests for implementation:
 
 ```typescript
-const tests = await assetGraph.findSimilar(
-  task.description,
-  'test'
-);
+const tests = await assetGraph.findSimilar(task.description, 'test');
 // Suggests which tests might need updating
 ```
 
@@ -350,6 +345,7 @@ const authAssets = await assetGraph.findSimilar('user authentication');
 ### LanceDB Tables
 
 **Assets Table:**
+
 ```
 | Column    | Type     | Description           |
 |-----------|----------|-----------------------|
@@ -362,6 +358,7 @@ const authAssets = await assetGraph.findSimilar('user authentication');
 ```
 
 **Chunks Table:**
+
 ```
 | Column    | Type     | Description           |
 |-----------|----------|-----------------------|
@@ -395,11 +392,13 @@ Relationships stored in `graph/graph.json`:
 ## Maintaining This Document
 
 **Update when:**
+
 - New asset types are added
 - New relation types are added
 - Query patterns change
 - Storage format changes
 
 **Related docs:**
+
 - [../architecture/context-layer.md](../architecture/context-layer.md) - Implementation details
 - [../api/domain-models.md](../api/domain-models.md) - Full entity specs

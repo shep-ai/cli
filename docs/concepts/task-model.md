@@ -15,23 +15,23 @@ export class Task {
   status: TaskStatus;
   orderIndex: number;
 
-  dependsOn: string[];      // Task IDs
+  dependsOn: string[]; // Task IDs
   actionItems: ActionItem[];
 }
 ```
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | `string` | Unique identifier (UUID) |
-| `featureId` | `string` | Parent feature reference |
-| `title` | `string` | Concise task title |
-| `description` | `string` | Detailed task description |
-| `status` | `TaskStatus` | Current execution status |
-| `orderIndex` | `number` | Display/execution order hint |
-| `dependsOn` | `string[]` | IDs of tasks that must complete first |
-| `actionItems` | `ActionItem[]` | Granular steps within task |
+| Property      | Type           | Description                           |
+| ------------- | -------------- | ------------------------------------- |
+| `id`          | `string`       | Unique identifier (UUID)              |
+| `featureId`   | `string`       | Parent feature reference              |
+| `title`       | `string`       | Concise task title                    |
+| `description` | `string`       | Detailed task description             |
+| `status`      | `TaskStatus`   | Current execution status              |
+| `orderIndex`  | `number`       | Display/execution order hint          |
+| `dependsOn`   | `string[]`     | IDs of tasks that must complete first |
+| `actionItems` | `ActionItem[]` | Granular steps within task            |
 
 ## ActionItem Entity
 
@@ -45,20 +45,20 @@ export class ActionItem {
   status: TaskStatus;
   orderIndex: number;
 
-  dependsOn: string[];  // ActionItem IDs (within same task)
+  dependsOn: string[]; // ActionItem IDs (within same task)
 }
 ```
 
 ### Properties
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `id` | `string` | Unique identifier (UUID) |
-| `taskId` | `string` | Parent task reference |
-| `title` | `string` | Action description |
-| `status` | `TaskStatus` | Current status |
-| `orderIndex` | `number` | Execution order within task |
-| `dependsOn` | `string[]` | IDs of action items that must complete first |
+| Property     | Type         | Description                                  |
+| ------------ | ------------ | -------------------------------------------- |
+| `id`         | `string`     | Unique identifier (UUID)                     |
+| `taskId`     | `string`     | Parent task reference                        |
+| `title`      | `string`     | Action description                           |
+| `status`     | `TaskStatus` | Current status                               |
+| `orderIndex` | `number`     | Execution order within task                  |
+| `dependsOn`  | `string[]`   | IDs of action items that must complete first |
 
 ## TaskStatus Enum
 
@@ -67,7 +67,7 @@ export enum TaskStatus {
   Pending = 'pending',
   InProgress = 'in_progress',
   Completed = 'completed',
-  Blocked = 'blocked'
+  Blocked = 'blocked',
 }
 ```
 
@@ -142,14 +142,14 @@ export class DependencyValidator {
     const errors: ValidationError[] = [];
 
     // Check all dependencies exist
-    const taskIds = new Set(tasks.map(t => t.id));
+    const taskIds = new Set(tasks.map((t) => t.id));
     for (const task of tasks) {
       for (const depId of task.dependsOn) {
         if (!taskIds.has(depId)) {
           errors.push({
             type: 'missing_dependency',
             taskId: task.id,
-            dependencyId: depId
+            dependencyId: depId,
           });
         }
       }
@@ -209,9 +209,10 @@ export class ExecutionGraph {
   private completed: Set<string>;
 
   getExecutable(): Task[] {
-    return Array.from(this.tasks.values()).filter(task =>
-      task.status === TaskStatus.Pending &&
-      task.dependsOn.every(depId => this.completed.has(depId))
+    return Array.from(this.tasks.values()).filter(
+      (task) =>
+        task.status === TaskStatus.Pending &&
+        task.dependsOn.every((depId) => this.completed.has(depId))
     );
   }
 
@@ -231,18 +232,16 @@ class Task {
       return {
         completed: this.status === TaskStatus.Completed ? 1 : 0,
         total: 1,
-        percentage: this.status === TaskStatus.Completed ? 100 : 0
+        percentage: this.status === TaskStatus.Completed ? 100 : 0,
       };
     }
 
-    const completed = this.actionItems.filter(
-      ai => ai.status === TaskStatus.Completed
-    ).length;
+    const completed = this.actionItems.filter((ai) => ai.status === TaskStatus.Completed).length;
 
     return {
       completed,
       total: this.actionItems.length,
-      percentage: Math.round((completed / this.actionItems.length) * 100)
+      percentage: Math.round((completed / this.actionItems.length) * 100),
     };
   }
 }
@@ -272,21 +271,21 @@ const setupTask = new Task({
   featureId: feature.id,
   title: 'Setup project structure',
   description: 'Initialize directories and configs',
-  dependsOn: []
+  dependsOn: [],
 });
 
 const implementTask = new Task({
   featureId: feature.id,
   title: 'Implement core logic',
   description: 'Build the main functionality',
-  dependsOn: [setupTask.id]
+  dependsOn: [setupTask.id],
 });
 
 // Add action items
 setupTask.actionItems = [
   new ActionItem({ taskId: setupTask.id, title: 'Create src directory' }),
   new ActionItem({ taskId: setupTask.id, title: 'Add tsconfig.json' }),
-  new ActionItem({ taskId: setupTask.id, title: 'Configure ESLint' })
+  new ActionItem({ taskId: setupTask.id, title: 'Configure ESLint' }),
 ];
 
 // Check executability
@@ -303,12 +302,14 @@ console.log(graph.getExecutable()); // [implementTask] - now executable
 ## Maintaining This Document
 
 **Update when:**
+
 - Task/ActionItem properties change
 - Dependency rules evolve
 - Status transitions change
 - Execution logic updates
 
 **Related docs:**
+
 - [feature-model.md](./feature-model.md) - Parent entity
 - [sdlc-lifecycle.md](./sdlc-lifecycle.md) - Lifecycle context
 - [../architecture/agent-system.md](../architecture/agent-system.md) - Execution agents

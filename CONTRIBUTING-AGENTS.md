@@ -4,14 +4,14 @@ Rules and guidelines for AI agents (Claude, Copilot, Cursor, etc.) when contribu
 
 ## Quick Reference
 
-| Rule | Requirement |
-|------|-------------|
-| Commits | Conventional Commits format, always |
-| Scope | Required for all commits |
-| Co-author | Include `Co-Authored-By` footer |
-| TDD | Write tests first (Red-Green-Refactor) |
-| Architecture | Follow Clean Architecture layers |
-| Edits | Read files before editing |
+| Rule         | Requirement                            |
+| ------------ | -------------------------------------- |
+| Commits      | Conventional Commits format, always    |
+| Scope        | Required for all commits               |
+| Co-author    | Include `Co-Authored-By` footer        |
+| TDD          | Write tests first (Red-Green-Refactor) |
+| Architecture | Follow Clean Architecture layers       |
+| Edits        | Read files before editing              |
 
 ## Commit Rules
 
@@ -29,36 +29,36 @@ Rules and guidelines for AI agents (Claude, Copilot, Cursor, etc.) when contribu
 
 ### Types (Required)
 
-| Type | Description |
-|------|-------------|
-| `feat` | New feature or functionality |
-| `fix` | Bug fix |
-| `docs` | Documentation changes only |
-| `style` | Formatting, whitespace, no code change |
+| Type       | Description                                |
+| ---------- | ------------------------------------------ |
+| `feat`     | New feature or functionality               |
+| `fix`      | Bug fix                                    |
+| `docs`     | Documentation changes only                 |
+| `style`    | Formatting, whitespace, no code change     |
 | `refactor` | Code restructuring without behavior change |
-| `test` | Adding or updating tests |
-| `chore` | Maintenance, dependencies, build config |
-| `perf` | Performance improvements |
-| `ci` | CI/CD configuration changes |
+| `test`     | Adding or updating tests                   |
+| `chore`    | Maintenance, dependencies, build config    |
+| `perf`     | Performance improvements                   |
+| `ci`       | CI/CD configuration changes                |
 
 ### Scope (Required)
 
 Use the component or area being modified:
 
-| Scope | Area |
-|-------|------|
-| `cli` | CLI commands and presentation |
-| `tui` | Terminal UI components |
-| `web` | Web UI (Next.js) |
-| `agents` | LangGraph agent implementations |
-| `domain` | Domain entities and services |
-| `application` | Use cases and ports |
-| `infra` | Infrastructure layer |
-| `db` | Database/persistence |
-| `config` | Configuration handling |
-| `tests` | Test infrastructure |
-| `deps` | Dependencies |
-| `build` | Build configuration |
+| Scope         | Area                            |
+| ------------- | ------------------------------- |
+| `cli`         | CLI commands and presentation   |
+| `tui`         | Terminal UI components          |
+| `web`         | Web UI (Next.js)                |
+| `agents`      | LangGraph agent implementations |
+| `domain`      | Domain entities and services    |
+| `application` | Use cases and ports             |
+| `infra`       | Infrastructure layer            |
+| `db`          | Database/persistence            |
+| `config`      | Configuration handling          |
+| `tests`       | Test infrastructure             |
+| `deps`        | Dependencies                    |
+| `build`       | Build configuration             |
 
 ### Examples
 
@@ -122,6 +122,7 @@ Co-Authored-By: Claude <noreply@anthropic.com>
 ```
 
 For Claude Opus 4.5 specifically:
+
 ```
 Co-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>
 ```
@@ -142,25 +143,25 @@ Follow Clean Architecture - dependencies point inward:
 Presentation → Application → Domain ← Infrastructure
 ```
 
-| Layer | Can Import | Cannot Import |
-|-------|------------|---------------|
-| Domain | Nothing | Any other layer |
-| Application | Domain | Infrastructure, Presentation |
-| Infrastructure | Application, Domain | Presentation |
-| Presentation | Application | Domain (directly), Infrastructure |
+| Layer          | Can Import          | Cannot Import                     |
+| -------------- | ------------------- | --------------------------------- |
+| Domain         | Nothing             | Any other layer                   |
+| Application    | Domain              | Infrastructure, Presentation      |
+| Infrastructure | Application, Domain | Presentation                      |
+| Presentation   | Application         | Domain (directly), Infrastructure |
 
 ### File Locations
 
-| What | Where |
-|------|-------|
-| Domain entities | `src/domain/entities/` |
-| Value objects | `src/domain/value-objects/` |
-| Use cases | `src/application/use-cases/` |
-| Port interfaces | `src/application/ports/` |
-| Repositories | `src/infrastructure/repositories/` |
-| Agent nodes | `src/infrastructure/agents/langgraph/nodes/` |
-| CLI commands | `src/presentation/cli/commands/` |
-| Web components | `src/presentation/web/components/` |
+| What            | Where                                        |
+| --------------- | -------------------------------------------- |
+| Domain entities | `src/domain/entities/`                       |
+| Value objects   | `src/domain/value-objects/`                  |
+| Use cases       | `src/application/use-cases/`                 |
+| Port interfaces | `src/application/ports/`                     |
+| Repositories    | `src/infrastructure/repositories/`           |
+| Agent nodes     | `src/infrastructure/agents/langgraph/nodes/` |
+| CLI commands    | `src/presentation/cli/commands/`             |
+| Web components  | `src/presentation/web/components/`           |
 
 ### Testing (TDD Required)
 
@@ -201,6 +202,7 @@ When changing code that affects documentation:
 ### Title Format
 
 Use conventional commit format:
+
 ```
 feat(scope): description of change
 ```
@@ -209,18 +211,22 @@ feat(scope): description of change
 
 ```markdown
 ## Summary
+
 Brief description of changes
 
 ## Changes
+
 - Change 1
 - Change 2
 
 ## Testing
+
 - [ ] Unit tests added/updated
 - [ ] Integration tests pass
 - [ ] E2E tests pass (if applicable)
 
 ## Documentation
+
 - [ ] CLAUDE.md updated (if needed)
 - [ ] Related docs updated
 ```
@@ -257,12 +263,14 @@ pnpm format           # Format code
 ## Maintaining This Document
 
 **Update when:**
+
 - Commit conventions change
 - New scopes are added
 - Architecture patterns evolve
 - New prohibited actions identified
 
 **Related docs:**
+
 - [CONTRIBUTING.md](./CONTRIBUTING.md) - Human contributor guidelines
 - [CLAUDE.md](./CLAUDE.md) - AI agent codebase reference
 - [docs/development/](./docs/development/) - Development guides

@@ -7,6 +7,7 @@ Complete guide to implementing features using Test-Driven Development with Clean
 > "Write the test first, then write the code to make it pass."
 
 TDD ensures:
+
 - **Confidence** - Every feature has tests before code exists
 - **Design** - Tests drive better interfaces and APIs
 - **Documentation** - Tests serve as living documentation
@@ -97,7 +98,7 @@ function createFeatureInLifecycle(lifecycle: SdlcLifecycle): Feature {
   const feature = Feature.create({
     name: 'Test Feature',
     description: 'Description',
-    repoPath: '/test/repo'
+    repoPath: '/test/repo',
   });
   // Transition through lifecycle to reach target
   // (simplified for example)
@@ -216,8 +217,9 @@ describe('ArchiveFeatureUseCase', () => {
     featureRepository.findById.mockResolvedValue(null);
 
     // Act & Assert
-    await expect(useCase.execute({ featureId: 'nonexistent' }))
-      .rejects.toThrow('Feature not found');
+    await expect(useCase.execute({ featureId: 'nonexistent' })).rejects.toThrow(
+      'Feature not found'
+    );
   });
 
   it('should fail if feature cannot be archived', async () => {
@@ -226,8 +228,9 @@ describe('ArchiveFeatureUseCase', () => {
     featureRepository.findById.mockResolvedValue(feature);
 
     // Act & Assert
-    await expect(useCase.execute({ featureId: feature.id }))
-      .rejects.toThrow('Cannot archive feature not in Maintenance');
+    await expect(useCase.execute({ featureId: feature.id })).rejects.toThrow(
+      'Cannot archive feature not in Maintenance'
+    );
   });
 });
 ```
@@ -249,9 +252,7 @@ export interface ArchiveFeatureOutput {
 }
 
 export class ArchiveFeatureUseCase {
-  constructor(
-    private readonly featureRepository: IFeatureRepository
-  ) {}
+  constructor(private readonly featureRepository: IFeatureRepository) {}
 
   async execute(input: ArchiveFeatureInput): Promise<ArchiveFeatureOutput> {
     const feature = await this.featureRepository.findById(input.featureId);
@@ -266,7 +267,7 @@ export class ArchiveFeatureUseCase {
 
     return {
       success: true,
-      archivedAt: feature.archivedAt!
+      archivedAt: feature.archivedAt!,
     };
   }
 }
@@ -361,7 +362,8 @@ describe('SqliteFeatureRepository', () => {
 export class SqliteFeatureRepository implements IFeatureRepository {
   // Add new columns to schema
   async save(feature: Feature): Promise<void> {
-    await this.db.run(`
+    await this.db.run(
+      `
       INSERT INTO features (id, name, description, lifecycle, repo_path, is_archived, archived_at)
       VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
@@ -371,15 +373,17 @@ export class SqliteFeatureRepository implements IFeatureRepository {
         is_archived = excluded.is_archived,
         archived_at = excluded.archived_at,
         updated_at = CURRENT_TIMESTAMP
-    `, [
-      feature.id,
-      feature.name,
-      feature.description,
-      feature.lifecycle,
-      feature.repoPath,
-      feature.isArchived ? 1 : 0,
-      feature.archivedAt?.toISOString() ?? null
-    ]);
+    `,
+      [
+        feature.id,
+        feature.name,
+        feature.description,
+        feature.lifecycle,
+        feature.repoPath,
+        feature.isArchived ? 1 : 0,
+        feature.archivedAt?.toISOString() ?? null,
+      ]
+    );
   }
 
   async findByRepoPath(repoPath: string): Promise<Feature[]> {
@@ -387,7 +391,7 @@ export class SqliteFeatureRepository implements IFeatureRepository {
       'SELECT * FROM features WHERE repo_path = ? AND is_archived = 0',
       [repoPath]
     );
-    return rows.map(row => FeatureMapper.toDomain(row));
+    return rows.map((row) => FeatureMapper.toDomain(row));
   }
 
   async findArchived(repoPath: string): Promise<Feature[]> {
@@ -395,7 +399,7 @@ export class SqliteFeatureRepository implements IFeatureRepository {
       'SELECT * FROM features WHERE repo_path = ? AND is_archived = 1',
       [repoPath]
     );
-    return rows.map(row => FeatureMapper.toDomain(row));
+    return rows.map((row) => FeatureMapper.toDomain(row));
   }
 }
 ```
@@ -526,7 +530,7 @@ export function createFeature(overrides: Partial<FeatureProps> = {}): Feature {
     name: 'Default Name',
     description: 'Default Description',
     repoPath: '/default/path',
-    ...overrides
+    ...overrides,
   });
 }
 
@@ -539,12 +543,12 @@ export function createMaintenanceFeature(): Feature {
 
 ## Layer Testing Summary
 
-| Layer | Test Type | Speed | Dependencies |
-|-------|-----------|-------|--------------|
-| Domain | Unit | Fast | None |
-| Application | Unit | Fast | Mocked ports |
+| Layer          | Test Type   | Speed  | Dependencies        |
+| -------------- | ----------- | ------ | ------------------- |
+| Domain         | Unit        | Fast   | None                |
+| Application    | Unit        | Fast   | Mocked ports        |
 | Infrastructure | Integration | Medium | Real DB (in-memory) |
-| Presentation | E2E | Slow | Full stack |
+| Presentation   | E2E         | Slow   | Full stack          |
 
 ## Continuous TDD Workflow
 
@@ -562,10 +566,12 @@ export function createMaintenanceFeature(): Feature {
 ## Maintaining This Document
 
 **Update when:**
+
 - Testing infrastructure changes
 - New testing patterns are adopted
 - Layer structure changes
 
 **Related docs:**
+
 - [testing.md](./testing.md) - General testing guide
 - [../architecture/clean-architecture.md](../architecture/clean-architecture.md) - Layer details

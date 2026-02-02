@@ -4,11 +4,11 @@ Guides for developing and contributing to Shep AI CLI.
 
 ## Contents
 
-| Document | Description |
-|----------|-------------|
-| [setup.md](./setup.md) | Development environment setup |
-| [testing.md](./testing.md) | Testing strategy and commands |
-| [building.md](./building.md) | Build process and tooling |
+| Document                     | Description                   |
+| ---------------------------- | ----------------------------- |
+| [setup.md](./setup.md)       | Development environment setup |
+| [testing.md](./testing.md)   | Testing strategy and commands |
+| [building.md](./building.md) | Build process and tooling     |
 
 ## Quick Start for Contributors
 
@@ -58,11 +58,13 @@ npm run dev
 ## Maintaining This Directory
 
 **Update when:**
+
 - Development workflow changes
 - New tooling is adopted
 - Setup process changes
 
 **File naming:**
+
 - Use kebab-case
 - Be descriptive
 - Match process names

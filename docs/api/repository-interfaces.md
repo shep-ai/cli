@@ -72,24 +72,22 @@ export class SqliteFeatureRepository implements IFeatureRepository {
   ) {}
 
   async findById(id: string): Promise<Feature | null> {
-    const row = await this.db.get<FeatureRow>(
-      'SELECT * FROM features WHERE id = ?',
-      [id]
-    );
+    const row = await this.db.get<FeatureRow>('SELECT * FROM features WHERE id = ?', [id]);
 
     if (!row) return null;
 
     const [tasks, artifacts, requirements] = await Promise.all([
       this.taskRepo.findByFeatureId(id),
       this.artifactRepo.findByFeatureId(id),
-      this.requirementRepo.findByFeatureId(id)
+      this.requirementRepo.findByFeatureId(id),
     ]);
 
     return FeatureMapper.toDomain(row, tasks, artifacts, requirements);
   }
 
   async save(feature: Feature): Promise<void> {
-    await this.db.run(`
+    await this.db.run(
+      `
       INSERT INTO features (id, name, description, lifecycle, repo_path)
       VALUES (?, ?, ?, ?, ?)
       ON CONFLICT(id) DO UPDATE SET
@@ -97,13 +95,9 @@ export class SqliteFeatureRepository implements IFeatureRepository {
         description = excluded.description,
         lifecycle = excluded.lifecycle,
         updated_at = CURRENT_TIMESTAMP
-    `, [
-      feature.id,
-      feature.name,
-      feature.description,
-      feature.lifecycle,
-      feature.repoPath
-    ]);
+    `,
+      [feature.id, feature.name, feature.description, feature.lifecycle, feature.repoPath]
+    );
   }
 }
 ```
@@ -431,12 +425,14 @@ export interface IAnalysisRepository {
 ## Maintaining This Document
 
 **Update when:**
+
 - Repository interfaces change
 - New repositories are added
 - Method signatures change
 - New patterns are introduced
 
 **Related docs:**
+
 - [domain-models.md](./domain-models.md) - Entity definitions
 - [../architecture/repository-pattern.md](../architecture/repository-pattern.md) - Pattern details
 - [../architecture/clean-architecture.md](../architecture/clean-architecture.md) - Layer context
