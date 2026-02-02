@@ -1,0 +1,18 @@
+# Trivy Ignore File
+# =================
+# CVEs listed here are suppressed from Trivy scans.
+# Only add CVEs after security review confirms they are acceptable risks.
+
+# Node.js base image bundled npm packages
+# These vulnerabilities are in npm's internal bundled dependencies (glob, tar)
+# within the node:22-alpine base image. Since npm is not used at runtime
+# (only node executes the CLI), these do not affect the application.
+# Will be automatically fixed when Node.js releases a patched base image.
+
+# glob command injection via malicious filenames (in npm's bundled glob)
+CVE-2025-64756
+
+# node-tar arbitrary file overwrite vulnerabilities (in npm's bundled tar)
+CVE-2026-23745
+CVE-2026-23950
+CVE-2026-24842

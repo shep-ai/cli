@@ -277,13 +277,25 @@ Husky runs automatically on commit:
 
 ## CI/CD & Docker
 
-Automated pipeline using GitHub Actions with semantic-release.
+Automated pipeline using GitHub Actions with semantic-release and security gates.
 
 ### Pipeline Structure
 
-- **All branches**: Lint, Typecheck, Unit Tests, E2E tests run in parallel
+- **All branches**: Lint, Typecheck, Unit Tests, E2E tests, Security scans run in parallel
 - **Non-main branches**: Docker builds and pushes `sha-<commit>` tag
-- **Main branch**: After tests pass, semantic-release handles npm publish + Docker push
+- **Main branch**: After all jobs pass (including security), semantic-release handles npm publish + Docker push
+
+### Security Scanning
+
+All branches run these security scanners in parallel (release-blocking on main):
+
+| Scanner               | Purpose                                    |
+| --------------------- | ------------------------------------------ |
+| **Trivy (deps)**      | Dependency vulnerabilities (HIGH/CRITICAL) |
+| **Trivy (container)** | Docker image vulnerabilities               |
+| **Gitleaks**          | Secret detection in git history            |
+| **Semgrep**           | SAST for TypeScript/JavaScript             |
+| **Hadolint**          | Dockerfile best practices                  |
 
 ### Docker
 

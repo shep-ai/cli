@@ -157,6 +157,22 @@ Uses **Repository Pattern** with SQLite:
 | Embeddings      | [Transformers.js](https://huggingface.co/docs/transformers.js) (local, multiple models) |
 | Testing         | Vitest (unit/integration) + Playwright (e2e)                                            |
 | Methodology     | TDD (Red-Green-Refactor)                                                                |
+| Security        | Trivy, Gitleaks, Semgrep, Hadolint (CI gates)                                           |
+
+## Security
+
+Automated security scanning runs on every push and PR:
+
+| Scanner      | Purpose                                    |
+| ------------ | ------------------------------------------ |
+| **Trivy**    | Dependency & container vulnerability scans |
+| **Gitleaks** | Secret detection in git history            |
+| **Semgrep**  | SAST for TypeScript/JavaScript             |
+| **Hadolint** | Dockerfile best practices                  |
+
+Security gates **block releases** on main—all scanners must pass before npm publish and Docker push.
+
+See [CI/CD Documentation](./docs/development/cicd.md) for details.
 
 ## Documentation
 
