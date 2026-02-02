@@ -1,0 +1,87 @@
+{
+  "name": "@shep-ai/cli",
+  "version": "0.1.0",
+  "description": "Autonomous AI Native SDLC Platform - Automate the development cycle from idea to deploy",
+  "type": "module",
+  "license": "MIT",
+  "author": "Shep AI",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shep-ai/cli.git"
+  },
+  "keywords": [
+    "ai",
+    "sdlc",
+    "automation",
+    "cli",
+    "developer-tools",
+    "code-generation",
+    "langgraph"
+  ],
+  "bin": {
+    "shep": "./dist/cli/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --dir tests/unit",
+    "test:int": "vitest run --dir tests/integration",
+    "test:e2e": "playwright test",
+    "test:single": "vitest run",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "lint:tsp": "tsp compile tsp/ --no-emit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "format:tsp": "tsp format \"tsp/**/*.tsp\"",
+    "cli": "tsx src/presentation/cli/index.ts",
+    "storybook": "storybook dev -p 6006",
+    "storybook:build": "storybook build",
+    "web:dev": "next dev",
+    "web:build": "next build",
+    "tsp:compile": "tsp compile tsp/",
+    "tsp:format": "tsp format \"tsp/**/*.tsp\"",
+    "tsp:watch": "tsp compile tsp/ --watch",
+    "prepare": "husky",
+    "validate": "pnpm run lint:fix && pnpm run format && pnpm run typecheck && pnpm run tsp:compile"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@commitlint/cli": "^19.0.0",
+    "@commitlint/config-conventional": "^19.0.0",
+    "@eslint/js": "^9.0.0",
+    "@typespec/compiler": "^0.60.0",
+    "@typespec/json-schema": "^0.60.0",
+    "@typespec/openapi3": "^0.60.0",
+    "@typespec/prettier-plugin-typespec": "^0.60.0",
+    "@typespec/protobuf": "^0.60.0",
+    "eslint": "^9.0.0",
+    "eslint-config-prettier": "^10.0.0",
+    "husky": "^9.0.0",
+    "lint-staged": "^15.0.0",
+    "prettier": "^3.0.0",
+    "typescript": "^5.3.0",
+    "typescript-eslint": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@9.0.0"
+}
