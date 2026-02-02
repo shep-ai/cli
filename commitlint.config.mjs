@@ -20,7 +20,7 @@
  *   revert   - Revert previous commit
  *
  * Scopes (optional):
- *   cli, tui, web, api, domain, agents, deployment, tsp, deps, config
+ *   specs, cli, tui, web, api, domain, agents, deployment, tsp, deps, config
  *
  * Examples:
  *   feat(cli): add new analyze command
@@ -59,6 +59,7 @@ export default {
       1, // Warning, not error
       'always',
       [
+        'specs', // Feature specifications (shep-kit)
         'cli', // CLI commands and interface
         'tui', // Terminal UI
         'web', // Web UI
