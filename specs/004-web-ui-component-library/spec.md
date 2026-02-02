@@ -22,36 +22,38 @@ This feature establishes the foundational component library using shadcn/ui (Rad
 
 ## Success Criteria
 
-- [ ] Next.js 15 installed and configured with App Router
-- [ ] shadcn/ui CLI installed and initialized
-- [ ] Tailwind CSS configured with design tokens (colors, spacing, typography, shadows)
-- [ ] **Dark mode support configured from the start** (Tailwind dark mode + theme tokens)
-- [ ] Storybook 8+ configured for React/Next.js components (local development only)
+- [ ] Next.js 16 (latest) installed and configured with App Router
+- [ ] React 19 (stable) with Next.js 16 support
+- [ ] shadcn/ui CLI 3.7.0+ installed and initialized
+- [ ] Tailwind CSS v4 configured with design tokens (colors, spacing, typography, shadows)
+- [ ] **Dark mode support configured from the start** (Tailwind v4 dark mode + theme tokens)
+- [ ] Storybook 10.x configured for React/Next.js components (local development only)
+- [ ] Unified `radix-ui` package (not individual @radix-ui/react-\* packages)
 - [ ] Core shadcn/ui components installed: Button, Card, Input, Label, Select, Dialog
 - [ ] Additional components installed: Badge, Alert, Tabs, Accordion, Toast, Popover
 - [ ] Each component has Storybook stories with all variants (light + dark mode)
 - [ ] Design tokens documented in Storybook (colors, spacing, typography, shadows)
 - [ ] `src/presentation/web/` directory structure follows Clean Architecture
-- [ ] Component tests written following TDD principles (Vitest + React Testing Library)
-- [ ] Playwright E2E test setup verified for web components
+- [ ] Component tests written following TDD principles (Vitest + React Testing Library 16+)
+- [ ] Playwright 1.57+ E2E test setup verified for web components
 
 ## Affected Areas
 
-| Area                        | Impact | Reasoning                                          |
-| --------------------------- | ------ | -------------------------------------------------- |
-| `src/presentation/web/`     | High   | New directory - entire web UI layer foundation     |
-| `package.json`              | High   | Add Next.js, shadcn/ui, Storybook, Tailwind deps   |
-| `.storybook/`               | High   | New directory - Storybook configuration            |
-| `tailwind.config.ts`        | High   | New file - Tailwind with dark mode + design tokens |
-| `postcss.config.js`         | Medium | New file - PostCSS for Tailwind                    |
-| `components.json`           | Medium | New file - shadcn/ui configuration                 |
-| `src/presentation/web/lib/` | Medium | Utility functions (cn helper, theme utilities)     |
-| `tests/unit/presentation/`  | Medium | New test directory for component unit tests        |
-| `tests/e2e/web/`            | Medium | E2E test directory for web UI (Playwright)         |
-| `tsconfig.json`             | Low    | Add paths for @/components and @/lib aliases       |
-| `eslint.config.mjs`         | Low    | Add React/Next.js ESLint rules                     |
-| `.prettierrc`               | Low    | Add Tailwind Prettier plugin                       |
-| `docs/development/`         | Low    | Document component library usage and design system |
+| Area                        | Impact | Reasoning                                                           |
+| --------------------------- | ------ | ------------------------------------------------------------------- |
+| `src/presentation/web/`     | High   | New directory - entire web UI layer foundation                      |
+| `package.json`              | High   | Add Next.js 16, React 19, shadcn/ui, Storybook 10, Tailwind v4 deps |
+| `.storybook/`               | High   | New directory - Storybook 10.x configuration                        |
+| `tailwind.config.ts`        | High   | New file - Tailwind v4 with dark mode + design tokens               |
+| `postcss.config.js`         | Medium | New file - PostCSS for Tailwind v4                                  |
+| `components.json`           | Medium | New file - shadcn/ui configuration                                  |
+| `src/presentation/web/lib/` | Medium | Utility functions (cn helper, theme utilities)                      |
+| `tests/unit/presentation/`  | Medium | New test directory for component unit tests                         |
+| `tests/e2e/web/`            | Medium | E2E test directory for web UI (Playwright)                          |
+| `tsconfig.json`             | Low    | Add paths for @/components and @/lib aliases                        |
+| `eslint.config.mjs`         | Low    | Add React/Next.js ESLint rules                                      |
+| `.prettierrc`               | Low    | Add Tailwind Prettier plugin                                        |
+| `docs/development/`         | Low    | Document component library usage and design system                  |
 
 ## Dependencies
 
@@ -61,15 +63,16 @@ None identified. This is foundational infrastructure with no feature dependencie
 
 **L** - Large feature requiring:
 
-- Multiple tool installations (Next.js, Storybook, Tailwind, shadcn/ui)
+- Multiple latest-version tool installations (Next.js 16, React 19, Storybook 10.x, Tailwind v4, shadcn/ui 3.7+)
 - New directory structure following Clean Architecture
-- Design token system with light + dark mode themes
-- 12 components total (6 core + 6 additional) with Storybook stories
-- Component testing infrastructure following TDD
-- Dark mode configuration across all tools
-- Comprehensive documentation
+- Tailwind v4 design token system with light + dark mode themes
+- Unified `radix-ui` package integration (cleaner dependency tree)
+- 12 components total (6 core + 6 additional) with Storybook 10.x stories
+- Component testing infrastructure following TDD (React Testing Library 16+, Playwright 1.57+)
+- Dark mode configuration across all tools using modern CSS features
+- Comprehensive documentation with migration notes for Tailwind v4 and unified Radix
 
-This establishes the foundation for all future web UI work.
+This establishes the cutting-edge foundation for all future web UI work.
 
 ## Open Questions
 
@@ -78,6 +81,8 @@ None - requirements are clear after user decisions:
 - ✅ Dark mode: Yes, configured from the start
 - ✅ Component set: Core 6 + Badge, Alert, Tabs, Accordion, Toast, Popover
 - ✅ Storybook deployment: Local development only
+- ✅ Versions: Latest stable (Next.js 16, React 19, Storybook 10.x, Tailwind v4, shadcn/ui 3.7+)
+- ✅ Radix UI: Unified `radix-ui` package (not individual @radix-ui/react-\* packages)
 
 ---
 
