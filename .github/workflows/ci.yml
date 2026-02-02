@@ -86,10 +86,6 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run test:unit --passWithNoTests
       - run: pnpm run test:int --passWithNoTests
-      - uses: codecov/codecov-action@v4
-        if: always()
-        with:
-          fail_ci_if_error: false
 
   test-e2e-cli:
     name: E2E (CLI)
