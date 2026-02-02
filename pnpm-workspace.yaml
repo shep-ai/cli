@@ -1,0 +1,8 @@
+# pnpm workspace configuration
+# Currently a single-package workspace, but structured for future expansion
+
+packages:
+  # Root package (main CLI)
+  - '.'
+  # Future workspace packages can be added here:
+  # - 'packages/*'

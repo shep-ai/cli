@@ -1,0 +1,5 @@
+#!/bin/sh
+# Commit message hook - validates conventional commit format
+# See: https://commitlint.js.org/
+
+pnpm exec commitlint --edit "$1"

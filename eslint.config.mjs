@@ -1,0 +1,163 @@
+// @ts-check
+/**
+ * ESLint Flat Config for Shep AI CLI
+ *
+ * This configuration uses ESLint 9+ flat config format with TypeScript support.
+ * It's designed to be scalable and maintainable for a large open source project.
+ *
+ * @see https://eslint.org/docs/latest/use/configure/configuration-files
+ * @see https://typescript-eslint.io/getting-started/
+ */
+
+import eslint from '@eslint/js';
+import tseslint from 'typescript-eslint';
+import prettierConfig from 'eslint-config-prettier';
+
+export default tseslint.config(
+  // =============================================================================
+  // Global ignores (replaces .eslintignore)
+  // =============================================================================
+  {
+    ignores: [
+      // Build outputs
+      'dist/**',
+      'build/**',
+      '.next/**',
+      'out/**',
+
+      // Dependencies
+      'node_modules/**',
+
+      // Generated files
+      'apis/**',
+      '*.generated.*',
+      'coverage/**',
+
+      // TypeSpec (handled by tsp linter)
+      'tsp/**',
+
+      // Test outputs
+      'test-results/**',
+      'playwright-report/**',
+
+      // Config files that don't need linting
+      '*.config.js',
+      '*.config.mjs',
+      '*.config.cjs',
+    ],
+  },
+
+  // =============================================================================
+  // Base ESLint recommended rules
+  // =============================================================================
+  eslint.configs.recommended,
+
+  // =============================================================================
+  // TypeScript recommended rules
+  // =============================================================================
+  ...tseslint.configs.recommended,
+  ...tseslint.configs.stylistic,
+
+  // =============================================================================
+  // Project-specific TypeScript rules
+  // =============================================================================
+  {
+    files: ['**/*.ts', '**/*.tsx', '**/*.mts', '**/*.cts'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      // -------------------------------------------------------------------------
+      // TypeScript-specific rules
+      // -------------------------------------------------------------------------
+
+      // Prefer type-only imports for types (tree-shaking friendly)
+      '@typescript-eslint/consistent-type-imports': [
+        'warn',
+        {
+          prefer: 'type-imports',
+          fixStyle: 'inline-type-imports',
+        },
+      ],
+
+      // Require explicit return types on public methods
+      '@typescript-eslint/explicit-function-return-type': 'off',
+      '@typescript-eslint/explicit-module-boundary-types': 'off',
+
+      // Allow unused vars with underscore prefix
+      '@typescript-eslint/no-unused-vars': [
+        'warn',
+        {
+          argsIgnorePattern: '^_',
+          varsIgnorePattern: '^_',
+          caughtErrorsIgnorePattern: '^_',
+        },
+      ],
+
+      // Prefer nullish coalescing
+      '@typescript-eslint/prefer-nullish-coalescing': 'warn',
+
+      // Prefer optional chaining
+      '@typescript-eslint/prefer-optional-chain': 'warn',
+
+      // No floating promises (must handle or void)
+      '@typescript-eslint/no-floating-promises': 'off', // Enable when typed linting is set up
+
+      // No misused promises
+      '@typescript-eslint/no-misused-promises': 'off', // Enable when typed linting is set up
+
+      // -------------------------------------------------------------------------
+      // General code quality rules
+      // -------------------------------------------------------------------------
+
+      // Enforce consistent brace style
+      curly: ['warn', 'all'],
+
+      // Require === and !==
+      eqeqeq: ['error', 'always', { null: 'ignore' }],
+
+      // No console in production code (warn for now)
+      'no-console': 'warn',
+
+      // No debugger statements
+      'no-debugger': 'error',
+
+      // Prefer const over let when variable is not reassigned
+      'prefer-const': 'warn',
+
+      // Prefer template literals over string concatenation
+      'prefer-template': 'warn',
+
+      // No var, use let or const
+      'no-var': 'error',
+    },
+  },
+
+  // =============================================================================
+  // JavaScript files (no TypeScript rules)
+  // =============================================================================
+  {
+    files: ['**/*.js', '**/*.mjs', '**/*.cjs'],
+    ...tseslint.configs.disableTypeChecked,
+  },
+
+  // =============================================================================
+  // Test files - relaxed rules
+  // =============================================================================
+  {
+    files: ['**/*.test.ts', '**/*.spec.ts', '**/tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-non-null-assertion': 'off',
+      'no-console': 'off',
+    },
+  },
+
+  // =============================================================================
+  // Prettier compatibility (must be last)
+  // =============================================================================
+  prettierConfig
+);

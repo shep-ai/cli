@@ -1,0 +1,60 @@
+# TypeSpec Configuration
+# https://typespec.io/docs/handbook/configuration/configuration/
+#
+# Multi-emitter configuration for generating various API artifacts
+# from Shep AI domain models.
+#
+# Output Structure:
+#   apis/
+#   ├── openapi/       OpenAPI 3.x specs
+#   ├── json-schema/   JSON Schema definitions
+#   └── protobuf/      Protocol Buffer definitions
+
+# Emitters to run during compilation
+emit:
+  - '@typespec/openapi3'
+  - '@typespec/json-schema'
+  # - "@typespec/protobuf"  # Uncomment when protobuf annotations added
+
+# Base output directory for all emitters
+output-dir: '{cwd}/apis'
+
+# Per-emitter configuration options
+options:
+  '@typespec/openapi3':
+    emitter-output-dir: '{output-dir}/openapi'
+    # output-file: "shep-ai.yaml"  # Custom filename (optional)
+
+  '@typespec/json-schema':
+    emitter-output-dir: '{output-dir}/json-schema'
+    emitAllModels: true
+    emitAllRefs: true
+    # bundleId: "shep-ai-models"  # Bundle all schemas (optional)
+
+  # "@typespec/protobuf":
+  #   emitter-output-dir: "{output-dir}/protobuf"
+
+# =============================================================================
+# Linter Configuration
+# =============================================================================
+# TypeSpec has built-in linting support. Rules can be enabled/disabled here.
+# See: https://typespec.io/docs/extending-typespec/linters/
+
+linter:
+  extends:
+    # Enable recommended rules from OpenAPI library
+    # - "@typespec/openapi3/all"  # Uncomment for stricter OpenAPI validation
+
+  # Enable specific rules
+  # enable:
+  #   "@typespec/http/op-signature-should-not-have-duplicate-params": true
+
+  # Disable specific rules with reason
+  # disable:
+  #   "@typespec/some-rule": "Reason for disabling"
+# =============================================================================
+# Future emitters (when available)
+# =============================================================================
+# - TypeScript models: @azure-tools/typespec-ts or community emitters
+# - Go models: No official emitter yet
+# - Avro schemas: No official emitter yet

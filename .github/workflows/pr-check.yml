@@ -1,0 +1,87 @@
+# =============================================================================
+# Pull Request Check Workflow
+# =============================================================================
+# Additional checks for pull requests including commit message validation.
+
+name: PR Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  # ===========================================================================
+  # Commit Message Validation
+  # ===========================================================================
+  commitlint:
+    name: Validate Commits
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: '9'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Validate commit messages
+        run: |
+          pnpm exec commitlint \
+            --from ${{ github.event.pull_request.base.sha }} \
+            --to ${{ github.event.pull_request.head.sha }} \
+            --verbose
+
+  # ===========================================================================
+  # PR Title Validation (Conventional Commits)
+  # ===========================================================================
+  pr-title:
+    name: Validate PR Title
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title format
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            build
+            ci
+            chore
+            revert
+          scopes: |
+            cli
+            tui
+            web
+            api
+            domain
+            agents
+            deployment
+            tsp
+            deps
+            config
+            dx
+            release
+          requireScope: false
+          subjectPattern: ^[a-z].+$
+          subjectPatternError: |
+            PR title subject must start with lowercase letter.
+            Example: "feat(cli): add new command"

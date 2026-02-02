@@ -1,0 +1,69 @@
+// Base agent models and enums
+/**
+ * @module Shep.Agents
+ *
+ * Agent Module Index - Re-exports all agent models and interfaces.
+ *
+ * This module serves as the central entry point for all agent-related
+ * TypeSpec definitions in the Shep AI system. Import this file to access
+ * all agent models, enums, and interfaces.
+ *
+ * ## Module Structure
+ *
+ * ```
+ * agents/
+ *   |-- index.tsp          <-- This file (re-exports everything)
+ *   |-- base.tsp           <-- AgentInstance, AgentStatus
+ *   |-- deploy-target.tsp  <-- DeployTarget discriminated union
+ *   |-- feature-agent.tsp  <-- FeatureAgent (main orchestrator)
+ *   |-- deploy-agent.tsp   <-- LocalDeployAgent
+ * ```
+ *
+ * ## Available Exports
+ *
+ * ### Enums
+ * - `AgentStatus` - Operational status of an agent instance
+ *
+ * ### Models
+ * - `AgentInstance` - Base model for running agent instances
+ * - `FeatureAgent` - Main orchestrating agent (the "brain")
+ * - `LocalDeployAgent` - Agent for local deployments
+ * - `DeployTargetActionItem` - Single action item deployment target
+ * - `DeployTargetTask` - Single task deployment target
+ * - `DeployTargetTasks` - Multiple tasks deployment target
+ *
+ * ### Unions
+ * - `DeployTarget` - Discriminated union of deployment targets
+ *
+ * ### Interfaces
+ * - `FeatureAgentOperations` - Operations for feature management
+ * - `LocalDeployAgentOperations` - Operations for local deployments
+ *
+ * ## Usage
+ *
+ * ```typespec
+ * import "./agents/index.tsp";
+ *
+ * // Now you can use all agent types
+ * model MyService {
+ *   featureAgent: FeatureAgent;
+ *   deployAgent: LocalDeployAgent;
+ * }
+ * ```
+ *
+ * @see docs/architecture/agent-system.md - Detailed agent architecture
+ * @see ./base.tsp - Base agent definitions
+ * @see ./feature-agent.tsp - Main orchestrating agent
+ * @see ./deploy-agent.tsp - Deployment agent
+ * @see ./deploy-target.tsp - Deployment target types
+ */
+import "./base.tsp";
+
+// Deployment target discriminated union
+import "./deploy-target.tsp";
+
+// Main orchestrating feature agent
+import "./feature-agent.tsp";
+
+// Local deployment agent
+import "./deploy-agent.tsp";
