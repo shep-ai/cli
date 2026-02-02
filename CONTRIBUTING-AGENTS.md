@@ -138,7 +138,7 @@ chore(build): optimize bundle size
 1. **Type is mandatory** - Every commit must start with a valid type
 2. **Scope is mandatory** - Always specify the affected component
 3. **Description must be imperative** - Use "add" not "added" or "adds"
-4. **Description must be lowercase** - No capital letters after the colon
+4. **Description must be ALL lowercase** - No capital letters after the colon, including acronyms (`pr` not `PR`, `api` not `API`, `ui` not `UI`)
 5. **No period at the end** - Description should not end with a period
 6. **Keep it concise** - Description should be under 72 characters
 7. **Body for details** - Use the body for explaining "why" if needed

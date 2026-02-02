@@ -106,6 +106,8 @@ We follow [Conventional Commits](https://www.conventionalcommits.org/):
 [optional footer]
 ```
 
+**Important:** The description must be ALL lowercase, including acronyms (`pr` not `PR`, `api` not `API`).
+
 **Types:**
 
 - `feat`: New feature

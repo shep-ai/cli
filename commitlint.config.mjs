@@ -75,7 +75,7 @@ export default {
       ],
     ],
 
-    // Subject rules
+    // Subject rules - ALL lowercase including acronyms (pr not PR, api not API)
     'subject-case': [2, 'always', 'lower-case'],
     'subject-empty': [2, 'never'],
     'subject-full-stop': [2, 'never', '.'],
