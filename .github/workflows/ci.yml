@@ -215,9 +215,11 @@ jobs:
           cat trivy-fs-results.txt || echo "No results file found"
           echo "::endgroup::"
           echo "## Trivy Filesystem Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat trivy-fs-results.txt >> $GITHUB_STEP_SUMMARY || echo "No results file found"
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f trivy-fs-results.txt ]; then
+            sed -n '/^Total:/,$p' trivy-fs-results.txt >> $GITHUB_STEP_SUMMARY || cat trivy-fs-results.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No results file found" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Trivy filesystem scan (SARIF)
         uses: aquasecurity/trivy-action@master
@@ -264,6 +266,7 @@ jobs:
           exit-code: '1'
           format: 'table'
           output: 'trivy-container-results.txt'
+          trivyignores: '.trivyignore'
 
       - name: Display Trivy results
         if: always()
@@ -272,9 +275,12 @@ jobs:
           cat trivy-container-results.txt || echo "No results file found"
           echo "::endgroup::"
           echo "## Trivy Container Scan Results" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          cat trivy-container-results.txt >> $GITHUB_STEP_SUMMARY || echo "No results file found"
-          echo '```' >> $GITHUB_STEP_SUMMARY
+          if [ -f trivy-container-results.txt ]; then
+            # Extract only the vulnerability table (skip header lines, keep from Total: onwards)
+            sed -n '/^Total:/,$p' trivy-container-results.txt >> $GITHUB_STEP_SUMMARY || cat trivy-container-results.txt >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No results file found" >> $GITHUB_STEP_SUMMARY
+          fi
 
       - name: Trivy container scan (SARIF)
         uses: aquasecurity/trivy-action@master
@@ -284,6 +290,7 @@ jobs:
           severity: 'HIGH,CRITICAL'
           format: 'sarif'
           output: 'trivy-container-results.sarif'
+          trivyignores: '.trivyignore'
         continue-on-error: true
 
       - name: Upload Trivy results to GitHub Security
