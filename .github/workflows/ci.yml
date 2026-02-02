@@ -4,20 +4,18 @@
 # All jobs run in parallel. Release only runs on push to main.
 #
 # Pipeline Structure:
-#   ┌──────────┬───────────┬────────────┬───────────┬───────────┬───────────┬────────┬──────────┐
-#   │   Lint   │ Typecheck │ Unit Tests │  E2E CLI  │  E2E TUI  │  E2E Web  │ Docker │ Security │
-#   └──────────┴───────────┴────────────┴───────────┴───────────┴───────────┴────────┴──────────┘
-#                                    (all parallel)
+#   ┌──────┬───────────┬───────┬─────────┬─────────┬─────────┬────────┐
+#   │ Lint │ Typecheck │ Unit  │ E2E CLI │ E2E TUI │ E2E Web │ Docker │
+#   └──────┴───────────┴───────┴─────────┴─────────┴─────────┴────────┘
+#   ┌───────────────┬──────────────────────┬──────────┬─────────┬──────────┐
+#   │ Trivy (deps)  │ Trivy (container)    │ Gitleaks │ Semgrep │ Hadolint │
+#   └───────────────┴──────────────────────┴──────────┴─────────┴──────────┘
+#                              (all parallel)
 #
 #   On push to main only:
 #   ┌───────────┐
-#   │  Release  │  (after all jobs + security pass, includes Docker push with version tags)
+#   │  Release  │  (after ALL jobs pass)
 #   └───────────┘
-#
-# Security Scanning (Trivy, Gitleaks, Semgrep, Hadolint):
-#   - All branches: runs in parallel, results in logs
-#   - Main: must pass before release
-#   - Trivy scans: filesystem (deps/IaC) + Docker container image
 #
 # Docker Tags:
 #   - All branches: sha-<full-commit-sha>
@@ -42,7 +40,7 @@ env:
 
 jobs:
   # ===========================================================================
-  # All jobs run in parallel
+  # Code Quality
   # ===========================================================================
   lint:
     name: Lint & Format
@@ -72,6 +70,9 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm run typecheck
 
+  # ===========================================================================
+  # Tests
+  # ===========================================================================
   test-unit:
     name: Unit Tests
     runs-on: ubuntu-latest
@@ -133,11 +134,11 @@ jobs:
       - run: pnpm run test:e2e:web
 
   # ===========================================================================
-  # Docker Build (parallel, pushes SHA tag for non-main branches only)
+  # Docker Build (pushes SHA tag for non-main branches only)
   # On main, semantic-release handles Docker with version tags
   # ===========================================================================
   docker:
-    name: Docker
+    name: Docker Build
     runs-on: ubuntu-latest
     if: github.ref != 'refs/heads/main'
 
@@ -166,24 +167,7 @@ jobs:
           tags: |
             type=sha,format=long
 
-      - name: Build Docker image
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          load: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Trivy container scan
-        uses: aquasecurity/trivy-action@master
-        with:
-          image-ref: ${{ steps.meta.outputs.tags }}
-          severity: 'HIGH,CRITICAL'
-          exit-code: '1'
-
-      - name: Push Docker image
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -194,11 +178,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ===========================================================================
-  # Security Scanning (parallel with other jobs)
-  # Runs Trivy, Gitleaks, Semgrep, and Hadolint
+  # Security: Trivy Filesystem Scan (dependencies + IaC)
   # ===========================================================================
-  security:
-    name: Security
+  security-trivy:
+    name: Trivy (deps)
     runs-on: ubuntu-latest
 
     permissions:
@@ -207,10 +190,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Trivy vulnerability scan
+      - name: Trivy filesystem scan
         uses: aquasecurity/trivy-action@master
         with:
           scan-type: 'fs'
@@ -218,24 +199,19 @@ jobs:
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
 
-      - name: Gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  # ===========================================================================
+  # Security: Trivy Container Scan
+  # ===========================================================================
+  security-trivy-container:
+    name: Trivy (container)
+    runs-on: ubuntu-latest
 
-      - name: Semgrep SAST scan
-        uses: returntocorp/semgrep-action@v1
-        with:
-          config: >-
-            p/typescript
-            p/javascript
-            p/security-audit
+    permissions:
+      contents: read
+      security-events: write
 
-      - name: Hadolint Dockerfile lint
-        uses: hadolint/hadolint-action@v3.1.0
-        with:
-          dockerfile: Dockerfile
-          failure-threshold: warning
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -257,13 +233,81 @@ jobs:
           exit-code: '1'
 
   # ===========================================================================
-  # Release (main only, after all jobs pass)
-  # Includes npm publish and Docker push with version tags via semantic-release
+  # Security: Gitleaks Secret Detection
+  # ===========================================================================
+  security-gitleaks:
+    name: Gitleaks
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks secret scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ===========================================================================
+  # Security: Semgrep SAST
+  # ===========================================================================
+  security-semgrep:
+    name: Semgrep
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Semgrep SAST scan
+        uses: returntocorp/semgrep-action@v1
+        with:
+          config: >-
+            p/typescript
+            p/javascript
+            p/security-audit
+
+  # ===========================================================================
+  # Security: Hadolint Dockerfile Lint
+  # ===========================================================================
+  security-hadolint:
+    name: Hadolint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Hadolint Dockerfile lint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+  # ===========================================================================
+  # Release (main only, after ALL jobs pass)
   # ===========================================================================
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test-unit, test-e2e-cli, test-e2e-tui, test-e2e-web, security]
+    needs:
+      - lint
+      - typecheck
+      - test-unit
+      - test-e2e-cli
+      - test-e2e-tui
+      - test-e2e-web
+      - security-trivy
+      - security-trivy-container
+      - security-gitleaks
+      - security-semgrep
+      - security-hadolint
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
 
     permissions:
