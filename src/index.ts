@@ -1,5 +1,5 @@
 /**
- * @shep-ai/cli - Autonomous AI Native SDLC Platform
+ * @shepai/cli - Autonomous AI Native SDLC Platform
  *
  * Automate the development cycle from idea to deploy.
  */

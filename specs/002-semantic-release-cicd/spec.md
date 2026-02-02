@@ -1,6 +1,6 @@
 # Feature: semantic-release-cicd
 
-> Automated npm publishing to GitHub and npm registries with semantic versioning via conventional commits
+> Automated npm publishing with semantic versioning via conventional commits
 
 ## Status
 
@@ -16,26 +16,25 @@ The project uses conventional commits (enforced by commitlint) but has no automa
 - Version bumps require manual `package.json` edits
 - No automated publishing to any registry
 - Release notes must be written manually
-- Contributors can't easily install `@shep-ai/cli` from a registry
+- Contributors can't easily install `@shepai/cli` from a registry
 
 ## Success Criteria
 
-- [ ] semantic-release configured with conventional commits preset
-- [ ] GitHub Actions workflow triggers on every main branch push
-- [ ] Automatic version bump (patch/minor/major) based on commit types
-- [ ] Package published to GitHub Package Registry (`npm.pkg.github.com`)
-- [ ] Package published to public npm registry (`registry.npmjs.org`)
-- [ ] GitHub Release created with auto-generated changelog
-- [ ] `package.json` version updated and committed back
+- [x] semantic-release configured with conventional commits preset
+- [x] GitHub Actions workflow triggers on every main branch push
+- [x] Automatic version bump (patch/minor/major) based on commit types
+- [x] Package published to public npm registry (`registry.npmjs.org`)
+- [x] GitHub Release created with auto-generated changelog
+- [x] `package.json` version updated and committed back
 
 ## Affected Areas
 
-| Area                                | Impact | Reasoning                                         |
-| ----------------------------------- | ------ | ------------------------------------------------- |
-| `.github/workflows/`                | High   | New `release.yml` workflow                        |
-| `package.json`                      | Medium | Add semantic-release + plugins, add publishConfig |
-| `.releaserc` or `release.config.js` | High   | New semantic-release configuration                |
-| `CONTRIBUTING.md`                   | Low    | Document release process                          |
+| Area                                | Impact | Reasoning                          |
+| ----------------------------------- | ------ | ---------------------------------- |
+| `.github/workflows/`                | High   | New `release.yml` workflow         |
+| `package.json`                      | Medium | Add semantic-release + plugins     |
+| `.releaserc` or `release.config.js` | High   | New semantic-release configuration |
+| `CONTRIBUTING.md`                   | Low    | Document release process           |
 
 ## Dependencies
 
@@ -43,11 +42,11 @@ None identified. Builds on existing commitlint/conventional commits setup.
 
 ## Size Estimate
 
-**M** - Configuration and workflow files, no application code changes. Moderate complexity due to semantic-release plugin configuration and dual registry publishing.
+**M** - Configuration and workflow files, no application code changes.
 
 ## Decisions
 
-- **Registries:** Publish to both GitHub Package Registry AND public npm registry
+- **Registries:** Publish to public npm registry only
 - **Trigger:** Every push to main branch (not tag-based)
 - **Pre-releases:** None - only stable releases from main
 

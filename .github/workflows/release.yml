@@ -4,9 +4,7 @@
 # Automates versioning and publishing using semantic-release.
 #
 # Triggers on pushes to main branch after CI passes.
-# Publishes to:
-#   - npm registry (registry.npmjs.org)
-#   - GitHub Package Registry (npm.pkg.github.com)
+# Publishes to npm registry (registry.npmjs.org).
 #
 # Required secrets:
 #   - NPM_TOKEN: npm access token for publishing
@@ -71,10 +69,5 @@ jobs:
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # npm registry credentials
-          PUBLIC_NPM_CONFIG_REGISTRY: https://registry.npmjs.org
-          PUBLIC_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          # GitHub Package Registry credentials
-          GITHUB_NPM_CONFIG_REGISTRY: https://npm.pkg.github.com
-          GITHUB_NPM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: npx semantic-release

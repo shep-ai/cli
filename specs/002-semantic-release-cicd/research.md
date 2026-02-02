@@ -9,18 +9,11 @@
 
 ## Technology Decisions
 
-### Multi-Registry Publishing Approach
+### Publishing Approach
 
-**Options considered:**
+**Decision:** Standard @semantic-release/npm plugin
 
-1. **Sequential workflows** - Separate GitHub Actions jobs for each registry
-2. **@amanda-mitchell/semantic-release-npm-multiple** - Plugin wrapper for multi-registry
-3. **semantic-release-npm-github-publish** - Shareable config for dual publishing
-4. **Manual npm publish steps** - Custom scripts after semantic-release
-
-**Decision:** @amanda-mitchell/semantic-release-npm-multiple
-
-**Rationale:** Purpose-built for this use case, thin wrapper around @semantic-release/npm, supports registry-specific environment variables, actively maintained, minimal configuration overhead.
+**Rationale:** Single registry (public npm) simplifies configuration. The standard npm plugin handles everything needed for npmjs.org publishing including provenance.
 
 ### Configuration Format
 
@@ -61,15 +54,15 @@
 
 ## Library Analysis
 
-| Library                                        | Version | Purpose                   | Pros                              | Cons                         |
-| ---------------------------------------------- | ------- | ------------------------- | --------------------------------- | ---------------------------- |
-| semantic-release                               | ^24.x   | Core release automation   | Industry standard, excellent docs | Learning curve               |
-| @semantic-release/commit-analyzer              | ^13.x   | Determine version bump    | Works with conventional commits   | None                         |
-| @semantic-release/release-notes-generator      | ^14.x   | Generate release notes    | Automatic from commits            | None                         |
-| @semantic-release/changelog                    | ^6.x    | Update CHANGELOG.md       | Standard format                   | None                         |
-| @amanda-mitchell/semantic-release-npm-multiple | ^3.x    | Multi-registry publishing | Purpose-built, env var separation | Additional dependency        |
-| @semantic-release/github                       | ^11.x   | Create GitHub releases    | Native integration, asset uploads | None                         |
-| @semantic-release/git                          | ^10.x   | Commit version/changelog  | Automates version tracking        | Requires contents:write perm |
+| Library                                   | Version | Purpose                  | Pros                              | Cons                         |
+| ----------------------------------------- | ------- | ------------------------ | --------------------------------- | ---------------------------- |
+| semantic-release                          | ^25.x   | Core release automation  | Industry standard, excellent docs | Learning curve               |
+| @semantic-release/commit-analyzer         | ^13.x   | Determine version bump   | Works with conventional commits   | None                         |
+| @semantic-release/release-notes-generator | ^14.x   | Generate release notes   | Automatic from commits            | None                         |
+| @semantic-release/changelog               | ^6.x    | Update CHANGELOG.md      | Standard format                   | None                         |
+| @semantic-release/npm                     | ^13.x   | Publish to npm registry  | Standard plugin, OIDC support     | None                         |
+| @semantic-release/github                  | ^12.x   | Create GitHub releases   | Native integration, asset uploads | None                         |
+| @semantic-release/git                     | ^10.x   | Commit version/changelog | Automates version tracking        | Requires contents:write perm |
 
 ## Security Considerations
 
@@ -77,7 +70,7 @@
 - **GITHUB_TOKEN**: Use built-in token with minimal required permissions
 - **OIDC trusted publishing**: Recommended for npm, requires `id-token: write` permission
 - **npm audit signatures**: Verify dependency integrity before publishing
-- **Scoped package**: `@shep-ai/cli` requires npm org membership for publishing
+- **Scoped package**: `@shepai/cli` requires npm org membership for publishing
 - **Branch protection**: Releases only from `main` branch prevents unauthorized releases
 
 ## Performance Implications
@@ -89,7 +82,7 @@
 
 ## Resolved Questions
 
-- [x] Which plugin for multi-registry? → @amanda-mitchell/semantic-release-npm-multiple
+- [x] Registry? → Public npm only (registry.npmjs.org)
 - [x] Config format? → release.config.mjs (ESM project)
 - [x] Changelog strategy? → CHANGELOG.md committed to repo
 - [x] npm provenance? → Yes, use OIDC trusted publishing

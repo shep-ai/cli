@@ -12,7 +12,7 @@ import { fileURLToPath } from 'node:url';
 export interface VersionInfo {
   /** Package version (e.g., "0.1.0") */
   version: string;
-  /** Package name (e.g., "@shep-ai/cli") */
+  /** Package name (e.g., "@shepai/cli") */
   name: string;
   /** Package description */
   description: string;
@@ -21,7 +21,7 @@ export interface VersionInfo {
 /** Default version info when package.json cannot be read */
 const DEFAULT_VERSION_INFO: VersionInfo = {
   version: 'unknown',
-  name: '@shep-ai/cli',
+  name: '@shepai/cli',
   description: 'Autonomous AI Native SDLC Platform',
 };
 

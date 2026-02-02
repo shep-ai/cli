@@ -8,7 +8,7 @@
  *
  * @example
  * $ shep version
- * @shep-ai/cli v0.1.0
+ * @shepai/cli v0.1.0
  * Autonomous AI Native SDLC Platform
  *
  * Node:     v20.10.0

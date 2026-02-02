@@ -240,9 +240,7 @@ Releases are fully automated using [semantic-release](https://semantic-release.g
 
 1. **Commit to main** - When PRs are merged to `main`, semantic-release analyzes commits
 2. **Version bump** - Based on commit types (`feat` → minor, `fix` → patch, `BREAKING CHANGE` → major)
-3. **Publish** - Package is published to:
-   - npm registry (`npm install @shep-ai/cli`)
-   - GitHub Package Registry (`npm install @shep-ai/cli --registry=https://npm.pkg.github.com`)
+3. **Publish** - Package is published to npm registry (`npm install @shepai/cli`)
 4. **Release** - GitHub Release is created with auto-generated changelog
 5. **Changelog** - `CHANGELOG.md` is updated and committed
 
@@ -260,8 +258,7 @@ Commits with types `docs`, `style`, `refactor`, `test`, `build`, `ci`, `chore` d
 ### For Maintainers
 
 - Ensure `NPM_TOKEN` secret is configured in repository settings
-- The `@shep-ai` npm organization must exist and have publish permissions
-- GitHub Package Registry is enabled automatically for the repository
+- The `@shepai` npm organization must exist and have publish permissions
 
 ## Questions?
 

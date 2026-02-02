@@ -15,11 +15,11 @@
 - [x] Install @semantic-release/commit-analyzer
 - [x] Install @semantic-release/release-notes-generator
 - [x] Install @semantic-release/changelog
-- [x] Install @amanda-mitchell/semantic-release-npm-multiple
+- [x] Install @semantic-release/npm
 - [x] Install @semantic-release/github
 - [x] Install @semantic-release/git
 - [x] Create `release.config.mjs` with plugin configuration
-- [x] Configure multi-registry in release.config.mjs (npm + GitHub)
+- [x] Configure npm publishing in release.config.mjs
 - [x] Add `release` scope to commitlint.config.mjs (already existed)
 
 ### Phase 2: GitHub Actions Workflow
@@ -35,7 +35,7 @@
 
 ### Phase 3: Package & Documentation [P]
 
-- [x] Add `publishConfig` to package.json for GitHub registry
+- [x] Add `publishConfig` to package.json for public npm access
 - [x] Create initial `CHANGELOG.md` (header only)
 - [x] Add "Release Process" section to CONTRIBUTING.md
 - [x] Document NPM_TOKEN secret requirement in CONTRIBUTING.md
@@ -53,8 +53,7 @@
 Before merging, these must be configured in GitHub:
 
 - [ ] Create `NPM_TOKEN` secret in repository settings
-- [ ] Verify @shep-ai org exists on npmjs.com
-- [ ] Verify GitHub Package Registry is enabled for repo
+- [ ] Verify @shepai org exists on npmjs.com
 
 ## Parallelization Notes
 
@@ -82,8 +81,7 @@ After merging to main, verify:
 
 - [ ] GitHub Actions release job runs
 - [ ] Version bumped correctly (based on commits)
-- [ ] Package published to npm (`npm info @shep-ai/cli`)
-- [ ] Package published to GitHub Package Registry
+- [ ] Package published to npm (`npm info @shepai/cli`)
 - [ ] GitHub Release created with changelog
 - [ ] CHANGELOG.md updated in repo
 - [ ] package.json version committed back

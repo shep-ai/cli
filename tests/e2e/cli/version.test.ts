@@ -17,7 +17,7 @@ describe('CLI: version', () => {
       // Assert
       expect(result.success).toBe(true);
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('@shep-ai/cli');
+      expect(result.stdout).toContain('@shepai/cli');
       expect(result.stdout).toMatch(/v\d+\.\d+\.\d+/); // vX.X.X format
     });
 

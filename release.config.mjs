@@ -2,7 +2,7 @@
  * Semantic Release Configuration
  *
  * Automates versioning and publishing based on conventional commits.
- * Publishes to both npm registry and GitHub Package Registry.
+ * Publishes to npm registry.
  *
  * @see https://semantic-release.gitbook.io/
  * @type {import('semantic-release').GlobalConfig}
@@ -55,24 +55,8 @@ export default {
       },
     ],
 
-    // 4. Publish to multiple npm registries
-    [
-      '@amanda-mitchell/semantic-release-npm-multiple',
-      {
-        registries: {
-          // Public npm registry
-          public: {
-            npmPublish: true,
-            pkgRoot: '.',
-          },
-          // GitHub Package Registry
-          github: {
-            npmPublish: true,
-            pkgRoot: '.',
-          },
-        },
-      },
-    ],
+    // 4. Publish to npm registry
+    '@semantic-release/npm',
 
     // 5. Create GitHub release
     [

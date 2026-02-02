@@ -14,13 +14,13 @@ This guide walks you through installing Shep AI CLI and creating your first feat
 Install Shep globally via pnpm:
 
 ```bash
-pnpm add -g @shep-ai/cli
+pnpm add -g @shepai/cli
 ```
 
 Or with npm:
 
 ```bash
-npm install -g @shep-ai/cli
+npm install -g @shepai/cli
 ```
 
 Verify installation:

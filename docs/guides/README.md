@@ -15,7 +15,7 @@ Guides for using Shep AI CLI effectively.
 
 ```bash
 # Install globally
-npm install -g @shep-ai/cli
+npm install -g @shepai/cli
 
 # Navigate to your project
 cd ~/projects/my-app
