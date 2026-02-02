@@ -47,6 +47,8 @@ jobs:
   pr-title:
     name: Validate PR Title
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
       - name: Check PR title format
         uses: amannn/action-semantic-pull-request@v5
