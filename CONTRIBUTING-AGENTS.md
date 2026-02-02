@@ -4,14 +4,56 @@ Rules and guidelines for AI agents (Claude, Copilot, Cursor, etc.) when contribu
 
 ## Quick Reference
 
-| Rule         | Requirement                            |
-| ------------ | -------------------------------------- |
-| Commits      | Conventional Commits format, always    |
-| Scope        | Required for all commits               |
-| Co-author    | Include `Co-Authored-By` footer        |
-| TDD          | Write tests first (Red-Green-Refactor) |
-| Architecture | Follow Clean Architecture layers       |
-| Edits        | Read files before editing              |
+| Rule         | Requirement                                         |
+| ------------ | --------------------------------------------------- |
+| **Specs**    | **Start ALL features with `/shep-kit:new-feature`** |
+| Commits      | Conventional Commits format, always                 |
+| Scope        | Required for all commits                            |
+| Co-author    | Include `Co-Authored-By` footer                     |
+| TDD          | Write tests first (Red-Green-Refactor)              |
+| Architecture | Follow Clean Architecture layers                    |
+| Edits        | Read files before editing                           |
+
+## Spec-Driven Development (MANDATORY)
+
+**All feature work MUST begin with `/shep-kit:new-feature`.** No exceptions.
+
+See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md) for complete details.
+
+### Workflow
+
+```
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → implement
+```
+
+### Quick Commands
+
+| Command                 | Purpose             | Output                            |
+| ----------------------- | ------------------- | --------------------------------- |
+| `/shep-kit:new-feature` | Start new feature   | Branch + `specs/NNN-name/spec.md` |
+| `/shep-kit:research`    | Technical analysis  | `research.md`                     |
+| `/shep-kit:plan`        | Implementation plan | `plan.md` + `tasks.md`            |
+
+### What the Agent Does
+
+1. **Gathers minimal input** (feature name + one-liner)
+2. **Creates branch** `feat/NNN-feature-name` from main
+3. **Scaffolds spec directory** with templates
+4. **Analyzes codebase** to infer affected areas, dependencies, size
+5. **Proposes spec** for human review
+6. **Commits** after approval
+
+### Spec Directory Structure
+
+```
+specs/NNN-feature-name/
+├── spec.md         # Requirements (filled by /new-feature)
+├── research.md     # Technical decisions (filled by /research)
+├── plan.md         # Architecture (filled by /plan)
+├── tasks.md        # Task breakdown (filled by /plan)
+├── data-model.md   # Entity changes (if needed)
+└── contracts/      # API specs (if needed)
+```
 
 ## Commit Rules
 
@@ -47,6 +89,7 @@ Use the component or area being modified:
 
 | Scope         | Area                            |
 | ------------- | ------------------------------- |
+| `specs`       | Feature specifications          |
 | `cli`         | CLI commands and presentation   |
 | `tui`         | Terminal UI components          |
 | `web`         | Web UI (Next.js)                |

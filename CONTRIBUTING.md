@@ -47,6 +47,25 @@ shep --help
 
 ## How to Contribute
 
+### Starting a Feature (MANDATORY)
+
+**All feature work MUST begin with `/shep-kit:new-feature`.** This ensures consistent specifications across all contributions.
+
+See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md) for complete details.
+
+```
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → implement
+```
+
+The workflow creates:
+
+- A feature branch `feat/NNN-feature-name`
+- A spec directory `specs/NNN-feature-name/` with:
+  - `spec.md` - Requirements and scope
+  - `research.md` - Technical decisions
+  - `plan.md` - Implementation strategy
+  - `tasks.md` - Task breakdown
+
 ### Reporting Issues
 
 Before creating an issue:

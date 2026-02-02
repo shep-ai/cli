@@ -102,6 +102,16 @@ Autonomous code generation using LangGraph agents, executing tasks according to 
 
 Continuous lifecycle management with AI assistance at every stage.
 
+## Spec-Driven Development
+
+All contributions follow our spec-driven workflow:
+
+```
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → implement
+```
+
+Every feature begins with a specification in `specs/NNN-feature-name/` before any implementation code is written. See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md) for details.
+
 ## Architecture
 
 Shep follows **Clean Architecture** principles:
