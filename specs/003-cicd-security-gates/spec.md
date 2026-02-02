@@ -6,7 +6,7 @@
 
 - **Number:** 003
 - **Created:** 2026-02-02
-- **Branch:** feat/docker-support
+- **Branch:** feat/003-cicd-security-gates
 - **Phase:** Complete
 
 ## Problem Statement

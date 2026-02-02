@@ -9,9 +9,12 @@ Push/PR to main or develop:
 ┌──────────┬───────────┬────────────┬───────────┬───────────┬───────────┬────────┐
 │   Lint   │ Typecheck │ Unit Tests │  E2E CLI  │  E2E TUI  │  E2E Web  │ Docker │
 └──────────┴───────────┴────────────┴───────────┴───────────┴───────────┴────────┘
-                               (all run in parallel)
+┌───────────────┬──────────────────────┬──────────┬─────────┬──────────┐
+│ Trivy (deps)  │ Trivy (container)    │ Gitleaks │ Semgrep │ Hadolint │
+└───────────────┴──────────────────────┴──────────┴─────────┴──────────┘
+                            (all run in parallel)
 
-On push to main only (after all jobs pass):
+On push to main only (after ALL jobs pass, including security):
 ┌───────────┐
 │  Release  │  → npm publish + Docker push + GitHub release
 └───────────┘
@@ -21,19 +24,40 @@ On push to main only (after all jobs pass):
 
 ### Parallel Jobs (All Branches)
 
-| Job               | Description                                     | Duration |
-| ----------------- | ----------------------------------------------- | -------- |
-| **Lint & Format** | ESLint + Prettier + TypeSpec compile            | ~30s     |
-| **Type Check**    | TypeScript strict mode validation               | ~20s     |
-| **Unit Tests**    | Vitest unit + integration tests                 | ~20s     |
-| **E2E (CLI)**     | CLI command execution tests                     | ~30s     |
-| **E2E (TUI)**     | Terminal UI interaction tests                   | ~20s     |
-| **E2E (Web)**     | Playwright browser tests                        | ~25s     |
-| **Docker**        | Build and push SHA-tagged image (non-main only) | ~50s     |
+| Job                   | Description                                     | Duration |
+| --------------------- | ----------------------------------------------- | -------- |
+| **Lint & Format**     | ESLint + Prettier + TypeSpec compile            | ~30s     |
+| **Type Check**        | TypeScript strict mode validation               | ~20s     |
+| **Unit Tests**        | Vitest unit + integration tests                 | ~20s     |
+| **E2E (CLI)**         | CLI command execution tests                     | ~30s     |
+| **E2E (TUI)**         | Terminal UI interaction tests                   | ~20s     |
+| **E2E (Web)**         | Playwright browser tests                        | ~25s     |
+| **Docker**            | Build and push SHA-tagged image (non-main only) | ~50s     |
+| **Trivy (deps)**      | Dependency vulnerability scan (HIGH/CRITICAL)   | ~30s     |
+| **Trivy (container)** | Docker image vulnerability scan                 | ~60s     |
+| **Gitleaks**          | Secret detection in git history                 | ~15s     |
+| **Semgrep**           | SAST for TypeScript/JavaScript patterns         | ~30s     |
+| **Hadolint**          | Dockerfile best practices linting               | ~5s      |
+
+### Security Jobs (All Branches)
+
+Security scanners run in parallel and **block releases on main**:
+
+| Scanner               | Tool                                                            | Severity Filter |
+| --------------------- | --------------------------------------------------------------- | --------------- |
+| **Trivy (deps)**      | Filesystem scan for dependency CVEs                             | HIGH, CRITICAL  |
+| **Trivy (container)** | Docker image scan for OS/package vulnerabilities                | HIGH, CRITICAL  |
+| **Gitleaks**          | Secret detection (API keys, passwords, tokens)                  | All findings    |
+| **Semgrep**           | SAST rules (`p/typescript`, `p/javascript`, `p/security-audit`) | All findings    |
+| **Hadolint**          | Dockerfile linting                                              | Warning+        |
+
+Results are uploaded to GitHub Security tab (SARIF format) and displayed in job summaries.
+
+> **Note:** Gitleaks uses the CLI directly (not gitleaks-action) because the GitHub Action requires a paid license for organizations.
 
 ### Release Job (Main Only)
 
-Runs after all parallel jobs pass. Uses [semantic-release](https://semantic-release.gitbook.io/) to:
+Runs after **all parallel jobs pass, including security scanners**. Uses [semantic-release](https://semantic-release.gitbook.io/) to:
 
 1. **Analyze commits** - Determine version bump from conventional commits
 2. **Generate changelog** - Create release notes from commits
@@ -149,7 +173,7 @@ NPM_TOKEN=xxx GITHUB_TOKEN=xxx npx semantic-release
 
 Recommended settings for `main`:
 
-- Require status checks: `Lint & Format`, `Type Check`, `Unit Tests`, all E2E jobs
+- Require status checks: `Lint & Format`, `Type Check`, `Unit Tests`, all E2E jobs, all Security jobs
 - Require branches to be up to date
 - Require linear history (optional, for cleaner git log)
 
