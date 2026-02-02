@@ -211,6 +211,9 @@ jobs:
       - name: Display Trivy results
         if: always()
         run: |
+          echo "::group::Trivy Filesystem Scan Results"
+          cat trivy-fs-results.txt || echo "No results file found"
+          echo "::endgroup::"
           echo "## Trivy Filesystem Scan Results" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat trivy-fs-results.txt >> $GITHUB_STEP_SUMMARY || echo "No results file found"
@@ -265,6 +268,9 @@ jobs:
       - name: Display Trivy results
         if: always()
         run: |
+          echo "::group::Trivy Container Scan Results"
+          cat trivy-container-results.txt || echo "No results file found"
+          echo "::endgroup::"
           echo "## Trivy Container Scan Results" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           cat trivy-container-results.txt >> $GITHUB_STEP_SUMMARY || echo "No results file found"
