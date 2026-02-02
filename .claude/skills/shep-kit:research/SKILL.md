@@ -14,6 +14,16 @@ Document technical decisions, library evaluations, and architectural choices for
 - Feature spec exists at `specs/NNN-feature-name/spec.md`
 - On the feature branch `feat/NNN-feature-name`
 
+## GATE CHECK (Mandatory)
+
+Before starting research, verify:
+
+1. **Read `spec.md`** and check the "Open Questions" section
+2. **If any unchecked `- [ ]` items exist**: STOP and inform user:
+   > ⛔ Cannot proceed with research. Open questions in spec.md must be resolved first.
+   > Please answer these questions or mark "None - requirements are clear"
+3. **Only proceed** when all open questions are checked `- [x]` or section says "None"
+
 ## Workflow
 
 ### 1. Identify Current Feature
@@ -70,16 +80,31 @@ Fill in the research template at `specs/NNN-feature-name/research.md`:
 - Library analysis table
 - Security considerations
 - Performance implications
-- Resolved questions
+- Resolved questions (ensure "Open Questions" section shows all resolved or "All questions resolved")
 
-### 6. Commit
+### 6. Update Status Fields
+
+**CRITICAL:** Update status in BOTH files:
+
+```markdown
+# In spec.md, update:
+
+- **Phase:** Research # (was Requirements)
+
+# In research.md, keep:
+
+- **Phase:** Research
+- **Updated:** <today's date>
+```
+
+### 7. Commit
 
 ```bash
-git add specs/NNN-feature-name/research.md
+git add specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name research"
 ```
 
-### 7. Next Steps
+### 8. Next Steps
 
 Inform the user:
 
@@ -88,10 +113,12 @@ Inform the user:
 
 ## Key Principles
 
+- **Gate enforcement**: Never skip the open questions check
 - **Evidence-based**: Use web search, docs, benchmarks - not assumptions
 - **Project-aware**: Consider existing patterns and constraints
 - **Trade-off focused**: Every decision has pros/cons - document both
 - **Actionable**: Decisions should enable immediate planning
+- **Status tracking**: Always update Phase fields before committing
 
 ## Template Location
 
