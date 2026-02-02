@@ -36,6 +36,9 @@ This feature establishes the foundational component library using shadcn/ui (Rad
 - [ ] `src/presentation/web/` directory structure follows Clean Architecture
 - [ ] Component tests written following TDD principles (Vitest + React Testing Library 16+)
 - [ ] Playwright 1.57+ E2E test setup verified for web components
+- [ ] **pnpm compatibility** ensured for all web dependencies and scripts
+- [ ] E2E tests integrated into existing pnpm test commands (`pnpm test:e2e:web`)
+- [ ] CI/CD pipeline updated to run web UI tests (unit + E2E) and Storybook build
 
 ## Affected Areas
 
@@ -53,6 +56,8 @@ This feature establishes the foundational component library using shadcn/ui (Rad
 | `tsconfig.json`             | Low    | Add paths for @/components and @/lib aliases                        |
 | `eslint.config.mjs`         | Low    | Add React/Next.js ESLint rules                                      |
 | `.prettierrc`               | Low    | Add Tailwind Prettier plugin                                        |
+| `.github/workflows/ci.yml`  | Medium | Update CI to run web UI tests and Storybook build                   |
+| `package.json` (scripts)    | Medium | Add web-specific pnpm scripts (test:e2e:web, storybook:build, etc.) |
 | `docs/development/`         | Low    | Document component library usage and design system                  |
 
 ## Dependencies
