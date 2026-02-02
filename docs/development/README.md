@@ -4,11 +4,12 @@ Guides for developing and contributing to Shep AI CLI.
 
 ## Contents
 
-| Document                     | Description                   |
-| ---------------------------- | ----------------------------- |
-| [setup.md](./setup.md)       | Development environment setup |
-| [testing.md](./testing.md)   | Testing strategy and commands |
-| [building.md](./building.md) | Build process and tooling     |
+| Document                     | Description                     |
+| ---------------------------- | ------------------------------- |
+| [setup.md](./setup.md)       | Development environment setup   |
+| [testing.md](./testing.md)   | Testing strategy and commands   |
+| [building.md](./building.md) | Build process and tooling       |
+| [cicd.md](./cicd.md)         | CI/CD pipeline and Docker setup |
 
 ## Quick Start for Contributors
 
@@ -18,16 +19,16 @@ git clone https://github.com/shep-ai/cli.git
 cd cli
 
 # Install dependencies
-npm install
+pnpm install
 
 # Build
-npm run build
+pnpm run build
 
 # Run tests
-npm test
+pnpm test
 
 # Start development mode
-npm run dev
+pnpm run dev
 ```
 
 ## Development Workflow

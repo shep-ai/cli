@@ -128,11 +128,13 @@ jobs:
       - run: pnpm run test:e2e:web
 
   # ===========================================================================
-  # Docker Build (parallel, pushes SHA tag for all branches)
+  # Docker Build (parallel, pushes SHA tag for non-main branches only)
+  # On main, semantic-release handles Docker with version tags
   # ===========================================================================
   docker:
     name: Docker
     runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
 
     permissions:
       contents: read
@@ -176,7 +178,7 @@ jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test-unit, test-e2e-cli, test-e2e-tui, test-e2e-web, docker]
+    needs: [lint, typecheck, test-unit, test-e2e-cli, test-e2e-tui, test-e2e-web]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
 
     permissions:

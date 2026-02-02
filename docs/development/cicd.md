@@ -1,0 +1,213 @@
+# CI/CD Pipeline
+
+Automated build, test, and release pipeline using GitHub Actions.
+
+## Pipeline Overview
+
+```
+Push/PR to main or develop:
+┌──────────┬───────────┬────────────┬───────────┬───────────┬───────────┬────────┐
+│   Lint   │ Typecheck │ Unit Tests │  E2E CLI  │  E2E TUI  │  E2E Web  │ Docker │
+└──────────┴───────────┴────────────┴───────────┴───────────┴───────────┴────────┘
+                               (all run in parallel)
+
+On push to main only (after all jobs pass):
+┌───────────┐
+│  Release  │  → npm publish + Docker push + GitHub release
+└───────────┘
+```
+
+## Jobs
+
+### Parallel Jobs (All Branches)
+
+| Job               | Description                                     | Duration |
+| ----------------- | ----------------------------------------------- | -------- |
+| **Lint & Format** | ESLint + Prettier + TypeSpec compile            | ~30s     |
+| **Type Check**    | TypeScript strict mode validation               | ~20s     |
+| **Unit Tests**    | Vitest unit + integration tests                 | ~20s     |
+| **E2E (CLI)**     | CLI command execution tests                     | ~30s     |
+| **E2E (TUI)**     | Terminal UI interaction tests                   | ~20s     |
+| **E2E (Web)**     | Playwright browser tests                        | ~25s     |
+| **Docker**        | Build and push SHA-tagged image (non-main only) | ~50s     |
+
+### Release Job (Main Only)
+
+Runs after all parallel jobs pass. Uses [semantic-release](https://semantic-release.gitbook.io/) to:
+
+1. **Analyze commits** - Determine version bump from conventional commits
+2. **Generate changelog** - Create release notes from commits
+3. **Update CHANGELOG.md** - Append new release section
+4. **Publish to npm** - `@shepai/cli` package
+5. **Build & push Docker** - Tags: `latest`, `v<version>`, `sha-<commit>`
+6. **Create GitHub release** - With changelog as release notes
+7. **Commit changes** - `chore(release): <version> [skip ci]`
+
+## Docker Images
+
+### Registry
+
+Images are published to GitHub Container Registry (ghcr.io):
+
+```
+ghcr.io/shep-ai/cli
+```
+
+### Tagging Strategy
+
+| Branch       | Trigger          | Tags                               |
+| ------------ | ---------------- | ---------------------------------- |
+| PR / develop | Docker job       | `sha-<full-commit-sha>`            |
+| main         | semantic-release | `latest`, `v1.2.3`, `sha-<commit>` |
+
+### Pull & Run
+
+```bash
+# Latest stable
+docker pull ghcr.io/shep-ai/cli:latest
+docker run ghcr.io/shep-ai/cli --version
+
+# Specific version
+docker pull ghcr.io/shep-ai/cli:v1.0.0
+
+# Specific commit (for testing)
+docker pull ghcr.io/shep-ai/cli:sha-abc123...
+```
+
+### Image Details
+
+- **Base**: `node:22-alpine` (~180MB)
+- **Final size**: ~185MB
+- **User**: Non-root `shep` (UID 1001)
+- **Entrypoint**: `node dist/presentation/cli/index.js`
+
+## Release Process
+
+### Automatic Releases
+
+Releases are fully automated based on [Conventional Commits](https://www.conventionalcommits.org/):
+
+| Commit Type       | Version Bump  | Example                                     |
+| ----------------- | ------------- | ------------------------------------------- |
+| `feat:`           | Minor (0.X.0) | `feat(cli): add analyze command`            |
+| `fix:`            | Patch (0.0.X) | `fix(agents): resolve memory leak`          |
+| `perf:`           | Patch         | `perf(db): optimize query performance`      |
+| `refactor:`       | Patch         | `refactor(core): simplify state management` |
+| `BREAKING CHANGE` | Major (X.0.0) | Footer in commit message                    |
+
+Commits that **don't** trigger releases:
+
+- `docs:`, `style:`, `test:`, `build:`, `ci:`, `chore:`
+
+### Manual Release (Not Recommended)
+
+If needed, you can trigger a release manually:
+
+```bash
+# Ensure you're on main with latest changes
+git checkout main && git pull
+
+# Run semantic-release in dry-run mode first
+npx semantic-release --dry-run
+
+# If satisfied, run actual release (requires NPM_TOKEN)
+NPM_TOKEN=xxx GITHUB_TOKEN=xxx npx semantic-release
+```
+
+## Configuration Files
+
+| File                       | Purpose                                  |
+| -------------------------- | ---------------------------------------- |
+| `.github/workflows/ci.yml` | GitHub Actions workflow definition       |
+| `release.config.mjs`       | semantic-release plugins and settings    |
+| `Dockerfile`               | Multi-stage build for production image   |
+| `.dockerignore`            | Files excluded from Docker build context |
+| `commitlint.config.mjs`    | Commit message validation rules          |
+
+## Limitations & Considerations
+
+### Docker Cache
+
+- **PR builds**: Use GitHub Actions cache (`type=gha`) for layer caching
+- **Release builds**: No cache sharing with PR builds (semantic-release uses standard `docker build`)
+- **Workaround**: Release builds are optimized via multi-stage Dockerfile caching
+
+### Concurrency
+
+- PRs cancel previous runs on the same branch
+- Main branch runs are never cancelled
+- Release job has exclusive access via `[skip ci]` in release commits
+
+### Required Secrets
+
+| Secret         | Purpose                               | Where to Set       |
+| -------------- | ------------------------------------- | ------------------ |
+| `GITHUB_TOKEN` | Automatic, provided by GitHub Actions | Built-in           |
+| `NPM_TOKEN`    | Publishing to npm registry            | Repository secrets |
+
+### Branch Protection
+
+Recommended settings for `main`:
+
+- Require status checks: `Lint & Format`, `Type Check`, `Unit Tests`, all E2E jobs
+- Require branches to be up to date
+- Require linear history (optional, for cleaner git log)
+
+## Troubleshooting
+
+### Release Not Triggered
+
+1. Check commit messages follow conventional format
+2. Ensure push is to `main` branch
+3. Verify commit doesn't contain `[skip ci]`
+4. Check if commit type triggers a release (see table above)
+
+### Docker Build Fails
+
+1. Check `.dockerignore` isn't excluding required files
+2. Verify `pnpm-lock.yaml` is committed
+3. Check Node.js version matches `package.json` engines
+
+### npm Publish Fails
+
+1. Verify `NPM_TOKEN` secret is set and valid
+2. Check package name isn't taken on npm
+3. Ensure version in `package.json` wasn't manually bumped
+
+## Local Testing
+
+### Test Docker Build
+
+```bash
+docker build -t shep-cli .
+docker run shep-cli --version
+```
+
+### Test Release (Dry Run)
+
+```bash
+npx semantic-release --dry-run
+```
+
+### Validate Commit Messages
+
+```bash
+echo "feat(cli): add new command" | npx commitlint
+```
+
+---
+
+## Maintaining This Document
+
+**Update when:**
+
+- CI/CD workflow changes
+- New jobs are added
+- Docker configuration changes
+- Release process modifications
+
+**Related files:**
+
+- [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
+- [release.config.mjs](../../release.config.mjs)
+- [Dockerfile](../../Dockerfile)

@@ -63,7 +63,7 @@ export default {
       '@codedependant/semantic-release-docker',
       {
         dockerImage: 'ghcr.io/shep-ai/cli',
-        dockerTags: ['latest', '{{version}}'],
+        dockerTags: ['latest', 'v{{version}}', 'sha-{{gitHead}}'],
         dockerLogin: false, // Login handled by CI workflow
       },
     ],

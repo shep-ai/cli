@@ -275,6 +275,39 @@ Husky runs automatically on commit:
 1. **pre-commit**: lint-staged (ESLint + Prettier on staged files)
 2. **commit-msg**: commitlint (validates commit message format)
 
+## CI/CD & Docker
+
+Automated pipeline using GitHub Actions with semantic-release.
+
+### Pipeline Structure
+
+- **All branches**: Lint, Typecheck, Unit Tests, E2E tests run in parallel
+- **Non-main branches**: Docker builds and pushes `sha-<commit>` tag
+- **Main branch**: After tests pass, semantic-release handles npm publish + Docker push
+
+### Docker
+
+```bash
+# Pull and run
+docker pull ghcr.io/shep-ai/cli:latest
+docker run ghcr.io/shep-ai/cli --version
+
+# Build locally
+docker build -t shep-cli .
+```
+
+**Tags**: `latest`, `v<version>`, `sha-<commit>`
+
+### Release Triggers
+
+| Commit Type                  | Version Bump  |
+| ---------------------------- | ------------- |
+| `feat:`                      | Minor (0.X.0) |
+| `fix:`, `perf:`, `refactor:` | Patch (0.0.X) |
+| `BREAKING CHANGE`            | Major (X.0.0) |
+
+See [docs/development/cicd.md](./docs/development/cicd.md) for complete CI/CD documentation.
+
 ---
 
 ## Maintaining This Document
@@ -285,5 +318,6 @@ Husky runs automatically on commit:
 - Architecture layers change
 - New domain models are introduced
 - Key patterns evolve
+- CI/CD pipeline changes
 
 **Keep concise**: This is reference material for AI, not a tutorial. Focus on what's needed to navigate and modify the codebase effectively.
