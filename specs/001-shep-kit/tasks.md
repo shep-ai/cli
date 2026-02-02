@@ -4,8 +4,8 @@
 
 ## Status
 
-- **Phase:** Implementation
-- **Updated:** {{DATE}}
+- **Phase:** Complete
+- **Updated:** 2026-02-02
 
 ## Task List
 
@@ -15,53 +15,65 @@
 - [x] Create spec.md with requirements
 - [x] Create research.md with technical decisions
 - [x] Create plan.md with architecture
-- [ ] Create `.claude/skills/shep-kit/` directory structure
+- [x] Create `.claude/skills/shep-kit/` directory structure
 
 ### Phase 2: new-feature Skill
 
-- [ ] Write `new-feature/SKILL.md`
-- [ ] Write `new-feature/scripts/init-feature.sh`
-- [ ] Write `new-feature/templates/spec.md`
-- [ ] Write `new-feature/templates/research.md`
-- [ ] Write `new-feature/templates/plan.md`
-- [ ] Write `new-feature/templates/tasks.md`
-- [ ] Write `new-feature/templates/data-model.md`
-- [ ] Create `new-feature/examples/001-sample-feature/spec.md`
+- [x] Write `new-feature/SKILL.md`
+- [x] Write `new-feature/scripts/init-feature.sh`
+- [x] Write `new-feature/templates/spec.md`
+- [x] Write `new-feature/templates/research.md`
+- [x] Write `new-feature/templates/plan.md`
+- [x] Write `new-feature/templates/tasks.md`
+- [x] Write `new-feature/templates/data-model.md`
+- [x] Create `new-feature/examples/001-sample-feature/spec.md`
 
 ### Phase 3: research Skill
 
-- [ ] Write `research/SKILL.md`
-- [ ] Write `research/templates/research.md`
-- [ ] Create `research/examples/sample-research.md`
+- [x] Write `research/SKILL.md`
+- [x] Write `research/templates/research.md`
+- [x] Create `research/examples/sample-research.md`
 
 ### Phase 4: plan Skill
 
-- [ ] Write `plan/SKILL.md`
-- [ ] Write `plan/templates/plan.md`
-- [ ] Write `plan/templates/tasks.md`
-- [ ] Create `plan/examples/sample-plan.md`
+- [x] Write `plan/SKILL.md`
+- [x] Write `plan/templates/plan.md`
+- [x] Write `plan/templates/tasks.md`
+- [x] Create `plan/examples/sample-plan.md`
 
 ### Phase 5: Documentation [P]
 
-- [ ] Create `docs/development/spec-driven-workflow.md`
-- [ ] Update `CONTRIBUTING.md`
-- [ ] Update `CONTRIBUTING-AGENTS.md`
-- [ ] Update `CLAUDE.md`
-- [ ] Update `README.md`
-- [ ] Update `AGENTS.md`
+- [x] Create `docs/development/spec-driven-workflow.md`
+- [x] Update `CONTRIBUTING.md`
+- [x] Update `CONTRIBUTING-AGENTS.md`
+- [x] Update `CLAUDE.md`
+- [x] Update `README.md` (referenced via CONTRIBUTING links)
+- [x] Update `AGENTS.md` (referenced via CLAUDE.md links)
 
 ### Phase 6: Validation
 
-- [ ] Test `/shep-kit:new-feature` end-to-end
-- [ ] Verify templates render correctly
-- [ ] Cross-validate documentation consistency
+- [x] Test `/shep-kit:new-feature` end-to-end (bootstrapped 001-shep-kit itself)
+- [x] Verify templates render correctly
+- [x] Cross-validate documentation consistency
+- [x] Fix CI scope validation (added 'specs' to commitlint + pr-check.yml)
+- [x] Clarify lowercase acronym requirement in commit guidelines
+
+## Acceptance Checklist
+
+- [x] All tasks completed
+- [x] Tests passing (`pnpm test`)
+- [x] Linting clean (`pnpm lint`)
+- [x] Types valid (`pnpm typecheck`)
+- [x] Documentation updated
+- [x] PR created and reviewed
+- [x] PR merged (PR #3)
 
 ## Parallelization Notes
 
-- [P] Phase 5 tasks can run in parallel (independent doc updates)
-- Phase 2, 3, 4 can run in parallel (independent skills)
-- Phase 6 must wait for all prior phases
+- [P] Phase 5 tasks ran in parallel (independent doc updates)
+- Phase 2, 3, 4 ran in parallel (independent skills)
+- Phase 6 waited for all prior phases
 
 ---
 
-_Task breakdown for implementation tracking_
+_All tasks complete. Feature merged via PR #3._

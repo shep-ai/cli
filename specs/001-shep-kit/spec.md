@@ -7,7 +7,8 @@
 - **Number:** 001
 - **Created:** 2026-02-02
 - **Branch:** feat/001-shep-kit
-- **Phase:** Requirements
+- **Phase:** Complete
+- **Merged:** 2026-02-02
 
 ## Problem Statement
 
@@ -22,14 +23,14 @@ Shep-kit provides a spec-driven workflow (inspired by GitHub's SpecKit) that man
 
 ## Success Criteria
 
-- [ ] `/shep-kit:new-feature` skill creates branch + spec directory with templates
-- [ ] `/shep-kit:research` skill guides technical decision documentation
-- [ ] `/shep-kit:plan` skill creates implementation plan with task breakdown
-- [ ] All template files scaffold correctly via init script
-- [ ] Agent infers affected areas, dependencies, and size from codebase analysis
-- [ ] Existing specs are scanned to discover feature dependencies
-- [ ] Documentation (CONTRIBUTING, CLAUDE.md, etc.) mandates this workflow
-- [ ] `docs/development/spec-driven-workflow.md` serves as single source of truth
+- [x] `/shep-kit:new-feature` skill creates branch + spec directory with templates
+- [x] `/shep-kit:research` skill guides technical decision documentation
+- [x] `/shep-kit:plan` skill creates implementation plan with task breakdown
+- [x] All template files scaffold correctly via init script
+- [x] Agent infers affected areas, dependencies, and size from codebase analysis
+- [x] Existing specs are scanned to discover feature dependencies
+- [x] Documentation (CONTRIBUTING, CLAUDE.md, etc.) mandates this workflow
+- [x] `docs/development/spec-driven-workflow.md` serves as single source of truth
 
 ## Affected Areas
 
@@ -56,8 +57,8 @@ None identified. This is the foundational workflow spec.
 
 ## Open Questions
 
-- [ ] Should `/shep-kit:validate` be implemented in initial release or deferred?
-- [ ] Should `/shep-kit:status` and `/shep-kit:continue` be implemented initially?
+- [x] Should `/shep-kit:validate` be implemented in initial release or deferred?
+- [x] Should `/shep-kit:status` and `/shep-kit:continue` be implemented initially?
 
 ## Decision
 
@@ -65,4 +66,4 @@ Implement core skills only (`new-feature`, `research`, `plan`). Optional skills 
 
 ---
 
-_Generated manually (bootstrapping) - proceed with `/shep-kit:research`_
+_Feature complete. Merged via PR #3._
