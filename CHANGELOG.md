@@ -1,3 +1,9 @@
+## [1.0.1](https://github.com/shep-ai/cli/compare/v1.0.0...v1.0.1) (2026-02-02)
+
+### Bug Fixes
+
+- **test:** read version from package.json dynamically ([45616ee](https://github.com/shep-ai/cli/commit/45616ee5b4ef025a5fc21e026d53df61682ff90c))
+
 # 1.0.0 (2026-02-02)
 
 ### Bug Fixes
