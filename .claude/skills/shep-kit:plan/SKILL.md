@@ -15,6 +15,16 @@ Generate a detailed implementation plan with architecture overview and task brea
 - Research completed at `specs/NNN-feature-name/research.md`
 - On the feature branch `feat/NNN-feature-name`
 
+## GATE CHECK (Mandatory)
+
+Before starting planning, verify:
+
+1. **Read `research.md`** and check the "Open Questions" section
+2. **If any unchecked `- [ ]` items exist**: STOP and inform user:
+   > ⛔ Cannot proceed with planning. Open questions in research.md must be resolved first.
+   > Please complete research or mark questions as resolved.
+3. **Only proceed** when research questions are resolved or section says "All questions resolved"
+
 ## Workflow
 
 ### 1. Review Spec & Research
@@ -77,7 +87,31 @@ Fill in both templates:
 - `specs/NNN-feature-name/plan.md` - Architecture and strategy
 - `specs/NNN-feature-name/tasks.md` - Detailed task list
 
-### 9. Update data-model.md (if needed)
+### 9. Update Status Fields
+
+**CRITICAL:** Update status in ALL spec files:
+
+```markdown
+# In spec.md, update:
+
+- **Phase:** Planning # (was Research)
+
+# In research.md, update:
+
+- **Phase:** Planning # (was Research)
+
+# In plan.md, keep:
+
+- **Phase:** Planning
+- **Updated:** <today's date>
+
+# In tasks.md, keep:
+
+- **Phase:** Implementation # Ready for impl
+- **Updated:** <today's date>
+```
+
+### 10. Update data-model.md (if needed)
 
 If feature requires entity changes:
 
@@ -85,27 +119,31 @@ If feature requires entity changes:
 - Document modifications to existing entities
 - List new enums or value objects
 
-### 10. Commit
+### 11. Commit
 
 ```bash
 git add specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name implementation plan"
 ```
 
-### 11. Next Steps
+### 12. Next Steps
 
 Inform the user:
 
 > Plan complete for `NNN-feature-name`!
 > Ready to implement. Use tasks.md to track progress.
 > Consider TDD: write tests first, then implementation.
+>
+> **IMPORTANT:** After implementation, update all spec file statuses to "Complete"
 
 ## Key Principles
 
+- **Gate enforcement**: Never skip the open questions check
 - **Incremental**: Each phase produces working, testable code
 - **Parallel-aware**: Mark independent tasks for concurrent execution
 - **TDD-aligned**: Testing strategy enables test-first development
 - **Reversible**: Always have a rollback plan
+- **Status tracking**: Always update Phase fields before committing
 
 ## Template Locations
 

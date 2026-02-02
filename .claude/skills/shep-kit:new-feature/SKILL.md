@@ -9,6 +9,16 @@ Start spec-driven development by creating a feature branch and specification dir
 
 **Full workflow guide:** [docs/development/spec-driven-workflow.md](../../../docs/development/spec-driven-workflow.md)
 
+## Phase Lifecycle
+
+```
+Requirements → Research → Planning → Implementation → Complete
+    ↓             ↓           ↓            ↓            ↓
+ spec.md     research.md   plan.md     tasks.md    all files
+```
+
+**CRITICAL:** Each phase MUST update the `Phase` status field before proceeding.
+
 ## Workflow
 
 ### 1. Gather Minimal Input
@@ -86,12 +96,21 @@ Inform the user:
 > Spec created on `feat/NNN-feature-name`!
 > Next: `/shep-kit:research` to analyze technical approach.
 
+## Open Questions Policy
+
+**CRITICAL:** Open questions in spec.md MUST be resolved before `/shep-kit:research`.
+
+- If questions are identified, list them with `- [ ]` checkbox format
+- User must confirm answers or mark "None - requirements are clear"
+- Research phase will REFUSE to proceed if unchecked open questions exist
+
 ## Key Principles
 
 - **Branch first**: All spec work happens on the feature branch
 - **Infer, don't interrogate**: Analyze codebase to propose smart defaults
 - **Dependencies from specs**: Scan existing `specs/*/spec.md` for relationships
 - **User confirms**: Always get approval before writing files
+- **Open questions block progress**: Never proceed with unresolved questions
 
 ## Template Location
 
