@@ -1,10 +1,30 @@
-# Shep AI CLI
+<div align="center">
 
-[![npm version](https://img.shields.io/npm/v/@shep-ai/cli.svg)](https://www.npmjs.com/package/@shep-ai/cli)
+# 🐑 Shep AI
+
+### Autonomous AI Native SDLC Platform
+
+_Automate the entire development cycle from idea to deploy_
+
+[![CI](https://github.com/shep-ai/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/cli/actions/workflows/ci.yml)
+[![npm version](https://img.shields.io/npm/v/@shep-ai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shep-ai/cli)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.3+-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Node.js](https://img.shields.io/badge/Node.js-≥18-339933.svg?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![pnpm](https://img.shields.io/badge/pnpm-≥8-f69220.svg?logo=pnpm&logoColor=white)](https://pnpm.io/)
+[![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](https://github.com/shep-ai/cli/pulls)
+[![Conventional Commits](https://img.shields.io/badge/Conventional%20Commits-1.0.0-fe5196.svg?logo=conventionalcommits&logoColor=white)](https://conventionalcommits.org)
 
-**Autonomous AI Native SDLC Platform** - Automate the entire development cycle from idea to deploy.
+<br />
+
+[Getting Started](#quick-start) •
+[Documentation](#documentation) •
+[Contributing](#contributing) •
+[License](#license)
+
+</div>
+
+---
 
 Shep is an intelligent CLI tool that transforms how you build software. Point it at any repository, and it will analyze your codebase, gather requirements through conversational AI, break down features into actionable tasks, generate comprehensive documentation, and execute implementation autonomously.
 
