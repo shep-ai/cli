@@ -2,7 +2,7 @@
  * Semantic Release Configuration
  *
  * Automates versioning and publishing based on conventional commits.
- * Publishes to npm registry.
+ * Publishes to npm registry and GitHub Container Registry (Docker).
  *
  * @see https://semantic-release.gitbook.io/
  * @type {import('semantic-release').GlobalConfig}
@@ -58,7 +58,17 @@ export default {
     // 4. Publish to npm registry
     '@semantic-release/npm',
 
-    // 5. Create GitHub release
+    // 5. Build and push Docker image to GitHub Container Registry
+    [
+      '@codedependant/semantic-release-docker',
+      {
+        dockerImage: 'ghcr.io/shep-ai/cli',
+        dockerTags: ['latest', '{{version}}'],
+        dockerLogin: false, // Login handled by CI workflow
+      },
+    ],
+
+    // 6. Create GitHub release
     [
       '@semantic-release/github',
       {
@@ -68,7 +78,7 @@ export default {
       },
     ],
 
-    // 6. Commit updated files back to repo
+    // 7. Commit updated files back to repo
     [
       '@semantic-release/git',
       {
