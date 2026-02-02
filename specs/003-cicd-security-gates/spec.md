@@ -7,7 +7,7 @@
 - **Number:** 003
 - **Created:** 2026-02-02
 - **Branch:** feat/docker-support
-- **Phase:** Planning
+- **Phase:** Complete
 
 ## Problem Statement
 
@@ -23,20 +23,21 @@ Without automated security gates, vulnerabilities can slip into production undet
 
 ## Success Criteria
 
-- [ ] Security scanners run in parallel on all non-main branch pushes/PRs
-- [ ] Security scan results visible in GitHub Actions logs
-- [ ] On main branch, security failures block the release job
-- [ ] Uses open-source tools only (no paid services)
-- [ ] Minimal CI time impact (parallel execution)
+- [x] Security scanners run in parallel on all non-main branch pushes/PRs
+- [x] Security scan results visible in GitHub Actions logs
+- [x] On main branch, security failures block the release job
+- [x] Uses open-source tools only (no paid services)
+- [x] Minimal CI time impact (parallel execution)
+- [x] Docker container vulnerability scanning (Trivy)
 
 ## Proposed Security Stack
 
-| Scanner      | Purpose                                             | Scope         |
-| ------------ | --------------------------------------------------- | ------------- |
-| **Trivy**    | Dependency vulnerabilities, container scanning, IaC | All-in-one    |
-| **Gitleaks** | Secret detection in git history                     | Secrets       |
-| **Semgrep**  | SAST for TypeScript/JavaScript                      | Code patterns |
-| **Hadolint** | Dockerfile best practices                           | Container     |
+| Scanner      | Purpose                                                   | Scope         |
+| ------------ | --------------------------------------------------------- | ------------- |
+| **Trivy**    | Dependency vulnerabilities, container image scanning, IaC | All-in-one    |
+| **Gitleaks** | Secret detection in git history                           | Secrets       |
+| **Semgrep**  | SAST for TypeScript/JavaScript                            | Code patterns |
+| **Hadolint** | Dockerfile best practices                                 | Container     |
 
 ## Workflow Design
 
