@@ -34,6 +34,9 @@
 
 export default {
   extends: ['@commitlint/config-conventional'],
+  // Ignore automated release commits from semantic-release
+  // These contain changelog with long URLs that exceed line length limits
+  ignores: [(commit) => commit.startsWith('chore(release):')],
   rules: {
     // Type must be one of the allowed values
     'type-enum': [
