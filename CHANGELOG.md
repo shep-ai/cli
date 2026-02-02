@@ -1,3 +1,9 @@
+# [1.2.0](https://github.com/shep-ai/cli/compare/v1.1.0...v1.2.0) (2026-02-02)
+
+### Features
+
+- **ci:** add docker build and push to github container registry ([#7](https://github.com/shep-ai/cli/issues/7)) ([9c4ea7d](https://github.com/shep-ai/cli/commit/9c4ea7da6b24f7e3e127e25e0aae06003448116f))
+
 # [1.1.0](https://github.com/shep-ai/cli/compare/v1.0.1...v1.1.0) (2026-02-02)
 
 ### Features
