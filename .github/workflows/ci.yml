@@ -234,6 +234,8 @@ jobs:
 
   # ===========================================================================
   # Security: Gitleaks Secret Detection
+  # Uses gitleaks CLI directly (free, open source) instead of gitleaks-action
+  # which requires a paid license for organizations
   # ===========================================================================
   security-gitleaks:
     name: Gitleaks
@@ -247,10 +249,14 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install gitleaks
+        run: |
+          GITLEAKS_VERSION="8.18.4"
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz" | tar -xz
+          sudo mv gitleaks /usr/local/bin/
+
       - name: Gitleaks secret scan
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gitleaks detect --source . --verbose --redact
 
   # ===========================================================================
   # Security: Semgrep SAST
