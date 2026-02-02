@@ -36,7 +36,7 @@ git checkout -b "feat/${NEXT_NUM}-${FEATURE_NAME}"
 Execute the scaffolding script:
 
 ```bash
-.claude/skills/shep-kit/new-feature/scripts/init-feature.sh <NNN> <feature-name>
+.claude/skills/shep-kit:new-feature/scripts/init-feature.sh <NNN> <feature-name>
 ```
 
 This creates `specs/NNN-feature-name/` with all template files.
@@ -95,8 +95,8 @@ Inform the user:
 
 ## Template Location
 
-Templates are in: `.claude/skills/shep-kit/new-feature/templates/`
+Templates are in: `.claude/skills/shep-kit:new-feature/templates/`
 
 ## Example
 
-See: `.claude/skills/shep-kit/new-feature/examples/001-sample-feature/`
+See: `.claude/skills/shep-kit:new-feature/examples/001-sample-feature/`

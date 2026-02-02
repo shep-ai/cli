@@ -95,8 +95,8 @@ Inform the user:
 
 ## Template Location
 
-Template at: `.claude/skills/shep-kit/new-feature/templates/research.md`
+Template at: `.claude/skills/shep-kit:new-feature/templates/research.md`
 
 ## Example
 
-See: `.claude/skills/shep-kit/research/examples/sample-research.md`
+See: `.claude/skills/shep-kit:research/examples/sample-research.md`

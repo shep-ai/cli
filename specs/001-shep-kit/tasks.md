@@ -15,7 +15,7 @@
 - [x] Create spec.md with requirements
 - [x] Create research.md with technical decisions
 - [x] Create plan.md with architecture
-- [x] Create `.claude/skills/shep-kit/` directory structure
+- [x] Create `.claude/skills/shep-kit:*` directory structure (flat naming)
 
 ### Phase 2: new-feature Skill
 
