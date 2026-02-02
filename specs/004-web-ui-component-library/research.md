@@ -259,7 +259,55 @@
 - Pro: Easy to document and visualize in Storybook
 - Con: Requires understanding Tailwind v4's @theme syntax
 
-### 8. Clean Architecture Structure for Web Components
+### 8. pnpm Workspaces Integration
+
+**Options considered:**
+
+1. **Single package** - Keep web UI in root package (current structure)
+2. **Separate workspace package** - Move to `packages/web/` or `apps/web/`
+3. **Hybrid** - Web UI in root, but use workspace protocol for internal deps
+
+**Decision:** **Single package (root) with future workspace readiness**
+
+**Rationale:**
+
+- Project already has `pnpm-workspace.yaml` configured for future expansion
+- Current structure: single-package workspace (`packages: ['.']`)
+- Web UI at `src/presentation/web/` keeps it alongside CLI and TUI presentation layers
+- Clean Architecture principle: All presentation layers at same level
+- Future-ready: Can move to `packages/web/` if needed without breaking changes
+- pnpm commands work the same (root is a workspace member)
+- Dependency management: Use standard `pnpm add` (no `workspace:` protocol needed yet)
+
+**pnpm Workspace Features Used:**
+
+- Single `pnpm-lock.yaml` in root (already configured)
+- Single `node_modules` in root (efficient)
+- Filter flag available: `pnpm --filter web <command>` (if we add workspace packages later)
+- Parallel execution: `pnpm -r --parallel` (for future workspaces)
+
+**Trade-offs:**
+
+- Pro: Simpler structure, no monorepo overhead yet
+- Pro: Consistent with existing CLI/TUI presentation layers
+- Pro: Easy migration to separate workspace package later
+- Con: Miss out on some monorepo benefits (independent versioning, etc.)
+
+**Future Migration Path:**
+
+If we need separate web package:
+
+```yaml
+# pnpm-workspace.yaml
+packages:
+  - '.'
+  - 'apps/web' # Next.js app
+  - 'packages/*' # Shared packages
+```
+
+**Sources:** [pnpm Workspaces](https://pnpm.io/next/workspaces) | [Monorepo Guide 2025](https://jsdev.space/complete-monorepo-guide/) | [Next.js pnpm Monorepo](https://medium.com/@bashorundolapo/how-to-create-a-simple-next-js-monorepo-with-pnpm-82af37289b50)
+
+### 9. Clean Architecture Structure for Web Components
 
 **Options considered:**
 
@@ -366,6 +414,7 @@ All questions resolved. Key decisions finalized:
 - ✅ Testing stack (Vitest + RTL 16 + Playwright 1.57+)
 - ✅ CI/CD approach (extend existing ci.yml)
 - ✅ Design token system (@theme blocks)
+- ✅ pnpm workspaces integration (single package, root-level)
 - ✅ Clean Architecture structure (adapted for web layer)
 
 ---
