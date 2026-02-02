@@ -203,7 +203,7 @@ jobs:
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && github.event_name == 'push'
         with:
           sarif_file: 'trivy-fs-results.sarif'
         continue-on-error: true
@@ -282,7 +282,7 @@ jobs:
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
-        if: always()
+        if: always() && github.event_name == 'push'
         with:
           sarif_file: 'trivy-container-results.sarif'
         continue-on-error: true
