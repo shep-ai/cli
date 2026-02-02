@@ -1,3 +1,18 @@
+# 1.0.0 (2026-02-02)
+
+### Bug Fixes
+
+- **config:** fix test and build scripts for cli project ([eb6be50](https://github.com/shep-ai/cli/commit/eb6be50f433a55e22a44b4b7db96a95f047682fe))
+- **ci:** ignore release commits in commitlint ([3d048bd](https://github.com/shep-ai/cli/commit/3d048bd73f162246ae125fbe84b3baa214c62f7f))
+- **config:** let pnpm action read version from package.json ([6738877](https://github.com/shep-ai/cli/commit/6738877065942b9fd42e03c5d692c360d6669f9e))
+
+### Features
+
+- **dx:** add claude code hooks and skills for tsp workflow ([#1](https://github.com/shep-ai/cli/issues/1)) ([4fa4225](https://github.com/shep-ai/cli/commit/4fa4225ff6d479d2186c16f2f11311a1eb5043e7))
+- **cli:** add cli scaffolding with commander.js and e2e tests ([#2](https://github.com/shep-ai/cli/issues/2)) ([a2b4259](https://github.com/shep-ai/cli/commit/a2b42595db6106e6da85049c6b85e2325f803b4a))
+- **ci:** add semantic-release for automated publishing ([#4](https://github.com/shep-ai/cli/issues/4)) ([ee90892](https://github.com/shep-ai/cli/commit/ee908923e8e9c15d1eb600563770f179b259e3af))
+- **specs:** add shep-kit spec-driven development workflow ([#3](https://github.com/shep-ai/cli/issues/3)) ([9855982](https://github.com/shep-ai/cli/commit/9855982095af255ef115e3fc337e7999ca2b70c9))
+
 # Changelog
 
 All notable changes to this project will be documented in this file.
