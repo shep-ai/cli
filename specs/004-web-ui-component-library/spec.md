@@ -22,7 +22,7 @@ This feature establishes the foundational component library using shadcn/ui (Rad
 
 ## Success Criteria
 
-- [ ] Next.js 14+ installed and configured with App Router
+- [ ] Next.js 15 installed and configured with App Router
 - [ ] shadcn/ui CLI installed and initialized
 - [ ] Tailwind CSS configured with design tokens (colors, spacing, typography, shadows)
 - [ ] **Dark mode support configured from the start** (Tailwind dark mode + theme tokens)
