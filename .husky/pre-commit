@@ -1,0 +1,6 @@
+#!/bin/sh
+# Pre-commit hook - validates code before commit
+# See: https://typicode.github.io/husky/
+
+pnpm exec lint-staged
+pnpm run validate
