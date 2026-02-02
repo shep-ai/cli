@@ -1,3 +1,9 @@
+# [1.1.0](https://github.com/shep-ai/cli/compare/v1.0.1...v1.1.0) (2026-02-02)
+
+### Features
+
+- **dx:** add shep-kit:merged skill for post-merge cleanup ([e7b7818](https://github.com/shep-ai/cli/commit/e7b7818bdea118e00b087f94050001a047672fbe))
+
 ## [1.0.1](https://github.com/shep-ai/cli/compare/v1.0.0...v1.0.1) (2026-02-02)
 
 ### Bug Fixes
