@@ -4,15 +4,19 @@
 # All jobs run in parallel. Release only runs on push to main.
 #
 # Pipeline Structure:
-#   ┌──────────┬───────────┬────────────┬───────────┬───────────┬───────────┐
-#   │   Lint   │ Typecheck │ Unit Tests │  E2E CLI  │  E2E TUI  │  E2E Web  │
-#   └──────────┴───────────┴────────────┴───────────┴───────────┴───────────┘
+#   ┌──────────┬───────────┬────────────┬───────────┬───────────┬───────────┬────────┐
+#   │   Lint   │ Typecheck │ Unit Tests │  E2E CLI  │  E2E TUI  │  E2E Web  │ Docker │
+#   └──────────┴───────────┴────────────┴───────────┴───────────┴───────────┴────────┘
 #                                    (all parallel)
 #
 #   On push to main only:
 #   ┌───────────┐
-#   │  Release  │  (after all jobs pass)
+#   │  Release  │  (after all jobs pass, includes Docker push with version tags)
 #   └───────────┘
+#
+# Docker Tags:
+#   - All branches: sha-<full-commit-sha>
+#   - Main (via semantic-release): latest, <version>
 #
 # @see https://docs.github.com/en/actions
 
@@ -124,7 +128,52 @@ jobs:
       - run: pnpm run test:e2e:web
 
   # ===========================================================================
+  # Docker Build (parallel, pushes SHA tag for non-main branches only)
+  # On main, semantic-release handles Docker with version tags
+  # ===========================================================================
+  docker:
+    name: Docker
+    runs-on: ubuntu-latest
+    if: github.ref != 'refs/heads/main'
+
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository }}
+          tags: |
+            type=sha,format=long
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ===========================================================================
   # Release (main only, after all jobs pass)
+  # Includes npm publish and Docker push with version tags via semantic-release
   # ===========================================================================
   release:
     name: Release
@@ -137,12 +186,24 @@ jobs:
       issues: write
       pull-requests: write
       id-token: write
+      packages: write
 
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: pnpm/action-setup@v4
       - uses: actions/setup-node@v4
         with:
@@ -150,6 +211,7 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
+
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
