@@ -9,39 +9,88 @@
 
 ## Task List
 
-### Phase 1: {{PHASE_1_NAME}}
+### Phase 1: Add Security Scanning Job
 
-- [ ] {{TASK_1_1}}
-- [ ] {{TASK_1_2}}
-- [ ] {{TASK_1_3}}
+- [ ] Add `security` job to `.github/workflows/ci.yml`
+  - [ ] Add job definition with `runs-on: ubuntu-latest`
+  - [ ] Add Trivy filesystem scan step (deps + IaC)
+  - [ ] Add Gitleaks secret detection step
+  - [ ] Add Semgrep SAST step (TypeScript/JavaScript rules)
+  - [ ] Add Hadolint Dockerfile linting step
+  - [ ] Configure severity thresholds (HIGH/CRITICAL)
 
-### Phase 2: {{PHASE_2_NAME}}
+### Phase 2: Wire Security to Release Gate
 
-- [ ] {{TASK_2_1}}
-- [ ] {{TASK_2_2}}
+- [ ] Update `release` job `needs` array to include `security`
+- [ ] Verify release only runs when security passes on main
 
-### Phase 3: {{PHASE_3_NAME}} [P]
+### Phase 3: Update Documentation
 
-- [ ] {{TASK_3_1}}
-- [ ] {{TASK_3_2}}
+- [ ] Update CI/CD header diagram to include Security job
+- [ ] Add Security section to pipeline structure comment
 
-<!-- [P] indicates tasks in this phase can run in parallel -->
+## Implementation Details
+
+### Trivy Configuration
+
+```yaml
+- name: Trivy vulnerability scan
+  uses: aquasecurity/trivy-action@master
+  with:
+    scan-type: 'fs'
+    scan-ref: '.'
+    severity: 'HIGH,CRITICAL'
+    exit-code: '1'
+```
+
+### Gitleaks Configuration
+
+```yaml
+- name: Gitleaks secret scan
+  uses: gitleaks/gitleaks-action@v2
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+### Semgrep Configuration
+
+```yaml
+- name: Semgrep SAST scan
+  uses: returntocorp/semgrep-action@v1
+  with:
+    config: >-
+      p/typescript
+      p/javascript
+      p/security-audit
+```
+
+### Hadolint Configuration
+
+```yaml
+- name: Hadolint Dockerfile lint
+  uses: hadolint/hadolint-action@v3.1.0
+  with:
+    dockerfile: Dockerfile
+    failure-threshold: warning
+```
 
 ## Parallelization Notes
 
-- Tasks marked [P] can be executed concurrently
-- {{PARALLEL_NOTE}}
+- All tasks are sequential (single file modification)
+- Security job runs in parallel with other CI jobs
+- Internal scanner steps run sequentially within the job
 
 ## Acceptance Checklist
 
 Before marking feature complete:
 
 - [ ] All tasks completed
-- [ ] Tests passing (`pnpm test`)
-- [ ] Linting clean (`pnpm lint`)
-- [ ] Types valid (`pnpm typecheck`)
-- [ ] Documentation updated
-- [ ] PR created and reviewed
+- [ ] Security job appears in GitHub Actions
+- [ ] All 4 scanners run successfully
+- [ ] Release job depends on security on main branch
+- [ ] CI header documentation updated
+- [ ] Commit follows conventional commits format
+- [ ] Update all spec files to Phase: Complete
 
 ---
 
