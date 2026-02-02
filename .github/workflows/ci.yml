@@ -6,7 +6,10 @@
 # Jobs:
 #   - lint: ESLint, Prettier, TypeSpec validation
 #   - typecheck: TypeScript type checking
-#   - test: Unit and integration tests
+#   - test-unit: Unit and integration tests
+#   - test-e2e-cli: CLI E2E tests (parallel)
+#   - test-e2e-tui: TUI E2E tests (parallel)
+#   - test-e2e-web: Web E2E tests (parallel)
 #   - build: Verify build succeeds
 #
 # See: https://docs.github.com/en/actions
@@ -87,8 +90,8 @@ jobs:
   # ===========================================================================
   # Unit & Integration Tests
   # ===========================================================================
-  test:
-    name: Test
+  test-unit:
+    name: Unit Tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -106,14 +109,94 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run tests
-        run: pnpm run test
+      - name: Run unit tests
+        run: pnpm run test:unit --passWithNoTests
+
+      - name: Run integration tests
+        run: pnpm run test:int --passWithNoTests
 
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         if: always()
         with:
           fail_ci_if_error: false
+
+  # ===========================================================================
+  # E2E Tests - CLI (runs in parallel with other E2E jobs)
+  # ===========================================================================
+  test-e2e-cli:
+    name: E2E Tests (CLI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run CLI E2E tests
+        run: pnpm run test:e2e:cli
+
+  # ===========================================================================
+  # E2E Tests - TUI (runs in parallel with other E2E jobs)
+  # ===========================================================================
+  test-e2e-tui:
+    name: E2E Tests (TUI)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Run TUI E2E tests
+        run: pnpm run test:e2e:tui
+
+  # ===========================================================================
+  # E2E Tests - Web (runs in parallel with other E2E jobs)
+  # ===========================================================================
+  test-e2e-web:
+    name: E2E Tests (Web)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Note: Uses Vitest placeholder until Playwright is set up
+      # TODO: Install Playwright and update test:e2e:web script when ready
+      - name: Run Web E2E tests
+        run: pnpm run test:e2e:web
 
   # ===========================================================================
   # Build Verification
