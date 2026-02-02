@@ -259,7 +259,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 <type>(<scope>): <subject>
 
 Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-Scopes: specs, cli, tui, web, api, domain, agents, deployment, tsp, deps, config, dx
+Scopes: specs, cli, tui, web, api, domain, agents, deployment, tsp, deps, config, dx, release, ci
 ```
 
 Examples:

@@ -81,6 +81,7 @@ jobs:
             config
             dx
             release
+            ci
           requireScope: false
           subjectPattern: ^[a-z].+$
           subjectPatternError: |
