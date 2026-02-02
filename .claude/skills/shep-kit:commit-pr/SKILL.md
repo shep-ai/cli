@@ -83,22 +83,27 @@ PR body should include:
 ### 4. Watch CI (Critical)
 
 ```bash
-gh run watch --exit-status
+# Get the latest run ID for current branch
+gh run list --limit 5  # Find the run ID
+gh run watch <run-id> --exit-status
 ```
 
 **MUST wait for CI to complete.** The `--exit-status` flag returns non-zero if CI fails.
+
+**Note:** `gh run watch` requires a run ID when not in interactive terminal.
 
 ### 5. Fix-Push-Watch Loop
 
 If CI fails:
 
-1. **Get failure logs**: `gh run view --log-failed`
+1. **Get failure logs**: `gh run view <run-id> --log-failed`
 2. **Analyze root cause**: Read the error, understand the issue
 3. **Fix the issue**: Make necessary code changes
 4. **Commit the fix**: `git commit -m "fix(<scope>): <what was fixed>"`
 5. **Push**: `git push`
-6. **Watch again**: `gh run watch --exit-status`
-7. **Repeat** until CI passes
+6. **Get new run ID**: `gh run list --limit 1`
+7. **Watch again**: `gh run watch <new-run-id> --exit-status`
+8. **Repeat** until CI passes
 
 ## Red Flags - STOP
 
@@ -109,12 +114,12 @@ If CI fails:
 
 ## Quick Reference
 
-| Command                      | Purpose                   |
-| ---------------------------- | ------------------------- |
-| `gh run watch --exit-status` | Watch CI, exit 1 if fails |
-| `gh run view --log-failed`   | Get failure logs          |
-| `gh run list`                | List recent runs          |
-| `gh pr view --web`           | Open PR in browser        |
+| Command                           | Purpose                   |
+| --------------------------------- | ------------------------- |
+| `gh run list --limit 5`           | List recent runs with IDs |
+| `gh run watch <id> --exit-status` | Watch CI, exit 1 if fails |
+| `gh run view <id> --log-failed`   | Get failure logs          |
+| `gh pr view --web`                | Open PR in browser        |
 
 ## Example
 
