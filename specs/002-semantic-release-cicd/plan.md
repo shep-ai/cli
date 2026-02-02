@@ -10,62 +10,120 @@
 ## Architecture Overview
 
 ```
-{{ARCHITECTURE_DIAGRAM}}
+┌─────────────────────────────────────────────────────────────────────┐
+│                         GitHub Actions                               │
+│                     .github/workflows/release.yml                    │
+└──────────────────────────────┬──────────────────────────────────────┘
+                               │ on: push to main
+                               ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                        semantic-release                              │
+│                       release.config.mjs                             │
+├─────────────────────────────────────────────────────────────────────┤
+│  1. commit-analyzer     │ Analyze commits → determine version bump   │
+│  2. release-notes       │ Generate release notes from commits        │
+│  3. changelog           │ Update CHANGELOG.md                        │
+│  4. npm-multiple        │ Publish to npm + GitHub Package Registry   │
+│  5. github              │ Create GitHub Release with notes           │
+│  6. git                 │ Commit package.json + CHANGELOG.md         │
+└─────────────────────────────────────────────────────────────────────┘
+                               │
+          ┌────────────────────┼────────────────────┐
+          ▼                    ▼                    ▼
+   ┌─────────────┐    ┌──────────────┐    ┌──────────────┐
+   │  npm.pkg.   │    │ registry.    │    │   GitHub     │
+   │  github.com │    │ npmjs.org    │    │   Releases   │
+   │ (GPR)       │    │ (public npm) │    │              │
+   └─────────────┘    └──────────────┘    └──────────────┘
 ```
-
-<!-- Include ASCII or Mermaid diagram showing component relationships -->
 
 ## Implementation Strategy
 
-### Phase 1: {{PHASE_1_NAME}}
+### Phase 1: Dependencies & Configuration
 
-{{PHASE_1_DESCRIPTION}}
+Install semantic-release and all plugins as devDependencies. Create the `release.config.mjs` configuration file with the plugin stack. This is the foundation - nothing else works without it.
 
-### Phase 2: {{PHASE_2_NAME}}
+### Phase 2: GitHub Actions Workflow
 
-{{PHASE_2_DESCRIPTION}}
+Create `.github/workflows/release.yml` with proper permissions, environment variables, and job configuration. The workflow must:
 
-### Phase 3: {{PHASE_3_NAME}}
+- Trigger only on main branch pushes
+- Run after CI checks pass
+- Have correct permissions (contents, issues, pull-requests, id-token)
+- Set up npm authentication for both registries
 
-{{PHASE_3_DESCRIPTION}}
+### Phase 3: Package Configuration & Documentation
+
+Update `package.json` with `publishConfig` for GitHub registry. Add initial `CHANGELOG.md`. Update `CONTRIBUTING.md` to document the release process for contributors.
 
 ## Files to Create/Modify
 
 ### New Files
 
-| File              | Purpose              |
-| ----------------- | -------------------- |
-| {{NEW_FILE_PATH}} | {{NEW_FILE_PURPOSE}} |
+| File                            | Purpose                                         |
+| ------------------------------- | ----------------------------------------------- |
+| `release.config.mjs`            | semantic-release configuration with all plugins |
+| `.github/workflows/release.yml` | GitHub Actions workflow for automated releases  |
+| `CHANGELOG.md`                  | Changelog file (initially empty, auto-updated)  |
 
 ### Modified Files
 
-| File              | Changes              |
-| ----------------- | -------------------- |
-| {{MOD_FILE_PATH}} | {{MOD_FILE_CHANGES}} |
+| File              | Changes                                                 |
+| ----------------- | ------------------------------------------------------- |
+| `package.json`    | Add devDependencies, publishConfig for GitHub registry  |
+| `CONTRIBUTING.md` | Add "Release Process" section explaining automated flow |
 
 ## Testing Strategy
 
 ### Unit Tests
 
-- {{UNIT_TEST_1}}
+- None required - this feature is configuration-only, no application code
 
 ### Integration Tests
 
-- {{INT_TEST_1}}
+- None required - no new application logic
 
 ### E2E Tests
 
-- {{E2E_TEST_1}}
+- **Manual verification**: Merge a feat commit to main, verify:
+  - Version bump in package.json
+  - Package published to npm
+  - Package published to GitHub Package Registry
+  - GitHub Release created with changelog
+  - CHANGELOG.md updated
+
+### CI Verification
+
+- Dry-run semantic-release in PR to validate config
+- Verify workflow syntax with `actionlint` (optional)
 
 ## Risk Mitigation
 
-| Risk       | Mitigation       |
-| ---------- | ---------------- |
-| {{RISK_1}} | {{MITIGATION_1}} |
+| Risk                            | Mitigation                                                |
+| ------------------------------- | --------------------------------------------------------- |
+| NPM_TOKEN exposed               | Store as GitHub Secret, never in code                     |
+| Publishing broken package       | CI must pass before release job runs (needs: [build])     |
+| Version conflicts               | semantic-release handles this; git plugin commits version |
+| GitHub API rate limits          | GITHUB_TOKEN has high limits; unlikely to hit             |
+| Accidental release from feature | Workflow only triggers on main branch                     |
+| npm org permission denied       | Verify @shep-ai org exists on npm before first publish    |
 
 ## Rollback Plan
 
-{{ROLLBACK_STRATEGY}}
+If a bad version is published:
+
+1. **npm**: `npm unpublish @shep-ai/cli@<version>` (within 72 hours)
+2. **GitHub Package Registry**: Delete package version from GitHub UI
+3. **GitHub Release**: Delete release from GitHub UI
+4. **CHANGELOG.md**: Revert commit that added bad entry
+5. **Prevent future**: semantic-release won't re-release same commits
+
+If the workflow itself is broken:
+
+1. Disable workflow via GitHub UI or delete `release.yml`
+2. Fix configuration on a feature branch
+3. Merge fix to main
+4. Re-enable workflow
 
 ---
 

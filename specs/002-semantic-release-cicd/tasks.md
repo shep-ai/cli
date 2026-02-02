@@ -9,39 +9,84 @@
 
 ## Task List
 
-### Phase 1: {{PHASE_1_NAME}}
+### Phase 1: Dependencies & Configuration
 
-- [ ] {{TASK_1_1}}
-- [ ] {{TASK_1_2}}
-- [ ] {{TASK_1_3}}
+- [ ] Install semantic-release core package
+- [ ] Install @semantic-release/commit-analyzer
+- [ ] Install @semantic-release/release-notes-generator
+- [ ] Install @semantic-release/changelog
+- [ ] Install @amanda-mitchell/semantic-release-npm-multiple
+- [ ] Install @semantic-release/github
+- [ ] Install @semantic-release/git
+- [ ] Create `release.config.mjs` with plugin configuration
+- [ ] Configure multi-registry in release.config.mjs (npm + GitHub)
+- [ ] Add `release` scope to commitlint.config.mjs
 
-### Phase 2: {{PHASE_2_NAME}}
+### Phase 2: GitHub Actions Workflow
 
-- [ ] {{TASK_2_1}}
-- [ ] {{TASK_2_2}}
+- [ ] Create `.github/workflows/release.yml`
+- [ ] Configure trigger on main branch push only
+- [ ] Set required permissions (contents, issues, pull-requests, id-token)
+- [ ] Add checkout step with fetch-depth: 0
+- [ ] Add pnpm and Node.js setup steps
+- [ ] Add npm audit signatures step
+- [ ] Add semantic-release execution step
+- [ ] Configure environment variables (GITHUB_TOKEN, NPM_TOKEN)
 
-### Phase 3: {{PHASE_3_NAME}} [P]
+### Phase 3: Package & Documentation [P]
 
-- [ ] {{TASK_3_1}}
-- [ ] {{TASK_3_2}}
+- [ ] Add `publishConfig` to package.json for GitHub registry
+- [ ] Create initial `CHANGELOG.md` (header only)
+- [ ] Add "Release Process" section to CONTRIBUTING.md
+- [ ] Document NPM_TOKEN secret requirement in CONTRIBUTING.md
 
-<!-- [P] indicates tasks in this phase can run in parallel -->
+### Phase 4: Validation
+
+- [ ] Run `pnpm install` to verify dependencies
+- [ ] Run `pnpm lint` to verify config files
+- [ ] Verify workflow YAML syntax
+- [ ] Create PR for review
+- [ ] Test release after merge (first actual release)
+
+## Pre-Implementation Setup (Manual)
+
+Before merging, these must be configured in GitHub:
+
+- [ ] Create `NPM_TOKEN` secret in repository settings
+- [ ] Verify @shep-ai org exists on npmjs.com
+- [ ] Verify GitHub Package Registry is enabled for repo
 
 ## Parallelization Notes
 
-- Tasks marked [P] can be executed concurrently
-- {{PARALLEL_NOTE}}
+- [P] Phase 3 tasks can run in parallel (independent file updates)
+- Phase 1 must complete before Phase 2 (workflow references deps)
+- Phase 4 depends on all prior phases
 
 ## Acceptance Checklist
 
 Before marking feature complete:
 
 - [ ] All tasks completed
-- [ ] Tests passing (`pnpm test`)
+- [ ] Dependencies installed (`pnpm install`)
 - [ ] Linting clean (`pnpm lint`)
 - [ ] Types valid (`pnpm typecheck`)
+- [ ] Workflow YAML valid
 - [ ] Documentation updated
 - [ ] PR created and reviewed
+- [ ] NPM_TOKEN secret configured
+- [ ] First release triggered successfully after merge
+
+## First Release Verification
+
+After merging to main, verify:
+
+- [ ] GitHub Actions release job runs
+- [ ] Version bumped correctly (based on commits)
+- [ ] Package published to npm (`npm info @shep-ai/cli`)
+- [ ] Package published to GitHub Package Registry
+- [ ] GitHub Release created with changelog
+- [ ] CHANGELOG.md updated in repo
+- [ ] package.json version committed back
 
 ---
 
