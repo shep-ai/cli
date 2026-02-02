@@ -6,6 +6,20 @@ Agent system architecture for Shep AI CLI, powered by **LangGraph** (LangChain).
 
 Shep uses a **LangGraph-based** multi-agent system implemented in TypeScript. Agents are specialized nodes in a StateGraph that collaborate to complete SDLC tasks. The graph-based architecture provides type-safe workflows, durable execution, and human-in-the-loop capabilities.
 
+## Spec-Driven Agent Workflow
+
+Before agents execute, features must have specifications. See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md).
+
+```
+specs/NNN-feature-name/
+├── spec.md         ──→ Feeds into Requirements Node
+├── research.md     ──→ Informs Plan Node decisions
+├── plan.md         ──→ Structures task execution
+└── tasks.md        ──→ Drives Implementation Node
+```
+
+The agent system reads spec files to understand context, requirements, and technical decisions before executing.
+
 ## Technology Stack
 
 | Component     | Technology                                                                 | Purpose                        |

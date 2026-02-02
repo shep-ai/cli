@@ -6,6 +6,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Shep AI CLI (`@shep-ai/cli`) is an Autonomous AI Native SDLC Platform that automates the development cycle from idea to deploy. Users run `shep` in a repository to analyze code, gather requirements via conversational AI, generate plans with tasks/artifacts, and execute implementation autonomously.
 
+## Spec-Driven Development (MANDATORY)
+
+**All feature work MUST begin with `/shep-kit:new-feature`.** See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md).
+
+```
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → implement
+```
+
+Feature specifications live in `specs/NNN-feature-name/`:
+
+- `spec.md` - Requirements and scope
+- `research.md` - Technical decisions
+- `plan.md` - Implementation strategy
+- `tasks.md` - Task breakdown
+
 ## Commands
 
 ```bash
@@ -244,7 +259,7 @@ Follow [Conventional Commits](https://www.conventionalcommits.org/):
 <type>(<scope>): <subject>
 
 Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert
-Scopes: cli, tui, web, api, domain, agents, deployment, tsp, deps, config, dx
+Scopes: specs, cli, tui, web, api, domain, agents, deployment, tsp, deps, config, dx
 ```
 
 Examples:

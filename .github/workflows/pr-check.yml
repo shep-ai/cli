@@ -68,6 +68,7 @@ jobs:
             chore
             revert
           scopes: |
+            specs
             cli
             tui
             web
