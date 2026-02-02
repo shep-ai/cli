@@ -1,27 +1,18 @@
 # =============================================================================
 # CI/CD Pipeline
 # =============================================================================
-# Single unified workflow for all quality checks and releases.
+# All jobs run in parallel. Release only runs on push to main.
 #
 # Pipeline Structure:
-#   ┌─────────┬───────────┬────────────┐
-#   │  Lint   │ Typecheck │ Unit Tests │  (parallel)
-#   └────┬────┴─────┬─────┴──────┬─────┘
-#        └──────────┼────────────┘
-#                   ▼
-#             ┌──────────┐
-#             │  Build   │
-#             └────┬─────┘
-#        ┌─────────┼─────────┐
-#        ▼         ▼         ▼
-#   ┌─────────┬─────────┬─────────┐
-#   │ E2E CLI │ E2E TUI │ E2E Web │  (parallel)
-#   └────┬────┴────┬────┴────┬────┘
-#        └─────────┼─────────┘
-#                  ▼
-#           ┌───────────┐
-#           │  Release  │  (main only)
-#           └───────────┘
+#   ┌──────────┬───────────┬────────────┬───────────┬───────────┬───────────┐
+#   │   Lint   │ Typecheck │ Unit Tests │  E2E CLI  │  E2E TUI  │  E2E Web  │
+#   └──────────┴───────────┴────────────┴───────────┴───────────┴───────────┘
+#                                    (all parallel)
+#
+#   On push to main only:
+#   ┌───────────┐
+#   │  Release  │  (after all jobs pass)
+#   └───────────┘
 #
 # @see https://docs.github.com/en/actions
 
@@ -42,7 +33,7 @@ env:
 
 jobs:
   # ===========================================================================
-  # Stage 1: Fast Quality Checks (parallel)
+  # All jobs run in parallel
   # ===========================================================================
   lint:
     name: Lint & Format
@@ -90,13 +81,9 @@ jobs:
         with:
           fail_ci_if_error: false
 
-  # ===========================================================================
-  # Stage 2: Build (requires lint + typecheck)
-  # ===========================================================================
-  build:
-    name: Build
+  test-e2e-cli:
+    name: E2E (CLI)
     runs-on: ubuntu-latest
-    needs: [lint, typecheck]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -106,37 +93,11 @@ jobs:
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
       - run: pnpm run build
-      - uses: actions/upload-artifact@v4
-        with:
-          name: dist
-          path: dist/
-          retention-days: 1
-
-  # ===========================================================================
-  # Stage 3: E2E Tests (parallel, requires build)
-  # ===========================================================================
-  test-e2e-cli:
-    name: E2E (CLI)
-    runs-on: ubuntu-latest
-    needs: [build]
-    steps:
-      - uses: actions/checkout@v4
-      - uses: pnpm/action-setup@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'pnpm'
-      - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
       - run: pnpm run test:e2e:cli
 
   test-e2e-tui:
     name: E2E (TUI)
     runs-on: ubuntu-latest
-    needs: [build]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -145,16 +106,12 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
+      - run: pnpm run build
       - run: pnpm run test:e2e:tui
 
   test-e2e-web:
     name: E2E (Web)
     runs-on: ubuntu-latest
-    needs: [build]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -163,20 +120,17 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
+      - run: pnpm run build
       - run: pnpm run test:e2e:web
 
   # ===========================================================================
-  # Stage 4: Release (main only, requires ALL previous stages)
+  # Release (main only, after all jobs pass)
   # ===========================================================================
   release:
     name: Release
     runs-on: ubuntu-latest
-    needs: [test-unit, test-e2e-cli, test-e2e-tui, test-e2e-web]
-    if: github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
+    needs: [lint, typecheck, test-unit, test-e2e-cli, test-e2e-tui, test-e2e-web]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && !contains(github.event.head_commit.message, '[skip ci]')
 
     permissions:
       contents: write
@@ -195,10 +149,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
+      - run: pnpm run build
       - name: Run semantic-release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
