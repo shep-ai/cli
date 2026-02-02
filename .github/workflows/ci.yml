@@ -198,6 +198,34 @@ jobs:
           scan-ref: '.'
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
+          format: 'table'
+          output: 'trivy-fs-results.txt'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+        continue-on-error: true
+
+      - name: Display Trivy results
+        if: always()
+        run: |
+          echo "## Trivy Filesystem Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat trivy-fs-results.txt >> $GITHUB_STEP_SUMMARY || echo "No results file found"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Trivy filesystem scan (SARIF)
+        uses: aquasecurity/trivy-action@master
+        if: always()
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          severity: 'HIGH,CRITICAL'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+        continue-on-error: true
 
   # ===========================================================================
   # Security: Trivy Container Scan
@@ -231,6 +259,33 @@ jobs:
           image-ref: security-scan:${{ github.sha }}
           severity: 'HIGH,CRITICAL'
           exit-code: '1'
+          format: 'table'
+          output: 'trivy-container-results.txt'
+
+      - name: Display Trivy results
+        if: always()
+        run: |
+          echo "## Trivy Container Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          cat trivy-container-results.txt >> $GITHUB_STEP_SUMMARY || echo "No results file found"
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Trivy container scan (SARIF)
+        uses: aquasecurity/trivy-action@master
+        if: always()
+        with:
+          image-ref: security-scan:${{ github.sha }}
+          severity: 'HIGH,CRITICAL'
+          format: 'sarif'
+          output: 'trivy-container-results.sarif'
+        continue-on-error: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-container-results.sarif'
+        continue-on-error: true
 
   # ===========================================================================
   # Security: Gitleaks Secret Detection
