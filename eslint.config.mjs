@@ -25,9 +25,9 @@ export default tseslint.config(
       // Build outputs
       'dist/**',
       'build/**',
-      '.next/**',
+      '**/.next/**',
       'out/**',
-      'storybook-static/**',
+      '**/storybook-static/**',
 
       // Dependencies
       'node_modules/**',
