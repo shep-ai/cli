@@ -4,7 +4,7 @@
 
 ## Status
 
-- **Phase:** Research
+- **Phase:** Planning
 - **Updated:** 2026-02-03
 
 ## Technology Decisions
