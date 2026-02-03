@@ -17,9 +17,31 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@tests/*": ["tests/*"]
-    }
+      "@tests/*": ["tests/*"],
+      "@/components/*": ["src/presentation/web/components/*"],
+      "@/lib/*": ["src/presentation/web/lib/*"],
+      "@/hooks/*": ["src/presentation/web/hooks/*"],
+      "@/types/*": ["src/presentation/web/types/*"]
+    },
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
-  "include": ["src/**/*", "tests/**/*", "vitest.config.ts"],
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "app/**/*",
+    "vitest.config.ts",
+    "next.config.ts",
+    "playwright.config.ts",
+    ".storybook/**/*",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
   "exclude": ["node_modules", "dist", "tsp", "apis"]
 }

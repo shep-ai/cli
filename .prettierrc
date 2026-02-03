@@ -9,7 +9,7 @@
   "bracketSpacing": true,
   "arrowParens": "always",
   "endOfLine": "lf",
-  "plugins": ["@typespec/prettier-plugin-typespec"],
+  "plugins": ["@typespec/prettier-plugin-typespec", "prettier-plugin-tailwindcss"],
   "overrides": [
     {
       "files": "*.tsp",

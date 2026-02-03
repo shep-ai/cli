@@ -12,6 +12,9 @@
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettierConfig from 'eslint-config-prettier';
+import reactPlugin from 'eslint-plugin-react';
+import reactHooksPlugin from 'eslint-plugin-react-hooks';
+import nextPlugin from '@next/eslint-plugin-next';
 
 export default tseslint.config(
   // =============================================================================
@@ -24,6 +27,7 @@ export default tseslint.config(
       'build/**',
       '.next/**',
       'out/**',
+      'storybook-static/**',
 
       // Dependencies
       'node_modules/**',
@@ -32,6 +36,7 @@ export default tseslint.config(
       'apis/**',
       '*.generated.*',
       'coverage/**',
+      'next-env.d.ts',
 
       // TypeSpec (handled by tsp linter)
       'tsp/**',
@@ -163,6 +168,49 @@ export default tseslint.config(
       '@typescript-eslint/no-explicit-any': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       'no-console': 'off',
+    },
+  },
+
+  // =============================================================================
+  // React/Next.js configuration for web presentation layer
+  // =============================================================================
+  {
+    files: ['src/presentation/web/**/*.tsx', 'src/presentation/web/**/*.ts'],
+    plugins: {
+      react: reactPlugin,
+      'react-hooks': reactHooksPlugin,
+      '@next/next': nextPlugin,
+    },
+    languageOptions: {
+      parserOptions: {
+        ecmaFeatures: {
+          jsx: true,
+        },
+      },
+    },
+    settings: {
+      react: {
+        version: 'detect',
+      },
+    },
+    rules: {
+      // React rules
+      'react/jsx-uses-react': 'off', // Not needed with React 19 JSX transform
+      'react/react-in-jsx-scope': 'off', // Not needed with React 19 JSX transform
+      'react/prop-types': 'off', // Using TypeScript for prop types
+      'react/jsx-no-target-blank': 'error',
+      'react/jsx-key': 'error',
+      'react/no-array-index-key': 'warn',
+      'react/self-closing-comp': 'warn',
+
+      // React Hooks rules
+      'react-hooks/rules-of-hooks': 'error',
+      'react-hooks/exhaustive-deps': 'warn',
+
+      // Next.js rules
+      '@next/next/no-html-link-for-pages': 'error',
+      '@next/next/no-img-element': 'warn',
+      '@next/next/no-sync-scripts': 'error',
     },
   },
 
