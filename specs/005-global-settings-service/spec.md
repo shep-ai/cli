@@ -37,6 +37,15 @@ This feature establishes the first complete vertical slice of Clean Architecture
 - [ ] pnpm script added for TypeSpec TypeScript generation (`tsp:codegen`)
 - [ ] Generated types used across all layers (no manual interface duplication)
 
+**Build Flow & CI/CD:**
+
+- [ ] `pnpm generate` script runs all generators (TypeSpec → TypeScript, future generators)
+- [ ] Build flow enforced: `generate` → `build` → `lint` → `format` → `test`
+- [ ] `pnpm build` depends on successful `pnpm generate` (fails if types missing)
+- [ ] CI/CD pipeline updated to run `pnpm generate` before all other steps
+- [ ] Pre-commit hook (husky) runs `pnpm generate` before lint/format
+- [ ] `.lintstagedrc.mjs` updated to include generated files in linting/formatting
+
 **Domain Layer:**
 
 - [ ] Settings domain entity uses TypeSpec-generated types
@@ -143,24 +152,28 @@ model SystemConfig {
 
 ## Affected Areas
 
-| Area                                         | Impact | Reasoning                                                  |
-| -------------------------------------------- | ------ | ---------------------------------------------------------- |
-| `tsp/domain/entities/settings.tsp`           | High   | New TypeSpec model - single source of truth                |
-| `tsp/domain/entities/index.tsp`              | Low    | Export new Settings model                                  |
-| `package.json`                               | Medium | Add better-sqlite3, migration lib, TypeSpec TS emitter     |
-| `src/domain/generated/`                      | High   | New directory for TypeSpec-generated TypeScript types      |
-| `src/application/use-cases/settings/`        | High   | First use cases (Initialize, Load, Update)                 |
-| `src/application/ports/output/`              | High   | First repository interface (ISettingsRepository)           |
-| `src/infrastructure/repositories/`           | High   | First repository implementation (SQLiteSettingsRepository) |
-| `src/infrastructure/persistence/`            | High   | Database connection, migrations, ~/.shep/ bootstrap        |
-| `src/infrastructure/persistence/migrations/` | High   | Migration files (001_create_settings_table.sql)            |
-| `src/presentation/cli/index.ts`              | Medium | Add settings initialization check on startup               |
-| `tests/unit/domain/`                         | High   | First domain tests (using generated types)                 |
-| `tests/unit/application/use-cases/`          | High   | First use case tests                                       |
-| `tests/integration/infrastructure/`          | High   | First repository integration tests                         |
-| `tsconfig.json`                              | Low    | Add path alias for generated types (`@domain/generated`)   |
-| `CLAUDE.md`                                  | Medium | Document TypeSpec-first approach for domain models         |
-| `.gitignore`                                 | Low    | Add `src/domain/generated/` to version control             |
+| Area                                         | Impact | Reasoning                                                        |
+| -------------------------------------------- | ------ | ---------------------------------------------------------------- |
+| `tsp/domain/entities/settings.tsp`           | High   | New TypeSpec model - single source of truth                      |
+| `tsp/domain/entities/index.tsp`              | Low    | Export new Settings model                                        |
+| `package.json`                               | High   | Add `generate` script, better-sqlite3, migration lib, TS emitter |
+| `package.json` (scripts)                     | High   | Update build flow: generate → build → lint → test                |
+| `src/domain/generated/`                      | High   | New directory for TypeSpec-generated TypeScript types            |
+| `src/application/use-cases/settings/`        | High   | First use cases (Initialize, Load, Update)                       |
+| `src/application/ports/output/`              | High   | First repository interface (ISettingsRepository)                 |
+| `src/infrastructure/repositories/`           | High   | First repository implementation (SQLiteSettingsRepository)       |
+| `src/infrastructure/persistence/`            | High   | Database connection, migrations, ~/.shep/ bootstrap              |
+| `src/infrastructure/persistence/migrations/` | High   | Migration files (001_create_settings_table.sql)                  |
+| `src/presentation/cli/index.ts`              | Medium | Add settings initialization check on startup                     |
+| `tests/unit/domain/`                         | High   | First domain tests (using generated types)                       |
+| `tests/unit/application/use-cases/`          | High   | First use case tests                                             |
+| `tests/integration/infrastructure/`          | High   | First repository integration tests                               |
+| `tsconfig.json`                              | Low    | Add path alias for generated types (`@domain/generated`)         |
+| `.husky/pre-commit`                          | Medium | Add `pnpm generate` before lint/format steps                     |
+| `.lintstagedrc.mjs`                          | Low    | Include generated files in lint/format checks                    |
+| `.github/workflows/ci.yml`                   | High   | Add `pnpm generate` as first step in CI pipeline                 |
+| `CLAUDE.md`                                  | Medium | Document TypeSpec-first approach and build flow                  |
+| `.gitignore`                                 | Low    | Add `src/domain/generated/` to version control                   |
 
 ## Dependencies
 
@@ -199,6 +212,7 @@ None - requirements are clear.
 - ✅ **Singleton pattern** - Single settings row enforced at database level (UNIQUE constraint on id)
 - ✅ **Sane defaults** - Claude Sonnet 4.5 for all agents, vscode editor, bash shell, auto-update enabled, info log level
 - ✅ **TypeSpec-first domain models** - Use TypeSpec as single source of truth, generate TypeScript types
+- ✅ **Build flow enforced** - `pnpm generate` runs FIRST (before build/lint/format/test), in both local dev and CI/CD, including pre-commit hooks
 
 ---
 
