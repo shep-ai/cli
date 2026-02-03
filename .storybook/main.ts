@@ -14,7 +14,7 @@ const config: StorybookConfig = {
     reactDocgen: 'react-docgen-typescript',
   },
   viteFinal: async (config) => {
-    config.resolve = config.resolve || {};
+    config.resolve = config.resolve ?? {};
     config.resolve.alias = {
       ...config.resolve.alias,
       '@/components': resolve(__dirname, '../src/presentation/web/components'),
