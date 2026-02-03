@@ -58,17 +58,7 @@ export default {
     // 4. Publish to npm registry
     '@semantic-release/npm',
 
-    // 5. Build and push Docker image to GitHub Container Registry
-    [
-      '@codedependant/semantic-release-docker',
-      {
-        dockerImage: 'ghcr.io/shep-ai/cli',
-        dockerTags: ['latest', 'v{{version}}', 'sha-{{gitHead}}'],
-        dockerLogin: false, // Login handled by CI workflow
-      },
-    ],
-
-    // 6. Create GitHub release
+    // 5. Create GitHub release (Docker handled by CI workflow with caching)
     [
       '@semantic-release/github',
       {
@@ -78,7 +68,7 @@ export default {
       },
     ],
 
-    // 7. Commit updated files back to repo
+    // 6. Commit updated files back to repo
     [
       '@semantic-release/git',
       {
