@@ -7,7 +7,7 @@
 - **Number:** 005
 - **Created:** 2026-02-03
 - **Branch:** feat/005-global-settings-service
-- **Phase:** Requirements
+- **Phase:** Research
 
 ## Problem Statement
 
