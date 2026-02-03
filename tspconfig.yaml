@@ -6,14 +6,16 @@
 #
 # Output Structure:
 #   apis/
-#   ├── openapi/       OpenAPI 3.x specs
-#   ├── json-schema/   JSON Schema definitions
-#   └── protobuf/      Protocol Buffer definitions
+#   ├── openapi/              OpenAPI 3.x specs
+#   ├── json-schema/          JSON Schema definitions
+#   └── protobuf/             Protocol Buffer definitions
+#   src/domain/generated/     TypeScript domain models
 
 # Emitters to run during compilation
 emit:
   - '@typespec/openapi3'
   - '@typespec/json-schema'
+  - '@typespec-tools/emitter-typescript'
   # - "@typespec/protobuf"  # Uncomment when protobuf annotations added
 
 # Base output directory for all emitters
@@ -30,6 +32,9 @@ options:
     emitAllModels: true
     emitAllRefs: true
     # bundleId: "shep-ai-models"  # Bundle all schemas (optional)
+
+  '@typespec-tools/emitter-typescript':
+    emitter-output-dir: '{cwd}/src/domain/generated'
 
   # "@typespec/protobuf":
   #   emitter-output-dir: "{output-dir}/protobuf"

@@ -2,4 +2,5 @@
 # Pre-commit hook - validates code before commit
 # See: https://typicode.github.io/husky/
 
+pnpm generate
 pnpm exec lint-staged

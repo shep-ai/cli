@@ -14,6 +14,8 @@
     "noEmit": true,
     "declaration": true,
     "declarationMap": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
@@ -21,7 +23,8 @@
       "@/components/*": ["src/presentation/web/components/*"],
       "@/lib/*": ["src/presentation/web/lib/*"],
       "@/hooks/*": ["src/presentation/web/hooks/*"],
-      "@/types/*": ["src/presentation/web/types/*"]
+      "@/types/*": ["src/presentation/web/types/*"],
+      "@domain/generated/*": ["src/domain/generated/*"]
     },
     "jsx": "react-jsx",
     "allowJs": true,
