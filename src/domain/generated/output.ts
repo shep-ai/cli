@@ -106,21 +106,21 @@ export type ActionItem = BaseEntity & {
   acceptanceCriteria: AcceptanceCriteria[];
 };
 export enum ArtifactCategory {
-  PRD = 'PRD',
-  API = 'API',
-  Design = 'Design',
-  Other = 'Other',
+  PRD = "PRD",
+  API = "API",
+  Design = "Design",
+  Other = "Other",
 }
 export enum ArtifactFormat {
-  Markdown = 'md',
-  Text = 'txt',
-  Yaml = 'yaml',
-  Other = 'Other',
+  Markdown = "md",
+  Text = "txt",
+  Yaml = "yaml",
+  Other = "Other",
 }
 export enum ArtifactState {
-  Todo = 'Todo',
-  Elaborating = 'Elaborating',
-  Done = 'Done',
+  Todo = "Todo",
+  Elaborating = "Elaborating",
+  Done = "Done",
 }
 
 /**
@@ -157,8 +157,8 @@ export type Artifact = BaseEntity & {
   state: ArtifactState;
 };
 export enum MessageRole {
-  Assistant = 'assistant',
-  User = 'user',
+  Assistant = "assistant",
+  User = "user",
 }
 
 /**
@@ -187,13 +187,13 @@ export type Message = BaseEntity & {
   selectedOption?: number;
 };
 export enum RequirementType {
-  Functional = 'Functional',
-  NonFunctional = 'NonFunctional',
+  Functional = "Functional",
+  NonFunctional = "NonFunctional",
 }
 export enum ResearchState {
-  NotStarted = 'NotStarted',
-  Running = 'Running',
-  Finished = 'Finished',
+  NotStarted = "NotStarted",
+  Running = "Running",
+  Finished = "Finished",
 }
 
 /**
@@ -239,11 +239,101 @@ export type Requirement = BaseEntity & {
    */
   researches: Research[];
 };
+
+/**
+ * AI model configuration for different SDLC agents
+ */
+export type ModelConfiguration = {
+  /**
+   * Model for codebase analysis agent
+   */
+  analyze: string;
+  /**
+   * Model for requirements gathering agent
+   */
+  requirements: string;
+  /**
+   * Model for planning agent
+   */
+  plan: string;
+  /**
+   * Model for implementation agent
+   */
+  implement: string;
+};
+
+/**
+ * User profile information
+ */
+export type UserProfile = {
+  /**
+   * User's display name (optional)
+   */
+  name?: string;
+  /**
+   * User's email address (optional)
+   */
+  email?: string;
+  /**
+   * GitHub username (optional, for PR attribution)
+   */
+  githubUsername?: string;
+};
+
+/**
+ * Environment and tooling preferences
+ */
+export type EnvironmentConfig = {
+  /**
+   * Preferred code editor
+   */
+  defaultEditor: string;
+  /**
+   * Preferred shell
+   */
+  shellPreference: string;
+};
+
+/**
+ * System configuration
+ */
+export type SystemConfig = {
+  /**
+   * CLI auto-update preference
+   */
+  autoUpdate: boolean;
+  /**
+   * Log level for CLI output
+   */
+  logLevel: string;
+};
+
+/**
+ * Global Shep platform settings (singleton)
+ */
+export type Settings = BaseEntity & {
+  /**
+   * AI model configuration for different agents
+   */
+  models: ModelConfiguration;
+  /**
+   * User profile information
+   */
+  user: UserProfile;
+  /**
+   * Environment and tooling preferences
+   */
+  environment: EnvironmentConfig;
+  /**
+   * System-level parameters
+   */
+  system: SystemConfig;
+};
 export enum TaskState {
-  Todo = 'Todo',
-  WIP = 'Work in Progress',
-  Done = 'Done',
-  Review = 'Review',
+  Todo = "Todo",
+  WIP = "Work in Progress",
+  Done = "Done",
+  Review = "Review",
 }
 
 /**
@@ -294,9 +384,9 @@ export type TimelineEvent = BaseEntity & {
   timestamp: any;
 };
 export enum PlanState {
-  Requirements = 'Requirements',
-  ClarificationRequired = 'ClarificationRequired',
-  Ready = 'Ready',
+  Requirements = "Requirements",
+  ClarificationRequired = "ClarificationRequired",
+  Ready = "Ready",
 }
 
 /**
@@ -377,12 +467,12 @@ export type Plan = BaseEntity & {
   workPlan?: GanttViewData;
 };
 export enum SdlcLifecycle {
-  Requirements = 'Requirements',
-  Research = 'Research',
-  Implementation = 'Implementation',
-  Review = 'Review',
-  DeployAndQA = 'Deploy & QA',
-  Maintain = 'Maintain',
+  Requirements = "Requirements",
+  Research = "Research",
+  Implementation = "Implementation",
+  Review = "Review",
+  DeployAndQA = "Deploy & QA",
+  Maintain = "Maintain",
 }
 
 /**
@@ -427,10 +517,10 @@ export type Feature = BaseEntity & {
   relatedArtifacts: Artifact[];
 };
 export enum AgentStatus {
-  Idle = 'Idle',
-  Running = 'Running',
-  Paused = 'Paused',
-  Stopped = 'Stopped',
+  Idle = "Idle",
+  Running = "Running",
+  Paused = "Paused",
+  Stopped = "Stopped",
 }
 
 /**
@@ -462,7 +552,7 @@ export type DeployTargetActionItem = {
   /**
    * Discriminator indicating this is an action item target
    */
-  kind: 'actionItem';
+  kind: "actionItem";
   /**
    * The action item to deploy - represents an atomic unit of work
    */
@@ -476,7 +566,7 @@ export type DeployTargetTask = {
   /**
    * Discriminator indicating this is a task target
    */
-  kind: 'task';
+  kind: "task";
   /**
    * The task to deploy - includes all action items within the task
    */
@@ -490,19 +580,19 @@ export type DeployTargetTasks = {
   /**
    * Discriminator indicating this is a multi-task target
    */
-  kind: 'tasks';
+  kind: "tasks";
   /**
    * The tasks to deploy - enables batch deployment of related work
    */
   tasks: Task[];
 };
 export enum FeatureAgentState {
-  GatheringRequirements = 'GatheringRequirements',
-  ClarificationsRequired = 'ClarificationsRequired',
-  DoingResearch = 'DoingResearch',
-  AwaitingReview = 'AwaitingReview',
-  ExecutingWorkPlan = 'ExecutingWorkPlan',
-  Ready = 'Ready',
+  GatheringRequirements = "GatheringRequirements",
+  ClarificationsRequired = "ClarificationsRequired",
+  DoingResearch = "DoingResearch",
+  AwaitingReview = "AwaitingReview",
+  ExecutingWorkPlan = "ExecutingWorkPlan",
+  Ready = "Ready",
 }
 
 /**
@@ -549,8 +639,8 @@ export type LocalDeployAgent = {
   createdAt: any;
 };
 export enum PortProtocol {
-  TCP = 'TCP',
-  UDP = 'UDP',
+  TCP = "TCP",
+  UDP = "UDP",
 }
 
 /**
@@ -571,11 +661,11 @@ export type PortMap = {
   protocol?: PortProtocol;
 };
 export enum DeployMethod {
-  DockerCompose = 'DockerCompose',
-  Docker = 'Docker',
-  Kubernetes = 'Kubernetes',
-  Script = 'Script',
-  Manual = 'Manual',
+  DockerCompose = "DockerCompose",
+  Docker = "Docker",
+  Kubernetes = "Kubernetes",
+  Script = "Script",
+  Manual = "Manual",
 }
 
 /**
@@ -604,9 +694,9 @@ export type DeploySkill = {
   createdAt: any;
 };
 export enum DeploymentState {
-  Booting = 'Booting',
-  Ready = 'Ready',
-  Stopped = 'Stopped',
+  Booting = "Booting",
+  Ready = "Ready",
+  Stopped = "Stopped",
 }
 
 /**
@@ -638,7 +728,10 @@ export type Deployment = {
    */
   stoppedAt?: any;
 };
-export type DeployTarget = DeployTargetActionItem | DeployTargetTask | DeployTargetTasks;
+export type DeployTarget =
+  | DeployTargetActionItem
+  | DeployTargetTask
+  | DeployTargetTasks;
 
 export type Askable = {
   Ask(request: AskRequest): AskResponse;
