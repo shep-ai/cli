@@ -28,6 +28,7 @@
   "include": [
     "src/**/*",
     "tests/**/*",
+    "app/**/*",
     "vitest.config.ts",
     "next.config.ts",
     "playwright.config.ts",
