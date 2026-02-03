@@ -7,7 +7,7 @@
 - **Number:** 004
 - **Created:** 2026-02-03
 - **Branch:** feat/004-web-ui-component-library
-- **Phase:** Planning
+- **Phase:** Complete
 
 ## Problem Statement
 
@@ -22,23 +22,23 @@ This feature establishes the foundational component library using shadcn/ui (Rad
 
 ## Success Criteria
 
-- [ ] Next.js 16 (latest) installed and configured with App Router
-- [ ] React 19 (stable) with Next.js 16 support
-- [ ] shadcn/ui CLI 3.7.0+ installed and initialized
-- [ ] Tailwind CSS v4 configured with design tokens (colors, spacing, typography, shadows)
-- [ ] **Dark mode support configured from the start** (Tailwind v4 dark mode + theme tokens)
-- [ ] Storybook 10.x configured for React/Next.js components (local development only)
-- [ ] Unified `radix-ui` package (not individual @radix-ui/react-\* packages)
-- [ ] Core shadcn/ui components installed: Button, Card, Input, Label, Select, Dialog
-- [ ] Additional components installed: Badge, Alert, Tabs, Accordion, Toast, Popover
-- [ ] Each component has Storybook stories with all variants (light + dark mode)
-- [ ] Design tokens documented in Storybook (colors, spacing, typography, shadows)
-- [ ] `src/presentation/web/` directory structure follows Clean Architecture
-- [ ] Component tests written following TDD principles (Vitest + React Testing Library 16+)
-- [ ] Playwright 1.57+ E2E test setup verified for web components
-- [ ] **pnpm compatibility** ensured for all web dependencies and scripts
-- [ ] E2E tests integrated into existing pnpm test commands (`pnpm test:e2e:web`)
-- [ ] CI/CD pipeline updated to run web UI tests (unit + E2E) and Storybook build
+- [x] Next.js 16 (latest) installed and configured with App Router
+- [x] React 19 (stable) with Next.js 16 support
+- [x] shadcn/ui CLI 3.7.0+ installed and initialized
+- [x] Tailwind CSS v4 configured with design tokens (colors, spacing, typography, shadows)
+- [x] **Dark mode support configured from the start** (Tailwind v4 dark mode + theme tokens)
+- [x] Storybook 8.6.14 configured for React/Vite components (local development only)
+- [x] Unified `radix-ui` package (not individual @radix-ui/react-\* packages)
+- [x] Core shadcn/ui components installed: Button, Card, Input, Label, Select, Dialog
+- [x] Additional components installed: Badge, Alert, Tabs, Accordion, Toast, Popover
+- [x] Each component has Storybook stories with all variants (light + dark mode)
+- [x] Design tokens documented in Storybook (colors, spacing, typography, shadows)
+- [x] `src/presentation/web/` directory structure follows Clean Architecture
+- [x] Component tests written following TDD principles (Vitest + React Testing Library 16+)
+- [x] Playwright 1.58+ E2E test setup verified for web components
+- [x] **pnpm compatibility** ensured for all web dependencies and scripts
+- [x] E2E tests integrated into existing pnpm test commands (`pnpm test:e2e:web`)
+- [x] CI/CD pipeline updated to run web UI tests (unit + E2E) and Storybook build
 
 ## Affected Areas
 

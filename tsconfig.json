@@ -17,9 +17,21 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@tests/*": ["tests/*"]
-    }
+      "@tests/*": ["tests/*"],
+      "@/components/*": ["src/presentation/web/components/*"],
+      "@/lib/*": ["src/presentation/web/lib/*"],
+      "@/hooks/*": ["src/presentation/web/hooks/*"],
+      "@/types/*": ["src/presentation/web/types/*"]
+    },
+    "jsx": "preserve"
   },
-  "include": ["src/**/*", "tests/**/*", "vitest.config.ts"],
+  "include": [
+    "src/**/*",
+    "tests/**/*",
+    "vitest.config.ts",
+    "next.config.ts",
+    "playwright.config.ts",
+    ".storybook/**/*"
+  ],
   "exclude": ["node_modules", "dist", "tsp", "apis"]
 }

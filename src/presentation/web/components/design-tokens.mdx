@@ -1,0 +1,133 @@
+# Design Tokens
+
+The Shep AI design system uses CSS custom properties (design tokens) defined via Tailwind CSS v4's `@theme` directive. These tokens provide consistent styling across all components.
+
+## Colors
+
+### Base Colors
+
+| Token | Light Mode | Dark Mode | Usage |
+|-------|------------|-----------|-------|
+| `--color-background` | `#ffffff` | `#0a0a0a` | Page background |
+| `--color-foreground` | `#0a0a0a` | `#fafafa` | Primary text |
+
+### Primary Colors
+
+| Token | Light Mode | Dark Mode | Usage |
+|-------|------------|-----------|-------|
+| `--color-primary` | `#3b82f6` | `#3b82f6` | Primary actions, links |
+| `--color-primary-foreground` | `#ffffff` | `#ffffff` | Text on primary |
+
+### Secondary Colors
+
+| Token | Light Mode | Dark Mode | Usage |
+|-------|------------|-----------|-------|
+| `--color-secondary` | `#f1f5f9` | `#1e293b` | Secondary actions |
+| `--color-secondary-foreground` | `#0f172a` | `#f8fafc` | Text on secondary |
+
+### Muted Colors
+
+| Token | Light Mode | Dark Mode | Usage |
+|-------|------------|-----------|-------|
+| `--color-muted` | `#f1f5f9` | `#1e293b` | Muted backgrounds |
+| `--color-muted-foreground` | `#64748b` | `#94a3b8` | Muted text |
+
+### Destructive Colors
+
+| Token | Light Mode | Dark Mode | Usage |
+|-------|------------|-----------|-------|
+| `--color-destructive` | `#ef4444` | `#dc2626` | Destructive actions |
+| `--color-destructive-foreground` | `#ffffff` | `#ffffff` | Text on destructive |
+
+### Border & Input Colors
+
+| Token | Light Mode | Dark Mode | Usage |
+|-------|------------|-----------|-------|
+| `--color-border` | `#e2e8f0` | `#1e293b` | Borders |
+| `--color-input` | `#e2e8f0` | `#1e293b` | Input borders |
+| `--color-ring` | `#3b82f6` | `#3b82f6` | Focus rings |
+
+### Card & Popover Colors
+
+| Token | Light Mode | Dark Mode | Usage |
+|-------|------------|-----------|-------|
+| `--color-card` | `#ffffff` | `#0a0a0a` | Card backgrounds |
+| `--color-card-foreground` | `#0a0a0a` | `#fafafa` | Card text |
+| `--color-popover` | `#ffffff` | `#0a0a0a` | Popover backgrounds |
+| `--color-popover-foreground` | `#0a0a0a` | `#fafafa` | Popover text |
+
+## Spacing
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--spacing-xs` | `0.25rem` (4px) | Minimal spacing |
+| `--spacing-sm` | `0.5rem` (8px) | Small spacing |
+| `--spacing-md` | `1rem` (16px) | Medium spacing |
+| `--spacing-lg` | `1.5rem` (24px) | Large spacing |
+| `--spacing-xl` | `2rem` (32px) | Extra large spacing |
+| `--spacing-2xl` | `3rem` (48px) | 2x extra large spacing |
+
+## Typography
+
+### Font Families
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--font-sans` | System UI stack | Body text |
+| `--font-mono` | Monospace stack | Code |
+
+## Border Radius
+
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--radius-sm` | `0.25rem` (4px) | Small radius |
+| `--radius-md` | `0.375rem` (6px) | Medium radius |
+| `--radius-lg` | `0.5rem` (8px) | Large radius |
+| `--radius-xl` | `0.75rem` (12px) | Extra large radius |
+| `--radius-2xl` | `1rem` (16px) | 2x extra large radius |
+| `--radius-full` | `9999px` | Fully rounded |
+
+## Shadows
+
+| Token | Usage |
+|-------|-------|
+| `--shadow-sm` | Subtle elevation |
+| `--shadow-md` | Medium elevation |
+| `--shadow-lg` | High elevation |
+| `--shadow-xl` | Highest elevation |
+
+## Usage in Components
+
+These tokens are used throughout the component library via Tailwind CSS classes:
+
+```tsx
+// Using color tokens
+<div className="bg-background text-foreground">
+  <button className="bg-primary text-primary-foreground">
+    Primary Button
+  </button>
+</div>
+
+// Using spacing tokens
+<div className="p-md gap-sm">
+  Content with medium padding and small gap
+</div>
+
+// Using border radius
+<div className="rounded-lg">
+  Rounded container
+</div>
+```
+
+## Dark Mode
+
+Dark mode is implemented using the `.dark` class on the `<html>` element. The tokens automatically update when dark mode is active.
+
+```tsx
+// Enable dark mode programmatically
+document.documentElement.classList.add('dark');
+
+// Or use the useTheme hook
+const { setTheme } = useTheme();
+setTheme('dark');
+```
