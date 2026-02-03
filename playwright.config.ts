@@ -30,7 +30,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'pnpm next dev -p 3001',
+    command: 'pnpm --filter @shepai/web dev -- -p 3001',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
