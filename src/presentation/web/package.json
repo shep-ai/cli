@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
+    "dev:e2e": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
     "lint": "eslint . --max-warnings 0",
