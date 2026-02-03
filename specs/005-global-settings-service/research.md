@@ -82,25 +82,27 @@
 3. **Manual constructor injection** - No DI library, explicit dependency passing
 4. **NestJS** - Full framework with built-in DI (overkill for CLI)
 
-**Decision:** **Manual constructor injection (no DI library)**
+**Decision:** **tsyringe** (Microsoft DI container)
 
 **Rationale:**
 
-- **Simplicity**: For a CLI application with single settings instance, DI library adds unnecessary complexity
-- **Explicit dependencies**: Constructor injection makes dependencies crystal clear
-- **Zero runtime overhead**: No reflection or decorator processing
-- **Testability**: Easy to mock repositories in unit tests without DI framework
-- **Clean Architecture compliance**: Manual injection perfectly supports dependency inversion principle
-- **No vendor lock-in**: Not tied to any DI library's API or decorators
+- **Proper DI from the start**: Establishes good patterns for foundational architecture
+- **Scalability**: As more use cases and services are added, DI container simplifies wiring
+- **Microsoft-backed**: Official Microsoft library with good TypeScript support
+- **Lightweight**: Minimal overhead compared to inversify or NestJS
+- **Decorator-based**: Clean, declarative syntax with `@injectable()` and `@inject()`
+- **Container management**: Automatic lifetime management (singleton, transient, scoped)
+- **Testing**: Easy to override registrations for test doubles
 
 **Implementation approach:**
 
-- Use cases receive repository interfaces via constructor
-- Main CLI bootstrap creates concrete implementations and wires dependencies
-- Factory functions for creating use case instances with injected dependencies
-- Mock implementations for testing
+- Mark use cases and repositories with `@injectable()` decorator
+- Register implementations in container at CLI bootstrap
+- Use `@inject()` for constructor dependencies when needed
+- Container provides automatic resolution of dependency graphs
+- Test setup uses test container with mock registrations
 
-**Future consideration:** If the application grows to have many services and complex dependency graphs, consider adding tsyringe for cleaner composition.
+**Why not manual injection:** While simpler initially, manual wiring becomes unwieldy as the application grows. Since this is the foundational architecture, establishing DI patterns now prevents future refactoring.
 
 **Sources:**
 
@@ -149,6 +151,7 @@
 | `better-sqlite3`                        | ^11.x   | SQLite database driver                | Fastest SQLite lib, synchronous API, mature, well-tested        | Binary dependency (native compilation required) |
 | `@blackglory/better-sqlite3-migrations` | ^0.6.x  | Database migration system             | Purpose-built for better-sqlite3, simple API, uses user_version | Less features than larger frameworks            |
 | `@typespec-tools/emitter-typescript`    | Latest  | TypeSpec → TypeScript type generation | Focused on types, simple config, no HTTP coupling               | Emitter framework may have breaking changes     |
+| `tsyringe`                              | ^4.x    | Dependency injection container        | Lightweight, Microsoft-backed, decorator-based, easy to test    | Requires experimentalDecorators in tsconfig     |
 
 **Build tooling (already available):**
 
@@ -271,7 +274,7 @@ All questions resolved.
 
 - ✅ TypeSpec TypeScript emitter: **@typespec-tools/emitter-typescript**
 - ✅ Migration framework: **@blackglory/better-sqlite3-migrations**
-- ✅ Dependency injection: **Manual constructor injection (no library)**
+- ✅ Dependency injection: **tsyringe** (Microsoft DI container)
 - ✅ SQLite library: **better-sqlite3**
 - ✅ Build flow: **generate → build → lint → test**
 
