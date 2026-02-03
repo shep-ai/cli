@@ -153,7 +153,7 @@ User Action → React Component → Tailwind Classes → CSS Variables (@theme)
 5. Add dark mode toggle to Storybook toolbar
 6. Verify Storybook build succeeds
 
-**Exit Criteria:** `pnpm storybook` runs, all stories render, `pnpm storybook:build` succeeds.
+**Exit Criteria:** `pnpm dev:storybook` runs, all stories render, `pnpm build:storybook` succeeds.
 
 ### Phase 4: Testing Infrastructure (TDD: Core)
 

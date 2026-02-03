@@ -57,7 +57,7 @@ This feature establishes the foundational component library using shadcn/ui (Rad
 | `eslint.config.mjs`         | Low    | Add React/Next.js ESLint rules                                      |
 | `.prettierrc`               | Low    | Add Tailwind Prettier plugin                                        |
 | `.github/workflows/ci.yml`  | Medium | Update CI to run web UI tests and Storybook build                   |
-| `package.json` (scripts)    | Medium | Add web-specific pnpm scripts (test:e2e:web, storybook:build, etc.) |
+| `package.json` (scripts)    | Medium | Add web-specific pnpm scripts (test:e2e:web, build:storybook, etc.) |
 | `docs/development/`         | Low    | Document component library usage and design system                  |
 
 ## Dependencies
