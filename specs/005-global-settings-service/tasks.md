@@ -9,7 +9,7 @@
 
 ## Task List
 
-### Phase 1: Build Pipeline & Code Generation Setup
+### Phase 1: Build Pipeline & Code Generation Setup (Foundational - No Tests)
 
 - [ ] Install dependencies: `better-sqlite3`, `@blackglory/better-sqlite3-migrations`, `@typespec-tools/emitter-typescript`, `tsyringe`, `reflect-metadata`
 - [ ] Update tsconfig.json: Add `experimentalDecorators: true` and `emitDecoratorMetadata: true`
@@ -24,7 +24,7 @@
 - [ ] Update .gitignore: Ensure `src/domain/generated/` is tracked (not ignored), add comment
 - [ ] Test: Run `pnpm generate` manually to verify TypeSpec compilation works
 
-### Phase 2: TypeSpec Settings Model & Generation
+### Phase 2: TypeSpec Settings Model & Generation (Foundational - No Tests)
 
 - [ ] Create tsp/domain/entities/settings.tsp with Settings model extending BaseEntity
 - [ ] Define ModelConfiguration nested model (analyze, requirements, plan, implement with defaults)
@@ -33,11 +33,54 @@
 - [ ] Define SystemConfig nested model (autoUpdate=true, logLevel="info")
 - [ ] Update tsp/domain/entities/index.tsp to export Settings model
 - [ ] Run `pnpm generate` and verify TypeScript types generated in src/domain/generated/
-- [ ] Create src/domain/factories/settings-defaults.factory.ts using generated types
-- [ ] Create src/domain/factories/index.ts barrel export
-- [ ] Write unit test: tests/unit/domain/factories/settings-defaults.factory.test.ts
+- [ ] Verify generated files: Settings.ts, ModelConfiguration.ts, UserProfile.ts, EnvironmentConfig.ts, SystemConfig.ts, index.ts
 
-### Phase 3: Application Layer - Ports & Use Cases
+### Phase 3: Domain Layer - Defaults Factory (TDD Cycle 1)
+
+**RED (Write Failing Tests First):**
+
+- [ ] Create tests/unit/domain/factories/settings-defaults.factory.test.ts
+- [ ] Write test: factory returns object with all required fields
+- [ ] Write test: default values match TypeSpec model defaults
+- [ ] Write test: nested models (ModelConfiguration, UserProfile, etc.) have defaults
+- [ ] Write test: generated types are used correctly (TypeScript compilation validates)
+- [ ] Verify ALL tests FAIL (factory doesn't exist yet)
+
+**GREEN (Write Minimal Code to Pass Tests):**
+
+- [ ] Create src/domain/factories/settings-defaults.factory.ts using generated types
+- [ ] Implement factory function returning default Settings object
+- [ ] Match defaults from TypeSpec model
+- [ ] Create src/domain/factories/index.ts barrel export
+- [ ] Verify ALL tests PASS
+
+**REFACTOR (Clean Up While Keeping Tests Green):**
+
+- [ ] Extract default value constants if needed
+- [ ] Improve factory structure for readability
+- [ ] Verify ALL tests still PASS
+
+### Phase 4: Application Layer - Use Cases (TDD Cycle 2)
+
+**RED (Write Failing Tests First):**
+
+- [ ] Create tests/helpers/mock-repository.helper.ts (mock ISettingsRepository)
+- [ ] Create tests/unit/application/use-cases/initialize-settings.use-case.test.ts
+- [ ] Write test: initializes settings when none exist
+- [ ] Write test: returns existing settings when already initialized
+- [ ] Write test: calls repository.initialize() when needed
+- [ ] Write test: calls repository.load() first to check existence
+- [ ] Create tests/unit/application/use-cases/load-settings.use-case.test.ts
+- [ ] Write test: loads settings successfully when exist
+- [ ] Write test: throws error when settings don't exist
+- [ ] Write test: returns correct Settings type
+- [ ] Create tests/unit/application/use-cases/update-settings.use-case.test.ts
+- [ ] Write test: updates settings successfully
+- [ ] Write test: calls repository.update() with correct data
+- [ ] Write test: returns updated settings
+- [ ] Verify ALL tests FAIL (use cases don't exist yet)
+
+**GREEN (Write Minimal Code to Pass Tests):**
 
 - [ ] Create src/application/ports/output/settings.repository.interface.ts with ISettingsRepository interface
 - [ ] Define initialize(), load(), update() methods in ISettingsRepository using generated Settings type
@@ -49,12 +92,27 @@
 - [ ] Create src/application/use-cases/settings/update-settings.use-case.ts with @injectable decorator
 - [ ] Implement UpdateSettingsUseCase.execute(settings) method (validate, update, return)
 - [ ] Create src/application/use-cases/settings/index.ts barrel export
-- [ ] Write unit test: tests/unit/application/use-cases/initialize-settings.use-case.test.ts (with mock repository)
-- [ ] Write unit test: tests/unit/application/use-cases/load-settings.use-case.test.ts (with mock repository)
-- [ ] Write unit test: tests/unit/application/use-cases/update-settings.use-case.test.ts (with mock repository)
-- [ ] Create tests/helpers/mock-repository.helper.ts for unit test mocks
+- [ ] Verify ALL tests PASS
 
-### Phase 4: Infrastructure - Persistence & Repository
+**REFACTOR (Clean Up While Keeping Tests Green):**
+
+- [ ] Extract validation logic to separate functions if needed
+- [ ] Improve error messages for clarity
+- [ ] Verify ALL tests still PASS
+
+### Phase 5: Infrastructure - Persistence Layer (TDD Cycle 3)
+
+**RED (Write Failing Tests First):**
+
+- [ ] Create tests/helpers/database.helper.ts for test database utilities (in-memory SQLite)
+- [ ] Create tests/integration/infrastructure/persistence/sqlite/migrations.test.ts
+- [ ] Write test: migration creates settings table
+- [ ] Write test: migration is idempotent (safe to run twice)
+- [ ] Write test: user_version pragma tracks applied migrations
+- [ ] Write test: migration SQL is valid
+- [ ] Verify ALL tests FAIL (persistence layer doesn't exist yet)
+
+**GREEN (Write Minimal Code to Pass Tests):**
 
 - [ ] Create src/infrastructure/services/filesystem/shep-directory.service.ts for ~/.shep/ directory initialization
 - [ ] Implement shep-directory service: ensureShepDirectory() with 700 permissions, graceful error handling
@@ -65,6 +123,30 @@
 - [ ] Create src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql
 - [ ] Define settings table schema with all columns (flatten nested objects)
 - [ ] Add UNIQUE INDEX for singleton pattern (id='singleton')
+- [ ] Verify ALL tests PASS
+
+**REFACTOR (Clean Up While Keeping Tests Green):**
+
+- [ ] Optimize pragma settings based on performance testing
+- [ ] Improve error handling in filesystem service
+- [ ] Verify ALL tests still PASS
+
+### Phase 6: Infrastructure - Repository Layer (TDD Cycle 4)
+
+**RED (Write Failing Tests First):**
+
+- [ ] Create tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts (use in-memory DB)
+- [ ] Write test: initialize() creates settings in database
+- [ ] Write test: load() retrieves settings correctly
+- [ ] Write test: load() returns null when no settings exist
+- [ ] Write test: update() modifies existing settings
+- [ ] Write test: singleton constraint enforced (duplicate insert fails)
+- [ ] Write test: prepared statements prevent SQL injection
+- [ ] Write test: database mapping works correctly (columns ↔ TypeScript)
+- [ ] Verify ALL tests FAIL (repository doesn't exist yet)
+
+**GREEN (Write Minimal Code to Pass Tests):**
+
 - [ ] Create src/infrastructure/repositories/sqlite/settings.repository.ts with @injectable decorator
 - [ ] Implement SQLiteSettingsRepository.initialize() method with prepared statement
 - [ ] Implement SQLiteSettingsRepository.load() method with prepared statement
@@ -73,11 +155,28 @@
 - [ ] Create src/infrastructure/di/container.ts and configure tsyringe container
 - [ ] Register ISettingsRepository → SQLiteSettingsRepository in container
 - [ ] Register use cases as singletons in container
-- [ ] Write integration test: tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts (in-memory DB)
-- [ ] Write integration test: tests/integration/infrastructure/persistence/sqlite/migrations.test.ts (migration idempotency)
-- [ ] Create tests/helpers/database.helper.ts for test database utilities
+- [ ] Verify ALL tests PASS
 
-### Phase 5: CLI Integration
+**REFACTOR (Clean Up While Keeping Tests Green):**
+
+- [ ] Extract mapping functions to separate helpers
+- [ ] Optimize SQL queries for performance
+- [ ] Verify ALL tests still PASS
+
+### Phase 7: CLI Integration (TDD Cycle 5)
+
+**RED (Write Failing Tests First):**
+
+- [ ] Create tests/e2e/cli/settings-initialization.test.ts (use temp directory)
+- [ ] Write test: first run creates ~/.shep/ directory
+- [ ] Write test: first run creates database file
+- [ ] Write test: first run initializes settings with defaults
+- [ ] Write test: second run loads existing settings (doesn't re-initialize)
+- [ ] Write test: settings are accessible globally in CLI
+- [ ] Write test: corrupted database triggers recovery/re-initialization
+- [ ] Verify ALL tests FAIL (CLI integration doesn't exist yet)
+
+**GREEN (Write Minimal Code to Pass Tests):**
 
 - [ ] Update src/presentation/cli/index.ts: Import reflect-metadata at top
 - [ ] Import DI container and settings use cases in CLI entry point
@@ -85,21 +184,19 @@
 - [ ] Add settings loading: resolve LoadSettingsUseCase and execute
 - [ ] Create src/infrastructure/services/settings.service.ts singleton for global settings access
 - [ ] Implement getSettings() function in settings.service.ts
+- [ ] Verify ALL tests PASS
+
+**REFACTOR (Clean Up While Keeping Tests Green):**
+
+- [ ] Extract initialization logic to separate bootstrap function
+- [ ] Improve error handling and recovery
+- [ ] Verify ALL tests still PASS
+
+### Phase 8: Documentation & Finalization
+
 - [ ] Update CLAUDE.md: Document settings initialization flow
 - [ ] Update CLAUDE.md: Document DI container usage pattern
 - [ ] Update CLAUDE.md: Add Settings to Data Storage section
-- [ ] Write E2E test: tests/e2e/cli/settings-initialization.test.ts (first-run and subsequent runs)
-
-### Phase 6: Testing Suite [P]
-
-- [ ] Verify all unit tests pass: `pnpm test:unit`
-- [ ] Verify all integration tests pass: `pnpm test:int`
-- [ ] Verify all E2E tests pass: `pnpm test:e2e`
-- [ ] Run full test suite: `pnpm test`
-- [ ] Check test coverage meets project standards
-
-### Phase 7: Documentation & Finalization [P]
-
 - [ ] Update CLAUDE.md: Document TypeSpec-first architecture approach
 - [ ] Update CLAUDE.md: Document build flow (generate → build → test)
 - [ ] Update docs/development/cicd.md: Document `pnpm generate` step in CI/CD pipeline
@@ -118,14 +215,33 @@
 - [ ] Verify CI pipeline passes on feature branch
 - [ ] Manual smoke test: Run `shep` command to verify settings initialization
 
-<!-- [P] indicates tasks in this phase can run in parallel -->
+## TDD Notes
+
+**MANDATORY TDD Workflow:**
+
+- **RED**: Write failing test FIRST (never skip this!)
+- **GREEN**: Write minimal code to pass test
+- **REFACTOR**: Improve code while keeping tests green
+- Tests are written BEFORE implementation, not after
+- Each TDD cycle is independently reviewable
+
+**Phase Structure:**
+
+- **Phase 1-2**: Foundational (no tests - build pipeline and TypeSpec models)
+- **Phase 3**: TDD Cycle 1 (Domain Layer)
+- **Phase 4**: TDD Cycle 2 (Application Layer)
+- **Phase 5**: TDD Cycle 3 (Persistence Layer)
+- **Phase 6**: TDD Cycle 4 (Repository Layer)
+- **Phase 7**: TDD Cycle 5 (CLI Integration)
+- **Phase 8**: Documentation (no tests)
 
 ## Parallelization Notes
 
-- Phase 6 (Testing Suite) can run in parallel with Phase 7 (Documentation)
-- Within Phase 2: TypeSpec model creation can happen while Phase 1 is being reviewed
-- Within Phase 4: bootstrap.service.ts, database.ts, migrations.ts can be developed concurrently
-- All test files within each phase can be written in parallel
+- Phase 1 and 2 can run sequentially (foundational setup)
+- Within Phase 2: TypeSpec model creation can happen in parallel after build pipeline is ready
+- Within Phase 4 RED: All three use case test files can be written in parallel
+- Within Phase 5 GREEN: shep-directory.service, connection.ts, migrations.ts can be developed concurrently
+- Phase 8 documentation tasks can run in parallel
 
 ## Acceptance Checklist
 
@@ -138,9 +254,10 @@ Before marking feature complete:
 - [ ] Types valid (`pnpm typecheck`)
 - [ ] TypeSpec valid (`pnpm tsp:compile`)
 - [ ] CI pipeline passes
-- [ ] Documentation updated (CLAUDE.md)
+- [ ] Documentation updated (CLAUDE.md, docs/)
 - [ ] All spec files marked as "Complete" phase
+- [ ] TDD workflow followed for ALL implementation phases (RED → GREEN → REFACTOR)
 
 ---
 
-_Task breakdown for implementation tracking_
+_Task breakdown for TDD-compliant implementation tracking_

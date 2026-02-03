@@ -70,31 +70,43 @@ specs/                              # Root-level spec directory
 
 **Trigger**: After research is complete, before implementation.
 
+**CRITICAL TDD REQUIREMENT:** Plans MUST follow Test-Driven Development with RED-GREEN-REFACTOR cycles for all implementation phases.
+
 **What happens:**
 
 1. Agent reads spec.md and research.md
 2. Designs architecture (components, data flow)
-3. Breaks into implementation phases
+3. Breaks into implementation phases **following TDD**:
+   - **Foundational phases** (no tests): Build pipeline, TypeSpec models, configuration
+   - **TDD Cycle phases**: For each layer:
+     - **RED**: Define tests to write FIRST
+     - **GREEN**: Define minimal implementation to pass
+     - **REFACTOR**: Identify cleanup opportunities
 4. Identifies files to create/modify
-5. Creates task breakdown with parallelization hints
-6. Defines testing strategy
+5. Creates task breakdown with **RED-GREEN-REFACTOR** structure
+6. Defines testing strategy (tests FIRST, never after implementation)
 
 **Output**:
 
-- `specs/NNN-feature-name/plan.md` - Architecture and strategy
-- `specs/NNN-feature-name/tasks.md` - Actionable task list
+- `specs/NNN-feature-name/plan.md` - Architecture and TDD-compliant strategy
+- `specs/NNN-feature-name/tasks.md` - TDD task breakdown (RED→GREEN→REFACTOR)
 - `specs/NNN-feature-name/data-model.md` - Entity changes (if needed)
 
 ### Step 4: Implement
 
 **Trigger**: After plan is complete.
 
-**Guidelines:**
+**MANDATORY TDD Guidelines:**
 
-- Follow TDD (test-first development)
+- **ALWAYS follow RED-GREEN-REFACTOR**:
+  1. **RED**: Write failing test FIRST (never skip this!)
+  2. **GREEN**: Write minimal code to pass test
+  3. **REFACTOR**: Improve code while keeping tests green
+- **Never write implementation before tests** (except foundational phases)
 - Check off tasks in tasks.md as you complete them
 - Update spec files if requirements change
 - Commit frequently with conventional commits
+- Each TDD cycle must be independently reviewable
 
 ## Spec File Templates
 
@@ -134,7 +146,10 @@ Implementation strategy containing:
 
 Actionable task list containing:
 
-- Tasks grouped by phase
+- Tasks grouped by phase **with TDD structure**:
+  - **RED**: Tests to write first
+  - **GREEN**: Implementation to pass tests
+  - **REFACTOR**: Cleanup while keeping tests green
 - Parallelization markers `[P]`
 - Acceptance checklist
 
@@ -178,6 +193,8 @@ When creating a new spec, the agent scans all existing `specs/*/spec.md` files t
 
 - Skip the spec phase for "quick" features
 - Implement without a plan
+- **Write implementation before tests** (violates TDD)
+- Skip RED phase and go straight to implementation
 - Leave specs outdated after implementation
 - Create specs without the skill (use the templates)
 
@@ -185,13 +202,13 @@ When creating a new spec, the agent scans all existing `specs/*/spec.md` files t
 
 Spec-driven development integrates with our existing practices:
 
-| Existing Practice    | Integration                                                     |
-| -------------------- | --------------------------------------------------------------- |
-| TDD                  | Plan phase defines testing strategy; implement with test-first  |
-| Clean Architecture   | Spec identifies which layers are affected                       |
-| TypeSpec models      | data-model.md defines entity changes for tsp/                   |
-| Conventional Commits | Spec commits: `feat(specs): add NNN-feature-name specification` |
-| PR Process           | PRs reference their spec directory                              |
+| Existing Practice    | Integration                                                                               |
+| -------------------- | ----------------------------------------------------------------------------------------- |
+| TDD (MANDATORY)      | Plan phase MANDATES RED-GREEN-REFACTOR cycles; tasks.md breaks down TDD phases explicitly |
+| Clean Architecture   | Spec identifies which layers are affected; each layer has TDD cycle                       |
+| TypeSpec models      | data-model.md defines entity changes for tsp/                                             |
+| Conventional Commits | Spec commits: `feat(specs): add NNN-feature-name specification`                           |
+| PR Process           | PRs reference their spec directory; each TDD cycle can be reviewed independently          |
 
 ## Skill Locations
 

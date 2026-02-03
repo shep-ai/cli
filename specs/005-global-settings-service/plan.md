@@ -56,9 +56,7 @@
 │  │  Repository Implementations (by DB type)                    │   │
 │  │  src/infrastructure/repositories/sqlite/                    │   │
 │  │  - settings.repository.ts (SQLiteSettingsRepository)        │   │
-│  │  - feature.repository.ts  (future)                          │   │
 │  │                                                             │   │
-│  │  src/infrastructure/repositories/postgres/ (future)         │   │
 │  │  src/infrastructure/repositories/in-memory/ (tests)         │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                              ↓                                      │
@@ -92,64 +90,32 @@ Build Pipeline Flow:
 
 ## Implementation Strategy
 
-### Phase 1: Build Pipeline & Code Generation Setup
+**MANDATORY TDD**: All implementation phases MUST follow RED-GREEN-REFACTOR cycles.
+
+### Phase 1: Build Pipeline & Code Generation Setup (Foundational - No Tests)
 
 **Goal:** Establish TypeSpec → TypeScript generation pipeline with proper build flow orchestration.
 
 **Steps:**
 
-1. Install dependencies:
-
-   - `better-sqlite3` (^11.x) - SQLite driver
-   - `@blackglory/better-sqlite3-migrations` (^0.6.x) - Migration framework
-   - `@typespec-tools/emitter-typescript` - TypeSpec TypeScript emitter
-   - `tsyringe` (^4.x) - DI container
-   - `reflect-metadata` - Required for tsyringe decorators
-
-2. Configure TypeScript for decorators:
-
-   - Add `experimentalDecorators: true` and `emitDecoratorMetadata: true` to tsconfig.json
-   - Import `reflect-metadata` in CLI entry point
-
-3. Create TypeSpec emitter config:
-
-   - Create `tsp-config.yaml` with `@typespec-tools/emitter-typescript` emitter
-   - Configure output directory: `src/domain/generated/`
-   - Configure to generate TypeScript interfaces and types
-
-4. Add build scripts to package.json:
-
-   - `generate`: Run all code generators
-   - `tsp:codegen`: Emit TypeScript from TypeSpec
-   - Add `prebuild`, `pretest`, `prelint` hooks to run `generate`
-
-5. Update CI/CD pipeline:
-
-   - Add `pnpm generate` as first step in all jobs (before install)
-   - Ensure generated files are available for build/test/lint
-
-6. Update pre-commit hooks:
-
-   - Add `pnpm generate` to husky pre-commit
-   - Update `.lintstagedrc.mjs` to include generated files
-
-7. Update tsconfig.json:
-
-   - Add path alias: `"@domain/generated/*": ["src/domain/generated/*"]`
-
-8. Update .gitignore:
-   - Ensure `src/domain/generated/` is tracked (NOT ignored)
-   - Add comment explaining generated files are checked in
+1. Install dependencies (better-sqlite3, migrations, emitter, tsyringe, reflect-metadata)
+2. Configure TypeScript for decorators (experimentalDecorators, emitDecoratorMetadata)
+3. Create TypeSpec emitter config (tsp-config.yaml)
+4. Add build scripts to package.json (generate, tsp:codegen, pre-hooks)
+5. Update CI/CD pipeline (.github/workflows/ci.yml)
+6. Update pre-commit hooks (.husky/pre-commit, .lintstagedrc.mjs)
+7. Update tsconfig.json path alias (@domain/generated/\*)
+8. Update .gitignore (track generated files)
 
 **Deliverables:**
 
-- package.json updated with new dependencies and scripts
-- tsp-config.yaml created
-- tsconfig.json updated with decorator support + path alias
-- .github/workflows/ci.yml updated
-- .husky/pre-commit updated
-- .lintstagedrc.mjs updated
-- .gitignore updated
+- package.json (updated with dependencies and scripts)
+- tsp-config.yaml (created)
+- tsconfig.json (updated with decorators + path alias)
+- .github/workflows/ci.yml (updated)
+- .husky/pre-commit (updated)
+- .lintstagedrc.mjs (updated)
+- .gitignore (updated)
 
 **Testing:**
 
@@ -158,331 +124,259 @@ Build Pipeline Flow:
 
 ---
 
-### Phase 2: TypeSpec Settings Model & Generation
+### Phase 2: TypeSpec Settings Model & Generation (Foundational - No Tests)
 
 **Goal:** Define Settings domain model in TypeSpec and generate TypeScript types.
 
 **Steps:**
 
-1. Create TypeSpec model file:
-
-   - Create `tsp/domain/entities/settings.tsp`
-   - Define Settings model extending BaseEntity
-   - Define nested models:
-     - ModelConfiguration (analyze, requirements, plan, implement)
-     - UserProfile (name, email, githubUsername - all optional)
-     - EnvironmentConfig (defaultEditor, shellPreference)
-     - SystemConfig (autoUpdate, logLevel)
-   - Set sane defaults for all fields
-
-2. Export Settings from index:
-
-   - Update `tsp/domain/entities/index.tsp` to export Settings model
-
-3. Generate TypeScript types:
-
-   - Run `pnpm generate` to create TypeScript types
-   - Verify output in `src/domain/generated/`
-   - Check generated interfaces match TypeSpec definitions
-
-4. Create domain defaults factory:
-   - Create `src/domain/factories/settings-defaults.factory.ts`
-   - Use TypeSpec-generated types
-   - Implement factory function returning default Settings object
-   - Match defaults from TypeSpec model
+1. Create tsp/domain/entities/settings.tsp with Settings model
+2. Define nested models (ModelConfiguration, UserProfile, EnvironmentConfig, SystemConfig)
+3. Set sane defaults for all fields
+4. Export Settings from tsp/domain/entities/index.tsp
+5. Run `pnpm generate` to create TypeScript types
+6. Verify output in src/domain/generated/
 
 **Deliverables:**
 
 - tsp/domain/entities/settings.tsp (new TypeSpec model)
 - tsp/domain/entities/index.tsp (updated)
 - src/domain/generated/Settings.ts (generated)
-- src/domain/factories/settings-defaults.factory.ts (uses generated types)
+- src/domain/generated/ModelConfiguration.ts (generated)
+- src/domain/generated/UserProfile.ts (generated)
+- src/domain/generated/EnvironmentConfig.ts (generated)
+- src/domain/generated/SystemConfig.ts (generated)
+- src/domain/generated/index.ts (generated barrel export)
 
 **Testing:**
 
 - Verify `pnpm generate` produces valid TypeScript
 - Verify TypeScript compiler accepts generated types
-- Unit test for defaults factory
 
 ---
 
-### Phase 3: Application Layer - Ports & Use Cases
+### Phase 3: Domain Layer - Defaults Factory (TDD Cycle 1)
 
-**Goal:** Define repository interface and implement use cases using generated domain types.
+**Goal:** Create factory for default settings with TDD.
 
-**Steps:**
+**TDD Workflow:**
 
-1. Create repository interface:
+1. **RED**: Write failing tests first
 
-   - Create `src/application/ports/output/settings.repository.interface.ts`
-   - Define `ISettingsRepository` interface:
-     - `initialize(): Promise<Settings>` - First-run initialization
-     - `load(): Promise<Settings | null>` - Load existing settings
-     - `update(settings: Settings): Promise<Settings>` - Update settings
-   - Use TypeSpec-generated Settings type
+   - Create tests/unit/domain/factories/settings-defaults.factory.test.ts
+   - Test: factory returns object with all required fields
+   - Test: default values match TypeSpec model defaults
+   - Test: nested models have defaults
+   - Test: generated types are used correctly
+   - **All tests FAIL** (factory doesn't exist yet)
 
-2. Create InitializeSettingsUseCase:
+2. **GREEN**: Write minimal code to pass tests
 
-   - Create `src/application/use-cases/settings/initialize-settings.use-case.ts`
-   - Mark with `@injectable()` decorator
-   - Inject ISettingsRepository via constructor
-   - Implement `execute()` method:
-     - Check if settings exist (via repository.load())
-     - If not exist, create with defaults and initialize
-     - Return settings
+   - Create src/domain/factories/settings-defaults.factory.ts
+   - Implement factory function using generated types
+   - Return Settings object with defaults matching TypeSpec
+   - Create src/domain/factories/index.ts barrel export
+   - **All tests PASS**
 
-3. Create LoadSettingsUseCase:
-
-   - Create `src/application/use-cases/settings/load-settings.use-case.ts`
-   - Mark with `@injectable()` decorator
-   - Inject ISettingsRepository via constructor
-   - Implement `execute()` method:
-     - Load settings from repository
-     - If null, throw error (settings must be initialized first)
-
-4. Create UpdateSettingsUseCase:
-
-   - Create `src/application/use-cases/settings/update-settings.use-case.ts`
-   - Mark with `@injectable()` decorator
-   - Inject ISettingsRepository via constructor
-   - Implement `execute(settings: Settings)` method:
-     - Validate settings
-     - Call repository.update()
-     - Return updated settings
-
-5. Export use cases:
-   - Create `src/application/use-cases/settings/index.ts` barrel export
+3. **REFACTOR**: Clean up while keeping tests green
+   - Extract default value constants if needed
+   - Improve factory structure
+   - **All tests still PASS**
 
 **Deliverables:**
 
-- src/application/ports/output/settings.repository.interface.ts
-- src/application/use-cases/settings/initialize-settings.use-case.ts
-- src/application/use-cases/settings/load-settings.use-case.ts
-- src/application/use-cases/settings/update-settings.use-case.ts
-- src/application/use-cases/settings/index.ts
-
-**Testing:**
-
-- Unit tests for each use case with mocked repository
-- Verify use cases use generated Settings types correctly
+- tests/unit/domain/factories/settings-defaults.factory.test.ts (TEST FIRST)
+- src/domain/factories/settings-defaults.factory.ts (implementation)
+- src/domain/factories/index.ts (barrel export)
 
 ---
 
-### Phase 4: Infrastructure - Persistence & Repository
+### Phase 4: Application Layer - Use Cases (TDD Cycle 2)
 
-**Goal:** Implement SQLite persistence with migrations and repository pattern using scalable directory structure.
+**Goal:** Define repository interface and implement use cases using TDD.
 
-**Steps:**
+**TDD Workflow:**
 
-1. Create Shep directory initialization service:
+1. **RED**: Write failing tests first
 
-   - Create `src/infrastructure/services/filesystem/shep-directory.service.ts`
-   - Implement function to create `~/.shep/` directory structure
-   - Set appropriate permissions (700 for directory, 600 for DB file)
-   - Handle errors gracefully (directory exists, permission denied, etc.)
-   - Export `ensureShepDirectory()` function
+   - Create tests/helpers/mock-repository.helper.ts (mock ISettingsRepository)
+   - Create tests/unit/application/use-cases/initialize-settings.use-case.test.ts
+     - Test: initializes settings when none exist
+     - Test: returns existing settings when present
+   - Create tests/unit/application/use-cases/load-settings.use-case.test.ts
+     - Test: loads settings successfully
+     - Test: throws error when settings don't exist
+   - Create tests/unit/application/use-cases/update-settings.use-case.test.ts
+     - Test: updates settings successfully
+     - Test: validates settings
+   - **All tests FAIL** (use cases don't exist yet)
 
-2. Create SQLite connection manager:
+2. **GREEN**: Write minimal code to pass tests
 
-   - Create `src/infrastructure/persistence/sqlite/connection.ts`
-   - Export function `getSQLiteConnection(): Database` (singleton pattern)
-   - Initialize better-sqlite3 connection to `~/.shep/data`
-   - Set pragmas:
-     - `PRAGMA journal_mode = WAL;`
-     - `PRAGMA synchronous = NORMAL;`
-     - `PRAGMA foreign_keys = ON;`
-     - `PRAGMA defensive = ON;`
-   - Call shep-directory service to ensure directory exists
+   - Create src/application/ports/output/settings.repository.interface.ts
+   - Define ISettingsRepository (initialize, load, update methods)
+   - Create src/application/ports/output/index.ts barrel export
+   - Create src/application/use-cases/settings/initialize-settings.use-case.ts
+   - Implement InitializeSettingsUseCase with @injectable decorator
+   - Create src/application/use-cases/settings/load-settings.use-case.ts
+   - Implement LoadSettingsUseCase with @injectable decorator
+   - Create src/application/use-cases/settings/update-settings.use-case.ts
+   - Implement UpdateSettingsUseCase with @injectable decorator
+   - Create src/application/use-cases/settings/index.ts barrel export
+   - **All tests PASS**
 
-3. Create SQLite migration system:
+3. **REFACTOR**: Clean up while keeping tests green
+   - Extract validation logic if needed
+   - Improve error messages
+   - **All tests still PASS**
 
-   - Create `src/infrastructure/persistence/sqlite/migrations.ts`
-   - Export function `runSQLiteMigrations(db: Database): void`
-   - Use `@blackglory/better-sqlite3-migrations` library
-   - Point to migrations directory: `src/infrastructure/persistence/sqlite/migrations/`
+**Deliverables:**
 
-4. Create first migration:
+- tests/helpers/mock-repository.helper.ts (TEST HELPER FIRST)
+- tests/unit/application/use-cases/\*.test.ts (TESTS FIRST - 3 files)
+- src/application/ports/output/settings.repository.interface.ts (implementation)
+- src/application/ports/output/index.ts (barrel export)
+- src/application/use-cases/settings/\*.use-case.ts (implementation - 3 files)
+- src/application/use-cases/settings/index.ts (barrel export)
 
-   - Create `src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql`
-   - Define settings table:
+---
 
-     ```sql
-     CREATE TABLE IF NOT EXISTS settings (
-       id TEXT PRIMARY KEY,
-       models_analyze TEXT NOT NULL,
-       models_requirements TEXT NOT NULL,
-       models_plan TEXT NOT NULL,
-       models_implement TEXT NOT NULL,
-       user_name TEXT,
-       user_email TEXT,
-       user_github_username TEXT,
-       environment_default_editor TEXT NOT NULL,
-       environment_shell_preference TEXT NOT NULL,
-       system_auto_update INTEGER NOT NULL,
-       system_log_level TEXT NOT NULL,
-       created_at TEXT NOT NULL,
-       updated_at TEXT NOT NULL
-     );
+### Phase 5: Infrastructure - Persistence Layer (TDD Cycle 3)
 
-     -- Enforce singleton pattern
-     CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_singleton
-     ON settings (id)
-     WHERE id = 'singleton';
-     ```
+**Goal:** Implement SQLite connection, migrations, and filesystem service using TDD.
 
-5. Implement SQLite SettingsRepository:
+**TDD Workflow:**
 
-   - Create `src/infrastructure/repositories/sqlite/settings.repository.ts`
-   - Export class `SQLiteSettingsRepository`
-   - Mark with `@injectable()` decorator
-   - Implement ISettingsRepository interface
+1. **RED**: Write failing tests first
+
+   - Create tests/integration/infrastructure/persistence/sqlite/migrations.test.ts
+     - Test: migration creates settings table
+     - Test: migration is idempotent (safe to run twice)
+     - Test: user_version pragma tracks applied migrations
+     - Test: migration SQL is valid
+   - Create tests/helpers/database.helper.ts (in-memory SQLite for tests)
+   - **All tests FAIL** (persistence layer doesn't exist yet)
+
+2. **GREEN**: Write minimal code to pass tests
+
+   - Create src/infrastructure/services/filesystem/shep-directory.service.ts
+   - Implement ensureShepDirectory() with 700 permissions
+   - Create src/infrastructure/persistence/sqlite/connection.ts
+   - Implement getSQLiteConnection() singleton with pragmas
+   - Create src/infrastructure/persistence/sqlite/migrations.ts
+   - Implement runSQLiteMigrations() with @blackglory/better-sqlite3-migrations
+   - Create src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql
+   - Define settings table schema with UNIQUE INDEX
+   - **All tests PASS**
+
+3. **REFACTOR**: Clean up while keeping tests green
+   - Optimize pragma settings
+   - Improve error handling
+   - **All tests still PASS**
+
+**Deliverables:**
+
+- tests/helpers/database.helper.ts (TEST HELPER FIRST)
+- tests/integration/infrastructure/persistence/sqlite/migrations.test.ts (TEST FIRST)
+- src/infrastructure/services/filesystem/shep-directory.service.ts (implementation)
+- src/infrastructure/persistence/sqlite/connection.ts (implementation)
+- src/infrastructure/persistence/sqlite/migrations.ts (implementation)
+- src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql (migration SQL)
+
+---
+
+### Phase 6: Infrastructure - Repository Layer (TDD Cycle 4)
+
+**Goal:** Implement SQLite settings repository and DI container using TDD.
+
+**TDD Workflow:**
+
+1. **RED**: Write failing tests first
+
+   - Create tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts
+     - Test: initialize() creates settings in database
+     - Test: load() retrieves settings correctly
+     - Test: load() returns null when no settings exist
+     - Test: update() modifies existing settings
+     - Test: singleton constraint enforced (duplicate insert fails)
+     - Test: prepared statements prevent SQL injection
+     - Test: database mapping works correctly (columns ↔ TypeScript)
+   - **All tests FAIL** (repository doesn't exist yet)
+
+2. **GREEN**: Write minimal code to pass tests
+
+   - Create src/infrastructure/repositories/sqlite/settings.repository.ts
+   - Implement SQLiteSettingsRepository with @injectable decorator
+   - Implement ISettingsRepository interface (initialize, load, update)
    - Use prepared statements for all queries
-   - Implement methods:
-     - `initialize()`: Insert default settings with id='singleton'
-     - `load()`: SELECT settings WHERE id='singleton'
-     - `update(settings)`: UPDATE settings WHERE id='singleton'
    - Map between database columns and TypeSpec-generated Settings type
-
-6. Create DI container configuration:
-   - Create `src/infrastructure/di/container.ts`
-   - Import tsyringe container
+   - Create src/infrastructure/di/container.ts
+   - Configure tsyringe container
    - Register ISettingsRepository → SQLiteSettingsRepository
    - Register use cases as singletons
-   - Export configured container
+   - **All tests PASS**
+
+3. **REFACTOR**: Clean up while keeping tests green
+   - Extract mapping functions
+   - Optimize SQL queries
+   - **All tests still PASS**
 
 **Deliverables:**
 
-- src/infrastructure/services/filesystem/shep-directory.service.ts
-- src/infrastructure/persistence/sqlite/connection.ts
-- src/infrastructure/persistence/sqlite/migrations.ts
-- src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql
-- src/infrastructure/repositories/sqlite/settings.repository.ts
-- src/infrastructure/di/container.ts
-
-**Testing:**
-
-- Integration tests for bootstrap service (temp directory)
-- Integration tests for database connection (in-memory SQLite)
-- Integration tests for migrations (apply and rollback)
-- Integration tests for SettingsRepository (CRUD operations)
+- tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts (TEST FIRST)
+- src/infrastructure/repositories/sqlite/settings.repository.ts (implementation)
+- src/infrastructure/di/container.ts (DI configuration)
 
 ---
 
-### Phase 5: CLI Integration
+### Phase 7: CLI Integration (TDD Cycle 5)
 
-**Goal:** Wire up settings initialization and loading at CLI startup.
+**Goal:** Wire up settings initialization and loading at CLI startup using TDD.
 
-**Steps:**
+**TDD Workflow:**
 
-1. Update CLI entry point:
+1. **RED**: Write failing tests first
 
-   - Import `reflect-metadata` at top of file
-   - Import DI container
-   - Import InitializeSettingsUseCase
-   - Import LoadSettingsUseCase
-   - Before Commander setup:
-     - Resolve InitializeSettingsUseCase from container
-     - Execute initialization (ensures settings exist)
-     - Resolve LoadSettingsUseCase from container
-     - Load settings into memory
-     - Store settings in global/singleton pattern for CLI access
+   - Create tests/e2e/cli/settings-initialization.test.ts
+     - Test: first run creates ~/.shep/ directory
+     - Test: first run creates database file
+     - Test: first run initializes settings with defaults
+     - Test: second run loads existing settings (doesn't re-initialize)
+     - Test: settings are accessible globally in CLI
+     - Test: corrupted database triggers recovery/re-initialization
+   - **All tests FAIL** (CLI integration doesn't exist yet)
 
-2. Create settings access helper:
+2. **GREEN**: Write minimal code to pass tests
 
-   - Create `src/infrastructure/services/settings.service.ts`
-   - Singleton pattern for accessing loaded settings
-   - Export `getSettings()` function
+   - Update src/presentation/cli/index.ts
+   - Import reflect-metadata at top
+   - Import DI container and use cases
+   - Resolve InitializeSettingsUseCase and execute before Commander setup
+   - Resolve LoadSettingsUseCase and load settings
+   - Create src/infrastructure/services/settings.service.ts
+   - Implement getSettings() singleton for global access
+   - **All tests PASS**
 
-3. Document settings usage:
-   - Update CLAUDE.md with settings initialization flow
-   - Document how to access settings in commands
-   - Document DI container usage
+3. **REFACTOR**: Clean up while keeping tests green
+   - Extract initialization logic to separate function
+   - Improve error handling
+   - **All tests still PASS**
 
 **Deliverables:**
 
+- tests/e2e/cli/settings-initialization.test.ts (TEST FIRST)
 - src/presentation/cli/index.ts (updated with settings initialization)
-- src/infrastructure/services/settings.service.ts
-- CLAUDE.md (updated)
-
-**Testing:**
-
-- E2E test for first-run initialization
-- E2E test for subsequent runs (settings already exist)
-- E2E test for corrupted database recovery
+- src/infrastructure/services/settings.service.ts (settings access singleton)
 
 ---
 
-### Phase 6: Testing Suite
-
-**Goal:** Comprehensive test coverage for all layers.
-
-**Steps:**
-
-1. Unit tests - Domain:
-
-   - Create `tests/unit/domain/factories/settings-defaults.factory.test.ts`
-   - Test default values match TypeSpec model
-   - Test all nested models have defaults
-
-2. Unit tests - Application:
-
-   - Create `tests/unit/application/use-cases/initialize-settings.use-case.test.ts`
-   - Test initialization creates settings when none exist
-   - Test initialization returns existing settings when present
-   - Use mock repository
-
-   - Create `tests/unit/application/use-cases/load-settings.use-case.test.ts`
-   - Test loading existing settings
-   - Test error when settings don't exist
-   - Use mock repository
-
-   - Create `tests/unit/application/use-cases/update-settings.use-case.test.ts`
-   - Test updating settings
-   - Test validation errors
-   - Use mock repository
-
-3. Integration tests - Infrastructure:
-
-   - Create `tests/integration/infrastructure/repositories/settings.repository.test.ts`
-   - Use in-memory SQLite database
-   - Test initialize(), load(), update() methods
-   - Test singleton constraint enforcement
-   - Test SQL injection prevention (parameterized queries)
-
-   - Create `tests/integration/infrastructure/persistence/migrations.test.ts`
-   - Test migration application
-   - Test idempotency (running twice doesn't fail)
-   - Test user_version tracking
-
-4. E2E tests - CLI:
-   - Create `tests/e2e/cli/settings-initialization.test.ts`
-   - Test first-run initialization flow
-   - Test subsequent runs load settings
-   - Test ~/.shep/ directory creation
-   - Use temp directory for isolation
-
-**Deliverables:**
-
-- tests/unit/domain/factories/settings-defaults.factory.test.ts
-- tests/unit/application/use-cases/\*.test.ts (3 files)
-- tests/integration/infrastructure/repositories/settings.repository.test.ts
-- tests/integration/infrastructure/persistence/migrations.test.ts
-- tests/e2e/cli/settings-initialization.test.ts
-
-**Testing:**
-
-- Run `pnpm test` to verify all tests pass
-- Verify test coverage meets project standards
-
----
-
-### Phase 7: Documentation & Finalization
+### Phase 8: Documentation & Finalization
 
 **Goal:** Update documentation and mark feature complete.
 
 **Steps:**
 
-1. Update CLAUDE.md:
+1. Update CLAUDE.md
 
    - Document Settings service architecture
    - Document TypeSpec-first approach
@@ -490,35 +384,25 @@ Build Pipeline Flow:
    - Document DI container usage
    - Add Settings to Data Storage section
 
-2. Update docs/development/ directory:
+2. Update docs/development/ directory
 
-   - Update `docs/development/cicd.md`:
-     - Document `pnpm generate` step in CI/CD pipeline
-     - Document TypeSpec compilation in build flow
-   - Update `docs/development/tdd-guide.md`:
-     - Add section on testing TypeSpec-generated code
-     - Add section on testing repositories with in-memory SQLite
-   - Create `docs/development/typespec-guide.md`:
-     - TypeSpec domain modeling guide
-     - Best practices for defining models
-     - Code generation workflow
+   - Update docs/development/cicd.md (document pnpm generate step)
+   - Update docs/development/tdd-guide.md (TypeSpec-generated code testing)
+   - Create docs/development/typespec-guide.md (TypeSpec modeling guide)
 
-3. Create docs/architecture/ documentation:
+3. Create docs/architecture/ documentation
 
-   - Create `docs/architecture/settings-service.md`:
-     - Complete architecture documentation
-     - Layer-by-layer explanation
-     - Data flow diagrams
-     - Integration examples
+   - Create docs/architecture/settings-service.md (complete architecture docs)
 
-4. Update package.json:
+4. Update spec files
 
-   - Verify all dependencies are listed
-   - Verify scripts are documented
-
-5. Update spec files:
    - Mark all success criteria as completed in spec.md
-   - Update Phase to "Complete" in all spec files (spec.md, research.md, plan.md, tasks.md)
+   - Update Phase to "Complete" in all spec files
+
+5. Final verification
+   - Run `pnpm validate` (lint, format, typecheck, tsp:compile)
+   - Verify CI pipeline passes
+   - Manual smoke test: run `shep` command
 
 **Deliverables:**
 
@@ -529,63 +413,56 @@ Build Pipeline Flow:
 - docs/architecture/settings-service.md (new)
 - specs/005-global-settings-service/\*.md (all updated to Complete phase)
 
-**Testing:**
-
-- Run full validation: `pnpm validate`
-- Verify CI pipeline passes
-- Manual smoke test: run `shep` command
-
 ---
 
 ## Files to Create/Modify
 
 ### New Files (39 files)
 
-| File                                                                               | Purpose                                  |
-| ---------------------------------------------------------------------------------- | ---------------------------------------- |
-| **TypeSpec Models**                                                                |                                          |
-| `tsp/domain/entities/settings.tsp`                                                 | Settings domain model definition         |
-| **Generated Types**                                                                |                                          |
-| `src/domain/generated/Settings.ts`                                                 | Generated TypeScript types from TypeSpec |
-| `src/domain/generated/ModelConfiguration.ts`                                       | Generated model configuration type       |
-| `src/domain/generated/UserProfile.ts`                                              | Generated user profile type              |
-| `src/domain/generated/EnvironmentConfig.ts`                                        | Generated environment config type        |
-| `src/domain/generated/SystemConfig.ts`                                             | Generated system config type             |
-| `src/domain/generated/index.ts`                                                    | Barrel export for generated types        |
-| **Domain Layer**                                                                   |                                          |
-| `src/domain/factories/settings-defaults.factory.ts`                                | Factory for default settings             |
-| `src/domain/factories/index.ts`                                                    | Barrel export for factories              |
-| **Application Layer**                                                              |                                          |
-| `src/application/ports/output/settings.repository.interface.ts`                    | Repository interface                     |
-| `src/application/ports/output/index.ts`                                            | Barrel export for output ports           |
-| `src/application/use-cases/settings/initialize-settings.use-case.ts`               | Initialize settings use case             |
-| `src/application/use-cases/settings/load-settings.use-case.ts`                     | Load settings use case                   |
-| `src/application/use-cases/settings/update-settings.use-case.ts`                   | Update settings use case                 |
-| `src/application/use-cases/settings/index.ts`                                      | Barrel export for settings use cases     |
-| **Infrastructure Layer**                                                           |                                          |
-| `src/infrastructure/services/filesystem/shep-directory.service.ts`                 | ~/.shep/ directory initialization        |
-| `src/infrastructure/services/settings.service.ts`                                  | Global settings access singleton         |
-| `src/infrastructure/persistence/sqlite/connection.ts`                              | SQLite connection manager                |
-| `src/infrastructure/persistence/sqlite/migrations.ts`                              | SQLite migration runner                  |
-| `src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql`   | Initial migration (settings table)       |
-| `src/infrastructure/repositories/sqlite/settings.repository.ts`                    | SQLite settings repository               |
-| `src/infrastructure/di/container.ts`                                               | DI container configuration               |
-| **Build Configuration**                                                            |                                          |
-| `tsp-config.yaml`                                                                  | TypeSpec emitter configuration           |
-| **Tests**                                                                          |                                          |
-| `tests/unit/domain/factories/settings-defaults.factory.test.ts`                    | Domain factory tests                     |
-| `tests/unit/application/use-cases/initialize-settings.use-case.test.ts`            | Initialize use case tests                |
-| `tests/unit/application/use-cases/load-settings.use-case.test.ts`                  | Load use case tests                      |
-| `tests/unit/application/use-cases/update-settings.use-case.test.ts`                | Update use case tests                    |
-| `tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts` | SQLite repository integration tests      |
-| `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts`           | SQLite migration integration tests       |
-| `tests/e2e/cli/settings-initialization.test.ts`                                    | CLI E2E tests                            |
-| **Test Support**                                                                   |                                          |
-| `tests/helpers/database.helper.ts`                                                 | Test database utilities                  |
-| `tests/helpers/mock-repository.helper.ts`                                          | Mock repository for unit tests           |
-| **Documentation**                                                                  |                                          |
-| `docs/development/typespec-guide.md`                                               | TypeSpec domain modeling guide           |
-| `docs/architecture/settings-service.md`                                            | Settings service architecture docs       |
+| File                                                                               | Purpose                                    |
+| ---------------------------------------------------------------------------------- | ------------------------------------------ |
+| **TypeSpec Models**                                                                |                                            |
+| `tsp/domain/entities/settings.tsp`                                                 | Settings domain model definition           |
+| **Generated Types (from TypeSpec)**                                                |                                            |
+| `src/domain/generated/Settings.ts`                                                 | Generated TypeScript types from TypeSpec   |
+| `src/domain/generated/ModelConfiguration.ts`                                       | Generated model configuration type         |
+| `src/domain/generated/UserProfile.ts`                                              | Generated user profile type                |
+| `src/domain/generated/EnvironmentConfig.ts`                                        | Generated environment config type          |
+| `src/domain/generated/SystemConfig.ts`                                             | Generated system config type               |
+| `src/domain/generated/index.ts`                                                    | Barrel export for generated types          |
+| **Domain Layer**                                                                   |                                            |
+| `src/domain/factories/settings-defaults.factory.ts`                                | Factory for default settings               |
+| `src/domain/factories/index.ts`                                                    | Barrel export for factories                |
+| **Application Layer**                                                              |                                            |
+| `src/application/ports/output/settings.repository.interface.ts`                    | Repository interface                       |
+| `src/application/ports/output/index.ts`                                            | Barrel export for output ports             |
+| `src/application/use-cases/settings/initialize-settings.use-case.ts`               | Initialize settings use case               |
+| `src/application/use-cases/settings/load-settings.use-case.ts`                     | Load settings use case                     |
+| `src/application/use-cases/settings/update-settings.use-case.ts`                   | Update settings use case                   |
+| `src/application/use-cases/settings/index.ts`                                      | Barrel export for settings use cases       |
+| **Infrastructure Layer**                                                           |                                            |
+| `src/infrastructure/services/filesystem/shep-directory.service.ts`                 | ~/.shep/ directory initialization          |
+| `src/infrastructure/services/settings.service.ts`                                  | Global settings access singleton           |
+| `src/infrastructure/persistence/sqlite/connection.ts`                              | SQLite connection manager                  |
+| `src/infrastructure/persistence/sqlite/migrations.ts`                              | SQLite migration runner                    |
+| `src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql`   | Initial migration (settings table)         |
+| `src/infrastructure/repositories/sqlite/settings.repository.ts`                    | SQLite settings repository                 |
+| `src/infrastructure/di/container.ts`                                               | DI container configuration                 |
+| **Build Configuration**                                                            |                                            |
+| `tsp-config.yaml`                                                                  | TypeSpec emitter configuration             |
+| **Tests (ALL WRITTEN FIRST in TDD cycles)**                                        |                                            |
+| `tests/helpers/database.helper.ts`                                                 | Test database utilities (in-memory DB)     |
+| `tests/helpers/mock-repository.helper.ts`                                          | Mock repository for unit tests             |
+| `tests/unit/domain/factories/settings-defaults.factory.test.ts`                    | Domain factory tests (TDD Cycle 1)         |
+| `tests/unit/application/use-cases/initialize-settings.use-case.test.ts`            | Initialize use case tests (TDD Cycle 2)    |
+| `tests/unit/application/use-cases/load-settings.use-case.test.ts`                  | Load use case tests (TDD Cycle 2)          |
+| `tests/unit/application/use-cases/update-settings.use-case.test.ts`                | Update use case tests (TDD Cycle 2)        |
+| `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts`           | Migration integration tests (TDD Cycle 3)  |
+| `tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts` | Repository integration tests (TDD Cycle 4) |
+| `tests/e2e/cli/settings-initialization.test.ts`                                    | CLI E2E tests (TDD Cycle 5)                |
+| **Documentation**                                                                  |                                            |
+| `docs/development/typespec-guide.md`                                               | TypeSpec domain modeling guide             |
+| `docs/architecture/settings-service.md`                                            | Settings service architecture docs         |
 
 ### Modified Files (12 files)
 
@@ -606,69 +483,65 @@ Build Pipeline Flow:
 
 ---
 
-## Testing Strategy
+## Testing Strategy (TDD: Tests FIRST)
 
-### Unit Tests
+**CRITICAL:** Tests are written FIRST in each TDD cycle, never after implementation.
 
-**Domain Layer:**
+### Unit Tests (TDD Cycle 1 & 2)
 
-- `settings-defaults.factory.test.ts`:
-  - ✓ Factory returns object with all required fields
-  - ✓ Default values match TypeSpec model defaults
-  - ✓ Nested models (ModelConfiguration, UserProfile, etc.) have defaults
-  - ✓ Generated types are used (TypeScript compilation validates)
+**Phase 3 - Domain Layer (RED → GREEN → REFACTOR):**
 
-**Application Layer:**
+- settings-defaults.factory.test.ts (written FIRST)
+  - Factory returns object with all required fields
+  - Default values match TypeSpec model defaults
+  - Nested models have defaults
+  - Generated types are used correctly
 
-- `initialize-settings.use-case.test.ts`:
+**Phase 4 - Application Layer (RED → GREEN → REFACTOR):**
 
-  - ✓ Initializes settings when none exist
-  - ✓ Returns existing settings when already initialized
-  - ✓ Calls repository.initialize() when needed
-  - ✓ Calls repository.load() first to check existence
+- initialize-settings.use-case.test.ts (written FIRST)
+  - Initializes settings when none exist
+  - Returns existing settings when present
+  - Calls repository methods correctly
+- load-settings.use-case.test.ts (written FIRST)
+  - Loads settings successfully
+  - Throws error when settings don't exist
+- update-settings.use-case.test.ts (written FIRST)
+  - Updates settings successfully
+  - Validates settings correctly
 
-- `load-settings.use-case.test.ts`:
+### Integration Tests (TDD Cycle 3 & 4)
 
-  - ✓ Loads settings successfully when exist
-  - ✓ Throws error when settings don't exist
-  - ✓ Returns correct Settings type
+**Phase 5 - Persistence Layer (RED → GREEN → REFACTOR):**
 
-- `update-settings.use-case.test.ts`:
-  - ✓ Updates settings successfully
-  - ✓ Calls repository.update() with correct data
-  - ✓ Returns updated settings
+- migrations.test.ts (written FIRST with in-memory DB)
+  - Migration creates settings table
+  - Migration is idempotent
+  - user_version pragma tracking
+  - Migration SQL is valid
 
-### Integration Tests
+**Phase 6 - Repository Layer (RED → GREEN → REFACTOR):**
 
-**Infrastructure Layer:**
+- settings.repository.test.ts (written FIRST with in-memory DB)
+  - initialize() creates settings in database
+  - load() retrieves settings correctly
+  - load() returns null when no settings exist
+  - update() modifies existing settings
+  - Singleton constraint enforced
+  - Prepared statements prevent SQL injection
+  - Database mapping works correctly
 
-- `settings.repository.test.ts`:
+### E2E Tests (TDD Cycle 5)
 
-  - ✓ initialize() creates settings in database
-  - ✓ load() retrieves settings correctly
-  - ✓ load() returns null when no settings exist
-  - ✓ update() modifies existing settings
-  - ✓ Singleton constraint enforced (duplicate insert fails)
-  - ✓ Prepared statements prevent SQL injection
-  - ✓ Database mapping works correctly (columns ↔ TypeScript)
+**Phase 7 - CLI Integration (RED → GREEN → REFACTOR):**
 
-- `migrations.test.ts`:
-  - ✓ Migration creates settings table
-  - ✓ Migration is idempotent (safe to run twice)
-  - ✓ user_version pragma tracks applied migrations
-  - ✓ Migration SQL is valid
-
-### E2E Tests
-
-**CLI Integration:**
-
-- `settings-initialization.test.ts`:
-  - ✓ First run creates ~/.shep/ directory
-  - ✓ First run creates database file
-  - ✓ First run initializes settings with defaults
-  - ✓ Second run loads existing settings (doesn't re-initialize)
-  - ✓ Settings are accessible globally in CLI
-  - ✓ Corrupted database triggers recovery/re-initialization
+- settings-initialization.test.ts (written FIRST)
+  - First run creates ~/.shep/ directory
+  - First run creates database file
+  - First run initializes settings with defaults
+  - Second run loads existing settings
+  - Settings accessible globally
+  - Corrupted database recovery
 
 ---
 
@@ -723,4 +596,4 @@ Build Pipeline Flow:
 
 ---
 
-_Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_
+_Updated by `/shep-kit:plan` (TDD-compliant) — see tasks.md for detailed TDD breakdown_

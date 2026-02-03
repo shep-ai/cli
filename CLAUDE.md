@@ -11,15 +11,21 @@ Shep AI CLI (`@shepai/cli`) is an Autonomous AI Native SDLC Platform that automa
 **All feature work MUST begin with `/shep-kit:new-feature`.** See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md).
 
 ```
-/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → implement
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan (TDD MANDATORY) → implement (RED-GREEN-REFACTOR)
 ```
 
 Feature specifications live in `specs/NNN-feature-name/`:
 
 - `spec.md` - Requirements and scope
 - `research.md` - Technical decisions
-- `plan.md` - Implementation strategy
-- `tasks.md` - Task breakdown
+- `plan.md` - Implementation strategy **with TDD cycles (RED-GREEN-REFACTOR)**
+- `tasks.md` - Task breakdown **with explicit TDD phases**
+
+**CRITICAL**: Plans MUST follow Test-Driven Development. Every implementation phase must define:
+
+1. **RED**: Tests to write FIRST
+2. **GREEN**: Minimal implementation to pass
+3. **REFACTOR**: Cleanup while keeping tests green
 
 ## Commands
 
@@ -208,9 +214,9 @@ Compile with `pnpm tsp:compile`. Output goes to `apis/`:
 3. Call appropriate use case
 4. Register in main CLI setup
 
-## Testing Strategy (TDD)
+## Testing Strategy (TDD MANDATORY)
 
-This project follows **Test-Driven Development (TDD)** with the Red-Green-Refactor cycle.
+This project **MANDATES Test-Driven Development (TDD)** with the Red-Green-Refactor cycle for ALL implementation work.
 
 ### Test Layers
 
@@ -218,11 +224,19 @@ This project follows **Test-Driven Development (TDD)** with the Red-Green-Refact
 - **Integration tests** (`tests/integration/`): Repository implementations with test SQLite
 - **E2E tests** (`tests/e2e/`): Playwright for web UI, CLI command execution
 
-### TDD Workflow for New Features
+### TDD Workflow (NON-NEGOTIABLE)
 
-1. **Write failing test first** (RED)
-2. **Write minimal code to pass** (GREEN)
-3. **Refactor while keeping tests green** (REFACTOR)
+**ALWAYS follow this order:**
+
+1. **RED**: Write failing test FIRST (never skip this!)
+2. **GREEN**: Write minimal code to pass test
+3. **REFACTOR**: Improve code while keeping tests green
+
+**Planning Requirement**: All feature plans created by `/shep-kit:plan` MUST structure implementation phases with explicit RED-GREEN-REFACTOR cycles. Each phase must specify:
+
+- What tests to write first (RED)
+- What minimal implementation passes those tests (GREEN)
+- What refactoring opportunities exist (REFACTOR)
 
 See [docs/development/tdd-guide.md](./docs/development/tdd-guide.md) for detailed TDD workflow.
 

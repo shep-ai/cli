@@ -9,15 +9,49 @@
 
 ## Task List
 
-### Phase 1: {{PHASE_1_NAME}}
+### Phase 1: {{PHASE_1_NAME}} (Foundational - No Tests)
 
-- [ ] {{TASK_1}}
-- [ ] {{TASK_2}}
+- [ ] {{FOUNDATIONAL_TASK_1}}
+- [ ] {{FOUNDATIONAL_TASK_2}}
+- [ ] {{FOUNDATIONAL_TASK_3}}
 
-### Phase 2: {{PHASE_2_NAME}} [P]
+### Phase 2: {{PHASE_2_NAME}} (TDD Cycle 1)
 
-- [ ] {{TASK_3}}
-- [ ] {{TASK_4}}
+**RED (Write Failing Tests First):**
+
+- [ ] Write unit test: {{TEST_FILE_1}}
+- [ ] Write integration test: {{TEST_FILE_2}}
+
+**GREEN (Implement to Pass Tests):**
+
+- [ ] Implement {{IMPLEMENTATION_1}}
+- [ ] Implement {{IMPLEMENTATION_2}}
+
+**REFACTOR (Clean Up):**
+
+- [ ] Refactor {{REFACTOR_1}} while keeping tests green
+
+### Phase 3: {{PHASE_3_NAME}} (TDD Cycle 2) [P]
+
+**RED (Write Failing Tests First):**
+
+- [ ] {{RED_TASKS}}
+
+**GREEN (Implement to Pass Tests):**
+
+- [ ] {{GREEN_TASKS}}
+
+**REFACTOR (Clean Up):**
+
+- [ ] {{REFACTOR_TASKS}}
+
+## TDD Notes
+
+- **MANDATORY**: All phases with code follow RED → GREEN → REFACTOR
+- **RED**: Write failing tests FIRST (never skip this!)
+- **GREEN**: Write minimal code to pass tests
+- **REFACTOR**: Improve code while keeping tests green
+- Tests are written BEFORE implementation, not after
 
 ## Parallelization Notes
 
