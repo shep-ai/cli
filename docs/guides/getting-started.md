@@ -7,7 +7,7 @@ This guide walks you through installing Shep AI CLI and creating your first feat
 - **Node.js** 18 or higher
 - **pnpm** 8 or higher (`npm install -g pnpm`)
 - A repository to work with
-- Claude API access (Pro subscription or API key)
+- Access to at least one supported AI agent provider
 
 ## Installation
 
@@ -34,13 +34,15 @@ shep --version
 Navigate to your project directory and run Shep:
 
 ```bash
-cd ~/projects/my-app
+cd my-awesome-repository
 shep
 ```
 
 ### Initial Setup Wizard
 
-On first run, Shep launches a TUI wizard to configure authentication:
+On first run, Shep launches a TUI wizard to configure your agent provider.
+
+#### Step 1: Select Agent Provider
 
 ```
 ┌─────────────────────────────────────────────┐
@@ -48,23 +50,48 @@ On first run, Shep launches a TUI wizard to configure authentication:
 ├─────────────────────────────────────────────┤
 │                                             │
 │  Welcome to Shep!                           │
-│  Let's set up your Claude Code access.      │
+│  Select your AI agent provider:             │
+│                                             │
+│  ● Claude Code (Recommended)                │
+│  ○ Cursor                                   │
+│  ○ Gemini CLI                               │
+│  ○ GitHub Copilot                           │
+│  ○ Codeium                                  │
+│  ○ Amazon Q Developer                       │
+│  ○ Cody (Sourcegraph)                       │
+│  ○ Tabnine                                  │
+│                                             │
+└─────────────────────────────────────────────┘
+```
+
+> **Note:** Each provider has different capabilities and authentication methods. Claude Code is recommended for full autonomous SDLC support.
+
+#### Step 2: Authentication
+
+After selecting a provider, Shep prompts for authentication:
+
+```
+┌─────────────────────────────────────────────┐
+│      Shep AI CLI Setup                      │
+├─────────────────────────────────────────────┤
+│                                             │
+│  Configure Claude Code authentication       │
 │                                             │
 │  How would you like to authenticate?        │
 │                                             │
-│  ○ Use existing Claude session              │
+│  ○ Use existing session                     │
 │  ○ Set up new token                         │
 │                                             │
 └─────────────────────────────────────────────┘
 ```
 
-> **Note:** User selects one authentication option to proceed.
+> **Note:** Authentication options vary by provider. Some support session reuse, others require API keys or OAuth.
 
 #### Option 1: Use Existing Session
 
-If you're already logged into Claude Code, Shep can use that session:
+If you're already logged into your selected provider, Shep can use that session:
 
-1. Select "Use existing Claude session"
+1. Select "Use existing session"
 2. Shep detects your existing authentication
 3. Setup complete
 
@@ -73,7 +100,7 @@ If you're already logged into Claude Code, Shep can use that session:
 To use a new API token:
 
 1. Select "Set up new token"
-2. Enter your Claude API key
+2. Enter your API key for the selected provider
 3. Shep validates and stores the token securely
 
 ### Repository Analysis
@@ -262,11 +289,15 @@ Large repositories may take longer. You can:
 
 If authentication fails:
 
-1. Check your API key is valid
-2. Ensure you have Claude API access
+1. Check your API key is valid for your selected provider
+2. Ensure you have access to your chosen agent provider
 3. Try re-authenticating:
    ```bash
    shep --auth
+   ```
+4. To switch providers:
+   ```bash
+   shep --setup
    ```
 
 ### Port Already in Use
