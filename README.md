@@ -57,7 +57,7 @@ This launches a TUI wizard to:
 
 1. Configure Claude Code authentication (setup token or use existing session)
 2. Start repository analysis
-3. Open the web UI at `http://localhost:3030/`
+3. Open the web UI at `http://localhost:3000/`
 
 ## How It Works
 
@@ -148,7 +148,7 @@ Uses **Repository Pattern** with SQLite:
 | Package Manager | pnpm                                                                                    |
 | CLI Framework   | Commander                                                                               |
 | TUI Framework   | [OpenTUI](https://opentui.com/)                                                         |
-| Web UI          | Next.js + shadcn/ui                                                                     |
+| Web UI          | Next.js 16 + React 19 + shadcn/ui ([@shepai/web](./src/presentation/web/))              |
 | Design System   | Storybook                                                                               |
 | Build Tool      | Vite                                                                                    |
 | Database        | SQLite                                                                                  |
@@ -176,16 +176,17 @@ See [CI/CD Documentation](./docs/development/cicd.md) for details.
 
 ## Documentation
 
-| Document                                           | Description                        |
-| -------------------------------------------------- | ---------------------------------- |
-| [CLAUDE.md](./CLAUDE.md)                           | Guidance for Claude Code instances |
-| [AGENTS.md](./AGENTS.md)                           | Agent system architecture          |
-| [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md) | AI agent contribution guidelines   |
-| [Architecture](./docs/architecture/)               | System design and patterns         |
-| [Concepts](./docs/concepts/)                       | Core domain concepts               |
-| [Guides](./docs/guides/)                           | User guides and tutorials          |
-| [Development](./docs/development/)                 | Contributing and development setup |
-| [API Reference](./docs/api/)                       | Interface and model documentation  |
+| Document                                           | Description                           |
+| -------------------------------------------------- | ------------------------------------- |
+| [CLAUDE.md](./CLAUDE.md)                           | Guidance for Claude Code instances    |
+| [AGENTS.md](./AGENTS.md)                           | Agent system architecture             |
+| [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md) | AI agent contribution guidelines      |
+| [Architecture](./docs/architecture/)               | System design and patterns            |
+| [Concepts](./docs/concepts/)                       | Core domain concepts                  |
+| [UI](./docs/ui/)                                   | Web UI architecture and design system |
+| [Guides](./docs/guides/)                           | User guides and tutorials             |
+| [Development](./docs/development/)                 | Contributing and development setup    |
+| [API Reference](./docs/api/)                       | Interface and model documentation     |
 
 ## Contributing
 
