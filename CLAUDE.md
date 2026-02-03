@@ -319,6 +319,7 @@ Automated pipeline using GitHub Actions with semantic-release and security gates
 ### Pipeline Structure
 
 - **All branches**: Lint, Typecheck, Unit Tests, E2E tests, Security scans run in parallel
+- **Pull requests**: Claude Code review for documentation consistency and architecture compliance
 - **Non-main branches**: Docker builds and pushes `sha-<commit>` tag
 - **Main branch**: After all jobs pass (including security), semantic-release handles npm publish + Docker push
 

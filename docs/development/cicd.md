@@ -14,6 +14,11 @@ Push/PR to main or develop:
 └───────────────┴──────────────────────┴──────────┴─────────┴──────────┘
                             (all run in parallel)
 
+On PR only:
+┌──────────────────────────────────────────────────────────────────────┐
+│  Claude Review  │  Documentation & Architecture compliance check    │
+└──────────────────────────────────────────────────────────────────────┘
+
 On push to main only (after ALL jobs pass, including security):
 ┌───────────┐
 │  Release  │  → npm publish + Docker push + GitHub release
@@ -54,6 +59,24 @@ Security scanners run in parallel and **block releases on main**:
 Results are uploaded to GitHub Security tab (SARIF format) and displayed in job summaries.
 
 > **Note:** Gitleaks uses the CLI directly (not gitleaks-action) because the GitHub Action requires a paid license for organizations.
+
+### Claude Review Job (PRs Only)
+
+Automated code review using Claude Code, focusing on:
+
+| Check Area                    | What It Validates                                     |
+| ----------------------------- | ----------------------------------------------------- |
+| **Documentation Consistency** | Changes reflected in docs/, CLAUDE.md, AGENTS.md      |
+| **Architecture Compliance**   | Clean Architecture layers, dependency rule, patterns  |
+| **TDD & Testing**             | Test coverage for new functionality                   |
+| **Spec-Driven Workflow**      | Feature PRs have specs/ directory with required files |
+
+**Review Output:**
+
+- Inline comments on specific code issues
+- Summary PR comment with findings and action items
+
+**Required Secret:** `CLAUDE_CODE_OAUTH_TOKEN` (org-level)
 
 ### Release Job (Main Only)
 
@@ -140,13 +163,15 @@ NPM_TOKEN=xxx GITHUB_TOKEN=xxx npx semantic-release
 
 ## Configuration Files
 
-| File                       | Purpose                                  |
-| -------------------------- | ---------------------------------------- |
-| `.github/workflows/ci.yml` | GitHub Actions workflow definition       |
-| `release.config.mjs`       | semantic-release plugins and settings    |
-| `Dockerfile`               | Multi-stage build for production image   |
-| `.dockerignore`            | Files excluded from Docker build context |
-| `commitlint.config.mjs`    | Commit message validation rules          |
+| File                                  | Purpose                                              |
+| ------------------------------------- | ---------------------------------------------------- |
+| `.github/workflows/ci.yml`            | Main CI/CD workflow (build, test, security, release) |
+| `.github/workflows/pr-check.yml`      | PR-specific checks (commitlint, PR title)            |
+| `.github/workflows/claude-review.yml` | Claude Code automated review                         |
+| `release.config.mjs`                  | semantic-release plugins and settings                |
+| `Dockerfile`                          | Multi-stage build for production image               |
+| `.dockerignore`                       | Files excluded from Docker build context             |
+| `commitlint.config.mjs`               | Commit message validation rules                      |
 
 ## Limitations & Considerations
 
@@ -164,10 +189,11 @@ NPM_TOKEN=xxx GITHUB_TOKEN=xxx npx semantic-release
 
 ### Required Secrets
 
-| Secret         | Purpose                               | Where to Set       |
-| -------------- | ------------------------------------- | ------------------ |
-| `GITHUB_TOKEN` | Automatic, provided by GitHub Actions | Built-in           |
-| `NPM_TOKEN`    | Publishing to npm registry            | Repository secrets |
+| Secret                    | Purpose                               | Where to Set         |
+| ------------------------- | ------------------------------------- | -------------------- |
+| `GITHUB_TOKEN`            | Automatic, provided by GitHub Actions | Built-in             |
+| `NPM_TOKEN`               | Publishing to npm registry            | Repository secrets   |
+| `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code automated PR review       | Organization secrets |
 
 ### Branch Protection
 
@@ -233,5 +259,7 @@ echo "feat(cli): add new command" | npx commitlint
 **Related files:**
 
 - [.github/workflows/ci.yml](../../.github/workflows/ci.yml)
+- [.github/workflows/pr-check.yml](../../.github/workflows/pr-check.yml)
+- [.github/workflows/claude-review.yml](../../.github/workflows/claude-review.yml)
 - [release.config.mjs](../../release.config.mjs)
 - [Dockerfile](../../Dockerfile)

@@ -1,0 +1,178 @@
+# =============================================================================
+# Claude Code PR Review Workflow
+# =============================================================================
+# Automated PR review focusing on documentation consistency and architecture
+# compliance using Claude Code.
+
+name: Claude Review
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+# Prevent concurrent reviews on the same PR
+concurrency:
+  group: claude-review-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # Claude Code PR Review
+  # ===========================================================================
+  claude-review:
+    name: Documentation & Architecture Review
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      id-token: write
+
+    # Use environment variables for user-controlled inputs to prevent injection
+    env:
+      PR_NUMBER: ${{ github.event.pull_request.number }}
+      REPO_NAME: ${{ github.repository }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Claude Code Review
+        uses: anthropics/claude-code-action@v1
+        env:
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          direct_prompt: |
+            ## PR Review Assignment
+
+            You are reviewing a pull request for the Shep AI CLI project.
+            The PR branch is checked out in the current directory.
+
+            First, run `gh pr view` to get the PR details (number, title, description).
+
+            ---
+
+            ## Your Review Focus Areas
+
+            ### 1. DOCUMENTATION CONSISTENCY CHECK
+
+            Analyze changes and verify documentation alignment:
+
+            **Key documentation files to cross-reference:**
+            - `CLAUDE.md` - Primary project constitution (commands, architecture, domain models)
+            - `AGENTS.md` - Agent system documentation
+            - `CONTRIBUTING.md` - Contribution guidelines
+            - `docs/architecture/` - Clean Architecture documentation
+            - `docs/development/` - Development guides (TDD, spec-driven workflow, CI/CD)
+            - `docs/concepts/` - Domain concept documentation
+            - `docs/api/` - API and interface documentation
+
+            **Check for:**
+            - [ ] New commands/scripts added but not documented in CLAUDE.md
+            - [ ] Domain model changes not reflected in docs/concepts/ or CLAUDE.md
+            - [ ] Architecture changes not updated in docs/architecture/
+            - [ ] New agent functionality not documented in AGENTS.md
+            - [ ] CI/CD changes not reflected in docs/development/cicd.md
+            - [ ] Contradictions between changed code and existing documentation
+            - [ ] Stale examples in documentation that conflict with new implementation
+            - [ ] Missing "Maintaining This Document" updates if document scope changed
+
+            ### 2. ARCHITECTURE COMPLIANCE CHECK
+
+            Verify adherence to Clean Architecture principles:
+
+            **Layer Structure (Dependency Rule: inward only):**
+            ```
+            Presentation → Application → Domain ← Infrastructure
+            ```
+
+            **Check for violations:**
+            - [ ] Domain layer (`src/domain/`) importing from other layers
+            - [ ] Application layer importing from Infrastructure or Presentation
+            - [ ] Direct database/file access outside Infrastructure layer
+            - [ ] Business logic in Presentation layer
+            - [ ] Use cases with multiple responsibilities (should be single execute() method)
+            - [ ] Repository implementations containing business logic
+            - [ ] Missing port interfaces for new external dependencies
+
+            **Patterns to verify:**
+            - Repository Pattern: All data access through `application/ports/` interfaces
+            - Use Case Pattern: One class per use case, single `execute()` method
+            - Dependency Injection: Constructor injection for dependencies
+            - Value Objects: Immutable, no identity, domain concepts
+
+            ### 3. TDD & TESTING CHECK
+
+            **Verify test coverage:**
+            - [ ] New functionality has corresponding tests
+            - [ ] Tests follow Red-Green-Refactor pattern (test written first)
+            - [ ] Unit tests for domain logic (no mocking domain)
+            - [ ] Integration tests for repository implementations
+            - [ ] E2E tests for CLI commands or Web UI changes
+
+            ### 4. SPEC-DRIVEN WORKFLOW CHECK
+
+            For feature PRs, verify:
+            - [ ] Feature has spec directory in `specs/NNN-feature-name/`
+            - [ ] Spec files present: `spec.md`, `research.md`, `plan.md`, `tasks.md`
+            - [ ] Implementation aligns with approved plan
+
+            ---
+
+            ## Review Process
+
+            1. **First**, run `gh pr view` and `gh pr diff` to see PR details and all changes
+            2. **Read** the key constitution files to understand current documented state
+            3. **Analyze** each changed file against the checklist above
+            4. **Identify** specific issues with file paths and line numbers
+
+            ## Output Requirements
+
+            **For specific code issues:**
+            Use `mcp__github_inline_comment__create_inline_comment` to add inline comments on specific lines with:
+            - Clear description of the issue
+            - Reference to violated principle/pattern
+            - Suggested fix if applicable
+
+            **For overall PR feedback:**
+            Use `gh pr comment --body "..."` with a structured summary:
+
+            ```markdown
+            ## 🤖 Claude Code Review
+
+            ### Documentation Consistency
+            [Summary of documentation alignment findings]
+
+            ### Architecture Compliance
+            [Summary of architecture findings]
+
+            ### Testing
+            [Summary of test coverage findings]
+
+            ### Action Items
+            - [ ] List specific items that need attention before merge
+
+            ---
+            *Automated review by Claude Code*
+            ```
+
+            **Important:**
+            - Only post GitHub comments - do not output review as chat messages
+            - Be specific with file paths and line numbers
+            - Reference the exact documentation or principle being violated
+            - Prioritize blocking issues over style suggestions
+            - If everything looks good, still post a summary confirming compliance
+
+          allowed_tools: |
+            Read
+            Glob
+            Grep
+            Bash(gh pr diff:*)
+            Bash(gh pr view:*)
+            Bash(gh pr comment:*)
+            Bash(git diff:*)
+            Bash(git log:*)
+            Bash(git show:*)
+            mcp__github_inline_comment__create_inline_comment
