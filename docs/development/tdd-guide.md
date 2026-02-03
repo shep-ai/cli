@@ -474,9 +474,6 @@ pnpm test:int
 # Run e2e tests (Playwright)
 pnpm test:e2e
 
-# Run all tests with coverage
-pnpm test:coverage
-
 # Run tests for changed files only
 pnpm test -- --changed
 ```

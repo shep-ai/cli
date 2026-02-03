@@ -35,13 +35,11 @@
   --color-popover: #ffffff;
   --color-popover-foreground: #0a0a0a;
 
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
-  --spacing-xl: 2rem;
-  --spacing-2xl: 3rem;
+  /*
+   * NOTE: Do not define --spacing-* tokens here as they conflict with
+   * Tailwind v4's built-in sizing utilities (max-w-xl, max-w-2xl, etc.)
+   * Use Tailwind's standard spacing scale instead (p-4, m-6, gap-2, etc.)
+   */
 
   /* Typography */
   --font-sans: ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',

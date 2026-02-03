@@ -1,5 +1,7 @@
 # Web Component Library
 
+> **See also:** [docs/ui/](../ui/) for comprehensive UI documentation including [architecture](../ui/architecture.md), [design system](../ui/design-system.md), and [component catalog](../ui/components.md).
+
 This document describes the web UI component library for Shep AI CLI, built with Next.js 16, React 19, Tailwind CSS v4, and shadcn/ui.
 
 ## Overview
@@ -37,17 +39,30 @@ src/presentation/web/
 │   │   ├── sonner.tsx
 │   │   ├── tabs.tsx
 │   │   └── index.ts        # Exports all components
-│   └── features/           # Feature-specific components
-│       └── theme-toggle.tsx
+│   └── features/           # Feature-specific components (subfolder pattern)
+│       ├── index.ts         # Barrel export for all features
+│       └── theme-toggle/    # Each feature in its own subfolder
+│           ├── index.ts
+│           ├── theme-toggle.tsx
+│           └── theme-toggle.stories.tsx
 ├── hooks/
 │   └── useTheme.ts         # Theme state management
 ├── lib/
 │   └── utils.ts            # Utility functions (cn)
-├── types/
-│   └── theme.ts            # Theme type definitions
-└── stories/                # Storybook stories
-    ├── ui/                 # UI component stories
-    └── design-tokens.mdx   # Design system documentation
+└── types/
+    └── theme.ts            # Theme type definitions
+```
+
+**Note:** Stories are colocated with their components (e.g., `button.stories.tsx` next to `button.tsx`). The design tokens documentation is at `components/design-tokens.mdx`.
+
+```
+# Story file structure example
+components/ui/
+├── button.tsx              # Component implementation
+├── button.stories.tsx      # Storybook stories (colocated)
+├── card.tsx
+├── card.stories.tsx
+└── ...
 ```
 
 ## Design Tokens
@@ -56,24 +71,61 @@ Design tokens are defined in `globals.css` using Tailwind CSS v4's `@theme` dire
 
 ```css
 @theme {
-  /* Colors */
-  --color-background: oklch(1 0 0);
-  --color-foreground: oklch(0.141 0.005 285.82);
-  --color-primary: oklch(0.21 0.006 285.88);
+  /* Colors - Light Mode */
+  --color-background: #ffffff;
+  --color-foreground: #0a0a0a;
+  --color-primary: #3b82f6;
+  --color-primary-foreground: #ffffff;
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #0f172a;
+  --color-muted: #f1f5f9;
+  --color-muted-foreground: #64748b;
+  --color-accent: #f1f5f9;
+  --color-accent-foreground: #0f172a;
+  --color-destructive: #ef4444;
+  --color-destructive-foreground: #ffffff;
+  --color-border: #e2e8f0;
+  --color-input: #e2e8f0;
+  --color-ring: #3b82f6;
+  --color-card: #ffffff;
+  --color-card-foreground: #0a0a0a;
+  --color-popover: #ffffff;
+  --color-popover-foreground: #0a0a0a;
 
-  /* Spacing */
-  --spacing-xs: 0.25rem;
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
+  /* Typography */
+  --font-sans: ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, monospace;
 
   /* Border Radius */
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
   --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+
+  /* Shadows */
+  --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+  --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1);
 }
 ```
 
-Dark mode tokens are defined in the `.dark` class selector.
+### Dark Mode
+
+Dark mode tokens are defined in the `.dark` class selector, which overrides the light mode values:
+
+```css
+.dark {
+  --color-background: #0a0a0a;
+  --color-foreground: #fafafa;
+  --color-secondary: #1e293b;
+  --color-muted: #1e293b;
+  --color-border: #1e293b;
+  /* ... other dark mode overrides */
+}
+```
+
+**Note:** Spacing tokens are intentionally omitted to avoid conflicts with Tailwind v4's built-in sizing utilities. Use Tailwind's standard spacing scale (`p-4`, `m-6`, `gap-2`, etc.).
 
 ## Components
 
@@ -99,7 +151,7 @@ Dark mode tokens are defined in the `.dark` class selector.
 
 ```tsx
 import { Button, Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import { ThemeToggle } from '@/components/features/theme-toggle';
+import { ThemeToggle } from '@/components/features';
 
 export function MyComponent() {
   return (
@@ -147,7 +199,7 @@ Theme preference is persisted to `localStorage` under the key `shep-theme`.
 ### Running Storybook
 
 ```bash
-pnpm storybook
+pnpm dev:storybook
 ```
 
 Opens Storybook at http://localhost:6006 with all component stories and design token documentation.
@@ -169,10 +221,10 @@ pnpm test:watch
 
 ```bash
 # Build Next.js app
-pnpm web:build
+pnpm build:web
 
 # Build Storybook
-pnpm storybook:build
+pnpm build:storybook
 ```
 
 ## Testing Strategy

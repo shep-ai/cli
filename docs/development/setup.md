@@ -73,7 +73,7 @@ pnpm test
 pnpm build
 
 # Start Storybook (design system)
-pnpm storybook
+pnpm dev:storybook
 ```
 
 ## Project Structure
@@ -183,10 +183,10 @@ pnpm cli -- --help
 pnpm cli -- init
 
 # Start Web UI (Next.js)
-pnpm web:dev
+pnpm dev:web
 
 # Start Storybook (Design System)
-pnpm storybook
+pnpm dev:storybook
 ```
 
 ### Testing Locally
@@ -241,9 +241,6 @@ pnpm test:e2e
 
 # Specific file
 pnpm test:single tests/unit/domain/entities/feature.test.ts
-
-# With coverage
-pnpm test:coverage
 ```
 
 ### Test Database

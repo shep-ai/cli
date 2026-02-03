@@ -86,7 +86,8 @@ pnpm test -- --grep "Feature"
 ### With Coverage
 
 ```bash
-pnpm test:coverage
+# TODO: Coverage script not yet implemented
+# pnpm test:coverage
 ```
 
 Coverage thresholds (in `vitest.config.ts`):
@@ -683,10 +684,11 @@ jobs:
       - run: pnpm install --frozen-lockfile
 
       - name: Build Storybook
-        run: pnpm storybook:build
+        run: pnpm build:storybook
 
       - name: Run Storybook Tests
-        run: pnpm test:storybook
+        # TODO: Storybook test script not yet implemented
+        run: echo "Storybook tests pending implementation"
 ```
 
 ---

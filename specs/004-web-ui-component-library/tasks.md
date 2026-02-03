@@ -140,7 +140,7 @@
   - Typography scale
   - Shadows
 - [ ] **3.18** Verify Storybook build succeeds
-  - Run `pnpm storybook:build`
+  - Run `pnpm build:storybook`
   - Fix any build errors
 
 ### Phase 4: Testing Infrastructure
@@ -227,13 +227,13 @@
   - Run `pnpm test:e2e:web`
 - [ ] **5.3** Update ci.yml with storybook-build job
   - Run on push/PR
-  - Run `pnpm storybook:build`
+  - Run `pnpm build:storybook`
   - Verify build succeeds
 - [ ] **5.4** Add jobs to release dependency chain (if on main)
   - web-unit-tests, web-e2e-tests, storybook-build must pass before release
 - [ ] **5.5** Update package.json scripts
   - Ensure all scripts work with pnpm
-  - Add missing scripts (web:dev, web:build, test:unit:web, test:e2e:web)
+  - Add missing scripts (dev:web, build:web, test:unit:web, test:e2e:web)
 - [ ] **5.6** Create component library documentation
   - `docs/development/web-component-library.md`
   - Getting started guide
@@ -275,8 +275,8 @@ Before marking feature complete:
 - [ ] All tasks completed (63/63)
 - [ ] All unit tests passing (`pnpm test:unit:web`)
 - [ ] All E2E tests passing (`pnpm test:e2e:web`)
-- [ ] Storybook builds (`pnpm storybook:build`)
-- [ ] Web app builds (`pnpm web:build` or `pnpm build`)
+- [ ] Storybook builds (`pnpm build:storybook`)
+- [ ] Web app builds (`pnpm build:web` or `pnpm build`)
 - [ ] Linting clean (`pnpm lint`)
 - [ ] Types valid (`pnpm typecheck`)
 - [ ] CI pipeline green on feature branch
