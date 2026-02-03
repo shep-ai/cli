@@ -56,16 +56,16 @@
 
 ### Phase 4: Infrastructure - Persistence & Repository
 
-- [ ] Create src/infrastructure/services/bootstrap.service.ts for ~/.shep/ directory creation
-- [ ] Implement bootstrap service: Create directory with 700 permissions, handle errors gracefully
-- [ ] Create src/infrastructure/persistence/database.ts with getDatabase() singleton function
-- [ ] Implement database connection: better-sqlite3 to ~/.shep/data with pragmas (WAL, NORMAL, foreign_keys, defensive)
-- [ ] Create src/infrastructure/persistence/migrations.ts with runMigrations() function
-- [ ] Integrate @blackglory/better-sqlite3-migrations library in migrations.ts
-- [ ] Create src/infrastructure/persistence/migrations/001_create_settings_table.sql
+- [ ] Create src/infrastructure/services/filesystem/shep-directory.service.ts for ~/.shep/ directory initialization
+- [ ] Implement shep-directory service: ensureShepDirectory() with 700 permissions, graceful error handling
+- [ ] Create src/infrastructure/persistence/sqlite/connection.ts with getSQLiteConnection() singleton
+- [ ] Implement SQLite connection: better-sqlite3 to ~/.shep/data with pragmas (WAL, NORMAL, foreign_keys, defensive)
+- [ ] Create src/infrastructure/persistence/sqlite/migrations.ts with runSQLiteMigrations() function
+- [ ] Integrate @blackglory/better-sqlite3-migrations library in SQLite migrations.ts
+- [ ] Create src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql
 - [ ] Define settings table schema with all columns (flatten nested objects)
 - [ ] Add UNIQUE INDEX for singleton pattern (id='singleton')
-- [ ] Create src/infrastructure/repositories/settings.repository.ts with @injectable decorator
+- [ ] Create src/infrastructure/repositories/sqlite/settings.repository.ts with @injectable decorator
 - [ ] Implement SQLiteSettingsRepository.initialize() method with prepared statement
 - [ ] Implement SQLiteSettingsRepository.load() method with prepared statement
 - [ ] Implement SQLiteSettingsRepository.update() method with prepared statement
@@ -73,8 +73,8 @@
 - [ ] Create src/infrastructure/di/container.ts and configure tsyringe container
 - [ ] Register ISettingsRepository → SQLiteSettingsRepository in container
 - [ ] Register use cases as singletons in container
-- [ ] Write integration test: tests/integration/infrastructure/repositories/settings.repository.test.ts (in-memory DB)
-- [ ] Write integration test: tests/integration/infrastructure/persistence/migrations.test.ts (migration idempotency)
+- [ ] Write integration test: tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts (in-memory DB)
+- [ ] Write integration test: tests/integration/infrastructure/persistence/sqlite/migrations.test.ts (migration idempotency)
 - [ ] Create tests/helpers/database.helper.ts for test database utilities
 
 ### Phase 5: CLI Integration

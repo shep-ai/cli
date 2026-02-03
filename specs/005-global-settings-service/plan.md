@@ -53,17 +53,24 @@
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       Infrastructure Layer                          │
 │  ┌─────────────────────────────────────────────────────────────┐   │
-│  │  Repository Implementation                                   │   │
-│  │  (src/infrastructure/repositories/settings.repository.ts)   │   │
-│  │  - SQLiteSettingsRepository (implements ISettingsRepository)│   │
+│  │  Repository Implementations (by DB type)                    │   │
+│  │  src/infrastructure/repositories/sqlite/                    │   │
+│  │  - settings.repository.ts (SQLiteSettingsRepository)        │   │
+│  │  - feature.repository.ts  (future)                          │   │
+│  │                                                             │   │
+│  │  src/infrastructure/repositories/postgres/ (future)         │   │
+│  │  src/infrastructure/repositories/in-memory/ (tests)         │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                              ↓                                      │
 │  ┌─────────────────────────────────────────────────────────────┐   │
-│  │  Persistence (src/infrastructure/persistence/)               │   │
-│  │  - database.ts        (connection + pragmas)                │   │
-│  │  - migrations.ts      (migration runner)                     │   │
-│  │  - bootstrap.ts       (~/.shep/ directory setup)            │   │
+│  │  Persistence Layer (organized by DB type)                   │   │
+│  │  src/infrastructure/persistence/sqlite/                     │   │
+│  │  - connection.ts       (connection singleton + pragmas)     │   │
+│  │  - migrations.ts       (migration runner)                    │   │
 │  │  - migrations/001_create_settings_table.sql                 │   │
+│  │                                                             │   │
+│  │  src/infrastructure/services/filesystem/                    │   │
+│  │  - shep-directory.service.ts (~/.shep/ initialization)      │   │
 │  └─────────────────────────────────────────────────────────────┘   │
 │                              ↓                                      │
 │  ┌─────────────────────────────────────────────────────────────┐   │
@@ -263,39 +270,40 @@ Build Pipeline Flow:
 
 ### Phase 4: Infrastructure - Persistence & Repository
 
-**Goal:** Implement SQLite persistence with migrations and repository pattern.
+**Goal:** Implement SQLite persistence with migrations and repository pattern using scalable directory structure.
 
 **Steps:**
 
-1. Create directory bootstrap service:
+1. Create Shep directory initialization service:
 
-   - Create `src/infrastructure/services/bootstrap.service.ts`
+   - Create `src/infrastructure/services/filesystem/shep-directory.service.ts`
    - Implement function to create `~/.shep/` directory structure
-   - Set appropriate permissions (700 for directory, 600 for DB)
+   - Set appropriate permissions (700 for directory, 600 for DB file)
    - Handle errors gracefully (directory exists, permission denied, etc.)
+   - Export `ensureShepDirectory()` function
 
-2. Create database connection manager:
+2. Create SQLite connection manager:
 
-   - Create `src/infrastructure/persistence/database.ts`
-   - Export function `getDatabase(): Database` (singleton pattern)
+   - Create `src/infrastructure/persistence/sqlite/connection.ts`
+   - Export function `getSQLiteConnection(): Database` (singleton pattern)
    - Initialize better-sqlite3 connection to `~/.shep/data`
    - Set pragmas:
      - `PRAGMA journal_mode = WAL;`
      - `PRAGMA synchronous = NORMAL;`
      - `PRAGMA foreign_keys = ON;`
      - `PRAGMA defensive = ON;`
-   - Call bootstrap service to ensure directory exists
+   - Call shep-directory service to ensure directory exists
 
-3. Create migration system:
+3. Create SQLite migration system:
 
-   - Create `src/infrastructure/persistence/migrations.ts`
-   - Export function `runMigrations(db: Database): void`
+   - Create `src/infrastructure/persistence/sqlite/migrations.ts`
+   - Export function `runSQLiteMigrations(db: Database): void`
    - Use `@blackglory/better-sqlite3-migrations` library
-   - Point to migrations directory: `src/infrastructure/persistence/migrations/`
+   - Point to migrations directory: `src/infrastructure/persistence/sqlite/migrations/`
 
 4. Create first migration:
 
-   - Create `src/infrastructure/persistence/migrations/001_create_settings_table.sql`
+   - Create `src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql`
    - Define settings table:
 
      ```sql
@@ -322,9 +330,10 @@ Build Pipeline Flow:
      WHERE id = 'singleton';
      ```
 
-5. Implement SettingsRepository:
+5. Implement SQLite SettingsRepository:
 
-   - Create `src/infrastructure/repositories/settings.repository.ts`
+   - Create `src/infrastructure/repositories/sqlite/settings.repository.ts`
+   - Export class `SQLiteSettingsRepository`
    - Mark with `@injectable()` decorator
    - Implement ISettingsRepository interface
    - Use prepared statements for all queries
@@ -343,11 +352,11 @@ Build Pipeline Flow:
 
 **Deliverables:**
 
-- src/infrastructure/services/bootstrap.service.ts
-- src/infrastructure/persistence/database.ts
-- src/infrastructure/persistence/migrations.ts
-- src/infrastructure/persistence/migrations/001_create_settings_table.sql
-- src/infrastructure/repositories/settings.repository.ts
+- src/infrastructure/services/filesystem/shep-directory.service.ts
+- src/infrastructure/persistence/sqlite/connection.ts
+- src/infrastructure/persistence/sqlite/migrations.ts
+- src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql
+- src/infrastructure/repositories/sqlite/settings.repository.ts
 - src/infrastructure/di/container.ts
 
 **Testing:**
@@ -511,48 +520,48 @@ Build Pipeline Flow:
 
 ### New Files (37 files)
 
-| File                                                                        | Purpose                                  |
-| --------------------------------------------------------------------------- | ---------------------------------------- |
-| **TypeSpec Models**                                                         |                                          |
-| `tsp/domain/entities/settings.tsp`                                          | Settings domain model definition         |
-| **Generated Types**                                                         |                                          |
-| `src/domain/generated/Settings.ts`                                          | Generated TypeScript types from TypeSpec |
-| `src/domain/generated/ModelConfiguration.ts`                                | Generated model configuration type       |
-| `src/domain/generated/UserProfile.ts`                                       | Generated user profile type              |
-| `src/domain/generated/EnvironmentConfig.ts`                                 | Generated environment config type        |
-| `src/domain/generated/SystemConfig.ts`                                      | Generated system config type             |
-| `src/domain/generated/index.ts`                                             | Barrel export for generated types        |
-| **Domain Layer**                                                            |                                          |
-| `src/domain/factories/settings-defaults.factory.ts`                         | Factory for default settings             |
-| `src/domain/factories/index.ts`                                             | Barrel export for factories              |
-| **Application Layer**                                                       |                                          |
-| `src/application/ports/output/settings.repository.interface.ts`             | Repository interface                     |
-| `src/application/ports/output/index.ts`                                     | Barrel export for output ports           |
-| `src/application/use-cases/settings/initialize-settings.use-case.ts`        | Initialize settings use case             |
-| `src/application/use-cases/settings/load-settings.use-case.ts`              | Load settings use case                   |
-| `src/application/use-cases/settings/update-settings.use-case.ts`            | Update settings use case                 |
-| `src/application/use-cases/settings/index.ts`                               | Barrel export for settings use cases     |
-| **Infrastructure Layer**                                                    |                                          |
-| `src/infrastructure/services/bootstrap.service.ts`                          | ~/.shep/ directory bootstrap             |
-| `src/infrastructure/services/settings.service.ts`                           | Global settings access singleton         |
-| `src/infrastructure/persistence/database.ts`                                | SQLite connection manager                |
-| `src/infrastructure/persistence/migrations.ts`                              | Migration runner                         |
-| `src/infrastructure/persistence/migrations/001_create_settings_table.sql`   | Initial migration                        |
-| `src/infrastructure/repositories/settings.repository.ts`                    | SQLite settings repository               |
-| `src/infrastructure/di/container.ts`                                        | DI container configuration               |
-| **Build Configuration**                                                     |                                          |
-| `tsp-config.yaml`                                                           | TypeSpec emitter configuration           |
-| **Tests**                                                                   |                                          |
-| `tests/unit/domain/factories/settings-defaults.factory.test.ts`             | Domain factory tests                     |
-| `tests/unit/application/use-cases/initialize-settings.use-case.test.ts`     | Initialize use case tests                |
-| `tests/unit/application/use-cases/load-settings.use-case.test.ts`           | Load use case tests                      |
-| `tests/unit/application/use-cases/update-settings.use-case.test.ts`         | Update use case tests                    |
-| `tests/integration/infrastructure/repositories/settings.repository.test.ts` | Repository integration tests             |
-| `tests/integration/infrastructure/persistence/migrations.test.ts`           | Migration integration tests              |
-| `tests/e2e/cli/settings-initialization.test.ts`                             | CLI E2E tests                            |
-| **Test Support**                                                            |                                          |
-| `tests/helpers/database.helper.ts`                                          | Test database utilities                  |
-| `tests/helpers/mock-repository.helper.ts`                                   | Mock repository for unit tests           |
+| File                                                                               | Purpose                                  |
+| ---------------------------------------------------------------------------------- | ---------------------------------------- |
+| **TypeSpec Models**                                                                |                                          |
+| `tsp/domain/entities/settings.tsp`                                                 | Settings domain model definition         |
+| **Generated Types**                                                                |                                          |
+| `src/domain/generated/Settings.ts`                                                 | Generated TypeScript types from TypeSpec |
+| `src/domain/generated/ModelConfiguration.ts`                                       | Generated model configuration type       |
+| `src/domain/generated/UserProfile.ts`                                              | Generated user profile type              |
+| `src/domain/generated/EnvironmentConfig.ts`                                        | Generated environment config type        |
+| `src/domain/generated/SystemConfig.ts`                                             | Generated system config type             |
+| `src/domain/generated/index.ts`                                                    | Barrel export for generated types        |
+| **Domain Layer**                                                                   |                                          |
+| `src/domain/factories/settings-defaults.factory.ts`                                | Factory for default settings             |
+| `src/domain/factories/index.ts`                                                    | Barrel export for factories              |
+| **Application Layer**                                                              |                                          |
+| `src/application/ports/output/settings.repository.interface.ts`                    | Repository interface                     |
+| `src/application/ports/output/index.ts`                                            | Barrel export for output ports           |
+| `src/application/use-cases/settings/initialize-settings.use-case.ts`               | Initialize settings use case             |
+| `src/application/use-cases/settings/load-settings.use-case.ts`                     | Load settings use case                   |
+| `src/application/use-cases/settings/update-settings.use-case.ts`                   | Update settings use case                 |
+| `src/application/use-cases/settings/index.ts`                                      | Barrel export for settings use cases     |
+| **Infrastructure Layer**                                                           |                                          |
+| `src/infrastructure/services/filesystem/shep-directory.service.ts`                 | ~/.shep/ directory initialization        |
+| `src/infrastructure/services/settings.service.ts`                                  | Global settings access singleton         |
+| `src/infrastructure/persistence/sqlite/connection.ts`                              | SQLite connection manager                |
+| `src/infrastructure/persistence/sqlite/migrations.ts`                              | SQLite migration runner                  |
+| `src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql`   | Initial migration (settings table)       |
+| `src/infrastructure/repositories/sqlite/settings.repository.ts`                    | SQLite settings repository               |
+| `src/infrastructure/di/container.ts`                                               | DI container configuration               |
+| **Build Configuration**                                                            |                                          |
+| `tsp-config.yaml`                                                                  | TypeSpec emitter configuration           |
+| **Tests**                                                                          |                                          |
+| `tests/unit/domain/factories/settings-defaults.factory.test.ts`                    | Domain factory tests                     |
+| `tests/unit/application/use-cases/initialize-settings.use-case.test.ts`            | Initialize use case tests                |
+| `tests/unit/application/use-cases/load-settings.use-case.test.ts`                  | Load use case tests                      |
+| `tests/unit/application/use-cases/update-settings.use-case.test.ts`                | Update use case tests                    |
+| `tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts` | SQLite repository integration tests      |
+| `tests/integration/infrastructure/persistence/sqlite/migrations.test.ts`           | SQLite migration integration tests       |
+| `tests/e2e/cli/settings-initialization.test.ts`                                    | CLI E2E tests                            |
+| **Test Support**                                                                   |                                          |
+| `tests/helpers/database.helper.ts`                                                 | Test database utilities                  |
+| `tests/helpers/mock-repository.helper.ts`                                          | Mock repository for unit tests           |
 
 ### Modified Files (10 files)
 
