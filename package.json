@@ -74,7 +74,6 @@
     "validate": "pnpm run lint:fix && pnpm run format && pnpm run typecheck && pnpm run tsp:compile"
   },
   "devDependencies": {
-    "@codedependant/semantic-release-docker": "^5.1.1",
     "@commitlint/cli": "^19.0.0",
     "@commitlint/config-conventional": "^19.0.0",
     "@eslint/js": "^9.0.0",
