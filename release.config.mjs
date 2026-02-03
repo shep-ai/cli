@@ -78,13 +78,7 @@ export default {
       },
     ],
 
-    // 7. Commit updated files back to repo
-    [
-      '@semantic-release/git',
-      {
-        assets: ['CHANGELOG.md', 'package.json', 'pnpm-lock.yaml'],
-        message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
-      },
-    ],
+    // Note: @semantic-release/git removed because branch protection on main
+    // requires PRs. Version is published to npm/Docker, changelog in GitHub release.
   ],
 };
