@@ -102,6 +102,12 @@
 
 - [ ] Update CLAUDE.md: Document TypeSpec-first architecture approach
 - [ ] Update CLAUDE.md: Document build flow (generate → build → test)
+- [ ] Update docs/development/cicd.md: Document `pnpm generate` step in CI/CD pipeline
+- [ ] Update docs/development/cicd.md: Document TypeSpec compilation in build flow
+- [ ] Update docs/development/tdd-guide.md: Add section on testing TypeSpec-generated code
+- [ ] Update docs/development/tdd-guide.md: Add section on testing repositories with in-memory SQLite
+- [ ] Create docs/development/typespec-guide.md: TypeSpec domain modeling guide
+- [ ] Create docs/architecture/settings-service.md: Settings service architecture documentation
 - [ ] Verify package.json scripts are documented
 - [ ] Update spec.md: Mark all success criteria as completed
 - [ ] Update spec.md: Change Phase to "Complete"

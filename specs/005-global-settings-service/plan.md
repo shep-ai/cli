@@ -490,22 +490,43 @@ Build Pipeline Flow:
    - Document DI container usage
    - Add Settings to Data Storage section
 
-2. Update package.json:
+2. Update docs/development/ directory:
+
+   - Update `docs/development/cicd.md`:
+     - Document `pnpm generate` step in CI/CD pipeline
+     - Document TypeSpec compilation in build flow
+   - Update `docs/development/tdd-guide.md`:
+     - Add section on testing TypeSpec-generated code
+     - Add section on testing repositories with in-memory SQLite
+   - Create `docs/development/typespec-guide.md`:
+     - TypeSpec domain modeling guide
+     - Best practices for defining models
+     - Code generation workflow
+
+3. Create docs/architecture/ documentation:
+
+   - Create `docs/architecture/settings-service.md`:
+     - Complete architecture documentation
+     - Layer-by-layer explanation
+     - Data flow diagrams
+     - Integration examples
+
+4. Update package.json:
 
    - Verify all dependencies are listed
    - Verify scripts are documented
 
-3. Create architecture diagram:
-
-   - Optional: Create visual architecture diagram for documentation
-
-4. Update spec files:
+5. Update spec files:
    - Mark all success criteria as completed in spec.md
    - Update Phase to "Complete" in all spec files (spec.md, research.md, plan.md, tasks.md)
 
 **Deliverables:**
 
 - CLAUDE.md (updated)
+- docs/development/cicd.md (updated)
+- docs/development/tdd-guide.md (updated)
+- docs/development/typespec-guide.md (new)
+- docs/architecture/settings-service.md (new)
 - specs/005-global-settings-service/\*.md (all updated to Complete phase)
 
 **Testing:**
@@ -518,7 +539,7 @@ Build Pipeline Flow:
 
 ## Files to Create/Modify
 
-### New Files (37 files)
+### New Files (39 files)
 
 | File                                                                               | Purpose                                  |
 | ---------------------------------------------------------------------------------- | ---------------------------------------- |
@@ -562,8 +583,11 @@ Build Pipeline Flow:
 | **Test Support**                                                                   |                                          |
 | `tests/helpers/database.helper.ts`                                                 | Test database utilities                  |
 | `tests/helpers/mock-repository.helper.ts`                                          | Mock repository for unit tests           |
+| **Documentation**                                                                  |                                          |
+| `docs/development/typespec-guide.md`                                               | TypeSpec domain modeling guide           |
+| `docs/architecture/settings-service.md`                                            | Settings service architecture docs       |
 
-### Modified Files (10 files)
+### Modified Files (12 files)
 
 | File                            | Changes                                                                                               |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------- |
@@ -577,6 +601,8 @@ Build Pipeline Flow:
 | `.lintstagedrc.mjs`             | Include src/domain/generated/ in lint/format                                                          |
 | `.gitignore`                    | Add comment about generated files being tracked                                                       |
 | `CLAUDE.md`                     | Document Settings service, TypeSpec-first approach, DI container                                      |
+| `docs/development/cicd.md`      | Document `pnpm generate` step and TypeSpec compilation in CI/CD                                       |
+| `docs/development/tdd-guide.md` | Add sections on testing TypeSpec-generated code and in-memory SQLite                                  |
 
 ---
 
