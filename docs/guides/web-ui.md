@@ -14,12 +14,14 @@ The web UI provides a visual interface for:
 
 ## Technology Stack
 
-| Component     | Technology  | Purpose                             |
-| ------------- | ----------- | ----------------------------------- |
-| Framework     | Next.js 14+ | App Router, Server Components       |
-| UI Components | shadcn/ui   | Radix primitives + Tailwind CSS     |
-| Design System | Storybook   | Component documentation and testing |
-| E2E Testing   | Playwright  | Browser-based automated tests       |
+| Component     | Technology     | Purpose                                  |
+| ------------- | -------------- | ---------------------------------------- |
+| Framework     | Next.js 16+    | App Router, Server Components, Turbopack |
+| React         | React 19       | UI framework                             |
+| Styling       | Tailwind CSS 4 | Utility-first CSS with design tokens     |
+| UI Components | shadcn/ui      | Radix primitives + Tailwind CSS          |
+| Design System | Storybook      | Component documentation and testing      |
+| E2E Testing   | Playwright     | Browser-based automated tests            |
 
 The Web UI is built with modern React patterns:
 
@@ -36,7 +38,7 @@ Start Shep and the UI opens automatically:
 shep
 ```
 
-Default URL: `http://localhost:3030/`
+Default URL: `http://localhost:3000/`
 
 To start without opening browser:
 
@@ -263,7 +265,7 @@ Access via gear icon:
 │ [ ] Auto-commit changes                          │
 │                                                  │
 │ Server                                           │
-│ Port: [3030]                                     │
+│ Port: [3000]                                     │
 │                                                  │
 │ Advanced                                         │
 │ [View Logs]  [Clear Cache]  [Reset Config]       │
@@ -297,10 +299,10 @@ The UI adapts to screen size:
 
 ```bash
 # Start the web UI in development mode
-pnpm web:dev
+pnpm dev:web
 
 # Build for production
-pnpm web:build
+pnpm build:web
 
 # Run E2E tests
 pnpm test:e2e
@@ -312,10 +314,10 @@ View and develop components in isolation:
 
 ```bash
 # Start Storybook dev server
-pnpm storybook
+pnpm dev:storybook
 
 # Build Storybook for deployment
-pnpm storybook:build
+pnpm build:storybook
 ```
 
 Storybook includes:
@@ -323,7 +325,9 @@ Storybook includes:
 - All shadcn/ui component variants
 - Feature-specific components
 - Interactive documentation
-- Visual regression testing
+- Design tokens reference
+
+**Note:** Stories are colocated with components (e.g., `button.stories.tsx` next to `button.tsx`).
 
 ### Project Structure
 
@@ -352,11 +356,12 @@ src/presentation/web/
 │   └── layout/            # Layout components
 │       ├── sidebar.tsx
 │       └── header.tsx
+├── hooks/                 # Custom React hooks
+│   └── useTheme.ts
 ├── lib/                   # Utilities
 │   └── utils.ts
-└── stories/               # Storybook stories
-    ├── Button.stories.tsx
-    └── FeatureCard.stories.tsx
+└── types/                 # TypeScript types
+    └── theme.ts
 ```
 
 ---

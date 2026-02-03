@@ -58,14 +58,18 @@ The Shep AI design system uses CSS custom properties (design tokens) defined via
 
 ## Spacing
 
-| Token           | Value           | Usage                  |
-| --------------- | --------------- | ---------------------- |
-| `--spacing-xs`  | `0.25rem` (4px) | Minimal spacing        |
-| `--spacing-sm`  | `0.5rem` (8px)  | Small spacing          |
-| `--spacing-md`  | `1rem` (16px)   | Medium spacing         |
-| `--spacing-lg`  | `1.5rem` (24px) | Large spacing          |
-| `--spacing-xl`  | `2rem` (32px)   | Extra large spacing    |
-| `--spacing-2xl` | `3rem` (48px)   | 2x extra large spacing |
+Use Tailwind's standard spacing scale for consistent spacing:
+
+| Class  | Value           | Usage                  |
+| ------ | --------------- | ---------------------- |
+| `p-1`  | `0.25rem` (4px) | Minimal spacing        |
+| `p-2`  | `0.5rem` (8px)  | Small spacing          |
+| `p-4`  | `1rem` (16px)   | Medium spacing         |
+| `p-6`  | `1.5rem` (24px) | Large spacing          |
+| `p-8`  | `2rem` (32px)   | Extra large spacing    |
+| `p-12` | `3rem` (48px)   | 2x extra large spacing |
+
+> **Note:** Custom `--spacing-*` tokens are not used as they conflict with Tailwind v4's built-in sizing utilities (`max-w-xl`, `max-w-2xl`, etc.).
 
 ## Typography
 
@@ -108,8 +112,8 @@ These tokens are used throughout the component library via Tailwind CSS classes:
   </button>
 </div>
 
-// Using spacing tokens
-<div className="p-md gap-sm">
+// Using Tailwind spacing scale
+<div className="p-4 gap-2">
   Content with medium padding and small gap
 </div>
 

@@ -25,41 +25,41 @@ Feature specifications live in `specs/NNN-feature-name/`:
 
 ```bash
 # Development
-pnpm dev             # Start development mode with hot reload
-pnpm build           # Build with Vite
-pnpm typecheck       # Run TypeScript type checking
+pnpm dev:cli              # Run CLI locally (ts-node) [alias: pnpm cli]
+pnpm dev:storybook        # Start Storybook dev server
+pnpm dev:web              # Start Next.js dev server
+
+# Build
+pnpm build                # Build CLI with Vite
+pnpm build:storybook      # Build Storybook for deployment
+pnpm build:web            # Build Next.js for production
 
 # Testing (TDD Workflow)
-pnpm test            # Run all tests
-pnpm test:watch      # Run tests in watch mode (TDD mode)
-pnpm test:unit       # Run unit tests only
-pnpm test:int        # Run integration tests only
-pnpm test:e2e        # Run Playwright e2e tests
-pnpm test:single <path>  # Run a single test file
+pnpm test                 # Run all tests
+pnpm test:watch           # Run tests in watch mode (TDD mode)
+pnpm test:unit            # Run unit tests only
+pnpm test:int             # Run integration tests only
+pnpm test:e2e             # Run Playwright e2e tests
+pnpm test:single <path>   # Run a single test file
 
-# Linting & Formatting
-pnpm lint            # Run ESLint
-pnpm lint:fix        # Fix auto-fixable lint issues
-pnpm format          # Format all files with Prettier
-pnpm format:check    # Check formatting without fixing
-pnpm validate        # Run all checks (lint, format, typecheck, tsp)
+# Code Quality
+pnpm lint                 # Run ESLint
+pnpm lint:fix             # Fix auto-fixable lint issues
+pnpm lint:web             # Run ESLint on web package
+pnpm lint:web:fix         # Fix lint issues in web package
+pnpm format               # Format all files with Prettier
+pnpm format:check         # Check formatting without fixing
+pnpm typecheck            # Run TypeScript type checking on CLI
+pnpm typecheck:web        # Run TypeScript type checking on web package
+pnpm validate             # Run all checks (lint, format, typecheck, tsp)
 
-# CLI Testing
-pnpm cli             # Run CLI locally (ts-node)
-pnpm link --global && shep  # Test as global command
-
-# Storybook (Design System)
-pnpm storybook       # Start Storybook dev server
-pnpm storybook:build # Build Storybook for deployment
-
-# Web UI (Next.js)
-pnpm web:dev         # Start Next.js dev server
-pnpm web:build       # Build Next.js for production
+# CLI Global Testing
+pnpm link --global && shep  # Test CLI as global command
 
 # TypeSpec (Domain Models)
-pnpm tsp:compile     # Compile TypeSpec to OpenAPI
-pnpm tsp:format      # Format TypeSpec files
-pnpm tsp:watch       # Watch mode for TypeSpec compilation
+pnpm tsp:compile          # Compile TypeSpec to OpenAPI
+pnpm tsp:format           # Format TypeSpec files
+pnpm tsp:watch            # Watch mode for TypeSpec compilation
 ```
 
 ## Architecture
@@ -236,11 +236,48 @@ See [docs/development/tdd-guide.md](./docs/development/tdd-guide.md) for detaile
 
 ### Web UI
 
-- **Framework**: Next.js 14+ (App Router)
-- **Components**: shadcn/ui (Radix primitives + Tailwind)
+- **Framework**: Next.js 16+ (App Router, Turbopack)
+- **Components**: shadcn/ui (Radix primitives + Tailwind CSS v4)
 - **Design System**: Storybook with all component variants
 - **E2E Testing**: Playwright
 - **Location**: `src/presentation/web/`
+- **Package**: `@shepai/web` (pnpm workspace)
+
+## pnpm Workspaces
+
+This project uses pnpm workspaces for the monorepo structure:
+
+```yaml
+# pnpm-workspace.yaml
+packages:
+  - '.' # Root package (@shepai/cli)
+  - 'src/presentation/web' # Web UI package (@shepai/web)
+```
+
+### Workspace Commands
+
+```bash
+# Development
+pnpm dev:web                       # Start Next.js dev server
+
+# Build
+pnpm build:web                     # Build Next.js for production
+
+# Code quality
+pnpm lint:web                      # Run ESLint on web package
+pnpm lint:web:fix                  # Fix lint issues in web package
+pnpm typecheck:web                 # Type check web package
+
+# Or use pnpm filter directly
+pnpm --filter @shepai/web <script>
+```
+
+### Package Structure
+
+| Package | Name          | Location                |
+| ------- | ------------- | ----------------------- |
+| CLI     | `@shepai/cli` | Root (`./`)             |
+| Web UI  | `@shepai/web` | `src/presentation/web/` |
 
 ## Code Quality & Commits
 
