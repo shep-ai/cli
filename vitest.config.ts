@@ -6,13 +6,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     globals: false,
-    include: [
-      'tests/**/*.test.ts',
-      'tests/**/*.test.tsx',
-      'tests/**/*.spec.ts',
-      'tests/**/*.spec.tsx',
-    ],
-    exclude: ['node_modules', 'dist'],
+    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+    // Exclude Playwright specs (*.spec.ts) - they use @playwright/test, not Vitest
+    exclude: ['node_modules', 'dist', 'tests/e2e/**/*.spec.ts', 'tests/e2e/**/*.spec.tsx'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
