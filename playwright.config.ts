@@ -13,7 +13,7 @@ export default defineConfig({
   reporter: process.env.CI ? 'github' : 'html',
 
   use: {
-    baseURL: 'http://localhost:3000',
+    baseURL: 'http://localhost:3001',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
@@ -30,8 +30,8 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'pnpm web:dev',
-    url: 'http://localhost:3000',
+    command: 'pnpm next dev -p 3001',
+    url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,
   },

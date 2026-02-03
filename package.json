@@ -48,6 +48,7 @@
     "test:e2e": "vitest run tests/e2e",
     "test:e2e:cli": "vitest run tests/e2e/cli",
     "test:e2e:tui": "vitest run tests/e2e/tui",
+    "test:e2e:ui": "playwright test",
     "test:e2e:web": "playwright test tests/e2e/web",
     "test:single": "vitest run",
     "lint": "eslint .",

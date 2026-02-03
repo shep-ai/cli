@@ -27,6 +27,7 @@ export default tseslint.config(
       'build/**',
       '.next/**',
       'out/**',
+      'storybook-static/**',
 
       // Dependencies
       'node_modules/**',
@@ -35,6 +36,7 @@ export default tseslint.config(
       'apis/**',
       '*.generated.*',
       'coverage/**',
+      'next-env.d.ts',
 
       // TypeSpec (handled by tsp linter)
       'tsp/**',

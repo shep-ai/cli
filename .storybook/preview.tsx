@@ -1,5 +1,5 @@
 import type { Preview } from '@storybook/react';
-import { useEffect } from 'react';
+import React, { useEffect } from 'react';
 import '../src/presentation/web/app/globals.css';
 
 // Decorator to handle theme based on background color

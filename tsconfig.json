@@ -23,7 +23,14 @@
       "@/hooks/*": ["src/presentation/web/hooks/*"],
       "@/types/*": ["src/presentation/web/types/*"]
     },
-    "jsx": "preserve"
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
   },
   "include": [
     "src/**/*",
@@ -32,7 +39,9 @@
     "vitest.config.ts",
     "next.config.ts",
     "playwright.config.ts",
-    ".storybook/**/*"
+    ".storybook/**/*",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
   ],
   "exclude": ["node_modules", "dist", "tsp", "apis"]
 }
