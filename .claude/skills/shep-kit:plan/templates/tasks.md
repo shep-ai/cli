@@ -53,6 +53,13 @@
 - **REFACTOR**: Improve code while keeping tests green
 - Tests are written BEFORE implementation, not after
 
+## Progress Tracking (CRITICAL)
+
+- **Update checkboxes FREQUENTLY** - as soon as each item is complete!
+- **Don't batch updates** - check off items immediately, not at the end
+- **Commit task.md updates** along with code changes to show progress
+- This file is the source of truth for implementation progress
+
 ## Parallelization Notes
 
 - [P] marks phases with parallelizable tasks

@@ -96,6 +96,8 @@ specs/                              # Root-level spec directory
 
 **Trigger**: After plan is complete.
 
+**📖 Full Guide**: See [Implementation Guide](./implementation-guide.md) for detailed step-by-step instructions.
+
 **MANDATORY TDD Guidelines:**
 
 - **ALWAYS follow RED-GREEN-REFACTOR**:
@@ -103,7 +105,32 @@ specs/                              # Root-level spec directory
   2. **GREEN**: Write minimal code to pass test
   3. **REFACTOR**: Improve code while keeping tests green
 - **Never write implementation before tests** (except foundational phases)
-- Check off tasks in tasks.md as you complete them
+
+**CRITICAL Progress Tracking (MANDATORY):**
+
+- **Update `tasks.md` FREQUENTLY** - Check off items as you complete them (not at the end!)
+- **Each action item completed = immediate checkbox update** in tasks.md
+- **Commit task updates** along with code changes to show progress
+- This keeps the task list as the source of truth for current progress
+
+**Phase Completion Workflow (MANDATORY CI Watch):**
+
+After completing each phase:
+
+1. **Commit phase changes**: `git commit -m "feat(scope): complete phase N - <description>"`
+2. **Push to remote**: `git push`
+3. **Watch CI immediately**: `gh run watch --exit-status`
+4. **If CI fails**:
+   - Get logs: `gh run view <run-id> --log-failed`
+   - Fix the issue
+   - Commit fix: `git commit -m "fix(scope): resolve CI failure in phase N"`
+   - Push: `git push`
+   - Watch again: `gh run watch --exit-status`
+   - **Repeat until CI passes**
+5. **Only move to next phase after CI is green**
+
+**Other Guidelines:**
+
 - Update spec files if requirements change
 - Commit frequently with conventional commits
 - Each TDD cycle must be independently reviewable
@@ -252,6 +279,8 @@ Skills are located at:
 
 **Related docs:**
 
+- [Implementation Guide](./implementation-guide.md) - Step-by-step implementation discipline
+- [TDD Guide](./tdd-guide.md) - Test-Driven Development best practices
 - [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - [CONTRIBUTING-AGENTS.md](../../CONTRIBUTING-AGENTS.md)
 - [CLAUDE.md](../../CLAUDE.md)

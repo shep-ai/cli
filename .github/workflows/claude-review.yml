@@ -3,12 +3,16 @@
 # =============================================================================
 # Automated PR review focusing on documentation consistency and architecture
 # compliance using Claude Code.
+#
+# NOTE: Currently disabled per user preference
+# To re-enable, uncomment the 'on:' trigger below
 
 name: Claude Review
 
-on:
-  pull_request:
-    types: [opened, synchronize]
+# Workflow disabled - uncomment to enable
+# on:
+#   pull_request:
+#     types: [opened, synchronize]
 
 # Prevent concurrent reviews on the same PR
 concurrency:

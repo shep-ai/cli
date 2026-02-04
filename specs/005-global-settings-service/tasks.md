@@ -5,60 +5,65 @@
 ## Status
 
 - **Phase:** Implementation
-- **Updated:** 2026-02-03
+- **Current Phase:** Phase 3 - Domain Layer - Defaults Factory (TDD Cycle 1)
+- **Updated:** 2026-02-04
 
 ## Task List
 
-### Phase 1: Build Pipeline & Code Generation Setup (Foundational - No Tests)
+### Phase 1: Build Pipeline & Code Generation Setup (Foundational - No Tests) ✅ COMPLETE
 
-- [ ] Install dependencies: `better-sqlite3`, `@blackglory/better-sqlite3-migrations`, `@typespec-tools/emitter-typescript`, `tsyringe`, `reflect-metadata`
-- [ ] Update tsconfig.json: Add `experimentalDecorators: true` and `emitDecoratorMetadata: true`
-- [ ] Update tsconfig.json: Add path alias `"@domain/generated/*": ["src/domain/generated/*"]`
-- [ ] Create tsp-config.yaml with @typespec-tools/emitter-typescript emitter configuration
-- [ ] Update package.json: Add `generate` script that runs `tsp:codegen`
-- [ ] Update package.json: Add `tsp:codegen` script that runs `tsp emit --emit @typespec-tools/emitter-typescript`
-- [ ] Update package.json: Add `prebuild`, `pretest`, `prelint` hooks to run `pnpm generate`
-- [ ] Update .github/workflows/ci.yml: Add `pnpm generate` as first step in all jobs
-- [ ] Update .husky/pre-commit: Add `pnpm generate` before lint-staged
-- [ ] Update .lintstagedrc.mjs: Include `src/domain/generated/**/*.ts` in lint/format
-- [ ] Update .gitignore: Ensure `src/domain/generated/` is tracked (not ignored), add comment
-- [ ] Test: Run `pnpm generate` manually to verify TypeSpec compilation works
+- [x] Install dependencies: `better-sqlite3`, `@blackglory/better-sqlite3-migrations`, `@typespec-tools/emitter-typescript`, `tsyringe`, `reflect-metadata`
+- [x] Update tsconfig.json: Add `experimentalDecorators: true` and `emitDecoratorMetadata: true`
+- [x] Update tsconfig.json: Add path alias `"@domain/generated/*": ["src/domain/generated/*"]`
+- [x] Create tsp-config.yaml with @typespec-tools/emitter-typescript emitter configuration
+- [x] Update package.json: Add `generate` script that runs `tsp:codegen`
+- [x] Update package.json: Add `tsp:codegen` script that runs `tsp emit --emit @typespec-tools/emitter-typescript`
+- [x] Update package.json: Add `prebuild`, `pretest`, `prelint` hooks to run `pnpm generate`
+- [x] Update .github/workflows/ci.yml: Add `pnpm generate` as first step in all jobs
+- [x] Update .husky/pre-commit: Add `pnpm generate` before lint-staged
+- [x] Update .lintstagedrc.mjs: Include `src/domain/generated/**/*.ts` in lint/format
+- [x] Update .gitignore: Ensure `src/domain/generated/` is tracked (not ignored), add comment
+- [x] Test: Run `pnpm generate` manually to verify TypeSpec compilation works
+- [x] Fix: ESLint ignore patterns for nested directories (`**/.next/**`, `**/storybook-static/**`)
+- [x] Fix: Prettier auto-formatting in `tsp:codegen` script
+- [x] Fix: Docker build with TypeSpec files in build context
 
-### Phase 2: TypeSpec Settings Model & Generation (Foundational - No Tests)
+### Phase 2: TypeSpec Settings Model & Generation (Foundational - No Tests) ✅ COMPLETE
 
-- [ ] Create tsp/domain/entities/settings.tsp with Settings model extending BaseEntity
-- [ ] Define ModelConfiguration nested model (analyze, requirements, plan, implement with defaults)
-- [ ] Define UserProfile nested model (name, email, githubUsername - all optional)
-- [ ] Define EnvironmentConfig nested model (defaultEditor="vscode", shellPreference="bash")
-- [ ] Define SystemConfig nested model (autoUpdate=true, logLevel="info")
-- [ ] Update tsp/domain/entities/index.tsp to export Settings model
-- [ ] Run `pnpm generate` and verify TypeScript types generated in src/domain/generated/
-- [ ] Verify generated files: Settings.ts, ModelConfiguration.ts, UserProfile.ts, EnvironmentConfig.ts, SystemConfig.ts, index.ts
+- [x] Create tsp/domain/entities/settings.tsp with Settings model extending BaseEntity
+- [x] Define ModelConfiguration nested model (analyze, requirements, plan, implement with defaults)
+- [x] Define UserProfile nested model (name, email, githubUsername - all optional)
+- [x] Define EnvironmentConfig nested model (defaultEditor="vscode", shellPreference="bash")
+- [x] Define SystemConfig nested model (autoUpdate=true, logLevel="info")
+- [x] Update tsp/domain/entities/index.tsp to export Settings model
+- [x] Run `pnpm generate` and verify TypeScript types generated in src/domain/generated/
+- [x] Verify generated files: Settings.ts, ModelConfiguration.ts, UserProfile.ts, EnvironmentConfig.ts, SystemConfig.ts, index.ts
+- [x] All CI/CD checks passing (12/12 jobs green)
 
-### Phase 3: Domain Layer - Defaults Factory (TDD Cycle 1)
+### Phase 3: Domain Layer - Defaults Factory (TDD Cycle 1) ✅ COMPLETE
 
 **RED (Write Failing Tests First):**
 
-- [ ] Create tests/unit/domain/factories/settings-defaults.factory.test.ts
-- [ ] Write test: factory returns object with all required fields
-- [ ] Write test: default values match TypeSpec model defaults
-- [ ] Write test: nested models (ModelConfiguration, UserProfile, etc.) have defaults
-- [ ] Write test: generated types are used correctly (TypeScript compilation validates)
-- [ ] Verify ALL tests FAIL (factory doesn't exist yet)
+- [x] Create tests/unit/domain/factories/settings-defaults.factory.test.ts
+- [x] Write test: factory returns object with all required fields
+- [x] Write test: default values match TypeSpec model defaults
+- [x] Write test: nested models (ModelConfiguration, UserProfile, etc.) have defaults
+- [x] Write test: generated types are used correctly (TypeScript compilation validates)
+- [x] Verify ALL tests FAIL (factory doesn't exist yet)
 
 **GREEN (Write Minimal Code to Pass Tests):**
 
-- [ ] Create src/domain/factories/settings-defaults.factory.ts using generated types
-- [ ] Implement factory function returning default Settings object
-- [ ] Match defaults from TypeSpec model
-- [ ] Create src/domain/factories/index.ts barrel export
-- [ ] Verify ALL tests PASS
+- [x] Create src/domain/factories/settings-defaults.factory.ts using generated types
+- [x] Implement factory function returning default Settings object
+- [x] Match defaults from TypeSpec model
+- [x] Create src/domain/factories/index.ts barrel export
+- [x] Verify ALL tests PASS (15/15 tests passing)
 
 **REFACTOR (Clean Up While Keeping Tests Green):**
 
-- [ ] Extract default value constants if needed
-- [ ] Improve factory structure for readability
-- [ ] Verify ALL tests still PASS
+- [x] Extract default value constants (DEFAULT_MODEL, DEFAULT_EDITOR, DEFAULT_SHELL, DEFAULT_LOG_LEVEL)
+- [x] Improve factory structure for readability
+- [x] Verify ALL tests still PASS (15/15 tests passing)
 
 ### Phase 4: Application Layer - Use Cases (TDD Cycle 2)
 

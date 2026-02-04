@@ -154,6 +154,16 @@ Inform the user:
 > 2. GREEN: Write minimal code to pass
 > 3. REFACTOR: Improve while keeping tests green
 >
+> 🔄 **MANDATORY Phase Completion Workflow**:
+>
+> After EACH phase:
+>
+> 1. Update tasks.md checkboxes FREQUENTLY (as you complete items, not at the end!)
+> 2. Commit and push: `git add . && git commit -m "feat: complete phase N" && git push`
+> 3. Watch CI: `gh run watch --exit-status`
+> 4. If CI fails: Fix → Commit → Push → Watch again (LOOP until green)
+> 5. Only proceed to next phase after CI passes
+>
 > **IMPORTANT:** After implementation, update all spec file statuses to "Complete"
 
 ## Key Principles
