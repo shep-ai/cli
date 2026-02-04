@@ -5,7 +5,7 @@
 ## Status
 
 - **Phase:** Implementation
-- **Current Phase:** Phase 5 - Infrastructure - Persistence Layer (TDD Cycle 3)
+- **Current Phase:** Phase 6 - Infrastructure - Repository Layer (TDD Cycle 4) ✅ COMPLETE
 - **Updated:** 2026-02-04
 
 ## Task List
@@ -136,37 +136,37 @@
 - [x] Improve error handling in filesystem service
 - [x] Verify ALL tests still PASS (13/13 tests passing)
 
-### Phase 6: Infrastructure - Repository Layer (TDD Cycle 4)
+### Phase 6: Infrastructure - Repository Layer (TDD Cycle 4) ✅ COMPLETE
 
-**RED (Write Failing Tests First):**
+**RED (Write Failing Tests First):** ✅
 
-- [ ] Create tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts (use in-memory DB)
-- [ ] Write test: initialize() creates settings in database
-- [ ] Write test: load() retrieves settings correctly
-- [ ] Write test: load() returns null when no settings exist
-- [ ] Write test: update() modifies existing settings
-- [ ] Write test: singleton constraint enforced (duplicate insert fails)
-- [ ] Write test: prepared statements prevent SQL injection
-- [ ] Write test: database mapping works correctly (columns ↔ TypeScript)
-- [ ] Verify ALL tests FAIL (repository doesn't exist yet)
+- [x] Create tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts (use in-memory DB)
+- [x] Write test: initialize() creates settings in database
+- [x] Write test: load() retrieves settings correctly
+- [x] Write test: load() returns null when no settings exist
+- [x] Write test: update() modifies existing settings
+- [x] Write test: singleton constraint enforced (duplicate insert fails)
+- [x] Write test: prepared statements prevent SQL injection
+- [x] Write test: database mapping works correctly (columns ↔ TypeScript)
+- [x] Verify ALL tests FAIL (repository doesn't exist yet)
 
-**GREEN (Write Minimal Code to Pass Tests):**
+**GREEN (Write Minimal Code to Pass Tests):** ✅
 
-- [ ] Create src/infrastructure/repositories/sqlite/settings.repository.ts with @injectable decorator
-- [ ] Implement SQLiteSettingsRepository.initialize() method with prepared statement
-- [ ] Implement SQLiteSettingsRepository.load() method with prepared statement
-- [ ] Implement SQLiteSettingsRepository.update() method with prepared statement
-- [ ] Implement database column ↔ TypeScript object mapping (flatten/unflatten)
-- [ ] Create src/infrastructure/di/container.ts and configure tsyringe container
-- [ ] Register ISettingsRepository → SQLiteSettingsRepository in container
-- [ ] Register use cases as singletons in container
-- [ ] Verify ALL tests PASS
+- [x] Create src/infrastructure/repositories/sqlite-settings.repository.ts with @injectable decorator
+- [x] Implement SQLiteSettingsRepository.initialize() method with prepared statement
+- [x] Implement SQLiteSettingsRepository.load() method with prepared statement
+- [x] Implement SQLiteSettingsRepository.update() method with prepared statement
+- [x] Implement database column ↔ TypeScript object mapping (flatten/unflatten)
+- [x] ~~Create src/infrastructure/di/container.ts and configure tsyringe container~~ (Deferred to Phase 7 CLI integration)
+- [x] ~~Register ISettingsRepository → SQLiteSettingsRepository in container~~ (Deferred to Phase 7 CLI integration)
+- [x] ~~Register use cases as singletons in container~~ (Deferred to Phase 7 CLI integration)
+- [x] Verify ALL tests PASS (32/32 integration tests passing)
 
-**REFACTOR (Clean Up While Keeping Tests Green):**
+**REFACTOR (Clean Up While Keeping Tests Green):** ✅
 
-- [ ] Extract mapping functions to separate helpers
-- [ ] Optimize SQL queries for performance
-- [ ] Verify ALL tests still PASS
+- [x] Extract mapping functions to separate helpers (src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts)
+- [x] Optimize SQL queries for performance (prepared statements with named parameters)
+- [x] Verify ALL tests still PASS (141/141 tests passing)
 
 ### Phase 7: CLI Integration (TDD Cycle 5)
 
