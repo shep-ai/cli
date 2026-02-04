@@ -68,13 +68,9 @@ export default {
       },
     ],
 
-    // 6. Commit updated files back to repo
-    [
-      '@semantic-release/git',
-      {
-        assets: ['CHANGELOG.md', 'package.json', 'pnpm-lock.yaml'],
-        message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
-      },
-    ],
+    // NOTE: @semantic-release/git plugin removed to avoid branch protection conflicts
+    // Version bumps are not committed back to main to prevent circular dependency
+    // with required status checks. The npm package and GitHub releases remain
+    // the source of truth for versioning.
   ],
 };
