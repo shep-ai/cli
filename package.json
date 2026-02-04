@@ -43,7 +43,7 @@
     "dev:web": "pnpm --filter @shepai/web dev",
     "dev:storybook": "storybook dev -p 6006",
     "generate": "pnpm tsp:codegen",
-    "tsp:codegen": "tsp compile tsp/ --emit @typespec-tools/emitter-typescript",
+    "tsp:codegen": "tsp compile tsp/ --emit @typespec-tools/emitter-typescript && prettier --write src/domain/generated/",
     "prebuild": "pnpm generate",
     "pretest": "pnpm generate",
     "prelint": "pnpm generate",
