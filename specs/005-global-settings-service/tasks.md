@@ -5,7 +5,7 @@
 ## Status
 
 - **Phase:** Implementation
-- **Current Phase:** Phase 6 - Infrastructure - Repository Layer (TDD Cycle 4) ✅ COMPLETE
+- **Current Phase:** Phase 7 - CLI Integration (TDD Cycle 5) ✅ COMPLETE
 - **Updated:** 2026-02-04
 
 ## Task List
@@ -168,34 +168,37 @@
 - [x] Optimize SQL queries for performance (prepared statements with named parameters)
 - [x] Verify ALL tests still PASS (141/141 tests passing)
 
-### Phase 7: CLI Integration (TDD Cycle 5)
+### Phase 7: CLI Integration (TDD Cycle 5) ✅ COMPLETE
 
-**RED (Write Failing Tests First):**
+**RED (Write Failing Tests First):** ✅
 
-- [ ] Create tests/e2e/cli/settings-initialization.test.ts (use temp directory)
-- [ ] Write test: first run creates ~/.shep/ directory
-- [ ] Write test: first run creates database file
-- [ ] Write test: first run initializes settings with defaults
-- [ ] Write test: second run loads existing settings (doesn't re-initialize)
-- [ ] Write test: settings are accessible globally in CLI
-- [ ] Write test: corrupted database triggers recovery/re-initialization
-- [ ] Verify ALL tests FAIL (CLI integration doesn't exist yet)
+- [x] Create tests/e2e/cli/settings-initialization.test.ts (use temp directory)
+- [x] Write test: first run creates ~/.shep/ directory
+- [x] Write test: first run creates database file
+- [x] Write test: first run initializes settings with defaults
+- [x] Write test: second run loads existing settings (doesn't re-initialize)
+- [x] Write test: settings are accessible globally in CLI
+- [x] Write test: corrupted database triggers recovery/re-initialization
+- [x] Verify ALL tests FAIL (8/11 tests failing as expected)
 
-**GREEN (Write Minimal Code to Pass Tests):**
+**GREEN (Write Minimal Code to Pass Tests):** ✅
 
-- [ ] Update src/presentation/cli/index.ts: Import reflect-metadata at top
-- [ ] Import DI container and settings use cases in CLI entry point
-- [ ] Add settings initialization before Commander setup: resolve InitializeSettingsUseCase and execute
-- [ ] Add settings loading: resolve LoadSettingsUseCase and execute
-- [ ] Create src/infrastructure/services/settings.service.ts singleton for global settings access
-- [ ] Implement getSettings() function in settings.service.ts
-- [ ] Verify ALL tests PASS
+- [x] Create src/infrastructure/di/container.ts with async initializeContainer()
+- [x] Configure tsyringe container: register Database, ISettingsRepository, use cases
+- [x] Update src/presentation/cli/index.ts: Import reflect-metadata at top
+- [x] Create async bootstrap() function wrapping CLI initialization
+- [x] Initialize DI container and run migrations in bootstrap
+- [x] Resolve InitializeSettingsUseCase and execute to load/create settings
+- [x] Create src/infrastructure/services/settings.service.ts singleton service
+- [x] Implement initializeSettings(), getSettings(), hasSettings() functions
+- [x] Verify ALL tests PASS (11/11 E2E tests passing, 152/152 total)
 
-**REFACTOR (Clean Up While Keeping Tests Green):**
+**REFACTOR (Clean Up While Keeping Tests Green):** ✅
 
-- [ ] Extract initialization logic to separate bootstrap function
-- [ ] Improve error handling and recovery
-- [ ] Verify ALL tests still PASS
+- [x] Extract initialization logic to separate bootstrap function (already done in GREEN)
+- [x] Improve error handling with specific error messages for database vs settings failures
+- [x] Fix ESLint errors (require() imports, unused variables, empty functions)
+- [x] Verify ALL tests still PASS (152/152 tests passing)
 
 ### Phase 8: Documentation & Finalization
 
