@@ -25,9 +25,9 @@ export default tseslint.config(
       // Build outputs
       'dist/**',
       'build/**',
-      '.next/**',
+      '**/.next/**',
       'out/**',
-      'storybook-static/**',
+      '**/storybook-static/**',
 
       // Dependencies
       'node_modules/**',
@@ -37,6 +37,7 @@ export default tseslint.config(
       '*.generated.*',
       'coverage/**',
       'next-env.d.ts',
+      'src/domain/generated/**', // TypeSpec-generated domain models
 
       // TypeSpec (handled by tsp linter)
       'tsp/**',

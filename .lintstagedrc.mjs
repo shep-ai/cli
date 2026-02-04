@@ -14,6 +14,7 @@ export default {
   '*.tsp': ['prettier --write', () => 'pnpm run tsp:compile'],
 
   // TypeScript files - lint, format, and typecheck
+  // Note: Includes src/domain/generated/**/*.ts (TypeSpec-generated files)
   '*.{ts,tsx,mts,cts}': ['eslint --fix', 'prettier --write', () => 'pnpm run typecheck'],
 
   // JavaScript files - lint and format

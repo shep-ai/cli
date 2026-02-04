@@ -12,6 +12,7 @@ import "./artifact.tsp";
 import "./message.tsp";
 import "./requirement.tsp";
 import "./research.tsp";
+import "./settings.tsp";
 import "./task.tsp";
 import "./timeline-event.tsp";
 import "./plan.tsp";

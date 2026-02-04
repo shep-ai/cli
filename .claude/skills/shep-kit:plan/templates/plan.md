@@ -15,13 +15,50 @@
 
 ## Implementation Strategy
 
-### Phase 1: {{PHASE_1_NAME}}
+**MANDATORY TDD**: All implementation phases MUST follow RED-GREEN-REFACTOR cycles.
 
-{{PHASE_1_DESCRIPTION}}
+### Phase 1: {{PHASE_1_NAME}} (Foundational - No Tests)
 
-### Phase 2: {{PHASE_2_NAME}}
+**Goal:** {{PHASE_1_GOAL}}
 
-{{PHASE_2_DESCRIPTION}}
+**Steps:**
+
+{{PHASE_1_STEPS}}
+
+**Deliverables:**
+
+{{PHASE_1_DELIVERABLES}}
+
+**Testing:**
+
+{{PHASE_1_TESTING}}
+
+---
+
+### Phase 2: {{PHASE_2_NAME}} (TDD Cycle 1)
+
+**Goal:** {{PHASE_2_GOAL}}
+
+**TDD Workflow:**
+
+1. **RED**: Write failing tests first
+
+   - {{RED_TESTS}}
+
+2. **GREEN**: Write minimal code to pass tests
+
+   - {{GREEN_IMPLEMENTATION}}
+
+3. **REFACTOR**: Clean up while keeping tests green
+   - {{REFACTOR_IMPROVEMENTS}}
+
+**Deliverables:**
+
+{{PHASE_2_DELIVERABLES}}
+
+---
+
+{{ADDITIONAL_PHASES}}
 
 ## Files to Create/Modify
 
@@ -37,19 +74,31 @@
 | ----------------- | -------------------- |
 | {{MOD_FILE_PATH}} | {{MOD_FILE_CHANGES}} |
 
-## Testing Strategy
+## Testing Strategy (TDD: Tests FIRST)
 
-### Unit Tests
+**CRITICAL:** Tests are written FIRST in each TDD cycle, never after implementation.
 
-- {{UNIT_TEST}}
+### Unit Tests (RED → GREEN → REFACTOR)
 
-### Integration Tests
+**Write FIRST for:**
 
-- {{INT_TEST}}
+- {{UNIT_TEST_DOMAIN}}
+- {{UNIT_TEST_USE_CASES}}
 
-### E2E Tests
+### Integration Tests (RED → GREEN → REFACTOR)
 
-- {{E2E_TEST}}
+**Write FIRST for:**
+
+- {{INT_TEST_REPOSITORIES}}
+- {{INT_TEST_MIGRATIONS}}
+- {{INT_TEST_SERVICES}}
+
+### E2E Tests (RED → GREEN → REFACTOR)
+
+**Write FIRST for:**
+
+- {{E2E_TEST_CLI}}
+- {{E2E_TEST_USER_FLOWS}}
 
 ## Risk Mitigation
 

@@ -3,12 +3,16 @@
 # =============================================================================
 # Automated PR review focusing on documentation consistency and architecture
 # compliance using Claude Code.
+#
+# NOTE: Currently disabled per user preference
+# To re-enable, uncomment the 'on:' trigger below
 
 name: Claude Review
 
-on:
-  pull_request:
-    types: [opened, synchronize]
+# Workflow disabled - uncomment to enable
+# on:
+#   pull_request:
+#     types: [opened, synchronize]
 
 # Prevent concurrent reviews on the same PR
 concurrency:
@@ -44,7 +48,7 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
         with:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          direct_prompt: |
+          prompt: |
             ## PR Review Assignment
 
             You are reviewing a pull request for the Shep AI CLI project.

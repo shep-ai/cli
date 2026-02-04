@@ -35,15 +35,18 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
 # Copy dependency and config files
-COPY package.json pnpm-lock.yaml tsconfig.json tsconfig.build.json ./
+COPY package.json pnpm-lock.yaml tsconfig.json tsconfig.build.json tspconfig.yaml ./
 
 # Install all dependencies (including devDependencies for TypeScript compiler)
 RUN pnpm install --frozen-lockfile
 
+# Copy TypeSpec files (needed for code generation during build)
+COPY tsp/ ./tsp/
+
 # Copy source code
 COPY src/ ./src/
 
-# Build TypeScript to JavaScript
+# Build TypeScript to JavaScript (includes prebuild hook that runs pnpm generate)
 RUN pnpm run build
 
 # =============================================================================

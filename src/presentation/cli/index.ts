@@ -18,29 +18,69 @@
  *   -h, --help     Display help
  */
 
+// IMPORTANT: reflect-metadata must be imported first for tsyringe DI
+import 'reflect-metadata';
+
 import { Command } from 'commander';
 import { VersionService } from '../../infrastructure/services/version.service.js';
 import { createVersionCommand } from './commands/version.command.js';
 import { messages } from './ui/index.js';
 
-// Initialize version service
-const versionService = new VersionService();
-const { version, description } = versionService.getVersion();
+// DI container and settings
+import { initializeContainer, container } from '../../infrastructure/di/container.js';
+import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
+import { initializeSettings } from '../../infrastructure/services/settings.service.js';
 
-// Create main program
-const program = new Command()
-  .name('shep')
-  .description(description)
-  .version(version, '-v, --version', 'Display version number')
-  .action(() => {
-    // Default action when no subcommand is provided - show help
-    program.outputHelp();
-  });
+/**
+ * Bootstrap function - initializes all dependencies before CLI starts.
+ * Performs async initialization (database, settings) before parsing commands.
+ */
+async function bootstrap() {
+  try {
+    // Step 1: Initialize DI container (database + migrations)
+    try {
+      await initializeContainer();
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      messages.error('Failed to initialize database', err);
+      throw error; // Re-throw to trigger outer catch
+    }
 
-// Register commands
-program.addCommand(createVersionCommand());
+    // Step 2: Initialize settings
+    try {
+      const initializeSettingsUseCase = container.resolve(InitializeSettingsUseCase);
+      const settings = await initializeSettingsUseCase.execute();
+      initializeSettings(settings);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      messages.error('Failed to initialize settings', err);
+      throw error;
+    }
 
-// Global error handler
+    // Step 3: Set up Commander CLI
+    const versionService = new VersionService();
+    const { version, description } = versionService.getVersion();
+
+    const program = new Command()
+      .name('shep')
+      .description(description)
+      .version(version, '-v, --version', 'Display version number')
+      .action(() => {
+        program.outputHelp();
+      });
+
+    // Register commands
+    program.addCommand(createVersionCommand());
+
+    // Parse arguments
+    program.parse();
+  } catch (_error) {
+    // Final catch - already logged specific error above
+    process.exit(1);
+  }
+}
+
+// Global error handlers
 process.on('uncaughtException', (error) => {
   messages.error('An unexpected error occurred', error);
   process.exit(1);
@@ -52,5 +92,5 @@ process.on('unhandledRejection', (reason) => {
   process.exit(1);
 });
 
-// Parse arguments
-program.parse();
+// Start the CLI
+bootstrap();

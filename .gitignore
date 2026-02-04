@@ -16,6 +16,8 @@ out/
 # =============================================================================
 # Generated files
 # =============================================================================
+# Note: src/domain/generated/ is TRACKED (TypeSpec-generated domain models)
+# These generated files are committed to ensure consistent types across environments
 apis/
 *.generated.*
 coverage/

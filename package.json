@@ -42,6 +42,11 @@
     "dev:cli": "tsx src/presentation/cli/index.ts",
     "dev:web": "pnpm --filter @shepai/web dev",
     "dev:storybook": "storybook dev -p 6006",
+    "generate": "pnpm tsp:codegen",
+    "tsp:codegen": "tsp compile tsp/ --emit @typespec-tools/emitter-typescript && prettier --write src/domain/generated/",
+    "prebuild": "pnpm generate",
+    "pretest": "pnpm generate",
+    "prelint": "pnpm generate",
     "build": "tsc -p tsconfig.build.json",
     "build:web": "pnpm --filter @shepai/web build",
     "build:storybook": "storybook build",
@@ -95,6 +100,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^25.2.0",
     "@types/react": "^19.2.10",
     "@types/react-dom": "^19.2.3",
@@ -130,6 +136,9 @@
   },
   "packageManager": "pnpm@9.0.0",
   "dependencies": {
+    "@blackglory/better-sqlite3-migrations": "^0.1.20",
+    "@typespec-tools/emitter-typescript": "^0.3.0",
+    "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "commander": "^14.0.3",
@@ -139,7 +148,9 @@
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
+    "reflect-metadata": "^0.2.2",
     "sonner": "^2.0.7",
-    "tailwind-merge": "^3.4.0"
+    "tailwind-merge": "^3.4.0",
+    "tsyringe": "^4.10.0"
   }
 }

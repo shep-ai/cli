@@ -11,15 +11,21 @@ Shep AI CLI (`@shepai/cli`) is an Autonomous AI Native SDLC Platform that automa
 **All feature work MUST begin with `/shep-kit:new-feature`.** See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md).
 
 ```
-/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → implement
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan (TDD MANDATORY) → implement (RED-GREEN-REFACTOR)
 ```
 
 Feature specifications live in `specs/NNN-feature-name/`:
 
 - `spec.md` - Requirements and scope
 - `research.md` - Technical decisions
-- `plan.md` - Implementation strategy
-- `tasks.md` - Task breakdown
+- `plan.md` - Implementation strategy **with TDD cycles (RED-GREEN-REFACTOR)**
+- `tasks.md` - Task breakdown **with explicit TDD phases**
+
+**CRITICAL**: Plans MUST follow Test-Driven Development. Every implementation phase must define:
+
+1. **RED**: Tests to write FIRST
+2. **GREEN**: Minimal implementation to pass
+3. **REFACTOR**: Cleanup while keeping tests green
 
 ## Commands
 
@@ -95,6 +101,34 @@ src/
 
 3. **Use Case Pattern**: Each use case is a single class with an `execute()` method. Use cases orchestrate domain entities and repository calls.
 
+4. **Dependency Injection**: Uses tsyringe for IoC container. Infrastructure layer registers concrete implementations, application layer depends only on interfaces. Container initialized at CLI bootstrap via `initializeContainer()`.
+
+## Dependency Injection
+
+Managed by tsyringe with `reflect-metadata`. Container setup in [src/infrastructure/di/container.ts](src/infrastructure/di/container.ts:37-61).
+
+**Container Lifecycle:**
+
+1. CLI bootstrap calls `initializeContainer()` (async)
+2. Opens SQLite connection to `~/.shep/data`
+3. Runs database migrations via `user_version` pragma
+4. Registers Database instance
+5. Registers repository implementations (ISettingsRepository → SQLiteSettingsRepository)
+6. Registers use cases as singletons (InitializeSettingsUseCase, LoadSettingsUseCase, UpdateSettingsUseCase)
+
+**Usage:**
+
+```typescript
+import { container } from '@/infrastructure/di/container';
+import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case';
+
+// Resolve use case (dependencies injected automatically)
+const useCase = container.resolve(InitializeSettingsUseCase);
+const settings = await useCase.execute();
+```
+
+**IMPORTANT**: Always import `'reflect-metadata'` at the top of entry points and test files before any other imports.
+
 ## Domain Models
 
 ### Feature
@@ -143,6 +177,18 @@ User or inferred requirement attached to a Feature.
 - `source: RequirementSource` ('user' | 'inferred' | 'clarified')
 - `createdAt` (readonly timestamp)
 
+### Settings
+
+Global application configuration (singleton).
+
+- `id` (always 'singleton'), `createdAt`, `updatedAt`
+- `models: ModelConfiguration` (analyze, requirements, plan, implement)
+- `user: UserProfile` (name, email, githubUsername - all optional)
+- `environment: EnvironmentConfig` (defaultEditor, shellPreference)
+- `system: SystemConfig` (autoUpdate, logLevel)
+- **Location**: `~/.shep/data` (SQLite singleton record)
+- **Access**: Via `getSettings()` singleton service (initialized at CLI bootstrap)
+
 ## Agent System
 
 Located in `infrastructure/agents/`, implements LangGraph StateGraph patterns in TypeScript:
@@ -158,12 +204,22 @@ Nodes communicate through typed state updates in the StateGraph. See [AGENTS.md]
 
 ## Data Storage
 
+### Global Settings
+
+- **Location**: `~/.shep/` (directory created on first run with 0700 permissions)
+- **Database**: `~/.shep/data` (SQLite file containing singleton Settings record)
+- **Access**: Via `getSettings()` singleton service initialized at CLI bootstrap
+- **Initialization**: Automatic on first CLI run via `InitializeSettingsUseCase`
+
+### Repository Data
+
 - **Location**: `~/.shep/repos/<base64-encoded-repo-path>/`
 - **Database**: `data` (SQLite file)
 - **Analysis docs**: `docs/` subdirectory
-- **Config**: `~/.shep/config.json` for global settings
 
 ## TypeSpec Domain Models
+
+**TypeSpec-First Architecture**: Domain models are the single source of truth. TypeScript types are generated from TypeSpec definitions.
 
 Domain models are defined in TypeSpec at `tsp/` following SRP (one model per file):
 
@@ -181,10 +237,42 @@ tsp/
 └── deployment/       # Deployment configuration models
 ```
 
-Compile with `pnpm tsp:compile`. Output goes to `apis/`:
+### TypeSpec Build Flow
 
-- `apis/openapi/` - OpenAPI 3.x specs
-- `apis/json-schema/` - JSON Schema definitions (one per model)
+**CRITICAL**: TypeScript code is generated from TypeSpec. Always modify `.tsp` files, never hand-edit generated files.
+
+```
+1. Edit TypeSpec models (tsp/*.tsp)
+2. Generate TypeScript (pnpm tsp:compile)
+3. Import types from src/domain/generated/output.ts
+4. Build TypeScript (pnpm build)
+5. Run tests (pnpm test)
+```
+
+**Generated Output:**
+
+```
+apis/
+├── openapi/          # OpenAPI 3.x specs (for API documentation)
+└── json-schema/      # JSON Schema definitions (one per model)
+
+src/domain/generated/
+└── output.ts         # TypeScript types and interfaces (DO NOT EDIT)
+```
+
+**Commands:**
+
+- `pnpm tsp:compile` - Compile TypeSpec to OpenAPI + TypeScript types
+- `pnpm tsp:format` - Format TypeSpec files with Prettier
+- `pnpm tsp:watch` - Watch mode for continuous compilation
+
+**Import Generated Types:**
+
+```typescript
+import type { Settings, Feature, Task } from '@/domain/generated/output';
+```
+
+**Validation**: `pnpm validate` runs `tsp:compile` as part of CI checks
 
 ## Key Patterns
 
@@ -208,9 +296,9 @@ Compile with `pnpm tsp:compile`. Output goes to `apis/`:
 3. Call appropriate use case
 4. Register in main CLI setup
 
-## Testing Strategy (TDD)
+## Testing Strategy (TDD MANDATORY)
 
-This project follows **Test-Driven Development (TDD)** with the Red-Green-Refactor cycle.
+This project **MANDATES Test-Driven Development (TDD)** with the Red-Green-Refactor cycle for ALL implementation work.
 
 ### Test Layers
 
@@ -218,11 +306,19 @@ This project follows **Test-Driven Development (TDD)** with the Red-Green-Refact
 - **Integration tests** (`tests/integration/`): Repository implementations with test SQLite
 - **E2E tests** (`tests/e2e/`): Playwright for web UI, CLI command execution
 
-### TDD Workflow for New Features
+### TDD Workflow (NON-NEGOTIABLE)
 
-1. **Write failing test first** (RED)
-2. **Write minimal code to pass** (GREEN)
-3. **Refactor while keeping tests green** (REFACTOR)
+**ALWAYS follow this order:**
+
+1. **RED**: Write failing test FIRST (never skip this!)
+2. **GREEN**: Write minimal code to pass test
+3. **REFACTOR**: Improve code while keeping tests green
+
+**Planning Requirement**: All feature plans created by `/shep-kit:plan` MUST structure implementation phases with explicit RED-GREEN-REFACTOR cycles. Each phase must specify:
+
+- What tests to write first (RED)
+- What minimal implementation passes those tests (GREEN)
+- What refactoring opportunities exist (REFACTOR)
 
 See [docs/development/tdd-guide.md](./docs/development/tdd-guide.md) for detailed TDD workflow.
 

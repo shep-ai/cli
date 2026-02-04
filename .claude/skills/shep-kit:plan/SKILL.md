@@ -43,10 +43,17 @@ Create high-level architecture:
 - Data flow between components
 - Integration points with existing code
 
-### 3. Define Implementation Phases
+### 3. Define Implementation Phases (MANDATORY TDD STRUCTURE)
 
-Break implementation into logical phases:
+**CRITICAL:** Plans MUST follow Test-Driven Development (TDD) with RED-GREEN-REFACTOR cycles.
 
+Break implementation into phases following TDD:
+
+- **Foundational phases** (no tests): Build pipeline, TypeSpec models, configuration
+- **TDD Cycle phases**: For each layer (Domain, Application, Infrastructure):
+  - **RED**: Write failing tests first
+  - **GREEN**: Write minimal code to pass tests
+  - **REFACTOR**: Clean up while keeping tests green
 - Each phase should be independently testable
 - Order by dependencies (foundational first)
 - Identify parallelizable work
@@ -58,13 +65,21 @@ For each phase, list:
 - **New files**: Path and purpose
 - **Modified files**: Path and changes needed
 
-### 5. Define Testing Strategy
+### 5. Define Testing Strategy (TDD: Tests FIRST)
 
-Specify tests needed:
+**MANDATORY:** Define what tests to write FIRST in each TDD cycle.
 
-- Unit tests for domain logic
-- Integration tests for repositories/services
-- E2E tests for user-facing features
+For each layer, specify tests to write BEFORE implementation:
+
+- **Unit tests** (RED first): Domain logic, use cases with mocks
+- **Integration tests** (RED first): Repositories, migrations, database operations
+- **E2E tests** (RED first): User-facing features, CLI commands
+
+Each TDD phase MUST follow:
+
+1. RED: Write failing test
+2. GREEN: Write minimal code to pass
+3. REFACTOR: Improve code while keeping tests green
 
 ### 6. Document Risks & Rollback
 
@@ -132,16 +147,32 @@ Inform the user:
 
 > Plan complete for `NNN-feature-name`!
 > Ready to implement. Use tasks.md to track progress.
-> Consider TDD: write tests first, then implementation.
+>
+> ⚠️ **MANDATORY TDD**: Each phase follows RED-GREEN-REFACTOR:
+>
+> 1. RED: Write failing test FIRST
+> 2. GREEN: Write minimal code to pass
+> 3. REFACTOR: Improve while keeping tests green
+>
+> 🔄 **MANDATORY Phase Completion Workflow**:
+>
+> After EACH phase:
+>
+> 1. Update tasks.md checkboxes FREQUENTLY (as you complete items, not at the end!)
+> 2. Commit and push: `git add . && git commit -m "feat: complete phase N" && git push`
+> 3. Watch CI: `gh run watch --exit-status`
+> 4. If CI fails: Fix → Commit → Push → Watch again (LOOP until green)
+> 5. Only proceed to next phase after CI passes
 >
 > **IMPORTANT:** After implementation, update all spec file statuses to "Complete"
 
 ## Key Principles
 
 - **Gate enforcement**: Never skip the open questions check
-- **Incremental**: Each phase produces working, testable code
+- **TDD MANDATORY**: Plans MUST follow RED-GREEN-REFACTOR cycles for all implementation phases
+- **Tests FIRST**: Every TDD phase starts with failing tests, never implementation first
+- **Incremental**: Each phase produces working, tested code
 - **Parallel-aware**: Mark independent tasks for concurrent execution
-- **TDD-aligned**: Testing strategy enables test-first development
 - **Reversible**: Always have a rollback plan
 - **Status tracking**: Always update Phase fields before committing
 
