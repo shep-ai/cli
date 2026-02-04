@@ -57,10 +57,11 @@ release.config.mjs
 vitest.config.ts
 
 # =============================================================================
-# TypeSpec (build-time only, not needed at runtime)
+# TypeSpec (needed during build for code generation)
 # =============================================================================
-tsp
-tspconfig.yaml
+# tsp/
+# tspconfig.yaml
+# NOTE: These files ARE included - needed by builder stage for pnpm generate
 
 # =============================================================================
 # Storybook
