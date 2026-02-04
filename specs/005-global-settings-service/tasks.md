@@ -5,7 +5,7 @@
 ## Status
 
 - **Phase:** Implementation
-- **Current Phase:** Phase 4 - Application Layer - Use Cases (TDD Cycle 2)
+- **Current Phase:** Phase 5 - Infrastructure - Persistence Layer (TDD Cycle 3)
 - **Updated:** 2026-02-04
 
 ## Task List
@@ -105,36 +105,36 @@
 - [x] Improve error messages for clarity
 - [x] Verify ALL tests still PASS (26/26 tests passing)
 
-### Phase 5: Infrastructure - Persistence Layer (TDD Cycle 3)
+### Phase 5: Infrastructure - Persistence Layer (TDD Cycle 3) ✅ COMPLETE
 
 **RED (Write Failing Tests First):**
 
-- [ ] Create tests/helpers/database.helper.ts for test database utilities (in-memory SQLite)
-- [ ] Create tests/integration/infrastructure/persistence/sqlite/migrations.test.ts
-- [ ] Write test: migration creates settings table
-- [ ] Write test: migration is idempotent (safe to run twice)
-- [ ] Write test: user_version pragma tracks applied migrations
-- [ ] Write test: migration SQL is valid
-- [ ] Verify ALL tests FAIL (persistence layer doesn't exist yet)
+- [x] Create tests/helpers/database.helper.ts for test database utilities (in-memory SQLite)
+- [x] Create tests/integration/infrastructure/persistence/sqlite/migrations.test.ts
+- [x] Write test: migration creates settings table
+- [x] Write test: migration is idempotent (safe to run twice)
+- [x] Write test: user_version pragma tracks applied migrations
+- [x] Write test: migration SQL is valid
+- [x] Verify ALL tests FAIL (persistence layer doesn't exist yet)
 
 **GREEN (Write Minimal Code to Pass Tests):**
 
-- [ ] Create src/infrastructure/services/filesystem/shep-directory.service.ts for ~/.shep/ directory initialization
-- [ ] Implement shep-directory service: ensureShepDirectory() with 700 permissions, graceful error handling
-- [ ] Create src/infrastructure/persistence/sqlite/connection.ts with getSQLiteConnection() singleton
-- [ ] Implement SQLite connection: better-sqlite3 to ~/.shep/data with pragmas (WAL, NORMAL, foreign_keys, defensive)
-- [ ] Create src/infrastructure/persistence/sqlite/migrations.ts with runSQLiteMigrations() function
-- [ ] Integrate @blackglory/better-sqlite3-migrations library in SQLite migrations.ts
-- [ ] Create src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql
-- [ ] Define settings table schema with all columns (flatten nested objects)
-- [ ] Add UNIQUE INDEX for singleton pattern (id='singleton')
-- [ ] Verify ALL tests PASS
+- [x] Create src/infrastructure/services/filesystem/shep-directory.service.ts for ~/.shep/ directory initialization
+- [x] Implement shep-directory service: ensureShepDirectory() with 700 permissions, graceful error handling
+- [x] Create src/infrastructure/persistence/sqlite/connection.ts with getSQLiteConnection() singleton
+- [x] Implement SQLite connection: better-sqlite3 to ~/.shep/data with pragmas (WAL, NORMAL, foreign_keys, defensive)
+- [x] Create src/infrastructure/persistence/sqlite/migrations.ts with runSQLiteMigrations() function
+- [x] Implement manual migration system (replaced @blackglory/better-sqlite3-migrations)
+- [x] Create src/infrastructure/persistence/sqlite/migrations/001_create_settings_table.sql
+- [x] Define settings table schema with all columns (flatten nested objects)
+- [x] Add UNIQUE INDEX for singleton pattern (PRIMARY KEY on id)
+- [x] Verify ALL tests PASS (13/13 tests passing)
 
 **REFACTOR (Clean Up While Keeping Tests Green):**
 
-- [ ] Optimize pragma settings based on performance testing
-- [ ] Improve error handling in filesystem service
-- [ ] Verify ALL tests still PASS
+- [x] Optimize pragma settings based on performance testing
+- [x] Improve error handling in filesystem service
+- [x] Verify ALL tests still PASS (13/13 tests passing)
 
 ### Phase 6: Infrastructure - Repository Layer (TDD Cycle 4)
 
