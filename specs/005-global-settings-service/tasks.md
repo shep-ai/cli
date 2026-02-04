@@ -5,7 +5,7 @@
 ## Status
 
 - **Phase:** Implementation
-- **Current Phase:** Phase 3 - Domain Layer - Defaults Factory (TDD Cycle 1)
+- **Current Phase:** Phase 4 - Application Layer - Use Cases (TDD Cycle 2)
 - **Updated:** 2026-02-04
 
 ## Task List
@@ -65,45 +65,45 @@
 - [x] Improve factory structure for readability
 - [x] Verify ALL tests still PASS (15/15 tests passing)
 
-### Phase 4: Application Layer - Use Cases (TDD Cycle 2)
+### Phase 4: Application Layer - Use Cases (TDD Cycle 2) ✅ COMPLETE
 
 **RED (Write Failing Tests First):**
 
-- [ ] Create tests/helpers/mock-repository.helper.ts (mock ISettingsRepository)
-- [ ] Create tests/unit/application/use-cases/initialize-settings.use-case.test.ts
-- [ ] Write test: initializes settings when none exist
-- [ ] Write test: returns existing settings when already initialized
-- [ ] Write test: calls repository.initialize() when needed
-- [ ] Write test: calls repository.load() first to check existence
-- [ ] Create tests/unit/application/use-cases/load-settings.use-case.test.ts
-- [ ] Write test: loads settings successfully when exist
-- [ ] Write test: throws error when settings don't exist
-- [ ] Write test: returns correct Settings type
-- [ ] Create tests/unit/application/use-cases/update-settings.use-case.test.ts
-- [ ] Write test: updates settings successfully
-- [ ] Write test: calls repository.update() with correct data
-- [ ] Write test: returns updated settings
-- [ ] Verify ALL tests FAIL (use cases don't exist yet)
+- [x] Create tests/helpers/mock-repository.helper.ts (mock ISettingsRepository)
+- [x] Create tests/unit/application/use-cases/initialize-settings.use-case.test.ts
+- [x] Write test: initializes settings when none exist
+- [x] Write test: returns existing settings when already initialized
+- [x] Write test: calls repository.initialize() when needed
+- [x] Write test: calls repository.load() first to check existence
+- [x] Create tests/unit/application/use-cases/load-settings.use-case.test.ts
+- [x] Write test: loads settings successfully when exist
+- [x] Write test: throws error when settings don't exist
+- [x] Write test: returns correct Settings type
+- [x] Create tests/unit/application/use-cases/update-settings.use-case.test.ts
+- [x] Write test: updates settings successfully
+- [x] Write test: calls repository.update() with correct data
+- [x] Write test: returns updated settings
+- [x] Verify ALL tests FAIL (use cases don't exist yet)
 
 **GREEN (Write Minimal Code to Pass Tests):**
 
-- [ ] Create src/application/ports/output/settings.repository.interface.ts with ISettingsRepository interface
-- [ ] Define initialize(), load(), update() methods in ISettingsRepository using generated Settings type
-- [ ] Create src/application/ports/output/index.ts barrel export
-- [ ] Create src/application/use-cases/settings/initialize-settings.use-case.ts with @injectable decorator
-- [ ] Implement InitializeSettingsUseCase.execute() method (check existence, create if missing)
-- [ ] Create src/application/use-cases/settings/load-settings.use-case.ts with @injectable decorator
-- [ ] Implement LoadSettingsUseCase.execute() method (load, throw if missing)
-- [ ] Create src/application/use-cases/settings/update-settings.use-case.ts with @injectable decorator
-- [ ] Implement UpdateSettingsUseCase.execute(settings) method (validate, update, return)
-- [ ] Create src/application/use-cases/settings/index.ts barrel export
-- [ ] Verify ALL tests PASS
+- [x] Create src/application/ports/output/settings.repository.interface.ts with ISettingsRepository interface
+- [x] Define initialize(), load(), update() methods in ISettingsRepository using generated Settings type
+- [x] Create src/application/ports/output/index.ts barrel export
+- [x] Create src/application/use-cases/settings/initialize-settings.use-case.ts with @injectable decorator
+- [x] Implement InitializeSettingsUseCase.execute() method (check existence, create if missing)
+- [x] Create src/application/use-cases/settings/load-settings.use-case.ts with @injectable decorator
+- [x] Implement LoadSettingsUseCase.execute() method (load, throw if missing)
+- [x] Create src/application/use-cases/settings/update-settings.use-case.ts with @injectable decorator
+- [x] Implement UpdateSettingsUseCase.execute(settings) method (validate, update, return)
+- [x] Create src/application/use-cases/settings/index.ts barrel export
+- [x] Verify ALL tests PASS (26/26 tests passing)
 
 **REFACTOR (Clean Up While Keeping Tests Green):**
 
-- [ ] Extract validation logic to separate functions if needed
-- [ ] Improve error messages for clarity
-- [ ] Verify ALL tests still PASS
+- [x] Extract validation logic to separate functions if needed
+- [x] Improve error messages for clarity
+- [x] Verify ALL tests still PASS (26/26 tests passing)
 
 ### Phase 5: Infrastructure - Persistence Layer (TDD Cycle 3)
 
