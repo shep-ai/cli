@@ -101,6 +101,34 @@ src/
 
 3. **Use Case Pattern**: Each use case is a single class with an `execute()` method. Use cases orchestrate domain entities and repository calls.
 
+4. **Dependency Injection**: Uses tsyringe for IoC container. Infrastructure layer registers concrete implementations, application layer depends only on interfaces. Container initialized at CLI bootstrap via `initializeContainer()`.
+
+## Dependency Injection
+
+Managed by tsyringe with `reflect-metadata`. Container setup in [src/infrastructure/di/container.ts](src/infrastructure/di/container.ts:37-61).
+
+**Container Lifecycle:**
+
+1. CLI bootstrap calls `initializeContainer()` (async)
+2. Opens SQLite connection to `~/.shep/data`
+3. Runs database migrations via `user_version` pragma
+4. Registers Database instance
+5. Registers repository implementations (ISettingsRepository → SQLiteSettingsRepository)
+6. Registers use cases as singletons (InitializeSettingsUseCase, LoadSettingsUseCase, UpdateSettingsUseCase)
+
+**Usage:**
+
+```typescript
+import { container } from '@/infrastructure/di/container';
+import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case';
+
+// Resolve use case (dependencies injected automatically)
+const useCase = container.resolve(InitializeSettingsUseCase);
+const settings = await useCase.execute();
+```
+
+**IMPORTANT**: Always import `'reflect-metadata'` at the top of entry points and test files before any other imports.
+
 ## Domain Models
 
 ### Feature
@@ -149,6 +177,18 @@ User or inferred requirement attached to a Feature.
 - `source: RequirementSource` ('user' | 'inferred' | 'clarified')
 - `createdAt` (readonly timestamp)
 
+### Settings
+
+Global application configuration (singleton).
+
+- `id` (always 'singleton'), `createdAt`, `updatedAt`
+- `models: ModelConfiguration` (analyze, requirements, plan, implement)
+- `user: UserProfile` (name, email, githubUsername - all optional)
+- `environment: EnvironmentConfig` (defaultEditor, shellPreference)
+- `system: SystemConfig` (autoUpdate, logLevel)
+- **Location**: `~/.shep/data` (SQLite singleton record)
+- **Access**: Via `getSettings()` singleton service (initialized at CLI bootstrap)
+
 ## Agent System
 
 Located in `infrastructure/agents/`, implements LangGraph StateGraph patterns in TypeScript:
@@ -164,12 +204,22 @@ Nodes communicate through typed state updates in the StateGraph. See [AGENTS.md]
 
 ## Data Storage
 
+### Global Settings
+
+- **Location**: `~/.shep/` (directory created on first run with 0700 permissions)
+- **Database**: `~/.shep/data` (SQLite file containing singleton Settings record)
+- **Access**: Via `getSettings()` singleton service initialized at CLI bootstrap
+- **Initialization**: Automatic on first CLI run via `InitializeSettingsUseCase`
+
+### Repository Data
+
 - **Location**: `~/.shep/repos/<base64-encoded-repo-path>/`
 - **Database**: `data` (SQLite file)
 - **Analysis docs**: `docs/` subdirectory
-- **Config**: `~/.shep/config.json` for global settings
 
 ## TypeSpec Domain Models
+
+**TypeSpec-First Architecture**: Domain models are the single source of truth. TypeScript types are generated from TypeSpec definitions.
 
 Domain models are defined in TypeSpec at `tsp/` following SRP (one model per file):
 
@@ -187,10 +237,42 @@ tsp/
 └── deployment/       # Deployment configuration models
 ```
 
-Compile with `pnpm tsp:compile`. Output goes to `apis/`:
+### TypeSpec Build Flow
 
-- `apis/openapi/` - OpenAPI 3.x specs
-- `apis/json-schema/` - JSON Schema definitions (one per model)
+**CRITICAL**: TypeScript code is generated from TypeSpec. Always modify `.tsp` files, never hand-edit generated files.
+
+```
+1. Edit TypeSpec models (tsp/*.tsp)
+2. Generate TypeScript (pnpm tsp:compile)
+3. Import types from src/domain/generated/output.ts
+4. Build TypeScript (pnpm build)
+5. Run tests (pnpm test)
+```
+
+**Generated Output:**
+
+```
+apis/
+├── openapi/          # OpenAPI 3.x specs (for API documentation)
+└── json-schema/      # JSON Schema definitions (one per model)
+
+src/domain/generated/
+└── output.ts         # TypeScript types and interfaces (DO NOT EDIT)
+```
+
+**Commands:**
+
+- `pnpm tsp:compile` - Compile TypeSpec to OpenAPI + TypeScript types
+- `pnpm tsp:format` - Format TypeSpec files with Prettier
+- `pnpm tsp:watch` - Watch mode for continuous compilation
+
+**Import Generated Types:**
+
+```typescript
+import type { Settings, Feature, Task } from '@/domain/generated/output';
+```
+
+**Validation**: `pnpm validate` runs `tsp:compile` as part of CI checks
 
 ## Key Patterns
 

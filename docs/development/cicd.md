@@ -29,20 +29,20 @@ On push to main only (after ALL jobs pass, including security):
 
 ### Parallel Jobs (All Branches)
 
-| Job                   | Description                                     | Duration |
-| --------------------- | ----------------------------------------------- | -------- |
-| **Lint & Format**     | ESLint + Prettier + TypeSpec compile            | ~30s     |
-| **Type Check**        | TypeScript strict mode validation               | ~20s     |
-| **Unit Tests**        | Vitest unit + integration tests                 | ~20s     |
-| **E2E (CLI)**         | CLI command execution tests                     | ~30s     |
-| **E2E (TUI)**         | Terminal UI interaction tests                   | ~20s     |
-| **E2E (Web)**         | Playwright browser tests                        | ~25s     |
-| **Docker**            | Build and push SHA-tagged image (non-main only) | ~50s     |
-| **Trivy (deps)**      | Dependency vulnerability scan (HIGH/CRITICAL)   | ~30s     |
-| **Trivy (container)** | Docker image vulnerability scan                 | ~60s     |
-| **Gitleaks**          | Secret detection in git history                 | ~15s     |
-| **Semgrep**           | SAST for TypeScript/JavaScript patterns         | ~30s     |
-| **Hadolint**          | Dockerfile best practices linting               | ~5s      |
+| Job                   | Description                                                 | Duration |
+| --------------------- | ----------------------------------------------------------- | -------- |
+| **Lint & Format**     | ESLint + Prettier + TypeSpec compile (`pnpm tsp:compile`)   | ~30s     |
+| **Type Check**        | TypeScript strict mode validation (requires TypeSpec types) | ~20s     |
+| **Unit Tests**        | Vitest unit + integration tests                             | ~20s     |
+| **E2E (CLI)**         | CLI command execution tests                                 | ~30s     |
+| **E2E (TUI)**         | Terminal UI interaction tests                               | ~20s     |
+| **E2E (Web)**         | Playwright browser tests                                    | ~25s     |
+| **Docker**            | Build and push SHA-tagged image (non-main only)             | ~50s     |
+| **Trivy (deps)**      | Dependency vulnerability scan (HIGH/CRITICAL)               | ~30s     |
+| **Trivy (container)** | Docker image vulnerability scan                             | ~60s     |
+| **Gitleaks**          | Secret detection in git history                             | ~15s     |
+| **Semgrep**           | SAST for TypeScript/JavaScript patterns                     | ~30s     |
+| **Hadolint**          | Dockerfile best practices linting                           | ~5s      |
 
 ### Security Jobs (All Branches)
 

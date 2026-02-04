@@ -547,6 +547,358 @@ export function createMaintenanceFeature(): Feature {
 | Infrastructure | Integration | Medium | Real DB (in-memory) |
 | Presentation   | E2E         | Slow   | Full stack          |
 
+## Testing TypeSpec-Generated Code
+
+### Philosophy
+
+TypeSpec models are the single source of truth. Generated TypeScript types in `src/domain/generated/output.ts` should **never be edited manually**.
+
+### Testing Approach
+
+**DO:**
+
+- ✅ Test domain logic that uses generated types
+- ✅ Test repository mapping between generated types and database
+- ✅ Verify TypeSpec compilation in CI (`pnpm tsp:compile`)
+- ✅ Import types from generated output: `import type { Settings } from '@/domain/generated/output'`
+
+**DON'T:**
+
+- ❌ Unit test the generated types themselves (they're generated)
+- ❌ Mock generated types (use real types for type safety)
+- ❌ Manually edit `src/domain/generated/output.ts`
+
+### Example: Testing Repository with Generated Types
+
+```typescript
+// tests/integration/repositories/settings.repository.test.ts
+import type { Settings } from '@/domain/generated/output';
+import { SQLiteSettingsRepository } from '@/infrastructure/repositories/sqlite-settings.repository';
+
+describe('SQLiteSettingsRepository', () => {
+  it('should persist Settings with all TypeSpec-defined fields', async () => {
+    // Arrange - Create Settings object using generated type
+    const settings: Settings = {
+      id: 'singleton',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      models: {
+        analyze: 'claude-opus-4',
+        requirements: 'claude-sonnet-4',
+        plan: 'claude-sonnet-4',
+        implement: 'claude-sonnet-4',
+      },
+      user: {
+        name: 'Test User',
+        email: 'test@example.com',
+      },
+      environment: {
+        defaultEditor: 'vim',
+        shellPreference: 'bash',
+      },
+      system: {
+        autoUpdate: true,
+        logLevel: 'info',
+      },
+    };
+
+    // Act
+    await repository.initialize(settings);
+    const loaded = await repository.load();
+
+    // Assert - Verify all fields persisted correctly
+    expect(loaded).toMatchObject(settings);
+  });
+});
+```
+
+### Regenerating Types After TypeSpec Changes
+
+```bash
+# 1. Modify TypeSpec model
+vim tsp/domain/entities/settings.tsp
+
+# 2. Regenerate TypeScript types
+pnpm tsp:compile
+
+# 3. Run tests (should fail if breaking change)
+pnpm test
+
+# 4. Fix implementation to match new types
+# TypeScript will show compile errors
+
+# 5. Tests pass → commit both .tsp and generated files
+git add tsp/ src/domain/generated/
+git commit -m "feat(domain): add new field to Settings model"
+```
+
+## Testing Repositories with In-Memory SQLite
+
+### Why In-Memory Databases?
+
+Integration tests for repositories should use **in-memory SQLite** databases:
+
+- ✅ Fast (no disk I/O)
+- ✅ Isolated (each test gets fresh database)
+- ✅ Real SQL engine (not mocked)
+- ✅ Tests actual schema and constraints
+
+### Setup Pattern
+
+```typescript
+// tests/helpers/database.helper.ts
+import Database from 'better-sqlite3';
+
+export function createInMemoryDatabase(): Database.Database {
+  return new Database(':memory:', {
+    // fileMustExist: false (implicit for :memory:)
+  });
+}
+
+export function tableExists(db: Database.Database, tableName: string): boolean {
+  const result = db
+    .prepare("SELECT name FROM sqlite_master WHERE type='table' AND name=?")
+    .get(tableName);
+  return result !== undefined;
+}
+```
+
+### Test Structure
+
+```typescript
+// tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts
+import 'reflect-metadata'; // IMPORTANT: Required for tsyringe DI
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import type Database from 'better-sqlite3';
+import { createInMemoryDatabase, tableExists } from '@tests/helpers/database.helper';
+import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations';
+import { SQLiteSettingsRepository } from '@/infrastructure/repositories/sqlite-settings.repository';
+import type { Settings } from '@/domain/generated/output';
+
+describe('SQLiteSettingsRepository', () => {
+  let db: Database.Database;
+  let repository: SQLiteSettingsRepository;
+
+  beforeEach(async () => {
+    // Create fresh in-memory database
+    db = createInMemoryDatabase();
+
+    // Run migrations to create schema
+    await runSQLiteMigrations(db);
+
+    // Create repository instance
+    repository = new SQLiteSettingsRepository(db);
+  });
+
+  afterEach(() => {
+    // Close database connection
+    db.close();
+  });
+
+  describe('migrations', () => {
+    it('should create settings table', () => {
+      expect(tableExists(db, 'settings')).toBe(true);
+    });
+
+    it('should create singleton constraint', async () => {
+      // Arrange
+      const settings1 = createTestSettings();
+      const settings2 = createTestSettings();
+      settings2.id = 'duplicate'; // Try to create second record
+
+      // Act
+      await repository.initialize(settings1);
+
+      // Assert - Singleton constraint prevents duplicate
+      await expect(repository.initialize(settings2)).rejects.toThrow();
+    });
+  });
+
+  describe('CRUD operations', () => {
+    it('should initialize settings', async () => {
+      // Arrange
+      const settings = createTestSettings();
+
+      // Act
+      await repository.initialize(settings);
+
+      // Assert
+      const row = db.prepare('SELECT * FROM settings WHERE id = ?').get('singleton');
+      expect(row).toBeDefined();
+    });
+
+    it('should load settings', async () => {
+      // Arrange
+      const settings = createTestSettings();
+      await repository.initialize(settings);
+
+      // Act
+      const loaded = await repository.load();
+
+      // Assert
+      expect(loaded).toMatchObject(settings);
+    });
+
+    it('should update settings', async () => {
+      // Arrange
+      const settings = createTestSettings();
+      await repository.initialize(settings);
+
+      // Act
+      settings.system.logLevel = 'debug';
+      await repository.update(settings);
+
+      // Assert
+      const loaded = await repository.load();
+      expect(loaded?.system.logLevel).toBe('debug');
+    });
+
+    it('should return null when no settings exist', async () => {
+      // Act
+      const loaded = await repository.load();
+
+      // Assert
+      expect(loaded).toBeNull();
+    });
+  });
+
+  describe('SQL injection prevention', () => {
+    it('should safely handle quotes in email', async () => {
+      // Arrange
+      const settings = createTestSettings();
+      settings.user.email = "test'@example.com"; // SQL injection attempt
+
+      // Act
+      await repository.initialize(settings);
+
+      // Assert
+      const loaded = await repository.load();
+      expect(loaded?.user.email).toBe("test'@example.com");
+    });
+  });
+
+  describe('database mapping', () => {
+    it('should use snake_case for database columns', async () => {
+      // Arrange
+      const settings = createTestSettings();
+
+      // Act
+      await repository.initialize(settings);
+
+      // Assert - Verify column naming
+      const row = db.prepare('SELECT model_analyze, sys_log_level FROM settings').get() as {
+        model_analyze: string;
+        sys_log_level: string;
+      };
+      expect(row.model_analyze).toBe(settings.models.analyze);
+      expect(row.sys_log_level).toBe(settings.system.logLevel);
+    });
+
+    it('should convert boolean to integer (SQLite limitation)', async () => {
+      // Arrange
+      const settings = createTestSettings();
+      settings.system.autoUpdate = true;
+
+      // Act
+      await repository.initialize(settings);
+
+      // Assert
+      const row = db.prepare('SELECT sys_auto_update FROM settings').get() as {
+        sys_auto_update: number;
+      };
+      expect(row.sys_auto_update).toBe(1); // boolean true → 1
+    });
+
+    it('should correctly convert integer back to boolean when loading', async () => {
+      // Arrange - Manually insert with integer value
+      db.prepare(
+        `INSERT INTO settings (id, sys_auto_update, ...) VALUES ('singleton', 0, ...)`
+      ).run();
+
+      // Act
+      const loaded = await repository.load();
+
+      // Assert
+      expect(loaded?.system.autoUpdate).toBe(false); // 0 → boolean false
+    });
+  });
+});
+
+// Test helper
+function createTestSettings(): Settings {
+  return {
+    id: 'singleton',
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    models: {
+      analyze: 'claude-opus-4',
+      requirements: 'claude-sonnet-4',
+      plan: 'claude-sonnet-4',
+      implement: 'claude-sonnet-4',
+    },
+    user: {
+      name: 'Test User',
+      email: 'test@example.com',
+    },
+    environment: {
+      defaultEditor: 'vim',
+      shellPreference: 'bash',
+    },
+    system: {
+      autoUpdate: true,
+      logLevel: 'info',
+    },
+  };
+}
+```
+
+### Best Practices
+
+1. **Always import reflect-metadata first** (required for tsyringe DI):
+
+   ```typescript
+   import 'reflect-metadata'; // MUST be first import
+   import { describe, it, expect } from 'vitest';
+   ```
+
+2. **Test database constraints** (UNIQUE, NOT NULL, CHECK, FOREIGN KEY):
+
+   ```typescript
+   it('should enforce singleton constraint', async () => {
+     await repository.initialize(settings1);
+     await expect(repository.initialize(settings2)).rejects.toThrow();
+   });
+   ```
+
+3. **Test SQL injection prevention** (verify prepared statements work):
+
+   ```typescript
+   it('should safely handle special characters', async () => {
+     const malicious = createSettings();
+     malicious.user.email = "'; DROP TABLE settings; --";
+     await repository.initialize(malicious);
+     expect(tableExists(db, 'settings')).toBe(true); // Table still exists
+   });
+   ```
+
+4. **Test database mapping** (camelCase ↔ snake_case):
+
+   ```typescript
+   it('should use snake_case columns', async () => {
+     await repository.save(entity);
+     const row = db.prepare('SELECT created_at FROM entities').get();
+     expect(row.created_at).toBeDefined(); // Not createdAt
+   });
+   ```
+
+5. **Test migrations** (verify schema creation):
+   ```typescript
+   it('should create all required tables', () => {
+     expect(tableExists(db, 'settings')).toBe(true);
+     expect(tableExists(db, 'features')).toBe(true);
+   });
+   ```
+
 ## Continuous TDD Workflow
 
 ```
