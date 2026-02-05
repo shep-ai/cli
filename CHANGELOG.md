@@ -1,3 +1,9 @@
+## [1.3.1](https://github.com/shep-ai/cli/compare/v1.3.0...v1.3.1) (2026-02-05)
+
+### Bug Fixes
+
+- **ci:** remove trivy sarif steps and suppress telemetry noise ([#22](https://github.com/shep-ai/cli/issues/22)) ([e3db5b9](https://github.com/shep-ai/cli/commit/e3db5b9e0edcc1a18fffa1b0adcc0a51076ccd28))
+
 # [1.3.0](https://github.com/shep-ai/cli/compare/v1.2.0...v1.3.0) (2026-02-05)
 
 ### Bug Fixes
