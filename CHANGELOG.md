@@ -1,3 +1,16 @@
+# [1.4.0](https://github.com/shep-ai/cli/compare/v1.3.1...v1.4.0) (2026-02-05)
+
+### Features
+
+- **specs:** add 006-cli-settings-commands specification ([3f337c2](https://github.com/shep-ai/cli/commit/3f337c2289dbf052ebeeb15976c6727b545c088c))
+- **shep-kit:** add autonomous implementation executor with validation gates ([eaca076](https://github.com/shep-ai/cli/commit/eaca07684773786946ebb718f9c161c41bab0d38))
+- **specs:** add hierarchical help system requirements ([023389d](https://github.com/shep-ai/cli/commit/023389d55d1fe10c1cd6ed88c94f133e08170e02)), closes [#7](https://github.com/shep-ai/cli/issues/7)
+- **specs:** add implementation plan for 006-cli-settings-commands ([4444b31](https://github.com/shep-ai/cli/commit/4444b31053a3f54b2d66a0e7d1041344d663307b))
+- **cli:** add ui foundation for settings commands ([c894051](https://github.com/shep-ai/cli/commit/c894051aedeadbd51ab0bc6f1e9de09a7388ff31))
+- **specs:** complete research for 006-cli-settings-commands ([f41f374](https://github.com/shep-ai/cli/commit/f41f3746d62c214fe930e008bb0ad679f7c2f3f4))
+- **cli:** implement init command with help text (green) ([e3b57d4](https://github.com/shep-ai/cli/commit/e3b57d4ba24c232a2d141c3d47b647a23519a72c))
+- **cli:** implement show command with output formatters (green) ([eee7340](https://github.com/shep-ai/cli/commit/eee7340ab5ef8e580619cd696891b8637fc7f3af))
+
 ## [1.3.1](https://github.com/shep-ai/cli/compare/v1.3.0...v1.3.1) (2026-02-05)
 
 ### Bug Fixes
