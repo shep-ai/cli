@@ -74,8 +74,8 @@ async function bootstrap() {
     program.addCommand(createVersionCommand());
     program.addCommand(createSettingsCommand());
 
-    // Parse arguments
-    program.parse();
+    // Parse arguments (parseAsync needed for async command actions like init)
+    await program.parseAsync();
   } catch (_error) {
     // Final catch - already logged specific error above
     process.exit(1);

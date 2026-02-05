@@ -27,6 +27,14 @@ export function createShowCommand(): Command {
         .choices(['table', 'json', 'yaml'])
         .default('table')
     )
+    .addHelpText(
+      'after',
+      `
+Examples:
+  $ shep settings show                 Display settings as table
+  $ shep settings show --output json   Display settings as JSON
+  $ shep settings show -o yaml         Display settings as YAML`
+    )
     .action((options: { output: OutputFormat }) => {
       try {
         const settings = getSettings();
