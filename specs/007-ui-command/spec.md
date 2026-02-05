@@ -7,7 +7,7 @@
 - **Number:** 007
 - **Created:** 2026-02-05
 - **Branch:** feat/007-ui-command
-- **Phase:** Research
+- **Phase:** Planning
 
 ## Problem Statement
 
