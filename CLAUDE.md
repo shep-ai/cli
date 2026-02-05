@@ -363,6 +363,18 @@ See [docs/development/tdd-guide.md](./docs/development/tdd-guide.md) for detaile
 
 ## Presentation Layer Technologies
 
+### CLI
+
+- **Framework**: Commander.js (fluent API, subcommands, options)
+- **Location**: `src/presentation/cli/`
+- **Entry Point**: `src/presentation/cli/index.ts` - `bootstrap()` initializes DI, settings, then `parseAsync()`
+- **Commands**: `version`, `settings show`, `settings init`
+- **UI System**: `src/presentation/cli/ui/` - colors (chalk), messages, formatters, output (table/json/yaml), tables (cli-table3)
+- **Pattern**: Each command exports `createXxxCommand()` returning a `Command` instance
+- **Settings Access**: Uses `getSettings()` in-memory singleton (not repository directly)
+- **Error Handling**: `try/catch` with `process.exitCode = 1` and `messages.error()`
+- **Documentation**: See [docs/cli/](./docs/cli/) for architecture, design system, and command reference
+
 ### TUI (Terminal UI)
 
 - **Framework**: [OpenTUI](https://opentui.com/) - TypeScript library for rich terminal UIs
