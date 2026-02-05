@@ -126,6 +126,24 @@ fi
 
 ## Update Operations
 
+### Update Frequency
+
+**CRITICAL: Update feature.yaml after EVERY logical task group completion:**
+
+1. **After each TDD sub-phase** (RED, GREEN, REFACTOR)
+2. **Before each commit** to ensure progress is tracked
+3. **After completing a phase** (e.g., Phase 0, Phase 1)
+4. **Not just at phase boundaries** - update incrementally
+
+**Example pattern:**
+
+```
+Complete Phase 0 (6 tasks) → Update feature.yaml → Commit
+Complete Phase 1 RED (6 tasks) → Update feature.yaml → Commit
+Complete Phase 1 GREEN (X tasks) → Update feature.yaml → Commit
+Complete Phase 1 REFACTOR (Y tasks) → Update feature.yaml → Commit
+```
+
 ### Update Patterns
 
 **All updates should:**
@@ -135,6 +153,8 @@ fi
 3. Update `status.lastUpdated` timestamp
 4. Update `status.lastUpdatedBy` with skill name
 5. Recalculate `status.progress.percentage` if tasks changed
+6. Increment `status.progress.completed` by number of tasks just finished
+7. Set `status.currentTask` to next task identifier
 
 ### Example: Update Progress
 
