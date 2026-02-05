@@ -1,0 +1,39 @@
+feature:
+  id: '007-ui-command'
+  name: 'ui-command'
+  number: 7
+  branch: 'feat/007-ui-command'
+  lifecycle: 'research'
+  createdAt: '2026-02-05T13:45:58Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-05T13:45:58Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-05T13:45:58Z'
+    completedBy: 'shep-kit:new-feature'
+  - phase: 'spec-approved'
+    completedAt: '2026-02-05T13:46:00Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
