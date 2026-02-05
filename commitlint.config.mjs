@@ -63,6 +63,7 @@ export default {
       'always',
       [
         'specs', // Feature specifications (shep-kit)
+        'shep-kit', // Shep-kit skills and workflow
         'cli', // CLI commands and interface
         'tui', // Terminal UI
         'web', // Web UI
