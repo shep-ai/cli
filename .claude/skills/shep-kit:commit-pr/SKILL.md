@@ -80,6 +80,39 @@ PR body should include:
 - Summary section with bullet points
 - Test plan with checkboxes
 
+### 3.5. Update feature.yaml
+
+**After PR is created, update status:**
+
+```yaml
+# specs/NNN-feature-name/feature.yaml
+feature:
+  lifecycle: 'review' # Update from "implementation"
+
+status:
+  phase: 'in-review' # Update from "ready-for-review"
+  lastUpdated: '<timestamp>'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: '<PR URL from gh pr create>' # Add PR URL
+
+checkpoints:
+  # Add new checkpoint:
+  - phase: 'pr-created'
+    completedAt: '<timestamp>'
+    completedBy: 'shep-kit:commit-pr'
+```
+
+**Then commit the feature.yaml update:**
+
+```bash
+git add specs/NNN-feature-name/feature.yaml
+git commit -m "chore(specs): update feature status to in-review"
+git push
+```
+
+**Reference:** [docs/development/feature-yaml-protocol.md](../../docs/development/feature-yaml-protocol.md)
+
 ### 4. Watch CI (Critical)
 
 ```bash

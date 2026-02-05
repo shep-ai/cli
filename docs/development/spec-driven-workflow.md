@@ -7,7 +7,7 @@ This document is the **single source of truth** for Shep AI's spec-driven develo
 Shep-kit is our spec-driven development toolkit inspired by [GitHub's SpecKit](https://github.com/github/spec-kit). Every feature begins with a specification before any implementation code is written.
 
 ```
-/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → implement
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → /shep-kit:implement → /shep-kit:commit-pr
 ```
 
 ## Why Spec-Driven?
@@ -27,6 +27,7 @@ specs/                              # Root-level spec directory
 │   ├── research.md                 # Technical decisions
 │   ├── plan.md                     # Implementation strategy
 │   ├── tasks.md                    # Task breakdown
+│   ├── feature.yaml                # Status tracking (NEW)
 │   ├── data-model.md               # Entity changes (if needed)
 │   └── contracts/                  # API specs (if needed)
 ├── 002-another-feature/
@@ -92,48 +93,87 @@ specs/                              # Root-level spec directory
 - `specs/NNN-feature-name/tasks.md` - TDD task breakdown (RED→GREEN→REFACTOR)
 - `specs/NNN-feature-name/data-model.md` - Entity changes (if needed)
 
-### Step 4: Implement
+### Step 4: Implement (`/shep-kit:implement`)
 
-**Trigger**: After plan is complete.
+**Trigger**: After plan and tasks are complete, ready to write code.
 
-**📖 Full Guide**: See [Implementation Guide](./implementation-guide.md) for detailed step-by-step instructions.
+**What happens:**
 
-**MANDATORY TDD Guidelines:**
+1. **Pre-Implementation Validation Gate** (automatic):
 
-- **ALWAYS follow RED-GREEN-REFACTOR**:
-  1. **RED**: Write failing test FIRST (never skip this!)
-  2. **GREEN**: Write minimal code to pass test
-  3. **REFACTOR**: Improve code while keeping tests green
-- **Never write implementation before tests** (except foundational phases)
+   - Basic completeness check (all files present, open questions resolved)
+   - Architecture validation (Clean Architecture, TypeSpec-first, TDD phases defined)
+   - Cross-document consistency (task counts match, no contradictions)
+   - Auto-fixes safe structural issues (missing sections, empty checkboxes)
+   - **Blocks if critical issues found** (must be fixed manually)
 
-**CRITICAL Progress Tracking (MANDATORY):**
+2. **Smart Session Resumption**:
 
-- **Update `tasks.md` FREQUENTLY** - Check off items as you complete them (not at the end!)
-- **Each action item completed = immediate checkbox update** in tasks.md
-- **Commit task updates** along with code changes to show progress
-- This keeps the task list as the source of truth for current progress
+   - Reads `feature.yaml` to determine current state
+   - Shows progress summary (7/12 tasks complete, etc.)
+   - Validates previous work (tests pass, build succeeds)
+   - Automatically continues from last task
 
-**Phase Completion Workflow (MANDATORY CI Watch):**
+3. **Autonomous Task Execution**:
 
-After completing each phase:
+   - Executes tasks from `tasks.md` sequentially
+   - **Follows TDD discipline strictly** (RED→GREEN→REFACTOR)
+   - Runs verification after each task (tests, build, typecheck, lint)
+   - Updates `feature.yaml` after each task completion
+   - Self-corrects errors with bounded retry (max 3 attempts)
 
-1. **Commit phase changes**: `git commit -m "feat(scope): complete phase N - <description>"`
-2. **Push to remote**: `git push`
-3. **Watch CI immediately**: `gh run watch --exit-status`
-4. **If CI fails**:
-   - Get logs: `gh run view <run-id> --log-failed`
-   - Fix the issue
-   - Commit fix: `git commit -m "fix(scope): resolve CI failure in phase N"`
-   - Push: `git push`
-   - Watch again: `gh run watch --exit-status`
-   - **Repeat until CI passes**
-5. **Only move to next phase after CI is green**
+4. **Error Handling**:
 
-**Other Guidelines:**
+   - Captures error details
+   - Runs systematic debugging
+   - Attempts fix (up to 3 times)
+   - Stops and reports if unresolvable
+   - Updates `feature.yaml` with error state
 
-- Update spec files if requirements change
-- Commit frequently with conventional commits
-- Each TDD cycle must be independently reviewable
+5. **Completion**:
+   - Updates `feature.yaml` (phase: "ready-for-review")
+   - Adds checkpoint "implementation-complete"
+   - Reports summary to user
+
+**Output**:
+
+- All code changes implementing the feature
+- Updated `feature.yaml` with progress tracking
+- All tests passing, build successful
+
+**Status Tracking**: `feature.yaml` is updated continuously throughout implementation. See [feature.yaml Protocol](./feature-yaml-protocol.md) for details.
+
+**📖 Full Guide**: See [Implementation Guide](./implementation-guide.md) for detailed manual implementation instructions (if not using :implement skill).
+
+### Step 5: Commit & Create PR (`/shep-kit:commit-pr`)
+
+**Trigger**: After implementation is complete, ready to submit for review.
+
+**What happens:**
+
+1. Stage and commit all changes
+2. Push to remote
+3. Create PR with `gh pr create`
+4. **Update `feature.yaml`** (phase: "in-review", add PR URL)
+5. Watch CI with `gh run watch --exit-status`
+6. If CI fails: fix, push, watch again (loop until green)
+7. Report PR URL when CI is green
+
+**Output**: Pull request ready for code review with passing CI
+
+### Step 6: Cleanup After Merge (`/shep-kit:merged`)
+
+**Trigger**: After PR is merged to main.
+
+**What happens:**
+
+1. **Update `feature.yaml`** (phase: "complete", add merge timestamp)
+2. Commit feature.yaml update to main
+3. Switch to main branch
+4. Pull latest changes
+5. Delete local feature branch
+
+**Output**: Clean workspace, feature marked as complete
 
 ## Spec File Templates
 
@@ -179,6 +219,23 @@ Actionable task list containing:
   - **REFACTOR**: Cleanup while keeping tests green
 - Parallelization markers `[P]`
 - Acceptance checklist
+- Task dependencies
+
+**Note**: Source of truth for task definitions. `feature.yaml` tracks execution status only.
+
+### feature.yaml
+
+Machine-readable status tracking (NEW) containing:
+
+- Feature metadata (id, name, branch)
+- Lifecycle state (research → planning → implementation → review → complete)
+- Progress tracking (completed/total tasks, percentage)
+- Current task being worked on
+- Validation gates passed
+- Checkpoints with timestamps
+- Error state (if blocked)
+
+**Updated by ALL shep-kit skills** as work progresses. See [feature.yaml Protocol](./feature-yaml-protocol.md).
 
 ### data-model.md
 
@@ -252,19 +309,30 @@ Skills are located at:
 │   ├── SKILL.md
 │   ├── templates/
 │   └── examples/
-└── shep-kit:plan/
-    ├── SKILL.md
-    ├── templates/
-    └── examples/
+├── shep-kit:plan/
+│   ├── SKILL.md
+│   ├── templates/
+│   └── examples/
+├── shep-kit:implement/       # NEW
+│   ├── SKILL.md
+│   ├── validation/
+│   └── examples/
+├── shep-kit:commit-pr/
+│   └── SKILL.md
+└── shep-kit:merged/
+    └── SKILL.md
 ```
 
 ## Quick Reference
 
-| Command                 | Purpose             | Output             |
-| ----------------------- | ------------------- | ------------------ |
-| `/shep-kit:new-feature` | Start new feature   | Branch + spec.md   |
-| `/shep-kit:research`    | Technical analysis  | research.md        |
-| `/shep-kit:plan`        | Implementation plan | plan.md + tasks.md |
+| Command                 | Purpose                    | Output                  |
+| ----------------------- | -------------------------- | ----------------------- |
+| `/shep-kit:new-feature` | Start new feature          | Branch + spec.md        |
+| `/shep-kit:research`    | Technical analysis         | research.md             |
+| `/shep-kit:plan`        | Implementation plan        | plan.md + tasks.md      |
+| `/shep-kit:implement`   | Autonomous implementation  | Code + passing tests    |
+| `/shep-kit:commit-pr`   | Commit, push, PR, watch CI | Pull request (CI green) |
+| `/shep-kit:merged`      | Post-merge cleanup         | Clean workspace         |
 
 ---
 
@@ -279,7 +347,8 @@ Skills are located at:
 
 **Related docs:**
 
-- [Implementation Guide](./implementation-guide.md) - Step-by-step implementation discipline
+- [feature.yaml Protocol](./feature-yaml-protocol.md) - Status tracking reference
+- [Implementation Guide](./implementation-guide.md) - Manual implementation discipline
 - [TDD Guide](./tdd-guide.md) - Test-Driven Development best practices
 - [CONTRIBUTING.md](../../CONTRIBUTING.md)
 - [CONTRIBUTING-AGENTS.md](../../CONTRIBUTING-AGENTS.md)

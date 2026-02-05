@@ -102,9 +102,9 @@ Fill in both templates:
 - `specs/NNN-feature-name/plan.md` - Architecture and strategy
 - `specs/NNN-feature-name/tasks.md` - Detailed task list
 
-### 9. Update Status Fields
+### 9. Update Status Fields & feature.yaml
 
-**CRITICAL:** Update status in ALL spec files:
+**CRITICAL:** Update status in ALL spec files AND feature.yaml:
 
 ```markdown
 # In spec.md, update:
@@ -125,6 +125,35 @@ Fill in both templates:
 - **Phase:** Implementation # Ready for impl
 - **Updated:** <today's date>
 ```
+
+**Update feature.yaml:**
+
+```yaml
+# specs/NNN-feature-name/feature.yaml
+feature:
+  lifecycle: 'implementation' # Update from "planning"
+
+status:
+  phase: 'ready-to-implement' # Update from "planning"
+  progress:
+    total: <count from tasks.md> # Count tasks
+  lastUpdated: '<timestamp>'
+  lastUpdatedBy: 'shep-kit:plan'
+
+checkpoints:
+  # Add new checkpoint:
+  - phase: 'plan-complete'
+    completedAt: '<timestamp>'
+    completedBy: 'shep-kit:plan'
+```
+
+**Count tasks:**
+
+```bash
+grep -c "^## Task [0-9]" specs/NNN-feature-name/tasks.md
+```
+
+**Reference:** [docs/development/feature-yaml-protocol.md](../../../docs/development/feature-yaml-protocol.md)
 
 ### 10. Update data-model.md (if needed)
 
