@@ -7,7 +7,7 @@
 - **Number:** 006
 - **Created:** 2026-02-05
 - **Branch:** feat/006-cli-settings-commands
-- **Phase:** Requirements
+- **Phase:** Research
 
 ## Problem Statement
 
@@ -108,14 +108,16 @@ This feature provides the CLI interface layer for settings management and establ
 
 ## Open Questions
 
-- [ ] **Table library choice** - Should we use `cli-table3`, `table`, or another library for table formatting?
-- [ ] **Database metrics** - Which metrics should be shown? (size, row count, migration version, last updated)
-- [ ] **YAML library** - Should we use `js-yaml`, `yaml`, or another YAML library?
-- [ ] **Section filtering** - Should `show` command support flags to display only specific sections (e.g., `--models-only`, `--user-only`)?
-- [ ] **Backup strategy** - Should `init` command create a backup of existing settings before re-initialization?
-- [ ] **Interactive mode** - Should `init` support an interactive mode for customizing default values?
+All questions resolved in research phase. See [research.md](./research.md) for decisions.
 
-<!-- These questions should be resolved in the research phase -->
+**Decisions:**
+
+- [x] **Table library** → cli-table3 (most popular, best features)
+- [x] **YAML library** → js-yaml (proven stability, fast reading)
+- [x] **Database metrics** → path, size, schema version, last modified, record count
+- [x] **Section filtering** → Defer to future (not in MVP)
+- [x] **Backup strategy** → No automatic backups (confirmation prompt with warning)
+- [x] **Interactive mode** → Defer to future (sensible defaults sufficient)
 
 ---
 
