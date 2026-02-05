@@ -148,6 +148,52 @@ const lastModified = stats.mtime;
 
 **Future consideration:** Could use Commander's `.option()` with interactive prompts (inquirer.js style)
 
+### 7. Hierarchical Help System
+
+**Decision:** Implement three-tier help hierarchy using Commander.js built-in help
+
+**Rationale:**
+
+- Commander.js automatically generates help text from command definitions
+- Three-tier hierarchy provides progressive disclosure:
+  - **Tier 1**: `shep --help` - Overview of all commands
+  - **Tier 2**: `shep settings --help` - Settings subcommand group
+  - **Tier 3**: `shep settings show --help` - Individual command details
+- Follows industry-standard CLI patterns (git, docker, kubectl)
+- User-friendly help improves discoverability and reduces documentation burden
+
+**Implementation approach:**
+
+```typescript
+// Commander.js provides automatic help generation
+const settings = new Command('settings')
+  .description('Manage Shep global settings')
+  .addCommand(createShowCommand())
+  .addCommand(createInitCommand());
+
+// Each subcommand defines detailed help
+const show = new Command('show')
+  .description('Display current settings')
+  .option('-o, --output <format>', 'Output format: table|json|yaml', 'table')
+  .addHelpText(
+    'after',
+    `
+Examples:
+  $ shep settings show              # Display as table (default)
+  $ shep settings show --output json
+  $ shep settings show -o yaml
+  `
+  );
+```
+
+**Help text guidelines:**
+
+- Descriptions should be concise but complete (one sentence max)
+- Include usage examples for each command
+- Document all flags and options with clear explanations
+- Use consistent formatting (Commander handles this automatically)
+- Add "Examples:" section using `.addHelpText('after', ...)`
+
 ## Library Analysis
 
 | Library        | Version | Purpose                   | Pros                                                            | Cons                              |

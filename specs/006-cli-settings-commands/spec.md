@@ -37,6 +37,15 @@ This feature provides the CLI interface layer for settings management and establ
 - [ ] `shep settings init` prompts for confirmation before overwriting existing data (unless `--force`)
 - [ ] `shep settings init --force` skips confirmation and forces re-initialization
 
+**Hierarchical Help System:**
+
+- [ ] `shep --help` / `shep -h` displays top-level help with all available commands
+- [ ] `shep settings --help` displays settings subcommand group help with available subcommands
+- [ ] `shep settings show --help` displays detailed help for show command (options, examples, output formats)
+- [ ] `shep settings init --help` displays detailed help for init command (flags, confirmation behavior)
+- [ ] All help text is user-friendly with clear descriptions, usage examples, and option explanations
+- [ ] Help follows consistent formatting pattern across all command levels
+
 **CLI Design System:**
 
 - [ ] Table formatting utility added to `src/presentation/cli/ui/tables.ts`
