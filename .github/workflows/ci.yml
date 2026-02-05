@@ -262,6 +262,8 @@ jobs:
 
       - name: Trivy container scan
         uses: aquasecurity/trivy-action@master
+        env:
+          TRIVY_NO_TELEMETRY: 'true'
         with:
           image-ref: security-scan:${{ github.sha }}
           severity: 'HIGH,CRITICAL'
@@ -283,24 +285,6 @@ jobs:
           else
             echo "No results file found" >> $GITHUB_STEP_SUMMARY
           fi
-
-      - name: Trivy container scan (SARIF)
-        uses: aquasecurity/trivy-action@master
-        if: always()
-        with:
-          image-ref: security-scan:${{ github.sha }}
-          severity: 'HIGH,CRITICAL'
-          format: 'sarif'
-          output: 'trivy-container-results.sarif'
-          trivyignores: '.trivyignore'
-        continue-on-error: true
-
-      - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v3
-        if: always() && github.event_name == 'push'
-        with:
-          sarif_file: 'trivy-container-results.sarif'
-        continue-on-error: true
 
   # ===========================================================================
   # Security: Gitleaks Secret Detection
