@@ -9,26 +9,41 @@
 
 ## Technology Decisions
 
-### 1. Server Approach: Child Process vs Programmatic API
+### 1. Server Approach: In-Process Programmatic API
 
 **Options considered:**
 
 1. **Programmatic API** (`next()` + `app.prepare()` + custom HTTP server) — Run Next.js in the same Node.js process as the CLI
 2. **Child Process** (`spawn` with `node_modules/.bin/next`) — Spawn Next.js as a separate process managed by the CLI
-3. **Shell exec** (`child_process.exec('next dev')`) — Simple but buffered output, no streaming
 
-**Decision:** Child Process via `spawn`
+**Decision:** Programmatic API (in-process)
 
 **Rationale:**
 
-- **Process isolation**: Next.js dev mode is memory-heavy; keeping it separate protects the CLI process
-- **All Next.js optimizations preserved**: The programmatic API loses Automatic Static Optimization (documented limitation)
-- **Simpler lifecycle**: Kill the process tree to shut down (vs known issues with `app.close()` in dev mode)
-- **Shared code, not shared process**: Both CLI and Web import the same domain/application layer TypeScript modules — they don't need to share a runtime instance
-- **Readiness detection**: Watch stdout for Next.js "Ready" message, with port polling fallback
-- **Direct binary execution**: Resolve `node_modules/.bin/next` directly (not via `npx`) to avoid an extra process layer
+- **Shared runtime**: Next.js server pages/API routes run inside the CLI process and have direct access to the DI container, database connections, repositories, and use cases — no IPC or HTTP bridge needed
+- **True Clean Architecture**: Both presentation layers (CLI and Web) share the exact same application/domain layer instances at runtime, not just the same code
+- **Single initialization**: Database migrations, settings, and DI container are initialized once during CLI bootstrap — Next.js routes reuse them directly via `container.resolve()`
+- **Simpler data flow**: Server components and API routes can call `container.resolve(LoadSettingsUseCase)` directly, no serialization/deserialization overhead
 
-The programmatic API would only be preferred if we needed to intercept individual HTTP requests or share in-memory state between CLI and Web — neither is a current requirement.
+**Trade-offs accepted:**
+
+- Loses Automatic Static Optimization (documented Next.js limitation for custom servers — acceptable since this is a dev tool, not a production deployment)
+- Higher memory footprint in a single process (acceptable for a developer tool)
+- `app.close()` has known quirks in dev mode — mitigated with HTTP server close + process exit handler
+
+**Next.js programmatic API (confirmed working with v16+):**
+
+```typescript
+import next from 'next';
+import { createServer } from 'node:http';
+
+const app = next({ dev: true, dir: './src/presentation/web', port, hostname: 'localhost' });
+const handle = app.getRequestHandler();
+await app.prepare();
+
+const server = createServer((req, res) => handle(req, res));
+server.listen(port, () => console.log(`Ready on http://localhost:${port}`));
+```
 
 ### 2. Port Detection Strategy
 
@@ -48,7 +63,6 @@ The programmatic API would only be preferred if we needed to intercept individua
 - Full control over behavior (no surprise random port fallback like library defaults)
 - Same pattern used by Vite internally — proven approach
 - Can set a reasonable upper bound (try 20 ports, then fail with a clear error)
-- TOCTOU gap (check port, then start server) is acceptable for a developer tool
 
 **Implementation pattern:**
 
@@ -63,58 +77,53 @@ async function findAvailablePort(startPort: number, maxAttempts = 20): Promise<n
 
 ### 3. Signal Handling & Graceful Shutdown
 
-**Options considered:**
+**Decision:** In-process shutdown via `server.close()` + `app.close()`
 
-1. **Simple SIGINT handler** — Just kill child on Ctrl+C
-2. **Process group management** — `detached: true` + negative PID kill for entire process tree
-3. **Full lifecycle manager** — SIGINT/SIGTERM handlers + force-kill timeout + exit handler
+Since Next.js runs in-process (no child process tree to kill), shutdown is simpler:
 
-**Decision:** Process group management with force-kill timeout
+1. SIGINT/SIGTERM handler stops accepting new connections (`server.close()`)
+2. Close Next.js internals (`app.close()`)
+3. Re-entrant guard (`isShuttingDown` flag) prevents double-shutdown
+4. `process.exit(0)` after cleanup
 
-**Rationale:**
-
-- `next dev` spawns sub-processes (Node.js workers, etc.) — killing just the direct child can leave orphans
-- `detached: true` creates a process group; `process.kill(-child.pid, 'SIGTERM')` kills the entire tree
-- 5-second force-kill timeout (SIGKILL) as safety net
-- Synchronous `process.on('exit')` handler as last resort
-- Re-entrant guard (`isShuttingDown` flag) prevents double-shutdown
+No process group management needed — single process, single cleanup path.
 
 ### 4. Architecture Placement
 
 **Decision:** Infrastructure service + CLI command
 
-| Component             | Location                                            | Responsibility                               |
-| --------------------- | --------------------------------------------------- | -------------------------------------------- |
-| `findAvailablePort()` | `src/infrastructure/services/port.service.ts`       | Port availability checking                   |
-| `WebServerService`    | `src/infrastructure/services/web-server.service.ts` | Spawn, monitor, and shutdown Next.js process |
-| `createUiCommand()`   | `src/presentation/cli/commands/ui.command.ts`       | CLI command with `--port` option             |
-| Registration          | `src/presentation/cli/index.ts`                     | `program.addCommand(createUiCommand())`      |
+| Component             | Location                                            | Responsibility                                        |
+| --------------------- | --------------------------------------------------- | ----------------------------------------------------- |
+| `findAvailablePort()` | `src/infrastructure/services/port.service.ts`       | Port availability checking                            |
+| `WebServerService`    | `src/infrastructure/services/web-server.service.ts` | Create Next.js app, HTTP server, lifecycle management |
+| `createUiCommand()`   | `src/presentation/cli/commands/ui.command.ts`       | CLI command with `--port` option                      |
+| Registration          | `src/presentation/cli/index.ts`                     | `program.addCommand(createUiCommand())`               |
 
-This follows existing patterns (`VersionService`, `SettingsService`) and Clean Architecture layer separation. The web server service lives in infrastructure because it manages an external process.
+The web server service lives in infrastructure because it manages the HTTP server and Next.js runtime. Next.js API routes/server components can import from the domain/application layer and resolve use cases from the DI container directly.
 
 ## Library Analysis
 
-No new libraries required. The implementation uses only Node.js built-ins:
+No new libraries required. The implementation uses only Node.js built-ins and existing dependencies:
 
-| Module               | Purpose                                                                   |
-| -------------------- | ------------------------------------------------------------------------- |
-| `node:net`           | Port availability checking (try-bind pattern)                             |
-| `node:child_process` | Spawning Next.js server via `spawn` (not `exec` — avoids shell injection) |
-| `node:path`          | Resolving `node_modules/.bin/next` binary path                            |
+| Module      | Purpose                                          |
+| ----------- | ------------------------------------------------ |
+| `node:net`  | Port availability checking (try-bind pattern)    |
+| `node:http` | HTTP server creation for Next.js request handler |
+| `next`      | Already installed — programmatic API (`next()`)  |
 
 ## Security Considerations
 
 - **Port binding**: The server binds to `localhost` by default (not `0.0.0.0`), limiting exposure to the local machine only
-- **No new dependencies**: Zero supply-chain risk — uses only Node.js built-in modules
-- **No shell execution**: Uses `spawn` (direct binary exec), not `exec` (shell) — no command injection risk
-- **Process isolation**: The web server runs in a separate process, so a crash or vulnerability in the web UI doesn't bring down the CLI process
+- **No new dependencies**: Zero supply-chain risk — uses only Node.js built-in modules and existing `next` package
 - **Port validation**: The `--port` flag input must be validated (integer, within valid range 1024-65535)
+- **Shared process**: Web UI runs in the same process as CLI — same trust boundary, no additional attack surface
 
 ## Performance Implications
 
-- **Startup time**: Next.js dev server takes several seconds to compile and start — the CLI should show a "Starting..." indicator while waiting
-- **Memory**: Next.js dev mode can consume significant memory (100-500MB+) — this is expected and isolated in the child process
+- **Startup time**: Next.js takes several seconds to compile and start — the CLI should show a "Starting..." indicator during `app.prepare()`
+- **Memory**: Next.js dev mode can consume significant memory (100-500MB+) in the same process — acceptable for a developer tool
 - **Port scanning**: The try-bind approach is fast (~1ms per port check) and limited to 20 attempts max
+- **Shared resources**: Database connections and DI container instances are shared, reducing total resource usage vs separate processes
 
 ## Open Questions
 
