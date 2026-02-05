@@ -16,3 +16,9 @@ CVE-2025-64756
 CVE-2026-23745
 CVE-2026-23950
 CVE-2026-24842
+
+# npm CLI local privilege escalation vulnerability
+# This is a local-only vulnerability requiring system access, not applicable
+# in our containerized runtime environment. No fix available yet.
+# Tracking: Remove once npm releases a patched version
+CVE-2026-0775
