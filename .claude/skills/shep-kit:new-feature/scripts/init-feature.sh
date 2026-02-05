@@ -26,6 +26,8 @@ fi
 NNN="$1"
 FEATURE_NAME="$2"
 DATE=$(date +%Y-%m-%d)
+TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+FEATURE_NUMBER=$((10#$NNN))  # Remove leading zeros
 
 # Validate NNN format (3 digits)
 if ! [[ "$NNN" =~ ^[0-9]{3}$ ]]; then
@@ -62,6 +64,10 @@ process_template() {
         sed -e "s/{{NNN}}/${NNN}/g" \
             -e "s/{{FEATURE_NAME}}/${FEATURE_NAME}/g" \
             -e "s/{{DATE}}/${DATE}/g" \
+            -e "s/{{FEATURE_ID}}/${NNN}-${FEATURE_NAME}/g" \
+            -e "s/{{FEATURE_NUMBER}}/${FEATURE_NUMBER}/g" \
+            -e "s/{{BRANCH_NAME}}/feat\/${NNN}-${FEATURE_NAME}/g" \
+            -e "s/{{TIMESTAMP}}/${TIMESTAMP}/g" \
             "$template" > "$output"
         echo -e "  ${GREEN}Created${NC}: $output"
     else
@@ -75,6 +81,7 @@ process_template "${SKILL_DIR}/templates/research.md" "${SPEC_DIR}/research.md"
 process_template "${SKILL_DIR}/templates/plan.md" "${SPEC_DIR}/plan.md"
 process_template "${SKILL_DIR}/templates/tasks.md" "${SPEC_DIR}/tasks.md"
 process_template "${SKILL_DIR}/templates/data-model.md" "${SPEC_DIR}/data-model.md"
+process_template "${SKILL_DIR}/templates/feature.yaml" "${SPEC_DIR}/feature.yaml"
 
 # Create contracts .gitkeep
 touch "${SPEC_DIR}/contracts/.gitkeep"
@@ -82,7 +89,17 @@ echo -e "  ${GREEN}Created${NC}: ${SPEC_DIR}/contracts/.gitkeep"
 
 echo -e "${GREEN}Done!${NC} Spec directory scaffolded at ${SPEC_DIR}"
 echo ""
+echo "Files created:"
+echo "  - spec.md (feature specification)"
+echo "  - research.md (technical decisions)"
+echo "  - plan.md (implementation strategy)"
+echo "  - tasks.md (task breakdown)"
+echo "  - data-model.md (domain models)"
+echo "  - feature.yaml (status tracking)"
+echo "  - contracts/.gitkeep (API contracts)"
+echo ""
 echo "Next steps:"
 echo "  1. Fill in spec.md with feature requirements"
 echo "  2. Run /shep-kit:research for technical analysis"
 echo "  3. Run /shep-kit:plan for implementation breakdown"
+echo "  4. Run /shep-kit:implement to start autonomous implementation"

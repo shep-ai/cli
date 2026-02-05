@@ -49,7 +49,7 @@ Execute the scaffolding script:
 .claude/skills/shep-kit:new-feature/scripts/init-feature.sh <NNN> <feature-name>
 ```
 
-This creates `specs/NNN-feature-name/` with all template files.
+This creates `specs/NNN-feature-name/` with all template files, including `feature.yaml`.
 
 ### 4. Analyze Context
 
@@ -80,14 +80,22 @@ Allow the user to:
 - Modify any inferred values
 - Add missing context or requirements
 
-### 7. Write Spec & Commit
+### 7. Write Spec & Update feature.yaml
 
 ```bash
 # Update spec.md with confirmed content
+# feature.yaml already created by init script with initial state:
+#   - lifecycle: "research"
+#   - phase: "research"
+#   - checkpoint: "feature-created"
+# See: docs/development/feature-yaml-protocol.md for details
+
 # Stage and commit
 git add specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
+
+**feature.yaml Status**: Already initialized by init script. No manual updates needed at this stage.
 
 ### 8. Next Steps
 
@@ -115,6 +123,28 @@ Inform the user:
 ## Template Location
 
 Templates are in: `.claude/skills/shep-kit:new-feature/templates/`
+
+Templates include:
+
+- `spec.md` - Feature specification
+- `research.md` - Technical decisions
+- `plan.md` - Implementation strategy
+- `tasks.md` - Task breakdown
+- `data-model.md` - Domain models
+- `feature.yaml` - Status tracking (NEW)
+
+## feature.yaml Protocol
+
+All shep-kit skills update `feature.yaml` as work progresses.
+
+**Reference:** [docs/development/feature-yaml-protocol.md](../../../docs/development/feature-yaml-protocol.md)
+
+**This skill's responsibility:**
+
+- Create initial `feature.yaml` with:
+  - `lifecycle: "research"`
+  - `phase: "research"`
+  - Checkpoint: "feature-created"
 
 ## Example
 

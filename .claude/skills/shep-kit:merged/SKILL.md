@@ -39,14 +39,48 @@ CURRENT_BRANCH=$(git branch --show-current)
 
 If already on main, skip cleanup.
 
-### 2. Switch to Main and Pull
+### 2. Update feature.yaml (Before Switching)
+
+**Mark feature as complete BEFORE deleting branch:**
+
+```yaml
+# specs/NNN-feature-name/feature.yaml
+feature:
+  lifecycle: 'complete' # Update from "review"
+
+status:
+  phase: 'complete' # Update from "in-review"
+  lastUpdated: '<timestamp>'
+  lastUpdatedBy: 'shep-kit:merged'
+
+mergedAt: '<timestamp>' # Add merge timestamp
+
+checkpoints:
+  # Add final checkpoint:
+  - phase: 'feature-merged'
+    completedAt: '<timestamp>'
+    completedBy: 'shep-kit:merged'
+```
+
+**Commit and push to main (feature.yaml is in main now):**
+
+```bash
+# Still on main branch after merge
+git add specs/NNN-feature-name/feature.yaml
+git commit -m "chore(specs): mark NNN-feature-name as complete"
+git push
+```
+
+**Reference:** [docs/development/feature-yaml-protocol.md](../../docs/development/feature-yaml-protocol.md)
+
+### 3. Switch to Main and Pull
 
 ```bash
 git checkout main
-git pull
+git pull  # Get latest including feature.yaml update
 ```
 
-### 3. Delete Local Branch
+### 4. Delete Local Branch
 
 ```bash
 git branch -d $CURRENT_BRANCH

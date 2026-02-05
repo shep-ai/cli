@@ -11,7 +11,7 @@ Shep AI CLI (`@shepai/cli`) is an Autonomous AI Native SDLC Platform that automa
 **All feature work MUST begin with `/shep-kit:new-feature`.** See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md).
 
 ```
-/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan (TDD MANDATORY) → implement (RED-GREEN-REFACTOR)
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → /shep-kit:implement → /shep-kit:commit-pr
 ```
 
 Feature specifications live in `specs/NNN-feature-name/`:
@@ -20,12 +20,51 @@ Feature specifications live in `specs/NNN-feature-name/`:
 - `research.md` - Technical decisions
 - `plan.md` - Implementation strategy **with TDD cycles (RED-GREEN-REFACTOR)**
 - `tasks.md` - Task breakdown **with explicit TDD phases**
+- `feature.yaml` - **Machine-readable status tracking** (updated by all shep-kit skills)
 
 **CRITICAL**: Plans MUST follow Test-Driven Development. Every implementation phase must define:
 
 1. **RED**: Tests to write FIRST
 2. **GREEN**: Minimal implementation to pass
 3. **REFACTOR**: Cleanup while keeping tests green
+
+### `/shep-kit:implement` - Autonomous Implementation
+
+**Use after planning is complete to start autonomous implementation.**
+
+**What it does:**
+
+1. **Pre-Implementation Validation Gate**:
+
+   - Checks spec completeness (no open questions)
+   - Validates architecture compliance (Clean Architecture, TypeSpec-first, TDD phases)
+   - Verifies cross-document consistency
+   - Auto-fixes safe structural issues
+   - **Blocks on critical problems**
+
+2. **Autonomous Execution**:
+
+   - Reads `feature.yaml` for current state
+   - Resumes from last task automatically
+   - Executes tasks from `tasks.md` following TDD
+   - Updates `feature.yaml` after each task
+   - Self-corrects errors (max 3 retry attempts)
+
+3. **Status Tracking**:
+   - `feature.yaml` updated continuously
+   - Progress: `7/12 tasks (58%)`
+   - Current task visible
+   - Error state tracked
+
+**Validation Gates** (must pass before implementation):
+
+- ✓ Spec completeness (required sections, no open questions)
+- ✓ Architecture compliance (Clean Architecture, TypeSpec-first, TDD)
+- ✓ Cross-document consistency (task counts, dependencies)
+
+**Error Handling**: Bounded retry (max 3 attempts) with systematic debugging. Stops and reports if unresolvable.
+
+**Reference**: [feature.yaml Protocol](./docs/development/feature-yaml-protocol.md)
 
 ## Commands
 

@@ -82,9 +82,9 @@ Fill in the research template at `specs/NNN-feature-name/research.md`:
 - Performance implications
 - Resolved questions (ensure "Open Questions" section shows all resolved or "All questions resolved")
 
-### 6. Update Status Fields
+### 6. Update Status Fields & feature.yaml
 
-**CRITICAL:** Update status in BOTH files:
+**CRITICAL:** Update status in ALL three locations:
 
 ```markdown
 # In spec.md, update:
@@ -96,6 +96,27 @@ Fill in the research template at `specs/NNN-feature-name/research.md`:
 - **Phase:** Research
 - **Updated:** <today's date>
 ```
+
+**Update feature.yaml:**
+
+```yaml
+# specs/NNN-feature-name/feature.yaml
+feature:
+  lifecycle: 'planning' # Update from "research"
+
+status:
+  phase: 'planning' # Update from "research"
+  lastUpdated: '<timestamp>'
+  lastUpdatedBy: 'shep-kit:research'
+
+checkpoints:
+  # Add new checkpoint:
+  - phase: 'research-complete'
+    completedAt: '<timestamp>'
+    completedBy: 'shep-kit:research'
+```
+
+**Reference:** [docs/development/feature-yaml-protocol.md](../../../docs/development/feature-yaml-protocol.md)
 
 ### 7. Commit
 
@@ -118,7 +139,8 @@ Inform the user:
 - **Project-aware**: Consider existing patterns and constraints
 - **Trade-off focused**: Every decision has pros/cons - document both
 - **Actionable**: Decisions should enable immediate planning
-- **Status tracking**: Always update Phase fields before committing
+- **Status tracking**: Always update Phase fields AND feature.yaml before committing
+- **feature.yaml sync**: Update lifecycle → "planning" and add checkpoint
 
 ## Template Location
 
