@@ -9,11 +9,11 @@ feature:
 status:
   phase: 'implementation'
   progress:
-    completed: 12
+    completed: 28
     total: 65
-    percentage: 18
-  currentTask: 'phase-1-green-implementation'
-  lastUpdated: '2026-02-05T14:34:00Z'
+    percentage: 43
+  currentTask: 'phase-2-green-implementation'
+  lastUpdated: '2026-02-05T15:05:00Z'
   lastUpdatedBy: 'shep-kit:implement'
 
 validation:
@@ -26,7 +26,7 @@ validation:
     - 'created-feature-yaml'
 
 tasks:
-  current: null
+  current: 'phase-2-green-implementation'
   blocked: []
   failed: []
 
@@ -48,6 +48,15 @@ checkpoints:
     completedBy: 'shep-kit:implement'
   - phase: 'phase-1-red-tests-complete'
     completedAt: '2026-02-05T14:34:00Z'
+    completedBy: 'shep-kit:implement'
+  - phase: 'phase-1-green-complete'
+    completedAt: '2026-02-05T14:50:00Z'
+    completedBy: 'shep-kit:implement'
+  - phase: 'phase-2-red-tests-complete'
+    completedAt: '2026-02-05T15:00:00Z'
+    completedBy: 'shep-kit:implement'
+  - phase: 'phase-2-green-in-progress'
+    completedAt: '2026-02-05T15:05:00Z'
     completedBy: 'shep-kit:implement'
 
 errors:
