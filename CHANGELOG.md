@@ -1,3 +1,299 @@
+# [1.3.0](https://github.com/shep-ai/cli/compare/v1.2.0...v1.3.0) (2026-02-05)
+
+### Bug Fixes
+
+- **ci:** completely disable claude-review workflow ([#17](https://github.com/shep-ai/cli/issues/17)) ([c803cbc](https://github.com/shep-ai/cli/commit/c803cbc35a0bac32ffcfa19057e1c6ebfdb43a64))
+- **ci:** delete claude-review.yml workflow file ([#18](https://github.com/shep-ai/cli/issues/18)) ([4ff1629](https://github.com/shep-ai/cli/commit/4ff162991d5d6c45d02ff34e186964ac168fe6f4))
+- **ci:** enable credential persistence for semantic-release ([#16](https://github.com/shep-ai/cli/issues/16)) ([bffac14](https://github.com/shep-ai/cli/commit/bffac1498a1f249c5f70e49fe94f6a65de5614cc))
+- **ci:** limit main branch to 1 concurrent workflow ([#21](https://github.com/shep-ai/cli/issues/21)) ([4dc5b84](https://github.com/shep-ai/cli/commit/4dc5b84a82aabdde3ad05fa433e46311ce5308aa))
+- **ci:** suppress cve-2026-0775 npm vulnerability ([#20](https://github.com/shep-ai/cli/issues/20)) ([c5d3635](https://github.com/shep-ai/cli/commit/c5d3635170f891526fa5e02babb4a02af9ece6fd))
+- **ci:** use release_token for semantic-release to bypass branch protection ([#19](https://github.com/shep-ai/cli/issues/19)) ([17438b5](https://github.com/shep-ai/cli/commit/17438b5335b6a1eb4b85c3484e75f60c41dcbc33))
+
+### Features
+
+- **specs:** add 005 global-settings-service specification ([#14](https://github.com/shep-ai/cli/issues/14)) ([427344e](https://github.com/shep-ai/cli/commit/427344e23846a90d3389987c0cb1684024b1c127)), closes [#005](https://github.com/shep-ai/cli/issues/005)
+- **web:** add component library foundation with shadcn/ui and storybook ([#9](https://github.com/shep-ai/cli/issues/9)) ([e4601fa](https://github.com/shep-ai/cli/commit/e4601fa5a7f0d0e32e3a72431258cce1f03fc196))
+- **ci:** add security scanning gates with release blocking ([#8](https://github.com/shep-ai/cli/issues/8)) ([1e16f2d](https://github.com/shep-ai/cli/commit/1e16f2ddd28a6b7ebf72147835a1c6117b136427))
+
+### BREAKING CHANGES
+
+- **specs:** All feature plans MUST now follow Test-Driven Development
+
+* Update shep-kit:plan skill to MANDATE TDD planning structure
+* Update plan.md template with explicit TDD cycle phases
+* Update tasks.md template with RED-GREEN-REFACTOR breakdown
+* Update spec-driven-workflow.md to emphasize MANDATORY TDD
+* Update CLAUDE.md to highlight TDD requirement in planning
+* Rewrite 005-global-settings-service plan/tasks with TDD structure
+  - Phase 1-2: Foundational (no tests)
+  - Phase 3: TDD Cycle 1 (Domain Layer)
+  - Phase 4: TDD Cycle 2 (Application Layer)
+  - Phase 5: TDD Cycle 3 (Persistence Layer)
+  - Phase 6: TDD Cycle 4 (Repository Layer)
+  - Phase 7: TDD Cycle 5 (CLI Integration)
+  - Phase 8: Documentation
+
+Key Changes:
+
+- Tests are written FIRST in every TDD cycle (RED phase)
+- Implementation written to pass tests (GREEN phase)
+- Code refactored while keeping tests green (REFACTOR phase)
+- Old non-TDD plans backed up as plan-old.md, tasks-old.md
+
+This ensures all future features follow proper TDD workflow.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- fix(ci): use v1.0+ prompt parameter in claude-review workflow
+
+Changed direct_prompt to prompt to match claude-code-action@v1 API.
+The v0.x parameter name was causing the action to skip execution.
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- feat(config): add build pipeline and typespec code generation
+
+phase 1: build pipeline & code generation setup (foundational)
+
+- install dependencies: better-sqlite3, @blackglory/better-sqlite3-migrations,
+  @typespec-tools/emitter-typescript, tsyringe, reflect-metadata
+- configure typescript decorators (experimentalDecorators, emitDecoratorMetadata)
+- add @domain/generated/\* path alias to tsconfig.json
+- configure typescript emitter in tspconfig.yaml
+- add generate/tsp:codegen scripts with pre-hooks (prebuild, pretest, prelint)
+- update ci workflow to run pnpm generate in all jobs
+- update pre-commit hook to generate types before lint-staged
+- track src/domain/generated/ in git (typespec-generated domain models)
+- exclude src/domain/generated/ from eslint (auto-generated code)
+- verify typespec compilation works end-to-end
+
+build flow: typespec → generate → build → test
+
+part of specs/005-global-settings-service
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- fix(config): ignore nested build output directories in eslint
+
+* Change `.next/**` to `**/.next/**` to catch Next.js build dirs at any level
+* Change `storybook-static/**` to `**/storybook-static/**` for Storybook builds
+* Fixes lint failures from workspace build outputs in src/presentation/web/.next/
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- feat(tsp): add settings domain model with nested configuration types
+
+* Create Settings entity extending BaseEntity (singleton pattern)
+* Add ModelConfiguration for AI model selection per agent
+* Add UserProfile for optional user identity (name, email, github)
+* Add EnvironmentConfig for editor and shell preferences
+* Add SystemConfig for auto-update and log level settings
+* Update domain entities index to export Settings model
+* Generate TypeScript types in src/domain/generated/output.ts
+* All nested models have sensible defaults for first-run experience
+
+Phase 2/8 complete: TypeSpec Settings Model & Generation
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- style(tsp): fix prettier formatting in generated output.ts
+
+* Change enum string values from double quotes to single quotes
+* Fixes CI/CD format:check failure
+* No functional changes, only style formatting
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- fix(config): auto-format generated types after typespec compilation
+
+* Add prettier --write to tsp:codegen script after compilation
+* Ensures generated TypeScript follows project code style (single quotes)
+* Fixes CI/CD format:check failures due to double quotes in generated code
+* Generated files now maintain consistent formatting across commits
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- fix(docker): include typespec files in build context
+
+* Add tspconfig.yaml and tsp/ directory to builder stage COPY
+* Remove tsp/ and tspconfig.yaml from .dockerignore exclusions
+* TypeSpec files are required during build for code generation (prebuild hook)
+* Fixes Docker Build and Trivy (container) CI/CD failures
+* Build now succeeds with pnpm generate → TypeScript compilation
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- feat(domain): implement settings defaults factory with tdd
+
+Phase 3 implementation following red-green-refactor cycle.
+
+- created comprehensive test suite (15 tests)
+- implemented createDefaultSettings() factory function
+- extracted constants for maintainability
+- disabled claude review workflow per user preference
+- updated tasks.md with phase 1, 2, 3 complete
+
+tests: 15/15 unit tests passing, all validations passing
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- feat(application): implement settings use cases with tdd
+
+phase 4 implementation following red-green-refactor cycle.
+
+- created comprehensive test suite (26 tests total)
+- mock repository helper for unit testing
+- initialize settings use case (idempotent initialization)
+- load settings use case (with error handling)
+- update settings use case (full settings update)
+- clean architecture with repository interface
+- tsyringe dependency injection
+- reflect-metadata for decorators
+
+tests: 26/26 use case tests passing, all validations passing
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- feat(domain): implement sqlite persistence layer with tdd
+
+phase 5 implementation following red-green-refactor cycle.
+
+- created comprehensive integration tests (13 tests total)
+- database helper for in-memory test databases
+- shep directory service (~/.shep/ with 700 permissions)
+- sqlite connection module (singleton with wal mode)
+- manual migration system (user_version tracking)
+- settings table migration (flattened schema)
+- all pragmas configured for performance
+- idempotent migrations with transaction support
+
+tests: 13/13 integration tests passing, all validations passing
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- feat(infrastructure): implement sqlite settings repository with tdd
+
+Completes Phase 6 (Infrastructure - Repository Layer) following strict TDD methodology.
+
+RED Phase:
+
+- Created 32 integration tests for SQLiteSettingsRepository
+- Tests cover initialize(), load(), update() operations
+- Tests verify singleton constraint enforcement
+- Tests confirm SQL injection prevention with prepared statements
+- Tests validate database mapping (snake_case ↔ camelCase)
+
+GREEN Phase:
+
+- Implemented SQLiteSettingsRepository with @injectable decorator
+- Used prepared statements with named parameters for all operations
+- Implemented bidirectional database mapping (flatten/unflatten)
+- All 32 integration tests passing
+
+REFACTOR Phase:
+
+- Extracted mapping functions to settings.mapper.ts
+- Optimized SQL queries with prepared statements
+- Maintained test coverage (141/141 tests passing)
+
+Test Results:
+
+- Repository tests: 32/32 passing
+- Total suite: 141/141 passing
+- All validation checks passing (lint, format, typecheck, tsp)
+
+Files Changed:
+
+- tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts (new)
+- src/infrastructure/repositories/sqlite-settings.repository.ts (new)
+- src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts (new)
+- specs/005-global-settings-service/tasks.md (updated)
+
+Note: DI container configuration deferred to Phase 7 (CLI integration)
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- feat(cli): implement settings initialization with di container and tdd
+
+Completes Phase 7 (CLI Integration) following strict TDD methodology.
+
+RED Phase:
+
+- Created 11 E2E tests for CLI settings initialization
+- Tests verify directory creation, database setup, settings persistence
+- Tests cover concurrent access, error recovery, environment isolation
+- Initial results: 8/11 tests failing as expected
+
+GREEN Phase:
+
+- Created DI container (src/infrastructure/di/container.ts)
+- Configured tsyringe with database, repositories, and use cases
+- Created settings service (src/infrastructure/services/settings.service.ts)
+- Implemented global settings singleton access pattern
+- Updated CLI entry point with async bootstrap function
+- Added reflect-metadata import and DI initialization
+- All 11 E2E tests passing
+
+REFACTOR Phase:
+
+- Improved error handling with specific messages for each failure point
+- Bootstrap function separated for database and settings initialization
+- Fixed ESLint errors (require() imports, unused variables)
+- All 152 tests passing after refactoring
+
+Test Results:
+
+- E2E settings tests: 11/11 passing
+- Total test suite: 152/152 passing
+- All validation checks passing (lint, format, typecheck, tsp)
+
+Files Changed:
+
+- tests/e2e/cli/settings-initialization.test.ts (new - 11 E2E tests)
+- src/infrastructure/di/container.ts (new - DI configuration)
+- src/infrastructure/services/settings.service.ts (new - global singleton)
+- src/presentation/cli/index.ts (updated - bootstrap with DI)
+- specs/005-global-settings-service/tasks.md (updated - Phase 7 complete)
+
+Key Features:
+
+- Automatic settings initialization on first CLI run
+- Global settings access throughout application
+- Dependency injection with tsyringe
+- Database migrations run automatically
+- Graceful error handling and recovery
+- Environment variable isolation for testing
+
+Co-Authored-By: Claude Sonnet 4.5 <noreply@anthropic.com>
+
+- docs(specs): complete phase 8 - documentation for global-settings-service
+
+Phase 8: Documentation & Finalization (TDD Complete)
+
+Updates:
+
+- CLAUDE.md: Added Settings domain model, DI container,
+  TypeSpec-first architecture
+- docs/architecture/settings-service.md: Comprehensive
+  architecture documentation
+- docs/development/cicd.md: Document TypeSpec compilation
+  in CI/CD
+- docs/development/tdd-guide.md: Added sections on testing
+  TypeSpec-generated code and in-memory SQLite repositories
+- docs/development/typespec-guide.md: Complete TypeSpec
+  domain modeling guide
+- specs/005-global-settings-service/spec.md: Marked all
+  success criteria as completed, Phase: Complete
+- specs/005-global-settings-service/tasks.md: All Phase 8
+  tasks completed, acceptance checklist satisfied
+
+Feature complete:
+
+- 152/152 tests passing (all green)
+- All validations passing (lint, format, typecheck, tsp)
+- Smoke test successful (shep version works with settings)
+- TDD workflow followed for ALL phases (RED → GREEN → REFACTOR)
+
 # [1.2.0](https://github.com/shep-ai/cli/compare/v1.1.0...v1.2.0) (2026-02-02)
 
 ### Features
