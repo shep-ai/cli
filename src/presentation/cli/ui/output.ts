@@ -9,6 +9,9 @@
  * @module output
  */
 
+import yaml from 'js-yaml';
+import { TableFormatter } from './tables.js';
+
 export type OutputFormat = 'table' | 'json' | 'yaml';
 
 /**
@@ -17,30 +20,37 @@ export type OutputFormat = 'table' | 'json' | 'yaml';
 export class OutputFormatter {
   /**
    * Formats data according to the specified output format
-   * (Implementation in Phase 1)
    */
   static format(data: unknown, format: OutputFormat): string {
-    throw new Error('Not implemented');
+    switch (format) {
+      case 'table':
+        return OutputFormatter.formatAsTable(data);
+      case 'json':
+        return OutputFormatter.formatAsJSON(data);
+      case 'yaml':
+        return OutputFormatter.formatAsYAML(data);
+    }
   }
 
   /**
    * Formats data as a table
    */
   static formatAsTable(data: unknown): string {
-    throw new Error('Not implemented');
+    const table = TableFormatter.createSettingsTable(data);
+    return table.toString();
   }
 
   /**
    * Formats data as JSON
    */
   static formatAsJSON(data: unknown): string {
-    throw new Error('Not implemented');
+    return JSON.stringify(data, null, 2);
   }
 
   /**
    * Formats data as YAML
    */
   static formatAsYAML(data: unknown): string {
-    throw new Error('Not implemented');
+    return yaml.dump(data, { indent: 2, lineWidth: -1 });
   }
 }

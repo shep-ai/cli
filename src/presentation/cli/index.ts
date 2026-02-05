@@ -24,6 +24,7 @@ import 'reflect-metadata';
 import { Command } from 'commander';
 import { VersionService } from '../../infrastructure/services/version.service.js';
 import { createVersionCommand } from './commands/version.command.js';
+import { createSettingsCommand } from './commands/settings/index.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
@@ -71,6 +72,7 @@ async function bootstrap() {
 
     // Register commands
     program.addCommand(createVersionCommand());
+    program.addCommand(createSettingsCommand());
 
     // Parse arguments
     program.parse();

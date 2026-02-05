@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import type Table from 'cli-table3';
+
 import { TableFormatter } from '../../../../../src/presentation/cli/ui/tables.js';
 import { createDefaultSettings } from '../../../../../src/domain/factories/settings-defaults.factory.js';
 
