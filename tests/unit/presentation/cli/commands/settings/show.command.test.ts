@@ -3,57 +3,100 @@
  *
  * Tests for the `shep settings show` command.
  *
- * TDD Phase: RED
- * - These tests are written BEFORE implementation
- * - All tests should FAIL initially (show command doesn't exist yet)
+ * TDD Phase: GREEN
+ * - Tests now verify actual show command behavior
  */
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type { LoadSettingsUseCase } from '../../../../../../src/application/use-cases/settings/load-settings.use-case.js';
 import { createDefaultSettings } from '../../../../../../src/domain/factories/settings-defaults.factory.js';
+import { Command } from 'commander';
 
-// This will fail because the show command doesn't exist yet
+// Mock the settings service - factory must not reference outer variables (hoisted)
+vi.mock('../../../../../../src/infrastructure/services/settings.service.js', () => ({
+  getSettings: vi.fn(),
+}));
+
+// Mock the shep directory service
+vi.mock(
+  '../../../../../../src/infrastructure/services/filesystem/shep-directory.service.js',
+  () => ({
+    getShepDbPath: vi.fn().mockReturnValue('/home/test/.shep/data'),
+  })
+);
+
+import { getSettings } from '../../../../../../src/infrastructure/services/settings.service.js';
+import { createShowCommand } from '../../../../../../src/presentation/cli/commands/settings/show.command.js';
+
 describe('Show Command', () => {
-  let mockLoadSettingsUseCase: LoadSettingsUseCase;
+  const mockSettings = createDefaultSettings();
 
   beforeEach(() => {
-    // Mock the use case
-    mockLoadSettingsUseCase = {
-      execute: vi.fn().mockResolvedValue(createDefaultSettings()),
-    } as any;
+    vi.clearAllMocks();
+    (getSettings as ReturnType<typeof vi.fn>).mockReturnValue(mockSettings);
   });
 
   describe('command execution', () => {
-    it('should fail because createShowCommand is not implemented yet', () => {
-      // This test will fail because we haven't created the show command yet
-      expect(true).toBe(false); // Intentional RED phase failure
+    it('should create a valid Commander command', () => {
+      const cmd = createShowCommand();
+      expect(cmd).toBeInstanceOf(Command);
+      expect(cmd.name()).toBe('show');
     });
   });
 
   describe('output format handling', () => {
     it('should default to table format', () => {
-      expect(true).toBe(false); // Intentional RED phase failure
+      const cmd = createShowCommand();
+      const outputOption = cmd.options.find((o) => o.long === '--output');
+      expect(outputOption).toBeDefined();
+      expect(outputOption!.defaultValue).toBe('table');
     });
 
     it('should handle --output json flag', () => {
-      expect(true).toBe(false); // Intentional RED phase failure
+      const cmd = createShowCommand();
+      const outputOption = cmd.options.find((o) => o.long === '--output');
+      expect(outputOption).toBeDefined();
+      expect(outputOption!.argChoices).toContain('json');
     });
 
     it('should handle --output yaml flag', () => {
-      expect(true).toBe(false); // Intentional RED phase failure
+      const cmd = createShowCommand();
+      const outputOption = cmd.options.find((o) => o.long === '--output');
+      expect(outputOption).toBeDefined();
+      expect(outputOption!.argChoices).toContain('yaml');
     });
   });
 
   describe('use case integration', () => {
-    it('should call LoadSettingsUseCase.execute()', () => {
-      expect(true).toBe(false); // Intentional RED phase failure
+    it('should call getSettings() to retrieve settings', async () => {
+      const cmd = createShowCommand();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn());
+
+      await cmd.parseAsync(['--output', 'json'], { from: 'user' });
+
+      expect(getSettings).toHaveBeenCalled();
+      consoleSpy.mockRestore();
     });
   });
 
   describe('error handling', () => {
-    it('should handle settings not found error', () => {
-      expect(true).toBe(false); // Intentional RED phase failure
+    it('should handle settings not found error', async () => {
+      (getSettings as ReturnType<typeof vi.fn>).mockImplementation(() => {
+        throw new Error('Settings not initialized');
+      });
+
+      const cmd = createShowCommand();
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+      const logSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn());
+
+      await cmd.parseAsync(['--output', 'json'], { from: 'user' });
+
+      expect(process.exitCode).toBe(1);
+      errorSpy.mockRestore();
+      logSpy.mockRestore();
+
+      // Reset exitCode for other tests
+      process.exitCode = undefined;
     });
   });
 });

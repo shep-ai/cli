@@ -14,7 +14,7 @@ import { promises as fs } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('CLI: settings show', () => {
-  const testDataPath = resolve(process.env.HOME || '/tmp', '.shep-test', 'data');
+  const testDataPath = resolve(process.env.HOME ?? '/tmp', '.shep-test', 'data');
 
   beforeEach(async () => {
     // Clean up test database before each test

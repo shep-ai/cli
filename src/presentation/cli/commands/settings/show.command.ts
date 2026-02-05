@@ -1,0 +1,65 @@
+/**
+ * Show Settings Command
+ *
+ * Displays current Shep settings with multiple output format support.
+ *
+ * Usage:
+ *   shep settings show                 # Display as table (default)
+ *   shep settings show --output json   # Display as JSON
+ *   shep settings show -o yaml         # Display as YAML
+ */
+
+import { Command, Option } from 'commander';
+import { OutputFormatter, type OutputFormat } from '../../ui/output.js';
+import { getShepDbPath } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
+import { getSettings } from '../../../../infrastructure/services/settings.service.js';
+import { statSync } from 'node:fs';
+import { messages, fmt } from '../../ui/index.js';
+
+/**
+ * Create the show settings command
+ */
+export function createShowCommand(): Command {
+  return new Command('show')
+    .description('Display current settings')
+    .addOption(
+      new Option('-o, --output <format>', 'Output format: table|json|yaml')
+        .choices(['table', 'json', 'yaml'])
+        .default('table')
+    )
+    .action((options: { output: OutputFormat }) => {
+      try {
+        const settings = getSettings();
+
+        const output = OutputFormatter.format(settings, options.output);
+        console.log(output);
+
+        // Show database metadata for table format
+        if (options.output === 'table') {
+          const dbPath = getShepDbPath();
+          let sizeStr = 'unknown';
+          try {
+            const stats = statSync(dbPath);
+            sizeStr = formatFileSize(stats.size);
+          } catch {
+            // File may not be accessible
+          }
+
+          messages.newline();
+          console.log(fmt.heading('Database'));
+          console.log(`  ${fmt.label('Path:')}  ${dbPath}`);
+          console.log(`  ${fmt.label('Size:')}  ${sizeStr}`);
+        }
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        messages.error('Failed to load settings', err);
+        process.exitCode = 1;
+      }
+    });
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
