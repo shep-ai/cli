@@ -7,7 +7,7 @@
 - **Number:** 006
 - **Created:** 2026-02-05
 - **Branch:** feat/006-cli-settings-commands
-- **Phase:** Research
+- **Phase:** Planning
 
 ## Problem Statement
 
