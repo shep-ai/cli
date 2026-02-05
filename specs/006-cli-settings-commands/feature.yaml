@@ -3,18 +3,18 @@ feature:
   name: 'CLI Settings Commands'
   number: 6
   branch: 'feat/006-cli-settings-commands'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-05T13:23:00Z'
 
 status:
-  phase: 'complete'
+  phase: 'in-review'
   progress:
     completed: 65
     total: 65
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-05T15:12:00Z'
-  lastUpdatedBy: 'shep-kit:implement'
+  lastUpdated: '2026-02-05T16:00:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
 
 validation:
   lastRun: '2026-02-05T15:12:00Z'
@@ -71,6 +71,11 @@ checkpoints:
   - phase: 'phase-5-integration-complete'
     completedAt: '2026-02-05T15:12:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-05T16:00:00Z'
+    completedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/23'
 
 errors:
   current: null
