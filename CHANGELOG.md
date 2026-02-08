@@ -1,3 +1,9 @@
+# [1.8.0](https://github.com/shep-ai/cli/compare/v1.7.0...v1.8.0) (2026-02-08)
+
+### Features
+
+- **specs:** add 010-enforce-di-compliance specification (completed) ([4e7fe35](https://github.com/shep-ai/cli/commit/4e7fe3574c5801cee45aca8d2dbde9126a15e603))
+
 # [1.7.0](https://github.com/shep-ai/cli/compare/v1.6.3...v1.7.0) (2026-02-08)
 
 ### Features
