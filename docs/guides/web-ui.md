@@ -32,18 +32,18 @@ The Web UI is built with modern React patterns:
 
 ## Accessing the UI
 
-Start Shep and the UI opens automatically:
+Start the web UI server:
 
 ```bash
-shep
+shep ui
 ```
 
-Default URL: `http://localhost:3000/`
+Default URL: `http://localhost:4050/`
 
-To start without opening browser:
+To use a custom port:
 
 ```bash
-shep --no-browser
+shep ui --port 8080
 ```
 
 ## Interface Layout
@@ -265,7 +265,7 @@ Access via gear icon:
 │ [ ] Auto-commit changes                          │
 │                                                  │
 │ Server                                           │
-│ Port: [3000]                                     │
+│ Port: [4050]                                     │
 │                                                  │
 │ Advanced                                         │
 │ [View Logs]  [Clear Cache]  [Reset Config]       │

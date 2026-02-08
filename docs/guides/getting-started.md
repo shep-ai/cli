@@ -122,14 +122,17 @@ This analysis runs once per repository and is cached for future sessions.
 
 ### Web UI Launch
 
-After analysis completes, Shep starts the web server:
+After analysis completes, start the web UI:
+
+```bash
+shep ui
+```
 
 ```
-✓ Analysis complete
 ✓ Web server started
 
   Open in your browser:
-  http://localhost:3030/
+  http://localhost:4050/
 
   Press Ctrl+C to stop
 ```
@@ -138,7 +141,7 @@ After analysis completes, Shep starts the web server:
 
 ### 1. Open the Web UI
 
-Navigate to `http://localhost:3030/` in your browser.
+Navigate to `http://localhost:4050/` in your browser.
 
 ### 2. Start a New Feature
 
@@ -302,10 +305,10 @@ If authentication fails:
 
 ### Port Already in Use
 
-If port 3030 is busy:
+If port 4050 is busy:
 
 ```bash
-shep --port 3031
+shep ui --port 4051
 ```
 
 ---

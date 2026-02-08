@@ -18,6 +18,7 @@ import type {
   EnvironmentConfig,
   SystemConfig,
 } from '../../../../src/domain/generated/output.js';
+import { AgentType, AgentAuthMethod } from '../../../../src/domain/generated/output.js';
 
 describe('createDefaultSettings', () => {
   describe('return type and structure', () => {
@@ -188,6 +189,51 @@ describe('createDefaultSettings', () => {
     });
   });
 
+  describe('AgentConfig defaults', () => {
+    it('should have agent field defined', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.agent).toBeDefined();
+    });
+
+    it('should set agent type to claude-code', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.agent.type).toBe(AgentType.ClaudeCode);
+    });
+
+    it('should set agent authMethod to session', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.agent.authMethod).toBe(AgentAuthMethod.Session);
+    });
+
+    it('should have token as undefined', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.agent.token).toBeUndefined();
+    });
+
+    it('should match TypeSpec model defaults', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.agent).toEqual({
+        type: AgentType.ClaudeCode,
+        authMethod: AgentAuthMethod.Session,
+      });
+    });
+  });
+
   describe('complete default object', () => {
     it('should return complete Settings object matching all TypeSpec defaults', () => {
       // Act
@@ -208,6 +254,10 @@ describe('createDefaultSettings', () => {
       expect(settings.system).toEqual({
         autoUpdate: true,
         logLevel: 'info',
+      });
+      expect(settings.agent).toEqual({
+        type: AgentType.ClaudeCode,
+        authMethod: AgentAuthMethod.Session,
       });
     });
   });

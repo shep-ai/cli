@@ -4,60 +4,55 @@
 
 ## Status
 
-- **Phase:** Planning
+- **Phase:** Complete
 - **Updated:** 2026-02-08
 
 ## Overview
 
-{{DATA_MODEL_OVERVIEW}}
-
-## New Entities
-
-### {{ENTITY_NAME}}
-
-**Location:** `tsp/domain/entities/{{entity-name}}.tsp`
-
-| Property      | Type          | Required     | Description   |
-| ------------- | ------------- | ------------ | ------------- |
-| {{PROP_NAME}} | {{PROP_TYPE}} | {{REQUIRED}} | {{PROP_DESC}} |
-
-**Relationships:**
-
-- {{RELATIONSHIP_1}}
+Extends the Settings entity with AI coding agent configuration. Adds AgentType and AgentAuthMethod enums, and an AgentConfig value object embedded within Settings.
 
 ## Modified Entities
 
-### {{EXISTING_ENTITY}}
+### Settings
 
 **Changes:**
 
-- Add: {{NEW_PROPERTY}}
-- Modify: {{MODIFIED_PROPERTY}}
+- Add: `agent: AgentConfig` — AI coding agent selection and authentication
 
 ## Value Objects
 
-### {{VALUE_OBJECT_NAME}}
+### AgentConfig
 
-**Location:** `tsp/domain/value-objects/{{value-object}}.tsp`
+**Location:** `tsp/domain/value-objects/agent-config.tsp`
 
-| Property    | Type        | Description |
-| ----------- | ----------- | ----------- |
-| {{VO_PROP}} | {{VO_TYPE}} | {{VO_DESC}} |
+| Property   | Type            | Required | Description                              |
+| ---------- | --------------- | -------- | ---------------------------------------- |
+| type       | AgentType       | Yes      | Selected AI coding agent                 |
+| authMethod | AgentAuthMethod | Yes      | Authentication method for the agent      |
+| token      | string          | No       | API token for token-based authentication |
 
 ## Enums
 
-### {{ENUM_NAME}}
+### AgentType
 
-**Location:** `tsp/common/enums/{{enum-name}}.tsp`
+**Location:** `tsp/common/enums/agent-config.tsp`
 
-| Value          | Description   |
-| -------------- | ------------- |
-| {{ENUM_VALUE}} | {{ENUM_DESC}} |
+| Value       | Description                |
+| ----------- | -------------------------- |
+| claude-code | Anthropic Claude Code CLI  |
+| gemini-cli  | Google Gemini CLI          |
+| aider       | Aider AI coding assistant  |
+| continue    | Continue.dev IDE extension |
+| cursor      | Cursor AI-powered IDE      |
 
-<!-- If no data model changes, replace all with:
-## Overview
-No domain model changes required for this feature.
--->
+### AgentAuthMethod
+
+**Location:** `tsp/common/enums/agent-config.tsp`
+
+| Value   | Description                       |
+| ------- | --------------------------------- |
+| session | Use agent's built-in session auth |
+| token   | Authenticate via API token        |
 
 ---
 

@@ -104,6 +104,69 @@ shep settings init -f
 
 **Error handling**: Same pattern as `settings show`.
 
+### `shep settings agent`
+
+Configure AI coding agent.
+
+**Source**: `src/presentation/cli/commands/settings/agent.command.ts`
+
+**Options**:
+
+| Option            | Description                       |
+| ----------------- | --------------------------------- |
+| `--agent <type>`  | Agent type (e.g. claude-code)     |
+| `--auth <method>` | Auth method: `session` or `token` |
+| `--token <key>`   | API token for the agent           |
+
+**Examples**:
+
+```bash
+# Interactive wizard
+shep settings agent
+
+# Non-interactive with flags
+shep settings agent --agent claude-code --auth session
+```
+
+**Behavior**:
+
+- Without flags: Launches an interactive wizard that guides through agent selection, authentication method, and token entry.
+- With flags: Runs non-interactively using the provided values.
+
+**Error handling**: Same pattern as `settings show`.
+
+---
+
+## `shep ui`
+
+Start the Shep web UI server.
+
+**Source**: `src/presentation/cli/commands/ui.command.ts`
+
+**Options**:
+
+| Option                | Description              | Default |
+| --------------------- | ------------------------ | ------- |
+| `-p, --port <number>` | Port number (1024-65535) | `4050`  |
+
+**Examples**:
+
+```bash
+# Start on default port
+shep ui
+
+# Start on custom port
+shep ui --port 8080
+```
+
+**Behavior**:
+
+- Starts the web UI server and prints the URL.
+- Auto-increments port if the requested port is already occupied.
+- Graceful shutdown on Ctrl+C.
+
+**Error handling**: Same pattern as `settings show`.
+
 ---
 
 ## Adding a New Command

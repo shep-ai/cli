@@ -97,6 +97,11 @@ describe('SQLite Migrations', () => {
       // SystemConfig columns
       expect(columnNames).toContain('sys_auto_update');
       expect(columnNames).toContain('sys_log_level');
+
+      // AgentConfig columns
+      expect(columnNames).toContain('agent_type');
+      expect(columnNames).toContain('agent_auth_method');
+      expect(columnNames).toContain('agent_token');
     });
 
     it('should create unique index for singleton pattern', async () => {
