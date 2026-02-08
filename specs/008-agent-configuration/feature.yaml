@@ -3,18 +3,20 @@ feature:
   name: 'agent-configuration'
   number: 8
   branch: 'feat/008-agent-configuration'
-  lifecycle: 'complete'
+  lifecycle: 'review'
   createdAt: '2026-02-08T11:23:54Z'
 
 status:
-  phase: 'implementation-complete'
+  phase: 'in-review'
   progress:
     completed: 69
     total: 69
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-08T14:20:00Z'
-  lastUpdatedBy: 'shep-kit:implement'
+  lastUpdated: '2026-02-08T14:25:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/25'
 
 validation:
   lastRun: '2026-02-08T14:19:00Z'
@@ -46,6 +48,9 @@ checkpoints:
   - phase: 'implementation-complete'
     completedAt: '2026-02-08T14:20:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-08T14:25:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
