@@ -7,7 +7,7 @@
 - **Number:** 011
 - **Created:** 2026-02-08
 - **Branch:** refactor/logger-system
-- **Phase:** Requirements
+- **Phase:** Research (ready)
 
 ## Problem Statement
 
@@ -65,12 +65,19 @@ None identified.
 
 Estimated effort: 2-3 days for a single developer.
 
+## Decisions Made
+
+- [x] **Logger Library**: pino - Fastest performance, JSON-first, minimal overhead, excellent TypeScript support
+- [x] **Log Rotation**: Yes - Include daily/size-based rotation for production readiness
+- [x] **Logger Scope**: Single shared logger instance configured via DI (consistent across CLI and web)
+- [x] **Configuration**: Multi-layered with precedence order:
+  1. CLI flag (`--log-level`) - highest priority
+  2. Environment variable (`LOG_LEVEL`)
+  3. Settings (persisted in SQLite) - fallback default
+
 ## Open Questions
 
-- [ ] Which logger library? (pino is fastest, winston is most popular)
-- [ ] Should we support log rotation for file transports?
-- [ ] Do we need separate loggers for CLI vs web server?
-- [ ] Should logger configuration be part of Settings domain model?
+None - all requirements clarified and ready for research phase.
 
 ---
 
