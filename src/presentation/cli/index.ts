@@ -11,6 +11,7 @@
  * Commands:
  *   shep           Show help
  *   shep version   Display version information
+ *   shep ui        Start the web UI
  *   shep --version Display version number only
  *
  * Global Options:
@@ -25,6 +26,7 @@ import { Command } from 'commander';
 import { VersionService } from '../../infrastructure/services/version.service.js';
 import { createVersionCommand } from './commands/version.command.js';
 import { createSettingsCommand } from './commands/settings/index.js';
+import { createUiCommand } from './commands/ui.command.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
@@ -73,6 +75,7 @@ async function bootstrap() {
     // Register commands
     program.addCommand(createVersionCommand());
     program.addCommand(createSettingsCommand());
+    program.addCommand(createUiCommand());
 
     // Parse arguments (parseAsync needed for async command actions like init)
     await program.parseAsync();
