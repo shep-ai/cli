@@ -42,8 +42,7 @@ describe('CLI: settings show', () => {
       const result = runCli('settings show');
 
       expect(result.exitCode).toBe(0);
-      expect(result.stdout).toContain('Database'); // Metadata section
-      expect(result.stdout).toContain('Path:');
+      expect(result.stdout).toContain('Database');
       expect(result.stdout).toContain('.shep/data');
     });
   });

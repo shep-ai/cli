@@ -1,60 +1,106 @@
 /**
  * Table Formatting Utilities
  *
- * Provides utilities for rendering structured data as formatted tables
- * in the terminal using cli-table3.
+ * Provides clean text-based rendering for structured CLI output.
+ * Uses alignment, whitespace, and colors instead of box-drawing borders.
  *
  * @module tables
  */
 
-import Table from 'cli-table3';
 import type { Settings } from '../../../domain/generated/output.js';
+import { colors } from './colors.js';
+import pc from 'picocolors';
+
+export interface DatabaseMeta {
+  path: string;
+  size: string;
+}
 
 /**
  * Table formatter for CLI output
  */
 export class TableFormatter {
+  private static readonly LABEL_WIDTH = 15;
+
   /**
-   * Creates a formatted table for settings data
+   * Creates a clean, formatted settings display string.
    */
-  static createSettingsTable(settings: unknown): InstanceType<typeof Table> {
+  static createSettingsTable(settings: unknown, dbMeta?: DatabaseMeta): string {
     const s = settings as Settings;
+    const lines: string[] = [];
 
-    const table = new Table({
-      style: { head: [], border: [] },
-    });
+    lines.push(`  ${pc.bold(colors.brand('Settings'))}`);
+    lines.push('');
 
-    // Models section
-    table.push(
-      [{ colSpan: 2, content: 'Models', hAlign: 'center' }],
-      ['Analyze', s.models.analyze],
-      ['Requirements', s.models.requirements],
-      ['Plan', s.models.plan],
-      ['Implement', s.models.implement]
+    // Models
+    lines.push(
+      ...TableFormatter.section('Models', [
+        ['Analyze', s.models.analyze],
+        ['Requirements', s.models.requirements],
+        ['Plan', s.models.plan],
+        ['Implement', s.models.implement],
+      ])
     );
 
-    // User section
-    table.push(
-      [{ colSpan: 2, content: 'User', hAlign: 'center' }],
-      ['Name', s.user.name ?? '(not set)'],
-      ['Email', s.user.email ?? '(not set)'],
-      ['GitHub', s.user.githubUsername ?? '(not set)']
+    // User
+    lines.push(
+      ...TableFormatter.section('User', [
+        ['Name', s.user.name],
+        ['Email', s.user.email],
+        ['GitHub', s.user.githubUsername],
+      ])
     );
 
-    // Environment section
-    table.push(
-      [{ colSpan: 2, content: 'Environment', hAlign: 'center' }],
-      ['Editor', s.environment.defaultEditor],
-      ['Shell', s.environment.shellPreference]
+    // Environment
+    lines.push(
+      ...TableFormatter.section('Environment', [
+        ['Editor', s.environment.defaultEditor],
+        ['Shell', s.environment.shellPreference],
+      ])
     );
 
-    // System section
-    table.push(
-      [{ colSpan: 2, content: 'System', hAlign: 'center' }],
-      ['Auto-Update', String(s.system.autoUpdate)],
-      ['Log Level', s.system.logLevel]
+    // System
+    lines.push(
+      ...TableFormatter.section('System', [
+        ['Auto-Update', String(s.system.autoUpdate)],
+        ['Log Level', s.system.logLevel],
+      ])
     );
 
-    return table;
+    // Agent
+    lines.push(
+      ...TableFormatter.section('Agent', [
+        ['Type', s.agent.type],
+        ['Auth', s.agent.authMethod],
+        ...(s.agent.token ? [['Token', '••••••••'] as [string, string | undefined]] : []),
+      ])
+    );
+
+    // Database
+    if (dbMeta) {
+      lines.push(
+        ...TableFormatter.section('Database', [
+          ['Path', dbMeta.path],
+          ['Size', dbMeta.size],
+        ])
+      );
+    }
+
+    return lines.join('\n');
+  }
+
+  private static section(title: string, rows: [string, string | undefined][]): string[] {
+    const lines: string[] = [];
+    lines.push(`  ${pc.bold(title)}`);
+    for (const [label, value] of rows) {
+      const paddedLabel = label.padEnd(TableFormatter.LABEL_WIDTH);
+      if (value === undefined || value === null) {
+        lines.push(`    ${colors.muted(paddedLabel)}${pc.italic(colors.muted('(not set)'))}`);
+      } else {
+        lines.push(`    ${colors.muted(paddedLabel)}${value}`);
+      }
+    }
+    lines.push('');
+    return lines;
   }
 }

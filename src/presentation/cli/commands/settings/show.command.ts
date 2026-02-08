@@ -14,7 +14,7 @@ import { OutputFormatter, type OutputFormat } from '../../ui/output.js';
 import { getShepDbPath } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
 import { statSync } from 'node:fs';
-import { messages, fmt } from '../../ui/index.js';
+import { messages } from '../../ui/index.js';
 
 /**
  * Create the show settings command
@@ -39,31 +39,29 @@ Examples:
       try {
         const settings = getSettings();
 
-        const output = OutputFormatter.format(settings, options.output);
+        // Build database metadata for table format
+        const dbMeta = options.output === 'table' ? getDatabaseMeta() : undefined;
+
+        const output = OutputFormatter.format(settings, options.output, dbMeta);
         console.log(output);
-
-        // Show database metadata for table format
-        if (options.output === 'table') {
-          const dbPath = getShepDbPath();
-          let sizeStr = 'unknown';
-          try {
-            const stats = statSync(dbPath);
-            sizeStr = formatFileSize(stats.size);
-          } catch {
-            // File may not be accessible
-          }
-
-          messages.newline();
-          console.log(fmt.heading('Database'));
-          console.log(`  ${fmt.label('Path:')}  ${dbPath}`);
-          console.log(`  ${fmt.label('Size:')}  ${sizeStr}`);
-        }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         messages.error('Failed to load settings', err);
         process.exitCode = 1;
       }
     });
+}
+
+function getDatabaseMeta() {
+  const dbPath = getShepDbPath();
+  let size = 'unknown';
+  try {
+    const stats = statSync(dbPath);
+    size = formatFileSize(stats.size);
+  } catch {
+    // File may not be accessible
+  }
+  return { path: dbPath, size };
 }
 
 function formatFileSize(bytes: number): string {

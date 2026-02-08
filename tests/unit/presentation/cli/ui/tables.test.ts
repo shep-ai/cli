@@ -1,11 +1,7 @@
 /**
  * TableFormatter Unit Tests
  *
- * Tests for the TableFormatter that creates formatted tables for CLI output.
- *
- * TDD Phase: RED
- * - These tests are written BEFORE implementation
- * - All tests should FAIL initially because formatter doesn't work yet
+ * Tests for the clean text-based settings display.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -17,43 +13,66 @@ describe('TableFormatter', () => {
   const sampleSettings = createDefaultSettings();
 
   describe('createSettingsTable()', () => {
-    it('should return a Table instance', () => {
-      // Act
+    it('should return a string', () => {
       const result = TableFormatter.createSettingsTable(sampleSettings);
 
-      // Assert
-      expect(result).toBeDefined();
-      expect(typeof result.toString).toBe('function'); // Tables have toString method
-    });
-
-    it('should create table with settings data', () => {
-      // Act
-      const table = TableFormatter.createSettingsTable(sampleSettings);
-      const tableString = table.toString();
-
-      // Assert
-      expect(tableString).toBeTypeOf('string');
-      expect(tableString.length).toBeGreaterThan(0);
+      expect(result).toBeTypeOf('string');
+      expect(result.length).toBeGreaterThan(0);
     });
 
     it('should include all settings sections', () => {
-      // Act
-      const table = TableFormatter.createSettingsTable(sampleSettings);
-      const tableString = table.toString();
+      const result = TableFormatter.createSettingsTable(sampleSettings);
 
-      // Assert
-      expect(tableString).toContain('Models');
-      expect(tableString).toContain('Environment');
-      expect(tableString).toContain('System');
+      expect(result).toContain('Models');
+      expect(result).toContain('User');
+      expect(result).toContain('Environment');
+      expect(result).toContain('System');
+      expect(result).toContain('Agent');
     });
 
-    it('should handle nested objects in settings', () => {
-      // Act
-      const table = TableFormatter.createSettingsTable(sampleSettings);
-      const tableString = table.toString();
+    it('should include model values', () => {
+      const result = TableFormatter.createSettingsTable(sampleSettings);
 
-      // Assert - Should include nested values (e.g., models.analyze)
-      expect(tableString).toContain('claude-sonnet-4-5'); // Default model name
+      expect(result).toContain('claude-sonnet-4-5');
+    });
+
+    it('should show (not set) for missing optional fields', () => {
+      const result = TableFormatter.createSettingsTable(sampleSettings);
+
+      expect(result).toContain('(not set)');
+    });
+
+    it('should include agent configuration', () => {
+      const result = TableFormatter.createSettingsTable(sampleSettings);
+
+      expect(result).toContain('claude-code');
+      expect(result).toContain('session');
+    });
+
+    it('should include database metadata when provided', () => {
+      const dbMeta = { path: '/home/test/.shep/data', size: '152.0 KB' };
+      const result = TableFormatter.createSettingsTable(sampleSettings, dbMeta);
+
+      expect(result).toContain('Database');
+      expect(result).toContain('/home/test/.shep/data');
+      expect(result).toContain('152.0 KB');
+    });
+
+    it('should omit database section when not provided', () => {
+      const result = TableFormatter.createSettingsTable(sampleSettings);
+
+      expect(result).not.toContain('Database');
+    });
+
+    it('should mask token when present', () => {
+      const settingsWithToken = {
+        ...sampleSettings,
+        agent: { ...sampleSettings.agent, token: 'sk-secret-key' },
+      };
+      const result = TableFormatter.createSettingsTable(settingsWithToken);
+
+      expect(result).not.toContain('sk-secret-key');
+      expect(result).toContain('••••••••');
     });
   });
 });
