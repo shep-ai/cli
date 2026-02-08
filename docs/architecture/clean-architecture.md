@@ -246,10 +246,10 @@ src/presentation/
 │   │   ├── status.command.ts
 │   │   └── ...
 │   └── formatters/          # Output formatting
-├── tui/                     # OpenTUI terminal interface
-│   ├── wizard.ts            # Main wizard component
-│   ├── components/          # TUI components (Box, Text, Input)
-│   └── screens/             # Screen components
+├── tui/                     # @inquirer/prompts interactive wizards
+│   ├── wizards/             # Multi-step wizard flows
+│   ├── prompts/             # Reusable prompt configurations
+│   └── themes/              # Custom Inquirer themes
 └── web/                     # Next.js + shadcn/ui
     ├── app/                 # Next.js App Router
     │   ├── layout.tsx
@@ -265,7 +265,7 @@ src/presentation/
 | Component | Framework | Purpose |
 |-----------|-----------|---------|
 | CLI | Commander | Command parsing and execution |
-| TUI | OpenTUI | Yoga flexbox layouts, React bindings |
+| TUI | @inquirer/prompts | Interactive prompts (select, confirm, input, password) |
 | Web UI | Next.js 14 | App Router, Server Components |
 | Components | shadcn/ui | Accessible UI primitives |
 | Design System | Storybook | Component documentation and testing |
