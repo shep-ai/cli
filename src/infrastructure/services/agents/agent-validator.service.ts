@@ -9,6 +9,8 @@
  * to enable testability without mocking node:child_process directly.
  */
 
+import { injectable, inject } from 'tsyringe';
+
 import type { AgentType } from '../../../domain/generated/output.js';
 import type {
   IAgentValidator,
@@ -38,6 +40,7 @@ const AGENT_BINARY_MAP: Partial<Record<AgentType, string>> = {
  * Checks if the agent binary exists and is executable by running
  * `<binary> --version` and parsing the output.
  */
+@injectable()
 export class AgentValidatorService implements IAgentValidator {
   private readonly execFn: ExecFunction;
 
@@ -45,7 +48,7 @@ export class AgentValidatorService implements IAgentValidator {
    * @param execFn - Command executor function (injectable for testing).
    *   Uses execFile semantics (no shell) to prevent command injection.
    */
-  constructor(execFn: ExecFunction) {
+  constructor(@inject('ExecFunction') execFn: ExecFunction) {
     this.execFn = execFn;
   }
 

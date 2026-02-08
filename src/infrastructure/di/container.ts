@@ -28,6 +28,8 @@ import { execFile } from 'node:child_process';
 // Service interfaces and implementations
 import type { IVersionService } from '../../application/ports/output/version-service.interface.js';
 import { VersionService } from '../services/version.service.js';
+import type { IWebServerService } from '../../application/ports/output/web-server-service.interface.js';
+import { WebServerService } from '../services/web-server.service.js';
 
 // Use cases
 import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
@@ -64,16 +66,14 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
 
-  // Register validators
+  // Register external dependencies as tokens
   const execFileAsync = promisify(execFile);
-  container.register<IAgentValidator>('IAgentValidator', {
-    useFactory: () => new AgentValidatorService(execFileAsync),
-  });
+  container.registerInstance('ExecFunction', execFileAsync);
 
-  // Register services
-  container.register<IVersionService>('IVersionService', {
-    useFactory: () => new VersionService(),
-  });
+  // Register services (singletons via @injectable + token)
+  container.registerSingleton<IAgentValidator>('IAgentValidator', AgentValidatorService);
+  container.registerSingleton<IVersionService>('IVersionService', VersionService);
+  container.registerSingleton<IWebServerService>('IWebServerService', WebServerService);
 
   // Register use cases (singletons for performance)
   container.registerSingleton(InitializeSettingsUseCase);
