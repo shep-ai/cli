@@ -6,3 +6,4 @@
  */
 
 export type { ISettingsRepository } from './settings.repository.interface.js';
+export type { IAgentValidator, AgentValidationResult } from './agent-validator.interface.js';
