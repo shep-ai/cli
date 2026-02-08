@@ -83,3 +83,4 @@ yarn.lock
 .tmp/
 *.bak
 storybook-static/
+.worktrees/
