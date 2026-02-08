@@ -5,7 +5,7 @@ description: Use when a task can be worked on in isolation alongside other work.
 
 # Parallel Task via Git Worktree
 
-Create an isolated worktree in `.worktrees/` branched from up-to-date main for parallel development.
+Create an isolated worktree in `.worktrees/` branched from up-to-date main, with spec directory scaffolded.
 
 ## When to Use
 
@@ -22,18 +22,24 @@ digraph parallel_task {
 
     start [label="Start" shape=ellipse];
     get_desc [label="User provides high-level\ntask description"];
-    derive [label="Derive kebab-case dir name\nand branch name from description"];
-    update_main [label="git fetch origin main"];
+    derive [label="Derive dir name, branch name,\nand feature name from description"];
     create_wt [label="create-worktree.sh\n<dir-name> <branch-name>"];
     install [label="pnpm install in worktree"];
+    init_spec [label="Run init-feature.sh\ninside worktree"];
+    fix_yaml [label="Patch feature.yaml\nwith correct branch name"];
+    fill_spec [label="Fill spec.md with\nrequirements (if provided)"];
+    commit [label="git add + commit\nspec scaffold"];
     report [label="Report worktree path" shape=ellipse];
 
     start -> get_desc;
     get_desc -> derive;
-    derive -> update_main;
-    update_main -> create_wt;
+    derive -> create_wt;
     create_wt -> install;
-    install -> report;
+    install -> init_spec;
+    init_spec -> fix_yaml;
+    fix_yaml -> fill_spec;
+    fill_spec -> commit;
+    commit -> report;
 }
 ```
 
@@ -55,34 +61,73 @@ From the description, generate:
 
 - **Dir name**: Short kebab-case identifier for the worktree directory (e.g., `fix-version-display`, `add-agent-retry`, `refactor-di-container`)
 - **Branch name**: Conventional branch name using the project's prefix conventions (e.g., `fix/version-display`, `feat/agent-retry`, `refactor/di-container`)
+- **Feature name**: Kebab-case name for the spec directory (same as dir name or adjusted)
 
 Use the appropriate prefix: `feat/`, `fix/`, `refactor/`, `chore/`, `docs/` etc.
 
-### 3. Fetch Latest Main
-
-```bash
-git fetch origin main
-```
-
-### 4. Create Worktree
+### 3. Create Worktree
 
 ```bash
 .claude/skills/shep-kit:parallel-task/scripts/create-worktree.sh "<dir-name>" "<branch-name>"
 ```
 
-The script creates the worktree at `.worktrees/<dir-name>` with branch `<branch-name>` based on `origin/main`.
+The script fetches latest main and creates the worktree at `.worktrees/<dir-name>` with branch `<branch-name>` based on `origin/main`.
 
-### 5. Install Dependencies
+### 4. Install Dependencies
 
 ```bash
 cd .worktrees/<dir-name> && pnpm install
 ```
 
-### 6. Report
+### 5. Initialize Spec Directory
+
+Determine the next spec number and run the existing init script **inside the worktree**:
+
+```bash
+cd .worktrees/<dir-name>
+
+# Determine next spec number
+NEXT_NUM=$(ls -d specs/[0-9][0-9][0-9]-* 2>/dev/null | wc -l | xargs -I{} printf "%03d" $(({} + 1)))
+[ -z "$NEXT_NUM" ] && NEXT_NUM="001"
+
+# Run init-feature.sh (reuses shep-kit:new-feature templates)
+.claude/skills/shep-kit:new-feature/scripts/init-feature.sh "$NEXT_NUM" "<feature-name>"
+```
+
+### 6. Patch feature.yaml
+
+The init script sets `branch: feat/NNN-feature-name` but our actual branch is different. Fix it:
+
+```bash
+# Update branch name in feature.yaml to match the actual worktree branch
+sed -i "s|branch: 'feat/.*'|branch: '<branch-name>'|" specs/NNN-feature-name/feature.yaml
+```
+
+### 7. Fill spec.md (if requirements provided)
+
+If the user provided a description with enough context, fill in spec.md:
+
+- Problem statement (from user description)
+- Success criteria (inferred from scope)
+- Affected areas (from codebase analysis)
+- Size estimate with reasoning
+
+Otherwise leave the template placeholders for manual filling.
+
+### 8. Commit Spec Scaffold
+
+```bash
+cd .worktrees/<dir-name>
+git add specs/
+git commit -m "feat(specs): add NNN-feature-name specification"
+```
+
+### 9. Report
 
 ```
 Worktree ready at .worktrees/<dir-name>
 Branch: <branch-name> (from origin/main)
+Spec: specs/NNN-feature-name/
 ```
 
 ## Cleanup
@@ -126,3 +171,8 @@ git worktree prune
 
 - **Problem:** Reusing a branch name that already exists
 - **Fix:** Script checks for existing branch and appends timestamp if needed
+
+### Wrong branch in feature.yaml
+
+- **Problem:** `init-feature.sh` sets `branch: feat/NNN-name` but worktree uses a different branch
+- **Fix:** Always patch `feature.yaml` after running init script (step 6)
