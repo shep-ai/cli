@@ -1,3 +1,12 @@
+## [1.6.2](https://github.com/shep-ai/cli/compare/v1.6.1...v1.6.2) (2026-02-08)
+
+### Bug Fixes
+
+- **cli:** add diagnostic output to build integrity tests ([84ab11c](https://github.com/shep-ai/cli/commit/84ab11c59a9f6363e6fe9de8f09b0dba8fceba17))
+- **cli:** correct dist path in cli test runner ([d7fc418](https://github.com/shep-ai/cli/commit/d7fc418c1b57b305dea9a571b4295579a3bf4cfb))
+- **cli:** make build integrity tests resilient to ci environment ([0e4d2d8](https://github.com/shep-ai/cli/commit/0e4d2d815bb5134976d8fa72791e53694c9f3257))
+- **cli:** resolve @/ path aliases in compiled dist output ([c13401e](https://github.com/shep-ai/cli/commit/c13401e9aa9aac135b52d828c1fe887e7b083dfa))
+
 ## [1.6.1](https://github.com/shep-ai/cli/compare/v1.6.0...v1.6.1) (2026-02-08)
 
 # [1.6.0](https://github.com/shep-ai/cli/compare/v1.5.0...v1.6.0) (2026-02-08)
