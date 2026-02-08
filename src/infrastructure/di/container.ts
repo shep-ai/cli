@@ -25,6 +25,10 @@ import { AgentValidatorService } from '../services/agents/agent-validator.servic
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 
+// Service interfaces and implementations
+import type { IVersionService } from '../../application/ports/output/version-service.interface.js';
+import { VersionService } from '../services/version.service.js';
+
 // Use cases
 import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
 import { LoadSettingsUseCase } from '../../application/use-cases/settings/load-settings.use-case.js';
@@ -64,6 +68,11 @@ export async function initializeContainer(): Promise<typeof container> {
   const execFileAsync = promisify(execFile);
   container.register<IAgentValidator>('IAgentValidator', {
     useFactory: () => new AgentValidatorService(execFileAsync),
+  });
+
+  // Register services
+  container.register<IVersionService>('IVersionService', {
+    useFactory: () => new VersionService(),
   });
 
   // Register use cases (singletons for performance)

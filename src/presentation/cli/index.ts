@@ -23,7 +23,7 @@
 import 'reflect-metadata';
 
 import { Command } from 'commander';
-import { VersionService } from '../../infrastructure/services/version.service.js';
+import type { IVersionService } from '../../application/ports/output/version-service.interface.js';
 import { createVersionCommand } from './commands/version.command.js';
 import { createSettingsCommand } from './commands/settings/index.js';
 import { createUiCommand } from './commands/ui.command.js';
@@ -61,7 +61,7 @@ async function bootstrap() {
     }
 
     // Step 3: Set up Commander CLI
-    const versionService = new VersionService();
+    const versionService = container.resolve<IVersionService>('IVersionService');
     const { version, description } = versionService.getVersion();
 
     const program = new Command()
