@@ -1,3 +1,20 @@
+# [1.6.0](https://github.com/shep-ai/cli/compare/v1.5.0...v1.6.0) (2026-02-08)
+
+### Bug Fixes
+
+- **cli:** correct bin path to dist/src/presentation/cli/index.js ([d9ea0e4](https://github.com/shep-ai/cli/commit/d9ea0e4ca2ae8c39f32f9023bda6be00d53c8847))
+- **test:** skip agent config e2e tests when claude binary unavailable ([d726a6b](https://github.com/shep-ai/cli/commit/d726a6b939d32d721da4c5a35a78497cf6e7d092))
+
+### Features
+
+- **specs:** add 008-agent-configuration implementation plan ([f85c70f](https://github.com/shep-ai/cli/commit/f85c70fb2c3ba7011d6849ca6faebd3c4a550706))
+- **specs:** add 008-agent-configuration research ([a88b8e8](https://github.com/shep-ai/cli/commit/a88b8e87f4df7874e1e1d51b2b5565d7e5ab9312))
+- **specs:** add 008-agent-configuration specification ([8f37d8b](https://github.com/shep-ai/cli/commit/8f37d8b523a5c81ad9d864ade947ca64ce3e8a61))
+- **agents:** add agent config typespec models, migration, and infrastructure ([4959ca8](https://github.com/shep-ai/cli/commit/4959ca81e2e6a9d21d326463449ee732ecad317b))
+- **agents:** add agent validator, use cases, and tui wizard ([c03fee3](https://github.com/shep-ai/cli/commit/c03fee347eeb08a608f47810d0ca500f424ed6dc))
+- **cli:** add settings agent e2e tests and fix repository load bug ([d7a6532](https://github.com/shep-ai/cli/commit/d7a653224f4e85db23236b6523a57cd09a7c5a2a))
+- **cli:** add shep settings agent command with interactive wizard ([dc42051](https://github.com/shep-ai/cli/commit/dc42051da9623ec728227a44e193c7bf91484b62))
+
 # [1.5.0](https://github.com/shep-ai/cli/compare/v1.4.0...v1.5.0) (2026-02-08)
 
 ### Features
