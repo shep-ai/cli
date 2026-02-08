@@ -28,14 +28,19 @@ export const messages = {
   /**
    * Print error message
    * @param text - Error message
-   * @param error - Optional error object (shown in debug mode)
+   * @param error - Optional error object with details
    * @example messages.error('Connection failed')
    * // Output: ✗ Connection failed
    */
   error: (text: string, error?: Error): void => {
     console.error(colors.error(`${symbols.error} ${text}`));
-    if (error && process.env.DEBUG) {
-      console.error(colors.muted(error.stack ?? error.message));
+    if (error) {
+      // Show full stack in debug mode, otherwise just the message
+      if (process.env.DEBUG) {
+        console.error(colors.muted(error.stack ?? error.message));
+      } else {
+        console.error(colors.muted(error.message));
+      }
     }
   },
 

@@ -28,6 +28,8 @@ describe('IAgentRunner type contracts', () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }) as any,
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      runAgentStream: async function* () {},
     };
     expect(mockRunner.runAgent).toBeDefined();
   });
@@ -67,6 +69,8 @@ describe('IAgentRunner type contracts', () => {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         }) as any,
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      runAgentStream: async function* () {},
     };
     const run = await mockRunner.runAgent('analyze-repository', 'Analyze this repo');
     expect(run).toBeDefined();
@@ -81,6 +85,8 @@ describe('IAgentRunner type contracts', () => {
         capturedOptions = options;
         return {} as any;
       },
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      runAgentStream: async function* () {},
     };
     await mockRunner.runAgent('implement-feature', 'Build login', {
       repositoryPath: '/workspace',

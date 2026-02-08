@@ -10,7 +10,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { RunAgentUseCase } from '../../../../../src/application/use-cases/agents/run-agent.use-case.js';
-import type { AgentRun } from '../../../../../src/domain/generated/output.js';
+import type { AgentRun, AgentRunEvent } from '../../../../../src/domain/generated/output.js';
 import { AgentRunStatus, AgentType } from '../../../../../src/domain/generated/output.js';
 import type {
   IAgentRunner,
@@ -53,6 +53,12 @@ describe('RunAgentUseCase', () => {
       runAgent: vi
         .fn<(name: string, prompt: string, options?: AgentRunOptions) => Promise<AgentRun>>()
         .mockResolvedValue(createMockAgentRun()),
+      runAgentStream: vi.fn().mockReturnValue(
+        (async function* () {
+          yield { type: 'progress', content: 'Working...', timestamp: new Date().toISOString() };
+          yield { type: 'result', content: 'Done', timestamp: new Date().toISOString() };
+        })()
+      ),
     };
 
     mockRegistry = {
@@ -154,6 +160,54 @@ describe('RunAgentUseCase', () => {
           prompt: 'Do something',
         })
       ).rejects.toThrow('Available agents: none');
+    });
+  });
+
+  describe('executeStream', () => {
+    it('should yield events from agentRunner.runAgentStream()', async () => {
+      const events: AgentRunEvent[] = [];
+      for await (const event of useCase.executeStream({
+        agentName: 'analyze-repository',
+        prompt: 'Analyze this repo',
+      })) {
+        events.push(event);
+      }
+
+      expect(events).toHaveLength(2);
+      expect(events[0].type).toBe('progress');
+      expect(events[1].type).toBe('result');
+    });
+
+    it('should validate agent exists before streaming', async () => {
+      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+
+      const streamFn = async () => {
+        for await (const _event of useCase.executeStream({
+          agentName: 'nonexistent',
+          prompt: 'Do something',
+        })) {
+          /* drain */
+        }
+      };
+
+      await expect(streamFn()).rejects.toThrow('Unknown agent: "nonexistent"');
+      expect(mockRunner.runAgentStream).not.toHaveBeenCalled();
+    });
+
+    it('should pass options through to the runner', async () => {
+      for await (const _event of useCase.executeStream({
+        agentName: 'analyze-repository',
+        prompt: 'Analyze this repo',
+        options: { repositoryPath: '/my/repo' },
+      })) {
+        /* drain */
+      }
+
+      expect(mockRunner.runAgentStream).toHaveBeenCalledWith(
+        'analyze-repository',
+        'Analyze this repo',
+        { repositoryPath: '/my/repo' }
+      );
     });
   });
 });

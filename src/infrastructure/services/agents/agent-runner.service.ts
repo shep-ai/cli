@@ -16,9 +16,12 @@ import type {
 import type { IAgentRegistry } from '@/application/ports/output/agent-registry.interface.js';
 import type { IAgentExecutorFactory } from '@/application/ports/output/agent-executor-factory.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agent-run-repository.interface.js';
-import type { AgentRun } from '@/domain/generated/output.js';
+import type { AgentExecutionStreamEvent } from '@/application/ports/output/agent-executor.interface.js';
+import type { AgentRun, AgentRunEvent } from '@/domain/generated/output.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
+import { EventChannel } from './streaming/event-channel.js';
+import { StreamingExecutorProxy } from './streaming/streaming-executor-proxy.js';
 
 export class AgentRunnerService implements IAgentRunner {
   constructor(
@@ -29,7 +32,69 @@ export class AgentRunnerService implements IAgentRunner {
   ) {}
 
   async runAgent(agentName: string, prompt: string, options?: AgentRunOptions): Promise<AgentRun> {
-    // 1. Get agent definition
+    const { definition, executor, runId, threadId } = await this.setupRun(agentName, prompt);
+
+    try {
+      const compiledGraph = definition.graphFactory(executor, this.checkpointer);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const result = await (compiledGraph as any).invoke(
+        { repositoryPath: options?.repositoryPath ?? process.cwd() },
+        { configurable: { thread_id: threadId } }
+      );
+
+      await this.markCompleted(runId, result);
+      return (await this.runRepository.findById(runId))!;
+    } catch (error) {
+      await this.markFailed(runId, error);
+      return (await this.runRepository.findById(runId))!;
+    }
+  }
+
+  async *runAgentStream(
+    agentName: string,
+    prompt: string,
+    options?: AgentRunOptions
+  ): AsyncIterable<AgentRunEvent> {
+    const { definition, executor, runId, threadId } = await this.setupRun(agentName, prompt);
+
+    // Create streaming channel and proxy
+    const channel = new EventChannel<AgentExecutionStreamEvent>();
+    const proxy = new StreamingExecutorProxy(executor, channel);
+
+    // Compile graph with proxy (graph doesn't know about streaming)
+    const compiledGraph = definition.graphFactory(proxy, this.checkpointer);
+
+    // Start graph invocation in background
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const graphPromise = (compiledGraph as any)
+      .invoke(
+        { repositoryPath: options?.repositoryPath ?? process.cwd() },
+        { configurable: { thread_id: threadId } }
+      )
+      .then(async (result: Record<string, unknown>) => {
+        channel.close();
+        await this.markCompleted(runId, result);
+      })
+      .catch(async (error: unknown) => {
+        channel.close();
+        await this.markFailed(runId, error);
+      });
+
+    // Yield events as they arrive, mapping infra → domain type
+    for await (const event of channel) {
+      yield {
+        type: event.type,
+        content: event.content,
+        timestamp:
+          event.timestamp instanceof Date ? event.timestamp.toISOString() : event.timestamp,
+      } as AgentRunEvent;
+    }
+
+    // Ensure graph promise cleanup completes
+    await graphPromise;
+  }
+
+  private async setupRun(agentName: string, prompt: string) {
     const definition = this.registry.get(agentName);
     if (!definition) {
       throw new Error(
@@ -40,20 +105,14 @@ export class AgentRunnerService implements IAgentRunner {
       );
     }
 
-    // 2. Get settings for executor config
     const settings = getSettings();
     const agentType = settings.agent.type;
-    const authConfig = settings.agent;
+    const executor = this.executorFactory.createExecutor(agentType, settings.agent);
 
-    // 3. Create executor
-    const executor = this.executorFactory.createExecutor(agentType, authConfig);
-
-    // 4. Generate IDs
     const runId = crypto.randomUUID();
     const threadId = crypto.randomUUID();
     const now = new Date().toISOString();
 
-    // 5. Create run record with pending status
     const agentRun: AgentRun = {
       id: runId,
       agentType,
@@ -66,43 +125,31 @@ export class AgentRunnerService implements IAgentRunner {
     };
     await this.runRepository.create(agentRun);
 
-    // 6. Update to running
     await this.runRepository.updateStatus(runId, AgentRunStatus.running, {
       pid: process.pid,
       startedAt: now,
       updatedAt: now,
     });
 
-    try {
-      // 7. Compile and invoke graph
-      const compiledGraph = definition.graphFactory(executor, this.checkpointer);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const result = await (compiledGraph as any).invoke(
-        { repositoryPath: options?.repositoryPath ?? process.cwd() },
-        { configurable: { thread_id: threadId } }
-      );
+    return { definition, executor, runId, threadId };
+  }
 
-      // 8. Update to completed
-      const completedAt = new Date().toISOString();
-      await this.runRepository.updateStatus(runId, AgentRunStatus.completed, {
-        result: result.analysisMarkdown ?? result.result ?? JSON.stringify(result),
-        completedAt,
-        updatedAt: completedAt,
-      });
+  private async markCompleted(runId: string, result: Record<string, unknown>) {
+    const completedAt = new Date().toISOString();
+    await this.runRepository.updateStatus(runId, AgentRunStatus.completed, {
+      result:
+        (result.analysisMarkdown as string) ?? (result.result as string) ?? JSON.stringify(result),
+      completedAt,
+      updatedAt: completedAt,
+    });
+  }
 
-      const completedRun = await this.runRepository.findById(runId);
-      return completedRun!;
-    } catch (error) {
-      // 9. Update to failed
-      const failedAt = new Date().toISOString();
-      await this.runRepository.updateStatus(runId, AgentRunStatus.failed, {
-        error: error instanceof Error ? error.message : String(error),
-        completedAt: failedAt,
-        updatedAt: failedAt,
-      });
-
-      const failedRun = await this.runRepository.findById(runId);
-      return failedRun!;
-    }
+  private async markFailed(runId: string, error: unknown) {
+    const failedAt = new Date().toISOString();
+    await this.runRepository.updateStatus(runId, AgentRunStatus.failed, {
+      error: error instanceof Error ? error.message : String(error),
+      completedAt: failedAt,
+      updatedAt: failedAt,
+    });
   }
 }

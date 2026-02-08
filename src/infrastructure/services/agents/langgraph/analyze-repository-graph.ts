@@ -31,7 +31,9 @@ function createAnalyzeNode(executor: IAgentExecutor) {
   ): Promise<Partial<typeof AnalyzeRepositoryState.State>> => {
     const prompt = buildAnalyzePrompt(state.repositoryPath);
 
-    const options: Parameters<IAgentExecutor['execute']>[1] = {};
+    const options: Parameters<IAgentExecutor['execute']>[1] = {
+      cwd: state.repositoryPath,
+    };
     if (state.sessionId && executor.supportsFeature(AgentFeature.sessionResume)) {
       options.resumeSession = state.sessionId;
     }
