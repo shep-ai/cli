@@ -15,9 +15,13 @@ Users need a visual dashboard to see at-a-glance status of features, tasks, and 
 
 ## Success Criteria
 
-- [ ] Dashboard route accessible at `/dashboard` in Next.js app
-- [ ] Displays feature list with lifecycle phase indicators
+- [ ] Dashboard accessible as default landing page (/) in Next.js app
+- [ ] Displays feature list with lifecycle phase indicators (color-coded/grouped)
 - [ ] Shows task progress metrics (completed/total, WIP count)
+- [ ] Displays recent activity timeline (commits, phase transitions, updates)
+- [ ] Shows agent activity logs (recent AI agent actions and decisions)
+- [ ] Implements filtering by lifecycle phase (Requirements, Research, Implementation, etc.)
+- [ ] Auto-refreshes data via polling (configurable interval)
 - [ ] Implements responsive layout using shadcn/ui components
 - [ ] Follows existing Web Interface Guidelines and design system
 
@@ -40,10 +44,12 @@ None identified.
 
 ## Open Questions
 
-- [ ] Should the dashboard be the default landing page (/) or separate route (/dashboard)?
-- [ ] What specific metrics should be displayed (e.g., velocity, cycle time, agent activity)?
-- [ ] Should the dashboard support filtering/sorting features by lifecycle phase or status?
-- [ ] Real-time updates via polling/websockets or static on page load?
+All questions resolved. Key decisions:
+
+- [x] **Route:** Default landing page (/) - Dashboard is the first thing users see
+- [x] **Metrics:** Display feature list with lifecycle phases, task progress (completed/total), recent activity timeline, and agent activity logs
+- [x] **Filtering:** Yes - filter features by lifecycle phase (Requirements, Research, Implementation, etc.)
+- [x] **Updates:** Polling (refresh every N seconds) for automatic data updates
 
 ---
 
