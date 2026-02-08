@@ -1,3 +1,14 @@
+# [1.9.0](https://github.com/shep-ai/cli/compare/v1.8.2...v1.9.0) (2026-02-08)
+
+### Features
+
+- **specs:** add 009-langchain-agent-infra spec and research ([032ff70](https://github.com/shep-ai/cli/commit/032ff70de254577122b91cddcafb04b76939d1f5))
+- **specs:** add agent-agnostic implementation plan for langchain-agent-infra ([0bf7d8e](https://github.com/shep-ai/cli/commit/0bf7d8e8dac5a991384fee72b7af194e5518a6c4))
+- **specs:** add crash recovery protocol to research ([31e6d03](https://github.com/shep-ai/cli/commit/31e6d03f4e18b9a4614b0825e5f1916ac5feeae4))
+- **agents:** implement langchain agent orchestration infrastructure ([3fd1963](https://github.com/shep-ai/cli/commit/3fd1963bc930ff12419c2c2e73c8a98cd5159e7c))
+- **agents:** implement streaming architecture for real-time agent output ([707b49a](https://github.com/shep-ai/cli/commit/707b49a5a5e0a1729e64ff864558b24aa1f6344d))
+- **specs:** use claude code subprocess wrapper for agent execution ([fc5edca](https://github.com/shep-ai/cli/commit/fc5edcaf6c9e64240ab2da049ede8c333945a3dd))
+
 ## [1.8.2](https://github.com/shep-ai/cli/compare/v1.8.1...v1.8.2) (2026-02-08)
 
 ### Bug Fixes
