@@ -16,5 +16,5 @@ export { colors, type Colors } from './colors.js';
 export { symbols, type Symbols } from './symbols.js';
 export { fmt, type Formatters } from './formatters.js';
 export { messages, type Messages } from './messages.js';
-export { TableFormatter } from './tables.js';
+export { TableFormatter, type DatabaseMeta } from './tables.js';
 export { OutputFormatter, type OutputFormat } from './output.js';

@@ -2,7 +2,7 @@
  * Output Format Utilities
  *
  * Provides utilities for formatting output in multiple formats:
- * - Table (default, using cli-table3)
+ * - Table (default, clean text-based layout)
  * - JSON (structured data)
  * - YAML (human-readable structured data)
  *
@@ -10,7 +10,7 @@
  */
 
 import yaml from 'js-yaml';
-import { TableFormatter } from './tables.js';
+import { TableFormatter, type DatabaseMeta } from './tables.js';
 
 export type OutputFormat = 'table' | 'json' | 'yaml';
 
@@ -21,10 +21,10 @@ export class OutputFormatter {
   /**
    * Formats data according to the specified output format
    */
-  static format(data: unknown, format: OutputFormat): string {
+  static format(data: unknown, format: OutputFormat, dbMeta?: DatabaseMeta): string {
     switch (format) {
       case 'table':
-        return OutputFormatter.formatAsTable(data);
+        return OutputFormatter.formatAsTable(data, dbMeta);
       case 'json':
         return OutputFormatter.formatAsJSON(data);
       case 'yaml':
@@ -33,11 +33,10 @@ export class OutputFormatter {
   }
 
   /**
-   * Formats data as a table
+   * Formats data as a clean text display
    */
-  static formatAsTable(data: unknown): string {
-    const table = TableFormatter.createSettingsTable(data);
-    return table.toString();
+  static formatAsTable(data: unknown, dbMeta?: DatabaseMeta): string {
+    return TableFormatter.createSettingsTable(data, dbMeta);
   }
 
   /**
