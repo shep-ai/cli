@@ -31,6 +31,12 @@ const defaultDeps: WebServerDeps = {
 /**
  * Resolve the web UI directory path.
  * Works in both development (src/) and production (dist/) contexts.
+ *
+ * Development: import.meta.dirname = <root>/src/infrastructure/services/
+ *   → ../../presentation/web → <root>/src/presentation/web/
+ *
+ * Production (npm install): import.meta.dirname = <root>/dist/src/infrastructure/services/
+ *   → ../../../../web → <root>/web/
  */
 export function resolveWebDir(): { dir: string; dev: boolean } {
   // Check for development source directory first
@@ -40,7 +46,8 @@ export function resolveWebDir(): { dir: string; dev: boolean } {
   }
 
   // Production: web UI is shipped alongside dist/ in the package
-  const prodDir = path.resolve(import.meta.dirname, '../../../web');
+  // From dist/src/infrastructure/services/ we need 4 levels up to reach the package root
+  const prodDir = path.resolve(import.meta.dirname, '../../../../web');
   if (
     fs.existsSync(path.join(prodDir, 'next.config.ts')) ||
     fs.existsSync(path.join(prodDir, '.next'))
@@ -48,7 +55,13 @@ export function resolveWebDir(): { dir: string; dev: boolean } {
     return { dir: prodDir, dev: false };
   }
 
-  throw new Error('Web UI directory not found. Ensure the web UI is built (pnpm build:web).');
+  throw new Error(
+    `Web UI directory not found. Ensure the web UI is built (pnpm build:web).\n` +
+      `  Searched:\n` +
+      `    dev:  ${devDir} (next.config.ts: ${fs.existsSync(path.join(devDir, 'next.config.ts'))})\n` +
+      `    prod: ${prodDir} (.next: ${fs.existsSync(path.join(prodDir, '.next'))}, next.config.ts: ${fs.existsSync(path.join(prodDir, 'next.config.ts'))})\n` +
+      `  import.meta.dirname: ${import.meta.dirname}`
+  );
 }
 
 @injectable()
