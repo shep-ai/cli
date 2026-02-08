@@ -16,7 +16,8 @@
  */
 
 import { Command } from 'commander';
-import { VersionService } from '../../../infrastructure/services/version.service.js';
+import { container } from '../../../infrastructure/di/container.js';
+import type { IVersionService } from '../../../application/ports/output/version-service.interface.js';
 import { colors, fmt, messages } from '../ui/index.js';
 
 /**
@@ -24,7 +25,7 @@ import { colors, fmt, messages } from '../ui/index.js';
  */
 export function createVersionCommand(): Command {
   return new Command('version').description('Display version information').action(() => {
-    const versionService = new VersionService();
+    const versionService = container.resolve<IVersionService>('IVersionService');
     const info = versionService.getVersion();
 
     messages.newline();

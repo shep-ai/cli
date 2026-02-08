@@ -17,10 +17,9 @@
 
 import { Command, InvalidArgumentError } from 'commander';
 import { findAvailablePort, DEFAULT_PORT } from '../../../infrastructure/services/port.service.js';
-import {
-  VersionService,
-  setVersionEnvVars,
-} from '../../../infrastructure/services/version.service.js';
+import { container } from '../../../infrastructure/di/container.js';
+import type { IVersionService } from '../../../application/ports/output/version-service.interface.js';
+import { setVersionEnvVars } from '../../../infrastructure/services/version.service.js';
 import {
   WebServerService,
   resolveWebDir,
@@ -56,7 +55,7 @@ Examples:
         const { dir, dev } = resolveWebDir();
 
         // Set version env vars so Next.js web UI can read them
-        const versionService = new VersionService();
+        const versionService = container.resolve<IVersionService>('IVersionService');
         setVersionEnvVars(versionService.getVersion());
 
         messages.newline();

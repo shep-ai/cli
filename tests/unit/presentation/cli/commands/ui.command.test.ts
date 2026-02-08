@@ -15,6 +15,24 @@ vi.mock('../../../../../src/infrastructure/services/port.service.js', () => ({
   DEFAULT_PORT: 4050,
 }));
 
+// Mock the DI container
+vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
+  container: {
+    resolve: vi.fn().mockReturnValue({
+      getVersion: vi.fn().mockReturnValue({
+        version: '1.0.0',
+        name: '@shepai/cli',
+        description: 'Test description',
+      }),
+    }),
+  },
+}));
+
+// Mock setVersionEnvVars (standalone utility, not part of DI)
+vi.mock('../../../../../src/infrastructure/services/version.service.js', () => ({
+  setVersionEnvVars: vi.fn(),
+}));
+
 // Track the last created WebServerService instance
 let lastServiceInstance: {
   start: ReturnType<typeof vi.fn>;
