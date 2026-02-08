@@ -65,9 +65,9 @@ export function LogStream({ logs, autoScroll }: LogStreamProps) {
       className="bg-muted/30 h-[600px] overflow-y-auto rounded-md border p-4"
     >
       <div className="space-y-2 font-mono text-sm">
-        {logs.map((log, index) => (
+        {logs.map((log) => (
           <div
-            key={`${log.id}-${index}`}
+            key={log.id}
             className={cn(
               'flex items-start gap-3 rounded-md border p-2 transition-colors',
               log.level === 'error' && 'border-destructive/50 bg-destructive/5',

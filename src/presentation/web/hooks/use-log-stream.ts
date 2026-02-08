@@ -91,7 +91,7 @@ export function useLogStream(): UseLogStreamResult {
       try {
         const log: LogEntry = JSON.parse(event.data);
         addLog(log);
-      } catch (error) {
+      } catch (_error) {
         // Silently ignore parse errors - logged on server
       }
     });

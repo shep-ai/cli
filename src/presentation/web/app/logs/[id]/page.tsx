@@ -76,7 +76,7 @@ export default function LogDetailPage() {
           </Button>
         </div>
         <div className="text-destructive border-destructive/50 bg-destructive/10 rounded-md border p-4 text-sm">
-          <strong>Error:</strong> {error || 'Log entry not found'}
+          <strong>Error:</strong> {error ?? 'Log entry not found'}
         </div>
       </div>
     );

@@ -28,6 +28,7 @@ export default tseslint.config(
       '**/.next/**',
       'out/**',
       '**/storybook-static/**',
+      'web/**', // Build artifact directory
 
       // Dependencies
       'node_modules/**',

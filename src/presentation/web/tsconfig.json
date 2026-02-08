@@ -16,7 +16,10 @@
     "incremental": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/infrastructure/*": ["../../infrastructure/*"],
+      "@/application/*": ["../../application/*"],
+      "@/domain/*": ["../../domain/*"]
     },
     "plugins": [
       {

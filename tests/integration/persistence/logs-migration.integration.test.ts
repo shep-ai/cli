@@ -177,11 +177,11 @@ describe('Logs Migration (003)', () => {
     expect(ftsRows).toHaveLength(0);
   });
 
-  it('should set migration version to 3', async () => {
+  it('should set migration version to 4', async () => {
     await runSQLiteMigrations(db);
 
     const result = db.prepare('PRAGMA user_version').get() as { user_version: number };
 
-    expect(result.user_version).toBe(3);
+    expect(result.user_version).toBe(4);
   });
 });

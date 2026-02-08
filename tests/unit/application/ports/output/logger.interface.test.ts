@@ -2,6 +2,7 @@ import 'reflect-metadata';
 import { describe, it, expect, vi } from 'vitest';
 
 /* eslint-disable @typescript-eslint/no-empty-function */
+/* eslint-disable @typescript-eslint/no-unused-vars */
 
 /**
  * Test suite for ILogger interface contract.
