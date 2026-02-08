@@ -30,6 +30,7 @@ test-results/
 playwright-report/
 playwright/.cache/
 .playwright-mcp/
+.test-artifacts/
 
 # =============================================================================
 # IDE & Editors
