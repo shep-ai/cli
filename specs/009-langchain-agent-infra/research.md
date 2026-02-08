@@ -244,6 +244,60 @@ LangGraph StateGraph (orchestrator)
 
 **Key insight:** Claude Code CLI maintains conversation context via `--resume <session-id>`. Each subsequent node in the graph continues the same Claude Code session, so it has full context from previous analysis steps without re-sending all data. This is efficient and maintains coherence across the multi-step workflow.
 
+## Crash Recovery Protocol
+
+### How LangGraph Checkpointing Handles Crashes
+
+LangGraph checkpoints state at **node boundaries** — after each node completes, before the next starts. This is the unit of recovery.
+
+| Crash Timing             | What's Saved            | Recovery Behavior             |
+| ------------------------ | ----------------------- | ----------------------------- |
+| Between node A and B     | State after A completes | Resume skips A, starts at B   |
+| During node B execution  | State after A completes | Resume re-runs B from scratch |
+| After all nodes complete | Full final state        | No recovery needed            |
+
+### Orphan Detection
+
+On any `shep run` invocation, the CLI checks the `agent_runs` table for runs with `status = 'running'` whose PID is no longer alive (or that have been running longer than a configurable timeout). This is the **orphan check**.
+
+```
+shep run analyze-repository
+  → Check agent_runs for orphaned runs in this repo
+  → If found:
+      ⚠ Found interrupted run [run-id] from 2 hours ago (completed 2/4 nodes).
+      Resume? [Y/n]
+      → Y: invoke graph with same thread_id → LangGraph loads checkpoint → skips completed nodes
+      → n: mark as 'failed', start fresh run
+```
+
+### Implementation Details
+
+1. **PID tracking**: `agent_runs` table stores the process PID. On orphan check, verify with `process.kill(pid, 0)` (signal 0 checks existence without killing).
+2. **Heartbeat**: The agent runner updates `agent_runs.last_heartbeat` every 30 seconds during execution. Runs with no heartbeat for > 2 minutes are considered crashed.
+3. **Session recovery**: The Claude Code `session_id` is stored in the LangGraph state. On resume, subsequent nodes continue the same Claude Code session via `--resume`. If the session is expired/invalid, the node falls back to starting a new session with the accumulated state context embedded in the prompt.
+4. **`shep status`**: Shows all runs including interrupted ones. Crashed runs display as `interrupted` (not `failed`), signaling they are recoverable.
+5. **Automatic notification**: When the user runs any `shep` command in a repo with interrupted runs, a one-line notice appears: `⚠ 1 interrupted agent run. Use 'shep status' for details.`
+
+### agent_runs Table Schema (crash-relevant fields)
+
+```sql
+CREATE TABLE agent_runs (
+  id TEXT PRIMARY KEY,
+  agent_name TEXT NOT NULL,
+  thread_id TEXT NOT NULL,         -- LangGraph thread_id for checkpoint lookup
+  status TEXT NOT NULL,            -- pending | running | completed | failed | interrupted
+  pid INTEGER,                     -- OS process ID for orphan detection
+  last_heartbeat TEXT,             -- ISO timestamp, updated every 30s
+  session_id TEXT,                 -- Claude Code session ID for resume
+  completed_nodes INTEGER DEFAULT 0,
+  total_nodes INTEGER,
+  error_message TEXT,
+  started_at TEXT NOT NULL,
+  completed_at TEXT,
+  created_at TEXT NOT NULL
+);
+```
+
 ## Security Considerations
 
 - **No API Key Required**: The subprocess approach uses Claude Code's existing session auth. No API keys are stored, transmitted, or logged by Shep. The user authenticates once via `claude` login, and all subsequent invocations use that session.
