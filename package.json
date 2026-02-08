@@ -143,6 +143,8 @@
   "dependencies": {
     "@blackglory/better-sqlite3-migrations": "^0.1.20",
     "@inquirer/prompts": "^8.2.0",
+    "@langchain/langgraph": "^1.1.4",
+    "@langchain/langgraph-checkpoint-sqlite": "^1.0.1",
     "@typespec-tools/emitter-typescript": "^0.3.0",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
@@ -159,6 +161,7 @@
     "reflect-metadata": "^0.2.2",
     "sonner": "^2.0.7",
     "tailwind-merge": "^3.4.0",
-    "tsyringe": "^4.10.0"
+    "tsyringe": "^4.10.0",
+    "zod": "^4.3.6"
   }
 }

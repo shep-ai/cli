@@ -27,6 +27,7 @@ import type { IVersionService } from '../../application/ports/output/version-ser
 import { createVersionCommand } from './commands/version.command.js';
 import { createSettingsCommand } from './commands/settings/index.js';
 import { createUiCommand } from './commands/ui.command.js';
+import { createRunCommand } from './commands/run.command.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
@@ -76,6 +77,7 @@ async function bootstrap() {
     program.addCommand(createVersionCommand());
     program.addCommand(createSettingsCommand());
     program.addCommand(createUiCommand());
+    program.addCommand(createRunCommand());
 
     // Parse arguments (parseAsync needed for async command actions like init)
     await program.parseAsync();

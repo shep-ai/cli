@@ -199,6 +199,8 @@ class AgentExecutorFactory implements IAgentExecutorFactory {
 
 **Rationale:** LangGraph's checkpoint system already provides the "save state, crash, resume" pattern. Each graph invocation with a `thread_id` IS a job. Adding a thin `agent_runs` table stores user-facing metadata (job ID, agent name, status, start/end times, error messages) and an `agent_run_events` table provides an append-only observability log. BullMQ requires Redis (disqualified for CLI). Third-party SQLite queues add dependencies for functionality LangGraph provides natively.
 
+**Database scope:** The `agent_runs` table lives in the **global database** (`~/.shep/data`), NOT the per-repo database. Reasoning: (1) simpler — reuses the existing single DB connection from `initializeContainer()`, (2) enables cross-repo agent run history, (3) agent_runs stores the repo path in the prompt context. LangGraph checkpoints are stored in a **separate** per-repo SQLite file at `~/.shep/repos/<encoded-path>/checkpoints.db` (managed by SqliteSaver, outside our migration system).
+
 **Phase 2 (future):** Background execution via `child_process.fork()` with detached mode.
 
 ### 6. Agent Registry Pattern
@@ -232,8 +234,10 @@ class AgentExecutorFactory implements IAgentExecutorFactory {
 | `@langchain/langgraph`                   | latest  | StateGraph workflow engine    | Type-safe state, checkpointing, retry, streaming, conditional routing | New dependency, learning curve            |
 | `@langchain/core`                        | latest  | Base LangChain abstractions   | Messages, runnables — required by langgraph                           | Transitive dep of langgraph               |
 | `@langchain/langgraph-checkpoint-sqlite` | latest  | SQLite checkpoint persistence | Uses better-sqlite3, automatic state persistence                      | May need better-sqlite3 version alignment |
-| `zod`                                    | ^3.x    | Schema validation             | State definition, tool schemas, input validation                      | Already indirect dep                      |
+| `zod`                                    | ^3.x    | Schema validation             | State definition, tool schemas, input validation                      | New direct dep (indirect via TypeSpec)    |
 | Agent CLI (configured)                   | system  | LLM execution (subprocess)    | Per-agent session auth, built-in tools, streaming                     | External binary dependency                |
+
+**NOT needed:** `uuid` — Use Node.js built-in `crypto.randomUUID()` (available since Node 19+). The existing codebase does not use the `uuid` package.
 
 **NOT needed:** `@langchain/anthropic` — Agent CLIs handle LLM calls internally. We orchestrate agents, not bypass them. The active agent is resolved from `Settings.agent.type`.
 
@@ -381,8 +385,12 @@ shep run analyze-repository
 1. **PID tracking**: `agent_runs` table stores the process PID. On orphan check, verify with `process.kill(pid, 0)` (signal 0 checks existence without killing).
 2. **Heartbeat**: The agent runner updates `agent_runs.last_heartbeat` every 30 seconds during execution. Runs with no heartbeat for > 2 minutes are considered crashed.
 3. **Session recovery**: The agent `session_id` is stored in the LangGraph state. On resume, subsequent nodes continue the same session via `resumeSession` option (for agents that support it, e.g., Claude Code's `--resume`). If the session is expired/invalid, the node falls back to starting a new session with the accumulated state context embedded in the prompt. Agents without session support always use the fallback strategy.
-4. **`shep status`**: Shows all runs including interrupted ones. Crashed runs display as `interrupted` (not `failed`), signaling they are recoverable.
-5. **Automatic notification**: When the user runs any `shep` command in a repo with interrupted runs, a one-line notice appears: `⚠ 1 interrupted agent run. Use 'shep status' for details.`
+4. **Status distinction**: `interrupted` vs `cancelled` vs `failed`:
+   - `interrupted` = crashed/orphaned process detected via stale PID or heartbeat timeout. **Recoverable** via checkpoint resume.
+   - `cancelled` = user explicitly cancelled the run (future: via `shep cancel <run-id>`). **Not recoverable** — user chose to stop.
+   - `failed` = agent execution hit an unrecoverable error (e.g., auth failure, invalid prompt). **Not recoverable** without fixing the cause.
+5. **`shep status`**: Shows all runs including interrupted ones. Crashed runs display as `interrupted`, signaling they are recoverable.
+6. **Automatic notification**: When the user runs any `shep` command in a repo with interrupted runs, a one-line notice appears: `⚠ 1 interrupted agent run. Use 'shep status' for details.`
 
 ### agent_runs Table Schema (crash-relevant fields)
 
@@ -391,7 +399,7 @@ CREATE TABLE agent_runs (
   id TEXT PRIMARY KEY,
   agent_name TEXT NOT NULL,
   thread_id TEXT NOT NULL,         -- LangGraph thread_id for checkpoint lookup
-  status TEXT NOT NULL,            -- pending | running | completed | failed | interrupted
+  status TEXT NOT NULL,            -- pending | running | completed | failed | interrupted | cancelled
   pid INTEGER,                     -- OS process ID for orphan detection
   last_heartbeat TEXT,             -- ISO timestamp, updated every 30s
   agent_type TEXT NOT NULL,        -- AgentType enum value used for this run
