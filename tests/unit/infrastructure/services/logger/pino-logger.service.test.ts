@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { PinoLogger } from '../../../../../src/infrastructure/services/logger/pino-logger.service.js';
 import { LogLevel } from '../../../../../src/domain/generated/output.js';
 

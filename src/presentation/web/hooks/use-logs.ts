@@ -29,7 +29,7 @@ export function useLogs(initialFilters: UseLogsFilters = {}): UseLogsResult {
   const [offset, setOffset] = useState(initialFilters.offset ?? 0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [filters, setFilters] = useState<UseLogsFilters>(initialFilters);
+  const filters = initialFilters;
 
   const fetchLogs = useCallback(async () => {
     setIsLoading(true);

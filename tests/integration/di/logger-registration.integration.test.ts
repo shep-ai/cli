@@ -1,5 +1,5 @@
 import 'reflect-metadata';
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { container, initializeContainer } from '../../../src/infrastructure/di/container.js';
 import type { ILogger } from '../../../src/application/ports/output/logger.interface.js';
 
