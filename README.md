@@ -147,7 +147,7 @@ Uses **Repository Pattern** with SQLite:
 | Language        | TypeScript                                                                              |
 | Package Manager | pnpm                                                                                    |
 | CLI Framework   | Commander                                                                               |
-| TUI Framework   | [OpenTUI](https://opentui.com/)                                                         |
+| TUI Framework   | [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js)                           |
 | Web UI          | Next.js 16 + React 19 + shadcn/ui ([@shepai/web](./src/presentation/web/))              |
 | Design System   | Storybook                                                                               |
 | Build Tool      | Vite                                                                                    |

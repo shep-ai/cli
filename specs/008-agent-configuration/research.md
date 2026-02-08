@@ -9,18 +9,20 @@
 
 ## Technology Decisions
 
-### TD-1: Interactive Prompt Library for TUI Wizard
+### TD-1: TUI Framework for Interactive Wizards (Architecture Update)
 
 **Options considered:**
 
 1. **@inquirer/prompts** (v8.2.0) — Modern ESM-first rewrite of Inquirer.js
 2. **@clack/prompts** (v1.0.0) — Beautiful out-of-the-box prompts by Bomb.sh
 3. **enquirer** (v2.4+) — Lightweight alternative with custom themes
+4. **OpenTUI** (v0.1.77) — Yoga-powered flexbox TUI with React/Solid bindings (previously in architecture docs)
 
-**Decision:** `@inquirer/prompts`
+**Decision:** `@inquirer/prompts` — **replacing OpenTUI as the project-wide TUI framework**
 
 **Rationale:**
 
+- **OpenTUI disqualified**: Requires Bun runtime (project uses Node.js via nvm), requires Zig build tooling, self-described as "not ready for production use" (v0.1.x). Incompatible with our runtime and too experimental.
 - **28M+ weekly downloads** — largest community and most battle-tested
 - **Native disabled option support** — `disabled: '(Coming Soon)'` on select choices is exactly what we need for WIP agents
 - **Separator support** — clean grouping of agent categories
@@ -29,8 +31,11 @@
 - **Individual package imports** — `@inquirer/select`, `@inquirer/confirm`, etc. for tree-shaking
 - **Theme system** — customizable styling that can integrate with our CLI design system colors
 - **TypeScript-native** — full type safety with generics on select/confirm/input
+- **Node.js native** — works directly with our existing runtime, no additional build tools required
 
 `@clack/prompts` was attractive for visual polish but lacks disabled option support and has poor documentation for complex use cases. `enquirer` hasn't had active maintenance recently.
+
+**Architecture documentation update:** All project docs (CLAUDE.md, architecture, README) updated to reflect `@inquirer/prompts` as the TUI framework. New `docs/tui/` directory created following `docs/cli/` pattern.
 
 ### TD-2: Agent Configuration Storage Strategy
 

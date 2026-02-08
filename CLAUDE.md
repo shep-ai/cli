@@ -377,9 +377,10 @@ See [docs/development/tdd-guide.md](./docs/development/tdd-guide.md) for detaile
 
 ### TUI (Terminal UI)
 
-- **Framework**: [OpenTUI](https://opentui.com/) - TypeScript library for rich terminal UIs
-- **Features**: Flexbox layout, React/Solid bindings, keyboard handling
-- **Location**: `src/presentation/tui/`
+- **Framework**: [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js) - Interactive CLI prompts (select, confirm, input, password)
+- **Features**: Disabled options with badges, separators, themes, TypeScript-native
+- **Location**: Interactive prompts used within CLI commands (e.g., `shep settings agent`)
+- **Documentation**: See [docs/tui/](./docs/tui/) for architecture and patterns
 
 ### Web UI
 

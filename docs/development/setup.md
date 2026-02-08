@@ -96,7 +96,7 @@ cli/
 │   │   └── services/
 │   └── presentation/     # UI layers
 │       ├── cli/          # Commander-based CLI
-│       ├── tui/          # OpenTUI terminal UI
+│       ├── tui/          # @inquirer/prompts interactive wizards
 │       └── web/          # Next.js + shadcn/ui
 │           ├── app/      # Next.js App Router
 │           ├── components/
