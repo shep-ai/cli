@@ -133,7 +133,10 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton<IAgentValidator>('IAgentValidator', AgentValidatorService);
   container.registerSingleton<IVersionService>('IVersionService', VersionService);
   container.register<IWebServerService>('IWebServerService', {
-    useFactory: () => new WebServerService(),
+    useFactory: (c) => {
+      const logger = c.resolve<ILogger>('ILogger');
+      return new WebServerService(logger);
+    },
   });
 
   // Register agent infrastructure
