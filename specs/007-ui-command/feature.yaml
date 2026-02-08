@@ -3,18 +3,20 @@ feature:
   name: 'ui-command'
   number: 7
   branch: 'feat/007-ui-command'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-05T13:45:58Z'
 
 status:
-  phase: 'ready-for-review'
+  phase: 'in-review'
   progress:
     completed: 25
     total: 25
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-05T16:23:00Z'
-  lastUpdatedBy: 'shep-kit:implement'
+  lastUpdated: '2026-02-05T16:25:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/24'
 
 validation:
   lastRun: '2026-02-05T15:00:00Z'
@@ -42,6 +44,9 @@ checkpoints:
   - phase: 'implementation-complete'
     completedAt: '2026-02-05T16:23:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-05T16:25:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
