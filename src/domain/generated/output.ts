@@ -307,6 +307,35 @@ export type SystemConfig = {
    */
   logLevel: string;
 };
+export enum AgentType {
+  ClaudeCode = 'claude-code',
+  GeminiCli = 'gemini-cli',
+  Aider = 'aider',
+  Continue = 'continue',
+  Cursor = 'cursor',
+}
+export enum AgentAuthMethod {
+  Session = 'session',
+  Token = 'token',
+}
+
+/**
+ * AI coding agent configuration
+ */
+export type AgentConfig = {
+  /**
+   * Selected AI coding agent
+   */
+  type: AgentType;
+  /**
+   * Authentication method for the agent
+   */
+  authMethod: AgentAuthMethod;
+  /**
+   * API token for token-based auth (optional)
+   */
+  token?: string;
+};
 
 /**
  * Global Shep platform settings (singleton)
@@ -328,6 +357,10 @@ export type Settings = BaseEntity & {
    * System-level parameters
    */
   system: SystemConfig;
+  /**
+   * AI coding agent selection and authentication
+   */
+  agent: AgentConfig;
 };
 export enum TaskState {
   Todo = 'Todo',

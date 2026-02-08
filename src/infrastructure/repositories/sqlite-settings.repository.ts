@@ -48,13 +48,15 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         model_analyze, model_requirements, model_plan, model_implement,
         user_name, user_email, user_github_username,
         env_default_editor, env_shell_preference,
-        sys_auto_update, sys_log_level
+        sys_auto_update, sys_log_level,
+        agent_type, agent_auth_method, agent_token
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement,
         @user_name, @user_email, @user_github_username,
         @env_default_editor, @env_shell_preference,
-        @sys_auto_update, @sys_log_level
+        @sys_auto_update, @sys_log_level,
+        @agent_type, @agent_auth_method, @agent_token
       )
     `);
 
@@ -114,7 +116,10 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         env_default_editor = @env_default_editor,
         env_shell_preference = @env_shell_preference,
         sys_auto_update = @sys_auto_update,
-        sys_log_level = @sys_log_level
+        sys_log_level = @sys_log_level,
+        agent_type = @agent_type,
+        agent_auth_method = @agent_auth_method,
+        agent_token = @agent_token
       WHERE id = @id
     `);
 

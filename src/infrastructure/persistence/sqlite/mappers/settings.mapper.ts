@@ -12,6 +12,7 @@
  */
 
 import type { Settings } from '../../../../domain/generated/output.js';
+import { type AgentType, type AgentAuthMethod } from '../../../../domain/generated/output.js';
 
 /**
  * Database row type matching the settings table schema.
@@ -41,6 +42,11 @@ export interface SettingsRow {
   // SystemConfig (system.*)
   sys_auto_update: number; // Boolean stored as INTEGER
   sys_log_level: string;
+
+  // AgentConfig (agent.*)
+  agent_type: string;
+  agent_auth_method: string;
+  agent_token: string | null;
 }
 
 /**
@@ -77,6 +83,11 @@ export function toDatabase(settings: Settings): SettingsRow {
     // SystemConfig
     sys_auto_update: settings.system.autoUpdate ? 1 : 0,
     sys_log_level: settings.system.logLevel,
+
+    // AgentConfig (optional token → NULL)
+    agent_type: settings.agent.type,
+    agent_auth_method: settings.agent.authMethod,
+    agent_token: settings.agent.token ?? null,
   };
 }
 
@@ -119,6 +130,13 @@ export function fromDatabase(row: SettingsRow): Settings {
     system: {
       autoUpdate: row.sys_auto_update === 1,
       logLevel: row.sys_log_level,
+    },
+
+    // AgentConfig (NULL → undefined for optional token)
+    agent: {
+      type: row.agent_type as AgentType,
+      authMethod: row.agent_auth_method as AgentAuthMethod,
+      ...(row.agent_token !== null && { token: row.agent_token }),
     },
   };
 }

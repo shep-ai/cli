@@ -140,6 +140,7 @@
   "packageManager": "pnpm@9.0.0",
   "dependencies": {
     "@blackglory/better-sqlite3-migrations": "^0.1.20",
+    "@inquirer/prompts": "^8.2.0",
     "@typespec-tools/emitter-typescript": "^0.3.0",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
