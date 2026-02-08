@@ -75,7 +75,7 @@ pnpm dev:storybook        # Start Storybook dev server
 pnpm dev:web              # Start Next.js dev server
 
 # Build
-pnpm build                # Build CLI with Vite
+pnpm build                # Build CLI with tsc + tsc-alias, then build web
 pnpm build:storybook      # Build Storybook for deployment
 pnpm build:web            # Build Next.js for production
 
@@ -114,18 +114,17 @@ This project follows **Clean Architecture** with four layers:
 ```
 src/
 ├── domain/           # Core business logic (no external dependencies)
-│   ├── entities/     # Feature, Task, ActionItem, Artifact, Requirement
-│   ├── value-objects/# SdlcLifecycle, TaskStatus, ArtifactType
-│   └── services/     # Domain services
+│   ├── factories/    # Factory functions (e.g., settings defaults)
+│   ├── generated/    # TypeSpec-generated TypeScript types (DO NOT EDIT)
+│   └── value-objects/# VersionInfo, GanttTask, GanttViewData
 ├── application/      # Use cases and orchestration
 │   ├── use-cases/    # Single-responsibility use case classes
-│   ├── ports/        # Input/output port interfaces
-│   └── services/     # Application services
+│   └── ports/output/ # Output port interfaces (repositories, services)
 ├── infrastructure/   # External concerns implementation
+│   ├── di/           # tsyringe DI container setup
 │   ├── repositories/ # SQLite implementations of repository interfaces
-│   ├── agents/       # LangGraph-based agent implementations
 │   ├── persistence/  # Database connection, migrations
-│   └── services/     # External service integrations
+│   └── services/     # External service integrations (agents/, version, web-server)
 └── presentation/     # User interfaces
     ├── cli/          # Commander-based CLI commands
     ├── tui/          # Terminal UI wizard
@@ -144,7 +143,7 @@ src/
 
 ## Dependency Injection
 
-Managed by tsyringe with `reflect-metadata`. Container setup in [src/infrastructure/di/container.ts](src/infrastructure/di/container.ts:37-61).
+Managed by tsyringe with `reflect-metadata`. Container setup in [src/infrastructure/di/container.ts](src/infrastructure/di/container.ts:49-86).
 
 **Container Lifecycle:**
 
@@ -152,8 +151,8 @@ Managed by tsyringe with `reflect-metadata`. Container setup in [src/infrastruct
 2. Opens SQLite connection to `~/.shep/data`
 3. Runs database migrations via `user_version` pragma
 4. Registers Database instance
-5. Registers repository implementations (ISettingsRepository → SQLiteSettingsRepository)
-6. Registers use cases as singletons (InitializeSettingsUseCase, LoadSettingsUseCase, UpdateSettingsUseCase)
+5. Registers port implementations (ISettingsRepository → SQLiteSettingsRepository, IAgentValidator → AgentValidatorService, IVersionService → VersionService)
+6. Registers use cases as singletons (InitializeSettingsUseCase, LoadSettingsUseCase, UpdateSettingsUseCase, ConfigureAgentUseCase, ValidateAgentAuthUseCase)
 
 **Usage:**
 
@@ -170,76 +169,74 @@ const settings = await useCase.execute();
 
 ## Domain Models
 
-### Feature
+### Feature (Aggregate Root)
 
 Central entity tracking a piece of work through the SDLC lifecycle.
 
-- `id`, `name`, `description`, `repoPath`
-- `lifecycle: SdlcLifecycle` (Requirements | Plan | Implementation | Test | Deploy | Maintenance)
-- `requirements: Requirement[]`
-- `tasks: Task[]`
-- `artifacts: Artifact[]`
-- `createdAt` (readonly timestamp)
+- `id`, `name`, `slug`, `description`, `repositoryPath`, `branch`
+- `lifecycle: SdlcLifecycle` (Requirements | Research | Implementation | Review | Deploy & QA | Maintain)
+- `messages: Message[]`
+- `plan?: Plan` (optional, contains requirements, tasks, and artifacts)
+- `relatedArtifacts: Artifact[]`
+- `createdAt`, `updatedAt`
 
 ### Task
 
-Work item within a Feature, contains Action Items.
+Work item within a Plan, contains Action Items.
 
-- `id`, `featureId`, `title`, `description`
-- `status: TaskStatus`
+- `id`, `title?`, `description?`
+- `state: TaskState` (Todo | WIP | Done | Review)
 - `actionItems: ActionItem[]`
-- `dependsOn: string[]` (Task IDs)
-- `orderIndex`, `createdAt` (readonly timestamp)
+- `dependsOn: Task[]`
+- `baseBranch`, `branch`
+- `createdAt`, `updatedAt`
 
 ### ActionItem
 
 Granular step within a Task.
 
-- `id`, `taskId`, `title`
-- `status: TaskStatus`
-- `dependsOn: string[]` (ActionItem IDs)
-- `orderIndex`, `createdAt` (readonly timestamp)
+- `id`, `name`, `description`, `branch`
+- `dependsOn: ActionItem[]`
+- `acceptanceCriteria: AcceptanceCriteria[]`
+- `createdAt`, `updatedAt`
 
 ### Artifact
 
 Generated document attached to a Feature.
 
-- `id`, `featureId`, `type: ArtifactType` (PRD | RFC | Design | TechPlan | Other)
-- `title`, `content`, `filePath`
-- `createdAt` (readonly timestamp)
+- `id`, `name`, `type` (free-form string), `category: ArtifactCategory` (PRD | API | Design | Other)
+- `format: ArtifactFormat` (Markdown | Text | Yaml | Other)
+- `summary`, `path`
+- `state: ArtifactState` (Todo | Elaborating | Done)
+- `createdAt`, `updatedAt`
 
 ### Requirement
 
-User or inferred requirement attached to a Feature.
+User requirement attached to a Plan.
 
-- `id`, `featureId`, `description`
-- `source: RequirementSource` ('user' | 'inferred' | 'clarified')
-- `createdAt` (readonly timestamp)
+- `id`, `slug`, `userQuery`
+- `type: RequirementType` (Functional | NonFunctional)
+- `researches: Research[]`
+- `createdAt`, `updatedAt`
 
 ### Settings
 
 Global application configuration (singleton).
 
-- `id` (always 'singleton'), `createdAt`, `updatedAt`
+- `id`, `createdAt`, `updatedAt`
 - `models: ModelConfiguration` (analyze, requirements, plan, implement)
 - `user: UserProfile` (name, email, githubUsername - all optional)
 - `environment: EnvironmentConfig` (defaultEditor, shellPreference)
 - `system: SystemConfig` (autoUpdate, logLevel)
+- `agent: AgentConfig` (type, authMethod, token)
 - **Location**: `~/.shep/data` (SQLite singleton record)
 - **Access**: Via `getSettings()` singleton service (initialized at CLI bootstrap)
 
 ## Agent System
 
-Located in `infrastructure/agents/`, implements LangGraph StateGraph patterns in TypeScript:
+Located in `infrastructure/services/agents/`. The current agent system handles external AI coding tool configuration (Claude Code, Gemini CLI, etc.) via the `AgentConfig` settings and `IAgentValidator` port.
 
-| Agent            | Responsibility                                          |
-| ---------------- | ------------------------------------------------------- |
-| analyzeNode      | Analyzes codebase structure, patterns, dependencies     |
-| requirementsNode | Gathers requirements through conversational interaction |
-| planNode         | Breaks features into Tasks, ActionItems, and Artifacts  |
-| implementNode    | Executes code changes based on plan                     |
-
-Nodes communicate through typed state updates in the StateGraph. See [AGENTS.md](./AGENTS.md) for details.
+**Note**: The LangGraph StateGraph agent architecture (analyzeNode, requirementsNode, planNode, implementNode) is **planned but not yet implemented**. See [AGENTS.md](./AGENTS.md) for the planned design.
 
 ## Data Storage
 
@@ -317,9 +314,9 @@ import type { Settings, Feature, Task } from '@/domain/generated/output';
 
 ### Adding a New Use Case
 
-1. Define interface in `application/ports/input/`
+1. Define any needed port interfaces in `application/ports/output/`
 2. Create use case class in `application/use-cases/`
-3. Inject repository interfaces via constructor
+3. Inject repository/service interfaces via constructor
 4. Wire up in DI container
 
 ### Adding a New Repository

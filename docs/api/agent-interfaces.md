@@ -1,6 +1,16 @@
 # Agent Interfaces
 
-Technical specifications for the multi-agent system.
+> **IMPORTANT: Implementation Status**
+>
+> The interfaces described in this document are **planned specifications** for the future LangGraph-based multi-agent system. **None of these interfaces are implemented in the codebase.** The `IAgent`, `IAgentOrchestrator`, `IMessageBus`, and specific agent interfaces (`IRepositoryAnalysisAgent`, `IRequirementsAgent`, `IPlanningAgent`, `IImplementationAgent`) do not exist as code.
+>
+> The only agent-related interface currently implemented is `IAgentValidator` (in `src/application/ports/output/agent-validator.interface.ts`), which checks external AI tool binary availability. See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+
+---
+
+## Planned Interfaces (Not Yet Implemented)
+
+Technical specifications for the planned multi-agent system.
 
 ## Core Interfaces
 

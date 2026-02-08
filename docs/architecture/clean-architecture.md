@@ -266,7 +266,7 @@ src/presentation/
 |-----------|-----------|---------|
 | CLI | Commander | Command parsing and execution |
 | TUI | @inquirer/prompts | Interactive prompts (select, confirm, input, password) |
-| Web UI | Next.js 14 | App Router, Server Components |
+| Web UI | Next.js 16+ | App Router, Server Components |
 | Components | shadcn/ui | Accessible UI primitives |
 | Design System | Storybook | Component documentation and testing |
 

@@ -1,10 +1,20 @@
 # Agent System Architecture
 
+> **IMPORTANT: Implementation Status**
+>
+> This document describes the **planned architecture** for the LangGraph-based multi-agent workflow system. **None of the LangGraph components described below are implemented yet.** The `src/infrastructure/agents/langgraph/` directory does not exist.
+>
+> The current agent system only handles configuration of external AI coding tools (Claude Code, Gemini CLI, etc.) via `AgentValidatorService`, `ConfigureAgentUseCase`, and the `shep settings agent` command. See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+
+---
+
+## Planned Architecture (Not Yet Implemented)
+
 Multi-stage workflow orchestration using LangGraph StateGraphs with Claude integration.
 
 ## Overview
 
-Shep implements a **state-based workflow system** using [LangGraph](https://www.langchain.com/langgraph) for multi-stage feature development. Rather than traditional agent objects, nodes are **pure async functions** that process and update state.
+Shep will implement a **state-based workflow system** using [LangGraph](https://www.langchain.com/langgraph) for multi-stage feature development. Rather than traditional agent objects, nodes will be **pure async functions** that process and update state.
 
 ```
 ┌─────────────────────────────────────────┐

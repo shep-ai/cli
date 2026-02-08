@@ -6,33 +6,9 @@ Comprehensive guide to configuring Shep AI CLI.
 
 ### Global Configuration
 
-Located at `~/.shep/config.json`:
+Stored in `~/.shep/data` (SQLite database, singleton record). Settings include models, user profile, environment, and system configuration. Access via `getSettings()` singleton service or `shep settings show`.
 
-```json
-{
-  "auth": {
-    "method": "token",
-    "tokenPath": "~/.shep/credentials"
-  },
-  "server": {
-    "port": 3030,
-    "host": "localhost"
-  },
-  "analysis": {
-    "excludePatterns": ["**/node_modules/**", "**/dist/**", "**/.git/**"],
-    "maxFileSize": 1048576,
-    "maxFiles": 10000
-  },
-  "agents": {
-    "maxConcurrentAgents": 4,
-    "timeoutMs": 300000,
-    "retryAttempts": 3
-  },
-  "ui": {
-    "theme": "system"
-  }
-}
-```
+Default web UI port is **4050**.
 
 ### Per-Repository Configuration
 
@@ -100,7 +76,7 @@ shep config reset auth
 
 ### Port Configuration
 
-Default port is 3030. To change:
+Default port is 4050. To change:
 
 ```bash
 # Command line (temporary)
@@ -312,7 +288,7 @@ Configuration is resolved in this order (highest to lowest):
 1. Command line arguments
 2. Environment variables
 3. Repository `.shep/config.json`
-4. Global `~/.shep/config.json`
+4. Global `~/.shep/data` (SQLite settings)
 5. Built-in defaults
 
 ## Example Configurations
@@ -332,7 +308,7 @@ Configuration is resolved in this order (highest to lowest):
 ```json
 {
   "server": {
-    "port": 3030
+    "port": 4050
   },
   "agents": {
     "implementation": {

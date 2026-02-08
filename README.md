@@ -57,7 +57,7 @@ This launches a TUI wizard to:
 
 1. Configure Claude Code authentication (setup token or use existing session)
 2. Start repository analysis
-3. Open the web UI at `http://localhost:3000/`
+3. Open the web UI at `http://localhost:4050/`
 
 ## How It Works
 
@@ -150,7 +150,7 @@ Uses **Repository Pattern** with SQLite:
 | TUI Framework   | [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js)                           |
 | Web UI          | Next.js 16 + React 19 + shadcn/ui ([@shepai/web](./src/presentation/web/))              |
 | Design System   | Storybook                                                                               |
-| Build Tool      | Vite                                                                                    |
+| Build Tool      | tsc + tsc-alias (prod), Vite (dev)                                                      |
 | Database        | SQLite                                                                                  |
 | Agent System    | [LangGraph](https://www.langchain.com/langgraph) (`@langchain/langgraph`)               |
 | Vector DB       | [LanceDB](https://lancedb.com/) (file-based)                                            |

@@ -1,10 +1,20 @@
 # Working with LangGraph Agents
 
-Guide to understanding and extending Shep's LangGraph-based agent system.
+> **IMPORTANT: Implementation Status**
+>
+> This guide describes the **planned LangGraph-based agent system** which is **not yet implemented**. The code examples, graph definitions, and node functions shown below do not exist in the codebase. This document is retained as architectural planning documentation for future implementation.
+>
+> The current agent system only handles configuration of external AI coding tools (Claude Code, Gemini CLI, etc.). See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+
+---
+
+## Planned Architecture (Not Yet Implemented)
+
+Guide to understanding and extending Shep's planned LangGraph-based agent system.
 
 ## Overview
 
-Shep uses [LangGraph](https://www.langchain.com/langgraph) for multi-agent orchestration. LangGraph provides:
+Shep will use [LangGraph](https://www.langchain.com/langgraph) for multi-agent orchestration. LangGraph provides:
 
 - **StateGraph**: Type-safe workflow definitions
 - **Nodes**: Functions that process and update state
