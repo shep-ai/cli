@@ -24,8 +24,10 @@ describe('CLI: build integrity', () => {
     it('should run version command from compiled output', () => {
       const result = dist.run('version');
 
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
+      expect(
+        result.success,
+        `Command failed.\nstdout: ${result.stdout}\nstderr: ${result.stderr}`
+      ).toBe(true);
       expect(result.stdout).toContain('@shepai/cli');
       expect(result.stderr).not.toContain('ERR_MODULE_NOT_FOUND');
     });
@@ -33,8 +35,10 @@ describe('CLI: build integrity', () => {
     it('should run help command from compiled output', () => {
       const result = dist.run('--help');
 
-      expect(result.success).toBe(true);
-      expect(result.exitCode).toBe(0);
+      expect(
+        result.success,
+        `Command failed.\nstdout: ${result.stdout}\nstderr: ${result.stderr}`
+      ).toBe(true);
       expect(result.stdout).toContain('shep');
     });
 
