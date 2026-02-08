@@ -761,6 +761,107 @@ export type Deployment = {
    */
   stoppedAt?: any;
 };
+export enum AgentRunStatus {
+  pending = 'pending',
+  running = 'running',
+  completed = 'completed',
+  failed = 'failed',
+  interrupted = 'interrupted',
+  cancelled = 'cancelled',
+}
+
+/**
+ * Agent execution run record
+ */
+export type AgentRun = BaseEntity & {
+  /**
+   * Agent executor type used (claude-code, gemini-cli, etc.)
+   */
+  agentType: AgentType;
+  /**
+   * Agent workflow name (analyze-repository, requirements, etc.)
+   */
+  agentName: string;
+  /**
+   * Current execution status
+   */
+  status: AgentRunStatus;
+  /**
+   * Input prompt sent to agent executor
+   */
+  prompt: string;
+  /**
+   * Final result output (optional, populated on completion)
+   */
+  result?: string;
+  /**
+   * Executor session ID for resumption (optional)
+   */
+  sessionId?: string;
+  /**
+   * LangGraph thread_id for checkpoint lookup and crash resume
+   */
+  threadId: string;
+  /**
+   * Process ID for crash recovery (optional)
+   */
+  pid?: number;
+  /**
+   * Last heartbeat timestamp for crash detection (optional)
+   */
+  lastHeartbeat?: any;
+  /**
+   * Execution start timestamp (optional)
+   */
+  startedAt?: any;
+  /**
+   * Execution completion timestamp (optional)
+   */
+  completedAt?: any;
+  /**
+   * Error message if execution failed (optional)
+   */
+  error?: string;
+};
+
+/**
+ * Streaming event emitted during agent execution
+ */
+export type AgentRunEvent = {
+  /**
+   * Event type: progress, result, or error
+   */
+  type: 'progress' | 'result' | 'error';
+  /**
+   * Event content
+   */
+  content: string;
+  /**
+   * Event timestamp
+   */
+  timestamp: any;
+};
+
+/**
+ * Agent workflow registration metadata
+ */
+export type AgentDefinition = {
+  /**
+   * Unique agent workflow name (e.g., analyze-repository)
+   */
+  name: string;
+  /**
+   * Human-readable description of what this agent does
+   */
+  description: string;
+};
+export enum AgentFeature {
+  sessionResume = 'session-resume',
+  streaming = 'streaming',
+  toolScoping = 'tool-scoping',
+  structuredOutput = 'structured-output',
+  systemPrompt = 'system-prompt',
+}
 export type DeployTarget = DeployTargetActionItem | DeployTargetTask | DeployTargetTasks;
 
 export type Askable = {

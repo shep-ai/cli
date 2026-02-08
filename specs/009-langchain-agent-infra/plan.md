@@ -58,7 +58,7 @@ This feature introduces agent orchestration infrastructure following Clean Archi
 │ ┌─────────────────────────────────────────────────────────────┐ │
 │ │ Persistence (SQLite)                                       │ │
 │ │ agent_runs table: id, agent_type, status, prompt, result, │ │
-│ │                   session_id, pid, heartbeat, timestamps  │ │
+│ │   session_id, thread_id, pid, heartbeat, timestamps      │ │
 │ └─────────────────────────────────────────────────────────────┘ │
 └─────────────────────────────────────────────────────────────────┘
                            │
@@ -88,12 +88,12 @@ This feature introduces agent orchestration infrastructure following Clean Archi
 
 **Tasks**:
 
-1. Install npm packages: `@langchain/langgraph`, `zod`, `uuid`
+1. Install npm packages: `@langchain/langgraph`, `zod` (use `crypto.randomUUID()` for UUIDs — no `uuid` package needed)
 2. Create TypeSpec models in `tsp/agents/`:
    - `agent-run.tsp` (extends BaseEntity)
    - `agent-run-event.tsp` (value object)
    - `agent-definition.tsp` (value object)
-   - `enums/agent-run-status.tsp`
+   - `enums/agent-run-status.tsp` (pending | running | completed | failed | interrupted | cancelled)
    - `enums/agent-feature.tsp`
 3. Run `pnpm tsp:compile` to generate TypeScript types
 
@@ -219,7 +219,7 @@ describe('AgentRunRepository', () => {
 
 **GREEN** (Minimal Implementation):
 
-- Migration `003_create_agent_runs.sql`:
+- Migration `003_create_agent_runs.sql` (global database `~/.shep/data`):
   ```sql
   CREATE TABLE agent_runs (
     id TEXT PRIMARY KEY,
@@ -229,6 +229,7 @@ describe('AgentRunRepository', () => {
     prompt TEXT NOT NULL,
     result TEXT,
     session_id TEXT,
+    thread_id TEXT NOT NULL,
     pid INTEGER,
     last_heartbeat INTEGER,
     started_at INTEGER,
@@ -239,9 +240,10 @@ describe('AgentRunRepository', () => {
   );
   CREATE INDEX idx_agent_runs_status ON agent_runs(status);
   CREATE INDEX idx_agent_runs_pid ON agent_runs(pid) WHERE pid IS NOT NULL;
+  CREATE INDEX idx_agent_runs_thread_id ON agent_runs(thread_id);
   ```
 - `application/ports/output/agent-run-repository.interface.ts`
-- `infrastructure/repositories/agent-run.repository.ts`
+- `infrastructure/repositories/agent-run.repository.ts` (`@injectable()` decorator — follows `SQLiteSettingsRepository` pattern)
 - `infrastructure/repositories/mappers/agent-run.mapper.ts`
 
 **REFACTOR**:
@@ -253,7 +255,7 @@ describe('AgentRunRepository', () => {
 
 ---
 
-### Phase 6: Application Ports - Agent Runtime
+### Phase 6: Application Ports - Agent Runtime [PARALLELIZABLE ✅]
 
 **Objective**: Define IAgentRunner and IAgentRegistry interfaces.
 
@@ -270,12 +272,13 @@ describe('IAgentRunner type contracts', () => {
 
 - `application/ports/output/agent-runner.interface.ts`
 - `application/ports/output/agent-registry.interface.ts`
+- **Note**: Defer `application/ports/output/index.ts` export updates to a merge step after all parallel phases (3, 4, 5, 6) complete to avoid file conflicts.
 
 **REFACTOR**:
 
 - Add JSDoc
 
-**Parallelization**: Sequential (other phases depend on these ports)
+**Parallelization**: ✅ **Can run in parallel with Phase 3, 4 & 5** (only depends on Phase 2 port patterns being established, not on their implementations)
 
 ---
 
@@ -302,6 +305,8 @@ describe('analyzeRepositoryGraph', () => {
   - Create StateGraph, add node, add edge to END
 - `infrastructure/services/agents/langgraph/checkpointer.ts`:
   - Wrapper around `@langchain/langgraph` SqliteSaver
+  - Registered in DI container as `'Checkpointer'` token (see Phase 11)
+  - Uses separate SQLite file per repo: `~/.shep/repos/<encoded-path>/checkpoints.db`
 
 **REFACTOR**:
 
@@ -435,18 +440,56 @@ describe('DI Container - Agent Services', () => {
 
 **GREEN** (Minimal Implementation):
 
-- Update `infrastructure/di/container.ts`:
-  - Register IAgentExecutorFactory
-  - Register IAgentRegistry
-  - Register IAgentRunRepository
-  - Register IAgentRunner
-  - Register RunAgentUseCase
+- Update `infrastructure/di/container.ts` following existing patterns:
+
+  ```typescript
+  // --- Agent Infrastructure (useFactory for services) ---
+
+  // Checkpointer: SqliteSaver instance for LangGraph checkpoint persistence
+  // Created per-repo at ~/.shep/repos/<encoded-path>/checkpoints.db
+  container.register<BaseCheckpointSaver>('Checkpointer', {
+    useFactory: () => SqliteSaver.fromConnString('path-resolved-at-runtime'),
+  });
+
+  // IAgentExecutorFactory: resolves executor by AgentType (useFactory — like IAgentValidator)
+  const spawnFn = child_process.spawn;
+  container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
+    useFactory: () => new AgentExecutorFactory(spawnFn),
+  });
+
+  // IAgentRegistry: Map-based agent registration (useFactory — no decorators needed)
+  container.register<IAgentRegistry>('IAgentRegistry', {
+    useFactory: () => new AgentRegistryService(),
+  });
+
+  // IAgentRunRepository: SQLite CRUD for agent_runs (useFactory — like ISettingsRepository)
+  container.register<IAgentRunRepository>('IAgentRunRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SqliteAgentRunRepository(database);
+    },
+  });
+
+  // IAgentRunner: wraps LangGraph invocation + persistence (useFactory — complex deps)
+  container.register<IAgentRunner>('IAgentRunner', {
+    useFactory: (c) =>
+      new AgentRunnerService(
+        c.resolve<IAgentRegistry>('IAgentRegistry'),
+        c.resolve<IAgentExecutorFactory>('IAgentExecutorFactory'),
+        c.resolve<BaseCheckpointSaver>('Checkpointer'),
+        c.resolve<IAgentRunRepository>('IAgentRunRepository')
+      ),
+  });
+
+  // --- Agent Use Cases (registerSingleton — like existing use cases) ---
+  container.registerSingleton(RunAgentUseCase);
+  ```
 
 **REFACTOR**:
 
-- Group by feature
-- Add comments
-- Validate health
+- Group registrations by feature section
+- Add comments for each registration
+- Validate container health at startup (resolve all tokens)
 
 **Parallelization**: Depends on all previous phases
 

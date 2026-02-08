@@ -11,11 +11,11 @@
 
 ### Phase 1: Foundation & Dependencies
 
-- [ ] Install `@langchain/langgraph`, `zod`, `uuid` packages
-- [ ] Create `tsp/agents/agent-run.tsp` (extends BaseEntity with id, agentType, agentName, status, prompt, result, sessionId, pid, lastHeartbeat, startedAt, completedAt, error)
+- [ ] Install `@langchain/langgraph`, `zod` packages (use `crypto.randomUUID()` for UUIDs — no `uuid` package needed)
+- [ ] Create `tsp/agents/agent-run.tsp` (extends BaseEntity with id, agentType, agentName, status, prompt, result, sessionId, threadId, pid, lastHeartbeat, startedAt, completedAt, error)
 - [ ] Create `tsp/agents/agent-run-event.tsp` (value object: type, content, timestamp)
 - [ ] Create `tsp/agents/agent-definition.tsp` (value object: name, description, graphFactory)
-- [ ] Create `tsp/agents/enums/agent-run-status.tsp` (pending | running | completed | failed | cancelled)
+- [ ] Create `tsp/agents/enums/agent-run-status.tsp` (pending | running | completed | failed | interrupted | cancelled)
 - [ ] Create `tsp/agents/enums/agent-feature.tsp` (session-resume | streaming | tool-scoping | structured-output | system-prompt)
 - [ ] Run `pnpm tsp:compile` and verify `src/domain/generated/output.ts` updated
 - [ ] Verify types import correctly with test file
@@ -90,22 +90,23 @@
   - [ ] Test: should create agent run record
   - [ ] Test: should find agent run by ID
   - [ ] Test: should update agent run status
+  - [ ] Test: should find agent run by thread ID
   - [ ] Test: should find running agents by PID
   - [ ] Test: should list all agent runs
   - [ ] Test: should delete agent run
 - [ ] **GREEN**: Implement persistence layer
-  - [ ] Create migration `infrastructure/persistence/sqlite/migrations/003_create_agent_runs.sql` with agent_runs table and indexes
+  - [ ] Create migration `infrastructure/persistence/sqlite/migrations/003_create_agent_runs.sql` with agent_runs table (including `thread_id TEXT NOT NULL` column), indexes on status, pid (partial), and thread_id
   - [ ] Update `infrastructure/persistence/sqlite/migrations.ts` to include migration 003
   - [ ] Create `application/ports/output/agent-run-repository.interface.ts` with IAgentRunRepository
   - [ ] Create `infrastructure/repositories/mappers/agent-run.mapper.ts` with toDatabase/fromDatabase
-  - [ ] Create `infrastructure/repositories/agent-run.repository.ts` implementing IAgentRunRepository
-  - [ ] Implement create, findById, updateStatus, findRunningByPid, list, delete methods
+  - [ ] Create `infrastructure/repositories/agent-run.repository.ts` implementing IAgentRunRepository with `@injectable()` decorator (follows `SQLiteSettingsRepository` pattern)
+  - [ ] Implement create, findById, findByThreadId, updateStatus, findRunningByPid, list, delete methods
   - [ ] Make tests pass
 - [ ] **REFACTOR**: Add composite indexes, extract SQL query builders, optimize queries
 
 ---
 
-### Phase 6: Application Ports - Agent Runtime
+### Phase 6: Application Ports - Agent Runtime [P]
 
 - [ ] Create `application/ports/output/agent-runner.interface.ts`
   - [ ] Define `AgentRunOptions` type (repositoryPath?, model?, resumeSession?, background?, timeout?)
@@ -114,7 +115,7 @@
 - [ ] Create `application/ports/output/agent-registry.interface.ts`
   - [ ] Define `IAgentRegistry` interface (register, get, list methods)
   - [ ] Add JSDoc
-- [ ] Export interfaces from `application/ports/output/index.ts`
+- [ ] **Defer** `application/ports/output/index.ts` export updates to merge step after all parallel phases (3, 4, 5, 6) complete — avoids file conflicts
 - [ ] Write type-level tests in `tests/unit/application/ports/agent-runtime.interface.test.ts`
 
 ---
@@ -136,7 +137,7 @@
     - [ ] Implement `analyzeNode` function that calls `executor.execute()` with analysis prompt
     - [ ] Create StateGraph, add analyzeNode, add edge to END
     - [ ] Export `analyzeRepositoryGraph` factory function
-  - [ ] Create `infrastructure/services/agents/langgraph/checkpointer.ts` wrapping SqliteSaver
+  - [ ] Create `infrastructure/services/agents/langgraph/checkpointer.ts` wrapping SqliteSaver (per-repo file: `~/.shep/repos/<encoded-path>/checkpoints.db`, registered in DI as `'Checkpointer'` token)
   - [ ] Make tests pass
 - [ ] **REFACTOR**: Extract prompt templates, add conditional edges for errors, add retry logic with exponential backoff
 
@@ -229,14 +230,16 @@
   - [ ] Test: should resolve IAgentRunner
   - [ ] Test: entire dependency graph resolves without errors
 - [ ] **GREEN**: Wire up DI container
-  - [ ] Update `infrastructure/di/container.ts`:
-    - [ ] Register `IAgentExecutorFactory` with factory using `promisify(execFile)`
-    - [ ] Register `IAgentRegistry` with `AgentRegistryService` as singleton
-    - [ ] Register `IAgentRunRepository` with factory using Database
-    - [ ] Register `IAgentRunner` with factory using all dependencies + checkpointer
-    - [ ] Register `RunAgentUseCase` with factory
+  - [ ] Update `infrastructure/di/container.ts` — all services use `useFactory` pattern, use case uses `registerSingleton`:
+    - [ ] Register `'Checkpointer'` with `useFactory` → `SqliteSaver.fromConnString(...)` (per-repo checkpoints.db)
+    - [ ] Register `'IAgentExecutorFactory'` with `useFactory` → `new AgentExecutorFactory(child_process.spawn)` (like `IAgentValidator` pattern)
+    - [ ] Register `'IAgentRegistry'` with `useFactory` → `new AgentRegistryService()` (no deps, no decorators needed)
+    - [ ] Register `'IAgentRunRepository'` with `useFactory` → resolve `'Database'` from container, `new SqliteAgentRunRepository(db)` (like `ISettingsRepository` pattern)
+    - [ ] Register `'IAgentRunner'` with `useFactory` → resolve all 4 deps from container: `IAgentRegistry`, `IAgentExecutorFactory`, `Checkpointer`, `IAgentRunRepository`
+    - [ ] Register `RunAgentUseCase` with `registerSingleton()` — auto-resolves `@inject('IAgentRunner')` and `@inject('IAgentRegistry')` (existing use case pattern)
+  - [ ] Merge deferred `application/ports/output/index.ts` exports from Phases 2, 5, 6
   - [ ] Make tests pass
-- [ ] **REFACTOR**: Group registrations by feature, add comments, validate container health at startup
+- [ ] **REFACTOR**: Group registrations by feature section with comments, validate container health at startup by resolving all tokens
 
 ---
 
@@ -263,21 +266,23 @@
 
 **Phases that can run in parallel:**
 
-- ✅ **Phase 3, 4, 5** can run concurrently (independent implementations)
+- ✅ **Phase 3, 4, 5, 6** can run concurrently after Phase 2 completes (4 parallel agents)
   - Phase 3: ClaudeCodeExecutor (executor implementation)
   - Phase 4: AgentExecutorFactory (factory logic)
   - Phase 5: Task Persistence (database layer)
-  - **Agent Team Opportunity**: Spawn 3 agents, one per phase, to accelerate development
+  - Phase 6: Runtime Ports (interface definitions only — depends on Phase 2 patterns, NOT on 3-5 implementations)
+  - **Agent Team Opportunity**: Spawn 4 agents, one per phase, to accelerate development
+  - **Conflict mitigation**: Each agent creates new files only. Defer `application/ports/output/index.ts` export updates to Phase 11 merge step.
 
 **Sequential dependencies:**
 
 - Phase 1 → Phase 2 (foundation must exist before ports)
-- Phase 2 → Phase 3, 4 (ports must be defined before implementations)
-- Phase 3, 4 → Phase 7 (LangGraph needs executors)
-- Phase 6 → Phase 8 (runtime ports before runtime services)
-- Phase 7, 8 → Phase 9 (use cases depend on services)
+- Phase 2 → Phase 3, 4, 5, 6 (ports must be defined before implementations)
+- Phase 3, 4, 6 → Phase 7 (LangGraph needs executors + runtime port interfaces)
+- Phase 6, 7 → Phase 8 (runtime ports + LangGraph before runtime services)
+- Phase 8 → Phase 9 (use cases depend on services)
 - Phase 9 → Phase 10 (CLI depends on use cases)
-- Phase 10 → Phase 11 (DI wiring needs all implementations)
+- Phase 10 → Phase 11 (DI wiring + index.ts merge needs all implementations)
 - Phase 11 → Phase 12 (E2E needs full integration)
 
 ## Acceptance Checklist

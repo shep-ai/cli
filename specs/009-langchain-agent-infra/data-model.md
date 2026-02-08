@@ -19,22 +19,23 @@ This feature introduces TypeSpec domain models for agent orchestration infrastru
 
 **Description**: Persistent record of an agent execution session. Tracks the entire lifecycle from pending to completion/failure with crash recovery metadata (PID, heartbeat).
 
-| Property      | Type           | Required | Description                                         |
-| ------------- | -------------- | -------- | --------------------------------------------------- |
-| id            | UUID           | ✓        | Unique identifier (from BaseEntity)                 |
-| agentType     | AgentType      | ✓        | Which agent executor was used (claude-code, etc.)   |
-| agentName     | string         | ✓        | Which workflow agent ran (analyze-repository, etc.) |
-| status        | AgentRunStatus | ✓        | Current execution state                             |
-| prompt        | string         | ✓        | Input prompt sent to agent executor                 |
-| result        | string         |          | Final output from agent (markdown, JSON, etc.)      |
-| sessionId     | string         |          | Executor session ID for resume capability           |
-| pid           | int32          |          | Process ID for crash recovery                       |
-| lastHeartbeat | utcDateTime    |          | Last heartbeat timestamp (crash detection)          |
-| startedAt     | utcDateTime    |          | When execution started (status → running)           |
-| completedAt   | utcDateTime    |          | When execution finished (status → completed/failed) |
-| error         | string         |          | Error message if status is failed                   |
-| createdAt     | utcDateTime    | ✓        | Creation timestamp (from BaseEntity)                |
-| updatedAt     | utcDateTime    | ✓        | Last update timestamp (from BaseEntity)             |
+| Property      | Type           | Required | Description                                                |
+| ------------- | -------------- | -------- | ---------------------------------------------------------- |
+| id            | UUID           | ✓        | Unique identifier (from BaseEntity)                        |
+| agentType     | AgentType      | ✓        | Which agent executor was used (claude-code, etc.)          |
+| agentName     | string         | ✓        | Which workflow agent ran (analyze-repository, etc.)        |
+| status        | AgentRunStatus | ✓        | Current execution state                                    |
+| prompt        | string         | ✓        | Input prompt sent to agent executor                        |
+| result        | string         |          | Final output from agent (markdown, JSON, etc.)             |
+| sessionId     | string         |          | Executor session ID for resume capability                  |
+| threadId      | string         | ✓        | LangGraph thread_id for checkpoint lookup and crash resume |
+| pid           | int32          |          | Process ID for crash recovery                              |
+| lastHeartbeat | utcDateTime    |          | Last heartbeat timestamp (crash detection)                 |
+| startedAt     | utcDateTime    |          | When execution started (status → running)                  |
+| completedAt   | utcDateTime    |          | When execution finished (status → completed/failed)        |
+| error         | string         |          | Error message if status is failed                          |
+| createdAt     | utcDateTime    | ✓        | Creation timestamp (from BaseEntity)                       |
+| updatedAt     | utcDateTime    | ✓        | Last update timestamp (from BaseEntity)                    |
 
 **Relationships:**
 
@@ -76,6 +77,9 @@ model AgentRun extends BaseEntity {
 
   @doc("Executor session ID for resumption (optional)")
   sessionId?: string;
+
+  @doc("LangGraph thread_id for checkpoint lookup and crash resume")
+  threadId: string;
 
   @doc("Process ID for crash recovery (optional)")
   pid?: int32;
@@ -175,13 +179,14 @@ model AgentDefinition {
 
 **Description**: Execution state of an agent run.
 
-| Value     | Description                                 |
-| --------- | ------------------------------------------- |
-| pending   | Created but not yet started                 |
-| running   | Currently executing                         |
-| completed | Successfully finished                       |
-| failed    | Execution failed with error                 |
-| cancelled | Manually cancelled by user (future support) |
+| Value       | Description                                         |
+| ----------- | --------------------------------------------------- |
+| pending     | Created but not yet started                         |
+| running     | Currently executing                                 |
+| completed   | Successfully finished                               |
+| failed      | Execution failed with error                         |
+| interrupted | Crashed/orphaned, recoverable via checkpoint resume |
+| cancelled   | Manually cancelled by user (future support)         |
 
 **TypeSpec Example:**
 
@@ -203,6 +208,9 @@ enum AgentRunStatus {
 
   @doc("Failed with error")
   failed: "failed",
+
+  @doc("Crashed/orphaned, recoverable via checkpoint")
+  interrupted: "interrupted",
 
   @doc("Manually cancelled")
   cancelled: "cancelled",
@@ -265,15 +273,18 @@ enum AgentFeature {
 
 **Migration**: `003_create_agent_runs.sql`
 
+**Database scope**: Global database (`~/.shep/data`). Agent runs are stored globally (not per-repo) because: (1) simpler — reuses the existing single DB connection from `initializeContainer()`, (2) allows cross-repo agent run history, and (3) the `agent_runs` table stores the `prompt` which includes the repo path context. LangGraph checkpoints are stored in a **separate** SQLite file per repo at `~/.shep/repos/<encoded-path>/checkpoints.db` (managed by SqliteSaver, not by our migration system).
+
 ```sql
 CREATE TABLE agent_runs (
-  id TEXT PRIMARY KEY,                    -- UUID
+  id TEXT PRIMARY KEY,                    -- UUID (crypto.randomUUID())
   agent_type TEXT NOT NULL,               -- AgentType enum value
   agent_name TEXT NOT NULL,               -- Workflow name
   status TEXT NOT NULL,                   -- AgentRunStatus enum value
   prompt TEXT NOT NULL,                   -- Input prompt
   result TEXT,                            -- Output result (NULL until completed)
   session_id TEXT,                        -- Executor session ID
+  thread_id TEXT NOT NULL,                -- LangGraph thread_id for checkpoint lookup
   pid INTEGER,                            -- Process ID for crash recovery
   last_heartbeat INTEGER,                 -- Unix timestamp (ms)
   started_at INTEGER,                     -- Unix timestamp (ms)
@@ -285,6 +296,7 @@ CREATE TABLE agent_runs (
 
 CREATE INDEX idx_agent_runs_status ON agent_runs(status);
 CREATE INDEX idx_agent_runs_pid ON agent_runs(pid) WHERE pid IS NOT NULL;
+CREATE INDEX idx_agent_runs_thread_id ON agent_runs(thread_id);
 ```
 
 **Mapper**: `AgentRunMapper` in `infrastructure/repositories/mappers/agent-run.mapper.ts`

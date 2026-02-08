@@ -67,3 +67,10 @@ import "./feature-agent.tsp";
 
 // Local deployment agent
 import "./deploy-agent.tsp";
+
+// Agent run infrastructure (orchestration)
+import "./enums/agent-run-status.tsp";
+import "./enums/agent-feature.tsp";
+import "./agent-run.tsp";
+import "./agent-run-event.tsp";
+import "./agent-definition.tsp";
