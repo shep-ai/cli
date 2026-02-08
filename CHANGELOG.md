@@ -1,3 +1,5 @@
+## [1.6.1](https://github.com/shep-ai/cli/compare/v1.6.0...v1.6.1) (2026-02-08)
+
 # [1.6.0](https://github.com/shep-ai/cli/compare/v1.5.0...v1.6.0) (2026-02-08)
 
 ### Bug Fixes
