@@ -1,0 +1,36 @@
+feature:
+  id: '009-langchain-agent-infra'
+  name: 'langchain-agent-infra'
+  number: { { FEATURE_NUMBER } }
+  branch: 'feat/langchain-agent-infra'
+  lifecycle: 'research'
+  createdAt: '2026-02-08T15:43:55Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-08T15:43:55Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-08T15:43:55Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
