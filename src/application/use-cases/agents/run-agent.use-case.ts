@@ -11,7 +11,7 @@
  */
 
 import { injectable, inject } from 'tsyringe';
-import type { AgentRun } from '../../../domain/generated/output.js';
+import type { AgentRun, AgentRunEvent } from '../../../domain/generated/output.js';
 import type { IAgentRunner, AgentRunOptions } from '../../ports/output/agent-runner.interface.js';
 import type { IAgentRegistry } from '../../ports/output/agent-registry.interface.js';
 
@@ -58,5 +58,24 @@ export class RunAgentUseCase {
     }
 
     return this.agentRunner.runAgent(input.agentName, input.prompt, input.options);
+  }
+
+  /**
+   * Execute the run agent use case with streaming events.
+   *
+   * @param input - Agent run input including name, prompt, and options
+   * @returns An async iterable of agent run events
+   * @throws Error if the agent name is not registered
+   */
+  async *executeStream(input: RunAgentInput): AsyncIterable<AgentRunEvent> {
+    const definition = this.agentRegistry.get(input.agentName);
+    if (!definition) {
+      const available = this.agentRegistry.list().map((a) => a.name);
+      throw new Error(
+        `Unknown agent: "${input.agentName}". Available agents: ${available.join(', ') || 'none'}`
+      );
+    }
+
+    yield* this.agentRunner.runAgentStream(input.agentName, input.prompt, input.options);
   }
 }

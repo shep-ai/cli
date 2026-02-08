@@ -95,6 +95,18 @@ describe('analyzeRepositoryGraph', () => {
     ).rejects.toThrow('Agent execution failed');
   });
 
+  it('should pass cwd from repositoryPath to executor options', async () => {
+    const compiled = createAnalyzeRepositoryGraph(mockExecutor, checkpointer);
+
+    await compiled.invoke(
+      { repositoryPath: '/test/repo' },
+      { configurable: { thread_id: 'test-thread-cwd' } }
+    );
+
+    const [, options] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(options).toEqual(expect.objectContaining({ cwd: '/test/repo' }));
+  });
+
   it('should attempt session resume when sessionId exists and feature is supported', async () => {
     const compiled = createAnalyzeRepositoryGraph(mockExecutor, checkpointer);
 
@@ -105,7 +117,7 @@ describe('analyzeRepositoryGraph', () => {
 
     expect(mockExecutor.supportsFeature).toHaveBeenCalledWith(AgentFeature.sessionResume);
     const [, options] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(options).toEqual({ resumeSession: 'existing-session' });
+    expect(options).toEqual({ cwd: '/test/repo', resumeSession: 'existing-session' });
   });
 
   it('should not attempt session resume when feature is not supported', async () => {
@@ -118,7 +130,7 @@ describe('analyzeRepositoryGraph', () => {
     );
 
     const [, options] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(options).toEqual({});
+    expect(options).toEqual({ cwd: '/test/repo' });
   });
 
   it('should work without a checkpointer', async () => {

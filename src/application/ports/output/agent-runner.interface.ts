@@ -21,7 +21,7 @@
  * ```
  */
 
-import type { AgentRun } from '../../../domain/generated/output.js';
+import type { AgentRun, AgentRunEvent } from '../../../domain/generated/output.js';
 
 /**
  * Options for controlling agent run behavior.
@@ -72,4 +72,18 @@ export interface IAgentRunner {
    * @returns The agent run record tracking execution
    */
   runAgent(agentName: string, prompt: string, options?: AgentRunOptions): Promise<AgentRun>;
+
+  /**
+   * Run a named agent workflow and stream events as they arrive.
+   *
+   * @param agentName - The registered agent name (e.g., 'analyze-repository')
+   * @param prompt - The prompt to send to the agent
+   * @param options - Optional run configuration
+   * @returns An async iterable of agent run events
+   */
+  runAgentStream(
+    agentName: string,
+    prompt: string,
+    options?: AgentRunOptions
+  ): AsyncIterable<AgentRunEvent>;
 }

@@ -16,13 +16,17 @@ import type {
 } from '../../../../../src/application/ports/output/agent-registry.interface.js';
 import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agent-executor-factory.interface.js';
 import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agent-run-repository.interface.js';
-import type { IAgentExecutor } from '../../../../../src/application/ports/output/agent-executor.interface.js';
+import type {
+  IAgentExecutor,
+  AgentExecutionStreamEvent,
+} from '../../../../../src/application/ports/output/agent-executor.interface.js';
 import {
   AgentRunStatus,
   AgentType,
   AgentAuthMethod,
 } from '../../../../../src/domain/generated/output.js';
-import type { AgentRun } from '../../../../../src/domain/generated/output.js';
+import type { AgentRun, AgentRunEvent } from '../../../../../src/domain/generated/output.js';
+import { StreamingExecutorProxy } from '../../../../../src/infrastructure/services/agents/streaming/streaming-executor-proxy.js';
 
 // Mock the settings singleton — no top-level variable references inside factory
 vi.mock('../../../../../src/infrastructure/services/settings.service.js', () => ({
@@ -282,6 +286,144 @@ describe('AgentRunnerService', () => {
       const result = await runner.runAgent('analyze-repository', 'Analyze');
 
       expect(result.result).toBe(JSON.stringify(graphOutput));
+    });
+  });
+
+  describe('runAgentStream', () => {
+    function makeStreamEvent(
+      type: 'progress' | 'result' | 'error',
+      content: string
+    ): AgentExecutionStreamEvent {
+      return { type, content, timestamp: new Date() };
+    }
+
+    /**
+     * Set up the mock executor to stream events via executeStream.
+     * The graph invocation happens via the proxy, which calls executeStream internally.
+     * The graph's .invoke() triggers the proxy's execute() which iterates the stream.
+     */
+    function setupStreamingMocks(events: AgentExecutionStreamEvent[]) {
+      // The executor's executeStream yields the provided events
+      mockExecutor.executeStream = async function* () {
+        for (const event of events) {
+          yield event;
+        }
+      };
+
+      // The graph factory receives the proxy and invokes it.
+      // We intercept graphFactory to call proxy.execute() which triggers streaming.
+      mockDefinition.graphFactory = vi.fn().mockImplementation((executor: IAgentExecutor) => {
+        return {
+          invoke: vi.fn().mockImplementation(async (state: Record<string, unknown>) => {
+            const result = await executor.execute('test prompt', {
+              cwd: state.repositoryPath as string,
+            });
+            return { repositoryPath: state.repositoryPath, analysisMarkdown: result.result };
+          }),
+        };
+      });
+    }
+
+    it('should yield progress events from executor stream', async () => {
+      setupStreamingMocks([
+        makeStreamEvent('progress', 'Analyzing...'),
+        makeStreamEvent('progress', 'Almost done...'),
+        makeStreamEvent('result', 'Final result'),
+      ]);
+
+      const events: AgentRunEvent[] = [];
+      for await (const event of runner.runAgentStream('analyze-repository', 'Analyze', {
+        repositoryPath: '/test/repo',
+      })) {
+        events.push(event);
+      }
+
+      expect(events).toHaveLength(3);
+      expect(events[0].type).toBe('progress');
+      expect(events[0].content).toBe('Analyzing...');
+      expect(events[1].content).toBe('Almost done...');
+    });
+
+    it('should yield mapped AgentRunEvent with string timestamps', async () => {
+      setupStreamingMocks([makeStreamEvent('result', 'done')]);
+
+      const events: AgentRunEvent[] = [];
+      for await (const event of runner.runAgentStream('analyze-repository', 'Analyze')) {
+        events.push(event);
+      }
+
+      expect(events).toHaveLength(1);
+      expect(typeof events[0].timestamp).toBe('string');
+    });
+
+    it('should create pending and running status before streaming', async () => {
+      setupStreamingMocks([makeStreamEvent('result', 'done')]);
+
+      const events: AgentRunEvent[] = [];
+      for await (const event of runner.runAgentStream('analyze-repository', 'Analyze')) {
+        events.push(event);
+      }
+
+      // Verify create was called with pending status
+      expect(mockRunRepository.create).toHaveBeenCalledOnce();
+      const createCall = vi.mocked(mockRunRepository.create).mock.calls[0][0];
+      expect(createCall.status).toBe(AgentRunStatus.pending);
+
+      // Verify first updateStatus was running
+      const updateCalls = vi.mocked(mockRunRepository.updateStatus).mock.calls;
+      expect(updateCalls[0][1]).toBe(AgentRunStatus.running);
+    });
+
+    it('should update run to completed after stream ends', async () => {
+      setupStreamingMocks([makeStreamEvent('result', 'Final analysis')]);
+
+      for await (const _event of runner.runAgentStream('analyze-repository', 'Analyze')) {
+        /* drain */
+      }
+
+      const updateCalls = vi.mocked(mockRunRepository.updateStatus).mock.calls;
+      // Last updateStatus should be completed
+      const lastUpdate = updateCalls[updateCalls.length - 1];
+      expect(lastUpdate[1]).toBe(AgentRunStatus.completed);
+    });
+
+    it('should update run to failed when graph errors', async () => {
+      // Executor stream works, but graph invoke itself fails
+      mockDefinition.graphFactory = vi.fn().mockImplementation(() => ({
+        invoke: vi.fn().mockRejectedValue(new Error('Graph crashed')),
+      }));
+
+      for await (const _event of runner.runAgentStream('analyze-repository', 'Analyze')) {
+        /* drain */
+      }
+
+      const updateCalls = vi.mocked(mockRunRepository.updateStatus).mock.calls;
+      const lastUpdate = updateCalls[updateCalls.length - 1];
+      expect(lastUpdate[1]).toBe(AgentRunStatus.failed);
+      expect(lastUpdate[2]).toEqual(expect.objectContaining({ error: 'Graph crashed' }));
+    });
+
+    it('should throw for unknown agent name', async () => {
+      vi.mocked(mockRegistry.get).mockReturnValue(undefined);
+
+      const streamFn = async () => {
+        for await (const _event of runner.runAgentStream('non-existent', 'Analyze')) {
+          /* drain */
+        }
+      };
+
+      await expect(streamFn()).rejects.toThrow("Agent 'non-existent' not found");
+    });
+
+    it('should compile graph with StreamingExecutorProxy', async () => {
+      setupStreamingMocks([makeStreamEvent('result', 'done')]);
+
+      for await (const _event of runner.runAgentStream('analyze-repository', 'Analyze')) {
+        /* drain */
+      }
+
+      const factoryCall = vi.mocked(mockDefinition.graphFactory).mock.calls[0];
+      expect(factoryCall[0]).toBeInstanceOf(StreamingExecutorProxy);
     });
   });
 });

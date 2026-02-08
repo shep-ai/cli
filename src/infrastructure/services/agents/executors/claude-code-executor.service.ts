@@ -99,6 +99,11 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     const spawnOpts = this.buildSpawnOptions(options);
     const proc = this.spawn('claude', args, spawnOpts);
 
+    // Close stdin immediately - we're not sending input in print mode
+    if (proc.stdin) {
+      proc.stdin.end();
+    }
+
     // Buffer for incomplete lines
     let lineBuffer = '';
     let stderr = '';
@@ -203,6 +208,9 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     const args = this.buildArgs(prompt, options);
     const fmtIdx = args.indexOf('--output-format');
     if (fmtIdx !== -1) args[fmtIdx + 1] = 'stream-json';
+    // stream-json requires --verbose and --include-partial-messages when using -p (--print)
+    // --no-chrome ensures it runs in non-interactive mode without browser integration
+    args.push('--verbose', '--include-partial-messages', '--no-chrome');
     return args;
   }
 
@@ -249,6 +257,31 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     try {
       const parsed = JSON.parse(line);
 
+      // Handle Claude Code stream_json format with nested events
+      if (parsed.type === 'stream_event' && parsed.event) {
+        const { event } = parsed;
+
+        // Extract text deltas for progress
+        if (event.type === 'content_block_delta' && event.delta?.text) {
+          return {
+            type: 'progress',
+            content: event.delta.text,
+            timestamp: new Date(),
+          };
+        }
+
+        // Message complete - ignore for now (accumulated text is in progress events)
+        if (event.type === 'message_stop') {
+          return null;
+        }
+      }
+
+      // Ignore assistant messages - we already get all text via content_block_delta events
+      if (parsed.type === 'assistant') {
+        return null;
+      }
+
+      // Handle legacy format (backward compatibility)
       if (parsed.type === 'result') {
         return {
           type: 'result',
@@ -265,26 +298,13 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         };
       }
 
-      // For assistant messages with content blocks, extract text
-      if (parsed.type === 'assistant' && parsed.message?.content) {
-        const textBlocks = parsed.message.content.filter(
-          (block: { type: string }) => block.type === 'text'
-        );
-        const text = textBlocks.map((block: { text: string }) => block.text).join('');
-        if (text) {
-          return {
-            type: 'progress',
-            content: text,
-            timestamp: new Date(),
-          };
-        }
-      }
-
-      // Generic progress for other event types
+      // Generic progress for other event types (ensure content is a string)
       if (parsed.content || parsed.message) {
+        const rawContent = parsed.content ?? parsed.message;
+        const content = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent);
         return {
           type: 'progress',
-          content: parsed.content ?? parsed.message ?? '',
+          content,
           timestamp: new Date(),
         };
       }

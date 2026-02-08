@@ -100,7 +100,13 @@ export async function initializeContainer(): Promise<typeof container> {
   });
 
   container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
-    useFactory: () => new AgentExecutorFactory(spawn),
+    useFactory: () => {
+      // Wrap spawn to ensure stdio is explicitly set to 'pipe'
+      const spawnWithPipe = (command: string, args: string[], options?: object) => {
+        return spawn(command, args, { ...options, stdio: 'pipe' });
+      };
+      return new AgentExecutorFactory(spawnWithPipe);
+    },
   });
 
   container.register<IAgentRegistry>('IAgentRegistry', {

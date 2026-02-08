@@ -73,5 +73,17 @@ describe('Run Command', () => {
       const repoOpt = cmd.options.find((o) => o.long === '--repo');
       expect(repoOpt!.short).toBe('-r');
     });
+
+    it('should have --stream option', () => {
+      const cmd = createRunCommand();
+      const streamOpt = cmd.options.find((o) => o.long === '--stream');
+      expect(streamOpt).toBeDefined();
+    });
+
+    it('should have -s as short flag for --stream', () => {
+      const cmd = createRunCommand();
+      const streamOpt = cmd.options.find((o) => o.long === '--stream');
+      expect(streamOpt!.short).toBe('-s');
+    });
   });
 });
