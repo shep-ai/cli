@@ -30,14 +30,29 @@ We need to adopt a modern, professional logging library that provides:
 
 ## Success Criteria
 
+### Core Logger Implementation
+
 - [ ] All `console.*` calls replaced with structured logger
 - [ ] Logger configured via DI container (singleton)
-- [ ] Log levels configurable via environment variables
+- [ ] Log levels configurable via multi-layer precedence (CLI flag > ENV > Settings)
 - [ ] All tests pass with logger properly mocked
 - [ ] Logger output is JSON in production, pretty in development
 - [ ] Zero console.\* calls remain outside of logger implementation
+- [ ] Log rotation enabled for file transports
+
+### Logs Viewing System (CLI + Web)
+
+- [ ] CLI commands implemented: `shep logs list|show|follow|search|export|clear`
+- [ ] Web UI pages implemented: `/logs` (table), `/logs/[id]` (detail), `/logs/stream` (real-time)
+- [ ] Shared use cases for both CLI and Web (Clean Architecture)
+- [ ] SQLite log storage with repository pattern
+- [ ] Real-time log streaming via Server-Sent Events (SSE)
+- [ ] Full-text search across log messages and context
+- [ ] Export functionality (JSON, CSV, NDJSON formats)
 
 ## Affected Areas
+
+### Logger Migration
 
 | Area              | Impact | Reasoning                                        |
 | ----------------- | ------ | ------------------------------------------------ |
@@ -49,21 +64,53 @@ We need to adopt a modern, professional logging library that provides:
 | Error handling    | Medium | Error reporting currently uses console.error     |
 | Web server        | Low    | Next.js logs separately, but API routes may log  |
 
+### Logs Viewing System (NEW)
+
+| Area                      | Impact | Reasoning                                               |
+| ------------------------- | ------ | ------------------------------------------------------- |
+| CLI commands (new)        | High   | Add 6 new subcommands under `shep logs`                 |
+| Web UI (new pages)        | High   | Add 3 new routes: `/logs`, `/logs/[id]`, `/logs/stream` |
+| Application (use cases)   | High   | Add 6 new use cases for log querying/management         |
+| Application (ports)       | High   | Add 3 new port interfaces (repository, stream, export)  |
+| Infrastructure (repos)    | High   | Implement SQLiteLogRepository with FTS                  |
+| Infrastructure (services) | High   | Implement LogStreamService (SSE) and LogExporter        |
+| Database                  | High   | New logs table + FTS table + indexes                    |
+| DI Container              | Medium | Register new repositories and services                  |
+
 ## Dependencies
 
 None identified.
 
 ## Size Estimate
 
-**Large (L)** - This is a cross-cutting refactor affecting ~50+ files across all layers (CLI, use cases, services, tests). Requires:
+**Extra Large (XL)** - This is a cross-cutting refactor plus a new feature affecting ~80+ files across all layers. Requires:
 
-1. Research phase to evaluate logging libraries (pino, winston, bunyan)
-2. DI integration design
-3. Incremental migration strategy (can't break existing functionality)
-4. Test fixture updates for all affected tests
-5. Documentation updates (CLAUDE.md, developer guides)
+1. **Logger Migration** (Large):
 
-Estimated effort: 2-3 days for a single developer.
+   - Research phase to evaluate logging libraries (pino confirmed)
+   - DI integration design with multi-layer configuration
+   - Incremental migration strategy (can't break existing functionality)
+   - Test fixture updates for all affected tests
+   - Log rotation implementation
+
+2. **Logs Viewing System** (Large):
+
+   - 6 CLI commands with full option parsing
+   - 3 Web UI pages with real-time streaming
+   - 6 use cases + 3 port interfaces
+   - SQLite repository implementation with FTS
+   - SSE (Server-Sent Events) streaming service
+   - Export system (JSON/CSV/NDJSON)
+
+3. **Cross-cutting**:
+   - Database migrations for logs table
+   - DI container updates for new services
+   - Documentation updates (CLAUDE.md, developer guides)
+   - E2E tests for CLI and Web UI
+
+Estimated effort: 4-6 days for a single developer.
+
+**Detailed Design**: See [logs-ui-design.md](./logs-ui-design.md) for complete architecture.
 
 ## Decisions Made
 
