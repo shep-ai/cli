@@ -1,3 +1,9 @@
+## [1.8.1](https://github.com/shep-ai/cli/compare/v1.8.0...v1.8.1) (2026-02-08)
+
+### Bug Fixes
+
+- **cli:** resolve correct production path for web directory ([b54ff6b](https://github.com/shep-ai/cli/commit/b54ff6b4513d5d30a6500533d3765bc90ef3e086))
+
 # [1.8.0](https://github.com/shep-ai/cli/compare/v1.7.0...v1.8.0) (2026-02-08)
 
 ### Features
