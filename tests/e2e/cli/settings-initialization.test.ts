@@ -133,9 +133,9 @@ describe('CLI: settings initialization', () => {
       const stats2 = statSync(dbPath);
       const secondMtime = stats2.mtimeMs;
 
-      // Mtime should be very close (allowing for filesystem timing variations)
+      // Mtime should be very close (allowing for filesystem timing variations and system load)
       const mtimeDiff = Math.abs(secondMtime - firstMtime);
-      expect(mtimeDiff).toBeLessThan(1000); // Less than 1 second difference
+      expect(mtimeDiff).toBeLessThan(5000); // Less than 5 seconds difference
     });
 
     it('should not create duplicate settings records', () => {

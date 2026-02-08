@@ -6,3 +6,5 @@
 
 export { createCliRunner, runCli, runCliOrThrow } from './runner.js';
 export type { CliResult, CliRunner, CliRunnerOptions } from './runner.js';
+export { startCliServer, waitForServer } from './server.js';
+export type { ServerProcess } from './server.js';
