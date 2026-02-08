@@ -19,11 +19,9 @@ import { Command, InvalidArgumentError } from 'commander';
 import { findAvailablePort, DEFAULT_PORT } from '../../../infrastructure/services/port.service.js';
 import { container } from '../../../infrastructure/di/container.js';
 import type { IVersionService } from '../../../application/ports/output/version-service.interface.js';
+import type { IWebServerService } from '../../../application/ports/output/web-server-service.interface.js';
 import { setVersionEnvVars } from '../../../infrastructure/services/version.service.js';
-import {
-  WebServerService,
-  resolveWebDir,
-} from '../../../infrastructure/services/web-server.service.js';
+import { resolveWebDir } from '../../../infrastructure/services/web-server.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
 
 function parsePort(value: string): number {
@@ -63,7 +61,7 @@ Examples:
         console.log(colors.muted(`Starting web server${dev ? ' (dev mode)' : ''}...`));
         messages.newline();
 
-        const service = new WebServerService();
+        const service = container.resolve<IWebServerService>('IWebServerService');
         await service.start(port, dir, dev);
 
         messages.success(`Server ready at ${fmt.code(`http://localhost:${port}`)}`);

@@ -9,10 +9,12 @@
  * In production mode, Next.js serves the pre-built .next output.
  */
 
+import { injectable } from 'tsyringe';
 import next from 'next';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
+import type { IWebServerService } from '../../application/ports/output/web-server-service.interface.js';
 
 type NextApp = ReturnType<typeof next>;
 
@@ -49,7 +51,8 @@ export function resolveWebDir(): { dir: string; dev: boolean } {
   throw new Error('Web UI directory not found. Ensure the web UI is built (pnpm build:web).');
 }
 
-export class WebServerService {
+@injectable()
+export class WebServerService implements IWebServerService {
   private app: NextApp | null = null;
   private server: http.Server | null = null;
   private isShuttingDown = false;

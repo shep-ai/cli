@@ -9,6 +9,8 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { injectable } from 'tsyringe';
+
 import { DEFAULT_VERSION_INFO } from '../../domain/value-objects/version-info.js';
 import type { VersionInfo } from '../../domain/value-objects/version-info.js';
 
@@ -39,6 +41,7 @@ function findPackageJson(startDir: string): string | null {
 /**
  * Service for reading version information from package.json
  */
+@injectable()
 export class VersionService {
   private readonly versionInfo: VersionInfo;
 

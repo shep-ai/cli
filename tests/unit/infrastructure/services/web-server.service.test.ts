@@ -7,6 +7,7 @@
  * TDD Phase: GREEN
  */
 
+import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   WebServerService,

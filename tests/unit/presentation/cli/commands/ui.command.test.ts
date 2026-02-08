@@ -15,15 +15,29 @@ vi.mock('../../../../../src/infrastructure/services/port.service.js', () => ({
   DEFAULT_PORT: 4050,
 }));
 
-// Mock the DI container
+// Mock web server service instance (shared so tests can inspect calls)
+const mockWebServerService = {
+  start: vi.fn().mockResolvedValue(undefined),
+  stop: vi.fn().mockResolvedValue(undefined),
+};
+
+// Mock the DI container - returns different services based on token
 vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
   container: {
-    resolve: vi.fn().mockReturnValue({
-      getVersion: vi.fn().mockReturnValue({
-        version: '1.0.0',
-        name: '@shepai/cli',
-        description: 'Test description',
-      }),
+    resolve: vi.fn().mockImplementation((token: string) => {
+      if (token === 'IVersionService') {
+        return {
+          getVersion: vi.fn().mockReturnValue({
+            version: '1.0.0',
+            name: '@shepai/cli',
+            description: 'Test description',
+          }),
+        };
+      }
+      if (token === 'IWebServerService') {
+        return mockWebServerService;
+      }
+      throw new Error(`Unknown token: ${token}`);
     }),
   },
 }));
@@ -33,28 +47,13 @@ vi.mock('../../../../../src/infrastructure/services/version.service.js', () => (
   setVersionEnvVars: vi.fn(),
 }));
 
-// Track the last created WebServerService instance
-let lastServiceInstance: {
-  start: ReturnType<typeof vi.fn>;
-  stop: ReturnType<typeof vi.fn>;
-} | null = null;
-
-// Mock the web server service - use class for proper new() behavior
-vi.mock('../../../../../src/infrastructure/services/web-server.service.js', () => {
-  return {
-    WebServerService: class MockWebServerService {
-      start = vi.fn().mockResolvedValue(undefined);
-      stop = vi.fn().mockResolvedValue(undefined);
-      constructor() {
-        lastServiceInstance = this as any;
-      }
-    },
-    resolveWebDir: vi.fn().mockReturnValue({
-      dir: '/mock/web/dir',
-      dev: true,
-    }),
-  };
-});
+// Mock resolveWebDir (standalone function, not part of DI)
+vi.mock('../../../../../src/infrastructure/services/web-server.service.js', () => ({
+  resolveWebDir: vi.fn().mockReturnValue({
+    dir: '/mock/web/dir',
+    dev: true,
+  }),
+}));
 
 import { findAvailablePort } from '../../../../../src/infrastructure/services/port.service.js';
 import { resolveWebDir } from '../../../../../src/infrastructure/services/web-server.service.js';
@@ -64,7 +63,8 @@ describe('UI Command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (findAvailablePort as ReturnType<typeof vi.fn>).mockResolvedValue(4050);
-    lastServiceInstance = null;
+    mockWebServerService.start.mockClear();
+    mockWebServerService.stop.mockClear();
     process.exitCode = undefined;
   });
 
@@ -118,8 +118,7 @@ describe('UI Command', () => {
 
       await cmd.parseAsync([], { from: 'user' });
 
-      expect(lastServiceInstance).not.toBeNull();
-      expect(lastServiceInstance!.start).toHaveBeenCalledWith(4050, '/mock/web/dir', true);
+      expect(mockWebServerService.start).toHaveBeenCalledWith(4050, '/mock/web/dir', true);
       consoleSpy.mockRestore();
     });
   });
