@@ -73,7 +73,7 @@ const PROJECT_ROOT = resolve(__dirname, '../../..');
 const CLI_PATH_DEV = resolve(PROJECT_ROOT, 'src/presentation/cli/index.ts');
 
 /** Path to CLI entry point (compiled JS) */
-const CLI_PATH_DIST = resolve(PROJECT_ROOT, 'dist/presentation/cli/index.js');
+const CLI_PATH_DIST = resolve(PROJECT_ROOT, 'dist/src/presentation/cli/index.js');
 
 /**
  * Default runner options
