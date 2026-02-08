@@ -19,7 +19,7 @@
     "langgraph"
   ],
   "bin": {
-    "shep": "./dist/presentation/cli/index.js"
+    "shep": "./dist/src/presentation/cli/index.js"
   },
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
