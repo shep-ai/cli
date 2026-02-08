@@ -1,10 +1,63 @@
 # AGENTS.md
 
+> **IMPORTANT: Implementation Status**
+>
+> The LangGraph-based multi-agent workflow described in this document is **planned architecture** and is **not yet implemented**. The `src/infrastructure/agents/langgraph/` directory, StateGraph nodes, tools, and graph definitions described below do not exist in the codebase.
+>
+> The current "agent system" handles **configuration of external AI coding tools** (Claude Code, Gemini CLI, Aider, Continue, Cursor) via the `shep settings agent` command. See [Current Implementation](#current-implementation) below.
+
+## Current Implementation
+
+The agent system currently provides configuration and validation of external AI coding tools. There is no LangGraph orchestration, no StateGraph workflow, and no autonomous SDLC agent nodes.
+
+### What Exists Today
+
+| Component                   | Location                                                           | Purpose                                                                                   |
+| --------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| `AgentType` enum            | `src/domain/generated/output.ts`                                   | Defines supported agent tools: `claude-code`, `gemini-cli`, `aider`, `continue`, `cursor` |
+| `AgentAuthMethod` enum      | `src/domain/generated/output.ts`                                   | Authentication methods: `session`, `token`                                                |
+| `IAgentValidator`           | `src/application/ports/output/agent-validator.interface.ts`        | Port interface for checking agent binary availability                                     |
+| `AgentValidatorService`     | `src/infrastructure/services/agents/agent-validator.service.ts`    | Checks if agent binaries (e.g., `claude`) exist on the system via `--version`             |
+| `ConfigureAgentUseCase`     | `src/application/use-cases/agents/configure-agent.use-case.ts`     | Validates agent availability, then persists agent config to settings                      |
+| `ValidateAgentAuthUseCase`  | `src/application/use-cases/agents/validate-agent-auth.use-case.ts` | Delegates to `IAgentValidator` to check binary availability                               |
+| `createAgentCommand()`      | `src/presentation/cli/commands/settings/agent.command.ts`          | CLI command: `shep settings agent` (interactive wizard or `--agent`/`--auth` flags)       |
+| `agentConfigWizard()`       | `src/presentation/tui/wizards/agent-config.wizard.ts`              | Interactive TUI for selecting agent type and auth method                                  |
+| `createAgentSelectConfig()` | `src/presentation/tui/prompts/agent-select.prompt.ts`              | Prompt choices (only Claude Code enabled; others show "Coming Soon")                      |
+
+### Current Flow
+
+```
+User runs `shep settings agent`
+  → Interactive wizard (or CLI flags)
+  → Select agent type (Claude Code only currently enabled)
+  → Select auth method (session or token)
+  → AgentValidatorService checks binary availability (`claude --version`)
+  → ConfigureAgentUseCase persists to Settings
+```
+
+### Supported Agents
+
+| Agent       | Enum Value    | Status      |
+| ----------- | ------------- | ----------- |
+| Claude Code | `claude-code` | Available   |
+| Gemini CLI  | `gemini-cli`  | Coming Soon |
+| Aider       | `aider`       | Coming Soon |
+| Continue    | `continue`    | Coming Soon |
+| Cursor      | `cursor`      | Coming Soon |
+
+---
+
+## Planned Architecture (Not Yet Implemented)
+
+The sections below describe the **target architecture** for the autonomous LangGraph-based multi-agent system. This serves as architectural planning documentation for future implementation.
+
+---
+
 Agent system architecture for Shep AI CLI, powered by **LangGraph** (LangChain).
 
 ## Overview
 
-Shep uses a **LangGraph-based** multi-agent system implemented in TypeScript. Agents are specialized nodes in a StateGraph that collaborate to complete SDLC tasks. The graph-based architecture provides type-safe workflows, durable execution, and human-in-the-loop capabilities.
+Shep will use a **LangGraph-based** multi-agent system implemented in TypeScript. Agents will be specialized nodes in a StateGraph that collaborate to complete SDLC tasks. The graph-based architecture will provide type-safe workflows, durable execution, and human-in-the-loop capabilities.
 
 ## Spec-Driven Agent Workflow
 

@@ -62,7 +62,7 @@ Entry points for user interaction:
 | --------- | ------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | CLI       | Commander                                                     | Command-line interface (`shep` commands)                                    |
 | TUI       | [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js) | Interactive terminal prompts for wizards (select, confirm, input, password) |
-| Web UI    | Next.js + shadcn/ui                                           | Browser-based interface at `localhost:3030`                                 |
+| Web UI    | Next.js + shadcn/ui                                           | Browser-based interface at `localhost:4050`                                 |
 
 All presentation components use the Application layer - they never directly access Domain or Infrastructure.
 
@@ -137,7 +137,7 @@ Requirements ──→ Plan ──→ Implementation ──→ Test ──→ De
 
 ```
 ~/.shep/
-├── config.json                    # Global configuration
+├── data                           # SQLite database (global settings)
 └── repos/
     └── <base64-encoded-repo-path>/
         ├── data                   # SQLite database file
@@ -161,10 +161,10 @@ Requirements ──→ Plan ──→ Implementation ──→ Test ──→ De
 | Package Manager | pnpm              | Fast, disk efficient, strict by default                                        |
 | CLI Framework   | Commander         | Mature, well-documented, standard                                              |
 | TUI Framework   | @inquirer/prompts | Interactive prompts (select, confirm, input, password), TypeScript-native, ESM |
-| Web Framework   | Next.js 14+       | App Router, Server Components, built-in optimizations                          |
+| Web Framework   | Next.js 16+       | App Router, Server Components, built-in optimizations                          |
 | UI Components   | shadcn/ui         | Radix primitives + Tailwind, accessible, customizable                          |
 | Design System   | Storybook         | Component documentation, visual testing, design tokens                         |
-| Build Tool      | Vite              | Fast builds, modern tooling                                                    |
+| Build Tool      | tsc + tsc-alias   | Standard TypeScript compilation with path alias resolution                     |
 | Database        | SQLite            | Zero setup, portable, sufficient for local use                                 |
 | Agent Pattern   | LangGraph         | State-based workflow orchestration with typed graphs                           |
 | Unit Testing    | Vitest            | Fast, ESM-native, Vite-compatible                                              |

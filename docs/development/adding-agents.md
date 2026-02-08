@@ -1,10 +1,20 @@
 # Adding New Agent Nodes
 
-Guide to extending Shep's LangGraph-based agent system with new nodes.
+> **IMPORTANT: Implementation Status**
+>
+> This guide describes how to extend the **planned LangGraph-based agent system** which is **not yet implemented**. The `src/infrastructure/agents/langgraph/` directory, node functions, graph definitions, and tool bindings described below do not exist in the codebase. This document is retained as architectural planning documentation for future implementation.
+>
+> The current agent system only handles configuration of external AI coding tools (Claude Code, Gemini CLI, etc.). See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+
+---
+
+## Planned Architecture (Not Yet Implemented)
+
+Guide to extending Shep's planned LangGraph-based agent system with new nodes.
 
 ## Overview
 
-Shep's agent system is built on LangGraph StateGraphs. Adding new capabilities involves:
+Shep's agent system will be built on LangGraph StateGraphs. Adding new capabilities will involve:
 
 1. Defining state fields for node inputs/outputs
 2. Creating the node function
