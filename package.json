@@ -31,6 +31,7 @@
   },
   "files": [
     "dist",
+    "web",
     "README.md",
     "LICENSE"
   ],
@@ -47,7 +48,8 @@
     "prebuild": "pnpm generate",
     "pretest": "pnpm generate",
     "prelint": "pnpm generate",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && pnpm build:web:prod",
+    "build:web:prod": "pnpm build:web && mkdir -p web && cp -r src/presentation/web/.next web/.next && cp src/presentation/web/next.config.ts web/ && cp src/presentation/web/package.json web/",
     "build:web": "pnpm --filter @shepai/web build",
     "build:storybook": "storybook build",
     "test": "vitest run --passWithNoTests",
