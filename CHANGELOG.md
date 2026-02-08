@@ -1,3 +1,9 @@
+## [1.8.2](https://github.com/shep-ai/cli/compare/v1.8.1...v1.8.2) (2026-02-08)
+
+### Bug Fixes
+
+- **cli:** resolve production packaging failures after npm install ([0528769](https://github.com/shep-ai/cli/commit/052876959fde759dcc27afc25a7f9990db63c8f0))
+
 ## [1.8.1](https://github.com/shep-ai/cli/compare/v1.8.0...v1.8.1) (2026-02-08)
 
 ### Bug Fixes
