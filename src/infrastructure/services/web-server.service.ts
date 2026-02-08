@@ -48,10 +48,7 @@ export function resolveWebDir(): { dir: string; dev: boolean } {
   // Production: web UI is shipped alongside dist/ in the package
   // From dist/src/infrastructure/services/ we need 4 levels up to reach the package root
   const prodDir = path.resolve(import.meta.dirname, '../../../../web');
-  if (
-    fs.existsSync(path.join(prodDir, 'next.config.ts')) ||
-    fs.existsSync(path.join(prodDir, '.next'))
-  ) {
+  if (fs.existsSync(path.join(prodDir, '.next'))) {
     return { dir: prodDir, dev: false };
   }
 
@@ -59,7 +56,7 @@ export function resolveWebDir(): { dir: string; dev: boolean } {
     `Web UI directory not found. Ensure the web UI is built (pnpm build:web).\n` +
       `  Searched:\n` +
       `    dev:  ${devDir} (next.config.ts: ${fs.existsSync(path.join(devDir, 'next.config.ts'))})\n` +
-      `    prod: ${prodDir} (.next: ${fs.existsSync(path.join(prodDir, '.next'))}, next.config.ts: ${fs.existsSync(path.join(prodDir, 'next.config.ts'))})\n` +
+      `    prod: ${prodDir} (.next: ${fs.existsSync(path.join(prodDir, '.next'))})\n` +
       `  import.meta.dirname: ${import.meta.dirname}`
   );
 }

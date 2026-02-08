@@ -73,7 +73,9 @@ export async function initializeContainer(): Promise<typeof container> {
   // Register services (singletons via @injectable + token)
   container.registerSingleton<IAgentValidator>('IAgentValidator', AgentValidatorService);
   container.registerSingleton<IVersionService>('IVersionService', VersionService);
-  container.registerSingleton<IWebServerService>('IWebServerService', WebServerService);
+  container.register<IWebServerService>('IWebServerService', {
+    useFactory: () => new WebServerService(),
+  });
 
   // Register use cases (singletons for performance)
   container.registerSingleton(InitializeSettingsUseCase);

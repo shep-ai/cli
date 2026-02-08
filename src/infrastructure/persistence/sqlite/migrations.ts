@@ -2,60 +2,68 @@
  * SQLite Migrations Module
  *
  * Manages database schema migrations using a simple manual approach.
- * Migrations are SQL files in migrations/ directory, numbered sequentially.
- *
- * Migration Files:
- * - 001_create_settings_table.sql
- * - 002_add_feature_table.sql
- * - etc.
+ * Migrations are inlined as TypeScript strings so they survive tsc compilation
+ * (tsc only emits .js/.d.ts, not .sql files).
  *
  * Tracks applied migrations using user_version pragma.
  */
 
 import type Database from 'better-sqlite3';
-import { readFileSync } from 'node:fs';
-import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-// Get current directory for __dirname equivalent in ESM
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-/**
- * Directory containing migration SQL files.
- */
-const MIGRATIONS_DIR = join(__dirname, 'migrations');
 
 /**
  * Migration definition.
  */
 interface Migration {
   version: number;
-  filename: string;
+  sql: string;
 }
 
 /**
  * List of all migrations in order.
+ * SQL is inlined to avoid runtime file reads that break in production builds.
  */
 const MIGRATIONS: Migration[] = [
-  { version: 1, filename: '001_create_settings_table.sql' },
-  { version: 2, filename: '002_add_agent_config.sql' },
+  {
+    version: 1,
+    sql: `
+-- Migration 001: Create Settings Table
+CREATE TABLE IF NOT EXISTS settings (
+  id TEXT PRIMARY KEY NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  model_analyze TEXT NOT NULL,
+  model_requirements TEXT NOT NULL,
+  model_plan TEXT NOT NULL,
+  model_implement TEXT NOT NULL,
+  user_name TEXT,
+  user_email TEXT,
+  user_github_username TEXT,
+  env_default_editor TEXT NOT NULL,
+  env_shell_preference TEXT NOT NULL,
+  sys_auto_update INTEGER NOT NULL,
+  sys_log_level TEXT NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_settings_id ON settings(id);
+`,
+  },
+  {
+    version: 2,
+    sql: `
+-- Migration 002: Add Agent Configuration
+ALTER TABLE settings ADD COLUMN agent_type TEXT NOT NULL DEFAULT 'claude-code';
+ALTER TABLE settings ADD COLUMN agent_auth_method TEXT NOT NULL DEFAULT 'session';
+ALTER TABLE settings ADD COLUMN agent_token TEXT;
+`,
+  },
 ];
 
 /**
  * Runs all pending database migrations.
  * Safe to call multiple times (idempotent).
  *
- * Migrations are loaded from migrations/ directory and applied in order.
  * The user_version pragma tracks which migrations have been applied.
  *
  * @param db - Database instance to run migrations on
- *
- * @example
- * ```typescript
- * const db = await getSQLiteConnection();
- * await runSQLiteMigrations(db);
- * ```
  */
 export async function runSQLiteMigrations(db: Database.Database): Promise<void> {
   try {
@@ -68,15 +76,9 @@ export async function runSQLiteMigrations(db: Database.Database): Promise<void> 
     // Run each pending migration
     for (const migration of MIGRATIONS) {
       if (migration.version > currentVersion) {
-        // Load migration SQL
-        const sql = readFileSync(join(MIGRATIONS_DIR, migration.filename), 'utf-8');
-
         // Execute migration in a transaction
         db.transaction(() => {
-          // Run migration SQL (using better-sqlite3's exec method, not child_process)
-          db.exec(sql);
-
-          // Update user_version
+          db.exec(migration.sql);
           db.prepare(`PRAGMA user_version = ${migration.version}`).run();
         })();
       }
