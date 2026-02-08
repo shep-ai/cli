@@ -70,11 +70,11 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
    * @returns The existing Settings or null if not initialized
    */
   async load(): Promise<Settings | null> {
-    // Prepare SELECT statement
-    const stmt = this.db.prepare('SELECT * FROM settings WHERE id = ?');
+    // Query the singleton row (table enforces at most one row)
+    const stmt = this.db.prepare('SELECT * FROM settings LIMIT 1');
 
     // Execute query
-    const row = stmt.get('singleton') as SettingsRow | undefined;
+    const row = stmt.get() as SettingsRow | undefined;
 
     // Return null if not found
     if (!row) {
