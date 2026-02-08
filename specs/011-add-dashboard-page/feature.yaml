@@ -1,0 +1,36 @@
+feature:
+  id: '011-add-dashboard-page'
+  name: 'add-dashboard-page'
+  number: { { FEATURE_NUMBER } }
+  branch: 'feat/add-dashboard-page'
+  lifecycle: 'research'
+  createdAt: '2026-02-08T19:46:52Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-08T19:46:52Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-08T19:46:52Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
