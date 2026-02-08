@@ -18,6 +18,8 @@ import type Database from 'better-sqlite3';
 // Repository interfaces and implementations
 import type { ISettingsRepository } from '../../application/ports/output/settings.repository.interface.js';
 import { SQLiteSettingsRepository } from '../repositories/sqlite-settings.repository.js';
+import type { ILogRepository } from '../../application/ports/output/log-repository.interface.js';
+import { SQLiteLogRepository } from '../repositories/sqlite-log.repository.js';
 
 // Validator interfaces and implementations
 import type { IAgentValidator } from '../../application/ports/output/agent-validator.interface.js';
@@ -30,6 +32,9 @@ import type { IVersionService } from '../../application/ports/output/version-ser
 import { VersionService } from '../services/version.service.js';
 import type { IWebServerService } from '../../application/ports/output/web-server-service.interface.js';
 import { WebServerService } from '../services/web-server.service.js';
+import type { ILogger } from '../../application/ports/output/logger.interface.js';
+import { PinoLogger } from '../services/logger/pino-logger.service.js';
+import { LogLevel } from '../../domain/generated/output.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agent-executor-factory.interface.js';
@@ -72,17 +77,57 @@ export async function initializeContainer(): Promise<typeof container> {
   // Register database instance
   container.registerInstance<Database.Database>('Database', db);
 
-  // Register repositories
-  container.register<ISettingsRepository>('ISettingsRepository', {
-    useFactory: (c) => {
-      const database = c.resolve<Database.Database>('Database');
-      return new SQLiteSettingsRepository(database);
-    },
-  });
-
   // Register external dependencies as tokens
   const execFileAsync = promisify(execFile);
   container.registerInstance('ExecFunction', execFileAsync);
+
+  // Create logger instance once
+  let loggerInstance: ILogger | null = null;
+
+  // Register logger (singleton via cached instance) - MUST be before repositories that depend on it
+  container.register<ILogger>('ILogger', {
+    useFactory: () => {
+      // Return cached instance if available
+      if (loggerInstance) {
+        return loggerInstance;
+      }
+
+      // Use default log level (can be overridden later via config)
+      const logLevel = LogLevel.Info;
+
+      // Create logger with console-only transport (file logging disabled for now to avoid E2E test issues)
+      // TODO: Enable file logging after E2E tests are updated to handle log directory
+      loggerInstance = new PinoLogger({
+        level: logLevel,
+        // logDir: path.join(os.homedir(), '.shep', 'logs'),
+      });
+
+      return loggerInstance;
+    },
+  });
+
+  // Register repositories (after logger since they depend on it)
+  container.register<ISettingsRepository>('ISettingsRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      const logger = c.resolve<ILogger>('ILogger');
+      return new SQLiteSettingsRepository(database, logger);
+    },
+  });
+
+  // Register log repository as singleton
+  let logRepositoryInstance: ILogRepository | null = null;
+  container.register<ILogRepository>('ILogRepository', {
+    useFactory: (c) => {
+      if (logRepositoryInstance) {
+        return logRepositoryInstance;
+      }
+      const database = c.resolve<Database.Database>('Database');
+      const logger = c.resolve<ILogger>('ILogger');
+      logRepositoryInstance = new SQLiteLogRepository(database, logger);
+      return logRepositoryInstance;
+    },
+  });
 
   // Register services (singletons via @injectable + token)
   container.registerSingleton<IAgentValidator>('IAgentValidator', AgentValidatorService);

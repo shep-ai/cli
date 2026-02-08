@@ -34,6 +34,7 @@
  */
 import "../../common/base.tsp";
 import "../../common/enums/agent-config.tsp";
+import "../../common/enums/logger.tsp";
 
 /**
  * Model Configuration
@@ -192,10 +193,10 @@ model SystemConfig {
 
   /**
    * Log level for CLI output.
-   * Valid values: debug, info, warn, error
+   * Controls which log messages are displayed based on severity.
    */
   @doc("Log level for CLI output")
-  logLevel: string = "info";
+  logLevel: LogLevel = LogLevel.Info;
 }
 
 /**

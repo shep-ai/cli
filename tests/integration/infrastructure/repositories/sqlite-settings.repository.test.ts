@@ -16,10 +16,13 @@ import { createInMemoryDatabase, tableExists } from '../../../helpers/database.h
 import { runSQLiteMigrations } from '../../../../src/infrastructure/persistence/sqlite/migrations.js';
 import { SQLiteSettingsRepository } from '../../../../src/infrastructure/repositories/sqlite-settings.repository.js';
 import type { Settings } from '../../../../src/domain/generated/output.js';
-import { AgentType, AgentAuthMethod } from '../../../../src/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, LogLevel } from '../../../../src/domain/generated/output.js';
+import { createMockLogger } from '../../../helpers/mock-logger.js';
+import type { ILogger } from '../../../../src/application/ports/output/logger.interface.js';
 
 describe('SQLiteSettingsRepository', () => {
   let db: Database.Database;
+  let mockLogger: ILogger;
   let repository: SQLiteSettingsRepository;
 
   // Sample test data
@@ -44,7 +47,7 @@ describe('SQLiteSettingsRepository', () => {
     },
     system: {
       autoUpdate: true,
-      logLevel: 'info',
+      logLevel: LogLevel.Info,
     },
     agent: {
       type: AgentType.ClaudeCode,
@@ -62,8 +65,11 @@ describe('SQLiteSettingsRepository', () => {
     // Verify migrations worked
     expect(tableExists(db, 'settings')).toBe(true);
 
+    // Create mock logger
+    mockLogger = createMockLogger();
+
     // Create repository instance
-    repository = new SQLiteSettingsRepository(db);
+    repository = new SQLiteSettingsRepository(db, mockLogger);
   });
 
   afterEach(() => {
@@ -297,7 +303,7 @@ describe('SQLiteSettingsRepository', () => {
       // Assert
       expect(loaded?.system).toEqual({
         autoUpdate: true,
-        logLevel: 'info',
+        logLevel: LogLevel.Info,
       });
     });
 
@@ -339,7 +345,7 @@ describe('SQLiteSettingsRepository', () => {
       // Modify settings
       settings.models.analyze = 'claude-opus-5';
       settings.user.name = 'Updated Name';
-      settings.system.logLevel = 'debug';
+      settings.system.logLevel = LogLevel.Debug;
       settings.updatedAt = new Date('2025-01-02T00:00:00Z');
 
       // Act
@@ -448,7 +454,7 @@ describe('SQLiteSettingsRepository', () => {
       // Modify system config
       settings.system = {
         autoUpdate: false,
-        logLevel: 'error',
+        logLevel: LogLevel.Error,
       };
 
       // Act

@@ -8,6 +8,7 @@
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
+import { createMockLogger } from '../../../../helpers/mock-logger.js';
 
 // Mock the port service - factory must not reference outer variables (hoisted)
 vi.mock('../../../../../src/infrastructure/services/port.service.js', () => ({
@@ -21,10 +22,16 @@ const mockWebServerService = {
   stop: vi.fn().mockResolvedValue(undefined),
 };
 
+// Mock logger instance
+const mockLogger = createMockLogger();
+
 // Mock the DI container - returns different services based on token
 vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
   container: {
     resolve: vi.fn().mockImplementation((token: string) => {
+      if (token === 'ILogger') {
+        return mockLogger;
+      }
       if (token === 'IVersionService') {
         return {
           getVersion: vi.fn().mockReturnValue({

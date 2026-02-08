@@ -28,6 +28,7 @@ import { createVersionCommand } from './commands/version.command.js';
 import { createSettingsCommand } from './commands/settings/index.js';
 import { createUiCommand } from './commands/ui.command.js';
 import { createRunCommand } from './commands/run.command.js';
+import { createLogsCommand } from './commands/logs/logs.command.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
@@ -76,6 +77,7 @@ async function bootstrap() {
     // Register commands
     program.addCommand(createVersionCommand());
     program.addCommand(createSettingsCommand());
+    program.addCommand(createLogsCommand());
     program.addCommand(createUiCommand());
     program.addCommand(createRunCommand());
 

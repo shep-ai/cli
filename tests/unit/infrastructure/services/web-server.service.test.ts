@@ -13,6 +13,8 @@ import {
   WebServerService,
   type WebServerDeps,
 } from '../../../../src/infrastructure/services/web-server.service.js';
+import { createMockLogger } from '../../../helpers/mock-logger.js';
+import type { ILogger } from '../../../../src/application/ports/output/logger.interface.js';
 
 function createMockDeps() {
   const mockHandle = vi.fn();
@@ -51,11 +53,13 @@ function createMockDeps() {
 describe('WebServerService', () => {
   let service: WebServerService;
   let mocks: ReturnType<typeof createMockDeps>;
+  let mockLogger: ILogger;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mocks = createMockDeps();
-    service = new WebServerService(mocks.deps);
+    mockLogger = createMockLogger();
+    service = new WebServerService(mockLogger, mocks.deps);
   });
 
   describe('start()', () => {

@@ -156,6 +156,76 @@ export type Artifact = BaseEntity & {
    */
   state: ArtifactState;
 };
+export type float = any;
+export type float64 = float;
+
+/**
+ * Log entry representing a single log message
+ */
+export type LogEntry = {
+  /**
+   * Unique log entry identifier
+   */
+  id: string;
+  /**
+   * Unix timestamp in milliseconds
+   */
+  timestamp: float64;
+  /**
+   * Log severity level
+   */
+  level: string;
+  /**
+   * Log source (e.g., cli:settings, use-case:agent)
+   */
+  source: string;
+  /**
+   * Log message content
+   */
+  message: string;
+  /**
+   * Additional structured context (optional)
+   */
+  context?: {};
+  /**
+   * Stack trace for errors (optional)
+   */
+  stackTrace?: string | null;
+  /**
+   * ISO 8601 creation timestamp
+   */
+  createdAt: string;
+};
+
+/**
+ * Filter criteria for searching log entries
+ */
+export type LogSearchFilters = {
+  /**
+   * Filter by log level (exact match)
+   */
+  level?: string;
+  /**
+   * Filter by log source (exact match)
+   */
+  source?: string;
+  /**
+   * Start time (inclusive, Unix timestamp in ms)
+   */
+  startTime?: float64;
+  /**
+   * End time (inclusive, Unix timestamp in ms)
+   */
+  endTime?: float64;
+  /**
+   * Maximum number of results (default: 50)
+   */
+  limit?: number;
+  /**
+   * Number of results to skip (for pagination)
+   */
+  offset?: number;
+};
 export enum MessageRole {
   Assistant = 'assistant',
   User = 'user',
@@ -293,6 +363,12 @@ export type EnvironmentConfig = {
    */
   shellPreference: string;
 };
+export enum LogLevel {
+  Debug = 'debug',
+  Info = 'info',
+  Warn = 'warn',
+  Error = 'error',
+}
 
 /**
  * System configuration
@@ -305,7 +381,7 @@ export type SystemConfig = {
   /**
    * Log level for CLI output
    */
-  logLevel: string;
+  logLevel: LogLevel;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',

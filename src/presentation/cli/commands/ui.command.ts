@@ -20,6 +20,7 @@ import { findAvailablePort, DEFAULT_PORT } from '../../../infrastructure/service
 import { container } from '../../../infrastructure/di/container.js';
 import type { IVersionService } from '../../../application/ports/output/version-service.interface.js';
 import type { IWebServerService } from '../../../application/ports/output/web-server-service.interface.js';
+import type { ILogger } from '../../../application/ports/output/logger.interface.js';
 import { setVersionEnvVars } from '../../../infrastructure/services/version.service.js';
 import { resolveWebDir } from '../../../infrastructure/services/web-server.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
@@ -47,8 +48,11 @@ Examples:
   $ shep ui --port 8080     Start on custom port`
     )
     .action(async (options: { port?: number }) => {
+      const logger = container.resolve<ILogger>('ILogger');
       try {
         const startPort = options.port ?? DEFAULT_PORT;
+        logger.debug('Starting UI command', { source: 'cli:ui', port: startPort });
+
         const port = await findAvailablePort(startPort);
         const { dir, dev } = resolveWebDir();
 
@@ -84,6 +88,11 @@ Examples:
         process.on('SIGTERM', shutdown);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('Failed to start web UI', {
+          source: 'cli:ui',
+          error: err.message,
+          stack: err.stack,
+        });
         messages.error('Failed to start web UI', err);
         process.exitCode = 1;
       }

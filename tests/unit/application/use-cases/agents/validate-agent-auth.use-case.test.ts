@@ -15,12 +15,16 @@ import type {
   IAgentValidator,
   AgentValidationResult,
 } from '../../../../../src/application/ports/output/agent-validator.interface.js';
+import { createMockLogger } from '../../../../helpers/mock-logger.js';
+import type { ILogger } from '../../../../../src/application/ports/output/logger.interface.js';
 
 describe('ValidateAgentAuthUseCase', () => {
   let useCase: ValidateAgentAuthUseCase;
   let mockValidator: IAgentValidator;
+  let mockLogger: ILogger;
 
   beforeEach(() => {
+    mockLogger = createMockLogger();
     mockValidator = {
       isAvailable: vi
         .fn<(agentType: AgentType) => Promise<AgentValidationResult>>()
@@ -30,7 +34,7 @@ describe('ValidateAgentAuthUseCase', () => {
         }),
     };
 
-    useCase = new ValidateAgentAuthUseCase(mockValidator);
+    useCase = new ValidateAgentAuthUseCase(mockValidator, mockLogger);
   });
 
   describe('validation delegation', () => {

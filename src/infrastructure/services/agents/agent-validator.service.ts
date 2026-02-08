@@ -16,6 +16,7 @@ import type {
   IAgentValidator,
   AgentValidationResult,
 } from '../../../application/ports/output/agent-validator.interface.js';
+import type { ILogger } from '../../../application/ports/output/logger.interface.js';
 
 /**
  * Type for the command executor dependency.
@@ -43,13 +44,16 @@ const AGENT_BINARY_MAP: Partial<Record<AgentType, string>> = {
 @injectable()
 export class AgentValidatorService implements IAgentValidator {
   private readonly execFn: ExecFunction;
+  private readonly logger: ILogger;
 
   /**
    * @param execFn - Command executor function (injectable for testing).
    *   Uses execFile semantics (no shell) to prevent command injection.
+   * @param logger - Logger instance for diagnostics
    */
-  constructor(@inject('ExecFunction') execFn: ExecFunction) {
+  constructor(@inject('ExecFunction') execFn: ExecFunction, @inject('ILogger') logger: ILogger) {
     this.execFn = execFn;
+    this.logger = logger;
   }
 
   /**
@@ -62,6 +66,7 @@ export class AgentValidatorService implements IAgentValidator {
     const binary = AGENT_BINARY_MAP[agentType];
 
     if (!binary) {
+      this.logger.debug('Agent type not supported', { agentType });
       return {
         available: false,
         error: `Agent type "${agentType}" is not supported yet`,
@@ -69,9 +74,11 @@ export class AgentValidatorService implements IAgentValidator {
     }
 
     try {
+      this.logger.debug('Checking agent availability', { agentType, binary });
       const { stdout } = await this.execFn(binary, ['--version']);
       const version = stdout.trim();
 
+      this.logger.info('Agent binary found', { agentType, binary, version });
       return {
         available: true,
         version,
@@ -79,6 +86,11 @@ export class AgentValidatorService implements IAgentValidator {
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : 'Unknown error';
 
+      this.logger.warn('Agent binary not found', {
+        agentType,
+        binary,
+        error: message,
+      });
       return {
         available: false,
         error: `Binary "${binary}" not found or not executable: ${message}`,

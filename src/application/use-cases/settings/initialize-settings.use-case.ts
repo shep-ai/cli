@@ -13,6 +13,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { Settings } from '../../../domain/generated/output.js';
 import type { ISettingsRepository } from '../../ports/output/settings.repository.interface.js';
+import type { ILogger } from '../../ports/output/logger.interface.js';
 import { createDefaultSettings } from '../../../domain/factories/settings-defaults.factory.js';
 
 /**
@@ -28,7 +29,9 @@ import { createDefaultSettings } from '../../../domain/factories/settings-defaul
 export class InitializeSettingsUseCase {
   constructor(
     @inject('ISettingsRepository')
-    private readonly settingsRepository: ISettingsRepository
+    private readonly settingsRepository: ISettingsRepository,
+    @inject('ILogger')
+    private readonly logger: ILogger
   ) {}
 
   /**
@@ -37,10 +40,16 @@ export class InitializeSettingsUseCase {
    * @returns Existing or newly created Settings
    */
   async execute(): Promise<Settings> {
+    this.logger.debug('Executing initialize settings use case', { source: 'use-case:settings' });
+
     // Check if settings already exist
     const existingSettings = await this.settingsRepository.load();
 
     if (existingSettings) {
+      this.logger.debug('Settings already exist, returning existing', {
+        source: 'use-case:settings',
+        settingsId: existingSettings.id,
+      });
       return existingSettings;
     }
 
@@ -49,6 +58,11 @@ export class InitializeSettingsUseCase {
 
     // Persist to database
     await this.settingsRepository.initialize(newSettings);
+
+    this.logger.info('Settings initialized successfully', {
+      source: 'use-case:settings',
+      settingsId: newSettings.id,
+    });
 
     return newSettings;
   }

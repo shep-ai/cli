@@ -9,6 +9,7 @@
 import "./acceptance-criteria.tsp";
 import "./action-item.tsp";
 import "./artifact.tsp";
+import "./log-entry.tsp";
 import "./message.tsp";
 import "./requirement.tsp";
 import "./research.tsp";

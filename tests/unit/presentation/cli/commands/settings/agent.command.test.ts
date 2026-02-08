@@ -9,6 +9,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
+import { createMockLogger } from '../../../../../helpers/mock-logger.js';
 
 // Mock the container - factory must not reference outer variables (hoisted)
 vi.mock('../../../../../../src/infrastructure/di/container.js', () => ({
@@ -55,11 +56,15 @@ describe('Agent Command', () => {
   };
 
   const mockConfigureUseCase = { execute: vi.fn() };
+  const mockLogger = createMockLogger();
 
   beforeEach(() => {
     vi.clearAllMocks();
     process.exitCode = undefined;
-    (container.resolve as ReturnType<typeof vi.fn>).mockReturnValue(mockConfigureUseCase);
+    (container.resolve as ReturnType<typeof vi.fn>).mockImplementation((token) => {
+      if (token === 'ILogger') return mockLogger;
+      return mockConfigureUseCase;
+    });
     mockConfigureUseCase.execute.mockResolvedValue(mockSettings);
   });
 

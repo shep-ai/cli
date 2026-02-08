@@ -11,6 +11,14 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { createDefaultSettings } from '../../../../../../src/domain/factories/settings-defaults.factory.js';
 import { Command } from 'commander';
+import { createMockLogger } from '../../../../../helpers/mock-logger.js';
+
+// Mock the DI container - factory must not reference outer variables (hoisted)
+vi.mock('../../../../../../src/infrastructure/di/container.js', () => ({
+  container: {
+    resolve: vi.fn(),
+  },
+}));
 
 // Mock the settings service - factory must not reference outer variables (hoisted)
 vi.mock('../../../../../../src/infrastructure/services/settings.service.js', () => ({
@@ -25,15 +33,18 @@ vi.mock(
   })
 );
 
+import { container } from '../../../../../../src/infrastructure/di/container.js';
 import { getSettings } from '../../../../../../src/infrastructure/services/settings.service.js';
 import { createShowCommand } from '../../../../../../src/presentation/cli/commands/settings/show.command.js';
 
 describe('Show Command', () => {
   const mockSettings = createDefaultSettings();
+  const mockLogger = createMockLogger();
 
   beforeEach(() => {
     vi.clearAllMocks();
     (getSettings as ReturnType<typeof vi.fn>).mockReturnValue(mockSettings);
+    (container.resolve as ReturnType<typeof vi.fn>).mockReturnValue(mockLogger);
   });
 
   describe('command execution', () => {

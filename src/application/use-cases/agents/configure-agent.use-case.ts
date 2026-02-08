@@ -15,6 +15,7 @@ import { injectable, inject } from 'tsyringe';
 import type { Settings, AgentType, AgentAuthMethod } from '../../../domain/generated/output.js';
 import type { ISettingsRepository } from '../../ports/output/settings.repository.interface.js';
 import type { IAgentValidator } from '../../ports/output/agent-validator.interface.js';
+import type { ILogger } from '../../ports/output/logger.interface.js';
 
 /**
  * Input for configuring an AI coding agent.
@@ -41,7 +42,9 @@ export class ConfigureAgentUseCase {
     @inject('ISettingsRepository')
     private readonly settingsRepository: ISettingsRepository,
     @inject('IAgentValidator')
-    private readonly agentValidator: IAgentValidator
+    private readonly agentValidator: IAgentValidator,
+    @inject('ILogger')
+    private readonly logger: ILogger
   ) {}
 
   /**
@@ -52,9 +55,20 @@ export class ConfigureAgentUseCase {
    * @throws Error if agent is not available or settings not initialized
    */
   async execute(input: ConfigureAgentInput): Promise<Settings> {
+    this.logger.debug('Configuring agent', {
+      source: 'use-case:agent',
+      agentType: input.type,
+      authMethod: input.authMethod,
+    });
+
     // 1. Validate agent is available
     const validation = await this.agentValidator.isAvailable(input.type);
     if (!validation.available) {
+      this.logger.error('Agent not available', {
+        source: 'use-case:agent',
+        agentType: input.type,
+        error: validation.error,
+      });
       throw new Error(
         `Agent "${input.type}" is not available: ${validation.error ?? 'binary not found'}`
       );
@@ -63,6 +77,7 @@ export class ConfigureAgentUseCase {
     // 2. Load current settings
     const settings = await this.settingsRepository.load();
     if (!settings) {
+      this.logger.error('Settings not found', { source: 'use-case:agent' });
       throw new Error('Settings not found. Please run initialization first.');
     }
 
@@ -79,6 +94,12 @@ export class ConfigureAgentUseCase {
 
     // 4. Persist
     await this.settingsRepository.update(updatedSettings);
+
+    this.logger.info('Agent configured successfully', {
+      source: 'use-case:agent',
+      agentType: input.type,
+      authMethod: input.authMethod,
+    });
 
     return updatedSettings;
   }

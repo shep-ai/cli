@@ -14,14 +14,18 @@ import {
   type ExecFunction,
 } from '../../../../../src/infrastructure/services/agents/agent-validator.service.js';
 import { AgentType } from '../../../../../src/domain/generated/output.js';
+import { createMockLogger } from '../../../../helpers/mock-logger.js';
+import type { ILogger } from '../../../../../src/application/ports/output/logger.interface.js';
 
 describe('AgentValidatorService', () => {
   let mockExec: ExecFunction;
+  let mockLogger: ILogger;
   let service: AgentValidatorService;
 
   beforeEach(() => {
     mockExec = vi.fn();
-    service = new AgentValidatorService(mockExec);
+    mockLogger = createMockLogger();
+    service = new AgentValidatorService(mockExec, mockLogger);
   });
 
   describe('isAvailable - claude-code', () => {

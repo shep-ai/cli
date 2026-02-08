@@ -15,6 +15,7 @@ import type {
   IAgentValidator,
   AgentValidationResult,
 } from '../../ports/output/agent-validator.interface.js';
+import type { ILogger } from '../../ports/output/logger.interface.js';
 
 /**
  * Use case for validating agent availability.
@@ -27,7 +28,9 @@ import type {
 export class ValidateAgentAuthUseCase {
   constructor(
     @inject('IAgentValidator')
-    private readonly agentValidator: IAgentValidator
+    private readonly agentValidator: IAgentValidator,
+    @inject('ILogger')
+    private readonly logger: ILogger
   ) {}
 
   /**
@@ -37,6 +40,27 @@ export class ValidateAgentAuthUseCase {
    * @returns Validation result with availability status
    */
   async execute(agentType: AgentType): Promise<AgentValidationResult> {
-    return this.agentValidator.isAvailable(agentType);
+    this.logger.debug('Validating agent availability', {
+      source: 'use-case:agent',
+      agentType,
+    });
+
+    const result = await this.agentValidator.isAvailable(agentType);
+
+    if (result.available) {
+      this.logger.info('Agent validation successful', {
+        source: 'use-case:agent',
+        agentType,
+        version: result.version,
+      });
+    } else {
+      this.logger.warn('Agent validation failed', {
+        source: 'use-case:agent',
+        agentType,
+        error: result.error,
+      });
+    }
+
+    return result;
   }
 }

@@ -10,6 +10,8 @@
 
 import { Command } from 'commander';
 import { createInterface } from 'node:readline';
+import { container } from '../../../../infrastructure/di/container.js';
+import type { ILogger } from '../../../../application/ports/output/logger.interface.js';
 import { createDefaultSettings } from '../../../../domain/factories/settings-defaults.factory.js';
 import {
   resetSettings,
@@ -60,13 +62,20 @@ Examples:
   $ shep settings init -f        Same as --force (short flag)`
     )
     .action(async (options: { force?: boolean }) => {
+      const logger = container.resolve<ILogger>('ILogger');
       try {
+        logger.debug('Initializing settings to defaults', {
+          source: 'cli:settings:init',
+          force: options.force,
+        });
+
         if (!options.force) {
           messages.warning(
             'This will reset all settings to defaults. Consider backing up ~/.shep/data first.'
           );
           const confirmed = await confirm('Are you sure? (y/N): ');
           if (!confirmed) {
+            logger.info('Settings init cancelled by user', { source: 'cli:settings:init' });
             messages.info('Operation cancelled.');
             return;
           }
@@ -76,9 +85,18 @@ Examples:
         resetSettings();
         initializeSettings(newSettings);
 
+        logger.info('Settings initialized to defaults', {
+          source: 'cli:settings:init',
+          settingsId: newSettings.id,
+        });
         messages.success('Settings initialized to defaults.');
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('Failed to initialize settings', {
+          source: 'cli:settings:init',
+          error: err.message,
+          stack: err.stack,
+        });
         messages.error('Failed to initialize settings', err);
         process.exitCode = 1;
       }

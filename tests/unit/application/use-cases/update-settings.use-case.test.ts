@@ -14,14 +14,19 @@ import { UpdateSettingsUseCase } from '../../../../src/application/use-cases/set
 import { MockSettingsRepository } from '../../../helpers/mock-repository.helper.js';
 import { createDefaultSettings } from '../../../../src/domain/factories/settings-defaults.factory.js';
 import type { Settings } from '../../../../src/domain/generated/output.js';
+import { LogLevel } from '../../../../src/domain/generated/output.js';
+import { createMockLogger } from '../../../helpers/mock-logger.js';
+import type { ILogger } from '../../../../src/application/ports/output/logger.interface.js';
 
 describe('UpdateSettingsUseCase', () => {
   let useCase: UpdateSettingsUseCase;
   let mockRepository: MockSettingsRepository;
+  let mockLogger: ILogger;
 
   beforeEach(() => {
     mockRepository = new MockSettingsRepository();
-    useCase = new UpdateSettingsUseCase(mockRepository as any);
+    mockLogger = createMockLogger();
+    useCase = new UpdateSettingsUseCase(mockRepository as any, mockLogger);
   });
 
   describe('successful updates', () => {
@@ -62,7 +67,7 @@ describe('UpdateSettingsUseCase', () => {
         ...settings,
         system: {
           ...settings.system,
-          logLevel: 'debug',
+          logLevel: LogLevel.Debug,
         },
       };
 
@@ -227,7 +232,7 @@ describe('UpdateSettingsUseCase', () => {
         ...settings,
         system: {
           ...settings.system,
-          logLevel: 'error',
+          logLevel: LogLevel.Error,
         },
       };
 

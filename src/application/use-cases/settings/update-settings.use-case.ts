@@ -13,6 +13,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { Settings } from '../../../domain/generated/output.js';
 import type { ISettingsRepository } from '../../ports/output/settings.repository.interface.js';
+import type { ILogger } from '../../ports/output/logger.interface.js';
 
 /**
  * Use case for updating existing settings.
@@ -26,7 +27,9 @@ import type { ISettingsRepository } from '../../ports/output/settings.repository
 export class UpdateSettingsUseCase {
   constructor(
     @inject('ISettingsRepository')
-    private readonly settingsRepository: ISettingsRepository
+    private readonly settingsRepository: ISettingsRepository,
+    @inject('ILogger')
+    private readonly logger: ILogger
   ) {}
 
   /**
@@ -36,8 +39,18 @@ export class UpdateSettingsUseCase {
    * @returns The updated Settings
    */
   async execute(settings: Settings): Promise<Settings> {
+    this.logger.debug('Updating settings', {
+      source: 'use-case:settings',
+      settingsId: settings.id,
+    });
+
     // Persist updated settings
     await this.settingsRepository.update(settings);
+
+    this.logger.info('Settings updated successfully', {
+      source: 'use-case:settings',
+      settingsId: settings.id,
+    });
 
     // Return the updated settings
     return settings;

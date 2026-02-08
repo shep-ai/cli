@@ -12,7 +12,11 @@
  */
 
 import type { Settings } from '../../../../domain/generated/output.js';
-import { type AgentType, type AgentAuthMethod } from '../../../../domain/generated/output.js';
+import {
+  type AgentType,
+  type AgentAuthMethod,
+  type LogLevel,
+} from '../../../../domain/generated/output.js';
 
 /**
  * Database row type matching the settings table schema.
@@ -126,10 +130,10 @@ export function fromDatabase(row: SettingsRow): Settings {
       shellPreference: row.env_shell_preference,
     },
 
-    // SystemConfig (INTEGER → boolean)
+    // SystemConfig (INTEGER → boolean, string → LogLevel enum)
     system: {
       autoUpdate: row.sys_auto_update === 1,
-      logLevel: row.sys_log_level,
+      logLevel: row.sys_log_level as LogLevel,
     },
 
     // AgentConfig (NULL → undefined for optional token)

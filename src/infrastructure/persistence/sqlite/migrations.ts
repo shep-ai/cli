@@ -82,6 +82,56 @@ CREATE INDEX idx_agent_runs_pid ON agent_runs(pid) WHERE pid IS NOT NULL;
 CREATE INDEX idx_agent_runs_thread_id ON agent_runs(thread_id);
 `,
   },
+  {
+    version: 4,
+    sql: `
+-- Migration 004: Create Logs Table
+-- Creates the main logs table for storing log entries with full-text search support.
+
+-- Create main logs table
+CREATE TABLE IF NOT EXISTS logs (
+  id TEXT PRIMARY KEY NOT NULL,
+  timestamp INTEGER NOT NULL,
+  level TEXT NOT NULL,
+  source TEXT NOT NULL,
+  message TEXT NOT NULL,
+  context TEXT,
+  stack_trace TEXT,
+  created_at TEXT NOT NULL
+);
+
+-- Create FTS5 virtual table for full-text search
+CREATE VIRTUAL TABLE IF NOT EXISTS logs_fts USING fts5(
+  id UNINDEXED,
+  message
+);
+
+-- Trigger: Sync FTS5 on INSERT
+CREATE TRIGGER IF NOT EXISTS logs_ai AFTER INSERT ON logs BEGIN
+  INSERT INTO logs_fts(id, message)
+  VALUES (new.id, new.message);
+END;
+
+-- Trigger: Sync FTS5 on UPDATE
+CREATE TRIGGER IF NOT EXISTS logs_au AFTER UPDATE ON logs BEGIN
+  UPDATE logs_fts SET message = new.message WHERE id = old.id;
+END;
+
+-- Trigger: Sync FTS5 on DELETE
+CREATE TRIGGER IF NOT EXISTS logs_ad AFTER DELETE ON logs BEGIN
+  DELETE FROM logs_fts WHERE id = old.id;
+END;
+
+-- Create index on timestamp (DESC for recent-first queries)
+CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON logs(timestamp DESC);
+
+-- Create index on level (for filtering by severity)
+CREATE INDEX IF NOT EXISTS idx_logs_level ON logs(level);
+
+-- Create index on source (for filtering by log source)
+CREATE INDEX IF NOT EXISTS idx_logs_source ON logs(source);
+`,
+  },
 ];
 
 /**

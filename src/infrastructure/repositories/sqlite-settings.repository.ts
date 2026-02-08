@@ -7,9 +7,10 @@
  */
 
 import type Database from 'better-sqlite3';
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 import type { ISettingsRepository } from '../../application/ports/output/settings.repository.interface.js';
 import type { Settings } from '../../domain/generated/output.js';
+import type { ILogger } from '../../application/ports/output/logger.interface.js';
 import {
   toDatabase,
   fromDatabase,
@@ -22,7 +23,14 @@ import {
  */
 @injectable()
 export class SQLiteSettingsRepository implements ISettingsRepository {
-  constructor(private readonly db: Database.Database) {}
+  private readonly logger: ILogger;
+
+  constructor(
+    private readonly db: Database.Database,
+    @inject('ILogger') logger: ILogger
+  ) {
+    this.logger = logger;
+  }
 
   /**
    * Initialize settings for the first time.
@@ -32,9 +40,12 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
    * @throws Error if settings already exist (singleton constraint)
    */
   async initialize(settings: Settings): Promise<void> {
+    this.logger.debug('Initializing settings', { settingsId: settings.id });
+
     // Check if settings already exist (singleton constraint)
     const existing = await this.load();
     if (existing !== null) {
+      this.logger.error('Settings already exist, cannot initialize');
       throw new Error('Settings already exist. Use update() to modify existing settings.');
     }
 
@@ -62,6 +73,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
 
     // Execute with named parameters (safe from SQL injection)
     stmt.run(row);
+    this.logger.info('Settings initialized successfully', { settingsId: settings.id });
   }
 
   /**
@@ -70,6 +82,8 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
    * @returns The existing Settings or null if not initialized
    */
   async load(): Promise<Settings | null> {
+    this.logger.debug('Loading settings from database');
+
     // Query the singleton row (table enforces at most one row)
     const stmt = this.db.prepare('SELECT * FROM settings LIMIT 1');
 
@@ -78,11 +92,14 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
 
     // Return null if not found
     if (!row) {
+      this.logger.debug('No settings found in database');
       return null;
     }
 
     // Convert from database format
-    return fromDatabase(row);
+    const settings = fromDatabase(row);
+    this.logger.debug('Settings loaded successfully', { settingsId: settings.id });
+    return settings;
   }
 
   /**
@@ -92,9 +109,12 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
    * @throws Error if settings don't exist (must initialize first)
    */
   async update(settings: Settings): Promise<void> {
+    this.logger.debug('Updating settings', { settingsId: settings.id });
+
     // Check if settings exist
     const existing = await this.load();
     if (existing === null) {
+      this.logger.error('Settings do not exist, cannot update');
       throw new Error('Settings do not exist. Use initialize() first.');
     }
 
@@ -128,7 +148,12 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
 
     // Verify update succeeded
     if (result.changes === 0) {
+      this.logger.error('Failed to update settings: no rows affected', {
+        settingsId: settings.id,
+      });
       throw new Error('Failed to update settings: no rows affected');
     }
+
+    this.logger.info('Settings updated successfully', { settingsId: settings.id });
   }
 }

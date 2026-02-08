@@ -13,6 +13,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { Settings } from '../../../domain/generated/output.js';
 import type { ISettingsRepository } from '../../ports/output/settings.repository.interface.js';
+import type { ILogger } from '../../ports/output/logger.interface.js';
 
 /**
  * Use case for loading existing settings.
@@ -26,7 +27,9 @@ import type { ISettingsRepository } from '../../ports/output/settings.repository
 export class LoadSettingsUseCase {
   constructor(
     @inject('ISettingsRepository')
-    private readonly settingsRepository: ISettingsRepository
+    private readonly settingsRepository: ISettingsRepository,
+    @inject('ILogger')
+    private readonly logger: ILogger
   ) {}
 
   /**
@@ -36,11 +39,19 @@ export class LoadSettingsUseCase {
    * @throws Error if settings don't exist
    */
   async execute(): Promise<Settings> {
+    this.logger.debug('Loading settings', { source: 'use-case:settings' });
+
     const settings = await this.settingsRepository.load();
 
     if (!settings) {
+      this.logger.error('Settings not found', { source: 'use-case:settings' });
       throw new Error('Settings not found. Please run initialization first.');
     }
+
+    this.logger.debug('Settings loaded successfully', {
+      source: 'use-case:settings',
+      settingsId: settings.id,
+    });
 
     return settings;
   }

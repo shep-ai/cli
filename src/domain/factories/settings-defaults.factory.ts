@@ -21,7 +21,7 @@ import type {
   SystemConfig,
   AgentConfig,
 } from '../generated/output.js';
-import { AgentType, AgentAuthMethod } from '../generated/output.js';
+import { AgentType, AgentAuthMethod, LogLevel } from '../generated/output.js';
 
 /**
  * Default AI model for all SDLC agents.
@@ -45,7 +45,7 @@ const DEFAULT_SHELL = 'bash' as const;
  * Default log level for CLI output.
  * Provides informational messages without overwhelming verbosity.
  */
-const DEFAULT_LOG_LEVEL = 'info' as const;
+const DEFAULT_LOG_LEVEL = LogLevel.Info;
 
 /**
  * Default AI coding agent.

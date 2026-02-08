@@ -13,14 +13,18 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { LoadSettingsUseCase } from '../../../../src/application/use-cases/settings/load-settings.use-case.js';
 import { MockSettingsRepository } from '../../../helpers/mock-repository.helper.js';
 import { createDefaultSettings } from '../../../../src/domain/factories/settings-defaults.factory.js';
+import { createMockLogger } from '../../../helpers/mock-logger.js';
+import type { ILogger } from '../../../../src/application/ports/output/logger.interface.js';
 
 describe('LoadSettingsUseCase', () => {
   let useCase: LoadSettingsUseCase;
   let mockRepository: MockSettingsRepository;
+  let mockLogger: ILogger;
 
   beforeEach(() => {
     mockRepository = new MockSettingsRepository();
-    useCase = new LoadSettingsUseCase(mockRepository as any);
+    mockLogger = createMockLogger();
+    useCase = new LoadSettingsUseCase(mockRepository as any, mockLogger);
   });
 
   describe('when settings exist', () => {

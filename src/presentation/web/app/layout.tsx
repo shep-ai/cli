@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { Navigation } from '@/components/layout/navigation';
 import './globals.css';
 
 export const metadata: Metadata = {
@@ -31,7 +32,10 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased">
+        <Navigation />
+        {children}
+      </body>
     </html>
   );
 }

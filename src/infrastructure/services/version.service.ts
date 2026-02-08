@@ -9,10 +9,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { injectable } from 'tsyringe';
+import { injectable, inject } from 'tsyringe';
 
 import { DEFAULT_VERSION_INFO } from '../../domain/value-objects/version-info.js';
 import type { VersionInfo } from '../../domain/value-objects/version-info.js';
+import type { ILogger } from '../../application/ports/output/logger.interface.js';
 
 // Re-export for backward compatibility
 export type { VersionInfo } from '../../domain/value-objects/version-info.js';
@@ -44,8 +45,10 @@ function findPackageJson(startDir: string): string | null {
 @injectable()
 export class VersionService {
   private readonly versionInfo: VersionInfo;
+  private readonly logger: ILogger;
 
-  constructor() {
+  constructor(@inject('ILogger') logger: ILogger) {
+    this.logger = logger;
     this.versionInfo = this.loadVersionInfo();
   }
 
@@ -55,6 +58,7 @@ export class VersionService {
       const packageJsonPath = findPackageJson(__dirname);
 
       if (!packageJsonPath) {
+        this.logger.warn('package.json not found, using default version info');
         return DEFAULT_VERSION_INFO;
       }
 
@@ -72,16 +76,22 @@ export class VersionService {
         typeof (parsed as Record<string, unknown>).name === 'string' &&
         typeof (parsed as Record<string, unknown>).description === 'string'
       ) {
-        return {
+        const versionInfo = {
           version: (parsed as Record<string, string>).version,
           name: (parsed as Record<string, string>).name,
           description: (parsed as Record<string, string>).description,
         };
+        this.logger.debug('Loaded version info from package.json', { versionInfo });
+        return versionInfo;
       }
 
+      this.logger.warn('Invalid package.json format, using default version info');
       return DEFAULT_VERSION_INFO;
-    } catch {
+    } catch (error) {
       // If anything goes wrong, return defaults to keep CLI functional
+      this.logger.error('Failed to load version info', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
       return DEFAULT_VERSION_INFO;
     }
   }

@@ -18,15 +18,19 @@ import type {
   AgentValidationResult,
 } from '../../../../../src/application/ports/output/agent-validator.interface.js';
 import { createDefaultSettings } from '../../../../../src/domain/factories/settings-defaults.factory.js';
+import { createMockLogger } from '../../../../helpers/mock-logger.js';
+import type { ILogger } from '../../../../../src/application/ports/output/logger.interface.js';
 
 describe('ConfigureAgentUseCase', () => {
   let useCase: ConfigureAgentUseCase;
   let mockRepository: ISettingsRepository;
   let mockValidator: IAgentValidator;
+  let mockLogger: ILogger;
   let defaultSettings: Settings;
 
   beforeEach(() => {
     defaultSettings = createDefaultSettings();
+    mockLogger = createMockLogger();
 
     mockRepository = {
       initialize: vi.fn(),
@@ -43,7 +47,7 @@ describe('ConfigureAgentUseCase', () => {
         }),
     };
 
-    useCase = new ConfigureAgentUseCase(mockRepository, mockValidator);
+    useCase = new ConfigureAgentUseCase(mockRepository, mockValidator, mockLogger);
   });
 
   describe('successful configuration', () => {

@@ -10,6 +10,8 @@
  */
 
 import { Command, Option } from 'commander';
+import { container } from '../../../../infrastructure/di/container.js';
+import type { ILogger } from '../../../../application/ports/output/logger.interface.js';
 import { OutputFormatter, type OutputFormat } from '../../ui/output.js';
 import { getShepDbPath } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
@@ -36,7 +38,12 @@ Examples:
   $ shep settings show -o yaml         Display settings as YAML`
     )
     .action((options: { output: OutputFormat }) => {
+      const logger = container.resolve<ILogger>('ILogger');
       try {
+        logger.debug('Showing settings', {
+          source: 'cli:settings:show',
+          outputFormat: options.output,
+        });
         const settings = getSettings();
 
         // Build database metadata for table format
@@ -46,6 +53,11 @@ Examples:
         console.log(output);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
+        logger.error('Failed to load settings', {
+          source: 'cli:settings:show',
+          error: err.message,
+          stack: err.stack,
+        });
         messages.error('Failed to load settings', err);
         process.exitCode = 1;
       }

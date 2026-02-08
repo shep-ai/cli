@@ -125,8 +125,8 @@ export default tseslint.config(
       // Require === and !==
       eqeqeq: ['error', 'always', { null: 'ignore' }],
 
-      // No console in production code (warn for now)
-      'no-console': 'warn',
+      // No console in production code (use ILogger instead)
+      'no-console': 'error',
 
       // No debugger statements
       'no-debugger': 'error',
