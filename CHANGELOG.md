@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/shep-ai/cli/compare/v1.6.3...v1.7.0) (2026-02-08)
+
+### Features
+
+- **specs:** add 009-langchain-agent-infra specification ([a7d33fa](https://github.com/shep-ai/cli/commit/a7d33fa2b61bac12170e8b3cbd0db2dd5e94a15b))
+- **skills:** add spec directory scaffolding to parallel-task skill ([55027c9](https://github.com/shep-ai/cli/commit/55027c949ad9a990a368f37cae3f168f1561ab56))
+
 ## [1.6.3](https://github.com/shep-ai/cli/compare/v1.6.2...v1.6.3) (2026-02-08)
 
 ## [1.6.2](https://github.com/shep-ai/cli/compare/v1.6.1...v1.6.2) (2026-02-08)
