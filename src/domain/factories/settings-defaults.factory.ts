@@ -19,7 +19,9 @@ import type {
   UserProfile,
   EnvironmentConfig,
   SystemConfig,
+  AgentConfig,
 } from '../generated/output.js';
+import { AgentType, AgentAuthMethod } from '../generated/output.js';
 
 /**
  * Default AI model for all SDLC agents.
@@ -46,6 +48,18 @@ const DEFAULT_SHELL = 'bash' as const;
 const DEFAULT_LOG_LEVEL = 'info' as const;
 
 /**
+ * Default AI coding agent.
+ * Claude Code is the only currently supported agent.
+ */
+const DEFAULT_AGENT_TYPE = AgentType.ClaudeCode;
+
+/**
+ * Default agent authentication method.
+ * Session auth uses the agent's built-in authentication.
+ */
+const DEFAULT_AUTH_METHOD = AgentAuthMethod.Session;
+
+/**
  * Creates a Settings entity with sensible defaults.
  *
  * Default values match the TypeSpec model specification:
@@ -55,6 +69,7 @@ const DEFAULT_LOG_LEVEL = 'info' as const;
  * - Auto-update: enabled
  * - Log level: info
  * - User profile: empty (all fields optional)
+ * - Agent: Claude Code with session auth
  *
  * @returns Settings entity with default values
  *
@@ -87,12 +102,18 @@ export function createDefaultSettings(): Settings {
     logLevel: DEFAULT_LOG_LEVEL,
   };
 
+  const agent: AgentConfig = {
+    type: DEFAULT_AGENT_TYPE,
+    authMethod: DEFAULT_AUTH_METHOD,
+  };
+
   return {
     id: randomUUID(),
     models,
     user,
     environment,
     system,
+    agent,
     createdAt: now,
     updatedAt: now,
   };

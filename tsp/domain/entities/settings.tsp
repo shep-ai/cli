@@ -18,7 +18,8 @@
  * ├── models: ModelConfiguration      (AI model selections for agents)
  * ├── user: UserProfile               (User identity and contact)
  * ├── environment: EnvironmentConfig  (Tooling and shell preferences)
- * └── system: SystemConfig            (System-level behavior)
+ * ├── system: SystemConfig            (System-level behavior)
+ * └── agent: AgentConfig              (AI coding agent selection and auth)
  * ```
  *
  * ## Initialization
@@ -29,8 +30,10 @@
  * - Shell defaults to bash
  * - Auto-update enabled
  * - Log level set to info
+ * - Agent defaults to Claude Code with session auth
  */
 import "../../common/base.tsp";
+import "../../common/enums/agent-config.tsp";
 
 /**
  * Model Configuration
@@ -196,6 +199,49 @@ model SystemConfig {
 }
 
 /**
+ * Agent Configuration
+ *
+ * Specifies which AI coding agent tool Shep uses for all LLM-powered
+ * operations and how authentication is handled for that agent.
+ *
+ * ## Agent Selection
+ *
+ * Users select their preferred agent via `shep settings agent`. Currently
+ * only Claude Code is fully supported; other agents appear as "Coming Soon".
+ *
+ * ## Authentication
+ *
+ * Each agent supports different auth methods:
+ * - session: Use the agent's existing auth (e.g., Claude Code OAuth)
+ * - token: Provide an API token stored in the Shep settings database
+ */
+@doc("AI coding agent configuration")
+model AgentConfig {
+  /**
+   * The AI coding agent tool to use.
+   * Defaults to Claude Code as the only currently supported agent.
+   */
+  @doc("Selected AI coding agent")
+  type: AgentType = AgentType.ClaudeCode;
+
+  /**
+   * Authentication method for the selected agent.
+   * Session auth uses the agent's built-in auth; token auth uses
+   * a stored API key.
+   */
+  @doc("Authentication method for the agent")
+  authMethod: AgentAuthMethod = AgentAuthMethod.Session;
+
+  /**
+   * API token for token-based authentication.
+   * Only used when authMethod is "token". Set via the TUI wizard
+   * or --token CLI flag. Stored in the settings database.
+   */
+  @doc("API token for token-based auth (optional)")
+  token?: string;
+}
+
+/**
  * Settings Entity
  *
  * Global Shep platform settings stored as a singleton. This entity contains
@@ -210,6 +256,7 @@ model SystemConfig {
  * | user        | UserProfile         | Yes      | User profile information             |
  * | environment | EnvironmentConfig   | Yes      | Environment and tooling preferences  |
  * | system      | SystemConfig        | Yes      | System-level parameters              |
+ * | agent       | AgentConfig         | Yes      | AI coding agent selection and auth   |
  * | createdAt   | utcDateTime         | Yes      | When created (from BaseEntity)       |
  * | updatedAt   | utcDateTime         | Yes      | When last updated (from BaseEntity)  |
  *
@@ -236,6 +283,10 @@ model SystemConfig {
  *   "system": {
  *     "autoUpdate": true,
  *     "logLevel": "info"
+ *   },
+ *   "agent": {
+ *     "type": "claude-code",
+ *     "authMethod": "session"
  *   },
  *   "createdAt": "2026-02-03T10:00:00Z",
  *   "updatedAt": "2026-02-03T10:00:00Z"
@@ -281,4 +332,11 @@ model Settings extends BaseEntity {
    */
   @doc("System-level parameters")
   system: SystemConfig;
+
+  /**
+   * AI coding agent configuration.
+   * Controls which agent tool Shep uses and how it authenticates.
+   */
+  @doc("AI coding agent selection and authentication")
+  agent: AgentConfig;
 }

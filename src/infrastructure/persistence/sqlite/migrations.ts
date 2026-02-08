@@ -37,7 +37,10 @@ interface Migration {
 /**
  * List of all migrations in order.
  */
-const MIGRATIONS: Migration[] = [{ version: 1, filename: '001_create_settings_table.sql' }];
+const MIGRATIONS: Migration[] = [
+  { version: 1, filename: '001_create_settings_table.sql' },
+  { version: 2, filename: '002_add_agent_config.sql' },
+];
 
 /**
  * Runs all pending database migrations.

@@ -16,6 +16,7 @@ import { createInMemoryDatabase, tableExists } from '../../../helpers/database.h
 import { runSQLiteMigrations } from '../../../../src/infrastructure/persistence/sqlite/migrations.js';
 import { SQLiteSettingsRepository } from '../../../../src/infrastructure/repositories/sqlite-settings.repository.js';
 import type { Settings } from '../../../../src/domain/generated/output.js';
+import { AgentType, AgentAuthMethod } from '../../../../src/domain/generated/output.js';
 
 describe('SQLiteSettingsRepository', () => {
   let db: Database.Database;
@@ -44,6 +45,10 @@ describe('SQLiteSettingsRepository', () => {
     system: {
       autoUpdate: true,
       logLevel: 'info',
+    },
+    agent: {
+      type: AgentType.ClaudeCode,
+      authMethod: AgentAuthMethod.Session,
     },
   });
 

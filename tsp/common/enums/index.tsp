@@ -11,3 +11,4 @@ import "./message.tsp";
 import "./deployment.tsp";
 import "./requirement.tsp";
 import "./agent.tsp";
+import "./agent-config.tsp";
