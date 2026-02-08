@@ -4,4 +4,5 @@
  * Automate the development cycle from idea to deploy.
  */
 
-export const VERSION = '0.1.0';
+export type { VersionInfo } from './domain/value-objects/version-info.js';
+export { DEFAULT_VERSION_INFO } from './domain/value-objects/version-info.js';

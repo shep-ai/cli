@@ -18,6 +18,10 @@
 import { Command, InvalidArgumentError } from 'commander';
 import { findAvailablePort, DEFAULT_PORT } from '../../../infrastructure/services/port.service.js';
 import {
+  VersionService,
+  setVersionEnvVars,
+} from '../../../infrastructure/services/version.service.js';
+import {
   WebServerService,
   resolveWebDir,
 } from '../../../infrastructure/services/web-server.service.js';
@@ -50,6 +54,10 @@ Examples:
         const startPort = options.port ?? DEFAULT_PORT;
         const port = await findAvailablePort(startPort);
         const { dir, dev } = resolveWebDir();
+
+        // Set version env vars so Next.js web UI can read them
+        const versionService = new VersionService();
+        setVersionEnvVars(versionService.getVersion());
 
         messages.newline();
         console.log(fmt.heading('Shep Web UI'));
