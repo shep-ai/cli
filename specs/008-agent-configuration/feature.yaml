@@ -3,18 +3,18 @@ feature:
   name: 'agent-configuration'
   number: 8
   branch: 'feat/008-agent-configuration'
-  lifecycle: 'research'
+  lifecycle: 'planning'
   createdAt: '2026-02-08T11:23:54Z'
 
 status:
-  phase: 'research'
+  phase: 'planning'
   progress:
     completed: 0
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-08T11:23:54Z'
-  lastUpdatedBy: 'shep-kit:new-feature'
+  lastUpdated: '2026-02-08T11:36:00Z'
+  lastUpdatedBy: 'shep-kit:research'
 
 validation:
   lastRun: null
@@ -30,6 +30,9 @@ checkpoints:
   - phase: 'feature-created'
     completedAt: '2026-02-08T11:23:54Z'
     completedBy: 'shep-kit:new-feature'
+  - phase: 'research-complete'
+    completedAt: '2026-02-08T11:36:00Z'
+    completedBy: 'shep-kit:research'
 
 errors:
   current: null
