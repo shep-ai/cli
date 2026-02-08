@@ -9,21 +9,11 @@ import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export interface VersionInfo {
-  /** Package version (e.g., "0.1.0") */
-  version: string;
-  /** Package name (e.g., "@shepai/cli") */
-  name: string;
-  /** Package description */
-  description: string;
-}
+import { DEFAULT_VERSION_INFO } from '../../domain/value-objects/version-info.js';
+import type { VersionInfo } from '../../domain/value-objects/version-info.js';
 
-/** Default version info when package.json cannot be read */
-const DEFAULT_VERSION_INFO: VersionInfo = {
-  version: 'unknown',
-  name: '@shepai/cli',
-  description: 'Autonomous AI Native SDLC Platform',
-};
+// Re-export for backward compatibility
+export type { VersionInfo } from '../../domain/value-objects/version-info.js';
 
 /**
  * Find package.json by traversing up from a starting directory.
@@ -99,4 +89,15 @@ export class VersionService {
   getVersion(): VersionInfo {
     return this.versionInfo;
   }
+}
+
+/**
+ * Set version info as NEXT_PUBLIC environment variables.
+ * Must be called BEFORE starting the Next.js web server
+ * so the values are available to the web UI.
+ */
+export function setVersionEnvVars(info: VersionInfo): void {
+  process.env.NEXT_PUBLIC_SHEP_VERSION = info.version;
+  process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME = info.name;
+  process.env.NEXT_PUBLIC_SHEP_DESCRIPTION = info.description;
 }

@@ -1,4 +1,10 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { test, expect } from '@playwright/test';
+
+const pkg = JSON.parse(
+  readFileSync(resolve(import.meta.dirname, '../../../package.json'), 'utf-8')
+) as { version: string };
 
 test.describe('Version Page', () => {
   test('should display package name and version', async ({ page }) => {
@@ -35,7 +41,7 @@ test.describe('Version Page', () => {
     // Main version badge
     const versionBadge = page.getByTestId('version-badge');
     await expect(versionBadge).toBeVisible();
-    await expect(versionBadge).toContainText('v1.2.0');
+    await expect(versionBadge).toContainText(`v${pkg.version}`);
   });
 
   test('should have navigation buttons', async ({ page }) => {
