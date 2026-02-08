@@ -7,7 +7,7 @@
 - **Number:** 008
 - **Created:** 2026-02-08
 - **Branch:** feat/008-agent-configuration
-- **Phase:** Requirements
+- **Phase:** Research
 
 ## Problem Statement
 
