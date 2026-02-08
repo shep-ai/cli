@@ -122,13 +122,44 @@ git add specs/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
 
-### 9. Report
+### 9. Report & Hand Off (STOP HERE)
 
+**CRITICAL: Do NOT start implementation. Do NOT run `/shep-kit:research`, `/shep-kit:plan`, or `/shep-kit:implement`.**
+
+Your job is done. Print the following message to the user, filling in the actual values:
+
+---
+
+**Worktree is ready!**
+
+| Detail   | Value                                    |
+| -------- | ---------------------------------------- |
+| Worktree | `.worktrees/<dir-name>`                  |
+| Branch   | `<branch-name>` (based on `origin/main`) |
+| Spec     | `specs/NNN-feature-name/`                |
+
+**Next step — open a new session in the worktree directory:**
+
+**Option A — VS Code** (recommended)
+
+1. Open a **new VS Code window**
+2. `File → Open Folder…` → select `.worktrees/<dir-name>`
+3. Open the Claude Code panel and continue with `/shep-kit:research`
+
+**Option B — Terminal**
+
+```bash
+cd .worktrees/<dir-name>
+claude
+# then run /shep-kit:research
 ```
-Worktree ready at .worktrees/<dir-name>
-Branch: <branch-name> (from origin/main)
-Spec: specs/NNN-feature-name/
-```
+
+> Working inside the worktree keeps your current session free and gives
+> the new session its own full context for the feature.
+
+---
+
+**After printing the above message, STOP. Do not take any further action.**
 
 ## Cleanup
 
