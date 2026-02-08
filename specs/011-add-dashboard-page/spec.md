@@ -7,7 +7,7 @@
 - **Number:** 011
 - **Created:** 2026-02-08
 - **Branch:** feat/add-dashboard-page
-- **Phase:** Requirements
+- **Phase:** Research
 
 ## Problem Statement
 
