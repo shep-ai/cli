@@ -1,3 +1,13 @@
+# [1.5.0](https://github.com/shep-ai/cli/compare/v1.4.0...v1.5.0) (2026-02-08)
+
+### Features
+
+- **specs:** add 007-ui-command implementation plan ([f8a2251](https://github.com/shep-ai/cli/commit/f8a22510f2e6790ac586ec17bd8e88585740f32c))
+- **specs:** add 007-ui-command research ([8b144a5](https://github.com/shep-ai/cli/commit/8b144a5f3f203f44435d3c13739ee78e49f7df41))
+- **specs:** add 007-ui-command specification ([e8088fa](https://github.com/shep-ai/cli/commit/e8088fa348d2997207fe0ca1fb479ff08ade3ff8))
+- **cli:** add shep ui command to serve web ui ([e762643](https://github.com/shep-ai/cli/commit/e76264331d7b53a11f9db232701f7449a5ed39a2))
+- **specs:** switch 007 research to in-process programmatic api ([0c79807](https://github.com/shep-ai/cli/commit/0c798072899cedf91f808fe251b1a3dd8093962c))
+
 # [1.4.0](https://github.com/shep-ai/cli/compare/v1.3.1...v1.4.0) (2026-02-05)
 
 ### Features
