@@ -18,15 +18,8 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
-  // In CI, only run Chromium to keep builds fast
-  // Locally, all browsers are available for comprehensive testing
-  projects: process.env.CI
-    ? [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
-    : [
-        { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-        { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-        { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-      ],
+  // Always use Chromium only to keep tests fast and consistent
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
   /* Run your local dev server before starting the tests */
   webServer: {
