@@ -85,6 +85,8 @@ export function LogsTable({ logs, total, limit, offset, onPageChange }: LogsTabl
                 key={log.id}
                 onClick={() => handleRowClick(log.id)}
                 className="cursor-pointer"
+                data-testid="log-row"
+                data-log-id={log.id}
               >
                 <TableCell className="font-mono text-xs">
                   {formatTimestamp(log.timestamp)}

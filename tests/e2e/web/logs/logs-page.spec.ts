@@ -29,11 +29,11 @@ test.describe('Logs Page', () => {
   });
 
   test('should display log entries', async ({ page }) => {
-    // Wait for logs to load
-    await page.waitForSelector('table tbody tr', { timeout: 5000 });
+    // Wait for logs to load (wait for rows with cursor-pointer class, not "No logs found" row)
+    await page.waitForSelector('table tbody tr.cursor-pointer', { timeout: 10000 });
 
-    // Verify at least one row exists
-    const rows = page.locator('table tbody tr');
+    // Verify at least one data row exists
+    const rows = page.locator('table tbody tr.cursor-pointer');
     await expect(rows).toHaveCount(await rows.count());
   });
 
@@ -78,14 +78,17 @@ test.describe('Logs Page', () => {
   });
 
   test('should click row to view details', async ({ page }) => {
-    // Wait for logs table
-    await page.waitForSelector('table tbody tr');
+    // Wait for logs to load (wait for rows with cursor-pointer class)
+    await page.waitForSelector('table tbody tr.cursor-pointer', { timeout: 10000 });
 
-    // Click first row
-    const firstRow = page.locator('table tbody tr').first();
-    await firstRow.click();
+    // Click first data row and wait for navigation
+    const firstRow = page.locator('table tbody tr.cursor-pointer').first();
+    await Promise.all([
+      page.waitForURL(/\/logs\/[a-f0-9-]+/, { timeout: 10000 }),
+      firstRow.click(),
+    ]);
 
-    // Should navigate to detail page
+    // Verify we're on the detail page
     await expect(page).toHaveURL(/\/logs\/[a-f0-9-]+/);
   });
 });
