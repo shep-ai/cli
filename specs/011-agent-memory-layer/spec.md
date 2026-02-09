@@ -1,6 +1,6 @@
 # Feature: agent-memory-layer
 
-> Implement persistent memory layer for AI agents using GraphZep (TypeScript temporal knowledge graph system)
+> Implement persistent memory layer for AI agents using local-first TypeScript stack (Transformers.js + LanceDB + Quadstore + LangChain.js)
 
 ## Status
 
@@ -22,10 +22,11 @@ We need a memory layer that:
 
 ## Success Criteria
 
-- [ ] Graphiti library integrated as a dependency
-- [ ] Memory persistence working for agent interactions
-- [ ] Agents can retrieve relevant past context during conversations
-- [ ] Memory graph visualization available (if Graphiti provides it)
+- [ ] Local-first stack integrated (Transformers.js, LanceDB, Quadstore, LangChain.js)
+- [ ] Memory persistence working for agent interactions (file-based storage)
+- [ ] Agents can retrieve relevant past context during conversations (hybrid retrieval)
+- [ ] Zero API keys required (100% self-hosted embeddings)
+- [ ] Hybrid memory scoping (global + feature-specific graphs)
 - [ ] Clean Architecture compliance (memory as infrastructure layer)
 - [ ] Unit and integration tests covering memory operations
 
@@ -58,16 +59,14 @@ Estimated 5-8 implementation tasks over multiple development sessions.
 
 ## Open Questions
 
-**Resolved:**
+**All resolved during research:**
 
-- [x] **Memory Scope:** Hybrid approach - some memories global (user preferences, patterns), some feature-specific (task details)
-
-**To be answered during research:**
-
-- [ ] Does Graphiti require a separate database or use SQLite? _(Research will evaluate compatibility)_
-- [ ] How does Graphiti handle memory retrieval (semantic search, graph traversal)? _(Research will assess retrieval APIs)_
-- [ ] What are the performance implications for large memory graphs? _(Research will benchmark and establish targets)_
-- [ ] What configuration options does Graphiti expose (embedding models, graph parameters)? _(Research will document available options)_
+- [x] **Memory Scope:** Hybrid approach - global (Quadstore named graph `shep:global`) + feature-specific (`shep:feature:{id}`)
+- [x] **Storage:** File-based with LanceDB (vectors) + Quadstore (graph) + Transformers.js (models)
+- [x] **Retrieval:** Hybrid retrieval via LangChain.js - semantic search (LanceDB) + graph traversal (SPARQL) + keyword search
+- [x] **Performance:** Target <300ms end-to-end retrieval, <50ms vector search, <100ms graph queries
+- [x] **Configuration:** Embedding model (Transformers.js vs Ollama), storage paths, retention policies, pruning strategies
+- [x] **API Keys:** NO API keys required - 100% local embeddings via Transformers.js ONNX Runtime
 
 ---
 
