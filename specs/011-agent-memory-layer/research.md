@@ -7,54 +7,106 @@
 - **Phase:** Research
 - **Updated:** 2026-02-09
 
+## ⚠️ Critical Constraint
+
+**Shep AI CLI is TypeScript/Node.js** - All solutions MUST be TypeScript-compatible. Python libraries (Graphiti, Kuzu) are NOT viable.
+
 ## Technology Decisions
 
-### 1. Graph Database Backend
+### 1. Temporal Knowledge Graph Library
+
+**CRITICAL CONSTRAINT:** Shep AI CLI is **TypeScript/Node.js** - Python libraries are not viable.
 
 **Options considered:**
 
-1. **[Graphiti](https://github.com/getzep/graphiti) + [FalkorDB](https://www.falkordb.com/)** - Purpose-built temporal knowledge graph with lightweight graph DB ([Docs](https://docs.falkordb.com/agentic-memory/graphiti.html))
-2. **[Graphiti](https://github.com/getzep/graphiti) + [Neo4j](https://neo4j.com/)** - Mature graph database, heavier infrastructure footprint ([Comparison](https://www.falkordb.com/blog/falkordb-vs-neo4j-for-ai-applications/))
-3. **[MemoryGraph](https://github.com/gregorydickson/memory-graph) + SQLite** - SQLite-native alternative designed for codebase memory ([Comparison](https://dev.to/gregory_dickson_6dd6e2b55/memorygraph-vs-graphiti-choosing-the-right-memory-for-your-ai-agent-526k))
-4. **Custom implementation** - Build graph memory layer on top of SQLite
+1. **[GraphZep](https://github.com/aexy-io/graphzep)** - TypeScript implementation of Zep temporal knowledge graph ([Apache 2.0](https://github.com/aexy-io/graphzep))
+2. **[Graphiti](https://github.com/getzep/graphiti) (Python)** - ❌ **Python-only**, no TypeScript client
+3. **[Kuzu](https://github.com/kuzudb/kuzu)** - ❌ **Deprecated** (abandoned October 2025)
+4. **[MemoryGraph](https://github.com/gregorydickson/memory-graph)** - Designed for codebase memory, not agent conversations
+5. **Custom implementation** - Build temporal knowledge graph from scratch
 
-**Decision:** [Graphiti](https://github.com/getzep/graphiti) + [FalkorDB](https://www.falkordb.com/) (Docker-based)
+**Decision:** [GraphZep](https://github.com/aexy-io/graphzep) (TypeScript/Node.js)
 
 **Rationale:**
 
-- [Graphiti](https://neo4j.com/blog/developer/graphiti-knowledge-graph-memory/) is **purpose-built for agent memory** with temporal knowledge graphs, exactly matching our use case
-- [FalkorDB achieves **500x faster P99 latency**](https://www.falkordb.com/blog/graph-database-performance-benchmarks-falkordb-vs-neo4j/) than Neo4j, optimized for AI/GraphRAG workloads
-- Docker deployment is **acceptable for developer tooling** (simpler than Neo4j cluster setup)
-- **No SQLite support** in Graphiti (requires graph database), but performance benefits justify the tradeoff
-- [MemoryGraph](https://github.com/gregorydickson/memory-graph) is designed for codebase memory, not conversational agent memory
-- Custom implementation would require significant effort and reinvent proven architecture
+- **TypeScript-native** - Integrates seamlessly with Shep AI CLI stack
+- **Based on Zep paper** - Same research foundation as Graphiti ([paper](https://arxiv.org/abs/2501.13956))
+- **Production-ready performance:**
+  - [P95 latency: 300ms](https://blog.getzep.com/state-of-the-art-agent-memory/) (same as Graphiti)
+  - [94.8% accuracy on DMR benchmark](https://arxiv.org/html/2501.13956v1)
+  - [18.5% accuracy improvement on LongMemEval](https://arxiv.org/html/2501.13956v1)
+  - [90% latency reduction vs baselines](https://blog.getzep.com/state-of-the-art-agent-memory/)
+- **Comprehensive memory types:** Episodic, semantic, and procedural memory
+- **Apache 2.0 license** - Permissive open source
+- Graphiti (Python) is not an option due to language incompatibility
+- Kuzu is deprecated and abandoned
+- Custom implementation would duplicate proven research
 
-**Infrastructure impact:** Adds [FalkorDB Docker container](https://docs.falkordb.com/agentic-memory/graphiti.html) + Redis dependency. Can implement graceful degradation (optional memory if Docker unavailable).
+**Infrastructure impact:** Pure TypeScript library, no Docker required. Optional graph database backend (Neo4j, FalkorDB, or in-memory RDF).
 
-### 2. Retrieval Strategy
+### 2. Graph Database Backend (Optional)
 
-**Graphiti's built-in approach:**
+**GraphZep storage options:**
 
-[Graphiti uses **hybrid search**](https://medium.com/@saeedhajebi/building-ai-agents-with-knowledge-graph-memory-a-comprehensive-guide-to-graphiti-3b77e6084dec) combining:
+GraphZep supports multiple storage backends: Neo4j, FalkorDB, or in-memory RDF.
+
+**Options considered:**
+
+1. **In-memory RDF** - No external database, simple file-based persistence
+2. **[FalkorDB](https://www.npmjs.com/package/falkordb)** - Lightweight graph DB with [Node.js client](https://github.com/FalkorDB/node-falkordb) ([MIT license](https://github.com/FalkorDB/node-falkordb))
+3. **[Neo4j](https://neo4j.com/)** - Enterprise graph database ([commercial license](https://neo4j.com/licensing/))
+
+**Decision:** Start with **in-memory RDF**, add FalkorDB as optional enhancement
+
+**Rationale:**
+
+- **In-memory RDF advantages:**
+
+  - Zero external dependencies (CLI-friendly)
+  - File-based persistence (`~/.shep/memory.rdf`)
+  - Aligns with existing SQLite architecture
+  - Sufficient for CLI use case (not enterprise scale)
+
+- **FalkorDB as optional enhancement:**
+
+  - [500x faster than Neo4j](https://www.falkordb.com/blog/graph-database-performance-benchmarks-falkordb-vs-neo4j/) for AI workloads
+  - MIT-licensed Node.js client
+  - Can add later without architecture changes
+  - Power users can opt-in via configuration
+
+- **Why not Neo4j:**
+  - Commercial licensing complexity
+  - Heavier infrastructure footprint
+  - Overkill for CLI tool
+
+**Infrastructure impact:** Zero dependencies by default. Optional FalkorDB adds `~/.shep/falkordb.conf` for connection settings.
+
+### 3. Retrieval Strategy
+
+**GraphZep's built-in approach:**
+
+[GraphZep implements **hybrid retrieval**](https://arxiv.org/html/2501.13956v1) based on Zep paper:
 
 1. **Semantic search** - Vector embeddings for conceptual similarity
 2. **Keyword search (BM25)** - Fast text matching
-3. **Graph traversal** - Breadth-first search along relationships
+3. **Graph traversal** - Relationship-based queries with temporal awareness
 
-**Decision:** Use [Graphiti's native hybrid retrieval](https://neo4j.com/blog/developer/graphiti-knowledge-graph-memory/) (no custom implementation needed)
+**Decision:** Use GraphZep's native hybrid retrieval (no custom implementation needed)
 
 **Rationale:**
 
 - Matches user requirement for hybrid approach
-- **[P95 latency: 300ms](https://medium.com/neo4j/graphiti-knowledge-graph-memory-for-a-post-rag-agentic-world-0fd2366ba27d)** - Fast enough for real-time interaction
-- Near-constant time performance regardless of graph size (indexed lookups)
-- Configurable via `SearchConfig` class for fine-tuning
+- **[P95 latency: 300ms](https://blog.getzep.com/state-of-the-art-agent-memory/)** - Fast enough for real-time interaction
+- [94.8% accuracy on DMR benchmark](https://arxiv.org/html/2501.13956v1)
+- Near-constant time performance via indexes
+- Bi-temporal data model (event time + ingestion time) enables point-in-time queries
+- [Context retrieval <200ms](https://blog.getzep.com/state-of-the-art-agent-memory/) for latency-sensitive applications
 
-### 3. Memory Scope Implementation
+### 4. Memory Scope Implementation
 
 **User requirement:** Hybrid (global + feature-specific memory)
 
-**Decision:** Multi-graph architecture using [Graphiti's multi-tenant support](https://www.falkordb.com/blog/graphiti-falkordb-multi-agent-performance/)
+**Decision:** Multi-graph architecture using GraphZep's built-in support
 
 **Implementation:**
 
@@ -64,96 +116,106 @@
 
 **Rationale:**
 
-- [Graphiti supports multiple graphs](https://medium.com/@saeedhajebi/building-ai-agents-with-knowledge-graph-memory-a-comprehensive-guide-to-graphiti-3b77e6084dec) in one instance natively
+- GraphZep supports multiple concurrent graphs natively
 - Clean separation prevents context pollution
 - Flexible queries: agents can search global, feature-specific, or both
 - Aligns with Clean Architecture (memory service handles routing)
+- Each graph can use different storage backends if needed
 
-### 4. Deployment Model
+### 5. Deployment Model
 
 **Options considered:**
 
-1. **Required Docker service** - Always require FalkorDB running
-2. **Optional with graceful degradation** - Work without memory if Docker unavailable
-3. **Embedded deployment** - Bundle FalkorDB (not feasible with current architecture)
+1. **Embedded TypeScript library** - Pure Node.js, no external services
+2. **Optional graph database** - Add FalkorDB/Neo4j for power users
+3. **Python microservice** - ❌ Run Graphiti as separate service
 
-**Decision:** Optional with graceful degradation
+**Decision:** Embedded TypeScript library with optional graph database
 
 **Rationale:**
 
-- CLI should work without Docker for basic use cases
-- Power users can opt-in to memory features via Docker setup
-- Matches Shep's progressive enhancement philosophy
-- Reduces barrier to entry for new users
+- **Zero dependencies by default** - Works out of the box
+- **File-based storage** - Aligns with existing `~/.shep/` architecture
+- **No Docker required** - Reduces barrier to entry
+- **Progressive enhancement** - Power users can enable FalkorDB via config
+- **Pure TypeScript stack** - No Python interop complexity
+- Matches Shep's philosophy: simple by default, powerful when configured
 
 ## Library Analysis
 
-| Library                                                              | Version | Purpose                             | Pros                                                                  | Cons                                                      |
-| -------------------------------------------------------------------- | ------- | ----------------------------------- | --------------------------------------------------------------------- | --------------------------------------------------------- |
-| [`graphiti-core[falkordb]`](https://pypi.org/project/graphiti-core/) | Latest  | Temporal knowledge graph for agents | Purpose-built, hybrid search, temporal awareness, active development  | Requires graph DB, not SQLite                             |
-| [FalkorDB](https://github.com/FalkorDB/FalkorDB) (Docker)            | ≥1.1.2  | Lightweight graph database          | 500x faster than Neo4j, Docker-simple, AI-optimized, Redis-based      | Docker dependency, separate service                       |
-| [LangGraph](https://langchain-ai.github.io/langgraph/) (existing)    | Current | Agent orchestration                 | Already in use, Graphiti integrates with LangGraph StateGraph         | N/A (existing dep)                                        |
-| TypeSpec models (to be added)                                        | N/A     | Domain models for memory entities   | Type-safe Episode/Node/Edge models                                    | Requires TypeSpec definitions                             |
-| [Pydantic](https://docs.pydantic.dev/) (for custom entities)         | Current | Custom entity type definitions      | Graphiti uses Pydantic for domain-specific entity extraction          | N/A (minimal, Pydantic likely already a transitive dep)   |
-| [OpenAI SDK](https://platform.openai.com/docs/libraries) (existing)  | Current | Embedding model for semantic search | Required for Graphiti's vector embeddings (default model: text-ada-2) | API key required, costs per embedding (acceptable for AI) |
+| Library                                                                      | Version | License                                             | Purpose                             | Pros                                                                 | Cons                              |
+| ---------------------------------------------------------------------------- | ------- | --------------------------------------------------- | ----------------------------------- | -------------------------------------------------------------------- | --------------------------------- |
+| [`graphzep`](https://github.com/aexy-io/graphzep)                            | Latest  | [Apache 2.0](https://github.com/aexy-io/graphzep)   | Temporal knowledge graph for agents | TypeScript-native, hybrid search, temporal awareness, 94.8% accuracy | Young project, smaller community  |
+| [`@langchain/langgraph`](https://www.npmjs.com/package/@langchain/langgraph) | Current | [MIT](https://github.com/langchain-ai/langgraphjs)  | Agent orchestration                 | Proven framework, TypeScript-native, built-in persistence            | N/A (existing planned dep)        |
+| [`falkordb`](https://www.npmjs.com/package/falkordb) (optional)              | ≥6.3.0  | [MIT](https://github.com/FalkorDB/node-falkordb)    | Graph database client               | 500x faster than Neo4j, TypeScript support, LangChain integration    | Optional dep, adds complexity     |
+| TypeSpec models (to be added)                                                | N/A     | Project license                                     | Domain models for memory entities   | Type-safe Episode/Node/Edge models                                   | Requires TypeSpec definitions     |
+| [OpenAI SDK](https://platform.openai.com/docs/libraries) (existing)          | Current | [Apache 2.0](https://github.com/openai/openai-node) | Embedding model for semantic search | Required for vector embeddings (text-embedding-3-small)              | API key required, costs per embed |
 
 ## Security Considerations
 
-- **Graph database credentials**: Store FalkorDB connection details securely (consider using existing settings encryption)
+- **File permissions**: Memory files (`~/.shep/memory.rdf`) must be user-only (0600 permissions like settings)
 - **API key management**: OpenAI API key for embeddings must be stored securely (leverage existing agent config)
 - **Memory data privacy**: Conversation history contains potentially sensitive information - implement data retention policies
 - **Multi-tenant isolation**: If supporting multiple users, ensure graph access control prevents cross-user data leakage
-- **Docker security**: FalkorDB container should not expose ports publicly, bind to localhost only
+- **Graph database credentials** (if FalkorDB enabled): Store connection details securely in settings
 - **Secret sanitization**: Before storing memories, sanitize any secrets/credentials from conversation text
+- **Dependency audit**: Regular npm audit for GraphZep and transitive dependencies
 
 ## Performance Implications
 
 ### Latency Targets
 
-- **Retrieval**: P95 latency of 300ms (Graphiti benchmark), well within acceptable range (<1s)
+- **Retrieval**: [P95 latency of 300ms](https://blog.getzep.com/state-of-the-art-agent-memory/) (GraphZep/Zep benchmark), [<200ms for context retrieval](https://blog.getzep.com/state-of-the-art-agent-memory/)
 - **Ingestion**: Real-time updates with incremental processing (no batch recomputation needed)
 - **Scalability**: Near-constant time access via vector + BM25 indexes, independent of graph size
+- **Accuracy**: [94.8% on DMR benchmark](https://arxiv.org/html/2501.13956v1), [18.5% improvement on LongMemEval](https://arxiv.org/html/2501.13956v1)
 
 ### Resource Usage
 
-- **Docker overhead**: FalkorDB + Redis containers (~200-500MB RAM baseline)
+- **Memory baseline**: In-memory RDF storage (~50-100MB for typical CLI usage)
+- **File storage**: `~/.shep/memory.rdf` grows with agent interactions (~1-10MB for moderate usage)
 - **Embedding generation**: LLM API calls add latency (1-2s per episode ingestion) - acceptable for async storage
-- **Storage growth**: Graph size grows with agent interactions, implement pruning strategy for old/irrelevant memories
-- **Index maintenance**: Vector and BM25 indexes automatically maintained by FalkorDB
+- **Index maintenance**: Automatic in GraphZep, minimal overhead
 
 ### Optimizations
 
-- **Lazy loading**: Only initialize Graphiti connection when memory features are used
-- **Connection pooling**: Reuse FalkorDB connections across agent sessions
+- **Lazy loading**: Only initialize GraphZep when memory features are used
 - **Batch ingestion**: Buffer multiple memory writes for batch processing
 - **Cache recent queries**: In-memory cache for frequently accessed memories (e.g., current feature context)
+- **Memory pruning**: Implement retention policies to prune old/irrelevant memories
+- **Optional FalkorDB**: Offload storage to FalkorDB for large-scale usage (>1000 episodes)
 
 ## Answered Questions from Spec
 
-✅ **Does Graphiti require a separate database or use SQLite?**
+✅ **Does the memory system require a separate database or can it use file-based storage?**
 
-- Answer: Requires separate graph database (Neo4j, FalkorDB, Kuzu, or Neptune). No SQLite support.
-- Decision: Use FalkorDB via Docker for balance of performance and simplicity.
+- **Answer**: GraphZep supports multiple backends - in-memory RDF (file-based), FalkorDB, or Neo4j.
+- **Decision**: Use in-memory RDF with file-based persistence (`~/.shep/memory.rdf`) by default. FalkorDB optional for power users.
+- **Rationale**: File-based aligns with existing SQLite architecture, zero external dependencies, CLI-friendly.
 
-✅ **How does Graphiti handle memory retrieval (semantic search, graph traversal)?**
+✅ **How does the memory system handle retrieval (semantic search, graph traversal)?**
 
-- Answer: Hybrid approach combining semantic search (vector embeddings), keyword search (BM25), and graph traversal (breadth-first search).
-- Decision: Use native hybrid retrieval, configurable via SearchConfig.
+- **Answer**: [GraphZep implements hybrid retrieval](https://arxiv.org/html/2501.13956v1) combining semantic search (vector embeddings), keyword search (BM25), and graph traversal with temporal awareness.
+- **Decision**: Use GraphZep's native hybrid retrieval (no custom implementation needed).
+- **Rationale**: [P95 latency: 300ms](https://blog.getzep.com/state-of-the-art-agent-memory/), [94.8% accuracy](https://arxiv.org/html/2501.13956v1), proven in production.
 
 ✅ **What are the performance implications for large memory graphs?**
 
-- Answer: P95 latency of 300ms, near-constant time via indexes. Scales to thousands of entities without degradation.
-- Decision: Target <1s retrieval (near real-time), implement pruning for long-term scalability.
+- **Answer**: [P95 latency of 300ms](https://blog.getzep.com/state-of-the-art-agent-memory/), near-constant time via indexes. [18.5% accuracy improvement on LongMemEval](https://arxiv.org/html/2501.13956v1), [90% latency reduction](https://blog.getzep.com/state-of-the-art-agent-memory/) vs baselines.
+- **Decision**: Target <300ms retrieval (real-time), implement pruning for long-term scalability. Optional FalkorDB for large-scale usage.
+- **Rationale**: Sufficient for CLI use case, scales to thousands of episodes without degradation.
 
 ✅ **Should memory be scoped per-feature or globally across all agent interactions?**
 
-- Answer: User requirement confirmed - hybrid approach.
-- Decision: Multi-graph architecture (global + per-feature graphs) using Graphiti's multi-tenant support.
+- **Answer**: User requirement confirmed - hybrid approach (global + feature-specific).
+- **Decision**: Multi-graph architecture using GraphZep's support for multiple concurrent graphs.
+- **Rationale**: Clean separation prevents context pollution, flexible queries across scopes.
 
-✅ **What configuration options does Graphiti expose (embedding models, graph parameters)?**
+✅ **What configuration options does the memory system expose?**
 
-- Answer: Configurable embedding models (OpenAI default), custom entity types via Pydantic, SearchConfig for retrieval tuning.
-- Decision: Use OpenAI embeddings initially, expose configuration via Shep settings (ModelConfiguration).
+- **Answer**: GraphZep supports configurable storage backends (RDF/FalkorDB/Neo4j), embedding models (OpenAI default), and custom entity types.
+- **Decision**: Use in-memory RDF + OpenAI embeddings initially, expose configuration via Shep settings (ModelConfiguration).
+- **Rationale**: Simple defaults, progressive enhancement for power users.
 
 ## Open Questions
 

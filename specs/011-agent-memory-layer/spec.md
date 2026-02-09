@@ -1,6 +1,6 @@
 # Feature: agent-memory-layer
 
-> Implement persistent memory layer for AI agents using Graphiti graph-based memory system
+> Implement persistent memory layer for AI agents using GraphZep (TypeScript temporal knowledge graph system)
 
 ## Status
 
