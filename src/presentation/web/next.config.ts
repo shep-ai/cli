@@ -31,8 +31,9 @@ function loadDevFallbacks(): Record<string, string> {
 }
 
 const nextConfig: NextConfig = {
-  // Disable Turbopack - use webpack to respect externals config for parent directory imports
-  // turbopack: {},
+  // Empty turbopack config to silence dev server warning
+  // Production builds use --webpack flag explicitly (see package.json)
+  turbopack: {},
 
   // Enable typed routes (moved from experimental in Next.js 16)
   typedRoutes: true,
