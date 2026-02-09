@@ -9,8 +9,11 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
+  // Increase workers in CI to match 4-core GitHub runner
+  workers: process.env.CI ? 4 : undefined,
   reporter: process.env.CI ? 'github' : 'html',
+  // Increase timeout for CI environment
+  timeout: process.env.CI ? 60000 : 30000,
 
   use: {
     baseURL: 'http://localhost:3001',

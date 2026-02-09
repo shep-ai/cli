@@ -91,7 +91,8 @@ jobs:
 
   test-e2e-cli:
     name: E2E (CLI)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-cores
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -106,7 +107,8 @@ jobs:
 
   test-e2e-tui:
     name: E2E (TUI)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-4-cores
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -120,8 +122,14 @@ jobs:
       - run: pnpm run test:e2e:tui
 
   test-e2e-web:
-    name: E2E (Web)
-    runs-on: ubuntu-latest
+    name: E2E (Web) - Shard ${{ matrix.shardIndex }} of ${{ matrix.shardTotal }}
+    runs-on: ubuntu-latest-4-cores
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        shardIndex: [1, 2]
+        shardTotal: [2]
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -133,7 +141,15 @@ jobs:
       - run: pnpm run generate
       - run: pnpm run build
       - run: pnpm exec playwright install --with-deps chromium
-      - run: pnpm run test:e2e:web
+      - name: Run Playwright tests
+        run: pnpm run test:e2e:web --shard=${{ matrix.shardIndex }}/${{ matrix.shardTotal }}
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ matrix.shardIndex }}
+          path: playwright-report/
+          retention-days: 7
 
   # ===========================================================================
   # Docker Build (pushes SHA tag for non-main branches only)
