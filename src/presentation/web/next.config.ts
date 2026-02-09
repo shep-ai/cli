@@ -49,13 +49,48 @@ const nextConfig: NextConfig = {
   serverExternalPackages: ['better-sqlite3'],
 
   // Configure webpack to resolve .js imports to .ts files (for Node.js ESM compatibility)
-  webpack: (config) => {
+  webpack: (config, { isServer }) => {
     // Add .js extension resolution to find .ts files
     config.resolve.extensionAlias = {
       '.js': ['.ts', '.tsx', '.js', '.jsx'],
       '.mjs': ['.mts', '.mjs'],
       '.cjs': ['.cts', '.cjs'],
     };
+
+    // Externalize Node.js built-in modules for server builds
+    if (isServer) {
+      const builtins = [
+        'fs',
+        'path',
+        'crypto',
+        'stream',
+        'util',
+        'events',
+        'buffer',
+        'querystring',
+        'url',
+        'string_decoder',
+        'punycode',
+        'http',
+        'https',
+        'os',
+        'assert',
+        'constants',
+        'timers',
+        'console',
+        'vm',
+        'zlib',
+        'tty',
+        'domain',
+      ];
+
+      const existingExternals = config.externals || [];
+      config.externals = [
+        ...(Array.isArray(existingExternals) ? existingExternals : [existingExternals]),
+        ...builtins.map((mod) => ({ [mod]: `commonjs ${mod}` })),
+      ];
+    }
+
     return config;
   },
 };
