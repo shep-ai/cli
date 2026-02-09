@@ -7,6 +7,114 @@
 - **Phase:** Implementation
 - **Updated:** 2026-02-05
 
+## Project Timeline
+
+```mermaid
+gantt
+    title CLI Settings Commands - Parallelized Implementation Timeline
+    dateFormat HH:mm
+    axisFormat %H:%M
+
+    section Phase 0: Foundation
+    Install dependencies                :p0_1, 00:00, 5m
+    Create tables.ts skeleton           :crit, p0_2, after p0_1, 5m
+    Create output.ts skeleton           :crit, p0_3, after p0_1, 5m
+    Export utilities                    :p0_4, after p0_2 p0_3, 5m
+    Verify build                        :p0_5, after p0_4, 5m
+    Commit foundation                   :p0_6, after p0_5, 5m
+
+    section Phase 1.1: RED [P]
+    Create output.test.ts               :crit, p1_1_1, after p0_6, 10m
+    Create tables.test.ts               :crit, p1_1_2, after p0_6, 10m
+    Create show.command.test.ts         :crit, p1_1_3, after p0_6, 10m
+    Create settings-show.test.ts        :crit, p1_1_4, after p0_6, 10m
+    Run tests (verify FAIL)             :p1_1_5, after p1_1_1 p1_1_2 p1_1_3 p1_1_4, 3m
+    Commit RED tests                    :p1_1_6, after p1_1_5, 2m
+
+    section Phase 1.2: GREEN [P]
+    Implement output.ts                 :crit, p1_2_1, after p1_1_6, 15m
+    Implement tables.ts                 :crit, p1_2_2, after p1_1_6, 20m
+    Implement show.command.ts           :p1_2_3, after p1_2_1 p1_2_2, 20m
+    Run tests (verify PASS)             :p1_2_4, after p1_2_3, 3m
+    Commit GREEN impl                   :p1_2_5, after p1_2_4, 2m
+
+    section Phase 1.3: REFACTOR [P]
+    Extract metadata service            :p1_3_1, after p1_2_5, 10m
+    Improve table styling               :crit, p1_3_2, after p1_2_5, 8m
+    Add file size helpers               :crit, p1_3_3, after p1_2_5, 5m
+    Add timestamp formatting            :crit, p1_3_4, after p1_2_5, 5m
+    Run tests & lint                    :p1_3_5, after p1_3_1 p1_3_2 p1_3_3 p1_3_4, 2m
+    Commit REFACTOR                     :p1_3_6, after p1_3_5, 2m
+
+    section Phase 2.1: RED [P]
+    Create init.command.test.ts         :crit, p2_1_1, after p1_3_6, 12m
+    Create settings-init.test.ts        :crit, p2_1_2, after p1_3_6, 12m
+    Run tests (verify FAIL)             :p2_1_3, after p2_1_1 p2_1_2, 3m
+    Commit RED tests                    :p2_1_4, after p2_1_3, 3m
+
+    section Phase 2.2: GREEN
+    Implement init.command.ts           :p2_2_1, after p2_1_4, 40m
+    Run tests (verify PASS)             :p2_2_2, after p2_2_1, 3m
+    Commit GREEN impl                   :p2_2_3, after p2_2_2, 2m
+
+    section Phase 2.3: REFACTOR [P]
+    Extract prompts utility             :p2_3_1, after p2_2_3, 10m
+    Improve error messages              :crit, p2_3_2, after p2_2_3, 8m
+    Add backup warning                  :crit, p2_3_3, after p2_2_3, 5m
+    Run tests & lint                    :p2_3_4, after p2_3_1 p2_3_2 p2_3_3, 5m
+    Commit REFACTOR                     :p2_3_5, after p2_3_4, 2m
+
+    section Phase 3: Command Group [P]
+    Create settings index.ts            :p3_1, after p2_3_5, 15m
+    Register settings command           :p3_2, after p3_1, 10m
+    Add show help text                  :crit, p3_3a, after p3_2, 8m
+    Add init help text                  :crit, p3_3b, after p3_2, 8m
+    Add group help text                 :crit, p3_3c, after p3_2, 4m
+    Test help output                    :p3_4, after p3_3a p3_3b p3_3c, 10m
+    Commit command group                :p3_5, after p3_4, 5m
+
+    section Phase 4: Docs [P]
+    Write README.md                     :crit, p4_1, after p2_3_5, 30m
+    Write architecture.md               :crit, p4_2, after p2_3_5, 45m
+    Write design-system.md              :crit, p4_3, after p2_3_5, 45m
+    Write commands.md                   :crit, p4_4, after p2_3_5, 40m
+    Update CLAUDE.md                    :crit, p4_5, after p2_3_5, 15m
+    Commit documentation                :crit, p4_6, after p4_1 p4_2 p4_3 p4_4 p4_5, 5m
+
+    section Phase 5: Integration [P]
+    Run full test suite                 :p5_1, after p3_5 p4_6, 10m
+    Manual E2E testing                  :p5_2, after p5_1, 20m
+    Run lint check                      :crit, p5_3a, after p5_2, 3m
+    Run typecheck                       :crit, p5_3b, after p5_2, 4m
+    Run format check                    :crit, p5_3c, after p5_2, 3m
+    Update spec.md                      :crit, p5_4a, after p5_3a p5_3b p5_3c, 3m
+    Update research.md                  :crit, p5_4b, after p5_3a p5_3b p5_3c, 3m
+    Update plan.md                      :crit, p5_4c, after p5_3a p5_3b p5_3c, 4m
+    Final commit                        :p5_5, after p5_4a p5_4b p5_4c, 5m
+    Create PR                           :p5_6, after p5_5, 5m
+```
+
+**Legend:**
+
+- **Red (crit)** = Parallel tasks running concurrently
+- **[P]** = Phase contains parallelization
+- **Critical path** = p0_1 → p0_4 → p1_1_5 → p1_2_3 → p1_3_5 → p2_1_3 → p2_2_1 → p2_3_4 → p3_2 → p3_4 → p5_2 → p5_5
+- **Total Sequential Time:** ~7.5 hours (old) → **~4.5 hours (parallelized)**
+- **Parallelization Gains:** ~40% time reduction through concurrent execution
+- **Total Tasks:** 64 individual action items (refined for parallel execution)
+
+**Parallelization Breakdown:**
+
+- **Phase 0:** 2 file creations in parallel
+- **Phase 1.1 RED:** 4 test files in parallel (10m → 10m)
+- **Phase 1.2 GREEN:** 2 implementations in parallel
+- **Phase 1.3 REFACTOR:** 3 improvements in parallel
+- **Phase 2.1 RED:** 2 test files in parallel
+- **Phase 2.3 REFACTOR:** 2 improvements in parallel
+- **Phase 3:** 3 help texts in parallel
+- **Phase 4:** 5 documentation files in parallel (runs during Phase 3)
+- **Phase 5:** 3 quality checks + 3 spec updates in parallel
+
 ## Task List
 
 ### Phase 0: Foundation (~30 min)

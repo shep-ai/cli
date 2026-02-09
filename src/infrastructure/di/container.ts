@@ -187,7 +187,33 @@ export async function initializeContainer(): Promise<typeof container> {
 }
 
 /**
+ * Track initialization state for lazy loading
+ */
+let isInitialized = false;
+let initializationPromise: Promise<typeof container> | null = null;
+
+/**
+ * Ensure container is initialized before resolving dependencies.
+ * Safe to call multiple times - initialization happens only once.
+ */
+export async function ensureInitialized(): Promise<typeof container> {
+  if (isInitialized) {
+    return container;
+  }
+
+  if (!initializationPromise) {
+    initializationPromise = initializeContainer().then((c) => {
+      isInitialized = true;
+      return c;
+    });
+  }
+
+  return initializationPromise;
+}
+
+/**
  * Get the configured container instance.
- * Container must be initialized first via initializeContainer().
+ * For Next.js API routes: Use ensureInitialized() to auto-initialize on first request.
+ * For CLI: Container is pre-initialized during bootstrap.
  */
 export { container };

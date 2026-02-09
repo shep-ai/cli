@@ -1,5 +1,5 @@
 import { type NextRequest } from 'next/server';
-import { container } from '@/infrastructure/di/container';
+import { ensureInitialized } from '@/infrastructure/di/container';
 import type { ILogRepository } from '@/application/ports/output/log-repository.interface';
 
 /**
@@ -17,6 +17,8 @@ export async function GET(request: NextRequest) {
   // Create a ReadableStream for SSE
   const stream = new ReadableStream({
     async start(controller) {
+      // Ensure DI container is initialized
+      const container = await ensureInitialized();
       const logRepository = container.resolve<ILogRepository>('ILogRepository');
       let lastTimestamp = Date.now();
       let isActive = true;

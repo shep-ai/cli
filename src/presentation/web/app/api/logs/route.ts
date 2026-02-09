@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { container } from '@/infrastructure/di/container';
+import { ensureInitialized } from '@/infrastructure/di/container';
 import type { ILogRepository } from '@/application/ports/output/log-repository.interface';
 import type { LogSearchFilters } from '@/domain/generated/output';
 
@@ -29,6 +29,9 @@ export async function GET(request: NextRequest) {
       limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!, 10) : 50,
       offset: searchParams.get('offset') ? parseInt(searchParams.get('offset')!, 10) : 0,
     };
+
+    // Ensure DI container is initialized
+    const container = await ensureInitialized();
 
     // Resolve repository from DI container
     const logRepository = container.resolve<ILogRepository>('ILogRepository');

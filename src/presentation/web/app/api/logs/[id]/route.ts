@@ -1,5 +1,5 @@
 import { type NextRequest, NextResponse } from 'next/server';
-import { container } from '@/infrastructure/di/container';
+import { ensureInitialized } from '@/infrastructure/di/container';
 import type { ILogRepository } from '@/application/ports/output/log-repository.interface';
 
 /**
@@ -15,6 +15,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     if (!id) {
       return NextResponse.json({ error: 'Log ID is required' }, { status: 400 });
     }
+
+    // Ensure DI container is initialized
+    const container = await ensureInitialized();
 
     // Resolve repository from DI container
     const logRepository = container.resolve<ILogRepository>('ILogRepository');
