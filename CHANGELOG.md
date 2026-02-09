@@ -1,3 +1,9 @@
+## [1.9.1](https://github.com/shep-ai/cli/compare/v1.9.0...v1.9.1) (2026-02-09)
+
+### Bug Fixes
+
+- **deps:** add pnpm 10 compatibility for better-sqlite3 native bindings ([6686bd2](https://github.com/shep-ai/cli/commit/6686bd236dad4cf0d12d4cbe6903595afc77532d))
+
 # [1.9.0](https://github.com/shep-ai/cli/compare/v1.8.2...v1.9.0) (2026-02-08)
 
 ### Features
