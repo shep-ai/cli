@@ -58,11 +58,16 @@ Estimated 5-8 implementation tasks over multiple development sessions.
 
 ## Open Questions
 
-- [ ] Does Graphiti require a separate database or use SQLite?
-- [ ] How does Graphiti handle memory retrieval (semantic search, graph traversal)?
-- [ ] What are the performance implications for large memory graphs?
-- [ ] Should memory be scoped per-feature or globally across all agent interactions?
-- [ ] What configuration options does Graphiti expose (embedding models, graph parameters)?
+**Resolved:**
+
+- [x] **Memory Scope:** Hybrid approach - some memories global (user preferences, patterns), some feature-specific (task details)
+
+**To be answered during research:**
+
+- [ ] Does Graphiti require a separate database or use SQLite? _(Research will evaluate compatibility)_
+- [ ] How does Graphiti handle memory retrieval (semantic search, graph traversal)? _(Research will assess retrieval APIs)_
+- [ ] What are the performance implications for large memory graphs? _(Research will benchmark and establish targets)_
+- [ ] What configuration options does Graphiti expose (embedding models, graph parameters)? _(Research will document available options)_
 
 ---
 
