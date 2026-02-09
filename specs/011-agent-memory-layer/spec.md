@@ -7,7 +7,7 @@
 - **Number:** 011
 - **Created:** 2026-02-09
 - **Branch:** feat/agent-memory-layer
-- **Phase:** Research
+- **Phase:** Planning
 
 ## Problem Statement
 
