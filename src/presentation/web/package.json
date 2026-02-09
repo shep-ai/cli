@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "next dev",
-    "dev:e2e": "next dev -p 3001",
+    "dev:e2e": "next dev -p 3001 --webpack",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint . --max-warnings 0",
