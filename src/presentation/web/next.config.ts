@@ -84,7 +84,7 @@ const nextConfig: NextConfig = {
         'domain',
       ];
 
-      const existingExternals = config.externals || [];
+      const existingExternals = config.externals ?? [];
       config.externals = [
         ...(Array.isArray(existingExternals) ? existingExternals : [existingExternals]),
         ...builtins.map((mod) => ({ [mod]: `commonjs ${mod}` })),
