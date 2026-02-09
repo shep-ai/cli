@@ -62,6 +62,12 @@ import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
 import { runSQLiteMigrations } from '../persistence/sqlite/migrations.js';
 
 /**
+ * Track initialization state for lazy loading
+ */
+let isInitialized = false;
+let initializationPromise: Promise<typeof container> | null = null;
+
+/**
  * Initialize the DI container with all dependencies.
  * Must be called before resolving any dependencies.
  *
@@ -183,14 +189,11 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ValidateAgentAuthUseCase);
   container.registerSingleton(RunAgentUseCase);
 
+  // Mark as initialized for lazy loading
+  isInitialized = true;
+
   return container;
 }
-
-/**
- * Track initialization state for lazy loading
- */
-let isInitialized = false;
-let initializationPromise: Promise<typeof container> | null = null;
 
 /**
  * Ensure container is initialized before resolving dependencies.
@@ -201,12 +204,10 @@ export async function ensureInitialized(): Promise<typeof container> {
     return container;
   }
 
-  if (!initializationPromise) {
-    initializationPromise = initializeContainer().then((c) => {
-      isInitialized = true;
-      return c;
-    });
-  }
+  initializationPromise ??= initializeContainer().then((c) => {
+    isInitialized = true;
+    return c;
+  });
 
   return initializationPromise;
 }
