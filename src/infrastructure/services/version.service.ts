@@ -108,9 +108,23 @@ export class VersionService {
  * Set version info as NEXT_PUBLIC environment variables.
  * Must be called BEFORE starting the Next.js web server
  * so the values are available to the web UI.
+ *
+ * Uses dynamic property access to prevent webpack/SWC from inlining
+ * these at build time (we need runtime assignment, not build-time replacement).
  */
 export function setVersionEnvVars(info: VersionInfo): void {
-  process.env.NEXT_PUBLIC_SHEP_VERSION = info.version;
-  process.env.NEXT_PUBLIC_SHEP_PACKAGE_NAME = info.name;
-  process.env.NEXT_PUBLIC_SHEP_DESCRIPTION = info.description;
+  // Guard against webpack static analysis issues
+  if (typeof process === 'undefined' || !process.env) return;
+
+  // Use computed properties that webpack can't statically analyze
+  const envVars: Record<string, string> = {
+    [`NEXT_${'PUBLIC'}_SHEP_VERSION`]: info.version,
+    [`NEXT_${'PUBLIC'}_SHEP_PACKAGE_NAME`]: info.name,
+    [`NEXT_${'PUBLIC'}_SHEP_DESCRIPTION`]: info.description,
+  };
+
+  // Set each env var dynamically to prevent build-time inlining
+  for (const [key, value] of Object.entries(envVars)) {
+    process.env[key] = value;
+  }
 }

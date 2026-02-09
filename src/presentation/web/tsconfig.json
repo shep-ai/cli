@@ -15,6 +15,9 @@
     "allowJs": true,
     "incremental": true,
     "baseUrl": ".",
+    "allowImportingTsExtensions": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "paths": {
       "@/*": ["./*"],
       "@/infrastructure/*": ["../../infrastructure/*"],

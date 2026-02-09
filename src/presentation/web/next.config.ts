@@ -31,8 +31,8 @@ function loadDevFallbacks(): Record<string, string> {
 }
 
 const nextConfig: NextConfig = {
-  // Enable Turbopack for faster development builds
-  turbopack: {},
+  // Disable Turbopack - use webpack to respect externals config for parent directory imports
+  // turbopack: {},
 
   // Enable typed routes (moved from experimental in Next.js 16)
   typedRoutes: true,
@@ -42,6 +42,21 @@ const nextConfig: NextConfig = {
 
   // Inject version info from package.json for the web UI
   env: loadDevFallbacks(),
+
+  // Mark native modules as external (server-side only, not bundled)
+  // Let webpack bundle the TypeScript infrastructure code and handle .js extensions
+  serverExternalPackages: ['better-sqlite3'],
+
+  // Configure webpack to resolve .js imports to .ts files (for Node.js ESM compatibility)
+  webpack: (config) => {
+    // Add .js extension resolution to find .ts files
+    config.resolve.extensionAlias = {
+      '.js': ['.ts', '.tsx', '.js', '.jsx'],
+      '.mjs': ['.mts', '.mjs'],
+      '.cjs': ['.cts', '.cjs'],
+    };
+    return config;
+  },
 };
 
 export default nextConfig;

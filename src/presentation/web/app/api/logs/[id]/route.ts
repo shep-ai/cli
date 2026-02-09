@@ -8,9 +8,9 @@ import type { ILogRepository } from '@/application/ports/output/log-repository.i
  * Params:
  * - id: Log entry UUID
  */
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { id } = params;
+    const { id } = await params;
 
     if (!id) {
       return NextResponse.json({ error: 'Log ID is required' }, { status: 400 });

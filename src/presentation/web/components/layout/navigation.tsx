@@ -6,10 +6,10 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const navItems = [
-  { href: '/', label: 'Home' },
-  { href: '/version', label: 'Version' },
-  { href: '/logs', label: 'Logs' },
-];
+  { href: '/' as const, label: 'Home' },
+  { href: '/version' as const, label: 'Version' },
+  { href: '/logs' as const, label: 'Logs' },
+] as const;
 
 export function Navigation() {
   const pathname = usePathname();
