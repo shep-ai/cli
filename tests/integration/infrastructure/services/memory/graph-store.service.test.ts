@@ -310,6 +310,9 @@ describe('GraphStoreService - Integration Tests', () => {
       await graphStore.addTriple('episode:ep-1', 'shep:hasContext', 'episode:ep-0', scope);
       await graphStore.addTriple('episode:ep-2', 'shep:followsFrom', 'episode:ep-1', scope);
 
+      // Close the first instance to release the database lock
+      await graphStore.close();
+
       // Act - Create a new instance pointing to same directory (simulates restart)
       const graphStore2 = new GraphStoreService(tempDir);
 
