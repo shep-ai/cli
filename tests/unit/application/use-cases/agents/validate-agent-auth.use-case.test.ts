@@ -14,7 +14,7 @@ import { AgentType } from '../../../../../src/domain/generated/output.js';
 import type {
   IAgentValidator,
   AgentValidationResult,
-} from '../../../../../src/application/ports/output/agent-validator.interface.js';
+} from '../../../../../src/application/ports/output/services/agents/agent-validator.interface.js';
 
 describe('ValidateAgentAuthUseCase', () => {
   let useCase: ValidateAgentAuthUseCase;

@@ -12,11 +12,11 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ConfigureAgentUseCase } from '../../../../../src/application/use-cases/agents/configure-agent.use-case.js';
 import { AgentType, AgentAuthMethod } from '../../../../../src/domain/generated/output.js';
 import type { Settings } from '../../../../../src/domain/generated/output.js';
-import type { ISettingsRepository } from '../../../../../src/application/ports/output/settings.repository.interface.js';
+import type { ISettingsRepository } from '../../../../../src/application/ports/output/repositories/settings-repository.interface.js';
 import type {
   IAgentValidator,
   AgentValidationResult,
-} from '../../../../../src/application/ports/output/agent-validator.interface.js';
+} from '../../../../../src/application/ports/output/services/agents/agent-validator.interface.js';
 import { createDefaultSettings } from '../../../../../src/domain/factories/settings-defaults.factory.js';
 
 describe('ConfigureAgentUseCase', () => {

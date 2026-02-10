@@ -22,3 +22,7 @@ import "./feature-spec.tsp";
 import "./research-spec.tsp";
 import "./plan-spec.tsp";
 import "./tasks-spec.tsp";
+import "./memory/episode.tsp";
+import "./memory/memory-fragment.tsp";
+import "./memory/memory-node.tsp";
+import "./memory/memory-edge.tsp";

@@ -14,7 +14,7 @@ import next from 'next';
 import http from 'node:http';
 import path from 'node:path';
 import fs from 'node:fs';
-import type { IWebServerService } from '../../application/ports/output/web-server-service.interface.js';
+import type { IWebServerService } from '../../application/ports/output/services/web-server-service.interface.js';
 
 type NextApp = ReturnType<typeof next>;
 

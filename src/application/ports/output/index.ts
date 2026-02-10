@@ -1,21 +1,18 @@
 /**
  * Application Output Ports Module
  *
- * Exports repository interfaces (output ports) for the Application layer.
+ * Exports all port interfaces (output ports) for the Application layer.
  * Infrastructure layer provides concrete implementations.
+ *
+ * Structure:
+ * - repositories/  - Data access abstractions
+ * - services/       - External service abstractions
+ *   - agents/       - Agent execution, registration, validation
+ *   - memory/       - Embedding, vector, graph, memory orchestration
  */
 
-export type { ISettingsRepository } from './settings.repository.interface.js';
-export type { IAgentValidator, AgentValidationResult } from './agent-validator.interface.js';
-export type { IVersionService } from './version-service.interface.js';
-export type { IWebServerService } from './web-server-service.interface.js';
-export type {
-  IAgentExecutor,
-  AgentExecutionResult,
-  AgentExecutionStreamEvent,
-  AgentExecutionOptions,
-} from './agent-executor.interface.js';
-export type { IAgentExecutorFactory } from './agent-executor-factory.interface.js';
-export type { IAgentRunner, AgentRunOptions } from './agent-runner.interface.js';
-export type { IAgentRegistry, AgentDefinitionWithFactory } from './agent-registry.interface.js';
-export type { IAgentRunRepository } from './agent-run-repository.interface.js';
+// Repositories
+export * from './repositories/index.js';
+
+// Services
+export * from './services/index.js';

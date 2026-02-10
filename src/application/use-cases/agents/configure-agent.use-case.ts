@@ -13,8 +13,8 @@
 
 import { injectable, inject } from 'tsyringe';
 import type { Settings, AgentType, AgentAuthMethod } from '../../../domain/generated/output.js';
-import type { ISettingsRepository } from '../../ports/output/settings.repository.interface.js';
-import type { IAgentValidator } from '../../ports/output/agent-validator.interface.js';
+import type { ISettingsRepository } from '../../ports/output/repositories/settings-repository.interface.js';
+import type { IAgentValidator } from '../../ports/output/services/agents/agent-validator.interface.js';
 
 /**
  * Input for configuring an AI coding agent.

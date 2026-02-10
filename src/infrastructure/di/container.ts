@@ -16,26 +16,26 @@ import { container } from 'tsyringe';
 import type Database from 'better-sqlite3';
 
 // Repository interfaces and implementations
-import type { ISettingsRepository } from '../../application/ports/output/settings.repository.interface.js';
+import type { ISettingsRepository } from '../../application/ports/output/repositories/settings-repository.interface.js';
 import { SQLiteSettingsRepository } from '../repositories/sqlite-settings.repository.js';
 
 // Validator interfaces and implementations
-import type { IAgentValidator } from '../../application/ports/output/agent-validator.interface.js';
+import type { IAgentValidator } from '../../application/ports/output/services/agents/agent-validator.interface.js';
 import { AgentValidatorService } from '../services/agents/agent-validator.service.js';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 
 // Service interfaces and implementations
-import type { IVersionService } from '../../application/ports/output/version-service.interface.js';
+import type { IVersionService } from '../../application/ports/output/services/version-service.interface.js';
 import { VersionService } from '../services/version.service.js';
-import type { IWebServerService } from '../../application/ports/output/web-server-service.interface.js';
+import type { IWebServerService } from '../../application/ports/output/services/web-server-service.interface.js';
 import { WebServerService } from '../services/web-server.service.js';
 
 // Agent infrastructure interfaces and implementations
-import type { IAgentExecutorFactory } from '../../application/ports/output/agent-executor-factory.interface.js';
-import type { IAgentRegistry } from '../../application/ports/output/agent-registry.interface.js';
-import type { IAgentRunner } from '../../application/ports/output/agent-runner.interface.js';
-import type { IAgentRunRepository } from '../../application/ports/output/agent-run-repository.interface.js';
+import type { IAgentExecutorFactory } from '../../application/ports/output/services/agents/agent-executor-factory.interface.js';
+import type { IAgentRegistry } from '../../application/ports/output/services/agents/agent-registry.interface.js';
+import type { IAgentRunner } from '../../application/ports/output/services/agents/agent-runner.interface.js';
+import type { IAgentRunRepository } from '../../application/ports/output/repositories/agent-run-repository.interface.js';
 import { AgentExecutorFactory } from '../services/agents/agent-executor-factory.service.js';
 import { AgentRegistryService } from '../services/agents/agent-registry.service.js';
 import { AgentRunnerService } from '../services/agents/agent-runner.service.js';

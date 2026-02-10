@@ -13,13 +13,13 @@ import { AgentRunnerService } from '../../../../../src/infrastructure/services/a
 import type {
   IAgentRegistry,
   AgentDefinitionWithFactory,
-} from '../../../../../src/application/ports/output/agent-registry.interface.js';
-import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agent-executor-factory.interface.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agent-run-repository.interface.js';
+} from '../../../../../src/application/ports/output/services/agents/agent-registry.interface.js';
+import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/services/agents/agent-executor-factory.interface.js';
+import type { IAgentRunRepository } from '../../../../../src/application/ports/output/repositories/agent-run-repository.interface.js';
 import type {
   IAgentExecutor,
   AgentExecutionStreamEvent,
-} from '../../../../../src/application/ports/output/agent-executor.interface.js';
+} from '../../../../../src/application/ports/output/services/agents/agent-executor.interface.js';
 import {
   AgentRunStatus,
   AgentType,

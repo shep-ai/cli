@@ -7,7 +7,7 @@
 
 import type Database from 'better-sqlite3';
 import { injectable } from 'tsyringe';
-import type { IAgentRunRepository } from '../../application/ports/output/agent-run-repository.interface.js';
+import type { IAgentRunRepository } from '../../application/ports/output/repositories/agent-run-repository.interface.js';
 import type { AgentRun, AgentRunStatus } from '../../domain/generated/output.js';
 import {
   toDatabase,

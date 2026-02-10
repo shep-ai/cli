@@ -12,3 +12,5 @@ import "./deployment.tsp";
 import "./requirement.tsp";
 import "./agent.tsp";
 import "./agent-config.tsp";
+import "./memory-scope.tsp";
+import "./memory-type.tsp";

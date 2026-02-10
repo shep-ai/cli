@@ -23,7 +23,7 @@
 import 'reflect-metadata';
 
 import { Command } from 'commander';
-import type { IVersionService } from '../../application/ports/output/version-service.interface.js';
+import type { IVersionService } from '../../application/ports/output/services/version-service.interface.js';
 import { createVersionCommand } from './commands/version.command.js';
 import { createSettingsCommand } from './commands/settings/index.js';
 import { createUiCommand } from './commands/ui.command.js';
