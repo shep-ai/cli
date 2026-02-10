@@ -2,273 +2,211 @@
 
 ## Overview
 
-Basic completeness checks ensure all required documentation exists and contains necessary information before implementation starts.
+Basic completeness checks ensure all required YAML source files exist and contain necessary keys before implementation starts.
+
+**Note:** These rules are implemented programmatically by `pnpm spec:validate <feature-id>`. This document describes the rules for reference.
 
 ## Required Files
 
 ### Must Exist
 
-- [x] `spec.md` - Feature specification
-- [x] `research.md` - Technical decisions
-- [x] `plan.md` - Implementation strategy
-- [x] `tasks.md` - Task breakdown
+- [x] `spec.yaml` - Feature specification (YAML source of truth)
+- [x] `research.yaml` - Technical decisions (YAML source of truth)
+- [x] `plan.yaml` - Implementation strategy (YAML source of truth)
+- [x] `tasks.yaml` - Task breakdown (YAML source of truth)
 - [x] `feature.yaml` - Status tracking
 
 ### Validation Logic
 
 ```bash
+pnpm spec:validate <feature-id>
+# Or manually check:
 spec_dir="specs/${FEATURE_ID}"
 
-for file in spec.md research.md plan.md tasks.md feature.yaml; do
+for file in spec.yaml research.yaml plan.yaml tasks.yaml feature.yaml; do
   if [[ ! -f "$spec_dir/$file" ]]; then
-    echo "❌ Missing required file: $file"
+    echo "Missing required file: $file"
     BLOCKING=true
   fi
 done
 ```
 
-## Required Sections in spec.md
+## Required Keys in spec.yaml
 
 ### Must Contain
 
-- `# Feature: <name>` - Title
-- `## Status` - Feature metadata
-- `## Problem Statement` - What problem this solves
-- `## Success Criteria` - Measurable outcomes with checkboxes
-- `## Affected Areas` - Impact assessment
-- `## Dependencies` - Feature dependencies (if any)
-- `## Size Estimate` - Complexity (XS/S/M/L/XL)
+- `title` - Feature name
+- `status` - Feature metadata (phase, updatedAt)
+- `problemStatement` - What problem this solves
+- `successCriteria` - Measurable outcomes array
+- `affectedAreas` - Impact assessment array
+- `dependencies` - Feature dependencies (if any)
+- `sizeEstimate` - Complexity (XS/S/M/L/XL)
 
 ### Optional But Recommended
 
-- `## Open Questions` - Unresolved questions (must be empty or all resolved)
-- `## Alternatives Considered` - Design alternatives
-- `## Out of Scope` - Explicitly excluded items
+- `openQuestions` - Unresolved questions (must all have `resolved: true`)
+- `alternativesConsidered` - Design alternatives
+- `outOfScope` - Explicitly excluded items
 
 ### Validation Logic
 
-```bash
-required_sections=(
-  "# Feature:"
-  "## Status"
-  "## Problem Statement"
-  "## Success Criteria"
-  "## Affected Areas"
-  "## Dependencies"
-  "## Size Estimate"
-)
-
-for section in "${required_sections[@]}"; do
-  if ! grep -q "^$section" "$spec_dir/spec.md"; then
-    echo "❌ Missing required section in spec.md: $section"
-    BLOCKING=true
-  fi
-done
+```yaml
+# Required top-level keys in spec.yaml:
+required_keys:
+  - title
+  - status
+  - problemStatement
+  - successCriteria
+  - affectedAreas
+  - dependencies
+  - sizeEstimate
 ```
 
-## Required Sections in research.md
+## Required Keys in research.yaml
 
 ### Must Contain
 
-- `# Research: <name>` - Title
-- `## Status` - Research metadata
-- `## Technical Approach` - High-level approach
-- `## Technology Choices` - Libraries, tools, frameworks
-- `## Decision Log` - Key decisions with rationale
+- `title` - Research title
+- `status` - Research metadata (phase, updatedAt)
+- `technicalApproach` - High-level approach
+- `technologyChoices` - Libraries, tools, frameworks
+- `decisionLog` - Key decisions with rationale
 
 ### Validation Logic
 
-```bash
-required_sections=(
-  "# Research:"
-  "## Status"
-  "## Technical Approach"
-  "## Technology Choices"
-  "## Decision Log"
-)
-
-for section in "${required_sections[@]}"; do
-  if ! grep -q "^$section" "$spec_dir/research.md"; then
-    echo "❌ Missing required section in research.md: $section"
-    BLOCKING=true
-  fi
-done
+```yaml
+# Required top-level keys in research.yaml:
+required_keys:
+  - title
+  - status
+  - technicalApproach
+  - technologyChoices
+  - decisionLog
 ```
 
-## Required Sections in plan.md
+## Required Keys in plan.yaml
 
 ### Must Contain
 
-- `# Plan: <name>` - Title
-- `## Status` - Plan metadata
-- `## Architecture Overview` - System design
-- `## Implementation Strategy` - Phased approach with TDD cycles
-- `## Files to Create/Modify` - Change inventory
-- `## Testing Strategy` - Test approach with TDD emphasis
-- `## Risk Mitigation` - Known risks and mitigations
+- `title` - Plan title
+- `status` - Plan metadata (phase, updatedAt)
+- `architectureOverview` - System design
+- `implementationStrategy` - Phased approach with TDD cycles
+- `filesToCreateOrModify` - Change inventory
+- `testingStrategy` - Test approach with TDD emphasis
+- `riskMitigation` - Known risks and mitigations
+- `phases` - Array of implementation phases with `taskIds`
 
 ### Validation Logic
 
-```bash
-required_sections=(
-  "# Plan:"
-  "## Status"
-  "## Architecture Overview"
-  "## Implementation Strategy"
-  "## Files to Create/Modify"
-  "## Testing Strategy"
-  "## Risk Mitigation"
-)
-
-for section in "${required_sections[@]}"; do
-  if ! grep -q "^$section" "$spec_dir/plan.md"; then
-    echo "❌ Missing required section in plan.md: $section"
-    BLOCKING=true
-  fi
-done
+```yaml
+# Required top-level keys in plan.yaml:
+required_keys:
+  - title
+  - status
+  - architectureOverview
+  - implementationStrategy
+  - filesToCreateOrModify
+  - testingStrategy
+  - riskMitigation
+  - phases
 ```
 
-## Required Sections in tasks.md
+## Required Keys in tasks.yaml
 
 ### Must Contain
 
-- `# Tasks: <name>` - Title
-- `## Status` - Task metadata
-- At least one task definition
+- `title` - Tasks document title
+- `status` - Task metadata (phase, updatedAt)
+- `tasks` - Array of task definitions (at least one)
 
 ### Task Format
 
-Each task must have:
+Each entry in the `tasks` array must have:
 
-```markdown
-## Task N: <title>
-
-**Description:** Clear description
-
-**Acceptance Criteria:**
-
-- [ ] Criterion 1
-- [ ] Criterion 2
-
-**TDD Phases:**
-
-- RED: <tests to write first>
-- GREEN: <minimal implementation>
-- REFACTOR: <improvements>
-
-**Dependencies:** task-N, task-M (or "None")
-
-**Estimated Effort:** <time estimate>
+```yaml
+tasks:
+  - id: 'task-1'
+    title: '<title>'
+    description: '<clear description>'
+    acceptanceCriteria:
+      - '<criterion 1>'
+      - '<criterion 2>'
+    tddPhases:
+      red: '<tests to write first>'
+      green: '<minimal implementation>'
+      refactor: '<improvements>'
+    dependencies: [] # or ['task-N', 'task-M']
+    estimatedEffort: '<time estimate>'
 ```
 
 ### Validation Logic
 
-```bash
-# Count tasks
-task_count=$(grep -c "^## Task [0-9]" "$spec_dir/tasks.md")
-
-if [[ $task_count -eq 0 ]]; then
-  echo "❌ No tasks defined in tasks.md"
-  BLOCKING=true
-fi
-
-# Validate each task has acceptance criteria
-for task_num in $(seq 1 $task_count); do
-  task_section=$(awk "/^## Task $task_num:/{flag=1;next}/^## Task [0-9]+:/{flag=0}flag" "$spec_dir/tasks.md")
-
-  if ! echo "$task_section" | grep -q "**Acceptance Criteria:**"; then
-    echo "❌ Task $task_num missing acceptance criteria"
-    BLOCKING=true
-  fi
-
-  if ! echo "$task_section" | grep -q "**TDD Phases:**"; then
-    echo "⚠️  Task $task_num missing TDD phases (recommended)"
-  fi
-done
+```yaml
+# Validate tasks array:
+# - tasks[] must have length > 0
+# - Each task must have: id, title, description, acceptanceCriteria
+# - acceptanceCriteria must be non-empty array
+# - tddPhases is recommended (warning if missing)
 ```
 
 ## Open Questions Resolution
 
 ### Check for Unresolved Questions
 
-Open questions in `spec.md` or `plan.md` must be resolved before implementation.
+Open questions in `spec.yaml` or `research.yaml` must be resolved before implementation.
 
 **Allowed:**
 
-```markdown
-## Open Questions
-
-- [x] Should we use Redis or in-memory cache?
-  - Decision: Redis for production, in-memory for tests
+```yaml
+openQuestions:
+  - question: 'Should we use Redis or in-memory cache?'
+    resolved: true
+    decision: 'Redis for production, in-memory for tests'
 ```
 
 **NOT Allowed (blocks implementation):**
 
-```markdown
-## Open Questions
-
-- [ ] Should we use Redis or in-memory cache?
+```yaml
+openQuestions:
+  - question: 'Should we use Redis or in-memory cache?'
+    resolved: false
 ```
 
 ### Validation Logic
 
-```bash
-# Check spec.md for open questions
-if grep -q "^## Open Questions" "$spec_dir/spec.md"; then
-  open_questions=$(awk '/^## Open Questions/,/^##[^#]/' "$spec_dir/spec.md" | grep "^- \[ \]")
-
-  if [[ -n "$open_questions" ]]; then
-    echo "❌ Unresolved open questions in spec.md:"
-    echo "$open_questions"
-    BLOCKING=true
-  fi
-fi
-
-# Check plan.md for open questions
-if grep -q "^## Open Questions" "$spec_dir/plan.md"; then
-  open_questions=$(awk '/^## Open Questions/,/^##[^#]/' "$spec_dir/plan.md" | grep "^- \[ \]")
-
-  if [[ -n "$open_questions" ]]; then
-    echo "❌ Unresolved open questions in plan.md:"
-    echo "$open_questions"
-    BLOCKING=true
-  fi
-fi
+```yaml
+# Check openQuestions array in spec.yaml and research.yaml:
+# - If openQuestions exists and any item has resolved: false → BLOCKING
+# - Filter: items where resolved != true
 ```
 
 ## Auto-Fixable Issues
 
 ### Can Be Fixed Automatically
 
-1. **Missing Open Questions section:**
+1. **Missing openQuestions key:**
 
-   - Add `## Open Questions\n\nNone identified.`
+   - Add `openQuestions: []` to YAML
 
-2. **Empty checkbox without content:**
+2. **Missing tasks.yaml but plan.yaml exists:**
 
-   ```markdown
-   - [ ]
-   ```
+   - Create tasks.yaml from template
 
-   - Convert to: `- [x] Resolved: <timestamp>`
-
-3. **Missing tasks.md but plan.md exists:**
-
-   - Create tasks.md from template
-
-4. **Heading level inconsistencies:**
-   - Fix heading levels to match document structure
+3. **Regenerate stale Markdown:**
+   - Run `pnpm spec:generate-md <feature-id>`
 
 ### Auto-Fix Approval
 
 After applying auto-fixes, display summary and require user approval:
 
 ```
-🔧 Auto-fixes applied:
+Auto-fixes applied:
 
-1. Added missing "Open Questions" section to spec.md
-2. Closed 3 empty checkbox lines in plan.md
-3. Fixed heading levels in research.md
+1. Added missing "openQuestions" key to spec.yaml
+2. Created tasks.yaml from template
+3. Regenerated Markdown files
 
 Review changes? (y/n)
 ```
@@ -279,9 +217,9 @@ Review changes? (y/n)
 
 1. **Missing critical content:**
 
-   - Empty Problem Statement
-   - No Success Criteria
-   - Missing Acceptance Criteria in tasks
+   - Empty problemStatement
+   - No successCriteria entries
+   - Missing acceptanceCriteria in tasks
 
 2. **Unresolved open questions with content:**
 
@@ -294,14 +232,14 @@ Review changes? (y/n)
 ### Report Format
 
 ```
-❌ Completeness Validation Failed
+Completeness Validation Failed
 
 Blocking Issues:
-1. spec.md missing "Success Criteria" section
-2. tasks.md: Task 3 has no acceptance criteria
-3. spec.md has 2 unresolved open questions:
-   - [ ] Which authentication method to use?
-   - [ ] Should we support SSO?
+1. spec.yaml missing "successCriteria" key
+2. tasks.yaml: task-3 has no acceptanceCriteria
+3. spec.yaml has 2 unresolved open questions:
+   - Should we use Redis or in-memory cache? (resolved: false)
+   - Should we support SSO? (resolved: false)
 
 Fix these issues and re-run /shep-kit:implement
 ```
@@ -310,21 +248,21 @@ Fix these issues and re-run /shep-kit:implement
 
 **Completeness validation ensures:**
 
-- All required files exist
-- All required sections present
-- Open questions resolved
+- All required YAML source files exist
+- All required keys present in each YAML file
+- Open questions resolved (`resolved: true`)
 - Tasks have acceptance criteria
 - Documentation is ready for implementation
 
 **Blocks implementation if:**
 
-- Files missing
-- Sections missing
-- Open questions with content
-- Tasks lack acceptance criteria
+- YAML files missing
+- Required keys missing
+- Open questions with `resolved: false`
+- Tasks lack acceptanceCriteria
 
 **Auto-fixes:**
 
-- Missing empty sections
-- Empty checkboxes
-- Formatting issues
+- Missing optional keys with defaults
+- Missing template files
+- Stale Markdown regeneration

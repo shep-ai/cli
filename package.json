@@ -77,6 +77,8 @@
     "tsp:compile": "tsp compile tsp/",
     "tsp:format": "tsp format \"tsp/**/*.tsp\"",
     "tsp:watch": "tsp compile tsp/ --watch",
+    "spec:generate-md": "tsx scripts/spec-generate-md.ts",
+    "spec:validate": "tsx scripts/spec-validate.ts",
     "cli": "tsx src/presentation/cli/index.ts",
     "prepare": "husky",
     "validate": "pnpm run lint:fix && pnpm run format && pnpm run typecheck && pnpm run tsp:compile"

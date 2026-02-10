@@ -10,28 +10,93 @@ Shep-kit is our spec-driven development toolkit inspired by [GitHub's SpecKit](h
 /shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → /shep-kit:implement → /shep-kit:commit-pr
 ```
 
+## YAML-First Approach
+
+Starting with spec 011, **YAML files are the source of truth** for all spec artifacts. Markdown files are **auto-generated** from YAML and should not be edited manually.
+
+| Source of Truth (edit these) | Generated (do not edit) |
+| ---------------------------- | ----------------------- |
+| `spec.yaml`                  | `spec.md`               |
+| `research.yaml`              | `research.md`           |
+| `plan.yaml`                  | `plan.md`               |
+| `tasks.yaml`                 | `tasks.md`              |
+| `feature.yaml`               | _(not generated)_       |
+
+Each YAML file uses a **content + metadata hybrid** structure:
+
+- **Metadata fields** — Structured attributes (`name`, `summary`, `technologies`, `openQuestions`, etc.) that skills and scripts can read programmatically without parsing Markdown.
+- **`content` field** — Raw Markdown body containing the human-written spec content. This preserves the full expressiveness of Markdown (tables, diagrams, code blocks).
+
+Example structure of a `spec.yaml`:
+
+```yaml
+name: my-feature
+number: 12
+branch: feat/012-my-feature
+oneLiner: Short description of the feature
+summary: >
+  Longer summary spanning multiple lines.
+phase: Research
+sizeEstimate: M
+technologies:
+  - TypeSpec
+  - Node.js
+relatedFeatures:
+  - 008-agent-configuration
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  Description of the problem...
+
+  ## Success Criteria
+
+  - Criterion one
+  - Criterion two
+```
+
+### Spec Scripts
+
+Two pnpm scripts support the YAML-first workflow:
+
+- **`pnpm spec:generate-md <feature-dir>`** — Reads all YAML spec files in a feature directory and generates corresponding Markdown files with YAML front matter + the `content` field body. Generated Markdown is committed to git for human readability in PRs.
+- **`pnpm spec:validate <feature-dir>`** — Validates spec quality gates against YAML data: completeness (required files/keys, open questions resolved), architecture compliance (TDD phases, TypeSpec references), and cross-document consistency (task counts, dependency validation).
+
+**Note:** Specs 001-010 remain in their original Markdown format. Only specs 011+ use the YAML-first approach.
+
 ## Why Spec-Driven?
 
 1. **Clarity before code**: Requirements are explicit, not discovered during implementation
 2. **Dependencies visible**: Cross-feature dependencies are documented upfront
 3. **Knowledge preserved**: Specs persist even when contributors change
-4. **AI-optimized**: Agents work better with structured context
-5. **Review-friendly**: PRs reference specs for easier understanding
+4. **AI-optimized**: Agents work better with structured context — YAML metadata enables direct field access instead of fragile Markdown parsing
+5. **Review-friendly**: PRs reference specs; auto-generated Markdown ensures readability
 
 ## Directory Structure
 
 ```
 specs/                              # Root-level spec directory
-├── 001-feature-name/
+├── 001-feature-name/               # Legacy (Markdown-first, specs 001-010)
 │   ├── spec.md                     # Requirements & scope
 │   ├── research.md                 # Technical decisions
 │   ├── plan.md                     # Implementation strategy
 │   ├── tasks.md                    # Task breakdown
-│   ├── feature.yaml                # Status tracking (NEW)
+│   ├── feature.yaml                # Status tracking
 │   ├── data-model.md               # Entity changes (if needed)
 │   └── contracts/                  # API specs (if needed)
-├── 002-another-feature/
-│   └── ...
+├── 011-feature-name/               # YAML-first (specs 011+)
+│   ├── spec.yaml                   # Requirements & scope (SOURCE OF TRUTH)
+│   ├── research.yaml               # Technical decisions (SOURCE OF TRUTH)
+│   ├── plan.yaml                   # Implementation strategy (SOURCE OF TRUTH)
+│   ├── tasks.yaml                  # Task breakdown (SOURCE OF TRUTH)
+│   ├── feature.yaml                # Status tracking
+│   ├── spec.md                     # Auto-generated from spec.yaml
+│   ├── research.md                 # Auto-generated from research.yaml
+│   ├── plan.md                     # Auto-generated from plan.yaml
+│   ├── tasks.md                    # Auto-generated from tasks.yaml
+│   ├── data-model.md               # Entity changes (if needed)
+│   └── contracts/                  # API specs (if needed)
 └── ...
 ```
 
@@ -45,27 +110,28 @@ specs/                              # Root-level spec directory
 
 1. Provide feature name (kebab-case) and one-liner description
 2. Branch `feat/NNN-feature-name` created from main
-3. Spec directory scaffolded with templates
+3. Spec directory scaffolded with YAML templates
 4. Agent analyzes codebase and existing specs
 5. Agent proposes spec content (affected areas, dependencies, size)
-6. You review and adjust
-7. spec.md committed to feature branch
+6. You review and adjust the YAML spec file
+7. Markdown auto-generated via `pnpm spec:generate-md`
+8. spec.yaml and spec.md committed to feature branch
 
-**Output**: `specs/NNN-feature-name/spec.md` with requirements
+**Output**: `specs/NNN-feature-name/spec.yaml` (source of truth) + `spec.md` (auto-generated)
 
 ### Step 2: Research (`/shep-kit:research`)
 
-**Trigger**: After spec.md is complete, before planning.
+**Trigger**: After spec.yaml is complete, before planning.
 
 **What happens:**
 
-1. Agent reads spec.md to understand requirements
+1. Agent reads `spec.yaml` to understand requirements (metadata fields + content)
 2. Identifies technical decisions needed
 3. Researches options (libraries, patterns, approaches)
-4. Documents trade-offs and recommendations
+4. Documents trade-offs and recommendations in `research.yaml`
 5. You review decisions
 
-**Output**: `specs/NNN-feature-name/research.md` with technical decisions
+**Output**: `specs/NNN-feature-name/research.yaml` (source of truth) + `research.md` (auto-generated)
 
 ### Step 3: Plan (`/shep-kit:plan`)
 
@@ -75,7 +141,7 @@ specs/                              # Root-level spec directory
 
 **What happens:**
 
-1. Agent reads spec.md and research.md
+1. Agent reads `spec.yaml` and `research.yaml`
 2. Designs architecture (components, data flow)
 3. Breaks into implementation phases **following TDD**:
    - **Foundational phases** (no tests): Build pipeline, TypeSpec models, configuration
@@ -84,13 +150,14 @@ specs/                              # Root-level spec directory
      - **GREEN**: Define minimal implementation to pass
      - **REFACTOR**: Identify cleanup opportunities
 4. Identifies files to create/modify
-5. Creates task breakdown with **RED-GREEN-REFACTOR** structure
+5. Creates task breakdown with **RED-GREEN-REFACTOR** structure in `tasks.yaml`
 6. Defines testing strategy (tests FIRST, never after implementation)
 
 **Output**:
 
-- `specs/NNN-feature-name/plan.md` - Architecture and TDD-compliant strategy
-- `specs/NNN-feature-name/tasks.md` - TDD task breakdown (RED→GREEN→REFACTOR)
+- `specs/NNN-feature-name/plan.yaml` - Architecture and TDD-compliant strategy (source of truth)
+- `specs/NNN-feature-name/tasks.yaml` - TDD task breakdown (source of truth)
+- `specs/NNN-feature-name/plan.md` + `tasks.md` - Auto-generated Markdown
 - `specs/NNN-feature-name/data-model.md` - Entity changes (if needed)
 
 ### Step 4: Implement (`/shep-kit:implement`)
@@ -101,11 +168,12 @@ specs/                              # Root-level spec directory
 
 1. **Pre-Implementation Validation Gate** (automatic):
 
-   - Basic completeness check (all files present, open questions resolved)
-   - Architecture validation (Clean Architecture, TypeSpec-first, TDD phases defined)
-   - Cross-document consistency (task counts match, no contradictions)
-   - Auto-fixes safe structural issues (missing sections, empty checkboxes)
-   - **Blocks if critical issues found** (must be fixed manually)
+   - Runs `pnpm spec:validate` against the YAML spec files
+   - Completeness check (all YAML files present, required keys populated, `openQuestions` resolved)
+   - Architecture validation (Clean Architecture, TypeSpec-first, TDD phases defined in `plan.yaml`)
+   - Cross-document consistency (task counts match between `plan.yaml` and `tasks.yaml`, no contradictions)
+   - Auto-fixes safe structural issues
+   - **Blocks if critical issues found** (must be fixed in the YAML source files)
 
 2. **Smart Session Resumption**:
 
@@ -116,7 +184,7 @@ specs/                              # Root-level spec directory
 
 3. **Autonomous Task Execution**:
 
-   - Executes tasks from `tasks.md` sequentially
+   - Executes tasks from `tasks.yaml` sequentially
    - **Follows TDD discipline strictly** (RED→GREEN→REFACTOR)
    - Runs verification after each task (tests, build, typecheck, lint)
    - Updates `feature.yaml` after each task completion
@@ -143,7 +211,7 @@ specs/                              # Root-level spec directory
 
 **Status Tracking**: `feature.yaml` is updated continuously throughout implementation. See [feature.yaml Protocol](./feature-yaml-protocol.md) for details.
 
-**📖 Full Guide**: See [Implementation Guide](./implementation-guide.md) for detailed manual implementation instructions (if not using :implement skill).
+**Full Guide**: See [Implementation Guide](./implementation-guide.md) for detailed manual implementation instructions (if not using :implement skill).
 
 ### Step 5: Commit & Create PR (`/shep-kit:commit-pr`)
 
@@ -175,60 +243,73 @@ specs/                              # Root-level spec directory
 
 **Output**: Clean workspace, feature marked as complete
 
-## Spec File Templates
+## Spec File Formats
 
-### spec.md
+All spec artifacts (except `feature.yaml` and `data-model.md`) use the **content + metadata hybrid** YAML format. Each YAML file contains:
 
-Core requirements document containing:
+- **Structured metadata fields** at the top level — machine-readable attributes that skills and validation scripts access directly (e.g., `openQuestions`, `technologies`, `tasks`)
+- **`content` field** — a raw Markdown string containing the human-written spec body
 
-- Problem statement
-- Success criteria
-- Affected areas with impact levels
-- Dependencies on other features
-- Size estimate (S/M/L/XL)
-- Open questions
+When Markdown is generated (via `pnpm spec:generate-md`), the metadata fields become YAML front matter and the `content` field becomes the Markdown body.
 
-### research.md
+### spec.yaml
 
-Technical decisions document containing:
+Core requirements document. Metadata fields:
 
-- Options considered for each decision
-- Chosen approach with rationale
-- Library analysis
-- Security considerations
-- Performance implications
+- `name`, `number`, `branch`, `oneLiner`, `summary`
+- `phase` (current SDLC lifecycle phase)
+- `sizeEstimate` (S/M/L/XL)
+- `technologies`, `relatedFeatures`, `relatedLinks`
+- `openQuestions` (array of `{question, resolved, answer?}`)
 
-### plan.md
+The `content` field contains: problem statement, success criteria, affected areas, dependencies.
 
-Implementation strategy containing:
+### research.yaml
 
-- Architecture diagram
-- Implementation phases
-- Files to create/modify
-- Testing strategy
-- Risk mitigation
-- Rollback plan
+Technical decisions document. Metadata fields:
 
-### tasks.md
+- `name`, `summary`
+- `decisions` (array of `{title, chosen, rejected[], rationale}`)
+- `technologies`, `relatedFeatures`, `relatedLinks`
+- `openQuestions`
 
-Actionable task list containing:
+The `content` field contains: detailed analysis, library comparisons, security/performance considerations.
 
-- Tasks grouped by phase **with TDD structure**:
-  - **RED**: Tests to write first
-  - **GREEN**: Implementation to pass tests
-  - **REFACTOR**: Cleanup while keeping tests green
-- Parallelization markers `[P]`
-- Acceptance checklist
-- Task dependencies
+### plan.yaml
 
-**Note**: Source of truth for task definitions. `feature.yaml` tracks execution status only.
+Implementation strategy. Metadata fields:
+
+- `name`, `summary`
+- `phases` (array of `{id, name, parallel, taskIds[]}`)
+- `filesToCreate`, `filesToModify`
+- `technologies`, `relatedFeatures`, `relatedLinks`
+- `openQuestions`
+
+The `content` field contains: architecture diagrams, phase descriptions with TDD cycles, risk mitigation, rollback plan.
+
+### tasks.yaml
+
+Actionable task list. Metadata fields:
+
+- `name`, `summary`, `totalEstimate`
+- `tasks` (array of structured task objects, each with):
+  - `id`, `title`, `description`, `state`, `dependencies[]`
+  - `acceptanceCriteria[]`
+  - `tdd: {red[], green[], refactor[]}` — explicit TDD cycle steps
+  - `estimatedEffort`
+- `technologies`, `relatedFeatures`, `relatedLinks`
+- `openQuestions`
+
+The `content` field contains: task descriptions grouped by phase with TDD structure, parallelization markers `[P]`, acceptance checklist.
+
+**Note**: `tasks.yaml` is the source of truth for task definitions. `feature.yaml` tracks execution status only.
 
 ### feature.yaml
 
-Machine-readable status tracking (NEW) containing:
+Machine-readable status tracking containing:
 
 - Feature metadata (id, name, branch)
-- Lifecycle state (research → planning → implementation → review → complete)
+- Lifecycle state (research -> planning -> implementation -> review -> complete)
 - Progress tracking (completed/total tasks, percentage)
 - Current task being worked on
 - Validation gates passed
@@ -236,6 +317,8 @@ Machine-readable status tracking (NEW) containing:
 - Error state (if blocked)
 
 **Updated by ALL shep-kit skills** as work progresses. See [feature.yaml Protocol](./feature-yaml-protocol.md).
+
+**Note**: `feature.yaml` does NOT use the content + metadata hybrid pattern. It is purely structured YAML for status tracking.
 
 ### data-model.md
 
@@ -256,10 +339,10 @@ The next number is determined by scanning existing `specs/` directories.
 
 ## Dependency Discovery
 
-When creating a new spec, the agent scans all existing `specs/*/spec.md` files to:
+When creating a new spec, the agent scans all existing spec files (`specs/*/spec.yaml` for YAML-first specs, `specs/*/spec.md` for legacy specs) to:
 
 - Understand the feature landscape
-- Identify potential dependencies
+- Identify potential dependencies (via `relatedFeatures` metadata in YAML specs)
 - Avoid duplicate work
 - Maintain consistency
 
@@ -268,8 +351,11 @@ When creating a new spec, the agent scans all existing `specs/*/spec.md` files t
 ### DO
 
 - Start every feature with `/shep-kit:new-feature`
+- Edit YAML source files (`spec.yaml`, `research.yaml`, etc.) — never edit auto-generated Markdown
+- Run `pnpm spec:generate-md` after editing YAML to regenerate Markdown
+- Run `pnpm spec:validate` before implementation to catch issues early
 - Review agent-proposed specs before accepting
-- Update specs when requirements change
+- Update YAML specs when requirements change
 - Reference spec in PR descriptions
 - Keep specs in sync with implementation
 
@@ -277,6 +363,7 @@ When creating a new spec, the agent scans all existing `specs/*/spec.md` files t
 
 - Skip the spec phase for "quick" features
 - Implement without a plan
+- **Manually edit auto-generated Markdown files** (changes will be overwritten)
 - **Write implementation before tests** (violates TDD)
 - Skip RED phase and go straight to implementation
 - Leave specs outdated after implementation
@@ -286,13 +373,14 @@ When creating a new spec, the agent scans all existing `specs/*/spec.md` files t
 
 Spec-driven development integrates with our existing practices:
 
-| Existing Practice    | Integration                                                                               |
-| -------------------- | ----------------------------------------------------------------------------------------- |
-| TDD (MANDATORY)      | Plan phase MANDATES RED-GREEN-REFACTOR cycles; tasks.md breaks down TDD phases explicitly |
-| Clean Architecture   | Spec identifies which layers are affected; each layer has TDD cycle                       |
-| TypeSpec models      | data-model.md defines entity changes for tsp/                                             |
-| Conventional Commits | Spec commits: `feat(specs): add NNN-feature-name specification`                           |
-| PR Process           | PRs reference their spec directory; each TDD cycle can be reviewed independently          |
+| Existing Practice    | Integration                                                                                         |
+| -------------------- | --------------------------------------------------------------------------------------------------- |
+| TDD (MANDATORY)      | Plan phase MANDATES RED-GREEN-REFACTOR cycles; `tasks.yaml` breaks down TDD phases explicitly       |
+| Clean Architecture   | Spec identifies which layers are affected; each layer has TDD cycle                                 |
+| TypeSpec models      | Spec artifacts are defined as TypeSpec entities; data-model.md defines entity changes for tsp/      |
+| Conventional Commits | Spec commits: `feat(specs): add NNN-feature-name specification`                                     |
+| PR Process           | PRs reference their spec directory; auto-generated Markdown ensures readability in GitHub           |
+| YAML-first           | YAML is source of truth; `pnpm spec:validate` replaces fragile grep/awk validation in skill prompts |
 
 ## Skill Locations
 
@@ -325,14 +413,19 @@ Skills are located at:
 
 ## Quick Reference
 
-| Command                 | Purpose                    | Output                  |
-| ----------------------- | -------------------------- | ----------------------- |
-| `/shep-kit:new-feature` | Start new feature          | Branch + spec.md        |
-| `/shep-kit:research`    | Technical analysis         | research.md             |
-| `/shep-kit:plan`        | Implementation plan        | plan.md + tasks.md      |
-| `/shep-kit:implement`   | Autonomous implementation  | Code + passing tests    |
-| `/shep-kit:commit-pr`   | Commit, push, PR, watch CI | Pull request (CI green) |
-| `/shep-kit:merged`      | Post-merge cleanup         | Clean workspace         |
+| Command                 | Purpose                    | Output (YAML source + generated MD)                |
+| ----------------------- | -------------------------- | -------------------------------------------------- |
+| `/shep-kit:new-feature` | Start new feature          | Branch + `spec.yaml` + `spec.md`                   |
+| `/shep-kit:research`    | Technical analysis         | `research.yaml` + `research.md`                    |
+| `/shep-kit:plan`        | Implementation plan        | `plan.yaml` + `tasks.yaml` + generated `.md` files |
+| `/shep-kit:implement`   | Autonomous implementation  | Code + passing tests + updated `feature.yaml`      |
+| `/shep-kit:commit-pr`   | Commit, push, PR, watch CI | Pull request (CI green)                            |
+| `/shep-kit:merged`      | Post-merge cleanup         | Clean workspace                                    |
+
+| Script                  | Purpose                                       |
+| ----------------------- | --------------------------------------------- |
+| `pnpm spec:generate-md` | Generate Markdown from YAML spec files        |
+| `pnpm spec:validate`    | Validate spec quality gates against YAML data |
 
 ---
 
