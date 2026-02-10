@@ -8,7 +8,7 @@
 
 import type Database from 'better-sqlite3';
 import { injectable } from 'tsyringe';
-import type { ISettingsRepository } from '../../application/ports/output/settings.repository.interface.js';
+import type { ISettingsRepository } from '../../application/ports/output/repositories/settings-repository.interface.js';
 import type { Settings } from '../../domain/generated/output.js';
 import {
   toDatabase,

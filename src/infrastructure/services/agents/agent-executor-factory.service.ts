@@ -9,8 +9,8 @@
  */
 
 import type { AgentType, AgentConfig } from '../../../domain/generated/output.js';
-import type { IAgentExecutor } from '../../../application/ports/output/agent-executor.interface.js';
-import type { IAgentExecutorFactory } from '../../../application/ports/output/agent-executor-factory.interface.js';
+import type { IAgentExecutor } from '../../../application/ports/output/services/agents/agent-executor.interface.js';
+import type { IAgentExecutorFactory } from '../../../application/ports/output/services/agents/agent-executor-factory.interface.js';
 import {
   ClaudeCodeExecutorService,
   type SpawnFunction,

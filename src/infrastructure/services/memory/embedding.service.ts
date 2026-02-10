@@ -1,7 +1,7 @@
 import { pipeline, env } from '@xenova/transformers';
 import { homedir } from 'os';
 import { join } from 'path';
-import type { IEmbeddingService } from '@/application/ports/output';
+import type { IEmbeddingService } from '@/application/ports/output/services/memory';
 
 /**
  * Model configuration constants

@@ -10,11 +10,11 @@ import { describe, it, expect } from 'vitest';
 import type {
   IAgentRunner,
   AgentRunOptions,
-} from '@/application/ports/output/agent-runner.interface.js';
+} from '@/application/ports/output/services/agents/agent-runner.interface.js';
 import type {
   IAgentRegistry,
   AgentDefinitionWithFactory,
-} from '@/application/ports/output/agent-registry.interface.js';
+} from '@/application/ports/output/services/agents/agent-registry.interface.js';
 
 describe('IAgentRunner type contracts', () => {
   it('should define runAgent method signature', () => {

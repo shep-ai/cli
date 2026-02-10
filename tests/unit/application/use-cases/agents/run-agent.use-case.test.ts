@@ -15,11 +15,11 @@ import { AgentRunStatus, AgentType } from '../../../../../src/domain/generated/o
 import type {
   IAgentRunner,
   AgentRunOptions,
-} from '../../../../../src/application/ports/output/agent-runner.interface.js';
+} from '../../../../../src/application/ports/output/services/agents/agent-runner.interface.js';
 import type {
   IAgentRegistry,
   AgentDefinitionWithFactory,
-} from '../../../../../src/application/ports/output/agent-registry.interface.js';
+} from '../../../../../src/application/ports/output/services/agents/agent-registry.interface.js';
 
 function createMockAgentRun(overrides?: Partial<AgentRun>): AgentRun {
   return {

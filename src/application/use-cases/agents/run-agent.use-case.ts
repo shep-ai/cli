@@ -12,8 +12,11 @@
 
 import { injectable, inject } from 'tsyringe';
 import type { AgentRun, AgentRunEvent } from '../../../domain/generated/output.js';
-import type { IAgentRunner, AgentRunOptions } from '../../ports/output/agent-runner.interface.js';
-import type { IAgentRegistry } from '../../ports/output/agent-registry.interface.js';
+import type {
+  IAgentRunner,
+  AgentRunOptions,
+} from '../../ports/output/services/agents/agent-runner.interface.js';
+import type { IAgentRegistry } from '../../ports/output/services/agents/agent-registry.interface.js';
 
 /**
  * Input for running an agent workflow.

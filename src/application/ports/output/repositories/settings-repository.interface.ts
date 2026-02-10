@@ -9,7 +9,7 @@
  * - Infrastructure layer provides concrete implementations
  */
 
-import type { Settings } from '../../../domain/generated/output.js';
+import type { Settings } from '@/domain/generated/output.js';
 
 /**
  * Repository interface for Settings entity persistence.

@@ -12,11 +12,11 @@ import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type {
   IAgentRunner,
   AgentRunOptions,
-} from '@/application/ports/output/agent-runner.interface.js';
-import type { IAgentRegistry } from '@/application/ports/output/agent-registry.interface.js';
-import type { IAgentExecutorFactory } from '@/application/ports/output/agent-executor-factory.interface.js';
-import type { IAgentRunRepository } from '@/application/ports/output/agent-run-repository.interface.js';
-import type { AgentExecutionStreamEvent } from '@/application/ports/output/agent-executor.interface.js';
+} from '@/application/ports/output/services/agents/agent-runner.interface.js';
+import type { IAgentRegistry } from '@/application/ports/output/services/agents/agent-registry.interface.js';
+import type { IAgentExecutorFactory } from '@/application/ports/output/services/agents/agent-executor-factory.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/repositories/agent-run-repository.interface.js';
+import type { AgentExecutionStreamEvent } from '@/application/ports/output/services/agents/agent-executor.interface.js';
 import type { AgentRun, AgentRunEvent } from '@/domain/generated/output.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';

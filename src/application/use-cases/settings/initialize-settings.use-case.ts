@@ -12,7 +12,7 @@
 
 import { injectable, inject } from 'tsyringe';
 import type { Settings } from '../../../domain/generated/output.js';
-import type { ISettingsRepository } from '../../ports/output/settings.repository.interface.js';
+import type { ISettingsRepository } from '../../ports/output/repositories/settings-repository.interface.js';
 import { createDefaultSettings } from '../../../domain/factories/settings-defaults.factory.js';
 
 /**

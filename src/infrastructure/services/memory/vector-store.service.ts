@@ -14,7 +14,10 @@
 
 import { connect, type Connection, type Table } from '@lancedb/lancedb';
 import type { Episode, MemoryScope } from '@/domain/generated/output';
-import type { IVectorStoreService, VectorSearchResult } from '@/application/ports/output';
+import type {
+  IVectorStoreService,
+  VectorSearchResult,
+} from '@/application/ports/output/services/memory';
 
 /**
  * Vector store configuration constants

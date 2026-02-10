@@ -17,7 +17,7 @@ import type {
   AgentExecutionOptions,
   AgentExecutionResult,
   AgentExecutionStreamEvent,
-} from '@/application/ports/output/agent-executor.interface.js';
+} from '@/application/ports/output/services/agents/agent-executor.interface.js';
 import type { EventChannel } from './event-channel.js';
 
 export class StreamingExecutorProxy implements IAgentExecutor {

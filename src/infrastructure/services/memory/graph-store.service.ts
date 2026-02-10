@@ -16,7 +16,7 @@ import { Level } from 'level';
 import { Quadstore } from 'quadstore';
 import { DataFactory } from 'rdf-data-factory';
 import type { MemoryScope } from '@/domain/generated/output';
-import type { IGraphStoreService, SparqlResult } from '@/application/ports/output';
+import type { IGraphStoreService, SparqlResult } from '@/application/ports/output/services/memory';
 import { GLOBAL_GRAPH_URI, FEATURE_GRAPH_PREFIX, EPISODE_PREFIX } from './graph-schema.constants';
 
 /**

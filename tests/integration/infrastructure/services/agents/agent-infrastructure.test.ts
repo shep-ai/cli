@@ -24,10 +24,10 @@ import { createCheckpointer } from '../../../../../src/infrastructure/services/a
 import { RunAgentUseCase } from '../../../../../src/application/use-cases/agents/run-agent.use-case.js';
 
 // Port interfaces
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agent-run-repository.interface.js';
-import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agent-executor-factory.interface.js';
-import type { IAgentRegistry } from '../../../../../src/application/ports/output/agent-registry.interface.js';
-import type { IAgentRunner } from '../../../../../src/application/ports/output/agent-runner.interface.js';
+import type { IAgentRunRepository } from '../../../../../src/application/ports/output/repositories/agent-run-repository.interface.js';
+import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/services/agents/agent-executor-factory.interface.js';
+import type { IAgentRegistry } from '../../../../../src/application/ports/output/services/agents/agent-registry.interface.js';
+import type { IAgentRunner } from '../../../../../src/application/ports/output/services/agents/agent-runner.interface.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 
 // Migration SQL
