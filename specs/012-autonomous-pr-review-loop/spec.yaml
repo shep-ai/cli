@@ -13,7 +13,7 @@ summary: >
   watch-fix-push cycle until there are no remaining review issues. This turns
   the PR workflow from "create and hope" into a fully autonomous push-to-approval
   pipeline.
-phase: research
+phase: planning
 sizeEstimate: M
 
 # Relationships
