@@ -144,17 +144,12 @@ Templates are in: `.claude/skills/shep-kit:new-feature/templates/`
 - `plan.yaml` - Implementation strategy
 - `tasks.yaml` - Task breakdown
 
-### Markdown Templates (Auto-Generated)
-
-- `spec.md` - Generated from `spec.yaml`
-- `research.md` - Generated from `research.yaml`
-- `plan.md` - Generated from `plan.yaml`
-- `tasks.md` - Generated from `tasks.yaml`
-
 ### Other Templates
 
 - `data-model.md` - Domain models
 - `feature.yaml` - Status tracking
+
+Markdown files (`spec.md`, `research.md`, `plan.md`, `tasks.md`) are auto-generated from YAML via `pnpm spec:generate-md`.
 
 ## feature.yaml Protocol
 

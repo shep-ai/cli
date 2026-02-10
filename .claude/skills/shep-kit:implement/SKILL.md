@@ -24,7 +24,7 @@ Use this skill after `/shep-kit:plan` has created `plan.yaml` and `tasks.yaml`, 
 ## What This Skill Does
 
 1. **Pre-Implementation Validation** - Comprehensive quality gates
-2. **Autonomous Task Execution** - Executes all tasks from `tasks.md` sequentially
+2. **Autonomous Task Execution** - Executes all tasks from `tasks.yaml` sequentially
 3. **Real-Time Status Tracking** - Updates `feature.yaml` throughout execution
 4. **Smart Error Handling** - Retry with debugging (max 3 attempts per task)
 5. **Session Resumption** - Automatically continues from last task on re-run
