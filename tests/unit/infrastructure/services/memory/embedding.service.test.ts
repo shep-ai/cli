@@ -80,6 +80,20 @@ describe('EmbeddingService', () => {
       expect(Array.isArray(embeddings)).toBe(true);
       expect(embeddings.length).toBe(0);
     });
+
+    it('should process large batches with chunking', async () => {
+      // Create 150 texts to trigger batch optimization (>100 threshold)
+      const texts = Array.from({ length: 150 }, (_, i) => `text ${i + 1}`);
+      const embeddings = await embeddingService.generateBatch(texts);
+
+      expect(embeddings).toBeDefined();
+      expect(Array.isArray(embeddings)).toBe(true);
+      expect(embeddings.length).toBe(150);
+      embeddings.forEach((embedding: number[]) => {
+        expect(embedding.length).toBe(384);
+        expect(embedding.every((val: number) => typeof val === 'number')).toBe(true);
+      });
+    });
   });
 
   describe('initialize()', () => {
