@@ -4,8 +4,8 @@
 
 ## Status
 
-- **Phase:** Planning
-- **Updated:** 2026-02-09
+- **Phase:** Complete
+- **Updated:** 2026-02-10
 
 ## ⚠️ Critical Constraints
 
@@ -204,6 +204,70 @@
 - **Pure TypeScript stack** - No Python interop complexity
 - Matches Shep's philosophy: simple by default, powerful when configured
 
+## Clean Architecture Implementation
+
+### Port-Based Design (Dependency Inversion)
+
+All memory services follow Clean Architecture with pluggable implementations via port interfaces.
+
+**Application Layer (Ports):**
+
+```typescript
+// src/application/ports/output/embedding-service.interface.ts
+export interface IEmbeddingService {
+  generateEmbedding(text: string): Promise<number[]>;
+  generateBatch(texts: string[]): Promise<number[][]>;
+}
+
+// src/application/ports/output/vector-store-service.interface.ts
+export interface IVectorStoreService {
+  upsert(episode: Episode, embedding: number[]): Promise<void>;
+  search(queryEmbedding: number[], limit: number): Promise<VectorSearchResult[]>;
+  searchByScope(
+    queryEmbedding: number[],
+    scope: MemoryScope,
+    limit: number
+  ): Promise<VectorSearchResult[]>;
+  delete(episodeId: string): Promise<void>;
+}
+
+// src/application/ports/output/graph-store-service.interface.ts
+export interface IGraphStoreService {
+  addTriple(subject: string, predicate: string, object: string, scope: MemoryScope): Promise<void>;
+  query(sparql: string, scope?: MemoryScope): Promise<SparqlResult[]>;
+  getRelatedEpisodes(episodeId: string, scope?: MemoryScope, depth?: number): Promise<string[]>;
+  removeEpisode(episodeId: string): Promise<void>;
+}
+
+// src/application/ports/output/memory-service.interface.ts
+export interface IMemoryService {
+  store(episode: Episode): Promise<void>;
+  retrieve(query: string, topK: number, scope?: MemoryScope): Promise<Episode[]>;
+  pruneOldMemories(retentionDays: number): Promise<void>;
+}
+```
+
+**Infrastructure Layer (Implementations):**
+
+- `EmbeddingService implements IEmbeddingService` - Transformers.js ONNX
+- `VectorStoreService implements IVectorStoreService` - LanceDB vectors
+- `GraphStoreService implements IGraphStoreService` - Quadstore RDF
+- `MemoryService implements IMemoryService` - Orchestration layer
+
+**Alternative Implementations (Future):**
+
+- `OllamaEmbeddingService implements IEmbeddingService` - Ollama server
+- `SqliteVecStoreService implements IVectorStoreService` - sqlite-vec
+- `Neo4jGraphStoreService implements IGraphStoreService` - Neo4j
+
+**Benefits:**
+
+- ✅ Follows Clean Architecture dependency rules
+- ✅ Services easily mocked for unit tests
+- ✅ Implementations pluggable/swappable
+- ✅ Loose coupling between layers
+- ✅ Future-proof for alternative implementations
+
 ## Recommended Architecture
 
 ```
@@ -338,10 +402,6 @@ Storage Layout:
 - **Decision**: Use Transformers.js for default embeddings, Ollama as optional alternative
 - **Rationale**: User explicitly rejected API keys, requires fully self-hosted solution
 
-## Open Questions
-
-All questions resolved during research phase.
-
 ---
 
 **Sources:**
@@ -388,4 +448,4 @@ SQLite Vector Extensions:
 
 ---
 
-_Updated by `/shep-kit:research` — proceed with `/shep-kit:plan`_
+_Research complete — proceed with `/shep-kit:plan`_

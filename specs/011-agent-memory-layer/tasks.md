@@ -5,7 +5,7 @@
 ## Status
 
 - **Phase:** Implementation
-- **Updated:** 2026-02-09
+- **Updated:** 2026-02-10
 
 ## Task 1: Foundation & TypeSpec Models
 
@@ -31,7 +31,96 @@
 
 ---
 
-## Task 2: Embedding Service - RED (Write Tests)
+## Task 2: IEmbeddingService Port Interface
+
+**Phase:** Application Layer (Port Interfaces)
+
+- [ ] Create `src/application/ports/output/embedding-service.interface.ts`
+- [ ] Define `IEmbeddingService` interface with methods:
+  - `generateEmbedding(text: string): Promise<number[]>`
+  - `generateBatch(texts: string[]): Promise<number[][]>`
+- [ ] Add JSDoc documentation for interface and all methods
+- [ ] Add type definition for embedding vector: `type EmbeddingVector = number[]`
+- [ ] Export interface from `src/application/ports/output/index.ts`
+- [ ] Commit: "feat(ports): define IEmbeddingService interface"
+
+**Acceptance:**
+
+- ✅ Interface defined with clear method signatures
+- ✅ JSDoc explains purpose and parameters
+- ✅ Exported from ports index
+
+---
+
+## Task 3: IVectorStoreService Port Interface
+
+**Phase:** Application Layer (Port Interfaces)
+
+- [ ] Create `src/application/ports/output/vector-store-service.interface.ts`
+- [ ] Define `VectorSearchResult` type
+- [ ] Define `IVectorStoreService` interface with methods:
+  - `upsert(episode: Episode, embedding: number[]): Promise<void>`
+  - `search(queryEmbedding: number[], limit: number): Promise<VectorSearchResult[]>`
+  - `searchByScope(queryEmbedding: number[], scope: MemoryScope, limit: number): Promise<VectorSearchResult[]>`
+  - `delete(episodeId: string): Promise<void>`
+- [ ] Add JSDoc documentation for interface and all methods
+- [ ] Export interface from `src/application/ports/output/index.ts`
+- [ ] Commit: "feat(ports): define IVectorStoreService interface"
+
+**Acceptance:**
+
+- ✅ Interface defined with clear method signatures
+- ✅ Search result type properly defined
+- ✅ JSDoc complete
+
+---
+
+## Task 4: IGraphStoreService Port Interface
+
+**Phase:** Application Layer (Port Interfaces)
+
+- [ ] Create `src/application/ports/output/graph-store-service.interface.ts`
+- [ ] Define `SparqlResult` type: `Record<string, string>`
+- [ ] Define `IGraphStoreService` interface with methods:
+  - `addTriple(subject: string, predicate: string, object: string, scope: MemoryScope): Promise<void>`
+  - `query(sparql: string, scope?: MemoryScope): Promise<SparqlResult[]>`
+  - `getRelatedEpisodes(episodeId: string, scope?: MemoryScope, depth?: number): Promise<string[]>`
+  - `removeEpisode(episodeId: string): Promise<void>`
+- [ ] Add JSDoc documentation for interface and all methods
+- [ ] Export interface from `src/application/ports/output/index.ts`
+- [ ] Commit: "feat(ports): define IGraphStoreService interface"
+
+**Acceptance:**
+
+- ✅ Interface defined with clear method signatures
+- ✅ SPARQL result type properly defined
+- ✅ JSDoc complete
+
+---
+
+## Task 5: IMemoryService Port Interface
+
+**Phase:** Application Layer (Port Interfaces)
+
+- [ ] Create `src/application/ports/output/memory-service.interface.ts`
+- [ ] Define `IMemoryService` interface with methods:
+  - `store(episode: Episode): Promise<void>`
+  - `retrieve(query: string, topK: number, scope?: MemoryScope): Promise<Episode[]>`
+  - `pruneOldMemories(retentionDays: number): Promise<void>`
+- [ ] Add JSDoc documentation for interface and all methods
+- [ ] Document hybrid retrieval behavior (semantic + graph)
+- [ ] Export interface from `src/application/ports/output/index.ts`
+- [ ] Commit: "feat(ports): define IMemoryService interface"
+
+**Acceptance:**
+
+- ✅ Interface defined with clear method signatures
+- ✅ Hybrid retrieval documented
+- ✅ JSDoc complete
+
+---
+
+## Task 6: Embedding Service - RED (Write Tests)
 
 **Phase:** Embedding Service (TDD - RED)
 
@@ -53,29 +142,30 @@
 
 ---
 
-## Task 3: Embedding Service - GREEN (Implementation)
+## Task 7: Embedding Service - GREEN (Implementation)
 
 **Phase:** Embedding Service (TDD - GREEN)
 
 - [ ] Install dependencies: `pnpm add @xenova/transformers`
 - [ ] Create `src/infrastructure/services/memory/embedding.service.ts`
-- [ ] Implement `EmbeddingService` class with constructor
+- [ ] Implement `EmbeddingService implements IEmbeddingService`
 - [ ] Implement `initialize()` - Lazy load Transformers.js pipeline (mixedbread-ai/mxbai-embed-xsmall-v1)
 - [ ] Implement `generateEmbedding(text: string): Promise<number[]>` - Return 384-dim vector
 - [ ] Implement `generateBatch(texts: string[]): Promise<number[][]>` - Batch processing
 - [ ] Add error handling for empty/null inputs
 - [ ] Configure model cache path: `~/.shep/memory/models/embeddings/`
 - [ ] Run tests: `pnpm test:unit` - Verify all tests pass ✅
-- [ ] Commit: "feat(memory): implement embedding service with Transformers.js"
+- [ ] Commit: "feat(memory): implement EmbeddingService implementing IEmbeddingService"
 
 **Acceptance:**
 
 - ✅ All embedding service tests passing
-- ✅ Minimal code to pass tests (no over-engineering)
+- ✅ Class implements IEmbeddingService interface
+- ✅ Minimal code to pass tests
 
 ---
 
-## Task 4: Embedding Service - REFACTOR (Improve)
+## Task 8: Embedding Service - REFACTOR (Improve)
 
 **Phase:** Embedding Service (TDD - REFACTOR)
 
@@ -96,7 +186,7 @@
 
 ---
 
-## Task 5: Vector Store Service - RED (Write Tests)
+## Task 9: Vector Store Service - RED (Write Tests)
 
 **Phase:** Vector Storage (TDD - RED)
 
@@ -118,29 +208,30 @@
 
 ---
 
-## Task 6: Vector Store Service - GREEN (Implementation)
+## Task 10: Vector Store Service - GREEN (Implementation)
 
 **Phase:** Vector Storage (TDD - GREEN)
 
-- [ ] Install dependencies: `pnpm add vectordb`
+- [ ] Install dependencies: `pnpm add @lancedb/lancedb apache-arrow`
 - [ ] Create `src/infrastructure/services/memory/vector-store.service.ts`
-- [ ] Implement `VectorStoreService` class with LanceDB connection
+- [ ] Implement `VectorStoreService implements IVectorStoreService`
 - [ ] Define table schema: `{id: string, episodeId: string, embedding: vector(384), scope: string, createdAt: timestamp}`
 - [ ] Implement `upsert(episode: Episode, embedding: number[]): Promise<void>`
 - [ ] Implement `search(query: number[], topK: number, scope?: MemoryScope): Promise<Episode[]>`
 - [ ] Implement `delete(episodeId: string): Promise<void>`
 - [ ] Store data in `~/.shep/memory/vectors/{scope}/` directory structure
 - [ ] Run tests: `pnpm test:int` - Verify all tests pass ✅
-- [ ] Commit: "feat(memory): implement vector store service with LanceDB"
+- [ ] Commit: "feat(memory): implement VectorStoreService implementing IVectorStoreService"
 
 **Acceptance:**
 
 - ✅ All vector store integration tests passing
+- ✅ Class implements IVectorStoreService interface
 - ✅ Data persists to disk correctly
 
 ---
 
-## Task 7: Vector Store Service - REFACTOR (Improve)
+## Task 11: Vector Store Service - REFACTOR (Improve)
 
 **Phase:** Vector Storage (TDD - REFACTOR)
 
@@ -160,7 +251,7 @@
 
 ---
 
-## Task 8: Graph Store Service - RED (Write Tests)
+## Task 12: Graph Store Service - RED (Write Tests)
 
 **Phase:** Graph Storage (TDD - RED)
 
@@ -183,13 +274,13 @@
 
 ---
 
-## Task 9: Graph Store Service - GREEN (Implementation)
+## Task 13: Graph Store Service - GREEN (Implementation)
 
 **Phase:** Graph Storage (TDD - GREEN)
 
 - [ ] Install dependencies: `pnpm add quadstore level`
 - [ ] Create `src/infrastructure/services/memory/graph-store.service.ts`
-- [ ] Implement `GraphStoreService` class with Quadstore + LevelDB backend
+- [ ] Implement `GraphStoreService implements IGraphStoreService`
 - [ ] Implement `addTriple(subject, predicate, object, graph?): Promise<void>`
 - [ ] Implement `query(sparql: string): Promise<any[]>` - Execute SPARQL queries
 - [ ] Implement `getRelatedEpisodes(episodeId: string, scope?: MemoryScope): Promise<string[]>` - Graph traversal
@@ -197,16 +288,17 @@
 - [ ] Set up named graphs: `shep:global` and `shep:feature:{id}`
 - [ ] Store data in `~/.shep/memory/graphs/{scope}/` directory
 - [ ] Run tests: `pnpm test:int` - Verify all tests pass ✅
-- [ ] Commit: "feat(memory): implement graph store service with Quadstore"
+- [ ] Commit: "feat(memory): implement GraphStoreService implementing IGraphStoreService"
 
 **Acceptance:**
 
 - ✅ All graph store integration tests passing
+- ✅ Class implements IGraphStoreService interface
 - ✅ Named graphs isolate data correctly
 
 ---
 
-## Task 10: Graph Store Service - REFACTOR (Improve)
+## Task 14: Graph Store Service - REFACTOR (Improve)
 
 **Phase:** Graph Storage (TDD - REFACTOR)
 
@@ -226,32 +318,12 @@
 
 ---
 
-## Task 11: Memory Service Port Interface
-
-**Phase:** Memory Orchestration (Application Layer)
-
-- [ ] Create `src/application/ports/output/memory-service.interface.ts`
-- [ ] Define `IMemoryService` interface
-- [ ] Define method: `store(episode: Episode): Promise<void>`
-- [ ] Define method: `retrieve(query: string, topK: number, scope?: MemoryScope): Promise<Episode[]>`
-- [ ] Define method: `pruneOldMemories(retentionDays: number): Promise<void>`
-- [ ] Add JSDoc documentation for interface
-- [ ] Export interface from `src/application/ports/output/index.ts`
-- [ ] Commit: "feat(memory): define IMemoryService port interface"
-
-**Acceptance:**
-
-- ✅ Interface defined with clear contracts
-- ✅ JSDoc explains each method's purpose
-
----
-
-## Task 12: Memory Service - RED (Write Tests)
+## Task 15: Memory Service - RED (Write Tests)
 
 **Phase:** Memory Orchestration (TDD - RED)
 
 - [ ] Create test file: `tests/unit/infrastructure/services/memory/memory.service.test.ts`
-- [ ] Mock EmbeddingService, VectorStoreService, GraphStoreService
+- [ ] Mock `IEmbeddingService`, `IVectorStoreService`, `IGraphStoreService` (use interfaces!)
 - [ ] Write failing test: `store()` should call embedding.generate() → vector.upsert() → graph.addTriple()
 - [ ] Write failing test: `retrieve()` should perform hybrid retrieval (vector search + graph expansion)
 - [ ] Write failing test: `retrieveByScope()` should respect MemoryScope filter
@@ -263,33 +335,38 @@
 **Acceptance:**
 
 - ✅ All 5 unit tests written and failing
-- ✅ Dependencies properly mocked
+- ✅ Dependencies properly mocked using interfaces
 
 ---
 
-## Task 13: Memory Service - GREEN (Implementation)
+## Task 16: Memory Service - GREEN (Implementation)
 
 **Phase:** Memory Orchestration (TDD - GREEN)
 
 - [ ] Create `src/infrastructure/services/memory/memory.service.ts`
-- [ ] Implement `MemoryService` class implementing `IMemoryService`
-- [ ] Inject EmbeddingService, VectorStoreService, GraphStoreService via constructor
+- [ ] Implement `MemoryService implements IMemoryService`
+- [ ] Add constructor with `@inject` decorators for interfaces:
+  - `@inject('IEmbeddingService') private embedding: IEmbeddingService`
+  - `@inject('IVectorStoreService') private vectorStore: IVectorStoreService`
+  - `@inject('IGraphStoreService') private graphStore: IGraphStoreService`
 - [ ] Implement `store(episode: Episode): Promise<void>` - Orchestrate embedding → vector → graph
 - [ ] Implement `retrieve(query: string, topK: number, scope?: MemoryScope): Promise<Episode[]>` - Hybrid retrieval
 - [ ] Hybrid retrieval logic: (1) Generate query embedding, (2) Vector search, (3) Graph expansion, (4) Re-rank
 - [ ] Implement `pruneOldMemories(retentionDays: number): Promise<void>` - Delete old episodes
 - [ ] Add error handling (log errors, continue execution)
 - [ ] Run tests: `pnpm test:unit` - Verify all tests pass ✅
-- [ ] Commit: "feat(memory): implement memory service with hybrid retrieval"
+- [ ] Commit: "feat(memory): implement MemoryService implementing IMemoryService"
 
 **Acceptance:**
 
 - ✅ All memory service unit tests passing
+- ✅ Class implements IMemoryService interface
+- ✅ Dependencies injected via interfaces
 - ✅ Hybrid retrieval combines semantic + graph results
 
 ---
 
-## Task 14: Memory Service - Integration Tests
+## Task 17: Memory Service - Integration Tests
 
 **Phase:** Memory Orchestration (TDD - Integration)
 
@@ -311,7 +388,7 @@
 
 ---
 
-## Task 15: Memory Service - REFACTOR (Improve)
+## Task 18: Memory Service - REFACTOR (Improve)
 
 **Phase:** Memory Orchestration (TDD - REFACTOR)
 
@@ -330,7 +407,28 @@
 
 ---
 
-## Task 16: Agent Integration - RED (Write Tests)
+## Task 19: DI Container Registration
+
+**Phase:** Dependency Injection (Infrastructure)
+
+- [ ] Open `src/infrastructure/di/container.ts`
+- [ ] Register `IEmbeddingService` → `EmbeddingService` (singleton)
+- [ ] Register `IVectorStoreService` → `VectorStoreService` (factory with storage path)
+- [ ] Register `IGraphStoreService` → `GraphStoreService` (factory with storage path)
+- [ ] Register `IMemoryService` → `MemoryService` (singleton, dependencies auto-injected)
+- [ ] Add imports for all memory services and interfaces
+- [ ] Run build: `pnpm build` - Verify DI container compiles ✅
+- [ ] Commit: "feat(di): register memory services with interface injection"
+
+**Acceptance:**
+
+- ✅ All memory services registered in DI container
+- ✅ Interface-based injection configured
+- ✅ Build succeeds without errors
+
+---
+
+## Task 20: Agent Integration - RED (Write Tests)
 
 **Phase:** Agent Integration (TDD - RED)
 
@@ -352,23 +450,19 @@
 
 ---
 
-## Task 17: Agent Integration - GREEN (Implementation)
+## Task 21: Agent Integration - GREEN (Implementation)
 
 **Phase:** Agent Integration (TDD - GREEN)
 
 - [ ] Create `src/infrastructure/services/agents/langgraph/nodes/retrieve-memory.node.ts`
-- [ ] Implement `retrieveMemoryNode` - Query IMemoryService, inject context into state
+- [ ] Implement `retrieveMemoryNode` - Inject `IMemoryService`, query for context, inject into state
 - [ ] Create `src/infrastructure/services/agents/langgraph/nodes/store-memory.node.ts`
-- [ ] Implement `storeMemoryNode` - Create Episode from state, call IMemoryService.store()
+- [ ] Implement `storeMemoryNode` - Create Episode from state, call `IMemoryService.store()`
 - [ ] Modify `src/infrastructure/services/agents/langgraph/analyze-repository-graph.ts`:
   - Add `retrieveMemory` node
   - Add `storeMemory` node
   - Update edges: `START → retrieveMemory → analyze → storeMemory → END`
-- [ ] Modify `src/infrastructure/di/container.ts`:
-  - Register EmbeddingService as singleton
-  - Register VectorStoreService with temp path injection
-  - Register GraphStoreService with temp path injection
-  - Register MemoryService (inject dependencies)
+  - Inject `IMemoryService` via DI: `@inject('IMemoryService') private memoryService: IMemoryService`
 - [ ] Run tests: `pnpm test:int && pnpm test:e2e` - Verify all tests pass ✅
 - [ ] Commit: "feat(memory): integrate memory service into LangGraph agents"
 
@@ -376,10 +470,11 @@
 
 - ✅ All agent integration tests passing
 - ✅ Memory nodes integrated into graph
+- ✅ Dependencies injected via IMemoryService interface
 
 ---
 
-## Task 18: Agent Integration - REFACTOR (Improve)
+## Task 22: Agent Integration - REFACTOR (Improve)
 
 **Phase:** Agent Integration (TDD - REFACTOR)
 
@@ -398,7 +493,7 @@
 
 ---
 
-## Task 19: Configuration & Settings - RED (Write Tests)
+## Task 23: Configuration & Settings - RED (Write Tests)
 
 **Phase:** Configuration (TDD - RED)
 
@@ -416,7 +511,7 @@
 
 ---
 
-## Task 20: Configuration & Settings - GREEN (Implementation)
+## Task 24: Configuration & Settings - GREEN (Implementation)
 
 **Phase:** Configuration (TDD - GREEN)
 
@@ -438,7 +533,7 @@
 
 ---
 
-## Task 21: Configuration & Settings - REFACTOR (Improve)
+## Task 25: Configuration & Settings - REFACTOR (Improve)
 
 **Phase:** Configuration (TDD - REFACTOR)
 
@@ -456,15 +551,16 @@
 
 ---
 
-## Task 22: Documentation
+## Task 26: Documentation
 
 **Phase:** Documentation (NO TESTS)
 
-- [ ] Create `docs/memory/architecture.md` - System architecture overview (copy from plan.md)
+- [ ] Create `docs/memory/architecture.md` - System architecture overview (copy from plan.md, update with port interfaces)
 - [ ] Create `docs/memory/configuration.md` - Configuration guide (Transformers.js vs Ollama)
-- [ ] Create `docs/memory/api-reference.md` - IMemoryService interface documentation
-- [ ] Update `README.md` - Add "Memory Layer" section with overview
-- [ ] Update `CLAUDE.md` - Add memory layer architecture section
+- [ ] Create `docs/memory/api-reference.md` - Port interfaces documentation (IMemoryService, etc.)
+- [ ] Create `docs/memory/port-interfaces.md` - Explain Clean Architecture ports pattern
+- [ ] Update `README.md` - Add "Memory Layer" section with overview and architecture diagram
+- [ ] Update `CLAUDE.md` - Add memory layer architecture section with port interfaces
 - [ ] Add inline code examples to docs
 - [ ] Commit: "docs(memory): add comprehensive memory layer documentation"
 
@@ -472,10 +568,11 @@
 
 - ✅ All documentation files created
 - ✅ CLAUDE.md and README.md updated
+- ✅ Port interfaces documented
 
 ---
 
-## Task 23: Final Validation
+## Task 27: Final Validation
 
 **Phase:** Validation (NO TESTS - CI Verification)
 
@@ -485,6 +582,7 @@
 - [ ] Run build: `pnpm build` - Build succeeds ✅
 - [ ] Manual test: Create episode, retrieve it (CLI or script)
 - [ ] Check storage: Verify files created in `~/.shep/memory/`
+- [ ] Verify DI container resolves all interfaces correctly
 - [ ] Update `specs/011-agent-memory-layer/spec.md` status to "Complete"
 - [ ] Update `specs/011-agent-memory-layer/research.md` status to "Complete"
 - [ ] Update `specs/011-agent-memory-layer/plan.md` status to "Complete"
@@ -492,8 +590,8 @@
 - [ ] Update `specs/011-agent-memory-layer/feature.yaml`:
   - Set `lifecycle: 'review'`
   - Set `status.phase: 'ready-for-review'`
-  - Set `status.progress.completed: 23`
-  - Set `status.progress.total: 23`
+  - Set `status.progress.completed: 27`
+  - Set `status.progress.total: 27`
   - Set `status.progress.percentage: 100`
   - Add checkpoint: `{phase: 'implementation-complete', completedAt: '<timestamp>', completedBy: 'shep-kit:implement'}`
 - [ ] Commit: "feat(specs): mark 011-agent-memory-layer as complete"
@@ -503,6 +601,7 @@
 - ✅ All validation checks passing
 - ✅ Feature ready for code review
 - ✅ All spec files updated to "Complete" status
+- ✅ Port-based architecture fully implemented
 
 ---
 
@@ -510,21 +609,23 @@
 
 Tasks that CAN be executed in parallel:
 
-- **Phase 2-4 (Embedding, Vector, Graph)**: After Task 1 complete, Tasks 2-10 can be split into 3 parallel streams:
-
-  - Stream A: Tasks 2-4 (Embedding Service)
-  - Stream B: Tasks 5-7 (Vector Store Service)
-  - Stream C: Tasks 8-10 (Graph Store Service)
-
-- **Phase 7 Documentation**: Task 22 can run in parallel with Task 21 (Configuration refactoring)
+- **Phase 2 (Port Interfaces)**: After Task 1 complete, Tasks 2-5 can run in parallel (all port interfaces)
+- **Phase 3-5 (Service Implementations)**: After Tasks 2-5 complete, Tasks 6-14 can be split into 3 parallel streams:
+  - Stream A: Tasks 6-8 (Embedding Service)
+  - Stream B: Tasks 9-11 (Vector Store Service)
+  - Stream C: Tasks 12-14 (Graph Store Service)
 
 Tasks that MUST run sequentially:
 
 - Task 1 (Foundation) → MUST complete first
-- Tasks 11-15 (Memory Service) → Depend on Tasks 2-10
-- Tasks 16-18 (Agent Integration) → Depend on Tasks 11-15
-- Tasks 19-21 (Configuration) → Depend on Tasks 16-18
-- Task 23 (Validation) → MUST be last
+- Tasks 2-5 (Port Interfaces) → Depend on Task 1, but can run in parallel with each other
+- Tasks 6-14 (Service Implementations) → Depend on Tasks 2-5
+- Tasks 15-18 (Memory Service) → Depend on Tasks 6-14
+- Task 19 (DI Registration) → Depends on Tasks 15-18
+- Tasks 20-22 (Agent Integration) → Depend on Task 19
+- Tasks 23-25 (Configuration) → Depend on Tasks 20-22
+- Task 26 (Documentation) → Can run in parallel with Task 25
+- Task 27 (Validation) → MUST be last
 
 ---
 
@@ -532,18 +633,31 @@ Tasks that MUST run sequentially:
 
 Before marking feature complete:
 
-- [ ] All 23 tasks completed
+- [ ] All 27 tasks completed
 - [ ] Tests passing (`pnpm test`) - 100% pass rate
 - [ ] Linting clean (`pnpm lint`) - 0 errors
 - [ ] Types valid (`pnpm typecheck`) - 0 errors
 - [ ] Build succeeds (`pnpm build`) - Clean build
-- [ ] Documentation updated (architecture, configuration, API reference)
-- [ ] CLAUDE.md updated with memory architecture
-- [ ] README.md updated with memory overview
+- [ ] All services implement their respective port interfaces
+- [ ] DI container uses interface-based injection
+- [ ] Documentation updated (architecture, port interfaces, configuration, API reference)
+- [ ] CLAUDE.md updated with port-based memory architecture
+- [ ] README.md updated with memory overview and Clean Architecture approach
 - [ ] PR created and reviewed
 - [ ] CI pipeline passing (all jobs green)
 - [ ] Feature yaml updated to lifecycle: 'review'
 
 ---
 
-_Task breakdown for implementation tracking_
+**Key Architectural Principles (Enforced):**
+
+1. ✅ Port interfaces defined BEFORE implementations
+2. ✅ All services implement their port interfaces
+3. ✅ Dependencies injected via interfaces, not concrete classes
+4. ✅ DI container registers interface → implementation mappings
+5. ✅ Tests mock interfaces, not concrete implementations
+6. ✅ Follows Clean Architecture dependency rule (dependencies point inward)
+
+---
+
+_Task breakdown for Clean Architecture implementation tracking_

@@ -4,82 +4,86 @@
 
 ## Status
 
-- **Phase:** Planning
-- **Updated:** 2026-02-09
+- **Phase:** Complete
+- **Updated:** 2026-02-10
 
 ## Architecture Overview
 
+**Clean Architecture with Port-Based Design:** All services accessed through port interfaces in the application layer, with concrete implementations in the infrastructure layer.
+
 ```
 ┌──────────────────────────────────────────────────────────────────────┐
-│                  Shep AI Memory Layer Architecture                   │
+│              Shep AI Memory Layer - Clean Architecture               │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                        │
 │  ┌────────────────────── Application Layer ─────────────────────┐   │
+│  │                    (Port Interfaces Only)                     │   │
 │  │                                                                │   │
-│  │  ┌─────────────────────────────────────────────────────────┐ │   │
-│  │  │          IMemoryService (Port Interface)                │ │   │
-│  │  │  - store(episode)                                       │ │   │
-│  │  │  - retrieve(query, scope)                               │ │   │
-│  │  │  - pruneOldMemories(policy)                             │ │   │
-│  │  └─────────────────────────────────────────────────────────┘ │   │
-│  │                            ▲                                  │   │
-│  └────────────────────────────┼───────────────────────────────────┘   │
-│                                │                                        │
+│  │  ┌──────────────────────────────────────────────────────┐    │   │
+│  │  │           IMemoryService (Orchestration)             │    │   │
+│  │  │  - store(episode)                                    │    │   │
+│  │  │  - retrieve(query, scope)                            │    │   │
+│  │  │  - pruneOldMemories(policy)                          │    │   │
+│  │  └──────────────────────────────────────────────────────┘    │   │
+│  │            ▲ depends on (interface injection)                 │   │
+│  │            │                                                   │   │
+│  │  ┌─────────┴──────────┬─────────────┬──────────────┐        │   │
+│  │  │                    │             │              │        │   │
+│  │  │ IEmbeddingService  │ IVectorStore│ IGraphStore  │        │   │
+│  │  │                    │   Service   │   Service    │        │   │
+│  │  │ - generate()       │ - upsert()  │ - addTriple()│        │   │
+│  │  │ - batch()          │ - search()  │ - query()    │        │   │
+│  │  └────────────────────┴─────────────┴──────────────┘        │   │
+│  │                                                                │   │
+│  └────────────────────────────────────────────────────────────────┘   │
+│                            ▲ implements                                │
+│                            │ (Dependency Inversion)                    │
 │  ┌────────────────── Infrastructure Layer ──────────────────────┐     │
-│  │                            │                                  │     │
-│  │  ┌─────────────────────────▼─────────────────────────────┐  │     │
-│  │  │       MemoryService (Orchestrator)                    │  │     │
-│  │  │  - Hybrid retrieval (semantic + graph)                │  │     │
-│  │  │  - Multi-graph scoping (global + feature)             │  │     │
-│  │  │  - Memory persistence & pruning                        │  │     │
-│  │  └────────────────────┬───────────────────────────────────┘  │     │
-│  │                       │                                       │     │
-│  │       ┌───────────────┼───────────────┐                      │     │
-│  │       │               │               │                      │     │
-│  │  ┌────▼──────┐ ┌──────▼──────┐ ┌─────▼──────┐              │     │
-│  │  │ Embedding │ │   Vector    │ │   Graph    │              │     │
-│  │  │  Service  │ │    Store    │ │   Store    │              │     │
-│  │  │           │ │   Service   │ │  Service   │              │     │
-│  │  │- generate()│ │ - upsert() │ │- addTriple()│             │     │
-│  │  │- batch()  │ │ - search() │ │ - query()  │              │     │
-│  │  └────┬──────┘ └──────┬──────┘ └─────┬──────┘              │     │
-│  │       │               │               │                      │     │
-│  │  ┌────▼──────────┐ ┌──▼────────┐ ┌───▼────────┐            │     │
-│  │  │Transformers.js│ │  LanceDB  │ │ Quadstore  │            │     │
-│  │  │ (Embeddings)  │ │ (Vectors) │ │  (Graph)   │            │     │
-│  │  └───────────────┘ └───────────┘ └────────────┘            │     │
-│  │                                                              │     │
-│  └──────────────────────────────────────────────────────────────┘     │
+│  │                    (Concrete Implementations)                 │     │
+│  │                                                                │     │
+│  │  ┌──────────────────────────────────────────────────────┐    │     │
+│  │  │       MemoryService implements IMemoryService        │    │     │
+│  │  │  - Hybrid retrieval (semantic + graph)               │    │     │
+│  │  │  - Multi-graph scoping (global + feature)            │    │     │
+│  │  │  - Memory persistence & pruning                       │    │     │
+│  │  │  - Depends on: IEmbeddingService, IVectorStoreService│    │     │
+│  │  │                IGraphStoreService (via DI)           │    │     │
+│  │  └──────────────────────────────────────────────────────┘    │     │
+│  │                                                                │     │
+│  │  ┌──────────────┐  ┌────────────────┐  ┌───────────────┐    │     │
+│  │  │  Embedding   │  │  VectorStore   │  │  GraphStore   │    │     │
+│  │  │   Service    │  │    Service     │  │   Service     │    │     │
+│  │  │              │  │                │  │               │    │     │
+│  │  │ implements   │  │  implements    │  │  implements   │    │     │
+│  │  │ IEmbedding   │  │  IVectorStore  │  │  IGraphStore  │    │     │
+│  │  │   Service    │  │    Service     │  │    Service    │    │     │
+│  │  └──────┬───────┘  └───────┬────────┘  └───────┬───────┘    │     │
+│  │         │                  │                    │             │     │
+│  │  ┌──────▼─────────┐ ┌──────▼─────────┐ ┌───────▼────────┐   │     │
+│  │  │ Transformers.js│ │    LanceDB     │ │   Quadstore    │   │     │
+│  │  │  (ONNX/Local) │ │ (File-based)   │ │  (LevelDB)     │   │     │
+│  │  └────────────────┘ └────────────────┘ └────────────────┘   │     │
+│  │                                                                │     │
+│  └────────────────────────────────────────────────────────────────┘     │
 │                                                                        │
 │  ┌───────────────────── Storage Layer ───────────────────────────┐   │
-│  │                                                                │   │
 │  │  ~/.shep/memory/                                              │   │
-│  │  ├── vectors/                                                 │   │
-│  │  │   ├── global/          # Global embeddings (LanceDB)      │   │
-│  │  │   └── features/        # Per-feature embeddings           │   │
-│  │  │       └── {featureId}/ # Feature-specific vectors         │   │
-│  │  ├── graphs/                                                  │   │
-│  │  │   ├── global/          # Global memory graph (Quadstore)  │   │
-│  │  │   └── features/        # Per-feature graphs               │   │
-│  │  │       └── {featureId}/ # Feature-specific graph data      │   │
-│  │  └── models/                                                  │   │
-│  │      └── embeddings/      # Cached ONNX models               │   │
-│  │                                                                │   │
+│  │  ├── vectors/       # LanceDB vector data (global + features) │   │
+│  │  ├── graphs/        # Quadstore graph data (global + features)│   │
+│  │  └── models/        # Cached ONNX models (Transformers.js)    │   │
 │  └────────────────────────────────────────────────────────────────┘   │
 │                                                                        │
 └──────────────────────────────────────────────────────────────────────┘
 
-Data Flow:
+Data Flow (with Dependency Injection):
 1. Agent interaction → Episode created
-2. Episode → MemoryService.store()
-3. MemoryService → EmbeddingService.generate() → Transformers.js
-4. Embeddings → VectorStoreService.upsert() → LanceDB
-5. Episode metadata → GraphStoreService.addTriple() → Quadstore
-6. Agent query → MemoryService.retrieve(query, scope)
-7. Query → EmbeddingService.generate() → Vector
-8. Vector → VectorStoreService.search() → Top-K similar episodes
-9. Episode IDs → GraphStoreService.query() → Related episodes via graph
-10. Hybrid results → Ranked & returned to agent
+2. Episode → IMemoryService.store() [DI: MemoryService]
+3. MemoryService → IEmbeddingService.generate() [DI: EmbeddingService]
+4. Embeddings → IVectorStoreService.upsert() [DI: VectorStoreService]
+5. Episode → IGraphStoreService.addTriple() [DI: GraphStoreService]
+6. Agent query → IMemoryService.retrieve(query, scope)
+7. Hybrid: IVectorStoreService.search() + IGraphStoreService.query()
+8. Results → Ranked & returned to agent
 ```
 
 ## Implementation Strategy
@@ -113,7 +117,68 @@ Data Flow:
 
 ---
 
-### Phase 2: Embedding Service (TDD CYCLE)
+### Phase 2: Port Interfaces (Application Layer)
+
+**Purpose:** Define port interfaces following Clean Architecture's Dependency Inversion Principle.
+
+**What we'll build:**
+
+1. **IEmbeddingService Interface** (`application/ports/output/embedding-service.interface.ts`):
+
+   ```typescript
+   export interface IEmbeddingService {
+     generateEmbedding(text: string): Promise<number[]>;
+     generateBatch(texts: string[]): Promise<number[][]>;
+   }
+   ```
+
+2. **IVectorStoreService Interface** (`application/ports/output/vector-store-service.interface.ts`):
+
+   ```typescript
+   export interface IVectorStoreService {
+     upsert(episode: Episode, embedding: number[]): Promise<void>;
+     search(queryEmbedding: number[], limit: number): Promise<VectorSearchResult[]>;
+     searchByScope(
+       queryEmbedding: number[],
+       scope: MemoryScope,
+       limit: number
+     ): Promise<VectorSearchResult[]>;
+     delete(episodeId: string): Promise<void>;
+   }
+   ```
+
+3. **IGraphStoreService Interface** (`application/ports/output/graph-store-service.interface.ts`):
+
+   ```typescript
+   export interface IGraphStoreService {
+     addTriple(
+       subject: string,
+       predicate: string,
+       object: string,
+       scope: MemoryScope
+     ): Promise<void>;
+     query(sparql: string, scope?: MemoryScope): Promise<SparqlResult[]>;
+     getRelatedEpisodes(episodeId: string, scope?: MemoryScope, depth?: number): Promise<string[]>;
+     removeEpisode(episodeId: string): Promise<void>;
+   }
+   ```
+
+4. **IMemoryService Interface** (`application/ports/output/memory-service.interface.ts`):
+   ```typescript
+   export interface IMemoryService {
+     store(episode: Episode): Promise<void>;
+     retrieve(query: string, topK: number, scope?: MemoryScope): Promise<Episode[]>;
+     pruneOldMemories(retentionDays: number): Promise<void>;
+   }
+   ```
+
+**Why interfaces first:** Establishes contracts before implementation, enables TDD with mocks.
+
+**Deliverable:** All port interfaces defined with clear contracts and JSDoc.
+
+---
+
+### Phase 3: Embedding Service (TDD CYCLE)
 
 **Purpose:** Implement local embedding generation using Transformers.js with ONNX Runtime.
 
@@ -133,7 +198,7 @@ Data Flow:
 **Create:**
 
 - `src/infrastructure/services/memory/embedding.service.ts`:
-  - `EmbeddingService` class implementing embedding generation
+  - `EmbeddingService implements IEmbeddingService`
   - `initialize()` - Lazy load Transformers.js pipeline
   - `generateEmbedding(text: string): Promise<number[]>` - Single text embedding
   - `generateBatch(texts: string[]): Promise<number[][]>` - Batch embeddings
@@ -153,11 +218,11 @@ pnpm add @xenova/transformers
 - Optimize batch size for performance
 - Add JSDoc documentation
 
-**Deliverable:** Embedding service with passing unit tests, local ONNX embeddings working.
+**Deliverable:** Embedding service implementing IEmbeddingService with passing unit tests.
 
 ---
 
-### Phase 3: Vector Storage Service (TDD CYCLE)
+### Phase 4: Vector Storage Service (TDD CYCLE)
 
 **Purpose:** Implement vector storage and semantic search using LanceDB.
 
@@ -178,7 +243,7 @@ pnpm add @xenova/transformers
 **Create:**
 
 - `src/infrastructure/services/memory/vector-store.service.ts`:
-  - `VectorStoreService` class for vector operations
+  - `VectorStoreService implements IVectorStoreService`
   - `upsert(episode: Episode, embedding: number[]): Promise<void>` - Store/update
   - `search(query: number[], topK: number, scope?: MemoryScope): Promise<Episode[]>` - Search
   - `delete(episodeId: string): Promise<void>` - Remove
@@ -188,7 +253,7 @@ pnpm add @xenova/transformers
 **Install dependencies:**
 
 ```bash
-pnpm add vectordb  # LanceDB TypeScript client
+pnpm add @lancedb/lancedb apache-arrow
 ```
 
 #### REFACTOR: Improve Code Quality
@@ -198,11 +263,11 @@ pnpm add vectordb  # LanceDB TypeScript client
 - Add metadata filtering support
 - Extract table schema to constants
 
-**Deliverable:** Vector store service with passing integration tests, semantic search working.
+**Deliverable:** Vector store service implementing IVectorStoreService with passing integration tests.
 
 ---
 
-### Phase 4: Graph Storage Service (TDD CYCLE)
+### Phase 5: Graph Storage Service (TDD CYCLE)
 
 **Purpose:** Implement graph storage for memory relationships using Quadstore.
 
@@ -224,7 +289,7 @@ pnpm add vectordb  # LanceDB TypeScript client
 **Create:**
 
 - `src/infrastructure/services/memory/graph-store.service.ts`:
-  - `GraphStoreService` class for graph operations
+  - `GraphStoreService implements IGraphStoreService`
   - `addTriple(subject, predicate, object, graph?): Promise<void>` - Add relationship
   - `query(sparql: string): Promise<any[]>` - Execute SPARQL
   - `getRelatedEpisodes(episodeId: string, scope?: MemoryScope): Promise<string[]>` - Traverse
@@ -236,7 +301,7 @@ pnpm add vectordb  # LanceDB TypeScript client
 **Install dependencies:**
 
 ```bash
-pnpm add quadstore level  # Quadstore + LevelDB
+pnpm add quadstore level
 ```
 
 #### REFACTOR: Improve Code Quality
@@ -246,11 +311,11 @@ pnpm add quadstore level  # Quadstore + LevelDB
 - Extract graph URIs to constants
 - Add bulk insert optimization
 
-**Deliverable:** Graph store service with passing integration tests, relationship queries working.
+**Deliverable:** Graph store service implementing IGraphStoreService with passing integration tests.
 
 ---
 
-### Phase 5: Memory Service Orchestration (TDD CYCLE)
+### Phase 6: Memory Service Orchestration (TDD CYCLE)
 
 **Purpose:** High-level memory service orchestrating embedding, vector, and graph storage.
 
@@ -264,7 +329,7 @@ pnpm add quadstore level  # Quadstore + LevelDB
 - ✗ `pruneOldMemories()` - Should delete memories older than retention policy
 - ✗ Error handling - Should handle embedding/storage failures gracefully
 
-**Mock dependencies:** Mock EmbeddingService, VectorStoreService, GraphStoreService.
+**Mock dependencies:** Mock IEmbeddingService, IVectorStoreService, IGraphStoreService.
 
 **Integration Tests** (`tests/integration/infrastructure/services/memory/memory.service.integration.test.ts`):
 
@@ -276,14 +341,9 @@ pnpm add quadstore level  # Quadstore + LevelDB
 
 **Create:**
 
-- `src/application/ports/output/memory-service.interface.ts`:
-
-  - `IMemoryService` port interface
-  - Methods: `store()`, `retrieve()`, `pruneOldMemories()`
-
 - `src/infrastructure/services/memory/memory.service.ts`:
-  - `MemoryService` class implementing `IMemoryService`
-  - Constructor injects: EmbeddingService, VectorStoreService, GraphStoreService
+  - `MemoryService implements IMemoryService`
+  - Constructor injects: `IEmbeddingService`, `IVectorStoreService`, `IGraphStoreService`
   - `store(episode: Episode): Promise<void>` - Generate embedding → upsert vector → add graph triple
   - `retrieve(query: string, topK: number, scope?: MemoryScope): Promise<Episode[]>` - Hybrid retrieval
   - `pruneOldMemories(retentionDays: number): Promise<void>` - Delete old memories
@@ -296,11 +356,59 @@ pnpm add quadstore level  # Quadstore + LevelDB
 - Optimize graph traversal depth
 - Add metrics/logging for retrieval performance
 
-**Deliverable:** Memory service with passing tests, hybrid retrieval working.
+**Deliverable:** Memory service implementing IMemoryService with passing tests, hybrid retrieval working.
 
 ---
 
-### Phase 6: Agent Integration (TDD CYCLE)
+### Phase 7: Dependency Injection Registration
+
+**Purpose:** Wire up all memory services in the DI container with interface-based injection.
+
+**What we'll build:**
+
+**Modify `src/infrastructure/di/container.ts`:**
+
+```typescript
+// Register embedding service
+container.registerSingleton<IEmbeddingService>('IEmbeddingService', { useClass: EmbeddingService });
+
+// Register vector store service
+container.register<IVectorStoreService>('IVectorStoreService', {
+  useFactory: (c) => {
+    const storagePath = join(homedir(), '.shep', 'memory', 'vectors');
+    return new VectorStoreService(storagePath);
+  },
+});
+
+// Register graph store service
+container.register<IGraphStoreService>('IGraphStoreService', {
+  useFactory: (c) => {
+    const storagePath = join(homedir(), '.shep', 'memory', 'graphs');
+    return new GraphStoreService(storagePath);
+  },
+});
+
+// Register memory service (depends on interfaces)
+container.registerSingleton<IMemoryService>('IMemoryService', { useClass: MemoryService });
+```
+
+**Update MemoryService constructor:**
+
+```typescript
+export class MemoryService implements IMemoryService {
+  constructor(
+    @inject('IEmbeddingService') private embedding: IEmbeddingService,
+    @inject('IVectorStoreService') private vectorStore: IVectorStoreService,
+    @inject('IGraphStoreService') private graphStore: IGraphStoreService
+  ) {}
+}
+```
+
+**Deliverable:** All memory services registered in DI container with interface-based injection.
+
+---
+
+### Phase 8: Agent Integration (TDD CYCLE)
 
 **Purpose:** Integrate memory service into LangGraph agent execution loop.
 
@@ -327,17 +435,21 @@ pnpm add quadstore level  # Quadstore + LevelDB
   - Add memory node: `addNode('retrieveMemory', retrieveMemoryNode)`
   - Add memory node: `addNode('storeMemory', storeMemoryNode)`
   - Update edges: `START → retrieveMemory → analyze → storeMemory → END`
-  - `retrieveMemoryNode`: Query memory service for relevant context, inject into prompt
-  - `storeMemoryNode`: Create episode from state, call memory service to store
-
-- `src/infrastructure/di/container.ts`:
-  - Register EmbeddingService, VectorStoreService, GraphStoreService, MemoryService
-  - Wire dependencies via constructor injection
+  - `retrieveMemoryNode`: Inject `IMemoryService`, query for context, inject into prompt
+  - `storeMemoryNode`: Create episode from state, call `IMemoryService.store()`
 
 **Create:**
 
 - `src/infrastructure/services/agents/langgraph/nodes/retrieve-memory.node.ts`
 - `src/infrastructure/services/agents/langgraph/nodes/store-memory.node.ts`
+
+**Inject via DI:**
+
+```typescript
+constructor(
+  @inject('IMemoryService') private memoryService: IMemoryService
+) {}
+```
 
 #### REFACTOR: Improve Code Quality
 
@@ -350,7 +462,7 @@ pnpm add quadstore level  # Quadstore + LevelDB
 
 ---
 
-### Phase 7: Configuration & Settings (TDD CYCLE)
+### Phase 9: Configuration & Settings (TDD CYCLE)
 
 **Purpose:** Expose memory configuration via settings.
 
@@ -369,7 +481,7 @@ pnpm add quadstore level  # Quadstore + LevelDB
 
 - `tsp/domain/entities/settings.tsp`:
 
-  - Add `memory: MemoryConfig` field
+  - Add `memory?: MemoryConfig` field
   - Define `MemoryConfig` model: embeddingProvider (Transformers | Ollama), retentionDays, storagePath, enableMemory
 
 - `src/infrastructure/services/settings.service.ts`:
@@ -390,7 +502,7 @@ pnpm add quadstore level  # Quadstore + LevelDB
 
 ---
 
-### Phase 8: Documentation & Examples
+### Phase 10: Documentation
 
 **Purpose:** Document memory system for users and developers.
 
@@ -413,44 +525,53 @@ pnpm add quadstore level  # Quadstore + LevelDB
 
 ### New Files
 
-| File                                                                                  | Purpose                           |
-| ------------------------------------------------------------------------------------- | --------------------------------- |
-| `tsp/domain/entities/memory/episode.tsp`                                              | Episode entity (main memory unit) |
-| `tsp/domain/entities/memory/memory-node.tsp`                                          | Graph node entity                 |
-| `tsp/domain/entities/memory/memory-edge.tsp`                                          | Graph relationship entity         |
-| `tsp/domain/entities/memory/memory-fragment.tsp`                                      | Conversation snippet entity       |
-| `tsp/common/enums/memory-scope.tsp`                                                   | Global vs Feature-specific enum   |
-| `tsp/common/enums/memory-type.tsp`                                                    | Episode type enum                 |
-| `src/application/ports/output/memory-service.interface.ts`                            | Memory service port interface     |
-| `src/infrastructure/services/memory/embedding.service.ts`                             | Transformers.js embedding service |
-| `src/infrastructure/services/memory/vector-store.service.ts`                          | LanceDB vector storage            |
-| `src/infrastructure/services/memory/graph-store.service.ts`                           | Quadstore graph storage           |
-| `src/infrastructure/services/memory/memory.service.ts`                                | High-level memory orchestration   |
-| `src/infrastructure/services/memory/config/memory-config.validator.ts`                | Config validation                 |
-| `src/infrastructure/services/agents/langgraph/nodes/retrieve-memory.node.ts`          | Memory retrieval LangGraph node   |
-| `src/infrastructure/services/agents/langgraph/nodes/store-memory.node.ts`             | Memory storage LangGraph node     |
-| `tests/unit/infrastructure/services/memory/embedding.service.test.ts`                 | Embedding service unit tests      |
-| `tests/integration/infrastructure/services/memory/vector-store.service.test.ts`       | Vector store integration tests    |
-| `tests/integration/infrastructure/services/memory/graph-store.service.test.ts`        | Graph store integration tests     |
-| `tests/unit/infrastructure/services/memory/memory.service.test.ts`                    | Memory service unit tests         |
-| `tests/integration/infrastructure/services/memory/memory.service.integration.test.ts` | Memory service integration tests  |
-| `tests/integration/infrastructure/agents/memory-integration.test.ts`                  | Agent memory integration tests    |
-| `tests/e2e/cli/agent-memory.test.ts`                                                  | CLI agent memory E2E tests        |
-| `docs/memory/architecture.md`                                                         | Memory architecture documentation |
-| `docs/memory/configuration.md`                                                        | Memory configuration guide        |
-| `docs/memory/api-reference.md`                                                        | API reference documentation       |
+| File                                                                                       | Purpose                                |
+| ------------------------------------------------------------------------------------------ | -------------------------------------- |
+| `tsp/domain/entities/memory/episode.tsp`                                                   | Episode entity (main memory unit)      |
+| `tsp/domain/entities/memory/memory-node.tsp`                                               | Graph node entity                      |
+| `tsp/domain/entities/memory/memory-edge.tsp`                                               | Graph relationship entity              |
+| `tsp/domain/entities/memory/memory-fragment.tsp`                                           | Conversation snippet entity            |
+| `tsp/common/enums/memory-scope.tsp`                                                        | Global vs Feature-specific enum        |
+| `tsp/common/enums/memory-type.tsp`                                                         | Episode type enum                      |
+| `src/application/ports/output/embedding-service.interface.ts`                              | Embedding service port interface       |
+| `src/application/ports/output/vector-store-service.interface.ts`                           | Vector store service port interface    |
+| `src/application/ports/output/graph-store-service.interface.ts`                            | Graph store service port interface     |
+| `src/application/ports/output/memory-service.interface.ts`                                 | Memory service port interface          |
+| `src/infrastructure/services/memory/embedding.service.ts`                                  | Transformers.js embedding service      |
+| `src/infrastructure/services/memory/vector-store.service.ts`                               | LanceDB vector storage                 |
+| `src/infrastructure/services/memory/graph-store.service.ts`                                | Quadstore graph storage                |
+| `src/infrastructure/services/memory/memory.service.ts`                                     | High-level memory orchestration        |
+| `src/infrastructure/services/memory/config/memory-config.validator.ts`                     | Config validation                      |
+| `src/infrastructure/services/agents/langgraph/nodes/retrieve-memory.node.ts`               | Memory retrieval LangGraph node        |
+| `src/infrastructure/services/agents/langgraph/nodes/store-memory.node.ts`                  | Memory storage LangGraph node          |
+| `tests/unit/infrastructure/services/memory/embedding.service.test.ts`                      | Embedding service unit tests           |
+| `tests/integration/infrastructure/services/memory/vector-store.service.test.ts`            | Vector store integration tests         |
+| `tests/integration/infrastructure/services/memory/graph-store.service.test.ts`             | Graph store integration tests          |
+| `tests/unit/infrastructure/services/memory/memory.service.test.ts`                         | Memory service unit tests              |
+| `tests/integration/infrastructure/services/memory/memory.service.integration.test.ts`      | Memory service integration tests       |
+| `tests/integration/infrastructure/agents/memory-integration.test.ts`                       | Agent memory integration tests         |
+| `tests/e2e/cli/agent-memory.test.ts`                                                       | CLI agent memory E2E tests             |
+| `tests/unit/application/ports/output/embedding-service.interface.test.ts` (contract tests) | Embedding service contract tests       |
+| `tests/unit/application/ports/output/vector-store-service.interface.test.ts`               | Vector store service contract tests    |
+| `tests/unit/application/ports/output/graph-store-service.interface.test.ts`                | Graph store service contract tests     |
+| `tests/unit/application/ports/output/memory-service.interface.test.ts`                     | Memory service contract tests          |
+| `docs/memory/architecture.md`                                                              | Memory architecture documentation      |
+| `docs/memory/configuration.md`                                                             | Memory configuration guide             |
+| `docs/memory/api-reference.md`                                                             | API reference documentation            |
+| `docs/memory/port-interfaces.md`                                                           | Port interface contracts documentation |
 
 ### Modified Files
 
-| File                                                                       | Changes                                                                    |
-| -------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `tsp/domain/entities/settings.tsp`                                         | Add `memory: MemoryConfig` field                                           |
-| `src/infrastructure/di/container.ts`                                       | Register memory services in DI container                                   |
-| `src/infrastructure/services/agents/langgraph/analyze-repository-graph.ts` | Add memory nodes to graph (retrieve + store)                               |
-| `src/infrastructure/services/settings.service.ts`                          | Load memory configuration from settings                                    |
-| `package.json`                                                             | Add dependencies: `@xenova/transformers`, `vectordb`, `quadstore`, `level` |
-| `CLAUDE.md`                                                                | Document memory layer architecture                                         |
-| `README.md`                                                                | Add memory system overview                                                 |
+| File                                                                       | Changes                                                   |
+| -------------------------------------------------------------------------- | --------------------------------------------------------- |
+| `tsp/domain/entities/settings.tsp`                                         | Add `memory: MemoryConfig` field                          |
+| `src/infrastructure/di/container.ts`                                       | Register memory services via interface injection          |
+| `src/infrastructure/services/agents/langgraph/analyze-repository-graph.ts` | Add memory nodes to graph (retrieve + store)              |
+| `src/infrastructure/services/settings.service.ts`                          | Load memory configuration from settings                   |
+| `package.json`                                                             | Add dependencies: `@xenova/transformers`, `lancedb`, etc. |
+| `src/application/ports/output/index.ts`                                    | Export all memory service interfaces                      |
+| `CLAUDE.md`                                                                | Document memory layer architecture with port-based design |
+| `README.md`                                                                | Add memory system overview with interface-based approach  |
 
 ---
 
@@ -458,19 +579,27 @@ pnpm add quadstore level  # Quadstore + LevelDB
 
 ### Unit Tests
 
+**Port Interface Contract Tests:**
+
+- Verify interface contracts (methods, parameters, return types)
+- Document expected behavior for implementers
+- No actual implementation testing (pure contracts)
+
 **Embedding Service:**
 
 - Embedding generation (mock Transformers.js pipeline)
 - Batch processing with mocked models
 - Error handling (invalid input, model loading failures)
 - Lazy initialization
+- **Mock interface:** `IEmbeddingService` for consumers
 
 **Memory Service:**
 
-- Store orchestration (mock all dependencies)
+- Store orchestration (mock all interface dependencies)
 - Retrieve hybrid logic (mock vector + graph results)
 - Pruning logic (mock deletions)
 - Scoping logic (global vs feature)
+- **Mock interfaces:** `IEmbeddingService`, `IVectorStoreService`, `IGraphStoreService`
 
 **Memory Configuration:**
 
@@ -486,6 +615,7 @@ pnpm add quadstore level  # Quadstore + LevelDB
 - Search with scoping filters
 - Persistence across restarts
 - Delete operations
+- **Verify:** Implements `IVectorStoreService` correctly
 
 **Graph Store Service:**
 
@@ -494,18 +624,21 @@ pnpm add quadstore level  # Quadstore + LevelDB
 - Graph traversal for related episodes
 - Named graph isolation (global vs feature)
 - Persistence across restarts
+- **Verify:** Implements `IGraphStoreService` correctly
 
 **Memory Service Integration:**
 
 - End-to-end store + retrieve flow with real dependencies
 - Hybrid retrieval accuracy (semantic + graph)
 - Scoping isolation
+- **Inject:** Real implementations via DI container
 
 **Agent Memory Integration:**
 
 - Agent stores episode after task completion
 - Agent retrieves context before new task
 - Feature-specific memory isolation
+- **Inject:** `IMemoryService` via DI
 
 ### E2E Tests
 
@@ -514,6 +647,7 @@ pnpm add quadstore level  # Quadstore + LevelDB
 - Run agent via CLI, verify memory stored
 - Run agent again, verify context retrieved
 - Verify feature-specific memory isolated from global
+- **Test:** Full stack with DI container
 
 ---
 
@@ -528,6 +662,7 @@ pnpm add quadstore level  # Quadstore + LevelDB
 | **Memory growth unbounded**             | Implement pruning policy (default 90 days), add memory stats CLI command, monitor storage size             |
 | **Breaking changes in dependencies**    | Pin versions in package.json, add dependency update tests, document version constraints                    |
 | **Multi-process access conflicts**      | Use file locking for LanceDB/Quadstore, implement retry logic, document single-process limitation          |
+| **Interface breaking changes**          | Version interfaces, maintain backward compatibility, use contract tests to detect breaking changes         |
 
 ---
 
@@ -554,7 +689,7 @@ If memory layer causes issues:
 4. **Revert dependencies:**
 
    ```bash
-   pnpm remove @xenova/transformers vectordb quadstore level
+   pnpm remove @xenova/transformers @lancedb/lancedb apache-arrow quadstore level
    ```
 
 5. **Revert code changes:**
@@ -566,4 +701,4 @@ If memory layer causes issues:
 
 ---
 
-_Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_
+_Implementation plan complete — see tasks.md for detailed breakdown_

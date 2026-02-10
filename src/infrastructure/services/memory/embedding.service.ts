@@ -1,6 +1,7 @@
 import { pipeline, env } from '@xenova/transformers';
 import { homedir } from 'os';
 import { join } from 'path';
+import type { IEmbeddingService } from '@/application/ports/output';
 
 /**
  * Model configuration constants
@@ -24,6 +25,7 @@ type EmbeddingPipeline = (text: string) => Promise<{ data: Float32Array }>;
 /**
  * EmbeddingService - Generates embeddings using Transformers.js
  *
+ * Implements IEmbeddingService using Transformers.js with ONNX Runtime.
  * Uses mixedbread-ai/mxbai-embed-xsmall-v1 model to generate 384-dimensional vectors.
  * Models are cached locally to avoid repeated downloads.
  *
@@ -34,7 +36,7 @@ type EmbeddingPipeline = (text: string) => Promise<{ data: Float32Array }>;
  * console.log(embedding.length); // 384
  * ```
  */
-export class EmbeddingService {
+export class EmbeddingService implements IEmbeddingService {
   private pipeline: EmbeddingPipeline | null = null;
 
   constructor() {

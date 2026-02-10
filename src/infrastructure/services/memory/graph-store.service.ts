@@ -2,16 +2,14 @@
  * GraphStoreService - Quadstore RDF graph storage integration
  *
  * STUB: Implementation pending (TDD RED phase)
+ *
+ * Will implement IGraphStoreService using Quadstore for file-based RDF storage.
  */
 
 import type { MemoryScope } from '@/domain/generated/output';
+import type { IGraphStoreService, SparqlResult } from '@/application/ports/output';
 
-/**
- * SPARQL query result row type
- */
-export type SparqlResult = Record<string, string>;
-
-export class GraphStoreService {
+export class GraphStoreService implements IGraphStoreService {
   constructor(_storageDir: string) {
     throw new Error('GraphStoreService not implemented yet (TDD RED phase)');
   }

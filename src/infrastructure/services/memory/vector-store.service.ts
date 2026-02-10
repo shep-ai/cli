@@ -15,6 +15,7 @@
 import { connect, type Connection, type Table } from '@lancedb/lancedb';
 import * as arrow from 'apache-arrow';
 import type { Episode, MemoryScope } from '@/domain/generated/output';
+import type { IVectorStoreService, VectorSearchResult } from '@/application/ports/output';
 
 /**
  * Vector store configuration constants
@@ -22,18 +23,6 @@ import type { Episode, MemoryScope } from '@/domain/generated/output';
 const TABLE_NAME = 'episodes';
 const EMBEDDING_DIM = 384;
 const INIT_ROW_ID = 'init';
-
-/**
- * Search result containing episode reference and similarity distance
- */
-export interface VectorSearchResult {
-  /** Episode identifier */
-  episodeId: string;
-  /** Memory scope (global or feature-specific) */
-  scope: MemoryScope;
-  /** Cosine distance from query vector (lower is more similar) */
-  distance: number;
-}
 
 /**
  * LanceDB table row schema
@@ -50,13 +39,15 @@ interface VectorTableRow {
 /**
  * VectorStoreService - Local-first vector database for episode embeddings
  *
+ * Implements IVectorStoreService using LanceDB for file-based vector storage.
+ *
  * Features:
  * - Semantic similarity search via cosine distance
  * - Scope-based filtering (global vs feature-specific)
  * - Automatic upsert behavior (update or insert)
  * - File-based persistence with LanceDB
  */
-export class VectorStoreService {
+export class VectorStoreService implements IVectorStoreService {
   private connection: Connection | null = null;
   private table: Table | null = null;
   private readonly storageDir: string;

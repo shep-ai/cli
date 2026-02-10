@@ -19,3 +19,9 @@ export type { IAgentExecutorFactory } from './agent-executor-factory.interface.j
 export type { IAgentRunner, AgentRunOptions } from './agent-runner.interface.js';
 export type { IAgentRegistry, AgentDefinitionWithFactory } from './agent-registry.interface.js';
 export type { IAgentRunRepository } from './agent-run-repository.interface.js';
+
+// Memory service interfaces
+export type { IEmbeddingService, EmbeddingVector } from './embedding-service.interface.js';
+export type { IVectorStoreService, VectorSearchResult } from './vector-store-service.interface.js';
+export type { IGraphStoreService, SparqlResult } from './graph-store-service.interface.js';
+export type { IMemoryService } from './memory-service.interface.js';
