@@ -84,7 +84,7 @@ new-feature → research → planning → implementation → review → complete
 | research       | research                                  |
 | planning       | planning, ready-to-implement              |
 | implementation | implementation, ready-for-review, blocked |
-| review         | in-review                                 |
+| review         | in-review, review-watching, review-fixing |
 | complete       | complete                                  |
 
 ## Read Operations
@@ -323,13 +323,42 @@ total_tasks=$(grep -c "^## Task [0-9]" tasks.md)
 
 ### `/shep-kit:commit-pr`
 
-**When:** PR created
+**When:** PR created and review loop running
 
-**Updates:**
+**Updates on PR creation:**
 
 - Set `lifecycle: "review"`, `phase: "in-review"`
 - Add `prUrl: "https://github.com/..."`
 - Add checkpoint: "pr-created"
+
+**Updates during review loop:**
+
+- Set `phase: "review-watching"` when waiting for reviews
+- Set `phase: "review-fixing"` when applying fixes
+- Add `reviewLoop` field to track iteration state
+- Add checkpoint: "review-loop-started" when loop begins
+- Add checkpoint: "review-fixes-applied-N" after each fix iteration (N = iteration number)
+- Add checkpoint: "review-approved" when PR receives APPROVED status
+- Add checkpoint: "review-loop-exhausted" when max iterations reached
+
+**`reviewLoop` field schema:**
+
+```yaml
+reviewLoop:
+  iteration: 0 # Current iteration number (0-based)
+  maxIterations: 5 # Configurable max review-fix cycles
+  commentsAddressed: [] # Comment IDs fixed so far
+  commentsRemaining: [] # Comment IDs still open
+  status: 'watching' # watching | fixing | approved | exhausted | failed
+```
+
+**Review loop state transitions:**
+
+```
+in-review → review-watching → review-fixing → review-watching (loop)
+                                    ↓
+                              review-watching → in-review (approved / no issues)
+```
 
 ### `/shep-kit:merged`
 

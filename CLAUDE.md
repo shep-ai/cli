@@ -16,11 +16,14 @@ Shep AI CLI (`@shepai/cli`) is an Autonomous AI Native SDLC Platform that automa
 
 Feature specifications live in `specs/NNN-feature-name/`:
 
-- `spec.md` - Requirements and scope
-- `research.md` - Technical decisions
-- `plan.md` - Implementation strategy **with TDD cycles (RED-GREEN-REFACTOR)**
-- `tasks.md` - Task breakdown **with explicit TDD phases**
+**YAML files are the source of truth. Markdown files are auto-generated. Always edit YAML, never Markdown.**
+
+- `spec.yaml` - Requirements and scope (source of truth)
+- `research.yaml` - Technical decisions (source of truth)
+- `plan.yaml` - Implementation strategy **with TDD cycles (RED-GREEN-REFACTOR)** (source of truth)
+- `tasks.yaml` - Task breakdown **with explicit TDD phases** (source of truth)
 - `feature.yaml` - **Machine-readable status tracking** (updated by all shep-kit skills)
+- `spec.md`, `research.md`, `plan.md`, `tasks.md` - **Auto-generated from YAML** (DO NOT EDIT)
 
 **CRITICAL**: Plans MUST follow Test-Driven Development. Every implementation phase must define:
 
@@ -100,6 +103,10 @@ pnpm validate             # Run all checks (lint, format, typecheck, tsp)
 
 # CLI Global Testing
 pnpm link --global && shep  # Test CLI as global command
+
+# Spec Management
+pnpm spec:generate-md <id> # Generate Markdown from YAML specs
+pnpm spec:validate <id>    # Validate spec quality gates
 
 # TypeSpec (Domain Models)
 pnpm tsp:compile          # Compile TypeSpec to OpenAPI

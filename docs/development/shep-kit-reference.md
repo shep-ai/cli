@@ -16,9 +16,9 @@ flowchart TD
     CP["🚀 commit-pr\nPR + CI Watch"]
     MG["✅ merged\nCleanup"]
 
-    NF -- "spec.md + feature.yaml" --> RS
-    RS -- "research.md" --> PL
-    PL -- "plan.md + tasks.md" --> IM
+    NF -- "spec.yaml + feature.yaml" --> RS
+    RS -- "research.yaml" --> PL
+    PL -- "plan.yaml + tasks.yaml" --> IM
     IM -- "source code + tests" --> CP
     CP -- "PR created" --> MG
 
@@ -85,19 +85,17 @@ flowchart TD
     subgraph NF ["🆕 new-feature (9 files)"]
         NF1["SKILL.md"]
         NF2["scripts/init-feature.sh"]
-        NF3["templates/ ×6"]
+        NF3["templates/ ×7\n(YAML + data-model.md + feature.yaml)"]
         NF4["examples/"]
     end
 
-    subgraph RS ["🔬 research (3 files)"]
+    subgraph RS ["🔬 research (2 files)"]
         RS1["SKILL.md"]
-        RS2["templates/research.md"]
         RS3["examples/"]
     end
 
-    subgraph PL ["📐 plan (4 files)"]
+    subgraph PL ["📐 plan (2 files)"]
         PL1["SKILL.md"]
-        PL2["templates/ ×2"]
         PL3["examples/"]
     end
 
@@ -116,10 +114,10 @@ flowchart TD
     end
 
     subgraph OUT ["📁 specs/NNN-name/ (output)"]
-        O1["spec.md"]
-        O2["research.md"]
-        O3["plan.md"]
-        O4["tasks.md"]
+        O1["spec.yaml → spec.md"]
+        O2["research.yaml → research.md"]
+        O3["plan.yaml → plan.md"]
+        O4["tasks.yaml → tasks.md"]
         O5["feature.yaml"]
         O6["data-model.md"]
     end
@@ -201,10 +199,10 @@ flowchart LR
 | ------------------------------ | ---------------- | ------------------------------------------------------------------ |
 | `SKILL.md`                     | Skill definition | Workflow instructions and principles                               |
 | `scripts/init-feature.sh`      | Shell script     | Scaffolds spec directory from templates with variable substitution |
-| `templates/spec.md`            | Template         | Feature specification (problem, criteria, scope)                   |
-| `templates/research.md`        | Template         | Technical decisions placeholder                                    |
-| `templates/plan.md`            | Template         | Implementation strategy placeholder                                |
-| `templates/tasks.md`           | Template         | Task breakdown placeholder                                         |
+| `templates/spec.yaml`          | YAML template    | Feature specification (source of truth)                            |
+| `templates/research.yaml`      | YAML template    | Technical decisions (source of truth)                              |
+| `templates/plan.yaml`          | YAML template    | Implementation strategy (source of truth)                          |
+| `templates/tasks.yaml`         | YAML template    | Task breakdown (source of truth)                                   |
 | `templates/data-model.md`      | Template         | Domain model changes placeholder                                   |
 | `templates/feature.yaml`       | Template         | Machine-readable status tracking                                   |
 | `examples/001-sample-feature/` | Example          | Reference spec for new features                                    |
@@ -219,7 +217,7 @@ flowchart LR
 | 4    | Analyze context | Scan existing specs, codebase patterns, dependencies |
 | 5    | Propose spec    | Infer problem statement, criteria, size estimate     |
 | 6    | User confirms   | Allow adjustments before writing                     |
-| 7    | Write & commit  | Write spec.md, stage, commit                         |
+| 7    | Write & commit  | Write spec.yaml, generate Markdown, stage, commit    |
 
 #### Key Principles
 
@@ -227,7 +225,7 @@ flowchart LR
 | ------------------------ | ------------------------------------------ |
 | Branch first             | All spec work on feature branch            |
 | Infer, don't interrogate | Analyze codebase to propose smart defaults |
-| Dependencies from specs  | Scan `specs/*/spec.md` for relationships   |
+| Dependencies from specs  | Scan `specs/*/spec.yaml` for relationships |
 | Open questions block     | Must resolve before proceeding to research |
 
 ---
@@ -239,9 +237,9 @@ flowchart LR
 | Property         | Value                                                                 |
 | ---------------- | --------------------------------------------------------------------- |
 | **Trigger**      | "research", "technical analysis", "evaluate options", "which library" |
-| **Prerequisite** | `spec.md` exists, on feature branch, open questions resolved          |
-| **Gate Check**   | Verifies no unchecked `- [ ]` items in spec.md Open Questions         |
-| **Output**       | Populated `research.md`                                               |
+| **Prerequisite** | `spec.yaml` exists, on feature branch, open questions resolved        |
+| **Gate Check**   | Verifies `openQuestions` resolved in `spec.yaml`                      |
+| **Output**       | Populated `research.yaml` (Markdown auto-generated)                   |
 | **Lifecycle**    | Updates to `planning`                                                 |
 | **Checkpoint**   | `research-complete`                                                   |
 | **Next**         | `/shep-kit:plan`                                                      |
@@ -251,7 +249,6 @@ flowchart LR
 | File                          | Type             | Purpose                                   |
 | ----------------------------- | ---------------- | ----------------------------------------- |
 | `SKILL.md`                    | Skill definition | Research workflow and evaluation criteria |
-| `templates/research.md`       | Template         | Structured research document template     |
 | `examples/sample-research.md` | Example          | Reference research document               |
 
 #### Workflow Steps
@@ -259,15 +256,15 @@ flowchart LR
 | Step | Action               | Detail                                                 |
 | ---- | -------------------- | ------------------------------------------------------ |
 | 1    | Identify feature     | Check branch name or ask user                          |
-| 2    | Gate check           | Verify open questions in spec.md are resolved          |
+| 2    | Gate check           | Verify open questions in spec.yaml are resolved        |
 | 3    | Identify decisions   | Extract technology/library/architecture choices needed |
 | 4    | Research each        | Web search, docs, benchmarks for 2-4 options each      |
 | 5    | Evaluate trade-offs  | Pros/cons, compatibility, maintenance burden           |
 | 6    | Document security    | Security considerations specific to feature            |
 | 7    | Document performance | Performance implications and optimizations             |
-| 8    | Write research.md    | Fill template with decisions and rationale             |
+| 8    | Write research.yaml  | Fill template with decisions and rationale             |
 | 9    | Update status        | `lifecycle: planning`, add checkpoint                  |
-| 10   | Commit               | Stage and commit research.md                           |
+| 10   | Commit               | Stage and commit research.yaml + generated .md         |
 
 #### Key Principles
 
@@ -287,38 +284,36 @@ flowchart LR
 | Property         | Value                                                             |
 | ---------------- | ----------------------------------------------------------------- |
 | **Trigger**      | "plan", "implementation plan", "break down tasks", "create tasks" |
-| **Prerequisite** | `spec.md` + `research.md` complete, open questions resolved       |
-| **Gate Check**   | Verifies no unchecked `- [ ]` items in research.md Open Questions |
-| **Output**       | `plan.md` + `tasks.md` (+ optional `data-model.md`)               |
+| **Prerequisite** | `spec.yaml` + `research.yaml` complete, open questions resolved   |
+| **Gate Check**   | Verifies `openQuestions` resolved in `research.yaml`              |
+| **Output**       | `plan.yaml` + `tasks.yaml` (+ optional `data-model.md`)           |
 | **Lifecycle**    | Updates to `implementation`                                       |
 | **Checkpoint**   | `plan-complete`                                                   |
 | **Next**         | `/shep-kit:implement`                                             |
 
 #### Files
 
-| File                      | Type             | Purpose                                              |
-| ------------------------- | ---------------- | ---------------------------------------------------- |
-| `SKILL.md`                | Skill definition | Planning workflow with TDD mandate                   |
-| `templates/plan.md`       | Template         | Architecture overview, phases, testing strategy      |
-| `templates/tasks.md`      | Template         | Individual task definitions with acceptance criteria |
-| `examples/sample-plan.md` | Example          | Reference plan document                              |
+| File                      | Type             | Purpose                            |
+| ------------------------- | ---------------- | ---------------------------------- |
+| `SKILL.md`                | Skill definition | Planning workflow with TDD mandate |
+| `examples/sample-plan.md` | Example          | Reference plan document            |
 
 #### Workflow Steps
 
-| Step | Action                   | Detail                                                |
-| ---- | ------------------------ | ----------------------------------------------------- |
-| 1    | Review spec & research   | Understand requirements, decisions, constraints       |
-| 2    | Gate check               | Verify research questions resolved                    |
-| 3    | Design architecture      | Component diagram, data flow, integration points      |
-| 4    | Define phases (TDD)      | RED-GREEN-REFACTOR cycles for each layer              |
-| 5    | Identify files           | New files to create, existing files to modify         |
-| 6    | Testing strategy         | Unit, integration, E2E -- tests written FIRST         |
-| 7    | Risks & rollback         | Identify risks, mitigation, rollback plan             |
-| 8    | Task breakdown           | Convert phases to actionable tasks with `[P]` markers |
-| 9    | Write plan.md + tasks.md | Fill both templates                                   |
-| 10   | Update data-model.md     | If entity changes needed (TypeSpec definitions)       |
-| 11   | Update status            | Count tasks, set `progress.total`, add checkpoint     |
-| 12   | Commit                   | Stage and commit all spec files                       |
+| Step | Action                       | Detail                                                |
+| ---- | ---------------------------- | ----------------------------------------------------- |
+| 1    | Review spec & research       | Understand requirements, decisions, constraints       |
+| 2    | Gate check                   | Verify research questions resolved                    |
+| 3    | Design architecture          | Component diagram, data flow, integration points      |
+| 4    | Define phases (TDD)          | RED-GREEN-REFACTOR cycles for each layer              |
+| 5    | Identify files               | New files to create, existing files to modify         |
+| 6    | Testing strategy             | Unit, integration, E2E -- tests written FIRST         |
+| 7    | Risks & rollback             | Identify risks, mitigation, rollback plan             |
+| 8    | Task breakdown               | Convert phases to actionable tasks with `[P]` markers |
+| 9    | Write plan.yaml + tasks.yaml | Fill both YAML files, generate Markdown               |
+| 10   | Update data-model.md         | If entity changes needed (TypeSpec definitions)       |
+| 11   | Update status                | Count tasks, set `progress.total`, add checkpoint     |
+| 12   | Commit                       | Stage and commit all spec files                       |
 
 #### TDD Structure (Mandatory)
 
@@ -346,15 +341,15 @@ flowchart LR
 
 > Validates specs, then autonomously executes all tasks with TDD discipline, real-time tracking, and bounded error recovery.
 
-| Property         | Value                                                                                    |
-| ---------------- | ---------------------------------------------------------------------------------------- |
-| **Trigger**      | "implement", "start implementation", "execute tasks"                                     |
-| **Prerequisite** | All 5 spec files exist (`spec.md`, `research.md`, `plan.md`, `tasks.md`, `feature.yaml`) |
-| **Gate Check**   | 3-tier validation (completeness, architecture, consistency)                              |
-| **Output**       | Source code + tests + passing build                                                      |
-| **Lifecycle**    | Tracks through `implementation` to `ready-for-review`                                    |
-| **Checkpoint**   | `implementation-complete`                                                                |
-| **Next**         | `/shep-kit:commit-pr`                                                                    |
+| Property         | Value                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------ |
+| **Trigger**      | "implement", "start implementation", "execute tasks"                                             |
+| **Prerequisite** | All 5 YAML files exist (`spec.yaml`, `research.yaml`, `plan.yaml`, `tasks.yaml`, `feature.yaml`) |
+| **Gate Check**   | 3-tier validation (completeness, architecture, consistency)                                      |
+| **Output**       | Source code + tests + passing build                                                              |
+| **Lifecycle**    | Tracks through `implementation` to `ready-for-review`                                            |
+| **Checkpoint**   | `implementation-complete`                                                                        |
+| **Next**         | `/shep-kit:commit-pr`                                                                            |
 
 #### Files
 
@@ -502,9 +497,9 @@ Every skill (except `new-feature`) enforces a mandatory gate check before procee
 
 | Skill       | Gate          | What It Checks                                                     |
 | ----------- | ------------- | ------------------------------------------------------------------ |
-| `research`  | Spec gate     | No unchecked `- [ ]` in spec.md Open Questions                     |
-| `plan`      | Research gate | No unchecked `- [ ]` in research.md Open Questions                 |
-| `implement` | Completeness  | All 5 files exist, required sections, open questions resolved      |
+| `research`  | Spec gate     | `openQuestions` resolved in `spec.yaml`                            |
+| `plan`      | Research gate | `openQuestions` resolved in `research.yaml`                        |
+| `implement` | Completeness  | All 5 YAML files exist, required keys, open questions resolved     |
 | `implement` | Architecture  | Clean Architecture, TypeSpec-first, TDD phases, repository pattern |
 | `implement` | Consistency   | Task counts match, criteria alignment, valid dependencies          |
 
@@ -530,19 +525,16 @@ The `init-feature.sh` script replaces these variables in all templates:
 | ------------- | ------------------------------------- | -------------------------------- |
 | `new-feature` | `SKILL.md`                            | Skill definition                 |
 | `new-feature` | `scripts/init-feature.sh`             | Directory scaffolding script     |
-| `new-feature` | `templates/spec.md`                   | Feature specification template   |
-| `new-feature` | `templates/research.md`               | Research document template       |
-| `new-feature` | `templates/plan.md`                   | Implementation plan template     |
-| `new-feature` | `templates/tasks.md`                  | Task breakdown template          |
+| `new-feature` | `templates/spec.yaml`                 | Feature specification (YAML)     |
+| `new-feature` | `templates/research.yaml`             | Research document (YAML)         |
+| `new-feature` | `templates/plan.yaml`                 | Implementation plan (YAML)       |
+| `new-feature` | `templates/tasks.yaml`                | Task breakdown (YAML)            |
 | `new-feature` | `templates/data-model.md`             | Domain model template            |
 | `new-feature` | `templates/feature.yaml`              | Status tracking template         |
 | `new-feature` | `examples/001-sample-feature/spec.md` | Example spec                     |
 | `research`    | `SKILL.md`                            | Skill definition                 |
-| `research`    | `templates/research.md`               | Research template (alternate)    |
 | `research`    | `examples/sample-research.md`         | Example research doc             |
 | `plan`        | `SKILL.md`                            | Skill definition                 |
-| `plan`        | `templates/plan.md`                   | Plan template (alternate)        |
-| `plan`        | `templates/tasks.md`                  | Tasks template (alternate)       |
 | `plan`        | `examples/sample-plan.md`             | Example plan doc                 |
 | `implement`   | `SKILL.md`                            | Skill definition                 |
 | `implement`   | `validation/completeness.md`          | File & section validation rules  |
@@ -552,7 +544,7 @@ The `init-feature.sh` script replaces these variables in all templates:
 | `commit-pr`   | `SKILL.md`                            | Skill definition                 |
 | `merged`      | `SKILL.md`                            | Skill definition                 |
 
-**Total: 23 files across 6 skills**
+**Total: 20 files across 6 skills**
 
 ---
 

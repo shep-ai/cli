@@ -1,0 +1,239 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: autonomous-pr-review-loop
+summary: Task breakdown for 012-autonomous-pr-review-loop
+phase: implementation
+updatedAt: '2026-02-10'
+
+# Relationships
+relatedFeatures:
+  - '001-shep-kit'
+  - '002-semantic-release-cicd'
+technologies:
+  - GitHub CLI (gh api)
+  - GitHub REST API
+  - SKILL.md prompt engineering
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    title: 'Add Step 6 header and review detection phase to SKILL.md'
+    description: >
+      Add Step 6 (Review Watch) to the commit-pr SKILL.md. Document the
+      two-phase detection strategy: wait for Claude Code Review check via
+      gh pr checks, then fetch reviews via gh api. Include the gh api
+      commands with --jq filters for PR reviews, inline review comments,
+      and issue-level comments.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Step 6 header added after Step 5 in SKILL.md
+      - Two-phase detection strategy documented (check wait + API fetch)
+      - gh api commands provided for all three endpoints (reviews, comments, issue comments)
+      - --jq filters extract relevant fields (id, user, body, path, line, state)
+    tdd: null # No TDD — SKILL.md prompt engineering
+    estimatedEffort: S
+
+  - id: task-2
+    title: 'Add bot identification and comment classification to Step 6'
+    description: >
+      Complete Step 6 by adding bot/human reviewer identification logic
+      and the comment classification taxonomy. Document which comment types
+      are actionable vs non-actionable. Define exit conditions when no
+      actionable comments are found.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - Bot identification documented (user.login == claude[bot], user.type == Bot)
+      - Human reviewer identification documented (user.type != Bot)
+      - Comment taxonomy table with actionable/non-actionable classification
+      - GitHub suggestion block handling documented as special case
+      - Exit conditions for no actionable comments defined
+    tdd: null # No TDD — SKILL.md prompt engineering
+    estimatedEffort: S
+
+  - id: task-3
+    title: 'Add Step 7 review fix loop to SKILL.md'
+    description: >
+      Add Step 7 (Review Fix Loop) to the commit-pr SKILL.md. Document
+      the fix application strategy (suggestion blocks, AI-interpreted changes),
+      commit format, and the loop back to CI watch. Define loop control
+      parameters (max iterations, convergence detection, comment-ID dedup).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - Step 7 header added after Step 6
+      - Fix application strategy documented for all comment types
+      - Commit message format defined (fix(review) with iteration number)
+      - Loop control parameters documented (maxIterations=5, convergence detection)
+      - Comment-ID deduplication tracking described
+      - All exit conditions listed (approved, no actionable, max iterations, convergence failure, merge conflict)
+    tdd: null # No TDD — SKILL.md prompt engineering
+    estimatedEffort: M
+
+  - id: task-4
+    title: 'Update SKILL.md flow diagram, red flags, quick reference, and feature.yaml instructions'
+    description: >
+      Update the existing flow diagram in SKILL.md to include the review
+      watch and fix loop nodes. Add review-loop-specific red flags. Update
+      the quick reference table with new gh api commands. Add feature.yaml
+      update instructions for review loop state tracking.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - Flow diagram updated with review watch and fix loop nodes
+      - Red Flags section includes review-loop-specific warnings
+      - Quick Reference table includes gh api review commands
+      - feature.yaml update instructions added for reviewLoop state
+      - Done endpoint moved to after review loop completion
+    tdd: null # No TDD — SKILL.md prompt engineering
+    estimatedEffort: S
+
+  - id: task-5
+    title: 'Update feature-yaml-protocol.md with review loop extensions'
+    description: >
+      Add review-watching and review-fixing phases to the feature-yaml-protocol.md
+      documentation. Document the new review loop checkpoints and the reviewLoop
+      field schema. Update the /shep-kit:commit-pr section with review loop behavior.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - review-watching and review-fixing phases added to Phases by Lifecycle table
+      - Review loop checkpoints documented (review-loop-started, review-fixes-applied-N, etc.)
+      - reviewLoop field schema documented (iteration, maxIterations, commentsAddressed, etc.)
+      - /shep-kit:commit-pr section updated with review loop state transitions
+    tdd: null # No TDD — documentation
+    estimatedEffort: S
+
+  - id: task-6
+    title: 'Update spec-driven-workflow.md commit-pr section'
+    description: >
+      Update the Step 5 (commit-pr) description in spec-driven-workflow.md
+      to mention the autonomous review loop. Add a note explaining that
+      after CI passes, the skill watches for review comments and autonomously
+      addresses feedback.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Step 5 description updated to mention review loop
+      - Note added about autonomous review handling after CI passes
+      - Output section updated to reflect review loop capability
+    tdd: null # No TDD — documentation
+    estimatedEffort: S
+
+  - id: task-7
+    title: 'Validate cross-references and run format check'
+    description: >
+      Read through the complete updated SKILL.md end-to-end for logical
+      consistency. Verify all gh api commands are syntactically correct.
+      Check cross-references between SKILL.md and documentation files.
+      Run pnpm format:check to ensure formatting is clean.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - SKILL.md reads as coherent linear instruction set
+      - All gh api commands are syntactically valid
+      - Cross-references between SKILL.md and docs are consistent
+      - pnpm format:check passes with no errors
+    tdd: null # No TDD — validation
+    estimatedEffort: S
+
+# Total effort estimate
+totalEstimate: M
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Status
+
+  - **Phase:** Implementation
+  - **Updated:** 2026-02-10
+
+  ## Task List
+
+  ### Phase 1: SKILL.md Review Watch Extension
+
+  - [ ] **Task 1:** Add Step 6 header and review detection phase to SKILL.md
+    - Add Step 6 after existing Step 5
+    - Document two-phase detection (check wait + API fetch)
+    - Provide `gh api` commands for all three review endpoints
+    - Include `--jq` filters for relevant fields
+
+  - [ ] **Task 2:** Add bot identification and comment classification to Step 6
+    - Document bot identification (`user.login`, `user.type`)
+    - Create comment classification taxonomy table
+    - Document GitHub suggestion block handling
+    - Define exit conditions for no actionable comments
+
+  ### Phase 2: SKILL.md Review Fix Loop Extension
+
+  - [ ] **Task 3:** Add Step 7 review fix loop to SKILL.md
+    - Document fix application strategy (suggestions, AI-interpreted)
+    - Define commit message format (`fix(review): ...`)
+    - Document loop control (max 5 iterations, convergence detection)
+    - List all exit conditions
+
+  - [ ] **Task 4:** Update SKILL.md flow diagram, red flags, quick reference
+    - Update flow diagram with review cycle nodes
+    - Add review-loop red flags
+    - Update quick reference table
+    - Add feature.yaml update instructions
+
+  ### Phase 3: Documentation Updates [P]
+
+  - [ ] **Task 5:** Update feature-yaml-protocol.md with review loop extensions
+    - Add review-watching and review-fixing phases
+    - Document review loop checkpoints
+    - Document `reviewLoop` field schema
+    - Update commit-pr section
+
+  - [ ] **Task 6:** Update spec-driven-workflow.md commit-pr section
+    - Update Step 5 description with review loop mention
+    - Add note about autonomous review handling
+
+  ### Phase 4: Validation & Finalization
+
+  - [ ] **Task 7:** Validate cross-references and run format check
+    - Read complete SKILL.md end-to-end
+    - Verify `gh api` command syntax
+    - Check cross-references between files
+    - Run `pnpm format:check`
+
+  ## TDD Notes
+
+  This feature involves only SKILL.md prompt engineering and documentation updates.
+  There is no TypeScript code to write, so traditional RED-GREEN-REFACTOR TDD
+  cycles do not apply. Validation is performed by manual review and `pnpm format:check`.
+
+  ## Progress Tracking (CRITICAL)
+
+  - **Update checkboxes FREQUENTLY** - as soon as each item is complete!
+  - **Don't batch updates** - check off items immediately, not at the end
+  - **Commit task.md updates** along with code changes to show progress
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All tasks completed
+  - [ ] SKILL.md reads as coherent instruction set
+  - [ ] All `gh api` commands are syntactically valid
+  - [ ] Cross-references are consistent
+  - [ ] `pnpm format:check` passes
+  - [ ] Documentation updated
+  - [ ] PR created and reviewed
+
+  ---
+
+  _Task breakdown for implementation tracking_

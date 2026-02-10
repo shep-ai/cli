@@ -7,7 +7,7 @@ description: Validate specs and autonomously execute implementation tasks with s
 
 ## When to Use
 
-Use this skill after `/shep-kit:plan` has created `plan.md` and `tasks.md`, and you're ready to start implementation.
+Use this skill after `/shep-kit:plan` has created `plan.yaml` and `tasks.yaml`, and you're ready to start implementation.
 
 **Triggers:**
 
@@ -17,26 +17,26 @@ Use this skill after `/shep-kit:plan` has created `plan.md` and `tasks.md`, and 
 
 **Don't use if:**
 
-- Planning is not complete (`plan.md` or `tasks.md` missing)
+- Planning is not complete (`plan.yaml` or `tasks.yaml` missing)
 - Specs have open questions that need resolution
 - Architecture decisions are not finalized
 
 ## What This Skill Does
 
 1. **Pre-Implementation Validation** - Comprehensive quality gates
-2. **Autonomous Task Execution** - Executes all tasks from `tasks.md` sequentially
+2. **Autonomous Task Execution** - Executes all tasks from `tasks.yaml` sequentially
 3. **Real-Time Status Tracking** - Updates `feature.yaml` throughout execution
 4. **Smart Error Handling** - Retry with debugging (max 3 attempts per task)
 5. **Session Resumption** - Automatically continues from last task on re-run
 
 ## Prerequisites
 
-**Required files in spec directory:**
+**Required YAML source files in spec directory:**
 
-- `spec.md` - Complete feature specification
-- `research.md` - Technical decisions documented
-- `plan.md` - Implementation strategy
-- `tasks.md` - Task breakdown with acceptance criteria
+- `spec.yaml` - Complete feature specification
+- `research.yaml` - Technical decisions documented
+- `plan.yaml` - Implementation strategy
+- `tasks.yaml` - Task breakdown with acceptance criteria
 - `feature.yaml` - Status tracking file (created by `:new-feature`)
 
 ## Workflow
@@ -45,57 +45,58 @@ Use this skill after `/shep-kit:plan` has created `plan.md` and `tasks.md`, and 
 
 **Run comprehensive validation BEFORE starting implementation:**
 
+```bash
+pnpm spec:validate <feature-id>
+```
+
+This script validates all 3 categories (completeness, architecture, consistency) against the YAML source files. See `validation/*.md` for the detailed rules it implements.
+
 #### 1.1 Basic Completeness Check
 
-- [ ] Required files exist (`spec.md`, `plan.md`, `tasks.md`, `feature.yaml`)
-- [ ] All required sections present in each file
-- [ ] Open questions resolved (no `[ ]` checkboxes with content)
-- [ ] Tasks have clear acceptance criteria
-- [ ] Success criteria defined in `spec.md`
+- [ ] Required YAML files exist (`spec.yaml`, `research.yaml`, `plan.yaml`, `tasks.yaml`, `feature.yaml`)
+- [ ] All required keys present in each YAML file
+- [ ] Open questions resolved (`openQuestions[].resolved: true` in YAML)
+- [ ] Tasks have clear acceptance criteria (`tasks.yaml` tasks[].acceptanceCriteria)
+- [ ] Success criteria defined in `spec.yaml`
 
-**Validation script:** `validation/completeness.md`
+**Validation rules:** `validation/completeness.md`
 
 #### 1.2 Architecture & Conventions Check
 
-- [ ] Clean Architecture principles documented
-  - [ ] Domain layer has no external dependencies
-  - [ ] Application layer only depends on domain
-  - [ ] Infrastructure implements application ports/interfaces
+- [ ] Clean Architecture principles documented in `plan.yaml` content
 - [ ] **TypeSpec contracts defined** for new domain entities
-- [ ] **TDD phases explicitly outlined** (RED-GREEN-REFACTOR cycles)
+- [ ] **TDD phases explicitly outlined** (RED-GREEN-REFACTOR cycles) in `plan.yaml`
 - [ ] **Test coverage targets specified**
 - [ ] Repository pattern used for data access (if applicable)
-- [ ] Use cases follow single responsibility principle
 
-**Validation script:** `validation/architecture.md`
+**Validation rules:** `validation/architecture.md`
 
 #### 1.3 Cross-Document Consistency Check
 
-- [ ] Task count in `tasks.md` matches plan phases
+- [ ] Task count in `tasks.yaml` tasks[] matches `plan.yaml` phases[].taskIds
 - [ ] Acceptance criteria align with spec success criteria
 - [ ] Research decisions referenced in plan
-- [ ] No contradictions between spec/plan/research
-- [ ] Dependencies between tasks are clear
+- [ ] No contradictions between spec/plan/research YAML files
+- [ ] Dependencies between tasks are valid (`tasks.yaml` tasks[].dependencies)
 
-**Validation script:** `validation/consistency.md`
+**Validation rules:** `validation/consistency.md`
 
 #### 1.4 Auto-Fix (if needed)
 
 **Apply ONLY safe structural fixes:**
 
-- Add missing section headers (e.g., `## Open Questions`)
-- Close empty checkbox lines: `[ ]` → `[x] Resolved: <timestamp>`
-- Add missing `tasks.md` template if only `plan.md` exists
-- Fix heading level inconsistencies
+- Add missing optional YAML keys with defaults
+- Add missing `tasks.yaml` from template if only `plan.yaml` exists
+- Regenerate Markdown from YAML: `pnpm spec:generate-md <feature-id>`
 
 **Show summary of auto-fixes and require user approval before proceeding.**
 
 #### 1.5 Blocking Issues
 
-**If validation finds blocking issues, STOP and report:**
+**If `pnpm spec:validate` finds blocking issues, STOP and report:**
 
-- Open questions with content that need decisions
-- Missing critical sections (acceptance criteria, TDD phases)
+- Unresolved open questions in YAML
+- Missing critical YAML keys (acceptance criteria, TDD phases)
 - Architecture violations
 - Cross-document contradictions
 
@@ -134,7 +135,7 @@ Last updated: {lastUpdated}
 
 ### Phase 3: Autonomous Task Execution
 
-**Execute tasks from `tasks.md` in sequence:**
+**Execute tasks from `tasks.yaml` in sequence:**
 
 #### For each task:
 
@@ -150,8 +151,8 @@ status:
 
 **3.2 Read Task Definition**
 
-- Load task from `tasks.md`
-- Parse: description, acceptance criteria, TDD phases, dependencies
+- Load task from `tasks.yaml` (structured YAML data)
+- Read: `tasks[N].description`, `tasks[N].acceptanceCriteria`, `tasks[N].tddPhases`, `tasks[N].dependencies`
 
 **3.3 Execute TDD Cycle**
 
@@ -197,7 +198,13 @@ status:
   lastUpdated: '<timestamp>'
 ```
 
-→ Continue to next task
+Regenerate Markdown to reflect updated status:
+
+```bash
+pnpm spec:generate-md <feature-id>
+```
+
+Continue to next task.
 
 **If verification FAILS:**
 → Enter Error Handling (Phase 4)
@@ -318,9 +325,9 @@ Next steps:
 
 ### Task Execution Order
 
-**Execute tasks STRICTLY in order from `tasks.md`:**
+**Execute tasks STRICTLY in order from `tasks.yaml`:**
 
-- Respect task dependencies
+- Respect task dependencies (`tasks[].dependencies`)
 - Do not skip tasks
 - Do not reorder tasks
 

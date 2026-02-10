@@ -11,6 +11,11 @@
  *
  * - **GanttTask**: Individual task for Gantt chart visualization
  * - **GanttViewData**: Container for complete Gantt chart data
+ * - **OpenQuestion**: Open question within a spec requiring resolution
+ * - **TechDecision**: Technology decision with rationale
+ * - **PlanPhase**: Implementation phase grouping tasks
+ * - **TddCycle**: Test-Driven Development cycle phases
+ * - **SpecTask**: Task definition within spec's task breakdown
  *
  * ## Usage
  *
@@ -25,3 +30,4 @@
  * ```
  */
 import "./gantt.tsp";
+import "./spec-metadata.tsp";

@@ -14,10 +14,14 @@ Start spec-driven development by creating a feature branch and specification dir
 ```
 Requirements → Research → Planning → Implementation → Complete
     ↓             ↓           ↓            ↓            ↓
- spec.md     research.md   plan.md     tasks.md    all files
+ spec.yaml   research.yaml plan.yaml   tasks.yaml   all files
+    ↓             ↓           ↓            ↓            ↓
+ spec.md     research.md   plan.md     tasks.md     (auto-generated)
 ```
 
 **CRITICAL:** Each phase MUST update the `Phase` status field before proceeding.
+
+**IMPORTANT:** Edit YAML files, not Markdown. Markdown files are auto-generated from YAML via `pnpm spec:generate-md <feature-id>`.
 
 ## Workflow
 
@@ -49,13 +53,17 @@ Execute the scaffolding script:
 .claude/skills/shep-kit:new-feature/scripts/init-feature.sh <NNN> <feature-name>
 ```
 
-This creates `specs/NNN-feature-name/` with all template files, including `feature.yaml`.
+This creates `specs/NNN-feature-name/` with all template files using a **YAML-first** approach:
+
+- **YAML source files**: `spec.yaml`, `research.yaml`, `plan.yaml`, `tasks.yaml` (source of truth)
+- **Markdown files**: `spec.md`, `research.md`, `plan.md`, `tasks.md` (auto-generated from YAML)
+- **Status tracking**: `feature.yaml` (implementation status, unchanged)
 
 ### 4. Analyze Context
 
 Before filling the spec, analyze:
 
-- **Existing specs**: Read `specs/*/spec.md` to understand feature landscape and discover dependencies
+- **Existing specs**: Read `specs/*/spec.yaml` (or `specs/*/spec.md`) to understand feature landscape and discover dependencies
 - **Codebase**: Identify affected areas, patterns, existing implementations
 - **Cross-reference**: Infer dependencies, impact areas, size estimate
 
@@ -83,17 +91,22 @@ Allow the user to:
 ### 7. Write Spec & Update feature.yaml
 
 ```bash
-# Update spec.md with confirmed content
+# Write confirmed content to spec.yaml (the source of truth)
+# Then generate Markdown from YAML:
+pnpm spec:generate-md NNN-feature-name
+
 # feature.yaml already created by init script with initial state:
 #   - lifecycle: "research"
 #   - phase: "research"
 #   - checkpoint: "feature-created"
 # See: docs/development/feature-yaml-protocol.md for details
 
-# Stage and commit
+# Stage and commit (both YAML source and generated Markdown)
 git add specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
+
+**IMPORTANT:** Always edit `spec.yaml`, then run `pnpm spec:generate-md <feature-id>` to produce `spec.md`. Never hand-edit Markdown spec files.
 
 **feature.yaml Status**: Already initialized by init script. No manual updates needed at this stage.
 
@@ -106,17 +119,17 @@ Inform the user:
 
 ## Open Questions Policy
 
-**CRITICAL:** Open questions in spec.md MUST be resolved before `/shep-kit:research`.
+**CRITICAL:** Open questions in `spec.yaml` (the `openQuestions` array) MUST be resolved before `/shep-kit:research`.
 
-- If questions are identified, list them with `- [ ]` checkbox format
-- User must confirm answers or mark "None - requirements are clear"
-- Research phase will REFUSE to proceed if unchecked open questions exist
+- If questions are identified, add them to the `openQuestions` array in `spec.yaml`
+- User must confirm answers or mark the array empty (`openQuestions: []`)
+- Research phase will REFUSE to proceed if unresolved open questions exist in `spec.yaml`
 
 ## Key Principles
 
 - **Branch first**: All spec work happens on the feature branch
 - **Infer, don't interrogate**: Analyze codebase to propose smart defaults
-- **Dependencies from specs**: Scan existing `specs/*/spec.md` for relationships
+- **Dependencies from specs**: Scan existing `specs/*/spec.yaml` for relationships
 - **User confirms**: Always get approval before writing files
 - **Open questions block progress**: Never proceed with unresolved questions
 
@@ -124,14 +137,19 @@ Inform the user:
 
 Templates are in: `.claude/skills/shep-kit:new-feature/templates/`
 
-Templates include:
+### YAML Templates (Source of Truth)
 
-- `spec.md` - Feature specification
-- `research.md` - Technical decisions
-- `plan.md` - Implementation strategy
-- `tasks.md` - Task breakdown
+- `spec.yaml` - Feature specification
+- `research.yaml` - Technical decisions
+- `plan.yaml` - Implementation strategy
+- `tasks.yaml` - Task breakdown
+
+### Other Templates
+
 - `data-model.md` - Domain models
-- `feature.yaml` - Status tracking (NEW)
+- `feature.yaml` - Status tracking
+
+Markdown files (`spec.md`, `research.md`, `plan.md`, `tasks.md`) are auto-generated from YAML via `pnpm spec:generate-md`.
 
 ## feature.yaml Protocol
 

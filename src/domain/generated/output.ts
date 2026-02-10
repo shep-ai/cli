@@ -549,6 +549,226 @@ export type Feature = BaseEntity & {
    */
   relatedArtifacts: Artifact[];
 };
+
+/**
+ * Open question that may need resolution before implementation
+ */
+export type OpenQuestion = {
+  /**
+   * The question text that needs to be answered
+   */
+  question: string;
+  /**
+   * Whether this question has been resolved (false = blocking)
+   */
+  resolved: boolean;
+  /**
+   * The answer or resolution to this question (present if resolved)
+   */
+  answer?: string;
+};
+
+/**
+ * Base entity for spec artifacts with common metadata fields
+ */
+export type SpecArtifactBase = BaseEntity & {
+  /**
+   * Artifact title / feature name
+   */
+  name: string;
+  /**
+   * Short description of the artifact's purpose
+   */
+  summary: string;
+  /**
+   * Raw Markdown body containing the human-written spec content
+   */
+  content: string;
+  /**
+   * Key technologies mentioned or evaluated in this artifact
+   */
+  technologies: string[];
+  /**
+   * References to other spec IDs (e.g., '008-agent-configuration')
+   */
+  relatedFeatures: string[];
+  /**
+   * URLs to external documentation, references, or comparisons
+   */
+  relatedLinks: string[];
+  /**
+   * Structured open questions for validation gate checks
+   */
+  openQuestions: OpenQuestion[];
+};
+
+/**
+ * Technology or approach decision with rationale
+ */
+export type TechDecision = {
+  /**
+   * Title or name of the decision being made
+   */
+  title: string;
+  /**
+   * The chosen technology, library, or approach
+   */
+  chosen: string;
+  /**
+   * Alternative options that were considered but rejected
+   */
+  rejected: string[];
+  /**
+   * Rationale explaining why the chosen option was selected
+   */
+  rationale: string;
+};
+
+/**
+ * Implementation phase grouping related tasks
+ */
+export type PlanPhase = {
+  /**
+   * Unique identifier for this phase (e.g., 'phase-1')
+   */
+  id: string;
+  /**
+   * Display name of the phase
+   */
+  name: string;
+  /**
+   * Whether tasks in this phase can be executed in parallel
+   */
+  parallel: boolean;
+  /**
+   * IDs of SpecTasks that belong to this phase
+   */
+  taskIds: string[];
+};
+
+/**
+ * Test-Driven Development cycle phases for a task
+ */
+export type TddCycle = {
+  /**
+   * RED phase: tests to write FIRST (before implementation)
+   */
+  red: string[];
+  /**
+   * GREEN phase: minimal implementation to pass tests
+   */
+  green: string[];
+  /**
+   * REFACTOR phase: code improvements while keeping tests green
+   */
+  refactor: string[];
+};
+
+/**
+ * Task definition within a spec's task breakdown
+ */
+export type SpecTask = {
+  /**
+   * Unique identifier for this task (e.g., 'task-1')
+   */
+  id: string;
+  /**
+   * Task title or name
+   */
+  title: string;
+  /**
+   * Detailed description of what this task accomplishes
+   */
+  description: string;
+  /**
+   * Current state of the task
+   */
+  state: TaskState;
+  /**
+   * IDs of other SpecTasks that must complete before this task starts
+   */
+  dependencies: string[];
+  /**
+   * List of acceptance criteria that define task completion
+   */
+  acceptanceCriteria: string[];
+  /**
+   * TDD cycle definition for this task (if applicable)
+   */
+  tdd?: TddCycle;
+  /**
+   * Estimated effort (e.g., '2 hours', '1 day')
+   */
+  estimatedEffort: string;
+};
+
+/**
+ * Feature specification artifact defining requirements and scope
+ */
+export type FeatureSpec = SpecArtifactBase & {
+  /**
+   * Spec number (e.g., 11 for spec 011)
+   */
+  number: number;
+  /**
+   * Git branch name for this feature (e.g., 'feat/011-feature-name')
+   */
+  branch: string;
+  /**
+   * One-line description of the feature
+   */
+  oneLiner: string;
+  /**
+   * Current phase in the SDLC lifecycle
+   */
+  phase: SdlcLifecycle;
+  /**
+   * Size estimate: XS, S, M, L, or XL
+   */
+  sizeEstimate: string;
+};
+
+/**
+ * Research artifact documenting technical analysis and decisions
+ */
+export type ResearchSpec = SpecArtifactBase & {
+  /**
+   * Structured technology decisions with rationale
+   */
+  decisions: TechDecision[];
+};
+
+/**
+ * Implementation plan artifact defining strategy and file changes
+ */
+export type PlanSpec = SpecArtifactBase & {
+  /**
+   * Structured implementation phases with task groupings
+   */
+  phases: PlanPhase[];
+  /**
+   * New files planned to be created
+   */
+  filesToCreate: string[];
+  /**
+   * Existing files planned to be modified
+   */
+  filesToModify: string[];
+};
+
+/**
+ * Task breakdown artifact defining implementation tasks
+ */
+export type TasksSpec = SpecArtifactBase & {
+  /**
+   * Structured task list with acceptance criteria and TDD phases
+   */
+  tasks: SpecTask[];
+  /**
+   * Overall effort estimate for all tasks combined
+   */
+  totalEstimate: string;
+};
 export enum MemoryScope {
   Global = 'global',
   Feature = 'feature',
