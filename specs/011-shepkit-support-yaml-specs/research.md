@@ -9,170 +9,336 @@
 
 ## Technology Decisions
 
-### 1. YAML Parsing Library
+### 1. Spec Artifact Modeling — TypeSpec-First
 
 **Options considered:**
 
-1. **js-yaml** — Already in project (v4.1.1), lightweight (13KB gzipped), YAML 1.1/1.2 compliant
-2. **yaml** (npm: `yaml`) — YAML 1.2 compliant, preserves comments/formatting via Document API, native TypeScript
-3. **Custom parser** — Roll our own YAML parsing utilities
+1. **Zod schemas** — Define YAML structure with Zod, infer TypeScript types
+2. **JSON Schema** — Language-agnostic schema validation
+3. **TypeSpec models** — Extend existing domain model architecture, generate TypeScript types
 
-**Decision:** Keep `js-yaml` (already a dependency)
+**Decision:** TypeSpec models
 
-**Rationale:** The project already uses `js-yaml` v4.1.1 in `src/presentation/cli/ui/output.ts`. Our spec YAML files are simple structured data with no need for comment preservation (comments belong in generated Markdown, not YAML source). `js-yaml` provides `load()` and `dump()` which are sufficient for read/validate/write workflows. Adding `yaml` (27KB gzipped) provides no tangible benefit for this use case. If round-trip editing with comment preservation becomes needed later, `yaml` can be added incrementally.
+**Rationale:** The project already follows a TypeSpec-first architecture where domain models are the single source of truth (`tsp/domain/entities/`). Creating spec artifact models in TypeSpec aligns with the existing pattern: define `.tsp` → generate TypeScript via `pnpm tsp:compile` → import from `@/domain/generated/output`. This avoids maintaining a separate schema system (Zod) alongside TypeSpec, keeps the domain model layer consistent, and gives us TypeScript types, JSON Schema, and OpenAPI specs for free from one source.
 
-### 2. Schema Validation Approach
-
-**Options considered:**
-
-1. **Zod** — Already in project (v4.3.6), TypeScript-first schema validation, excellent error messages
-2. **JSON Schema** — Standard, language-agnostic, can validate YAML after parsing to JS objects
-3. **Ajv** — Fastest JSON Schema validator for JS, but adds a new dependency
-4. **Custom validation** — Manual checks in Node.js code
-
-**Decision:** Zod (already a dependency)
-
-**Rationale:** Zod is already installed in the project and provides TypeScript-first schema definitions that double as type inference. Defining spec schemas in Zod gives us: (1) runtime validation with detailed error messages, (2) TypeScript type inference from schemas (`z.infer<typeof SpecSchema>`), (3) no new dependencies, (4) composable schemas for shared structures. This replaces the current fragile grep/awk validation in skill scripts with robust, typed validation.
-
-### 3. Markdown Generation Approach
+### 2. Spec Artifact Structure — Content + Metadata
 
 **Options considered:**
 
-1. **Handlebars** — Template engine, clean separation of template + data, supports loops/conditionals/partials
-2. **Programmatic (remark/mdast)** — AST-based Markdown generation, guarantees valid output
-3. **Template literals** — Zero dependencies, plain TypeScript string interpolation
+1. **Fully structured YAML** — Every Markdown section becomes a YAML key (problem_statement, success_criteria, etc.)
+2. **Content + metadata hybrid** — Each artifact has a `content` field (raw Markdown) plus structured metadata attributes
+3. **Pure metadata only** — Only store structured data, generate all Markdown from metadata
 
-**Decision:** Handlebars
+**Decision:** Content + metadata hybrid
 
-**Rationale:** Spec Markdown has complex structure (tables, nested task phases, conditional TDD sections, checkbox lists) that benefits from a proper template engine. Handlebars provides: (1) templates as separate `.hbs` files that are easy to maintain, (2) native loops (`{{#each}}`) for task lists and phases, (3) conditionals (`{{#if}}`) for optional sections, (4) custom helpers for date formatting and pluralization, (5) partials for reusable fragments. The remark/mdast approach is overkill (5+ packages, AST boilerplate). Template literals become unmaintainable with the complexity of tasks.md (TDD phases, acceptance criteria, dependency tables).
+**Rationale:** Each spec artifact (spec, research, plan, tasks) is modeled as a TypeSpec entity with:
 
-### 4. Skill Instruction Updates
+- **`content: string`** — Raw Markdown body (the human-written spec content). This IS the spec.
+- **Metadata fields** — Structured attributes for `name`, `summary`, related features, technologies, links, etc.
+
+This approach means:
+
+- Markdown generation is trivial — just output the `content` field with a metadata header
+- Skills read metadata fields for gate checks (e.g., `openQuestions` array) without parsing Markdown
+- The content field preserves full expressiveness of Markdown (tables, diagrams, code blocks)
+- No complex template engine needed — no Handlebars, no remark/mdast
+
+### 3. Markdown Generation — Direct Content Field
 
 **Options considered:**
 
-1. **Skills call Node.js scripts for parsing** — Skills invoke `node scripts/parse-spec.js spec.yaml` to extract data
-2. **Skills read YAML directly** — Update skill prompts to read YAML keys instead of grep Markdown headers
-3. **Validation as a standalone Node.js CLI command** — `pnpm spec:validate NNN-feature-name`
+1. **Handlebars templates** — Compile YAML data into Markdown via template engine
+2. **remark/mdast AST** — Programmatic Markdown construction
+3. **Direct content field** — YAML `content` field IS the Markdown; generation = metadata header + content
 
-**Decision:** Hybrid — Skills read YAML directly + Node.js validation command
+**Decision:** Direct content field (no template engine needed)
 
-**Rationale:** Skills (Claude Code agent prompts) can read YAML files natively since YAML is a well-understood format. Simple reads (checking `open_questions`, reading `status.phase`) don't need a script. However, complex validation (completeness, architecture, consistency checks) should be a dedicated Node.js command (`pnpm spec:validate`) that replaces the 50+ grep/awk validation rules currently embedded in `.claude/skills/shep-kit:implement/validation/`. This gives us: (1) testable validation logic, (2) Zod schema validation, (3) clear error messages, (4) reusable across all skills.
+**Rationale:** Since each artifact's `content` field contains the raw Markdown, "generating" Markdown is simply:
+
+```
+---
+name: <metadata.name>
+summary: <metadata.summary>
+# ... other metadata as YAML front matter
+---
+
+<content field>
+```
+
+This eliminates the need for Handlebars or any template engine. The generated `.md` file is just YAML front matter + the content field. Simple string concatenation in a Node.js script suffices.
+
+### 4. YAML Parsing Library
+
+**Options considered:**
+
+1. **js-yaml** — Already in project (v4.1.1), lightweight, no comment preservation
+2. **yaml (npm)** — Comment preservation, round-trip editing, Document API
+3. **Custom parser** — Roll our own
+
+**Decision:** js-yaml (already a dependency)
+
+**Rationale:** The project already uses `js-yaml` in `src/presentation/cli/ui/output.ts`. Since YAML spec files are structured data (no need for comment preservation — comments live in the Markdown content), `js-yaml.load()` and `js-yaml.dump()` are sufficient. No new dependency needed.
+
+### 5. Validation Approach — TypeSpec-Generated Types + Simple Node.js Checks
+
+**Options considered:**
+
+1. **Zod runtime validation** — Define Zod schemas, validate parsed YAML at runtime
+2. **TypeSpec-generated types + type guards** — Use generated TypeScript types for validation
+3. **JSON Schema validation** — Use TypeSpec-generated JSON Schema with Ajv
+
+**Decision:** TypeSpec-generated types + simple Node.js validation script
+
+**Rationale:** TypeSpec already generates JSON Schema to `apis/json-schema/` and TypeScript types to `src/domain/generated/output.ts`. For runtime validation, a lightweight Node.js script can:
+
+1. Parse YAML with `js-yaml`
+2. Validate against the generated TypeScript types (compile-time safety)
+3. Run semantic checks (open questions resolved, task dependencies valid, etc.)
+
+This replaces the 50+ grep/awk validation rules in `.claude/skills/shep-kit:implement/validation/` with testable, typed Node.js code. No Zod needed since TypeSpec already generates the type definitions.
+
+### 6. Skill Instruction Updates — Direct YAML Reading
+
+**Options considered:**
+
+1. **Skills call Node.js scripts** — Invoke `node scripts/parse-spec.js` for every read
+2. **Skills read YAML directly** — Update skill prompts to read YAML keys
+3. **Hybrid** — Direct reads for simple checks, scripts for complex validation
+
+**Decision:** Skills read YAML directly + `pnpm spec:validate` for complex checks
+
+**Rationale:** Claude Code agents can natively read and understand YAML files. Simple gate checks (is `openQuestions` empty? what's the current `phase`?) are trivial to read from YAML without invoking a script. Complex validation (completeness, architecture compliance, cross-doc consistency) runs via `pnpm spec:validate NNN-feature-name`.
+
+## TypeSpec Model Design
+
+### New Entities (one file per model in `tsp/domain/entities/`)
+
+#### FeatureSpec
+
+Represents the feature specification artifact (`spec.yaml`).
+
+```
+model FeatureSpec extends BaseEntity {
+  name: string;              // Feature name (kebab-case)
+  number: int32;             // Spec number (e.g., 11)
+  branch: string;            // Git branch name
+  oneLiner: string;          // Brief description
+  summary: string;           // Longer summary
+  content: string;           // Raw Markdown body (problem statement, criteria, etc.)
+  phase: SdlcLifecycle;      // Current phase
+  sizeEstimate: string;      // S/M/L/XL
+  relatedFeatures: string[]; // References to other spec IDs (e.g., "008-agent-configuration")
+  technologies: string[];    // Key technologies mentioned
+  openQuestions: OpenQuestion[]; // Structured open questions
+}
+```
+
+#### ResearchSpec
+
+Represents the research artifact (`research.yaml`).
+
+```
+model ResearchSpec extends BaseEntity {
+  name: string;              // Research title
+  summary: string;           // Brief findings summary
+  content: string;           // Raw Markdown body (decisions, analysis, etc.)
+  decisions: TechDecision[]; // Structured technology decisions
+  technologies: string[];    // Libraries/tools evaluated
+  relatedLinks: string[];    // URLs to docs, comparisons, etc.
+  openQuestions: OpenQuestion[];
+}
+```
+
+#### PlanSpec
+
+Represents the implementation plan artifact (`plan.yaml`).
+
+```
+model PlanSpec extends BaseEntity {
+  name: string;              // Plan title
+  summary: string;           // Architecture overview summary
+  content: string;           // Raw Markdown body (phases, strategy, etc.)
+  phases: PlanPhase[];       // Structured implementation phases
+  filesToCreate: string[];   // New files planned
+  filesToModify: string[];   // Existing files to change
+  technologies: string[];    // Key technologies used
+  relatedLinks: string[];
+  openQuestions: OpenQuestion[];
+}
+```
+
+#### TasksSpec
+
+Represents the task breakdown artifact (`tasks.yaml`).
+
+```
+model TasksSpec extends BaseEntity {
+  name: string;              // Tasks document title
+  summary: string;           // Overall task summary
+  content: string;           // Raw Markdown body (detailed task descriptions)
+  tasks: SpecTask[];         // Structured task list
+  totalEstimate: string;     // Overall effort estimate
+  relatedFeatures: string[];
+}
+```
+
+### Supporting Value Objects
+
+```
+model OpenQuestion {
+  question: string;
+  resolved: boolean;
+  answer?: string;
+}
+
+model TechDecision {
+  title: string;
+  chosen: string;
+  rejected: string[];
+  rationale: string;
+}
+
+model PlanPhase {
+  id: string;
+  name: string;
+  parallel: boolean;
+  taskIds: string[];       // References to SpecTask.id
+}
+
+model SpecTask {
+  id: string;
+  title: string;
+  description: string;
+  state: TaskState;
+  dependencies: string[];  // Other SpecTask IDs
+  acceptanceCriteria: string[];
+  tdd: TddCycle;
+  estimatedEffort: string;
+}
+
+model TddCycle {
+  red: string[];
+  green: string[];
+  refactor: string[];
+}
+```
+
+### YAML File Example (`spec.yaml`)
+
+```yaml
+name: shepkit-support-yaml-specs
+number: 11
+branch: feat/011-shepkit-support-yaml-specs
+oneLiner: Support YAML-based spec definitions as the primary source of truth
+summary: >
+  Adopt YAML as the primary spec format with TypeSpec-generated types,
+  replacing fragile grep/awk Markdown parsing with structured data.
+phase: Research
+sizeEstimate: L
+
+relatedFeatures:
+  - 001-shep-kit
+
+technologies:
+  - TypeSpec
+  - js-yaml
+  - Node.js
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The current spec-driven workflow uses Markdown files as the source of truth...
+
+  ## Success Criteria
+
+  - All shep-kit skills can read/write specs in YAML format
+  - Markdown files are auto-generated from YAML content field
+  ...
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `.claude/skills/shep-kit:*/` | High | All skills need updated parsing |
+  ...
+```
+
+### Generated Markdown Output (`spec.md`)
+
+```markdown
+---
+name: shepkit-support-yaml-specs
+number: 11
+branch: feat/011-shepkit-support-yaml-specs
+phase: Research
+sizeEstimate: L
+technologies: [TypeSpec, js-yaml, Node.js]
+---
+
+## Problem Statement
+
+The current spec-driven workflow uses Markdown files as the source of truth...
+
+## Success Criteria
+
+- All shep-kit skills can read/write specs in YAML format
+- Markdown files are auto-generated from YAML content field
+  ...
+```
 
 ## Library Analysis
 
-| Library    | Version | Purpose                            | Pros                                             | Cons                                                |
-| ---------- | ------- | ---------------------------------- | ------------------------------------------------ | --------------------------------------------------- |
-| js-yaml    | ^4.1.1  | YAML parsing/serialization         | Already installed, lightweight, simple API       | No comment preservation                             |
-| zod        | ^4.3.6  | Schema validation + type inference | Already installed, TypeScript-native, composable | Schemas must be maintained alongside YAML templates |
-| handlebars | ^4.7.8  | Markdown generation from YAML data | Clean templates, loops/conditionals, partials    | New dependency (~77KB, minimal for CLI)             |
+| Library | Version | Purpose                    | Pros                                       | Cons                                 |
+| ------- | ------- | -------------------------- | ------------------------------------------ | ------------------------------------ |
+| js-yaml | ^4.1.1  | YAML parsing/serialization | Already installed, lightweight, simple API | No comment preservation (not needed) |
+
+No new libraries required. TypeSpec handles schema/type generation. js-yaml handles YAML parsing.
 
 ## Decision Log
 
-| #   | Decision            | Chosen                                | Rejected                        | Why                                                                           |
-| --- | ------------------- | ------------------------------------- | ------------------------------- | ----------------------------------------------------------------------------- |
-| 1   | YAML parsing        | js-yaml                               | yaml (npm), custom              | Already installed, sufficient for structured data without comments            |
-| 2   | Schema validation   | Zod                                   | JSON Schema, Ajv, custom        | Already installed, TypeScript-first, type inference                           |
-| 3   | Markdown generation | Handlebars                            | remark/mdast, template literals | Right balance of power vs. simplicity for spec templates                      |
-| 4   | Skill parsing       | Hybrid (direct read + CLI validation) | Scripts-only, direct-only       | Simple reads stay in skills; complex validation becomes testable Node.js code |
+| #   | Decision            | Chosen                           | Rejected                             | Why                                                                         |
+| --- | ------------------- | -------------------------------- | ------------------------------------ | --------------------------------------------------------------------------- |
+| 1   | Spec modeling       | TypeSpec entities                | Zod, JSON Schema                     | Aligns with existing TypeSpec-first architecture                            |
+| 2   | Artifact structure  | Content + metadata               | Fully structured YAML, metadata-only | Content preserves Markdown expressiveness; metadata enables machine queries |
+| 3   | Markdown generation | Direct content field             | Handlebars, remark/mdast             | No template engine needed — content IS the Markdown                         |
+| 4   | YAML parsing        | js-yaml (existing)               | yaml (npm)                           | Already installed, sufficient for structured data                           |
+| 5   | Validation          | TypeSpec types + Node.js script  | Zod, JSON Schema + Ajv               | TypeSpec generates types; simple script for semantic checks                 |
+| 6   | Skill updates       | Direct YAML reads + CLI validate | Script-only, direct-only             | Simple reads in skills; complex validation via testable Node.js             |
 
 ## Security Considerations
 
-No security implications identified. This feature modifies only local spec files and developer tooling. No user input is passed to YAML parsing from external sources. Zod validation provides defense-in-depth against malformed spec files.
+No security implications identified. This feature modifies only local spec files and developer tooling. No user input is passed to YAML parsing from external sources.
 
 ## Performance Implications
 
-No performance implications identified. Spec parsing and Markdown generation are one-shot operations during development, not runtime paths. Handlebars template compilation is negligible (< 10ms per template).
+No performance implications identified. Spec parsing and Markdown generation are one-shot operations during development, not runtime paths.
 
 ## Current Parsing Inventory (Migration Scope)
 
 ### Skills by parsing complexity
 
-| Skill                    | Current Parsing                        | Migration Effort                            |
-| ------------------------ | -------------------------------------- | ------------------------------------------- |
-| `shep-kit:new-feature`   | Directory listing only                 | Low — update templates to YAML              |
-| `shep-kit:research`      | grep/awk for Open Questions gate check | Low — read `spec.yaml` open_questions field |
-| `shep-kit:plan`          | grep/awk for gate check + task count   | Low — read YAML arrays                      |
-| `shep-kit:implement`     | 50+ grep/awk validation rules          | High — replace with `pnpm spec:validate`    |
-| `shep-kit:commit-pr`     | Reads feature.yaml only                | None — already YAML                         |
-| `shep-kit:parallel-task` | Uses init-feature.sh                   | Low — update script                         |
-| `shep-kit:merged`        | Reads feature.yaml only                | None — already YAML                         |
+| Skill                    | Current Parsing                        | Migration Effort                           |
+| ------------------------ | -------------------------------------- | ------------------------------------------ |
+| `shep-kit:new-feature`   | Directory listing only                 | Low — update templates to YAML             |
+| `shep-kit:research`      | grep/awk for Open Questions gate check | Low — read `spec.yaml` openQuestions field |
+| `shep-kit:plan`          | grep/awk for gate check + task count   | Low — read YAML arrays                     |
+| `shep-kit:implement`     | 50+ grep/awk validation rules          | High — replace with `pnpm spec:validate`   |
+| `shep-kit:commit-pr`     | Reads feature.yaml only                | None — already YAML                        |
+| `shep-kit:parallel-task` | Uses init-feature.sh                   | Low — update script                        |
+| `shep-kit:merged`        | Reads feature.yaml only                | None — already YAML                        |
 
 ### Current patterns being replaced
 
-| Pattern            | Current (Markdown)                         | New (YAML)                                      |
-| ------------------ | ------------------------------------------ | ----------------------------------------------- |
-| Section existence  | `grep -q "^## Problem Statement"`          | Check key exists in parsed object               |
-| Checkbox status    | `grep "^- \[ \]"` in awk-extracted section | `spec.open_questions.filter(q => !q.resolved)`  |
-| Task count         | `grep -c "^## Task [0-9]"`                 | `tasks.length`                                  |
-| Section extraction | `awk '/^## Section/,/^##[^#]/'`            | Direct key access: `spec.success_criteria`      |
-| Table parsing      | `awk -F'\|' '{print $2}'`                  | Array of objects: `spec.affected_areas[0].area` |
-| Task dependencies  | `grep -oP "task-\d+"` in task sections     | `task.dependencies: ['task-1', 'task-2']`       |
-
-## YAML Schema Design (Preview)
-
-### spec.yaml structure
-
-```yaml
-feature:
-  name: 'feature-name'
-  number: 11
-  created: '2026-02-10'
-  branch: 'feat/011-feature-name'
-  phase: 'requirements'
-  one_liner: 'Brief description'
-
-problem_statement: |
-  Multi-line problem description...
-
-success_criteria:
-  - id: 'sc-1'
-    description: 'Criterion text'
-    done: false
-
-affected_areas:
-  - area: '.claude/skills/shep-kit:*/'
-    impact: 'high'
-    reasoning: 'All skills need updated parsing'
-
-dependencies: []
-
-size_estimate:
-  size: 'L'
-  reasoning: 'Touches all shep-kit skills...'
-
-open_questions: []
-# OR:
-# open_questions:
-#   - question: "Should we migrate existing specs?"
-#     resolved: true
-#     answer: "No, new specs only"
-```
-
-### tasks.yaml structure
-
-```yaml
-phases:
-  - id: 'phase-1'
-    name: 'Foundation'
-    parallel: false
-    tasks:
-      - id: 'task-1'
-        title: 'Define YAML schemas with Zod'
-        description: 'Create Zod schemas for spec, research, plan, tasks'
-        state: 'todo'
-        dependencies: []
-        acceptance_criteria:
-          - 'Zod schemas defined for all 4 spec types'
-          - 'TypeScript types inferred from schemas'
-        tdd:
-          red:
-            - 'Write tests for schema validation with valid/invalid data'
-          green:
-            - 'Implement Zod schemas that pass tests'
-          refactor:
-            - 'Extract shared schema fragments'
-        estimated_effort: 'M'
-```
+| Pattern            | Current (Markdown)                         | New (YAML)                                    |
+| ------------------ | ------------------------------------------ | --------------------------------------------- |
+| Section existence  | `grep -q "^## Problem Statement"`          | Check key exists in parsed object             |
+| Checkbox status    | `grep "^- \[ \]"` in awk-extracted section | `spec.openQuestions.filter(q => !q.resolved)` |
+| Task count         | `grep -c "^## Task [0-9]"`                 | `tasks.tasks.length`                          |
+| Section extraction | `awk '/^## Section/,/^##[^#]/'`            | Direct key access: `spec.content`             |
+| Table parsing      | `awk -F'\|' '{print $2}'`                  | Array of objects: `spec.relatedFeatures[0]`   |
+| Task dependencies  | `grep -oP "task-\d+"` in task sections     | `task.dependencies: ['task-1', 'task-2']`     |
 
 ## Open Questions
 
