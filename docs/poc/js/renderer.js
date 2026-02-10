@@ -862,44 +862,40 @@ export class Renderer {
     card.className = 'env-card';
     card.dataset.featureId = env.featureId;
 
-    // Header with title and delete button
+    // Header with title and close button
     const header = document.createElement('div');
     header.className = 'env-card-header';
 
     const title = document.createElement('div');
     title.className = 'env-card-title';
-    title.textContent = feature.title;
     title.title = feature.title;
 
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'env-card-delete';
-    const deleteIcon = document.createElement('i');
-    deleteIcon.className = 'fas fa-times text-xs';
-    deleteBtn.appendChild(deleteIcon);
-    deleteBtn.onclick = (e) => {
+    const serverIcon = document.createElement('i');
+    serverIcon.className = 'fas fa-server';
+
+    const titleText = document.createElement('span');
+    titleText.textContent = feature.title;
+    titleText.style.overflow = 'hidden';
+    titleText.style.textOverflow = 'ellipsis';
+    titleText.style.whiteSpace = 'nowrap';
+
+    title.appendChild(serverIcon);
+    title.appendChild(titleText);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'env-card-close';
+    const closeIcon = document.createElement('i');
+    closeIcon.className = 'fas fa-times';
+    closeBtn.appendChild(closeIcon);
+    closeBtn.onclick = (e) => {
       e.stopPropagation();
       window.app.deleteEnvironment(env.featureId);
     };
-    deleteBtn.title = 'Stop and remove';
+    closeBtn.title = 'Stop and remove';
 
     header.appendChild(title);
-    header.appendChild(deleteBtn);
+    header.appendChild(closeBtn);
     card.appendChild(header);
-
-    // Status indicator
-    const status = document.createElement('div');
-    status.className = 'env-card-status';
-
-    const statusDot = document.createElement('div');
-    statusDot.className = 'env-card-status-dot';
-
-    const statusText = document.createElement('span');
-    statusText.className = 'env-card-status-text';
-    statusText.textContent = 'Server Running';
-
-    status.appendChild(statusDot);
-    status.appendChild(statusText);
-    card.appendChild(status);
 
     // URL (clickable)
     const urlContainer = document.createElement('div');
@@ -919,6 +915,90 @@ export class Renderer {
     urlContainer.appendChild(urlIcon);
     urlContainer.appendChild(urlText);
     card.appendChild(urlContainer);
+
+    // Actions row - Same as drawer
+    const actions = document.createElement('div');
+    actions.className = 'env-card-actions';
+
+    // PR button
+    const prBtn = document.createElement('button');
+    prBtn.className = 'env-card-action-btn';
+    prBtn.title = 'Pull Request';
+    prBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.openPR(env.featureId);
+    };
+    const prIcon = document.createElement('i');
+    prIcon.className = 'fab fa-github';
+    prBtn.appendChild(prIcon);
+
+    // VSCode button
+    const vscodeBtn = document.createElement('button');
+    vscodeBtn.className = 'env-card-action-btn';
+    vscodeBtn.title = 'VSCode';
+    vscodeBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.openInVSCode(env.featureId);
+    };
+    const vscodeIcon = document.createElement('i');
+    vscodeIcon.className = 'fab fa-microsoft';
+    vscodeBtn.appendChild(vscodeIcon);
+
+    // Web Preview button
+    const webBtn = document.createElement('button');
+    webBtn.className = 'env-card-action-btn';
+    webBtn.title = 'Web Preview';
+    webBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.openWebPreview(env.featureId);
+    };
+    const webIcon = document.createElement('i');
+    webIcon.className = 'fas fa-globe';
+    webBtn.appendChild(webIcon);
+
+    // Terminal button
+    const terminalBtn = document.createElement('button');
+    terminalBtn.className = 'env-card-action-btn';
+    terminalBtn.title = 'Terminal';
+    terminalBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.openTerminal(env.featureId);
+    };
+    const terminalIcon = document.createElement('i');
+    terminalIcon.className = 'fas fa-terminal';
+    terminalBtn.appendChild(terminalIcon);
+
+    // IDE Preview button
+    const ideBtn = document.createElement('button');
+    ideBtn.className = 'env-card-action-btn';
+    ideBtn.title = 'IDE Preview';
+    ideBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.openIDEPreview(env.featureId);
+    };
+    const ideIcon = document.createElement('i');
+    ideIcon.className = 'fas fa-code';
+    ideBtn.appendChild(ideIcon);
+
+    // Deep Dive button - Highlighted
+    const deepDiveBtn = document.createElement('button');
+    deepDiveBtn.className = 'env-card-action-btn deep-dive';
+    deepDiveBtn.title = 'Deep Dive';
+    deepDiveBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.openDeepDive(env.featureId);
+    };
+    const deepDiveIcon = document.createElement('i');
+    deepDiveIcon.className = 'fas fa-layer-group';
+    deepDiveBtn.appendChild(deepDiveIcon);
+
+    actions.appendChild(prBtn);
+    actions.appendChild(vscodeBtn);
+    actions.appendChild(webBtn);
+    actions.appendChild(terminalBtn);
+    actions.appendChild(ideBtn);
+    actions.appendChild(deepDiveBtn);
+    card.appendChild(actions);
 
     // Footer with ID and port
     const footer = document.createElement('div');
