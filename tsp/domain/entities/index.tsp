@@ -17,3 +17,7 @@ import "./task.tsp";
 import "./timeline-event.tsp";
 import "./plan.tsp";
 import "./feature.tsp";
+import "./memory/episode.tsp";
+import "./memory/memory-fragment.tsp";
+import "./memory/memory-node.tsp";
+import "./memory/memory-edge.tsp";

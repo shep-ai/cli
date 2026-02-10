@@ -10,64 +10,64 @@
 ## Architecture Overview
 
 ```
-┌────────────────────────────────────────────────────────────────────────┐
-│                    Shep AI Memory Layer Architecture                   │
-├────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
-│  ┌────────────────────── Application Layer ───────────────────────┐   │
-│  │                                                                  │   │
-│  │  ┌─────────────────────────────────────────────────────────┐  │   │
-│  │  │            IMemoryService (Port Interface)              │  │   │
-│  │  │  - store(episode)                                       │  │   │
-│  │  │  - retrieve(query, scope)                               │  │   │
-│  │  │  - pruneOldMemories(policy)                             │  │   │
-│  │  └─────────────────────────────────────────────────────────┘  │   │
-│  │                              ▲                                 │   │
-│  └──────────────────────────────┼─────────────────────────────────┘   │
-│                                  │                                      │
+┌──────────────────────────────────────────────────────────────────────┐
+│                  Shep AI Memory Layer Architecture                   │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                        │
+│  ┌────────────────────── Application Layer ─────────────────────┐   │
+│  │                                                                │   │
+│  │  ┌─────────────────────────────────────────────────────────┐ │   │
+│  │  │          IMemoryService (Port Interface)                │ │   │
+│  │  │  - store(episode)                                       │ │   │
+│  │  │  - retrieve(query, scope)                               │ │   │
+│  │  │  - pruneOldMemories(policy)                             │ │   │
+│  │  └─────────────────────────────────────────────────────────┘ │   │
+│  │                            ▲                                  │   │
+│  └────────────────────────────┼───────────────────────────────────┘   │
+│                                │                                        │
 │  ┌────────────────── Infrastructure Layer ──────────────────────┐     │
-│  │                              │                                │     │
-│  │  ┌───────────────────────────▼─────────────────────────────┐ │     │
-│  │  │         MemoryService (Orchestrator)                    │ │     │
-│  │  │  - Hybrid retrieval (semantic + graph)                 │ │     │
-│  │  │  - Multi-graph scoping (global + feature)              │ │     │
-│  │  │  - Memory persistence & pruning                        │ │     │
-│  │  └──────────────────────┬──────────────────────────────────┘ │     │
-│  │                         │                                     │     │
-│  │         ┌───────────────┼───────────────┐                    │     │
-│  │         │               │               │                    │     │
-│  │  ┌──────▼───────┐ ┌────▼──────┐ ┌──────▼──────┐            │     │
-│  │  │  Embedding   │ │  Vector   │ │    Graph    │            │     │
-│  │  │   Service    │ │   Store   │ │    Store    │            │     │
-│  │  │              │ │  Service  │ │   Service   │            │     │
-│  │  │ - generate() │ │ - upsert()│ │ - addTriple()│           │     │
-│  │  │ - batch()    │ │ - search()│ │ - query()   │            │     │
-│  │  └──────┬───────┘ └─────┬─────┘ └──────┬──────┘            │     │
-│  │         │               │               │                    │     │
-│  │  ┌──────▼───────┐ ┌────▼──────┐ ┌──────▼──────┐            │     │
-│  │  │Transformers.js│ │  LanceDB  │ │  Quadstore  │            │     │
-│  │  │ (Embeddings) │ │ (Vectors) │ │   (Graph)   │            │     │
-│  │  └──────────────┘ └───────────┘ └─────────────┘            │     │
-│  │                                                                 │     │
-│  └─────────────────────────────────────────────────────────────────┘     │
-│                                                                          │
-│  ┌─────────────────────── Storage Layer ──────────────────────────┐    │
-│  │                                                                  │    │
-│  │  ~/.shep/memory/                                                │    │
-│  │  ├── vectors/                                                   │    │
-│  │  │   ├── global/          # Global embeddings (LanceDB)        │    │
-│  │  │   └── features/        # Per-feature embeddings             │    │
-│  │  │       └── {featureId}/ # Feature-specific vectors           │    │
-│  │  ├── graphs/                                                    │    │
-│  │  │   ├── global/          # Global memory graph (Quadstore)    │    │
-│  │  │   └── features/        # Per-feature graphs                 │    │
-│  │  │       └── {featureId}/ # Feature-specific graph data        │    │
-│  │  └── models/                                                    │    │
-│  │      └── embeddings/      # Cached ONNX models                 │    │
-│  │                                                                  │    │
-│  └──────────────────────────────────────────────────────────────────┘    │
-│                                                                          │
-└──────────────────────────────────────────────────────────────────────────┘
+│  │                            │                                  │     │
+│  │  ┌─────────────────────────▼─────────────────────────────┐  │     │
+│  │  │       MemoryService (Orchestrator)                    │  │     │
+│  │  │  - Hybrid retrieval (semantic + graph)                │  │     │
+│  │  │  - Multi-graph scoping (global + feature)             │  │     │
+│  │  │  - Memory persistence & pruning                        │  │     │
+│  │  └────────────────────┬───────────────────────────────────┘  │     │
+│  │                       │                                       │     │
+│  │       ┌───────────────┼───────────────┐                      │     │
+│  │       │               │               │                      │     │
+│  │  ┌────▼──────┐ ┌──────▼──────┐ ┌─────▼──────┐              │     │
+│  │  │ Embedding │ │   Vector    │ │   Graph    │              │     │
+│  │  │  Service  │ │    Store    │ │   Store    │              │     │
+│  │  │           │ │   Service   │ │  Service   │              │     │
+│  │  │- generate()│ │ - upsert() │ │- addTriple()│             │     │
+│  │  │- batch()  │ │ - search() │ │ - query()  │              │     │
+│  │  └────┬──────┘ └──────┬──────┘ └─────┬──────┘              │     │
+│  │       │               │               │                      │     │
+│  │  ┌────▼──────────┐ ┌──▼────────┐ ┌───▼────────┐            │     │
+│  │  │Transformers.js│ │  LanceDB  │ │ Quadstore  │            │     │
+│  │  │ (Embeddings)  │ │ (Vectors) │ │  (Graph)   │            │     │
+│  │  └───────────────┘ └───────────┘ └────────────┘            │     │
+│  │                                                              │     │
+│  └──────────────────────────────────────────────────────────────┘     │
+│                                                                        │
+│  ┌───────────────────── Storage Layer ───────────────────────────┐   │
+│  │                                                                │   │
+│  │  ~/.shep/memory/                                              │   │
+│  │  ├── vectors/                                                 │   │
+│  │  │   ├── global/          # Global embeddings (LanceDB)      │   │
+│  │  │   └── features/        # Per-feature embeddings           │   │
+│  │  │       └── {featureId}/ # Feature-specific vectors         │   │
+│  │  ├── graphs/                                                  │   │
+│  │  │   ├── global/          # Global memory graph (Quadstore)  │   │
+│  │  │   └── features/        # Per-feature graphs               │   │
+│  │  │       └── {featureId}/ # Feature-specific graph data      │   │
+│  │  └── models/                                                  │   │
+│  │      └── embeddings/      # Cached ONNX models               │   │
+│  │                                                                │   │
+│  └────────────────────────────────────────────────────────────────┘   │
+│                                                                        │
+└──────────────────────────────────────────────────────────────────────┘
 
 Data Flow:
 1. Agent interaction → Episode created

@@ -549,6 +549,144 @@ export type Feature = BaseEntity & {
    */
   relatedArtifacts: Artifact[];
 };
+export enum MemoryScope {
+  Global = 'global',
+  Feature = 'feature',
+}
+export enum MemoryType {
+  Conversation = 'conversation',
+  Decision = 'decision',
+  Pattern = 'pattern',
+  Learning = 'learning',
+}
+
+/**
+ * Memory fragment - detailed snippet from an episode
+ */
+export type MemoryFragment = {
+  /**
+   * Unique fragment ID
+   */
+  id: string;
+  /**
+   * Text content of this fragment
+   */
+  content: string;
+  /**
+   * Role of the speaker
+   */
+  role?: 'user' | 'assistant' | 'system';
+  /**
+   * When this fragment occurred
+   */
+  timestamp: any;
+  /**
+   * Sequence order within episode
+   */
+  sequence: number;
+  /**
+   * Additional metadata
+   */
+  metadata?: Record<string, string>;
+};
+
+/**
+ * Episode entity - main memory unit for agent interactions
+ */
+export type Episode = BaseEntity & {
+  /**
+   * Main content of the episode
+   */
+  content: string;
+  /**
+   * Brief summary for quick reference
+   */
+  summary?: string;
+  /**
+   * Scope of this memory (Global or Feature-specific)
+   */
+  scope: MemoryScope;
+  /**
+   * Type of memory episode
+   */
+  type: MemoryType;
+  /**
+   * Associated feature ID (if feature-specific)
+   */
+  featureId?: string;
+  /**
+   * Detailed fragments of the conversation
+   */
+  fragments: MemoryFragment[];
+  /**
+   * Flag indicating if embedding exists in vector store
+   */
+  hasEmbedding: boolean;
+  /**
+   * IDs of related episodes (graph edges)
+   */
+  relatedEpisodes?: string[];
+  /**
+   * Tags for categorization and filtering
+   */
+  tags?: string[];
+  /**
+   * Importance score for retention (0.0-1.0)
+   */
+  importance?: number;
+};
+
+/**
+ * Memory node - graph representation of an episode
+ */
+export type MemoryNode = BaseEntity & {
+  /**
+   * Associated episode ID
+   */
+  episodeId: string;
+  /**
+   * Human-readable label
+   */
+  label: string;
+  /**
+   * Memory scope (Global or Feature-specific)
+   */
+  scope: MemoryScope;
+  /**
+   * Feature ID (if feature-specific)
+   */
+  featureId?: string;
+  /**
+   * Node properties
+   */
+  properties?: Record<string, string>;
+};
+
+/**
+ * Memory edge - relationship between episodes in graph
+ */
+export type MemoryEdge = BaseEntity & {
+  /**
+   * Source episode ID
+   */
+  sourceEpisodeId: string;
+  /**
+   * Target episode ID
+   */
+  targetEpisodeId: string;
+  /**
+   * Relationship type (RDF predicate)
+   */
+  relationshipType: string;
+  /**
+   * Edge properties
+   */
+  properties?: Record<string, string>;
+  /**
+   * Relationship strength (0.0-1.0)
+   */
+  weight?: number;
+};
 export enum AgentStatus {
   Idle = 'Idle',
   Running = 'Running',
@@ -882,3 +1020,5 @@ export type LocalDeployAgentOperations = {
   Analyze(repositoryPath: string): DeploySkill;
   Ask(query: string): AskResponse;
 };
+
+export namespace TypeSpec {}
