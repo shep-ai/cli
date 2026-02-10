@@ -225,9 +225,13 @@ specs/                              # Root-level spec directory
 4. **Update `feature.yaml`** (phase: "in-review", add PR URL)
 5. Watch CI with `gh run watch --exit-status`
 6. If CI fails: fix, push, watch again (loop until green)
-7. Report PR URL when CI is green
+7. **Watch for review comments** (bot and human) via `gh api`
+8. **Autonomous review loop**: If actionable comments found, apply fixes, commit, push, watch CI again, and repeat (max 5 iterations)
+9. Report PR URL when approved or no remaining issues
 
-**Output**: Pull request ready for code review with passing CI
+**Note:** After CI passes, the skill autonomously watches for Claude Code bot and human reviewer comments. It fetches reviews from all GitHub API sources, classifies comments as actionable or non-actionable, applies fixes, and loops until the PR is approved or no actionable feedback remains. See the [feature.yaml Protocol](./feature-yaml-protocol.md) for review loop state tracking.
+
+**Output**: Pull request approved (or ready for manual review if max iterations reached)
 
 ### Step 6: Cleanup After Merge (`/shep-kit:merged`)
 
