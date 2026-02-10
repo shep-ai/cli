@@ -1,0 +1,36 @@
+feature:
+  id: '012-autonomous-pr-review-loop'
+  name: 'autonomous-pr-review-loop'
+  number: 12
+  branch: 'feat/012-autonomous-pr-review-loop'
+  lifecycle: 'research'
+  createdAt: '2026-02-10T19:12:16Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-10T19:12:16Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-10T19:12:16Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
