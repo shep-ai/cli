@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Feature Flow Manager - Enhanced</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="features-enhanced.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/marked@11.1.1/marked.min.js"></script>
+</head>
+<body class="h-screen w-screen flex overflow-hidden">
+    <div id="canvas-container" class="relative flex-1 h-full overflow-auto bg-[#fcfcfc]">
+        <div class="absolute inset-0 z-0 opacity-[0.02] pointer-events-none"
+             style="background-image: linear-gradient(#000 1px, transparent 1px), linear-gradient(90deg, #000 1px, transparent 1px); background-size: 40px 40px;"></div>
+        <div class="fixed top-8 left-8 z-20 select-none">
+            <button id="back-btn" class="hidden mb-3 px-4 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded shadow-sm transition-all flex items-center gap-2 text-sm font-semibold text-slate-700" onclick="app.closeDeepDive()">
+                <i class="fas fa-arrow-left text-xs"></i>
+                <span>Back to Features</span>
+            </button>
+            <h1 id="canvas-title" class="text-4xl font-extrabold text-slate-800 tracking-tight leading-none pointer-events-none">
+                Features<br><span class="text-slate-300">Control Center</span>
+            </h1>
+        </div>
+        <div class="fixed top-4 right-4 z-40 flex items-center gap-2">
+            <div class="bg-emerald-50 text-emerald-700 border border-emerald-200 px-3 py-1.5 rounded text-xs font-semibold shadow-sm flex items-center gap-2">
+                <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                <span>LIVE SIMULATION</span>
+            </div>
+            <button onclick="app.clearAll()" class="bg-white hover:bg-red-50 text-slate-400 hover:text-red-600 border border-slate-100 px-3 py-1.5 rounded text-xs font-semibold transition-all shadow-sm flex items-center gap-2">
+                <i class="fas fa-trash-alt"></i><span>CLEAR</span>
+            </button>
+        </div>
+        <!-- Environment Cards Section -->
+        <div id="env-cards-container" class="fixed top-24 right-4 z-30 flex flex-col gap-2 max-w-[220px]"></div>
+        <svg id="connector-layer" class="absolute top-0 left-0 w-full h-full z-0 pointer-events-none overflow-visible"></svg>
+        <div id="node-layer" class="absolute top-0 left-0 w-full h-full z-10"></div>
+    </div>
+    <div id="side-panel" class="fixed inset-y-0 right-0 w-[756px] enhanced-panel transform translate-x-full transition-transform duration-300 ease-out z-50 flex flex-col">
+        <div class="h-12 border-b border-slate-100 flex justify-between items-center px-4 bg-white">
+            <div class="flex items-center gap-2.5">
+                <div class="w-1.5 h-1.5 rounded-full bg-blue-600"></div>
+                <h2 id="panel-title" class="text-[11px] font-bold text-slate-700 tracking-wide">PROPERTIES</h2>
+                <span id="panel-id-display" class="text-[9px] text-slate-400 font-mono">• ID: --</span>
+            </div>
+            <div class="flex items-center gap-1.5">
+                <button class="quick-action text-slate-400 hover:text-blue-600" title="Duplicate">
+                    <i class="fas fa-copy text-xs"></i>
+                </button>
+                <button class="quick-action text-slate-400 hover:text-emerald-600" title="Export">
+                    <i class="fas fa-download text-xs"></i>
+                </button>
+                <button class="quick-action text-slate-400 hover:text-purple-600" title="Share">
+                    <i class="fas fa-share-nodes text-xs"></i>
+                </button>
+                <div class="w-px h-6 bg-slate-200 mx-1"></div>
+                <button onclick="app.closePanel()" class="text-slate-400 hover:text-slate-600 transition-colors">
+                    <i class="fas fa-times text-sm"></i>
+                </button>
+            </div>
+        </div>
+        <div class="flex border-b border-slate-100 bg-white">
+            <button id="action-tab-btn" class="tab-btn hidden" onclick="app.switchTab('action', event)">
+                <i class="fas fa-exclamation-circle text-[10px] mr-1.5 text-amber-500"></i>
+                <span id="action-tab-label">Action Required</span>
+            </button>
+            <button id="overview-tab-btn" class="tab-btn active" onclick="app.switchTab('overview', event)">
+                <i class="fas fa-table-columns text-[10px] mr-1.5"></i>Overview
+            </button>
+            <button id="tasks-tab-btn" class="tab-btn" onclick="app.switchTab('tasks', event)">
+                <i class="fas fa-list-check text-[10px] mr-1.5"></i>Tasks
+            </button>
+            <button id="activity-tab-btn" class="tab-btn" onclick="app.switchTab('activity', event)">
+                <i class="fas fa-clock-rotate-left text-[10px] mr-1.5"></i>Activity
+            </button>
+            <button id="settings-tab-btn" class="tab-btn" onclick="app.switchTab('settings', event)">
+                <i class="fas fa-sliders text-[10px] mr-1.5"></i>Settings
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto relative" id="tab-container"></div>
+        <!-- Sleek Action Bar -->
+        <div id="action-bar" class="h-12 border-t border-slate-100 bg-white flex items-center justify-between px-4">
+            <!-- Create Mode Actions (shown when creating) -->
+            <div id="create-actions" class="hidden w-full flex items-center justify-center gap-2">
+                <button onclick="app.closePanel()" class="text-xs text-slate-500 hover:text-slate-700 font-medium transition-colors px-3 py-1.5">
+                    Cancel
+                </button>
+                <button id="save-btn" onclick="app.handleSidebarAction()" class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-1.5 rounded transition-all flex items-center gap-1.5">
+                    <i class="fas fa-plus text-[10px]"></i>Create Feature
+                </button>
+            </div>
+            <!-- Edit Mode Actions (shown when viewing) -->
+            <div id="edit-actions" class="hidden w-full flex items-center justify-end gap-1">
+                <button class="action-icon-btn" title="Delete Feature" onclick="app.deleteCurrentNode()">
+                    <i class="fas fa-trash"></i>
+                </button>
+                <button class="action-icon-btn" title="Archive Feature" onclick="app.archiveFeature()">
+                    <i class="fas fa-archive"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+    <div id="confirm-modal" class="fixed inset-0 z-[60] hidden flex items-center justify-center bg-slate-900/20 backdrop-blur-sm opacity-0 transition-opacity duration-300">
+        <div class="bg-white border border-slate-200 rounded shadow-2xl p-4 max-w-sm w-full mx-4 transform scale-95 transition-transform duration-300" id="confirm-box">
+            <div class="flex items-center gap-2.5 mb-3">
+                <div class="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center">
+                    <i class="fas fa-exclamation-triangle text-red-600 text-sm"></i>
+                </div>
+                <h3 class="text-xs font-bold text-slate-800 uppercase tracking-wide">Confirm Action</h3>
+            </div>
+            <p id="confirm-message" class="text-slate-600 text-xs mb-4">Are you sure?</p>
+            <div class="flex gap-2">
+                <button onclick="app.closeConfirm()" class="flex-1 px-3 py-2 rounded text-xs font-semibold text-slate-600 hover:bg-slate-100 transition-colors border border-slate-200">Cancel</button>
+                <button id="confirm-yes-btn" class="flex-1 px-3 py-2 rounded text-xs font-bold bg-red-600 hover:bg-red-700 text-white shadow-sm">Confirm</button>
+            </div>
+        </div>
+    </div>
+    <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white text-slate-800 px-4 py-2.5 rounded shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-200 transform translate-y-24 transition-transform duration-300 z-50 flex items-center gap-2.5">
+        <i class="fas fa-check-circle text-emerald-500 text-sm"></i>
+        <span id="toast-msg" class="text-xs font-semibold">Action Successful</span>
+    </div>
+
+    <!-- Full-Screen Desktop Environment Modal -->
+    <div id="desktop-modal" class="fixed inset-0 z-[100] hidden bg-white/40 backdrop-blur-md opacity-0 transition-opacity duration-300">
+        <div id="desktop-window" class="absolute inset-8 bg-white rounded-lg shadow-2xl flex flex-col transform scale-95 transition-transform duration-300">
+            <!-- macOS-style Title Bar -->
+            <div class="h-12 bg-gradient-to-b from-slate-100 to-slate-50 border-b border-slate-200 rounded-t-lg flex items-center px-4 flex-shrink-0">
+                <!-- Traffic Lights -->
+                <div class="flex items-center gap-2 mr-4">
+                    <button onclick="app.closeDesktopModal()" class="w-3 h-3 rounded-full bg-red-500 hover:bg-red-600 transition-colors flex items-center justify-center group" title="Close">
+                        <i class="fas fa-times text-[6px] text-red-900 opacity-0 group-hover:opacity-100"></i>
+                    </button>
+                    <button class="w-3 h-3 rounded-full bg-yellow-500 hover:bg-yellow-600 transition-colors" title="Minimize"></button>
+                    <button class="w-3 h-3 rounded-full bg-green-500 hover:bg-green-600 transition-colors" title="Maximize"></button>
+                </div>
+                <!-- Title -->
+                <div class="flex-1 text-center">
+                    <span id="desktop-window-title" class="text-xs font-semibold text-slate-600">Development Environment</span>
+                </div>
+                <!-- Right side spacer for centering -->
+                <div class="w-20"></div>
+            </div>
+
+            <!-- Tab Bar -->
+            <div class="h-10 bg-slate-50 border-b border-slate-200 flex items-center px-2 gap-1 flex-shrink-0">
+                <button id="web-tab" class="desktop-tab active" onclick="app.switchDesktopTab('web')">
+                    <i class="fas fa-globe text-[10px] mr-1.5"></i>
+                    <span>Web Preview</span>
+                </button>
+                <button id="vscode-tab" class="desktop-tab" onclick="app.switchDesktopTab('vscode')">
+                    <i class="fab fa-microsoft text-[10px] mr-1.5"></i>
+                    <span>VS Code</span>
+                </button>
+                <button id="terminal-tab" class="desktop-tab" onclick="app.switchDesktopTab('terminal')">
+                    <i class="fas fa-terminal text-[10px] mr-1.5"></i>
+                    <span>Terminal</span>
+                </button>
+            </div>
+
+            <!-- Info Bar -->
+            <div class="h-9 bg-gradient-to-r from-slate-50 to-slate-100/50 border-b border-slate-200 flex items-center px-4 gap-4 flex-shrink-0 text-[10px]">
+                <!-- Branch Info -->
+                <div class="flex items-center gap-1.5">
+                    <i class="fas fa-code-branch text-purple-600 text-[9px]"></i>
+                    <span class="font-mono text-slate-700 font-semibold" id="desktop-branch">feat/user-auth</span>
+                </div>
+
+                <!-- Divider -->
+                <div class="w-px h-4 bg-slate-300"></div>
+
+                <!-- Worktree Path -->
+                <div class="flex items-center gap-1.5 flex-1 min-w-0">
+                    <i class="fas fa-folder-tree text-blue-600 text-[9px]"></i>
+                    <span class="font-mono text-slate-600 truncate" id="desktop-worktree">.worktrees/feat-user-auth</span>
+                </div>
+
+                <!-- Divider -->
+                <div class="w-px h-4 bg-slate-300"></div>
+
+                <!-- PR Status -->
+                <div class="flex items-center gap-2" id="desktop-pr-container">
+                    <div class="flex items-center gap-1.5 px-2 py-1 rounded bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 transition-colors cursor-pointer" onclick="app.openPRLink()">
+                        <i class="fab fa-github text-emerald-700 text-[9px]"></i>
+                        <span class="text-emerald-700 font-semibold" id="desktop-pr">PR #247</span>
+                        <i class="fas fa-external-link-alt text-emerald-600 text-[7px]"></i>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <div class="w-px h-4 bg-slate-300"></div>
+
+                <!-- Git Status -->
+                <div class="flex items-center gap-3">
+                    <div class="flex items-center gap-1" title="Commits ahead">
+                        <i class="fas fa-arrow-up text-blue-600 text-[8px]"></i>
+                        <span class="text-slate-600 font-semibold font-mono" id="desktop-commits-ahead">3</span>
+                    </div>
+                    <div class="flex items-center gap-1" title="Commits behind">
+                        <i class="fas fa-arrow-down text-slate-400 text-[8px]"></i>
+                        <span class="text-slate-500 font-semibold font-mono" id="desktop-commits-behind">0</span>
+                    </div>
+                    <div class="flex items-center gap-1" title="Modified files">
+                        <i class="fas fa-file-pen text-amber-600 text-[8px]"></i>
+                        <span class="text-slate-600 font-semibold font-mono" id="desktop-files-modified">2</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Content Area -->
+            <div class="flex-1 relative overflow-hidden bg-white">
+                <!-- Web Preview Panel -->
+                <div id="web-panel" class="desktop-panel active">
+                    <div class="h-full w-full flex flex-col">
+                        <!-- Address Bar -->
+                        <div class="h-10 bg-slate-50 border-b border-slate-200 flex items-center px-3 gap-2 flex-shrink-0">
+                            <button class="w-6 h-6 rounded hover:bg-slate-200 flex items-center justify-center text-slate-400" title="Back">
+                                <i class="fas fa-arrow-left text-xs"></i>
+                            </button>
+                            <button class="w-6 h-6 rounded hover:bg-slate-200 flex items-center justify-center text-slate-400" title="Forward">
+                                <i class="fas fa-arrow-right text-xs"></i>
+                            </button>
+                            <button class="w-6 h-6 rounded hover:bg-slate-200 flex items-center justify-center text-slate-400" title="Refresh">
+                                <i class="fas fa-rotate-right text-xs"></i>
+                            </button>
+                            <div class="flex-1 flex items-center bg-white border border-slate-200 rounded px-3 h-7">
+                                <i class="fas fa-lock text-emerald-500 text-[10px] mr-2"></i>
+                                <input id="web-url" type="text" class="flex-1 text-xs outline-none" value="http://localhost:3000" readonly>
+                            </div>
+                            <button class="px-3 h-7 rounded bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold transition-colors">
+                                Open in Browser
+                            </button>
+                        </div>
+                        <!-- Web Content -->
+                        <div class="flex-1 bg-gradient-to-br from-slate-50 to-white flex items-center justify-center">
+                            <div class="text-center">
+                                <div class="w-20 h-20 rounded-full bg-blue-100 flex items-center justify-center mx-auto mb-4">
+                                    <i class="fas fa-globe text-blue-600 text-3xl"></i>
+                                </div>
+                                <h3 class="text-lg font-bold text-slate-700 mb-2">Web Preview</h3>
+                                <p class="text-sm text-slate-500 mb-4">Your application is running on localhost:3000</p>
+                                <div class="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-50 border border-emerald-200">
+                                    <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    <span class="text-xs font-semibold text-emerald-700">Server Running</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- VS Code Panel -->
+                <div id="vscode-panel" class="desktop-panel">
+                    <div class="h-full w-full flex">
+                        <!-- Sidebar -->
+                        <div class="w-12 bg-[#2c2c2c] flex flex-col items-center py-4 gap-4 flex-shrink-0">
+                            <button class="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
+                                <i class="fas fa-folder text-lg"></i>
+                            </button>
+                            <button class="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
+                                <i class="fas fa-search text-lg"></i>
+                            </button>
+                            <button class="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
+                                <i class="fas fa-code-branch text-lg"></i>
+                            </button>
+                            <button class="w-10 h-10 flex items-center justify-center text-white/60 hover:text-white transition-colors">
+                                <i class="fas fa-bug text-lg"></i>
+                            </button>
+                        </div>
+                        <!-- File Explorer -->
+                        <div class="w-64 bg-[#252526] text-white/90 flex flex-col flex-shrink-0">
+                            <div class="h-9 px-4 flex items-center text-xs font-semibold border-b border-white/5">
+                                EXPLORER
+                            </div>
+                            <div class="flex-1 overflow-auto p-2 text-xs">
+                                <div class="space-y-1">
+                                    <div class="flex items-center gap-1.5 px-2 py-1 hover:bg-white/10 rounded cursor-pointer">
+                                        <i class="fas fa-chevron-right text-[8px]"></i>
+                                        <i class="fas fa-folder text-blue-400"></i>
+                                        <span>src</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 px-2 py-1 hover:bg-white/10 rounded cursor-pointer">
+                                        <i class="fas fa-chevron-right text-[8px]"></i>
+                                        <i class="fas fa-folder text-blue-400"></i>
+                                        <span>public</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 px-2 py-1 hover:bg-white/10 rounded cursor-pointer">
+                                        <i class="fas fa-file text-slate-400"></i>
+                                        <span>package.json</span>
+                                    </div>
+                                    <div class="flex items-center gap-1.5 px-2 py-1 hover:bg-white/10 rounded cursor-pointer">
+                                        <i class="fas fa-file text-slate-400"></i>
+                                        <span>README.md</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Editor Area -->
+                        <div class="flex-1 bg-[#1e1e1e] flex flex-col">
+                            <div class="h-9 bg-[#252526] flex items-center px-4 border-b border-white/5">
+                                <div class="flex items-center gap-2 px-3 py-1 bg-[#1e1e1e] rounded-t text-xs text-white/90">
+                                    <i class="fab fa-js text-yellow-400"></i>
+                                    <span>index.js</span>
+                                    <button class="ml-2 text-white/40 hover:text-white/90">
+                                        <i class="fas fa-times text-[10px]"></i>
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="flex-1 p-4 text-sm font-mono text-white/90 overflow-auto">
+                                <div class="space-y-1">
+                                    <div class="flex gap-4">
+                                        <span class="text-white/30 w-8 text-right">1</span>
+                                        <span><span class="text-purple-400">import</span> <span class="text-blue-400">express</span> <span class="text-purple-400">from</span> <span class="text-green-400">'express'</span>;</span>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <span class="text-white/30 w-8 text-right">2</span>
+                                        <span></span>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <span class="text-white/30 w-8 text-right">3</span>
+                                        <span><span class="text-purple-400">const</span> app = <span class="text-blue-400">express</span>();</span>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <span class="text-white/30 w-8 text-right">4</span>
+                                        <span></span>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <span class="text-white/30 w-8 text-right">5</span>
+                                        <span>app.<span class="text-yellow-400">get</span>(<span class="text-green-400">'/'</span>, (req, res) => {</span>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <span class="text-white/30 w-8 text-right">6</span>
+                                        <span class="pl-8">res.<span class="text-yellow-400">send</span>(<span class="text-green-400">'Hello World!'</span>);</span>
+                                    </div>
+                                    <div class="flex gap-4">
+                                        <span class="text-white/30 w-8 text-right">7</span>
+                                        <span>});</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Terminal Panel -->
+                <div id="terminal-panel" class="desktop-panel">
+                    <div class="h-full w-full bg-[#1e1e1e] text-white/90 font-mono text-sm p-4 overflow-auto">
+                        <div class="space-y-2">
+                            <div class="flex items-start gap-2">
+                                <span class="text-emerald-400">➜</span>
+                                <span class="text-blue-400">~/project</span>
+                                <span class="text-white/60">npm run dev</span>
+                            </div>
+                            <div class="text-white/70 ml-4">
+                                <div>> dev</div>
+                                <div>> next dev</div>
+                                <div class="mt-2 text-emerald-400">✓ Ready in 2.3s</div>
+                                <div class="text-white/90">- Local: <span class="underline">http://localhost:3000</span></div>
+                                <div class="text-white/90">- Network: <span class="underline">http://192.168.1.100:3000</span></div>
+                                <div class="mt-2 text-white/50">✓ Compiled in 458ms</div>
+                                <div class="text-white/50">✓ Ready</div>
+                            </div>
+                            <div class="flex items-start gap-2 mt-4">
+                                <span class="text-emerald-400">➜</span>
+                                <span class="text-blue-400">~/project</span>
+                                <span class="animate-pulse">▋</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

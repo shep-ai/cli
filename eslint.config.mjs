@@ -161,6 +161,32 @@ export default tseslint.config(
   },
 
   // =============================================================================
+  // POC/Demo files - browser environment, relaxed rules
+  // =============================================================================
+  {
+    files: ['docs/poc/**/*.js'],
+    languageOptions: {
+      globals: {
+        // Browser globals
+        window: 'readonly',
+        document: 'readonly',
+        console: 'readonly',
+        localStorage: 'readonly',
+        navigator: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+      },
+    },
+    rules: {
+      'no-console': 'off',
+      '@typescript-eslint/no-unused-vars': 'off',
+      'no-undef': 'off',
+    },
+  },
+
+  // =============================================================================
   // Test files - relaxed rules
   // =============================================================================
   {
