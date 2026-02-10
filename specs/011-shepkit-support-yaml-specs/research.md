@@ -111,25 +111,37 @@ This replaces the 50+ grep/awk validation rules in `.claude/skills/shep-kit:impl
 
 ## TypeSpec Model Design
 
-### New Entities (one file per model in `tsp/domain/entities/`)
+### Base Model — SpecArtifactBase
+
+Common fields shared across all spec artifact types, extracted into a base entity.
+
+```
+model SpecArtifactBase extends BaseEntity {
+  name: string;                    // Artifact title / feature name
+  summary: string;                 // Short description
+  content: string;                 // Raw Markdown body (the human-written spec content)
+  technologies: string[];          // Key technologies mentioned/evaluated
+  relatedFeatures: string[];       // References to other spec IDs (e.g., "008-agent-configuration")
+  relatedLinks: string[];          // URLs to docs, references, comparisons
+  openQuestions: OpenQuestion[];    // Structured open questions for gate checks
+}
+```
+
+**Rationale:** All four artifact types share these 7 fields. Extracting them into `SpecArtifactBase` avoids duplication and ensures consistent metadata across spec types. Each concrete artifact extends this base with type-specific fields.
+
+### Concrete Entities (one file per model in `tsp/domain/entities/`)
 
 #### FeatureSpec
 
 Represents the feature specification artifact (`spec.yaml`).
 
 ```
-model FeatureSpec extends BaseEntity {
-  name: string;              // Feature name (kebab-case)
+model FeatureSpec extends SpecArtifactBase {
   number: int32;             // Spec number (e.g., 11)
   branch: string;            // Git branch name
-  oneLiner: string;          // Brief description
-  summary: string;           // Longer summary
-  content: string;           // Raw Markdown body (problem statement, criteria, etc.)
+  oneLiner: string;          // One-line description
   phase: SdlcLifecycle;      // Current phase
   sizeEstimate: string;      // S/M/L/XL
-  relatedFeatures: string[]; // References to other spec IDs (e.g., "008-agent-configuration")
-  technologies: string[];    // Key technologies mentioned
-  openQuestions: OpenQuestion[]; // Structured open questions
 }
 ```
 
@@ -138,14 +150,8 @@ model FeatureSpec extends BaseEntity {
 Represents the research artifact (`research.yaml`).
 
 ```
-model ResearchSpec extends BaseEntity {
-  name: string;              // Research title
-  summary: string;           // Brief findings summary
-  content: string;           // Raw Markdown body (decisions, analysis, etc.)
+model ResearchSpec extends SpecArtifactBase {
   decisions: TechDecision[]; // Structured technology decisions
-  technologies: string[];    // Libraries/tools evaluated
-  relatedLinks: string[];    // URLs to docs, comparisons, etc.
-  openQuestions: OpenQuestion[];
 }
 ```
 
@@ -154,16 +160,10 @@ model ResearchSpec extends BaseEntity {
 Represents the implementation plan artifact (`plan.yaml`).
 
 ```
-model PlanSpec extends BaseEntity {
-  name: string;              // Plan title
-  summary: string;           // Architecture overview summary
-  content: string;           // Raw Markdown body (phases, strategy, etc.)
+model PlanSpec extends SpecArtifactBase {
   phases: PlanPhase[];       // Structured implementation phases
   filesToCreate: string[];   // New files planned
   filesToModify: string[];   // Existing files to change
-  technologies: string[];    // Key technologies used
-  relatedLinks: string[];
-  openQuestions: OpenQuestion[];
 }
 ```
 
@@ -172,13 +172,9 @@ model PlanSpec extends BaseEntity {
 Represents the task breakdown artifact (`tasks.yaml`).
 
 ```
-model TasksSpec extends BaseEntity {
-  name: string;              // Tasks document title
-  summary: string;           // Overall task summary
-  content: string;           // Raw Markdown body (detailed task descriptions)
+model TasksSpec extends SpecArtifactBase {
   tasks: SpecTask[];         // Structured task list
   totalEstimate: string;     // Overall effort estimate
-  relatedFeatures: string[];
 }
 ```
 
