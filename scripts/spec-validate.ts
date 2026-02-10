@@ -230,13 +230,11 @@ export function validateSpec(specDir: string): ValidationResult[] {
 /* eslint-disable no-console */
 if (typeof process !== 'undefined' && process.argv[1]?.includes('spec-validate')) {
   const args = process.argv.slice(2);
-  const featureIdx = args.indexOf('--feature');
-  if (featureIdx === -1 || !args[featureIdx + 1]) {
-    console.error('Usage: spec-validate --feature <spec-dir>');
+  const specDir = args[0];
+  if (!specDir) {
+    console.error('Usage: spec-validate <spec-dir>');
     process.exit(1);
   }
-
-  const specDir = args[featureIdx + 1];
   const results = validateSpec(specDir);
 
   for (const result of results) {
