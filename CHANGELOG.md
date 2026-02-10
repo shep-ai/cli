@@ -1,3 +1,24 @@
+# [1.10.0](https://github.com/shep-ai/cli/compare/v1.9.1...v1.10.0) (2026-02-10)
+
+### Bug Fixes
+
+- **specs:** address code review bugs in templates and scripts ([7bcf9c1](https://github.com/shep-ai/cli/commit/7bcf9c1f18b2539cb9bea4186b02fca2b1b52a9f))
+- **specs:** remove frontmatter from generated markdown output ([11d1dce](https://github.com/shep-ai/cli/commit/11d1dce554da2e037537a64443dca4a57edb0569))
+- **specs:** remove old markdown templates from shep-kit skills ([6bad5b1](https://github.com/shep-ai/cli/commit/6bad5b19c8981c000c4ca38f663c1e2f9f11d01f))
+
+### Features
+
+- **specs:** add 011-shepkit-support-yaml-specs implementation plan ([054dc95](https://github.com/shep-ai/cli/commit/054dc9539aa39d022f308875b1728a7994be2c17))
+- **specs:** add 011-shepkit-support-yaml-specs research ([ffcb0f1](https://github.com/shep-ai/cli/commit/ffcb0f1e693c1c9ad3bca3a50a4e816c68de0c22))
+- **specs:** add 011-shepkit-support-yaml-specs specification ([38ac895](https://github.com/shep-ai/cli/commit/38ac8951d13fbfe878fbf2ef5b6a2e78d0da7475))
+- **specs:** add 012-autonomous-pr-review-loop implementation plan ([c5b3750](https://github.com/shep-ai/cli/commit/c5b375004babbce576f0fcbe3e11286dc27595c6))
+- **specs:** add 012-autonomous-pr-review-loop research ([c5bdedf](https://github.com/shep-ai/cli/commit/c5bdedfe707afde78f914782023973259d241a49))
+- **specs:** add 012-autonomous-pr-review-loop specification ([e9bdf6c](https://github.com/shep-ai/cli/commit/e9bdf6ccd2af5303bc5aa95f636635162a3dfde9))
+- **specs:** add autonomous review loop to commit-pr skill ([930897d](https://github.com/shep-ai/cli/commit/930897d9e4e7f935dcfef85ae09063d381ca8b1d))
+- **specs:** extract spec artifact base entity in 011 research ([bb04953](https://github.com/shep-ai/cli/commit/bb04953f28af99e6369ab2c1939f744ca3060b16))
+- **specs:** implement yaml-first spec workflow for shep-kit ([cebf437](https://github.com/shep-ai/cli/commit/cebf4374427fed575448dc91ae56bbd745ad1f4a))
+- **specs:** revise 011 research with typespec-first approach ([7e82149](https://github.com/shep-ai/cli/commit/7e82149a415c9a55a202ee81990106d764766e59))
+
 ## [1.9.1](https://github.com/shep-ai/cli/compare/v1.9.0...v1.9.1) (2026-02-09)
 
 ### Bug Fixes
