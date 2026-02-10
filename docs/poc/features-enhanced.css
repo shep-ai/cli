@@ -894,33 +894,24 @@ button[data-question]:disabled {
   overflow-y: auto;
   overflow-x: visible;
   padding-right: 4px;
+  /* Hide scrollbar but keep functionality */
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
 }
 
 #env-cards-container::-webkit-scrollbar {
-  width: 4px;
-}
-
-#env-cards-container::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-#env-cards-container::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 2px;
-}
-
-#env-cards-container::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  display: none; /* Chrome/Safari/Opera */
 }
 
 .env-card {
-  width: 220px;
+  width: 260px;
   background: white;
   border: 1px solid #e2e8f0;
-  border-left: 4px solid #10b981;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border-radius: 0.5rem;
+  padding: 0.75rem;
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.05),
+    0 1px 2px -1px rgba(0, 0, 0, 0.05);
   transition: all 0.2s ease;
   animation: slideInRight 0.3s ease-out;
 }
@@ -937,32 +928,42 @@ button[data-question]:disabled {
 }
 
 .env-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-  transform: translateY(-2px);
+  box-shadow:
+    0 10px 15px -3px rgba(0, 0, 0, 0.08),
+    0 4px 6px -4px rgba(0, 0, 0, 0.08);
 }
 
 .env-card-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 0.5rem;
 }
 
 .env-card-title {
-  font-size: 11px;
+  font-size: 0.6875rem;
   font-weight: 700;
   color: #1e293b;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
-  margin-right: 8px;
+  margin-right: 0.5rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
 }
 
-.env-card-delete {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
+.env-card-title i {
+  color: #10b981;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.env-card-close {
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0.25rem;
   background: transparent;
   border: none;
   color: #94a3b8;
@@ -974,7 +975,7 @@ button[data-question]:disabled {
   flex-shrink: 0;
 }
 
-.env-card-delete:hover {
+.env-card-close:hover {
   background: #fee2e2;
   color: #dc2626;
 }
@@ -982,17 +983,17 @@ button[data-question]:disabled {
 .env-card-status {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-bottom: 8px;
-  padding: 4px 8px;
+  gap: 0.375rem;
+  margin-bottom: 0.5rem;
+  padding: 0.25rem 0.5rem;
   background: #f0fdf4;
   border: 1px solid #bbf7d0;
-  border-radius: 4px;
+  border-radius: 0.25rem;
 }
 
 .env-card-status-dot {
-  width: 6px;
-  height: 6px;
+  width: 0.375rem;
+  height: 0.375rem;
   border-radius: 50%;
   background: #10b981;
   animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -1009,29 +1010,25 @@ button[data-question]:disabled {
 }
 
 .env-card-status-text {
-  font-size: 9px;
+  font-size: 0.5625rem;
   font-weight: 600;
   color: #15803d;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.03125rem;
 }
 
 .env-card-url {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 4px;
-  margin-bottom: 8px;
+  gap: 0.375rem;
+  padding: 0.25rem 0;
+  margin-bottom: 0.5rem;
   cursor: pointer;
   transition: all 0.15s ease;
 }
 
-.env-card-url:hover {
-  background: #f1f5f9;
-  border-color: #cbd5e1;
+.env-card-url:hover .env-card-url-text {
+  color: #3b82f6;
 }
 
 .env-card-url:active {
@@ -1039,34 +1036,84 @@ button[data-question]:disabled {
 }
 
 .env-card-url-icon {
-  color: #10b981;
-  font-size: 9px;
+  color: #94a3b8;
+  font-size: 0.625rem;
+  transition: color 0.15s ease;
+}
+
+.env-card-url:hover .env-card-url-icon {
+  color: #3b82f6;
 }
 
 .env-card-url-text {
-  font-size: 10px;
+  font-size: 0.625rem;
   font-family: 'Monaco', 'Courier New', monospace;
-  color: #475569;
+  color: #64748b;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+  transition: color 0.15s ease;
+}
+
+/* Environment Card Actions - Same as Drawer */
+.env-card-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.25rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
+}
+
+.env-card-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-radius: 0.25rem;
+  color: #64748b;
+  font-size: 0.75rem;
+}
+
+.env-card-action-btn:hover {
+  background: #f1f5f9;
+  color: #475569;
+}
+
+.env-card-action-btn.deep-dive {
+  background: linear-gradient(135deg, #a855f7 0%, #9333ea 100%);
+  color: white;
+  box-shadow: 0 1px 2px rgba(147, 51, 234, 0.2);
+}
+
+.env-card-action-btn.deep-dive:hover {
+  background: linear-gradient(135deg, #9333ea 0%, #7e22ce 100%);
+  box-shadow: 0 2px 4px rgba(147, 51, 234, 0.3);
 }
 
 .env-card-footer {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid #f1f5f9;
 }
 
 .env-card-id {
-  font-size: 8px;
+  font-size: 0.5rem;
   font-family: 'Monaco', 'Courier New', monospace;
   color: #94a3b8;
 }
 
 .env-card-port {
-  font-size: 8px;
+  font-size: 0.5rem;
   font-weight: 600;
   color: #64748b;
 }
