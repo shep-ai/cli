@@ -2,21 +2,12 @@
  * spec-generate-md Unit Tests
  *
  * Tests for the YAML-to-Markdown spec generation script.
- *
- * TDD Phase: RED
- * - These tests are written BEFORE implementation
- * - All tests should FAIL initially because the script doesn't exist yet
- * - Tests define the expected behavior of the generation script
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, mkdirSync, writeFileSync, rmSync } from 'fs';
 import { join } from 'path';
-import {
-  generateMarkdownFromYaml,
-  generateFrontMatter,
-  parseYamlFile,
-} from '../../../scripts/spec-generate-md.js';
+import { generateMarkdownFromYaml, parseYamlFile } from '../../../scripts/spec-generate-md.js';
 
 describe('spec-generate-md', () => {
   const testSpecDir = join(process.cwd(), 'specs', '999-test-feature');
@@ -82,63 +73,8 @@ content: |
     });
   });
 
-  describe('generateFrontMatter()', () => {
-    it('should generate YAML front matter from metadata', () => {
-      // Arrange
-      const metadata = {
-        name: 'test-feature',
-        number: 999,
-        phase: 'Requirements',
-        technologies: ['TypeScript', 'Node.js'],
-      };
-
-      // Act
-      const result = generateFrontMatter(metadata);
-
-      // Assert
-      expect(result).toContain('---');
-      expect(result).toContain('name: test-feature');
-      expect(result).toContain('number: 999');
-      expect(result).toContain('phase: Requirements');
-      expect(result).toContain('technologies:');
-      expect(result).toContain('- TypeScript');
-      expect(result).toContain('- Node.js');
-    });
-
-    it('should handle empty arrays in metadata', () => {
-      // Arrange
-      const metadata = {
-        name: 'test-feature',
-        technologies: [],
-        relatedFeatures: [],
-      };
-
-      // Act
-      const result = generateFrontMatter(metadata);
-
-      // Assert
-      expect(result).toContain('technologies: []');
-      expect(result).toContain('relatedFeatures: []');
-    });
-
-    it('should omit content field from front matter', () => {
-      // Arrange
-      const metadata = {
-        name: 'test-feature',
-        content: '## This should not appear in front matter',
-      };
-
-      // Act
-      const result = generateFrontMatter(metadata);
-
-      // Assert
-      expect(result).not.toContain('content:');
-      expect(result).not.toContain('This should not appear');
-    });
-  });
-
   describe('generateMarkdownFromYaml()', () => {
-    it('should generate Markdown for FeatureSpec', () => {
+    it('should generate Markdown for FeatureSpec without frontmatter', () => {
       // Arrange
       const yamlContent = `
 name: test-feature
@@ -164,16 +100,14 @@ content: |
       // Act
       const result = generateMarkdownFromYaml(testYamlPath, 'feature');
 
-      // Assert
-      expect(result).toContain('---'); // Front matter start
-      expect(result).toContain('name: test-feature');
-      expect(result).toContain('---'); // Front matter end
+      // Assert - no frontmatter, just content
+      expect(result).not.toMatch(/^---/);
       expect(result).toContain('## Problem Statement');
       expect(result).toContain('Test problem statement');
       expect(result).toContain('## Success Criteria');
     });
 
-    it('should generate Markdown for ResearchSpec', () => {
+    it('should generate Markdown for ResearchSpec without frontmatter', () => {
       // Arrange
       const yamlContent = `
 name: test-feature
@@ -197,13 +131,13 @@ content: |
       // Act
       const result = generateMarkdownFromYaml(yamlPath, 'research');
 
-      // Assert
-      expect(result).toContain('name: test-feature');
-      expect(result).toContain('decisions:');
+      // Assert - content only, no metadata
+      expect(result).not.toMatch(/^---/);
+      expect(result).not.toContain('decisions:');
       expect(result).toContain('## Technology Decisions');
     });
 
-    it('should generate Markdown for PlanSpec', () => {
+    it('should generate Markdown for PlanSpec without frontmatter', () => {
       // Arrange
       const yamlContent = `
 name: test-feature
@@ -229,13 +163,13 @@ content: |
       // Act
       const result = generateMarkdownFromYaml(yamlPath, 'plan');
 
-      // Assert
-      expect(result).toContain('phases:');
-      expect(result).toContain('filesToCreate:');
+      // Assert - content only
+      expect(result).not.toMatch(/^---/);
+      expect(result).not.toContain('phases:');
       expect(result).toContain('## Implementation Strategy');
     });
 
-    it('should generate Markdown for TasksSpec', () => {
+    it('should generate Markdown for TasksSpec without frontmatter', () => {
       // Arrange
       const yamlContent = `
 name: test-feature
@@ -264,9 +198,9 @@ content: |
       // Act
       const result = generateMarkdownFromYaml(yamlPath, 'tasks');
 
-      // Assert
-      expect(result).toContain('tasks:');
-      expect(result).toContain('totalEstimate:');
+      // Assert - content only
+      expect(result).not.toMatch(/^---/);
+      expect(result).not.toContain('totalEstimate:');
       expect(result).toContain('## Task List');
     });
 
@@ -330,7 +264,7 @@ content: |
 
       // Assert
       expect(result).toBeDefined();
-      expect(result).toContain('---');
+      expect(result).not.toMatch(/^---/);
       expect(result).toContain('## Minimal content');
     });
 
