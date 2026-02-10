@@ -7,7 +7,7 @@
 - **Number:** 011
 - **Created:** 2026-02-10
 - **Branch:** feat/011-shepkit-support-yaml-specs
-- **Phase:** Research
+- **Phase:** Planning
 
 ## Problem Statement
 
