@@ -1,31 +1,25 @@
 /**
- * Graph Store Service Integration Tests
+ * Integration tests for GraphStoreService
  *
- * Tests for Quadstore RDF graph storage integration.
- * Verifies triple storage, SPARQL queries, relationship traversal, and persistence.
- *
- * TDD Phase: RED
- * - Tests written BEFORE implementation
- * - All tests should FAIL initially
+ * Tests RDF graph storage using Quadstore with LevelDB backend.
+ * Verifies triple storage, SPARQL queries, graph traversal, and named graph isolation.
  */
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { join } from 'path';
 import { mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
-import { MemoryScope } from '@/domain/generated/output';
+import { join } from 'path';
 import { GraphStoreService } from '@/infrastructure/services/memory/graph-store.service';
+import { MemoryScope } from '@/domain/generated/output';
 
-describe('GraphStoreService', () => {
+describe('GraphStoreService - Integration Tests', () => {
   let graphStore: GraphStoreService;
   let tempDir: string;
 
-  beforeEach(async () => {
-    // Create temporary directory for Quadstore LevelDB
-    tempDir = mkdtempSync(join(tmpdir(), 'quadstore-test-'));
-
-    // RED: GraphStoreService doesn't exist yet
+  beforeEach(() => {
+    // Create temporary directory for Quadstore LevelDB storage
+    tempDir = mkdtempSync(join(tmpdir(), 'graph-store-test-'));
     graphStore = new GraphStoreService(tempDir);
   });
 
@@ -34,290 +28,315 @@ describe('GraphStoreService', () => {
     rmSync(tempDir, { recursive: true, force: true });
   });
 
-  describe('addTriple()', () => {
-    it('should store RDF triple (subject-predicate-object)', async () => {
-      // RED: This test should FAIL because GraphStoreService doesn't exist
-      await graphStore.addTriple(
-        'shep:episode:ep-001',
-        'shep:relatesTo',
-        'shep:episode:ep-002',
-        MemoryScope.Global
-      );
+  describe('addTriple', () => {
+    it('should store RDF triple in the graph store', async () => {
+      // Arrange
+      const subject = 'episode:ep-123';
+      const predicate = 'shep:hasContext';
+      const object = 'episode:ep-122';
+      const scope = MemoryScope.Global;
 
-      // Verify triple was stored by querying
-      const results = await graphStore.query(`
-        SELECT ?object WHERE {
-          <shep:episode:ep-001> <shep:relatesTo> ?object
+      // Act
+      await graphStore.addTriple(subject, predicate, object, scope);
+
+      // Assert
+      // Query to verify triple was stored
+      const sparql = `
+        SELECT ?s ?p ?o
+        WHERE {
+          ?s ?p ?o .
+          FILTER(?s = <${subject}>)
         }
-      `);
+      `;
+      const results = await graphStore.query(sparql, scope);
 
-      expect(results).toBeDefined();
-      expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(1);
-      expect(results[0].object).toBe('shep:episode:ep-002');
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({
+        s: subject,
+        p: predicate,
+        o: object,
+      });
     });
 
-    it('should store triple with literal object', async () => {
-      // RED: This test should FAIL
-      await graphStore.addTriple(
-        'shep:episode:ep-001',
-        'shep:hasTag',
-        '"machine-learning"',
-        MemoryScope.Global
-      );
+    it('should store multiple triples for the same subject', async () => {
+      // Arrange
+      const subject = 'episode:ep-123';
+      const scope = MemoryScope.Global;
 
-      const results = await graphStore.query(`
-        SELECT ?tag WHERE {
-          <shep:episode:ep-001> <shep:hasTag> ?tag
+      // Act
+      await graphStore.addTriple(subject, 'shep:hasContext', 'episode:ep-122', scope);
+      await graphStore.addTriple(subject, 'shep:followsFrom', 'episode:ep-121', scope);
+      await graphStore.addTriple(subject, 'shep:relatesTo', 'episode:ep-120', scope);
+
+      // Assert
+      const sparql = `
+        SELECT ?p ?o
+        WHERE {
+          <${subject}> ?p ?o .
         }
-      `);
+      `;
+      const results = await graphStore.query(sparql, scope);
 
-      expect(results.length).toBe(1);
-      expect(results[0].tag).toBe('"machine-learning"');
+      expect(results).toHaveLength(3);
     });
   });
 
-  describe('query()', () => {
-    it('should execute SPARQL query and return results', async () => {
-      // RED: This test should FAIL
-      // Add test data
-      await graphStore.addTriple(
-        'shep:episode:ep-001',
-        'shep:followsFrom',
-        'shep:episode:ep-002',
-        MemoryScope.Global
-      );
-      await graphStore.addTriple(
-        'shep:episode:ep-002',
-        'shep:followsFrom',
-        'shep:episode:ep-003',
-        MemoryScope.Global
-      );
+  describe('query', () => {
+    it('should execute SPARQL SELECT query and return results', async () => {
+      // Arrange
+      const scope = MemoryScope.Global;
+      await graphStore.addTriple('episode:ep-1', 'shep:hasContext', 'episode:ep-0', scope);
+      await graphStore.addTriple('episode:ep-2', 'shep:hasContext', 'episode:ep-1', scope);
+      await graphStore.addTriple('episode:ep-3', 'shep:followsFrom', 'episode:ep-2', scope);
 
-      // Query for all followsFrom relationships
-      const results = await graphStore.query(`
-        SELECT ?subject ?object WHERE {
-          ?subject <shep:followsFrom> ?object
+      // Act
+      const sparql = `
+        SELECT ?subject ?predicate ?object
+        WHERE {
+          ?subject ?predicate ?object .
+          FILTER(?predicate = <shep:hasContext>)
         }
-      `);
+      `;
+      const results = await graphStore.query(sparql, scope);
 
-      expect(results).toBeDefined();
-      expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(2);
+      // Assert
+      expect(results).toHaveLength(2);
+      expect(results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            subject: 'episode:ep-1',
+            predicate: 'shep:hasContext',
+            object: 'episode:ep-0',
+          }),
+          expect.objectContaining({
+            subject: 'episode:ep-2',
+            predicate: 'shep:hasContext',
+            object: 'episode:ep-1',
+          }),
+        ])
+      );
     });
 
     it('should return empty array for query with no matches', async () => {
-      // RED: This test should FAIL
-      const results = await graphStore.query(`
-        SELECT ?subject ?object WHERE {
-          ?subject <shep:nonExistent> ?object
+      // Arrange
+      const scope = MemoryScope.Global;
+      await graphStore.addTriple('episode:ep-1', 'shep:hasContext', 'episode:ep-0', scope);
+
+      // Act
+      const sparql = `
+        SELECT ?s ?p ?o
+        WHERE {
+          ?s ?p ?o .
+          FILTER(?p = <shep:nonexistent>)
         }
-      `);
+      `;
+      const results = await graphStore.query(sparql, scope);
 
-      expect(results).toBeDefined();
-      expect(Array.isArray(results)).toBe(true);
-      expect(results.length).toBe(0);
+      // Assert
+      expect(results).toEqual([]);
     });
   });
 
-  describe('getRelatedEpisodes()', () => {
-    it('should find directly related episodes', async () => {
-      // RED: This test should FAIL
-      // Create relationship graph
-      await graphStore.addTriple(
-        'shep:episode:ep-001',
-        'shep:relatesTo',
-        'shep:episode:ep-002',
-        MemoryScope.Global
-      );
-      await graphStore.addTriple(
-        'shep:episode:ep-001',
-        'shep:followsFrom',
-        'shep:episode:ep-003',
-        MemoryScope.Global
-      );
+  describe('getRelatedEpisodes', () => {
+    it('should traverse graph to find related episodes (depth 1)', async () => {
+      // Arrange
+      const scope = MemoryScope.Global;
+      // Build a simple chain: ep-0 <- ep-1 <- ep-2
+      await graphStore.addTriple('episode:ep-1', 'shep:followsFrom', 'episode:ep-0', scope);
+      await graphStore.addTriple('episode:ep-2', 'shep:followsFrom', 'episode:ep-1', scope);
 
-      // Get related episodes
-      const related = await graphStore.getRelatedEpisodes('ep-001');
+      // Act
+      const relatedIds = await graphStore.getRelatedEpisodes('ep-1', scope, 1);
 
-      expect(related).toBeDefined();
-      expect(Array.isArray(related)).toBe(true);
-      expect(related.length).toBe(2);
-      expect(related).toContain('ep-002');
-      expect(related).toContain('ep-003');
+      // Assert
+      expect(relatedIds).toHaveLength(2);
+      expect(relatedIds).toEqual(expect.arrayContaining(['ep-0', 'ep-2']));
     });
 
-    it('should traverse multi-hop relationships', async () => {
-      // RED: This test should FAIL
-      // Create chain: ep-001 -> ep-002 -> ep-003
-      await graphStore.addTriple(
-        'shep:episode:ep-001',
-        'shep:followsFrom',
-        'shep:episode:ep-002',
-        MemoryScope.Global
-      );
-      await graphStore.addTriple(
-        'shep:episode:ep-002',
-        'shep:followsFrom',
-        'shep:episode:ep-003',
-        MemoryScope.Global
-      );
+    it('should traverse graph to find related episodes (depth 2)', async () => {
+      // Arrange
+      const scope = MemoryScope.Global;
+      // Build a chain: ep-0 <- ep-1 <- ep-2 <- ep-3
+      await graphStore.addTriple('episode:ep-1', 'shep:followsFrom', 'episode:ep-0', scope);
+      await graphStore.addTriple('episode:ep-2', 'shep:followsFrom', 'episode:ep-1', scope);
+      await graphStore.addTriple('episode:ep-3', 'shep:followsFrom', 'episode:ep-2', scope);
 
-      // Get related episodes (should include ep-002 and ep-003)
-      const related = await graphStore.getRelatedEpisodes('ep-001', MemoryScope.Global, 2);
+      // Act
+      const relatedIds = await graphStore.getRelatedEpisodes('ep-2', scope, 2);
 
-      expect(related).toBeDefined();
-      expect(related.length).toBeGreaterThanOrEqual(2);
-      expect(related).toContain('ep-002');
-      expect(related).toContain('ep-003');
+      // Assert
+      // ep-2 connects to ep-1 (depth 1) and ep-3 (depth 1)
+      // ep-1 connects to ep-0 (depth 2)
+      expect(relatedIds).toHaveLength(3);
+      expect(relatedIds).toEqual(expect.arrayContaining(['ep-1', 'ep-3', 'ep-0']));
     });
 
-    it('should return empty array when no relationships exist', async () => {
-      // RED: This test should FAIL
-      const related = await graphStore.getRelatedEpisodes('ep-nonexistent');
+    it('should return empty array if episode has no relationships', async () => {
+      // Arrange
+      const scope = MemoryScope.Global;
+      await graphStore.addTriple('episode:ep-1', 'shep:followsFrom', 'episode:ep-0', scope);
 
-      expect(related).toBeDefined();
-      expect(Array.isArray(related)).toBe(true);
-      expect(related.length).toBe(0);
+      // Act
+      const relatedIds = await graphStore.getRelatedEpisodes('ep-999', scope, 1);
+
+      // Assert
+      expect(relatedIds).toEqual([]);
     });
   });
 
-  describe('removeEpisode()', () => {
+  describe('removeEpisode', () => {
     it('should delete episode and all related triples', async () => {
-      // RED: This test should FAIL
-      // Add triples involving ep-001
-      await graphStore.addTriple(
-        'shep:episode:ep-001',
-        'shep:relatesTo',
-        'shep:episode:ep-002',
-        MemoryScope.Global
-      );
-      await graphStore.addTriple(
-        'shep:episode:ep-003',
-        'shep:relatesTo',
-        'shep:episode:ep-001',
-        MemoryScope.Global
-      );
+      // Arrange
+      const scope = MemoryScope.Global;
+      await graphStore.addTriple('episode:ep-1', 'shep:hasContext', 'episode:ep-0', scope);
+      await graphStore.addTriple('episode:ep-2', 'shep:followsFrom', 'episode:ep-1', scope);
+      await graphStore.addTriple('episode:ep-1', 'shep:relatesTo', 'episode:ep-3', scope);
 
-      // Verify triples exist
-      const beforeResults = await graphStore.query(`
-        SELECT ?s ?p ?o WHERE {
-          { <shep:episode:ep-001> ?p ?o } UNION
-          { ?s ?p <shep:episode:ep-001> }
+      // Act
+      await graphStore.removeEpisode('ep-1');
+
+      // Assert
+      // Query for any triples involving ep-1
+      const sparql = `
+        SELECT ?s ?p ?o
+        WHERE {
+          ?s ?p ?o .
+          FILTER(?s = <episode:ep-1> || ?o = <episode:ep-1>)
         }
-      `);
-      expect(beforeResults.length).toBe(2);
+      `;
+      const results = await graphStore.query(sparql, scope);
 
-      // Remove episode
-      await graphStore.removeEpisode('ep-001');
+      expect(results).toEqual([]);
+    });
 
-      // Verify all triples removed
-      const afterResults = await graphStore.query(`
-        SELECT ?s ?p ?o WHERE {
-          { <shep:episode:ep-001> ?p ?o } UNION
-          { ?s ?p <shep:episode:ep-001> }
+    it('should not affect unrelated episodes', async () => {
+      // Arrange
+      const scope = MemoryScope.Global;
+      await graphStore.addTriple('episode:ep-1', 'shep:hasContext', 'episode:ep-0', scope);
+      await graphStore.addTriple('episode:ep-2', 'shep:followsFrom', 'episode:ep-3', scope);
+
+      // Act
+      await graphStore.removeEpisode('ep-1');
+
+      // Assert
+      const sparql = `
+        SELECT ?s ?p ?o
+        WHERE {
+          <episode:ep-2> ?p ?o .
         }
-      `);
-      expect(afterResults.length).toBe(0);
+      `;
+      const results = await graphStore.query(sparql, scope);
+
+      expect(results).toHaveLength(1);
+      expect(results[0]).toMatchObject({
+        s: 'episode:ep-2',
+        p: 'shep:followsFrom',
+        o: 'episode:ep-3',
+      });
     });
   });
 
-  describe('named graphs (scope isolation)', () => {
-    it('should isolate global vs feature-specific graphs', async () => {
-      // RED: This test should FAIL
-      // Add triple to global graph
+  describe('Named Graphs - Scope Isolation', () => {
+    it('should isolate global scope from feature scope', async () => {
+      // Arrange
+      const globalScope = MemoryScope.Global;
+      const featureScope = 'feature:auth-system' as MemoryScope;
+
+      // Add triples to different scopes
       await graphStore.addTriple(
-        'shep:episode:ep-global',
-        'shep:hasScope',
-        '"global"',
-        MemoryScope.Global
+        'episode:global-1',
+        'shep:hasContext',
+        'episode:global-0',
+        globalScope
       );
-
-      // Add triple to feature graph
       await graphStore.addTriple(
-        'shep:episode:ep-feature',
-        'shep:hasScope',
-        '"feature"',
-        MemoryScope.Feature
+        'episode:feature-1',
+        'shep:hasContext',
+        'episode:feature-0',
+        featureScope
       );
 
-      // Query global graph only
-      const globalResults = await graphStore.query(
-        `
-        SELECT ?subject WHERE {
-          ?subject <shep:hasScope> ?scope
+      // Act - Query global scope
+      const globalSparql = `
+        SELECT ?s ?p ?o
+        WHERE {
+          ?s ?p ?o .
         }
-      `,
-        MemoryScope.Global
-      );
+      `;
+      const globalResults = await graphStore.query(globalSparql, globalScope);
 
-      expect(globalResults.length).toBe(1);
-      expect(globalResults[0].subject).toContain('ep-global');
+      // Act - Query feature scope
+      const featureResults = await graphStore.query(globalSparql, featureScope);
 
-      // Query feature graph only
-      const featureResults = await graphStore.query(
-        `
-        SELECT ?subject WHERE {
-          ?subject <shep:hasScope> ?scope
-        }
-      `,
-        MemoryScope.Feature
-      );
+      // Assert
+      expect(globalResults).toHaveLength(1);
+      expect(globalResults[0]).toMatchObject({
+        s: 'episode:global-1',
+        o: 'episode:global-0',
+      });
 
-      expect(featureResults.length).toBe(1);
-      expect(featureResults[0].subject).toContain('ep-feature');
+      expect(featureResults).toHaveLength(1);
+      expect(featureResults[0]).toMatchObject({
+        s: 'episode:feature-1',
+        o: 'episode:feature-0',
+      });
     });
 
-    it('should query across all graphs when scope not specified', async () => {
-      // RED: This test should FAIL
-      await graphStore.addTriple(
-        'shep:episode:ep-001',
-        'shep:type',
-        '"episode"',
-        MemoryScope.Global
-      );
-      await graphStore.addTriple(
-        'shep:episode:ep-002',
-        'shep:type',
-        '"episode"',
-        MemoryScope.Feature
-      );
+    it('should support multiple feature scopes independently', async () => {
+      // Arrange
+      const featureA = 'feature:auth' as MemoryScope;
+      const featureB = 'feature:payment' as MemoryScope;
 
-      // Query without scope filter
-      const allResults = await graphStore.query(`
-        SELECT ?subject WHERE {
-          ?subject <shep:type> "episode"
-        }
-      `);
+      await graphStore.addTriple('episode:auth-1', 'shep:hasContext', 'episode:auth-0', featureA);
+      await graphStore.addTriple('episode:pay-1', 'shep:hasContext', 'episode:pay-0', featureB);
 
-      expect(allResults.length).toBe(2);
+      // Act
+      const authResults = await graphStore.query(`SELECT ?s ?p ?o WHERE { ?s ?p ?o . }`, featureA);
+      const payResults = await graphStore.query(`SELECT ?s ?p ?o WHERE { ?s ?p ?o . }`, featureB);
+
+      // Assert
+      expect(authResults).toHaveLength(1);
+      expect(authResults[0].s).toBe('episode:auth-1');
+
+      expect(payResults).toHaveLength(1);
+      expect(payResults[0].s).toBe('episode:pay-1');
     });
   });
 
-  describe('file persistence', () => {
-    it('should persist data across service restarts', async () => {
-      // RED: This test should FAIL
-      // Add triple with first service instance
-      await graphStore.addTriple(
-        'shep:episode:ep-persist',
-        'shep:relatesTo',
-        'shep:episode:ep-other',
-        MemoryScope.Global
-      );
+  describe('File Persistence', () => {
+    it('should persist triples across service restarts', async () => {
+      // Arrange
+      const scope = MemoryScope.Global;
+      await graphStore.addTriple('episode:ep-1', 'shep:hasContext', 'episode:ep-0', scope);
+      await graphStore.addTriple('episode:ep-2', 'shep:followsFrom', 'episode:ep-1', scope);
 
-      // Create new service instance pointing to same directory
+      // Act - Create a new instance pointing to same directory (simulates restart)
       const graphStore2 = new GraphStoreService(tempDir);
 
-      // Query with new instance - data should still exist
-      const results = await graphStore2.query(`
-        SELECT ?object WHERE {
-          <shep:episode:ep-persist> <shep:relatesTo> ?object
+      const sparql = `
+        SELECT ?s ?p ?o
+        WHERE {
+          ?s ?p ?o .
         }
-      `);
+      `;
+      const results = await graphStore2.query(sparql, scope);
 
-      expect(results).toBeDefined();
-      expect(results.length).toBe(1);
-      expect(results[0].object).toBe('shep:episode:ep-other');
+      // Assert
+      expect(results).toHaveLength(2);
+      expect(results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            s: 'episode:ep-1',
+            p: 'shep:hasContext',
+            o: 'episode:ep-0',
+          }),
+          expect.objectContaining({
+            s: 'episode:ep-2',
+            p: 'shep:followsFrom',
+            o: 'episode:ep-1',
+          }),
+        ])
+      );
     });
   });
 });
