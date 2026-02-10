@@ -17,12 +17,16 @@ import { Quadstore } from 'quadstore';
 import { DataFactory } from 'rdf-data-factory';
 import type { MemoryScope } from '@/domain/generated/output';
 import type { IGraphStoreService, SparqlResult } from '@/application/ports/output';
+import { GLOBAL_GRAPH_URI, FEATURE_GRAPH_PREFIX, EPISODE_PREFIX } from './graph-schema.constants';
 
 /**
- * Graph store configuration constants
+ * Triple data structure for bulk insert operations
  */
-const GLOBAL_GRAPH_URI = 'shep:global';
-const FEATURE_GRAPH_PREFIX = 'shep:feature:';
+export interface TripleInput {
+  subject: string;
+  predicate: string;
+  object: string;
+}
 
 /**
  * GraphStoreService - RDF graph storage for episode relationships
@@ -146,6 +150,48 @@ export class GraphStoreService implements IGraphStoreService {
   }
 
   /**
+   * Bulk insert multiple triples efficiently
+   *
+   * Batch insert optimization for storing multiple RDF triples at once.
+   * More efficient than multiple individual addTriple() calls.
+   *
+   * @param triples - Array of triples to insert
+   * @param scope - Memory scope for all triples
+   * @throws {Error} If graph store is not initialized
+   *
+   * @example
+   * ```typescript
+   * const triples = [
+   *   { subject: 'episode:ep-1', predicate: 'shep:hasContext', object: 'episode:ep-0' },
+   *   { subject: 'episode:ep-2', predicate: 'shep:followsFrom', object: 'episode:ep-1' }
+   * ];
+   * await graphStore.addTripleBatch(triples, MemoryScope.Global);
+   * ```
+   */
+  async addTripleBatch(triples: TripleInput[], scope: MemoryScope): Promise<void> {
+    await this.initialize();
+
+    if (!this.store) {
+      throw new Error('Graph store not initialized');
+    }
+
+    const graphUri = this.scopeToGraphUri(scope);
+
+    // Convert all triples to quads
+    const quads = triples.map((triple) =>
+      this.dataFactory.quad(
+        this.dataFactory.namedNode(triple.subject),
+        this.dataFactory.namedNode(triple.predicate),
+        this.dataFactory.namedNode(triple.object),
+        this.dataFactory.namedNode(graphUri)
+      )
+    );
+
+    // Batch insert all quads
+    await this.store.multiPut(quads);
+  }
+
+  /**
    * Execute a SPARQL SELECT query against the graph
    *
    * Executes SPARQL queries with optional scope filtering.
@@ -177,15 +223,8 @@ export class GraphStoreService implements IGraphStoreService {
 
     try {
       // Get all quads from the specified graph
-      let quadsStream;
-      if (scope) {
-        const graphUri = this.scopeToGraphUri(scope);
-        // When filtering by graph, we need to use the internal method
-        // Quadstore's match() requires all 4 terms, so we need to filter manually
-        quadsStream = await this.store.match();
-      } else {
-        quadsStream = await this.store.match();
-      }
+      // Quadstore's match() requires all 4 terms, so we need to filter manually
+      const quadsStream = await this.store.match();
 
       let quads = await quadsStream.toArray();
 
@@ -233,7 +272,7 @@ export class GraphStoreService implements IGraphStoreService {
       }
 
       return results;
-    } catch (error) {
+    } catch {
       // Handle query errors
       return [];
     }
@@ -302,7 +341,7 @@ export class GraphStoreService implements IGraphStoreService {
       throw new Error('Graph store not initialized');
     }
 
-    const episodeUri = `episode:${episodeId}`;
+    const episodeUri = `${EPISODE_PREFIX}${episodeId}`;
     const visited = new Set<string>();
     const relatedIds: string[] = [];
 
@@ -332,8 +371,8 @@ export class GraphStoreService implements IGraphStoreService {
           relatedUri = quad.subject.value;
         }
 
-        if (relatedUri && relatedUri.startsWith('episode:')) {
-          const relatedId = relatedUri.replace('episode:', '');
+        if (relatedUri?.startsWith(EPISODE_PREFIX)) {
+          const relatedId = relatedUri.replace(EPISODE_PREFIX, '');
           if (relatedId !== episodeId && !relatedIds.includes(relatedId)) {
             relatedIds.push(relatedId);
             if (currentDepth < depth) {
@@ -371,7 +410,7 @@ export class GraphStoreService implements IGraphStoreService {
       throw new Error('Graph store not initialized');
     }
 
-    const episodeUri = `episode:${episodeId}`;
+    const episodeUri = `${EPISODE_PREFIX}${episodeId}`;
 
     // Get all quads
     const allQuadsStream = await this.store.match();

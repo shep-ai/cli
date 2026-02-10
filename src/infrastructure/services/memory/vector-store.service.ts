@@ -13,7 +13,6 @@
  */
 
 import { connect, type Connection, type Table } from '@lancedb/lancedb';
-import * as arrow from 'apache-arrow';
 import type { Episode, MemoryScope } from '@/domain/generated/output';
 import type { IVectorStoreService, VectorSearchResult } from '@/application/ports/output';
 
@@ -183,7 +182,7 @@ export class VectorStoreService implements IVectorStoreService {
           distance: typedRow._distance,
         };
       });
-    } catch (error) {
+    } catch {
       // Handle empty table or search errors
       return [];
     }
@@ -243,7 +242,7 @@ export class VectorStoreService implements IVectorStoreService {
           distance: typedRow._distance,
         };
       });
-    } catch (error) {
+    } catch {
       // Handle empty table or search errors
       return [];
     }

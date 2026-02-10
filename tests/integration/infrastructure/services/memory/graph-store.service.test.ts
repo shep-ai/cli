@@ -303,6 +303,43 @@ describe('GraphStoreService - Integration Tests', () => {
     });
   });
 
+  describe('Bulk Insert Optimization', () => {
+    it('should batch insert multiple triples efficiently', async () => {
+      // Arrange
+      const scope = MemoryScope.Global;
+      const triples = [
+        { subject: 'episode:ep-1', predicate: 'shep:hasContext', object: 'episode:ep-0' },
+        { subject: 'episode:ep-2', predicate: 'shep:followsFrom', object: 'episode:ep-1' },
+        { subject: 'episode:ep-3', predicate: 'shep:relatesTo', object: 'episode:ep-2' },
+        { subject: 'episode:ep-4', predicate: 'shep:hasContext', object: 'episode:ep-3' },
+        { subject: 'episode:ep-5', predicate: 'shep:followsFrom', object: 'episode:ep-4' },
+      ];
+
+      // Act
+      await graphStore.addTripleBatch(triples, scope);
+
+      // Assert
+      const sparql = `
+        SELECT ?s ?p ?o
+        WHERE {
+          ?s ?p ?o .
+        }
+      `;
+      const results = await graphStore.query(sparql, scope);
+
+      expect(results).toHaveLength(5);
+      expect(results).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ s: 'episode:ep-1', p: 'shep:hasContext', o: 'episode:ep-0' }),
+          expect.objectContaining({ s: 'episode:ep-2', p: 'shep:followsFrom', o: 'episode:ep-1' }),
+          expect.objectContaining({ s: 'episode:ep-3', p: 'shep:relatesTo', o: 'episode:ep-2' }),
+          expect.objectContaining({ s: 'episode:ep-4', p: 'shep:hasContext', o: 'episode:ep-3' }),
+          expect.objectContaining({ s: 'episode:ep-5', p: 'shep:followsFrom', o: 'episode:ep-4' }),
+        ])
+      );
+    });
+  });
+
   describe('File Persistence', () => {
     it('should persist triples across service restarts', async () => {
       // Arrange
