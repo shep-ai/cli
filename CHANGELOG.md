@@ -1,3 +1,13 @@
+# [1.11.0](https://github.com/shep-ai/cli/compare/v1.10.0...v1.11.0) (2026-02-10)
+
+### Bug Fixes
+
+- **dx:** format poc files with prettier ([196ef6b](https://github.com/shep-ai/cli/commit/196ef6b3409ec8027d87457dcbb52a5a768955d0))
+
+### Features
+
+- **dx:** add environment cards sidebar to poc ([f39342f](https://github.com/shep-ai/cli/commit/f39342fb4f5feddfebd6ab9fde9d8ede5fe58c0f))
+
 # [1.10.0](https://github.com/shep-ai/cli/compare/v1.9.1...v1.10.0) (2026-02-10)
 
 ### Bug Fixes
