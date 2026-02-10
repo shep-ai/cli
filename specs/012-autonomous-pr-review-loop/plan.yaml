@@ -3,37 +3,58 @@
 
 name: autonomous-pr-review-loop
 summary: Implementation plan for 012-autonomous-pr-review-loop
+phase: planning
+updatedAt: '2026-02-10'
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '001-shep-kit'
+  - '002-semantic-release-cicd'
+technologies:
+  - GitHub CLI (gh api)
+  - GitHub REST API (PR reviews, review comments, issue comments)
+  - Claude Code Action (anthropics/claude-code-action@v1)
+  - SKILL.md prompt engineering
+relatedLinks:
+  - https://docs.github.com/en/rest/pulls/reviews
+  - https://docs.github.com/en/rest/pulls/comments
+  - https://docs.github.com/en/rest/issues/comments
 
 # Structured implementation phases
 phases:
   - id: phase-1
-    name: 'Foundation'
+    name: 'SKILL.md Review Watch Extension'
     parallel: false
     taskIds:
       - task-1
       - task-2
   - id: phase-2
-    name: 'Core Implementation'
+    name: 'SKILL.md Review Fix Loop Extension'
     parallel: false
     taskIds:
       - task-3
       - task-4
+  - id: phase-3
+    name: 'Documentation Updates'
+    parallel: true
+    taskIds:
+      - task-5
+      - task-6
+  - id: phase-4
+    name: 'Validation & Finalization'
+    parallel: false
+    taskIds:
+      - task-7
 
 # File change tracking
-filesToCreate:
-  - src/domain/entities/{{ENTITY_NAME}}.ts
-  - tests/unit/domain/entities/{{ENTITY_NAME}}.test.ts
+filesToCreate: []
 
 filesToModify:
-  - src/infrastructure/di/container.ts
-  - package.json
+  - .claude/skills/shep-kit:commit-pr/SKILL.md
+  - docs/development/feature-yaml-protocol.md
+  - docs/development/spec-driven-workflow.md
 
-# Open questions (should all be resolved before implementation)
+# Open questions (all resolved)
 openQuestions: []
 
 # Markdown content (the full plan document)
@@ -45,71 +66,201 @@ content: |
 
   ## Architecture Overview
 
+  This feature extends the existing `shep-kit:commit-pr` SKILL.md with two new
+  steps that create an autonomous review-fix-push cycle after CI passes.
+
+  **No TypeScript code, domain models, or database changes are needed.** This is
+  purely SKILL.md prompt engineering and documentation work.
+
   ```
-  {{ARCHITECTURE_DIAGRAM}}
+  Existing Flow (Steps 1-5):
+  ┌─────────┐    ┌───────┐    ┌────────┐    ┌──────┐    ┌───────────┐
+  │ Branch  │───>│ Stage │───>│ Commit │───>│ Push │───>│ Create PR │
+  │ Check   │    │       │    │        │    │      │    │           │
+  └─────────┘    └───────┘    └────────┘    └──────┘    └─────┬─────┘
+                                                              │
+                                                              v
+                                                     ┌──────────────┐
+                                                     │ Update       │
+                                                     │ feature.yaml │
+                                                     └──────┬───────┘
+                                                            │
+                                                            v
+                                              ┌──────────────────────┐
+                                              │   Watch CI (Step 4)  │<────┐
+                                              └──────────┬───────────┘     │
+                                                         │                 │
+                                                    CI passed?             │
+                                                    /        \             │
+                                                  Yes        No            │
+                                                   │      Fix-Push-Watch───┘
+                                                   │      Loop (Step 5)
+                                                   v
+  New Steps (6-7):              ┌──────────────────────────────┐
+                                │ Step 6: Wait for review      │
+                                │ check to complete, fetch all │
+                                │ reviews (bot + human)        │
+                                └──────────────┬───────────────┘
+                                               │
+                                          Has actionable
+                                          comments?
+                                          /          \
+                                        No           Yes
+                                         │            │
+                                         v            v
+                                 ┌──────────┐  ┌─────────────────┐
+                                 │  Done!   │  │ Step 7: Apply   │
+                                 │ PR ready │  │ fixes, commit,  │
+                                 └──────────┘  │ push            │
+                                               └────────┬────────┘
+                                                        │
+                                                        v
+                                               ┌─────────────────┐
+                                               │ Watch CI again  │
+                                               │ (reuse Step 4)  │
+                                               └────────┬────────┘
+                                                        │
+                                                   CI passed?
+                                                   /        \
+                                                 Yes        No
+                                                  │      (Step 5 loop)
+                                                  │
+                                             Max iterations?
+                                             /           \
+                                           No            Yes
+                                            │             │
+                                            v             v
+                                     Loop back to   Stop, notify
+                                     Step 6         user
   ```
 
   ## Implementation Strategy
 
-  **MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
+  **Note on TDD:** This feature involves only SKILL.md prompt engineering and
+  documentation updates. There is no TypeScript code to write, so traditional
+  RED-GREEN-REFACTOR TDD cycles do not apply. Instead, validation is performed
+  by reviewing the SKILL.md for correctness, internal consistency, and
+  cross-reference accuracy.
 
-  ### Phase 1: Foundation (No Tests)
+  ### Phase 1: SKILL.md Review Watch Extension
 
-  **Goal:** {{PHASE_1_GOAL}}
+  **Goal:** Add Step 6 to the commit-pr SKILL.md — wait for the review check
+  to complete, then fetch and classify all review comments.
 
   **Steps:**
 
-  1. {{STEP_1}}
-  2. {{STEP_2}}
+  1. Add Step 6 header and description explaining the review watch phase
+  2. Document the two-phase detection strategy:
+     - Phase A: Wait for Claude Code Review check via `gh pr checks`
+     - Phase B: Fetch all reviews (bot + human) via `gh api`
+  3. Provide `gh api` commands with `--jq` filters for:
+     - PR reviews (state, body, author)
+     - PR inline review comments (file, line, body)
+     - Issue-level comments (general discussion)
+  4. Document bot identification (user.login, user.type filtering)
+  5. Define the comment classification taxonomy (actionable vs non-actionable)
+  6. Document exit conditions when no actionable comments found
 
-  **Deliverables:** {{DELIVERABLES}}
+  **Deliverables:** SKILL.md Step 6 with review detection and comment fetching
 
-  ### Phase 2: Core Implementation (TDD Cycle 1)
+  ### Phase 2: SKILL.md Review Fix Loop Extension
 
-  **Goal:** {{PHASE_2_GOAL}}
+  **Goal:** Add Step 7 to the commit-pr SKILL.md — apply fixes from review
+  feedback, commit, push, and loop until resolved.
 
-  **TDD Workflow:**
+  **Steps:**
 
-  1. **RED:** Write failing tests FIRST
-  2. **GREEN:** Implement minimal code to pass tests
-  3. **REFACTOR:** Improve code while keeping tests green
+  1. Add Step 7 header describing the review fix loop
+  2. Document the fix application strategy:
+     - GitHub suggestion blocks: apply as direct line replacements
+     - Change instructions: AI interprets and applies
+     - Bug reports: AI adds fixes
+  3. Define the commit format for review fixes
+  4. Document the loop control:
+     - Max iterations (default 5)
+     - Comment-ID deduplication
+     - Convergence detection (same IDs reappearing)
+  5. Document all exit conditions (approved, no actionable, max iterations,
+     convergence failure, merge conflict)
+  6. Update the flow diagram to include review cycle nodes
+  7. Update the "Red Flags" section with review-loop-specific warnings
+  8. Update the Quick Reference table with new commands
+  9. Add feature.yaml update instructions for review loop state
 
-  **Deliverables:** {{DELIVERABLES}}
+  **Deliverables:** SKILL.md Step 7 with fix loop, updated diagram and reference sections
+
+  ### Phase 3: Documentation Updates [P]
+
+  **Goal:** Update project documentation to reflect the new review loop capability.
+
+  **Steps:**
+
+  1. Update `docs/development/feature-yaml-protocol.md`:
+     - Add `review-watching` and `review-fixing` phases
+     - Add review loop checkpoints
+     - Add `reviewLoop` field documentation
+     - Update the `/shep-kit:commit-pr` section
+  2. Update `docs/development/spec-driven-workflow.md`:
+     - Update Step 5 (commit-pr) description to mention the review loop
+     - Add note about autonomous review handling
+
+  **Deliverables:** Updated documentation files
+
+  ### Phase 4: Validation & Finalization
+
+  **Goal:** Ensure all changes are consistent, cross-referenced correctly,
+  and the SKILL.md reads as a coherent, linear instruction set.
+
+  **Steps:**
+
+  1. Read through the complete updated SKILL.md end-to-end
+  2. Verify all `gh api` commands are syntactically correct
+  3. Verify cross-references between SKILL.md and documentation
+  4. Verify feature.yaml protocol extensions are consistent
+  5. Run `pnpm format:check` to ensure no formatting issues
+
+  **Deliverables:** Validated, consistent SKILL.md and documentation
 
   ## Files to Create/Modify
 
   ### New Files
 
-  | File | Purpose |
-  | ---- | ------- |
-  | {{FILE_PATH}} | {{PURPOSE}} |
+  _None — this feature only modifies existing files._
 
   ### Modified Files
 
   | File | Changes |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{CHANGES}} |
+  | `.claude/skills/shep-kit:commit-pr/SKILL.md` | Add Steps 6-7 (review watch + fix loop), update flow diagram, red flags, quick reference |
+  | `docs/development/feature-yaml-protocol.md` | Add review loop phases, checkpoints, and `reviewLoop` field docs |
+  | `docs/development/spec-driven-workflow.md` | Update commit-pr section to mention review loop |
 
-  ## Testing Strategy (TDD: Tests FIRST)
+  ## Testing Strategy
 
-  **CRITICAL:** Tests are written FIRST in each TDD cycle.
+  **Note:** No TypeScript code is produced by this feature. Traditional unit/integration
+  tests do not apply. Validation consists of:
 
-  ### Unit Tests (RED -> GREEN -> REFACTOR)
-
-  Write FIRST for:
-  - {{TEST_AREA_1}}
-  - {{TEST_AREA_2}}
-
-  ### Integration Tests
-
-  Write FIRST for:
-  - {{INTEGRATION_TEST_1}}
+  - **SKILL.md review:** Read the complete updated skill for logical consistency
+  - **Command validation:** Verify all `gh api` commands are syntactically correct
+  - **Cross-reference check:** Ensure documentation references match
+  - **Format check:** `pnpm format:check` passes
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | {{RISK}} | {{MITIGATION}} |
+  | Claude Code Action posts to Actions Summary instead of PR comments | SKILL.md fetches from ALL comment sources (reviews API, review comments API, issue comments API) to handle any posting mechanism |
+  | Bot user.login changes | SKILL.md uses both `user.login` and `user.type` for identification |
+  | Infinite review loop | Hard cap at 5 iterations with convergence detection |
+  | Review comments on outdated diff | SKILL.md instructs to re-read current file and apply if still relevant |
+  | `gh pr checks` doesn't show Claude Code Review | SKILL.md includes fallback: poll `gh run list` for the workflow directly |
+  | Review loop masks genuine issues | Each iteration's commit body lists exactly which comments were addressed for traceability |
+
+  ## Rollback Plan
+
+  Since this feature only modifies SKILL.md and documentation, rollback is trivial:
+  revert the commit(s) on the feature branch. No database migrations, no TypeSpec changes,
+  no infrastructure changes.
 
   ---
 

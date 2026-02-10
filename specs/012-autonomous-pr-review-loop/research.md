@@ -1,0 +1,286 @@
+## Status
+
+- **Phase:** Research
+- **Updated:** 2026-02-10
+
+## Technology Decisions
+
+### 1. Review Comment Fetching Strategy
+
+**Options considered:**
+
+1. `gh api` with REST endpoints for reviews + inline comments
+2. `gh pr view --json reviews` (built-in shortcut)
+3. GraphQL API
+
+**Decision:** `gh api` with REST endpoints
+
+**Rationale:** Three distinct GitHub REST endpoints provide all data needed:
+
+| Endpoint                                 | Data                   | Key Fields                                    |
+| ---------------------------------------- | ---------------------- | --------------------------------------------- |
+| `GET /repos/{o}/{r}/pulls/{n}/reviews`   | Review summaries       | `id`, `user`, `state`, `body`, `submitted_at` |
+| `GET /repos/{o}/{r}/pulls/{n}/comments`  | Inline review comments | `path`, `line`, `body`, `diff_hunk`, `side`   |
+| `GET /repos/{o}/{r}/issues/{n}/comments` | General PR discussion  | `body`, `user`, `created_at`                  |
+
+The `gh pr view --json reviews` shortcut only returns review bodies, not inline file-level comments. `gh api` with `--jq` filters provides full access.
+
+**Key commands:**
+
+```bash
+# Fetch all reviews (state, body, author)
+gh api repos/{owner}/{repo}/pulls/{number}/reviews \
+  --jq '.[] | {id, state, user: .user.login, body}'
+
+# Fetch inline review comments (file, line, content)
+gh api repos/{owner}/{repo}/pulls/{number}/comments \
+  --jq '.[] | {id, path, line, body, user: .user.login}'
+
+# Fetch issue-level comments on the PR
+gh api repos/{owner}/{repo}/issues/{number}/comments \
+  --jq '.[] | {id, body, user: .user.login, user_type: .user.type}'
+```
+
+### 2. Bot and Reviewer Identification
+
+**Options considered:**
+
+1. Filter by `user.login` and `user.type`, handle both bot and human
+2. Only handle Claude Code bot reviews
+3. Filter by workflow name
+
+**Decision:** Filter by user identity, handle both bot and human reviewers
+
+**Rationale:** Claude Code Action posts as `claude[bot]` (GitHub user ID `41898282`).
+Bot identification: `user.login == "claude[bot]"` or `user.type == "Bot"`.
+Per user requirement, human reviewer comments are also processed.
+
+**gh api filter examples:**
+
+```bash
+# Get bot reviews only
+gh api repos/{o}/{r}/pulls/{n}/comments \
+  --jq '[.[] | select(.user.type == "Bot")]'
+
+# Get human reviews only
+gh api repos/{o}/{r}/pulls/{n}/comments \
+  --jq '[.[] | select(.user.type != "Bot")]'
+
+# Get all reviews (both)
+gh api repos/{o}/{r}/pulls/{n}/comments --jq '.'
+```
+
+### 3. Comment Parsing Approach
+
+**Options considered:**
+
+1. AI-native parsing (Claude Code interprets comments)
+2. Regex/jq-based structured parsing
+3. Enforce structured schema on bot output
+
+**Decision:** AI-native parsing
+
+**Rationale:** Since the SKILL.md instructs Claude Code (an AI), the "parser" IS the AI.
+This naturally handles both structured bot comments and free-form human comments.
+
+**Comment type taxonomy:**
+
+| Type                    | Actionable?        | Example                              | Handling                        |
+| ----------------------- | ------------------ | ------------------------------------ | ------------------------------- |
+| GitHub suggestion block | Yes (direct)       | ` ```suggestion ... ``` `            | Apply line replacement directly |
+| Change instruction      | Yes                | "Change foo to bar in line 42"       | AI interprets and applies       |
+| Bug report              | Yes                | "This will fail when input is null"  | AI adds null check              |
+| Style feedback          | Yes (low priority) | "Use camelCase here"                 | AI applies style fix            |
+| Question                | No                 | "Why did you choose this approach?"  | Skip (non-actionable)           |
+| Praise                  | No                 | "Nice implementation!"               | Skip (non-actionable)           |
+| FYI/Info                | No                 | "Note: this API is deprecated in v3" | Skip (informational)            |
+
+**GitHub suggestion blocks** are special. They contain the exact replacement code
+and map directly to the `line` and `path` fields on the comment, enabling
+precise file edits.
+
+### 4. Review Detection Strategy
+
+**Options considered:**
+
+1. Two-phase: `gh pr checks` for bot, then poll API
+2. Poll-only approach
+3. `gh run watch` for review workflow
+
+**Decision:** Two-phase detection
+
+**Phase 1 - Wait for bot review check:**
+
+```bash
+# Wait for Claude Code Review check to complete
+gh pr checks --watch --fail-fast
+# Or check specific workflow
+gh run list --workflow=claude-code-review.yml --limit 1 --json status
+```
+
+**Phase 2 - Fetch all reviews:**
+
+After bot check completes, fetch reviews from all sources. Allow a short
+timeout window (default: 2 minutes) for human reviewers before proceeding.
+
+**Critical finding:** The Claude Code Action with `prompt:` on PR events may
+use "agent mode" which posts to Actions Summary only, not as PR comments
+(see [issue #621](https://github.com/anthropics/claude-code-action/issues/621)).
+Workaround: ensure the workflow uses `use_sticky_comment: true` or
+`--allowedTools` for inline comments. Our feature fetches from ALL comment
+sources to handle this transparently.
+
+### 5. Loop Safety and Convergence
+
+**Options considered:**
+
+1. Max 5 iterations with comment-ID deduplication
+2. Unlimited iterations with timeout
+3. Single iteration only
+
+**Decision:** Max 5 iterations with deduplication and early exit
+
+**Loop control parameters:**
+
+| Parameter           | Default | Description                                        |
+| ------------------- | ------- | -------------------------------------------------- |
+| `maxIterations`     | 5       | Maximum review-fix cycles                          |
+| `reviewWaitTimeout` | 120s    | Time to wait for reviews after bot check completes |
+| `pollInterval`      | 30s     | Polling interval for review checks                 |
+
+**Exit conditions (in priority order):**
+
+1. **Approved** - Any reviewer submits APPROVED state -> Done (success)
+2. **No actionable comments** - All comments are non-actionable -> Done (success)
+3. **Max iterations reached** - Stop, notify user with remaining issues
+4. **Convergence failure** - Same comment IDs reappear after fix -> Stop, notify user
+5. **Timeout** - No reviews arrive within timeout -> Done (assumed clean)
+6. **Merge conflict** - Push fails due to conflicts -> Stop, notify user
+
+**Convergence tracking:**
+
+Each iteration records the set of comment IDs addressed. If iteration N+1
+sees the same comment IDs from the same reviewer, it means the fix did not
+resolve the issue. The loop exits with a convergence failure message.
+
+**Edge cases:**
+
+| Edge Case                              | Handling                                      |
+| -------------------------------------- | --------------------------------------------- |
+| Bot review with no actionable feedback | Exit successfully (all praise/info)           |
+| Direct APPROVED without comments       | Exit successfully                             |
+| PR has merge conflicts after push      | Stop loop, notify user                        |
+| Multiple reviewers (bot + human)       | Process all, batch fixes                      |
+| Comments on files not in PR            | Skip (not addressable)                        |
+| Review on outdated diff                | Re-read current file, apply if still relevant |
+
+### 6. Fix Application and Commit Strategy
+
+**Options considered:**
+
+1. Batch fixes per iteration, single commit
+2. One commit per comment
+3. Squash all into original commit
+
+**Decision:** Batch per iteration, single commit
+
+**Commit format:**
+
+```
+fix(review): address PR review feedback (iteration N/M)
+
+Addressed review comments:
+- [bot] path/file.ts:42 - description of fix
+- [human] path/other.ts:15 - description of fix
+```
+
+### 7. SKILL.md Extension Architecture
+
+**Options considered:**
+
+1. Inline extension with new Steps 6-7
+2. Separate chained SKILL.md
+3. Wrapper skill
+
+**Decision:** Inline extension with new Steps 6-7
+
+**Updated flow:**
+
+```
+Start -> Branch check -> Stage -> Commit -> Push -> Create PR
+  -> Update feature.yaml -> Watch CI -> CI passed?
+    -> No: Analyze failure -> Fix -> Commit -> Push -> Watch CI (loop)
+    -> Yes: Wait for review check -> Fetch reviews -> Has actionable?
+      -> No: Done (PR approved / no issues)
+      -> Yes: Apply fixes -> Commit -> Push -> Watch CI (review loop)
+      -> Max iterations? -> Stop, notify user
+```
+
+**New SKILL.md steps:**
+
+- **Step 6: Review Watch** - Wait for review check, fetch comments, classify
+- **Step 7: Review Fix Loop** - Apply fixes, commit, push, loop back to CI watch
+
+## Library Analysis
+
+| Tool               | Version      | Purpose                             | Pros                                        | Cons                                           |
+| ------------------ | ------------ | ----------------------------------- | ------------------------------------------- | ---------------------------------------------- |
+| `gh` CLI           | 2.x          | Fetch reviews, comments, run checks | Already in use, authenticated, --jq support | Inline comments need `gh api` not `gh pr view` |
+| `gh api`           | (part of gh) | Direct REST API access              | Full schema access, pagination, JQ filters  | Slightly more verbose than shortcuts           |
+| Claude Code Action | v1           | Bot reviewer                        | Already configured in repo                  | Agent mode may not post PR comments            |
+
+## Security Considerations
+
+- **Token permissions**: `gh` CLI must have `read` access to pull requests and reviews.
+  Current workflow already grants `pull-requests: read`. No additional permissions needed
+  for fetching reviews.
+- **Sensitive data**: Review comments may reference secrets or credentials in error messages.
+  The skill should not log full comment bodies to feature.yaml, only comment IDs and
+  brief descriptions of fixes applied.
+- **Fix safety**: Applied fixes should not introduce new vulnerabilities. The SKILL.md
+  instructs Claude Code to evaluate each fix for security implications before applying.
+- **Rate limiting**: GitHub API rate limit is 5,000 requests/hour for authenticated users.
+  With polling at 30s intervals and approximately 3 API calls per poll, a 5-iteration loop
+  consumes approximately 50 API calls, well within limits.
+
+## Performance Implications
+
+- **CI wait time**: Each iteration requires a full CI run (typically 3-8 minutes).
+  A 5-iteration maximum means the review loop could take 15-40 minutes in the worst case.
+- **Bot review time**: The Claude Code Review workflow typically takes 2-5 minutes.
+- **Total autonomous time**: Best case (no review comments): approximately 5 minutes. Worst case
+  (5 iterations): approximately 45 minutes. This is acceptable for a fully autonomous flow.
+- **Polling overhead**: Minimal with 30s intervals using lightweight API calls.
+
+## Feature.yaml Protocol Extensions
+
+**New phases for the review lifecycle:**
+
+| Phase             | Description                         |
+| ----------------- | ----------------------------------- |
+| `review-watching` | Waiting for review comments         |
+| `review-fixing`   | Applying fixes from review feedback |
+
+**New checkpoints:**
+
+| Checkpoint               | When Added                                      |
+| ------------------------ | ----------------------------------------------- |
+| `review-loop-started`    | When review watch begins                        |
+| `review-fixes-applied-N` | After each fix iteration (N = iteration number) |
+| `review-approved`        | When PR receives APPROVED status                |
+| `review-loop-exhausted`  | When max iterations reached without approval    |
+
+**New feature.yaml fields:**
+
+```yaml
+reviewLoop:
+  iteration: 0 # Current iteration number
+  maxIterations: 5 # Configurable max
+  commentsAddressed: [] # Comment IDs fixed
+  commentsRemaining: [] # Comment IDs still open
+  status: 'watching' # watching | fixing | approved | exhausted | failed
+```
+
+---
+
+_Updated by `/shep-kit:research` - proceed with `/shep-kit:plan`_
