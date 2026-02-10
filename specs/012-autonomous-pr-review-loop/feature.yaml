@@ -3,20 +3,22 @@ feature:
   name: 'autonomous-pr-review-loop'
   number: 12
   branch: 'feat/012-autonomous-pr-review-loop'
-  lifecycle: 'review'
+  lifecycle: 'complete'
   createdAt: '2026-02-10T19:12:16Z'
 
 status:
-  phase: 'in-review'
+  phase: 'complete'
   progress:
     completed: 7
     total: 7
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-10T20:20:00Z'
-  lastUpdatedBy: 'shep-kit:commit-pr'
+  lastUpdated: '2026-02-11T00:45:00Z'
+  lastUpdatedBy: 'shep-kit:merged'
 
 prUrl: 'https://github.com/shep-ai/cli/pull/41'
+
+mergedAt: '2026-02-11T00:45:00Z'
 
 validation:
   lastRun: null
@@ -44,6 +46,9 @@ checkpoints:
   - phase: 'pr-created'
     completedAt: '2026-02-10T20:20:00Z'
     completedBy: 'shep-kit:commit-pr'
+  - phase: 'feature-merged'
+    completedAt: '2026-02-11T00:45:00Z'
+    completedBy: 'shep-kit:merged'
 
 errors:
   current: null
