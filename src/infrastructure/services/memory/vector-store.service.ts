@@ -113,8 +113,8 @@ export class VectorStoreService {
     }
 
     try {
-      // LanceDB accepts regular arrays for search
-      const results = await this.table.search(queryEmbedding).limit(limit);
+      // LanceDB search returns a query builder - call toArray() to execute
+      const results = await this.table.search(queryEmbedding).limit(limit).toArray();
 
       // Handle empty table case
       if (!results || !Array.isArray(results)) {
@@ -150,11 +150,12 @@ export class VectorStoreService {
     }
 
     try {
-      // LanceDB accepts regular arrays for search
+      // LanceDB search returns a query builder - call toArray() to execute
       const results = await this.table
         .search(queryEmbedding)
         .filter(`scope = "${scope}"`)
-        .limit(limit);
+        .limit(limit)
+        .toArray();
 
       // Handle empty table case
       if (!results || !Array.isArray(results)) {
