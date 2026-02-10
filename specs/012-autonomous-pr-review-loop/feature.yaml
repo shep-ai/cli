@@ -3,18 +3,18 @@ feature:
   name: 'autonomous-pr-review-loop'
   number: 12
   branch: 'feat/012-autonomous-pr-review-loop'
-  lifecycle: 'research'
+  lifecycle: 'planning'
   createdAt: '2026-02-10T19:12:16Z'
 
 status:
-  phase: 'research'
+  phase: 'planning'
   progress:
     completed: 0
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-10T19:12:16Z'
-  lastUpdatedBy: 'shep-kit:new-feature'
+  lastUpdated: '2026-02-10T21:30:00Z'
+  lastUpdatedBy: 'shep-kit:research'
 
 validation:
   lastRun: null
@@ -30,6 +30,9 @@ checkpoints:
   - phase: 'feature-created'
     completedAt: '2026-02-10T19:12:16Z'
     completedBy: 'shep-kit:new-feature'
+  - phase: 'research-complete'
+    completedAt: '2026-02-10T21:30:00Z'
+    completedBy: 'shep-kit:research'
 
 errors:
   current: null
