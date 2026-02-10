@@ -155,7 +155,8 @@ Inform the user:
 ## Template Location
 
 YAML template (source of truth): `.claude/skills/shep-kit:new-feature/templates/research.yaml`
-Markdown template (auto-generated): `.claude/skills/shep-kit:new-feature/templates/research.md`
+
+Markdown is auto-generated from YAML via `pnpm spec:generate-md`.
 
 ## Example
 

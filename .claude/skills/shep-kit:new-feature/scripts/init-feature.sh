@@ -76,8 +76,7 @@ process_template() {
 }
 
 # Process all templates
-# NOTE: YAML files are the source of truth. Markdown files are auto-generated.
-# Once spec-generate-md.ts is implemented, Markdown should be generated instead of copied.
+# NOTE: YAML files are the source of truth. Markdown files are auto-generated via pnpm spec:generate-md.
 process_template "${SKILL_DIR}/templates/spec.yaml" "${SPEC_DIR}/spec.yaml"
 process_template "${SKILL_DIR}/templates/research.yaml" "${SPEC_DIR}/research.yaml"
 process_template "${SKILL_DIR}/templates/plan.yaml" "${SPEC_DIR}/plan.yaml"
@@ -85,13 +84,9 @@ process_template "${SKILL_DIR}/templates/tasks.yaml" "${SPEC_DIR}/tasks.yaml"
 process_template "${SKILL_DIR}/templates/data-model.md" "${SPEC_DIR}/data-model.md"
 process_template "${SKILL_DIR}/templates/feature.yaml" "${SPEC_DIR}/feature.yaml"
 
-# Generate Markdown from YAML (once spec-generate-md.ts exists)
-# TODO: Replace Markdown template copying with: pnpm spec:generate-md "${NNN}-${FEATURE_NAME}"
-# For now, also scaffold Markdown templates for backward compatibility
-process_template "${SKILL_DIR}/templates/spec.md" "${SPEC_DIR}/spec.md"
-process_template "${SKILL_DIR}/templates/research.md" "${SPEC_DIR}/research.md"
-process_template "${SKILL_DIR}/templates/plan.md" "${SPEC_DIR}/plan.md"
-process_template "${SKILL_DIR}/templates/tasks.md" "${SPEC_DIR}/tasks.md"
+# Generate Markdown from YAML source files
+echo -e "  ${YELLOW}Generating Markdown from YAML...${NC}"
+pnpm spec:generate-md "${NNN}-${FEATURE_NAME}"
 
 # Create contracts .gitkeep
 touch "${SPEC_DIR}/contracts/.gitkeep"
