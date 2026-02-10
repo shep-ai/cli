@@ -61,13 +61,14 @@ process_template() {
     local output="$2"
 
     if [ -f "$template" ]; then
-        sed -e "s/{{NNN}}/${NNN}/g" \
-            -e "s/{{FEATURE_NAME}}/${FEATURE_NAME}/g" \
-            -e "s/{{DATE}}/${DATE}/g" \
-            -e "s/{{FEATURE_ID}}/${NNN}-${FEATURE_NAME}/g" \
-            -e "s/{{FEATURE_NUMBER}}/${FEATURE_NUMBER}/g" \
-            -e "s/{{BRANCH_NAME}}/feat\/${NNN}-${FEATURE_NAME}/g" \
-            -e "s/{{TIMESTAMP}}/${TIMESTAMP}/g" \
+        # Match both {{VAR}} (in content blocks) and { { VAR } } (Prettier-formatted YAML fields)
+        sed -e "s/{ { NNN } }/${NNN}/g" -e "s/{{NNN}}/${NNN}/g" \
+            -e "s/{ { FEATURE_NAME } }/${FEATURE_NAME}/g" -e "s/{{FEATURE_NAME}}/${FEATURE_NAME}/g" \
+            -e "s/{ { DATE } }/${DATE}/g" -e "s/{{DATE}}/${DATE}/g" \
+            -e "s/{ { FEATURE_ID } }/${NNN}-${FEATURE_NAME}/g" -e "s/{{FEATURE_ID}}/${NNN}-${FEATURE_NAME}/g" \
+            -e "s/{ { FEATURE_NUMBER } }/${FEATURE_NUMBER}/g" -e "s/{{FEATURE_NUMBER}}/${FEATURE_NUMBER}/g" \
+            -e "s/{ { BRANCH_NAME } }/feat\/${NNN}-${FEATURE_NAME}/g" -e "s/{{BRANCH_NAME}}/feat\/${NNN}-${FEATURE_NAME}/g" \
+            -e "s/{ { TIMESTAMP } }/${TIMESTAMP}/g" -e "s/{{TIMESTAMP}}/${TIMESTAMP}/g" \
             "$template" > "$output"
         echo -e "  ${GREEN}Created${NC}: $output"
     else

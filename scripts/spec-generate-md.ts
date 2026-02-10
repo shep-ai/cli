@@ -49,13 +49,11 @@ const ARTIFACT_TYPE_TO_FILENAME: Record<ArtifactType, string> = {
 /* eslint-disable no-console */
 if (typeof process !== 'undefined' && process.argv[1]?.includes('spec-generate-md')) {
   const args = process.argv.slice(2);
-  const featureIdx = args.indexOf('--feature');
-  if (featureIdx === -1 || !args[featureIdx + 1]) {
-    console.error('Usage: spec-generate-md --feature <feature-dir>');
+  const featureDir = args[0];
+  if (!featureDir) {
+    console.error('Usage: spec-generate-md <feature-dir>');
     process.exit(1);
   }
-
-  const featureDir = args[featureIdx + 1];
 
   for (const type of SUPPORTED_ARTIFACT_TYPES) {
     const yamlPath = join(featureDir, `${ARTIFACT_TYPE_TO_FILENAME[type]}.yaml`);
