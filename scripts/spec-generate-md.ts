@@ -19,45 +19,8 @@ export function parseYamlFile(filePath: string): YamlData {
 }
 
 /**
- * Generate YAML front matter from metadata, omitting the `content` field.
- */
-export function generateFrontMatter(metadata: YamlData): string {
-  const { content: _content, ...filtered } = metadata;
-
-  const lines: string[] = ['---'];
-  for (const [key, value] of Object.entries(filtered)) {
-    if (Array.isArray(value)) {
-      if (value.length === 0) {
-        lines.push(`${key}: []`);
-      } else {
-        lines.push(`${key}:`);
-        for (const item of value) {
-          if (typeof item === 'object' && item !== null) {
-            const nested = yaml.dump(item, { flowLevel: -1 }).trimEnd();
-            const [firstLine, ...restLines] = nested.split('\n');
-            lines.push(`  - ${firstLine}`);
-            for (const line of restLines) {
-              lines.push(`    ${line}`);
-            }
-          } else {
-            lines.push(`  - ${item}`);
-          }
-        }
-      }
-    } else if (typeof value === 'object' && value !== null) {
-      const nested = yaml.dump({ [key]: value }, { flowLevel: -1 }).trimEnd();
-      lines.push(nested);
-    } else {
-      lines.push(`${key}: ${value}`);
-    }
-  }
-  lines.push('---');
-  return lines.join('\n');
-}
-
-/**
  * Generate Markdown from a YAML spec file.
- * Returns front matter + content body.
+ * Returns the content body directly (no frontmatter).
  */
 export function generateMarkdownFromYaml(yamlPath: string, artifactType: string): string {
   if (!SUPPORTED_ARTIFACT_TYPES.includes(artifactType as ArtifactType)) {
@@ -72,10 +35,7 @@ export function generateMarkdownFromYaml(yamlPath: string, artifactType: string)
     throw new Error(`The content field is required in ${yamlPath}`);
   }
 
-  const contentBody = String(data.content);
-  const frontMatter = generateFrontMatter(data);
-
-  return `${frontMatter}\n${contentBody}`;
+  return String(data.content);
 }
 
 const ARTIFACT_TYPE_TO_FILENAME: Record<ArtifactType, string> = {
