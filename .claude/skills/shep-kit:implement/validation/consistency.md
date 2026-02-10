@@ -2,35 +2,36 @@
 
 ## Overview
 
-Validates that information is consistent across `spec.md`, `research.md`, `plan.md`, and `tasks.md`. Catches contradictions, mismatched counts, and broken references.
+Validates that information is consistent across `spec.yaml`, `research.yaml`, `plan.yaml`, and `tasks.yaml`. Catches contradictions, mismatched counts, and broken references.
+
+**Note:** These rules are implemented programmatically by `pnpm spec:validate <feature-id>`. This document describes the rules for reference.
 
 ## Task Count Consistency
 
-### Plan Phases vs tasks.md
+### plan.yaml phases vs tasks.yaml
 
-**Task count in `tasks.md` should match total tasks referenced in `plan.md` phases:**
+**Task count in `tasks.yaml` tasks[] should match total taskIds referenced across `plan.yaml` phases[]:**
 
 ### Validation Logic
 
-```bash
-# Count tasks in tasks.md
-task_count_file=$(grep -c "^## Task [0-9]" "$spec_dir/tasks.md")
-
-# Extract total tasks from plan.md
-# Look for patterns like "12 tasks", "Total: 12", etc.
-task_count_plan=$(grep -oP "(?<=Total|total).*?(\d+).*?(?=task)" "$spec_dir/plan.md" | grep -oP "\d+" | head -1)
-
-if [[ -z "$task_count_plan" ]]; then
-  # Try alternate pattern: "5 tasks" or "tasks: 5"
-  task_count_plan=$(grep -oP "\d+(?=\s+tasks?)" "$spec_dir/plan.md" | head -1)
-fi
-
-if [[ -n "$task_count_plan" ]] && [[ "$task_count_file" -ne "$task_count_plan" ]]; then
-  echo "❌ Task count mismatch:"
-  echo "   tasks.md: $task_count_file tasks"
-  echo "   plan.md references: $task_count_plan tasks"
-  BLOCKING=true
-fi
+```yaml
+# Compare task counts between YAML files:
+#
+# 1. Count tasks in tasks.yaml:
+#    task_count_file = tasks.yaml.tasks.length
+#
+# 2. Collect all taskIds from plan.yaml phases:
+#    plan_task_ids = plan.yaml.phases[].taskIds (flatten all arrays)
+#    task_count_plan = plan_task_ids.length (unique)
+#
+# 3. Compare:
+#    - If task_count_file != task_count_plan → BLOCKING
+#    - Report: "tasks.yaml has N tasks, plan.yaml references M task IDs"
+#
+# 4. Cross-reference:
+#    - Every tasks.yaml tasks[].id should appear in some plan.yaml phases[].taskIds
+#    - Every plan.yaml phases[].taskIds entry should exist in tasks.yaml tasks[].id
+#    - Warning for orphaned tasks or missing references
 ```
 
 ## Success Criteria Alignment
@@ -43,83 +44,45 @@ This is a **soft check** - requires human judgment, but tool can identify potent
 
 ### Validation Logic
 
-```bash
-# Extract success criteria from spec.md
-success_criteria=$(awk '/^## Success Criteria/,/^##[^#]/' "$spec_dir/spec.md" | grep "^-")
-
-# Extract all acceptance criteria from tasks.md
-acceptance_criteria=$(grep -A 20 "**Acceptance Criteria:**" "$spec_dir/tasks.md" | grep "^- \[")
-
-# Check if each success criterion has related acceptance criteria
-echo "$success_criteria" | while read -r criterion; do
-  # Extract key terms from criterion
-  key_terms=$(echo "$criterion" | grep -oP "\w+" | tr '\n' '|' | sed 's/|$//')
-
-  if ! echo "$acceptance_criteria" | grep -qiE "$key_terms"; then
-    echo "⚠️  Success criterion may not be covered by task acceptance criteria:"
-    echo "   $criterion"
-  fi
-done
+```yaml
+# Compare spec.yaml.successCriteria[] with tasks.yaml tasks[].acceptanceCriteria[]:
+# - Extract key terms from each success criterion
+# - Check if acceptance criteria across all tasks cover those terms
+# - Warning if a success criterion appears uncovered
 ```
 
 ## Research Decisions Referenced
 
 ### Plan References Research
 
-**Technical decisions in `research.md` should be referenced in `plan.md`:**
+**Technical decisions in `research.yaml` should be referenced in `plan.yaml`:**
 
 ### Validation Logic
 
-```bash
-# Extract technology choices from research.md
-tech_choices=$(awk '/^## Technology Choices/,/^##[^#]/' "$spec_dir/research.md" | grep -oP "(?<=\*\*)[^*]+(?=\*\*)")
-
-# Check if plan.md mentions these technologies
-plan_content=$(cat "$spec_dir/plan.md")
-
-missing_refs=()
-while IFS= read -r tech; do
-  if ! echo "$plan_content" | grep -qi "$tech"; then
-    missing_refs+=("$tech")
-  fi
-done <<< "$tech_choices"
-
-if [[ ${#missing_refs[@]} -gt 0 ]]; then
-  echo "⚠️  Technologies chosen in research but not mentioned in plan:"
-  for tech in "${missing_refs[@]}"; do
-    echo "   - $tech"
-  done
-fi
+```yaml
+# Cross-reference research.yaml.technologyChoices with plan.yaml content:
+# - Extract technology names from research.yaml.technologyChoices[]
+# - Check if plan.yaml content (any field) mentions each technology
+# - Warning for technologies chosen in research but not mentioned in plan
 ```
 
 ## Cross-Document Contradictions
 
 ### Scope Consistency
 
-**Features listed in spec "Affected Areas" should match files in plan "Files to Create/Modify":**
+**Features listed in spec.yaml affectedAreas should match files in plan.yaml filesToCreateOrModify:**
 
 ### Validation Logic
 
-```bash
-# Extract affected areas from spec.md
-affected_areas=$(awk '/^## Affected Areas/,/^##[^#]/' "$spec_dir/spec.md" | grep "^|" | grep -v "Area" | awk -F'|' '{print $2}' | tr -d ' ')
-
-# Extract file paths from plan.md
-planned_files=$(awk '/^## Files to Create\/Modify/,/^##[^#]/' "$spec_dir/plan.md" | grep "src/" | awk -F'|' '{print $2}' | tr -d ' ')
-
-# Check if affected areas are represented in file paths
-while IFS= read -r area; do
-  area_clean=$(echo "$area" | tr -d '`')
-
-  if ! echo "$planned_files" | grep -qi "$area_clean"; then
-    echo "⚠️  Affected area '$area' not represented in planned files"
-  fi
-done <<< "$affected_areas"
+```yaml
+# Compare spec.yaml.affectedAreas[] with plan.yaml.filesToCreateOrModify[]:
+# - Each affected area should correspond to at least one planned file
+# - Warning if an affected area has no planned file changes
 ```
 
 ### Size Estimate vs Complexity
 
-**Size estimate in spec should match plan complexity:**
+**Size estimate in spec.yaml should match plan complexity:**
 
 | Size | File Count | Phase Count |
 | ---- | ---------- | ----------- |
@@ -131,156 +94,89 @@ done <<< "$affected_areas"
 
 ### Validation Logic
 
-```bash
-# Extract size estimate
-size_estimate=$(grep -oP "(?<=Size Estimate.*: )\w+" "$spec_dir/spec.md" | head -1)
-
-# Count files in plan
-file_count=$(echo "$planned_files" | wc -l)
-
-# Count phases in plan
-phase_count=$(grep -c "^### Phase [0-9]" "$spec_dir/plan.md")
-
-# Validate consistency
-case "$size_estimate" in
-  XS)
-    if [[ $file_count -gt 3 ]] || [[ $phase_count -gt 2 ]]; then
-      echo "⚠️  Size estimate 'XS' but complexity seems higher (files: $file_count, phases: $phase_count)"
-    fi
-    ;;
-  S)
-    if [[ $file_count -gt 8 ]] || [[ $phase_count -gt 3 ]]; then
-      echo "⚠️  Size estimate 'S' but complexity seems higher (files: $file_count, phases: $phase_count)"
-    fi
-    ;;
-  M)
-    if [[ $file_count -gt 15 ]] || [[ $phase_count -gt 5 ]]; then
-      echo "⚠️  Size estimate 'M' but complexity seems higher (files: $file_count, phases: $phase_count)"
-    fi
-    ;;
-  L)
-    if [[ $file_count -gt 30 ]] || [[ $phase_count -gt 8 ]]; then
-      echo "⚠️  Size estimate 'L' but complexity seems higher (files: $file_count, phases: $phase_count)"
-    fi
-    ;;
-esac
+```yaml
+# Compare spec.yaml.sizeEstimate with plan.yaml complexity:
+# - file_count = plan.yaml.filesToCreateOrModify.length
+# - phase_count = plan.yaml.phases.length
+# - Check against size/complexity table above
+# - Warning if size estimate doesn't match actual complexity
 ```
 
 ## Dependency References
 
 ### Task Dependencies
 
-**Task dependencies must reference valid task IDs:**
+**Task dependencies in tasks.yaml must reference valid task IDs:**
 
 ### Validation Logic
 
-```bash
-# Extract all task IDs
-task_ids=$(grep "^## Task [0-9]" "$spec_dir/tasks.md" | grep -oP "Task \K[0-9]+")
-
-# Check each task's dependencies
-for task_num in $task_ids; do
-  task_section=$(awk "/^## Task $task_num:/,/^## Task [0-9]+:|^##[^#]/" "$spec_dir/tasks.md")
-
-  # Extract dependencies
-  deps=$(echo "$task_section" | grep "**Dependencies:**" | grep -oP "task-\d+")
-
-  for dep in $deps; do
-    dep_num=$(echo "$dep" | grep -oP "\d+")
-
-    if ! echo "$task_ids" | grep -q "^$dep_num$"; then
-      echo "❌ Task $task_num references non-existent dependency: $dep"
-      BLOCKING=true
-    fi
-
-    if [[ $dep_num -ge $task_num ]]; then
-      echo "❌ Task $task_num depends on later task: $dep (circular dependency?)"
-      BLOCKING=true
-    fi
-  done
-done
+```yaml
+# Validate tasks.yaml tasks[].dependencies:
+#
+# 1. Collect all valid task IDs:
+#    valid_ids = tasks.yaml.tasks[].id
+#
+# 2. For each task, check dependencies:
+#    for task in tasks.yaml.tasks:
+#      for dep in task.dependencies:
+#        - dep must exist in valid_ids → BLOCKING if not
+#
+# 3. Circular dependency detection:
+#    - Build directed graph from tasks[].dependencies
+#    - Run topological sort or cycle detection
+#    - BLOCKING if circular dependency found
+#    - Report the cycle: "Circular dependency: task-1 -> task-3 -> task-1"
 ```
 
 ### Feature Dependencies
 
-**Feature dependencies in spec must reference existing specs:**
+**Feature dependencies in spec.yaml must reference existing specs:**
 
 ### Validation Logic
 
-```bash
-# Extract feature dependencies from spec.md
-feature_deps=$(awk '/^## Dependencies/,/^##[^#]/' "$spec_dir/spec.md" | grep -oP "(?<=\[)[0-9]+-[a-z-]+(?=\])")
-
-if [[ -n "$feature_deps" ]]; then
-  for dep in $feature_deps; do
-    if [[ ! -d "specs/$dep" ]]; then
-      echo "❌ Feature depends on non-existent feature: $dep"
-      BLOCKING=true
-    fi
-  done
-fi
+```yaml
+# Check spec.yaml.dependencies[] for feature references:
+# - Each referenced feature spec directory must exist in specs/
+# - BLOCKING if dependency references non-existent feature
 ```
 
 ## Artifact References
 
 ### Referenced Files Exist
 
-**Files referenced in docs should exist or be planned:**
+**Files referenced in YAML docs should exist or be planned:**
 
 ### Validation Logic
 
-```bash
-# Extract file references from all spec docs
-all_refs=$(grep -rh "\[.*\](.*/.*\..*)" "$spec_dir/" | grep -oP "\(.*\)" | tr -d '()')
-
-for ref in $all_refs; do
-  # Skip external URLs
-  if [[ "$ref" =~ ^https?:// ]]; then
-    continue
-  fi
-
-  # Check if file exists
-  if [[ ! -f "/home/blackpc/workspaces/shep-ai/cli/$ref" ]]; then
-    # Check if file is planned to be created
-    if ! echo "$planned_files" | grep -q "$ref"; then
-      echo "⚠️  Referenced file doesn't exist and isn't planned: $ref"
-    fi
-  fi
-done
+```yaml
+# Extract file references from all YAML spec files:
+# - Check any path-like values in YAML content
+# - Skip external URLs (http://, https://)
+# - Verify file exists on disk or is listed in plan.yaml.filesToCreateOrModify
+# - Warning if referenced file doesn't exist and isn't planned
 ```
 
 ## Terminology Consistency
 
 ### Consistent Naming
 
-**Entity/type names should be consistent across all docs:**
+**Entity/type names should be consistent across all YAML docs:**
 
 ### Validation Logic
 
-```bash
-# Extract entity names from spec (capitalized words in context)
-spec_entities=$(grep -oP "[A-Z][a-z]+(?:Entity|Model|Service|Repository|UseCase)" "$spec_dir/spec.md" | sort -u)
-
-# Check if naming is consistent across docs
-for entity in $spec_entities; do
-  spec_count=$(grep -c "$entity" "$spec_dir/spec.md")
-  plan_count=$(grep -c "$entity" "$spec_dir/plan.md")
-  tasks_count=$(grep -c "$entity" "$spec_dir/tasks.md" 2>/dev/null || echo 0)
-
-  # If mentioned in spec but not in plan, flag it
-  if [[ $spec_count -gt 0 ]] && [[ $plan_count -eq 0 ]]; then
-    echo "⚠️  Entity '$entity' mentioned in spec but not in plan"
-  fi
-done
+```yaml
+# Extract entity names from spec.yaml content:
+# - Look for PascalCase names matching *Entity, *Model, *Service, *Repository, *UseCase
+# - Check if same names appear in plan.yaml and tasks.yaml
+# - Warning if entity mentioned in spec but not in plan
 ```
 
 ## Auto-Fixable Issues
 
 ### Can Be Fixed Automatically
 
-1. **Broken internal links** (update file paths)
-2. **Inconsistent heading levels** (standardize across docs)
-3. **Duplicate checkpoint names** (deduplicate in feature.yaml)
+1. **Regenerate stale Markdown** - `pnpm spec:generate-md <feature-id>`
+2. **Duplicate checkpoint names** - deduplicate in feature.yaml
 
 ### Not Auto-Fixable
 
@@ -293,20 +189,20 @@ done
 
 **Consistency validation ensures:**
 
-- Task count matches between plan and tasks.md
+- Task count matches between plan.yaml phases and tasks.yaml
 - Success criteria covered by acceptance criteria
 - Research decisions referenced in plan
-- No contradictions between documents
-- Task dependencies are valid
+- No contradictions between YAML documents
+- Task dependencies are valid (no invalid refs, no cycles)
 - Feature dependencies exist
 - Referenced files exist or are planned
 - Terminology is consistent
 
 **Blocks implementation if:**
 
-- Task count mismatch
-- Invalid task dependencies
-- Circular dependencies
+- Task count mismatch between plan.yaml and tasks.yaml
+- Invalid task dependency references
+- Circular dependencies in task graph
 - Non-existent feature dependencies
 
 **Warns if:**
@@ -319,5 +215,5 @@ done
 
 **Auto-fixes:**
 
-- Broken internal links (update paths)
-- Heading level inconsistencies
+- Stale Markdown regeneration
+- Duplicate checkpoint deduplication

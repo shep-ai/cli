@@ -11,28 +11,28 @@ Generate a detailed implementation plan with architecture overview and task brea
 
 ## Prerequisites
 
-- Feature spec exists at `specs/NNN-feature-name/spec.md`
-- Research completed at `specs/NNN-feature-name/research.md`
+- Feature spec exists at `specs/NNN-feature-name/spec.yaml`
+- Research completed at `specs/NNN-feature-name/research.yaml`
 - On the feature branch `feat/NNN-feature-name`
 
 ## GATE CHECK (Mandatory)
 
 Before starting planning, verify:
 
-1. **Read `research.md`** and check the "Open Questions" section
-2. **If any unchecked `- [ ]` items exist**: STOP and inform user:
-   > ⛔ Cannot proceed with planning. Open questions in research.md must be resolved first.
+1. **Read `research.yaml`** and check the `openQuestions` field
+2. **If any items have `resolved: false`**: STOP and inform user:
+   > Cannot proceed with planning. Open questions in research.yaml must be resolved first.
    > Please complete research or mark questions as resolved.
-3. **Only proceed** when research questions are resolved or section says "All questions resolved"
+3. **Only proceed** when all open questions have `resolved: true` or the `openQuestions` array is empty
 
 ## Workflow
 
 ### 1. Review Spec & Research
 
-Read both files to understand:
+Read both YAML source files to understand:
 
-- Requirements and success criteria (spec.md)
-- Technical decisions and constraints (research.md)
+- Requirements and success criteria (`spec.yaml`)
+- Technical decisions and constraints (`research.yaml`)
 - Affected areas and dependencies
 
 ### 2. Design Architecture
@@ -95,36 +95,31 @@ Convert phases into actionable tasks:
 - Mark parallelizable tasks with [P]
 - Include acceptance checklist
 
-### 8. Update plan.md and tasks.md
+### 8. Write plan.yaml and tasks.yaml, then Generate Markdown
 
-Fill in both templates:
+Write structured YAML source files (the source of truth):
 
-- `specs/NNN-feature-name/plan.md` - Architecture and strategy
-- `specs/NNN-feature-name/tasks.md` - Detailed task list
+- `specs/NNN-feature-name/plan.yaml` - Architecture and strategy
+- `specs/NNN-feature-name/tasks.yaml` - Detailed task list
+
+Then generate Markdown from YAML:
+
+```bash
+pnpm spec:generate-md NNN-feature-name
+```
+
+This produces `plan.md` and `tasks.md` automatically. Do NOT hand-edit the Markdown files.
 
 ### 9. Update Status Fields & feature.yaml
 
-**CRITICAL:** Update status in ALL spec files AND feature.yaml:
+**CRITICAL:** Update status in YAML source files AND feature.yaml:
 
-```markdown
-# In spec.md, update:
+Update the `status` field in each YAML source file:
 
-- **Phase:** Planning # (was Research)
-
-# In research.md, update:
-
-- **Phase:** Planning # (was Research)
-
-# In plan.md, keep:
-
-- **Phase:** Planning
-- **Updated:** <today's date>
-
-# In tasks.md, keep:
-
-- **Phase:** Implementation # Ready for impl
-- **Updated:** <today's date>
-```
+- `spec.yaml` → set `status.phase: planning` (was research)
+- `research.yaml` → set `status.phase: planning` (was research)
+- `plan.yaml` → set `status.phase: planning`, `status.updatedAt: <today's date>`
+- `tasks.yaml` → set `status.phase: implementation`, `status.updatedAt: <today's date>`
 
 **Update feature.yaml:**
 
@@ -136,7 +131,7 @@ feature:
 status:
   phase: 'ready-to-implement' # Update from "planning"
   progress:
-    total: <count from tasks.md> # Count tasks
+    total: <count from tasks.yaml> # Count tasks[].id entries
   lastUpdated: '<timestamp>'
   lastUpdatedBy: 'shep-kit:plan'
 
@@ -147,10 +142,17 @@ checkpoints:
     completedBy: 'shep-kit:plan'
 ```
 
-**Count tasks:**
+**Count tasks** from the YAML array (not markdown grep):
 
 ```bash
-grep -c "^## Task [0-9]" specs/NNN-feature-name/tasks.md
+# Count entries in tasks.yaml tasks[] array
+yq '.tasks | length' specs/NNN-feature-name/tasks.yaml
+```
+
+**Regenerate Markdown** after status updates:
+
+```bash
+pnpm spec:generate-md NNN-feature-name
 ```
 
 **Reference:** [docs/development/feature-yaml-protocol.md](../../../docs/development/feature-yaml-protocol.md)
@@ -175,7 +177,7 @@ git commit -m "feat(specs): add NNN-feature-name implementation plan"
 Inform the user:
 
 > Plan complete for `NNN-feature-name`!
-> Ready to implement. Use tasks.md to track progress.
+> Ready to implement. Use tasks.yaml to track progress.
 >
 > ⚠️ **MANDATORY TDD**: Each phase follows RED-GREEN-REFACTOR:
 >
@@ -183,11 +185,11 @@ Inform the user:
 > 2. GREEN: Write minimal code to pass
 > 3. REFACTOR: Improve while keeping tests green
 >
-> 🔄 **MANDATORY Phase Completion Workflow**:
+> **MANDATORY Phase Completion Workflow**:
 >
 > After EACH phase:
 >
-> 1. Update tasks.md checkboxes FREQUENTLY (as you complete items, not at the end!)
+> 1. Update tasks.yaml status fields FREQUENTLY (as you complete items, not at the end!)
 > 2. Commit and push: `git add . && git commit -m "feat: complete phase N" && git push`
 > 3. Watch CI: `gh run watch --exit-status`
 > 4. If CI fails: Fix → Commit → Push → Watch again (LOOP until green)
@@ -207,8 +209,8 @@ Inform the user:
 
 ## Template Locations
 
-- Plan: `.claude/skills/shep-kit:new-feature/templates/plan.md`
-- Tasks: `.claude/skills/shep-kit:new-feature/templates/tasks.md`
+- Plan: `.claude/skills/shep-kit:new-feature/templates/plan.yaml`
+- Tasks: `.claude/skills/shep-kit:new-feature/templates/tasks.yaml`
 - Data Model: `.claude/skills/shep-kit:new-feature/templates/data-model.md`
 
 ## Example

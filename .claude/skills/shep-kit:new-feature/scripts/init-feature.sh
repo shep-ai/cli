@@ -76,12 +76,22 @@ process_template() {
 }
 
 # Process all templates
+# NOTE: YAML files are the source of truth. Markdown files are auto-generated.
+# Once spec-generate-md.ts is implemented, Markdown should be generated instead of copied.
+process_template "${SKILL_DIR}/templates/spec.yaml" "${SPEC_DIR}/spec.yaml"
+process_template "${SKILL_DIR}/templates/research.yaml" "${SPEC_DIR}/research.yaml"
+process_template "${SKILL_DIR}/templates/plan.yaml" "${SPEC_DIR}/plan.yaml"
+process_template "${SKILL_DIR}/templates/tasks.yaml" "${SPEC_DIR}/tasks.yaml"
+process_template "${SKILL_DIR}/templates/data-model.md" "${SPEC_DIR}/data-model.md"
+process_template "${SKILL_DIR}/templates/feature.yaml" "${SPEC_DIR}/feature.yaml"
+
+# Generate Markdown from YAML (once spec-generate-md.ts exists)
+# TODO: Replace Markdown template copying with: pnpm spec:generate-md "${NNN}-${FEATURE_NAME}"
+# For now, also scaffold Markdown templates for backward compatibility
 process_template "${SKILL_DIR}/templates/spec.md" "${SPEC_DIR}/spec.md"
 process_template "${SKILL_DIR}/templates/research.md" "${SPEC_DIR}/research.md"
 process_template "${SKILL_DIR}/templates/plan.md" "${SPEC_DIR}/plan.md"
 process_template "${SKILL_DIR}/templates/tasks.md" "${SPEC_DIR}/tasks.md"
-process_template "${SKILL_DIR}/templates/data-model.md" "${SPEC_DIR}/data-model.md"
-process_template "${SKILL_DIR}/templates/feature.yaml" "${SPEC_DIR}/feature.yaml"
 
 # Create contracts .gitkeep
 touch "${SPEC_DIR}/contracts/.gitkeep"
@@ -89,17 +99,19 @@ echo -e "  ${GREEN}Created${NC}: ${SPEC_DIR}/contracts/.gitkeep"
 
 echo -e "${GREEN}Done!${NC} Spec directory scaffolded at ${SPEC_DIR}"
 echo ""
-echo "Files created:"
-echo "  - spec.md (feature specification)"
-echo "  - research.md (technical decisions)"
-echo "  - plan.md (implementation strategy)"
-echo "  - tasks.md (task breakdown)"
+echo "Files created (YAML = source of truth, Markdown = auto-generated):"
+echo "  - spec.yaml + spec.md (feature specification)"
+echo "  - research.yaml + research.md (technical decisions)"
+echo "  - plan.yaml + plan.md (implementation strategy)"
+echo "  - tasks.yaml + tasks.md (task breakdown)"
 echo "  - data-model.md (domain models)"
 echo "  - feature.yaml (status tracking)"
 echo "  - contracts/.gitkeep (API contracts)"
 echo ""
+echo "IMPORTANT: Edit YAML files, not Markdown. Markdown is auto-generated."
+echo ""
 echo "Next steps:"
-echo "  1. Fill in spec.md with feature requirements"
+echo "  1. Fill in spec.yaml with feature requirements"
 echo "  2. Run /shep-kit:research for technical analysis"
 echo "  3. Run /shep-kit:plan for implementation breakdown"
 echo "  4. Run /shep-kit:implement to start autonomous implementation"

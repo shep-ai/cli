@@ -11,18 +11,18 @@ Document technical decisions, library evaluations, and architectural choices for
 
 ## Prerequisites
 
-- Feature spec exists at `specs/NNN-feature-name/spec.md`
+- Feature spec exists at `specs/NNN-feature-name/spec.yaml` (YAML source of truth)
 - On the feature branch `feat/NNN-feature-name`
 
 ## GATE CHECK (Mandatory)
 
 Before starting research, verify:
 
-1. **Read `spec.md`** and check the "Open Questions" section
-2. **If any unchecked `- [ ]` items exist**: STOP and inform user:
-   > ⛔ Cannot proceed with research. Open questions in spec.md must be resolved first.
-   > Please answer these questions or mark "None - requirements are clear"
-3. **Only proceed** when all open questions are checked `- [x]` or section says "None"
+1. **Read `spec.yaml`** and check the `openQuestions` array
+2. **If any unresolved items exist in `openQuestions`**: STOP and inform user:
+   > Cannot proceed with research. Open questions in spec.yaml must be resolved first.
+   > Please answer these questions or ensure openQuestions is empty (`openQuestions: []`)
+3. **Only proceed** when the `openQuestions` array is empty or all items are marked resolved
 
 ## Workflow
 
@@ -32,7 +32,7 @@ Determine which feature we're researching:
 
 - Check current branch name
 - Or ask user which spec to research
-- Read `specs/NNN-feature-name/spec.md` for context
+- Read `specs/NNN-feature-name/spec.yaml` for context
 
 ### 2. Identify Technical Decisions
 
@@ -72,29 +72,35 @@ Identify and document:
 - Security considerations specific to this feature
 - Performance implications and optimizations
 
-### 5. Update research.md
+### 5. Write research.yaml and Generate Markdown
 
-Fill in the research template at `specs/NNN-feature-name/research.md`:
+Write research output to `specs/NNN-feature-name/research.yaml` (the source of truth):
 
-- Technology decisions with rationale
+- Technology decisions with rationale (structured `decisions` array)
 - Library analysis table
 - Security considerations
 - Performance implications
-- Resolved questions (ensure "Open Questions" section shows all resolved or "All questions resolved")
+- Resolved questions (ensure all open questions from `spec.yaml` are addressed)
+
+Then generate Markdown from the YAML source:
+
+```bash
+pnpm spec:generate-md NNN-feature-name
+```
+
+This produces `research.md` automatically from `research.yaml`.
 
 ### 6. Update Status Fields & feature.yaml
 
-**CRITICAL:** Update status in ALL three locations:
+**CRITICAL:** Update status in YAML source files and feature.yaml:
 
-```markdown
-# In spec.md, update:
+```yaml
+# In spec.yaml, update the phase field:
+phase: research # (was requirements)
 
-- **Phase:** Research # (was Requirements)
-
-# In research.md, keep:
-
-- **Phase:** Research
-- **Updated:** <today's date>
+# In research.yaml, keep:
+phase: research
+updatedAt: '<today's date>'
 ```
 
 **Update feature.yaml:**
@@ -118,9 +124,13 @@ checkpoints:
 
 **Reference:** [docs/development/feature-yaml-protocol.md](../../../docs/development/feature-yaml-protocol.md)
 
-### 7. Commit
+### 7. Regenerate Markdown & Commit
 
 ```bash
+# Regenerate all Markdown from updated YAML sources
+pnpm spec:generate-md NNN-feature-name
+
+# Stage and commit (both YAML source and generated Markdown)
 git add specs/NNN-feature-name/
 git commit -m "feat(specs): add NNN-feature-name research"
 ```
@@ -144,7 +154,8 @@ Inform the user:
 
 ## Template Location
 
-Template at: `.claude/skills/shep-kit:new-feature/templates/research.md`
+YAML template (source of truth): `.claude/skills/shep-kit:new-feature/templates/research.yaml`
+Markdown template (auto-generated): `.claude/skills/shep-kit:new-feature/templates/research.md`
 
 ## Example
 

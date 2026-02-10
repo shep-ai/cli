@@ -17,3 +17,8 @@ import "./task.tsp";
 import "./timeline-event.tsp";
 import "./plan.tsp";
 import "./feature.tsp";
+import "./spec-artifact-base.tsp";
+import "./feature-spec.tsp";
+import "./research-spec.tsp";
+import "./plan-spec.tsp";
+import "./tasks-spec.tsp";
