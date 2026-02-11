@@ -13,7 +13,7 @@ status:
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-11T15:55:36Z'
+  lastUpdated: '2026-02-11T18:30:00Z'
   lastUpdatedBy: 'shep-kit:new-feature'
 
 validation:
@@ -29,6 +29,9 @@ tasks:
 checkpoints:
   - phase: 'feature-created'
     completedAt: '2026-02-11T15:55:36Z'
+    completedBy: 'shep-kit:new-feature'
+  - phase: 'spec-complete'
+    completedAt: '2026-02-11T18:30:00Z'
     completedBy: 'shep-kit:new-feature'
 
 errors:
