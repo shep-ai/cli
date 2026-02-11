@@ -1,0 +1,68 @@
+/**
+ * ListFeaturesUseCase Unit Tests
+ *
+ * Tests for listing features with optional filters.
+ * Uses mock repository.
+ *
+ * TDD Phase: RED-GREEN
+ */
+
+import 'reflect-metadata';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ListFeaturesUseCase } from '../../../../../src/application/use-cases/features/list-features.use-case.js';
+import type { IFeatureRepository } from '../../../../../src/application/ports/output/feature-repository.interface.js';
+import { SdlcLifecycle } from '../../../../../src/domain/generated/output.js';
+
+describe('ListFeaturesUseCase', () => {
+  let useCase: ListFeaturesUseCase;
+  let mockRepo: IFeatureRepository;
+
+  beforeEach(() => {
+    mockRepo = {
+      create: vi.fn(),
+      findById: vi.fn(),
+      findBySlug: vi.fn(),
+      list: vi.fn().mockResolvedValue([]),
+      update: vi.fn(),
+      delete: vi.fn(),
+    };
+    useCase = new ListFeaturesUseCase(mockRepo);
+  });
+
+  it('should list all features without filters', async () => {
+    mockRepo.list = vi.fn().mockResolvedValue([{ id: '1' }, { id: '2' }]);
+    const result = await useCase.execute();
+    expect(result).toHaveLength(2);
+    expect(mockRepo.list).toHaveBeenCalledWith(undefined);
+  });
+
+  it('should pass repository path filter', async () => {
+    await useCase.execute({ repositoryPath: '/repo' });
+    expect(mockRepo.list).toHaveBeenCalledWith({
+      repositoryPath: '/repo',
+    });
+  });
+
+  it('should pass lifecycle filter', async () => {
+    await useCase.execute({ lifecycle: SdlcLifecycle.Implementation });
+    expect(mockRepo.list).toHaveBeenCalledWith({
+      lifecycle: SdlcLifecycle.Implementation,
+    });
+  });
+
+  it('should return empty array when no features found', async () => {
+    const result = await useCase.execute();
+    expect(result).toEqual([]);
+  });
+
+  it('should pass combined filters', async () => {
+    await useCase.execute({
+      repositoryPath: '/repo',
+      lifecycle: SdlcLifecycle.Review,
+    });
+    expect(mockRepo.list).toHaveBeenCalledWith({
+      repositoryPath: '/repo',
+      lifecycle: SdlcLifecycle.Review,
+    });
+  });
+});

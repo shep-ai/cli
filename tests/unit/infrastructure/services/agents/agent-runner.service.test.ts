@@ -9,7 +9,7 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentRunnerService } from '../../../../../src/infrastructure/services/agents/agent-runner.service.js';
+import { AgentRunnerService } from '../../../../../src/infrastructure/services/agents/common/agent-runner.service.js';
 import type {
   IAgentRegistry,
   AgentDefinitionWithFactory,

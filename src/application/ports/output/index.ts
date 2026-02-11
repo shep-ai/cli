@@ -19,3 +19,6 @@ export type { IAgentExecutorFactory } from './agent-executor-factory.interface.j
 export type { IAgentRunner, AgentRunOptions } from './agent-runner.interface.js';
 export type { IAgentRegistry, AgentDefinitionWithFactory } from './agent-registry.interface.js';
 export type { IAgentRunRepository } from './agent-run-repository.interface.js';
+export type { IWorktreeService, WorktreeInfo } from './worktree-service.interface.js';
+export { WorktreeError, WorktreeErrorCode } from './worktree-service.interface.js';
+export type { IFeatureAgentProcessService } from './feature-agent-process.interface.js';

@@ -17,10 +17,10 @@ import { spawn } from 'node:child_process';
 
 // Infrastructure imports
 import { SQLiteAgentRunRepository } from '../../../../../src/infrastructure/repositories/agent-run.repository.js';
-import { AgentExecutorFactory } from '../../../../../src/infrastructure/services/agents/agent-executor-factory.service.js';
-import { AgentRegistryService } from '../../../../../src/infrastructure/services/agents/agent-registry.service.js';
-import { AgentRunnerService } from '../../../../../src/infrastructure/services/agents/agent-runner.service.js';
-import { createCheckpointer } from '../../../../../src/infrastructure/services/agents/langgraph/checkpointer.js';
+import { AgentExecutorFactory } from '../../../../../src/infrastructure/services/agents/common/agent-executor-factory.service.js';
+import { AgentRegistryService } from '../../../../../src/infrastructure/services/agents/common/agent-registry.service.js';
+import { AgentRunnerService } from '../../../../../src/infrastructure/services/agents/common/agent-runner.service.js';
+import { createCheckpointer } from '../../../../../src/infrastructure/services/agents/common/checkpointer.js';
 import { RunAgentUseCase } from '../../../../../src/application/use-cases/agents/run-agent.use-case.js';
 
 // Port interfaces

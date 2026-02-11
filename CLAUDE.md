@@ -148,6 +148,44 @@ src/
 
 4. **Dependency Injection**: Uses tsyringe for IoC container. Infrastructure layer registers concrete implementations, application layer depends only on interfaces. Container initialized at CLI bootstrap via `initializeContainer()`.
 
+### Code Organization Rules
+
+**Keep files small and focused.** When a file exceeds ~150 lines or contains multiple distinct responsibilities, split it:
+
+1. **Subdirectory Grouping**: Group related files into subdirectories instead of flat structures. Each domain concept gets its own directory:
+
+   ```
+   # BAD: flat mix of unrelated files
+   agents/
+   ├── feature-agent-graph.ts      # 200+ lines
+   ├── feature-agent-worker.ts
+   ├── analyze-repo-graph.ts
+   ├── agent-runner.service.ts
+   └── checkpointer.ts
+
+   # GOOD: grouped by domain concept
+   agents/
+   ├── common/                     # shared infrastructure
+   │   ├── agent-runner.service.ts
+   │   └── checkpointer.ts
+   ├── feature-agent/              # feature agent graph
+   │   ├── state.ts
+   │   ├── nodes/
+   │   │   ├── analyze.node.ts
+   │   │   └── plan.node.ts
+   │   └── feature-agent-graph.ts  # factory only (~30 lines)
+   └── analyze-repo/               # analyze repo graph
+       └── analyze-repository-graph.ts
+   ```
+
+2. **One Responsibility Per File**: A state definition, a node function, a graph factory, and a worker entry point should each be in separate files.
+
+3. **Graph Node Separation**: LangGraph nodes go in `nodes/` subdirectory with `<name>.node.ts` naming. State annotations go in `state.ts`. Graph wiring goes in a factory file.
+
+4. **Common vs Specific**: Shared infrastructure (executors, checkpointers, registries) goes in a `common/` subdirectory. Domain-specific code goes in its own subdirectory.
+
+5. **Test Mirror**: Test directories mirror the source structure. When source files move, tests move too.
+
 ## Dependency Injection
 
 Managed by tsyringe with `reflect-metadata`. Container setup in [src/infrastructure/di/container.ts](src/infrastructure/di/container.ts:49-86).
@@ -241,9 +279,14 @@ Global application configuration (singleton).
 
 ## Agent System
 
-Located in `infrastructure/services/agents/`. The current agent system handles external AI coding tool configuration (Claude Code, Gemini CLI, etc.) via the `AgentConfig` settings and `IAgentValidator` port.
+Located in `infrastructure/services/agents/`, organized into subdirectories:
 
-**Note**: The LangGraph StateGraph agent architecture (analyzeNode, requirementsNode, planNode, implementNode) is **planned but not yet implemented**. See [AGENTS.md](./AGENTS.md) for the planned design.
+- `common/` — Shared infrastructure (executor factory, registry, runner, validator, checkpointer)
+- `feature-agent/` — FeatureAgent LangGraph graph with per-node files, background worker, process management
+- `analyze-repo/` — Repository analysis graph
+- `streaming/` — SSE streaming infrastructure
+
+See [AGENTS.md](./AGENTS.md) for full architecture and implementation details.
 
 ## Data Storage
 

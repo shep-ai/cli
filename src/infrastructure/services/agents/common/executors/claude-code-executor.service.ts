@@ -10,13 +10,13 @@
  */
 
 import type { ChildProcess } from 'node:child_process';
-import type { AgentType, AgentFeature } from '../../../../domain/generated/output.js';
+import type { AgentType, AgentFeature } from '../../../../../domain/generated/output.js';
 import type {
   IAgentExecutor,
   AgentExecutionOptions,
   AgentExecutionResult,
   AgentExecutionStreamEvent,
-} from '../../../../application/ports/output/agent-executor.interface.js';
+} from '../../../../../application/ports/output/agent-executor.interface.js';
 
 /**
  * Type for the spawn dependency.

@@ -1,28 +1,67 @@
 # AGENTS.md
 
-> **IMPORTANT: Implementation Status**
+> **Implementation Status**
 >
-> The LangGraph-based multi-agent workflow described in this document is **planned architecture** and is **not yet implemented**. The `src/infrastructure/agents/langgraph/` directory, StateGraph nodes, tools, and graph definitions described below do not exist in the codebase.
+> The **FeatureAgent LangGraph graph** is implemented with background execution support. Each agent graph lives in its own subdirectory under `src/infrastructure/services/agents/` with separated state, nodes, and graph factory files. The full multi-agent supervisor pattern described later in this document remains **planned architecture**.
 >
-> The current "agent system" handles **configuration of external AI coding tools** (Claude Code, Gemini CLI, Aider, Continue, Cursor) via the `shep settings agent` command. See [Current Implementation](#current-implementation) below.
+> The agent system also handles **configuration of external AI coding tools** (Claude Code, Gemini CLI, Aider, Continue, Cursor) via the `shep settings agent` command. See [Current Implementation](#current-implementation) below.
 
 ## Current Implementation
 
-The agent system currently provides configuration and validation of external AI coding tools. There is no LangGraph orchestration, no StateGraph workflow, and no autonomous SDLC agent nodes.
+The agent system provides three capabilities:
+
+1. **FeatureAgent Graph** — A LangGraph StateGraph implementing the SDLC workflow (see [FeatureAgent Graph](#featureagent-graph) below)
+2. **Analyze Repository Graph** — Single-node graph for repository analysis
+3. **External Agent Configuration** — Configuration and validation of external AI coding tools
+
+### Directory Structure
+
+```
+src/infrastructure/services/agents/
+├── common/                              # Shared agent infrastructure
+│   ├── agent-executor-factory.service.ts
+│   ├── agent-registry.service.ts
+│   ├── agent-runner.service.ts
+│   ├── agent-validator.service.ts
+│   ├── checkpointer.ts
+│   └── executors/
+│       └── claude-code-executor.service.ts
+├── analyze-repo/                        # Repository analysis graph
+│   ├── analyze-repository-graph.ts
+│   └── prompts/
+│       └── analyze-repository.prompt.ts
+├── feature-agent/                       # Feature SDLC workflow graph
+│   ├── state.ts                         # FeatureAgentAnnotation + type
+│   ├── nodes/                           # One file per graph node
+│   │   ├── analyze.node.ts
+│   │   ├── requirements.node.ts
+│   │   ├── research.node.ts
+│   │   ├── plan.node.ts
+│   │   └── implement.node.ts
+│   ├── feature-agent-graph.ts           # Graph factory (wires nodes)
+│   ├── feature-agent-process.service.ts # Background process management
+│   └── feature-agent-worker.ts          # Detached worker entry point
+└── streaming/                           # SSE streaming infrastructure
+    ├── event-channel.ts
+    ├── streaming-executor-proxy.ts
+    └── index.ts
+```
 
 ### What Exists Today
 
-| Component                   | Location                                                           | Purpose                                                                                   |
-| --------------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
-| `AgentType` enum            | `src/domain/generated/output.ts`                                   | Defines supported agent tools: `claude-code`, `gemini-cli`, `aider`, `continue`, `cursor` |
-| `AgentAuthMethod` enum      | `src/domain/generated/output.ts`                                   | Authentication methods: `session`, `token`                                                |
-| `IAgentValidator`           | `src/application/ports/output/agent-validator.interface.ts`        | Port interface for checking agent binary availability                                     |
-| `AgentValidatorService`     | `src/infrastructure/services/agents/agent-validator.service.ts`    | Checks if agent binaries (e.g., `claude`) exist on the system via `--version`             |
-| `ConfigureAgentUseCase`     | `src/application/use-cases/agents/configure-agent.use-case.ts`     | Validates agent availability, then persists agent config to settings                      |
-| `ValidateAgentAuthUseCase`  | `src/application/use-cases/agents/validate-agent-auth.use-case.ts` | Delegates to `IAgentValidator` to check binary availability                               |
-| `createAgentCommand()`      | `src/presentation/cli/commands/settings/agent.command.ts`          | CLI command: `shep settings agent` (interactive wizard or `--agent`/`--auth` flags)       |
-| `agentConfigWizard()`       | `src/presentation/tui/wizards/agent-config.wizard.ts`              | Interactive TUI for selecting agent type and auth method                                  |
-| `createAgentSelectConfig()` | `src/presentation/tui/prompts/agent-select.prompt.ts`              | Prompt choices (only Claude Code enabled; others show "Coming Soon")                      |
+| Component                    | Location                                                                            | Purpose                                                                                   |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| `AgentType` enum             | `src/domain/generated/output.ts`                                                    | Defines supported agent tools: `claude-code`, `gemini-cli`, `aider`, `continue`, `cursor` |
+| `AgentAuthMethod` enum       | `src/domain/generated/output.ts`                                                    | Authentication methods: `session`, `token`                                                |
+| `IAgentValidator`            | `src/application/ports/output/agent-validator.interface.ts`                         | Port interface for checking agent binary availability                                     |
+| `AgentValidatorService`      | `src/infrastructure/services/agents/common/agent-validator.service.ts`              | Checks if agent binaries (e.g., `claude`) exist on the system via `--version`             |
+| `AgentRunnerService`         | `src/infrastructure/services/agents/common/agent-runner.service.ts`                 | Orchestrates graph execution with streaming support                                       |
+| `FeatureAgentProcessService` | `src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Spawns/manages background worker processes via fork()                                     |
+| `ConfigureAgentUseCase`      | `src/application/use-cases/agents/configure-agent.use-case.ts`                      | Validates agent availability, then persists agent config to settings                      |
+| `ValidateAgentAuthUseCase`   | `src/application/use-cases/agents/validate-agent-auth.use-case.ts`                  | Delegates to `IAgentValidator` to check binary availability                               |
+| `createAgentCommand()`       | `src/presentation/cli/commands/settings/agent.command.ts`                           | CLI command: `shep settings agent` (interactive wizard or `--agent`/`--auth` flags)       |
+| `agentConfigWizard()`        | `src/presentation/tui/wizards/agent-config.wizard.ts`                               | Interactive TUI for selecting agent type and auth method                                  |
+| `createAgentSelectConfig()`  | `src/presentation/tui/prompts/agent-select.prompt.ts`                               | Prompt choices (only Claude Code enabled; others show "Coming Soon")                      |
 
 ### Current Flow
 
@@ -45,11 +84,75 @@ User runs `shep settings agent`
 | Continue    | `continue`    | Coming Soon |
 | Cursor      | `cursor`      | Coming Soon |
 
+### FeatureAgent Graph
+
+**Location:** `src/infrastructure/services/agents/feature-agent/`
+
+The FeatureAgent is a LangGraph `StateGraph` implementing a linear SDLC workflow. Each node is in its own file under `nodes/` for maintainability.
+
+#### State Schema (`FeatureAgentAnnotation`)
+
+**File:** `feature-agent/state.ts`
+
+```typescript
+FeatureAgentAnnotation = Annotation.Root({
+  featureId: Annotation<string>, // UUID of the feature
+  repositoryPath: Annotation<string>, // Path to the git repository
+  specDir: Annotation<string>, // Path to the spec directory
+  currentNode: Annotation<string>, // Currently executing node name
+  error: Annotation<string | null>, // Error message (null = no error)
+  messages: Annotation<string[]>, // Accumulated log messages (reducer: append)
+});
+```
+
+The `messages` channel uses a reducer to accumulate messages from all nodes. The `error` channel preserves the previous value when `undefined` is returned.
+
+#### Graph Nodes
+
+Each node is a separate file in `feature-agent/nodes/`:
+
+| Node           | File                   | Purpose                                     | Reads           |
+| -------------- | ---------------------- | ------------------------------------------- | --------------- |
+| `analyze`      | `analyze.node.ts`      | Confirms spec.yaml exists and is readable   | `spec.yaml`     |
+| `requirements` | `requirements.node.ts` | Analyzes spec for success criteria presence | `spec.yaml`     |
+| `research`     | `research.node.ts`     | Checks whether research.yaml exists         | `research.yaml` |
+| `plan`         | `plan.node.ts`         | Checks whether plan.yaml exists             | `plan.yaml`     |
+| `implement`    | `implement.node.ts`    | Checks whether tasks.yaml exists            | `tasks.yaml`    |
+
+#### Graph Flow
+
+```
+START → analyze → requirements → research → plan → implement → END
+```
+
+Linear flow — each node executes sequentially. Future iterations may add conditional edges (e.g., looping back from requirements if criteria are missing).
+
+#### Factory Function
+
+**File:** `feature-agent/feature-agent-graph.ts`
+
+```typescript
+createFeatureAgentGraph(checkpointer?: BaseCheckpointSaver): CompiledStateGraph
+```
+
+Accepts an optional `BaseCheckpointSaver` for state persistence across invocations. The DI container registers a `:memory:` SQLite checkpointer by default.
+
+#### Background Execution
+
+The feature agent runs as a detached background process:
+
+- **Worker:** `feature-agent/feature-agent-worker.ts` — Entry point for `child_process.fork()`, initializes DI, runs graph, handles SIGTERM
+- **Process Service:** `feature-agent/feature-agent-process.service.ts` — `spawn()`, `isAlive()`, `checkAndMarkCrashed()` for process lifecycle management
+
+#### Error Handling
+
+Each node wraps its logic in try/catch. On error, the node sets the `error` state field and appends an error message to `messages`. The graph continues execution — downstream nodes can inspect the `error` field to decide behavior.
+
 ---
 
 ## Planned Architecture (Not Yet Implemented)
 
-The sections below describe the **target architecture** for the autonomous LangGraph-based multi-agent system. This serves as architectural planning documentation for future implementation.
+The sections below describe the **target architecture** for the full autonomous LangGraph-based multi-agent system with LLM integration, tools, and supervisor pattern. This serves as architectural planning documentation for future implementation.
 
 ---
 
@@ -508,29 +611,30 @@ Per-repository overrides in `.shep/agents.json`:
 
 ## Extending the Agent System
 
-### Adding a New Node
+### Adding a New Node to an Existing Graph
 
-1. Create node function in `infrastructure/agents/langgraph/nodes/`
-2. Define input/output state fields
-3. Add to graph in `graphs/feature.graph.ts`
+1. Create node function in `agents/<graph-name>/nodes/<name>.node.ts`
+2. Define input/output state fields matching the graph's state annotation
+3. Import and add to graph factory file
 4. Connect with edges (direct or conditional)
 5. Write tests (TDD)
 
 ### Adding a New Tool
 
-1. Create tool in `infrastructure/agents/langgraph/tools/`
+1. Create tool in `agents/<graph-name>/tools/`
 2. Define Zod schema for parameters
 3. Implement execution function
 4. Bind to agent model
 5. Document in this file
 
-### Creating a New Graph
+### Creating a New Agent Graph
 
-1. Define state schema using `Annotation.Root`
-2. Create node functions
-3. Build graph with `StateGraph`
-4. Add edges (including conditional)
-5. Compile and export
+1. Create subdirectory: `agents/<graph-name>/`
+2. Define state schema in `state.ts` using `Annotation.Root`
+3. Create node functions in `nodes/` (one file per node)
+4. Create graph factory in `<graph-name>-graph.ts` (imports + wires nodes)
+5. Register in `agents/common/agent-registry.service.ts`
+6. Write tests (TDD)
 
 See [docs/guides/langgraph-agents.md](./docs/guides/langgraph-agents.md) for detailed guide.
 

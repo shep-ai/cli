@@ -14,7 +14,7 @@ import { PassThrough } from 'node:stream';
 import {
   ClaudeCodeExecutorService,
   type SpawnFunction,
-} from '../../../../../../src/infrastructure/services/agents/executors/claude-code-executor.service.js';
+} from '../../../../../../src/infrastructure/services/agents/common/executors/claude-code-executor.service.js';
 import { AgentType, AgentFeature } from '../../../../../../src/domain/generated/output.js';
 
 /**

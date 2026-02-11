@@ -21,7 +21,7 @@ import { SQLiteSettingsRepository } from '../repositories/sqlite-settings.reposi
 
 // Validator interfaces and implementations
 import type { IAgentValidator } from '../../application/ports/output/agent-validator.interface.js';
-import { AgentValidatorService } from '../services/agents/agent-validator.service.js';
+import { AgentValidatorService } from '../services/agents/common/agent-validator.service.js';
 import { promisify } from 'node:util';
 import { execFile } from 'node:child_process';
 
@@ -36,11 +36,11 @@ import type { IAgentExecutorFactory } from '../../application/ports/output/agent
 import type { IAgentRegistry } from '../../application/ports/output/agent-registry.interface.js';
 import type { IAgentRunner } from '../../application/ports/output/agent-runner.interface.js';
 import type { IAgentRunRepository } from '../../application/ports/output/agent-run-repository.interface.js';
-import { AgentExecutorFactory } from '../services/agents/agent-executor-factory.service.js';
-import { AgentRegistryService } from '../services/agents/agent-registry.service.js';
-import { AgentRunnerService } from '../services/agents/agent-runner.service.js';
+import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
+import { AgentRegistryService } from '../services/agents/common/agent-registry.service.js';
+import { AgentRunnerService } from '../services/agents/common/agent-runner.service.js';
 import { SQLiteAgentRunRepository } from '../repositories/agent-run.repository.js';
-import { createCheckpointer } from '../services/agents/langgraph/checkpointer.js';
+import { createCheckpointer } from '../services/agents/common/checkpointer.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { spawn } from 'node:child_process';
 
@@ -51,6 +51,19 @@ import { UpdateSettingsUseCase } from '../../application/use-cases/settings/upda
 import { ConfigureAgentUseCase } from '../../application/use-cases/agents/configure-agent.use-case.js';
 import { ValidateAgentAuthUseCase } from '../../application/use-cases/agents/validate-agent-auth.use-case.js';
 import { RunAgentUseCase } from '../../application/use-cases/agents/run-agent.use-case.js';
+
+// Feature use cases
+import { CreateFeatureUseCase } from '../../application/use-cases/features/create-feature.use-case.js';
+import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
+import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
+
+// Feature infrastructure
+import type { IFeatureRepository } from '../../application/ports/output/feature-repository.interface.js';
+import { SQLiteFeatureRepository } from '../repositories/sqlite-feature.repository.js';
+import type { IWorktreeService } from '../../application/ports/output/worktree-service.interface.js';
+import { WorktreeService, type ExecFunction } from '../services/git/worktree.service.js';
+import type { IFeatureAgentProcessService } from '../../application/ports/output/feature-agent-process.interface.js';
+import { FeatureAgentProcessService } from '../services/agents/feature-agent/feature-agent-process.service.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -127,6 +140,28 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
 
+  // Register feature infrastructure
+  container.register<IFeatureRepository>('IFeatureRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteFeatureRepository(database);
+    },
+  });
+
+  container.register<IWorktreeService>('IWorktreeService', {
+    useFactory: (c) => {
+      const exec = c.resolve('ExecFunction') as ExecFunction;
+      return new WorktreeService(exec);
+    },
+  });
+
+  container.register<IFeatureAgentProcessService>('IFeatureAgentProcessService', {
+    useFactory: (c) => {
+      const runRepository = c.resolve<IAgentRunRepository>('IAgentRunRepository');
+      return new FeatureAgentProcessService(runRepository);
+    },
+  });
+
   // Register use cases (singletons for performance)
   container.registerSingleton(InitializeSettingsUseCase);
   container.registerSingleton(LoadSettingsUseCase);
@@ -134,6 +169,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ConfigureAgentUseCase);
   container.registerSingleton(ValidateAgentAuthUseCase);
   container.registerSingleton(RunAgentUseCase);
+  container.registerSingleton(CreateFeatureUseCase);
+  container.registerSingleton(ListFeaturesUseCase);
+  container.registerSingleton(ShowFeatureUseCase);
 
   return container;
 }

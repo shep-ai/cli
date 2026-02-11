@@ -8,9 +8,9 @@
  * to enable testability without mocking node:child_process directly.
  */
 
-import type { AgentType, AgentConfig } from '../../../domain/generated/output.js';
-import type { IAgentExecutor } from '../../../application/ports/output/agent-executor.interface.js';
-import type { IAgentExecutorFactory } from '../../../application/ports/output/agent-executor-factory.interface.js';
+import type { AgentType, AgentConfig } from '../../../../domain/generated/output.js';
+import type { IAgentExecutor } from '../../../../application/ports/output/agent-executor.interface.js';
+import type { IAgentExecutorFactory } from '../../../../application/ports/output/agent-executor-factory.interface.js';
 import {
   ClaudeCodeExecutorService,
   type SpawnFunction,
