@@ -25,11 +25,12 @@ if (typeof globalThis.window !== 'undefined') {
   });
 
   // Mock ResizeObserver for Radix UI components (tooltips, popovers, etc.)
-  globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-  }));
+  // Must use a class so it can be called with `new`
+  globalThis.ResizeObserver = class ResizeObserver {
+    observe = vi.fn();
+    unobserve = vi.fn();
+    disconnect = vi.fn();
+  } as unknown as typeof globalThis.ResizeObserver;
 
   // Mock matchMedia for theme tests
   Object.defineProperty(window, 'matchMedia', {
