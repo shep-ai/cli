@@ -11,7 +11,7 @@ summary: >
   LangGraph agent integration. Users can create features that automatically spawn background
   agents to analyze repositories, gather requirements, research approaches, generate plans,
   and coordinate implementation - all following Clean Architecture with TypeSpec domain models.
-phase: Requirements
+phase: Research
 sizeEstimate: XL
 
 # Relationships

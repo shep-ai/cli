@@ -3,18 +3,18 @@ feature:
   name: 'feature-agent'
   number: 13
   branch: 'feat/feature-agent'
-  lifecycle: 'research'
+  lifecycle: 'planning'
   createdAt: '2026-02-11T15:55:36Z'
 
 status:
-  phase: 'research'
+  phase: 'planning'
   progress:
     completed: 0
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-11T18:30:00Z'
-  lastUpdatedBy: 'shep-kit:new-feature'
+  lastUpdated: '2026-02-11T20:45:00Z'
+  lastUpdatedBy: 'shep-kit:research'
 
 validation:
   lastRun: null
@@ -33,6 +33,9 @@ checkpoints:
   - phase: 'spec-complete'
     completedAt: '2026-02-11T18:30:00Z'
     completedBy: 'shep-kit:new-feature'
+  - phase: 'research-complete'
+    completedAt: '2026-02-11T20:45:00Z'
+    completedBy: 'shep-kit:research'
 
 errors:
   current: null
