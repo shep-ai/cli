@@ -12,9 +12,9 @@ export function PageHeader({ title, description, children, className }: PageHead
     <header className={cn('flex items-center justify-between gap-4', className)}>
       <div className="space-y-1">
         <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {description && <p className="text-muted-foreground">{description}</p>}
+        {description ? <p className="text-muted-foreground">{description}</p> : null}
       </div>
-      {children && <div data-slot="actions">{children}</div>}
+      {children ? <div data-slot="actions">{children}</div> : null}
     </header>
   );
 }

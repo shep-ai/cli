@@ -43,14 +43,14 @@ export function FeatureListItem({
             <ElapsedTime startedAt={startedAt} />
           </span>
         )}
-        {status === 'done' && duration && (
+        {status === 'done' && duration ? (
           <span
             data-testid="feature-list-item-meta"
             className="text-muted-foreground ml-auto text-xs tabular-nums"
           >
             {duration}
           </span>
-        )}
+        ) : null}
       </SidebarMenuButton>
     </SidebarMenuItem>
   );

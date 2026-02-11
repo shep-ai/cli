@@ -62,7 +62,7 @@ const statusGroups: { key: FeatureStatus; label: string }[] = [
 export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const { mounted: showLabel, visible: labelVisible } = useDeferredMount(collapsed, 200);
+  const { mounted: showExpanded, visible: expandedVisible } = useDeferredMount(collapsed, 200);
 
   const grouped = statusGroups.map(({ key, label }) => {
     const items = features.filter((f) => f.status === key);
@@ -75,19 +75,19 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex h-8 items-center group-data-[collapsible=icon]:justify-center">
-              {showLabel && (
+              {showExpanded ? (
                 <div
                   className={[
                     'flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-2',
                     'transition-opacity duration-200 ease-out',
-                    labelVisible ? 'opacity-100' : 'opacity-0',
+                    expandedVisible ? 'opacity-100' : 'opacity-0',
                   ].join(' ')}
-                  aria-hidden={!labelVisible}
+                  aria-hidden={!expandedVisible}
                 >
                   <ShepLogo className="shrink-0" size={20} />
                   <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
                 </div>
-              )}
+              ) : null}
               <SidebarCollapseToggle className="shrink-0 transition-all duration-200" />
             </div>
           </SidebarMenuItem>
@@ -99,8 +99,13 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
       </SidebarHeader>
 
       <SidebarContent>
-        {!collapsed && (
-          <ScrollArea>
+        {showExpanded ? (
+          <ScrollArea
+            className={[
+              'transition-opacity duration-200 ease-out',
+              expandedVisible ? 'opacity-100' : 'opacity-0',
+            ].join(' ')}
+          >
             {grouped.map(
               ({ key, label, items }) =>
                 items.length > 0 && (
@@ -119,7 +124,7 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
                 )
             )}
           </ScrollArea>
-        )}
+        ) : null}
       </SidebarContent>
 
       <SidebarFooter>
