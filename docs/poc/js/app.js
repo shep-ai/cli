@@ -464,12 +464,84 @@ class App {
       }
     });
 
-    // Run simulation steps at realistic intervals
-    // ~20 seconds per phase, with 10 sub-steps = 2 seconds per sub-step
-    this.state.simulationInterval = setInterval(() => this.runSimulationStep(), 2000);
+    // Fast simulation: ~5 seconds per phase, with 10 sub-steps = 500ms per sub-step
+    this.state.simulationInterval = setInterval(() => this.runSimulationStep(), 500);
   }
 
+  /**
+   * Progress implementation phases (runs during phase 5)
+   * Handles phase progression, merging, and feature phase advancement
+   */
+  progressImplementationPhases() {
+    // Find features in Implementation phase (phase 5)
+    const implementationFeatures = this.state.nodes.filter((n) => n.phaseId === 5);
+
+    implementationFeatures.forEach((feature) => {
+      // Generate phases on first Implementation entry
+      if (!feature.phases || feature.phases.length === 0) {
+        this.state.generatePhasesForFeature(feature.id);
+        this.render();
+        return;
+      }
+
+      // Find phases that can progress
+      const runnablePhases = feature.phases.filter((phase) => {
+        if (phase.status === 'completed' || phase.status === 'merged') return false;
+
+        if (phase.status === 'pending') {
+          // Check if dependencies are met
+          if (phase.order === 0) {
+            // First phase can always start
+            this.state.updatePhase(feature.id, phase.id, { status: 'running' });
+            return true;
+          }
+
+          // All phases with a LOWER order must be merged before this one can start
+          const prevOrderPhases = feature.phases.filter((p) => p.order < phase.order);
+          const allPrevMerged = prevOrderPhases.every((p) => p.status === 'merged');
+
+          if (allPrevMerged) {
+            // Start this phase (parallel phases with same order all start together)
+            this.state.updatePhase(feature.id, phase.id, { status: 'running' });
+            return true;
+          }
+          return false;
+        }
+
+        return phase.status === 'running';
+      });
+
+      // Progress one random running phase
+      if (runnablePhases.length > 0) {
+        const phase = runnablePhases[Math.floor(Math.random() * runnablePhases.length)];
+        this.state.progressPhase(feature.id, phase.id);
+      }
+
+      // Check if all phases merged -> move to QA
+      const allMerged = feature.phases.every((p) => p.status === 'merged');
+      if (allMerged && feature.phaseId === 5) {
+        this.state.updateFeature(feature.id, { phaseId: 6 }); // Move to QA Check
+        console.log('✅ All phases merged! Feature moving to QA Check phase');
+        this.render();
+      }
+    });
+
+    // Re-render if in phases view
+    if (this.state.viewMode === 'phases') {
+      this.render();
+    }
+  }
+
+  /**
+   * Update a phase (helper for simulation)
+   * Not used here but might be needed elsewhere
+   */
+  // Note: Already implemented in state.js
+
   runSimulationStep() {
+    // NEW: Progress implementation phases first
+    this.progressImplementationPhases();
+
     // Find features that can progress (not waiting for user action, not complete)
     const candidates = this.state.nodes.filter((n) => {
       const phase = PHASES.find((p) => p.id === n.phaseId);
@@ -479,6 +551,9 @@ class App {
 
       // Skip if already at final phase
       if (n.phaseId >= 8) return false;
+
+      // Skip Implementation phase - handled by progressImplementationPhases()
+      if (n.phaseId === 5) return false;
 
       // Children can do requirements/planning (phases 0-4) but cannot enter Implementation (phase 5+)
       // until parent completes Implementation (phase 5)
@@ -903,23 +978,42 @@ class App {
 
   // Deep Dive Modal
   openDeepDive(featureId) {
-    if (this.state.openDeepDive(featureId)) {
-      const feature = this.state.getFeature(featureId);
+    const feature = this.state.getFeature(featureId);
+    if (!feature) return;
 
-      // Immediate render to switch canvas view
-      this.render();
-
-      // Force a second render after a brief delay to ensure canvas dimensions are calculated
-      // This fixes the issue where nothing appears until window resize
-      setTimeout(() => {
+    // Check if feature is in Implementation phase (phase 5)
+    if (feature.phaseId === 5) {
+      // Open phases view instead of tasks view
+      if (this.state.openPhasesView(featureId)) {
+        // Immediate render to switch canvas view
         this.render();
-      }, 50);
+
+        // Force a second render after a brief delay
+        setTimeout(() => {
+          this.render();
+        }, 50);
+      }
+    } else {
+      // Open regular tasks view for other phases
+      if (this.state.openDeepDive(featureId)) {
+        // Immediate render to switch canvas view
+        this.render();
+
+        // Force a second render after a brief delay
+        setTimeout(() => {
+          this.render();
+        }, 50);
+      }
     }
   }
 
   closeDeepDive() {
     // Update state to return to features view
-    this.state.closeDeepDive();
+    if (this.state.viewMode === 'phases') {
+      this.state.closePhasesView();
+    } else {
+      this.state.closeDeepDive();
+    }
 
     // Re-render the canvas to show features
     this.render();
