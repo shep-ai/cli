@@ -21,10 +21,10 @@ export function EmptyState({
       className={cn('flex flex-col items-center gap-4 px-4 py-12 text-center', className)}
       {...props}
     >
-      {icon && <div className="text-muted-foreground">{icon}</div>}
+      {icon ? <div className="text-muted-foreground">{icon}</div> : null}
       <h3 className="text-lg font-semibold">{title}</h3>
-      {description && <p className="text-muted-foreground max-w-md text-sm">{description}</p>}
-      {action && <div className="mt-2">{action}</div>}
+      {description ? <p className="text-muted-foreground max-w-md text-sm">{description}</p> : null}
+      {action ? <div className="mt-2">{action}</div> : null}
     </div>
   );
 }

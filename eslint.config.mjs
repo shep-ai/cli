@@ -15,6 +15,8 @@ import prettierConfig from 'eslint-config-prettier';
 import reactPlugin from 'eslint-plugin-react';
 import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import nextPlugin from '@next/eslint-plugin-next';
+import tailwindPlugin from 'eslint-plugin-tailwindcss';
+import storybookPlugin from 'eslint-plugin-storybook';
 
 export default tseslint.config(
   // =============================================================================
@@ -207,6 +209,7 @@ export default tseslint.config(
       react: reactPlugin,
       'react-hooks': reactHooksPlugin,
       '@next/next': nextPlugin,
+      tailwindcss: tailwindPlugin,
     },
     languageOptions: {
       parserOptions: {
@@ -229,6 +232,11 @@ export default tseslint.config(
       'react/jsx-key': 'error',
       'react/no-array-index-key': 'warn',
       'react/self-closing-comp': 'warn',
+      'react/jsx-no-useless-fragment': 'warn',
+      'react/jsx-curly-brace-presence': ['warn', { props: 'never', children: 'never' }],
+      'react/hook-use-state': 'warn',
+      'react/jsx-no-leaked-render': 'warn',
+      'react/no-unstable-nested-components': 'error',
 
       // React Hooks rules
       'react-hooks/rules-of-hooks': 'error',
@@ -238,6 +246,28 @@ export default tseslint.config(
       '@next/next/no-html-link-for-pages': 'error',
       '@next/next/no-img-element': 'warn',
       '@next/next/no-sync-scripts': 'error',
+
+      // Tailwind CSS rules
+      'tailwindcss/classnames-order': 'warn',
+      'tailwindcss/no-contradicting-classname': 'error',
+      'tailwindcss/no-unnecessary-arbitrary-value': 'warn',
+      'tailwindcss/enforces-shorthand': 'warn',
+    },
+  },
+
+  // =============================================================================
+  // Storybook story files
+  // =============================================================================
+  {
+    files: ['**/*.stories.@(ts|tsx)'],
+    plugins: {
+      storybook: storybookPlugin,
+    },
+    rules: {
+      'storybook/default-exports': 'error',
+      'storybook/hierarchy-separator': 'error',
+      'storybook/no-uninstalled-addons': 'error',
+      'storybook/prefer-pascal-case': 'warn',
     },
   },
 
