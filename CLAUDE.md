@@ -390,10 +390,19 @@ See [docs/development/tdd-guide.md](./docs/development/tdd-guide.md) for detaile
 
 - **Framework**: Next.js 16+ (App Router, Turbopack)
 - **Components**: shadcn/ui (Radix primitives + Tailwind CSS v4)
+- **Architecture**: Four-tier component hierarchy (`ui/` → `common/` → `layouts/` → `features/`)
 - **Design System**: Storybook with all component variants
 - **E2E Testing**: Playwright
 - **Location**: `src/presentation/web/`
 - **Package**: `@shepai/web` (pnpm workspace)
+- **Documentation**: See [docs/ui/](./docs/ui/) for architecture, design system, and component catalog
+
+**MANDATORY: Storybook Stories Requirement**
+
+Every web UI component MUST have a colocated `.stories.tsx` file. Commits that add or modify components without corresponding Storybook stories will be rejected. This applies to all tiers:
+
+- **Tier 0 (`ui/`)**: Stories colocated next to component (e.g., `button.stories.tsx`)
+- **Tier 1-3 (`common/`, `layouts/`, `features/`)**: Stories in component subfolder (e.g., `page-header/page-header.stories.tsx`)
 
 ## pnpm Workspaces
 

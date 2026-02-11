@@ -18,33 +18,43 @@ The web component library provides a consistent design system for the Shep AI we
 
 ## Directory Structure
 
+The web UI uses a **four-tier component architecture** with strict dependency direction. See [docs/ui/architecture.md](../ui/architecture.md) for full details.
+
 ```
 src/presentation/web/
 ├── app/                    # Next.js App Router pages
 │   ├── globals.css         # Global styles with design tokens
-│   ├── layout.tsx          # Root layout
-│   └── page.tsx            # Home page
+│   ├── layout.tsx          # Root layout (uses AppShell)
+│   ├── page.tsx            # Home page
+│   └── version/
+│       └── page.tsx        # Version info page
 ├── components/
-│   ├── ui/                 # shadcn/ui components
-│   │   ├── accordion.tsx
-│   │   ├── alert.tsx
-│   │   ├── badge.tsx
+│   ├── ui/                 # Tier 0: shadcn/ui primitives (CLI-managed)
 │   │   ├── button.tsx
+│   │   ├── button.stories.tsx
 │   │   ├── card.tsx
 │   │   ├── dialog.tsx
-│   │   ├── input.tsx
-│   │   ├── label.tsx
-│   │   ├── popover.tsx
-│   │   ├── select.tsx
-│   │   ├── sonner.tsx
-│   │   ├── tabs.tsx
-│   │   └── index.ts        # Exports all components
-│   └── features/           # Feature-specific components (subfolder pattern)
-│       ├── index.ts         # Barrel export for all features
-│       └── theme-toggle/    # Each feature in its own subfolder
-│           ├── index.ts
-│           ├── theme-toggle.tsx
-│           └── theme-toggle.stories.tsx
+│   │   └── ...             # 13 primitives with colocated stories
+│   ├── common/             # Tier 1: Cross-feature composed components
+│   │   ├── theme-toggle/
+│   │   │   ├── theme-toggle.tsx
+│   │   │   ├── theme-toggle.stories.tsx
+│   │   │   └── index.ts
+│   │   ├── page-header/
+│   │   ├── empty-state/
+│   │   └── loading-skeleton/
+│   ├── layouts/            # Tier 2: Page shells, structural wrappers
+│   │   ├── sidebar/
+│   │   ├── header/
+│   │   ├── dashboard-layout/
+│   │   └── app-shell/
+│   └── features/           # Tier 3: Domain-specific UI bound to routes
+│       ├── version/
+│       └── settings/
+├── docs/                   # Design system MDX documentation
+│   ├── Colors.mdx
+│   ├── Typography.mdx
+│   └── GettingStarted.mdx
 ├── hooks/
 │   └── useTheme.ts         # Theme state management
 ├── lib/
@@ -53,16 +63,18 @@ src/presentation/web/
     └── theme.ts            # Theme type definitions
 ```
 
-**Note:** Stories are colocated with their components (e.g., `button.stories.tsx` next to `button.tsx`). The design tokens documentation is at `components/design-tokens.mdx`.
+**Key rules:**
+
+- **No tier-level barrel exports** (no `ui/index.ts` or `common/index.ts`)
+- **Per-component barrel exports** only (each component subfolder has its own `index.ts`)
+- Stories are colocated with their components (e.g., `button.stories.tsx` next to `button.tsx`)
 
 ```
-# Story file structure example
-components/ui/
-├── button.tsx              # Component implementation
-├── button.stories.tsx      # Storybook stories (colocated)
-├── card.tsx
-├── card.stories.tsx
-└── ...
+# Component subfolder pattern (Tier 1-3)
+components/common/page-header/
+├── page-header.tsx         # Component implementation
+├── page-header.stories.tsx # Storybook stories (colocated)
+└── index.ts                # Per-component barrel export
 ```
 
 ## Design Tokens
@@ -129,29 +141,23 @@ Dark mode tokens are defined in the `.dark` class selector, which overrides the 
 
 ## Components
 
-### Available Components
+### Component Tiers
 
-| Component     | Description                            |
-| ------------- | -------------------------------------- |
-| `Accordion`   | Collapsible content sections           |
-| `Alert`       | Feedback messages with variants        |
-| `Badge`       | Status indicators and labels           |
-| `Button`      | Action buttons with variants and sizes |
-| `Card`        | Container for grouped content          |
-| `Dialog`      | Modal dialogs                          |
-| `Input`       | Text input fields                      |
-| `Label`       | Form field labels                      |
-| `Popover`     | Floating content panels                |
-| `Select`      | Dropdown selection                     |
-| `Sonner`      | Toast notifications                    |
-| `Tabs`        | Tabbed content navigation              |
-| `ThemeToggle` | Dark/light mode toggle                 |
+| Tier | Directory   | Purpose                            | Import Rule                 |
+| ---- | ----------- | ---------------------------------- | --------------------------- |
+| 0    | `ui/`       | shadcn/ui primitives               | External packages only      |
+| 1    | `common/`   | Cross-feature composed components  | Can import `ui/`            |
+| 2    | `layouts/`  | Page shells, structural wrappers   | Can import `ui/`, `common/` |
+| 3    | `features/` | Domain-specific UI bound to routes | Can import all lower tiers  |
+
+See [Component Catalog](../ui/components.md) for the full list of available components.
 
 ### Usage Example
 
 ```tsx
-import { Button, Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
-import { ThemeToggle } from '@/components/features';
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ThemeToggle } from '@/components/common/theme-toggle';
 
 export function MyComponent() {
   return (
@@ -170,13 +176,20 @@ export function MyComponent() {
 
 ### Adding New Components
 
-Use the shadcn/ui CLI to add new components:
+**Tier 0 (shadcn/ui primitives):**
 
 ```bash
 pnpm dlx shadcn@latest add [component-name]
 ```
 
-Components are configured via `components.json` at the project root.
+**Tier 1-3 (custom components):**
+
+1. Create subfolder: `components/{tier}/[name]/`
+2. Add component: `[name].tsx`
+3. Add stories: `[name].stories.tsx` (MANDATORY)
+4. Add barrel export: `index.ts`
+
+Components are configured via `components.json` at the web package root.
 
 ## Theme System
 

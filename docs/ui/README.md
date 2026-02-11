@@ -39,8 +39,11 @@ The web UI is a separate pnpm workspace package:
 src/presentation/web/
 ├── app/              # Next.js App Router pages
 ├── components/
-│   ├── ui/           # shadcn/ui primitives
-│   └── features/     # Feature-specific components
+│   ├── ui/           # Tier 0: shadcn/ui primitives (CLI-managed)
+│   ├── common/       # Tier 1: Cross-feature composed components
+│   ├── layouts/      # Tier 2: Page shells, structural wrappers
+│   └── features/     # Tier 3: Domain-specific UI bound to routes
+├── docs/             # Design system MDX documentation
 ├── hooks/            # Custom React hooks
 ├── lib/              # Utilities (cn, etc.)
 └── types/            # TypeScript definitions

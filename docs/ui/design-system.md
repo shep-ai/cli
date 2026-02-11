@@ -138,7 +138,7 @@ Theme preference is stored in `localStorage` under `shep-theme` key.
 ### ThemeToggle Component
 
 ```typescript
-import { ThemeToggle } from '@/components/features';
+import { ThemeToggle } from '@/components/common/theme-toggle';
 
 // Renders a button that toggles between light/dark modes
 <ThemeToggle />
@@ -212,7 +212,7 @@ pnpm dev:storybook
 # Navigate to "Design Tokens" in sidebar
 ```
 
-The documentation is at `components/design-tokens.mdx`.
+The documentation is at `src/presentation/web/docs/` (Colors.mdx, Typography.mdx, GettingStarted.mdx).
 
 ## Color Palette Reference
 

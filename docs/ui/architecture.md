@@ -244,6 +244,39 @@ Same pattern as common, in `components/layouts/[name]/`.
 2. Add component files as needed
 3. Add barrel export: `index.ts`
 
+## Mandatory Storybook Stories
+
+**Every web UI component MUST have a colocated `.stories.tsx` file.** This is a non-negotiable requirement for all component work.
+
+### Rules
+
+1. **New components**: Must include a `.stories.tsx` file in the same commit
+2. **Modified components**: If behavior or props change, stories must be updated
+3. **All tiers apply**: Tier 0 (`ui/`), Tier 1 (`common/`), Tier 2 (`layouts/`), and Tier 3 (`features/`)
+4. **Story coverage**: Stories should cover all variants, sizes, and key states (default, hover, disabled, loading)
+
+### Story File Pattern
+
+```
+# Tier 0 (ui/) - flat colocated
+components/ui/
+├── button.tsx
+└── button.stories.tsx
+
+# Tier 1-3 - subfolder colocated
+components/common/page-header/
+├── page-header.tsx
+├── page-header.stories.tsx
+└── index.ts
+```
+
+### Verification
+
+```bash
+pnpm dev:storybook     # Verify stories render correctly
+pnpm build:storybook   # Verify stories build without errors
+```
+
 ## Code Quality
 
 ### Linting & Formatting
