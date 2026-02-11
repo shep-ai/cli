@@ -29,7 +29,9 @@ digraph parallel_task {
     fix_yaml [label="Patch feature.yaml\nwith correct branch name"];
     fill_spec [label="Fill spec.md with\nrequirements (if provided)"];
     commit [label="git add + commit\nspec scaffold"];
-    report [label="Report worktree path" shape=ellipse];
+    open_code [label="code .worktrees/<dir-name>"];
+    success [label="Report: VS Code opening..." shape=ellipse];
+    fail [label="Report: manual instructions" shape=ellipse];
 
     start -> get_desc;
     get_desc -> derive;
@@ -39,7 +41,9 @@ digraph parallel_task {
     init_spec -> fix_yaml;
     fix_yaml -> fill_spec;
     fill_spec -> commit;
-    commit -> report;
+    commit -> open_code;
+    open_code -> success [label="success"];
+    open_code -> fail [label="fail"];
 }
 ```
 
@@ -122,11 +126,36 @@ git add specs/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
 
-### 9. Report & Hand Off (STOP HERE)
+### 9. Open VS Code & Hand Off (STOP HERE)
 
 **CRITICAL: Do NOT start implementation. Do NOT run `/shep-kit:research`, `/shep-kit:plan`, or `/shep-kit:implement`.**
 
-Your job is done. Print the following message to the user, filling in the actual values:
+**Auto-open VS Code:** Attempt to open the worktree in a new VS Code window automatically:
+
+```bash
+code .worktrees/<dir-name>
+```
+
+**If the `code` command succeeds**, print:
+
+---
+
+**Worktree is ready! Opening in VS Code...**
+
+| Detail   | Value                                    |
+| -------- | ---------------------------------------- |
+| Worktree | `.worktrees/<dir-name>`                  |
+| Branch   | `<branch-name>` (based on `origin/main`) |
+| Spec     | `specs/NNN-feature-name/`                |
+
+A new VS Code window should be opening. Once it's loaded, open the Claude Code panel and continue with `/shep-kit:research`.
+
+> Working inside the worktree keeps your current session free and gives
+> the new session its own full context for the feature.
+
+---
+
+**If the `code` command fails** (not installed, not in PATH, etc.), fall back to printing manual instructions:
 
 ---
 
@@ -138,7 +167,7 @@ Your job is done. Print the following message to the user, filling in the actual
 | Branch   | `<branch-name>` (based on `origin/main`) |
 | Spec     | `specs/NNN-feature-name/`                |
 
-**Next step — open a new session in the worktree directory:**
+Could not auto-open VS Code (`code` command not found). Open it manually:
 
 **Option A — VS Code** (recommended)
 
