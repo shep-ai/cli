@@ -55,8 +55,11 @@ filesToCreate:
   - src/presentation/web/components/ui/scroll-area.tsx
   - src/presentation/web/components/ui/separator.tsx
   - src/presentation/web/components/ui/tooltip.tsx
-  # Tier 1: Common composed components
+  # Barrel exports (none exist yet — 013 created directories but no index.ts files)
+  - src/presentation/web/components/ui/index.ts
   - src/presentation/web/components/common/index.ts
+  - src/presentation/web/components/layouts/index.ts
+  # Tier 1: Common composed components (common/ directory already exists from 013)
   - src/presentation/web/components/common/elapsed-time/elapsed-time.tsx
   - src/presentation/web/components/common/elapsed-time/elapsed-time.stories.tsx
   - src/presentation/web/components/common/elapsed-time/index.ts
@@ -69,8 +72,7 @@ filesToCreate:
   - src/presentation/web/components/common/feature-status-group/feature-status-group.tsx
   - src/presentation/web/components/common/feature-status-group/feature-status-group.stories.tsx
   - src/presentation/web/components/common/feature-status-group/index.ts
-  # Tier 2: Layout components
-  - src/presentation/web/components/layouts/index.ts
+  # Tier 2: Layout components (layouts/ directory already exists from 013)
   - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
   - src/presentation/web/components/layouts/app-sidebar/app-sidebar.stories.tsx
   - src/presentation/web/components/layouts/app-sidebar/index.ts
@@ -83,7 +85,6 @@ filesToCreate:
 
 filesToModify:
   - src/presentation/web/app/globals.css
-  - src/presentation/web/components/ui/index.ts
 
 # Open questions
 openQuestions: []
@@ -92,7 +93,7 @@ openQuestions: []
 content: |
   ## Status
 
-  - **Phase:** Planning
+  - **Phase:** Implementation
   - **Updated:** 2026-02-11
 
   ## Architecture Overview
@@ -136,16 +137,23 @@ content: |
 
   ### Phase 1: Foundation (No Tests)
 
-  **Goal:** Install shadcn primitives, add sidebar CSS variables, create directory scaffolding.
+  **Goal:** Install shadcn primitives, add sidebar CSS variables, create barrel exports.
+
+  **Pre-condition:** 013-ui-arch is complete. The `common/` directory exists with 4 components
+  (page-header, empty-state, loading-skeleton, theme-toggle) and the `layouts/` directory exists
+  with 4 components (header, sidebar, dashboard-layout, app-shell). No barrel exports exist yet.
+
+  **Note:** The existing `layouts/sidebar/` is a simple nav component (basic `<nav>` with flex
+  layout, ~40 lines). The new `app-sidebar/` is a separate, richer component using the shadcn
+  Sidebar compound component. They coexist without conflict.
 
   **Steps:**
 
   1. Install shadcn sidebar, scroll-area, separator, tooltip via `npx shadcn add`
   2. Add `--color-sidebar-*` CSS variables to globals.css `@theme` and `.dark` blocks
-  3. Create `common/` and `layouts/` directory structure with barrel exports
-  4. Update `ui/index.ts` to export new sidebar primitives
+  3. Create barrel exports: `ui/index.ts`, `common/index.ts`, `layouts/index.ts`
 
-  **Deliverables:** Four new shadcn primitives installed, sidebar CSS tokens, directory structure ready.
+  **Deliverables:** Four new shadcn primitives installed, sidebar CSS tokens, barrel exports.
 
   ### Phase 2: Simple Composed Components (TDD Cycle 1) [P]
 
@@ -219,12 +227,13 @@ content: |
   | `components/ui/scroll-area.tsx` | shadcn scroll-area primitive (CLI-generated) |
   | `components/ui/separator.tsx` | shadcn separator primitive (CLI-generated) |
   | `components/ui/tooltip.tsx` | shadcn tooltip primitive (CLI-generated) |
-  | `components/common/index.ts` | Barrel export for common tier |
+  | `components/ui/index.ts` | Barrel export for ui tier (NEW — does not exist yet) |
+  | `components/common/index.ts` | Barrel export for common tier (NEW — does not exist yet) |
   | `components/common/elapsed-time/` | Live counting timer display (component + stories + index) |
   | `components/common/sidebar-nav-item/` | Nav item with icon + label (component + stories + index) |
   | `components/common/feature-list-item/` | Feature row with status + timing (component + stories + index) |
   | `components/common/feature-status-group/` | Status group header + children (component + stories + index) |
-  | `components/layouts/index.ts` | Barrel export for layouts tier |
+  | `components/layouts/index.ts` | Barrel export for layouts tier (NEW — does not exist yet) |
   | `components/layouts/app-sidebar/` | Full assembled sidebar (component + stories + index) |
   | `tests/unit/web/components/common/` | Unit tests for all common components |
   | `tests/unit/web/components/layouts/` | Unit tests for AppSidebar layout |
@@ -234,7 +243,6 @@ content: |
   | File | Changes |
   | ---- | ------- |
   | `app/globals.css` | Add `--color-sidebar-*` tokens in `@theme` and `.dark` blocks |
-  | `components/ui/index.ts` | Add exports for sidebar, scroll-area, separator, tooltip |
 
   ## Testing Strategy (TDD: Tests FIRST)
 
@@ -272,7 +280,7 @@ content: |
   | shadcn sidebar CSS variables conflict with existing tokens | Research confirmed exact token names; add to existing `@theme` block with consistent hex values |
   | ElapsedTime timer drift | Self-correcting: recalculates from `Date.now() - startedAt` each tick, not incremental |
   | SidebarProvider context missing in tests | Wrap all sidebar component tests in SidebarProvider |
-  | 013-ui-arch not yet merged (dependency) | 014-ui-sidebar creates `common/` and `layouts/` directories directly; 013-ui-arch can merge after |
+  | Naming collision with existing layouts/sidebar/ | No conflict: existing `sidebar/` is a simple nav component; new `app-sidebar/` is a separate shadcn-based compound component |
   | shadcn CLI generates unexpected file structure | Verify after install; adjust paths if needed |
   | Storybook decorator conflict with existing ThemeDecorator | Use per-file sidebar decorator, not global; no conflict |
 

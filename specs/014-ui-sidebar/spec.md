@@ -133,7 +133,7 @@ The sidebar design (from the provided mockup):
 
 ## Dependencies
 
-- **013-ui-arch** (In Progress): Established the four-tier component hierarchy this feature follows
+- **013-ui-arch** (Complete): Established the four-tier component hierarchy this feature follows
 - **004-web-ui-component-library** (Complete): shadcn/ui + Tailwind v4 foundation
 
 ## Scope Boundaries

@@ -13,7 +13,7 @@ summary: >
   status (Action Needed, In Progress, Done) with live elapsed timers for running
   tasks and total duration for completed ones. Bottom footer contains a
   "+ New feature" button. All components isolated with Storybook stories.
-phase: Planning
+phase: Implementation
 sizeEstimate: M
 
 # Relationships
@@ -171,7 +171,7 @@ content: |
 
   ## Dependencies
 
-  - **013-ui-arch** (In Progress): Established the four-tier component hierarchy this feature follows
+  - **013-ui-arch** (Complete): Established the four-tier component hierarchy this feature follows
   - **004-web-ui-component-library** (Complete): shadcn/ui + Tailwind v4 foundation
 
   ## Scope Boundaries
