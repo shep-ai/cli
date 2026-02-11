@@ -1,3 +1,10 @@
+# [1.12.0](https://github.com/shep-ai/cli/compare/v1.11.0...v1.12.0) (2026-02-11)
+
+### Features
+
+- **dx:** add implementation phases view with live simulation ([eb9153c](https://github.com/shep-ai/cli/commit/eb9153cd71ad9bc2ffb6f593d1dbf69b8eb9f9a3))
+- **poc:** enhance environment cards with cleaner design and full actions ([f8d0eff](https://github.com/shep-ai/cli/commit/f8d0eff3c3c0c55950f38828410bc654d601d44c))
+
 # [1.11.0](https://github.com/shep-ai/cli/compare/v1.10.0...v1.11.0) (2026-02-10)
 
 ### Bug Fixes
