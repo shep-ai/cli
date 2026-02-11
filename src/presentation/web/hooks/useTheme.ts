@@ -8,7 +8,6 @@ import { type Theme, THEME_STORAGE_KEY } from '@/types/theme';
  * and system preference detection.
  */
 export function useTheme() {
-  // eslint-disable-next-line react/hook-use-state -- setTheme is the public wrapper below
   const [theme, setThemeState] = useState<Theme>('system');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
@@ -87,6 +86,5 @@ export function useTheme() {
     theme,
     resolvedTheme,
     setTheme,
-    systemTheme: getSystemTheme(),
   };
 }

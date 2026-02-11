@@ -1,6 +1,6 @@
 'use client';
 
-import * as React from 'react';
+import { usePathname } from 'next/navigation';
 import { Home, Brain, Plus, Layers } from 'lucide-react';
 import {
   Sidebar,
@@ -19,26 +19,9 @@ import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-togg
 import { ShepLogo } from '@/components/common/shep-logo';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
-import type { FeatureStatus } from '@/components/common/feature-list-item';
-
-function useDeferredMount(isCollapsed: boolean, ms: number) {
-  const [mounted, setMounted] = React.useState(!isCollapsed);
-  const [visible, setVisible] = React.useState(!isCollapsed);
-
-  React.useEffect(() => {
-    if (!isCollapsed) {
-      setMounted(true);
-      // delay visibility by one frame so the element mounts at opacity-0 first
-      const raf = requestAnimationFrame(() => setVisible(true));
-      return () => cancelAnimationFrame(raf);
-    }
-    setVisible(false);
-    const t = window.setTimeout(() => setMounted(false), ms);
-    return () => window.clearTimeout(t);
-  }, [isCollapsed, ms]);
-
-  return { mounted, visible };
-}
+import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
+import type { FeatureStatus } from '@/components/common/feature-status-config';
+import { useDeferredMount } from '@/hooks/use-deferred-mount';
 
 interface FeatureItem {
   name: string;
@@ -53,18 +36,14 @@ export interface AppSidebarProps {
   onFeatureClick?: (name: string) => void;
 }
 
-const statusGroups: { key: FeatureStatus; label: string }[] = [
-  { key: 'action-needed', label: 'Action Needed' },
-  { key: 'in-progress', label: 'In Progress' },
-  { key: 'done', label: 'Done' },
-];
-
 export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSidebarProps) {
+  const pathname = usePathname();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
   const { mounted: showExpanded, visible: expandedVisible } = useDeferredMount(collapsed, 200);
 
-  const grouped = statusGroups.map(({ key, label }) => {
+  const grouped = featureStatusOrder.map((key) => {
+    const { label } = featureStatusConfig[key];
     const items = features.filter((f) => f.status === key);
     return { key, label, items };
   });
@@ -92,9 +71,19 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
             </div>
           </SidebarMenuItem>
 
-          <SidebarNavItem icon={Home} label="Control Center" href="/" />
-          <SidebarNavItem icon={Brain} label="Memory" href="/memory" />
-          <SidebarNavItem icon={Layers} label="Features" href="/features" />
+          <SidebarNavItem icon={Home} label="Control Center" href="/" active={pathname === '/'} />
+          <SidebarNavItem
+            icon={Brain}
+            label="Memory"
+            href="/memory"
+            active={pathname === '/memory'}
+          />
+          <SidebarNavItem
+            icon={Layers}
+            label="Features"
+            href="/features"
+            active={pathname === '/features'}
+          />
         </SidebarMenu>
       </SidebarHeader>
 
@@ -106,22 +95,21 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
               expandedVisible ? 'opacity-100' : 'opacity-0',
             ].join(' ')}
           >
-            {grouped.map(
-              ({ key, label, items }) =>
-                items.length > 0 && (
-                  <FeatureStatusGroup key={key} label={label} count={items.length}>
-                    {items.map((feature) => (
-                      <FeatureListItem
-                        key={feature.name}
-                        name={feature.name}
-                        status={feature.status}
-                        startedAt={feature.startedAt}
-                        duration={feature.duration}
-                        onClick={onFeatureClick ? () => onFeatureClick(feature.name) : undefined}
-                      />
-                    ))}
-                  </FeatureStatusGroup>
-                )
+            {grouped.map(({ key, label, items }) =>
+              items.length > 0 ? (
+                <FeatureStatusGroup key={key} label={label} count={items.length}>
+                  {items.map((feature) => (
+                    <FeatureListItem
+                      key={feature.name}
+                      name={feature.name}
+                      status={feature.status}
+                      startedAt={feature.startedAt}
+                      duration={feature.duration}
+                      onClick={onFeatureClick ? () => onFeatureClick(feature.name) : undefined}
+                    />
+                  ))}
+                </FeatureStatusGroup>
+              ) : null
             )}
           </ScrollArea>
         ) : null}

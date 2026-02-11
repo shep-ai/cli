@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import type { Route } from 'next';
 import { cn } from '@/lib/utils';
 
 export interface NavItem {
@@ -19,9 +21,9 @@ export function Sidebar({ items, pathname, className }: SidebarProps) {
       {items.map((item) => {
         const isActive = pathname === item.href;
         return (
-          <a
+          <Link
             key={item.href}
-            href={item.href}
+            href={item.href as Route}
             aria-current={isActive ? 'page' : undefined}
             className={cn(
               'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
@@ -32,7 +34,7 @@ export function Sidebar({ items, pathname, className }: SidebarProps) {
           >
             {item.icon}
             {item.label}
-          </a>
+          </Link>
         );
       })}
     </nav>

@@ -1,38 +1,10 @@
-import { CircleAlert, Loader2, CircleCheck } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { FeatureStatus } from '@/components/common/feature-list-item';
-
-interface StatusBadgeConfig {
-  icon: LucideIcon;
-  iconClass: string;
-  bgClass: string;
-  tooltip: string;
-}
-
-const statusConfig: Record<FeatureStatus, StatusBadgeConfig> = {
-  'action-needed': {
-    icon: CircleAlert,
-    iconClass: 'text-amber-500',
-    bgClass: 'bg-amber-500/10',
-    tooltip: 'Action Needed',
-  },
-  'in-progress': {
-    icon: Loader2,
-    iconClass: 'text-blue-500 animate-spin',
-    bgClass: 'bg-blue-500/10',
-    tooltip: 'In Progress',
-  },
-  done: {
-    icon: CircleCheck,
-    iconClass: 'text-emerald-500',
-    bgClass: 'bg-emerald-500/10',
-    tooltip: 'Done',
-  },
-};
-
-const statusOrder: FeatureStatus[] = ['action-needed', 'in-progress', 'done'];
+import {
+  featureStatusConfig,
+  featureStatusOrder,
+  type FeatureStatus,
+} from '@/components/common/feature-status-config';
 
 export interface FeatureStatusBadgesProps {
   /** Count of features per status. */
@@ -41,7 +13,7 @@ export interface FeatureStatusBadgesProps {
 }
 
 export function FeatureStatusBadges({ counts, className }: FeatureStatusBadgesProps) {
-  const visibleStatuses = statusOrder.filter((s) => counts[s] > 0);
+  const visibleStatuses = featureStatusOrder.filter((s) => counts[s] > 0);
 
   if (visibleStatuses.length === 0) return null;
 
@@ -51,7 +23,7 @@ export function FeatureStatusBadges({ counts, className }: FeatureStatusBadgesPr
       className={cn('flex flex-col items-center gap-1.5 py-1', className)}
     >
       {visibleStatuses.map((status) => {
-        const { icon: Icon, iconClass, bgClass, tooltip } = statusConfig[status];
+        const { icon: Icon, iconClass, bgClass, label } = featureStatusConfig[status];
         return (
           <Tooltip key={status}>
             <TooltipTrigger asChild>
@@ -67,7 +39,7 @@ export function FeatureStatusBadges({ counts, className }: FeatureStatusBadgesPr
               </div>
             </TooltipTrigger>
             <TooltipContent side="right">
-              {tooltip}: {counts[status]}
+              {label}: {counts[status]}
             </TooltipContent>
           </Tooltip>
         );
