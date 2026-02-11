@@ -56,6 +56,11 @@ import { RunAgentUseCase } from '../../application/use-cases/agents/run-agent.us
 import { CreateFeatureUseCase } from '../../application/use-cases/features/create-feature.use-case.js';
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
+import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
+
+// Agent run use cases
+import { ListAgentRunsUseCase } from '../../application/use-cases/agents/list-agent-runs.use-case.js';
+import { ShowAgentRunUseCase } from '../../application/use-cases/agents/show-agent-run.use-case.js';
 
 // Feature infrastructure
 import type { IFeatureRepository } from '../../application/ports/output/feature-repository.interface.js';
@@ -172,6 +177,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(CreateFeatureUseCase);
   container.registerSingleton(ListFeaturesUseCase);
   container.registerSingleton(ShowFeatureUseCase);
+  container.registerSingleton(DeleteFeatureUseCase);
+  container.registerSingleton(ListAgentRunsUseCase);
+  container.registerSingleton(ShowAgentRunUseCase);
 
   return container;
 }

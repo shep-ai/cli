@@ -43,6 +43,11 @@ export function createNewCommand(): Command {
         console.log(`  ${colors.muted('Name:')}   ${feature.name}`);
         console.log(`  ${colors.muted('Branch:')} ${colors.accent(feature.branch)}`);
         console.log(`  ${colors.muted('Status:')} ${feature.lifecycle}`);
+        if (feature.agentRunId) {
+          console.log(
+            `  ${colors.muted('Agent:')}  ${colors.success('spawned')} (run ${feature.agentRunId.slice(0, 8)})`
+          );
+        }
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));

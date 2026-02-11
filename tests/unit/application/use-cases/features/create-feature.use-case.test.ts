@@ -2,7 +2,7 @@
  * CreateFeatureUseCase Unit Tests
  *
  * Tests for feature creation use case.
- * Uses mock repository and worktree service.
+ * Uses mock repository, worktree service, agent process, and run repository.
  *
  * TDD Phase: RED-GREEN
  */
@@ -12,17 +12,29 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CreateFeatureUseCase } from '../../../../../src/application/use-cases/features/create-feature.use-case.js';
 import type { IFeatureRepository } from '../../../../../src/application/ports/output/feature-repository.interface.js';
 import type { IWorktreeService } from '../../../../../src/application/ports/output/worktree-service.interface.js';
+import type { IFeatureAgentProcessService } from '../../../../../src/application/ports/output/feature-agent-process.interface.js';
+import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agent-run-repository.interface.js';
 import { SdlcLifecycle } from '../../../../../src/domain/generated/output.js';
+
+// Mock settings service
+vi.mock('../../../../../src/infrastructure/services/settings.service.js', () => ({
+  getSettings: () => ({
+    agent: { type: 'claude-code', authMethod: 'token', token: 'test' },
+  }),
+}));
 
 describe('CreateFeatureUseCase', () => {
   let useCase: CreateFeatureUseCase;
   let mockRepo: IFeatureRepository;
   let mockWorktree: IWorktreeService;
+  let mockAgentProcess: IFeatureAgentProcessService;
+  let mockRunRepo: IAgentRunRepository;
 
   beforeEach(() => {
     mockRepo = {
       create: vi.fn().mockResolvedValue(undefined),
       findById: vi.fn().mockResolvedValue(null),
+      findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn().mockResolvedValue(null),
       list: vi.fn().mockResolvedValue([]),
       update: vi.fn().mockResolvedValue(undefined),
@@ -30,7 +42,7 @@ describe('CreateFeatureUseCase', () => {
     };
     mockWorktree = {
       create: vi.fn().mockResolvedValue({
-        path: '/repo/.worktrees/feat/test',
+        path: '/home/user/.shep/repos/abc123/wt/feat-test',
         head: 'abc',
         branch: 'feat/test',
         isMain: false,
@@ -38,9 +50,23 @@ describe('CreateFeatureUseCase', () => {
       remove: vi.fn().mockResolvedValue(undefined),
       list: vi.fn().mockResolvedValue([]),
       exists: vi.fn().mockResolvedValue(false),
-      getWorktreePath: vi.fn().mockReturnValue('/repo/.worktrees/feat/test'),
+      getWorktreePath: vi.fn().mockReturnValue('/home/user/.shep/repos/abc123/wt/feat-test'),
     };
-    useCase = new CreateFeatureUseCase(mockRepo, mockWorktree);
+    mockAgentProcess = {
+      spawn: vi.fn().mockReturnValue(12345),
+      isAlive: vi.fn().mockReturnValue(true),
+      checkAndMarkCrashed: vi.fn().mockResolvedValue(undefined),
+    };
+    mockRunRepo = {
+      create: vi.fn().mockResolvedValue(undefined),
+      findById: vi.fn().mockResolvedValue(null),
+      findByThreadId: vi.fn().mockResolvedValue(null),
+      updateStatus: vi.fn().mockResolvedValue(undefined),
+      findRunningByPid: vi.fn().mockResolvedValue([]),
+      list: vi.fn().mockResolvedValue([]),
+      delete: vi.fn().mockResolvedValue(undefined),
+    };
+    useCase = new CreateFeatureUseCase(mockRepo, mockWorktree, mockAgentProcess, mockRunRepo);
   });
 
   it('should create a feature with generated slug', async () => {
@@ -60,6 +86,28 @@ describe('CreateFeatureUseCase', () => {
       repositoryPath: '/home/user/project',
     });
     expect(mockWorktree.create).toHaveBeenCalledOnce();
+  });
+
+  it('should spawn the feature agent process', async () => {
+    const result = await useCase.execute({
+      description: 'Add user auth',
+      repositoryPath: '/home/user/project',
+    });
+    expect(mockAgentProcess.spawn).toHaveBeenCalledOnce();
+    expect(result.agentRunId).toBeDefined();
+  });
+
+  it('should create an agent run record before spawning', async () => {
+    await useCase.execute({
+      description: 'Add user auth',
+      repositoryPath: '/home/user/project',
+    });
+    expect(mockRunRepo.create).toHaveBeenCalledOnce();
+    expect(mockRunRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agentName: 'feature-agent',
+      })
+    );
   });
 
   it('should generate UUID for feature id', async () => {

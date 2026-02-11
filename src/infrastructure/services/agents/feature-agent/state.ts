@@ -11,7 +11,12 @@ export const FeatureAgentAnnotation = Annotation.Root({
   featureId: Annotation<string>,
   repositoryPath: Annotation<string>,
   specDir: Annotation<string>,
+  worktreePath: Annotation<string>,
   currentNode: Annotation<string>,
+  sessionId: Annotation<string | undefined>({
+    reducer: (prev, next) => next ?? prev,
+    default: () => undefined,
+  }),
   error: Annotation<string | null>({
     reducer: (prev, next) => (next !== undefined ? next : prev),
     default: () => null,

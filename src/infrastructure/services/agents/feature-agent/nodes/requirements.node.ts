@@ -1,35 +1,53 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import type { IAgentExecutor } from '@/application/ports/output/agent-executor.interface.js';
+import { AgentFeature } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 
 /**
- * Requirements node — reads spec.yaml and summarises requirements.
- *
- * Checks whether success-criteria are present in the spec so downstream
- * nodes know whether to generate them.
+ * Creates the requirements node that gathers and refines requirements
+ * by delegating to the configured agent.
  */
-export async function requirementsNode(
-  state: FeatureAgentState
-): Promise<Partial<FeatureAgentState>> {
-  try {
-    const specPath = join(state.specDir, 'spec.yaml');
-    const specContent = readFileSync(specPath, 'utf-8');
+export function createRequirementsNode(executor: IAgentExecutor) {
+  return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    try {
+      const specPath = join(state.specDir, 'spec.yaml');
+      let specContent = '';
+      try {
+        specContent = readFileSync(specPath, 'utf-8');
+      } catch {
+        /* spec may not exist yet */
+      }
 
-    const hasSuccessCriteria =
-      specContent.includes('Success Criteria') || specContent.includes('success_criteria');
+      const prompt = [
+        'Review and refine the requirements for this feature.',
+        'Ensure success criteria are clear, measurable, and complete.',
+        'Identify any gaps or ambiguities in the specification.',
+        '',
+        specContent ? `Current spec:\n${specContent}` : `Feature: ${state.featureId}`,
+      ].join('\n');
 
-    return {
-      currentNode: 'requirements',
-      messages: [
-        `[requirements] Analyzed spec (${specContent.length} bytes), success criteria ${hasSuccessCriteria ? 'found' : 'not found'}`,
-      ],
-    };
-  } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err);
-    return {
-      currentNode: 'requirements',
-      error: message,
-      messages: [`[requirements] Error: ${message}`],
-    };
-  }
+      const options: Parameters<IAgentExecutor['execute']>[1] = {
+        cwd: state.worktreePath || state.repositoryPath,
+      };
+      if (state.sessionId && executor.supportsFeature(AgentFeature.sessionResume)) {
+        options.resumeSession = state.sessionId;
+      }
+
+      const result = await executor.execute(prompt, options);
+
+      return {
+        currentNode: 'requirements',
+        sessionId: result.sessionId ?? state.sessionId,
+        messages: [`[requirements] Requirements analysis complete (${result.result.length} chars)`],
+      };
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        currentNode: 'requirements',
+        error: message,
+        messages: [`[requirements] Error: ${message}`],
+      };
+    }
+  };
 }

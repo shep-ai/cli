@@ -2,7 +2,7 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: feature-agent
-summary: Implementation plan for 013-feature-agent with 9 phases following Clean Architecture and TDD
+summary: Implementation plan for 013-feature-agent with 11 phases following Clean Architecture and TDD
 
 # Relationships
 relatedFeatures:
@@ -75,11 +75,24 @@ phases:
       - task-19
       - task-20
   - id: phase-9
-    name: 'Integration & Polish'
+    name: 'Agent Run CLI Commands (TDD)'
     parallel: false
     taskIds:
       - task-21
       - task-22
+      - task-23
+  - id: phase-10
+    name: 'Feature Deletion (TDD)'
+    parallel: false
+    taskIds:
+      - task-24
+      - task-25
+  - id: phase-11
+    name: 'Integration & Polish'
+    parallel: false
+    taskIds:
+      - task-26
+      - task-27
 
 # File change tracking
 filesToCreate:
@@ -94,9 +107,19 @@ filesToCreate:
   - src/presentation/cli/commands/feat/new.command.ts
   - src/presentation/cli/commands/feat/ls.command.ts
   - src/presentation/cli/commands/feat/show.command.ts
+  - src/presentation/cli/commands/feat/del.command.ts
+  - src/presentation/cli/commands/agent/index.ts
+  - src/presentation/cli/commands/agent/ls.command.ts
+  - src/presentation/cli/commands/agent/show.command.ts
   - src/application/use-cases/features/create-feature.use-case.ts
   - src/application/use-cases/features/list-features.use-case.ts
   - src/application/use-cases/features/show-feature.use-case.ts
+  - src/application/use-cases/features/delete-feature.use-case.ts
+  - src/application/use-cases/agents/list-agent-runs.use-case.ts
+  - src/application/use-cases/agents/show-agent-run.use-case.ts
+  - tests/unit/application/use-cases/features/delete-feature.use-case.test.ts
+  - tests/unit/application/use-cases/agents/list-agent-runs.use-case.test.ts
+  - tests/unit/application/use-cases/agents/show-agent-run.use-case.test.ts
   - tests/unit/infrastructure/repositories/sqlite-feature.repository.test.ts
   - tests/unit/infrastructure/services/git/worktree.service.test.ts
   - tests/unit/application/use-cases/features/create-feature.use-case.test.ts
@@ -233,14 +256,36 @@ content: |
 
   **Deliverables:** Background worker, PID tracking, crash detection, passing tests
 
-  ### Phase 9: Integration & Polish
+  ### Phase 9: Agent Run CLI Commands (TDD Cycle 8)
+
+  **Goal:** Implement `shep agent ls` and `shep agent show <id>` commands to surface agent run data
+
+  **TDD Workflow:**
+  1. **RED:** Write unit tests for ListAgentRunsUseCase, ShowAgentRunUseCase, and CLI command tests
+  2. **GREEN:** Implement use cases and CLI commands with table/detail formatting
+  3. **REFACTOR:** Extract formatters, improve status display with colors
+
+  **Deliverables:** `shep agent ls` (table with ID, feature, status, agent, started), `shep agent show <id>` (full run details with liveness check), passing tests
+
+  ### Phase 10: Feature Deletion (TDD Cycle 9)
+
+  **Goal:** Implement `shep feat del <id>` with confirmation prompt and `--force` flag
+
+  **TDD Workflow:**
+  1. **RED:** Write unit tests for DeleteFeatureUseCase (with worktree cleanup, run cancellation)
+  2. **GREEN:** Implement use case and CLI command with @inquirer/prompts confirm
+  3. **REFACTOR:** Improve error messages, handle edge cases (running agent, missing worktree)
+
+  **Deliverables:** `shep feat del <id>` with confirm prompt, `--force` to skip, worktree cleanup, agent run cancellation, passing tests
+
+  ### Phase 11: Integration & Polish
 
   **Goal:** E2E testing, documentation, and final validation
 
   **Steps:**
-  1. Write full E2E test for complete workflow (feat new → agent runs → feat show)
+  1. Write full E2E test for complete workflow (feat new → agent runs → feat show → feat del)
   2. Update AGENTS.md with FeatureAgent implementation details
-  3. Add CLI reference docs for shep feat commands
+  3. Add CLI reference docs for shep feat and shep agent commands
   4. Validate all tests pass (pnpm test)
   5. Validate build passes (pnpm build)
   6. Validate typecheck passes (pnpm typecheck)
@@ -258,6 +303,9 @@ content: |
   | src/application/use-cases/features/create-feature.use-case.ts | Create feature + worktree + spawn agent |
   | src/application/use-cases/features/list-features.use-case.ts | List features with filtering |
   | src/application/use-cases/features/show-feature.use-case.ts | Show feature details |
+  | src/application/use-cases/features/delete-feature.use-case.ts | Delete feature + worktree cleanup + cancel run |
+  | src/application/use-cases/agents/list-agent-runs.use-case.ts | List all agent runs |
+  | src/application/use-cases/agents/show-agent-run.use-case.ts | Show agent run details with liveness |
 
   ### New Files (Infrastructure Layer)
 
@@ -277,6 +325,10 @@ content: |
   | src/presentation/cli/commands/feat/new.command.ts | shep feat new implementation |
   | src/presentation/cli/commands/feat/ls.command.ts | shep feat ls implementation |
   | src/presentation/cli/commands/feat/show.command.ts | shep feat show implementation |
+  | src/presentation/cli/commands/feat/del.command.ts | shep feat del implementation |
+  | src/presentation/cli/commands/agent/index.ts | Agent command group with subcommands |
+  | src/presentation/cli/commands/agent/ls.command.ts | shep agent ls implementation |
+  | src/presentation/cli/commands/agent/show.command.ts | shep agent show implementation |
 
   ### Modified Files
 
@@ -287,7 +339,7 @@ content: |
   | src/infrastructure/di/container.ts | Register IFeatureRepository, IWorktreeService, use cases |
   | src/infrastructure/persistence/migrations.ts | Add migration v4 for features table |
   | package.json | Add @langchain/langgraph, @langchain/langgraph-checkpoint-sqlite |
-  | src/presentation/cli/index.ts | Register feat command |
+  | src/presentation/cli/index.ts | Register feat and agent commands |
 
   ## Testing Strategy (TDD: Tests FIRST)
 

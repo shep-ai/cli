@@ -23,7 +23,13 @@ export interface IFeatureAgentProcessService {
    * @param specDir - Spec directory path
    * @returns The PID of the spawned process
    */
-  spawn(featureId: string, runId: string, repoPath: string, specDir: string): number;
+  spawn(
+    featureId: string,
+    runId: string,
+    repoPath: string,
+    specDir: string,
+    worktreePath?: string
+  ): number;
 
   /**
    * Check if a process is still alive.

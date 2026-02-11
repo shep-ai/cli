@@ -15,13 +15,16 @@ import { initializeContainer, container } from '@/infrastructure/di/container.js
 import { createFeatureAgentGraph } from './feature-agent-graph.js';
 import { createCheckpointer } from '../common/checkpointer.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agent-run-repository.interface.js';
+import type { IAgentExecutorFactory } from '@/application/ports/output/agent-executor-factory.interface.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
 
 export interface WorkerArgs {
   featureId: string;
   runId: string;
   repo: string;
   specDir: string;
+  worktreePath?: string;
 }
 
 /**
@@ -37,11 +40,16 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     return args[index + 1];
   };
 
+  const worktreeIdx = args.indexOf('--worktree-path');
+  const worktreePath =
+    worktreeIdx !== -1 && worktreeIdx + 1 < args.length ? args[worktreeIdx + 1] : undefined;
+
   return {
     featureId: getArg('feature-id'),
     runId: getArg('run-id'),
     repo: getArg('repo'),
     specDir: getArg('spec-dir'),
+    worktreePath,
   };
 }
 
@@ -53,11 +61,16 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   await initializeContainer();
 
   const runRepository = container.resolve<IAgentRunRepository>('IAgentRunRepository');
+  const executorFactory = container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
+
+  // Create executor from configured agent settings
+  const settings = getSettings();
+  const executor = executorFactory.createExecutor(settings.agent.type, settings.agent);
 
   // Use a file-based checkpointer for persistence across restarts
   const checkpointPath = join(homedir(), '.shep', 'checkpoints', `${args.runId}.db`);
   const checkpointer = createCheckpointer(checkpointPath);
-  const graph = createFeatureAgentGraph(checkpointer);
+  const graph = createFeatureAgentGraph(executor, checkpointer);
 
   // Mark the run as running with our PID
   const now = new Date().toISOString();
@@ -72,6 +85,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       {
         featureId: args.featureId,
         repositoryPath: args.repo,
+        worktreePath: args.worktreePath ?? args.repo,
         specDir: args.specDir,
       },
       { configurable: { thread_id: args.runId } }

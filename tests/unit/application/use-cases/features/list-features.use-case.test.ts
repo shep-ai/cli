@@ -21,6 +21,7 @@ describe('ListFeaturesUseCase', () => {
     mockRepo = {
       create: vi.fn(),
       findById: vi.fn(),
+      findByIdPrefix: vi.fn(),
       findBySlug: vi.fn(),
       list: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
