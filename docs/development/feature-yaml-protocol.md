@@ -450,7 +450,7 @@ All `feature.yaml` files MUST have:
 
 ## Examples
 
-See `.claude/skills/shep-kit:implement/examples/validation-report.md` for complete examples of validation output and error handling.
+See `.cursor/skills/shep-kit:implement/examples/validation-report.md` for complete examples of validation output and error handling.
 
 ## Version History
 

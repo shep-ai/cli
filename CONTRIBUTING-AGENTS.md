@@ -1,6 +1,6 @@
 # Contributing Guidelines for AI Agents
 
-Rules and guidelines for AI agents (Claude, Copilot, Cursor, etc.) when contributing to this repository.
+Rules and guidelines for AI agents (Cursor, Claude Code, Copilot, etc.) when contributing to this repository. Project skills live in `.cursor/skills/`.
 
 ## Quick Reference
 
