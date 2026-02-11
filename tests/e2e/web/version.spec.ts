@@ -10,14 +10,16 @@ test.describe('Version Page', () => {
   test('should display package name and version', async ({ page }) => {
     await page.goto('/version');
 
-    await expect(page.getByRole('main').locator('h1')).toContainText('@shepai/cli');
+    const contentMain = page.locator('main:not([data-slot="sidebar-inset"])');
+    await expect(contentMain.locator('h1')).toContainText('@shepai/cli');
     await expect(page.getByTestId('version-badge')).toContainText(/v\d+\.\d+\.\d+/);
   });
 
   test('should display package description', async ({ page }) => {
     await page.goto('/version');
 
-    await expect(page.locator('main')).toContainText('Autonomous AI Native SDLC Platform');
+    const contentMain = page.locator('main:not([data-slot="sidebar-inset"])');
+    await expect(contentMain).toContainText('Autonomous AI Native SDLC Platform');
   });
 
   test('should have working tabs navigation', async ({ page }) => {
@@ -64,13 +66,15 @@ test.describe('Version Page', () => {
     await backButton.click();
 
     await expect(page).toHaveURL('/');
-    await expect(page.getByRole('main').locator('h1')).toContainText('Shep AI');
+    const contentMain = page.locator('main:not([data-slot="sidebar-inset"])');
+    await expect(contentMain.locator('h1')).toContainText('Shep AI');
   });
 
   test('should display license information', async ({ page }) => {
     await page.goto('/version');
 
-    await expect(page.locator('main')).toContainText('License');
-    await expect(page.locator('main')).toContainText('MIT');
+    const contentMain = page.locator('main:not([data-slot="sidebar-inset"])');
+    await expect(contentMain).toContainText('License');
+    await expect(contentMain).toContainText('MIT');
   });
 });

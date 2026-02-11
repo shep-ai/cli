@@ -5,8 +5,10 @@ test.describe('Theme Toggle', () => {
     // Navigate to home page
     await page.goto('/');
 
-    // Wait for page to load
-    await expect(page.getByRole('main').locator('h1')).toContainText('Shep AI');
+    // Wait for page to load (content main; layout has multiple main elements)
+    await expect(page.locator('main:not([data-slot="sidebar-inset"])').locator('h1')).toContainText(
+      'Shep AI'
+    );
 
     // Get initial theme state (default is light)
     const html = page.locator('html');
@@ -24,8 +26,10 @@ test.describe('Theme Toggle', () => {
     // Navigate to home page
     await page.goto('/');
 
-    // Wait for page to load
-    await expect(page.getByRole('main').locator('h1')).toContainText('Shep AI');
+    // Wait for page to load (content main; layout has multiple main elements)
+    await expect(page.locator('main:not([data-slot="sidebar-inset"])').locator('h1')).toContainText(
+      'Shep AI'
+    );
 
     // Verify the page is visible and styled correctly
     await expect(page.locator('body')).toHaveCSS(
@@ -38,8 +42,8 @@ test.describe('Theme Toggle', () => {
     // Navigate to home page
     await page.goto('/');
 
-    // Verify the page has basic styling
-    const main = page.locator('main');
+    // Verify the page has basic styling (content main; sidebar layout uses main with data-slot="sidebar-inset")
+    const main = page.locator('main:not([data-slot="sidebar-inset"])');
     await expect(main).toBeVisible();
 
     // Verify antialiased class is applied

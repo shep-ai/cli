@@ -20,9 +20,16 @@ TEST_ARTIFACTS_DIR="${TEST_ARTIFACTS_DIR:-$PROJECT_ROOT/.test-artifacts}"
 TARBALL_PATH=""
 
 # Run npm pack and set TARBALL_PATH.
-# Reuses existing tarball if the package version matches.
+# Reuses existing tarball only when build artifacts exist (so cache is valid).
+# Ensures build is run before pack so dist/ and web/ are included.
 create_tarball() {
   mkdir -p "$TEST_ARTIFACTS_DIR"
+
+  # Require build artifacts so the tarball contains dist/ and web/
+  if [ ! -d "$PROJECT_ROOT/dist" ] || [ ! -d "$PROJECT_ROOT/web/.next" ]; then
+    log_info "Building (dist or web missing)..."
+    (cd "$PROJECT_ROOT" && pnpm run build) || { log_error "Build failed"; return 1; }
+  fi
 
   local version
   version=$(node -p "require('$PROJECT_ROOT/package.json').version")
