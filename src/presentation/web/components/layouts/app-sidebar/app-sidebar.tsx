@@ -15,6 +15,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarNavItem } from '@/components/common/sidebar-nav-item';
 import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-toggle';
+import { ShepLogo } from '@/components/common/shep-logo';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
 import type { FeatureStatus } from '@/components/common/feature-list-item';
@@ -52,7 +53,13 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem>
-            <SidebarCollapseToggle />
+            <div className="flex h-8 items-center group-data-[collapsible=icon]:justify-center">
+              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-2 transition-opacity duration-200 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:opacity-0">
+                <ShepLogo className="shrink-0" size={20} />
+                <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
+              </div>
+              <SidebarCollapseToggle className="shrink-0 transition-all duration-200" />
+            </div>
           </SidebarMenuItem>
           <SidebarNavItem icon={Home} label="Control Center" href="/" />
           <SidebarNavItem icon={Brain} label="Memory" href="/memory" />
@@ -60,8 +67,8 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
         </SidebarMenu>
       </SidebarHeader>
 
-      {!collapsed && (
-        <SidebarContent>
+      <SidebarContent>
+        {!collapsed && (
           <ScrollArea>
             {grouped.map(
               ({ key, label, items }) =>
@@ -81,8 +88,8 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
                 )
             )}
           </ScrollArea>
-        </SidebarContent>
-      )}
+        )}
+      </SidebarContent>
 
       <SidebarFooter>
         <SidebarMenu>
