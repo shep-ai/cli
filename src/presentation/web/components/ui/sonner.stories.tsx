@@ -4,7 +4,7 @@ import { Toaster } from './sonner';
 import { Button } from './button';
 
 const meta: Meta<typeof Toaster> = {
-  title: 'UI/Toast',
+  title: 'Primitives/Toast',
   component: Toaster,
   parameters: {
     layout: 'centered',

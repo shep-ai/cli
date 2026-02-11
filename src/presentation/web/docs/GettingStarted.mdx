@@ -1,0 +1,93 @@
+import { Meta } from '@storybook/blocks';
+
+<Meta title="Design System/Getting Started" />
+
+# Getting Started
+
+The Shep AI Web UI uses a four-tier component architecture built on React 19, Tailwind CSS v4, and shadcn/ui (Radix primitives).
+
+## Component Tiers
+
+### 1. Primitives (`components/ui/`)
+
+Low-level building blocks from shadcn/ui. These are atomic components with minimal styling and maximum composability.
+
+**Examples:** Button, Input, Label, Badge, Card, Dialog, Select, Tabs
+
+**Rules:**
+- One component per file
+- No business logic
+- Accept `className` for style overrides via `cn()` utility
+- Use `class-variance-authority` for variant props
+
+### 2. Composed (`components/common/`)
+
+Mid-level components that combine multiple primitives into reusable patterns. These handle common UI patterns shared across features.
+
+**Examples:** ThemeToggle, FormField, DataTable, SearchInput, ConfirmDialog
+
+**Rules:**
+- Compose primitives from `components/ui/`
+- No feature-specific business logic
+- May manage local UI state (open/closed, focus)
+- Reusable across multiple features
+
+### 3. Layouts (`components/layouts/`)
+
+Page-level structural components that define the overall arrangement of content areas.
+
+**Examples:** AppShell, Sidebar, PageHeader, ContentArea
+
+**Rules:**
+- Define page structure and responsive behavior
+- Use children/slots for content injection
+- No data fetching or business logic
+
+### 4. Features (`components/features/`)
+
+Domain-specific components tied to particular application features. These connect UI to business logic.
+
+**Examples:** SettingsPanel, FeatureBoard
+
+**Rules:**
+- May contain feature-specific state and logic
+- Compose from all lower tiers
+- Co-locate feature-specific hooks and types
+
+## Import Conventions
+
+```tsx
+// Primitives
+import { Button } from '@/components/ui/button';
+import { Card } from '@/components/ui/card';
+
+// Composed
+import { ThemeToggle } from '@/components/common/theme-toggle';
+import { FormField } from '@/components/common/form-field';
+
+// Layouts
+import { AppShell } from '@/components/layouts/app-shell';
+
+// Features
+// import { SettingsPanel } from '@/components/features/settings-panel';
+```
+
+## Styling
+
+All components use Tailwind CSS v4 utility classes with design tokens defined in `globals.css` via the `@theme` directive. Use the `cn()` helper from `@/lib/utils` to merge class names:
+
+```tsx
+import { cn } from '@/lib/utils';
+
+function MyComponent({ className }: { className?: string }) {
+  return <div className={cn('bg-background text-foreground p-4', className)} />;
+}
+```
+
+## Dark Mode
+
+Dark mode is handled via the `.dark` class on `<html>`. Color tokens automatically switch values. Use the `ThemeToggle` feature component or programmatically toggle:
+
+```tsx
+document.documentElement.classList.toggle('dark');
+```

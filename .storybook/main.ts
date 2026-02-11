@@ -2,8 +2,16 @@ import type { StorybookConfig } from '@storybook/react-vite';
 import { resolve } from 'path';
 
 const config: StorybookConfig = {
-  stories: ['../src/presentation/web/**/*.stories.@(js|jsx|mjs|ts|tsx|mdx)'],
-  addons: ['@storybook/addon-essentials', '@storybook/addon-links'],
+  stories: [
+    '../src/presentation/web/**/*.stories.@(js|jsx|mjs|ts|tsx|mdx)',
+    '../src/presentation/web/docs/**/*.mdx',
+  ],
+  addons: [
+    '@storybook/addon-essentials',
+    '@storybook/addon-links',
+    '@storybook/addon-a11y',
+    '@storybook/addon-interactions',
+  ],
   framework: {
     name: '@storybook/react-vite',
     options: {},
@@ -14,6 +22,9 @@ const config: StorybookConfig = {
     reactDocgen: 'react-docgen-typescript',
   },
   viteFinal: async (config) => {
+    const tailwindcss = (await import('@tailwindcss/vite')).default;
+    const { mergeConfig } = await import('vite');
+
     config.resolve = config.resolve ?? {};
     config.resolve.alias = {
       ...config.resolve.alias,
@@ -22,7 +33,8 @@ const config: StorybookConfig = {
       '@/hooks': resolve(__dirname, '../src/presentation/web/hooks'),
       '@/types': resolve(__dirname, '../src/presentation/web/types'),
     };
-    return config;
+
+    return mergeConfig(config, { plugins: [tailwindcss()] });
   },
 };
 

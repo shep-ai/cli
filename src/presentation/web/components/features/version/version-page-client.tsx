@@ -34,7 +34,7 @@ interface VersionPageClientProps {
 
 export default function VersionPageClient({ versionInfo, systemInfo }: VersionPageClientProps) {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center p-4">
+    <div className="flex flex-col items-center justify-center p-4">
       <div className="w-full max-w-2xl space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight">{versionInfo.name}</h1>
@@ -132,6 +132,6 @@ export default function VersionPageClient({ versionInfo, systemInfo }: VersionPa
           </Button>
         </div>
       </div>
-    </main>
+    </div>
   );
 }

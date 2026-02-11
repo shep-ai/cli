@@ -1,0 +1,66 @@
+import { Meta, ColorPalette, ColorItem } from '@storybook/blocks';
+
+<Meta title="Design System/Colors" />
+
+# Colors
+
+The Shep AI design system uses CSS custom properties defined via Tailwind CSS v4's `@theme` directive. All color tokens adapt automatically between light and dark modes.
+
+## Base Colors
+
+<ColorPalette>
+  <ColorItem title="Background" subtitle="--color-background" colors={{ Light: '#ffffff', Dark: '#0a0a0a' }} />
+  <ColorItem title="Foreground" subtitle="--color-foreground" colors={{ Light: '#0a0a0a', Dark: '#fafafa' }} />
+</ColorPalette>
+
+## Primary
+
+<ColorPalette>
+  <ColorItem title="Primary" subtitle="--color-primary" colors={{ Default: '#3b82f6' }} />
+  <ColorItem title="Primary Foreground" subtitle="--color-primary-foreground" colors={{ Default: '#ffffff' }} />
+</ColorPalette>
+
+## Secondary
+
+<ColorPalette>
+  <ColorItem title="Secondary" subtitle="--color-secondary" colors={{ Light: '#f1f5f9', Dark: '#1e293b' }} />
+  <ColorItem title="Secondary Foreground" subtitle="--color-secondary-foreground" colors={{ Light: '#0f172a', Dark: '#f8fafc' }} />
+</ColorPalette>
+
+## Muted
+
+<ColorPalette>
+  <ColorItem title="Muted" subtitle="--color-muted" colors={{ Light: '#f1f5f9', Dark: '#1e293b' }} />
+  <ColorItem title="Muted Foreground" subtitle="--color-muted-foreground" colors={{ Light: '#64748b', Dark: '#94a3b8' }} />
+</ColorPalette>
+
+## Accent
+
+<ColorPalette>
+  <ColorItem title="Accent" subtitle="--color-accent" colors={{ Light: '#f1f5f9', Dark: '#1e293b' }} />
+  <ColorItem title="Accent Foreground" subtitle="--color-accent-foreground" colors={{ Light: '#0f172a', Dark: '#f8fafc' }} />
+</ColorPalette>
+
+## Destructive
+
+<ColorPalette>
+  <ColorItem title="Destructive" subtitle="--color-destructive" colors={{ Light: '#ef4444', Dark: '#dc2626' }} />
+  <ColorItem title="Destructive Foreground" subtitle="--color-destructive-foreground" colors={{ Default: '#ffffff' }} />
+</ColorPalette>
+
+## Border & Input
+
+<ColorPalette>
+  <ColorItem title="Border" subtitle="--color-border" colors={{ Light: '#e2e8f0', Dark: '#1e293b' }} />
+  <ColorItem title="Input" subtitle="--color-input" colors={{ Light: '#e2e8f0', Dark: '#1e293b' }} />
+  <ColorItem title="Ring" subtitle="--color-ring" colors={{ Default: '#3b82f6' }} />
+</ColorPalette>
+
+## Card & Popover
+
+<ColorPalette>
+  <ColorItem title="Card" subtitle="--color-card" colors={{ Light: '#ffffff', Dark: '#0a0a0a' }} />
+  <ColorItem title="Card Foreground" subtitle="--color-card-foreground" colors={{ Light: '#0a0a0a', Dark: '#fafafa' }} />
+  <ColorItem title="Popover" subtitle="--color-popover" colors={{ Light: '#ffffff', Dark: '#0a0a0a' }} />
+  <ColorItem title="Popover Foreground" subtitle="--color-popover-foreground" colors={{ Light: '#0a0a0a', Dark: '#fafafa' }} />
+</ColorPalette>

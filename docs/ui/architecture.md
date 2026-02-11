@@ -2,102 +2,144 @@
 
 Component architecture patterns and conventions for the Shep AI web interface.
 
-## Component Organization
+## Four-Tier Component Hierarchy
 
-### Directory Structure
+Components are organized into four tiers with strict dependency direction. Higher tiers may import from lower tiers, but never the reverse.
+
+```
+Tier 0: ui/        → shadcn/ui primitives (CLI-managed, no business logic)
+Tier 1: common/    → Cross-feature composed components (combine ui/ primitives)
+Tier 2: layouts/   → Page shells, structural wrappers (use ui/ + common/)
+Tier 3: features/  → Domain-specific UI bound to routes/data (use all lower tiers)
+```
+
+### Import Rules
+
+| Tier        | Can Import From                     | Cannot Import From                 |
+| ----------- | ----------------------------------- | ---------------------------------- |
+| `ui/`       | External packages only              | `common/`, `layouts/`, `features/` |
+| `common/`   | `ui/`, hooks, external packages     | `layouts/`, `features/`            |
+| `layouts/`  | `ui/`, `common/`, hooks             | `features/`                        |
+| `features/` | `ui/`, `common/`, `layouts/`, hooks | (no restrictions)                  |
+
+## Directory Structure
 
 ```
 components/
-├── ui/                    # Primitive/base components (shadcn/ui)
+├── ui/                           # Tier 0: shadcn/ui primitives (CLI-managed)
+│   ├── accordion.tsx
+│   ├── accordion.stories.tsx
+│   ├── alert.tsx
+│   ├── alert.stories.tsx
+│   ├── badge.tsx
 │   ├── button.tsx
-│   ├── button.stories.tsx
 │   ├── card.tsx
-│   ├── card.stories.tsx
-│   └── index.ts           # Barrel export
-└── features/              # Feature/domain components
-    ├── index.ts           # Barrel export
-    └── [feature-name]/    # Each feature in subfolder
-        ├── index.ts
-        ├── [component].tsx
-        └── [component].stories.tsx
+│   ├── dialog.tsx
+│   ├── input.tsx
+│   ├── label.tsx
+│   ├── popover.tsx
+│   ├── select.tsx
+│   ├── sonner.tsx
+│   └── tabs.tsx
+├── common/                       # Tier 1: Cross-feature composed components
+│   ├── theme-toggle/
+│   │   ├── theme-toggle.tsx
+│   │   ├── theme-toggle.stories.tsx
+│   │   └── index.ts
+│   ├── page-header/
+│   │   ├── page-header.tsx
+│   │   ├── page-header.stories.tsx
+│   │   └── index.ts
+│   ├── empty-state/
+│   │   ├── empty-state.tsx
+│   │   ├── empty-state.stories.tsx
+│   │   └── index.ts
+│   └── loading-skeleton/
+│       ├── loading-skeleton.tsx
+│       ├── loading-skeleton.stories.tsx
+│       └── index.ts
+├── layouts/                      # Tier 2: Page shells, structural wrappers
+│   ├── sidebar/
+│   │   ├── sidebar.tsx
+│   │   ├── sidebar.stories.tsx
+│   │   └── index.ts
+│   ├── header/
+│   │   ├── header.tsx
+│   │   ├── header.stories.tsx
+│   │   └── index.ts
+│   ├── dashboard-layout/
+│   │   ├── dashboard-layout.tsx
+│   │   ├── dashboard-layout.stories.tsx
+│   │   └── index.ts
+│   └── app-shell/
+│       ├── app-shell.tsx
+│       └── index.ts
+└── features/                     # Tier 3: Domain-specific UI
+    ├── version/
+    │   └── version-page-client.tsx
+    └── settings/
+        └── .gitkeep
 ```
 
-### Component Categories
+## Export Pattern
 
-| Category     | Location               | Purpose                                     | Examples                           |
-| ------------ | ---------------------- | ------------------------------------------- | ---------------------------------- |
-| **UI**       | `components/ui/`       | Reusable primitives, no business logic      | Button, Card, Dialog, Input        |
-| **Features** | `components/features/` | Domain-specific, may contain business logic | ThemeToggle, FeatureCard, TaskList |
-| **Layout**   | `components/layout/`   | Page structure components                   | Header, Sidebar, Footer            |
-| **Shared**   | `components/shared/`   | Cross-cutting concerns                      | ErrorBoundary, LoadingSpinner      |
-
-## Patterns
-
-### Feature Component Subfolder Pattern
-
-Every feature component lives in its own subfolder with colocated files:
-
-```
-components/features/theme-toggle/
-├── index.ts                    # Re-export for clean imports
-├── theme-toggle.tsx            # Main component
-├── theme-toggle.stories.tsx    # Storybook stories
-├── theme-toggle.test.tsx       # Unit tests (optional)
-└── use-theme-toggle.ts         # Hook if needed (optional)
-```
-
-**Why subfolders?**
-
-- Colocated stories and tests
-- Easy to add related files (hooks, types, sub-components)
-- Clean imports via barrel exports
-- Clear ownership and boundaries
-
-### Barrel Exports
-
-Use `index.ts` files for clean imports:
+Each component directory uses a per-component `index.ts` barrel export. There are **no tier-level barrel files** (no `common/index.ts` or `layouts/index.ts`).
 
 ```typescript
-// components/features/index.ts
-export { ThemeToggle } from './theme-toggle';
-export { FeatureCard } from './feature-card';
+// Per-component barrel (e.g., common/page-header/index.ts)
+export { PageHeader } from './page-header';
 
-// Usage
-import { ThemeToggle, FeatureCard } from '@/components/features';
+// Import from the component directory
+import { PageHeader } from '@/components/common/page-header';
+import { DashboardLayout } from '@/components/layouts/dashboard-layout';
 ```
 
-### UI Components (shadcn/ui)
+## Storybook Categories
 
-UI primitives follow shadcn/ui conventions:
+Stories are organized to mirror the tier structure:
+
+| Storybook Category          | Component Tier | Description                         |
+| --------------------------- | -------------- | ----------------------------------- |
+| `Design System/Primitives/` | `ui/`          | shadcn/ui base components           |
+| `Common/`                   | `common/`      | Shared composed components          |
+| `Layouts/`                  | `layouts/`     | Page shells and structural wrappers |
+| `Features/`                 | `features/`    | Domain-specific components          |
+
+## Component Patterns
+
+### UI Components (Tier 0)
+
+shadcn/ui primitives managed by the CLI. Do not manually modify these -- use `pnpm dlx shadcn@latest add [name]` to add new ones.
 
 ```typescript
-// components/ui/button.tsx
+// components/ui/button.tsx - CVA-based variants
 import { cva, type VariantProps } from 'class-variance-authority';
 import { cn } from '@/lib/utils';
+```
 
-const buttonVariants = cva(
-  'inline-flex items-center justify-center rounded-md text-sm font-medium',
-  {
-    variants: {
-      variant: {
-        default: 'bg-primary text-primary-foreground hover:bg-primary/90',
-        destructive: 'bg-destructive text-destructive-foreground',
-        outline: 'border border-input bg-background',
-        ghost: 'hover:bg-accent hover:text-accent-foreground',
-      },
-      size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 px-3',
-        lg: 'h-11 px-8',
-        icon: 'h-10 w-10',
-      },
-    },
-    defaultVariants: {
-      variant: 'default',
-      size: 'default',
-    },
-  }
-);
+### Common Components (Tier 1)
+
+Each component in its own subfolder with colocated stories and barrel export:
+
+```
+components/common/[name]/
+├── [name].tsx              # Component implementation
+├── [name].stories.tsx      # Storybook stories
+└── index.ts                # Re-export for clean imports
+```
+
+### Layout Components (Tier 2)
+
+Same subfolder pattern as common. Compose `ui/` and `common/` components into page structures.
+
+### Feature Components (Tier 3)
+
+Organized by domain bounded context. May contain client components, data fetching logic, and route-specific UI.
+
+```
+components/features/[domain]/
+├── [component].tsx
+└── index.ts
 ```
 
 ## State Management
@@ -119,7 +161,6 @@ For state shared across components, use custom hooks with context:
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>('system');
   const resolvedTheme = useResolvedTheme(theme);
-
   return { theme, setTheme, resolvedTheme };
 }
 ```
@@ -134,44 +175,6 @@ export default async function FeaturesPage() {
   const features = await getFeatures();
   return <FeatureList features={features} />;
 }
-```
-
-## File Naming Conventions
-
-| Type       | Convention            | Example                    |
-| ---------- | --------------------- | -------------------------- |
-| Components | kebab-case            | `theme-toggle.tsx`         |
-| Stories    | `.stories.tsx` suffix | `theme-toggle.stories.tsx` |
-| Tests      | `.test.tsx` suffix    | `theme-toggle.test.tsx`    |
-| Hooks      | `use` prefix          | `useTheme.ts`              |
-| Types      | PascalCase            | `theme.ts` exports `Theme` |
-
-## Import Conventions
-
-### Path Aliases
-
-```typescript
-// Prefer aliases over relative paths
-import { Button } from '@/components/ui'; // Good
-import { Button } from '../../../components/ui'; // Avoid
-```
-
-### Import Order
-
-1. React/Next.js
-2. External libraries
-3. Internal aliases (`@/`)
-4. Relative imports
-5. Types
-
-```typescript
-import { useState } from 'react';
-import { Moon, Sun } from 'lucide-react';
-
-import { Button } from '@/components/ui';
-import { useTheme } from '@/hooks/useTheme';
-
-import type { Theme } from '@/types/theme';
 ```
 
 ## Server vs Client Components
@@ -189,64 +192,67 @@ import type { Theme } from '@/types/theme';
 - Required for: hooks, event handlers, browser APIs
 - Keep as small as possible
 
+## File Naming Conventions
+
+| Type       | Convention            | Example                    |
+| ---------- | --------------------- | -------------------------- |
+| Components | kebab-case            | `theme-toggle.tsx`         |
+| Stories    | `.stories.tsx` suffix | `theme-toggle.stories.tsx` |
+| Tests      | `.test.tsx` suffix    | `theme-toggle.test.tsx`    |
+| Hooks      | `use` prefix          | `useTheme.ts`              |
+
+## Import Conventions
+
+### Path Aliases
+
 ```typescript
-// Prefer: Small client component wrapping server content
-'use client';
-export function InteractiveButton({ children }) {
-  const [clicked, setClicked] = useState(false);
-  return <button onClick={() => setClicked(true)}>{children}</button>;
-}
+// Prefer aliases over relative paths
+import { Button } from '@/components/ui/button'; // Good
+import { Button } from '../../../components/ui/button'; // Avoid
 ```
+
+### Import Order
+
+1. React/Next.js
+2. External libraries
+3. Internal aliases (`@/`)
+4. Relative imports
+5. Types
 
 ## Adding New Components
 
-### UI Component (shadcn/ui)
+### Add shadcn/ui Component (Tier 0)
 
 ```bash
 pnpm dlx shadcn@latest add [component-name]
 ```
 
-### Feature Component
+### Create Common Component (Tier 1)
 
-1. Create subfolder: `components/features/[name]/`
+1. Create subfolder: `components/common/[name]/`
 2. Add component file: `[name].tsx`
 3. Add stories: `[name].stories.tsx`
 4. Add barrel export: `index.ts`
-5. Export from features index: `components/features/index.ts`
 
-```bash
-# Example structure
-mkdir -p src/presentation/web/components/features/my-feature
-touch src/presentation/web/components/features/my-feature/{index.ts,my-feature.tsx,my-feature.stories.tsx}
-```
+### Create Layout Component (Tier 2)
+
+Same pattern as common, in `components/layouts/[name]/`.
+
+### Create Feature Component (Tier 3)
+
+1. Create domain subfolder: `components/features/[domain]/`
+2. Add component files as needed
+3. Add barrel export: `index.ts`
 
 ## Code Quality
 
 ### Linting & Formatting
 
-The web package uses the monorepo's shared tooling:
-
 ```bash
-# From root (recommended)
 pnpm lint:web          # Run ESLint
 pnpm lint:web:fix      # Fix lint issues
 pnpm typecheck:web     # TypeScript type checking
-
-# Or from web package directory
-cd src/presentation/web
-pnpm lint
-pnpm lint:fix
-pnpm typecheck
-pnpm format
 ```
-
-### Configuration
-
-| Tool       | Config Location                      | Notes                                                    |
-| ---------- | ------------------------------------ | -------------------------------------------------------- |
-| ESLint     | `eslint.config.mjs` (root)           | Has web-specific rules for React/Next.js                 |
-| Prettier   | `.prettierrc` (root)                 | Includes `prettier-plugin-tailwindcss` for class sorting |
-| TypeScript | `src/presentation/web/tsconfig.json` | Web-specific config                                      |
 
 ### Pre-commit Hooks
 
@@ -255,28 +261,3 @@ lint-staged automatically runs on commit:
 - ESLint with `--fix` on `.ts`, `.tsx` files
 - Prettier on all staged files
 - TypeScript type checking
-
-### Rules Applied to Web Package
-
-The ESLint config (`eslint.config.mjs`) applies these rules to `src/presentation/web/**/*`:
-
-**React Rules:**
-
-- `react/jsx-key`: error
-- `react/jsx-no-target-blank`: error
-- `react/self-closing-comp`: warn
-
-**React Hooks:**
-
-- `react-hooks/rules-of-hooks`: error
-- `react-hooks/exhaustive-deps`: warn
-
-**Next.js:**
-
-- `@next/next/no-html-link-for-pages`: error
-- `@next/next/no-img-element`: warn
-- `@next/next/no-sync-scripts`: error
-
-```
-
-```

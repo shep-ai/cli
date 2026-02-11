@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { ThemeToggle } from './theme-toggle';
 
 const meta: Meta<typeof ThemeToggle> = {
-  title: 'Features/ThemeToggle',
+  title: 'Composed/ThemeToggle',
   component: ThemeToggle,
   parameters: {
     layout: 'centered',
