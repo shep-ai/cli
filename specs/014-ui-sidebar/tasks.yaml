@@ -2,46 +2,196 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: ui-sidebar
-summary: Task breakdown for 014-ui-sidebar
+summary: Task breakdown for 014-ui-sidebar sidebar navigation component
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '013-ui-arch'
+  - '004-web-ui-component-library'
+technologies:
+  - React 19
+  - Next.js 16
+  - Tailwind CSS v4
+  - shadcn/ui (sidebar, scroll-area, separator, tooltip)
+  - Storybook 8
+  - Lucide React
+  - Vitest + React Testing Library
+relatedLinks:
+  - https://ui.shadcn.com/docs/components/sidebar
 
 # Structured task list
 tasks:
   - id: task-1
-    title: { { TASK_1_TITLE } }
-    description: { { TASK_1_DESCRIPTION } }
+    title: 'Install shadcn primitives, add CSS variables, scaffold directories'
+    description: >
+      Install shadcn sidebar, scroll-area, separator, tooltip primitives.
+      Add --color-sidebar-* CSS variables to globals.css @theme and .dark blocks.
+      Create common/ and layouts/ directory structure with barrel exports.
+      Update ui/index.ts to export new primitives.
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd:
-      red:
-        - Write tests for {{FEATURE_1}}
-      green:
-        - Implement {{FEATURE_1}} to pass tests
-      refactor:
-        - Extract helpers, improve naming
-    estimatedEffort: { { EFFORT_1 } }
+      - 'sidebar.tsx, scroll-area.tsx, separator.tsx, tooltip.tsx exist in ui/'
+      - 'globals.css contains --color-sidebar-* tokens in both @theme and .dark'
+      - 'common/index.ts barrel export exists'
+      - 'layouts/index.ts barrel export exists'
+      - 'ui/index.ts exports all new primitives'
+    tdd: null # Foundation task — no executable component code
+    estimatedEffort: S
 
   - id: task-2
-    title: { { TASK_2_TITLE } }
-    description: { { TASK_2_DESCRIPTION } }
+    title: 'ElapsedTime component (TDD + Storybook)'
+    description: >
+      Build the ElapsedTime common component that displays a live counting timer.
+      Uses useEffect + setInterval with 1-second tick. Formats as mm:ss for durations
+      under 1 hour, switches to "Xh" format for longer durations. Self-corrects drift
+      by recalculating from Date.now() - startedAt on each tick.
     state: Todo
     dependencies:
       - task-1
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd: null # No TDD for foundational/doc tasks
-    estimatedEffort: { { EFFORT_2 } }
+      - 'elapsed-time.tsx renders time in mm:ss format'
+      - 'Switches to Xh format for durations >= 1 hour'
+      - 'Timer ticks every second and self-corrects drift'
+      - 'Interval is cleaned up on unmount (no memory leak)'
+      - 'All unit tests pass'
+      - 'Storybook story renders with multiple time scenarios'
+    tdd:
+      red:
+        - 'Test initial render shows 00:00 when startedAt is now'
+        - 'Test timer ticks to 00:01 after 1 second (fake timers)'
+        - 'Test formats as mm:ss (e.g., 05:30 for 330 seconds)'
+        - 'Test switches to Xh format for >= 3600 seconds'
+        - 'Test interval cleanup on unmount'
+      green:
+        - 'Implement useState + useEffect + setInterval timer'
+        - 'Implement formatElapsed function with mm:ss and Xh modes'
+      refactor:
+        - 'Extract formatElapsed as a standalone pure function'
+    estimatedEffort: S
+
+  - id: task-3
+    title: 'SidebarNavItem component (TDD + Storybook)'
+    description: >
+      Build the SidebarNavItem common component for top-level navigation entries.
+      Renders a Lucide icon + label using shadcn SidebarMenuButton. Supports active
+      state styling and href linking.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'sidebar-nav-item.tsx renders icon + label'
+      - 'Active state applies distinct styling'
+      - 'Renders as a link with href'
+      - 'All unit tests pass'
+      - 'Storybook stories show default, active, and various icon variants'
+    tdd:
+      red:
+        - 'Test renders label text'
+        - 'Test renders icon element'
+        - 'Test active state adds active styling/attribute'
+        - 'Test renders link with correct href'
+      green:
+        - 'Implement using SidebarMenuItem + SidebarMenuButton from shadcn sidebar'
+        - 'Accept icon as LucideIcon prop, label as string, href as string'
+      refactor:
+        - 'Clean up className composition'
+    estimatedEffort: S
+
+  - id: task-4
+    title: 'FeatureListItem and FeatureStatusGroup components (TDD + Storybook)'
+    description: >
+      Build FeatureListItem (feature row with status icon + name + timing info) and
+      FeatureStatusGroup (collapsible group header with status label + count badge +
+      children). FeatureListItem renders differently per status: action-needed shows
+      pending icon, in-progress shows ElapsedTime, done shows duration string.
+      FeatureStatusGroup wraps children in a collapsible shadcn SidebarGroup.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'feature-list-item.tsx renders name for all statuses'
+      - 'action-needed status shows pending/clock icon'
+      - 'in-progress status renders ElapsedTime with startedAt'
+      - 'done status shows duration string (e.g., "1h", "2h")'
+      - 'onClick handler fires when clicked'
+      - 'feature-status-group.tsx renders status label and count badge'
+      - 'Children render inside the group'
+      - 'All unit tests pass'
+      - 'Storybook stories cover all status variants and edge cases'
+    tdd:
+      red:
+        - 'Test FeatureListItem renders name text'
+        - 'Test action-needed variant shows pending icon'
+        - 'Test in-progress variant renders ElapsedTime'
+        - 'Test done variant shows duration string'
+        - 'Test onClick callback fires'
+        - 'Test FeatureStatusGroup renders label'
+        - 'Test FeatureStatusGroup shows count badge'
+        - 'Test FeatureStatusGroup renders children'
+      green:
+        - 'Implement FeatureListItem with status-conditional right-side content'
+        - 'Implement FeatureStatusGroup using SidebarGroup + SidebarGroupLabel + Badge'
+      refactor:
+        - 'Extract status icon mapping to a lookup object'
+        - 'Clean up shared FeatureStatus type definition'
+    estimatedEffort: M
+
+  - id: task-5
+    title: 'AppSidebar layout component (TDD + Storybook)'
+    description: >
+      Assemble the AppSidebar layout component composing all building blocks. Uses
+      shadcn Sidebar with SidebarHeader (nav items), SidebarContent (scrollable feature
+      list grouped by status), and SidebarFooter (new feature button). Accepts feature
+      data as props and groups them by status. Provides mock data for Storybook story.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'app-sidebar.tsx renders Control Center and Memory nav items in header'
+      - 'Features section shows "Features" label'
+      - 'Features grouped into Action Needed, In Progress, Done sections'
+      - 'Footer contains "+ New feature" button'
+      - 'Wrapped in SidebarProvider for context'
+      - 'All unit tests pass'
+      - 'Storybook story shows full sidebar with mock feature data'
+    tdd:
+      red:
+        - 'Test header renders Control Center nav item'
+        - 'Test header renders Memory nav item'
+        - 'Test content renders Features label'
+        - 'Test features are grouped by status'
+        - 'Test footer renders New feature button'
+        - 'Test onNewFeature callback fires when button clicked'
+      green:
+        - 'Implement AppSidebar using Sidebar + SidebarHeader + SidebarContent + SidebarFooter'
+        - 'Compose SidebarNavItem for header, FeatureStatusGroup + FeatureListItem for content'
+        - 'Add Button in SidebarFooter for new feature action'
+      refactor:
+        - 'Extract mock data to a constants file for stories'
+        - 'Optimize component structure'
+    estimatedEffort: M
+
+  - id: task-6
+    title: 'Validation: build, lint, typecheck verification'
+    description: >
+      Run all verification commands to ensure everything builds and passes quality
+      checks. Fix any issues found.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'pnpm build:storybook passes'
+      - 'pnpm build:web passes'
+      - 'pnpm lint:web passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm test passes (all unit tests green)'
+    tdd: null # Verification task — no new code
+    estimatedEffort: S
 
 # Total effort estimate
-totalEstimate: { { TOTAL_EFFORT } }
+totalEstimate: M
 
 # Open questions
 openQuestions: []
@@ -57,22 +207,115 @@ content: |
 
   ### Phase 1: Foundation
 
-  - [ ] {{TASK_1_DESCRIPTION}}
-  - [ ] {{TASK_2_DESCRIPTION}}
+  - [ ] **Task 1:** Install shadcn primitives, add CSS variables, scaffold directories
+    - Install shadcn sidebar, scroll-area, separator, tooltip
+    - Add `--color-sidebar-*` CSS variables to globals.css
+    - Create `common/` and `layouts/` directories with barrel exports
+    - Update `ui/index.ts` with new primitive exports
 
-  ### Phase 2: Core Implementation (TDD Cycle)
+  ### Phase 2: Simple Composed Components (TDD) [P]
+
+  **ElapsedTime — Task 2:**
 
   **RED (Write Failing Tests First):**
 
-  - [ ] Write unit tests for {{FEATURE}}
+  - [ ] Test initial render shows 00:00
+  - [ ] Test timer ticks to 00:01 after 1 second
+  - [ ] Test formats as mm:ss (e.g., 05:30)
+  - [ ] Test switches to Xh format for >= 1 hour
+  - [ ] Test interval cleanup on unmount
 
   **GREEN (Implement to Pass Tests):**
 
-  - [ ] Implement {{FEATURE}}
+  - [ ] Implement ElapsedTime with useState + useEffect + setInterval
+  - [ ] Implement formatElapsed function
 
-  **REFACTOR (Clean Up):**
+  **REFACTOR:**
 
-  - [ ] Extract helpers and improve code quality
+  - [ ] Extract formatElapsed as standalone pure function
+
+  - [ ] Add Storybook stories (default, running 5min, running 2h)
+
+  ---
+
+  **SidebarNavItem — Task 3:**
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Test renders label text
+  - [ ] Test renders icon element
+  - [ ] Test active state styling
+  - [ ] Test link with correct href
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] Implement SidebarNavItem with SidebarMenuButton
+
+  **REFACTOR:**
+
+  - [ ] Clean up className composition
+
+  - [ ] Add Storybook stories (default, active, various icons)
+
+  ### Phase 3: Feature List Components (TDD)
+
+  **FeatureListItem + FeatureStatusGroup — Task 4:**
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Test FeatureListItem renders name
+  - [ ] Test action-needed shows pending icon
+  - [ ] Test in-progress shows ElapsedTime
+  - [ ] Test done shows duration string
+  - [ ] Test onClick fires
+  - [ ] Test FeatureStatusGroup renders label
+  - [ ] Test FeatureStatusGroup shows count badge
+  - [ ] Test FeatureStatusGroup renders children
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] Implement FeatureListItem with status-conditional rendering
+  - [ ] Implement FeatureStatusGroup with SidebarGroup + Badge
+
+  **REFACTOR:**
+
+  - [ ] Extract status icon mapping
+  - [ ] Clean up FeatureStatus type
+
+  - [ ] Add Storybook stories for both components (all variants)
+
+  ### Phase 4: Layout Assembly (TDD)
+
+  **AppSidebar — Task 5:**
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Test header renders Control Center nav item
+  - [ ] Test header renders Memory nav item
+  - [ ] Test content renders Features label
+  - [ ] Test features grouped by status
+  - [ ] Test footer renders New feature button
+  - [ ] Test onNewFeature callback fires
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] Implement AppSidebar composing all building blocks
+
+  **REFACTOR:**
+
+  - [ ] Extract mock data to constants
+  - [ ] Optimize component structure
+
+  - [ ] Add Storybook story with mock feature data
+
+  ### Phase 5: Validation & Polish
+
+  - [ ] **Task 6:** Run verification
+    - [ ] `pnpm build:storybook` passes
+    - [ ] `pnpm build:web` passes
+    - [ ] `pnpm lint:web` passes
+    - [ ] `pnpm typecheck:web` passes
+    - [ ] `pnpm test` passes
 
   ## TDD Notes
 
@@ -93,10 +336,10 @@ content: |
 
   - [ ] All tasks completed
   - [ ] Tests passing (`pnpm test`)
-  - [ ] Linting clean (`pnpm lint`)
-  - [ ] Types valid (`pnpm typecheck`)
-  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-  - [ ] Documentation updated
+  - [ ] Linting clean (`pnpm lint:web`)
+  - [ ] Types valid (`pnpm typecheck:web`)
+  - [ ] Storybook builds (`pnpm build:storybook`)
+  - [ ] Web app builds (`pnpm build:web`)
   - [ ] PR created and reviewed
 
   ---
