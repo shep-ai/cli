@@ -1,0 +1,36 @@
+feature:
+  id: '013-ui-arch'
+  name: 'ui-arch'
+  number: 13
+  branch: 'feat/ui-arch'
+  lifecycle: 'research'
+  createdAt: '2026-02-11T13:57:08Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-11T13:57:08Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-11T13:57:08Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []

@@ -1,0 +1,104 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ui-arch
+summary: Task breakdown for 013-ui-arch
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    title: { { TASK_1_TITLE } }
+    description: { { TASK_1_DESCRIPTION } }
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - { { CRITERION_1 } }
+      - { { CRITERION_2 } }
+    tdd:
+      red:
+        - Write tests for {{FEATURE_1}}
+      green:
+        - Implement {{FEATURE_1}} to pass tests
+      refactor:
+        - Extract helpers, improve naming
+    estimatedEffort: { { EFFORT_1 } }
+
+  - id: task-2
+    title: { { TASK_2_TITLE } }
+    description: { { TASK_2_DESCRIPTION } }
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - { { CRITERION_1 } }
+      - { { CRITERION_2 } }
+    tdd: null # No TDD for foundational/doc tasks
+    estimatedEffort: { { EFFORT_2 } }
+
+# Total effort estimate
+totalEstimate: { { TOTAL_EFFORT } }
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Status
+
+  - **Phase:** Implementation
+  - **Updated:** 2026-02-11
+
+  ## Task List
+
+  ### Phase 1: Foundation
+
+  - [ ] {{TASK_1_DESCRIPTION}}
+  - [ ] {{TASK_2_DESCRIPTION}}
+
+  ### Phase 2: Core Implementation (TDD Cycle)
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Write unit tests for {{FEATURE}}
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] Implement {{FEATURE}}
+
+  **REFACTOR (Clean Up):**
+
+  - [ ] Extract helpers and improve code quality
+
+  ## TDD Notes
+
+  - **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
+  - **RED**: Write failing tests FIRST (never skip this!)
+  - **GREEN**: Write minimal code to pass tests
+  - **REFACTOR**: Improve code while keeping tests green
+
+  ## Progress Tracking (CRITICAL)
+
+  - **Update checkboxes FREQUENTLY** - as soon as each item is complete!
+  - **Don't batch updates** - check off items immediately, not at the end
+  - **Commit task.md updates** along with code changes to show progress
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All tasks completed
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint`)
+  - [ ] Types valid (`pnpm typecheck`)
+  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
+  - [ ] Documentation updated
+  - [ ] PR created and reviewed
+
+  ---
+
+  _Task breakdown for implementation tracking_
