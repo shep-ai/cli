@@ -23,17 +23,21 @@ import type { FeatureStatus } from '@/components/common/feature-list-item';
 
 function useDeferredMount(isCollapsed: boolean, ms: number) {
   const [mounted, setMounted] = React.useState(!isCollapsed);
+  const [visible, setVisible] = React.useState(!isCollapsed);
 
   React.useEffect(() => {
     if (!isCollapsed) {
       setMounted(true);
-      return;
+      // delay visibility by one frame so the element mounts at opacity-0 first
+      const raf = requestAnimationFrame(() => setVisible(true));
+      return () => cancelAnimationFrame(raf);
     }
+    setVisible(false);
     const t = window.setTimeout(() => setMounted(false), ms);
     return () => window.clearTimeout(t);
   }, [isCollapsed, ms]);
 
-  return mounted;
+  return { mounted, visible };
 }
 
 interface FeatureItem {
@@ -58,7 +62,7 @@ const statusGroups: { key: FeatureStatus; label: string }[] = [
 export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
-  const showLabel = useDeferredMount(collapsed, 200);
+  const { mounted: showLabel, visible: labelVisible } = useDeferredMount(collapsed, 200);
 
   const grouped = statusGroups.map(({ key, label }) => {
     const items = features.filter((f) => f.status === key);
@@ -76,9 +80,9 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
                   className={[
                     'flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-2',
                     'transition-opacity duration-200 ease-out',
-                    collapsed ? 'opacity-0' : 'opacity-100',
+                    labelVisible ? 'opacity-100' : 'opacity-0',
                   ].join(' ')}
-                  aria-hidden={collapsed}
+                  aria-hidden={!labelVisible}
                 >
                   <ShepLogo className="shrink-0" size={20} />
                   <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
