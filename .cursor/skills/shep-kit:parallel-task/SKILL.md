@@ -29,8 +29,8 @@ digraph parallel_task {
     fix_yaml [label="Patch feature.yaml\nwith correct branch name"];
     fill_spec [label="Fill spec.md with\nrequirements (if provided)"];
     commit [label="git add + commit\nspec scaffold"];
-    open_code [label="code .worktrees/<dir-name>"];
-    success [label="Report: VS Code opening..." shape=ellipse];
+    open_cursor [label="cursor .worktrees/<dir-name>"];
+    success [label="Report: Cursor opening..." shape=ellipse];
     fail [label="Report: manual instructions" shape=ellipse];
 
     start -> get_desc;
@@ -41,9 +41,9 @@ digraph parallel_task {
     init_spec -> fix_yaml;
     fix_yaml -> fill_spec;
     fill_spec -> commit;
-    commit -> open_code;
-    open_code -> success [label="success"];
-    open_code -> fail [label="fail"];
+    commit -> open_cursor;
+    open_cursor -> success [label="success"];
+    open_cursor -> fail [label="fail"];
 }
 ```
 
@@ -126,21 +126,21 @@ git add specs/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
 
-### 9. Open VS Code & Hand Off (STOP HERE)
+### 9. Open Cursor & Hand Off (STOP HERE)
 
 **CRITICAL: Do NOT start implementation. Do NOT run `/shep-kit:research`, `/shep-kit:plan`, or `/shep-kit:implement`.**
 
-**Auto-open VS Code:** Attempt to open the worktree in a new VS Code window automatically:
+**Auto-open Cursor:** Attempt to open the worktree in a new Cursor window automatically:
 
 ```bash
-code .worktrees/<dir-name>
+cursor .worktrees/<dir-name>
 ```
 
-**If the `code` command succeeds**, print:
+**If the `cursor` command succeeds**, print:
 
 ---
 
-**Worktree is ready! Opening in VS Code...**
+**Worktree is ready! Opening in Cursor...**
 
 | Detail   | Value                                    |
 | -------- | ---------------------------------------- |
@@ -148,14 +148,14 @@ code .worktrees/<dir-name>
 | Branch   | `<branch-name>` (based on `origin/main`) |
 | Spec     | `specs/NNN-feature-name/`                |
 
-A new Cursor (or VS Code) window should be opening. Once it's loaded, open the Cursor Agent panel and continue with `/shep-kit:research`.
+A new Cursor window should be opening. Once it's loaded, open the Cursor Agent panel and continue with `/shep-kit:research`.
 
 > Working inside the worktree keeps your current session free and gives
 > the new session its own full context for the feature.
 
 ---
 
-**If the `code` command fails** (not installed, not in PATH, etc.), fall back to printing manual instructions:
+**If the `cursor` command fails** (not installed, not in PATH, etc.), fall back to printing manual instructions:
 
 ---
 
@@ -167,11 +167,11 @@ A new Cursor (or VS Code) window should be opening. Once it's loaded, open the C
 | Branch   | `<branch-name>` (based on `origin/main`) |
 | Spec     | `specs/NNN-feature-name/`                |
 
-Could not auto-open VS Code (`code` command not found). Open it manually:
+Could not auto-open Cursor (`cursor` command not found). Open it manually:
 
-**Option A — VS Code** (recommended)
+**Option A — Cursor** (recommended)
 
-1. Open a **new VS Code window**
+1. Open a **new Cursor window**
 2. `File → Open Folder…` → select `.worktrees/<dir-name>`
 3. Open the Cursor Agent panel and continue with `/shep-kit:research`
 
@@ -179,7 +179,7 @@ Could not auto-open VS Code (`code` command not found). Open it manually:
 
 ```bash
 cd .worktrees/<dir-name>
-cursor
+cursor .
 # then run /shep-kit:research
 ```
 
