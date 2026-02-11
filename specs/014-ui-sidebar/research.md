@@ -1,31 +1,38 @@
 ## Status
 
-- **Phase:** Research
+- **Phase:** Implementation
 - **Updated:** 2026-02-11
 
-## Current State Analysis
+## Current State Analysis (Post 013-ui-arch)
 
 ### Existing Web UI Components
 
 | Category             | Count | Details                                                                                    |
 | -------------------- | ----- | ------------------------------------------------------------------------------------------ |
 | shadcn/ui primitives | 12    | Button, Card, Badge, Input, Label, Dialog, Select, Tabs, Accordion, Alert, Popover, Sonner |
-| Feature components   | 1     | ThemeToggle (in features/theme-toggle/)                                                    |
-| Layout components    | 0     | None — this is the first layout component                                                  |
-| Common components    | 0     | None — common/ directory does not exist yet                                                |
+| Common components    | 4     | page-header, empty-state, loading-skeleton, theme-toggle (created by 013)                  |
+| Layout components    | 4     | header, sidebar (simple nav), dashboard-layout, app-shell (created by 013)                 |
+| Feature components   | 0     | ThemeToggle migrated to common/ by 013                                                     |
+| Barrel exports       | 0     | No index.ts barrel exports exist for ui/, common/, or layouts/                             |
+
+**Note:** The existing `layouts/sidebar/` is a simple 40-line nav component (basic `<nav>` with
+flex layout). It is NOT a shadcn Sidebar compound component. The new `app-sidebar/` component
+in this spec is a completely separate, richer component using the shadcn sidebar primitive.
 
 ### Current CSS Variables
 
 The globals.css uses `--color-*` pattern with hex values in a `@theme` block (Tailwind v4).
 **Missing:** No `--color-sidebar-*` tokens exist — these must be added for the shadcn sidebar.
 
-### Storybook Configuration
+### Storybook Configuration (Updated by 013)
 
 - Framework: `@storybook/react-vite`
-- Addons: essentials, links
+- Addons: essentials, links, a11y, interactions
+- Plugins: `@tailwindcss/vite` (added by 013)
 - Theme: Custom ThemeDecorator handling light/dark backgrounds
 - Layout: Default `centered` for most stories
 - Path aliases: `@/components`, `@/lib`, `@/hooks`, `@/types`
+- Design system docs: Colors.mdx, Typography.mdx, GettingStarted.mdx
 
 ## Technology Decisions
 

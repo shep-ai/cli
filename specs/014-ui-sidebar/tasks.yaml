@@ -22,20 +22,23 @@ relatedLinks:
 # Structured task list
 tasks:
   - id: task-1
-    title: 'Install shadcn primitives, add CSS variables, scaffold directories'
+    title: 'Install shadcn primitives, add CSS variables, create barrel exports'
     description: >
       Install shadcn sidebar, scroll-area, separator, tooltip primitives.
       Add --color-sidebar-* CSS variables to globals.css @theme and .dark blocks.
-      Create common/ and layouts/ directory structure with barrel exports.
-      Update ui/index.ts to export new primitives.
+      Create barrel exports for all tiers (ui/index.ts, common/index.ts, layouts/index.ts).
+      Note: common/ and layouts/ directories already exist from 013-ui-arch with
+      existing components (page-header, empty-state, loading-skeleton, theme-toggle,
+      header, sidebar, dashboard-layout, app-shell). Only barrel exports and new
+      primitives need to be created.
     state: Todo
     dependencies: []
     acceptanceCriteria:
       - 'sidebar.tsx, scroll-area.tsx, separator.tsx, tooltip.tsx exist in ui/'
       - 'globals.css contains --color-sidebar-* tokens in both @theme and .dark'
-      - 'common/index.ts barrel export exists'
-      - 'layouts/index.ts barrel export exists'
-      - 'ui/index.ts exports all new primitives'
+      - 'ui/index.ts barrel export exists and re-exports all primitives'
+      - 'common/index.ts barrel export exists and re-exports existing + new components'
+      - 'layouts/index.ts barrel export exists and re-exports existing + new components'
     tdd: null # Foundation task — no executable component code
     estimatedEffort: S
 
@@ -207,11 +210,11 @@ content: |
 
   ### Phase 1: Foundation
 
-  - [ ] **Task 1:** Install shadcn primitives, add CSS variables, scaffold directories
+  - [ ] **Task 1:** Install shadcn primitives, add CSS variables, create barrel exports
     - Install shadcn sidebar, scroll-area, separator, tooltip
     - Add `--color-sidebar-*` CSS variables to globals.css
-    - Create `common/` and `layouts/` directories with barrel exports
-    - Update `ui/index.ts` with new primitive exports
+    - Create barrel exports: `ui/index.ts`, `common/index.ts`, `layouts/index.ts`
+    - Note: `common/` and `layouts/` directories already exist from 013-ui-arch
 
   ### Phase 2: Simple Composed Components (TDD) [P]
 

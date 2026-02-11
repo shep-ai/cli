@@ -1,12 +1,41 @@
 ## Status
 
-- **Phase:** Planning
+- **Phase:** Implementation
 - **Updated:** 2026-02-11
 
 ## Architecture Overview
 
 ```
-{{ARCHITECTURE_DIAGRAM}}
+┌──────────────────────────────────────────────────────┐
+│                    AppSidebar (Tier 2: layouts/)      │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │  SidebarHeader                                  │  │
+│  │  ├─ SidebarNavItem (Control Center)             │  │
+│  │  └─ SidebarNavItem (Memory)                     │  │
+│  ├─────────────────────────────────────────────────┤  │
+│  │  SidebarContent (scrollable)                    │  │
+│  │  ├─ FeatureStatusGroup (Action Needed)          │  │
+│  │  │  └─ FeatureListItem[] (with pending icon)    │  │
+│  │  ├─ FeatureStatusGroup (In Progress)            │  │
+│  │  │  └─ FeatureListItem[] (with ElapsedTime)     │  │
+│  │  └─ FeatureStatusGroup (Done)                   │  │
+│  │     └─ FeatureListItem[] (with duration)        │  │
+│  ├─────────────────────────────────────────────────┤  │
+│  │  SidebarFooter                                  │  │
+│  │  └─ "+ New feature" button                      │  │
+│  └─────────────────────────────────────────────────┘  │
+└──────────────────────────────────────────────────────┘
+
+Component Tier Hierarchy:
+┌─────────┐   ┌─────────────┐   ┌──────────┐
+│  ui/    │ → │  common/     │ → │ layouts/ │
+│ (Tier 0)│   │  (Tier 1)    │   │ (Tier 2) │
+│         │   │              │   │          │
+│ sidebar │   │ ElapsedTime  │   │AppSidebar│
+│ scroll  │   │ SidebarNav   │   │          │
+│ separat │   │ FeatureList  │   │          │
+│ tooltip │   │ FeatureGroup │   │          │
+└─────────┘   └─────────────┘   └──────────┘
 ```
 
 ## Implementation Strategy
@@ -15,40 +44,112 @@
 
 ### Phase 1: Foundation (No Tests)
 
-**Goal:** {{PHASE_1_GOAL}}
+**Goal:** Install shadcn primitives, add sidebar CSS variables, create barrel exports.
+
+**Pre-condition:** 013-ui-arch is complete. The `common/` directory exists with 4 components
+(page-header, empty-state, loading-skeleton, theme-toggle) and the `layouts/` directory exists
+with 4 components (header, sidebar, dashboard-layout, app-shell). No barrel exports exist yet.
+
+**Note:** The existing `layouts/sidebar/` is a simple nav component (basic `<nav>` with flex
+layout, ~40 lines). The new `app-sidebar/` is a separate, richer component using the shadcn
+Sidebar compound component. They coexist without conflict.
 
 **Steps:**
 
-1. {{STEP_1}}
-2. {{STEP_2}}
+1. Install shadcn sidebar, scroll-area, separator, tooltip via `npx shadcn add`
+2. Add `--color-sidebar-*` CSS variables to globals.css `@theme` and `.dark` blocks
+3. Create barrel exports: `ui/index.ts`, `common/index.ts`, `layouts/index.ts`
 
-**Deliverables:** {{DELIVERABLES}}
+**Deliverables:** Four new shadcn primitives installed, sidebar CSS tokens, barrel exports.
 
-### Phase 2: Core Implementation (TDD Cycle 1)
+### Phase 2: Simple Composed Components (TDD Cycle 1) [P]
 
-**Goal:** {{PHASE_2_GOAL}}
+**Goal:** Build ElapsedTime and SidebarNavItem — the two simplest composed components with no internal composed dependencies.
 
-**TDD Workflow:**
+These two components are independent and can be built in parallel.
 
-1. **RED:** Write failing tests FIRST
-2. **GREEN:** Implement minimal code to pass tests
-3. **REFACTOR:** Improve code while keeping tests green
+#### ElapsedTime (TDD)
 
-**Deliverables:** {{DELIVERABLES}}
+1. **RED:** Write tests for timer behavior (initial render, ticking, format mm:ss, format Xh for ≥1h, cleanup on unmount)
+2. **GREEN:** Implement useEffect + setInterval timer with formatting logic
+3. **REFACTOR:** Extract formatElapsed helper function
+
+#### SidebarNavItem (TDD)
+
+1. **RED:** Write tests for rendering icon + label, active state styling, link behavior
+2. **GREEN:** Implement using shadcn SidebarMenuButton with Lucide icon slot
+3. **REFACTOR:** Clean up className composition
+
+**Deliverables:** Two tested common components with Storybook stories.
+
+### Phase 3: Feature List Components (TDD Cycle 2)
+
+**Goal:** Build FeatureListItem and FeatureStatusGroup — composed components that use ElapsedTime.
+
+#### FeatureListItem (TDD)
+
+1. **RED:** Write tests for three status variants (action-needed shows icon, in-progress shows ElapsedTime, done shows duration), name display, click handler
+2. **GREEN:** Implement with status-conditional rendering using shadcn SidebarMenuButton
+3. **REFACTOR:** Extract status icon mapping
+
+#### FeatureStatusGroup (TDD)
+
+1. **RED:** Write tests for label rendering, count badge, children rendering, collapsed state
+2. **GREEN:** Implement using shadcn SidebarGroup with Collapsible
+3. **REFACTOR:** Clean up prop interface
+
+**Deliverables:** Two tested common components with Storybook stories.
+
+### Phase 4: Layout Assembly (TDD Cycle 3)
+
+**Goal:** Assemble AppSidebar composing all building blocks into the final layout component.
+
+1. **RED:** Write tests for section rendering (header with nav items, content with grouped features, footer with button), SidebarProvider context
+2. **GREEN:** Implement AppSidebar composing SidebarNavItem, FeatureStatusGroup, FeatureListItem using shadcn Sidebar compound components
+3. **REFACTOR:** Extract mock data to constants, optimize component structure
+
+**Deliverables:** AppSidebar layout component with Storybook story, full integration of all building blocks.
+
+### Phase 5: Validation & Polish (No Tests)
+
+**Goal:** Verify all builds pass and clean up.
+
+**Steps:**
+
+1. Run Storybook build (`pnpm build:storybook`)
+2. Run web build (`pnpm build:web`)
+3. Run lint (`pnpm lint:web`)
+4. Run typecheck (`pnpm typecheck:web`)
+5. Fix any issues found
+
+**Deliverables:** All builds green, all quality checks passing.
 
 ## Files to Create/Modify
 
 ### New Files
 
-| File          | Purpose     |
-| ------------- | ----------- |
-| {{FILE_PATH}} | {{PURPOSE}} |
+| File                                      | Purpose                                                        |
+| ----------------------------------------- | -------------------------------------------------------------- |
+| `components/ui/sidebar.tsx`               | shadcn sidebar compound component (CLI-generated)              |
+| `components/ui/scroll-area.tsx`           | shadcn scroll-area primitive (CLI-generated)                   |
+| `components/ui/separator.tsx`             | shadcn separator primitive (CLI-generated)                     |
+| `components/ui/tooltip.tsx`               | shadcn tooltip primitive (CLI-generated)                       |
+| `components/ui/index.ts`                  | Barrel export for ui tier (NEW — does not exist yet)           |
+| `components/common/index.ts`              | Barrel export for common tier (NEW — does not exist yet)       |
+| `components/common/elapsed-time/`         | Live counting timer display (component + stories + index)      |
+| `components/common/sidebar-nav-item/`     | Nav item with icon + label (component + stories + index)       |
+| `components/common/feature-list-item/`    | Feature row with status + timing (component + stories + index) |
+| `components/common/feature-status-group/` | Status group header + children (component + stories + index)   |
+| `components/layouts/index.ts`             | Barrel export for layouts tier (NEW — does not exist yet)      |
+| `components/layouts/app-sidebar/`         | Full assembled sidebar (component + stories + index)           |
+| `tests/unit/web/components/common/`       | Unit tests for all common components                           |
+| `tests/unit/web/components/layouts/`      | Unit tests for AppSidebar layout                               |
 
 ### Modified Files
 
-| File          | Changes     |
-| ------------- | ----------- |
-| {{FILE_PATH}} | {{CHANGES}} |
+| File              | Changes                                                       |
+| ----------------- | ------------------------------------------------------------- |
+| `app/globals.css` | Add `--color-sidebar-*` tokens in `@theme` and `.dark` blocks |
 
 ## Testing Strategy (TDD: Tests FIRST)
 
@@ -58,20 +159,37 @@
 
 Write FIRST for:
 
-- {{TEST_AREA_1}}
-- {{TEST_AREA_2}}
+- **ElapsedTime**: Timer start, tick increments, mm:ss format, Xh format for ≥1h, interval cleanup on unmount
+- **SidebarNavItem**: Renders icon + label, active state adds styling, links to href
+- **FeatureListItem**: Three status variants render correct right-side content, name display, click handler fires
+- **FeatureStatusGroup**: Renders label, shows count badge, renders children, supports collapsing
+- **AppSidebar**: Header renders nav items, content renders grouped features, footer renders new feature button
 
-### Integration Tests
+### Storybook Visual Tests
 
-Write FIRST for:
+Each component gets stories covering:
 
-- {{INTEGRATION_TEST_1}}
+- Default state
+- All prop variants (status states, active/inactive, with/without optional props)
+- Edge cases (long names, zero count, no features)
+
+### Build Verification
+
+- `pnpm build:storybook` — Storybook builds
+- `pnpm build:web` — Next.js builds
+- `pnpm lint:web` — No lint errors
+- `pnpm typecheck:web` — No type errors
 
 ## Risk Mitigation
 
-| Risk     | Mitigation     |
-| -------- | -------------- |
-| {{RISK}} | {{MITIGATION}} |
+| Risk                                                       | Mitigation                                                                                                                   |
+| ---------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| shadcn sidebar CSS variables conflict with existing tokens | Research confirmed exact token names; add to existing `@theme` block with consistent hex values                              |
+| ElapsedTime timer drift                                    | Self-correcting: recalculates from `Date.now() - startedAt` each tick, not incremental                                       |
+| SidebarProvider context missing in tests                   | Wrap all sidebar component tests in SidebarProvider                                                                          |
+| Naming collision with existing layouts/sidebar/            | No conflict: existing `sidebar/` is a simple nav component; new `app-sidebar/` is a separate shadcn-based compound component |
+| shadcn CLI generates unexpected file structure             | Verify after install; adjust paths if needed                                                                                 |
+| Storybook decorator conflict with existing ThemeDecorator  | Use per-file sidebar decorator, not global; no conflict                                                                      |
 
 ---
 
