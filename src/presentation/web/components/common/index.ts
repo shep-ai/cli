@@ -3,6 +3,8 @@ export { EmptyState } from './empty-state';
 export type { EmptyStateProps } from './empty-state';
 export { FeatureListItem } from './feature-list-item';
 export type { FeatureListItemProps, FeatureStatus } from './feature-list-item';
+export { FeatureStatusBadges } from './feature-status-badges';
+export type { FeatureStatusBadgesProps } from './feature-status-badges';
 export { FeatureStatusGroup } from './feature-status-group';
 export type { FeatureStatusGroupProps } from './feature-status-group';
 export { LoadingSkeleton } from './loading-skeleton';
