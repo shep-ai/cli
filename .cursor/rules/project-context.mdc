@@ -1,0 +1,125 @@
+---
+description: Project overview, architecture, and conventions for Shep AI CLI (Cursor equivalent of CLAUDE.md)
+alwaysApply: true
+---
+
+# Project Context (Cursor)
+
+This rule provides guidance when working with code in this repository. It is the Cursor equivalent of CLAUDE.md.
+
+## Project Overview
+
+Shep AI CLI (`@shepai/cli`) is an Autonomous AI Native SDLC Platform that automates the development cycle from idea to deploy. Users run `shep` in a repository to analyze code, gather requirements via conversational AI, generate plans with tasks/artifacts, and execute implementation autonomously.
+
+## Spec-Driven Development (MANDATORY)
+
+**All feature work MUST begin with `/shep-kit:new-feature`.** See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md).
+
+```
+/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → /shep-kit:implement → /shep-kit:commit-pr
+```
+
+Feature specifications live in `specs/NNN-feature-name/`:
+
+**YAML files are the source of truth. Markdown files are auto-generated. Always edit YAML, never Markdown.**
+
+- `spec.yaml` - Requirements and scope (source of truth)
+- `research.yaml` - Technical decisions (source of truth)
+- `plan.yaml` - Implementation strategy **with TDD cycles (RED-GREEN-REFACTOR)** (source of truth)
+- `tasks.yaml` - Task breakdown **with explicit TDD phases** (source of truth)
+- `feature.yaml` - **Machine-readable status tracking** (updated by all shep-kit skills)
+- `spec.md`, `research.md`, `plan.md`, `tasks.md` - **Auto-generated from YAML** (DO NOT EDIT)
+
+**CRITICAL**: Plans MUST follow Test-Driven Development. Every implementation phase must define: **RED** (tests first), **GREEN** (minimal implementation), **REFACTOR** (cleanup).
+
+### `/shep-kit:implement`
+
+Use after planning. Pre-implementation gate checks spec completeness, architecture compliance, cross-document consistency. Executes tasks from `tasks.md` following TDD, updates `feature.yaml`, bounded retry (max 3). Reference: [feature.yaml Protocol](./docs/development/feature-yaml-protocol.md).
+
+## Commands
+
+- **Dev**: `pnpm dev:cli` | `pnpm dev:storybook` | `pnpm dev:web`
+- **Build**: `pnpm build` | `pnpm build:storybook` | `pnpm build:web`
+- **Test**: `pnpm test` | `pnpm test:watch` | `pnpm test:unit` | `pnpm test:int` | `pnpm test:e2e` | `pnpm test:single <path>`
+- **Quality**: `pnpm lint` | `pnpm lint:fix` | `pnpm lint:web` | `pnpm format` | `pnpm typecheck` | `pnpm typecheck:web` | `pnpm validate`
+- **CLI**: `pnpm link --global && shep`
+- **Specs**: `pnpm spec:generate-md <id>` | `pnpm spec:validate <id>`
+- **TypeSpec**: `pnpm tsp:compile` | `pnpm tsp:format` | `pnpm tsp:watch`
+
+## Architecture
+
+**Clean Architecture** with four layers:
+
+```
+src/
+├── domain/           # Core business logic (no external deps)
+│   ├── factories/    ├── generated/    # TypeSpec-generated (DO NOT EDIT)
+│   └── value-objects/
+├── application/      # Use cases and orchestration
+│   ├── use-cases/    └── ports/output/  # Repository/service interfaces
+├── infrastructure/   # Implementations (di, repositories, persistence, services)
+└── presentation/     # cli, tui, web
+```
+
+**Principles**: Dependency Rule (inward); Repository Pattern (interfaces in `application/ports/`, SQLite in `infrastructure/repositories/`); Use Case Pattern (`execute()`); DI via tsyringe. Container: `initializeContainer()` at CLI bootstrap; see `src/infrastructure/di/container.ts`. Always import `reflect-metadata` first in entry points and tests.
+
+## Domain Models (summary)
+
+- **Feature**: Aggregate root; lifecycle (SdlcLifecycle), plan, relatedArtifacts.
+- **Task**: state (TaskState), actionItems, dependsOn, baseBranch/branch.
+- **ActionItem**: acceptanceCriteria, dependsOn.
+- **Artifact**: category (ArtifactCategory), format (ArtifactFormat), state (ArtifactState).
+- **Requirement**: type (RequirementType), researches.
+- **Settings**: Singleton in `~/.shep/data`; models, user, environment, system, agent; access via `getSettings()`.
+
+## Agent System
+
+Current: `infrastructure/services/agents/` — external AI tool config (Claude Code, Gemini CLI, etc.) via `AgentConfig` and `IAgentValidator`. LangGraph workflow is **planned, not implemented**; see AGENTS.md.
+
+## Data Storage
+
+- **Global**: `~/.shep/`, DB `~/.shep/data`, `getSettings()`, init via `InitializeSettingsUseCase`.
+- **Repo**: `~/.shep/repos/<base64-repo-path>/`, `data` SQLite, `docs/`.
+
+## TypeSpec (MANDATORY)
+
+- **Source of truth**: Edit `tsp/*.tsp` only. TypeScript from `pnpm tsp:compile` → `src/domain/generated/output.ts` (DO NOT EDIT).
+- **Layout**: `tsp/common/`, `tsp/domain/entities/`, `tsp/domain/value-objects/`, `tsp/agents/`, `tsp/deployment/`.
+- **Import**: `import type { Settings, Feature, Task } from '@/domain/generated/output';`
+- **Validation**: `pnpm validate` runs tsp:compile.
+
+## Key Patterns
+
+- **New use case**: Port in `application/ports/output/` → use case in `application/use-cases/` → register in DI.
+- **New repository**: Interface in ports → impl in `infrastructure/repositories/` → register.
+- **CLI command**: Command in `presentation/cli/commands/`, Commander API, use case, register.
+
+## Testing (TDD MANDATORY)
+
+**Order**: RED (failing test first) → GREEN (minimal pass) → REFACTOR. Unit: `tests/unit/`. Integration: `tests/integration/`. E2E: `tests/e2e/` (Playwright). Plans must define RED-GREEN-REFACTOR per phase. See docs/development/tdd-guide.md.
+
+## Presentation
+
+- **CLI**: Commander, `src/presentation/cli/`, `bootstrap()` → `parseAsync()`. Commands: version, settings show/init/agent, ui. `createXxxCommand()` pattern. `getSettings()`, exitCode 1 + messages.error(). Docs: docs/cli/.
+- **TUI**: @inquirer/prompts, used in CLI (e.g. `shep settings agent`). Docs: docs/tui/.
+- **Web**: Next.js 16+ (App Router, Turbopack), shadcn/ui, Tailwind v4. Hierarchy: ui/ → common/ → layouts/ → features/. Storybook, Playwright. Package: `@shepai/web` in `src/presentation/web/`. **Every component MUST have colocated `.stories.tsx`** (all tiers).
+
+## pnpm Workspaces
+
+- Root: `@shepai/cli`. Web: `@shepai/web` at `src/presentation/web/`. Commands: `pnpm dev:web`, `pnpm build:web`, `pnpm lint:web`, `pnpm typecheck:web`, or `pnpm --filter @shepai/web <script>`.
+
+## Code Quality & Commits
+
+- **Lint**: ESLint 9 (flat config), Prettier 3, lint-staged, commitlint.
+- **Commits**: Conventional Commits — `type(scope): subject`. Types: feat, fix, docs, style, refactor, perf, test, build, ci, chore, revert. Scopes: specs, cli, tui, web, api, domain, agents, deployment, tsp, deps, config, dx, release, ci.
+- **Hooks**: pre-commit (lint-staged), commit-msg (commitlint).
+
+## CI/CD & Docker
+
+- GitHub Actions: lint, typecheck, unit, e2e, security (Trivy deps/container, Gitleaks, Semgrep, Hadolint). PRs: review. Main: semantic-release, npm publish, Docker push.
+- Docker: `ghcr.io/shep-ai/cli:latest`, tags `v<version>`, `sha-<commit>`. Local: `docker build -t shep-cli .`
+- **Version**: feat → minor; fix/perf/refactor → patch; BREAKING CHANGE → major. See docs/development/cicd.md.
+
+---
+
+**Maintaining**: Update this rule when commands, architecture, domain models, or CI change. Keep it concise reference for navigation and modification.
