@@ -6,11 +6,15 @@
  * using Node.js child_process.fork().
  */
 
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { fork } from 'node:child_process';
 import { join } from 'node:path';
 import type { IFeatureAgentProcessService } from '@/application/ports/output/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agent-run-repository.interface.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 /** Terminal statuses that should not be updated */
 const TERMINAL_STATUSES = new Set<AgentRunStatus>([
