@@ -2,6 +2,10 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './app-sidebar';
 
+interface DecoratorContext {
+  parameters?: { sidebar?: { defaultOpen?: boolean } };
+}
+
 const meta: Meta<typeof AppSidebar> = {
   title: 'Layout/AppSidebar',
   component: AppSidebar,
@@ -10,16 +14,19 @@ const meta: Meta<typeof AppSidebar> = {
   },
   tags: ['autodocs'],
   decorators: [
-    (Story) => (
-      <SidebarProvider>
-        <Story />
-        <SidebarInset>
-          <div className="flex items-center gap-2 border-b px-4 py-2">
-            <span className="text-muted-foreground text-sm">Content area</span>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    ),
+    (Story, context: DecoratorContext) => {
+      const defaultOpen = context.parameters?.sidebar?.defaultOpen ?? true;
+      return (
+        <SidebarProvider defaultOpen={defaultOpen}>
+          <Story />
+          <SidebarInset aria-label="Main content">
+            <div className="flex items-center gap-2 border-b px-4 py-2">
+              <span className="text-muted-foreground text-sm">Content area</span>
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      );
+    },
   ],
 };
 
@@ -45,18 +52,9 @@ export const Collapsed: Story = {
   args: {
     features: mockFeatures,
   },
-  decorators: [
-    (Story) => (
-      <SidebarProvider defaultOpen={false}>
-        <Story />
-        <SidebarInset>
-          <div className="flex items-center gap-2 border-b px-4 py-2">
-            <span className="text-muted-foreground text-sm">Content area</span>
-          </div>
-        </SidebarInset>
-      </SidebarProvider>
-    ),
-  ],
+  parameters: {
+    sidebar: { defaultOpen: false },
+  },
 };
 
 export const Empty: Story = {
