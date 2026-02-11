@@ -10,7 +10,7 @@ summary: >
   (ui → common → layouts → features), reset Storybook from scratch,
   establish design system conventions, and create reusable composed
   components on top of shadcn/ui primitives.
-phase: Research
+phase: Planning
 sizeEstimate: L
 
 # Relationships

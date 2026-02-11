@@ -2,46 +2,377 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: ui-arch
-summary: Task breakdown for 013-ui-arch
+summary: Task breakdown for 013-ui-arch component architecture restructure
+
+status:
+  phase: implementation
+  updatedAt: '2026-02-11'
 
 # Relationships
-relatedFeatures: []
-technologies: []
+relatedFeatures:
+  - '004-web-ui-component-library'
+  - '007-ui-command'
+technologies:
+  - React 19
+  - Next.js 16
+  - Tailwind CSS v4
+  - shadcn/ui (new-york style)
+  - Storybook 8.6
 relatedLinks: []
 
 # Structured task list
 tasks:
+  # ── Phase 1: Foundation & Storybook Reset ────────────────────────
+
   - id: task-1
-    title: { { TASK_1_TITLE } }
-    description: { { TASK_1_DESCRIPTION } }
+    title: Install Storybook addons and @tailwindcss/vite
+    description: >
+      Add @storybook/addon-a11y, @storybook/addon-interactions, and
+      @tailwindcss/vite as devDependencies. Create the components/common/
+      and components/layouts/ directory skeleton with .gitkeep files.
     state: Todo
+    phase: phase-1
     dependencies: []
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd:
-      red:
-        - Write tests for {{FEATURE_1}}
-      green:
-        - Implement {{FEATURE_1}} to pass tests
-      refactor:
-        - Extract helpers, improve naming
-    estimatedEffort: { { EFFORT_1 } }
+      - New devDependencies installed and in package.json
+      - components/common/ directory exists
+      - components/layouts/ directory exists
+      - pnpm install runs without errors
+    tdd: null
+    estimatedEffort: S
 
   - id: task-2
-    title: { { TASK_2_TITLE } }
-    description: { { TASK_2_DESCRIPTION } }
+    title: Reconfigure Storybook main.ts and preview.tsx
+    description: >
+      Update .storybook/main.ts to add new addons, expand stories glob to
+      include docs/**/*.mdx, integrate @tailwindcss/vite plugin via viteFinal
+      dynamic import. Update .storybook/preview.tsx with storySort for
+      category-based sidebar ordering (Design System, Primitives, Composed,
+      Layout, Features) and improve the theme decorator.
     state: Todo
+    phase: phase-1
     dependencies:
       - task-1
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd: null # No TDD for foundational/doc tasks
-    estimatedEffort: { { EFFORT_2 } }
+      - main.ts includes addon-a11y and addon-interactions
+      - main.ts stories glob includes docs/**/*.mdx
+      - viteFinal integrates @tailwindcss/vite via dynamic import
+      - preview.tsx has storySort ordering categories correctly
+      - Storybook starts without errors (pnpm dev:storybook)
+      - Tailwind v4 styles render correctly in Storybook
+    tdd: null
+    estimatedEffort: M
+
+  - id: task-3
+    title: Create design system MDX documentation
+    description: >
+      Move and split components/design-tokens.mdx into dedicated docs/ directory.
+      Create Colors.mdx (using ColorPalette/ColorItem doc blocks), Typography.mdx
+      (using Typeset), and GettingStarted.mdx (component usage guide). Delete the
+      old design-tokens.mdx file.
+    state: Todo
+    phase: phase-1
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - docs/Colors.mdx exists with ColorPalette doc blocks
+      - docs/Typography.mdx exists with Typeset doc blocks
+      - docs/GettingStarted.mdx exists with component usage guide
+      - components/design-tokens.mdx is deleted
+      - MDX pages appear under Design System/ in Storybook sidebar
+      - Storybook builds successfully (pnpm build:storybook)
+    tdd: null
+    estimatedEffort: M
+
+  # ── Phase 2: Migration & Barrel Cleanup ──────────────────────────
+
+  - id: task-4
+    title: Migrate ThemeToggle to common/ and update imports
+    description: >
+      Move components/features/theme-toggle/ to components/common/theme-toggle/.
+      Update its story title from Features/ThemeToggle to Composed/ThemeToggle.
+      Update all import paths that reference the old location. Verify existing
+      ThemeToggle behavior and tests pass.
+    state: Todo
+    phase: phase-2
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - ThemeToggle lives in components/common/theme-toggle/
+      - Old features/theme-toggle/ directory is deleted
+      - Story title is Composed/ThemeToggle
+      - ThemeToggle renders correctly in Storybook
+      - All existing tests pass
+    tdd:
+      red:
+        - Run existing use-theme test to confirm baseline passes
+        - Update test imports to reference common/ path (should fail)
+      green:
+        - Move ThemeToggle files from features/ to common/
+        - Update per-component index.ts exports
+        - Fix all import paths in app/ files
+      refactor:
+        - Update story title prefix to Composed/ThemeToggle
+        - Verify story renders correctly
+    estimatedEffort: S
+
+  - id: task-5
+    title: Remove tier-level barrels and rename story prefixes
+    description: >
+      Delete components/ui/index.ts and components/features/index.ts barrel exports.
+      Update all imports in app/ pages and test files from barrel paths
+      (@/components/ui) to direct paths (@/components/ui/button). Rename all
+      12 ui/ story title prefixes from UI/ to Primitives/.
+    state: Todo
+    phase: phase-2
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - components/ui/index.ts is deleted
+      - components/features/index.ts is deleted
+      - All app/ imports use direct paths (e.g., @/components/ui/button)
+      - All test imports use direct paths
+      - All 12 ui/ stories have title prefix Primitives/ instead of UI/
+      - All existing unit tests pass (button, badge, card, alert, input)
+      - Storybook sidebar shows Primitives/ category for all ui/ components
+    tdd:
+      red:
+        - Update test imports from barrel to direct paths (tests should fail due to deleted barrel)
+      green:
+        - Delete ui/index.ts and features/index.ts
+        - Update all 3 app/ files to direct imports
+        - Update all 5 test files to direct imports
+      refactor:
+        - Rename story title prefixes (UI/ → Primitives/) in all 12 story files
+        - Verify Storybook sidebar ordering
+    estimatedEffort: M
+
+  # ── Phase 3: Common Components (Parallelizable) ─────────────────
+
+  - id: task-6
+    title: '[P] Implement page-header common component'
+    description: >
+      Create components/common/page-header/ with PageHeader component.
+      Props: title (required), description (optional), children/action slot (optional).
+      Server Component compatible (no "use client"). Include unit tests and
+      Storybook stories with autodocs.
+    state: Todo
+    phase: phase-3
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - PageHeader component renders title, optional description, optional action slot
+      - No "use client" directive (Server Component compatible)
+      - Uses cn() for className merging
+      - Unit tests cover rendering, all prop combinations, custom className
+      - Story under Composed/PageHeader with autodocs and variants
+      - Accessible heading hierarchy (h1 or configurable)
+    tdd:
+      red:
+        - Write tests for PageHeader rendering with title only
+        - Write tests for optional description prop
+        - Write tests for action slot (children)
+        - Write tests for custom className merging
+      green:
+        - Create page-header.tsx with minimal implementation
+        - Create index.ts per-component export
+      refactor:
+        - Add Storybook stories (Default, WithDescription, WithAction, Kitchen Sink)
+        - Verify accessibility with addon-a11y
+    estimatedEffort: M
+
+  - id: task-7
+    title: '[P] Implement empty-state common component'
+    description: >
+      Create components/common/empty-state/ with EmptyState component.
+      Props: icon (optional ReactNode), title (required), description (optional),
+      action (optional ReactNode for CTA button). Server Component compatible.
+      Include unit tests and Storybook stories.
+    state: Todo
+    phase: phase-3
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - EmptyState renders icon, title, description, and action slot
+      - No "use client" directive (Server Component compatible)
+      - Uses cn() for className merging
+      - Centered layout with appropriate spacing
+      - Unit tests cover all prop combinations
+      - Story under Composed/EmptyState with autodocs and variants
+    tdd:
+      red:
+        - Write tests for EmptyState rendering with title only
+        - Write tests for icon, description, action slot props
+        - Write tests for custom className and accessibility
+      green:
+        - Create empty-state.tsx with minimal implementation
+        - Create index.ts per-component export
+      refactor:
+        - Add Storybook stories (Default, WithIcon, WithAction, FullExample)
+        - Verify accessibility with addon-a11y
+    estimatedEffort: M
+
+  - id: task-8
+    title: '[P] Implement loading-skeleton common component'
+    description: >
+      Create components/common/loading-skeleton/ with LoadingSkeleton component.
+      Props: variant (line | circle | card), width/height (optional string),
+      className (optional). Uses Tailwind animate-pulse. Server Component compatible.
+      Include unit tests and Storybook stories.
+    state: Todo
+    phase: phase-3
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - LoadingSkeleton supports line, circle, card variants
+      - Configurable width and height via props
+      - Uses animate-pulse for loading animation
+      - No "use client" directive
+      - Unit tests cover all variants and dimension props
+      - Story under Composed/LoadingSkeleton with autodocs and variants
+    tdd:
+      red:
+        - Write tests for default line variant rendering
+        - Write tests for circle and card variants
+        - Write tests for custom width/height props
+        - Write tests for className merging
+      green:
+        - Create loading-skeleton.tsx with CVA or conditional classes
+        - Create index.ts per-component export
+      refactor:
+        - Add Storybook stories (Line, Circle, Card, CustomDimensions, Group)
+        - Verify animation renders in Storybook
+    estimatedEffort: M
+
+  # ── Phase 4: Layout Components ───────────────────────────────────
+
+  - id: task-9
+    title: Implement sidebar and header layout components
+    description: >
+      Create components/layouts/sidebar/ with Sidebar component — accepts nav items
+      array (label, href, icon), highlights active item, collapsible. Create
+      components/layouts/header/ with Header component — page title, optional
+      breadcrumbs slot, optional actions slot. Both are Server Component shells.
+      Include unit tests and Storybook stories.
+    state: Todo
+    phase: phase-4
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - Sidebar renders nav items with labels and icons
+      - Sidebar highlights active nav item based on pathname prop
+      - Header renders title and optional breadcrumbs and actions slots
+      - Both are Server Component compatible (no "use client")
+      - Unit tests for sidebar nav rendering, active state, and header rendering
+      - Stories under Layout/Sidebar and Layout/Header with autodocs
+    tdd:
+      red:
+        - Write sidebar tests for nav item rendering, active state, empty items
+        - Write header tests for title rendering, slots, className merging
+      green:
+        - Create sidebar.tsx with nav items rendering and active state
+        - Create header.tsx with title and slot props
+        - Create per-component index.ts exports
+      refactor:
+        - Add Storybook stories for both components
+        - Extract NavItem type to shared types if needed
+        - Verify responsive behavior
+    estimatedEffort: L
+
+  - id: task-10
+    title: Implement dashboard-layout shell component
+    description: >
+      Create components/layouts/dashboard-layout/ composing Sidebar + Header
+      around a main content area. Accepts children for page content, sidebarItems
+      for navigation, and title/actions for the header. Server Component.
+      Include unit tests and Storybook stories.
+    state: Todo
+    phase: phase-4
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - DashboardLayout composes Sidebar + Header + main content
+      - Renders children in the main content area
+      - Passes sidebarItems to Sidebar and title/actions to Header
+      - Server Component (no "use client")
+      - Responsive layout (sidebar collapses on mobile)
+      - Unit tests for full composition rendering
+      - Story under Layout/DashboardLayout with autodocs
+    tdd:
+      red:
+        - Write tests for DashboardLayout rendering sidebar, header, and children
+        - Write tests for prop forwarding to sub-components
+      green:
+        - Create dashboard-layout.tsx composing Sidebar + Header
+        - Create index.ts per-component export
+      refactor:
+        - Add Storybook stories (Default, WithContent, MobileView)
+        - Verify full layout renders correctly in Storybook
+    estimatedEffort: M
+
+  # ── Phase 5: Feature Integration ─────────────────────────────────
+
+  - id: task-11
+    title: Reorganize feature components and wire up layouts in app pages
+    description: >
+      Create features/version/ directory, move version-page-client.tsx into it.
+      Create features/settings/ placeholder directory. Update app/layout.tsx to
+      use DashboardLayout with sidebar nav items. Update app route pages to work
+      within the layout shell. Ensure all existing functionality preserved.
+    state: Todo
+    phase: phase-5
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - features/version/ contains version page client component
+      - features/settings/ directory exists (placeholder for future)
+      - app/layout.tsx wraps content in DashboardLayout
+      - Sidebar nav items point to correct routes (/, /version)
+      - Theme toggle appears in header actions
+      - All existing page functionality preserved (version page, home page)
+      - All tests pass
+      - Web app builds successfully (pnpm build:web)
+    tdd:
+      red:
+        - Write tests verifying version page renders within layout context
+        - Write tests verifying navigation items render correctly
+      green:
+        - Move version-page-client.tsx to features/version/
+        - Update app/version/page.tsx import path
+        - Update app/layout.tsx to use DashboardLayout
+        - Configure sidebar nav items
+      refactor:
+        - Clean up any unused files from old features/ directory
+        - Verify app builds and all pages work end-to-end
+    estimatedEffort: L
+
+  # ── Phase 6: Validation & Cleanup ────────────────────────────────
+
+  - id: task-12
+    title: Final validation, builds, and documentation
+    description: >
+      Run complete validation suite: all tests, Storybook build, web build,
+      linting, type checking. Update docs/ui/architecture.md and
+      docs/ui/components.md to reflect the new four-tier structure. Verify
+      all success criteria from spec.yaml are met.
+    state: Todo
+    phase: phase-6
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - All unit tests pass (pnpm test:unit)
+      - Storybook builds (pnpm build:storybook)
+      - Web app builds (pnpm build:web)
+      - Linting passes (pnpm lint && pnpm lint:web)
+      - Type checking passes (pnpm typecheck && pnpm typecheck:web)
+      - docs/ui/architecture.md updated with four-tier structure
+      - docs/ui/components.md updated with new component inventory
+      - All 10 success criteria from spec.yaml verified
+    tdd: null
+    estimatedEffort: M
 
 # Total effort estimate
-totalEstimate: { { TOTAL_EFFORT } }
+totalEstimate: L
 
 # Open questions
 openQuestions: []
@@ -55,48 +386,78 @@ content: |
 
   ## Task List
 
-  ### Phase 1: Foundation
+  ### Phase 1: Foundation & Storybook Reset (No TDD)
 
-  - [ ] {{TASK_1_DESCRIPTION}}
-  - [ ] {{TASK_2_DESCRIPTION}}
+  - [ ] **Task 1:** Install Storybook addons and @tailwindcss/vite, create directory skeleton
+  - [ ] **Task 2:** Reconfigure Storybook main.ts and preview.tsx (addons, stories glob, viteFinal, storySort)
+  - [ ] **Task 3:** Create design system MDX documentation (Colors, Typography, GettingStarted)
 
-  ### Phase 2: Core Implementation (TDD Cycle)
+  ### Phase 2: Migration & Barrel Cleanup (TDD Cycle 1)
 
   **RED (Write Failing Tests First):**
 
-  - [ ] Write unit tests for {{FEATURE}}
+  - [ ] Run existing tests as baseline, update imports to new paths (should fail)
 
   **GREEN (Implement to Pass Tests):**
 
-  - [ ] Implement {{FEATURE}}
+  - [ ] **Task 4:** Migrate ThemeToggle from features/ to common/, fix all imports
+  - [ ] **Task 5:** Remove tier-level barrel exports (ui/index.ts, features/index.ts), update all imports to direct paths
 
   **REFACTOR (Clean Up):**
 
-  - [ ] Extract helpers and improve code quality
+  - [ ] Rename all 12 ui/ story titles from UI/ to Primitives/
+  - [ ] Rename ThemeToggle story to Composed/ThemeToggle
+
+  ### Phase 3: Common Components (TDD Cycle 2) [P — Parallelizable]
+
+  **RED → GREEN → REFACTOR per component:**
+
+  - [ ] **Task 6 [P]:** Implement page-header (title, description, action slot) with tests + stories
+  - [ ] **Task 7 [P]:** Implement empty-state (icon, title, description, CTA) with tests + stories
+  - [ ] **Task 8 [P]:** Implement loading-skeleton (line/circle/card variants) with tests + stories
+
+  ### Phase 4: Layout Components (TDD Cycle 3)
+
+  **RED → GREEN → REFACTOR:**
+
+  - [ ] **Task 9:** Implement sidebar (nav items, active state) and header (title, slots) with tests + stories
+  - [ ] **Task 10:** Implement dashboard-layout shell (sidebar + header + content) with tests + stories
+
+  ### Phase 5: Feature Integration (TDD Cycle 4)
+
+  **RED → GREEN → REFACTOR:**
+
+  - [ ] **Task 11:** Reorganize feature components (version/, settings/), wire up DashboardLayout in app pages
+
+  ### Phase 6: Validation & Cleanup
+
+  - [ ] **Task 12:** Run full validation suite, update documentation, verify all success criteria
 
   ## TDD Notes
 
-  - **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
+  - **MANDATORY**: All phases with code follow RED → GREEN → REFACTOR
   - **RED**: Write failing tests FIRST (never skip this!)
   - **GREEN**: Write minimal code to pass tests
   - **REFACTOR**: Improve code while keeping tests green
 
   ## Progress Tracking (CRITICAL)
 
-  - **Update checkboxes FREQUENTLY** - as soon as each item is complete!
-  - **Don't batch updates** - check off items immediately, not at the end
+  - **Update checkboxes FREQUENTLY** — as soon as each item is complete!
+  - **Don't batch updates** — check off items immediately, not at the end
   - **Commit task.md updates** along with code changes to show progress
 
   ## Acceptance Checklist
 
   Before marking feature complete:
 
-  - [ ] All tasks completed
+  - [ ] All 12 tasks completed
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
-  - [ ] Types valid (`pnpm typecheck`)
-  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-  - [ ] Documentation updated
+  - [ ] Types valid (`pnpm typecheck && pnpm typecheck:web`)
+  - [ ] Storybook builds (`pnpm build:storybook`)
+  - [ ] Web app builds (`pnpm build:web`)
+  - [ ] Documentation updated (docs/ui/)
+  - [ ] All 10 success criteria from spec.yaml verified
   - [ ] PR created and reviewed
 
   ---
