@@ -3,18 +3,18 @@ feature:
   name: 'ui-sidebar'
   number: 14
   branch: 'feat/ui-sidebar'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-11T15:16:23Z'
 
 status:
-  phase: 'complete'
+  phase: 'in-review'
   progress:
     completed: 6
     total: 6
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-11T17:54:00Z'
-  lastUpdatedBy: 'team-em'
+  lastUpdated: '2026-02-11T20:00:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
 
 validation:
   lastRun: '2026-02-11T17:54:00Z'
@@ -33,6 +33,8 @@ tasks:
   blocked: []
   failed: []
 
+prUrl: 'https://github.com/shep-ai/cli/pull/46'
+
 checkpoints:
   - phase: 'feature-created'
     completedAt: '2026-02-11T15:16:23Z'
@@ -43,6 +45,9 @@ checkpoints:
   - phase: 'plan-complete'
     completedAt: '2026-02-11T19:00:00Z'
     completedBy: 'shep-kit:plan'
+  - phase: 'pr-created'
+    completedAt: '2026-02-11T20:00:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
