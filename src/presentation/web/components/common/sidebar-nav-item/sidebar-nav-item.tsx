@@ -11,7 +11,7 @@ export interface SidebarNavItemProps {
 export function SidebarNavItem({ icon: Icon, label, href, active = false }: SidebarNavItemProps) {
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton asChild isActive={active}>
+      <SidebarMenuButton asChild isActive={active} tooltip={label}>
         <a href={href}>
           <Icon />
           <span>{label}</span>

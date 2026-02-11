@@ -7,12 +7,14 @@ import {
   SidebarContent,
   SidebarFooter,
   SidebarMenu,
+  SidebarMenuItem,
+  SidebarMenuButton,
   SidebarGroup,
   SidebarGroupLabel,
   SidebarGroupContent,
+  SidebarRail,
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
 import { SidebarNavItem } from '@/components/common/sidebar-nav-item';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
@@ -44,7 +46,7 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
   });
 
   return (
-    <Sidebar>
+    <Sidebar collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarNavItem icon={Home} label="Control Center" href="/" />
@@ -80,11 +82,17 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
       </SidebarContent>
 
       <SidebarFooter>
-        <Button onClick={onNewFeature} className="w-full">
-          <Plus />
-          New feature
-        </Button>
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarMenuButton onClick={onNewFeature} tooltip="New feature">
+              <Plus />
+              <span>New feature</span>
+            </SidebarMenuButton>
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarFooter>
+
+      <SidebarRail />
     </Sidebar>
   );
 }

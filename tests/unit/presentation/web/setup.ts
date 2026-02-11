@@ -24,6 +24,13 @@ if (typeof globalThis.window !== 'undefined') {
     writable: true,
   });
 
+  // Mock ResizeObserver for Radix UI components (tooltips, popovers, etc.)
+  globalThis.ResizeObserver = vi.fn().mockImplementation(() => ({
+    observe: vi.fn(),
+    unobserve: vi.fn(),
+    disconnect: vi.fn(),
+  }));
+
   // Mock matchMedia for theme tests
   Object.defineProperty(window, 'matchMedia', {
     writable: true,

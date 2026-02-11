@@ -32,7 +32,7 @@ export function FeatureListItem({
 
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton size="sm" onClick={onClick} className="cursor-pointer">
+      <SidebarMenuButton size="sm" onClick={onClick} tooltip={name} className="cursor-pointer">
         <StatusIcon className={iconClass} />
         <span className="flex-1 truncate font-medium">{name}</span>
         {status === 'in-progress' && startedAt != null && (
