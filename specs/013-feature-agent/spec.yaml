@@ -1,0 +1,130 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-agent
+number: 013
+branch: feat/feature-agent
+oneLiner: Implement LangGraph-based FeatureAgent orchestration system for autonomous SDLC workflow
+summary: >
+  Build the core FeatureAgent system that orchestrates the entire SDLC workflow from requirements
+  gathering through implementation. The FeatureAgent is the main "brain" of Shep AI, managing
+  sub-agents, state transitions, and user interactions across the feature lifecycle. This
+  implementation uses LangGraph for stateful workflow orchestration, with specialized nodes
+  for analysis, requirements gathering, research, planning, and implementation.
+phase: Requirements
+sizeEstimate: XL
+
+# Relationships
+relatedFeatures:
+  - '008-agent-configuration'
+
+technologies:
+  - TypeScript
+  - LangGraph (@langchain/langgraph)
+  - LangChain Core (@langchain/core)
+  - LangChain Anthropic (@langchain/anthropic)
+  - Zod (schema validation)
+  - SQLite (checkpoint persistence)
+
+relatedLinks:
+  - https://langchain-ai.github.io/langgraphjs/
+  - https://js.langchain.com/docs/introduction/
+  - file://./tsp/agents/feature-agent.tsp
+  - file://./AGENTS.md
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should we use checkpointing with SQLite or in-memory for MVP?'
+    resolved: false
+    answer: null
+  - question: 'Do we need supervisor pattern or direct node-to-node edges for MVP?'
+    resolved: false
+    answer: null
+  - question: 'Should spec files be read directly by nodes or loaded into state at initialization?'
+    resolved: false
+    answer: null
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Shep AI currently lacks the autonomous agent orchestration system described in the architecture
+  documentation. The TypeSpec domain models for FeatureAgent exist (`tsp/agents/feature-agent.tsp`),
+  and the planned architecture is documented in `AGENTS.md`, but the actual LangGraph-based
+  implementation is missing.
+
+  Without the FeatureAgent system, users cannot:
+  - Autonomously orchestrate the full SDLC workflow
+  - Benefit from specialized sub-agents for different phases
+  - Leverage stateful conversation and workflow management
+  - Experience the conversational AI-driven requirements gathering
+  - Have automatic plan generation and implementation coordination
+
+  The current system only handles **configuration** of external AI coding tools (Claude Code, etc.)
+  via the `shep settings agent` command. The actual autonomous agent orchestration does not exist.
+
+  ## Success Criteria
+
+  - [x] Spec-driven workflow documented and understood
+  - [ ] LangGraph StateGraph defined with FeatureState schema
+  - [ ] Analyze node implemented (repository analysis)
+  - [ ] Requirements node implemented (conversational requirements gathering)
+  - [ ] Plan node implemented (task decomposition and artifact generation)
+  - [ ] Implement node implemented (autonomous code execution)
+  - [ ] Custom tools implemented (context_query, file_system, code_exec)
+  - [ ] Checkpoint persistence with SQLite configured
+  - [ ] Integration tests for full workflow (analyze → requirements → plan → implement)
+  - [ ] CLI command added to invoke FeatureAgent (`shep feature` or similar)
+  - [ ] Documentation updated (AGENTS.md reflects actual implementation)
+  - [ ] TypeScript types generated from TypeSpec models used in implementation
+
+  ## Affected Areas
+
+  | Area                     | Impact       | Reasoning                                                                 |
+  | ------------------------ | ------------ | ------------------------------------------------------------------------- |
+  | `infrastructure/agents/` | High         | New directory structure for LangGraph nodes, tools, graphs                |
+  | `application/use-cases/` | Medium       | New use cases for invoking FeatureAgent workflow                          |
+  | `presentation/cli/`      | Medium       | New CLI commands to trigger agent workflows                               |
+  | `domain/generated/`      | Low          | Already has FeatureAgent types from TypeSpec                              |
+  | Dependencies             | High         | New packages: @langchain/langgraph, @langchain/core, @langchain/anthropic |
+  | Tests                    | High         | Extensive unit and integration tests for nodes, tools, and workflows      |
+  | Documentation            | Medium       | AGENTS.md must reflect actual implementation (remove "planned" warnings)  |
+
+  ## Dependencies
+
+  **NPM Packages** (not yet installed):
+  - `@langchain/langgraph` - StateGraph workflow orchestration
+  - `@langchain/core` - Tools, messages, prompts
+  - `@langchain/anthropic` - Claude model integration
+  - `@langchain/langgraph-checkpoint-sqlite` - SQLite checkpoint persistence
+
+  **Existing Infrastructure**:
+  - TypeSpec domain models (`tsp/agents/feature-agent.tsp`)
+  - Settings system (for agent configuration)
+  - Repository data storage (`~/.shep/repos/`)
+  - DI container (tsyringe)
+
+  **Pre-requisite Features**:
+  - Agent configuration system (already exists)
+  - Feature entity and repository (already exists)
+  - Spec-driven workflow structure (already exists)
+
+  ## Size Estimate
+
+  **XL (Extra Large)** - This is a foundational feature requiring:
+
+  1. **New dependency integration** - LangGraph and LangChain ecosystem packages
+  2. **Multiple specialized nodes** - At least 4 nodes (analyze, requirements, plan, implement)
+  3. **Custom tools** - 3+ tools for codebase interaction
+  4. **State management** - Complex state schema with typed annotations
+  5. **Checkpoint persistence** - SQLite integration for durable execution
+  6. **Extensive testing** - Unit tests for each node, integration tests for full workflow
+  7. **CLI integration** - New commands to invoke agent workflows
+  8. **Documentation updates** - AGENTS.md, new guides for agent usage
+
+  Estimated effort: 8-12 implementation phases, 30-50 tasks, 2-3 weeks for full implementation
+  and testing following TDD principles.
+
+  ---
+
+  _Generated by `/shep-kit:parallel-task` — proceed with `/shep-kit:research` in the worktree_
