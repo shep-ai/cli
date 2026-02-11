@@ -45,8 +45,9 @@ create_tarball() {
   # Clean old tarballs
   rm -f "$TEST_ARTIFACTS_DIR"/shepai-cli-*.tgz
 
+  # Run npm pack (husky prepare hook requires the destination directory to exist)
   local packed_name
-  packed_name=$(cd "$PROJECT_ROOT" && npm pack --pack-destination "$TEST_ARTIFACTS_DIR" 2>/dev/null | tail -1)
+  packed_name=$(cd "$PROJECT_ROOT" && npm pack --pack-destination "$TEST_ARTIFACTS_DIR" 2>&1 | grep "shepai-cli-" | tail -1)
   TARBALL_PATH="$TEST_ARTIFACTS_DIR/$packed_name"
 
   if [ ! -f "$TARBALL_PATH" ]; then

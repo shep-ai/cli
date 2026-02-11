@@ -15,6 +15,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { execSync } from 'node:child_process';
 import { createCliRunner } from '../../helpers/cli/index.js';
 
@@ -82,7 +83,9 @@ describe('CLI: feat', () => {
 
       runner.runOrThrow(`feat new "Worktree check" --repo ${tempRepo}`);
 
-      const worktreePath = join(tempRepo, '.worktrees', 'feat/worktree-check');
+      // Worktrees are stored at ~/.shep/repos/REPO_HASH/wt/FEATURE-SLUG
+      const repoHash = createHash('sha256').update(tempRepo).digest('hex').slice(0, 16);
+      const worktreePath = join(tempHome, '.shep', 'repos', repoHash, 'wt', 'feat-worktree-check');
       expect(existsSync(worktreePath)).toBe(true);
     });
 
