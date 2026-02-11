@@ -32,6 +32,14 @@ const config: StorybookConfig = {
       '@/lib': resolve(__dirname, '../src/presentation/web/lib'),
       '@/hooks': resolve(__dirname, '../src/presentation/web/hooks'),
       '@/types': resolve(__dirname, '../src/presentation/web/types'),
+      // Mock Next.js in Storybook (no Next runtime; avoids process is not defined)
+      'next/navigation': resolve(__dirname, 'next-navigation-mock.ts'),
+      'next/link': resolve(__dirname, 'next-link-mock.tsx'),
+    };
+
+    config.define = {
+      ...config.define,
+      'process.env.NODE_ENV': JSON.stringify('development'),
     };
 
     return mergeConfig(config, { plugins: [tailwindcss()] });
