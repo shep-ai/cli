@@ -2,28 +2,110 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: ui-sidebar
-summary: Technical analysis for 014-ui-sidebar
+summary: Technical analysis for 014-ui-sidebar sidebar navigation component
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '013-ui-arch'
+  - '004-web-ui-component-library'
+technologies:
+  - React 19
+  - Next.js 16
+  - Tailwind CSS v4
+  - shadcn/ui (sidebar, scroll-area, separator, tooltip)
+  - Storybook 8
+  - Lucide React
+relatedLinks:
+  - https://ui.shadcn.com/docs/components/sidebar
+  - https://ui.shadcn.com/docs/components/scroll-area
+  - https://ui.shadcn.com/docs/components/tooltip
 
 # Structured technology decisions
 decisions:
-  - title: { { DECISION_TITLE } }
-    chosen: { { CHOSEN_OPTION } }
+  - title: Sidebar Primitive Component
+    chosen: 'shadcn/ui Sidebar compound component (npx shadcn add sidebar)'
     rejected:
-      - { { OPTION_1 } }
-      - { { OPTION_2 } }
-    rationale: { { RATIONALE } }
+      - 'Custom sidebar from scratch with Tailwind'
+      - 'Radix NavigationMenu + custom layout'
+      - 'react-sidebar or similar third-party library'
+    rationale: >
+      shadcn Sidebar provides a full compound component (SidebarProvider, Sidebar,
+      SidebarHeader, SidebarContent, SidebarGroup, SidebarGroupLabel,
+      SidebarGroupContent, SidebarMenu, SidebarMenuItem, SidebarMenuButton,
+      SidebarFooter, SidebarTrigger) with built-in state management via useSidebar
+      hook, responsive mobile sheet, collapsible modes (offcanvas, icon, none), and
+      Tailwind CSS v4 integration. It follows the existing shadcn pattern already
+      used for 12 primitives in the project. Custom implementations would require
+      reimplementing accessibility, state management, and responsive behavior.
 
-# Open questions (should be resolved by end of research)
-openQuestions:
-  []
-  # - question: "Which library should we use?"
-  #   resolved: true
-  #   answer: "Library X because of Y"
+  - title: Sidebar CSS Variables Strategy
+    chosen: 'Add --color-sidebar-* tokens to globals.css @theme block, matching existing --color-* pattern'
+    rejected:
+      - 'Use raw --sidebar-* variables outside @theme block (inconsistent with existing tokens)'
+      - 'Let shadcn CLI auto-add variables (may use oklch format, inconsistent with hex values)'
+    rationale: >
+      The current globals.css uses --color-* pattern with hex values in a @theme block
+      (Tailwind v4 convention). The shadcn sidebar component expects --sidebar-*
+      CSS variables for background, foreground, primary, accent, border, and ring.
+      To maintain consistency, we add --color-sidebar-* tokens in the same @theme block
+      using hex values matching the existing slate-based color palette. For light mode:
+      sidebar background slightly off-white (#fafafa), foreground matches main (#0a0a0a).
+      For dark mode: sidebar background darker (#0a0a0a), foreground light (#fafafa).
+
+  - title: ElapsedTime Timer Implementation
+    chosen: 'useEffect + setInterval with 1-second tick and cleanup'
+    rejected:
+      - 'requestAnimationFrame loop (overkill for 1s precision, higher CPU)'
+      - 'date-fns or dayjs for formatting (unnecessary dependency for mm:ss format)'
+      - 'Web Worker timer (complexity not justified for sidebar display)'
+    rationale: >
+      A simple useEffect with setInterval(1000) is sufficient for showing elapsed
+      time in mm:ss format. The component calculates elapsed seconds from
+      Date.now() - startedAt.getTime() on each tick, so it self-corrects for any
+      drift. Cleanup via clearInterval in the useEffect return prevents memory leaks.
+      No external date library needed — simple math (Math.floor, modulo) produces
+      the mm:ss format. For durations over 1 hour, switches to "Xh" format.
+
+  - title: Storybook SidebarProvider Decorator
+    chosen: 'Story-level decorator wrapping each sidebar story in SidebarProvider'
+    rejected:
+      - 'Global decorator in preview.tsx (would wrap ALL stories, unnecessary overhead)'
+      - 'Manual provider in each story (repetitive, error-prone)'
+    rationale: >
+      The shadcn Sidebar requires SidebarProvider context to function. Rather than
+      adding it globally (which would affect non-sidebar stories), we create a
+      reusable decorator function that individual sidebar story files can import.
+      This keeps the sidebar context isolated and follows the existing ThemeDecorator
+      pattern. The decorator wraps stories in SidebarProvider with a flex container
+      to simulate the page layout.
+
+  - title: Feature Status Type Design
+    chosen: 'Sidebar-specific FeatureStatus type with three states: action-needed, in-progress, done'
+    rejected:
+      - 'Reuse domain TaskState enum (Todo/WIP/Done/Review — too many states, Review not needed)'
+      - 'Reuse domain SdlcLifecycle enum (too granular — 6 phases, sidebar shows 3 groups)'
+    rationale: >
+      The sidebar groups features into exactly three visual categories matching the
+      mockup: Action Needed, In Progress, Done. This is a presentation-layer concern
+      — the mapping from domain TaskState/SdlcLifecycle to these three groups
+      happens at the data-fetching boundary, not in the component. Keeping a simple
+      three-value union type in the component layer keeps it clean and testable with
+      mock data, without coupling to domain types.
+
+  - title: Storybook Layout for Sidebar Stories
+    chosen: "Use layout: 'fullscreen' parameter for sidebar stories with fixed-height container"
+    rejected:
+      - "Keep default layout: 'centered' (sidebar needs full-height context)"
+      - 'Custom Storybook viewport addon configuration'
+    rationale: >
+      Sidebar components need to render at full viewport height to look correct.
+      The default centered layout constrains components to a centered box. Setting
+      layout: 'fullscreen' in story parameters and wrapping in a fixed-height
+      container (e.g., h-[600px]) gives realistic rendering while keeping the
+      story self-contained.
+
+# Open questions (all resolved)
+openQuestions: []
 
 # Markdown content (the full research document)
 content: |
@@ -32,33 +114,175 @@ content: |
   - **Phase:** Research
   - **Updated:** 2026-02-11
 
+  ## Current State Analysis
+
+  ### Existing Web UI Components
+
+  | Category | Count | Details |
+  | --- | --- | --- |
+  | shadcn/ui primitives | 12 | Button, Card, Badge, Input, Label, Dialog, Select, Tabs, Accordion, Alert, Popover, Sonner |
+  | Feature components | 1 | ThemeToggle (in features/theme-toggle/) |
+  | Layout components | 0 | None — this is the first layout component |
+  | Common components | 0 | None — common/ directory does not exist yet |
+
+  ### Current CSS Variables
+
+  The globals.css uses `--color-*` pattern with hex values in a `@theme` block (Tailwind v4).
+  **Missing:** No `--color-sidebar-*` tokens exist — these must be added for the shadcn sidebar.
+
+  ### Storybook Configuration
+
+  - Framework: `@storybook/react-vite`
+  - Addons: essentials, links
+  - Theme: Custom ThemeDecorator handling light/dark backgrounds
+  - Layout: Default `centered` for most stories
+  - Path aliases: `@/components`, `@/lib`, `@/hooks`, `@/types`
+
   ## Technology Decisions
 
-  ### {{DECISION_TITLE}}
+  ### 1. Sidebar Primitive Component
 
-  **Options considered:**
+  **Decision:** shadcn/ui Sidebar compound component (`npx shadcn add sidebar`)
 
-  1. {{OPTION_1}}
-  2. {{OPTION_2}}
-  3. {{OPTION_3}}
+  **Key sub-components provided:**
 
-  **Decision:** {{CHOSEN_OPTION}}
+  | Component | Purpose |
+  | --- | --- |
+  | `SidebarProvider` | Context provider with state management |
+  | `Sidebar` | Main container |
+  | `SidebarHeader` | Sticky top section |
+  | `SidebarContent` | Scrollable middle section |
+  | `SidebarGroup` | Section container |
+  | `SidebarGroupLabel` | Section title |
+  | `SidebarGroupContent` | Section body |
+  | `SidebarMenu` | Menu list container |
+  | `SidebarMenuItem` | Individual menu item |
+  | `SidebarMenuButton` | Clickable button within menu item |
+  | `SidebarFooter` | Sticky bottom section |
+  | `SidebarTrigger` | Toggle button (collapse/expand) |
+  | `useSidebar` | Hook for programmatic state control |
 
-  **Rationale:** {{RATIONALE}}
+  **Rejected:** Custom sidebar (reimplements accessibility, state, responsive behavior),
+  Radix NavigationMenu (not designed for sidebar layout), third-party libraries (extra dependency).
+
+  ### 2. Sidebar CSS Variables
+
+  **Decision:** Add `--color-sidebar-*` tokens to globals.css `@theme` block
+
+  Tokens to add (matching existing slate palette):
+
+  **Light mode (`@theme` block):**
+  ```css
+  --color-sidebar: #fafafa;
+  --color-sidebar-foreground: #0a0a0a;
+  --color-sidebar-primary: #3b82f6;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: #f1f5f9;
+  --color-sidebar-accent-foreground: #0f172a;
+  --color-sidebar-border: #e2e8f0;
+  --color-sidebar-ring: #3b82f6;
+  ```
+
+  **Dark mode (`.dark` block):**
+  ```css
+  --color-sidebar: #0a0a0a;
+  --color-sidebar-foreground: #fafafa;
+  --color-sidebar-primary: #3b82f6;
+  --color-sidebar-primary-foreground: #ffffff;
+  --color-sidebar-accent: #1e293b;
+  --color-sidebar-accent-foreground: #f8fafc;
+  --color-sidebar-border: #1e293b;
+  --color-sidebar-ring: #3b82f6;
+  ```
+
+  ### 3. ElapsedTime Timer Implementation
+
+  **Decision:** `useEffect` + `setInterval` with 1-second tick
+
+  ```typescript
+  // Pseudocode
+  const [elapsed, setElapsed] = useState(0);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - startedAt.getTime()) / 1000));
+    }, 1000);
+    return () => clearInterval(id);
+  }, [startedAt]);
+
+  // Format: mm:ss for < 1h, "Xh" for >= 1h
+  ```
+
+  Self-corrects drift by recalculating from `Date.now()` on each tick.
+  No external date library needed.
+
+  ### 4. Storybook SidebarProvider Decorator
+
+  **Decision:** Per-file decorator imported from a shared helper
+
+  ```typescript
+  // In story file:
+  import { SidebarProvider } from '@/components/ui/sidebar';
+
+  const meta = {
+    decorators: [
+      (Story) => (
+        <SidebarProvider>
+          <div className="flex h-[600px]">
+            <Story />
+          </div>
+        </SidebarProvider>
+      ),
+    ],
+    parameters: { layout: 'fullscreen' },
+  };
+  ```
+
+  ### 5. Feature Status Type Design
+
+  **Decision:** Sidebar-specific `FeatureStatus` union type
+
+  ```typescript
+  type FeatureStatus = 'action-needed' | 'in-progress' | 'done';
+  ```
+
+  Three states matching the mockup groups. Mapping from domain types happens at
+  the data boundary, not in presentation components.
+
+  ### 6. Storybook Layout for Sidebar Stories
+
+  **Decision:** `layout: 'fullscreen'` with fixed-height container
+
+  Sidebar needs full-height rendering. Use `parameters: { layout: 'fullscreen' }`
+  and wrap in `h-[600px]` container for realistic preview.
 
   ## Library Analysis
 
-  | Library     | Version     | Purpose     | Pros     | Cons     |
-  | ----------- | ----------- | ----------- | -------- | -------- |
-  | {{LIBRARY}} | {{VERSION}} | {{PURPOSE}} | {{PROS}} | {{CONS}} |
+  | Library | Version | Purpose | Action |
+  | --- | --- | --- | --- |
+  | shadcn/ui sidebar | latest | Sidebar compound component | **Install** (`npx shadcn add sidebar`) |
+  | shadcn/ui scroll-area | latest | Scrollable feature list | **Install** (`npx shadcn add scroll-area`) |
+  | shadcn/ui separator | latest | Visual dividers between sections | **Install** (`npx shadcn add separator`) |
+  | shadcn/ui tooltip | latest | Collapsed sidebar tooltips | **Install** (`npx shadcn add tooltip`) |
+  | Lucide React | 0.563.0 | Icons (Settings, Brain, Plus, Check, Clock, Loader) | Already installed |
+  | Radix UI | varies | Underlying primitives (comes with shadcn) | Already installed |
+
+  No new non-shadcn dependencies needed.
 
   ## Security Considerations
 
-  No security implications identified.
+  No security implications. This feature is purely presentational — static sidebar
+  navigation with mock data. No user input processing, no API calls, no authentication.
 
   ## Performance Implications
 
-  No performance implications identified.
+  - **ElapsedTime setInterval**: One interval per in-progress feature. With typical
+    sidebar showing 1-5 in-progress items, negligible CPU impact. Intervals are
+    cleaned up on unmount.
+  - **SidebarProvider context**: Single context provider, minimal re-render scope.
+    Only sidebar children re-render on state changes (open/close).
+  - **Scroll-area**: Uses native scrollbar wrapping via Radix ScrollArea. No
+    virtualization needed — sidebar feature lists are small (< 50 items).
 
   ## Open Questions
 

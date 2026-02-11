@@ -13,7 +13,7 @@ summary: >
   status (Action Needed, In Progress, Done) with live elapsed timers for running
   tasks and total duration for completed ones. Bottom footer contains a
   "+ New feature" button. All components isolated with Storybook stories.
-phase: Requirements
+phase: Research
 sizeEstimate: M
 
 # Relationships
