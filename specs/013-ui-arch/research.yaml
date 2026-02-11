@@ -2,28 +2,115 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: ui-arch
-summary: Technical analysis for 013-ui-arch
+summary: Technical analysis for 013-ui-arch component architecture restructure
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '004-web-ui-component-library'
+  - '007-ui-command'
+technologies:
+  - React 19
+  - Next.js 16
+  - Tailwind CSS v4
+  - shadcn/ui (new-york style)
+  - Storybook 8.6
+  - Radix UI
+  - class-variance-authority
+relatedLinks:
+  - https://ui.shadcn.com/docs
+  - https://storybook.js.org/docs
+  - https://tailwindcss.com/docs
 
 # Structured technology decisions
 decisions:
-  - title: { { DECISION_TITLE } }
-    chosen: { { CHOSEN_OPTION } }
+  - title: Component Tier Architecture
+    chosen: 'Four-tier hierarchy: ui/ → common/ → layouts/ → features/'
     rejected:
-      - { { OPTION_1 } }
-      - { { OPTION_2 } }
-    rationale: { { RATIONALE } }
+      - 'Flat structure (current: ui/ + features/ only)'
+      - 'Three-tier without dedicated layouts directory'
+      - 'Atomic Design (atoms → molecules → organisms → templates → pages)'
+    rationale: >
+      Four-tier matches the project's needs. ui/ stays CLI-managed by shadcn,
+      common/ provides cross-feature composed components, layouts/ separates structural
+      shells from feature logic, features/ holds domain-specific UI. Atomic Design
+      is overly prescriptive for a shadcn-based project where the atom boundary is
+      already defined by shadcn primitives.
 
-# Open questions (should be resolved by end of research)
-openQuestions:
-  []
-  # - question: "Which library should we use?"
-  #   resolved: true
-  #   answer: "Library X because of Y"
+  - title: Storybook Framework Adapter
+    chosen: '@storybook/react-vite (keep current)'
+    rejected:
+      - '@storybook/nextjs (Webpack-based, slower, React version conflicts)'
+      - '@storybook/nextjs-vite (active Tailwind v4 PostCSS bug storybook#31373)'
+    rationale: >
+      react-vite works well with the current stack. nextjs-vite has an active bug
+      with Tailwind v4 PostCSS plugin detection. Since we render UI components not
+      pages with routing, losing Next.js-specific mocking is acceptable.
+
+  - title: Tailwind v4 Integration in Storybook
+    chosen: '@tailwindcss/vite plugin via viteFinal hook with dynamic import'
+    rejected:
+      - 'Rely on PostCSS config auto-detection (unreliable in Storybook Vite)'
+      - 'Duplicate PostCSS config in Storybook directory'
+    rationale: >
+      Storybook's Vite instance does not reliably pick up the project PostCSS config.
+      The @tailwindcss/vite plugin integrates at the Vite transform level, which is
+      faster and more reliable. Dynamic import avoids startup issues.
+
+  - title: Story Organization Naming
+    chosen: 'Category-based: Design System/, Primitives/, Composed/, Layout/, Features/'
+    rejected:
+      - 'Current flat UI/ prefix for everything'
+      - 'Design System/ prefix for all components'
+    rationale: >
+      Category-based naming maps directly to the four component tiers and enables
+      Storybook sidebar sorting. A top-level Design System/ category is added for
+      MDX documentation pages (colors, typography, spacing).
+
+  - title: Storybook Addons
+    chosen: 'Add @storybook/addon-a11y and @storybook/addon-interactions'
+    rejected:
+      - '@storybook/addon-themes (manual theme decorator works fine)'
+      - 'storybook-design-token (Tailwind v4 @theme compatibility issues)'
+      - '@chromatic-com/storybook (visual regression deferred)'
+    rationale: >
+      addon-a11y runs axe-core WCAG checks on every story automatically.
+      addon-interactions enables play functions for testing interactive composed
+      components. The current manual theme decorator is sufficient for dark/light
+      mode switching.
+
+  - title: Barrel Export Strategy
+    chosen: 'Per-component index.ts only, no tier-level barrels'
+    rejected:
+      - 'Full barrel exports at every level'
+      - 'No barrels at all'
+    rationale: >
+      Tier-level barrels cause bundle inflation by forcing bundlers to evaluate all
+      re-exported modules. Per-component index.ts files are fine since they re-export
+      2-3 things. The existing ui/index.ts and features/index.ts barrels should be
+      removed. Direct imports like @/components/ui/button are preferred.
+
+  - title: Design System Documentation
+    chosen: 'MDX pages in src/presentation/web/docs/ using Storybook doc blocks'
+    rejected:
+      - 'Keep design-tokens.mdx in components/ directory'
+      - 'storybook-design-token addon for auto-parsing'
+    rationale: >
+      Storybook provides built-in doc blocks (ColorPalette, Typeset, IconGallery)
+      for documenting design tokens. Placing MDX files in a dedicated docs/ directory
+      separates documentation from component code.
+
+  - title: Client/Server Component Boundaries
+    chosen: "Push 'use client' down to leaf components that need interactivity"
+    rejected:
+      - 'Mark all composed components as client components'
+      - 'Single provider wrapper for everything'
+    rationale: >
+      Layout shells should remain Server Components where possible, accepting children
+      that may be client components. Only components using hooks or event handlers
+      need the directive. This maximizes server-rendering and reduces client bundle.
+
+# Open questions (all resolved)
+openQuestions: []
 
 # Markdown content (the full research document)
 content: |
@@ -32,33 +119,146 @@ content: |
   - **Phase:** Research
   - **Updated:** 2026-02-11
 
+  ## Current State Analysis
+
+  ### Existing Components (13 shadcn/ui primitives)
+
+  | Component | Pattern | Variants | Stories |
+  | --- | --- | --- | --- |
+  | Button | CVA + forwardRef | 6 variants, 3 sizes | 11 stories |
+  | Card | Compound (6 sub-components) | None | Yes |
+  | Badge | CVA | 4 variants | Yes |
+  | Input | forwardRef | None | Yes |
+  | Label | Radix UI wrapper | CVA | Yes |
+  | Dialog | Radix UI compound | None | Yes |
+  | Select | Radix UI compound | None | Yes |
+  | Tabs | Radix UI compound | None | Yes |
+  | Accordion | Radix UI compound | None | Yes |
+  | Alert | CVA compound | 2 variants | 4 stories |
+  | Popover | Radix UI wrapper | None | Yes |
+  | Sonner | Toaster wrapper | None | Yes |
+
+  ### Existing Feature Components
+
+  - **ThemeToggle** — Client component using useTheme hook. Will move to `common/`.
+
+  ### Current Import Map
+
+  Only 6 files import from `@/components`:
+  - `app/page.tsx` → Button
+  - `app/version/version-page-client.tsx` → Card, Badge, Button, Tabs
+  - `components/features/theme-toggle/theme-toggle.tsx` → Button
+
+  No external files import from `@/components/features` — ThemeToggle migration is safe.
+
   ## Technology Decisions
 
-  ### {{DECISION_TITLE}}
+  ### 1. Component Tier Architecture
 
-  **Options considered:**
+  **Decision:** Four-tier hierarchy (`ui/` → `common/` → `layouts/` → `features/`)
 
-  1. {{OPTION_1}}
-  2. {{OPTION_2}}
-  3. {{OPTION_3}}
+  **Import rules (strict dependency direction):**
 
-  **Decision:** {{CHOSEN_OPTION}}
+  | Tier | Directory | Can Import From |
+  | --- | --- | --- |
+  | 0 | `ui/` | Nothing in `components/` |
+  | 1 | `common/` | `ui/` only |
+  | 2 | `layouts/` | `ui/`, `common/` |
+  | 3 | `features/` | `ui/`, `common/`, `layouts/` |
 
-  **Rationale:** {{RATIONALE}}
+  ### 2. Storybook Framework Adapter
+
+  **Decision:** Keep `@storybook/react-vite`
+
+  `@storybook/nextjs-vite` has an active bug with Tailwind v4 PostCSS (storybook#31373).
+  Since we render UI components not pages with routing, losing Next.js mocking is acceptable.
+
+  ### 3. Tailwind v4 in Storybook
+
+  **Decision:** Use `@tailwindcss/vite` plugin in `viteFinal` via dynamic import
+
+  ```typescript
+  viteFinal: async (config) => {
+    const { default: tailwindcss } = await import('@tailwindcss/vite');
+    const { mergeConfig } = await import('vite');
+    return mergeConfig(config, { plugins: [tailwindcss()] });
+  },
+  ```
+
+  ### 4. Story Organization
+
+  **Decision:** Category-based naming mapped to component tiers
+
+  | Tier | Story Title Prefix | Example |
+  | --- | --- | --- |
+  | Docs | `Design System/` | `Design System/Colors` |
+  | ui/ | `Primitives/` | `Primitives/Button` |
+  | common/ | `Composed/` | `Composed/PageHeader` |
+  | layouts/ | `Layout/` | `Layout/DashboardLayout` |
+  | features/ | `Features/` | `Features/SettingsForm` |
+
+  Sidebar sorting via `storySort` in preview.tsx.
+
+  ### 5. Storybook Addons
+
+  **Add:** `@storybook/addon-a11y`, `@storybook/addon-interactions`
+  **Keep:** `@storybook/addon-essentials`, `@storybook/addon-links`
+  **Skip:** addon-themes, storybook-design-token, Chromatic
+
+  ### 6. Barrel Export Strategy
+
+  **Decision:** Per-component `index.ts` only, no tier-level barrels
+
+  - Remove `components/ui/index.ts` barrel
+  - Remove `components/features/index.ts` barrel
+  - Each component folder gets its own `index.ts`
+  - Direct imports: `import { Button } from '@/components/ui/button'`
+
+  ### 7. Design System Documentation
+
+  **Decision:** MDX in `src/presentation/web/docs/` with Storybook doc blocks
+
+  - `docs/Colors.mdx` — ColorPalette + ColorItem
+  - `docs/Typography.mdx` — Typeset
+  - `docs/Shadows.mdx` — Shadow tokens
+  - `docs/GettingStarted.mdx` — Component usage guide
+
+  Stories glob updated to include `docs/**/*.mdx`.
+
+  ### 8. Client/Server Component Boundaries
+
+  **Decision:** Push `"use client"` down to leaf components
+
+  | Scenario | Needs `"use client"`? |
+  | --- | --- |
+  | Uses hooks (useState, useEffect) | Yes |
+  | Has event handlers (onClick) | Yes |
+  | Wraps interactive shadcn primitive + manages state | Yes |
+  | Composes only static primitives (Card, Badge) | No |
+  | Layout shell accepting children | No |
 
   ## Library Analysis
 
-  | Library     | Version     | Purpose     | Pros     | Cons     |
-  | ----------- | ----------- | ----------- | -------- | -------- |
-  | {{LIBRARY}} | {{VERSION}} | {{PURPOSE}} | {{PROS}} | {{CONS}} |
+  | Library | Version | Purpose | Action |
+  | --- | --- | --- | --- |
+  | @storybook/react-vite | 8.6.14 | Storybook framework | Keep |
+  | @storybook/addon-essentials | 8.6.14 | Core addons | Keep |
+  | @storybook/addon-links | 8.6.14 | Story linking | Keep |
+  | @storybook/addon-a11y | 8.6.x | Accessibility checks | **Add** |
+  | @storybook/addon-interactions | 8.6.x | Play function testing | **Add** |
+  | @tailwindcss/vite | ^4.1 | Tailwind in Storybook | **Add** |
 
   ## Security Considerations
 
-  No security implications identified.
+  No security implications. This feature is purely presentational — restructuring
+  component directories and Storybook configuration. No new data flows, authentication,
+  or external API integrations.
 
   ## Performance Implications
 
-  No performance implications identified.
+  - **Barrel export removal**: Improves tree-shaking by preventing unnecessary module evaluation
+  - **Server Components**: Layout shells remain Server Components where possible, reducing client JS
+  - **Storybook build**: Moderate increase in story count with minimal build time impact
 
   ## Open Questions
 
