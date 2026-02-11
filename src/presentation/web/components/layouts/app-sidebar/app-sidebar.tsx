@@ -13,11 +13,13 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarRail,
+  useSidebar,
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarNavItem } from '@/components/common/sidebar-nav-item';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
+import { FeatureStatusBadges } from '@/components/common/feature-status-badges';
 import type { FeatureStatus } from '@/components/common/feature-list-item';
 
 interface FeatureItem {
@@ -40,10 +42,21 @@ const statusGroups: { key: FeatureStatus; label: string }[] = [
 ];
 
 export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSidebarProps) {
+  const { state } = useSidebar();
+  const collapsed = state === 'collapsed';
+
   const grouped = statusGroups.map(({ key, label }) => {
     const items = features.filter((f) => f.status === key);
     return { key, label, items };
   });
+
+  const counts = statusGroups.reduce(
+    (acc, { key }) => {
+      acc[key] = features.filter((f) => f.status === key).length;
+      return acc;
+    },
+    {} as Record<FeatureStatus, number>
+  );
 
   return (
     <Sidebar data-testid="app-sidebar" collapsible="icon">
@@ -55,30 +68,36 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
       </SidebarHeader>
 
       <SidebarContent>
-        <ScrollArea>
-          <SidebarGroup className="py-1">
-            <SidebarGroupLabel>Features</SidebarGroupLabel>
-            <SidebarGroupContent>
-              {grouped.map(
-                ({ key, label, items }) =>
-                  items.length > 0 && (
-                    <FeatureStatusGroup key={key} label={label} count={items.length}>
-                      {items.map((feature) => (
-                        <FeatureListItem
-                          key={feature.name}
-                          name={feature.name}
-                          status={feature.status}
-                          startedAt={feature.startedAt}
-                          duration={feature.duration}
-                          onClick={onFeatureClick ? () => onFeatureClick(feature.name) : undefined}
-                        />
-                      ))}
-                    </FeatureStatusGroup>
-                  )
-              )}
-            </SidebarGroupContent>
-          </SidebarGroup>
-        </ScrollArea>
+        {collapsed ? (
+          <FeatureStatusBadges counts={counts} />
+        ) : (
+          <ScrollArea>
+            <SidebarGroup className="py-1">
+              <SidebarGroupLabel>Features</SidebarGroupLabel>
+              <SidebarGroupContent>
+                {grouped.map(
+                  ({ key, label, items }) =>
+                    items.length > 0 && (
+                      <FeatureStatusGroup key={key} label={label} count={items.length}>
+                        {items.map((feature) => (
+                          <FeatureListItem
+                            key={feature.name}
+                            name={feature.name}
+                            status={feature.status}
+                            startedAt={feature.startedAt}
+                            duration={feature.duration}
+                            onClick={
+                              onFeatureClick ? () => onFeatureClick(feature.name) : undefined
+                            }
+                          />
+                        ))}
+                      </FeatureStatusGroup>
+                    )
+                )}
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </ScrollArea>
+        )}
       </SidebarContent>
 
       <SidebarFooter>
