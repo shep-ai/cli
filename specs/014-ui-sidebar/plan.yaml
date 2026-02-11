@@ -85,6 +85,7 @@ filesToCreate:
 
 filesToModify:
   - src/presentation/web/app/globals.css
+  - .prettierignore
 
 # Open questions
 openQuestions: []
@@ -243,6 +244,7 @@ content: |
   | File | Changes |
   | ---- | ------- |
   | `app/globals.css` | Add `--color-sidebar-*` tokens in `@theme` and `.dark` blocks |
+  | `.prettierignore` | Add `docs/poc/` so format check passes (manual addition) |
 
   ## Testing Strategy (TDD: Tests FIRST)
 

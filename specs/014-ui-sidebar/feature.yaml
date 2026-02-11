@@ -8,13 +8,13 @@ feature:
 
 status:
   phase: 'in-review'
+  lastUpdated: '2026-02-11T21:40:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
   progress:
     completed: 6
     total: 6
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-11T20:00:00Z'
-  lastUpdatedBy: 'shep-kit:commit-pr'
 
 validation:
   lastRun: '2026-02-11T17:54:00Z'

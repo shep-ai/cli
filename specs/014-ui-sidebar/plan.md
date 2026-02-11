@@ -150,6 +150,7 @@ These two components are independent and can be built in parallel.
 | File              | Changes                                                       |
 | ----------------- | ------------------------------------------------------------- |
 | `app/globals.css` | Add `--color-sidebar-*` tokens in `@theme` and `.dark` blocks |
+| `.prettierignore` | Add `docs/poc/` so format check passes (manual addition)      |
 
 ## Testing Strategy (TDD: Tests FIRST)
 
