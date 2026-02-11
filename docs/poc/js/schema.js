@@ -61,6 +61,58 @@
  */
 
 /**
+ * @typedef {Object} ActionItem
+ * @property {string} id - Action item unique identifier
+ * @property {string} description - Action item description (e.g., "Install npm dependencies")
+ * @property {boolean} completed - Whether action item is complete
+ * @property {number} order - Display order
+ */
+
+/**
+ * @typedef {Object} Commit
+ * @property {string} sha - Commit SHA (short form, e.g., 'a3f7d9e')
+ * @property {string} message - Commit message
+ * @property {string} author - Commit author name
+ * @property {string} timestamp - Human-readable time (e.g., '2h ago')
+ * @property {number} filesChanged - Number of files changed
+ * @property {number} additions - Lines added
+ * @property {number} deletions - Lines deleted
+ * @property {'RED'|'GREEN'|'REFACTOR'|null} tddPhase - TDD phase of commit
+ */
+
+/**
+ * @typedef {Object} ChangesSummary
+ * @property {number} filesChanged - Total files changed
+ * @property {number} additions - Total lines added
+ * @property {number} deletions - Total lines deleted
+ * @property {number} commits - Total number of commits
+ */
+
+/**
+ * @typedef {Object} Phase
+ * @property {string} id - Phase unique identifier
+ * @property {string} name - Phase name (e.g., "Phase 0: Foundation")
+ * @property {string} description - Phase description
+ * @property {'pending'|'running'|'completed'|'merged'} status - Phase status
+ * @property {number} order - Sequential ordering (determines dependencies)
+ * @property {number|null} parallelGroup - Phases with same group run in parallel
+ * @property {string} branch - Git branch name (e.g., "feat/cli/phase-0")
+ * @property {string} worktree - Worktree path (e.g., ".worktrees/phase-0-foundation")
+ * @property {string} estimatedTime - Estimated completion time
+ * @property {number} progress - Progress percentage (0-100)
+ * @property {string|null} currentActionItem - ID of current action item
+ * @property {'RED'|'GREEN'|'REFACTOR'|null} tddCycle - Current TDD cycle phase
+ * @property {ActionItem[]} actionItems - List of action items
+ * @property {Commit[]} commits - List of commits in phase
+ * @property {ChangesSummary} changesSummary - Summary of changes
+ * @property {string|null} mergedAt - Timestamp when merged
+ * @property {string} mergedInto - Branch merged into
+ * @property {string} createdAt - Creation timestamp
+ * @property {string|null} completedAt - Completion timestamp
+ * @property {string} updatedAt - Last update timestamp
+ */
+
+/**
  * @typedef {Object} ActivityEvent
  * @property {string} id - Event unique identifier
  * @property {string} userId - User who performed the action
@@ -122,9 +174,14 @@
  * @property {Dependency[]} dependencies - Feature dependencies
  * @property {Attachment[]} attachments - File attachments
  *
- * // Tasks & Progress
+ * // Tasks & Progress (for non-Implementation phases)
  * @property {Task[]} tasks - Task breakdown
  * @property {Progress} progress - Calculated progress metrics
+ *
+ * // Phases (only during Implementation phase 5)
+ * @property {Phase[]} phases - Implementation phases (RED-GREEN-REFACTOR cycles)
+ * @property {string} featureBranch - Feature branch name (e.g., "feat/006-cli-settings-commands")
+ * @property {string|null} implementationStartedAt - When Implementation phase started
  *
  * // Activity & History
  * @property {ActivityEvent[]} activity - Activity timeline
@@ -189,7 +246,7 @@ export function createFeature(title, options = {}) {
     dependencies: options.dependencies || [],
     attachments: options.attachments || [],
 
-    // Tasks & Progress
+    // Tasks & Progress (for non-Implementation phases)
     tasks: options.tasks || [],
     progress: options.progress || {
       percentage: 0,
@@ -199,6 +256,11 @@ export function createFeature(title, options = {}) {
       blockedCount: 0,
       totalCount: 0,
     },
+
+    // Phases (only during Implementation phase 5)
+    phases: options.phases || [],
+    featureBranch: options.featureBranch || `feat/${title.toLowerCase().replace(/\s+/g, '-')}`,
+    implementationStartedAt: options.implementationStartedAt || null,
 
     // Activity & History
     activity: options.activity || [
@@ -309,6 +371,79 @@ export function calculateProgress(tasks) {
     todoCount,
     blockedCount,
     totalCount,
+  };
+}
+
+/**
+ * Create an action item
+ * @param {string} description - Action item description
+ * @param {Object} options - Optional overrides
+ * @returns {ActionItem} Action item object
+ */
+export function createActionItem(description, options = {}) {
+  return {
+    id: options.id || `action_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+    description,
+    completed: options.completed || false,
+    order: options.order || 0,
+  };
+}
+
+/**
+ * Create a commit
+ * @param {string} message - Commit message
+ * @param {Object} options - Optional overrides
+ * @returns {Commit} Commit object
+ */
+export function createCommit(message, options = {}) {
+  return {
+    sha: options.sha || Math.random().toString(16).substr(2, 7),
+    message,
+    author: options.author || 'Claude Haiku',
+    timestamp: options.timestamp || 'just now',
+    filesChanged: options.filesChanged || 0,
+    additions: options.additions || 0,
+    deletions: options.deletions || 0,
+    tddPhase: options.tddPhase || null,
+  };
+}
+
+/**
+ * Create a phase
+ * @param {string} name - Phase name
+ * @param {Object} options - Optional overrides
+ * @returns {Phase} Phase object
+ */
+export function createPhase(name, options = {}) {
+  const now = new Date().toISOString();
+  const phaseId = options.id || `phase_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  return {
+    id: phaseId,
+    name,
+    description: options.description || '',
+    status: options.status || 'pending',
+    order: options.order || 0,
+    parallelGroup: options.parallelGroup !== undefined ? options.parallelGroup : null,
+    branch: options.branch || `phase-${options.order || 0}`,
+    worktree: options.worktree || `.worktrees/phase-${options.order || 0}`,
+    estimatedTime: options.estimatedTime || '',
+    progress: options.progress || 0,
+    currentActionItem: options.currentActionItem || null,
+    tddCycle: options.tddCycle || null,
+    actionItems: options.actionItems || [],
+    commits: options.commits || [],
+    changesSummary: options.changesSummary || {
+      filesChanged: 0,
+      additions: 0,
+      deletions: 0,
+      commits: 0,
+    },
+    mergedAt: options.mergedAt || null,
+    mergedInto: options.mergedInto || '',
+    createdAt: options.createdAt || now,
+    completedAt: options.completedAt || null,
+    updatedAt: options.updatedAt || now,
   };
 }
 

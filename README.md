@@ -187,6 +187,7 @@ See [CI/CD Documentation](./docs/development/cicd.md) for details.
 | [Guides](./docs/guides/)                           | User guides and tutorials             |
 | [Development](./docs/development/)                 | Contributing and development setup    |
 | [API Reference](./docs/api/)                       | Interface and model documentation     |
+| [POC: Feature Flow](./docs/poc/)                   | Interactive feature lifecycle demo    |
 
 ## Contributing
 

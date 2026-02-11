@@ -1117,3 +1117,116 @@ button[data-question]:disabled {
   font-weight: 600;
   color: #64748b;
 }
+
+/* Phase Card Styles */
+
+.phase-card {
+  width: 280px;
+  min-height: 320px;
+  max-height: 500px;
+  background: white;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  border-left-width: 4px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  transition: all 200ms ease-out;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.phase-card:hover {
+  box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+/* Action Items List */
+.action-items-list {
+  flex-shrink: 0;
+}
+
+.action-items-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.action-items-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.action-items-list::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.action-items-list::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Commit Graph */
+.commit-graph {
+  flex-shrink: 0;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.commit-graph::-webkit-scrollbar {
+  width: 4px;
+}
+
+.commit-graph::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.commit-graph::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 2px;
+}
+
+.commit-graph::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Phase Status Border Colors */
+.phase-pending {
+  border-left-color: #cbd5e1;
+}
+
+.phase-running {
+  border-left-color: rgba(59, 130, 246, 0.7);
+  animation: construction-progress 0.8s ease-in-out infinite;
+}
+
+.phase-completed {
+  border-left-color: rgba(34, 197, 94, 0.7);
+}
+
+.phase-merged {
+  border-left-color: #cbd5e1;
+}
+
+/* Phase Drawer (hover controls) */
+.phase-drawer {
+  z-index: 10;
+  will-change: transform, opacity;
+}
+
+/* Smooth transitions for drawer */
+.phase-drawer.translate-y-8 {
+  transform: translateY(32px);
+  opacity: 0;
+  visibility: hidden;
+}
+
+.phase-drawer.translate-y-0 {
+  transform: translateY(0);
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Phase card hover state */
+.phase-card {
+  position: relative;
+}
+
+.phase-card:hover {
+  z-index: 50;
+}

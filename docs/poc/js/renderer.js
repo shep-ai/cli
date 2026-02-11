@@ -13,7 +13,10 @@ export class Renderer {
     svgLayer.innerHTML = '';
 
     // Check view mode - seamless canvas switching
-    if (this.state.viewMode === 'tasks') {
+    if (this.state.viewMode === 'phases') {
+      this.renderPhasesView(container, svgLayer);
+      this.updateCanvasHeader(true, 'Implementation Phases');
+    } else if (this.state.viewMode === 'tasks') {
       this.renderTasksView(container, svgLayer, onTaskClick);
       this.updateCanvasHeader(true);
     } else {
@@ -22,20 +25,20 @@ export class Renderer {
     }
   }
 
-  updateCanvasHeader(isTaskView) {
+  updateCanvasHeader(isDetailView, subtitle = null) {
     const backBtn = document.getElementById('back-btn');
     const canvasTitle = document.getElementById('canvas-title');
 
-    if (isTaskView) {
+    if (isDetailView) {
       const feature = this.state.getFeature(this.state.focusedFeatureId);
       backBtn.classList.remove('hidden');
       // Clear and rebuild title safely
       canvasTitle.textContent = '';
-      const titleText = document.createTextNode(feature?.title || 'Tasks');
+      const titleText = document.createTextNode(feature?.title || 'Details');
       const br = document.createElement('br');
       const subtitleSpan = document.createElement('span');
       subtitleSpan.className = 'text-slate-300';
-      subtitleSpan.textContent = 'Task Breakdown';
+      subtitleSpan.textContent = subtitle || 'Task Breakdown';
       canvasTitle.appendChild(titleText);
       canvasTitle.appendChild(br);
       canvasTitle.appendChild(subtitleSpan);
@@ -828,6 +831,449 @@ export class Renderer {
     card.appendChild(footer);
 
     return card;
+  }
+
+  /**
+   * Render phases view (for Implementation phase features)
+   */
+  renderPhasesView(container, svgLayer) {
+    const phases = this.state.getCanvasPhases();
+
+    if (phases.length === 0) {
+      this.renderEmptyPhasesView(container);
+      return;
+    }
+
+    const feature = this.state.getFeature(this.state.focusedFeatureId);
+    const mergedCount = phases.filter((p) => p.status === 'merged').length;
+
+    // Use flexbox layout (no absolute positioning = no overlaps)
+    const flexContainer = document.createElement('div');
+    flexContainer.className = 'flex flex-col items-start gap-0 pt-[180px] pb-24 pl-24 pr-8';
+
+    // Feature branch card
+    const branchCard = document.createElement('div');
+    branchCard.className =
+      'w-[600px] p-3 bg-blue-50 border-l-4 border-blue-500 rounded shadow-sm mb-6';
+    branchCard.innerHTML = `
+      <div class="flex justify-between items-start">
+        <div>
+          <div class="text-[8px] font-bold uppercase tracking-wider text-blue-600">Feature Branch</div>
+          <div class="text-sm font-semibold text-slate-700 mt-1">${feature?.featureBranch || 'feat/unknown'}</div>
+        </div>
+        <div class="text-right text-[8px] text-slate-500">
+          <div>${phases.length} phases</div>
+          <div>${mergedCount} merged</div>
+        </div>
+      </div>
+    `;
+    flexContainer.appendChild(branchCard);
+
+    // Group phases by parallelGroup and order
+    const groups = {};
+    phases.forEach((phase) => {
+      const key =
+        phase.parallelGroup !== null
+          ? `parallel_${phase.parallelGroup}`
+          : `sequential_${phase.order}`;
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(phase);
+    });
+
+    // Sort groups by order of first phase
+    const sortedKeys = Object.keys(groups).sort((a, b) => {
+      return groups[a][0].order - groups[b][0].order;
+    });
+
+    // Render each group as a row with CSS arrow connectors between them
+    sortedKeys.forEach((key, idx) => {
+      // Arrow connector between groups
+      if (idx > 0) {
+        const arrow = document.createElement('div');
+        arrow.className = 'flex flex-col items-center ml-[120px] my-1';
+        arrow.innerHTML = `
+          <div class="w-px h-5 bg-slate-300"></div>
+          <div class="w-0 h-0 border-l-[5px] border-r-[5px] border-t-[6px] border-l-transparent border-r-transparent border-t-slate-300"></div>
+        `;
+        flexContainer.appendChild(arrow);
+      }
+
+      // Phase row (single card or horizontal row for parallel)
+      const row = document.createElement('div');
+      row.className = 'flex gap-4 flex-wrap';
+
+      groups[key].forEach((phase) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'group cursor-pointer node-enter';
+        wrapper.dataset.phaseId = phase.id;
+        wrapper.appendChild(this.createPhaseCard(phase));
+        row.appendChild(wrapper);
+      });
+
+      flexContainer.appendChild(row);
+    });
+
+    container.appendChild(flexContainer);
+  }
+
+  /**
+   * Create a phase card (similar to task card but with more details)
+   */
+  createPhaseCard(phase) {
+    const statusColorMap = {
+      pending: 'border-slate-300',
+      running: 'border-blue-500/70',
+      completed: 'border-emerald-500/70',
+      merged: 'border-slate-300',
+    };
+
+    const borderColor = statusColorMap[phase.status] || 'border-slate-300';
+    const displayPercent = Math.max(5, phase.progress);
+
+    const card = document.createElement('div');
+    card.className = `w-[280px] rounded glass flex flex-col justify-between border overflow-hidden transition-all duration-200 ${borderColor}`;
+
+    // Content section
+    const content = document.createElement('div');
+    content.className = 'relative flex-1 px-3 pt-2 pb-0 flex flex-col overflow-hidden bg-white';
+
+    // Top bar with branch badge and TDD cycle badge
+    const topBar = document.createElement('div');
+    topBar.className = 'flex justify-between items-start gap-2 mb-1.5 flex-shrink-0';
+
+    // Worktree badge (top-right)
+    const worktreeBadge = document.createElement('span');
+    worktreeBadge.className =
+      'text-[7px] px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-600 font-semibold truncate max-w-[140px]';
+    worktreeBadge.title = phase.worktree;
+    worktreeBadge.textContent = `wt/${phase.name
+      .replace('Phase ', '')
+      .replace(/[^a-z0-9]/gi, '')
+      .toLowerCase()
+      .substring(0, 8)}`;
+    topBar.appendChild(worktreeBadge);
+
+    // TDD cycle badge (if applicable)
+    if (phase.tddCycle) {
+      const tddBadge = document.createElement('span');
+      const tddColors = {
+        RED: 'bg-red-50 border-red-200 text-red-600',
+        GREEN: 'bg-emerald-50 border-emerald-200 text-emerald-600',
+        REFACTOR: 'bg-blue-50 border-blue-200 text-blue-600',
+      };
+      tddBadge.className = `text-[7px] px-1.5 py-0.5 rounded border font-semibold ${tddColors[phase.tddCycle]}`;
+      tddBadge.textContent = phase.tddCycle;
+      topBar.appendChild(tddBadge);
+    }
+
+    content.appendChild(topBar);
+
+    // Title
+    const title = document.createElement('h3');
+    title.className = 'text-xs font-bold text-slate-700 leading-tight truncate flex-shrink-0';
+    title.textContent = phase.name;
+    content.appendChild(title);
+
+    // Description
+    const desc = document.createElement('p');
+    desc.className = 'text-[9px] text-slate-400 mt-0.5 leading-tight line-clamp-1';
+    desc.textContent = phase.description;
+    content.appendChild(desc);
+
+    // Action items section
+    const actionItemsList = this.createActionItemsList(phase.actionItems);
+    content.appendChild(actionItemsList);
+
+    // Commits section
+    const commitGraph = this.createCommitGraph(phase.commits);
+    content.appendChild(commitGraph);
+
+    card.appendChild(content);
+
+    // Footer with ID and progress
+    const footer = document.createElement('div');
+    footer.className = 'px-3 pb-1.5 pt-1 bg-slate-50 flex-shrink-0 relative';
+
+    const footerTop = document.createElement('div');
+    footerTop.className = 'flex justify-between items-center mb-0.5';
+
+    const phaseId = document.createElement('span');
+    phaseId.className = 'text-[8px] text-slate-400 font-mono';
+    phaseId.textContent = `#${phase.id.substring(0, 8)}`;
+    footerTop.appendChild(phaseId);
+
+    const percent = document.createElement('span');
+    percent.className = 'text-[8px] text-slate-400 font-medium';
+    percent.textContent = `${Math.round(phase.progress)}%`;
+    footerTop.appendChild(percent);
+
+    footer.appendChild(footerTop);
+
+    // Progress bar
+    const progressBarContainer = document.createElement('div');
+    progressBarContainer.className = 'absolute bottom-0 left-0 right-0 h-1 bg-slate-100';
+
+    const progressBarColor =
+      {
+        pending: 'bg-slate-300',
+        running: 'bg-blue-500',
+        completed: 'bg-emerald-500',
+        merged: 'bg-slate-400',
+      }[phase.status] || 'bg-blue-500';
+
+    const progressBar = document.createElement('div');
+    progressBar.className = `h-full ${progressBarColor} transition-all duration-500`;
+    progressBar.style.width = `${displayPercent}%`;
+    progressBarContainer.appendChild(progressBar);
+
+    footer.appendChild(progressBarContainer);
+    card.appendChild(footer);
+
+    // Add hover drawer for completed/merged phases
+    if (phase.status === 'completed' || phase.status === 'merged') {
+      const drawer = document.createElement('div');
+      drawer.className =
+        'absolute bottom-0 left-0 right-0 bg-white border-t border-slate-200 p-2 transform translate-y-8 opacity-0 transition-all duration-200 shadow-lg phase-drawer';
+
+      // Row 1: Merge status (for merged phases)
+      if (phase.status === 'merged') {
+        const mergeInfo = document.createElement('div');
+        mergeInfo.className =
+          'text-[8px] text-emerald-600 font-semibold flex items-center gap-1 mb-1.5';
+        const icon = document.createElement('i');
+        icon.className = 'fas fa-code-merge text-[7px]';
+        const text = document.createElement('span');
+        text.textContent = `Merged into ${phase.mergedInto || 'feature'}`;
+        mergeInfo.appendChild(icon);
+        mergeInfo.appendChild(text);
+        drawer.appendChild(mergeInfo);
+      }
+
+      // Row 2: Action buttons
+      const actions = document.createElement('div');
+      actions.className = 'flex items-center gap-0.5';
+
+      const actionButtons = [
+        { icon: 'fa-code', label: 'VSCode', title: 'Open in VSCode' },
+        { icon: 'fa-terminal', label: 'Terminal', title: 'Open terminal' },
+        { icon: 'fa-code-compare', label: 'Diff', title: 'View phase diff' },
+        { icon: 'fa-code-branch', label: 'Branch', title: 'Branch info' },
+      ];
+
+      actionButtons.forEach((btn) => {
+        const button = document.createElement('button');
+        button.className =
+          'flex-1 px-1.5 py-1 text-[7px] font-semibold text-slate-600 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors flex items-center justify-center gap-0.5';
+        button.title = btn.title;
+
+        const icon = document.createElement('i');
+        icon.className = `fas ${btn.icon} text-[7px]`;
+
+        const label = document.createElement('span');
+        label.textContent = btn.label;
+        label.className = 'hidden sm:inline';
+
+        button.appendChild(icon);
+        button.appendChild(label);
+        actions.appendChild(button);
+      });
+
+      drawer.appendChild(actions);
+      card.appendChild(drawer);
+
+      // Add hover effect
+      card.addEventListener('mouseenter', () => {
+        drawer.classList.remove('translate-y-8', 'opacity-0');
+        drawer.classList.add('translate-y-0', 'opacity-100');
+      });
+
+      card.addEventListener('mouseleave', () => {
+        drawer.classList.add('translate-y-8', 'opacity-0');
+        drawer.classList.remove('translate-y-0', 'opacity-100');
+      });
+    }
+
+    return card;
+  }
+
+  /**
+   * Create action items checklist
+   */
+  createActionItemsList(actionItems) {
+    const container = document.createElement('div');
+    container.className = 'action-items-list mt-2 flex-shrink-0';
+
+    const label = document.createElement('div');
+    label.className = 'text-[7px] font-bold uppercase tracking-wider text-slate-400 mb-0.5';
+    const completed = actionItems.filter((a) => a.completed).length;
+    label.textContent = `Action Items: ${completed}/${actionItems.length}`;
+    container.appendChild(label);
+
+    const list = document.createElement('div');
+    list.className = 'space-y-0.5 max-h-[100px] overflow-y-auto';
+
+    actionItems.slice(0, 6).forEach((item) => {
+      const itemEl = document.createElement('div');
+      itemEl.className = 'text-[8px] flex items-start gap-1.5';
+
+      const checkbox = document.createElement('span');
+      checkbox.className = 'text-slate-400 flex-shrink-0 mt-0.5';
+      checkbox.textContent = item.completed ? '☑' : '☐';
+
+      const text = document.createElement('span');
+      text.className = `flex-1 ${item.completed ? 'line-through text-slate-300' : 'text-slate-600'}`;
+      text.textContent = item.description;
+
+      itemEl.appendChild(checkbox);
+      itemEl.appendChild(text);
+      list.appendChild(itemEl);
+    });
+
+    container.appendChild(list);
+    return container;
+  }
+
+  /**
+   * Create commit graph (GitKraken style)
+   */
+  createCommitGraph(commits) {
+    const container = document.createElement('div');
+    container.className = 'commit-graph mt-1.5 flex-shrink-0';
+
+    if (commits.length === 0) {
+      return container;
+    }
+
+    const label = document.createElement('div');
+    label.className = 'text-[7px] font-bold uppercase tracking-wider text-slate-400 mb-0.5';
+    label.textContent = `Commits: ${commits.length}`;
+    container.appendChild(label);
+
+    const graph = document.createElement('div');
+    graph.className = 'space-y-1 max-h-[120px] overflow-y-auto font-mono text-[8px]';
+
+    commits.forEach((commit, idx) => {
+      const commitLine = document.createElement('div');
+      commitLine.className = 'flex items-start gap-1.5 text-slate-600';
+
+      // Commit dot with TDD phase coloring
+      const dot = document.createElement('span');
+      const dotColors = {
+        RED: 'text-red-500',
+        GREEN: 'text-emerald-500',
+        REFACTOR: 'text-blue-500',
+        null: 'text-slate-400',
+      };
+      dot.className = `flex-shrink-0 ${dotColors[commit.tddPhase || 'null']}`;
+      dot.textContent = '●';
+
+      // Commit info
+      const info = document.createElement('span');
+      info.className = 'flex-1 flex items-baseline gap-1';
+      info.innerHTML = `
+        <span class="font-semibold">${commit.sha}</span>
+        <span class="text-slate-500 truncate text-[7px]">${commit.message}</span>
+        <span class="text-slate-400 flex-shrink-0">${commit.timestamp}</span>
+      `;
+
+      commitLine.appendChild(dot);
+      commitLine.appendChild(info);
+      graph.appendChild(commitLine);
+
+      // Sub-line with stats
+      if (commit.filesChanged > 0 || commit.additions > 0 || commit.deletions > 0) {
+        const statsLine = document.createElement('div');
+        statsLine.className = 'flex items-center gap-2 ml-3.5 text-slate-400 text-[7px]';
+        statsLine.innerHTML = `
+          <span class="text-emerald-600">+${commit.additions}</span>
+          <span class="text-red-600">-${commit.deletions}</span>
+          <span>• ${commit.filesChanged} file${commit.filesChanged !== 1 ? 's' : ''}</span>
+        `;
+        graph.appendChild(statsLine);
+      }
+    });
+
+    container.appendChild(graph);
+    return container;
+  }
+
+  /**
+   * Render dependency arrows between phases
+   */
+  renderPhaseDependencies(phases, positions, svgLayer) {
+    // Sort phases by order to draw dependency lines
+    const sortedPhases = [...phases].sort((a, b) => a.order - b.order);
+
+    for (let i = 0; i < sortedPhases.length - 1; i++) {
+      const currentPhase = sortedPhases[i];
+      const nextPhase = sortedPhases[i + 1];
+
+      const currentPos = positions.get(currentPhase.id);
+      const nextPos = positions.get(nextPhase.id);
+
+      if (!currentPos || !nextPos) continue;
+
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+
+      const startX = currentPos.x + 140;
+      const startY = currentPos.y + 320;
+      const endX = nextPos.x + 140;
+      const endY = nextPos.y;
+
+      // Bezier curve
+      const cpx = startX;
+      const cpy = (startY + endY) / 2;
+
+      path.setAttribute(
+        'd',
+        `M ${startX} ${startY} C ${cpx} ${cpy}, ${endX} ${cpy}, ${endX} ${endY}`
+      );
+      path.setAttribute('fill', 'none');
+      path.setAttribute('stroke', '#cbd5e1');
+      path.setAttribute('stroke-width', '1.5');
+      path.setAttribute('marker-end', 'url(#arrowhead)');
+
+      svgLayer.appendChild(path);
+    }
+
+    // Add arrow marker definition if not present
+    if (!svgLayer.querySelector('#arrowhead')) {
+      const defs = document.createElementNS('http://www.w3.org/2000/svg', 'defs');
+      const marker = document.createElementNS('http://www.w3.org/2000/svg', 'marker');
+      marker.setAttribute('id', 'arrowhead');
+      marker.setAttribute('markerWidth', '10');
+      marker.setAttribute('markerHeight', '10');
+      marker.setAttribute('refX', '9');
+      marker.setAttribute('refY', '3');
+      marker.setAttribute('orient', 'auto');
+
+      const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      polygon.setAttribute('points', '0 0, 10 3, 0 6');
+      polygon.setAttribute('fill', '#cbd5e1');
+
+      marker.appendChild(polygon);
+      defs.appendChild(marker);
+      svgLayer.appendChild(defs);
+    }
+  }
+
+  /**
+   * Render empty phases view
+   */
+  renderEmptyPhasesView(container) {
+    const el = document.createElement('div');
+    el.className = 'absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center';
+
+    const icon = document.createElement('i');
+    icon.className = 'fas fa-layer-group text-slate-300 text-4xl mb-4';
+
+    const text = document.createElement('p');
+    text.className = 'text-slate-400 text-sm';
+    text.textContent = 'No phases yet for this feature';
+
+    el.appendChild(icon);
+    el.appendChild(text);
+    container.appendChild(el);
   }
 
   /**

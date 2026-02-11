@@ -1,5 +1,5 @@
 import { createFeature, validateFeature, calculateProgress } from './schema.js';
-import { PHASES } from './constants.js';
+import { PHASES, MOCK_IMPLEMENTATION_PHASES } from './constants.js';
 
 /**
  * AppState - Feature Database with LocalStorage persistence
@@ -511,6 +511,75 @@ export class AppState {
     this.viewMode = 'features';
     this.focusedFeatureId = null;
     console.log('⬅️ Returning to features view');
+  }
+
+  /**
+   * Open phases view (for Implementation phase features)
+   * @param {string} featureId - Feature ID
+   * @returns {boolean} Success
+   */
+  openPhasesView(featureId) {
+    const feature = this.getFeature(featureId);
+    if (!feature) return false;
+
+    // Generate phases if not already created
+    if (feature.phases.length === 0) {
+      this.generatePhasesForFeature(featureId);
+    }
+
+    this.viewMode = 'phases';
+    this.focusedFeatureId = featureId;
+    console.log('🔍 Drilling into implementation phases for:', feature.title);
+    return true;
+  }
+
+  /**
+   * Close phases view (return to features)
+   */
+  closePhasesView() {
+    this.viewMode = 'features';
+    this.focusedFeatureId = null;
+    console.log('⬅️ Returning to features view');
+  }
+
+  /**
+   * Generate implementation phases for a feature
+   * @param {string} featureId - Feature ID
+   */
+  generatePhasesForFeature(featureId) {
+    const feature = this.getFeature(featureId);
+    if (!feature || feature.phaseId !== 5) return;
+
+    // Deep clone the mock phases with unique IDs
+    const phases = MOCK_IMPLEMENTATION_PHASES.map((phase) => ({
+      ...phase,
+      id: `${phase.id}_${featureId}`,
+      actionItems: phase.actionItems.map((ai) => ({ ...ai })),
+      commits: [],
+      changesSummary: { filesChanged: 0, additions: 0, deletions: 0, commits: 0 },
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    }));
+
+    // Update feature
+    this.updateFeature(featureId, {
+      phases,
+      featureBranch:
+        feature.featureBranch || `feat/${feature.title.toLowerCase().replace(/\s+/g, '-')}`,
+      implementationStartedAt: new Date().toISOString(),
+    });
+
+    console.log('📋 Generated', phases.length, 'implementation phases');
+  }
+
+  /**
+   * Get phases for canvas rendering in phases view
+   * @returns {Array} Phases from focused feature
+   */
+  getCanvasPhases() {
+    if (this.viewMode !== 'phases' || !this.focusedFeatureId) return [];
+    const feature = this.getFeature(this.focusedFeatureId);
+    return feature ? feature.phases || [] : [];
   }
 
   /**
@@ -1100,6 +1169,183 @@ export class AppState {
     };
 
     return actionDetails[phase.label] || null;
+  }
+
+  /**
+   * Progress a phase during simulation
+   * @param {string} featureId - Feature ID
+   * @param {string} phaseId - Phase ID
+   */
+  progressPhase(featureId, phaseId) {
+    const feature = this.getFeature(featureId);
+    if (!feature) return;
+
+    const phase = feature.phases?.find((p) => p.id === phaseId);
+    if (!phase || phase.status !== 'running') return;
+
+    // Increment progress by 10%
+    const newProgress = Math.min(100, phase.progress + 10);
+    const itemsToComplete = Math.floor((newProgress / 100) * phase.actionItems.length);
+
+    // Complete action items proportionally
+    phase.actionItems.forEach((item, idx) => {
+      if (idx < itemsToComplete) item.completed = true;
+    });
+
+    // Generate commits at milestones (25%, 50%, 75%, 100%)
+    const milestones = [25, 50, 75, 100];
+    const lastMilestone = milestones.find((m) => phase.progress < m && newProgress >= m);
+
+    if (lastMilestone) {
+      const tddPhase = this.inferTDDPhase(phase, newProgress);
+      const commit = this.generatePhaseCommit(phase, tddPhase, lastMilestone);
+      phase.commits.push(commit);
+
+      // Update changes summary
+      phase.changesSummary.commits++;
+      phase.changesSummary.additions += commit.additions;
+      phase.changesSummary.deletions += commit.deletions;
+      phase.changesSummary.filesChanged += commit.filesChanged;
+    }
+
+    // Update progress and timestamp
+    phase.progress = newProgress;
+    phase.updatedAt = new Date().toISOString();
+
+    // Complete phase at 100%
+    if (newProgress >= 100) {
+      phase.status = 'completed';
+      phase.completedAt = new Date().toISOString();
+
+      // Auto-merge after short delay
+      setTimeout(() => {
+        this.mergePhase(featureId, phaseId);
+      }, 1500);
+    }
+
+    this.save();
+  }
+
+  /**
+   * Update a phase
+   * @param {string} featureId - Feature ID
+   * @param {string} phaseId - Phase ID
+   * @param {Object} updates - Fields to update
+   */
+  updatePhase(featureId, phaseId, updates) {
+    const feature = this.getFeature(featureId);
+    if (!feature) return;
+
+    const phase = feature.phases?.find((p) => p.id === phaseId);
+    if (!phase) return;
+
+    Object.assign(phase, updates);
+    phase.updatedAt = new Date().toISOString();
+    this.save();
+  }
+
+  /**
+   * Merge a completed phase into feature branch
+   * @param {string} featureId - Feature ID
+   * @param {string} phaseId - Phase ID
+   */
+  mergePhase(featureId, phaseId) {
+    const feature = this.getFeature(featureId);
+    if (!feature) return;
+
+    const phase = feature.phases?.find((p) => p.id === phaseId);
+    if (!phase) return;
+
+    phase.status = 'merged';
+    phase.mergedAt = new Date().toISOString();
+    phase.mergedInto = feature.featureBranch;
+    phase.updatedAt = new Date().toISOString();
+
+    this.save();
+
+    // Check if all phases are merged
+    const allMerged = feature.phases.every((p) => p.status === 'merged');
+    if (allMerged) {
+      // Move feature to next phase (QA Check, phase 6)
+      this.updateFeature(featureId, { phaseId: 6 });
+      console.log('✅ All phases merged! Feature moving to QA Check phase');
+    }
+  }
+
+  /**
+   * Infer TDD phase based on progress and phase name
+   * @param {Object} phase - Phase object
+   * @param {number} progress - Progress percentage
+   * @returns {string} 'RED' | 'GREEN' | 'REFACTOR'
+   */
+  inferTDDPhase(phase, progress) {
+    if (phase.name.includes('RED')) return 'RED';
+    if (phase.name.includes('GREEN')) return 'GREEN';
+    if (phase.name.includes('REFACTOR')) return 'REFACTOR';
+
+    // Fallback: based on progress
+    if (progress < 33) return 'RED';
+    if (progress < 66) return 'GREEN';
+    return 'REFACTOR';
+  }
+
+  /**
+   * Generate a realistic commit for a phase
+   * @param {Object} phase - Phase object
+   * @param {string} tddPhase - TDD phase ('RED' | 'GREEN' | 'REFACTOR')
+   * @param {number} milestone - Milestone percentage (25, 50, 75, 100)
+   * @returns {Object} Commit object
+   */
+  generatePhaseCommit(phase, tddPhase, milestone) {
+    const messages = {
+      RED: {
+        25: 'test(cli): add failing tests for show command',
+        50: 'test(cli): add edge case tests',
+        75: 'test(cli): add integration tests',
+        100: 'test(cli): add e2e tests',
+      },
+      GREEN: {
+        25: 'feat(cli): implement minimal solution',
+        50: 'feat(cli): handle edge cases',
+        75: 'feat(cli): complete implementation',
+        100: 'feat(cli): finalize feature',
+      },
+      REFACTOR: {
+        25: 'refactor(cli): extract helper functions',
+        50: 'refactor(cli): improve naming and structure',
+        75: 'refactor(cli): optimize performance',
+        100: 'refactor(cli): final polish and cleanup',
+      },
+    };
+
+    // Realistic file changes by TDD phase
+    const getStats = () => {
+      const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+      switch (tddPhase) {
+        case 'RED':
+          return { files: rand(1, 3), add: rand(45, 100), del: rand(0, 5) };
+        case 'GREEN':
+          return { files: rand(2, 4), add: rand(80, 150), del: rand(5, 15) };
+        case 'REFACTOR':
+          return { files: rand(2, 5), add: rand(20, 60), del: rand(20, 60) };
+        default:
+          return { files: rand(1, 3), add: rand(20, 50), del: rand(5, 20) };
+      }
+    };
+
+    const stat = getStats();
+
+    return {
+      sha: Math.random().toString(16).substr(2, 7),
+      message: messages[tddPhase]?.[milestone] || `${tddPhase}: commit at ${milestone}%`,
+      author: 'Claude Haiku',
+      timestamp: 'just now',
+      filesChanged: stat.files,
+      additions: stat.add,
+      deletions: stat.del,
+      tddPhase,
+    };
   }
 
   // ===== Backward compatibility aliases =====
