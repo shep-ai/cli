@@ -867,6 +867,9 @@ class App {
 
       if (feature) {
         this.ui.showToast('Feature Created');
+        // Clear selectedRepoId to show all repos in multi-repo view
+        this.state.selectedRepoId = null;
+        this.state.save();
       } else {
         this.ui.showToast('Failed to create feature', true);
         return;
@@ -1544,6 +1547,7 @@ class App {
   // Repository Management Methods
   selectWelcomeRepo(repoId) {
     this.state.selectedRepoId = repoId;
+    this.state.save(); // Persist selected repo
 
     // Update pill active states
     const pills = document.querySelectorAll('.repo-pill-btn');
@@ -1551,16 +1555,178 @@ class App {
       pill.classList.toggle('active', pill.dataset.repoId === repoId);
     });
 
-    // Show repo on canvas
-    this.renderer.renderRepoOnWelcomeCanvas(repoId);
+    // Render empty canvas with only this repo
+    this.render();
   }
 
   addNewRepository() {
-    const repo = this.state.addRandomRepository();
-    if (repo) {
-      this.ui.showToast(`Added ${repo.fullName}`);
-      this.render();
+    // On welcome page: open file browser modal
+    const repos = this.state.getRepositories();
+    const hasFeatures = this.state.features.length > 0;
+
+    if (!hasFeatures && repos.length > 0) {
+      // Welcome screen with repos: show file browser
+      this.openFileBrowserModal();
+    } else {
+      // Not on welcome screen: add random repo (backward compat)
+      const repo = this.state.addRandomRepository();
+      if (repo) {
+        this.state.selectedRepoId = null;
+        this.state.save();
+        this.ui.showToast(`Added ${repo.fullName}`);
+        this.render();
+      }
     }
+  }
+
+  openFileBrowserModal() {
+    const modal = document.getElementById('file-browser-modal');
+    if (!modal) return;
+
+    modal.classList.remove('hidden');
+    modal.classList.add('opacity-100');
+    setTimeout(() => {
+      const window = document.getElementById('file-browser-window');
+      if (window) window.classList.remove('scale-95');
+    }, 10);
+
+    // Initialize file browser with workspaces directory
+    this.currentBrowsePath = '/Users/developer/workspaces';
+    this.renderFileBrowserContents();
+  }
+
+  closeFileBrowserModal() {
+    const modal = document.getElementById('file-browser-modal');
+    const fbWindow = document.getElementById('file-browser-window');
+    if (!modal) return;
+
+    if (fbWindow) fbWindow.classList.add('scale-95');
+    modal.classList.remove('opacity-100');
+    setTimeout(() => {
+      modal.classList.add('hidden');
+    }, 300);
+  }
+
+  renderFileBrowserContents() {
+    const browserList = document.getElementById('file-browser-list');
+    if (!browserList) return;
+
+    // Mock file system structure with real repo names
+    const mockFs = {
+      '/Users/developer/workspaces': {
+        type: 'dir',
+        children: {
+          'shep-ai-cli': {
+            type: 'repo',
+            fullName: 'shep-ai/cli',
+            path: '/Users/developer/workspaces/shep-ai-cli',
+          },
+          'platform-api': {
+            type: 'repo',
+            fullName: 'acme-corp/platform-api',
+            path: '/Users/developer/workspaces/platform-api',
+          },
+          'web-dashboard': {
+            type: 'repo',
+            fullName: 'acme-corp/web-dashboard',
+            path: '/Users/developer/workspaces/web-dashboard',
+          },
+          'edge-runtime': {
+            type: 'repo',
+            fullName: 'vercel/edge-runtime',
+            path: '/Users/developer/workspaces/edge-runtime',
+          },
+          'sync-service': {
+            type: 'repo',
+            fullName: 'linear/sync-service',
+            path: '/Users/developer/workspaces/sync-service',
+          },
+          'payment-engine': {
+            type: 'repo',
+            fullName: 'stripe/payment-engine',
+            path: '/Users/developer/workspaces/payment-engine',
+          },
+        },
+      },
+    };
+
+    const currentPath = this.currentBrowsePath || '/Users/developer/workspaces';
+    const fsNode = mockFs[currentPath];
+
+    // Clear the list
+    browserList.innerHTML = '';
+
+    if (!fsNode || fsNode.type !== 'dir') {
+      const empty = document.createElement('div');
+      empty.className = 'text-white/50 p-4';
+      empty.textContent = 'Directory not found';
+      browserList.appendChild(empty);
+      return;
+    }
+
+    const items = fsNode.children || {};
+    if (Object.keys(items).length === 0) {
+      const empty = document.createElement('div');
+      empty.className = 'text-white/50 p-4';
+      empty.textContent = 'No repositories found';
+      browserList.appendChild(empty);
+      return;
+    }
+
+    // Sort items: repos first
+    Object.entries(items)
+      .sort(([, a], [, b]) => (a.type === 'repo' ? 0 : 1) - (b.type === 'repo' ? 0 : 1))
+      .forEach(([name, item]) => {
+        if (item.type === 'repo') {
+          const itemEl = document.createElement('div');
+          itemEl.className =
+            'flex items-center gap-3 px-4 py-3 hover:bg-white/5 cursor-pointer border-b border-white/5 group';
+
+          const icon = document.createElement('i');
+          icon.className = 'fab fa-github text-blue-400 text-sm flex-shrink-0';
+
+          const content = document.createElement('div');
+          content.className = 'flex-1 min-w-0';
+
+          const fullName = document.createElement('div');
+          fullName.className =
+            'text-white font-semibold text-sm truncate group-hover:text-blue-300';
+          fullName.textContent = item.fullName;
+
+          const path = document.createElement('div');
+          path.className = 'text-white/50 text-xs truncate';
+          path.textContent = item.path;
+
+          const chevron = document.createElement('i');
+          chevron.className = 'fas fa-chevron-right text-white/30 flex-shrink-0';
+
+          content.appendChild(fullName);
+          content.appendChild(path);
+          itemEl.appendChild(icon);
+          itemEl.appendChild(content);
+          itemEl.appendChild(chevron);
+
+          // Use arrow function to preserve 'this' context
+          itemEl.onclick = () => {
+            this.selectRepositoryFromBrowser(item.fullName, item.path);
+          };
+
+          browserList.appendChild(itemEl);
+        }
+      });
+  }
+
+  selectRepositoryFromBrowser(fullName, localPath) {
+    const repo = this.state.addRepository(fullName);
+    if (repo && localPath) {
+      repo.localPath = localPath;
+    }
+
+    this.closeFileBrowserModal();
+    this.state.selectedRepoId = null;
+    this.state.save();
+    this.ui.showToast(`Added ${fullName}`);
+    this.render();
   }
 
   createFeatureFromIdea(repoId, ideaTitle) {
@@ -1582,6 +1748,8 @@ class App {
 
   createFeatureForRepo(repoId) {
     // Open create panel with repo pre-selected
+    this.state.selectedRepoId = repoId;
+    this.state.save(); // Persist selected repo
     this.pendingRepoId = repoId;
     this.initCreate(null);
   }

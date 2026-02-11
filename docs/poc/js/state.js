@@ -44,6 +44,7 @@ export class AppState {
     const storedRepos = localStorage.getItem('featureFlowRepos');
     const storedEnvironments = localStorage.getItem('featureEnvironments');
     const wasCleared = localStorage.getItem('featureFlowCleared') === 'true';
+    const storedSelectedRepoId = localStorage.getItem('selectedRepoId');
 
     if (storedData) {
       try {
@@ -69,8 +70,8 @@ export class AppState {
       this.features = [];
     }
 
-    // Load repositories
-    if (storedRepos) {
+    // Load repositories (but not if user intentionally cleared data)
+    if (storedRepos && !wasCleared) {
       try {
         this.repositories = JSON.parse(storedRepos);
         console.log('✅ Loaded', this.repositories.length, 'repositories');
@@ -78,6 +79,9 @@ export class AppState {
         console.error('❌ Failed to load repositories:', e);
         this.repositories = [];
       }
+    } else if (wasCleared) {
+      this.repositories = [];
+      console.log('🧹 Repos cleared by user, staying empty');
     }
 
     // Load environment state
@@ -97,10 +101,24 @@ export class AppState {
 
     // Initialize with demo data if empty AND not intentionally cleared
     if (this.features.length === 0 && !wasCleared) {
-      console.log('🎨 Initializing demo data...');
-      this.initDemoData();
+      // Only load demo data on very first run (when no cleared flag and nothing stored)
+      if (!storedData && !storedRepos) {
+        console.log('🎨 Initializing demo data...');
+        this.initDemoData();
+      } else {
+        console.log('🧹 Data was cleared by user, staying empty');
+      }
     } else if (wasCleared) {
       console.log('🧹 Data was cleared by user, staying empty');
+    }
+
+    // Restore selected repo ID if it was previously set (but NOT if data was cleared)
+    if (storedSelectedRepoId && !wasCleared) {
+      this.selectedRepoId = storedSelectedRepoId;
+      console.log('✅ Restored selected repo:', this.selectedRepoId);
+    } else if (wasCleared) {
+      this.selectedRepoId = null;
+      console.log('🧹 Clearing selected repo after user clear');
     }
   }
 
@@ -112,10 +130,13 @@ export class AppState {
       localStorage.setItem('featureFlowData', JSON.stringify(this.features));
       localStorage.setItem('featureFlowRepos', JSON.stringify(this.repositories));
       localStorage.setItem('featureEnvironments', JSON.stringify(this.featureEnvironments));
-      // Clear the "cleared" flag when saving new data
-      if (this.features.length > 0) {
-        localStorage.removeItem('featureFlowCleared');
+      if (this.selectedRepoId) {
+        localStorage.setItem('selectedRepoId', this.selectedRepoId);
+      } else {
+        localStorage.removeItem('selectedRepoId');
       }
+      // Keep the "cleared" flag persistent - don't remove it when saving new data
+      // Once cleared by user, it stays cleared until they explicitly clear again
     } catch (e) {
       console.error('Failed to save features:', e);
     }
@@ -348,12 +369,6 @@ export class AppState {
     const feature = this.features.find((f) => f.id === id);
     if (!feature) {
       console.error('❌ Feature not found:', id);
-      console.log(
-        '📋 Available feature IDs:',
-        this.features.map((f) => f.id)
-      );
-    } else {
-      console.log('✅ Feature found:', id, feature.title);
     }
     return feature;
   }
@@ -527,11 +542,13 @@ export class AppState {
    */
   addRepository(fullName) {
     const parts = fullName.split('/');
+    const repoName = parts[1] || fullName;
     const repo = {
       id: `repo_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
       org: parts[0] || 'unknown',
-      name: parts[1] || fullName,
+      name: repoName,
       fullName,
+      localPath: `/Users/developer/projects/${repoName}`,
     };
     this.repositories.push(repo);
     this.save();

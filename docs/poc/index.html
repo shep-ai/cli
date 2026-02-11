@@ -193,6 +193,68 @@
       <span id="toast-msg" class="text-xs font-semibold">Action Successful</span>
     </div>
 
+    <!-- File Browser Modal (Welcome Screen Only) -->
+    <div
+      id="file-browser-modal"
+      class="fixed inset-0 z-[100] hidden bg-white/40 opacity-0 backdrop-blur-md transition-opacity duration-300"
+    >
+      <div
+        id="file-browser-window"
+        class="absolute inset-8 flex scale-95 transform flex-col rounded-lg bg-white shadow-2xl transition-transform duration-300"
+      >
+        <!-- Title Bar -->
+        <div
+          class="flex h-12 flex-shrink-0 items-center rounded-t-lg border-b border-slate-200 bg-gradient-to-b from-slate-100 to-slate-50 px-4"
+        >
+          <div class="mr-4 flex items-center gap-2">
+            <button
+              onclick="app.closeFileBrowserModal()"
+              class="group flex h-3 w-3 items-center justify-center rounded-full bg-red-500 transition-colors hover:bg-red-600"
+              title="Close"
+            >
+              <i class="fas fa-times text-[6px] text-red-900 opacity-0 group-hover:opacity-100"></i>
+            </button>
+            <button
+              class="h-3 w-3 rounded-full bg-yellow-500 transition-colors hover:bg-yellow-600"
+              title="Minimize"
+            ></button>
+            <button
+              class="h-3 w-3 rounded-full bg-green-500 transition-colors hover:bg-green-600"
+              title="Maximize"
+            ></button>
+          </div>
+          <div class="flex-1 text-center">
+            <span class="text-xs font-semibold text-slate-600">Select Repository</span>
+          </div>
+          <div class="w-20"></div>
+        </div>
+
+        <!-- Breadcrumb Navigation -->
+        <div
+          class="flex h-9 flex-shrink-0 items-center gap-2 border-b border-slate-200 bg-[#2c2c2c] px-4 font-mono text-sm"
+          id="file-browser-breadcrumb"
+        ></div>
+
+        <!-- File List -->
+        <div
+          id="file-browser-list"
+          class="flex-1 overflow-auto bg-[#1e1e1e]"
+        ></div>
+
+        <!-- Footer -->
+        <div
+          class="flex h-10 flex-shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4"
+        >
+          <button
+            onclick="app.closeFileBrowserModal()"
+            class="rounded border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Full-Screen Desktop Environment Modal -->
     <div
       id="desktop-modal"

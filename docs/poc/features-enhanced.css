@@ -1505,6 +1505,10 @@ button[data-question]:disabled {
   white-space: nowrap;
 }
 
+.repo-pill-path {
+  display: none;
+}
+
 /* Add Repository Button (Welcome Screen) */
 .welcome-add-repo-btn {
   display: flex;
@@ -1751,6 +1755,10 @@ button[data-question]:disabled {
   text-overflow: ellipsis;
   white-space: nowrap;
   flex: 1;
+}
+
+.canvas-repo-path {
+  display: none;
 }
 
 .canvas-repo-add-btn {
