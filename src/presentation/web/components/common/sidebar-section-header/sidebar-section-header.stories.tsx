@@ -29,10 +29,15 @@ export const Default: Story = {
   },
 };
 
+function noop() {
+  // Intentional no-op for Storybook interaction demos
+  return;
+}
+
 export const WithActions: Story = {
   args: {
     label: 'Features',
-    onFolderClick: () => console.log('Folder clicked'),
-    onMenuClick: () => console.log('Menu clicked'),
+    onFolderClick: noop,
+    onMenuClick: noop,
   },
 };

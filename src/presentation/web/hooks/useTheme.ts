@@ -8,7 +8,7 @@ import { type Theme, THEME_STORAGE_KEY } from '@/types/theme';
  * and system preference detection.
  */
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>('system');
+  const [theme, setTheme] = useState<Theme>('system');
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
 
   // Get the system preference
@@ -42,9 +42,9 @@ export function useTheme() {
   }, []);
 
   // Set theme and persist to localStorage
-  const setTheme = useCallback(
+  const setThemeAndPersist = useCallback(
     (newTheme: Theme) => {
-      setThemeState(newTheme);
+      setTheme(newTheme);
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem(THEME_STORAGE_KEY, newTheme);
       }
@@ -58,7 +58,7 @@ export function useTheme() {
   useEffect(() => {
     const stored = localStorage.getItem(THEME_STORAGE_KEY) as Theme | null;
     const initialTheme = stored ?? 'system';
-    setThemeState(initialTheme);
+    setTheme(initialTheme);
     const resolved = resolveTheme(initialTheme);
     applyTheme(resolved);
   }, [resolveTheme, applyTheme]);
@@ -85,6 +85,6 @@ export function useTheme() {
   return {
     theme,
     resolvedTheme,
-    setTheme,
+    setTheme: setThemeAndPersist,
   };
 }

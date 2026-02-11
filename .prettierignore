@@ -11,6 +11,7 @@ node_modules/
 apis/
 *.generated.*
 coverage/
+src/presentation/web/next-env.d.ts
 
 # Package manager
 pnpm-lock.yaml
@@ -35,3 +36,6 @@ playwright-report/
 
 # Husky
 .husky/_
+
+# Local editor/IDE settings (may be machine-specific)
+.claude/settings.local.json
