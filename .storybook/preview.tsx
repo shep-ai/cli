@@ -40,6 +40,11 @@ const preview: Preview = {
       ],
     },
     layout: 'centered',
+    options: {
+      storySort: {
+        order: ['Design System', 'Primitives', 'Composed', 'Layout', 'Features'],
+      },
+    },
   },
   decorators: [ThemeDecorator],
 };

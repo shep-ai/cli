@@ -1,0 +1,67 @@
+import { Meta, Typeset } from '@storybook/blocks';
+
+<Meta title="Design System/Typography" />
+
+# Typography
+
+The Shep AI design system uses system font stacks for optimal performance and native feel across platforms.
+
+## Font Families
+
+- **Sans** (`--font-sans`): `ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji'`
+- **Mono** (`--font-mono`): `ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace`
+
+## Type Scale
+
+<Typeset
+  fontSizes={['0.75rem', '0.875rem', '1rem', '1.125rem', '1.25rem', '1.5rem', '1.875rem', '2.25rem', '3rem']}
+  fontWeight={400}
+  sampleText="The quick brown fox jumps over the lazy dog"
+  fontFamily="ui-sans-serif, system-ui, sans-serif"
+/>
+
+## Font Weights
+
+<Typeset
+  fontSizes={['1rem']}
+  fontWeight={300}
+  sampleText="Light (300)"
+  fontFamily="ui-sans-serif, system-ui, sans-serif"
+/>
+
+<Typeset
+  fontSizes={['1rem']}
+  fontWeight={400}
+  sampleText="Regular (400)"
+  fontFamily="ui-sans-serif, system-ui, sans-serif"
+/>
+
+<Typeset
+  fontSizes={['1rem']}
+  fontWeight={500}
+  sampleText="Medium (500)"
+  fontFamily="ui-sans-serif, system-ui, sans-serif"
+/>
+
+<Typeset
+  fontSizes={['1rem']}
+  fontWeight={600}
+  sampleText="Semibold (600)"
+  fontFamily="ui-sans-serif, system-ui, sans-serif"
+/>
+
+<Typeset
+  fontSizes={['1rem']}
+  fontWeight={700}
+  sampleText="Bold (700)"
+  fontFamily="ui-sans-serif, system-ui, sans-serif"
+/>
+
+## Monospace
+
+<Typeset
+  fontSizes={['0.75rem', '0.875rem', '1rem']}
+  fontWeight={400}
+  sampleText="const greeting = 'Hello, World!';"
+  fontFamily="ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace"
+/>

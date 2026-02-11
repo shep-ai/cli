@@ -5,7 +5,7 @@ import { Input } from './input';
 import { Label } from './label';
 
 const meta: Meta<typeof Tabs> = {
-  title: 'UI/Tabs',
+  title: 'Primitives/Tabs',
   component: Tabs,
   parameters: {
     layout: 'centered',

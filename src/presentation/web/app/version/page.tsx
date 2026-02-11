@@ -1,5 +1,5 @@
 import { getVersionInfo, getSystemInfo } from '@/lib/version';
-import VersionPageClient from './version-page-client';
+import VersionPageClient from '@/components/features/version/version-page-client';
 
 export default function VersionPage() {
   const versionInfo = getVersionInfo();
