@@ -3,18 +3,20 @@ feature:
   name: 'ui-arch'
   number: 13
   branch: 'feat/ui-arch'
-  lifecycle: 'planning'
+  lifecycle: 'review'
   createdAt: '2026-02-11T13:57:08Z'
 
 status:
-  phase: 'planning'
+  phase: 'in-review'
   progress:
     completed: 0
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-11T14:30:00Z'
-  lastUpdatedBy: 'shep-kit:research'
+  lastUpdated: '2026-02-11T15:00:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/43'
 
 validation:
   lastRun: null
@@ -33,6 +35,9 @@ checkpoints:
   - phase: 'research-complete'
     completedAt: '2026-02-11T14:30:00Z'
     completedBy: 'shep-kit:research'
+  - phase: 'pr-created'
+    completedAt: '2026-02-11T15:00:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
