@@ -452,3 +452,60 @@ export const MOCK_IMPLEMENTATION_PHASES = [
     updatedAt: new Date().toISOString(),
   },
 ];
+
+/**
+ * Mock repositories for demo
+ */
+export const MOCK_REPOS = [
+  { id: 'repo_1', org: 'shep-ai', name: 'cli', fullName: 'shep-ai/cli' },
+  { id: 'repo_2', org: 'acme-corp', name: 'platform-api', fullName: 'acme-corp/platform-api' },
+  { id: 'repo_3', org: 'acme-corp', name: 'web-dashboard', fullName: 'acme-corp/web-dashboard' },
+];
+
+/**
+ * Random real-looking repository names for the "Add Repository" flow
+ */
+export const RANDOM_REPO_NAMES = [
+  'stripe/payment-engine',
+  'vercel/edge-runtime',
+  'linear/sync-service',
+  'notion/block-editor',
+  'figma/design-tokens',
+  'planetscale/vitess-proxy',
+  'supabase/realtime',
+  'clerk/auth-sdk',
+  'resend/email-api',
+  'turso/libsql-server',
+  'neon/pg-proxy',
+  'railway/deploy-agent',
+  'fly-apps/machines-api',
+  'deno/fresh-runtime',
+  'bun-sh/bundler',
+  'biomejs/analyzer',
+  'oxc-project/transformer',
+  'astro-build/renderer',
+  'svelte/kit-adapter',
+  'remix-run/dev-server',
+];
+
+/**
+ * Feature idea templates - shown as mind-map bubbles when selecting a repo
+ */
+export const FEATURE_IDEAS = [
+  'Real-time collaboration',
+  'OAuth 2.1 migration',
+  'GraphQL subscriptions',
+  'Rate limiting v2',
+  'Webhook retry system',
+  'Audit trail logging',
+  'Multi-tenant isolation',
+  'Edge caching layer',
+  'Dark mode support',
+  'CLI plugin system',
+  'API versioning strategy',
+  'Batch import/export',
+  'Role-based permissions',
+  'Search indexing pipeline',
+  'SSO integration',
+  'Usage analytics dashboard',
+];

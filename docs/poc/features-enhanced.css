@@ -1230,3 +1230,581 @@ button[data-question]:disabled {
 .phase-card:hover {
   z-index: 50;
 }
+
+/* ============================================
+   Welcome / Empty Canvas View
+   Canvas-native empty state
+   ============================================ */
+
+.welcome-view {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+  z-index: 5;
+}
+
+/* Sleek container wrapping all welcome content */
+.welcome-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.75rem;
+  padding: 2.5rem 3rem;
+  background: rgba(255, 255, 255, 0.55);
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  backdrop-filter: blur(8px);
+}
+
+/* Action Cards */
+.welcome-grid {
+  display: flex;
+  gap: 1.25rem;
+}
+
+.welcome-card {
+  width: 220px;
+  height: 100px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  background: rgba(255, 255, 255, 0.5);
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.375rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.welcome-card:hover {
+  border-color: #93c5fd;
+  background: rgba(255, 255, 255, 0.85);
+}
+
+.welcome-card-icon {
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.375rem;
+  background: #f1f5f9;
+  transition: all 0.2s ease;
+}
+
+.welcome-card-icon i {
+  font-size: 0.625rem;
+  color: #94a3b8;
+}
+
+.welcome-card:hover .welcome-card-icon {
+  background: #3b82f6;
+}
+
+.welcome-card:hover .welcome-card-icon i {
+  color: white;
+}
+
+.welcome-card-label {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* CLI Section */
+.welcome-cli {
+  max-width: 466px;
+  width: 100%;
+}
+
+.welcome-cli-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.welcome-cli-header i {
+  font-size: 0.5625rem;
+}
+
+.welcome-cli-block {
+  position: relative;
+  background: rgba(248, 250, 252, 0.8);
+  border: 1px solid #e2e8f0;
+  border-radius: 0.375rem;
+  padding: 0.75rem 1rem;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Courier New', monospace;
+  font-size: 0.75rem;
+  line-height: 1.8;
+}
+
+.welcome-cli-line {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.cli-prompt {
+  color: #94a3b8;
+  font-weight: 600;
+  user-select: none;
+}
+
+.cli-cmd {
+  color: #475569;
+  font-weight: 600;
+}
+
+.cli-path {
+  color: #94a3b8;
+}
+
+.cli-arg {
+  color: #64748b;
+}
+
+.cli-string {
+  color: #64748b;
+}
+
+.welcome-cli-copy {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 0.25rem;
+  color: #cbd5e1;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.welcome-cli-copy:hover {
+  background: white;
+  color: #64748b;
+  border-color: #cbd5e1;
+}
+
+.welcome-cli-copy i {
+  font-size: 0.625rem;
+}
+
+.welcome-cli-hint {
+  margin-top: 0.5rem;
+  font-size: 0.625rem;
+  color: #cbd5e1;
+  text-align: center;
+}
+
+/* ============================================
+   Repository Welcome Layout
+   Two-column: repos on left, idea canvas on right
+   ============================================ */
+
+.welcome-layout {
+  display: flex;
+  gap: 2rem;
+  width: 100%;
+  max-width: 800px;
+  min-height: 340px;
+}
+
+.welcome-repo-column {
+  width: 240px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.welcome-repo-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.welcome-repo-header i {
+  font-size: 0.875rem;
+  color: #64748b;
+}
+
+.welcome-repo-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+}
+
+/* Repo Pill Button (Welcome Screen) */
+.repo-pill-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #475569;
+  text-align: left;
+  width: 100%;
+}
+
+.repo-pill-btn:hover {
+  background: white;
+  border-color: #cbd5e1;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.repo-pill-btn.active {
+  background: white;
+  border-color: #3b82f6;
+  color: #1e40af;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+}
+
+.repo-pill-icon {
+  font-size: 0.875rem;
+  color: #94a3b8;
+  flex-shrink: 0;
+}
+
+.repo-pill-btn.active .repo-pill-icon {
+  color: #3b82f6;
+}
+
+.repo-pill-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Add Repository Button (Welcome Screen) */
+.welcome-add-repo-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: 1px dashed #cbd5e1;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #94a3b8;
+  width: 100%;
+}
+
+.welcome-add-repo-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.welcome-add-repo-btn i {
+  font-size: 0.5rem;
+}
+
+/* Idea Canvas (Welcome Screen) */
+.welcome-idea-canvas {
+  flex: 1;
+  position: relative;
+  background: rgba(248, 250, 252, 0.5);
+  border: 1px solid #e2e8f0;
+  border-radius: 0.5rem;
+  min-height: 300px;
+  overflow: hidden;
+}
+
+.welcome-idea-hint {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  font-weight: 500;
+}
+
+.welcome-idea-hint i {
+  font-size: 1rem;
+  animation: pulseHint 2s ease-in-out infinite;
+}
+
+@keyframes pulseHint {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+/* Mind-map Center Node */
+.mindmap-center {
+  position: absolute;
+  top: 50%;
+  left: 80px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: white;
+  border: 2px solid #3b82f6;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #1e40af;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
+  z-index: 2;
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.mindmap-center i {
+  font-size: 1rem;
+  color: #3b82f6;
+}
+
+/* Mind-map SVG */
+.mindmap-svg {
+  z-index: 1;
+}
+
+/* Mind-map Idea Bubble */
+.mindmap-idea {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  padding: 0.5rem 0.875rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: #475569;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  z-index: 2;
+  opacity: 0;
+  animation: fadeIn 0.4s ease forwards;
+}
+
+.mindmap-idea:hover {
+  border-color: #3b82f6;
+  color: #1e40af;
+  background: #eff6ff;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.12);
+  transform: translate(-50%, -50%) scale(1.05);
+}
+
+/* Mind-map Custom Feature Button */
+.mindmap-custom-btn {
+  position: absolute;
+  bottom: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.75rem;
+  background: transparent;
+  border: 1px dashed #cbd5e1;
+  border-radius: 0.25rem;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  z-index: 2;
+}
+
+.mindmap-custom-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+}
+
+.mindmap-custom-btn i {
+  font-size: 0.5rem;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(0.9); }
+  to { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
+
+/* Mind-map Repo Container - New Layout */
+.mindmap-repo-container {
+  justify-content: flex-start;
+  padding-top: 3rem !important;
+}
+
+/* Mind-map Center Node - Selected State */
+.mindmap-center-selected {
+  position: static !important;
+  transform: none !important;
+  top: auto !important;
+  left: auto !important;
+}
+
+/* Ideas Section */
+.ideas-section {
+  animation: fadeIn 0.3s ease forwards;
+}
+
+.ideas-header {
+  margin-bottom: 1rem;
+}
+
+.ideas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.idea-option {
+  padding: 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid #e2e8f0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.875rem;
+  color: #1e293b;
+  text-align: left;
+  transition: all 0.2s ease;
+  font-weight: 500;
+}
+
+.idea-option:hover {
+  background: #f8fafc;
+  border-color: #cbd5e1;
+}
+
+.idea-option.selected {
+  border-color: #3b82f6;
+  background: #eff6ff;
+  font-weight: 600;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* Actions Section */
+.actions-section {
+  animation: fadeIn 0.4s ease forwards 0.1s backwards;
+}
+
+/* ============================================
+   Canvas Repo Pills (Features View)
+   Positioned pills on the node layer
+   ============================================ */
+
+.canvas-repo-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  width: 200px;
+  height: 40px;
+  box-sizing: border-box;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+  z-index: 5;
+}
+
+.canvas-repo-icon {
+  font-size: 0.875rem;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.canvas-repo-name {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: #334155;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.canvas-repo-add-btn {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid #e2e8f0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #94a3b8;
+  font-size: 0.5rem;
+  transition: all 0.15s ease;
+  flex-shrink: 0;
+  opacity: 0;
+}
+
+.canvas-repo-pill:hover .canvas-repo-add-btn {
+  opacity: 1;
+}
+
+.canvas-repo-add-btn:hover {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+/* Canvas Add Repository Button */
+.canvas-add-repo-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  width: 200px;
+  height: 40px;
+  background: transparent;
+  border: 1px dashed #cbd5e1;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.625rem;
+  font-weight: 600;
+  color: #94a3b8;
+  box-sizing: border-box;
+}
+
+.canvas-add-repo-btn:hover {
+  border-color: #3b82f6;
+  color: #3b82f6;
+  background: rgba(59, 130, 246, 0.04);
+}
+
+.canvas-add-repo-btn i {
+  font-size: 0.5rem;
+}

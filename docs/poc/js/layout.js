@@ -3,20 +3,88 @@ export class LayoutEngine {
     this.NODE_WIDTH = 260;
     this.NODE_HEIGHT = 96;
     this.X_GAP = 300;
+    this.REPO_PILL_WIDTH = 200;
+    this.REPO_FEATURES_GAP = 40; // Gap between repo pill and first feature column
+  }
+
+  /**
+   * Calculate positions for features grouped by repository
+   * @param {Map<string, Object[]>} featuresByRepo - Map of repoId -> features
+   * @param {Object[]} repos - Array of repository objects
+   * @returns {{ repoPositions: Map, featurePositions: Map, totalHeight: number }}
+   */
+  calculateWithRepos(featuresByRepo, repos) {
+    const repoPositions = new Map();
+    const featurePositions = new Map();
+    let currentY = 0;
+    const repoX = 50;
+    const featuresStartX = repoX + this.REPO_PILL_WIDTH + this.REPO_FEATURES_GAP;
+
+    repos.forEach((repo) => {
+      const features = featuresByRepo.get(repo.id) || [];
+
+      if (features.length === 0) {
+        // Repo with no features - still show the pill
+        repoPositions.set(repo.id, { x: repoX, y: currentY });
+        currentY += 60; // Minimal height for empty repo
+        return;
+      }
+
+      // Build hierarchy for this repo's features
+      const roots = this.buildHierarchy(features);
+
+      // Calculate feature positions within this repo group
+      let repoStartY = currentY;
+      let repoHeight = 0;
+
+      roots.forEach((root) => {
+        const treeSize = this.traverse(root, 0, currentY, featurePositions, featuresStartX);
+        currentY += treeSize;
+        repoHeight += treeSize;
+      });
+
+      // Position repo pill vertically centered relative to its features
+      const repoCenterY = repoStartY + repoHeight / 2 - 20; // 20 = half pill height
+      repoPositions.set(repo.id, { x: repoX, y: repoCenterY });
+
+      currentY += 32; // Gap between repo groups
+    });
+
+    return { repoPositions, featurePositions, totalHeight: currentY };
+  }
+
+  /**
+   * Build hierarchy from flat feature list
+   */
+  buildHierarchy(features) {
+    const map = {};
+    const roots = [];
+    features.forEach((f) => {
+      f.children = [];
+      map[f.id] = f;
+    });
+    features.forEach((f) => {
+      if (f.parentId && map[f.parentId]) {
+        map[f.parentId].children.push(f);
+      } else {
+        roots.push(f);
+      }
+    });
+    return roots;
   }
 
   calculate(roots) {
     const positions = new Map();
     let currentY = 0;
     roots.forEach((root) => {
-      const treeSize = this.traverse(root, 0, currentY, positions);
+      const treeSize = this.traverse(root, 0, currentY, positions, 50);
       currentY += treeSize + 16;
     });
     return { positions, totalHeight: currentY };
   }
 
-  traverse(node, level, startY, positions) {
-    const x = 50 + level * this.X_GAP;
+  traverse(node, level, startY, positions, baseX = 50) {
+    const x = baseX + level * this.X_GAP;
     if (!node.children || node.children.length === 0) {
       positions.set(node.id, { x, y: startY });
       return this.NODE_HEIGHT + 10;
@@ -25,7 +93,7 @@ export class LayoutEngine {
     let totalHeight = 0;
     let childY = startY;
     node.children.forEach((child) => {
-      const h = this.traverse(child, level + 1, childY, positions);
+      const h = this.traverse(child, level + 1, childY, positions, baseX);
       totalHeight += h;
       childY += h;
     });

@@ -63,9 +63,10 @@
       ></div>
       <svg
         id="connector-layer"
-        class="pointer-events-none absolute top-0 left-0 z-0 h-full w-full overflow-visible"
+        class="pointer-events-none absolute top-0 left-0 z-0 w-full overflow-visible"
+        style="min-height: 100%"
       ></svg>
-      <div id="node-layer" class="absolute top-0 left-0 z-10 h-full w-full"></div>
+      <div id="node-layer" class="absolute top-0 left-0 z-10 w-full" style="min-height: 100%"></div>
     </div>
     <div
       id="side-panel"
@@ -109,7 +110,7 @@
           onclick="app.switchTab('overview', event)"
         >
           <i class="fas fa-table-columns mr-1.5 text-[10px]"></i>Overview
-        </button>
+      </button>
         <button id="tasks-tab-btn" class="tab-btn" onclick="app.switchTab('tasks', event)">
           <i class="fas fa-list-check mr-1.5 text-[10px]"></i>Tasks
         </button>

@@ -28,6 +28,30 @@ export class Renderer {
   updateCanvasHeader(isDetailView, subtitle = null) {
     const backBtn = document.getElementById('back-btn');
     const canvasTitle = document.getElementById('canvas-title');
+    const headerContainer = canvasTitle.parentElement;
+    const topRightControls = document.querySelector('.fixed.top-4.right-4.z-40');
+
+    // On empty canvas (welcome view): keep hero title visible, hide top-right controls only
+    const isEmpty = this.state.viewMode === 'features' && this.state.features.length === 0;
+    if (isEmpty) {
+      headerContainer.style.display = '';
+      if (topRightControls) topRightControls.style.display = 'none';
+      // Reset to default hero title
+      backBtn.classList.add('hidden');
+      canvasTitle.textContent = '';
+      const titleText = document.createTextNode('Features');
+      const br = document.createElement('br');
+      const subtitleSpan = document.createElement('span');
+      subtitleSpan.className = 'text-slate-300';
+      subtitleSpan.textContent = 'Control Center';
+      canvasTitle.appendChild(titleText);
+      canvasTitle.appendChild(br);
+      canvasTitle.appendChild(subtitleSpan);
+      return;
+    }
+
+    headerContainer.style.display = '';
+    if (topRightControls) topRightControls.style.display = '';
 
     if (isDetailView) {
       const feature = this.state.getFeature(this.state.focusedFeatureId);
@@ -57,25 +81,358 @@ export class Renderer {
   }
 
   renderFeaturesView(container, svgLayer, onNodeClick, onAddChild, onDeepDive) {
+    const repos = this.state.getRepositories();
+    const hasFeatures = this.state.features.length > 0;
+
+    // Show welcome view when no features exist (repos may or may not exist)
+    if (!hasFeatures) {
+      this.renderWelcomeView(container, onAddChild);
+      return;
+    }
+
+    // If we have repos, use repo-grouped layout
+    const hasRepos = repos.length > 0;
+    if (hasRepos) {
+      const featuresByRepo = this.state.getFeaturesByRepo();
+      const { repoPositions, featurePositions, totalHeight } = this.layout.calculateWithRepos(
+        featuresByRepo,
+        repos
+      );
+
+      // Always start below the fixed header
+      const offsetY = 140;
+
+      repoPositions.forEach((pos) => {
+        pos.y += offsetY;
+      });
+      featurePositions.forEach((pos) => {
+        pos.y += offsetY;
+      });
+
+      const totalContentHeight = totalHeight + offsetY + 160;
+      container.style.height = `${totalContentHeight}px`;
+      svgLayer.style.height = `${totalContentHeight}px`;
+
+      // Render repo-to-feature connectors
+      this.renderRepoConnectors(repos, repoPositions, featuresByRepo, featurePositions, svgLayer);
+
+      // Render feature-to-feature connectors (parent-child)
+      this.renderConnectors(featurePositions, svgLayer);
+
+      // Render repo pills
+      this.renderRepoPills(repos, repoPositions, container, onAddChild);
+
+      // Render feature nodes
+      this.renderNodes(featurePositions, onNodeClick, onAddChild, onDeepDive);
+
+      // Render "Add Repository" button below last repo
+      const lastRepoY = Math.max(...Array.from(repoPositions.values()).map((p) => p.y));
+      this.renderAddRepoButton(container, lastRepoY + 80);
+
+      return;
+    }
+
+    // Fallback: features without repos (shouldn't happen with new model)
     const roots = this.state.getHierarchy();
     const { positions, totalHeight } = this.layout.calculate(roots);
-    const containerHeight = document.getElementById('canvas-container').clientHeight;
-
-    let offsetY = (containerHeight - (totalHeight + 96)) / 2;
-    if (offsetY < 50) offsetY = 50;
-
+    const offsetY = 140;
     positions.forEach((pos) => {
       pos.y += offsetY;
     });
-
-    // Render connectors
+    const totalContentHeight = totalHeight + offsetY + 120;
+    container.style.height = `${totalContentHeight}px`;
+    svgLayer.style.height = `${totalContentHeight}px`;
     this.renderConnectors(positions, svgLayer);
-
-    // Render nodes
     this.renderNodes(positions, onNodeClick, onAddChild, onDeepDive);
-
-    // Render "New Feature" button
     this.renderNewFeatureButton(container, totalHeight, offsetY, onAddChild);
+  }
+
+  renderWelcomeView(container, onAddChild) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'welcome-view';
+
+    // Main layout: repos on left, mind-map area on right
+    const layout = document.createElement('div');
+    layout.className = 'welcome-layout';
+
+    // Left column: repositories
+    const repoColumn = document.createElement('div');
+    repoColumn.className = 'welcome-repo-column';
+
+    const repoHeader = document.createElement('div');
+    repoHeader.className = 'welcome-repo-header';
+    const repoHeaderIcon = document.createElement('i');
+    repoHeaderIcon.className = 'fab fa-github';
+    const repoHeaderText = document.createElement('span');
+    repoHeaderText.textContent = 'Repositories';
+    repoHeader.appendChild(repoHeaderIcon);
+    repoHeader.appendChild(repoHeaderText);
+    repoColumn.appendChild(repoHeader);
+
+    // Repo list
+    const repoList = document.createElement('div');
+    repoList.className = 'welcome-repo-list';
+    repoList.id = 'welcome-repo-list';
+
+    // Get existing repos or generate random ones
+    let repos = this.state.getRepositories();
+    if (repos.length === 0) {
+      for (let i = 0; i < 3; i++) {
+        this.state.addRandomRepository();
+      }
+      repos = this.state.getRepositories();
+    }
+
+    repos.forEach((repo) => {
+      const pill = this.createRepoPillButton(repo);
+      repoList.appendChild(pill);
+    });
+
+    repoColumn.appendChild(repoList);
+
+    // Add Repository button
+    const addRepoBtn = document.createElement('button');
+    addRepoBtn.className = 'welcome-add-repo-btn';
+    addRepoBtn.onclick = () => window.app.addNewRepository();
+    const addRepoIcon = document.createElement('i');
+    addRepoIcon.className = 'fas fa-plus';
+    const addRepoText = document.createElement('span');
+    addRepoText.textContent = 'Add Repository';
+    addRepoBtn.appendChild(addRepoIcon);
+    addRepoBtn.appendChild(addRepoText);
+    repoColumn.appendChild(addRepoBtn);
+
+    layout.appendChild(repoColumn);
+
+    // Right area: mind-map / ideas canvas
+    const ideaCanvas = document.createElement('div');
+    ideaCanvas.className = 'welcome-idea-canvas';
+    ideaCanvas.id = 'welcome-idea-canvas';
+
+    // Show hint when no repo selected
+    const hint = document.createElement('div');
+    hint.className = 'welcome-idea-hint';
+    hint.id = 'welcome-idea-hint';
+    const hintArrow = document.createElement('i');
+    hintArrow.className = 'fas fa-arrow-left';
+    const hintText = document.createElement('span');
+    hintText.textContent = 'Select a repository to explore feature ideas';
+    hint.appendChild(hintArrow);
+    hint.appendChild(hintText);
+    ideaCanvas.appendChild(hint);
+
+    layout.appendChild(ideaCanvas);
+
+    wrapper.appendChild(layout);
+
+    // CLI section (below the layout)
+    const cliSection = document.createElement('div');
+    cliSection.className = 'welcome-cli';
+    cliSection.style.marginTop = '1.5rem';
+
+    const cliHeader = document.createElement('div');
+    cliHeader.className = 'welcome-cli-header';
+    const cliHeaderIcon = document.createElement('i');
+    cliHeaderIcon.className = 'fas fa-terminal';
+    const cliHeaderText = document.createElement('span');
+    cliHeaderText.textContent = 'Or start from the command line';
+    cliHeader.appendChild(cliHeaderIcon);
+    cliHeader.appendChild(cliHeaderText);
+    cliSection.appendChild(cliHeader);
+
+    const cliBlock = document.createElement('div');
+    cliBlock.className = 'welcome-cli-block';
+
+    const line1 = document.createElement('div');
+    line1.className = 'welcome-cli-line';
+    const prompt1 = document.createElement('span');
+    prompt1.className = 'cli-prompt';
+    prompt1.textContent = '$';
+    const cmd1 = document.createElement('span');
+    cmd1.className = 'cli-cmd';
+    cmd1.textContent = 'cd';
+    const path1 = document.createElement('span');
+    path1.className = 'cli-path';
+    path1.textContent = '~/my-repo';
+    line1.appendChild(prompt1);
+    line1.appendChild(cmd1);
+    line1.appendChild(path1);
+
+    const line2 = document.createElement('div');
+    line2.className = 'welcome-cli-line';
+    const prompt2 = document.createElement('span');
+    prompt2.className = 'cli-prompt';
+    prompt2.textContent = '$';
+    const cmd2 = document.createElement('span');
+    cmd2.className = 'cli-cmd';
+    cmd2.textContent = 'shep';
+    const arg2 = document.createElement('span');
+    arg2.className = 'cli-arg';
+    arg2.textContent = 'feat new';
+    const str2 = document.createElement('span');
+    str2.className = 'cli-string';
+    str2.textContent = '"create modern, sleek dashboards"';
+    line2.appendChild(prompt2);
+    line2.appendChild(cmd2);
+    line2.appendChild(arg2);
+    line2.appendChild(str2);
+
+    const copyBtn = document.createElement('button');
+    copyBtn.className = 'welcome-cli-copy';
+    copyBtn.title = 'Copy to clipboard';
+    copyBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.copyCliCommand();
+    };
+    const copyIcon = document.createElement('i');
+    copyIcon.className = 'fas fa-copy';
+    copyBtn.appendChild(copyIcon);
+
+    cliBlock.appendChild(line1);
+    cliBlock.appendChild(line2);
+    cliBlock.appendChild(copyBtn);
+    cliSection.appendChild(cliBlock);
+
+    const cliHint = document.createElement('p');
+    cliHint.className = 'welcome-cli-hint';
+    cliHint.textContent = 'Feature will appear on canvas once created';
+    cliSection.appendChild(cliHint);
+
+    wrapper.appendChild(cliSection);
+    container.appendChild(wrapper);
+  }
+
+  /**
+   * Create a clickable repo pill for the welcome screen
+   */
+  createRepoPillButton(repo) {
+    const pill = document.createElement('button');
+    pill.className = 'repo-pill-btn';
+    pill.dataset.repoId = repo.id;
+
+    if (this.state.selectedRepoId === repo.id) {
+      pill.classList.add('active');
+    }
+
+    pill.onclick = (e) => {
+      e.stopPropagation();
+      window.app.selectWelcomeRepo(repo.id);
+    };
+
+    const icon = document.createElement('i');
+    icon.className = 'fab fa-github repo-pill-icon';
+    const name = document.createElement('span');
+    name.className = 'repo-pill-name';
+    name.textContent = repo.fullName;
+
+    pill.appendChild(icon);
+    pill.appendChild(name);
+
+    return pill;
+  }
+
+  /**
+   * Mind-map ideas disabled - keeping simple welcome view without suggestions
+   */
+  renderMindMapIdeas(repoId) {
+    // Ideas preview removed - user can add features directly
+  }
+
+  /**
+   * Render repo pills on the features canvas (positioned absolutely)
+   */
+  renderRepoPills(repos, repoPositions, container, onAddChild) {
+    repos.forEach((repo) => {
+      const pos = repoPositions.get(repo.id);
+      if (!pos) return;
+
+      const pill = document.createElement('div');
+      pill.className = 'canvas-repo-pill';
+      pill.style.position = 'absolute';
+      pill.style.left = `${pos.x}px`;
+      pill.style.top = `${pos.y}px`;
+
+      const icon = document.createElement('i');
+      icon.className = 'fab fa-github canvas-repo-icon';
+
+      const name = document.createElement('span');
+      name.className = 'canvas-repo-name';
+      name.textContent = repo.fullName;
+
+      const addBtn = document.createElement('button');
+      addBtn.className = 'canvas-repo-add-btn';
+      addBtn.title = 'Add feature to this repo';
+      addBtn.onclick = (e) => {
+        e.stopPropagation();
+        window.app.createFeatureForRepo(repo.id);
+      };
+      const addIcon = document.createElement('i');
+      addIcon.className = 'fas fa-plus';
+      addBtn.appendChild(addIcon);
+
+      pill.appendChild(icon);
+      pill.appendChild(name);
+      pill.appendChild(addBtn);
+      container.appendChild(pill);
+    });
+  }
+
+  /**
+   * Render SVG connectors from repo pills to their features
+   */
+  renderRepoConnectors(repos, repoPositions, featuresByRepo, featurePositions, svgLayer) {
+    repos.forEach((repo) => {
+      const repoPos = repoPositions.get(repo.id);
+      if (!repoPos) return;
+
+      const features = featuresByRepo.get(repo.id) || [];
+      features.forEach((feature) => {
+        const featPos = featurePositions.get(feature.id);
+        if (!featPos) return;
+
+        // From right edge of repo pill to left edge of feature card
+        const startX = repoPos.x + this.layout.REPO_PILL_WIDTH;
+        const startY = repoPos.y + 20; // vertical center of pill (40px height / 2)
+        const endX = featPos.x;
+        const endY = featPos.y + 48; // vertical center of feature card (96px / 2)
+
+        const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+        const cpx = startX + (endX - startX) / 2;
+        path.setAttribute(
+          'd',
+          `M ${startX} ${startY} C ${cpx} ${startY}, ${cpx} ${endY}, ${endX} ${endY}`
+        );
+        path.setAttribute('fill', 'none');
+        path.setAttribute('stroke', '#cbd5e1');
+        path.setAttribute('stroke-width', '1.5');
+        path.setAttribute('stroke-dasharray', '4 3');
+        svgLayer.appendChild(path);
+      });
+    });
+  }
+
+  /**
+   * Render "Add Repository" button on the features canvas
+   */
+  renderAddRepoButton(container, yPosition) {
+    const btn = document.createElement('button');
+    btn.className = 'canvas-add-repo-btn';
+    btn.style.position = 'absolute';
+    btn.style.left = '50px';
+    btn.style.top = `${yPosition}px`;
+    btn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.addNewRepository();
+    };
+
+    const icon = document.createElement('i');
+    icon.className = 'fas fa-plus';
+    const text = document.createElement('span');
+    text.textContent = 'Add Repository';
+
+    btn.appendChild(icon);
+    btn.appendChild(text);
+    container.appendChild(btn);
   }
 
   renderTasksView(container, svgLayer, onTaskClick) {
@@ -249,9 +606,11 @@ export class Renderer {
       const addBtn = this.createAddButton(node.id, onAddChild);
       el.appendChild(addBtn);
 
-      // Add feature drawer (includes deep dive button now)
-      const drawer = this.createFeatureDrawer(node.id, onDeepDive);
-      el.appendChild(drawer);
+      // Add feature drawer only for features in Implementation phase or later (phaseId >= 5)
+      if (node.phaseId >= 5) {
+        const drawer = this.createFeatureDrawer(node.id, onDeepDive);
+        el.appendChild(drawer);
+      }
 
       // Add environment indicator
       const envIndicator = this.createEnvironmentIndicator(node.id);

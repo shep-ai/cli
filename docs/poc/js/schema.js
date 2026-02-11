@@ -220,6 +220,7 @@ export function createFeature(title, options = {}) {
     title,
     description: options.description || '',
     slug: options.slug || title.toLowerCase().replace(/\s+/g, '-'),
+    repositoryId: options.repositoryId || null,
 
     // Lifecycle & Status
     phaseId: options.phaseId || 0,

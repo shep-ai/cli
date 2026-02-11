@@ -835,9 +835,22 @@ class App {
     }
 
     if (this.sidebarMode === 'create') {
+      // Determine repositoryId: from pending repo, parent's repo, or first repo
+      let repositoryId = this.pendingRepoId || null;
+      if (!repositoryId && this.pendingParentId) {
+        const parent = this.state.getFeature(this.pendingParentId);
+        if (parent) repositoryId = parent.repositoryId;
+      }
+      if (!repositoryId) {
+        const repos = this.state.getRepositories();
+        if (repos.length > 0) repositoryId = repos[0].id;
+      }
+      this.pendingRepoId = null;
+
       // CREATE - Use schema-based factory
       const feature = this.state.createFeature({
         parentId: this.pendingParentId,
+        repositoryId,
         title: title.trim(),
         description: desc.trim(),
         phaseId,
@@ -1526,6 +1539,62 @@ class App {
 
     // Update environment cards on the right side
     this.renderer.renderEnvironmentCards();
+  }
+
+  // Repository Management Methods
+  selectWelcomeRepo(repoId) {
+    this.state.selectedRepoId = repoId;
+
+    // Update pill active states
+    const pills = document.querySelectorAll('.repo-pill-btn');
+    pills.forEach((pill) => {
+      pill.classList.toggle('active', pill.dataset.repoId === repoId);
+    });
+
+    // Don't show ideas - user can add repo and create features directly
+  }
+
+  addNewRepository() {
+    const repo = this.state.addRandomRepository();
+    if (repo) {
+      this.ui.showToast(`Added ${repo.fullName}`);
+      this.render();
+    }
+  }
+
+  createFeatureFromIdea(repoId, ideaTitle) {
+    const feature = this.state.createFeature({
+      title: ideaTitle,
+      description: `Auto-generated from idea: ${ideaTitle}`,
+      repositoryId: repoId,
+      phaseId: 0,
+      priority: 'medium',
+    });
+
+    if (feature) {
+      this.ui.showToast(`Feature "${ideaTitle}" created`);
+      this.render();
+      // Start simulation for the new feature
+      this.state.setGranularProgress(feature.id, 0, 0);
+    }
+  }
+
+  createFeatureForRepo(repoId) {
+    // Open create panel with repo pre-selected
+    this.pendingRepoId = repoId;
+    this.initCreate(null);
+  }
+
+  copyCliCommand() {
+    const text = 'cd ~/my-repo\nshep feat new "create modern, sleek dashboards"';
+    navigator.clipboard
+      .writeText(text)
+      .then(() => {
+        this.ui.showToast('Command copied to clipboard', false);
+      })
+      .catch(() => {
+        this.ui.showToast('Failed to copy command', true);
+      });
   }
 
   copyURL(url) {

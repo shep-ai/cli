@@ -1,5 +1,11 @@
 import { createFeature, validateFeature, calculateProgress } from './schema.js';
-import { PHASES, MOCK_IMPLEMENTATION_PHASES } from './constants.js';
+import {
+  PHASES,
+  MOCK_IMPLEMENTATION_PHASES,
+  MOCK_REPOS,
+  RANDOM_REPO_NAMES,
+  FEATURE_IDEAS,
+} from './constants.js';
 
 /**
  * AppState - Feature Database with LocalStorage persistence
@@ -8,8 +14,11 @@ import { PHASES, MOCK_IMPLEMENTATION_PHASES } from './constants.js';
 export class AppState {
   constructor() {
     this.features = []; // Array of Feature objects (following schema.js)
+    this.repositories = []; // Array of Repository objects
     this.selectedFeatureId = null;
+    this.selectedRepoId = null; // Currently selected repo on welcome screen
     this.presetIndex = 0;
+    this.randomRepoIndex = 0;
     this.isSimulating = true; // Always on
     this.simulationInterval = null;
     this.currentTab = 'overview';
@@ -32,6 +41,7 @@ export class AppState {
    */
   load() {
     const storedData = localStorage.getItem('featureFlowData');
+    const storedRepos = localStorage.getItem('featureFlowRepos');
     const storedEnvironments = localStorage.getItem('featureEnvironments');
     const wasCleared = localStorage.getItem('featureFlowCleared') === 'true';
 
@@ -57,6 +67,17 @@ export class AppState {
     } else {
       console.log('📂 No stored features found, starting fresh');
       this.features = [];
+    }
+
+    // Load repositories
+    if (storedRepos) {
+      try {
+        this.repositories = JSON.parse(storedRepos);
+        console.log('✅ Loaded', this.repositories.length, 'repositories');
+      } catch (e) {
+        console.error('❌ Failed to load repositories:', e);
+        this.repositories = [];
+      }
     }
 
     // Load environment state
@@ -89,6 +110,7 @@ export class AppState {
   save() {
     try {
       localStorage.setItem('featureFlowData', JSON.stringify(this.features));
+      localStorage.setItem('featureFlowRepos', JSON.stringify(this.repositories));
       localStorage.setItem('featureEnvironments', JSON.stringify(this.featureEnvironments));
       // Clear the "cleared" flag when saving new data
       if (this.features.length > 0) {
@@ -103,10 +125,14 @@ export class AppState {
    * Initialize with demo features (only on first run)
    */
   initDemoData() {
+    // Initialize default repos
+    this.repositories = [...MOCK_REPOS];
+
     // Create root feature with tasks showing different states
     const root = this.createFeature({
       title: 'SSO Integration',
       description: 'Implement single sign-on authentication system.',
+      repositoryId: 'repo_1',
       phaseId: 5,
       priority: 'high',
       tags: [
@@ -475,13 +501,95 @@ export class AppState {
     return event;
   }
 
+  // ===== Repository Management =====
+
+  /**
+   * Get all repositories
+   * @returns {Array} All repositories
+   */
+  getRepositories() {
+    return [...this.repositories];
+  }
+
+  /**
+   * Get repository by ID
+   * @param {string} id - Repository ID
+   * @returns {Object|undefined} Repository or undefined
+   */
+  getRepository(id) {
+    return this.repositories.find((r) => r.id === id);
+  }
+
+  /**
+   * Add a new repository
+   * @param {string} fullName - "org/name" format
+   * @returns {Object} Created repository
+   */
+  addRepository(fullName) {
+    const parts = fullName.split('/');
+    const repo = {
+      id: `repo_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`,
+      org: parts[0] || 'unknown',
+      name: parts[1] || fullName,
+      fullName,
+    };
+    this.repositories.push(repo);
+    this.save();
+    return repo;
+  }
+
+  /**
+   * Add a random repository from the pool
+   * @returns {Object} Created repository
+   */
+  addRandomRepository() {
+    // Pick a random name that's not already added
+    const existing = new Set(this.repositories.map((r) => r.fullName));
+    const available = RANDOM_REPO_NAMES.filter((n) => !existing.has(n));
+    if (available.length === 0) return null;
+
+    const name = available[Math.floor(Math.random() * available.length)];
+    return this.addRepository(name);
+  }
+
+  /**
+   * Get features grouped by repository
+   * @returns {Map<string, Feature[]>} Map of repoId -> features
+   */
+  getFeaturesByRepo() {
+    const map = new Map();
+    this.repositories.forEach((repo) => {
+      map.set(repo.id, []);
+    });
+
+    this.features.forEach((f) => {
+      if (f.repositoryId && map.has(f.repositoryId)) {
+        map.get(f.repositoryId).push(f);
+      }
+    });
+
+    return map;
+  }
+
+  /**
+   * Get random feature ideas for a repository
+   * @param {number} count - Number of ideas
+   * @returns {string[]} Array of feature idea strings
+   */
+  getFeatureIdeas(count = 4) {
+    const shuffled = [...FEATURE_IDEAS].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+  }
+
   /**
    * Clear all features (for demo reset)
    */
   clearAll() {
     this.features = [];
+    this.repositories = [];
     this.featureEnvironments = {}; // Clear environment state too
     this.selectedFeatureId = null;
+    this.selectedRepoId = null;
     this.viewMode = 'features';
     this.focusedFeatureId = null;
     localStorage.setItem('featureFlowCleared', 'true');
