@@ -18,8 +18,8 @@ import { AgentType, AgentFeature } from '../../../../../../src/domain/generated/
 import {
   createAnalyzeRepositoryGraph,
   AnalyzeRepositoryState,
-} from '../../../../../../src/infrastructure/services/agents/langgraph/analyze-repository-graph.js';
-import { buildAnalyzePrompt } from '../../../../../../src/infrastructure/services/agents/langgraph/prompts/analyze-repository.prompt.js';
+} from '../../../../../../src/infrastructure/services/agents/analyze-repo/analyze-repository-graph.js';
+import { buildAnalyzePrompt } from '../../../../../../src/infrastructure/services/agents/analyze-repo/prompts/analyze-repository.prompt.js';
 
 describe('analyzeRepositoryGraph', () => {
   let mockExecutor: IAgentExecutor;

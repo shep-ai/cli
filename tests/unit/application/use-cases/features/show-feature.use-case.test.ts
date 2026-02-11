@@ -1,0 +1,75 @@
+/**
+ * ShowFeatureUseCase Unit Tests
+ *
+ * Tests for retrieving a single feature by ID.
+ * Uses mock repository.
+ *
+ * TDD Phase: RED-GREEN
+ */
+
+import 'reflect-metadata';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { ShowFeatureUseCase } from '../../../../../src/application/use-cases/features/show-feature.use-case.js';
+import type { IFeatureRepository } from '../../../../../src/application/ports/output/feature-repository.interface.js';
+import { SdlcLifecycle } from '../../../../../src/domain/generated/output.js';
+import type { Feature } from '../../../../../src/domain/generated/output.js';
+
+function createMockFeature(id: string): Feature {
+  return {
+    id,
+    name: 'Test',
+    slug: 'test',
+    description: 'Test feature',
+    repositoryPath: '/repo',
+    branch: 'feat/test',
+    lifecycle: SdlcLifecycle.Requirements,
+    messages: [],
+    relatedArtifacts: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+}
+
+describe('ShowFeatureUseCase', () => {
+  let useCase: ShowFeatureUseCase;
+  let mockRepo: IFeatureRepository;
+
+  beforeEach(() => {
+    mockRepo = {
+      create: vi.fn(),
+      findById: vi.fn().mockResolvedValue(createMockFeature('feat-1')),
+      findBySlug: vi.fn(),
+      list: vi.fn(),
+      update: vi.fn(),
+      delete: vi.fn(),
+    };
+    useCase = new ShowFeatureUseCase(mockRepo);
+  });
+
+  it('should return feature by id', async () => {
+    const result = await useCase.execute('feat-1');
+    expect(result.id).toBe('feat-1');
+    expect(mockRepo.findById).toHaveBeenCalledWith('feat-1');
+  });
+
+  it('should throw if feature not found', async () => {
+    mockRepo.findById = vi.fn().mockResolvedValue(null);
+    await expect(useCase.execute('non-existent')).rejects.toThrow(/not found/i);
+  });
+
+  it('should include feature id in error message', async () => {
+    mockRepo.findById = vi.fn().mockResolvedValue(null);
+    await expect(useCase.execute('abc-123')).rejects.toThrow('abc-123');
+  });
+
+  it('should return the full feature object from repository', async () => {
+    const mockFeature = createMockFeature('feat-2');
+    mockFeature.name = 'My Feature';
+    mockFeature.lifecycle = SdlcLifecycle.Implementation;
+    mockRepo.findById = vi.fn().mockResolvedValue(mockFeature);
+
+    const result = await useCase.execute('feat-2');
+    expect(result.name).toBe('My Feature');
+    expect(result.lifecycle).toBe(SdlcLifecycle.Implementation);
+  });
+});

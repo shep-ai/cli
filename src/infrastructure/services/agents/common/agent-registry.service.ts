@@ -12,7 +12,7 @@ import type {
   IAgentRegistry,
   AgentDefinitionWithFactory,
 } from '@/application/ports/output/agent-registry.interface.js';
-import { createAnalyzeRepositoryGraph } from './langgraph/analyze-repository-graph.js';
+import { createAnalyzeRepositoryGraph } from '../analyze-repo/analyze-repository-graph.js';
 
 export class AgentRegistryService implements IAgentRegistry {
   private readonly agents = new Map<string, AgentDefinitionWithFactory>();

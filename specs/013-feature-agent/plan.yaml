@@ -2,36 +2,113 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: feature-agent
-summary: Implementation plan for 013-feature-agent
+summary: Implementation plan for 013-feature-agent with 9 phases following Clean Architecture and TDD
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '008-agent-configuration'
+technologies:
+  - TypeScript
+  - Commander.js
+  - LangGraph
+  - SQLite
+  - better-sqlite3
+  - Node.js fork()
+relatedLinks:
+  - file://./specs/013-feature-agent/spec.yaml
+  - file://./specs/013-feature-agent/research.yaml
+  - file://./tsp/domain/entities/feature.tsp
+  - file://./tsp/agents/feature-agent.tsp
 
 # Structured implementation phases
 phases:
   - id: phase-1
-    name: 'Foundation'
+    name: 'Foundation & Domain Setup'
     parallel: false
     taskIds:
       - task-1
       - task-2
   - id: phase-2
-    name: 'Core Implementation'
+    name: 'Repository Layer (TDD)'
     parallel: false
     taskIds:
       - task-3
       - task-4
+  - id: phase-3
+    name: 'Git Worktree Service (TDD)'
+    parallel: false
+    taskIds:
+      - task-5
+      - task-6
+  - id: phase-4
+    name: 'Use Cases (TDD)'
+    parallel: false
+    taskIds:
+      - task-7
+      - task-8
+      - task-9
+  - id: phase-5
+    name: 'LangGraph Agent Foundation (TDD)'
+    parallel: false
+    taskIds:
+      - task-10
+      - task-11
+  - id: phase-6
+    name: 'CLI Commands (TDD)'
+    parallel: false
+    taskIds:
+      - task-12
+      - task-13
+      - task-14
+  - id: phase-7
+    name: 'Agent Nodes (TDD)'
+    parallel: false
+    taskIds:
+      - task-15
+      - task-16
+      - task-17
+      - task-18
+  - id: phase-8
+    name: 'Background Execution (TDD)'
+    parallel: false
+    taskIds:
+      - task-19
+      - task-20
+  - id: phase-9
+    name: 'Integration & Polish'
+    parallel: false
+    taskIds:
+      - task-21
+      - task-22
 
 # File change tracking
 filesToCreate:
-  - src/domain/entities/{{ENTITY_NAME}}.ts
-  - tests/unit/domain/entities/{{ENTITY_NAME}}.test.ts
+  - src/application/ports/output/feature-repository.interface.ts
+  - src/application/ports/output/worktree-service.interface.ts
+  - src/infrastructure/repositories/sqlite-feature.repository.ts
+  - src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts
+  - src/infrastructure/services/git/worktree.service.ts
+  - src/infrastructure/services/agents/langgraph/feature-agent-graph.ts
+  - src/infrastructure/services/agents/feature-agent-worker.ts
+  - src/presentation/cli/commands/feat/index.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - src/presentation/cli/commands/feat/ls.command.ts
+  - src/presentation/cli/commands/feat/show.command.ts
+  - src/application/use-cases/features/create-feature.use-case.ts
+  - src/application/use-cases/features/list-features.use-case.ts
+  - src/application/use-cases/features/show-feature.use-case.ts
+  - tests/unit/infrastructure/repositories/sqlite-feature.repository.test.ts
+  - tests/unit/infrastructure/services/git/worktree.service.test.ts
+  - tests/unit/application/use-cases/features/create-feature.use-case.test.ts
+  - tests/e2e/cli/feat.test.ts
 
 filesToModify:
+  - tsp/domain/entities/feature.tsp
+  - tsp/agents/agent-run.tsp
   - src/infrastructure/di/container.ts
+  - src/infrastructure/persistence/migrations.ts
   - package.json
+  - src/presentation/cli/index.ts
 
 # Open questions (should all be resolved before implementation)
 openQuestions: []
@@ -45,50 +122,172 @@ content: |
 
   ## Architecture Overview
 
+  This implementation follows **Clean Architecture** with clear separation of concerns:
+
   ```
-  {{ARCHITECTURE_DIAGRAM}}
+  Presentation (CLI)
+      ↓
+  Application (Use Cases)
+      ↓
+  Domain (TypeSpec Models)
+      ↑
+  Infrastructure (Repositories, Services)
   ```
+
+  **Key Design Decisions:**
+  - Feature storage in global SQLite DB (~/.shep/data) with repositoryPath filtering
+  - Git worktree management via native execFile (zero new dependencies)
+  - LangGraph StateGraph with minimal state, nodes read spec files directly
+  - Background execution via Node.js fork() with detached + unref()
+  - SQLite checkpointing per feature for crash recovery
 
   ## Implementation Strategy
 
-  **MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
+  **MANDATORY TDD**: All phases with executable code follow RED-GREEN-REFACTOR cycles.
 
-  ### Phase 1: Foundation (No Tests)
+  ### Phase 1: Foundation & Domain Setup (No Tests)
 
-  **Goal:** {{PHASE_1_GOAL}}
+  **Goal:** Install dependencies and update TypeSpec models for cross-references
 
   **Steps:**
+  1. Install LangGraph packages (@langchain/langgraph, @langchain/core, @langchain/langgraph-checkpoint-sqlite)
+  2. Update TypeSpec: Add featureId/repositoryPath to AgentRun, add agentRunId to Feature
+  3. Compile TypeSpec and verify generated types
 
-  1. {{STEP_1}}
-  2. {{STEP_2}}
+  **Deliverables:** Dependencies installed, TypeSpec models updated, pnpm tsp:compile passes
 
-  **Deliverables:** {{DELIVERABLES}}
+  ### Phase 2: Repository Layer (TDD Cycle 1)
 
-  ### Phase 2: Core Implementation (TDD Cycle 1)
-
-  **Goal:** {{PHASE_2_GOAL}}
+  **Goal:** Implement IFeatureRepository with SQLite persistence
 
   **TDD Workflow:**
+  1. **RED:** Write unit tests for IFeatureRepository interface methods (create, findById, list, update)
+  2. **GREEN:** Implement SQLiteFeatureRepository with database migration (features table)
+  3. **REFACTOR:** Extract feature mapper, add indexes for performance
 
-  1. **RED:** Write failing tests FIRST
-  2. **GREEN:** Implement minimal code to pass tests
-  3. **REFACTOR:** Improve code while keeping tests green
+  **Deliverables:** IFeatureRepository interface, SQLiteFeatureRepository, migration v4, passing tests
 
-  **Deliverables:** {{DELIVERABLES}}
+  ### Phase 3: Git Worktree Service (TDD Cycle 2)
+
+  **Goal:** Implement IWorktreeService for git worktree management
+
+  **TDD Workflow:**
+  1. **RED:** Write unit tests for worktree operations (create, remove, list, exists)
+  2. **GREEN:** Implement WorktreeService using execFile with typed errors
+  3. **REFACTOR:** Extract error parsing, improve error messages
+
+  **Deliverables:** IWorktreeService interface, WorktreeService implementation, passing tests
+
+  ### Phase 4: Use Cases (TDD Cycle 3)
+
+  **Goal:** Implement feature CRUD use cases
+
+  **TDD Workflow:**
+  1. **RED:** Write unit tests for CreateFeatureUseCase, ListFeaturesUseCase, ShowFeatureUseCase
+  2. **GREEN:** Implement use cases with repository and worktree service injection
+  3. **REFACTOR:** Extract common validation logic, improve error handling
+
+  **Deliverables:** 3 use cases, DI container registration, passing tests
+
+  ### Phase 5: LangGraph Agent Foundation (TDD Cycle 4)
+
+  **Goal:** Set up FeatureAgent StateGraph structure and analyze node
+
+  **TDD Workflow:**
+  1. **RED:** Write integration tests for graph initialization and analyze node
+  2. **GREEN:** Implement FeatureAgentState, graph structure, analyze node
+  3. **REFACTOR:** Extract node factory pattern, improve state transitions
+
+  **Deliverables:** feature-agent-graph.ts with analyze node, SQLite checkpointing, passing tests
+
+  ### Phase 6: CLI Commands (TDD Cycle 5)
+
+  **Goal:** Implement feat new/ls/show CLI commands
+
+  **TDD Workflow:**
+  1. **RED:** Write E2E tests for CLI commands (feat new, feat ls, feat show)
+  2. **GREEN:** Implement commands with use case integration
+  3. **REFACTOR:** Extract common UI patterns, improve output formatting
+
+  **Deliverables:** 3 CLI commands registered, table formatting, passing E2E tests
+
+  ### Phase 7: Agent Nodes (TDD Cycle 6)
+
+  **Goal:** Implement requirements, research, plan, implement nodes
+
+  **TDD Workflow:**
+  1. **RED:** Write integration tests for each node with mock spec files
+  2. **GREEN:** Implement nodes with IAgentExecutor delegation and spec file I/O
+  3. **REFACTOR:** Extract prompt templates, improve error handling
+
+  **Deliverables:** 4 LangGraph nodes, human-in-the-loop support, passing tests
+
+  ### Phase 8: Background Execution (TDD Cycle 7)
+
+  **Goal:** Implement fork() worker and process management
+
+  **TDD Workflow:**
+  1. **RED:** Write integration tests for worker spawn and IPC handshake
+  2. **GREEN:** Implement feature-agent-worker.ts with fork() + detached
+  3. **REFACTOR:** Extract process management utilities, improve logging
+
+  **Deliverables:** Background worker, PID tracking, crash detection, passing tests
+
+  ### Phase 9: Integration & Polish
+
+  **Goal:** E2E testing, documentation, and final validation
+
+  **Steps:**
+  1. Write full E2E test for complete workflow (feat new → agent runs → feat show)
+  2. Update AGENTS.md with FeatureAgent implementation details
+  3. Add CLI reference docs for shep feat commands
+  4. Validate all tests pass (pnpm test)
+  5. Validate build passes (pnpm build)
+  6. Validate typecheck passes (pnpm typecheck)
+
+  **Deliverables:** E2E tests passing, documentation complete, feature ready for PR
 
   ## Files to Create/Modify
 
-  ### New Files
+  ### New Files (Application Layer)
 
   | File | Purpose |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{PURPOSE}} |
+  | src/application/ports/output/feature-repository.interface.ts | IFeatureRepository port |
+  | src/application/ports/output/worktree-service.interface.ts | IWorktreeService port |
+  | src/application/use-cases/features/create-feature.use-case.ts | Create feature + worktree + spawn agent |
+  | src/application/use-cases/features/list-features.use-case.ts | List features with filtering |
+  | src/application/use-cases/features/show-feature.use-case.ts | Show feature details |
+
+  ### New Files (Infrastructure Layer)
+
+  | File | Purpose |
+  | ---- | ------- |
+  | src/infrastructure/repositories/sqlite-feature.repository.ts | SQLite implementation of IFeatureRepository |
+  | src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts | Feature domain <-> SQLite mapping |
+  | src/infrastructure/services/git/worktree.service.ts | Git worktree management via execFile |
+  | src/infrastructure/services/agents/langgraph/feature-agent-graph.ts | LangGraph StateGraph with 5 nodes |
+  | src/infrastructure/services/agents/feature-agent-worker.ts | Background worker entry point |
+
+  ### New Files (Presentation Layer)
+
+  | File | Purpose |
+  | ---- | ------- |
+  | src/presentation/cli/commands/feat/index.ts | Parent command with subcommands |
+  | src/presentation/cli/commands/feat/new.command.ts | shep feat new implementation |
+  | src/presentation/cli/commands/feat/ls.command.ts | shep feat ls implementation |
+  | src/presentation/cli/commands/feat/show.command.ts | shep feat show implementation |
 
   ### Modified Files
 
   | File | Changes |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{CHANGES}} |
+  | tsp/domain/entities/feature.tsp | Add agentRunId optional field |
+  | tsp/agents/agent-run.tsp | Add featureId and repositoryPath optional fields |
+  | src/infrastructure/di/container.ts | Register IFeatureRepository, IWorktreeService, use cases |
+  | src/infrastructure/persistence/migrations.ts | Add migration v4 for features table |
+  | package.json | Add @langchain/langgraph, @langchain/langgraph-checkpoint-sqlite |
+  | src/presentation/cli/index.ts | Register feat command |
 
   ## Testing Strategy (TDD: Tests FIRST)
 
@@ -97,19 +296,35 @@ content: |
   ### Unit Tests (RED -> GREEN -> REFACTOR)
 
   Write FIRST for:
-  - {{TEST_AREA_1}}
-  - {{TEST_AREA_2}}
+  - SQLiteFeatureRepository (create, findById, findBySlug, list, update, delete)
+  - WorktreeService (create, remove, list, exists)
+  - CreateFeatureUseCase, ListFeaturesUseCase, ShowFeatureUseCase
+  - Feature mapper (domain <-> SQLite row conversion)
 
   ### Integration Tests
 
   Write FIRST for:
-  - {{INTEGRATION_TEST_1}}
+  - FeatureAgent graph execution (analyze node, full workflow)
+  - Background worker spawn and IPC handshake
+  - Database migrations (v4 features table creation)
+
+  ### E2E Tests
+
+  Write FIRST for:
+  - feat new command (full workflow: create + worktree + agent spawn)
+  - feat ls command (table output with filtering)
+  - feat show command (detailed feature display)
+  - Complete feature lifecycle (new -> running -> complete)
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | {{RISK}} | {{MITIGATION}} |
+  | LangGraph learning curve | Start with simple analyze node, expand incrementally |
+  | Background process crashes | SQLite checkpointing enables resume, PID tracking for detection |
+  | Git worktree conflicts | Check existence before create, validate branch availability |
+  | Database schema changes | Versioned migrations with rollback support |
+  | TypeSpec breaking changes | Compile after every TypeSpec edit, fix immediately |
 
   ---
 

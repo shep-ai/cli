@@ -48,4 +48,10 @@ model AgentRun extends BaseEntity {
 
   @doc("Error message if execution failed (optional)")
   error?: string;
+
+  @doc("Associated feature ID for feature agent runs (optional)")
+  featureId?: string;
+
+  @doc("Repository path for context scoping (optional)")
+  repositoryPath?: string;
 }

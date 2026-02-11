@@ -14,12 +14,15 @@ importers:
       '@inquirer/prompts':
         specifier: ^8.2.0
         version: 8.2.0(@types/node@25.2.0)
+      '@langchain/core':
+        specifier: ^1.1.22
+        version: 1.1.22
       '@langchain/langgraph':
         specifier: ^1.1.4
-        version: 1.1.4(@langchain/core@1.1.19)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
+        version: 1.1.4(@langchain/core@1.1.22)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)
       '@langchain/langgraph-checkpoint-sqlite':
         specifier: ^1.0.1
-        version: 1.0.1(@langchain/core@1.1.19)(@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.19))
+        version: 1.0.1(@langchain/core@1.1.22)(@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.22))
       '@typespec-tools/emitter-typescript':
         specifier: ^0.3.0
         version: 0.3.0(@typespec/compiler@0.60.1)
@@ -1278,8 +1281,8 @@ packages:
   '@jsdevtools/ono@7.1.3':
     resolution: {integrity: sha512-4JQNk+3mVzK3xh2rqd6RB4J46qUR19azEHBneZyTZM+c456qOrbbM/5xcR8huNCCcbVt7+UmizG6GuUvPvKUYg==}
 
-  '@langchain/core@1.1.19':
-    resolution: {integrity: sha512-hmNAcgeLLqNLnu8UK+HVTfB8170eCmAfsy4gFLBYeE+kdsnyO0Hd/Kd42pZi8Cgfux4OMX3yxl+g+/a1ktGe0A==}
+  '@langchain/core@1.1.22':
+    resolution: {integrity: sha512-DxXoI8JEg/ocFnC2M5hWK9Fi6VQDjVNZuR5Dpx8LSFmrsI0dp+WfD78g8PSCZwndpVWl0bkYD9Fz+OdHTrwX7A==}
     engines: {node: '>=20'}
 
   '@langchain/langgraph-checkpoint-sqlite@1.0.1':
@@ -4395,8 +4398,8 @@ packages:
     resolution: {integrity: sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w==}
     engines: {node: '>=6'}
 
-  langsmith@0.4.12:
-    resolution: {integrity: sha512-YWt0jcGvKqjUgIvd78rd4QcdMss0lUkeUaqp0UpVRq7H2yNDx8H5jOUO/laWUmaPtWGgcip0qturykXe1g9Gqw==}
+  langsmith@0.5.2:
+    resolution: {integrity: sha512-CfkcQsiajtTWknAcyItvJsKEQdY2VgDpm6U8pRI9wnM07mevnOv5EF+RcqWGwx37SEUxtyi2RXMwnKW8b06JtA==}
     peerDependencies:
       '@opentelemetry/api': '*'
       '@opentelemetry/exporter-trace-otlp-proto': '*'
@@ -7138,14 +7141,14 @@ snapshots:
 
   '@jsdevtools/ono@7.1.3': {}
 
-  '@langchain/core@1.1.19':
+  '@langchain/core@1.1.22':
     dependencies:
       '@cfworker/json-schema': 4.1.1
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.4.12
+      langsmith: 0.5.2
       mustache: 4.2.0
       p-queue: 6.6.2
       uuid: 10.0.0
@@ -7156,33 +7159,33 @@ snapshots:
       - '@opentelemetry/sdk-trace-base'
       - openai
 
-  '@langchain/langgraph-checkpoint-sqlite@1.0.1(@langchain/core@1.1.19)(@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.19))':
+  '@langchain/langgraph-checkpoint-sqlite@1.0.1(@langchain/core@1.1.22)(@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.22))':
     dependencies:
-      '@langchain/core': 1.1.19
-      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.19)
+      '@langchain/core': 1.1.22
+      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.22)
       better-sqlite3: 12.6.2
 
-  '@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.19)':
+  '@langchain/langgraph-checkpoint@1.0.0(@langchain/core@1.1.22)':
     dependencies:
-      '@langchain/core': 1.1.19
+      '@langchain/core': 1.1.22
       uuid: 10.0.0
 
-  '@langchain/langgraph-sdk@1.6.0(@langchain/core@1.1.19)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
+  '@langchain/langgraph-sdk@1.6.0(@langchain/core@1.1.22)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)':
     dependencies:
       '@types/json-schema': 7.0.15
       p-queue: 9.1.0
       p-retry: 7.1.1
       uuid: 13.0.0
     optionalDependencies:
-      '@langchain/core': 1.1.19
+      '@langchain/core': 1.1.22
       react: 19.2.4
       react-dom: 19.2.4(react@19.2.4)
 
-  '@langchain/langgraph@1.1.4(@langchain/core@1.1.19)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
+  '@langchain/langgraph@1.1.4(@langchain/core@1.1.22)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)(zod@4.3.6)':
     dependencies:
-      '@langchain/core': 1.1.19
-      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.19)
-      '@langchain/langgraph-sdk': 1.6.0(@langchain/core@1.1.19)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@langchain/core': 1.1.22
+      '@langchain/langgraph-checkpoint': 1.0.0(@langchain/core@1.1.22)
+      '@langchain/langgraph-sdk': 1.6.0(@langchain/core@1.1.22)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@standard-schema/spec': 1.1.0
       uuid: 10.0.0
       zod: 4.3.6
@@ -10585,7 +10588,7 @@ snapshots:
 
   kleur@3.0.3: {}
 
-  langsmith@0.4.12:
+  langsmith@0.5.2:
     dependencies:
       '@types/uuid': 10.0.0
       chalk: 4.1.2

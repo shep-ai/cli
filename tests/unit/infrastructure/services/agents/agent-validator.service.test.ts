@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   AgentValidatorService,
   type ExecFunction,
-} from '../../../../../src/infrastructure/services/agents/agent-validator.service.js';
+} from '../../../../../src/infrastructure/services/agents/common/agent-validator.service.js';
 import { AgentType } from '../../../../../src/domain/generated/output.js';
 
 describe('AgentValidatorService', () => {

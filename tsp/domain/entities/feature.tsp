@@ -332,4 +332,14 @@ model Feature extends BaseEntity {
    */
   @doc("Generated documents and artifacts attached to this feature")
   relatedArtifacts: Artifact[];
+
+  /**
+   * Optional back-reference to the AgentRun executing this feature.
+   *
+   * Links the feature to its background agent execution for tracking
+   * and process management. Used to check agent status, PID liveness,
+   * and enable crash recovery.
+   */
+  @doc("Associated agent run ID for process tracking (optional)")
+  agentRunId?: string;
 }

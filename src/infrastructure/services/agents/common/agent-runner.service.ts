@@ -20,8 +20,8 @@ import type { AgentExecutionStreamEvent } from '@/application/ports/output/agent
 import type { AgentRun, AgentRunEvent } from '@/domain/generated/output.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
-import { EventChannel } from './streaming/event-channel.js';
-import { StreamingExecutorProxy } from './streaming/streaming-executor-proxy.js';
+import { EventChannel } from '../streaming/event-channel.js';
+import { StreamingExecutorProxy } from '../streaming/streaming-executor-proxy.js';
 
 export class AgentRunnerService implements IAgentRunner {
   constructor(

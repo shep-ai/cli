@@ -11,11 +11,11 @@
 
 import { injectable, inject } from 'tsyringe';
 
-import type { AgentType } from '../../../domain/generated/output.js';
+import type { AgentType } from '../../../../domain/generated/output.js';
 import type {
   IAgentValidator,
   AgentValidationResult,
-} from '../../../application/ports/output/agent-validator.interface.js';
+} from '../../../../application/ports/output/agent-validator.interface.js';
 
 /**
  * Type for the command executor dependency.

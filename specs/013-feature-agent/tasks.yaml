@@ -2,46 +2,485 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: feature-agent
-summary: Task breakdown for 013-feature-agent
+summary: Task breakdown for 013-feature-agent with 22 tasks across 9 phases
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '008-agent-configuration'
+technologies:
+  - TypeScript
+  - Commander.js
+  - LangGraph
+  - SQLite
+  - Node.js
+relatedLinks:
+  - file://./specs/013-feature-agent/spec.yaml
+  - file://./specs/013-feature-agent/research.yaml
+  - file://./specs/013-feature-agent/plan.yaml
 
 # Structured task list
 tasks:
+  # Phase 1: Foundation & Domain Setup
   - id: task-1
-    title: { { TASK_1_TITLE } }
-    description: { { TASK_1_DESCRIPTION } }
+    title: Install LangGraph dependencies
+    description: Install @langchain/langgraph, @langchain/core, @langchain/langgraph-checkpoint-sqlite packages
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd:
-      red:
-        - Write tests for {{FEATURE_1}}
-      green:
-        - Implement {{FEATURE_1}} to pass tests
-      refactor:
-        - Extract helpers, improve naming
-    estimatedEffort: { { EFFORT_1 } }
+      - Packages installed via pnpm add
+      - package.json updated with correct versions
+      - pnpm install completes without errors
+    tdd: null
+    estimatedEffort: 15min
 
   - id: task-2
-    title: { { TASK_2_TITLE } }
-    description: { { TASK_2_DESCRIPTION } }
+    title: Update TypeSpec models for cross-references
+    description: Add featureId/repositoryPath to AgentRun, add agentRunId to Feature, compile TypeSpec
     state: Todo
     dependencies:
       - task-1
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd: null # No TDD for foundational/doc tasks
-    estimatedEffort: { { EFFORT_2 } }
+      - tsp/agents/agent-run.tsp has featureId and repositoryPath optional fields
+      - tsp/domain/entities/feature.tsp has agentRunId optional field
+      - pnpm tsp:compile passes
+      - Generated types in src/domain/generated/output.ts include new fields
+    tdd: null
+    estimatedEffort: 30min
+
+  # Phase 2: Repository Layer (TDD)
+  - id: task-3
+    title: Define IFeatureRepository interface
+    description: Create application port interface with CRUD methods (create, findById, findBySlug, list, update, delete)
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - src/application/ports/output/feature-repository.interface.ts created
+      - Interface extends Clean Architecture port pattern
+      - All methods properly typed with Feature domain model
+      - JSDoc comments explain each method
+    tdd:
+      red:
+        - Write test mocks for IFeatureRepository interface
+      green:
+        - Define IFeatureRepository with all CRUD methods
+      refactor:
+        - Add JSDoc, ensure consistent naming with existing ports
+    estimatedEffort: 45min
+
+  - id: task-4
+    title: Implement SQLiteFeatureRepository with migration
+    description: Create SQLite implementation with features table migration (v4), feature mapper, and all CRUD operations
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - src/infrastructure/repositories/sqlite-feature.repository.ts created
+      - src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts created
+      - Migration v4 creates features table with proper indexes
+      - All IFeatureRepository methods implemented
+      - Unit tests pass for all operations
+    tdd:
+      red:
+        - Write unit tests for create, findById, findBySlug, list with filters, update, delete
+        - Write mapper tests for domain <-> SQLite conversion
+      green:
+        - Implement SQLiteFeatureRepository with all methods
+        - Implement feature mapper with JSON serialization for nested fields
+        - Add migration v4 with features table schema
+      refactor:
+        - Extract common query patterns, add error handling, optimize indexes
+    estimatedEffort: 2h
+
+  # Phase 3: Git Worktree Service (TDD)
+  - id: task-5
+    title: Define IWorktreeService interface
+    description: Create service port interface with worktree operations (create, remove, list, exists, getWorktreePath)
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - src/application/ports/output/worktree-service.interface.ts created
+      - WorktreeInfo type defined (path, head, branch, isMain)
+      - WorktreeError typed error with codes
+      - All methods properly typed
+    tdd:
+      red:
+        - Write test mocks for IWorktreeService
+      green:
+        - Define IWorktreeService with all operations
+      refactor:
+        - Add JSDoc, define error codes enum
+    estimatedEffort: 30min
+
+  - id: task-6
+    title: Implement WorktreeService with execFile
+    description: Implement git worktree operations using native execFile with error parsing
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - src/infrastructure/services/git/worktree.service.ts created
+      - All IWorktreeService methods implemented
+      - Typed errors with proper codes (ALREADY_EXISTS, BRANCH_IN_USE, etc.)
+      - Unit tests pass for all operations
+    tdd:
+      red:
+        - Write unit tests for create, remove, list, exists operations
+        - Write tests for error scenarios (already exists, dirty worktree)
+      green:
+        - Implement WorktreeService using execFile
+        - Parse git stderr patterns into WorktreeError
+      refactor:
+        - Extract error parsing logic, improve git command construction
+    estimatedEffort: 2h
+
+  # Phase 4: Use Cases (TDD)
+  - id: task-7
+    title: Implement CreateFeatureUseCase
+    description: Create use case that creates feature, git branch, worktree, and spawns background agent
+    state: Todo
+    dependencies:
+      - task-4
+      - task-6
+    acceptanceCriteria:
+      - src/application/use-cases/features/create-feature.use-case.ts created
+      - Generates slug from description
+      - Creates Feature entity in database
+      - Creates git branch and worktree
+      - Unit tests pass
+    tdd:
+      red:
+        - Write unit tests with mocked repository and worktree service
+        - Test slug generation, validation, error handling
+      green:
+        - Implement CreateFeatureUseCase with feature creation + worktree
+      refactor:
+        - Extract slug generation utility, improve validation
+    estimatedEffort: 1.5h
+
+  - id: task-8
+    title: Implement ListFeaturesUseCase
+    description: Create use case that lists features with optional repositoryPath and lifecycle filtering
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - src/application/use-cases/features/list-features.use-case.ts created
+      - Supports filtering by repositoryPath and lifecycle
+      - Returns sorted by updatedAt DESC
+      - Unit tests pass
+    tdd:
+      red:
+        - Write unit tests with mocked repository
+        - Test filtering and sorting
+      green:
+        - Implement ListFeaturesUseCase with repository.list()
+      refactor:
+        - Add default sorting, improve filter validation
+    estimatedEffort: 45min
+
+  - id: task-9
+    title: Implement ShowFeatureUseCase
+    description: Create use case that retrieves feature by ID with full details
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - src/application/use-cases/features/show-feature.use-case.ts created
+      - Retrieves feature by ID
+      - Throws error if not found
+      - Unit tests pass
+    tdd:
+      red:
+        - Write unit tests with mocked repository
+        - Test not found scenario
+      green:
+        - Implement ShowFeatureUseCase with repository.findById()
+      refactor:
+        - Improve error messages
+    estimatedEffort: 30min
+
+  # Phase 5: LangGraph Agent Foundation (TDD)
+  - id: task-10
+    title: Create FeatureAgent StateGraph structure
+    description: Define FeatureAgentState interface, create StateGraph with node placeholders, set up SQLite checkpointing
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - src/infrastructure/services/agents/langgraph/feature-agent-graph.ts created
+      - FeatureAgentState interface defined (minimal orchestration fields)
+      - StateGraph created with 5 node placeholders
+      - SQLite checkpointer configured per-feature
+      - Integration test passes for graph initialization
+    tdd:
+      red:
+        - Write integration test for graph creation and checkpointing
+      green:
+        - Define FeatureAgentState with required fields
+        - Create StateGraph with addNode() for analyze/requirements/research/plan/implement
+        - Configure SqliteSaver checkpointer
+      refactor:
+        - Extract state type definitions, improve checkpoint configuration
+    estimatedEffort: 1.5h
+
+  - id: task-11
+    title: Implement analyze node
+    description: Implement first LangGraph node that reads spec, calls IAgentExecutor, writes analysis results
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - Analyze node implementation in feature-agent-graph.ts
+      - Reads spec.yaml from disk
+      - Calls IAgentExecutor.execute() with prompt
+      - Writes analysis to spec directory
+      - Updates feature.yaml status
+      - Integration test passes
+    tdd:
+      red:
+        - Write integration test with mock executor and filesystem
+      green:
+        - Implement analyze node with file I/O and executor call
+      refactor:
+        - Extract prompt template, improve error handling
+    estimatedEffort: 2h
+
+  # Phase 6: CLI Commands (TDD)
+  - id: task-12
+    title: Implement feat new command
+    description: Create CLI command that creates feature and spawns background agent
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - src/presentation/cli/commands/feat/new.command.ts created
+      - Parses description argument and options
+      - Calls CreateFeatureUseCase
+      - Displays success message with feature ID
+      - E2E test passes
+    tdd:
+      red:
+        - Write E2E test for feat new command
+      green:
+        - Implement new.command.ts with Commander API
+        - Integrate with CreateFeatureUseCase
+      refactor:
+        - Extract UI formatting, improve help text
+    estimatedEffort: 1.5h
+
+  - id: task-13
+    title: Implement feat ls command
+    description: Create CLI command that lists features in table format
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - src/presentation/cli/commands/feat/ls.command.ts created
+      - Supports --repo option for filtering
+      - Displays table with ID, Name, Status columns
+      - E2E test passes
+    tdd:
+      red:
+        - Write E2E test for feat ls command
+      green:
+        - Implement ls.command.ts with table formatting
+        - Integrate with ListFeaturesUseCase
+      refactor:
+        - Extract table formatter, add status indicators
+    estimatedEffort: 1h
+
+  - id: task-14
+    title: Implement feat show command
+    description: Create CLI command that shows detailed feature information
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - src/presentation/cli/commands/feat/show.command.ts created
+      - Displays feature overview, plan, and tasks sections
+      - Handles not found error gracefully
+      - E2E test passes
+    tdd:
+      red:
+        - Write E2E test for feat show command
+      green:
+        - Implement show.command.ts with section-based display
+        - Integrate with ShowFeatureUseCase
+      refactor:
+        - Extract section formatters, improve layout
+    estimatedEffort: 1h
+
+  # Phase 7: Agent Nodes (TDD)
+  - id: task-15
+    title: Implement requirements node
+    description: Implement LangGraph node for interactive requirements gathering
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - Requirements node implementation in feature-agent-graph.ts
+      - Reads spec.yaml, calls executor, writes requirements
+      - Supports human-in-the-loop with interrupt()
+      - Updates feature.yaml status
+      - Integration test passes
+    tdd:
+      red:
+        - Write integration test with mock executor and interrupt scenario
+      green:
+        - Implement requirements node with interrupt() for interactive mode
+      refactor:
+        - Extract approval logic, improve prompt template
+    estimatedEffort: 2h
+
+  - id: task-16
+    title: Implement research node
+    description: Implement LangGraph node for technical research and decision-making
+    state: Todo
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - Research node implementation in feature-agent-graph.ts
+      - Reads requirements, calls executor, writes research.yaml
+      - Updates feature.yaml status
+      - Integration test passes
+    tdd:
+      red:
+        - Write integration test with research output validation
+      green:
+        - Implement research node with decision tracking
+      refactor:
+        - Extract research templates, improve decision formatting
+    estimatedEffort: 1.5h
+
+  - id: task-17
+    title: Implement plan node
+    description: Implement LangGraph node for plan generation with task decomposition
+    state: Todo
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - Plan node implementation in feature-agent-graph.ts
+      - Reads research, calls executor, writes plan.yaml and tasks.yaml
+      - Updates feature.yaml status
+      - Integration test passes
+    tdd:
+      red:
+        - Write integration test with plan validation
+      green:
+        - Implement plan node with TDD phase generation
+      refactor:
+        - Extract plan templates, validate task structure
+    estimatedEffort: 2h
+
+  - id: task-18
+    title: Implement implement node
+    description: Implement LangGraph node for autonomous code execution following TDD
+    state: Todo
+    dependencies:
+      - task-17
+    acceptanceCriteria:
+      - Implement node in feature-agent-graph.ts
+      - Reads tasks.yaml, executes tasks with TDD cycles
+      - Updates feature.yaml progress tracking
+      - Integration test passes
+    tdd:
+      red:
+        - Write integration test with task execution validation
+      green:
+        - Implement implement node with TDD enforcement
+      refactor:
+        - Extract task execution logic, improve progress tracking
+    estimatedEffort: 2.5h
+
+  # Phase 8: Background Execution (TDD)
+  - id: task-19
+    title: Implement background worker with fork()
+    description: Create worker entry point that runs LangGraph agent in detached process
+    state: Todo
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - src/infrastructure/services/agents/feature-agent-worker.ts created
+      - Accepts --feature-id, --run-id, --repo CLI args
+      - Initializes DI container and database connections
+      - Executes FeatureAgent graph
+      - Sends IPC handshake on startup
+      - Integration test passes
+    tdd:
+      red:
+        - Write integration test for worker spawn and IPC
+      green:
+        - Implement worker with fork() + detached + unref()
+        - Add IPC handshake message
+      refactor:
+        - Extract worker initialization, improve logging
+    estimatedEffort: 2h
+
+  - id: task-20
+    title: Implement process management and crash recovery
+    description: Add PID tracking, liveness check, and resume capability
+    state: Todo
+    dependencies:
+      - task-19
+    acceptanceCriteria:
+      - CreateFeatureUseCase stores PID in AgentRun
+      - ShowFeatureUseCase checks process liveness
+      - Crashed processes detected and marked "interrupted"
+      - Resume command skeleton created
+      - Integration test passes
+    tdd:
+      red:
+        - Write integration tests for PID tracking and crash detection
+      green:
+        - Add PID storage and liveness check with process.kill(pid, 0)
+        - Mark crashed agents as interrupted
+      refactor:
+        - Extract process management utilities, improve error messages
+    estimatedEffort: 1.5h
+
+  # Phase 9: Integration & Polish
+  - id: task-21
+    title: Write E2E tests for complete workflow
+    description: Write comprehensive E2E test for feat new -> agent runs -> feat show lifecycle
+    state: Todo
+    dependencies:
+      - task-20
+    acceptanceCriteria:
+      - tests/e2e/cli/feat.test.ts with full workflow test
+      - Tests feat new creates feature and starts agent
+      - Tests feat ls shows running feature
+      - Tests feat show displays details
+      - All E2E tests pass
+    tdd:
+      red:
+        - Write E2E test for complete feature lifecycle
+      green:
+        - Ensure all CLI commands work end-to-end
+      refactor:
+        - Extract test utilities, improve test isolation
+    estimatedEffort: 2h
+
+  - id: task-22
+    title: Update documentation
+    description: Update AGENTS.md, add CLI reference, validate all tests pass
+    state: Todo
+    dependencies:
+      - task-21
+    acceptanceCriteria:
+      - AGENTS.md updated with FeatureAgent implementation details
+      - docs/cli/feat-commands.md created with command reference
+      - pnpm test passes (all unit + integration + E2E)
+      - pnpm build passes
+      - pnpm typecheck passes
+      - pnpm lint passes
+    tdd: null
+    estimatedEffort: 1h
 
 # Total effort estimate
-totalEstimate: { { TOTAL_EFFORT } }
+totalEstimate: 30-35 hours (3-4 days of focused implementation)
 
 # Open questions
 openQuestions: []
@@ -52,27 +491,118 @@ content: |
 
   - **Phase:** Implementation
   - **Updated:** 2026-02-11
+  - **Total Tasks:** 22 across 9 phases
 
   ## Task List
 
-  ### Phase 1: Foundation
+  ### Phase 1: Foundation & Domain Setup (No TDD)
 
-  - [ ] {{TASK_1_DESCRIPTION}}
-  - [ ] {{TASK_2_DESCRIPTION}}
+  - [ ] **Task 1:** Install LangGraph dependencies (15min)
+  - [ ] **Task 2:** Update TypeSpec models for cross-references (30min)
 
-  ### Phase 2: Core Implementation (TDD Cycle)
+  ### Phase 2: Repository Layer (TDD Cycle 1)
 
-  **RED (Write Failing Tests First):**
+  **RED:**
+  - [ ] Write unit tests for IFeatureRepository interface
+  - [ ] Write unit tests for SQLiteFeatureRepository CRUD operations
 
-  - [ ] Write unit tests for {{FEATURE}}
+  **GREEN:**
+  - [ ] **Task 3:** Define IFeatureRepository interface (45min)
+  - [ ] **Task 4:** Implement SQLiteFeatureRepository with migration (2h)
 
-  **GREEN (Implement to Pass Tests):**
+  **REFACTOR:**
+  - [ ] Extract query patterns, optimize indexes
 
-  - [ ] Implement {{FEATURE}}
+  ### Phase 3: Git Worktree Service (TDD Cycle 2)
 
-  **REFACTOR (Clean Up):**
+  **RED:**
+  - [ ] Write unit tests for IWorktreeService operations
+  - [ ] Write tests for error scenarios
 
-  - [ ] Extract helpers and improve code quality
+  **GREEN:**
+  - [ ] **Task 5:** Define IWorktreeService interface (30min)
+  - [ ] **Task 6:** Implement WorktreeService with execFile (2h)
+
+  **REFACTOR:**
+  - [ ] Extract error parsing, improve error messages
+
+  ### Phase 4: Use Cases (TDD Cycle 3)
+
+  **RED:**
+  - [ ] Write unit tests for CreateFeatureUseCase
+  - [ ] Write unit tests for ListFeaturesUseCase
+  - [ ] Write unit tests for ShowFeatureUseCase
+
+  **GREEN:**
+  - [ ] **Task 7:** Implement CreateFeatureUseCase (1.5h)
+  - [ ] **Task 8:** Implement ListFeaturesUseCase (45min)
+  - [ ] **Task 9:** Implement ShowFeatureUseCase (30min)
+
+  **REFACTOR:**
+  - [ ] Extract validation utilities, improve error handling
+
+  ### Phase 5: LangGraph Agent Foundation (TDD Cycle 4)
+
+  **RED:**
+  - [ ] Write integration test for graph initialization
+  - [ ] Write integration test for analyze node
+
+  **GREEN:**
+  - [ ] **Task 10:** Create FeatureAgent StateGraph structure (1.5h)
+  - [ ] **Task 11:** Implement analyze node (2h)
+
+  **REFACTOR:**
+  - [ ] Extract node factory pattern, improve state transitions
+
+  ### Phase 6: CLI Commands (TDD Cycle 5)
+
+  **RED:**
+  - [ ] Write E2E tests for feat new command
+  - [ ] Write E2E tests for feat ls command
+  - [ ] Write E2E tests for feat show command
+
+  **GREEN:**
+  - [ ] **Task 12:** Implement feat new command (1.5h)
+  - [ ] **Task 13:** Implement feat ls command (1h)
+  - [ ] **Task 14:** Implement feat show command (1h)
+
+  **REFACTOR:**
+  - [ ] Extract UI formatters, improve help text
+
+  ### Phase 7: Agent Nodes (TDD Cycle 6)
+
+  **RED:**
+  - [ ] Write integration tests for requirements node with interrupt
+  - [ ] Write integration tests for research node
+  - [ ] Write integration tests for plan node
+  - [ ] Write integration tests for implement node
+
+  **GREEN:**
+  - [ ] **Task 15:** Implement requirements node (2h)
+  - [ ] **Task 16:** Implement research node (1.5h)
+  - [ ] **Task 17:** Implement plan node (2h)
+  - [ ] **Task 18:** Implement implement node (2.5h)
+
+  **REFACTOR:**
+  - [ ] Extract prompt templates, improve error handling
+
+  ### Phase 8: Background Execution (TDD Cycle 7)
+
+  **RED:**
+  - [ ] Write integration tests for worker spawn and IPC
+  - [ ] Write integration tests for PID tracking and crash detection
+
+  **GREEN:**
+  - [ ] **Task 19:** Implement background worker with fork() (2h)
+  - [ ] **Task 20:** Implement process management and crash recovery (1.5h)
+
+  **REFACTOR:**
+  - [ ] Extract process management utilities, improve logging
+
+  ### Phase 9: Integration & Polish
+
+  - [ ] **Task 21:** Write E2E tests for complete workflow (2h)
+  - [ ] **Task 22:** Update documentation (1h)
 
   ## TDD Notes
 
@@ -85,18 +615,18 @@ content: |
 
   - **Update checkboxes FREQUENTLY** - as soon as each item is complete!
   - **Don't batch updates** - check off items immediately, not at the end
-  - **Commit task.md updates** along with code changes to show progress
+  - **Commit tasks.md updates** along with code changes to show progress
 
   ## Acceptance Checklist
 
   Before marking feature complete:
 
-  - [ ] All tasks completed
+  - [ ] All 22 tasks completed
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)
   - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-  - [ ] Documentation updated
+  - [ ] Documentation updated (AGENTS.md, CLI reference)
   - [ ] PR created and reviewed
 
   ---

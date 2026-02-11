@@ -82,6 +82,40 @@ CREATE INDEX idx_agent_runs_pid ON agent_runs(pid) WHERE pid IS NOT NULL;
 CREATE INDEX idx_agent_runs_thread_id ON agent_runs(thread_id);
 `,
   },
+  {
+    version: 4,
+    sql: `
+-- Migration 004: Create Features Table
+CREATE TABLE features (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  slug TEXT NOT NULL,
+  description TEXT NOT NULL,
+  repository_path TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  lifecycle TEXT NOT NULL DEFAULT 'Requirements',
+  messages TEXT NOT NULL DEFAULT '[]',
+  plan TEXT,
+  related_artifacts TEXT NOT NULL DEFAULT '[]',
+  agent_run_id TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_features_slug ON features(slug, repository_path);
+CREATE INDEX idx_features_repo ON features(repository_path);
+CREATE INDEX idx_features_lifecycle ON features(lifecycle);
+`,
+  },
+  {
+    version: 5,
+    sql: `
+-- Migration 005: Add feature references to agent_runs
+ALTER TABLE agent_runs ADD COLUMN feature_id TEXT;
+ALTER TABLE agent_runs ADD COLUMN repository_path TEXT;
+CREATE INDEX idx_agent_runs_feature ON agent_runs(feature_id) WHERE feature_id IS NOT NULL;
+`,
+  },
 ];
 
 /**

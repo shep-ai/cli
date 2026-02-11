@@ -9,8 +9,8 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentExecutorFactory } from '../../../../../src/infrastructure/services/agents/agent-executor-factory.service.js';
-import type { SpawnFunction } from '../../../../../src/infrastructure/services/agents/executors/claude-code-executor.service.js';
+import { AgentExecutorFactory } from '../../../../../src/infrastructure/services/agents/common/agent-executor-factory.service.js';
+import type { SpawnFunction } from '../../../../../src/infrastructure/services/agents/common/executors/claude-code-executor.service.js';
 import { AgentType, AgentAuthMethod } from '../../../../../src/domain/generated/output.js';
 import type { AgentConfig } from '../../../../../src/domain/generated/output.js';
 

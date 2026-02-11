@@ -548,6 +548,10 @@ export type Feature = BaseEntity & {
    * Generated documents and artifacts attached to this feature
    */
   relatedArtifacts: Artifact[];
+  /**
+   * Associated agent run ID for process tracking (optional)
+   */
+  agentRunId?: string;
 };
 
 /**
@@ -1042,6 +1046,14 @@ export type AgentRun = BaseEntity & {
    * Error message if execution failed (optional)
    */
   error?: string;
+  /**
+   * Associated feature ID for feature agent runs (optional)
+   */
+  featureId?: string;
+  /**
+   * Repository path for context scoping (optional)
+   */
+  repositoryPath?: string;
 };
 
 /**
