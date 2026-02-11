@@ -1,14 +1,16 @@
 'use client';
 
+import { CircleAlert, Loader2, CircleCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Clock } from 'lucide-react';
 import { SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 import { ElapsedTime } from '@/components/common/elapsed-time';
 
 export type FeatureStatus = 'action-needed' | 'in-progress' | 'done';
 
-const statusIcons: Partial<Record<FeatureStatus, LucideIcon>> = {
-  'action-needed': Clock,
+const statusConfig: Record<FeatureStatus, { icon: LucideIcon; iconClass: string }> = {
+  'action-needed': { icon: CircleAlert, iconClass: 'text-amber-500' },
+  'in-progress': { icon: Loader2, iconClass: 'text-blue-500 animate-spin' },
+  done: { icon: CircleCheck, iconClass: 'text-emerald-500' },
 };
 
 export interface FeatureListItemProps {
@@ -26,15 +28,21 @@ export function FeatureListItem({
   duration,
   onClick,
 }: FeatureListItemProps) {
-  const StatusIcon = statusIcons[status];
+  const { icon: StatusIcon, iconClass } = statusConfig[status];
 
   return (
     <SidebarMenuItem>
-      <SidebarMenuButton onClick={onClick}>
-        {StatusIcon && <StatusIcon />}
-        <span>{name}</span>
-        {status === 'in-progress' && startedAt != null && <ElapsedTime startedAt={startedAt} />}
-        {status === 'done' && duration && <span>{duration}</span>}
+      <SidebarMenuButton size="sm" onClick={onClick} className="cursor-pointer">
+        <StatusIcon className={iconClass} />
+        <span className="flex-1 truncate font-medium">{name}</span>
+        {status === 'in-progress' && startedAt != null && (
+          <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+            <ElapsedTime startedAt={startedAt} />
+          </span>
+        )}
+        {status === 'done' && duration && (
+          <span className="text-muted-foreground ml-auto text-xs tabular-nums">{duration}</span>
+        )}
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
