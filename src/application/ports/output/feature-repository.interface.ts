@@ -44,6 +44,14 @@ export interface IFeatureRepository {
   findById(id: string): Promise<Feature | null>;
 
   /**
+   * Find a feature by an ID prefix (e.g. first 8 chars from `feat ls`).
+   *
+   * @param prefix - A prefix of the feature UUID
+   * @returns The feature if exactly one match, null if none, throws if ambiguous
+   */
+  findByIdPrefix(prefix: string): Promise<Feature | null>;
+
+  /**
    * Find a feature by its slug within a repository.
    *
    * @param slug - The URL-friendly feature identifier

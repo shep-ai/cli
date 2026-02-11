@@ -44,6 +44,12 @@ vi.mock('../../../../../src/infrastructure/services/agents/common/checkpointer.j
   createCheckpointer: (...args: unknown[]) => mockCreateCheckpointer(...args),
 }));
 
+vi.mock('../../../../../src/infrastructure/services/settings.service.js', () => ({
+  getSettings: () => ({
+    agent: { type: 'claude-code', authMethod: 'token', token: 'test' },
+  }),
+}));
+
 import {
   parseWorkerArgs,
   runWorker,
@@ -75,6 +81,17 @@ function makeMockRunRepository() {
   };
 }
 
+function makeMockExecutorFactory() {
+  return {
+    createExecutor: vi.fn().mockReturnValue({
+      agentType: 'claude-code',
+      execute: vi.fn().mockResolvedValue({ result: 'mock', sessionId: 'sess-1' }),
+      executeStream: vi.fn(),
+      supportsFeature: vi.fn().mockReturnValue(false),
+    }),
+  };
+}
+
 describe('parseWorkerArgs', () => {
   it('should parse all required CLI arguments', () => {
     const args = [
@@ -95,7 +112,26 @@ describe('parseWorkerArgs', () => {
       runId: 'run-456',
       repo: '/path/to/repo',
       specDir: '/path/to/specs/001-feature',
+      worktreePath: undefined,
     });
+  });
+
+  it('should parse optional worktree-path argument', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+      '--worktree-path',
+      '/home/user/.shep/repos/abc/wt/feat-test',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.worktreePath).toBe('/home/user/.shep/repos/abc/wt/feat-test');
   });
 
   it('should throw if feature-id is missing', () => {
@@ -125,12 +161,18 @@ describe('parseWorkerArgs', () => {
 
 describe('runWorker', () => {
   let mockRunRepo: ReturnType<typeof makeMockRunRepository>;
+  let mockExecutorFactory: ReturnType<typeof makeMockExecutorFactory>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockRunRepo = makeMockRunRepository();
+    mockExecutorFactory = makeMockExecutorFactory();
     mockInitializeContainer.mockResolvedValue({ resolve: mockResolve });
-    mockResolve.mockReturnValue(mockRunRepo);
+    mockResolve.mockImplementation((token: string) => {
+      if (token === 'IAgentRunRepository') return mockRunRepo;
+      if (token === 'IAgentExecutorFactory') return mockExecutorFactory;
+      return mockRunRepo;
+    });
     mockGraphInvoke.mockResolvedValue({
       currentNode: 'implement',
       messages: ['[analyze] done', '[implement] done'],
@@ -152,7 +194,7 @@ describe('runWorker', () => {
     expect(mockInitializeContainer).toHaveBeenCalledTimes(1);
   });
 
-  it('should resolve the agent run repository from DI', async () => {
+  it('should resolve the agent run repository and executor factory from DI', async () => {
     await runWorker({
       featureId: 'feat-1',
       runId: 'run-1',
@@ -161,6 +203,7 @@ describe('runWorker', () => {
     });
 
     expect(mockResolve).toHaveBeenCalledWith('IAgentRunRepository');
+    expect(mockResolve).toHaveBeenCalledWith('IAgentExecutorFactory');
   });
 
   it('should create a file-based checkpointer', async () => {
@@ -174,7 +217,7 @@ describe('runWorker', () => {
     expect(mockCreateCheckpointer).toHaveBeenCalledWith(expect.stringContaining('run-1'));
   });
 
-  it('should create the feature agent graph with checkpointer', async () => {
+  it('should create the feature agent graph with executor and checkpointer', async () => {
     await runWorker({
       featureId: 'feat-1',
       runId: 'run-1',
@@ -182,7 +225,8 @@ describe('runWorker', () => {
       specDir: '/specs',
     });
 
-    expect(mockCreateFeatureAgentGraph).toHaveBeenCalledWith(expect.anything());
+    // First arg is executor, second is checkpointer
+    expect(mockCreateFeatureAgentGraph).toHaveBeenCalledWith(expect.anything(), expect.anything());
   });
 
   it('should update agent run status to running', async () => {
@@ -202,7 +246,27 @@ describe('runWorker', () => {
     );
   });
 
-  it('should invoke the graph with correct state', async () => {
+  it('should invoke the graph with correct state including worktreePath', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      worktreePath: '/wt/path',
+    });
+
+    expect(mockGraphInvoke).toHaveBeenCalledWith(
+      {
+        featureId: 'feat-1',
+        repositoryPath: '/repo',
+        worktreePath: '/wt/path',
+        specDir: '/specs',
+      },
+      { configurable: { thread_id: 'run-1' } }
+    );
+  });
+
+  it('should default worktreePath to repo when not provided', async () => {
     await runWorker({
       featureId: 'feat-1',
       runId: 'run-1',
@@ -211,12 +275,10 @@ describe('runWorker', () => {
     });
 
     expect(mockGraphInvoke).toHaveBeenCalledWith(
-      {
-        featureId: 'feat-1',
-        repositoryPath: '/repo',
-        specDir: '/specs',
-      },
-      { configurable: { thread_id: 'run-1' } }
+      expect.objectContaining({
+        worktreePath: '/repo',
+      }),
+      expect.anything()
     );
   });
 

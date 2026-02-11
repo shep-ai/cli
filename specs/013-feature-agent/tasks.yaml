@@ -2,7 +2,7 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: feature-agent
-summary: Task breakdown for 013-feature-agent with 22 tasks across 9 phases
+summary: Task breakdown for 013-feature-agent with 27 tasks across 11 phases
 
 # Relationships
 relatedFeatures:
@@ -441,18 +441,134 @@ tasks:
         - Extract process management utilities, improve error messages
     estimatedEffort: 1.5h
 
-  # Phase 9: Integration & Polish
+  # Phase 9: Agent Run CLI Commands (TDD)
   - id: task-21
-    title: Write E2E tests for complete workflow
-    description: Write comprehensive E2E test for feat new -> agent runs -> feat show lifecycle
+    title: Implement ListAgentRunsUseCase
+    description: Create use case that lists agent runs with optional filtering by status, agent name, or feature ID
     state: Todo
     dependencies:
       - task-20
+    acceptanceCriteria:
+      - src/application/use-cases/agents/list-agent-runs.use-case.ts created
+      - Returns all runs from IAgentRunRepository.list()
+      - Unit tests pass
+    tdd:
+      red:
+        - Write unit tests with mocked IAgentRunRepository
+        - Test empty list, multiple runs
+      green:
+        - Implement ListAgentRunsUseCase with repository.list()
+      refactor:
+        - Add sorting by startedAt DESC
+    estimatedEffort: 30min
+
+  - id: task-22
+    title: Implement ShowAgentRunUseCase
+    description: Create use case that retrieves an agent run by ID with process liveness check
+    state: Todo
+    dependencies:
+      - task-21
+    acceptanceCriteria:
+      - src/application/use-cases/agents/show-agent-run.use-case.ts created
+      - Retrieves run by ID, supports ID prefix matching
+      - Checks process liveness via IFeatureAgentProcessService.isAlive()
+      - Returns run with live status indicator
+      - Unit tests pass
+    tdd:
+      red:
+        - Write unit tests with mocked repository and process service
+        - Test not found, prefix match, liveness check
+      green:
+        - Implement ShowAgentRunUseCase
+      refactor:
+        - Improve error messages
+    estimatedEffort: 45min
+
+  - id: task-23
+    title: Implement agent ls and agent show CLI commands
+    description: Create shep agent ls (table format) and shep agent show <id> (detail view) commands
+    state: Todo
+    dependencies:
+      - task-22
+    acceptanceCriteria:
+      - src/presentation/cli/commands/agent/index.ts created (command group)
+      - src/presentation/cli/commands/agent/ls.command.ts created
+      - src/presentation/cli/commands/agent/show.command.ts created
+      - agent ls shows table with ID (8-char), agent name, status (colored), feature ID, started time
+      - agent show displays full run details including PID, live status, error, timestamps
+      - Commands registered in CLI index
+      - Unit tests pass
+    tdd:
+      red:
+        - Write unit tests for agent ls and agent show commands
+      green:
+        - Implement commands with use case integration and table formatting
+      refactor:
+        - Extract status color formatting, improve table layout
+    estimatedEffort: 1.5h
+
+  # Phase 10: Feature Deletion (TDD)
+  - id: task-24
+    title: Implement DeleteFeatureUseCase
+    description: Create use case that deletes a feature, removes its worktree, and cancels any running agent
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - src/application/use-cases/features/delete-feature.use-case.ts created
+      - Resolves feature by ID or prefix (reuses ShowFeatureUseCase pattern)
+      - Cancels running agent run if present (marks as cancelled)
+      - Removes git worktree via IWorktreeService.remove()
+      - Deletes feature from IFeatureRepository
+      - Unit tests pass for all scenarios (with agent, without, missing worktree)
+    tdd:
+      red:
+        - Write unit tests with mocked repo, worktree service, agent process service, run repo
+        - Test deletion with running agent, without agent, with missing worktree
+      green:
+        - Implement DeleteFeatureUseCase with cleanup orchestration
+      refactor:
+        - Improve error handling for partial cleanup failures
+    estimatedEffort: 1h
+
+  - id: task-25
+    title: Implement feat del CLI command
+    description: Create shep feat del <id> with interactive confirmation and --force flag
+    state: Todo
+    dependencies:
+      - task-24
+    acceptanceCriteria:
+      - src/presentation/cli/commands/feat/del.command.ts created
+      - Shows feature name and asks confirm("Delete feature X?") by default
+      - --force flag skips confirmation
+      - Displays success message with deleted feature info
+      - Handles errors gracefully (not found, cleanup failures)
+      - Command registered in feat index
+      - Unit tests pass
+    tdd:
+      red:
+        - Write unit tests for del command (confirm flow, force flag, error handling)
+      green:
+        - Implement del.command.ts with @inquirer/prompts confirm
+      refactor:
+        - Extract confirmation UI pattern
+    estimatedEffort: 1h
+
+  # Phase 11: Integration & Polish
+  - id: task-26
+    title: Write E2E tests for complete workflow
+    description: Write comprehensive E2E test for feat new -> agent runs -> feat show -> feat del lifecycle
+    state: Todo
+    dependencies:
+      - task-25
+      - task-23
     acceptanceCriteria:
       - tests/e2e/cli/feat.test.ts with full workflow test
       - Tests feat new creates feature and starts agent
       - Tests feat ls shows running feature
       - Tests feat show displays details
+      - Tests agent ls shows agent runs
+      - Tests feat del removes feature and cleans up
       - All E2E tests pass
     tdd:
       red:
@@ -463,15 +579,16 @@ tasks:
         - Extract test utilities, improve test isolation
     estimatedEffort: 2h
 
-  - id: task-22
+  - id: task-27
     title: Update documentation
-    description: Update AGENTS.md, add CLI reference, validate all tests pass
+    description: Update AGENTS.md, add CLI reference for feat and agent commands, validate all tests pass
     state: Todo
     dependencies:
-      - task-21
+      - task-26
     acceptanceCriteria:
       - AGENTS.md updated with FeatureAgent implementation details
-      - docs/cli/feat-commands.md created with command reference
+      - docs/cli/feat-commands.md created with feat new/ls/show/del reference
+      - docs/cli/agent-commands.md created with agent ls/show reference
       - pnpm test passes (all unit + integration + E2E)
       - pnpm build passes
       - pnpm typecheck passes
@@ -480,7 +597,7 @@ tasks:
     estimatedEffort: 1h
 
 # Total effort estimate
-totalEstimate: 30-35 hours (3-4 days of focused implementation)
+totalEstimate: 35-40 hours (4-5 days of focused implementation)
 
 # Open questions
 openQuestions: []
@@ -491,7 +608,7 @@ content: |
 
   - **Phase:** Implementation
   - **Updated:** 2026-02-11
-  - **Total Tasks:** 22 across 9 phases
+  - **Total Tasks:** 27 across 11 phases
 
   ## Task List
 
@@ -599,10 +716,38 @@ content: |
   **REFACTOR:**
   - [ ] Extract process management utilities, improve logging
 
-  ### Phase 9: Integration & Polish
+  ### Phase 9: Agent Run CLI Commands (TDD Cycle 8)
 
-  - [ ] **Task 21:** Write E2E tests for complete workflow (2h)
-  - [ ] **Task 22:** Update documentation (1h)
+  **RED:**
+  - [ ] Write unit tests for ListAgentRunsUseCase
+  - [ ] Write unit tests for ShowAgentRunUseCase
+  - [ ] Write unit tests for agent ls/show commands
+
+  **GREEN:**
+  - [ ] **Task 21:** Implement ListAgentRunsUseCase (30min)
+  - [ ] **Task 22:** Implement ShowAgentRunUseCase (45min)
+  - [ ] **Task 23:** Implement agent ls and agent show CLI commands (1.5h)
+
+  **REFACTOR:**
+  - [ ] Extract status formatters, improve table layout
+
+  ### Phase 10: Feature Deletion (TDD Cycle 9)
+
+  **RED:**
+  - [ ] Write unit tests for DeleteFeatureUseCase
+  - [ ] Write unit tests for feat del command
+
+  **GREEN:**
+  - [ ] **Task 24:** Implement DeleteFeatureUseCase (1h)
+  - [ ] **Task 25:** Implement feat del CLI command (1h)
+
+  **REFACTOR:**
+  - [ ] Improve error handling for partial cleanup failures
+
+  ### Phase 11: Integration & Polish
+
+  - [ ] **Task 26:** Write E2E tests for complete workflow (2h)
+  - [ ] **Task 27:** Update documentation (1h)
 
   ## TDD Notes
 
@@ -621,7 +766,7 @@ content: |
 
   Before marking feature complete:
 
-  - [ ] All 22 tasks completed
+  - [ ] All 27 tasks completed
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)

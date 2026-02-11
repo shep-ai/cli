@@ -13,6 +13,7 @@ import type {
   AgentDefinitionWithFactory,
 } from '@/application/ports/output/agent-registry.interface.js';
 import { createAnalyzeRepositoryGraph } from '../analyze-repo/analyze-repository-graph.js';
+import { createFeatureAgentGraph } from '../feature-agent/feature-agent-graph.js';
 
 export class AgentRegistryService implements IAgentRegistry {
   private readonly agents = new Map<string, AgentDefinitionWithFactory>();
@@ -23,6 +24,12 @@ export class AgentRegistryService implements IAgentRegistry {
       name: 'analyze-repository',
       description: 'Analyze repository structure, dependencies, and architecture',
       graphFactory: createAnalyzeRepositoryGraph,
+    });
+
+    this.register({
+      name: 'feature-agent',
+      description: 'Autonomous SDLC agent: analyze → requirements → research → plan → implement',
+      graphFactory: createFeatureAgentGraph,
     });
   }
 

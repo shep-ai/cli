@@ -23,17 +23,33 @@ const TERMINAL_STATUSES = new Set<AgentRunStatus>([
 export class FeatureAgentProcessService implements IFeatureAgentProcessService {
   constructor(private readonly runRepository: IAgentRunRepository) {}
 
-  spawn(featureId: string, runId: string, repoPath: string, specDir: string): number {
+  spawn(
+    featureId: string,
+    runId: string,
+    repoPath: string,
+    specDir: string,
+    worktreePath?: string
+  ): number {
     const workerPath = join(__dirname, 'feature-agent-worker.js');
 
-    const child = fork(
-      workerPath,
-      ['--feature-id', featureId, '--run-id', runId, '--repo', repoPath, '--spec-dir', specDir],
-      {
-        detached: true,
-        stdio: 'ignore',
-      }
-    );
+    const args = [
+      '--feature-id',
+      featureId,
+      '--run-id',
+      runId,
+      '--repo',
+      repoPath,
+      '--spec-dir',
+      specDir,
+    ];
+    if (worktreePath) {
+      args.push('--worktree-path', worktreePath);
+    }
+
+    const child = fork(workerPath, args, {
+      detached: true,
+      stdio: 'ignore',
+    });
 
     if (!child.pid) {
       throw new Error('Failed to spawn feature agent worker: no PID returned');

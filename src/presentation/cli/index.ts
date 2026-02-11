@@ -29,6 +29,7 @@ import { createSettingsCommand } from './commands/settings/index.js';
 import { createUiCommand } from './commands/ui.command.js';
 import { createRunCommand } from './commands/run.command.js';
 import { createFeatCommand } from './commands/feat/index.js';
+import { createAgentCommand } from './commands/agent/index.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
@@ -80,6 +81,7 @@ async function bootstrap() {
     program.addCommand(createUiCommand());
     program.addCommand(createRunCommand());
     program.addCommand(createFeatCommand());
+    program.addCommand(createAgentCommand());
 
     // Parse arguments (parseAsync needed for async command actions like init)
     await program.parseAsync();

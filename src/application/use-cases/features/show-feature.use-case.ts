@@ -20,7 +20,10 @@ export class ShowFeatureUseCase {
   ) {}
 
   async execute(featureId: string): Promise<Feature> {
-    const feature = await this.featureRepo.findById(featureId);
+    // Try exact match first, then prefix match for short IDs (e.g. from `feat ls`)
+    const feature =
+      (await this.featureRepo.findById(featureId)) ??
+      (await this.featureRepo.findByIdPrefix(featureId));
     if (!feature) {
       throw new Error(`Feature not found: "${featureId}"`);
     }

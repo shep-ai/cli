@@ -38,6 +38,7 @@ describe('ShowFeatureUseCase', () => {
     mockRepo = {
       create: vi.fn(),
       findById: vi.fn().mockResolvedValue(createMockFeature('feat-1')),
+      findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn(),
       list: vi.fn(),
       update: vi.fn(),
@@ -52,14 +53,30 @@ describe('ShowFeatureUseCase', () => {
     expect(mockRepo.findById).toHaveBeenCalledWith('feat-1');
   });
 
-  it('should throw if feature not found', async () => {
+  it('should fall back to prefix match when exact match fails', async () => {
     mockRepo.findById = vi.fn().mockResolvedValue(null);
+    mockRepo.findByIdPrefix = vi.fn().mockResolvedValue(createMockFeature('feat-1-full-uuid'));
+
+    const result = await useCase.execute('feat-1');
+    expect(result.id).toBe('feat-1-full-uuid');
+    expect(mockRepo.findByIdPrefix).toHaveBeenCalledWith('feat-1');
+  });
+
+  it('should throw if feature not found by id or prefix', async () => {
+    mockRepo.findById = vi.fn().mockResolvedValue(null);
+    mockRepo.findByIdPrefix = vi.fn().mockResolvedValue(null);
     await expect(useCase.execute('non-existent')).rejects.toThrow(/not found/i);
   });
 
   it('should include feature id in error message', async () => {
     mockRepo.findById = vi.fn().mockResolvedValue(null);
+    mockRepo.findByIdPrefix = vi.fn().mockResolvedValue(null);
     await expect(useCase.execute('abc-123')).rejects.toThrow('abc-123');
+  });
+
+  it('should not call prefix match if exact match succeeds', async () => {
+    await useCase.execute('feat-1');
+    expect(mockRepo.findByIdPrefix).not.toHaveBeenCalled();
   });
 
   it('should return the full feature object from repository', async () => {

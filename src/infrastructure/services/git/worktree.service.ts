@@ -6,6 +6,7 @@
  * to enable testability without mocking node:child_process directly.
  */
 
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { injectable, inject } from 'tsyringe';
 import type {
@@ -16,6 +17,7 @@ import {
   WorktreeError,
   WorktreeErrorCode,
 } from '../../../application/ports/output/worktree-service.interface.js';
+import { SHEP_HOME_DIR } from '../filesystem/shep-directory.service.js';
 
 /**
  * Type for the command executor dependency.
@@ -73,7 +75,9 @@ export class WorktreeService implements IWorktreeService {
   }
 
   getWorktreePath(repoPath: string, branch: string): string {
-    return path.join(repoPath, '.worktrees', branch);
+    const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
+    const slug = branch.replace(/\//g, '-');
+    return path.join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', slug);
   }
 
   private parseWorktreeOutput(output: string): WorktreeInfo[] {

@@ -55,6 +55,20 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
     return fromDatabase(row);
   }
 
+  async findByIdPrefix(prefix: string): Promise<Feature | null> {
+    const stmt = this.db.prepare('SELECT * FROM features WHERE id LIKE ?');
+    const rows = stmt.all(`${prefix}%`) as FeatureRow[];
+
+    if (rows.length === 0) return null;
+    if (rows.length > 1) {
+      throw new Error(
+        `Ambiguous ID prefix "${prefix}" matches ${rows.length} features. Use a longer prefix.`
+      );
+    }
+
+    return fromDatabase(rows[0]);
+  }
+
   async findBySlug(slug: string, repositoryPath: string): Promise<Feature | null> {
     const stmt = this.db.prepare('SELECT * FROM features WHERE slug = ? AND repository_path = ?');
     const row = stmt.get(slug, repositoryPath) as FeatureRow | undefined;

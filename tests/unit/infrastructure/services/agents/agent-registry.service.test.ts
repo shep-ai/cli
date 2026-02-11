@@ -85,8 +85,10 @@ describe('AgentRegistryService', () => {
     it('should list all registered agents', () => {
       const agents = registry.list();
 
-      expect(agents).toHaveLength(1);
-      expect(agents[0].name).toBe('analyze-repository');
+      expect(agents).toHaveLength(2);
+      const names = agents.map((a) => a.name);
+      expect(names).toContain('analyze-repository');
+      expect(names).toContain('feature-agent');
     });
 
     it('should include newly registered agents in the list', () => {
@@ -98,9 +100,10 @@ describe('AgentRegistryService', () => {
 
       const agents = registry.list();
 
-      expect(agents).toHaveLength(2);
+      expect(agents).toHaveLength(3);
       const names = agents.map((a) => a.name);
       expect(names).toContain('analyze-repository');
+      expect(names).toContain('feature-agent');
       expect(names).toContain('plan-feature');
     });
 
