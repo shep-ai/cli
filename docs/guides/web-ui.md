@@ -331,38 +331,43 @@ Storybook includes:
 
 ### Project Structure
 
+The web UI uses a **four-tier component architecture** with strict dependency direction.
+
 ```
 src/presentation/web/
 ├── app/                     # Next.js App Router
-│   ├── layout.tsx          # Root layout
+│   ├── layout.tsx          # Root layout (uses AppShell)
 │   ├── page.tsx            # Home page
-│   ├── features/           # Feature pages
-│   │   ├── [id]/
-│   │   │   ├── page.tsx
-│   │   │   └── requirements/
-│   │   └── new/
-│   └── settings/
+│   └── version/
+│       └── page.tsx        # Version info page
 ├── components/
-│   ├── ui/                 # shadcn/ui components
+│   ├── ui/                 # Tier 0: shadcn/ui primitives
 │   │   ├── button.tsx
 │   │   ├── card.tsx
 │   │   └── ...
-│   ├── features/           # Feature components
-│   │   ├── feature-card.tsx
-│   │   └── feature-list.tsx
-│   ├── chat/              # Chat components
-│   │   ├── chat-messages.tsx
-│   │   └── chat-input.tsx
-│   └── layout/            # Layout components
-│       ├── sidebar.tsx
-│       └── header.tsx
-├── hooks/                 # Custom React hooks
+│   ├── common/             # Tier 1: Cross-feature composed components
+│   │   ├── theme-toggle/
+│   │   ├── page-header/
+│   │   ├── empty-state/
+│   │   └── loading-skeleton/
+│   ├── layouts/            # Tier 2: Page shells, structural wrappers
+│   │   ├── sidebar/
+│   │   ├── header/
+│   │   ├── dashboard-layout/
+│   │   └── app-shell/
+│   └── features/           # Tier 3: Domain-specific UI bound to routes
+│       ├── version/
+│       └── settings/
+├── docs/                   # Design system MDX documentation
+├── hooks/                  # Custom React hooks
 │   └── useTheme.ts
-├── lib/                   # Utilities
+├── lib/                    # Utilities
 │   └── utils.ts
-└── types/                 # TypeScript types
+└── types/                  # TypeScript types
     └── theme.ts
 ```
+
+For detailed architecture documentation, see [UI Architecture](../ui/architecture.md).
 
 ---
 
