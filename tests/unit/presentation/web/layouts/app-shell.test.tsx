@@ -18,23 +18,23 @@ describe('AppShell', () => {
     expect(screen.getByText('Test content')).toBeInTheDocument();
   });
 
-  it('renders sidebar with Home and Version nav items', () => {
+  it('renders sidebar with Control Center and Memory nav items', () => {
     render(
       <AppShell>
         <div>Content</div>
       </AppShell>
     );
-    expect(screen.getByText('Home')).toBeInTheDocument();
-    expect(screen.getByText('Version')).toBeInTheDocument();
+    expect(screen.getByText('Control Center')).toBeInTheDocument();
+    expect(screen.getByText('Memory')).toBeInTheDocument();
   });
 
-  it('renders the Shep AI title in header', () => {
+  it('renders Shep logo in sidebar', () => {
     render(
       <AppShell>
         <div>Content</div>
       </AppShell>
     );
-    expect(screen.getByText('Shep AI')).toBeInTheDocument();
+    expect(screen.getByText('Shep')).toBeInTheDocument();
   });
 
   it('renders ThemeToggle in header actions', () => {
@@ -46,13 +46,13 @@ describe('AppShell', () => {
     expect(screen.getByLabelText(/switch to .* mode/i)).toBeInTheDocument();
   });
 
-  it('marks Home as active for / pathname', () => {
+  it('marks Control Center as active for / pathname', () => {
     render(
       <AppShell>
         <div>Content</div>
       </AppShell>
     );
-    const homeLink = screen.getByText('Home').closest('a');
-    expect(homeLink).toHaveAttribute('aria-current', 'page');
+    const controlCenterLink = screen.getByRole('link', { name: /control center/i });
+    expect(controlCenterLink).toHaveAttribute('data-active', 'true');
   });
 });
