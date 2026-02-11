@@ -10,7 +10,7 @@ test.describe('Version Page', () => {
   test('should display package name and version', async ({ page }) => {
     await page.goto('/version');
 
-    await expect(page.locator('h1')).toContainText('@shepai/cli');
+    await expect(page.getByRole('main').locator('h1')).toContainText('@shepai/cli');
     await expect(page.getByTestId('version-badge')).toContainText(/v\d+\.\d+\.\d+/);
   });
 
@@ -64,7 +64,7 @@ test.describe('Version Page', () => {
     await backButton.click();
 
     await expect(page).toHaveURL('/');
-    await expect(page.locator('h1')).toContainText('Shep AI');
+    await expect(page.getByRole('main').locator('h1')).toContainText('Shep AI');
   });
 
   test('should display license information', async ({ page }) => {
