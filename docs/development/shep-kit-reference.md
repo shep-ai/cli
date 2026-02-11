@@ -77,7 +77,7 @@ flowchart LR
 
 ## Skill File Map
 
-Each skill lives under `.claude/skills/shep-kit:<name>/`.
+Each skill lives under `.cursor/skills/shep-kit:<name>/`.
 
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
