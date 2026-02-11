@@ -46,7 +46,7 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
   });
 
   return (
-    <Sidebar collapsible="icon">
+    <Sidebar data-testid="app-sidebar" collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
           <SidebarNavItem icon={Home} label="Control Center" href="/" />

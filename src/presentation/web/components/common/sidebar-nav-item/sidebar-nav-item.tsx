@@ -10,7 +10,7 @@ export interface SidebarNavItemProps {
 
 export function SidebarNavItem({ icon: Icon, label, href, active = false }: SidebarNavItemProps) {
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem data-testid="sidebar-nav-item">
       <SidebarMenuButton asChild isActive={active} tooltip={label}>
         <a href={href}>
           <Icon />

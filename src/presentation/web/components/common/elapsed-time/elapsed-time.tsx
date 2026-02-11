@@ -30,5 +30,9 @@ export function ElapsedTime({ startedAt }: ElapsedTimeProps) {
     return () => clearInterval(id);
   }, [startedAt]);
 
-  return <span className="tabular-nums">{formatElapsed(elapsed)}</span>;
+  return (
+    <span data-testid="elapsed-time" className="tabular-nums">
+      {formatElapsed(elapsed)}
+    </span>
+  );
 }

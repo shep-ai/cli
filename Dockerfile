@@ -20,10 +20,14 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 WORKDIR /app
 
 # Copy only dependency files first (maximizes cache hits)
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY src/presentation/web/package.json ./src/presentation/web/package.json
 
-# Install production dependencies only (ignore scripts to skip husky)
+# Install production dependencies only (ignore scripts to skip husky which is a devDep)
 RUN pnpm install --frozen-lockfile --prod --ignore-scripts
+
+# Rebuild native addons (better-sqlite3) for the target platform
+RUN pnpm rebuild better-sqlite3
 
 # =============================================================================
 # Stage 2: Build TypeScript
@@ -34,8 +38,9 @@ RUN corepack enable && corepack prepare pnpm@9.15.0 --activate
 
 WORKDIR /app
 
-# Copy dependency and config files
-COPY package.json pnpm-lock.yaml tsconfig.json tsconfig.build.json tspconfig.yaml ./
+# Copy dependency and config files (workspace config + all package.json files first for cache)
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.json tsconfig.build.json tspconfig.yaml ./
+COPY src/presentation/web/package.json ./src/presentation/web/package.json
 
 # Install all dependencies (including devDependencies for TypeScript compiler)
 RUN pnpm install --frozen-lockfile

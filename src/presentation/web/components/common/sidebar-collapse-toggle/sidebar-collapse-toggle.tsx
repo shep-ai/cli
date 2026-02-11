@@ -19,6 +19,7 @@ export function SidebarCollapseToggle({ className }: SidebarCollapseToggleProps)
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
+          data-testid="sidebar-collapse-toggle"
           variant="ghost"
           size="icon"
           className={cn('size-7', className)}
