@@ -13,6 +13,9 @@ apis/
 coverage/
 src/presentation/web/next-env.d.ts
 
+# POC / static docs (formatting not enforced)
+docs/poc/
+
 # Package manager
 pnpm-lock.yaml
 package-lock.json
