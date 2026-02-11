@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, startTransition } from 'react';
 
 interface ElapsedTimeProps {
   startedAt: number;
@@ -24,7 +24,7 @@ export function ElapsedTime({ startedAt }: ElapsedTimeProps) {
 
   useEffect(() => {
     const id = setInterval(() => {
-      setElapsed(Date.now() - startedAt);
+      startTransition(() => setElapsed(Date.now() - startedAt));
     }, 1000);
 
     return () => clearInterval(id);

@@ -1,3 +1,5 @@
+import Link from 'next/link';
+import type { Route } from 'next';
 import type { LucideIcon } from 'lucide-react';
 import { SidebarMenuItem, SidebarMenuButton } from '@/components/ui/sidebar';
 
@@ -12,10 +14,10 @@ export function SidebarNavItem({ icon: Icon, label, href, active = false }: Side
   return (
     <SidebarMenuItem data-testid="sidebar-nav-item">
       <SidebarMenuButton asChild isActive={active} tooltip={label}>
-        <a href={href}>
+        <Link href={href as Route}>
           <Icon />
           <span>{label}</span>
-        </a>
+        </Link>
       </SidebarMenuButton>
     </SidebarMenuItem>
   );
