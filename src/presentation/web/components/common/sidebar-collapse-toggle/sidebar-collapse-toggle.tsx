@@ -16,20 +16,22 @@ export function SidebarCollapseToggle({ className }: SidebarCollapseToggleProps)
   const label = open ? 'Collapse sidebar' : 'Expand sidebar';
 
   return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <Button
-          data-testid="sidebar-collapse-toggle"
-          variant="ghost"
-          size="icon"
-          className={cn('size-7', className)}
-          onClick={toggleSidebar}
-          aria-label={label}
-        >
-          <Icon className="size-4" />
-        </Button>
-      </TooltipTrigger>
-      <TooltipContent side="right">{label}</TooltipContent>
-    </Tooltip>
+    <div className={cn('flex justify-end', className)}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            data-testid="sidebar-collapse-toggle"
+            variant="ghost"
+            size="icon"
+            className="size-7 cursor-pointer"
+            onClick={toggleSidebar}
+            aria-label={label}
+          >
+            <Icon className="size-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent side="right">{label}</TooltipContent>
+      </Tooltip>
+    </div>
   );
 }

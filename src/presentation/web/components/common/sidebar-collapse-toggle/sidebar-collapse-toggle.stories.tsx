@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarMenu, SidebarMenuItem } from '@/components/ui/sidebar';
 import { SidebarCollapseToggle } from './sidebar-collapse-toggle';
 
 const meta: Meta<typeof SidebarCollapseToggle> = {
@@ -12,7 +12,11 @@ const meta: Meta<typeof SidebarCollapseToggle> = {
   decorators: [
     (Story) => (
       <SidebarProvider>
-        <Story />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <Story />
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarProvider>
     ),
   ],
@@ -27,7 +31,11 @@ export const Collapsed: Story = {
   decorators: [
     (Story) => (
       <SidebarProvider defaultOpen={false}>
-        <Story />
+        <SidebarMenu>
+          <SidebarMenuItem>
+            <Story />
+          </SidebarMenuItem>
+        </SidebarMenu>
       </SidebarProvider>
     ),
   ],

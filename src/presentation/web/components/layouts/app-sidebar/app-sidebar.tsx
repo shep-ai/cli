@@ -1,6 +1,6 @@
 'use client';
 
-import { Home, Brain, Plus } from 'lucide-react';
+import { Home, Brain, Plus, Layers } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -9,17 +9,14 @@ import {
   SidebarMenu,
   SidebarMenuItem,
   SidebarMenuButton,
-  SidebarGroup,
-  SidebarGroupLabel,
-  SidebarGroupContent,
   SidebarRail,
   useSidebar,
 } from '@/components/ui/sidebar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { SidebarNavItem } from '@/components/common/sidebar-nav-item';
+import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-toggle';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
-import { FeatureStatusBadges } from '@/components/common/feature-status-badges';
 import type { FeatureStatus } from '@/components/common/feature-list-item';
 
 interface FeatureItem {
@@ -50,55 +47,42 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
     return { key, label, items };
   });
 
-  const counts = statusGroups.reduce(
-    (acc, { key }) => {
-      acc[key] = features.filter((f) => f.status === key).length;
-      return acc;
-    },
-    {} as Record<FeatureStatus, number>
-  );
-
   return (
     <Sidebar data-testid="app-sidebar" collapsible="icon">
       <SidebarHeader>
         <SidebarMenu>
+          <SidebarMenuItem>
+            <SidebarCollapseToggle />
+          </SidebarMenuItem>
           <SidebarNavItem icon={Home} label="Control Center" href="/" />
           <SidebarNavItem icon={Brain} label="Memory" href="/memory" />
+          <SidebarNavItem icon={Layers} label="Features" href="/features" />
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent>
-        {collapsed ? (
-          <FeatureStatusBadges counts={counts} />
-        ) : (
+      {!collapsed && (
+        <SidebarContent>
           <ScrollArea>
-            <SidebarGroup className="py-1">
-              <SidebarGroupLabel>Features</SidebarGroupLabel>
-              <SidebarGroupContent>
-                {grouped.map(
-                  ({ key, label, items }) =>
-                    items.length > 0 && (
-                      <FeatureStatusGroup key={key} label={label} count={items.length}>
-                        {items.map((feature) => (
-                          <FeatureListItem
-                            key={feature.name}
-                            name={feature.name}
-                            status={feature.status}
-                            startedAt={feature.startedAt}
-                            duration={feature.duration}
-                            onClick={
-                              onFeatureClick ? () => onFeatureClick(feature.name) : undefined
-                            }
-                          />
-                        ))}
-                      </FeatureStatusGroup>
-                    )
-                )}
-              </SidebarGroupContent>
-            </SidebarGroup>
+            {grouped.map(
+              ({ key, label, items }) =>
+                items.length > 0 && (
+                  <FeatureStatusGroup key={key} label={label} count={items.length}>
+                    {items.map((feature) => (
+                      <FeatureListItem
+                        key={feature.name}
+                        name={feature.name}
+                        status={feature.status}
+                        startedAt={feature.startedAt}
+                        duration={feature.duration}
+                        onClick={onFeatureClick ? () => onFeatureClick(feature.name) : undefined}
+                      />
+                    ))}
+                  </FeatureStatusGroup>
+                )
+            )}
           </ScrollArea>
-        )}
-      </SidebarContent>
+        </SidebarContent>
+      )}
 
       <SidebarFooter>
         <SidebarMenu>
