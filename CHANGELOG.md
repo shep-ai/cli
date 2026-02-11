@@ -1,3 +1,16 @@
+# [1.13.0](https://github.com/shep-ai/cli/compare/v1.12.0...v1.13.0) (2026-02-11)
+
+### Bug Fixes
+
+- **web:** fix e2e tests and format mdx docs for dashboard layout ([db97a44](https://github.com/shep-ai/cli/commit/db97a444c673caf228aab3ccd722abbbdda37ba6))
+
+### Features
+
+- **specs:** add 013-ui-arch implementation plan and task breakdown ([bc7793e](https://github.com/shep-ai/cli/commit/bc7793e5bedad7b144959d948a4e7ee180596bfa))
+- **specs:** add 013-ui-arch research ([87828b1](https://github.com/shep-ai/cli/commit/87828b14ad7e564f0c09ff382ed066c8a7a0604b))
+- **specs:** add 013-ui-arch specification ([4ed2b53](https://github.com/shep-ai/cli/commit/4ed2b53a0c9c6b70bbda424bfba5d306bfec5e9e))
+- **web:** implement four-tier component architecture ([4b6c15c](https://github.com/shep-ai/cli/commit/4b6c15c6fdce9e333ded69bfb381c87e788a8a99))
+
 # [1.12.0](https://github.com/shep-ai/cli/compare/v1.11.0...v1.12.0) (2026-02-11)
 
 ### Features
