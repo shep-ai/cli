@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Brain, Plus, Layers } from 'lucide-react';
+import { Home, Brain, Plus } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -19,6 +19,7 @@ import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-togg
 import { ShepLogo } from '@/components/common/shep-logo';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
+import { SidebarSectionHeader } from '@/components/common/sidebar-section-header';
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
@@ -34,9 +35,17 @@ export interface AppSidebarProps {
   features: FeatureItem[];
   onNewFeature?: () => void;
   onFeatureClick?: (name: string) => void;
+  onFeaturesFolderClick?: () => void;
+  onFeaturesMenuClick?: () => void;
 }
 
-export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSidebarProps) {
+export function AppSidebar({
+  features,
+  onNewFeature,
+  onFeatureClick,
+  onFeaturesFolderClick,
+  onFeaturesMenuClick,
+}: AppSidebarProps) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
@@ -78,40 +87,41 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
             href="/memory"
             active={pathname === '/memory'}
           />
-          <SidebarNavItem
-            icon={Layers}
-            label="Features"
-            href="/features"
-            active={pathname === '/features'}
-          />
         </SidebarMenu>
       </SidebarHeader>
 
       <SidebarContent>
         {showExpanded ? (
-          <ScrollArea
-            className={[
-              'transition-opacity duration-200 ease-out',
-              expandedVisible ? 'opacity-100' : 'opacity-0',
-            ].join(' ')}
-          >
-            {grouped.map(({ key, label, items }) =>
-              items.length > 0 ? (
-                <FeatureStatusGroup key={key} label={label} count={items.length}>
-                  {items.map((feature) => (
-                    <FeatureListItem
-                      key={feature.name}
-                      name={feature.name}
-                      status={feature.status}
-                      startedAt={feature.startedAt}
-                      duration={feature.duration}
-                      onClick={onFeatureClick ? () => onFeatureClick(feature.name) : undefined}
-                    />
-                  ))}
-                </FeatureStatusGroup>
-              ) : null
-            )}
-          </ScrollArea>
+          <>
+            <SidebarSectionHeader
+              label="Features"
+              onFolderClick={onFeaturesFolderClick}
+              onMenuClick={onFeaturesMenuClick}
+            />
+            <ScrollArea
+              className={[
+                'transition-opacity duration-200 ease-out',
+                expandedVisible ? 'opacity-100' : 'opacity-0',
+              ].join(' ')}
+            >
+              {grouped.map(({ key, label, items }) =>
+                items.length > 0 ? (
+                  <FeatureStatusGroup key={key} label={label} count={items.length}>
+                    {items.map((feature) => (
+                      <FeatureListItem
+                        key={feature.name}
+                        name={feature.name}
+                        status={feature.status}
+                        startedAt={feature.startedAt}
+                        duration={feature.duration}
+                        onClick={onFeatureClick ? () => onFeatureClick(feature.name) : undefined}
+                      />
+                    ))}
+                  </FeatureStatusGroup>
+                ) : null
+              )}
+            </ScrollArea>
+          </>
         ) : null}
       </SidebarContent>
 
