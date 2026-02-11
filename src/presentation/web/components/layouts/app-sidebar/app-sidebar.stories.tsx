@@ -1,5 +1,6 @@
 import type { Meta, StoryObj } from '@storybook/react';
-import { SidebarProvider } from '@/components/ui/sidebar';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
+import { SidebarCollapseToggle } from '@/components/common/sidebar-collapse-toggle';
 import { AppSidebar } from './app-sidebar';
 
 const meta: Meta<typeof AppSidebar> = {
@@ -13,6 +14,12 @@ const meta: Meta<typeof AppSidebar> = {
     (Story) => (
       <SidebarProvider>
         <Story />
+        <SidebarInset>
+          <div className="flex items-center gap-2 border-b px-4 py-2">
+            <SidebarCollapseToggle />
+            <span className="text-muted-foreground text-sm">Content area</span>
+          </div>
+        </SidebarInset>
       </SidebarProvider>
     ),
   ],
@@ -34,6 +41,25 @@ export const Default: Story = {
   args: {
     features: mockFeatures,
   },
+};
+
+export const Collapsed: Story = {
+  args: {
+    features: mockFeatures,
+  },
+  decorators: [
+    (Story) => (
+      <SidebarProvider defaultOpen={false}>
+        <Story />
+        <SidebarInset>
+          <div className="flex items-center gap-2 border-b px-4 py-2">
+            <SidebarCollapseToggle />
+            <span className="text-muted-foreground text-sm">Content area</span>
+          </div>
+        </SidebarInset>
+      </SidebarProvider>
+    ),
+  ],
 };
 
 export const Empty: Story = {
