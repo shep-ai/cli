@@ -1,5 +1,6 @@
 'use client';
 
+import * as React from 'react';
 import { Home, Brain, Plus, Layers } from 'lucide-react';
 import {
   Sidebar,
@@ -19,6 +20,21 @@ import { ShepLogo } from '@/components/common/shep-logo';
 import { FeatureListItem } from '@/components/common/feature-list-item';
 import { FeatureStatusGroup } from '@/components/common/feature-status-group';
 import type { FeatureStatus } from '@/components/common/feature-list-item';
+
+function useDeferredMount(isCollapsed: boolean, ms: number) {
+  const [mounted, setMounted] = React.useState(!isCollapsed);
+
+  React.useEffect(() => {
+    if (!isCollapsed) {
+      setMounted(true);
+      return;
+    }
+    const t = window.setTimeout(() => setMounted(false), ms);
+    return () => window.clearTimeout(t);
+  }, [isCollapsed, ms]);
+
+  return mounted;
+}
 
 interface FeatureItem {
   name: string;
@@ -42,6 +58,7 @@ const statusGroups: { key: FeatureStatus; label: string }[] = [
 export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSidebarProps) {
   const { state } = useSidebar();
   const collapsed = state === 'collapsed';
+  const showLabel = useDeferredMount(collapsed, 200);
 
   const grouped = statusGroups.map(({ key, label }) => {
     const items = features.filter((f) => f.status === key);
@@ -54,13 +71,23 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex h-8 items-center group-data-[collapsible=icon]:justify-center">
-              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-2 transition-opacity duration-200 group-data-[collapsible=icon]:w-0 group-data-[collapsible=icon]:flex-none group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:px-0 group-data-[collapsible=icon]:opacity-0">
-                <ShepLogo className="shrink-0" size={20} />
-                <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
-              </div>
+              {showLabel && (
+                <div
+                  className={[
+                    'flex min-w-0 flex-1 items-center gap-2 overflow-hidden px-2',
+                    'transition-opacity duration-200 ease-out',
+                    collapsed ? 'opacity-0' : 'opacity-100',
+                  ].join(' ')}
+                  aria-hidden={collapsed}
+                >
+                  <ShepLogo className="shrink-0" size={20} />
+                  <span className="truncate text-sm font-semibold tracking-tight">Shep</span>
+                </div>
+              )}
               <SidebarCollapseToggle className="shrink-0 transition-all duration-200" />
             </div>
           </SidebarMenuItem>
+
           <SidebarNavItem icon={Home} label="Control Center" href="/" />
           <SidebarNavItem icon={Brain} label="Memory" href="/memory" />
           <SidebarNavItem icon={Layers} label="Features" href="/features" />
