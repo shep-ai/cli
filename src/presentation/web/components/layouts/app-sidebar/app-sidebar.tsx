@@ -92,18 +92,19 @@ export function AppSidebar({
 
       <SidebarContent>
         {showExpanded ? (
-          <>
+          <div
+            className={[
+              'min-w-0 overflow-hidden transition-opacity duration-200 ease-out',
+              '[&_[data-sidebar=group-label]]:!mt-0 [&_[data-sidebar=group-label]]:!opacity-100 [&_[data-sidebar=group-label]]:!transition-none',
+              expandedVisible ? 'opacity-100' : 'opacity-0',
+            ].join(' ')}
+          >
             <SidebarSectionHeader
               label="Features"
               onFolderClick={onFeaturesFolderClick}
               onMenuClick={onFeaturesMenuClick}
             />
-            <ScrollArea
-              className={[
-                'transition-opacity duration-200 ease-out',
-                expandedVisible ? 'opacity-100' : 'opacity-0',
-              ].join(' ')}
-            >
+            <ScrollArea>
               {grouped.map(({ key, label, items }) =>
                 items.length > 0 ? (
                   <FeatureStatusGroup key={key} label={label} count={items.length}>
@@ -121,7 +122,7 @@ export function AppSidebar({
                 ) : null
               )}
             </ScrollArea>
-          </>
+          </div>
         ) : null}
       </SidebarContent>
 
