@@ -7,6 +7,8 @@ export { FeatureStatusGroup } from './feature-status-group';
 export type { FeatureStatusGroupProps } from './feature-status-group';
 export { LoadingSkeleton } from './loading-skeleton';
 export { PageHeader } from './page-header';
+export { SidebarCollapseToggle } from './sidebar-collapse-toggle';
+export type { SidebarCollapseToggleProps } from './sidebar-collapse-toggle';
 export { SidebarNavItem } from './sidebar-nav-item';
 export type { SidebarNavItemProps } from './sidebar-nav-item';
 export { ThemeToggle } from './theme-toggle';

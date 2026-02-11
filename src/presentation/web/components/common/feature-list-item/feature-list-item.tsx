@@ -31,17 +31,25 @@ export function FeatureListItem({
   const { icon: StatusIcon, iconClass } = statusConfig[status];
 
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem data-testid="feature-list-item">
       <SidebarMenuButton size="sm" onClick={onClick} tooltip={name} className="cursor-pointer">
         <StatusIcon className={iconClass} />
         <span className="flex-1 truncate font-medium">{name}</span>
         {status === 'in-progress' && startedAt != null && (
-          <span className="text-muted-foreground ml-auto text-xs tabular-nums">
+          <span
+            data-testid="feature-list-item-meta"
+            className="text-muted-foreground ml-auto text-xs tabular-nums"
+          >
             <ElapsedTime startedAt={startedAt} />
           </span>
         )}
         {status === 'done' && duration && (
-          <span className="text-muted-foreground ml-auto text-xs tabular-nums">{duration}</span>
+          <span
+            data-testid="feature-list-item-meta"
+            className="text-muted-foreground ml-auto text-xs tabular-nums"
+          >
+            {duration}
+          </span>
         )}
       </SidebarMenuButton>
     </SidebarMenuItem>
