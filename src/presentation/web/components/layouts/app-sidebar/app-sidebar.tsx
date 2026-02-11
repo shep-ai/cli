@@ -54,27 +54,23 @@ export function AppSidebar({ features, onNewFeature, onFeatureClick }: AppSideba
 
       <SidebarContent>
         <ScrollArea>
-          <SidebarGroup>
+          <SidebarGroup className="py-1">
             <SidebarGroupLabel>Features</SidebarGroupLabel>
             <SidebarGroupContent>
               {grouped.map(
                 ({ key, label, items }) =>
                   items.length > 0 && (
                     <FeatureStatusGroup key={key} label={label} count={items.length}>
-                      <SidebarMenu>
-                        {items.map((feature) => (
-                          <FeatureListItem
-                            key={feature.name}
-                            name={feature.name}
-                            status={feature.status}
-                            startedAt={feature.startedAt}
-                            duration={feature.duration}
-                            onClick={
-                              onFeatureClick ? () => onFeatureClick(feature.name) : undefined
-                            }
-                          />
-                        ))}
-                      </SidebarMenu>
+                      {items.map((feature) => (
+                        <FeatureListItem
+                          key={feature.name}
+                          name={feature.name}
+                          status={feature.status}
+                          startedAt={feature.startedAt}
+                          duration={feature.duration}
+                          onClick={onFeatureClick ? () => onFeatureClick(feature.name) : undefined}
+                        />
+                      ))}
                     </FeatureStatusGroup>
                   )
               )}

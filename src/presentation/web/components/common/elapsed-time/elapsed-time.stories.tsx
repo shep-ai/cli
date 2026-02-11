@@ -1,14 +1,14 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import { ElapsedTime } from './elapsed-time';
 
-const meta = {
+const meta: Meta<typeof ElapsedTime> = {
   title: 'Composed/ElapsedTime',
   component: ElapsedTime,
   parameters: {
     layout: 'padded',
   },
   tags: ['autodocs'],
-} satisfies Meta<typeof ElapsedTime>;
+};
 
 export default meta;
 type Story = StoryObj<typeof meta>;
