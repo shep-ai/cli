@@ -339,6 +339,57 @@ export class Renderer {
   }
 
   /**
+   * Render selected repo pill on welcome canvas
+   */
+  renderRepoOnWelcomeCanvas(repoId) {
+    const canvas = document.getElementById('welcome-idea-canvas');
+    if (!canvas) return;
+
+    // Clear existing content
+    while (canvas.firstChild) canvas.removeChild(canvas.firstChild);
+
+    const repo = this.state.getRepository(repoId);
+    if (!repo) return;
+
+    // Container for the repo pill
+    const container = document.createElement('div');
+    container.style.display = 'flex';
+    container.style.alignItems = 'center';
+    container.style.justifyContent = 'center';
+    container.style.height = '100%';
+    container.style.width = '100%';
+
+    // Repo pill
+    const pill = document.createElement('div');
+    pill.className = 'canvas-repo-pill';
+    pill.style.position = 'static';
+
+    const icon = document.createElement('i');
+    icon.className = 'fab fa-github canvas-repo-icon';
+
+    const name = document.createElement('span');
+    name.className = 'canvas-repo-name';
+    name.textContent = repo.fullName;
+
+    const addBtn = document.createElement('button');
+    addBtn.className = 'canvas-repo-add-btn';
+    addBtn.title = 'Add feature to this repo';
+    addBtn.onclick = (e) => {
+      e.stopPropagation();
+      window.app.createFeatureForRepo(repoId);
+    };
+    const addIcon = document.createElement('i');
+    addIcon.className = 'fas fa-plus';
+    addBtn.appendChild(addIcon);
+
+    pill.appendChild(icon);
+    pill.appendChild(name);
+    pill.appendChild(addBtn);
+    container.appendChild(pill);
+    canvas.appendChild(container);
+  }
+
+  /**
    * Render repo pills on the features canvas (positioned absolutely)
    */
   renderRepoPills(repos, repoPositions, container, onAddChild) {

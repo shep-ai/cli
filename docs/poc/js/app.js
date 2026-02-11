@@ -1551,7 +1551,8 @@ class App {
       pill.classList.toggle('active', pill.dataset.repoId === repoId);
     });
 
-    // Don't show ideas - user can add repo and create features directly
+    // Show repo on canvas
+    this.renderer.renderRepoOnWelcomeCanvas(repoId);
   }
 
   addNewRepository() {
