@@ -6,6 +6,6 @@
     "declarationMap": true,
     "outDir": "dist"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "types/**/*"],
   "exclude": ["node_modules", "dist", "tsp", "apis", "**/*.test.ts", "**/*.spec.ts"]
 }
