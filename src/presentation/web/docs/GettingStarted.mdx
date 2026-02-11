@@ -15,6 +15,7 @@ Low-level building blocks from shadcn/ui. These are atomic components with minim
 **Examples:** Button, Input, Label, Badge, Card, Dialog, Select, Tabs
 
 **Rules:**
+
 - One component per file
 - No business logic
 - Accept `className` for style overrides via `cn()` utility
@@ -27,6 +28,7 @@ Mid-level components that combine multiple primitives into reusable patterns. Th
 **Examples:** ThemeToggle, FormField, DataTable, SearchInput, ConfirmDialog
 
 **Rules:**
+
 - Compose primitives from `components/ui/`
 - No feature-specific business logic
 - May manage local UI state (open/closed, focus)
@@ -39,6 +41,7 @@ Page-level structural components that define the overall arrangement of content 
 **Examples:** AppShell, Sidebar, PageHeader, ContentArea
 
 **Rules:**
+
 - Define page structure and responsive behavior
 - Use children/slots for content injection
 - No data fetching or business logic
@@ -50,6 +53,7 @@ Domain-specific components tied to particular application features. These connec
 **Examples:** SettingsPanel, FeatureBoard
 
 **Rules:**
+
 - May contain feature-specific state and logic
 - Compose from all lower tiers
 - Co-locate feature-specific hooks and types

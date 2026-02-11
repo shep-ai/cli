@@ -6,7 +6,7 @@ test.describe('Theme Toggle', () => {
     await page.goto('/');
 
     // Wait for page to load
-    await expect(page.locator('h1')).toContainText('Shep AI');
+    await expect(page.getByRole('main').locator('h1')).toContainText('Shep AI');
 
     // Get initial theme state (default is light)
     const html = page.locator('html');
@@ -25,7 +25,7 @@ test.describe('Theme Toggle', () => {
     await page.goto('/');
 
     // Wait for page to load
-    await expect(page.locator('h1')).toContainText('Shep AI');
+    await expect(page.getByRole('main').locator('h1')).toContainText('Shep AI');
 
     // Verify the page is visible and styled correctly
     await expect(page.locator('body')).toHaveCSS(
