@@ -34,7 +34,6 @@ export function useControlCenterState(
 
   const clearSelection = useCallback(() => {
     setSelectedNode(null);
-    setNodes((ns) => ns.map((n) => ({ ...n, selected: false })));
   }, []);
 
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: CanvasNodeType) => {
@@ -116,11 +115,10 @@ export function useControlCenterState(
         id,
         type: 'featureNode' as const,
         position,
-        selected: true,
         data: newFeatureData,
       } as CanvasNodeType;
 
-      return [...currentNodes.map((n) => ({ ...n, selected: false })), newNode];
+      return [...currentNodes, newNode];
     });
 
     if (sourceNodeId) {
