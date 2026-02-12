@@ -1,3 +1,10 @@
+## [1.14.2](https://github.com/shep-ai/cli/compare/v1.14.1...v1.14.2) (2026-02-12)
+
+### Bug Fixes
+
+- **dx:** align repo pills with feature cards and add-repo button ([dd98716](https://github.com/shep-ai/cli/commit/dd98716b2df9de56a2f8bece02dc94307963ba80))
+- **dx:** remove simulation badge, redesign repo browser modal ([7bc56dd](https://github.com/shep-ai/cli/commit/7bc56dda5b06a89b21a8bd9d5daa9a3bb5a91b69))
+
 ## [1.14.1](https://github.com/shep-ai/cli/compare/v1.14.0...v1.14.1) (2026-02-12)
 
 # [1.14.0](https://github.com/shep-ai/cli/compare/v1.13.0...v1.14.0) (2026-02-12)
