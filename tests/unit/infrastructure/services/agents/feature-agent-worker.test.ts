@@ -48,6 +48,12 @@ vi.mock('../../../../../src/infrastructure/services/settings.service.js', () => 
   getSettings: () => ({
     agent: { type: 'claude-code', authMethod: 'token', token: 'test' },
   }),
+  initializeSettings: vi.fn(),
+}));
+
+vi.mock('../../../../../src/infrastructure/services/agents/feature-agent/heartbeat.js', () => ({
+  setHeartbeatContext: vi.fn(),
+  reportNodeStart: vi.fn(),
 }));
 
 import {
@@ -168,9 +174,18 @@ describe('runWorker', () => {
     mockRunRepo = makeMockRunRepository();
     mockExecutorFactory = makeMockExecutorFactory();
     mockInitializeContainer.mockResolvedValue({ resolve: mockResolve });
-    mockResolve.mockImplementation((token: string) => {
-      if (token === 'IAgentRunRepository') return mockRunRepo;
-      if (token === 'IAgentExecutorFactory') return mockExecutorFactory;
+    mockResolve.mockImplementation((token: unknown) => {
+      const key = typeof token === 'string' ? token : (token as { name?: string })?.name;
+      if (key === 'IAgentRunRepository') return mockRunRepo;
+      if (key === 'IAgentExecutorFactory') return mockExecutorFactory;
+      // InitializeSettingsUseCase — return a mock with execute()
+      if (key === 'InitializeSettingsUseCase') {
+        return {
+          execute: vi.fn().mockResolvedValue({
+            agent: { type: 'claude-code', authMethod: 'token', token: 'test' },
+          }),
+        };
+      }
       return mockRunRepo;
     });
     mockGraphInvoke.mockResolvedValue({
@@ -294,7 +309,7 @@ describe('runWorker', () => {
       'run-1',
       AgentRunStatus.completed,
       expect.objectContaining({
-        completedAt: expect.any(String),
+        completedAt: expect.any(Date),
       })
     );
   });
@@ -314,7 +329,7 @@ describe('runWorker', () => {
       AgentRunStatus.failed,
       expect.objectContaining({
         error: 'Graph execution failed',
-        completedAt: expect.any(String),
+        completedAt: expect.any(Date),
       })
     );
   });
