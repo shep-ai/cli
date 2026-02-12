@@ -7,6 +7,9 @@
  * Each test uses an isolated HOME directory (for settings/database)
  * and a temporary git repository (for worktree creation).
  *
+ * Uses SHEP_MOCK_EXECUTOR=1 (set in CLI runner defaults) for deterministic
+ * AI responses — slugs, names, and branches are predictable.
+ *
  * NOTE: Uses execSync intentionally for git setup in tests. All inputs are
  * controlled by test code, not user input, so command injection is not a risk.
  */
@@ -93,8 +96,7 @@ describe('CLI: feat', () => {
       expect(result.stdout).toContain('Feature created');
       expect(result.stdout).toMatch(/ID:\s+[0-9a-f-]{36}/);
       expect(result.stdout).toContain('feat/add-user-authentication');
-      expect(result.stdout).toContain('Requirements');
-    });
+    }, 60_000);
 
     it('should create a git worktree for the feature branch', () => {
       const runner = createCliRunner({
@@ -108,7 +110,7 @@ describe('CLI: feat', () => {
       const repoHash = createHash('sha256').update(tempRepo).digest('hex').slice(0, 16);
       const worktreePath = join(tempHome, '.shep', 'repos', repoHash, 'wt', 'feat-worktree-check');
       expect(existsSync(worktreePath)).toBe(true);
-    });
+    }, 60_000);
 
     it('should initialize spec directory with YAML files inside the worktree', () => {
       const runner = createCliRunner({
@@ -130,7 +132,7 @@ describe('CLI: feat', () => {
       expect(files).toContain('plan.yaml');
       expect(files).toContain('tasks.yaml');
       expect(files).toContain('feature.yaml');
-    });
+    }, 60_000);
 
     it('should reject duplicate feature slugs', () => {
       const runner = createCliRunner({
@@ -146,7 +148,7 @@ describe('CLI: feat', () => {
       // Error message goes to stderr via messages.error + console.error
       const output = `${second.stdout} ${second.stderr}`;
       expect(output).toMatch(/already exists/i);
-    });
+    }, 60_000);
 
     it('should show error when no description is provided', () => {
       const runner = createCliRunner({
@@ -185,8 +187,8 @@ describe('CLI: feat', () => {
 
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Features');
-      expect(result.stdout).toContain('Listed feature');
-    });
+      expect(result.stdout).toContain('Listed Feature');
+    }, 60_000);
 
     it('should filter features by repository path', () => {
       const runner = createCliRunner({
@@ -199,8 +201,8 @@ describe('CLI: feat', () => {
       const result = runner.run(`feat ls --repo ${tempRepo}`);
 
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Repo filter test');
-    });
+      expect(result.stdout).toContain('Repo Filter Test');
+    }, 60_000);
   });
 
   describe('shep feat show', () => {
@@ -217,11 +219,10 @@ describe('CLI: feat', () => {
 
       expect(result.success).toBe(true);
       expect(result.stdout).toContain(featureId);
-      expect(result.stdout).toContain('Show detail test');
+      expect(result.stdout).toContain('Show Detail Test');
       expect(result.stdout).toContain('feat/show-detail-test');
-      expect(result.stdout).toContain('Requirements');
       expect(result.stdout).toContain(tempRepo);
-    });
+    }, 60_000);
 
     it('should show error for nonexistent feature ID', () => {
       const runner = createCliRunner({

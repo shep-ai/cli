@@ -43,6 +43,7 @@ import type { IAgentRunRepository } from '../../application/ports/output/agent-r
 import type { IFeatureAgentProcessService } from '../../application/ports/output/feature-agent-process.interface.js';
 import type { ISpecInitializerService } from '../../application/ports/output/spec-initializer.interface.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
+import { MockAgentExecutorFactory } from '../services/agents/common/executors/mock-executor-factory.service.js';
 import { AgentRegistryService } from '../services/agents/common/agent-registry.service.js';
 import { AgentRunnerService } from '../services/agents/common/agent-runner.service.js';
 import { SQLiteAgentRunRepository } from '../repositories/agent-run.repository.js';
@@ -126,15 +127,21 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
 
-  container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
-    useFactory: () => {
-      // Wrap spawn to ensure stdio is explicitly set to 'pipe'
-      const spawnWithPipe = (command: string, args: string[], options?: object) => {
-        return spawn(command, args, { ...options, stdio: 'pipe' });
-      };
-      return new AgentExecutorFactory(spawnWithPipe);
-    },
-  });
+  if (process.env.SHEP_MOCK_EXECUTOR === '1') {
+    container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
+      useFactory: () => new MockAgentExecutorFactory(),
+    });
+  } else {
+    container.register<IAgentExecutorFactory>('IAgentExecutorFactory', {
+      useFactory: () => {
+        // Wrap spawn to ensure stdio is explicitly set to 'pipe'
+        const spawnWithPipe = (command: string, args: string[], options?: object) => {
+          return spawn(command, args, { ...options, stdio: 'pipe' });
+        };
+        return new AgentExecutorFactory(spawnWithPipe);
+      },
+    });
+  }
 
   container.register<IAgentRegistry>('IAgentRegistry', {
     useFactory: () => new AgentRegistryService(),

@@ -80,7 +80,10 @@ const CLI_PATH_DIST = resolve(PROJECT_ROOT, 'dist/src/presentation/cli/index.js'
  */
 const DEFAULT_OPTIONS: Required<CliRunnerOptions> = {
   cwd: PROJECT_ROOT,
-  env: {},
+  env: {
+    // Use deterministic mock executor for E2E tests (no real AI calls)
+    SHEP_MOCK_EXECUTOR: '1',
+  },
   timeout: 10000,
 };
 

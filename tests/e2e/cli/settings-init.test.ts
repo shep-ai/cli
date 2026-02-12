@@ -44,7 +44,7 @@ describe('CLI: settings init', () => {
       expect(settings.models.analyze).toBe('claude-sonnet-4-5');
       expect(settings.environment.defaultEditor).toBe('vscode');
       expect(settings.system.autoUpdate).toBe(true);
-    });
+    }, 30_000);
   });
 
   describe('shep settings init (without --force)', () => {

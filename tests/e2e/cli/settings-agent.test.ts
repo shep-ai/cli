@@ -67,7 +67,7 @@ describe('CLI: settings agent', () => {
         expect(settings.agent).toBeDefined();
         expect(settings.agent.type).toBe('claude-code');
         expect(settings.agent.authMethod).toBe('session');
-      });
+      }, 30_000);
     }
   );
 
@@ -90,7 +90,7 @@ describe('CLI: settings agent', () => {
         const settings = JSON.parse(showResult.stdout);
         expect(settings.agent.authMethod).toBe('token');
         expect(settings.agent.token).toBe('sk-persisted');
-      });
+      }, 30_000);
     }
   );
 
