@@ -5,43 +5,281 @@ name: control-center
 summary: Task breakdown for 016-control-center
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '015-feature-flow-canvas'
+  - '013-ui-arch'
+technologies:
+  - '@xyflow/react ^12.10.0'
+  - React 19
+  - Tailwind CSS v4
+  - shadcn/ui
+  - Storybook 8
+  - Lucide React
+relatedLinks:
+  - https://reactflow.dev/api-reference/components/panel
+  - https://reactflow.dev/api-reference/hooks/use-on-selection-change
 
 # Structured task list
 tasks:
   - id: task-1
-    title: { { TASK_1_TITLE } }
-    description: { { TASK_1_DESCRIPTION } }
+    title: 'Scaffold control-center directory structure'
+    description: >
+      Create the features/control-center/ directory with empty component shells,
+      TypeScript interfaces, and barrel exports. All files should compile with
+      pnpm typecheck:web.
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd:
-      red:
-        - Write tests for {{FEATURE_1}}
-      green:
-        - Implement {{FEATURE_1}} to pass tests
-      refactor:
-        - Extract helpers, improve naming
-    estimatedEffort: { { EFFORT_1 } }
+      - 'Directory features/control-center/ exists with all 7 files'
+      - 'index.ts barrel exports all components and types'
+      - 'pnpm typecheck:web passes with placeholder implementations'
+    tdd: null
+    estimatedEffort: S
 
   - id: task-2
-    title: { { TASK_2_TITLE } }
-    description: { { TASK_2_DESCRIPTION } }
+    title: 'Add selected visual highlight to FeatureNode [P]'
+    description: >
+      Add a ring-2 ring-primary highlight to FeatureNode when the selected prop
+      is true. React Flow passes selected as a prop to all custom nodes. Update
+      Storybook stories with a Selected variant.
     state: Todo
     dependencies:
       - task-1
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd: null # No TDD for foundational/doc tasks
-    estimatedEffort: { { EFFORT_2 } }
+      - 'FeatureNode renders ring-2 ring-primary when selected=true'
+      - 'FeatureNode does NOT render ring classes when selected=false'
+      - 'Ring does not conflict with existing left border styling'
+      - 'Storybook has Selected variant for each state'
+      - 'Unit test verifies conditional ring class application'
+    tdd:
+      red:
+        - 'Write test: FeatureNode renders ring-2 ring-primary when selected=true'
+        - 'Write test: FeatureNode does NOT render ring classes when selected=false'
+      green:
+        - 'Add conditional cn() class: ring-2 ring-primary when selected prop is true'
+      refactor:
+        - 'Verify ring integrates cleanly with existing border-l-4 styles'
+        - 'Add Selected story variant to feature-node.stories.tsx'
+    estimatedEffort: S
+
+  - id: task-3
+    title: 'Extend FeaturesCanvas with interaction callbacks [P]'
+    description: >
+      Add onNodeClick and onPaneClick callback props to FeaturesCanvasProps.
+      Pass them through to the underlying ReactFlow component. Update stories.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeaturesCanvasProps includes onNodeClick and onPaneClick'
+      - 'Callbacks are passed through to ReactFlow component'
+      - 'Existing stories still render correctly'
+      - 'New Interactive story demonstrates callback usage'
+      - 'Unit test verifies callback prop pass-through'
+    tdd:
+      red:
+        - 'Write test: FeaturesCanvas accepts onNodeClick prop'
+        - 'Write test: FeaturesCanvas accepts onPaneClick prop'
+      green:
+        - 'Add onNodeClick and onPaneClick to FeaturesCanvasProps interface'
+        - 'Pass callbacks to <ReactFlow> component'
+      refactor:
+        - 'Update type exports in index.ts'
+        - 'Add Interactive story variant to features-canvas.stories.tsx'
+    estimatedEffort: S
+
+  - id: task-4
+    title: 'Implement useControlCenterState hook'
+    description: >
+      Build the central state management hook that composes React Flow hooks
+      (useOnSelectionChange) with local state for panel visibility, computes
+      feature summary counts, and handles Escape keyboard shortcut.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'Hook returns selectedNode (FeatureNodeData | null)'
+      - 'Hook returns isDetailPanelOpen derived from FeatureNode selection'
+      - 'Hook returns featureSummary with counts by state'
+      - 'Hook returns clearSelection function'
+      - 'Escape key clears selection and closes panel'
+      - 'useOnSelectionChange callback is memoized with useCallback'
+      - 'Feature summary is memoized with useMemo'
+      - 'All tests pass'
+    tdd:
+      red:
+        - 'Write test: returns selectedNode when FeatureNode selected'
+        - 'Write test: returns null selectedNode when no selection'
+        - 'Write test: isDetailPanelOpen is true when FeatureNode selected'
+        - 'Write test: isDetailPanelOpen is false when RepositoryNode selected'
+        - 'Write test: featureSummary computes correct counts by state'
+        - 'Write test: featureSummary returns zeros when no feature nodes'
+        - 'Write test: Escape key clears selection'
+      green:
+        - 'Implement useOnSelectionChange to track selected node'
+        - 'Derive isDetailPanelOpen from selection type check'
+        - 'Compute featureSummary via useMemo over nodes'
+        - 'Add useEffect with keydown listener for Escape'
+      refactor:
+        - 'Extract computeFeatureSummary as pure helper function'
+        - 'Ensure all callbacks are properly memoized'
+    estimatedEffort: M
+
+  - id: task-5
+    title: 'Implement ControlCenterToolbar component [P]'
+    description: >
+      Build the top toolbar panel with Add Feature and Auto-Layout buttons.
+      Uses shadcn/ui Button components and Lucide icons inside a React Flow
+      Panel positioned at top-left.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Renders inside <Panel position="top-left">'
+      - 'Shows "Add Feature" button with Plus icon'
+      - 'Shows "Auto-Layout" button with LayoutGrid icon (disabled)'
+      - 'onAddFeature callback fires when Add Feature clicked'
+      - 'Storybook stories: Default, WithCallbacks'
+      - 'Unit tests verify rendering and callback invocation'
+    tdd:
+      red:
+        - 'Write test: renders Add Feature button'
+        - 'Write test: renders Auto-Layout button (disabled)'
+        - 'Write test: calls onAddFeature when Add Feature clicked'
+      green:
+        - 'Implement toolbar with Panel, Button, and Lucide icons'
+        - 'Wire onAddFeature to button onClick'
+      refactor:
+        - 'Add Storybook stories (Default, WithCallbacks)'
+    estimatedEffort: S
+
+  - id: task-6
+    title: 'Implement ControlCenterDetailPanel component [P]'
+    description: >
+      Build the right-side detail panel that displays selected feature info
+      with slide-in/out animation. Shows name, lifecycle, state, progress,
+      and description. Uses CSS transitions for slide effect.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Renders inside <Panel position="top-right">'
+      - 'Displays feature name, lifecycle phase, state, progress when open'
+      - 'Displays description when available'
+      - 'Does not render content when isOpen=false'
+      - 'Close button calls onClose callback'
+      - 'Slide-in animation via translate-x and opacity transitions'
+      - 'Uses GPU-accelerated CSS (transform + opacity only)'
+      - 'Storybook stories: Open, Closed, WithDescription, RunningState, ErrorState'
+      - 'Unit tests verify rendering, visibility, and close callback'
+    tdd:
+      red:
+        - 'Write test: renders feature name when open'
+        - 'Write test: renders lifecycle and state when open'
+        - 'Write test: renders progress bar when open'
+        - 'Write test: does not show content when isOpen=false'
+        - 'Write test: calls onClose when close button clicked'
+        - 'Write test: renders description when provided'
+      green:
+        - 'Implement panel layout with feature info sections'
+        - 'Add isOpen prop controlling visibility via CSS classes'
+        - 'Add close button with X icon and onClose callback'
+        - 'Apply transition-all duration-300 ease-in-out classes'
+      refactor:
+        - 'Add Storybook stories (Open, Closed, WithDescription, RunningState, ErrorState)'
+        - 'Reuse lifecycle/state colors from feature-node-state-config'
+    estimatedEffort: M
+
+  - id: task-7
+    title: 'Implement ControlCenterStatusBar component [P]'
+    description: >
+      Build the bottom status bar that displays feature count summary with
+      breakdown by state. Uses state colors from feature-node-state-config.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Renders inside <Panel position="bottom-left">'
+      - 'Shows total feature count (e.g., "5 features")'
+      - 'Shows count breakdown by state with colored badges'
+      - 'Shows "No features" when summary has zero total'
+      - 'Reuses color config from feature-node-state-config.ts'
+      - 'Storybook stories: Empty, WithFeatures, MixedStates'
+      - 'Unit tests verify count rendering and empty state'
+    tdd:
+      red:
+        - 'Write test: renders total feature count'
+        - 'Write test: renders state breakdown with correct counts'
+        - 'Write test: renders "No features" when empty'
+      green:
+        - 'Implement status bar with summary text and badges'
+        - 'Import state colors from feature-node-state-config'
+      refactor:
+        - 'Add Storybook stories (Empty, WithFeatures, MixedStates)'
+    estimatedEffort: S
+
+  - id: task-8
+    title: 'Implement ControlCenter orchestrator component'
+    description: >
+      Wire all sub-components together in the main ControlCenter component.
+      Composes FeaturesCanvas, toolbar, detail panel, and status bar via
+      useControlCenterState hook. Add comprehensive Storybook stories.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'Renders FeaturesCanvas with nodes and edges'
+      - 'Renders ControlCenterToolbar in top-left panel'
+      - 'Renders ControlCenterStatusBar in bottom-left panel'
+      - 'Shows ControlCenterDetailPanel when FeatureNode selected'
+      - 'Hides ControlCenterDetailPanel when selection cleared'
+      - 'Passes onAddFeature callback to toolbar'
+      - 'Escape key deselects node and closes panel'
+      - 'Storybook stories: Empty, WithFeatures, SelectedNode, WithToolbar'
+      - 'ControlCenter props: nodes, edges, onAddFeature, onNodeAction, onNodeSettings'
+      - 'pnpm test passes for all control-center tests'
+    tdd:
+      red:
+        - 'Write test: renders FeaturesCanvas with nodes and edges'
+        - 'Write test: renders toolbar panel'
+        - 'Write test: renders status bar panel'
+        - 'Write test: shows detail panel when node selected'
+        - 'Write test: hides detail panel when selection cleared'
+        - 'Write test: passes onAddFeature to toolbar'
+      green:
+        - 'Compose all sub-components inside ControlCenter'
+        - 'Wire useControlCenterState for state management'
+        - 'Pass interaction callbacks to FeaturesCanvas'
+        - 'Connect selectedNode to detail panel visibility'
+      refactor:
+        - 'Add comprehensive Storybook stories'
+        - 'Verify no unnecessary re-renders with React DevTools'
+    estimatedEffort: M
+
+  - id: task-9
+    title: 'Build validation and final cleanup'
+    description: >
+      Run all build validation commands to ensure the feature compiles,
+      lints, and builds correctly across all targets.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'pnpm lint:web passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm build:storybook passes'
+      - 'pnpm build:web passes'
+      - 'All unit tests pass (pnpm test:unit)'
+      - 'Components follow tier import rules (013-ui-arch)'
+    tdd: null
+    estimatedEffort: S
 
 # Total effort estimate
-totalEstimate: { { TOTAL_EFFORT } }
+totalEstimate: L
 
 # Open questions
 openQuestions: []
@@ -57,22 +295,152 @@ content: |
 
   ### Phase 1: Foundation
 
-  - [ ] {{TASK_1_DESCRIPTION}}
-  - [ ] {{TASK_2_DESCRIPTION}}
+  - [ ] **task-1**: Scaffold control-center directory structure
+    - Create `features/control-center/` with 7 files (component, hook, toolbar, detail panel, status bar, stories, index)
+    - Add minimal type-safe placeholder exports
+    - Verify `pnpm typecheck:web` passes
 
-  ### Phase 2: Core Implementation (TDD Cycle)
+  ### Phase 2: Existing Component Updates [P]
+
+  #### 2A: FeatureNode Selected Highlight
 
   **RED (Write Failing Tests First):**
 
-  - [ ] Write unit tests for {{FEATURE}}
+  - [ ] Write test: FeatureNode renders `ring-2 ring-primary` when `selected=true`
+  - [ ] Write test: FeatureNode does NOT render ring classes when `selected=false`
 
   **GREEN (Implement to Pass Tests):**
 
-  - [ ] Implement {{FEATURE}}
+  - [ ] Add conditional `cn()` class for ring highlight keyed on `selected` prop
 
   **REFACTOR (Clean Up):**
 
-  - [ ] Extract helpers and improve code quality
+  - [ ] Verify ring integrates with existing `border-l-4` styles
+  - [ ] Add Selected story variant to `feature-node.stories.tsx`
+
+  #### 2B: FeaturesCanvas Interaction Callbacks
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Write test: FeaturesCanvas accepts and passes `onNodeClick` prop
+  - [ ] Write test: FeaturesCanvas accepts and passes `onPaneClick` prop
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] Add `onNodeClick` and `onPaneClick` to `FeaturesCanvasProps`
+  - [ ] Pass callbacks through to `<ReactFlow>` component
+
+  **REFACTOR (Clean Up):**
+
+  - [ ] Update type exports in index.ts
+  - [ ] Add Interactive story variant
+
+  ### Phase 3: State Management Hook
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Write test: returns selectedNode when FeatureNode selected
+  - [ ] Write test: returns null when no selection
+  - [ ] Write test: isDetailPanelOpen true when FeatureNode selected
+  - [ ] Write test: isDetailPanelOpen false when RepositoryNode selected
+  - [ ] Write test: featureSummary computes correct counts
+  - [ ] Write test: featureSummary returns zeros when no features
+  - [ ] Write test: Escape key clears selection
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] Implement `useOnSelectionChange` for selection tracking
+  - [ ] Derive `isDetailPanelOpen` from selection type
+  - [ ] Compute `featureSummary` via `useMemo`
+  - [ ] Add `useEffect` with keydown listener for Escape
+
+  **REFACTOR (Clean Up):**
+
+  - [ ] Extract `computeFeatureSummary` as pure helper
+  - [ ] Ensure all callbacks properly memoized
+
+  ### Phase 4: Sub-components [P]
+
+  #### 4A: ControlCenterToolbar
+
+  **RED:**
+
+  - [ ] Write test: renders Add Feature button
+  - [ ] Write test: renders Auto-Layout button (disabled)
+  - [ ] Write test: calls onAddFeature callback
+
+  **GREEN:**
+
+  - [ ] Implement toolbar with Panel, Button, Lucide icons
+
+  **REFACTOR:**
+
+  - [ ] Add Storybook stories (Default, WithCallbacks)
+
+  #### 4B: ControlCenterDetailPanel
+
+  **RED:**
+
+  - [ ] Write test: renders feature name when open
+  - [ ] Write test: renders lifecycle and state when open
+  - [ ] Write test: does not show content when closed
+  - [ ] Write test: calls onClose when close button clicked
+  - [ ] Write test: renders description when provided
+
+  **GREEN:**
+
+  - [ ] Implement panel with feature info, close button, CSS transitions
+
+  **REFACTOR:**
+
+  - [ ] Add Storybook stories (Open, Closed, WithDescription, RunningState, ErrorState)
+  - [ ] Reuse colors from feature-node-state-config
+
+  #### 4C: ControlCenterStatusBar
+
+  **RED:**
+
+  - [ ] Write test: renders total feature count
+  - [ ] Write test: renders state breakdown counts
+  - [ ] Write test: renders "No features" when empty
+
+  **GREEN:**
+
+  - [ ] Implement status bar with summary and state badges
+
+  **REFACTOR:**
+
+  - [ ] Add Storybook stories (Empty, WithFeatures, MixedStates)
+
+  ### Phase 5: Orchestrator Integration
+
+  **RED:**
+
+  - [ ] Write test: renders FeaturesCanvas with nodes and edges
+  - [ ] Write test: renders toolbar panel
+  - [ ] Write test: renders status bar panel
+  - [ ] Write test: shows detail panel when node selected
+  - [ ] Write test: hides detail panel when selection cleared
+  - [ ] Write test: passes onAddFeature to toolbar
+
+  **GREEN:**
+
+  - [ ] Compose all sub-components in ControlCenter
+  - [ ] Wire useControlCenterState hook
+  - [ ] Connect callbacks and state
+
+  **REFACTOR:**
+
+  - [ ] Add comprehensive Storybook stories (Empty, WithFeatures, SelectedNode, WithToolbar)
+  - [ ] Verify no unnecessary re-renders
+
+  ### Phase 6: Build Validation
+
+  - [ ] `pnpm lint:web` passes
+  - [ ] `pnpm typecheck:web` passes
+  - [ ] `pnpm build:storybook` passes
+  - [ ] `pnpm build:web` passes
+  - [ ] All unit tests pass (`pnpm test:unit`)
 
   ## TDD Notes
 
@@ -91,12 +459,13 @@ content: |
 
   Before marking feature complete:
 
-  - [ ] All tasks completed
+  - [ ] All 9 tasks completed
   - [ ] Tests passing (`pnpm test`)
-  - [ ] Linting clean (`pnpm lint`)
-  - [ ] Types valid (`pnpm typecheck`)
-  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-  - [ ] Documentation updated
+  - [ ] Linting clean (`pnpm lint:web`)
+  - [ ] Types valid (`pnpm typecheck:web`)
+  - [ ] Storybook builds (`pnpm build:storybook`)
+  - [ ] Web builds (`pnpm build:web`)
+  - [ ] Components follow tier import rules (013-ui-arch)
   - [ ] PR created and reviewed
 
   ---
