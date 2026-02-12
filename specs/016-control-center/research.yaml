@@ -16,6 +16,7 @@ technologies:
 relatedLinks:
   - https://reactflow.dev/api-reference/components/panel
   - https://reactflow.dev/api-reference/hooks/use-on-selection-change
+  - https://reactflow.dev/api-reference/hooks/use-react-flow
   - https://reactflow.dev/learn/advanced-use/hooks-providers
 
 # Structured technology decisions
@@ -81,6 +82,33 @@ decisions:
       React Flow's built-in keyboard handling covers node deletion via Backspace/Delete
       when deleteKeyCode is set, but Escape for panel dismissal is custom logic.
       Can migrate to a library later if shortcuts grow.
+
+  - title: Programmatic node and edge creation
+    chosen: useReactFlow hook (addNodes/addEdges)
+    rejected:
+      - Manual setNodes/setEdges state updates
+      - External graph manipulation library
+    rationale: >
+      React Flow provides a useReactFlow() hook with addNodes() and addEdges()
+      methods that append to the existing graph without replacing state. This is
+      the idiomatic approach for programmatic graph manipulation. The hook also
+      provides getNode() to look up source node position for calculating new node
+      placement. Using setNodes/setEdges directly requires spreading existing state
+      which is error-prone. The hook is already available inside ReactFlowProvider.
+
+  - title: New node positioning strategy
+    chosen: Offset from source node position (x + 350, same y)
+    rejected:
+      - Random placement
+      - Center of viewport
+      - Auto-layout on every add
+    rationale: >
+      Placing the new node to the right of its source (x + 350px offset) provides
+      immediate visual feedback of the parent-child relationship. The 350px offset
+      accounts for node width (~288px for FeatureNode) plus spacing. If multiple
+      children exist at the same position, a y-offset based on existing children
+      count prevents overlap. Auto-layout on every add would be jarring and is
+      out of scope. Viewport center placement loses the visual connection context.
 
 # Open questions (should be resolved by end of research)
 openQuestions: []
@@ -159,11 +187,36 @@ content: |
 
   **Rationale:** Only one shortcut needed initially (Escape to deselect). A `useEffect` with `addEventListener('keydown')` is 5 lines of code. Adding a library for one shortcut is unnecessary. React Flow's built-in `deleteKeyCode` handles node deletion but doesn't cover custom logic. Can revisit if shortcuts grow beyond 3-4.
 
+  ### 6. Programmatic Node and Edge Creation
+
+  **Options considered:**
+
+  1. **`useReactFlow` hook** — Built-in `addNodes()` and `addEdges()` methods
+  2. **Manual `setNodes`/`setEdges` state updates** — Spread existing state and append
+  3. **External graph manipulation library** — Third-party graph management
+
+  **Decision:** `useReactFlow` hook (`addNodes`/`addEdges`)
+
+  **Rationale:** React Flow provides `useReactFlow()` with `addNodes()` and `addEdges()` for appending to the graph without replacing state. The hook also exposes `getNode()` to look up the source node's position for calculating new node placement. Manual `setNodes` requires spreading existing state which is error-prone. The hook is already available inside `ReactFlowProvider`. This is needed for the contextual (+) add actions on RepositoryNode and FeatureNode.
+
+  ### 7. New Node Positioning Strategy
+
+  **Options considered:**
+
+  1. **Offset from source node** — Place new node at `x + 350, same y` relative to source
+  2. **Random placement** — Random position within viewport
+  3. **Center of viewport** — Always place at viewport center
+  4. **Auto-layout on every add** — Re-layout entire graph after each addition
+
+  **Decision:** Offset from source node position (`x + 350`, same `y`)
+
+  **Rationale:** Placing to the right of the source (350px offset = 288px node width + 62px gap) gives immediate visual feedback of parent-child relationship. If multiple children share the same position, a y-offset based on existing children count prevents overlap. Auto-layout on every add would be jarring. Viewport center loses the connection context.
+
   ## Library Analysis
 
   | Library | Version | Purpose | Status |
   | --- | --- | --- | --- |
-  | `@xyflow/react` | ^12.10.0 | Canvas, Panel, selection hooks | Already installed |
+  | `@xyflow/react` | ^12.10.0 | Canvas, Panel, selection hooks, useReactFlow | Already installed |
   | `react-hotkeys-hook` | N/A | Keyboard shortcuts | Rejected — overkill for 1 shortcut |
 
   **No new dependencies required.** All decisions use existing packages (`@xyflow/react`, Tailwind CSS).
@@ -177,6 +230,7 @@ content: |
   - **Node enrichment memoization**: The existing `useMemo` in FeaturesCanvas for node enrichment should be preserved. The control center adds selection state which React Flow handles internally — no additional re-render overhead.
   - **Panel rendering**: React Flow Panel uses CSS positioning, not portal rendering. Panels are only re-rendered when their content changes, not on every canvas pan/zoom.
   - **useOnSelectionChange**: The callback must be memoized with `useCallback` (documented requirement from React Flow). Failure to memoize causes unnecessary re-subscriptions.
+  - **addNodes/addEdges**: These methods batch updates internally. Adding a node + edge in sequence is efficient and does not cause double renders.
 
   ## Open Questions
 

@@ -532,3 +532,14 @@ export const MultipleRepositoriesMixedConnections: Story = {
     onNodeSettings: () => undefined,
   },
 };
+
+export const InteractiveWithRepository: Story = {
+  args: {
+    nodes: repoFeatureNodes,
+    edges: repoFeatureEdges,
+    onAddFeature: () => undefined,
+    onNodeAction: () => undefined,
+    onNodeSettings: () => undefined,
+    onRepositoryAdd: () => undefined,
+  },
+};

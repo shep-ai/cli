@@ -1,0 +1,58 @@
+import { describe, it, expect } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { ControlCenter } from '@/components/features/control-center';
+import type { FeatureNodeType } from '@/components/common/feature-node';
+import type { RepositoryNodeType } from '@/components/common/repository-node';
+
+const mockFeatureNode: FeatureNodeType = {
+  id: 'node-1',
+  type: 'featureNode',
+  position: { x: 0, y: 0 },
+  data: {
+    name: 'Test Feature',
+    description: 'A test feature',
+    featureId: '#f1',
+    lifecycle: 'requirements',
+    state: 'running',
+    progress: 50,
+  },
+};
+
+const mockFeatureNode2: FeatureNodeType = {
+  id: 'node-2',
+  type: 'featureNode',
+  position: { x: 400, y: 0 },
+  data: {
+    name: 'Another Feature',
+    description: 'Second feature',
+    featureId: '#f2',
+    lifecycle: 'implementation',
+    state: 'done',
+    progress: 100,
+  },
+};
+
+describe('ControlCenter', () => {
+  it('renders the control-center container', () => {
+    render(<ControlCenter initialNodes={[]} initialEdges={[]} />);
+    expect(screen.getByTestId('control-center')).toBeInTheDocument();
+  });
+
+  it('shows empty state when no nodes provided', () => {
+    render(<ControlCenter initialNodes={[]} initialEdges={[]} />);
+    expect(screen.getByText('No features yet')).toBeInTheDocument();
+    expect(screen.getByText('Get started by creating your first feature.')).toBeInTheDocument();
+  });
+
+  it('renders feature nodes when initialNodes has feature nodes', () => {
+    render(<ControlCenter initialNodes={[mockFeatureNode, mockFeatureNode2]} initialEdges={[]} />);
+    expect(screen.getByText('Test Feature')).toBeInTheDocument();
+    expect(screen.getByText('Another Feature')).toBeInTheDocument();
+  });
+
+  it('renders toolbar with "Add Feature" button', () => {
+    render(<ControlCenter initialNodes={[mockFeatureNode]} initialEdges={[]} />);
+    expect(screen.getByTestId('toolbar-add-feature')).toBeInTheDocument();
+    expect(screen.getByText('Add Feature')).toBeInTheDocument();
+  });
+});

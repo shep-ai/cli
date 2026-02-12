@@ -20,7 +20,14 @@ function getBadgeText(data: FeatureNodeData): string {
   }
 }
 
-export function FeatureNode({ data }: { data: FeatureNodeData; [key: string]: unknown }) {
+export function FeatureNode({
+  data,
+  selected,
+}: {
+  data: FeatureNodeData;
+  selected?: boolean;
+  [key: string]: unknown;
+}) {
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
 
@@ -39,7 +46,8 @@ export function FeatureNode({ data }: { data: FeatureNodeData; [key: string]: un
         data-testid="feature-node-card"
         className={cn(
           'bg-card flex min-h-35 w-72 flex-col rounded-lg border border-l-4 p-3 shadow-sm',
-          config.borderClass
+          config.borderClass,
+          selected && 'ring-primary ring-2'
         )}
       >
         {/* Top row: lifecycle label + settings */}
