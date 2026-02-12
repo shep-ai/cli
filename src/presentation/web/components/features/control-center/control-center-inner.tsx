@@ -23,6 +23,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleAddRepository,
     handleNodeClick,
     clearSelection,
+    handleLayout,
   } = useControlCenterState(initialNodes, initialEdges);
 
   return (
@@ -37,7 +38,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       onPaneClick={clearSelection}
       onRepositoryAdd={handleAddFeatureToRepo}
       onRepositorySelect={handleAddRepository}
-      toolbar={<ControlCenterToolbar onAddFeature={handleAddFeature} />}
+      toolbar={<ControlCenterToolbar onAddFeature={handleAddFeature} onLayout={handleLayout} />}
     />
   );
 }

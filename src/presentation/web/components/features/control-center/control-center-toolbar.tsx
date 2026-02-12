@@ -1,15 +1,16 @@
 'use client';
 
 import { Panel } from '@xyflow/react';
-import { Plus, LayoutGrid } from 'lucide-react';
+import { Plus, ArrowDown, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { LayoutDirection } from '@/lib/layout-with-dagre';
 
 export interface ControlCenterToolbarProps {
   onAddFeature?: () => void;
-  onAutoLayout?: () => void;
+  onLayout?: (direction: LayoutDirection) => void;
 }
 
-export function ControlCenterToolbar({ onAddFeature, onAutoLayout }: ControlCenterToolbarProps) {
+export function ControlCenterToolbar({ onAddFeature, onLayout }: ControlCenterToolbarProps) {
   return (
     <Panel position="top-left">
       <div
@@ -23,12 +24,20 @@ export function ControlCenterToolbar({ onAddFeature, onAutoLayout }: ControlCent
         <Button
           variant="ghost"
           size="sm"
-          disabled
-          data-testid="toolbar-auto-layout"
-          onClick={onAutoLayout}
+          data-testid="toolbar-layout-vertical"
+          onClick={() => onLayout?.('TB')}
         >
-          <LayoutGrid className="mr-1.5 h-4 w-4" />
-          Auto-Layout
+          <ArrowDown className="mr-1.5 h-4 w-4" />
+          Vertical
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          data-testid="toolbar-layout-horizontal"
+          onClick={() => onLayout?.('LR')}
+        >
+          <ArrowRight className="mr-1.5 h-4 w-4" />
+          Horizontal
         </Button>
       </div>
     </Panel>
