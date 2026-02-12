@@ -9,7 +9,7 @@ import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 
-export interface FeatureFlowCanvasProps {
+export interface FeaturesCanvasProps {
   nodes: FeatureNodeType[];
   edges: Edge[];
   onAddFeature?: () => void;
@@ -17,13 +17,13 @@ export interface FeatureFlowCanvasProps {
   onNodeSettings?: (nodeId: string) => void;
 }
 
-export function FeatureFlowCanvas({
+export function FeaturesCanvas({
   nodes,
   edges,
   onAddFeature,
   onNodeAction,
   onNodeSettings,
-}: FeatureFlowCanvasProps) {
+}: FeaturesCanvasProps) {
   const nodeTypes = useMemo(() => ({ featureNode: FeatureNode }), []);
 
   const enrichedNodes = useMemo(
@@ -42,7 +42,7 @@ export function FeatureFlowCanvas({
 
   if (nodes.length === 0) {
     return (
-      <div data-testid="feature-flow-canvas-empty">
+      <div data-testid="features-canvas-empty">
         <EmptyState
           title="No features yet"
           description="Get started by creating your first feature."
@@ -58,7 +58,7 @@ export function FeatureFlowCanvas({
   }
 
   return (
-    <div data-testid="feature-flow-canvas" className="h-full w-full">
+    <div data-testid="features-canvas" className="h-full w-full">
       <ReactFlowProvider>
         <ReactFlow nodes={enrichedNodes} edges={edges} nodeTypes={nodeTypes} fitView>
           <Background />

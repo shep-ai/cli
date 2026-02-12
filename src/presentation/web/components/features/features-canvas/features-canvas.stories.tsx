@@ -1,11 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import type { Edge } from '@xyflow/react';
-import { FeatureFlowCanvas } from './feature-flow-canvas';
+import { FeaturesCanvas } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 
-const meta: Meta<typeof FeatureFlowCanvas> = {
-  title: 'Features/FeatureFlowCanvas',
-  component: FeatureFlowCanvas,
+const meta: Meta<typeof FeaturesCanvas> = {
+  title: 'Features/FeaturesCanvas',
+  component: FeaturesCanvas,
   tags: ['autodocs'],
   parameters: {
     layout: 'fullscreen',
