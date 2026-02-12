@@ -33,6 +33,6 @@ export const Default: Story = {
 export const WithCallbacks: Story = {
   args: {
     onAddFeature: () => undefined,
-    onAutoLayout: () => undefined,
+    onLayout: () => undefined,
   },
 };

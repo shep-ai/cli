@@ -5,6 +5,7 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
+import { layoutWithDagre } from '@/lib/layout-with-dagre';
 
 const meta: Meta<typeof ControlCenter> = {
   title: 'Features/ControlCenter',
@@ -139,5 +140,143 @@ export const Interactive: Story = {
       } as AddRepositoryNodeType,
     ] as CanvasNodeType[],
     initialEdges: [],
+  },
+};
+
+// --- Dagre-layouted story: multiple repos with feature trees ---
+
+const dagreRepoNodes: RepositoryNodeType[] = [
+  {
+    id: 'repo-cli',
+    type: 'repositoryNode',
+    position: { x: 0, y: 0 },
+    data: { name: 'shep-ai/cli' },
+  },
+  {
+    id: 'repo-web',
+    type: 'repositoryNode',
+    position: { x: 0, y: 0 },
+    data: { name: 'shep-ai/web' },
+  },
+];
+
+const dagreFeatureNodes: FeatureNodeType[] = [
+  {
+    id: 'feat-auth',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'Auth Module',
+      description: 'OAuth2 authentication flow',
+      featureId: '#f1',
+      lifecycle: 'implementation',
+      state: 'running',
+      progress: 65,
+    },
+  },
+  {
+    id: 'feat-sso',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'SSO Integration',
+      description: 'Single sign-on across services',
+      featureId: '#f2',
+      lifecycle: 'plan',
+      state: 'action-required',
+      progress: 20,
+    },
+  },
+  {
+    id: 'feat-dashboard',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'User Dashboard',
+      description: 'Main dashboard layout and widgets',
+      featureId: '#f3',
+      lifecycle: 'requirements',
+      state: 'running',
+      progress: 10,
+    },
+  },
+  {
+    id: 'feat-gateway',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'API Gateway',
+      description: 'Rate limiting and routing',
+      featureId: '#f4',
+      lifecycle: 'deploy',
+      state: 'done',
+      progress: 100,
+    },
+  },
+  {
+    id: 'feat-admin',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'Admin Panel',
+      description: 'Internal admin tools',
+      featureId: '#f5',
+      lifecycle: 'test',
+      state: 'blocked',
+      progress: 40,
+      blockedBy: 'API Gateway',
+    },
+  },
+];
+
+const dagreAddRepo: AddRepositoryNodeType = {
+  id: 'add-repo',
+  type: 'addRepositoryNode',
+  position: { x: 0, y: 0 },
+  data: {},
+};
+
+const dagreNodesRaw: CanvasNodeType[] = [...dagreRepoNodes, ...dagreFeatureNodes, dagreAddRepo];
+
+const dagreEdges: Edge[] = [
+  // cli repo → Auth, SSO
+  { id: 'e-cli-auth', source: 'repo-cli', target: 'feat-auth', style: { strokeDasharray: '5 5' } },
+  { id: 'e-cli-sso', source: 'repo-cli', target: 'feat-sso', style: { strokeDasharray: '5 5' } },
+  // web repo → Dashboard, Admin
+  {
+    id: 'e-web-dash',
+    source: 'repo-web',
+    target: 'feat-dashboard',
+    style: { strokeDasharray: '5 5' },
+  },
+  {
+    id: 'e-web-admin',
+    source: 'repo-web',
+    target: 'feat-admin',
+    style: { strokeDasharray: '5 5' },
+  },
+  // Feature dependencies: Auth → Gateway, SSO → Gateway, Gateway → Admin
+  { id: 'e-auth-gw', source: 'feat-auth', target: 'feat-gateway' },
+  { id: 'e-sso-gw', source: 'feat-sso', target: 'feat-gateway' },
+  { id: 'e-gw-admin', source: 'feat-gateway', target: 'feat-admin' },
+];
+
+const { nodes: dagreLayoutedNodes, edges: dagreLayoutedEdges } = layoutWithDagre(
+  dagreNodesRaw,
+  dagreEdges,
+  { direction: 'LR' }
+);
+
+/**
+ * Dagre auto-layout story — two repositories with interconnected feature trees.
+ *
+ * Demonstrates the Vertical / Horizontal toolbar buttons that re-layout the graph.
+ * Initial layout is LR (horizontal). Click "Vertical" to switch to TB, or
+ * "Horizontal" to switch back.
+ */
+export const DagreLayout: Story = {
+  args: {
+    initialNodes: dagreLayoutedNodes,
+    initialEdges: dagreLayoutedEdges,
   },
 };

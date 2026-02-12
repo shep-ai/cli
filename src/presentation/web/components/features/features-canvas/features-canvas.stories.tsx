@@ -1,86 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import type { Edge } from '@xyflow/react';
-import dagre from '@dagrejs/dagre';
 import { FeaturesCanvas } from './features-canvas';
 import type { CanvasNodeType } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
-
-const NODE_DIMENSIONS: Record<string, { width: number; height: number }> = {
-  featureNode: { width: 288, height: 140 },
-  repositoryNode: { width: 224, height: 50 },
-  addRepositoryNode: { width: 224, height: 50 },
-};
-
-function getLayoutedElements(
-  nodes: CanvasNodeType[],
-  edges: Edge[],
-  direction: 'TB' | 'LR' = 'LR'
-): { nodes: CanvasNodeType[]; edges: Edge[] } {
-  const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
-  const isHorizontal = direction === 'LR';
-  g.setGraph({ rankdir: direction, nodesep: 30, ranksep: 80 });
-
-  // Separate connected nodes from disconnected ones (e.g. add-repo with no edges)
-  const connectedIds = new Set<string>();
-  edges.forEach((edge) => {
-    connectedIds.add(edge.source);
-    connectedIds.add(edge.target);
-  });
-
-  const graphNodes = nodes.filter((n) => connectedIds.has(n.id));
-  const disconnectedNodes = nodes.filter((n) => !connectedIds.has(n.id));
-
-  graphNodes.forEach((node) => {
-    const dims = NODE_DIMENSIONS[node.type ?? ''] ?? { width: 200, height: 50 };
-    g.setNode(node.id, { width: dims.width, height: dims.height });
-  });
-
-  edges.forEach((edge) => {
-    g.setEdge(edge.source, edge.target);
-  });
-
-  dagre.layout(g);
-
-  const layoutedNodes = graphNodes.map((node) => {
-    const pos = g.node(node.id);
-    const dims = NODE_DIMENSIONS[node.type ?? ''] ?? { width: 200, height: 50 };
-    return {
-      ...node,
-      targetPosition: isHorizontal ? ('left' as const) : ('top' as const),
-      sourcePosition: isHorizontal ? ('right' as const) : ('bottom' as const),
-      position: {
-        x: pos.x - dims.width / 2,
-        y: pos.y - dims.height / 2,
-      },
-    };
-  }) as CanvasNodeType[];
-
-  // Position disconnected nodes below the lowest graph node, aligned to first column
-  if (disconnectedNodes.length > 0) {
-    let maxY = 0;
-    let minX = Infinity;
-    layoutedNodes.forEach((n) => {
-      const dims = NODE_DIMENSIONS[n.type ?? ''] ?? { width: 200, height: 50 };
-      maxY = Math.max(maxY, n.position.y + dims.height);
-      minX = Math.min(minX, n.position.x);
-    });
-
-    disconnectedNodes.forEach((node, i) => {
-      const dims = NODE_DIMENSIONS[node.type ?? ''] ?? { width: 200, height: 50 };
-      layoutedNodes.push({
-        ...node,
-        position: {
-          x: minX + (224 - dims.width) / 2, // center-align with repo nodes
-          y: maxY + 30 + i * (dims.height + 20),
-        },
-      } as CanvasNodeType);
-    });
-  }
-
-  return { nodes: layoutedNodes, edges };
-}
+import { layoutWithDagre } from '@/lib/layout-with-dagre';
 
 const meta: Meta<typeof FeaturesCanvas> = {
   title: 'Features/FeaturesCanvas',
@@ -614,9 +539,10 @@ const mixedEdges: Edge[] = [
   { id: 'e-r3-f3', source: 'repo-3', target: 'feat-3', ...dashedEdge },
 ];
 
-const { nodes: mixedLayoutedNodes, edges: mixedLayoutedEdges } = getLayoutedElements(
+const { nodes: mixedLayoutedNodes, edges: mixedLayoutedEdges } = layoutWithDagre(
   mixedRepoFeatureNodesRaw,
-  mixedEdges
+  mixedEdges,
+  { direction: 'LR' }
 );
 
 export const MultipleRepositoriesMixedConnections: Story = {

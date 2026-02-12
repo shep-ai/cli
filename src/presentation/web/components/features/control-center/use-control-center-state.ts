@@ -5,6 +5,7 @@ import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
+import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -18,6 +19,7 @@ export interface ControlCenterState {
   handleAddFeatureToRepo: (repoNodeId: string) => void;
   handleAddFeatureToFeature: (featureNodeId: string) => void;
   handleAddRepository: (path: string) => void;
+  handleLayout: (direction: LayoutDirection) => void;
 }
 
 export function useControlCenterState(
@@ -154,6 +156,18 @@ export function useControlCenterState(
     [createFeatureNode]
   );
 
+  const handleLayout = useCallback(
+    (direction: LayoutDirection) => {
+      setNodes((currentNodes) => {
+        const currentEdges = edges;
+        const result = layoutWithDagre(currentNodes, currentEdges, { direction });
+        setEdges(result.edges);
+        return result.nodes;
+      });
+    },
+    [edges]
+  );
+
   const handleAddRepository = useCallback((path: string) => {
     const id = `repo-${Date.now()}`;
 
@@ -193,5 +207,6 @@ export function useControlCenterState(
     handleAddFeatureToRepo,
     handleAddFeatureToFeature,
     handleAddRepository,
+    handleLayout,
   };
 }
