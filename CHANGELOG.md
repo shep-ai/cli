@@ -1,3 +1,23 @@
+# [1.15.0](https://github.com/shep-ai/cli/compare/v1.14.2...v1.15.0) (2026-02-12)
+
+### Bug Fixes
+
+- **agents:** add mock executor for deterministic e2e tests and fix ci failures ([acb0caa](https://github.com/shep-ai/cli/commit/acb0caaf4385641c639b0c6309c4e2a2d4dd7b35))
+- **agents:** close stdin and add debug logging to executor ([1150979](https://github.com/shep-ai/cli/commit/1150979ee9d89a630384abce81ceb76107dd5204))
+- **cli,tests:** resolve e2e test issues ([2d71b8c](https://github.com/shep-ai/cli/commit/2d71b8cc5de1a679975cddd5201d35072965c5dd))
+
+### Features
+
+- **specs:** add 013-feature-agent research ([8273351](https://github.com/shep-ai/cli/commit/8273351b33c6f834cfc3879fe70f93fa661062e3))
+- **specs:** add 013-feature-agent specification ([d2e638d](https://github.com/shep-ai/cli/commit/d2e638d7c8d39064f43c1bdb1bf11cc70d0a7707))
+- **cli,agents:** add agent management commands and fix worker initialization ([d270829](https://github.com/shep-ai/cli/commit/d27082958d2718e812ce238a6f62554b675006b5))
+- **agents:** add agent run cli, feature deletion, and executor wiring ([59176bb](https://github.com/shep-ai/cli/commit/59176bbb091d6f235966a846f333bb348c7f0fed))
+- **agents:** add observability, management commands, and executor fix ([ce64cb0](https://github.com/shep-ai/cli/commit/ce64cb0831df44d76ff64543248f6d00d4b6c69e))
+- **agents:** ai metadata generation, real-time status, and clean agent contexts ([baf12c3](https://github.com/shep-ai/cli/commit/baf12c3c36cce45e13f86ad61f1cb4ac80d12140))
+- **specs:** complete 013-feature-agent specification ([8cc97f9](https://github.com/shep-ai/cli/commit/8cc97f92e74851ec7de9ee597e7a9f72829c9339))
+- **agents:** implement feature-agent sdlc orchestration system ([e306dc9](https://github.com/shep-ai/cli/commit/e306dc9ffc191177a0681c8c3301e60db2f6f5e0))
+- **agents:** stream-json executor with real-time log visibility ([e59727d](https://github.com/shep-ai/cli/commit/e59727da620f4688e94ee30400ffc674e0982d6a))
+
 ## [1.14.2](https://github.com/shep-ai/cli/compare/v1.14.1...v1.14.2) (2026-02-12)
 
 ### Bug Fixes
