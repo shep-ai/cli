@@ -2,7 +2,7 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: feature-agent
-summary: Task breakdown for 013-feature-agent with 27 tasks across 11 phases
+summary: Task breakdown for 013-feature-agent with 36 tasks across 15 phases (tasks 34-36 out of scope)
 
 # Relationships
 relatedFeatures:
@@ -596,8 +596,305 @@ tasks:
     tdd: null
     estimatedEffort: 1h
 
+  # === Phase 12: Human-in-the-Loop — Domain & State (TDD) ===
+  - id: task-28
+    title: Extend TypeSpec models and DB migration for approval workflow
+    description: >
+      Add waiting_approval to AgentRunStatus enum. Add approvalMode and approvalStatus
+      optional fields to AgentRun model. Create migration v6 to add columns to agent_runs
+      table. Compile TypeSpec and verify generated types.
+    state: Todo
+    dependencies:
+      - task-27
+    acceptanceCriteria:
+      - tsp/agents/enums/agent-run-status.tsp includes waiting_approval value
+      - tsp/agents/agent-run.tsp includes approvalMode (string, optional) and approvalStatus (string, optional) fields
+      - pnpm tsp:compile passes and generated output.ts has new fields
+      - Migration v6 adds approval_mode TEXT and approval_status TEXT columns to agent_runs table
+      - Agent run repository updateStatus() handles new approval fields
+      - Unit tests verify migration creates columns and repository handles approval fields
+    tdd:
+      red:
+        - Write unit test asserting migration v6 creates approval_mode and approval_status columns
+        - Write unit test asserting updateStatus() accepts and persists approvalMode and approvalStatus
+      green:
+        - Update TypeSpec enum and model, run tsp:compile
+        - Add migration v6 with ALTER TABLE for new columns
+        - Update SQLiteAgentRunRepository.updateStatus() to handle approval fields in the dynamic SET builder
+      refactor:
+        - Verify all existing tests still pass after migration change
+        - Ensure backward compatibility (new columns are nullable)
+    estimatedEffort: 1.5h
+
+  - id: task-29
+    title: Extend FeatureAgentState with approvalMode field
+    description: >
+      Add approvalMode optional field to FeatureAgentAnnotation in state.ts. Update
+      createFeatureAgentGraph to thread approvalMode through to nodes. Write unit test
+      verifying state includes and preserves the field.
+    state: Todo
+    dependencies:
+      - task-28
+    acceptanceCriteria:
+      - state.ts FeatureAgentAnnotation includes approvalMode as Annotation<string | undefined>
+      - approvalMode value is 'interactive' | 'allow-prd' | 'allow-plan' | 'allow-all' | undefined
+      - Graph invoke accepts approvalMode in initial state
+      - Unit test verifies state propagation through graph
+    tdd:
+      red:
+        - Write unit test creating graph with approvalMode='interactive' in initial state
+        - Assert approvalMode is accessible in node function via state parameter
+      green:
+        - Add approvalMode Annotation to state.ts with reducer that preserves value
+      refactor:
+        - Add type alias for ApprovalMode union type for reuse
+    estimatedEffort: 30min
+
+  # === Phase 13: Human-in-the-Loop — Interrupt Logic & Worker (TDD) ===
+  - id: task-30
+    title: Add interrupt logic to executeNode helper and all 5 nodes
+    description: >
+      Add shouldInterrupt() helper function to node-helpers.ts. Modify executeNode() to
+      call interrupt() after successful executor completion when approval is required for
+      current node. If user rejects, set error state. Import interrupt and Command from
+      @langchain/langgraph.
+    state: Todo
+    dependencies:
+      - task-29
+    acceptanceCriteria:
+      - node-helpers.ts exports shouldInterrupt(approvalMode, nodeName) function
+      - shouldInterrupt returns true/false based on approval mode rules
+      - executeNode() calls interrupt() after executor.execute() when shouldInterrupt() is true
+      - 'interrupt payload includes { node, summary, specDir }'
+      - On rejection (decision.approved === false), node returns error state
+      - On approval (decision.approved === true), node continues normally
+      - All 5 nodes inherit interrupt behavior through executeNode() (no per-node changes needed)
+      - Integration test with MemorySaver verifies interrupt pauses graph
+      - 'Integration test verifies Command({ resume }) continues graph'
+    tdd:
+      red:
+        - Write shouldInterrupt() unit tests for all 4 modes x 5 nodes (20 cases)
+        - Write integration test creating graph with approvalMode='interactive' and MemorySaver
+        - Assert graph.invoke() returns after first node with interrupt metadata
+        - 'Write test resuming with Command({ resume: { approved: true } }) continues to next node'
+        - 'Write test resuming with Command({ resume: { approved: false } }) sets error'
+      green:
+        - Implement shouldInterrupt(approvalMode, nodeName) with mode-to-node mapping
+        - Modify executeNode() to check shouldInterrupt() after executor completes
+        - Call interrupt() with payload when approval needed
+        - Handle resume value (approved/rejected) and return appropriate state
+      refactor:
+        - Extract approval mode constants, ensure consistent interrupt payload shape
+    estimatedEffort: 3h
+
+  - id: task-31
+    title: Update worker to handle interrupt result and support resume mode
+    description: >
+      Modify feature-agent-worker.ts to detect when graph returns due to interrupt (vs
+      completion). On interrupt, update AgentRun status to waiting_approval and exit cleanly.
+      Add --approval-mode and --resume CLI args. In resume mode, invoke graph with
+      "Command({ resume })" instead of initial state.
+    state: Todo
+    dependencies:
+      - task-30
+    acceptanceCriteria:
+      - Worker parseWorkerArgs() accepts --approval-mode <mode> and --resume optional flags
+      - Worker passes approvalMode to graph initial state
+      - Worker detects interrupt result from graph.invoke() return value
+      - "On interrupt, worker calls updateStatus(runId, 'waiting_approval', { approvalStatus: 'pending' })"
+      - Worker exits with code 0 after interrupt (not an error)
+      - 'In resume mode (--resume flag), worker invokes graph.invoke(new Command({ resume: { approved: true } }), config)'
+      - Resume mode reuses existing threadId from args for checkpoint lookup
+      - FeatureAgentProcessService.spawn() accepts optional approvalMode and resume parameters
+      - Integration test verifies worker interrupt → exit → resume cycle
+    tdd:
+      red:
+        - Write unit test for parseWorkerArgs with --approval-mode interactive
+        - Write unit test for parseWorkerArgs with --resume flag
+        - Write integration test simulating interrupt detection in worker
+      green:
+        - Add --approval-mode and --resume to parseWorkerArgs()
+        - Add interrupt detection logic after graph.invoke() returns
+        - Implement resume mode branch in worker main()
+        - Update FeatureAgentProcessService.spawn() signature with optional params
+      refactor:
+        - Extract interrupt detection into helper function
+        - Ensure heartbeat stops cleanly on interrupt exit
+    estimatedEffort: 2h
+
+  # === Phase 14: Human-in-the-Loop — Approve/Reject CLI (TDD) ===
+  - id: task-32
+    title: Implement ApproveAgentRunUseCase and RejectAgentRunUseCase
+    description: >
+      Create use cases for approving and rejecting agent runs waiting for approval.
+      Approve: validates status is waiting_approval, updates to approved, spawns resume
+      worker. Reject: validates status, updates to failed with rejection reason.
+    state: Todo
+    dependencies:
+      - task-31
+    acceptanceCriteria:
+      - src/application/use-cases/agents/approve-agent-run.use-case.ts created
+      - ApproveAgentRunUseCase validates run status is waiting_approval
+      - ApproveAgentRunUseCase updates approvalStatus to approved, creates new AgentRun for resume
+      - ApproveAgentRunUseCase calls FeatureAgentProcessService.spawn() with --resume flag
+      - src/application/use-cases/agents/reject-agent-run.use-case.ts created
+      - RejectAgentRunUseCase validates run status is waiting_approval
+      - RejectAgentRunUseCase updates status to failed, approvalStatus to rejected, stores reason in error
+      - Both throw clear error if run is not in waiting_approval status
+      - Unit tests pass for approve (happy path, wrong status), reject (happy path, wrong status, with reason)
+    tdd:
+      red:
+        - Write unit tests for ApproveAgentRunUseCase with mocked repository, process service
+        - Test happy path: waiting_approval → approved → new run spawned
+        - Test error: run is 'running' → throws 'Run is not waiting for approval'
+        - Write unit tests for RejectAgentRunUseCase with mocked repository
+        - Test happy path: waiting_approval → failed with reason
+        - Test error: run is 'completed' → throws
+      green:
+        - Implement ApproveAgentRunUseCase with status validation + spawn
+        - Implement RejectAgentRunUseCase with status validation + error recording
+      refactor:
+        - Extract shared status validation helper
+    estimatedEffort: 1.5h
+
+  - id: task-33
+    title: Implement approve/reject CLI commands and feat new approval flags
+    description: >
+      Create shep agent approve <id> and shep agent reject <id> [--reason <text>] commands.
+      Add --interactive, --allow-prd, --allow-plan, --allow-all flags to feat new command.
+      Register commands and use cases in DI container.
+    state: Todo
+    dependencies:
+      - task-32
+    acceptanceCriteria:
+      - src/presentation/cli/commands/agent/approve.command.ts created
+      - approve command resolves run by ID prefix, calls ApproveAgentRunUseCase, displays success with resume info
+      - src/presentation/cli/commands/agent/reject.command.ts created
+      - reject command takes optional --reason, resolves run, calls RejectAgentRunUseCase
+      - feat new command accepts -i/--interactive, --allow-prd, --allow-plan, --allow-all flags
+      - Only one approval mode flag can be active (mutually exclusive validation)
+      - Default approval mode is allow-all (current autonomous behavior)
+      - CreateFeatureUseCase receives approvalMode and passes to spawn()
+      - agent show command displays approval mode and approval status when present
+      - Both commands registered in agent/index.ts
+      - Both use cases registered in DI container
+      - Unit tests pass for CLI commands
+    tdd:
+      red:
+        - Write tests for approve command (happy path, not found, wrong status)
+        - Write tests for reject command (with reason, without reason)
+        - Write tests for feat new with --interactive flag
+        - Write test asserting mutual exclusivity of approval flags
+      green:
+        - Implement approve.command.ts and reject.command.ts using resolveAgentRun() pattern
+        - Add approval mode options to new.command.ts with mutual exclusivity check
+        - Update CreateFeatureUseCase.execute() to accept and pass approvalMode
+        - Register use cases in container.ts, commands in agent/index.ts
+        - Update agent show to display approval fields
+      refactor:
+        - Extract approval mode validation helper, improve help text
+    estimatedEffort: 2h
+
+  # === Phase 15: External Tool Integration — OUT OF SCOPE ===
+  # Tasks 34-36 (GitHub/Jira integration) deferred to future work.
+
+  # === Phase 16: Resume Command & Final Integration (TDD) ===
+  - id: task-37
+    title: Implement ResumeFeatureUseCase
+    description: >
+      Create use case for resuming interrupted/failed features. Loads feature + last AgentRun,
+      validates resumable status, creates new AgentRun record, spawns worker with --resume flag.
+    state: Todo
+    dependencies:
+      - task-31
+    acceptanceCriteria:
+      - src/application/use-cases/features/resume-feature.use-case.ts created
+      - Accepts featureId, resolves feature by ID or prefix match
+      - Loads most recent AgentRun for feature (by featureId)
+      - Validates run status is interrupted, failed, or waiting_approval
+      - Creates new AgentRun record with status=pending, same threadId as original
+      - Calls FeatureAgentProcessService.spawn() with --resume and original threadId
+      - 'Returns { feature, newRun } on success'
+      - Throws if feature not found, no prior run, or run is not resumable
+      - Unit tests pass for all scenarios
+    tdd:
+      red:
+        - Write test for happy path: interrupted run → new run spawned
+        - Write test for failed run → new run spawned
+        - Write test for waiting_approval run → new run spawned
+        - Write test for running run → throws 'Agent is still running'
+        - Write test for completed run → throws 'Agent already completed'
+        - Write test for feature not found → throws
+      green:
+        - Implement ResumeFeatureUseCase with status validation and spawn
+      refactor:
+        - Extract resumable status check into predicate function
+    estimatedEffort: 1h
+
+  - id: task-38
+    title: Implement feat resume CLI command
+    description: >
+      Create shep feat resume <id> command that resumes a stopped/failed feature's agent.
+      Register command in feat/index.ts and use case in DI container.
+    state: Todo
+    dependencies:
+      - task-37
+    acceptanceCriteria:
+      - src/presentation/cli/commands/feat/resume.command.ts created
+      - Command takes <id> argument (supports prefix matching)
+      - Calls ResumeFeatureUseCase.execute(featureId)
+      - Displays success message with new agent run ID
+      - Handles errors gracefully (not found, not resumable)
+      - Command registered in feat/index.ts
+      - ResumeFeatureUseCase registered in DI container
+      - feat show displays suggestion to run resume when feature is interrupted/failed
+      - Unit test passes for CLI command
+    tdd:
+      red:
+        - Write test for feat resume <id> happy path
+        - Write test for not found error display
+        - Write test for not resumable error display
+      green:
+        - Implement resume.command.ts with Commander API
+        - Register in feat/index.ts and container.ts
+        - Update feat show to suggest resume
+      refactor:
+        - Extract ID resolution pattern (shared with del/show)
+    estimatedEffort: 1h
+
+  - id: task-39
+    title: End-to-end validation and documentation update
+    description: >
+      Write integration test for full interrupt/resume lifecycle. Validate all tests pass.
+      Update AGENTS.md with approval workflow documentation. Update CLI reference docs.
+    state: Todo
+    dependencies:
+      - task-33
+      - task-38
+    acceptanceCriteria:
+      - Integration test for full lifecycle passes (feat new --interactive → pause → approve → complete)
+      - AGENTS.md updated with approval workflow section, external tools section, resume section
+      - All unit tests pass (pnpm test:unit)
+      - All integration tests pass (pnpm test:int)
+      - Build passes (pnpm build)
+      - Typecheck passes (pnpm typecheck)
+      - Lint passes (pnpm lint)
+      - TypeSpec compiles (pnpm tsp:compile)
+    tdd:
+      red:
+        - Write integration test creating feature with --interactive approval mode
+        - Assert graph pauses after first node
+        - Assert agent approve resumes execution
+        - Assert full workflow completes
+      green:
+        - Fix any test failures found during integration
+        - Update AGENTS.md with new sections
+      refactor:
+        - Ensure test isolation, clean up test fixtures
+    estimatedEffort: 2h
+
 # Total effort estimate
-totalEstimate: 35-40 hours (4-5 days of focused implementation)
+totalEstimate: 49-53 hours total (35-40h phases 1-11 complete + 13.5h phases 12-16 remaining, tasks 34-36 out of scope)
 
 # Open questions
 openQuestions: []
@@ -606,9 +903,9 @@ openQuestions: []
 content: |
   ## Status
 
-  - **Phase:** Implementation
-  - **Updated:** 2026-02-11
-  - **Total Tasks:** 27 across 11 phases
+  - **Phase:** Implementation (gaps phase)
+  - **Updated:** 2026-02-12
+  - **Total Tasks:** 36 across 15 phases (tasks 34-36 external tools out of scope)
 
   ## Task List
 
@@ -749,6 +1046,72 @@ content: |
   - [ ] **Task 26:** Write E2E tests for complete workflow (2h)
   - [ ] **Task 27:** Update documentation (1h)
 
+  ---
+
+  ### Phase 12: Human-in-the-Loop — Domain & State (TDD Cycle 10)
+
+  **RED:**
+  - [ ] Write tests for migration v6 (approval columns)
+  - [ ] Write tests for updateStatus() with approval fields
+  - [ ] Write tests for FeatureAgentState approvalMode field
+
+  **GREEN:**
+  - [ ] **Task 28:** Extend TypeSpec models and DB migration for approval workflow (1.5h)
+  - [ ] **Task 29:** Extend FeatureAgentState with approvalMode field (30min)
+
+  **REFACTOR:**
+  - [ ] Verify backward compatibility, existing tests still pass
+
+  ### Phase 13: Human-in-the-Loop — Interrupt Logic & Worker (TDD Cycle 11)
+
+  **RED:**
+  - [ ] Write shouldInterrupt() unit tests (4 modes × 5 nodes)
+  - [ ] Write integration test for graph interrupt with MemorySaver
+  - "[ ] Write integration test for Command({ resume }) continuation"
+  - [ ] Write worker interrupt detection test
+  - [ ] Write worker resume mode test
+
+  **GREEN:**
+  - [ ] **Task 30:** Add interrupt logic to executeNode helper and all 5 nodes (3h)
+  - [ ] **Task 31:** Update worker to handle interrupt result and support resume mode (2h)
+
+  **REFACTOR:**
+  - [ ] Extract interrupt constants, ensure consistent payload shape
+
+  ### Phase 14: Human-in-the-Loop — Approve/Reject CLI (TDD Cycle 12)
+
+  **RED:**
+  - [ ] Write unit tests for ApproveAgentRunUseCase
+  - [ ] Write unit tests for RejectAgentRunUseCase
+  - [ ] Write CLI tests for approve/reject commands
+  - [ ] Write test for feat new approval flags (mutual exclusivity)
+
+  **GREEN:**
+  - [ ] **Task 32:** Implement ApproveAgentRunUseCase and RejectAgentRunUseCase (1.5h)
+  - [ ] **Task 33:** Implement approve/reject CLI commands and feat new approval flags (2h)
+
+  **REFACTOR:**
+  - [ ] Extract shared validation, improve help text
+
+  ### Phase 15: External Tool Integration — OUT OF SCOPE
+
+  Tasks 34-36 (GitHub/Jira integration) deferred to future work.
+
+  ### Phase 16: Resume Command & Final Integration (TDD Cycle 13)
+
+  **RED:**
+  - [ ] Write unit tests for ResumeFeatureUseCase
+  - [ ] Write CLI test for feat resume command
+  - [ ] Write integration test for full interrupt/resume lifecycle
+
+  **GREEN:**
+  - [ ] **Task 37:** Implement ResumeFeatureUseCase (1h)
+  - [ ] **Task 38:** Implement feat resume CLI command (1h)
+  - [ ] **Task 39:** End-to-end validation and documentation update (2h)
+
+  **REFACTOR:**
+  - [ ] Clean up test fixtures, ensure isolation
+
   ## TDD Notes
 
   - **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
@@ -766,14 +1129,17 @@ content: |
 
   Before marking feature complete:
 
-  - [ ] All 27 tasks completed
+  - [ ] All 36 tasks completed (27 + 9 new, tasks 34-36 out of scope)
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)
   - [ ] TypeSpec compiles (`pnpm tsp:compile`)
   - [ ] Documentation updated (AGENTS.md, CLI reference)
+  - [ ] Human-in-the-loop workflow functional (interrupt → approve → resume)
+  - [x] External tool integration — OUT OF SCOPE (deferred to future work)
+  - [ ] Resume command functional (shep feat resume <id>)
   - [ ] PR created and reviewed
 
   ---
 
-  _Task breakdown for implementation tracking_
+  _Task breakdown updated 2026-02-12 with deferred gap tasks (28-39)_

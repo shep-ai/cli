@@ -35,7 +35,8 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     runId: string,
     repoPath: string,
     specDir: string,
-    worktreePath?: string
+    worktreePath?: string,
+    options?: { approvalMode?: string; resume?: boolean }
   ): number {
     const workerPath = join(__dirname, 'feature-agent-worker.js');
 
@@ -51,6 +52,12 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     ];
     if (worktreePath) {
       args.push('--worktree-path', worktreePath);
+    }
+    if (options?.approvalMode) {
+      args.push('--approval-mode', options.approvalMode);
+    }
+    if (options?.resume) {
+      args.push('--resume');
     }
 
     // Create log file for worker output (for debugging)

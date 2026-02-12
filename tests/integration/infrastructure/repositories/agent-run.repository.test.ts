@@ -308,6 +308,145 @@ describe('SQLiteAgentRunRepository', () => {
     });
   });
 
+  describe('approval workflow fields', () => {
+    it('should store approvalMode and approvalStatus when creating agent run', async () => {
+      const agentRun = createTestAgentRun({
+        approvalMode: 'interactive',
+        approvalStatus: 'pending',
+      });
+
+      await repository.create(agentRun);
+
+      const row = db.prepare('SELECT * FROM agent_runs WHERE id = ?').get('run-001') as Record<
+        string,
+        unknown
+      >;
+      expect(row.approval_mode).toBe('interactive');
+      expect(row.approval_status).toBe('pending');
+    });
+
+    it('should store approval fields as NULL when not provided', async () => {
+      const agentRun = createTestAgentRun();
+
+      await repository.create(agentRun);
+
+      const row = db.prepare('SELECT * FROM agent_runs WHERE id = ?').get('run-001') as Record<
+        string,
+        unknown
+      >;
+      expect(row.approval_mode).toBeNull();
+      expect(row.approval_status).toBeNull();
+    });
+
+    it('should return approvalMode and approvalStatus via findById', async () => {
+      const agentRun = createTestAgentRun({
+        approvalMode: 'allow-prd',
+        approvalStatus: 'approved',
+      });
+      await repository.create(agentRun);
+
+      const found = await repository.findById('run-001');
+
+      expect(found?.approvalMode).toBe('allow-prd');
+      expect(found?.approvalStatus).toBe('approved');
+    });
+
+    it('should not include approval fields when they are NULL', async () => {
+      const agentRun = createTestAgentRun();
+      await repository.create(agentRun);
+
+      const found = await repository.findById('run-001');
+
+      expect(found?.approvalMode).toBeUndefined();
+      expect(found?.approvalStatus).toBeUndefined();
+    });
+
+    it('should update approvalMode via updateStatus', async () => {
+      const agentRun = createTestAgentRun();
+      await repository.create(agentRun);
+
+      await repository.updateStatus('run-001', AgentRunStatus.running, {
+        approvalMode: 'interactive',
+      });
+
+      const found = await repository.findById('run-001');
+      expect(found?.approvalMode).toBe('interactive');
+    });
+
+    it('should update approvalStatus via updateStatus', async () => {
+      const agentRun = createTestAgentRun({
+        approvalMode: 'interactive',
+      });
+      await repository.create(agentRun);
+
+      await repository.updateStatus('run-001', AgentRunStatus.running, {
+        approvalStatus: 'waiting',
+      });
+
+      const found = await repository.findById('run-001');
+      expect(found?.approvalStatus).toBe('waiting');
+    });
+
+    it('should update status to waiting_approval with approval fields', async () => {
+      const agentRun = createTestAgentRun({
+        status: AgentRunStatus.running,
+        approvalMode: 'interactive',
+      });
+      await repository.create(agentRun);
+
+      await repository.updateStatus('run-001', AgentRunStatus.waitingApproval, {
+        approvalStatus: 'waiting',
+      });
+
+      const found = await repository.findById('run-001');
+      expect(found?.status).toBe(AgentRunStatus.waitingApproval);
+      expect(found?.approvalStatus).toBe('waiting');
+    });
+  });
+
+  describe('feature reference fields', () => {
+    it('should store featureId and repositoryPath when creating agent run', async () => {
+      const agentRun = createTestAgentRun({
+        featureId: 'feat-001',
+        repositoryPath: '/test/repo',
+      });
+
+      await repository.create(agentRun);
+
+      const row = db.prepare('SELECT * FROM agent_runs WHERE id = ?').get('run-001') as Record<
+        string,
+        unknown
+      >;
+      expect(row.feature_id).toBe('feat-001');
+      expect(row.repository_path).toBe('/test/repo');
+    });
+
+    it('should return featureId and repositoryPath via findById', async () => {
+      const agentRun = createTestAgentRun({
+        featureId: 'feat-001',
+        repositoryPath: '/test/repo',
+      });
+      await repository.create(agentRun);
+
+      const found = await repository.findById('run-001');
+
+      expect(found?.featureId).toBe('feat-001');
+      expect(found?.repositoryPath).toBe('/test/repo');
+    });
+
+    it('should store feature fields as NULL when not provided', async () => {
+      const agentRun = createTestAgentRun();
+      await repository.create(agentRun);
+
+      const row = db.prepare('SELECT * FROM agent_runs WHERE id = ?').get('run-001') as Record<
+        string,
+        unknown
+      >;
+      expect(row.feature_id).toBeNull();
+      expect(row.repository_path).toBeNull();
+    });
+  });
+
   describe('delete()', () => {
     it('should delete agent run', async () => {
       const agentRun = createTestAgentRun();

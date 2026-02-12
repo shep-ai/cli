@@ -41,11 +41,13 @@ import type { IAgentRegistry } from '../../application/ports/output/agent-regist
 import type { IAgentRunner } from '../../application/ports/output/agent-runner.interface.js';
 import type { IAgentRunRepository } from '../../application/ports/output/agent-run-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../application/ports/output/feature-agent-process.interface.js';
+import type { ISpecInitializerService } from '../../application/ports/output/spec-initializer.interface.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
 import { AgentRegistryService } from '../services/agents/common/agent-registry.service.js';
 import { AgentRunnerService } from '../services/agents/common/agent-runner.service.js';
 import { SQLiteAgentRunRepository } from '../repositories/agent-run.repository.js';
 import { FeatureAgentProcessService } from '../services/agents/feature-agent/feature-agent-process.service.js';
+import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 import { createCheckpointer } from '../services/agents/common/checkpointer.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { spawn } from 'node:child_process';
@@ -61,10 +63,13 @@ import { GetAgentRunUseCase } from '../../application/use-cases/agents/get-agent
 import { ListAgentRunsUseCase } from '../../application/use-cases/agents/list-agent-runs.use-case.js';
 import { StopAgentRunUseCase } from '../../application/use-cases/agents/stop-agent-run.use-case.js';
 import { DeleteAgentRunUseCase } from '../../application/use-cases/agents/delete-agent-run.use-case.js';
+import { ApproveAgentRunUseCase } from '../../application/use-cases/agents/approve-agent-run.use-case.js';
+import { RejectAgentRunUseCase } from '../../application/use-cases/agents/reject-agent-run.use-case.js';
 import { CreateFeatureUseCase } from '../../application/use-cases/features/create-feature.use-case.js';
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
+import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -156,6 +161,10 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
 
+  container.register<ISpecInitializerService>('ISpecInitializerService', {
+    useFactory: () => new SpecInitializerService(),
+  });
+
   // Register use cases (singletons for performance)
   container.registerSingleton(InitializeSettingsUseCase);
   container.registerSingleton(LoadSettingsUseCase);
@@ -167,10 +176,13 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ListAgentRunsUseCase);
   container.registerSingleton(StopAgentRunUseCase);
   container.registerSingleton(DeleteAgentRunUseCase);
+  container.registerSingleton(ApproveAgentRunUseCase);
+  container.registerSingleton(RejectAgentRunUseCase);
   container.registerSingleton(CreateFeatureUseCase);
   container.registerSingleton(ListFeaturesUseCase);
   container.registerSingleton(ShowFeatureUseCase);
   container.registerSingleton(DeleteFeatureUseCase);
+  container.registerSingleton(ResumeFeatureUseCase);
 
   return container;
 }

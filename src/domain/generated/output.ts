@@ -552,6 +552,10 @@ export type Feature = BaseEntity & {
    * Associated agent run ID for process tracking (optional)
    */
   agentRunId?: string;
+  /**
+   * Absolute path to the feature spec directory inside the worktree
+   */
+  specPath?: string;
 };
 
 /**
@@ -992,6 +996,7 @@ export enum AgentRunStatus {
   failed = 'failed',
   interrupted = 'interrupted',
   cancelled = 'cancelled',
+  waitingApproval = 'waiting_approval',
 }
 
 /**
@@ -1054,6 +1059,14 @@ export type AgentRun = BaseEntity & {
    * Repository path for context scoping (optional)
    */
   repositoryPath?: string;
+  /**
+   * Approval mode for human-in-the-loop: interactive, allow-prd, allow-plan, allow-all (optional)
+   */
+  approvalMode?: string;
+  /**
+   * Current approval status: pending, waiting, approved, rejected (optional)
+   */
+  approvalStatus?: string;
 };
 
 /**

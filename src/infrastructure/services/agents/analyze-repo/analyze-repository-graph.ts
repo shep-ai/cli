@@ -1,6 +1,5 @@
 import { Annotation, StateGraph, START, END, type BaseCheckpointSaver } from '@langchain/langgraph';
 import type { IAgentExecutor } from '@/application/ports/output/agent-executor.interface.js';
-import { AgentFeature } from '@/domain/generated/output.js';
 import { buildAnalyzePrompt } from './prompts/analyze-repository.prompt.js';
 
 /**
@@ -12,7 +11,6 @@ import { buildAnalyzePrompt } from './prompts/analyze-repository.prompt.js';
 export const AnalyzeRepositoryState = Annotation.Root({
   repositoryPath: Annotation<string>,
   analysisMarkdown: Annotation<string>,
-  sessionId: Annotation<string | undefined>,
   error: Annotation<string | undefined>,
 });
 
@@ -22,8 +20,8 @@ export type AnalyzeRepositoryStateType = typeof AnalyzeRepositoryState.State;
  * Creates the analyze node function that calls the agent-agnostic executor.
  *
  * The node receives the current state, builds a prompt from the repository path,
- * and delegates execution to the injected IAgentExecutor. Session resume is
- * attempted if the executor supports it and a sessionId exists in state.
+ * and delegates execution to the injected IAgentExecutor. Each invocation gets
+ * a clean agent context (no session resume).
  */
 function createAnalyzeNode(executor: IAgentExecutor) {
   return async (
@@ -31,18 +29,12 @@ function createAnalyzeNode(executor: IAgentExecutor) {
   ): Promise<Partial<typeof AnalyzeRepositoryState.State>> => {
     const prompt = buildAnalyzePrompt(state.repositoryPath);
 
-    const options: Parameters<IAgentExecutor['execute']>[1] = {
+    const result = await executor.execute(prompt, {
       cwd: state.repositoryPath,
-    };
-    if (state.sessionId && executor.supportsFeature(AgentFeature.sessionResume)) {
-      options.resumeSession = state.sessionId;
-    }
-
-    const result = await executor.execute(prompt, options);
+    });
 
     return {
       analysisMarkdown: result.result,
-      sessionId: result.sessionId ?? state.sessionId,
     };
   };
 }

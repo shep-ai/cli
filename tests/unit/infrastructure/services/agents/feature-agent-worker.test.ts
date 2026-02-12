@@ -119,6 +119,8 @@ describe('parseWorkerArgs', () => {
       repo: '/path/to/repo',
       specDir: '/path/to/specs/001-feature',
       worktreePath: undefined,
+      approvalMode: undefined,
+      resume: false,
     });
   });
 
@@ -162,6 +164,58 @@ describe('parseWorkerArgs', () => {
     const args = ['--feature-id', 'feat-123', '--run-id', 'run-456', '--repo', '/repo'];
 
     expect(() => parseWorkerArgs(args)).toThrow('--spec-dir');
+  });
+
+  it('should parse optional approval-mode argument', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+      '--approval-mode',
+      'interactive',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.approvalMode).toBe('interactive');
+  });
+
+  it('should parse optional resume flag', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+      '--resume',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.resume).toBe(true);
+  });
+
+  it('should default approvalMode to undefined and resume to false', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.approvalMode).toBeUndefined();
+    expect(parsed.resume).toBe(false);
   });
 });
 
@@ -332,6 +386,70 @@ describe('runWorker', () => {
         completedAt: expect.any(Date),
       })
     );
+  });
+
+  it('should pass approvalMode in graph invoke state', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      approvalMode: 'interactive',
+      resume: false,
+    });
+
+    expect(mockGraphInvoke).toHaveBeenCalledWith(
+      expect.objectContaining({
+        approvalMode: 'interactive',
+      }),
+      expect.anything()
+    );
+  });
+
+  it('should update status to waiting_approval when graph returns with __interrupt__', async () => {
+    mockGraphInvoke.mockResolvedValue({
+      currentNode: 'analyze',
+      messages: ['[analyze] Complete'],
+      error: null,
+      __interrupt__: [
+        {
+          value: { node: 'analyze', message: 'Approve to continue.' },
+        },
+      ],
+    });
+
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      approvalMode: 'interactive',
+      resume: false,
+    });
+
+    expect(mockRunRepo.updateStatus).toHaveBeenCalledWith(
+      'run-1',
+      AgentRunStatus.waitingApproval,
+      expect.objectContaining({
+        approvalStatus: 'waiting',
+      })
+    );
+  });
+
+  it('should invoke graph with Command resume when --resume is true', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      resume: true,
+    });
+
+    // When resuming, first arg should be a Command, not state object
+    const firstArg = mockGraphInvoke.mock.calls[0][0];
+    expect(firstArg).toBeDefined();
+    // Command objects have a resume property
+    expect(firstArg.resume).toBeDefined();
   });
 
   it('should handle graph returning error state', async () => {

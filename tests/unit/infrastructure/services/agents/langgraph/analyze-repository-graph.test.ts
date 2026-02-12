@@ -14,7 +14,7 @@ import type {
   IAgentExecutor,
   AgentExecutionResult,
 } from '../../../../../../src/application/ports/output/agent-executor.interface.js';
-import { AgentType, AgentFeature } from '../../../../../../src/domain/generated/output.js';
+import { AgentType } from '../../../../../../src/domain/generated/output.js';
 import {
   createAnalyzeRepositoryGraph,
   AnalyzeRepositoryState,
@@ -30,7 +30,6 @@ describe('analyzeRepositoryGraph', () => {
       agentType: AgentType.ClaudeCode,
       execute: vi.fn().mockResolvedValue({
         result: '# Analysis\nTest analysis content',
-        sessionId: 'session-123',
       } satisfies AgentExecutionResult),
       executeStream: vi.fn(),
       supportsFeature: vi.fn().mockReturnValue(true),
@@ -68,17 +67,6 @@ describe('analyzeRepositoryGraph', () => {
     expect(prompt).toContain('Repository path:');
   });
 
-  it('should propagate session ID from executor result', async () => {
-    const compiled = createAnalyzeRepositoryGraph(mockExecutor, checkpointer);
-
-    const result = await compiled.invoke(
-      { repositoryPath: '/test/repo' },
-      { configurable: { thread_id: 'test-thread-3' } }
-    );
-
-    expect(result.sessionId).toBe('session-123');
-  });
-
   it('should handle executor errors gracefully', async () => {
     const errorExecutor: IAgentExecutor = {
       ...mockExecutor,
@@ -107,30 +95,17 @@ describe('analyzeRepositoryGraph', () => {
     expect(options).toEqual(expect.objectContaining({ cwd: '/test/repo' }));
   });
 
-  it('should attempt session resume when sessionId exists and feature is supported', async () => {
+  it('should not pass resumeSession to executor', async () => {
     const compiled = createAnalyzeRepositoryGraph(mockExecutor, checkpointer);
 
     await compiled.invoke(
-      { repositoryPath: '/test/repo', sessionId: 'existing-session' } as Record<string, unknown>,
-      { configurable: { thread_id: 'test-thread-5' } }
-    );
-
-    expect(mockExecutor.supportsFeature).toHaveBeenCalledWith(AgentFeature.sessionResume);
-    const [, options] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
-    expect(options).toEqual({ cwd: '/test/repo', resumeSession: 'existing-session' });
-  });
-
-  it('should not attempt session resume when feature is not supported', async () => {
-    (mockExecutor.supportsFeature as ReturnType<typeof vi.fn>).mockReturnValue(false);
-    const compiled = createAnalyzeRepositoryGraph(mockExecutor, checkpointer);
-
-    await compiled.invoke(
-      { repositoryPath: '/test/repo', sessionId: 'existing-session' } as Record<string, unknown>,
-      { configurable: { thread_id: 'test-thread-6' } }
+      { repositoryPath: '/test/repo' },
+      { configurable: { thread_id: 'test-thread-no-resume' } }
     );
 
     const [, options] = (mockExecutor.execute as ReturnType<typeof vi.fn>).mock.calls[0];
     expect(options).toEqual({ cwd: '/test/repo' });
+    expect(options.resumeSession).toBeUndefined();
   });
 
   it('should work without a checkpointer', async () => {

@@ -33,11 +33,11 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
       INSERT INTO features (
         id, name, slug, description, repository_path, branch,
         lifecycle, messages, plan, related_artifacts,
-        agent_run_id, created_at, updated_at
+        agent_run_id, spec_path, created_at, updated_at
       ) VALUES (
         @id, @name, @slug, @description, @repository_path, @branch,
         @lifecycle, @messages, @plan, @related_artifacts,
-        @agent_run_id, @created_at, @updated_at
+        @agent_run_id, @spec_path, @created_at, @updated_at
       )
     `);
 
@@ -116,6 +116,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         plan = @plan,
         related_artifacts = @related_artifacts,
         agent_run_id = @agent_run_id,
+        spec_path = @spec_path,
         updated_at = @updated_at
       WHERE id = @id
     `);

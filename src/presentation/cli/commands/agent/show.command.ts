@@ -9,10 +9,20 @@
  */
 
 import { Command } from 'commander';
-import { colors, messages, fmt } from '../../ui/index.js';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
+import { colors, messages, symbols, renderDetailView } from '../../ui/index.js';
 import type { AgentRun } from '../../../../domain/generated/output.js';
-import Table from 'cli-table3';
 import { resolveAgentRun } from './resolve-run.js';
+import { container } from '../../../../infrastructure/di/container.js';
+import type { IFeatureRepository } from '../../../../application/ports/output/feature-repository.interface.js';
+import { SHEP_HOME_DIR } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
+
+function computeWorktreePath(repoPath: string, branch: string): string {
+  const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
+  const slug = branch.replace(/\//g, '-');
+  return join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', slug);
+}
 
 function isProcessAlive(pid: number): boolean {
   try {
@@ -37,34 +47,11 @@ export function createShowCommand(): Command {
         }
         const agentRun = resolved.run;
 
-        messages.newline();
-        console.log(fmt.heading('Agent Run Details'));
-        messages.newline();
-
-        const table = new Table({
-          head: [colors.accent('Property'), colors.accent('Value')],
-          style: { head: [], border: ['cyan'] },
-          wordWrap: true,
-          colWidths: [20, 60],
-        });
-
-        const formatDate = (date?: string) => {
-          if (!date) return '-';
-          try {
-            return new Date(date).toLocaleString();
-          } catch {
-            return date;
-          }
-        };
-
-        // Check actual process liveness
         const pidAlive =
           agentRun.pid && (agentRun.status === 'running' || agentRun.status === 'pending')
             ? isProcessAlive(agentRun.pid)
             : null;
-        const effectiveStatus = getEffectiveStatus(agentRun, pidAlive);
 
-        // Extract current node from result field (format: "node:<name>")
         const currentNode =
           agentRun.status === 'running' && agentRun.result?.startsWith('node:')
             ? agentRun.result.slice(5)
@@ -72,47 +59,74 @@ export function createShowCommand(): Command {
 
         const stuckStatus = getStuckStatus(agentRun);
 
-        table.push(
-          ['ID', agentRun.id],
-          ['Agent Name', agentRun.agentName],
-          ['Agent Type', agentRun.agentType],
-          ['Status', effectiveStatus],
-          ...(currentNode ? [['Current Node', colors.info(currentNode)]] : []),
-          ['PID', formatPid(agentRun, pidAlive)],
-          ['Thread ID', agentRun.threadId],
-          ['Started At', formatDate(agentRun.startedAt)],
-          ['Completed At', formatDate(agentRun.completedAt)],
-          ['Duration', getDurationString(agentRun)],
-          ['Last Heartbeat', formatDate(agentRun.lastHeartbeat)],
-          ['Created At', formatDate(agentRun.createdAt)],
-          ['Updated At', formatDate(agentRun.updatedAt)],
-          ...(stuckStatus ? [['Warning', stuckStatus]] : [])
-        );
+        // Resolve worktree path from associated feature
+        let worktreePath: string | null = null;
+        let specPath: string | null = null;
+        if (agentRun.featureId) {
+          try {
+            const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
+            const feature = await featureRepo.findById(agentRun.featureId);
+            if (feature) {
+              worktreePath = computeWorktreePath(feature.repositoryPath, feature.branch);
+              specPath = feature.specPath ?? null;
+            }
+          } catch {
+            // Feature lookup failed
+          }
+        }
 
-        console.log(table.toString());
-        messages.newline();
-
+        // Text blocks for prompt/result/error
+        const textBlocks = [];
         if (agentRun.prompt) {
-          console.log(fmt.heading('Prompt'));
-          messages.newline();
-          console.log(agentRun.prompt);
-          messages.newline();
+          textBlocks.push({ title: 'Prompt', content: agentRun.prompt });
         }
-
-        // Only show result if it's not just a node tracker
         if (agentRun.result && !agentRun.result.startsWith('node:')) {
-          console.log(fmt.heading('Result'));
-          messages.newline();
-          console.log(agentRun.result);
-          messages.newline();
+          textBlocks.push({ title: 'Result', content: agentRun.result });
+        }
+        if (agentRun.error) {
+          textBlocks.push({
+            title: 'Error',
+            content: agentRun.error,
+            color: colors.error,
+          });
         }
 
-        if (agentRun.error) {
-          console.log(fmt.heading('Error'));
-          messages.newline();
-          console.log(colors.error(agentRun.error));
-          messages.newline();
-        }
+        renderDetailView({
+          title: 'Agent Run',
+          sections: [
+            {
+              fields: [
+                { label: 'ID', value: agentRun.id },
+                { label: 'Agent', value: agentRun.agentName },
+                { label: 'Type', value: agentRun.agentType },
+                { label: 'Status', value: formatStatus(agentRun, pidAlive) },
+                { label: 'Node', value: currentNode ? colors.info(currentNode) : null },
+                { label: 'PID', value: formatPid(agentRun, pidAlive) },
+                { label: 'Thread', value: agentRun.threadId },
+              ],
+            },
+            {
+              title: 'Paths',
+              fields: [
+                { label: 'Worktree', value: worktreePath },
+                { label: 'Spec Dir', value: specPath },
+              ],
+            },
+            {
+              title: 'Timing',
+              fields: [
+                { label: 'Started', value: formatDate(agentRun.startedAt) },
+                { label: 'Completed', value: formatDate(agentRun.completedAt) },
+                { label: 'Duration', value: getDurationString(agentRun) },
+                { label: 'Heartbeat', value: formatDate(agentRun.lastHeartbeat) },
+                { label: 'Created', value: formatDate(agentRun.createdAt) },
+                { label: 'Updated', value: formatDate(agentRun.updatedAt) },
+                { label: 'Warning', value: stuckStatus },
+              ],
+            },
+          ],
+          textBlocks,
+        });
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         messages.error('Failed to show agent run', err);
@@ -121,48 +135,54 @@ export function createShowCommand(): Command {
     });
 }
 
-function getEffectiveStatus(agentRun: AgentRun, pidAlive: boolean | null): string {
+function formatStatus(agentRun: AgentRun, pidAlive: boolean | null): string {
   const isActive = agentRun.status === 'running' || agentRun.status === 'pending';
   if (isActive && pidAlive === false) {
-    return colors.error('crashed');
+    return `${colors.error(symbols.error)} ${colors.error('crashed')}`;
   }
 
-  const statusColors: Record<string, string> = {
-    pending: colors.muted(agentRun.status),
-    running: colors.info(agentRun.status),
-    completed: colors.success(agentRun.status),
-    failed: colors.error(agentRun.status),
-    interrupted: colors.error(agentRun.status),
-    cancelled: colors.muted(agentRun.status),
+  const map: Record<string, string> = {
+    pending: `${colors.muted(symbols.dotEmpty)} ${colors.muted('pending')}`,
+    running: `${colors.info(symbols.dot)} ${colors.info('running')}`,
+    completed: `${colors.success(symbols.success)} ${colors.success('completed')}`,
+    failed: `${colors.error(symbols.error)} ${colors.error('failed')}`,
+    interrupted: `${colors.error(symbols.error)} ${colors.error('interrupted')}`,
+    cancelled: `${colors.muted(symbols.dotEmpty)} ${colors.muted('cancelled')}`,
   };
-  return statusColors[agentRun.status] || colors.muted(agentRun.status);
+  return map[agentRun.status] || colors.muted(agentRun.status);
 }
 
 function formatPid(agentRun: AgentRun, pidAlive: boolean | null): string {
   if (!agentRun.pid) return colors.muted('-');
-  const pidStr = colors.info(String(agentRun.pid));
-  if (pidAlive === true) return pidStr + colors.success(' (alive)');
-  if (pidAlive === false) return pidStr + colors.error(' (dead)');
+  const pidStr = String(agentRun.pid);
+  if (pidAlive === true) return `${pidStr} ${colors.success('(alive)')}`;
+  if (pidAlive === false) return `${pidStr} ${colors.error('(dead)')}`;
   return pidStr;
+}
+
+function formatDate(date?: string): string | null {
+  if (!date) return null;
+  try {
+    return new Date(date).toLocaleString();
+  } catch {
+    return date;
+  }
 }
 
 function getDurationString(agentRun: AgentRun): string {
   if (agentRun.status === 'pending') {
-    const createdTime = new Date(agentRun.createdAt).getTime();
-    return formatDuration(Date.now() - createdTime) + colors.error(' (stuck in pending)');
+    const ms = Date.now() - new Date(agentRun.createdAt).getTime();
+    return `${formatDuration(ms)} ${colors.error('(stuck in pending)')}`;
   }
-
   if (agentRun.startedAt && agentRun.completedAt) {
-    const startTime = new Date(agentRun.startedAt).getTime();
-    const endTime = new Date(agentRun.completedAt).getTime();
-    return formatDuration(endTime - startTime);
+    return formatDuration(
+      new Date(agentRun.completedAt).getTime() - new Date(agentRun.startedAt).getTime()
+    );
   }
-
   if (agentRun.startedAt) {
-    const startTime = new Date(agentRun.startedAt).getTime();
-    return formatDuration(Date.now() - startTime) + colors.info(' (running)');
+    const ms = Date.now() - new Date(agentRun.startedAt).getTime();
+    return `${formatDuration(ms)} ${colors.info('(running)')}`;
   }
-
   return '-';
 }
 
@@ -180,29 +200,17 @@ function formatDuration(ms: number): string {
 
 function getStuckStatus(agentRun: AgentRun): string | null {
   if (agentRun.status === 'pending' && !agentRun.startedAt) {
-    const createdTime = new Date(agentRun.createdAt).getTime();
-    const durationHours = (Date.now() - createdTime) / (1000 * 60 * 60);
-
-    if (durationHours > 24) {
-      return colors.error(
-        `STUCK: Pending for ${Math.floor(durationHours)} hours. Check agent logs.`
-      );
-    }
-    if (durationHours > 1) {
-      return colors.error(`WARNING: Pending for ${Math.floor(durationHours)} hour(s).`);
-    }
+    const hours = (Date.now() - new Date(agentRun.createdAt).getTime()) / (1000 * 60 * 60);
+    if (hours > 24)
+      return colors.error(`STUCK: Pending for ${Math.floor(hours)} hours. Check agent logs.`);
+    if (hours > 1) return colors.error(`WARNING: Pending for ${Math.floor(hours)} hour(s).`);
   }
-
   if (agentRun.status === 'running' && agentRun.startedAt) {
-    const startTime = new Date(agentRun.startedAt).getTime();
-    const durationHours = (Date.now() - startTime) / (1000 * 60 * 60);
-
-    if (durationHours > 24) {
+    const hours = (Date.now() - new Date(agentRun.startedAt).getTime()) / (1000 * 60 * 60);
+    if (hours > 24)
       return colors.error(
-        `STUCK: Running for ${Math.floor(durationHours)} hours. Process may have crashed.`
+        `STUCK: Running for ${Math.floor(hours)} hours. Process may have crashed.`
       );
-    }
   }
-
   return null;
 }

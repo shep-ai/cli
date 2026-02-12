@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
@@ -38,12 +38,33 @@ describe('CLI: feat', () => {
   });
 
   afterEach(() => {
-    // Clean up temporary directories
-    if (existsSync(tempHome)) {
-      rmSync(tempHome, { recursive: true, force: true });
+    // Kill any spawned agent worker processes that reference our temp HOME
+    // (feat new forks a detached background worker that holds file handles)
+    try {
+      // Security: tempHome is a controlled mkdtempSync path, not user input
+      execSync(`pkill -9 -f "${tempHome}"`, { stdio: 'pipe' });
+    } catch {
+      // No matching processes — expected when no agent was spawned
     }
-    if (existsSync(tempRepo)) {
-      rmSync(tempRepo, { recursive: true, force: true });
+
+    // Brief pause for OS to release file handles after SIGKILL
+    execSync('sleep 0.2', { stdio: 'pipe' });
+
+    // Clean up temporary directories (wrapped in try/catch so test
+    // results aren't masked by cleanup failures)
+    try {
+      if (existsSync(tempHome)) {
+        rmSync(tempHome, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+      }
+    } catch {
+      // OS will clean /tmp eventually
+    }
+    try {
+      if (existsSync(tempRepo)) {
+        rmSync(tempRepo, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+      }
+    } catch {
+      // OS will clean /tmp eventually
     }
   });
 
@@ -87,6 +108,28 @@ describe('CLI: feat', () => {
       const repoHash = createHash('sha256').update(tempRepo).digest('hex').slice(0, 16);
       const worktreePath = join(tempHome, '.shep', 'repos', repoHash, 'wt', 'feat-worktree-check');
       expect(existsSync(worktreePath)).toBe(true);
+    });
+
+    it('should initialize spec directory with YAML files inside the worktree', () => {
+      const runner = createCliRunner({
+        env: { HOME: tempHome },
+        timeout: 30000,
+      });
+
+      runner.runOrThrow(`feat new "Spec init check" --repo ${tempRepo}`);
+
+      const repoHash = createHash('sha256').update(tempRepo).digest('hex').slice(0, 16);
+      const worktreePath = join(tempHome, '.shep', 'repos', repoHash, 'wt', 'feat-spec-init-check');
+      const specDir = join(worktreePath, 'specs', '001-spec-init-check');
+
+      expect(existsSync(specDir)).toBe(true);
+
+      const files = readdirSync(specDir);
+      expect(files).toContain('spec.yaml');
+      expect(files).toContain('research.yaml');
+      expect(files).toContain('plan.yaml');
+      expect(files).toContain('tasks.yaml');
+      expect(files).toContain('feature.yaml');
     });
 
     it('should reject duplicate feature slugs', () => {

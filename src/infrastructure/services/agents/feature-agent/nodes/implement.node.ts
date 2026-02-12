@@ -1,24 +1,29 @@
 import type { IAgentExecutor } from '@/application/ports/output/agent-executor.interface.js';
-import { executeNode, readSpecFile } from './node-helpers.js';
+import type { FeatureAgentState } from '../state.js';
+import { createNodeLogger } from './node-helpers.js';
+import { reportNodeStart } from '../heartbeat.js';
+import { getImplementPlaceholderJoke } from './prompts/implement.prompt.js';
 
 /**
- * Creates the implement node that executes the implementation plan
- * by delegating to the configured agent.
+ * Creates the implement node — PLACEHOLDER.
+ *
+ * Implementation execution is not yet wired up.
+ * Returns a programming joke to clearly signal this is a placeholder
+ * while keeping the graph pipeline intact.
  */
-export function createImplementNode(executor: IAgentExecutor) {
-  return executeNode('implement', executor, (state) => {
-    const tasksContent = readSpecFile(state.specDir, 'tasks.yaml');
-    const planContent = readSpecFile(state.specDir, 'plan.yaml');
+export function createImplementNode(_executor: IAgentExecutor) {
+  const log = createNodeLogger('implement');
 
-    return [
-      'Implement the feature following the plan and task breakdown.',
-      'Follow TDD: write failing tests first, then implement, then refactor.',
-      'Work through tasks in dependency order.',
-      '',
-      tasksContent ? `Tasks:\n${tasksContent}` : '',
-      planContent ? `\nPlan:\n${planContent}` : '',
-    ]
-      .filter(Boolean)
-      .join('\n');
-  });
+  return async (_state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
+    log.info('Starting... (placeholder — implementation not yet wired)');
+    reportNodeStart('implement');
+
+    const joke = getImplementPlaceholderJoke();
+    log.info(`Placeholder complete. ${joke}`);
+
+    return {
+      currentNode: 'implement',
+      messages: [`[implement] Placeholder — ${joke}`],
+    };
+  };
 }

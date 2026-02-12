@@ -116,6 +116,21 @@ ALTER TABLE agent_runs ADD COLUMN repository_path TEXT;
 CREATE INDEX idx_agent_runs_feature ON agent_runs(feature_id) WHERE feature_id IS NOT NULL;
 `,
   },
+  {
+    version: 6,
+    sql: `
+-- Migration 006: Add approval workflow columns to agent_runs
+ALTER TABLE agent_runs ADD COLUMN approval_mode TEXT;
+ALTER TABLE agent_runs ADD COLUMN approval_status TEXT;
+`,
+  },
+  {
+    version: 7,
+    sql: `
+-- Migration 007: Add spec_path to features
+ALTER TABLE features ADD COLUMN spec_path TEXT;
+`,
+  },
 ];
 
 /**

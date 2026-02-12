@@ -12,6 +12,7 @@
 import 'reflect-metadata';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { Command } from '@langchain/langgraph';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { createFeatureAgentGraph } from './feature-agent-graph.js';
 import { createCheckpointer } from '../common/checkpointer.js';
@@ -28,6 +29,8 @@ export interface WorkerArgs {
   repo: string;
   specDir: string;
   worktreePath?: string;
+  approvalMode?: string;
+  resume?: boolean;
 }
 
 /**
@@ -47,12 +50,20 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const worktreePath =
     worktreeIdx !== -1 && worktreeIdx + 1 < args.length ? args[worktreeIdx + 1] : undefined;
 
+  const approvalIdx = args.indexOf('--approval-mode');
+  const approvalMode =
+    approvalIdx !== -1 && approvalIdx + 1 < args.length ? args[approvalIdx + 1] : undefined;
+
+  const resume = args.includes('--resume');
+
   return {
     featureId: getArg('feature-id'),
     runId: getArg('run-id'),
     repo: getArg('repo'),
     specDir: getArg('spec-dir'),
     worktreePath,
+    approvalMode,
+    resume,
   };
 }
 
@@ -95,6 +106,8 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   log(`  repo=${args.repo}`);
   log(`  specDir=${args.specDir}`);
   log(`  worktreePath=${args.worktreePath ?? '(none)'}`);
+  log(`  approvalMode=${args.approvalMode ?? '(none)'}`);
+  log(`  resume=${args.resume}`);
 
   log('Initializing container...');
   await initializeContainer();
@@ -139,25 +152,46 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   setHeartbeatContext(args.runId, runRepository);
 
   try {
-    log('Starting graph invocation...');
-    const result = await graph.invoke(
-      {
-        featureId: args.featureId,
-        repositoryPath: args.repo,
-        worktreePath: args.worktreePath ?? args.repo,
-        specDir: args.specDir,
-      },
-      { configurable: { thread_id: args.runId } }
-    );
-    log(`Graph invocation completed. Error: ${result.error ?? 'none'}`);
+    const graphConfig = { configurable: { thread_id: args.runId } };
+
+    let result: Record<string, unknown>;
+    if (args.resume) {
+      log('Resuming graph from checkpoint...');
+      result = await graph.invoke(new Command({ resume: { approved: true } }), graphConfig);
+    } else {
+      log('Starting graph invocation...');
+      result = await graph.invoke(
+        {
+          featureId: args.featureId,
+          repositoryPath: args.repo,
+          worktreePath: args.worktreePath ?? args.repo,
+          specDir: args.specDir,
+          ...(args.approvalMode ? { approvalMode: args.approvalMode } : {}),
+        },
+        graphConfig
+      );
+    }
+    log(`Graph invocation completed. Error: ${(result.error as string) ?? 'none'}`);
 
     stopHeartbeat();
+
+    // Check if graph was interrupted (human-in-the-loop approval needed)
+    const interruptPayload = result.__interrupt__ as { value: unknown }[] | undefined;
+    if (interruptPayload && interruptPayload.length > 0) {
+      const now = new Date();
+      await runRepository.updateStatus(args.runId, AgentRunStatus.waitingApproval, {
+        approvalStatus: 'waiting',
+        updatedAt: now,
+      });
+      log('Run paused — waiting for human approval');
+      return;
+    }
 
     // Check if the graph itself reported an error in state
     if (result.error) {
       const failedAt = new Date();
       await runRepository.updateStatus(args.runId, AgentRunStatus.failed, {
-        error: result.error,
+        error: result.error as string,
         completedAt: failedAt,
         updatedAt: failedAt,
       });
@@ -167,7 +201,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
 
     const completedAt = new Date();
     await runRepository.updateStatus(args.runId, AgentRunStatus.completed, {
-      result: result.messages?.join('\n') ?? '',
+      result: (result.messages as string[])?.join('\n') ?? '',
       completedAt,
       updatedAt: completedAt,
     });

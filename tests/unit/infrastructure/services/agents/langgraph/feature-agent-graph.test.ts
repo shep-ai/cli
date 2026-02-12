@@ -9,7 +9,7 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { MemorySaver } from '@langchain/langgraph';
+import { Command, MemorySaver } from '@langchain/langgraph';
 import type { IAgentExecutor } from '../../../../../../src/application/ports/output/agent-executor.interface.js';
 import type { AgentType } from '../../../../../../src/domain/generated/output.js';
 
@@ -38,7 +38,6 @@ function createMockExecutor(): IAgentExecutor {
     agentType: 'claude-code' as AgentType,
     execute: vi.fn().mockResolvedValue({
       result: 'Mock executor result',
-      sessionId: 'mock-session-1',
     }),
     executeStream: vi.fn(),
     supportsFeature: vi.fn().mockReturnValue(false),
@@ -49,6 +48,48 @@ describe('FeatureAgentAnnotation', () => {
   it('should be a valid Annotation root', () => {
     expect(FeatureAgentAnnotation).toBeDefined();
     expect(FeatureAgentAnnotation.spec).toBeDefined();
+  });
+});
+
+describe('FeatureAgentAnnotation - approvalMode', () => {
+  it('should support approvalMode in state', async () => {
+    const mockExec = createMockExecutor();
+    mockReadFileSync.mockReturnValue('name: test');
+    const checkpointer = new MemorySaver();
+    const compiled = createFeatureAgentGraph(mockExec, checkpointer);
+
+    const result = await compiled.invoke(
+      {
+        featureId: 'feat-approval',
+        repositoryPath: '/test/repo',
+        worktreePath: '/test/repo',
+        specDir: '/test/specs/001-test',
+        approvalMode: 'interactive',
+      },
+      { configurable: { thread_id: 'approval-thread' } }
+    );
+
+    // approvalMode should be preserved through execution
+    expect(result.approvalMode).toBe('interactive');
+  });
+
+  it('should default approvalMode to undefined when not provided', async () => {
+    const mockExec = createMockExecutor();
+    mockReadFileSync.mockReturnValue('name: test');
+    const checkpointer = new MemorySaver();
+    const compiled = createFeatureAgentGraph(mockExec, checkpointer);
+
+    const result = await compiled.invoke(
+      {
+        featureId: 'feat-no-approval',
+        repositoryPath: '/test/repo',
+        worktreePath: '/test/repo',
+        specDir: '/test/specs/001-test',
+      },
+      { configurable: { thread_id: 'no-approval-thread' } }
+    );
+
+    expect(result.approvalMode).toBeUndefined();
   });
 });
 
@@ -116,29 +157,11 @@ describe('createFeatureAgentGraph', () => {
         { configurable: { thread_id: 'test-thread-1' } }
       );
 
-      // 5 nodes = 5 executor calls
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(5);
+      // 4 nodes call executor (implement is a placeholder that skips it)
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(4);
       expect(result.currentNode).toBe('implement');
       expect(result.messages).toContainEqual(expect.stringContaining('[analyze]'));
       expect(result.error).toBeNull();
-    });
-
-    it('should propagate sessionId through nodes', async () => {
-      mockReadFileSync.mockReturnValue('name: test');
-
-      const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
-
-      const result = await compiled.invoke(
-        {
-          featureId: 'feat-session',
-          repositoryPath: '/test/repo',
-          worktreePath: '/test/repo',
-          specDir: '/test/specs/001-test',
-        },
-        { configurable: { thread_id: 'session-thread' } }
-      );
-
-      expect(result.sessionId).toBe('mock-session-1');
     });
 
     it('should handle executor errors gracefully', async () => {
@@ -186,6 +209,137 @@ describe('createFeatureAgentGraph', () => {
       expect(result.messages.length).toBeGreaterThanOrEqual(5);
       expect(result.currentNode).toBe('implement');
       expect(result.error).toBeNull();
+    });
+  });
+
+  describe('interrupt behavior with approvalMode', () => {
+    it('should interrupt after first node in interactive mode', async () => {
+      mockReadFileSync.mockReturnValue('name: test');
+      const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
+      const config = { configurable: { thread_id: 'interrupt-thread-1' } };
+
+      const result = await compiled.invoke(
+        {
+          featureId: 'feat-interrupt',
+          repositoryPath: '/test/repo',
+          worktreePath: '/test/repo',
+          specDir: '/test/specs/001-test',
+          approvalMode: 'interactive',
+        },
+        config
+      );
+
+      // Analyze runs then interrupt fires (executor called once, state update not committed)
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+      // interrupt() throws GraphInterrupt AFTER execution, so node return is not committed
+      // The __interrupt__ payload contains the node info
+      const interruptPayload = (result as Record<string, unknown>).__interrupt__ as {
+        value: { node: string };
+      }[];
+      expect(interruptPayload).toBeDefined();
+      expect(interruptPayload[0].value.node).toBe('analyze');
+    });
+
+    it('should resume after approval in interactive mode', async () => {
+      mockReadFileSync.mockReturnValue('name: test');
+      const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
+      const config = { configurable: { thread_id: 'resume-thread-1' } };
+
+      // First invocation - interrupts after analyze
+      await compiled.invoke(
+        {
+          featureId: 'feat-resume',
+          repositoryPath: '/test/repo',
+          worktreePath: '/test/repo',
+          specDir: '/test/specs/001-test',
+          approvalMode: 'interactive',
+        },
+        config
+      );
+
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(1);
+
+      // Resume: analyze re-executes (interrupt() returns resume value),
+      // then requirements executes and interrupts
+      const resumed = await compiled.invoke(new Command({ resume: { approved: true } }), config);
+
+      // 1 (original analyze) + 1 (analyze re-run on resume) + 1 (requirements) = 3
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(3);
+      const interruptPayload = (resumed as Record<string, unknown>).__interrupt__ as {
+        value: { node: string };
+      }[];
+      expect(interruptPayload).toBeDefined();
+      expect(interruptPayload[0].value.node).toBe('requirements');
+    });
+
+    it('should not interrupt in allow-all mode', async () => {
+      mockReadFileSync.mockReturnValue('name: test');
+      const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
+      const config = { configurable: { thread_id: 'no-interrupt-thread' } };
+
+      const result = await compiled.invoke(
+        {
+          featureId: 'feat-all',
+          repositoryPath: '/test/repo',
+          worktreePath: '/test/repo',
+          specDir: '/test/specs/001-test',
+          approvalMode: 'allow-all',
+        },
+        config
+      );
+
+      // 4 nodes call executor (implement is a placeholder that skips it)
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(4);
+      expect(result.currentNode).toBe('implement');
+    });
+
+    it('should interrupt at research in allow-prd mode', async () => {
+      mockReadFileSync.mockReturnValue('name: test');
+      const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
+      const config = { configurable: { thread_id: 'allow-prd-thread' } };
+
+      const result = await compiled.invoke(
+        {
+          featureId: 'feat-prd',
+          repositoryPath: '/test/repo',
+          worktreePath: '/test/repo',
+          specDir: '/test/specs/001-test',
+          approvalMode: 'allow-prd',
+        },
+        config
+      );
+
+      // analyze + requirements auto-approved, research executes then interrupts
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(3);
+      const interruptPayload = (result as Record<string, unknown>).__interrupt__ as {
+        value: { node: string };
+      }[];
+      expect(interruptPayload).toBeDefined();
+      expect(interruptPayload[0].value.node).toBe('research');
+    });
+
+    it('should complete without interrupt in allow-plan mode (implement is placeholder)', async () => {
+      mockReadFileSync.mockReturnValue('name: test');
+      const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
+      const config = { configurable: { thread_id: 'allow-plan-thread' } };
+
+      const result = await compiled.invoke(
+        {
+          featureId: 'feat-plan',
+          repositoryPath: '/test/repo',
+          worktreePath: '/test/repo',
+          specDir: '/test/specs/001-test',
+          approvalMode: 'allow-plan',
+        },
+        config
+      );
+
+      // 4 nodes call executor (implement is a placeholder, skips executor and interrupt)
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(4);
+      expect(result.currentNode).toBe('implement');
+      // No interrupt since implement placeholder doesn't call shouldInterrupt
+      const interruptPayload = (result as Record<string, unknown>).__interrupt__;
+      expect(interruptPayload).toBeUndefined();
     });
   });
 

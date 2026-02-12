@@ -31,8 +31,12 @@ export interface AgentRunRow {
   started_at: number | null;
   completed_at: number | null;
   error: string | null;
+  feature_id: string | null;
+  repository_path: string | null;
   created_at: number;
   updated_at: number;
+  approval_mode: string | null;
+  approval_status: string | null;
 }
 
 /**
@@ -58,10 +62,14 @@ export function toDatabase(agentRun: AgentRun): AgentRunRow {
     started_at: agentRun.startedAt instanceof Date ? agentRun.startedAt.getTime() : null,
     completed_at: agentRun.completedAt instanceof Date ? agentRun.completedAt.getTime() : null,
     error: agentRun.error ?? null,
+    feature_id: agentRun.featureId ?? null,
+    repository_path: agentRun.repositoryPath ?? null,
     created_at:
       agentRun.createdAt instanceof Date ? agentRun.createdAt.getTime() : agentRun.createdAt,
     updated_at:
       agentRun.updatedAt instanceof Date ? agentRun.updatedAt.getTime() : agentRun.updatedAt,
+    approval_mode: agentRun.approvalMode ?? null,
+    approval_status: agentRun.approvalStatus ?? null,
   };
 }
 
@@ -90,5 +98,9 @@ export function fromDatabase(row: AgentRunRow): AgentRun {
     ...(row.started_at !== null && { startedAt: new Date(row.started_at) }),
     ...(row.completed_at !== null && { completedAt: new Date(row.completed_at) }),
     ...(row.error !== null && { error: row.error }),
+    ...(row.feature_id !== null && { featureId: row.feature_id }),
+    ...(row.repository_path !== null && { repositoryPath: row.repository_path }),
+    ...(row.approval_mode !== null && { approvalMode: row.approval_mode }),
+    ...(row.approval_status !== null && { approvalStatus: row.approval_status }),
   };
 }
