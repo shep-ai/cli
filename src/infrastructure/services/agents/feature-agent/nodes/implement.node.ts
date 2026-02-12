@@ -109,9 +109,12 @@ export function createImplementNode(executor: IAgentExecutor) {
       for (let i = 0; i < totalPhases; i++) {
         const phase = planData.phases[i];
         const isLastPhase = i === totalPhases - 1;
-        const phaseTasks = phase.taskIds
-          .map((id) => taskMap.get(id))
-          .filter((t): t is PhaseTask => t !== undefined);
+        // Resolve tasks: use explicit taskIds if present, otherwise match by phaseId
+        const phaseTasks = phase.taskIds?.length
+          ? phase.taskIds
+              .map((id) => taskMap.get(id))
+              .filter((t): t is PhaseTask => t !== undefined)
+          : tasksData.tasks.filter((t) => t.phaseId === phase.id);
 
         if (phaseTasks.length === 0) {
           log.info(`Phase ${phase.id} "${phase.name}" — no tasks, skipping`);

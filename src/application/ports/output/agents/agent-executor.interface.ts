@@ -69,6 +69,8 @@ export interface AgentExecutionOptions {
   outputSchema?: object;
   /** Execution timeout in milliseconds */
   timeout?: number;
+  /** Suppress executor debug logging (e.g. for quick foreground calls) */
+  silent?: boolean;
 }
 
 /**

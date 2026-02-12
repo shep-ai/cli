@@ -163,6 +163,7 @@ JSON only, no markdown fences.`;
       const result = await executor.execute(prompt, {
         maxTurns: 1,
         allowedTools: [],
+        silent: true,
       });
 
       const parsed = JSON.parse(result.result);

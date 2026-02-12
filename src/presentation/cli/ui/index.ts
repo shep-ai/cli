@@ -26,3 +26,4 @@ export {
   type DetailTextBlock,
 } from './detail-view.js';
 export { renderListView, type ListViewConfig, type ListColumn } from './list-view.js';
+export { spinner } from './spinner.js';
