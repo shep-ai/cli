@@ -11,6 +11,7 @@ import type { FeatureAgentState } from '../../state.js';
 
 export interface PhaseTask {
   id: string;
+  phaseId?: string;
   title: string;
   description: string;
   state: string;
@@ -25,7 +26,8 @@ export interface PlanPhase {
   name: string;
   description?: string;
   parallel: boolean;
-  taskIds: string[];
+  /** Optional — if absent, tasks are matched via their phaseId field */
+  taskIds?: string[];
 }
 
 export interface PlanYaml {

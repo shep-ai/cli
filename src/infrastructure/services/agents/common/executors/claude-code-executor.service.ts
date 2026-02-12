@@ -40,15 +40,20 @@ const SUPPORTED_FEATURES = new Set<string>([
 export class ClaudeCodeExecutorService implements IAgentExecutor {
   readonly agentType: AgentType = 'claude-code' as AgentType;
 
+  /** When true, suppresses debug logging (set per-call via options.silent) */
+  private silent = false;
+
   constructor(private readonly spawn: SpawnFunction) {}
 
   /** Debug logging — writes to stdout so it appears in the worker log file */
   private log(message: string): void {
+    if (this.silent) return;
     const ts = new Date().toISOString();
     process.stdout.write(`[${ts}] [claude-executor] ${message}\n`);
   }
 
   async execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult> {
+    this.silent = options?.silent ?? false;
     // Use stream-json so we get real-time events in the worker log
     // instead of zero output for minutes with --output-format json
     const args = this.buildStreamArgs(prompt, options);

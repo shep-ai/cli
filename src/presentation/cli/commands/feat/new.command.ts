@@ -13,7 +13,7 @@
 import { Command } from 'commander';
 import { container } from '../../../../infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '../../../../application/use-cases/features/create-feature.use-case.js';
-import { colors, messages } from '../../ui/index.js';
+import { colors, messages, spinner } from '../../ui/index.js';
 
 interface NewOptions {
   repo?: string;
@@ -47,11 +47,13 @@ export function createNewCommand(): Command {
         if (options.allowPlan) approvalMode = 'allow-plan';
         if (options.allowAll) approvalMode = 'allow-all';
 
-        const feature = await useCase.execute({
-          userInput: description,
-          repositoryPath: repoPath,
-          approvalMode,
-        });
+        const feature = await spinner('Thinking', () =>
+          useCase.execute({
+            userInput: description,
+            repositoryPath: repoPath,
+            approvalMode,
+          })
+        );
 
         messages.newline();
         messages.success('Feature created');
