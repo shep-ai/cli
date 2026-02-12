@@ -13,7 +13,7 @@ summary: >
   add-feature CTA), single node, multiple nodes, and connected nodes (edges
   between related features). Both components follow the four-tier component
   hierarchy with full Storybook coverage.
-phase: Planning
+phase: Requirements
 sizeEstimate: M
 
 # Relationships

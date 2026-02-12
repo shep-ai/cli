@@ -3,30 +3,23 @@ feature:
   name: 'feature-flow-canvas'
   number: 15
   branch: 'feat/015-feature-flow-canvas'
-  lifecycle: 'review'
+  lifecycle: 'research'
   createdAt: '2026-02-12T13:32:31Z'
 
 status:
-  phase: 'in-review'
+  phase: 'research'
   progress:
-    completed: 7
-    total: 7
-    percentage: 100
+    completed: 0
+    total: 0
+    percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-12T16:05:00Z'
-  lastUpdatedBy: 'shep-kit:commit-pr'
-
-prUrl: 'https://github.com/shep-ai/cli/pull/47'
+  lastUpdated: '2026-02-12T13:32:31Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
 
 validation:
-  lastRun: '2026-02-12T15:56:00Z'
-  gatesPassed:
-    - completeness
-    - architecture
-    - consistency
-  autoFixesApplied:
-    - 'Fixed FeatureNodeData index signature for React Flow Node constraint'
-    - 'Replaced fn() with () => undefined for lint compliance'
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
 
 tasks:
   current: null
@@ -37,18 +30,6 @@ checkpoints:
   - phase: 'feature-created'
     completedAt: '2026-02-12T13:32:31Z'
     completedBy: 'shep-kit:new-feature'
-  - phase: 'research-complete'
-    completedAt: '2026-02-12T13:45:00Z'
-    completedBy: 'shep-kit:research'
-  - phase: 'plan-complete'
-    completedAt: '2026-02-12T14:00:00Z'
-    completedBy: 'shep-kit:plan'
-  - phase: 'implementation-complete'
-    completedAt: '2026-02-12T16:00:00Z'
-    completedBy: 'shep-kit:implement'
-  - phase: 'pr-created'
-    completedAt: '2026-02-12T16:05:00Z'
-    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
