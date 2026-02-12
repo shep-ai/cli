@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FeatureFlowCanvas } from '@/components/features/feature-flow-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
-import type { Edge } from '@xyflow/react';
 
 const mockNode: FeatureNodeType = {
   id: 'node-1',
@@ -16,26 +15,6 @@ const mockNode: FeatureNodeType = {
     state: 'running',
     progress: 50,
   },
-};
-
-const mockNode2: FeatureNodeType = {
-  id: 'node-2',
-  type: 'featureNode',
-  position: { x: 300, y: 0 },
-  data: {
-    name: 'Second Feature',
-    description: 'Another feature',
-    featureId: '#f2',
-    lifecycle: 'plan',
-    state: 'done',
-    progress: 100,
-  },
-};
-
-const mockEdge: Edge = {
-  id: 'e1-2',
-  source: 'node-1',
-  target: 'node-2',
 };
 
 describe('FeatureFlowCanvas', () => {
