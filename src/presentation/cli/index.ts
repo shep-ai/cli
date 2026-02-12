@@ -9,10 +9,14 @@
  *   shep [command] [options]
  *
  * Commands:
- *   shep           Show help
- *   shep version   Display version information
- *   shep ui        Start the web UI
- *   shep --version Display version number only
+ *   shep              Show help
+ *   shep version      Display version information
+ *   shep ui           Start the web UI
+ *   shep run          Run an AI agent workflow
+ *   shep agent        Manage and view agent runs
+ *   shep feat         Manage features through the SDLC lifecycle
+ *   shep settings     Configure Shep settings
+ *   shep --version    Display version number only
  *
  * Global Options:
  *   -v, --version  Display version number
@@ -28,8 +32,8 @@ import { createVersionCommand } from './commands/version.command.js';
 import { createSettingsCommand } from './commands/settings/index.js';
 import { createUiCommand } from './commands/ui.command.js';
 import { createRunCommand } from './commands/run.command.js';
-import { createFeatCommand } from './commands/feat/index.js';
 import { createAgentCommand } from './commands/agent/index.js';
+import { createFeatCommand } from './commands/feat/index.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
@@ -80,8 +84,8 @@ async function bootstrap() {
     program.addCommand(createSettingsCommand());
     program.addCommand(createUiCommand());
     program.addCommand(createRunCommand());
-    program.addCommand(createFeatCommand());
     program.addCommand(createAgentCommand());
+    program.addCommand(createFeatCommand());
 
     // Parse arguments (parseAsync needed for async command actions like init)
     await program.parseAsync();
