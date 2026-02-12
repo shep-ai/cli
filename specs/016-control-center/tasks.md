@@ -8,7 +8,7 @@
 ### Phase 1: Foundation
 
 - [ ] **task-1**: Scaffold control-center directory structure
-  - Create `features/control-center/` with 7 files (component, hook, toolbar, detail panel, status bar, stories, index)
+  - Create `features/control-center/` with 5 files (component, hook, toolbar, stories, index)
   - Add minimal type-safe placeholder exports
   - Verify `pnpm typecheck:web` passes
 
@@ -53,27 +53,18 @@
 
 - [ ] Write test: returns selectedNode when FeatureNode selected
 - [ ] Write test: returns null when no selection
-- [ ] Write test: isDetailPanelOpen true when FeatureNode selected
-- [ ] Write test: isDetailPanelOpen false when RepositoryNode selected
-- [ ] Write test: featureSummary computes correct counts
-- [ ] Write test: featureSummary returns zeros when no features
 - [ ] Write test: Escape key clears selection
 
 **GREEN (Implement to Pass Tests):**
 
 - [ ] Implement `useOnSelectionChange` for selection tracking
-- [ ] Derive `isDetailPanelOpen` from selection type
-- [ ] Compute `featureSummary` via `useMemo`
 - [ ] Add `useEffect` with keydown listener for Escape
 
 **REFACTOR (Clean Up):**
 
-- [ ] Extract `computeFeatureSummary` as pure helper
 - [ ] Ensure all callbacks properly memoized
 
-### Phase 4: Sub-components [P]
-
-#### 4A: ControlCenterToolbar
+### Phase 4: Toolbar
 
 **RED:**
 
@@ -89,50 +80,12 @@
 
 - [ ] Add Storybook stories (Default, WithCallbacks)
 
-#### 4B: ControlCenterDetailPanel
-
-**RED:**
-
-- [ ] Write test: renders feature name when open
-- [ ] Write test: renders lifecycle and state when open
-- [ ] Write test: does not show content when closed
-- [ ] Write test: calls onClose when close button clicked
-- [ ] Write test: renders description when provided
-
-**GREEN:**
-
-- [ ] Implement panel with feature info, close button, CSS transitions
-
-**REFACTOR:**
-
-- [ ] Add Storybook stories (Open, Closed, WithDescription, RunningState, ErrorState)
-- [ ] Reuse colors from feature-node-state-config
-
-#### 4C: ControlCenterStatusBar
-
-**RED:**
-
-- [ ] Write test: renders total feature count
-- [ ] Write test: renders state breakdown counts
-- [ ] Write test: renders "No features" when empty
-
-**GREEN:**
-
-- [ ] Implement status bar with summary and state badges
-
-**REFACTOR:**
-
-- [ ] Add Storybook stories (Empty, WithFeatures, MixedStates)
-
 ### Phase 5: Orchestrator Integration
 
 **RED:**
 
 - [ ] Write test: renders FeaturesCanvas with nodes and edges
 - [ ] Write test: renders toolbar panel
-- [ ] Write test: renders status bar panel
-- [ ] Write test: shows detail panel when node selected
-- [ ] Write test: hides detail panel when selection cleared
 - [ ] Write test: passes onAddFeature to toolbar
 
 **GREEN:**
@@ -143,7 +96,7 @@
 
 **REFACTOR:**
 
-- [ ] Add comprehensive Storybook stories (Empty, WithFeatures, SelectedNode, WithToolbar)
+- [ ] Add comprehensive Storybook stories (Empty, WithFeatures, WithToolbar)
 - [ ] Verify no unnecessary re-renders
 
 ### Phase 6: Build Validation
@@ -171,7 +124,7 @@
 
 Before marking feature complete:
 
-- [ ] All 9 tasks completed
+- [ ] All 7 tasks completed
 - [ ] Tests passing (`pnpm test`)
 - [ ] Linting clean (`pnpm lint:web`)
 - [ ] Types valid (`pnpm typecheck:web`)
