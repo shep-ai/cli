@@ -1,10 +1,10 @@
 <div align="center">
 
-# 🐑 Shep AI
+# Shep AI
 
-### Autonomous AI Native SDLC Platform
+### Manage Multiple AI Agent Sessions from One Place
 
-_Automate the entire development cycle from idea to deploy_
+_Control Claude Code, Cursor CLI, or any coding agent running across features — monitor progress, switch context, approve decisions — all from a single UI_
 
 [![CI](https://github.com/shep-ai/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/cli/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@shepai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shepai/cli)
@@ -17,104 +17,210 @@ _Automate the entire development cycle from idea to deploy_
 
 <br />
 
-[Getting Started](#quick-start) •
-[Documentation](#documentation) •
-[Contributing](#contributing) •
-[License](#license)
+[Features](#features) · [Quick Start](#quick-start) · [CLI Reference](#cli) · [Architecture](#architecture) · [Contributing](#contributing)
+
+<br />
+
+<img src="docs/poc/imgs/00-control-center-hero.png" alt="Shep AI Control Center — manage all features across repos from a single canvas" width="100%" />
+
+<br />
 
 </div>
 
 ---
 
-Shep is an intelligent CLI tool that transforms how you build software. Point it at any repository, and it will analyze your codebase, gather requirements through conversational AI, break down features into actionable tasks, generate comprehensive documentation, and execute implementation autonomously.
-
-## Installation
+Running AI agents is easy. **Managing many of them at once is the hard part.** Shep gives you a control center for all your agent sessions — see what each one is doing, jump into any session's web preview, code editor, or terminal, approve plans and requirements when agents need your input, and let them keep working while you move on. Plug in Claude Code, Cursor CLI, Gemini CLI, or any coding agent. Each feature gets its own isolated worktree and dev environment. You just manage.
 
 ```bash
-pnpm add -g @shepai/cli
+npm i -g @shepai/cli
+cd your-repo/
+shep feat new "Implement SSO with SAML 2.0"
+# Agent starts working in a dedicated worktree.
+# Open the control center to watch progress, intervene, or switch context.
+shep ui
 ```
 
-Or with npm:
+---
 
-```bash
-npm install -g @shepai/cli
-```
+## Features
+
+<table>
+<tr>
+<td width="55%"><img src="docs/poc/imgs/01-features-control-center-overview.png" alt="Feature properties with attachments and metadata" /></td>
+<td width="45%">
+
+### Feature Properties & Attachments
+
+- **Rich feature detail panel** with name, description, and metadata
+- **File attachments** — requirements PDFs, mockup images, API specs linked directly to features
+- **Team & metadata** tracking for ownership and collaboration
+- **Dependency mapping** between features across repos
+- **Iterative refinement** — update properties as requirements evolve through the lifecycle
+
+</td>
+</tr>
+
+<tr>
+<td width="55%"><img src="docs/poc/imgs/02-feature-card-action-toolbar.png" alt="Feature card with action toolbar" /></td>
+<td width="45%">
+
+### Feature Cards with Quick Actions
+
+- **One-click dev server** launch directly from any card
+- **Action toolbar** — GitHub, web preview, terminal, code editor at your fingertips
+- **Live progress** tracking with percentage and lifecycle stage badge
+- **Unique IDs** for instant cross-referencing across CLI and UI
+
+</td>
+</tr>
+
+<tr>
+<td width="55%"><img src="docs/poc/imgs/03-requirements-discovery-validation.png" alt="Requirements discovery questionnaire" /></td>
+<td width="45%">
+
+### AI-Guided Requirements Discovery
+
+- **Smart questionnaires** that surface the right questions for your feature
+- **Categorized inputs** — business, technical, and UX problem classification
+- **Priority tiers** (P1–P3) with clear impact descriptions
+- **Domain tagging** to scope the affected areas of your codebase
+- **Human breakpoint** — agent pauses here until you finalize
+
+</td>
+</tr>
+
+<tr>
+<td width="55%"><img src="docs/poc/imgs/04-technical-implementation-plan-review.png" alt="Technical plan review with architecture decisions" /></td>
+<td width="45%">
+
+### Technical Plan Review
+
+- **AI-generated implementation plans** with full architecture rationale
+- **Technical decision cards** — see the chosen approach and alternatives side-by-side
+- **Architecture pattern selection** (microservices, monolith, serverless) with trade-off analysis
+- **Approve & continue** or send back for revision — you control the direction
+
+</td>
+</tr>
+
+<tr>
+<td width="55%"><img src="docs/poc/imgs/05-plan-review-tasks-and-artifacts.png" alt="Task breakdown and generated artifacts" /></td>
+<td width="45%">
+
+### Tasks & Generated Artifacts
+
+- **Auto-generated documents** — plan.md, tasks.md, data_model.md created from your approved spec
+- **Task breakdown** with dependency tracking and status badges
+- **Artifact browser** — inspect any generated document directly in the panel
+- **Draft indicator** — nothing ships until you explicitly approve
+
+</td>
+</tr>
+
+<tr>
+<td width="55%"><img src="docs/poc/imgs/06-qa-check-review.png" alt="QA checklist with all checks passing" /></td>
+<td width="45%">
+
+### Quality Assurance Gate
+
+- **Automated QA checklist** — functional, performance, compatibility, accessibility
+- **Performance benchmarks** — API response time p95 thresholds
+- **WCAG 2.5** accessibility compliance verification
+- **One-click Pass QA** when all checks are green
+
+</td>
+</tr>
+
+<tr>
+<td width="55%"><img src="docs/poc/imgs/07-dev-environment-web-preview.png" alt="Integrated web preview in dev environment" /></td>
+<td width="45%">
+
+### Integrated Dev Environment — Web Preview
+
+- **Live localhost preview** embedded in the control center
+- **Isolated ports** — each feature runs its own dev server
+- **Server status** indicator with start/stop controls
+- **Open in Browser** for full-screen testing
+- **PR context** — branch, worktree path, and PR link always visible
+
+</td>
+</tr>
+
+<tr>
+<td width="55%"><img src="docs/poc/imgs/08-dev-environment-vscode-tab.png" alt="Embedded VS Code editor in dev environment" /></td>
+<td width="45%">
+
+### Integrated Dev Environment — Code Editor
+
+- **Embedded VS Code** with full editor capabilities
+- **Git worktree isolation** — each feature in its own directory, no branch conflicts
+- **File explorer** with project structure at a glance
+- **PR badge** with commits ahead/behind and changed file count
+- **Zero context-switch** — edit code without leaving the control center
+
+</td>
+</tr>
+
+<tr>
+<td width="55%"><img src="docs/poc/imgs/09-dev-environment-terminal-tab.png" alt="Terminal tab showing running dev server" /></td>
+<td width="45%">
+
+### Integrated Dev Environment — Terminal
+
+- **Full terminal access** inside the feature workspace
+- **Build output, test results, agent logs** in one place
+- **Pre-configured** in the feature's worktree directory
+- **Dev server output** — see Next.js/Vite/Express startup and compile times
+- **Three-tab workflow** — preview, code, and terminal without leaving the UI
+
+</td>
+</tr>
+</table>
+
+---
 
 ## Quick Start
 
 ```bash
+# Install
+npm i -g @shepai/cli
+
+# Start the background service
+shep start
+#  ➜  Local:   http://localhost:5173/
+#  Shep service is running in background, have fun!
+
+# Navigate to any repo
 cd ~/repos/your-project
-shep
+
+# Create your first feature
+shep feat new "Add user authentication with OAuth 2.0"
+
+# Open the control center
+shep ui
 ```
 
-Or explicitly initialize:
-
-```bash
-shep --init
-```
-
-This launches a TUI wizard to:
-
-1. Configure Claude Code authentication (setup token or use existing session)
-2. Start repository analysis
-3. Open the web UI at `http://localhost:4050/`
-
-## How It Works
-
-### Repository Analysis
-
-When you run `shep`, it performs comprehensive multi-perspective analysis of your codebase:
-
-- Architecture patterns and structure
-- Technology stack detection
-- Code conventions and style
-- Dependency mapping
-- Testing patterns
-- Documentation coverage
-
-Analysis results are persisted in `~/.shep/repos/<encoded-repo-path>/docs/` for instant access on subsequent runs.
-
-### Feature Lifecycle
-
-Every feature follows the SDLC lifecycle:
+## CLI
 
 ```
-Requirements → Plan → Implementation → Test → Deploy → Maintenance
+shep start                            Start background service
+shep feat new <description>           Create a new feature
+shep feat new --interactive           Interactive mode with human checkpoints
+shep feat new --allow-all             Full autonomous mode
+shep feat ls                          List features across repos
+shep feat show <id>                   Show feature details
+shep feat preview <id>                Preview feature dev environment
+shep ui                               Open the web control center
+shep settings show                    Display current configuration
+shep settings agent                   Configure AI coding agent
+shep mem add <text> --global|--repo   Add agent memory
+shep mem ls                           List memories
+shep version                          Version info
 ```
-
-#### 1. Requirements Phase
-
-Interactive chat-based gathering powered by repository context. The AI proposes relevant options based on your codebase analysis, ensuring no open questions remain.
-
-#### 2. Plan Phase
-
-Automatic breakdown into:
-
-- **Tasks** - High-level work items with dependencies
-- **Action Items** - Granular steps within tasks
-- **Artifacts** - Generated documentation (PRDs, RFCs, Design Docs, Tech Plans)
-
-#### 3. Implementation Phase
-
-Autonomous code generation using LangGraph agents, executing tasks according to the dependency graph.
-
-#### 4. Test → Deploy → Maintenance
-
-Continuous lifecycle management with AI assistance at every stage.
-
-## Spec-Driven Development
-
-All contributions follow our spec-driven workflow:
-
-```
-/shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → implement
-```
-
-Every feature begins with a specification in `specs/NNN-feature-name/` before any implementation code is written. See [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md) for details.
 
 ## Architecture
 
-Shep follows **Clean Architecture** principles:
+Clean Architecture with four layers. Dependencies point inward — domain has zero external deps.
 
 ```mermaid
 flowchart TB
@@ -132,15 +238,20 @@ flowchart TB
     style I fill:#ede9fe,stroke:#8b5cf6,color:#4c1d95
 ```
 
-### Data Persistence
+### Feature Lifecycle
 
-Uses **Repository Pattern** with SQLite:
+Every feature progresses through a structured SDLC pipeline:
 
-- Database location: `~/.shep/repos/<encoded-repo-path>/data`
-- Interface-driven design for testability
-- Supports future backend swaps
+```
+Requirements → Research → Review PRD → Planning → Review Plan → Implementation → QA → Approval → Live
+     ↑              ↑           ↑            ↑           ↑             ↑          ↑        ↑
+   Agent         Agent       Human        Agent       Human        Agent      Human    Human
+                           breakpoint                breakpoint               check    gate
+```
 
-## Tech Stack
+Breakpoints are configurable. In `--allow-all` mode, the agent handles everything autonomously.
+
+### Tech Stack
 
 | Component       | Technology                                                                              |
 | --------------- | --------------------------------------------------------------------------------------- |
@@ -157,22 +268,17 @@ Uses **Repository Pattern** with SQLite:
 | Embeddings      | [Transformers.js](https://huggingface.co/docs/transformers.js) (local, multiple models) |
 | Testing         | Vitest (unit/integration) + Playwright (e2e)                                            |
 | Methodology     | TDD (Red-Green-Refactor)                                                                |
-| Security        | Trivy, Gitleaks, Semgrep, Hadolint (CI gates)                                           |
 
-## Security
+### Data Model
 
-Automated security scanning runs on every push and PR:
+```
+Repository ──┬── Feature ──┬── Plan ──┬── Task ──── ActionItem
+             │             │          └── Artifact
+             │             └── Requirement ── Research
+             └── Analysis docs (cached)
+```
 
-| Scanner      | Purpose                                    |
-| ------------ | ------------------------------------------ |
-| **Trivy**    | Dependency & container vulnerability scans |
-| **Gitleaks** | Secret detection in git history            |
-| **Semgrep**  | SAST for TypeScript/JavaScript             |
-| **Hadolint** | Dockerfile best practices                  |
-
-Security gates **block releases** on main—all scanners must pass before npm publish and Docker push.
-
-See [CI/CD Documentation](./docs/development/cicd.md) for details.
+All data lives locally in `~/.shep/`. Per-repo SQLite databases. No cloud dependency.
 
 ## Documentation
 
@@ -191,28 +297,12 @@ See [CI/CD Documentation](./docs/development/cicd.md) for details.
 
 ## Contributing
 
-We welcome contributions! See [CONTRIBUTING.md](./CONTRIBUTING.md) for human contributors and [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md) for AI agents.
+We welcome contributions from humans and AI agents alike.
+
+- **Humans**: See [CONTRIBUTING.md](./CONTRIBUTING.md)
+- **AI Agents**: See [CONTRIBUTING-AGENTS.md](./CONTRIBUTING-AGENTS.md)
+- **Spec-driven workflow**: All features start with `/shep-kit:new-feature` — see [Spec-Driven Workflow](./docs/development/spec-driven-workflow.md)
 
 ## License
 
-MIT License - see [LICENSE](./LICENSE) for details.
-
----
-
-## Maintaining This Document
-
-**When to update:**
-
-- New major features or commands
-- Architecture changes
-- Tech stack updates
-- New documentation sections
-
-**Style guide:**
-
-- Keep Quick Start minimal (3-5 steps max)
-- Update badges when versions change
-- Ensure all internal links work
-- Test code examples
-
-**Related docs:** [CONTRIBUTING.md](./CONTRIBUTING.md), [docs/guides/getting-started.md](./docs/guides/getting-started.md)
+MIT — see [LICENSE](./LICENSE).

@@ -2,9 +2,9 @@
 
 # Shep AI
 
-### The Autonomous SDLC Platform
+### Manage Multiple AI Agent Sessions from One Place
 
-_From idea to deploy — orchestrate parallel feature development across repos with full visibility_
+_Control Claude Code, Cursor CLI, or any coding agent running across features — monitor progress, switch context, approve decisions — all from a single UI_
 
 [![CI](https://github.com/shep-ai/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/cli/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@shepai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shepai/cli)
@@ -28,7 +28,7 @@ _From idea to deploy — orchestrate parallel feature development across repos w
 
 ---
 
-Most AI coding tools help you write code faster. Shep manages the **entire development lifecycle** — requirements gathering, planning, autonomous implementation, testing, and deployment — across multiple repositories, in parallel, with you in control.
+Running AI agents is easy. **Managing many of them at once is the hard part.** Shep gives you a control center for all your agent sessions — see what each one is doing, jump into any session's web preview, code editor, or terminal, approve plans and requirements when agents need your input, and let them keep working while you move on. Plug in Claude Code, Cursor CLI, Gemini CLI, or any coding agent. Each feature gets its own isolated worktree and dev environment. You just manage.
 
 ```bash
 npm i -g @shepai/cli
@@ -122,8 +122,7 @@ shep ui
 
 ### Quality Assurance Gate
 
-- **Automated QA checklist** — functional, performance, security, compatibility, accessibility
-- **OWASP Top 10** security scan results inline
+- **Automated QA checklist** — functional, performance, compatibility, accessibility
 - **Performance benchmarks** — API response time p95 thresholds
 - **WCAG 2.5** accessibility compliance verification
 - **One-click Pass QA** when all checks are green
@@ -355,7 +354,6 @@ Breakpoints are configurable. In `--allow-all` mode, the agent handles everythin
 | Vector Search   | [LanceDB](https://lancedb.com/) + [Transformers.js](https://huggingface.co/docs/transformers.js) |
 | Domain Models   | [TypeSpec](https://typespec.io/) (source of truth → generated TS types) |
 | Testing         | Vitest + Playwright                                           |
-| Security        | Trivy, Gitleaks, Semgrep, Hadolint                            |
 
 ### Data Model
 
@@ -367,17 +365,6 @@ Repository ──┬── Feature ──┬── Plan ──┬── Task ─
 ```
 
 All data lives locally in `~/.shep/`. Per-repo SQLite databases. No cloud dependency.
-
-## Security
-
-Automated scanning runs on every push — all gates must pass before release:
-
-| Scanner      | Purpose                              |
-| ------------ | ------------------------------------ |
-| **Trivy**    | Dependency & container vulnerabilities |
-| **Gitleaks** | Secret detection in git history      |
-| **Semgrep**  | SAST for TypeScript/JavaScript       |
-| **Hadolint** | Dockerfile best practices            |
 
 ## Documentation
 
