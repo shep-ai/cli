@@ -49,7 +49,9 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
   }
 
   async execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult> {
-    const args = this.buildArgs(prompt, options);
+    // Use stream-json so we get real-time events in the worker log
+    // instead of zero output for minutes with --output-format json
+    const args = this.buildStreamArgs(prompt, options);
     const spawnOpts = this.buildSpawnOptions(options);
 
     this.log(
@@ -62,16 +64,22 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
 
     // Close stdin immediately — we pass the prompt via -p, not stdin.
-    // Without this, claude may wait for EOF on stdin before processing.
     if (proc.stdin) {
       proc.stdin.end();
     }
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
-      let stdout = '';
+      // Line-based parsing: only keep the data we need, not all of stdout
+      let lineBuffer = '';
       let stderr = '';
       let timedOut = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+      // Collected from the stream — only the final result line matters
+      let resultText = '';
+      let sessionId: string | undefined;
+      let usage: { inputTokens: number; outputTokens: number } | undefined;
+      let metadata: Record<string, unknown> | undefined;
 
       if (options?.timeout) {
         timeoutId = setTimeout(() => {
@@ -80,11 +88,39 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         }, options.timeout);
       }
 
+      const processLine = (line: string) => {
+        this.logStreamEvent(line);
+        try {
+          const parsed = JSON.parse(line);
+          if (parsed.type === 'result') {
+            resultText = parsed.result ?? '';
+            if (parsed.session_id) sessionId = parsed.session_id;
+            if (parsed.input_tokens !== undefined && parsed.output_tokens !== undefined) {
+              usage = { inputTokens: parsed.input_tokens, outputTokens: parsed.output_tokens };
+            }
+
+            const {
+              type: _t,
+              result: _r,
+              session_id: _s,
+              input_tokens: _it,
+              output_tokens: _ot,
+              ...rest
+            } = parsed;
+            if (Object.keys(rest).length > 0) metadata = rest;
+          }
+        } catch {
+          /* not JSON — already logged by logStreamEvent */
+        }
+      };
+
       proc.stdout?.on('data', (chunk: Buffer | string) => {
-        const data = chunk.toString();
-        stdout += data;
-        if (stdout.length <= 500) {
-          this.log(`stdout chunk (${data.length} bytes, total ${stdout.length})`);
+        lineBuffer += chunk.toString();
+        const lines = lineBuffer.split('\n');
+        lineBuffer = lines.pop() ?? '';
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed) processLine(trimmed);
         }
       });
 
@@ -101,9 +137,10 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
       });
 
       proc.on('close', (code: number | null) => {
-        this.log(
-          `Process closed with code ${code}, stdout=${stdout.length} bytes, stderr=${stderr.length} bytes`
-        );
+        // Flush remaining buffer
+        if (lineBuffer.trim()) processLine(lineBuffer.trim());
+
+        this.log(`Process closed with code ${code}, result=${resultText.length} chars`);
         if (timeoutId) clearTimeout(timeoutId);
 
         if (timedOut) {
@@ -116,7 +153,11 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
           return;
         }
 
-        resolve(this.parseJsonResult(stdout));
+        const result: AgentExecutionResult = { result: resultText };
+        if (sessionId) result.sessionId = sessionId;
+        if (usage) result.usage = usage;
+        if (metadata) result.metadata = metadata;
+        resolve(result);
       });
     });
   }
@@ -216,6 +257,46 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         return;
       }
       yield item;
+    }
+  }
+
+  /**
+   * Log a stream-json line as a human-readable event in the worker log.
+   * Extracts tool calls, assistant text, and result summaries.
+   */
+  private logStreamEvent(line: string): void {
+    try {
+      const parsed = JSON.parse(line);
+
+      // Assistant messages contain tool_use and text blocks
+      if (parsed.type === 'assistant' && Array.isArray(parsed.message?.content)) {
+        for (const block of parsed.message.content) {
+          if (block.type === 'tool_use') {
+            const inputPreview = JSON.stringify(block.input ?? {}).slice(0, 120);
+            this.log(`[tool] ${block.name} ${inputPreview}`);
+          } else if (block.type === 'text' && block.text?.trim()) {
+            const preview = block.text.trim().slice(0, 200).replace(/\n/g, ' ');
+            this.log(`[text] ${preview}`);
+          }
+        }
+        return;
+      }
+
+      // Final result — summary with session and token info
+      if (parsed.type === 'result') {
+        this.log(
+          `[result] ${(parsed.result ?? '').length} chars, session=${parsed.session_id ?? 'none'}`
+        );
+        if (parsed.input_tokens != null) {
+          this.log(`[tokens] ${parsed.input_tokens} in / ${parsed.output_tokens} out`);
+        }
+        return;
+      }
+    } catch {
+      // Non-JSON line — log it raw (truncated)
+      if (line.length > 0) {
+        this.log(`[raw] ${line.slice(0, 200)}`);
+      }
     }
   }
 

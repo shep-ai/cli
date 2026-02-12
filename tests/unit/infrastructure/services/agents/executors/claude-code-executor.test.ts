@@ -24,14 +24,17 @@ import { AgentType, AgentFeature } from '../../../../../../src/domain/generated/
  * when written to, avoiding buffering issues with Readable in paused mode.
  */
 function createMockChildProcess() {
+  const stdin = new PassThrough();
   const stdout = new PassThrough();
   const stderr = new PassThrough();
   const proc = new EventEmitter() as EventEmitter & {
+    stdin: PassThrough;
     stdout: PassThrough;
     stderr: PassThrough;
     pid: number;
     kill: ReturnType<typeof vi.fn>;
   };
+  proc.stdin = stdin;
   proc.stdout = stdout;
   proc.stderr = stderr;
   proc.pid = 12345;
@@ -39,15 +42,31 @@ function createMockChildProcess() {
   return proc;
 }
 
-/** Schedule data emission on next tick so handlers are registered first */
-function emitData(
+/**
+ * Build a stream-json result line (the format execute() now uses internally).
+ * execute() parses this from the stream to build AgentExecutionResult.
+ */
+function buildStreamResult(data: {
+  result?: string;
+  session_id?: string;
+  input_tokens?: number;
+  output_tokens?: number;
+  [key: string]: unknown;
+}): string {
+  return JSON.stringify({ type: 'result', ...data });
+}
+
+/** Emit stream-json lines followed by close */
+function emitStreamData(
   proc: ReturnType<typeof createMockChildProcess>,
-  stdoutData: string | null,
+  lines: string[],
   stderrData: string | null,
   exitCode: number | null
 ) {
   process.nextTick(() => {
-    if (stdoutData !== null) proc.stdout.write(stdoutData);
+    for (const line of lines) {
+      proc.stdout.write(`${line}\n`);
+    }
     proc.stdout.end();
     if (stderrData !== null) proc.stderr.write(stderrData);
     proc.stderr.end();
@@ -93,12 +112,12 @@ describe('ClaudeCodeExecutorService', () => {
   });
 
   describe('execute', () => {
-    it('should execute prompt and return result', async () => {
+    it('should execute prompt and return result from stream', async () => {
       // Arrange
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({
+      const resultLine = buildStreamResult({
         result: 'Analysis complete. Found 3 files.',
         session_id: 'sess-abc-123',
         cost_usd: 0.05,
@@ -107,7 +126,7 @@ describe('ClaudeCodeExecutorService', () => {
       });
 
       const executePromise = executor.execute('Analyze this codebase');
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       // Act
       const result = await executePromise;
@@ -115,25 +134,26 @@ describe('ClaudeCodeExecutorService', () => {
       // Assert
       expect(result.result).toBe('Analysis complete. Found 3 files.');
       expect(result.sessionId).toBe('sess-abc-123');
+      // execute() now uses stream-json format internally
       expect(mockSpawn).toHaveBeenCalledWith(
         'claude',
-        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'json']),
+        expect.arrayContaining(['-p', 'Analyze this codebase', '--output-format', 'stream-json']),
         expect.any(Object)
       );
     });
 
-    it('should parse session-id from JSON output', async () => {
+    it('should parse session-id from stream result', async () => {
       // Arrange
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({
+      const resultLine = buildStreamResult({
         result: 'Done',
         session_id: 'session-xyz-789',
       });
 
       const executePromise = executor.execute('Do something');
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       // Act
       const result = await executePromise;
@@ -142,23 +162,20 @@ describe('ClaudeCodeExecutorService', () => {
       expect(result.sessionId).toBe('session-xyz-789');
     });
 
-    it('should include usage data when present in output', async () => {
+    it('should include usage data when present in result', async () => {
       // Arrange
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({
+      const resultLine = buildStreamResult({
         result: 'Done',
         session_id: 'sess-1',
-        num_turns: 3,
-        cost_usd: 0.12,
-        duration_ms: 5000,
         input_tokens: 1500,
         output_tokens: 800,
       });
 
       const executePromise = executor.execute('Test prompt');
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       // Act
       const result = await executePromise;
@@ -176,7 +193,7 @@ describe('ClaudeCodeExecutorService', () => {
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
       const executePromise = executor.execute('Bad prompt');
-      emitData(mockProc, null, 'Error: Authentication failed', 1);
+      emitStreamData(mockProc, [], 'Error: Authentication failed', 1);
 
       // Act & Assert
       await expect(executePromise).rejects.toThrow('Authentication failed');
@@ -202,11 +219,11 @@ describe('ClaudeCodeExecutorService', () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({ result: 'Resumed', session_id: 'sess-resume' });
+      const resultLine = buildStreamResult({ result: 'Resumed', session_id: 'sess-resume' });
       const executePromise = executor.execute('Continue work', {
         resumeSession: 'prev-session-id',
       });
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       await executePromise;
 
@@ -223,9 +240,9 @@ describe('ClaudeCodeExecutorService', () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({ result: 'Done' });
+      const resultLine = buildStreamResult({ result: 'Done' });
       const executePromise = executor.execute('Test', { model: 'claude-sonnet-4-5-20250929' });
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       await executePromise;
 
@@ -242,11 +259,11 @@ describe('ClaudeCodeExecutorService', () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({ result: 'Done' });
+      const resultLine = buildStreamResult({ result: 'Done' });
       const executePromise = executor.execute('Test', {
         systemPrompt: 'You are a code reviewer',
       });
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       await executePromise;
 
@@ -263,11 +280,11 @@ describe('ClaudeCodeExecutorService', () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({ result: 'Done' });
+      const resultLine = buildStreamResult({ result: 'Done' });
       const executePromise = executor.execute('Test', {
         allowedTools: ['Read', 'Write', 'Bash'],
       });
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       await executePromise;
 
@@ -284,9 +301,9 @@ describe('ClaudeCodeExecutorService', () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({ result: 'Done' });
+      const resultLine = buildStreamResult({ result: 'Done' });
       const executePromise = executor.execute('Test', { maxTurns: 5 });
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       await executePromise;
 
@@ -304,21 +321,16 @@ describe('ClaudeCodeExecutorService', () => {
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
       const schema = { type: 'object', properties: { summary: { type: 'string' } } };
-      const jsonOutput = JSON.stringify({ result: '{"summary":"test"}' });
+      const resultLine = buildStreamResult({ result: '{"summary":"test"}' });
       const executePromise = executor.execute('Test', { outputSchema: schema });
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       await executePromise;
 
       // Assert
       expect(mockSpawn).toHaveBeenCalledWith(
         'claude',
-        expect.arrayContaining([
-          '--output-format',
-          'json',
-          '--json-schema',
-          JSON.stringify(schema),
-        ]),
+        expect.arrayContaining(['--json-schema', JSON.stringify(schema)]),
         expect.any(Object)
       );
     });
@@ -328,9 +340,9 @@ describe('ClaudeCodeExecutorService', () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
-      const jsonOutput = JSON.stringify({ result: 'Done' });
+      const resultLine = buildStreamResult({ result: 'Done' });
       const executePromise = executor.execute('Test', { cwd: '/some/project' });
-      emitData(mockProc, jsonOutput, null, 0);
+      emitStreamData(mockProc, [resultLine], null, 0);
 
       await executePromise;
 
@@ -364,20 +376,71 @@ describe('ClaudeCodeExecutorService', () => {
       vi.useRealTimers();
     });
 
-    it('should handle non-JSON output gracefully', async () => {
-      // Arrange
+    it('should handle empty result gracefully', async () => {
+      // Arrange — no result line emitted, just a close
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
 
       const executePromise = executor.execute('Test');
-      emitData(mockProc, 'Not valid JSON output', null, 0);
+      emitStreamData(mockProc, [], null, 0);
 
       // Act
       const result = await executePromise;
 
-      // Assert - should treat raw text as result
-      expect(result.result).toBe('Not valid JSON output');
+      // Assert — empty result, no crash
+      expect(result.result).toBe('');
       expect(result.sessionId).toBeUndefined();
+    });
+
+    it('should log tool calls from assistant messages in stream', async () => {
+      // Arrange
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const assistantLine = JSON.stringify({
+        type: 'assistant',
+        message: {
+          content: [
+            { type: 'tool_use', name: 'Read', input: { file_path: '/src/index.ts' } },
+            { type: 'text', text: 'Let me read the file...' },
+          ],
+        },
+      });
+      const resultLine = buildStreamResult({ result: 'Done', session_id: 'sess-1' });
+
+      const executePromise = executor.execute('Test');
+      emitStreamData(mockProc, [assistantLine, resultLine], null, 0);
+
+      // Act
+      const result = await executePromise;
+
+      // Assert — tool events were processed, result still correct
+      expect(result.result).toBe('Done');
+      expect(result.sessionId).toBe('sess-1');
+    });
+
+    it('should store metadata from result line', async () => {
+      // Arrange
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const resultLine = buildStreamResult({
+        result: 'Done',
+        session_id: 'sess-1',
+        input_tokens: 100,
+        output_tokens: 50,
+        cost_usd: 0.01,
+        num_turns: 1,
+      });
+
+      const executePromise = executor.execute('Test');
+      emitStreamData(mockProc, [resultLine], null, 0);
+
+      // Act
+      const result = await executePromise;
+
+      // Assert
+      expect(result.metadata).toEqual(expect.objectContaining({ cost_usd: 0.01, num_turns: 1 }));
     });
   });
 
