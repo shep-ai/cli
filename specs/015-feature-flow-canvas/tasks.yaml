@@ -5,43 +5,188 @@ name: feature-flow-canvas
 summary: Task breakdown for 015-feature-flow-canvas
 
 # Relationships
-relatedFeatures: []
-technologies: []
+relatedFeatures:
+  - '013-ui-arch'
+  - '014-ui-sidebar'
+technologies:
+  - '@xyflow/react ^12.10.0'
+  - React 19
+  - Tailwind CSS v4
+  - Storybook 8
 relatedLinks: []
 
 # Structured task list
 tasks:
   - id: task-1
-    title: { { TASK_1_TITLE } }
-    description: { { TASK_1_DESCRIPTION } }
+    title: 'Install @xyflow/react and configure CSS'
+    description: >
+      Install @xyflow/react in the web workspace. Add base.css import to
+      globals.css after the Tailwind import. Verify the package resolves and
+      the web app still builds.
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd:
-      red:
-        - Write tests for {{FEATURE_1}}
-      green:
-        - Implement {{FEATURE_1}} to pass tests
-      refactor:
-        - Extract helpers, improve naming
-    estimatedEffort: { { EFFORT_1 } }
+      - '@xyflow/react is in web package.json dependencies'
+      - 'globals.css imports @xyflow/react/dist/base.css after Tailwind'
+      - 'pnpm build:web passes'
+    tdd: null
+    estimatedEffort: S
 
   - id: task-2
-    title: { { TASK_2_TITLE } }
-    description: { { TASK_2_DESCRIPTION } }
+    title: 'Create FeatureNode types and state config'
+    description: >
+      Create feature-node-state-config.ts with FeatureNodeState type,
+      FeatureLifecyclePhase type, FeatureNodeData interface, FeatureNodeType,
+      and state config object mapping each state to colors and icons.
+      Create barrel export index.ts.
     state: Todo
     dependencies:
       - task-1
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd: null # No TDD for foundational/doc tasks
-    estimatedEffort: { { EFFORT_2 } }
+      - 'FeatureNodeState type exported with 5 states'
+      - 'FeatureLifecyclePhase type exported with 6 phases'
+      - 'FeatureNodeData interface exported with all required fields'
+      - 'FeatureNodeType alias exported'
+      - 'featureNodeStateConfig record exported with color/icon per state'
+      - 'pnpm typecheck:web passes'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-3
+    title: 'Implement FeatureNode component (TDD)'
+    description: >
+      TDD cycle: Write failing tests first, then implement the FeatureNode
+      custom React Flow node component matching the reference screenshots.
+      Card with left border, lifecycle label, name, description, featureId,
+      progress bar, action button, settings icon, and React Flow handles.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'All unit tests pass'
+      - 'Renders lifecycle phase label in uppercase'
+      - 'Renders feature name (bold, truncated)'
+      - 'Renders description (truncated)'
+      - 'Renders featureId and progress percentage'
+      - 'Renders progress bar colored by state'
+      - 'Left border colored by state'
+      - 'Action button calls onAction on click'
+      - 'Settings icon calls onSettings on click'
+      - 'React Flow Handle components present (source right, target left)'
+      - 'All 5 states render with correct colors'
+    tdd:
+      red:
+        - 'Write test: renders lifecycle phase label in uppercase'
+        - 'Write test: renders feature name and truncated description'
+        - 'Write test: renders featureId and progress percentage'
+        - 'Write test: renders progress bar'
+        - 'Write test: action button fires onAction callback'
+        - 'Write test: settings icon fires onSettings callback'
+        - 'Write test: renders Handle components'
+        - 'Write test: applies correct state colors (all 5 states)'
+      green:
+        - 'Implement FeatureNode component to pass all tests'
+        - 'Use featureNodeStateConfig for state-driven styling'
+        - 'Add Handle components with correct positions'
+      refactor:
+        - 'Extract sub-sections if component is too large'
+        - 'Ensure consistent Tailwind class ordering'
+    estimatedEffort: M
+
+  - id: task-4
+    title: 'Create FeatureNode Storybook stories'
+    description: >
+      Build comprehensive Storybook stories for the FeatureNode component:
+      Default, AllStates, AllLifecycles, WithAction, LongContent.
+      Use ReactFlowProvider decorator for Handle rendering.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Default story renders running state, requirements phase'
+      - 'AllStates story shows all 5 states in a grid'
+      - 'AllLifecycles story shows all 6 phases in a grid'
+      - 'WithAction story has working action/settings callbacks (Storybook actions)'
+      - 'LongContent story shows truncation behavior'
+      - 'All stories render without errors in Storybook'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-5
+    title: 'Implement FeatureFlowCanvas component (TDD)'
+    description: >
+      TDD cycle: Write failing tests first, then implement the FeatureFlowCanvas
+      component. Handles empty state (EmptyState + add button), populated state
+      (ReactFlow with feature nodes), and connected state (edges between nodes).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'All unit tests pass'
+      - 'Empty state shown when nodes array is empty'
+      - 'Empty state has "New Feature" button that calls onAddFeature'
+      - 'ReactFlow renders with provided nodes when non-empty'
+      - 'Edges render between connected nodes'
+      - 'onNodeAction callback forwarded to individual nodes'
+      - 'onNodeSettings callback forwarded to individual nodes'
+      - 'Background and Controls components present'
+    tdd:
+      red:
+        - 'Write test: renders empty state when nodes=[]'
+        - 'Write test: empty state button fires onAddFeature'
+        - 'Write test: renders ReactFlow with nodes when provided'
+        - 'Write test: renders edges between nodes'
+        - 'Write test: forwards onNodeAction/onNodeSettings to node data'
+      green:
+        - 'Implement FeatureFlowCanvas with empty state detection'
+        - 'Wire ReactFlow with nodeTypes registration'
+        - 'Forward callbacks to individual node data'
+        - 'Add Background and Controls'
+      refactor:
+        - 'Memoize nodeTypes and callback wiring'
+        - 'Extract helper for building node data with callbacks'
+    estimatedEffort: M
+
+  - id: task-6
+    title: 'Create FeatureFlowCanvas Storybook stories'
+    description: >
+      Build comprehensive Storybook stories for the canvas: Empty, SingleNode,
+      MultipleNodes, ConnectedNodes, Interactive. Use fullscreen layout and
+      full-height decorator.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Empty story shows empty state with add button'
+      - 'SingleNode story shows one feature node on canvas'
+      - 'MultipleNodes story shows 5-6 nodes in various states/phases'
+      - 'ConnectedNodes story shows nodes with edges between them'
+      - 'Interactive story has all callbacks wired to Storybook actions'
+      - 'Canvas is pannable and zoomable in all populated stories'
+      - 'All stories use layout: fullscreen'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-7
+    title: 'Build validation and cleanup'
+    description: >
+      Run all build and quality checks. Fix any issues.
+      Verify Storybook builds, Next.js builds, TypeScript checks, and ESLint.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm build:storybook passes'
+      - 'pnpm build:web passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm lint:web passes'
+      - 'No console warnings or errors in Storybook'
+    tdd: null
+    estimatedEffort: S
 
 # Total effort estimate
-totalEstimate: { { TOTAL_EFFORT } }
+totalEstimate: M (7 tasks, 2 TDD cycles)
 
 # Open questions
 openQuestions: []
@@ -55,28 +200,78 @@ content: |
 
   ## Task List
 
-  ### Phase 1: Foundation
+  ### Phase 1: Foundation (No Tests)
 
-  - [ ] {{TASK_1_DESCRIPTION}}
-  - [ ] {{TASK_2_DESCRIPTION}}
+  - [ ] **Task 1:** Install @xyflow/react and configure CSS
+    - Install in web workspace
+    - Import base.css in globals.css
+    - Verify build
 
-  ### Phase 2: Core Implementation (TDD Cycle)
+  ### Phase 2: Types + Config (No Tests)
+
+  - [ ] **Task 2:** Create FeatureNode types and state config
+    - FeatureNodeState, FeatureLifecyclePhase types
+    - FeatureNodeData interface, FeatureNodeType alias
+    - State config with colors/icons per state
+    - Barrel export
+
+  ### Phase 3: FeatureNode (TDD Cycle 1)
 
   **RED (Write Failing Tests First):**
 
-  - [ ] Write unit tests for {{FEATURE}}
+  - [ ] Test: renders lifecycle phase label in uppercase
+  - [ ] Test: renders feature name and truncated description
+  - [ ] Test: renders featureId and progress percentage
+  - [ ] Test: renders progress bar
+  - [ ] Test: action button fires onAction callback
+  - [ ] Test: settings icon fires onSettings callback
+  - [ ] Test: renders Handle components
+  - [ ] Test: applies correct state colors (all 5 states)
 
   **GREEN (Implement to Pass Tests):**
 
-  - [ ] Implement {{FEATURE}}
+  - [ ] **Task 3:** Implement FeatureNode component
 
   **REFACTOR (Clean Up):**
 
-  - [ ] Extract helpers and improve code quality
+  - [ ] Extract sub-sections if needed, clean Tailwind classes
+
+  ### Phase 4: FeatureNode Stories (No Tests)
+
+  - [ ] **Task 4:** Create FeatureNode Storybook stories
+    - Default, AllStates, AllLifecycles, WithAction, LongContent
+
+  ### Phase 5: FeatureFlowCanvas (TDD Cycle 2)
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Test: renders empty state when nodes=[]
+  - [ ] Test: empty state button fires onAddFeature
+  - [ ] Test: renders ReactFlow with nodes when provided
+  - [ ] Test: renders edges between nodes
+  - [ ] Test: forwards onNodeAction/onNodeSettings to node data
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] **Task 5:** Implement FeatureFlowCanvas component
+
+  **REFACTOR (Clean Up):**
+
+  - [ ] Memoize nodeTypes and callback wiring
+
+  ### Phase 6: Canvas Stories (No Tests)
+
+  - [ ] **Task 6:** Create FeatureFlowCanvas Storybook stories
+    - Empty, SingleNode, MultipleNodes, ConnectedNodes, Interactive
+
+  ### Phase 7: Validation
+
+  - [ ] **Task 7:** Build validation and cleanup
+    - Storybook build, Next.js build, typecheck, lint
 
   ## TDD Notes
 
-  - **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
+  - **MANDATORY**: Phases 3 and 5 follow RED -> GREEN -> REFACTOR
   - **RED**: Write failing tests FIRST (never skip this!)
   - **GREEN**: Write minimal code to pass tests
   - **REFACTOR**: Improve code while keeping tests green
@@ -93,10 +288,10 @@ content: |
 
   - [ ] All tasks completed
   - [ ] Tests passing (`pnpm test`)
-  - [ ] Linting clean (`pnpm lint`)
-  - [ ] Types valid (`pnpm typecheck`)
-  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-  - [ ] Documentation updated
+  - [ ] Linting clean (`pnpm lint:web`)
+  - [ ] Types valid (`pnpm typecheck:web`)
+  - [ ] Storybook builds (`pnpm build:storybook`)
+  - [ ] Web builds (`pnpm build:web`)
   - [ ] PR created and reviewed
 
   ---

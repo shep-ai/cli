@@ -5,33 +5,72 @@ name: feature-flow-canvas
 summary: Implementation plan for 015-feature-flow-canvas
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '013-ui-arch'
+  - '014-ui-sidebar'
+technologies:
+  - '@xyflow/react ^12.10.0'
+  - React 19
+  - Next.js 16
+  - Tailwind CSS v4
+  - Storybook 8
+relatedLinks:
+  - https://reactflow.dev/learn/customization/custom-nodes
+  - https://reactflow.dev/examples/styling/tailwind
 
 # Structured implementation phases
 phases:
   - id: phase-1
-    name: 'Foundation'
+    name: 'Foundation — Install @xyflow/react + CSS setup'
     parallel: false
     taskIds:
       - task-1
-      - task-2
   - id: phase-2
-    name: 'Core Implementation'
+    name: 'FeatureNode types + state config'
+    parallel: false
+    taskIds:
+      - task-2
+  - id: phase-3
+    name: 'FeatureNode component (TDD)'
     parallel: false
     taskIds:
       - task-3
+  - id: phase-4
+    name: 'FeatureNode Storybook stories'
+    parallel: false
+    taskIds:
       - task-4
+  - id: phase-5
+    name: 'FeatureFlowCanvas component (TDD)'
+    parallel: false
+    taskIds:
+      - task-5
+  - id: phase-6
+    name: 'FeatureFlowCanvas Storybook stories'
+    parallel: false
+    taskIds:
+      - task-6
+  - id: phase-7
+    name: 'Build validation + cleanup'
+    parallel: false
+    taskIds:
+      - task-7
 
 # File change tracking
 filesToCreate:
-  - src/domain/entities/{{ENTITY_NAME}}.ts
-  - tests/unit/domain/entities/{{ENTITY_NAME}}.test.ts
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/common/feature-node/index.ts
+  - src/presentation/web/components/features/feature-flow-canvas/feature-flow-canvas.tsx
+  - src/presentation/web/components/features/feature-flow-canvas/feature-flow-canvas.stories.tsx
+  - src/presentation/web/components/features/feature-flow-canvas/index.ts
+  - tests/unit/presentation/web/components/common/feature-node/feature-node.test.tsx
+  - tests/unit/presentation/web/components/features/feature-flow-canvas/feature-flow-canvas.test.tsx
 
 filesToModify:
-  - src/infrastructure/di/container.ts
-  - package.json
+  - src/presentation/web/package.json
+  - src/presentation/web/app/globals.css
 
 # Open questions (should all be resolved before implementation)
 openQuestions: []
@@ -46,35 +85,193 @@ content: |
   ## Architecture Overview
 
   ```
-  {{ARCHITECTURE_DIAGRAM}}
+  ┌─────────────────────────────────────────────────────────┐
+  │  FeatureFlowCanvas (features/ — Tier 3)                 │
+  │  ┌───────────────────────────────────────────────────┐  │
+  │  │  ReactFlow                                        │  │
+  │  │  ┌──────────────┐  ┌──────────────┐              │  │
+  │  │  │ FeatureNode  │──│ FeatureNode  │              │  │
+  │  │  │ (common/T1)  │  │ (common/T1)  │              │  │
+  │  │  └──────────────┘  └──────────────┘              │  │
+  │  │        │                                          │  │
+  │  │        ▼                                          │  │
+  │  │  ┌──────────────┐                                │  │
+  │  │  │ FeatureNode  │                                │  │
+  │  │  │ (common/T1)  │                                │  │
+  │  │  └──────────────┘                                │  │
+  │  └───────────────────────────────────────────────────┘  │
+  │  ┌──────────┐ ┌──────────┐ ┌──────────┐               │
+  │  │ MiniMap  │ │ Controls │ │Background│               │
+  │  └──────────┘ └──────────┘ └──────────┘               │
+  └─────────────────────────────────────────────────────────┘
+
+  Empty State (when nodes=[]):
+  ┌─────────────────────────────────────────────────────────┐
+  │                                                         │
+  │              ┌─────────────────┐                       │
+  │              │  + NEW FEATURE  │                       │
+  │              └─────────────────┘                       │
+  │                                                         │
+  └─────────────────────────────────────────────────────────┘
+  ```
+
+  ### Data Flow
+
+  ```
+  Props (nodes, edges, callbacks)
+       │
+       ▼
+  FeatureFlowCanvas
+       │
+       ├── useNodesState(nodes)   ← internal interactivity
+       ├── useEdgesState(edges)   ← internal interactivity
+       │
+       ▼
+  ReactFlow
+       │
+       ├── nodeTypes = { featureNode: FeatureNode }
+       ├── nodes → FeatureNode instances
+       ├── edges → default/smooth step edges
+       │
+       ▼
+  FeatureNode (custom node component)
+       │
+       ├── Handle (target, left)
+       ├── Card content (lifecycle, name, desc, id, progress)
+       ├── Action button → onAction callback
+       ├── Settings icon → onSettings callback
+       └── Handle (source, right)
   ```
 
   ## Implementation Strategy
 
-  **MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
+  **MANDATORY TDD**: Phases 3 and 5 follow RED-GREEN-REFACTOR cycles.
 
-  ### Phase 1: Foundation (No Tests)
+  ### Phase 1: Foundation — Install @xyflow/react + CSS setup (No Tests)
 
-  **Goal:** {{PHASE_1_GOAL}}
+  **Goal:** Add @xyflow/react dependency and import base.css.
 
   **Steps:**
 
-  1. {{STEP_1}}
-  2. {{STEP_2}}
+  1. Install `@xyflow/react` in the web workspace: `pnpm --filter @shepai/web add @xyflow/react`
+  2. Add `@import '@xyflow/react/dist/base.css';` to `globals.css` after Tailwind import
 
-  **Deliverables:** {{DELIVERABLES}}
+  **Deliverables:** @xyflow/react installed, base.css imported
 
-  ### Phase 2: Core Implementation (TDD Cycle 1)
+  ### Phase 2: FeatureNode types + state config (No Tests)
 
-  **Goal:** {{PHASE_2_GOAL}}
+  **Goal:** Define TypeScript types and state configuration for the node.
+
+  **Steps:**
+
+  1. Create `feature-node-state-config.ts` with:
+     - `FeatureNodeState` type: 'running' | 'action-required' | 'done' | 'blocked' | 'error'
+     - `FeatureLifecyclePhase` type: 'requirements' | 'plan' | 'implementation' | 'test' | 'deploy' | 'maintenance'
+     - `FeatureNodeData` interface (name, description, featureId, lifecycle, state, progress, onAction, onSettings)
+     - `FeatureNodeType` = Node<FeatureNodeData, 'featureNode'>
+     - State config object with color/icon mappings per state
+  2. Create barrel export `index.ts`
+
+  **Deliverables:** All types and config exported
+
+  ### Phase 3: FeatureNode component (TDD Cycle 1)
+
+  **Goal:** Build the custom React Flow node matching the reference screenshots.
 
   **TDD Workflow:**
 
-  1. **RED:** Write failing tests FIRST
-  2. **GREEN:** Implement minimal code to pass tests
-  3. **REFACTOR:** Improve code while keeping tests green
+  1. **RED:** Write failing tests for FeatureNode
+     - Renders lifecycle phase label in uppercase
+     - Renders feature name and description (truncated)
+     - Renders feature ID and progress percentage
+     - Renders progress bar with state-based color
+     - Shows action button and fires onAction callback on click
+     - Shows settings icon and fires onSettings callback on click
+     - Renders React Flow handles (source right, target left)
+     - Applies correct border/label color per state (all 5 states)
 
-  **Deliverables:** {{DELIVERABLES}}
+  2. **GREEN:** Implement FeatureNode component
+     - Card layout with left border color by state
+     - Top row: lifecycle label + settings icon
+     - Middle: name (bold, truncated) + description (truncated)
+     - Bottom row: featureId + progress percentage
+     - Progress bar under the card
+     - Floating action button (absolute positioned, right side)
+     - Handle components for edges
+
+  3. **REFACTOR:** Extract any shared utilities, ensure Tailwind classes are clean
+
+  **Deliverables:** FeatureNode renders correctly, all tests pass
+
+  ### Phase 4: FeatureNode Storybook stories (No Tests)
+
+  **Goal:** Create comprehensive Storybook stories for all node variants.
+
+  **Stories:**
+
+  1. **Default** — Running state, Requirements phase, typical content
+  2. **AllStates** — Grid of all 5 states (running, action-required, done, blocked, error)
+  3. **AllLifecycles** — Grid of all 6 lifecycle phases
+  4. **WithAction** — Node with action/settings callbacks wired to Storybook actions
+  5. **LongContent** — Node with very long name/description for truncation testing
+
+  **Decorator:** Wrap in ReactFlowProvider + ReactFlow for Handle rendering
+
+  **Deliverables:** All stories render correctly in Storybook
+
+  ### Phase 5: FeatureFlowCanvas component (TDD Cycle 2)
+
+  **Goal:** Build the canvas component with empty state and populated views.
+
+  **TDD Workflow:**
+
+  1. **RED:** Write failing tests for FeatureFlowCanvas
+     - Renders empty state with "New Feature" button when nodes=[]
+     - Fires onAddFeature when empty state button clicked
+     - Renders ReactFlow with provided nodes
+     - Renders edges between connected nodes
+     - Passes onAction/onSettings callbacks to nodes
+
+  2. **GREEN:** Implement FeatureFlowCanvas
+     - Accept nodes, edges, and callback props
+     - Empty state detection: show EmptyState component when nodes.length === 0
+     - Populated state: ReactFlow with nodeTypes, nodes, edges
+     - Wire onNodeAction/onNodeSettings to individual node data callbacks
+     - Add Background, Controls components
+
+  3. **REFACTOR:** Clean up, ensure proper memo/callback optimization
+
+  **Deliverables:** Canvas works in empty and populated modes, all tests pass
+
+  ### Phase 6: FeatureFlowCanvas Storybook stories (No Tests)
+
+  **Goal:** Create canvas stories for all view modes.
+
+  **Stories:**
+
+  1. **Empty** — No nodes, empty state with + button (layout: fullscreen)
+  2. **SingleNode** — One feature node centered
+  3. **MultipleNodes** — 5-6 nodes in various states/phases across canvas
+  4. **ConnectedNodes** — Nodes connected with edges showing dependencies
+  5. **Interactive** — Full interactive canvas with all callbacks wired
+
+  **Decorator:** Wrap in `<div style={{ height: '100vh' }}>` for full-height canvas
+
+  **Deliverables:** All stories render correctly in Storybook
+
+  ### Phase 7: Build validation + cleanup (No Tests)
+
+  **Goal:** Ensure everything builds and passes quality checks.
+
+  **Steps:**
+
+  1. Run `pnpm build:storybook` — verify Storybook builds
+  2. Run `pnpm build:web` — verify Next.js builds
+  3. Run `pnpm typecheck:web` — verify TypeScript
+  4. Run `pnpm lint:web` — verify ESLint
+  5. Fix any issues found
+
+  **Deliverables:** Clean builds, no lint/type errors
 
   ## Files to Create/Modify
 
@@ -82,13 +279,22 @@ content: |
 
   | File | Purpose |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{PURPOSE}} |
+  | `components/common/feature-node/feature-node-state-config.ts` | Types + state config (colors, icons) |
+  | `components/common/feature-node/feature-node.tsx` | Custom React Flow node component |
+  | `components/common/feature-node/feature-node.stories.tsx` | Storybook stories for node variants |
+  | `components/common/feature-node/index.ts` | Barrel export |
+  | `components/features/feature-flow-canvas/feature-flow-canvas.tsx` | Canvas with ReactFlow + empty state |
+  | `components/features/feature-flow-canvas/feature-flow-canvas.stories.tsx` | Canvas Storybook stories |
+  | `components/features/feature-flow-canvas/index.ts` | Barrel export |
+  | `tests/unit/.../feature-node.test.tsx` | FeatureNode unit tests |
+  | `tests/unit/.../feature-flow-canvas.test.tsx` | FeatureFlowCanvas unit tests |
 
   ### Modified Files
 
   | File | Changes |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{CHANGES}} |
+  | `src/presentation/web/package.json` | Add @xyflow/react dependency |
+  | `src/presentation/web/app/globals.css` | Import @xyflow/react/dist/base.css |
 
   ## Testing Strategy (TDD: Tests FIRST)
 
@@ -97,19 +303,31 @@ content: |
   ### Unit Tests (RED -> GREEN -> REFACTOR)
 
   Write FIRST for:
-  - {{TEST_AREA_1}}
-  - {{TEST_AREA_2}}
+  - FeatureNode rendering (lifecycle label, name, description, featureId, progress)
+  - FeatureNode state visual variants (all 5 states)
+  - FeatureNode callback props (onAction, onSettings)
+  - FeatureFlowCanvas empty state rendering
+  - FeatureFlowCanvas populated state rendering
+  - FeatureFlowCanvas callback forwarding
 
-  ### Integration Tests
+  ### Storybook Visual Tests
 
-  Write FIRST for:
-  - {{INTEGRATION_TEST_1}}
+  Visual coverage for:
+  - All 5 node states with distinct colors
+  - All 6 lifecycle phases
+  - Content truncation behavior
+  - Empty canvas with CTA
+  - Multi-node canvas
+  - Connected node canvas with edges
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | {{RISK}} | {{MITIGATION}} |
+  | React Flow requires explicit container height | Use h-full/h-screen Tailwind classes, test in Storybook with fullscreen layout |
+  | React Flow SSR hydration mismatch | Use 'use client' directive on all React Flow components |
+  | Handle components need ReactFlow context | Wrap Storybook stories in ReactFlowProvider decorator |
+  | base.css may conflict with Tailwind reset | Import base.css after Tailwind in globals.css, test early |
 
   ---
 
