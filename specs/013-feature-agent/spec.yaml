@@ -188,4 +188,74 @@ content: |
 
   ---
 
+  ## Agent Observability & Management (Follow-up Enhancement)
+
+  ### Problem
+  Background feature agent workers were spawning but providing zero visibility:
+  - No logging → worker appeared stuck
+  - No heartbeat → couldn't distinguish alive from dead processes
+  - No CLI management → no way to stop, view logs, or clean up agent runs
+  - Dead processes showed as "running" in `agent list`
+
+  ### Solution: Agent Management CLI Commands
+
+  | Command | Usage | Description |
+  |---------|-------|-------------|
+  | `shep agent stop <id>` | Stop a running agent | Sends SIGTERM, marks as cancelled |
+  | `shep agent logs <id> [-f] [-n N]` | View agent logs | Print or follow log file |
+  | `shep agent delete <id> [--force]` | Delete run record | Remove from DB (--force kills first) |
+  | `shep agent list` | List all runs | Now auto-detects dead PIDs as "crashed" |
+  | `shep agent show <id>` | Show run details | Now shows current node, heartbeat, PID liveness |
+
+  ### Worker Observability Infrastructure
+
+  - **Heartbeat**: Worker updates `last_heartbeat` in DB every 30 seconds
+  - **Current Node Tracking**: Each graph node reports its name to DB via `reportNodeStart()`
+  - **Process Liveness**: `list` and `show` commands check `process.kill(pid, 0)` to detect dead workers
+  - **Logging Foundation**: All graph nodes use shared `createNodeLogger()` + `executeNode()` wrapper
+  - **Log Files**: Written to `~/.shep/logs/worker-{runId}.log` with timestamps
+
+  ### Architecture
+
+  ```
+  Use Cases:
+    StopAgentRunUseCase  → SIGTERM + mark cancelled
+    DeleteAgentRunUseCase → guard running, then delete
+
+  CLI Commands (presentation/cli/commands/agent/):
+    stop.command.ts   → resolveAgentRun() + StopAgentRunUseCase
+    logs.command.ts   → resolveAgentRun() + read/follow log file
+    delete.command.ts → resolveAgentRun() + DeleteAgentRunUseCase
+    resolve-run.ts    → shared prefix-match ID resolution
+
+  Worker Infrastructure:
+    heartbeat.ts      → module-level singleton for node tracking
+    node-helpers.ts   → executeNode() calls reportNodeStart()
+    feature-agent-worker.ts → startHeartbeat() + setHeartbeatContext()
+  ```
+
+  ### Files Added/Modified
+
+  **New Files:**
+  - `src/application/use-cases/agents/stop-agent-run.use-case.ts`
+  - `src/application/use-cases/agents/delete-agent-run.use-case.ts`
+  - `src/presentation/cli/commands/agent/stop.command.ts`
+  - `src/presentation/cli/commands/agent/logs.command.ts`
+  - `src/presentation/cli/commands/agent/delete.command.ts`
+  - `src/presentation/cli/commands/agent/resolve-run.ts`
+  - `src/infrastructure/services/agents/feature-agent/heartbeat.ts`
+  - `tests/unit/application/use-cases/agents/stop-agent-run.use-case.test.ts`
+  - `tests/unit/application/use-cases/agents/delete-agent-run.use-case.test.ts`
+  - `tests/unit/infrastructure/services/agents/heartbeat.test.ts`
+
+  **Modified Files:**
+  - `src/presentation/cli/commands/agent/index.ts` — register new commands
+  - `src/presentation/cli/commands/agent/list.command.ts` — liveness detection
+  - `src/presentation/cli/commands/agent/show.command.ts` — current node, heartbeat, PID liveness
+  - `src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` — heartbeat + setHeartbeatContext
+  - `src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts` — reportNodeStart
+  - `src/infrastructure/di/container.ts` — register new use cases
+
+  ---
+
   _Specification created with `/shep-kit:new-feature` — proceed with `/shep-kit:research`_

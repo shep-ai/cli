@@ -68,6 +68,8 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
       throw new Error('Failed to spawn feature agent worker: no PID returned');
     }
 
+    // Disconnect IPC so parent can exit cleanly without breaking the child
+    child.disconnect();
     child.unref();
     return child.pid;
   }

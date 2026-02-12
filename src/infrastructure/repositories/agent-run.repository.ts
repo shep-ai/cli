@@ -15,6 +15,17 @@ import {
   type AgentRunRow,
 } from '../persistence/sqlite/mappers/agent-run.mapper.js';
 
+/** Convert a Date, ISO string, or number to a Unix timestamp (ms). Returns null for invalid input. */
+function toTimestamp(value: unknown): number | null {
+  if (value instanceof Date) return value.getTime();
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') {
+    const ms = new Date(value).getTime();
+    return Number.isNaN(ms) ? null : ms;
+  }
+  return null;
+}
+
 /**
  * SQLite implementation of IAgentRunRepository.
  * Manages AgentRun persistence with CRUD operations.
@@ -74,7 +85,7 @@ export class SQLiteAgentRunRepository implements IAgentRunRepository {
     const params: Record<string, unknown> = {
       id,
       status,
-      updated_at: updates?.updatedAt instanceof Date ? updates.updatedAt.getTime() : Date.now(),
+      updated_at: toTimestamp(updates?.updatedAt) ?? Date.now(),
     };
 
     if (updates?.result !== undefined) {
@@ -94,19 +105,17 @@ export class SQLiteAgentRunRepository implements IAgentRunRepository {
 
     if (updates?.lastHeartbeat !== undefined) {
       setClauses.push('last_heartbeat = @last_heartbeat');
-      params.last_heartbeat =
-        updates.lastHeartbeat instanceof Date ? updates.lastHeartbeat.getTime() : null;
+      params.last_heartbeat = toTimestamp(updates.lastHeartbeat);
     }
 
     if (updates?.startedAt !== undefined) {
       setClauses.push('started_at = @started_at');
-      params.started_at = updates.startedAt instanceof Date ? updates.startedAt.getTime() : null;
+      params.started_at = toTimestamp(updates.startedAt);
     }
 
     if (updates?.completedAt !== undefined) {
       setClauses.push('completed_at = @completed_at');
-      params.completed_at =
-        updates.completedAt instanceof Date ? updates.completedAt.getTime() : null;
+      params.completed_at = toTimestamp(updates.completedAt);
     }
 
     if (updates?.error !== undefined) {

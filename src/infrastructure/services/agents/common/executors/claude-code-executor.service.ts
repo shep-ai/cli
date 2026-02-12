@@ -194,7 +194,7 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
   }
 
   private buildArgs(prompt: string, options?: AgentExecutionOptions): string[] {
-    const args = ['-p', prompt, '--output-format', 'json'];
+    const args = ['-p', prompt, '--output-format', 'json', '--dangerously-skip-permissions'];
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
     if (options?.model) args.push('--model', options.model);
     if (options?.systemPrompt) args.push('--append-system-prompt', options.systemPrompt);

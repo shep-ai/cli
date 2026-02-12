@@ -2,23 +2,28 @@
  * Agent List Command
  *
  * List all agent runs with their status, PID, and other relevant details.
+ * Auto-detects dead PIDs and shows them as "crashed" instead of "running".
  *
  * Usage:
  *   shep agent list
- *
- * @example
- * $ shep agent list
  */
 
 import { Command } from 'commander';
 import { container } from '../../../../infrastructure/di/container.js';
 import { ListAgentRunsUseCase } from '../../../../application/use-cases/agents/list-agent-runs.use-case.js';
 import { colors, messages, fmt } from '../../ui/index.js';
+import type { AgentRun } from '../../../../domain/generated/output.js';
 import Table from 'cli-table3';
 
-/**
- * Create the agent list command
- */
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export function createListCommand(): Command {
   return new Command('list').description('List all agent runs').action(async () => {
     try {
@@ -47,27 +52,18 @@ export function createListCommand(): Command {
         ],
         style: { head: [], border: ['cyan'] },
         wordWrap: true,
-        colWidths: [10, 18, 12, 16, 8, 30],
+        colWidths: [10, 18, 14, 16, 8, 30],
       });
 
-      const formatDate = (date?: string) => {
-        if (!date) return '-';
-        try {
-          return new Date(date).toLocaleString();
-        } catch {
-          return date;
-        }
-      };
-
       agentRuns.forEach((run) => {
-        const warnings = getWarnings(run);
+        const liveness = getLiveness(run);
         table.push([
           run.id.substring(0, 8),
           run.agentName,
-          getStatusColor(run.status),
+          liveness.displayStatus,
           getDuration(run),
           run.pid ? colors.info(String(run.pid)) : colors.muted('-'),
-          warnings,
+          liveness.warning,
         ]);
       });
 
@@ -83,15 +79,44 @@ export function createListCommand(): Command {
   });
 }
 
-function getStatusColor(status: string): string {
-  const statusColors = {
-    pending: colors.muted(status),
-    running: colors.info(status),
-    completed: colors.success(status),
-    failed: colors.error(status),
-  } as Record<string, string>;
+function getLiveness(run: AgentRun): { displayStatus: string; warning: string } {
+  const isActive = run.status === 'running' || run.status === 'pending';
 
-  return statusColors[status] || colors.muted(status);
+  // Check if a "running" process is actually dead
+  if (isActive && run.pid) {
+    if (!isProcessAlive(run.pid)) {
+      return {
+        displayStatus: colors.error('crashed'),
+        warning: colors.error(`PID ${run.pid} dead`),
+      };
+    }
+  }
+
+  // Status color mapping
+  const statusColors: Record<string, string> = {
+    pending: colors.muted(run.status),
+    running: colors.info(run.status),
+    completed: colors.success(run.status),
+    failed: colors.error(run.status),
+    interrupted: colors.error(run.status),
+    cancelled: colors.muted(run.status),
+  };
+
+  const displayStatus = statusColors[run.status] || colors.muted(run.status);
+  let warning = '-';
+
+  if (run.status === 'pending' && !run.startedAt) {
+    const createdTime = new Date(run.createdAt).getTime();
+    const durationHours = (Date.now() - createdTime) / (1000 * 60 * 60);
+
+    if (durationHours > 24) {
+      warning = colors.error('STUCK (>24h)');
+    } else if (durationHours > 1) {
+      warning = colors.error('SLOW (>1h)');
+    }
+  }
+
+  return { displayStatus, warning };
 }
 
 function getDuration(run: {
@@ -102,9 +127,7 @@ function getDuration(run: {
 }): string {
   if (run.status === 'pending' && !run.startedAt) {
     const createdTime = new Date(run.createdAt).getTime();
-    const now = Date.now();
-    const durationMs = now - createdTime;
-    return formatDurationShort(durationMs);
+    return formatDurationShort(Date.now() - createdTime);
   }
 
   if (run.startedAt && run.completedAt) {
@@ -115,8 +138,7 @@ function getDuration(run: {
 
   if (run.startedAt) {
     const startTime = new Date(run.startedAt).getTime();
-    const now = Date.now();
-    return formatDurationShort(now - startTime);
+    return formatDurationShort(Date.now() - startTime);
   }
 
   return '-';
@@ -128,32 +150,8 @@ function formatDurationShort(ms: number): string {
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (days > 0) {
-    return `${days}d ${hours % 24}h`;
-  }
-  if (hours > 0) {
-    return `${hours}h ${minutes % 60}m`;
-  }
-  if (minutes > 0) {
-    return `${minutes}m`;
-  }
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m`;
   return `${seconds}s`;
-}
-
-function getWarnings(run: { status: string; createdAt: string; startedAt?: string }): string {
-  if (run.status === 'pending' && !run.startedAt) {
-    const createdTime = new Date(run.createdAt).getTime();
-    const now = Date.now();
-    const durationMs = now - createdTime;
-    const durationHours = durationMs / (1000 * 60 * 60);
-
-    if (durationHours > 24) {
-      return colors.error('⚠️  STUCK (>24h)');
-    }
-    if (durationHours > 1) {
-      return colors.error('⚠️  SLOW (>1h)');
-    }
-  }
-
-  return '-';
 }

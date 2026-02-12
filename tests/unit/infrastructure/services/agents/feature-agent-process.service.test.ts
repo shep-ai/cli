@@ -102,19 +102,19 @@ describe('FeatureAgentProcessService', () => {
       expect(args).toContain('/repo/specs/001');
     });
 
-    it('should fork with detached mode and ignored stdio', () => {
+    it('should fork with detached mode and log file stdio', () => {
       service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001');
 
       const options = mockFork.mock.calls[0][2];
-      expect(options).toMatchObject({
-        detached: true,
-        stdio: 'ignore',
-      });
+      expect(options).toMatchObject({ detached: true });
+      // stdio should be an array with [ignore, logFd, logFd, ipc]
+      expect(options.stdio).toEqual(expect.arrayContaining(['ignore', 'ipc']));
     });
 
-    it('should call unref() to allow parent to exit independently', () => {
+    it('should disconnect IPC and unref to allow parent to exit independently', () => {
       service.spawn('feat-1', 'run-1', '/repo', '/repo/specs/001');
 
+      expect(mockChildProcess.disconnect).toHaveBeenCalledTimes(1);
       expect(mockChildProcess.unref).toHaveBeenCalledTimes(1);
     });
 

@@ -59,6 +59,8 @@ import { ValidateAgentAuthUseCase } from '../../application/use-cases/agents/val
 import { RunAgentUseCase } from '../../application/use-cases/agents/run-agent.use-case.js';
 import { GetAgentRunUseCase } from '../../application/use-cases/agents/get-agent-run.use-case.js';
 import { ListAgentRunsUseCase } from '../../application/use-cases/agents/list-agent-runs.use-case.js';
+import { StopAgentRunUseCase } from '../../application/use-cases/agents/stop-agent-run.use-case.js';
+import { DeleteAgentRunUseCase } from '../../application/use-cases/agents/delete-agent-run.use-case.js';
 import { CreateFeatureUseCase } from '../../application/use-cases/features/create-feature.use-case.js';
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
@@ -163,6 +165,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(RunAgentUseCase);
   container.registerSingleton(GetAgentRunUseCase);
   container.registerSingleton(ListAgentRunsUseCase);
+  container.registerSingleton(StopAgentRunUseCase);
+  container.registerSingleton(DeleteAgentRunUseCase);
   container.registerSingleton(CreateFeatureUseCase);
   container.registerSingleton(ListFeaturesUseCase);
   container.registerSingleton(ShowFeatureUseCase);
