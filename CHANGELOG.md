@@ -1,3 +1,36 @@
+# [1.14.0](https://github.com/shep-ai/cli/compare/v1.13.0...v1.14.0) (2026-02-12)
+
+### Bug Fixes
+
+- **web:** add fade-in animation on sidebar expand ([746acc8](https://github.com/shep-ai/cli/commit/746acc888c847885c74f6a0e7bcb8e2328bc680a))
+- address pr [#46](https://github.com/shep-ai/cli/issues/46) review feedback (code changes) ([5e14d07](https://github.com/shep-ai/cli/commit/5e14d0765a653a6be1be492a2a6ad174f60e85a1))
+- build with tailwinds ([7d9b38d](https://github.com/shep-ai/cli/commit/7d9b38dc573a6ecadd4ab8217b3cf82c07697b3e))
+- **deps:** bump storybook to 8.6.15 for env variable exposure vulnerability ([8c27b7b](https://github.com/shep-ai/cli/commit/8c27b7b1b6d55c43a4944c9062b90b91f4dd5104))
+- **web:** features section opacity-only collapse, no position/size animation ([53cf464](https://github.com/shep-ai/cli/commit/53cf46409192cb3beb0fba1a189a20ac93c05232))
+- **web:** fix docker build and add test ids to sidebar components ([41d1078](https://github.com/shep-ai/cli/commit/41d1078c6a18986d924f059487e0b28558c97f48))
+- **web:** fix resize observer mock and css formatting ([781d912](https://github.com/shep-ai/cli/commit/781d912f4ebae6868760daa629d81478b6ac67d4))
+- **config:** ignore docs/poc in prettier to fix format check ([f531635](https://github.com/shep-ai/cli/commit/f531635792219e7d166e5162b757743a2f2f818f))
+- **web:** mock next.js in storybook for layout components ([157e6c0](https://github.com/shep-ai/cli/commit/157e6c00cfa98c6461208074513d46e4bb6afc56))
+- symlink .cursor ([4ce6e46](https://github.com/shep-ai/cli/commit/4ce6e466197712f3689b779d640518c94cdeeb3f))
+- tests ([5ffd2bb](https://github.com/shep-ai/cli/commit/5ffd2bbaac1abfc63540cc4ac2529bc6f1f17fee))
+- **web:** use deferred mount for sidebar logo fade animation ([d7e626e](https://github.com/shep-ai/cli/commit/d7e626eb865944d6eb6ed86b557ae5d5e4b730e6))
+
+### Features
+
+- **specs:** add 014-ui-sidebar implementation plan ([053e727](https://github.com/shep-ai/cli/commit/053e727e5a96e8e2eef25116065584e365ad831b))
+- **specs:** add 014-ui-sidebar research ([2eb903e](https://github.com/shep-ai/cli/commit/2eb903ee6a105b50268e8285e26cb3d2372e6596))
+- **specs:** add 014-ui-sidebar specification ([d9d5c0b](https://github.com/shep-ai/cli/commit/d9d5c0b8e31b4f0816c501b43d9723d840db0581))
+- **specs:** add 014-ui-sidebar specification ([bd42fba](https://github.com/shep-ai/cli/commit/bd42fba40965b306da4d5c28851e756688aa8c1e))
+- **web:** add collapsible sidebar with icon mode and tooltips ([6696abc](https://github.com/shep-ai/cli/commit/6696abcf7b34179a5cb36e23c2163d367def0d4a))
+- **web:** add elapsed-time and sidebar-nav-item components with tests ([9b88517](https://github.com/shep-ai/cli/commit/9b8851769cf36cd2d6b41fb89daf1ba0cb31d68c))
+- **web:** add feature list, status group, and app sidebar components ([11bcab3](https://github.com/shep-ai/cli/commit/11bcab3eb1ad6ec9a367005e80b00421a9fa915b))
+- **web:** add sidebar foundation with shadcn primitives and barrel exports ([ea70c6c](https://github.com/shep-ai/cli/commit/ea70c6c067f7a8dfa4f97aef62be2270ff11e8f9))
+- **web:** add status badge summary for collapsed sidebar ([3b4d4e6](https://github.com/shep-ai/cli/commit/3b4d4e60c2dd4d3a5c6b50345b850ac99869564c))
+- **dx:** enhance poc ui components and remove outdated screenshots ([71f73ba](https://github.com/shep-ai/cli/commit/71f73bac5bdf0a476f98a6327be9a56ba383d0c7))
+- **web:** polish sidebar visual hierarchy, density, and interactions ([cb02685](https://github.com/shep-ai/cli/commit/cb02685fd6238cac3afbb55d78198f02b42206e2))
+- **poc:** show repo on canvas when selected - no ideas ([a112189](https://github.com/shep-ai/cli/commit/a1121893014502196198c7118de8ff63f4b5ca59))
+- **specs:** update 014-ui-sidebar specs to reflect completed 013-ui-arch ([28765d8](https://github.com/shep-ai/cli/commit/28765d8ca5f31614180b707394ab4694155e2f96))
+
 # [1.13.0](https://github.com/shep-ai/cli/compare/v1.12.0...v1.13.0) (2026-02-11)
 
 ### Bug Fixes
