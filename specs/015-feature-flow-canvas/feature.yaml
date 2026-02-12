@@ -3,18 +3,20 @@ feature:
   name: 'feature-flow-canvas'
   number: 15
   branch: 'feat/015-feature-flow-canvas'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-12T13:32:31Z'
 
 status:
-  phase: 'ready-for-review'
+  phase: 'in-review'
   progress:
     completed: 7
     total: 7
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-12T16:00:00Z'
-  lastUpdatedBy: 'shep-kit:implement'
+  lastUpdated: '2026-02-12T16:05:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/47'
 
 validation:
   lastRun: '2026-02-12T15:56:00Z'
@@ -44,6 +46,9 @@ checkpoints:
   - phase: 'implementation-complete'
     completedAt: '2026-02-12T16:00:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-12T16:05:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
