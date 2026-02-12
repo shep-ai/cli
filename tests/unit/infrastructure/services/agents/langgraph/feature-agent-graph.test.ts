@@ -14,8 +14,9 @@ import type { IAgentExecutor } from '../../../../../../src/application/ports/out
 import type { AgentType } from '../../../../../../src/domain/generated/output.js';
 
 // Use vi.hoisted so the mock fn is available when vi.mock factory runs (hoisted to top)
-const { mockReadFileSync } = vi.hoisted(() => ({
+const { mockReadFileSync, mockWriteFileSync } = vi.hoisted(() => ({
   mockReadFileSync: vi.fn(),
+  mockWriteFileSync: vi.fn(),
 }));
 
 vi.mock('node:fs', async (importOriginal) => {
@@ -23,10 +24,59 @@ vi.mock('node:fs', async (importOriginal) => {
   const actual = await importOriginal<typeof import('node:fs')>();
   return {
     ...actual,
-    default: { ...actual, readFileSync: mockReadFileSync },
+    default: { ...actual, readFileSync: mockReadFileSync, writeFileSync: mockWriteFileSync },
     readFileSync: mockReadFileSync,
+    writeFileSync: mockWriteFileSync,
   };
 });
+
+const MOCK_PLAN_YAML = `name: test
+phases:
+  - id: phase-1
+    name: 'Test Phase'
+    parallel: false
+    taskIds:
+      - task-1
+`;
+
+const MOCK_TASKS_YAML = `name: test
+tasks:
+  - id: task-1
+    title: Test Task
+    description: A test task
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - It works
+    tdd: null
+    estimatedEffort: 15min
+`;
+
+const MOCK_FEATURE_YAML = `feature:
+  id: test
+status:
+  phase: planning
+  progress:
+    completed: 0
+    total: 1
+    percentage: 0
+`;
+
+/**
+ * Set up mockReadFileSync to return valid YAML for all spec files.
+ * Returns 'name: test' for spec/research, and proper structured YAML
+ * for plan/tasks/feature so the implement node can parse them.
+ */
+function setupSpecFileMocks(): void {
+  mockReadFileSync.mockImplementation((path: string) => {
+    if (typeof path === 'string') {
+      if (path.endsWith('plan.yaml')) return MOCK_PLAN_YAML;
+      if (path.endsWith('tasks.yaml')) return MOCK_TASKS_YAML;
+      if (path.endsWith('feature.yaml')) return MOCK_FEATURE_YAML;
+    }
+    return 'name: test\ndescription: A test feature';
+  });
+}
 
 import {
   createFeatureAgentGraph,
@@ -54,7 +104,7 @@ describe('FeatureAgentAnnotation', () => {
 describe('FeatureAgentAnnotation - approvalMode', () => {
   it('should support approvalMode in state', async () => {
     const mockExec = createMockExecutor();
-    mockReadFileSync.mockReturnValue('name: test');
+    setupSpecFileMocks();
     const checkpointer = new MemorySaver();
     const compiled = createFeatureAgentGraph(mockExec, checkpointer);
 
@@ -75,7 +125,7 @@ describe('FeatureAgentAnnotation - approvalMode', () => {
 
   it('should default approvalMode to undefined when not provided', async () => {
     const mockExec = createMockExecutor();
-    mockReadFileSync.mockReturnValue('name: test');
+    setupSpecFileMocks();
     const checkpointer = new MemorySaver();
     const compiled = createFeatureAgentGraph(mockExec, checkpointer);
 
@@ -143,7 +193,7 @@ describe('createFeatureAgentGraph', () => {
 
   describe('node execution with executor', () => {
     it('should call executor.execute for each node', async () => {
-      mockReadFileSync.mockReturnValue('name: test-feature\ndescription: A test feature');
+      setupSpecFileMocks();
 
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
 
@@ -157,15 +207,15 @@ describe('createFeatureAgentGraph', () => {
         { configurable: { thread_id: 'test-thread-1' } }
       );
 
-      // 4 nodes call executor (implement is a placeholder that skips it)
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(4);
+      // 4 earlier nodes + 1 implement phase = 5 executor calls
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(5);
       expect(result.currentNode).toBe('implement');
       expect(result.messages).toContainEqual(expect.stringContaining('[analyze]'));
       expect(result.error).toBeNull();
     });
 
     it('should handle executor errors gracefully', async () => {
-      mockReadFileSync.mockReturnValue('name: test');
+      setupSpecFileMocks();
       (mockExecutor.execute as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Executor failed')
       );
@@ -189,7 +239,7 @@ describe('createFeatureAgentGraph', () => {
 
   describe('full graph execution', () => {
     it('should execute all nodes and accumulate messages', async () => {
-      mockReadFileSync.mockReturnValue('name: full-test\ndescription: Full workflow test');
+      setupSpecFileMocks();
 
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
       const result = await compiled.invoke(
@@ -214,7 +264,7 @@ describe('createFeatureAgentGraph', () => {
 
   describe('interrupt behavior with approvalMode', () => {
     it('should interrupt after first node in interactive mode', async () => {
-      mockReadFileSync.mockReturnValue('name: test');
+      setupSpecFileMocks();
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
       const config = { configurable: { thread_id: 'interrupt-thread-1' } };
 
@@ -241,7 +291,7 @@ describe('createFeatureAgentGraph', () => {
     });
 
     it('should resume after approval in interactive mode', async () => {
-      mockReadFileSync.mockReturnValue('name: test');
+      setupSpecFileMocks();
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
       const config = { configurable: { thread_id: 'resume-thread-1' } };
 
@@ -273,7 +323,7 @@ describe('createFeatureAgentGraph', () => {
     });
 
     it('should not interrupt in allow-all mode', async () => {
-      mockReadFileSync.mockReturnValue('name: test');
+      setupSpecFileMocks();
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
       const config = { configurable: { thread_id: 'no-interrupt-thread' } };
 
@@ -288,13 +338,13 @@ describe('createFeatureAgentGraph', () => {
         config
       );
 
-      // 4 nodes call executor (implement is a placeholder that skips it)
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(4);
+      // 4 earlier nodes + 1 implement phase = 5 executor calls
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(5);
       expect(result.currentNode).toBe('implement');
     });
 
     it('should interrupt at research in allow-prd mode', async () => {
-      mockReadFileSync.mockReturnValue('name: test');
+      setupSpecFileMocks();
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
       const config = { configurable: { thread_id: 'allow-prd-thread' } };
 
@@ -318,8 +368,8 @@ describe('createFeatureAgentGraph', () => {
       expect(interruptPayload[0].value.node).toBe('research');
     });
 
-    it('should complete without interrupt in allow-plan mode (implement is placeholder)', async () => {
-      mockReadFileSync.mockReturnValue('name: test');
+    it('should interrupt at implement in allow-plan mode', async () => {
+      setupSpecFileMocks();
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
       const config = { configurable: { thread_id: 'allow-plan-thread' } };
 
@@ -334,18 +384,20 @@ describe('createFeatureAgentGraph', () => {
         config
       );
 
-      // 4 nodes call executor (implement is a placeholder, skips executor and interrupt)
-      expect(mockExecutor.execute).toHaveBeenCalledTimes(4);
-      expect(result.currentNode).toBe('implement');
-      // No interrupt since implement placeholder doesn't call shouldInterrupt
-      const interruptPayload = (result as Record<string, unknown>).__interrupt__;
-      expect(interruptPayload).toBeUndefined();
+      // 4 earlier nodes auto-approved + 1 implement phase that then interrupts = 5 executor calls
+      expect(mockExecutor.execute).toHaveBeenCalledTimes(5);
+      // Implement interrupts after execution, so its state update is not committed
+      const interruptPayload = (result as Record<string, unknown>).__interrupt__ as {
+        value: { node: string };
+      }[];
+      expect(interruptPayload).toBeDefined();
+      expect(interruptPayload[0].value.node).toBe('implement');
     });
   });
 
   describe('state persistence with checkpointer', () => {
     it('should persist state across invocations via checkpointer', async () => {
-      mockReadFileSync.mockReturnValue('name: persist-test');
+      setupSpecFileMocks();
 
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
 
