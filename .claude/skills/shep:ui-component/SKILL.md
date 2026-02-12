@@ -1,5 +1,5 @@
 ---
-name: ui-component
+name: shep:ui-component
 description: Use when creating, modifying, or reviewing web UI components. Triggers include "new component", "add component", "create UI", "build a widget", "update component", working with files in src/presentation/web/components/, or when the user asks to build any React component for the web UI.
 ---
 
