@@ -15,6 +15,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const {
     nodes,
     edges,
+    onNodesChange,
+    handleConnect,
     handleAddFeature,
     handleAddFeatureToRepo,
     handleAddFeatureToFeature,
@@ -27,6 +29,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     <FeaturesCanvas
       nodes={nodes}
       edges={edges}
+      onNodesChange={onNodesChange}
+      onConnect={handleConnect}
       onAddFeature={handleAddFeature}
       onNodeAction={handleAddFeatureToFeature}
       onNodeClick={handleNodeClick}

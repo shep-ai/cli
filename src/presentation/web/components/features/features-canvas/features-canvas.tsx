@@ -1,8 +1,8 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import { ReactFlow, Background, Controls, ReactFlowProvider } from '@xyflow/react';
-import type { Edge } from '@xyflow/react';
+import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
@@ -18,12 +18,14 @@ export type CanvasNodeType = FeatureNodeType | RepositoryNodeType | AddRepositor
 export interface FeaturesCanvasProps {
   nodes: CanvasNodeType[];
   edges: Edge[];
+  onNodesChange?: (changes: NodeChange<CanvasNodeType>[]) => void;
   onAddFeature?: () => void;
   onNodeAction?: (nodeId: string) => void;
   onNodeSettings?: (nodeId: string) => void;
   onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
   onPaneClick?: (event: React.MouseEvent) => void;
   onRepositoryAdd?: (repoNodeId: string) => void;
+  onConnect?: (connection: Connection) => void;
   onRepositorySelect?: (path: string) => void;
   toolbar?: React.ReactNode;
 }
@@ -31,9 +33,11 @@ export interface FeaturesCanvasProps {
 export function FeaturesCanvas({
   nodes,
   edges,
+  onNodesChange,
   onAddFeature,
   onNodeAction,
   onNodeSettings,
+  onConnect,
   onNodeClick,
   onPaneClick,
   onRepositoryAdd,
@@ -47,6 +51,22 @@ export function FeaturesCanvas({
       addRepositoryNode: AddRepositoryNode,
     }),
     []
+  );
+
+  // Prevent a feature from having more than one source repository
+  const isValidConnection = useCallback(
+    (connection: Edge | Connection) => {
+      const sourceNode = nodes.find((n) => n.id === connection.source);
+      if (sourceNode?.type !== 'repositoryNode') return true;
+
+      const targetAlreadyHasRepo = edges.some((e) => {
+        const edgeSourceNode = nodes.find((n) => n.id === e.source);
+        return edgeSourceNode?.type === 'repositoryNode' && e.target === connection.target;
+      });
+
+      return !targetAlreadyHasRepo;
+    },
+    [nodes, edges]
   );
 
   const enrichedNodes = useMemo(
@@ -95,6 +115,9 @@ export function FeaturesCanvas({
           nodes={enrichedNodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          isValidConnection={isValidConnection}
+          onConnect={onConnect}
+          onNodesChange={onNodesChange}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           fitView

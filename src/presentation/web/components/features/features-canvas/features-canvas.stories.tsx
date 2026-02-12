@@ -1,10 +1,86 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import type { Edge } from '@xyflow/react';
+import dagre from '@dagrejs/dagre';
 import { FeaturesCanvas } from './features-canvas';
 import type { CanvasNodeType } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
+
+const NODE_DIMENSIONS: Record<string, { width: number; height: number }> = {
+  featureNode: { width: 288, height: 140 },
+  repositoryNode: { width: 224, height: 50 },
+  addRepositoryNode: { width: 224, height: 50 },
+};
+
+function getLayoutedElements(
+  nodes: CanvasNodeType[],
+  edges: Edge[],
+  direction: 'TB' | 'LR' = 'LR'
+): { nodes: CanvasNodeType[]; edges: Edge[] } {
+  const g = new dagre.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
+  const isHorizontal = direction === 'LR';
+  g.setGraph({ rankdir: direction, nodesep: 30, ranksep: 80 });
+
+  // Separate connected nodes from disconnected ones (e.g. add-repo with no edges)
+  const connectedIds = new Set<string>();
+  edges.forEach((edge) => {
+    connectedIds.add(edge.source);
+    connectedIds.add(edge.target);
+  });
+
+  const graphNodes = nodes.filter((n) => connectedIds.has(n.id));
+  const disconnectedNodes = nodes.filter((n) => !connectedIds.has(n.id));
+
+  graphNodes.forEach((node) => {
+    const dims = NODE_DIMENSIONS[node.type ?? ''] ?? { width: 200, height: 50 };
+    g.setNode(node.id, { width: dims.width, height: dims.height });
+  });
+
+  edges.forEach((edge) => {
+    g.setEdge(edge.source, edge.target);
+  });
+
+  dagre.layout(g);
+
+  const layoutedNodes = graphNodes.map((node) => {
+    const pos = g.node(node.id);
+    const dims = NODE_DIMENSIONS[node.type ?? ''] ?? { width: 200, height: 50 };
+    return {
+      ...node,
+      targetPosition: isHorizontal ? ('left' as const) : ('top' as const),
+      sourcePosition: isHorizontal ? ('right' as const) : ('bottom' as const),
+      position: {
+        x: pos.x - dims.width / 2,
+        y: pos.y - dims.height / 2,
+      },
+    };
+  }) as CanvasNodeType[];
+
+  // Position disconnected nodes below the lowest graph node, aligned to first column
+  if (disconnectedNodes.length > 0) {
+    let maxY = 0;
+    let minX = Infinity;
+    layoutedNodes.forEach((n) => {
+      const dims = NODE_DIMENSIONS[n.type ?? ''] ?? { width: 200, height: 50 };
+      maxY = Math.max(maxY, n.position.y + dims.height);
+      minX = Math.min(minX, n.position.x);
+    });
+
+    disconnectedNodes.forEach((node, i) => {
+      const dims = NODE_DIMENSIONS[node.type ?? ''] ?? { width: 200, height: 50 };
+      layoutedNodes.push({
+        ...node,
+        position: {
+          x: minX + (224 - dims.width) / 2, // center-align with repo nodes
+          y: maxY + 30 + i * (dims.height + 20),
+        },
+      } as CanvasNodeType);
+    });
+  }
+
+  return { nodes: layoutedNodes, edges };
+}
 
 const meta: Meta<typeof FeaturesCanvas> = {
   title: 'Features/FeaturesCanvas',
@@ -317,26 +393,14 @@ export const ConnectedRepositorySingleFeature: Story = {
   },
 };
 
-// --- Story 2: Multiple repositories connected to one shared feature ---
+// --- Story 2: Single repository connected to multiple features (one-to-many) ---
 
-const multiRepoSingleFeatureNodes: CanvasNodeType[] = [
+const singleRepoMultiFeatNodes: CanvasNodeType[] = [
   {
     id: 'repo-1',
     type: 'repositoryNode',
-    position: { x: 50, y: 30 },
+    position: { x: 50, y: 162 },
     data: { name: 'shep-ai/cli' },
-  },
-  {
-    id: 'repo-2',
-    type: 'repositoryNode',
-    position: { x: 50, y: 170 },
-    data: { name: 'shep-ai/web' },
-  },
-  {
-    id: 'repo-3',
-    type: 'repositoryNode',
-    position: { x: 50, y: 310 },
-    data: { name: 'shep-ai/api' },
   },
   {
     id: 'add-repo',
@@ -347,7 +411,7 @@ const multiRepoSingleFeatureNodes: CanvasNodeType[] = [
   {
     id: 'feat-1',
     type: 'featureNode',
-    position: { x: 450, y: 125 },
+    position: { x: 400, y: 0 },
     data: {
       name: 'SSO Integration',
       description: 'Single sign-on across all services',
@@ -357,15 +421,41 @@ const multiRepoSingleFeatureNodes: CanvasNodeType[] = [
       progress: 40,
     },
   },
+  {
+    id: 'feat-2',
+    type: 'featureNode',
+    position: { x: 400, y: 185 },
+    data: {
+      name: 'Auth Module',
+      description: 'OAuth2 authentication flow',
+      featureId: '#f2',
+      lifecycle: 'requirements',
+      state: 'action-required',
+      progress: 10,
+    },
+  },
+  {
+    id: 'feat-3',
+    type: 'featureNode',
+    position: { x: 400, y: 370 },
+    data: {
+      name: 'API Gateway',
+      description: 'Rate limiting and routing',
+      featureId: '#f3',
+      lifecycle: 'plan',
+      state: 'running',
+      progress: 25,
+    },
+  },
 ];
 
-export const MultipleRepositoriesSingleFeature: Story = {
+export const SingleRepositoryMultipleFeatures: Story = {
   args: {
-    nodes: multiRepoSingleFeatureNodes,
+    nodes: singleRepoMultiFeatNodes,
     edges: [
       { id: 'e-r1-f1', source: 'repo-1', target: 'feat-1', ...dashedEdge },
-      { id: 'e-r2-f1', source: 'repo-2', target: 'feat-1', ...dashedEdge },
-      { id: 'e-r3-f1', source: 'repo-3', target: 'feat-1', ...dashedEdge },
+      { id: 'e-r1-f2', source: 'repo-1', target: 'feat-2', ...dashedEdge },
+      { id: 'e-r1-f3', source: 'repo-1', target: 'feat-3', ...dashedEdge },
     ],
     onNodeAction: () => undefined,
     onNodeSettings: () => undefined,
@@ -433,37 +523,37 @@ export const MultipleRepositories: Story = {
   },
 };
 
-// --- Story 4: Multiple repositories with mixed feature connections ---
+// --- Story 4: Multiple repositories with mixed feature connections (dagre layout) ---
 
-const mixedRepoFeatureNodes: CanvasNodeType[] = [
+const mixedRepoFeatureNodesRaw: CanvasNodeType[] = [
   {
     id: 'repo-1',
     type: 'repositoryNode',
-    position: { x: 50, y: 30 },
+    position: { x: 0, y: 0 },
     data: { name: 'shep-ai/cli' },
   },
   {
     id: 'repo-2',
     type: 'repositoryNode',
-    position: { x: 50, y: 200 },
+    position: { x: 0, y: 0 },
     data: { name: 'shep-ai/web' },
   },
   {
     id: 'repo-3',
     type: 'repositoryNode',
-    position: { x: 50, y: 370 },
+    position: { x: 0, y: 0 },
     data: { name: 'shep-ai/api' },
   },
   {
     id: 'add-repo',
     type: 'addRepositoryNode',
-    position: { x: 50, y: 510 },
+    position: { x: 0, y: 0 },
     data: {},
   },
   {
     id: 'feat-1',
     type: 'featureNode',
-    position: { x: 420, y: 0 },
+    position: { x: 0, y: 0 },
     data: {
       name: 'Auth Module',
       description: 'OAuth2 authentication flow',
@@ -476,7 +566,7 @@ const mixedRepoFeatureNodes: CanvasNodeType[] = [
   {
     id: 'feat-2',
     type: 'featureNode',
-    position: { x: 420, y: 170 },
+    position: { x: 0, y: 0 },
     data: {
       name: 'SSO Integration',
       description: 'Single sign-on across services',
@@ -489,7 +579,7 @@ const mixedRepoFeatureNodes: CanvasNodeType[] = [
   {
     id: 'feat-3',
     type: 'featureNode',
-    position: { x: 420, y: 340 },
+    position: { x: 0, y: 0 },
     data: {
       name: 'API Gateway',
       description: 'Rate limiting and routing',
@@ -502,7 +592,7 @@ const mixedRepoFeatureNodes: CanvasNodeType[] = [
   {
     id: 'feat-4',
     type: 'featureNode',
-    position: { x: 820, y: 80 },
+    position: { x: 0, y: 0 },
     data: {
       name: 'Admin Panel',
       description: 'Internal admin tools',
@@ -514,20 +604,25 @@ const mixedRepoFeatureNodes: CanvasNodeType[] = [
   },
 ];
 
+const mixedEdges: Edge[] = [
+  // repo-1 (cli) → Auth Module (1 feature)
+  { id: 'e-r1-f1', source: 'repo-1', target: 'feat-1', ...dashedEdge },
+  // repo-2 (web) → SSO and Admin Panel (multiple features from one repo)
+  { id: 'e-r2-f2', source: 'repo-2', target: 'feat-2', ...dashedEdge },
+  { id: 'e-r2-f4', source: 'repo-2', target: 'feat-4', ...dashedEdge },
+  // repo-3 (api) → API Gateway (1 feature)
+  { id: 'e-r3-f3', source: 'repo-3', target: 'feat-3', ...dashedEdge },
+];
+
+const { nodes: mixedLayoutedNodes, edges: mixedLayoutedEdges } = getLayoutedElements(
+  mixedRepoFeatureNodesRaw,
+  mixedEdges
+);
+
 export const MultipleRepositoriesMixedConnections: Story = {
   args: {
-    nodes: mixedRepoFeatureNodes,
-    edges: [
-      // repo-1 (cli) → Auth Module only
-      { id: 'e-r1-f1', source: 'repo-1', target: 'feat-1', ...dashedEdge },
-      // repo-2 (web) → Auth Module, SSO, and Admin Panel (multiple features)
-      { id: 'e-r2-f1', source: 'repo-2', target: 'feat-1', ...dashedEdge },
-      { id: 'e-r2-f2', source: 'repo-2', target: 'feat-2', ...dashedEdge },
-      { id: 'e-r2-f4', source: 'repo-2', target: 'feat-4', ...dashedEdge },
-      // repo-3 (api) → SSO and API Gateway (multiple features)
-      { id: 'e-r3-f2', source: 'repo-3', target: 'feat-2', ...dashedEdge },
-      { id: 'e-r3-f3', source: 'repo-3', target: 'feat-3', ...dashedEdge },
-    ],
+    nodes: mixedLayoutedNodes,
+    edges: mixedLayoutedEdges,
     onNodeAction: () => undefined,
     onNodeSettings: () => undefined,
   },
