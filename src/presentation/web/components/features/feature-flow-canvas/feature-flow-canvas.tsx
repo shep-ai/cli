@@ -32,11 +32,12 @@ export function FeatureFlowCanvas({
         ...node,
         data: {
           ...node.data,
+          showHandles: edges.length > 0,
           onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
           onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
         },
       })),
-    [nodes, onNodeAction, onNodeSettings]
+    [nodes, edges.length, onNodeAction, onNodeSettings]
   );
 
   if (nodes.length === 0) {
