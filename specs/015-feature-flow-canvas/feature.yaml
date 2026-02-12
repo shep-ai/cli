@@ -1,0 +1,36 @@
+feature:
+  id: '015-feature-flow-canvas'
+  name: 'feature-flow-canvas'
+  number: 15
+  branch: 'feat/015-feature-flow-canvas'
+  lifecycle: 'research'
+  createdAt: '2026-02-12T13:32:31Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-12T13:32:31Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-12T13:32:31Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
