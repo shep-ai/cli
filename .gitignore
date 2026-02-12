@@ -85,3 +85,4 @@ yarn.lock
 *.bak
 storybook-static/
 .worktrees/
+.plan/

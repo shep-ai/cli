@@ -29,8 +29,8 @@ digraph parallel_task {
     fix_yaml [label="Patch feature.yaml\nwith correct branch name"];
     fill_spec [label="Fill spec.md with\nrequirements (if provided)"];
     commit [label="git add + commit\nspec scaffold"];
-    open_code [label="code .worktrees/<dir-name>"];
-    success [label="Report: VS Code opening..." shape=ellipse];
+    open_editor [label="Open editor in worktree"];
+    success [label="Report: editor opening..." shape=ellipse];
     fail [label="Report: manual instructions" shape=ellipse];
 
     start -> get_desc;
@@ -41,9 +41,9 @@ digraph parallel_task {
     init_spec -> fix_yaml;
     fix_yaml -> fill_spec;
     fill_spec -> commit;
-    commit -> open_code;
-    open_code -> success [label="success"];
-    open_code -> fail [label="fail"];
+    commit -> open_editor;
+    open_editor -> success [label="success"];
+    open_editor -> fail [label="fail"];
 }
 ```
 
@@ -126,21 +126,21 @@ git add specs/
 git commit -m "feat(specs): add NNN-feature-name specification"
 ```
 
-### 9. Open VS Code & Hand Off (STOP HERE)
+### 9. Open Editor & Hand Off (STOP HERE)
 
 **CRITICAL: Do NOT start implementation. Do NOT run `/shep-kit:research`, `/shep-kit:plan`, or `/shep-kit:implement`.**
 
-**Auto-open VS Code:** Attempt to open the worktree in a new VS Code window automatically:
+**Auto-open editor:** Attempt to open the worktree in a new editor window. Try `cursor` first, then `code`:
 
 ```bash
-code .worktrees/<dir-name>
+cursor .worktrees/<dir-name> || code .worktrees/<dir-name>
 ```
 
-**If the `code` command succeeds**, print:
+**If the command succeeds**, print:
 
 ---
 
-**Worktree is ready! Opening in VS Code...**
+**Worktree is ready! Opening in editor...**
 
 | Detail   | Value                                    |
 | -------- | ---------------------------------------- |
@@ -148,14 +148,14 @@ code .worktrees/<dir-name>
 | Branch   | `<branch-name>` (based on `origin/main`) |
 | Spec     | `specs/NNN-feature-name/`                |
 
-A new VS Code window should be opening. Once it's loaded, open the Claude Code panel and continue with `/shep-kit:research`.
+A new editor window should be opening. Once it's loaded, open the AI agent panel and continue with `/shep-kit:research`.
 
 > Working inside the worktree keeps your current session free and gives
 > the new session its own full context for the feature.
 
 ---
 
-**If the `code` command fails** (not installed, not in PATH, etc.), fall back to printing manual instructions:
+**If both commands fail** (not installed, not in PATH, etc.), fall back to printing manual instructions:
 
 ---
 
@@ -167,13 +167,13 @@ A new VS Code window should be opening. Once it's loaded, open the Claude Code p
 | Branch   | `<branch-name>` (based on `origin/main`) |
 | Spec     | `specs/NNN-feature-name/`                |
 
-Could not auto-open VS Code (`code` command not found). Open it manually:
+Could not auto-open an editor. Open it manually:
 
-**Option A — VS Code** (recommended)
+**Option A — Editor** (recommended)
 
-1. Open a **new VS Code window**
+1. Open a **new editor window** (Cursor, VS Code, etc.)
 2. `File → Open Folder…` → select `.worktrees/<dir-name>`
-3. Open the Claude Code panel and continue with `/shep-kit:research`
+3. Open the AI agent panel and continue with `/shep-kit:research`
 
 **Option B — Terminal**
 
