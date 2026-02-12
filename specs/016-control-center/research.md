@@ -59,19 +59,7 @@
 
 **Rationale:** FeatureNode already uses Tailwind classes and receives props from React Flow including `selected`. A conditional ring class is minimal (one `cn()` addition), performant, and visually distinct from the existing left border. No new dependencies or DOM changes needed.
 
-### 5. Detail Panel Component
-
-**Options considered:**
-
-1. **Custom div inside React Flow Panel** — `<Panel position="top-right">` containing a styled div with CSS transitions
-2. **shadcn/ui Sheet** — Radix-based slide-out sheet with overlay
-3. **Radix Dialog/Drawer** — Lower-level primitives
-
-**Decision:** Custom div inside React Flow Panel
-
-**Rationale:** The shadcn/ui Sheet creates a full-page overlay with backdrop (`bg-black/50`) that blocks canvas interaction — wrong UX pattern for a detail panel that should coexist with the canvas. A custom div inside `<Panel position="top-right">` with Tailwind transition classes (`translate-x-0`/`translate-x-full`, `opacity-0`/`opacity-100`) provides slide-in without blocking pan/zoom. The panel lives within React Flow's coordinate system and doesn't create portal/overlay conflicts.
-
-### 6. Keyboard Shortcuts
+### 5. Keyboard Shortcuts
 
 **Options considered:**
 
@@ -81,16 +69,14 @@
 
 **Decision:** Native `useEffect` with `keydown` listener
 
-**Rationale:** Only one shortcut needed initially (Escape to deselect/close panel). A `useEffect` with `addEventListener('keydown')` is 5 lines of code. Adding a library for one shortcut is unnecessary. React Flow's built-in `deleteKeyCode` handles node deletion but doesn't cover custom panel logic. Can revisit if shortcuts grow beyond 3-4.
+**Rationale:** Only one shortcut needed initially (Escape to deselect). A `useEffect` with `addEventListener('keydown')` is 5 lines of code. Adding a library for one shortcut is unnecessary. React Flow's built-in `deleteKeyCode` handles node deletion but doesn't cover custom logic. Can revisit if shortcuts grow beyond 3-4.
 
 ## Library Analysis
 
-| Library              | Version          | Purpose                        | Status                                |
-| -------------------- | ---------------- | ------------------------------ | ------------------------------------- |
-| `@xyflow/react`      | ^12.10.0         | Canvas, Panel, selection hooks | Already installed                     |
-| `shadcn/ui Sheet`    | (radix-ui 1.4.3) | Slide-out panel                | Rejected — overlay blocks canvas      |
-| `react-hotkeys-hook` | N/A              | Keyboard shortcuts             | Rejected — overkill for 1 shortcut    |
-| `framer-motion`      | N/A              | Animations                     | Rejected — CSS transitions sufficient |
+| Library              | Version  | Purpose                        | Status                             |
+| -------------------- | -------- | ------------------------------ | ---------------------------------- |
+| `@xyflow/react`      | ^12.10.0 | Canvas, Panel, selection hooks | Already installed                  |
+| `react-hotkeys-hook` | N/A      | Keyboard shortcuts             | Rejected — overkill for 1 shortcut |
 
 **No new dependencies required.** All decisions use existing packages (`@xyflow/react`, Tailwind CSS).
 
@@ -103,7 +89,6 @@ No security implications identified. This feature is purely presentational UI wi
 - **Node enrichment memoization**: The existing `useMemo` in FeaturesCanvas for node enrichment should be preserved. The control center adds selection state which React Flow handles internally — no additional re-render overhead.
 - **Panel rendering**: React Flow Panel uses CSS positioning, not portal rendering. Panels are only re-rendered when their content changes, not on every canvas pan/zoom.
 - **useOnSelectionChange**: The callback must be memoized with `useCallback` (documented requirement from React Flow). Failure to memoize causes unnecessary re-subscriptions.
-- **Detail panel transitions**: CSS transitions via Tailwind (`transition-transform duration-300`) are GPU-accelerated and don't trigger layout reflows.
 
 ## Open Questions
 

@@ -13,30 +13,23 @@
 │  │    ControlCenterToolbar                                │  │
 │  │    [Add Feature] [Auto-Layout]                         │  │
 │  └────────────────────────────────────────────────────────┘  │
-│  ┌──────────────────────────────┬─────────────────────────┐  │
-│  │                              │ <Panel position=         │  │
-│  │  FeaturesCanvas              │  "top-right">            │  │
-│  │  (existing, stays pure)      │  ControlCenterDetail     │  │
-│  │                              │  Panel                   │  │
-│  │  ┌──────────┐ ┌──────────┐  │  - Feature name          │  │
-│  │  │FeatureNode│→│FeatureNode│ │  - Lifecycle phase       │  │
-│  │  │(selected) │ │          │  │  - Progress              │  │
-│  │  │ ring-2    │ │          │  │  - Description           │  │
-│  │  └──────────┘ └──────────┘  │  - State info             │  │
-│  │       ↑                     │                           │  │
-│  │  RepositoryNode             │  [Close] button           │  │
-│  └──────────────────────────────┴─────────────────────────┘  │
 │  ┌────────────────────────────────────────────────────────┐  │
-│  │  <Panel position="bottom-left">                       │  │
-│  │    ControlCenterStatusBar                              │  │
-│  │    "5 features: 2 running, 1 done, 2 blocked"         │  │
+│  │                                                        │  │
+│  │  FeaturesCanvas                                        │  │
+│  │  (existing, stays pure)                                │  │
+│  │                                                        │  │
+│  │  ┌──────────┐ ┌──────────┐                             │  │
+│  │  │FeatureNode│→│FeatureNode│                           │  │
+│  │  │(selected) │ │          │                            │  │
+│  │  │ ring-2    │ │          │                            │  │
+│  │  └──────────┘ └──────────┘                             │  │
+│  │       ↑                                                │  │
+│  │  RepositoryNode                                        │  │
 │  └────────────────────────────────────────────────────────┘  │
 │                                                              │
 │  useControlCenterState (custom hook)                         │
 │  - Selection tracking (useOnSelectionChange)                 │
-│  - Panel open/close state                                    │
 │  - Keyboard shortcuts (Escape)                               │
-│  - Node/edge state pass-through                              │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -45,7 +38,7 @@
 ```
 Tier 3: features/control-center/     ← NEW orchestrator
             ├── composes FeaturesCanvas (Tier 3)
-            ├── adds panels/toolbars via React Flow <Panel>
+            ├── adds toolbar via React Flow <Panel>
             └── manages state via useControlCenterState hook
 
 Tier 3: features/features-canvas/    ← EXISTING (stays pure/dumb)
@@ -63,17 +56,11 @@ ControlCenter
      │
      ├──► useControlCenterState(nodes, edges)
      │         │
-     │         ├── selectedNode (from useOnSelectionChange)
-     │         ├── isDetailPanelOpen (derived from selection)
-     │         └── featureSummary (computed from nodes)
+     │         └── selectedNode (from useOnSelectionChange)
      │
      ├──► FeaturesCanvas (nodes, edges, onNodeClick, onPaneClick)
      │
-     ├──► ControlCenterToolbar (onAddFeature, onAutoLayout)
-     │
-     ├──► ControlCenterDetailPanel (selectedNode, onClose)
-     │
-     └──► ControlCenterStatusBar (featureSummary)
+     └──► ControlCenterToolbar (onAddFeature, onAutoLayout)
 ```
 
 ## Implementation Strategy
@@ -123,24 +110,18 @@ ControlCenter
 1. **RED:** Write tests for:
    - Returns selectedNode when a node is selected via useOnSelectionChange
    - Returns null selectedNode when selection is cleared
-   - isDetailPanelOpen is true when a FeatureNode is selected, false otherwise
-   - featureSummary computes correct counts by state
-   - Escape keypress clears selection and closes panel
+   - Escape keypress clears selection
 2. **GREEN:** Implement hook composing:
    - `useOnSelectionChange` for selection tracking
-   - `useState` for panel visibility (derived from selection of FeatureNode type)
-   - `useMemo` for feature summary computation
    - `useEffect` + `keydown` listener for Escape shortcut
    - `useCallback` for memoized event handlers
-3. **REFACTOR:** Extract feature summary computation into a pure helper function for testability
+3. **REFACTOR:** Ensure all callbacks are properly memoized
 
 **Deliverables:** Fully tested `useControlCenterState` hook
 
-### Phase 4: Sub-components (TDD Cycles 4-6) [P]
+### Phase 4: Toolbar (TDD Cycle 4)
 
-**Goal:** Build the three panel sub-components independently. All three are parallelizable.
-
-#### 4A: ControlCenterToolbar
+**Goal:** Build the toolbar panel sub-component.
 
 **TDD Workflow:**
 
@@ -149,38 +130,11 @@ ControlCenter
    - Renders "Auto-Layout" button (disabled placeholder)
    - Calls `onAddFeature` callback when Add Feature clicked
 2. **GREEN:** Implement toolbar as horizontal button bar with Lucide icons (Plus, LayoutGrid), using shadcn/ui Button components inside `<Panel position="top-left">`
-3. **REFACTOR:** Extract button configs for extensibility; add Storybook story
+3. **REFACTOR:** Add Storybook stories
 
-#### 4B: ControlCenterDetailPanel
+**Deliverables:** Tested and storied toolbar component
 
-**TDD Workflow:**
-
-1. **RED:** Write tests that:
-   - Renders feature name, lifecycle, state, progress when open
-   - Does not render content when closed (isOpen=false)
-   - Calls onClose callback when close button clicked
-   - Renders description when available
-2. **GREEN:** Implement panel inside `<Panel position="top-right">` with:
-   - Feature info display (name, lifecycle badge, state, progress bar, description)
-   - Close button (X icon)
-   - Tailwind transition classes: `translate-x-0`/`translate-x-full`, `opacity-0`/`opacity-100`
-   - `transition-all duration-300 ease-in-out`
-3. **REFACTOR:** Extract info rows into a clean layout; add Storybook story
-
-#### 4C: ControlCenterStatusBar
-
-**TDD Workflow:**
-
-1. **RED:** Write tests that:
-   - Renders total feature count
-   - Renders count breakdown by state (running, done, blocked, etc.)
-   - Renders "No features" when empty
-2. **GREEN:** Implement status bar inside `<Panel position="bottom-left">` with feature summary text and state-colored badges
-3. **REFACTOR:** Reuse state color config from `feature-node-state-config.ts`; add Storybook story
-
-**Deliverables:** Three independently tested and storied sub-components
-
-### Phase 5: Orchestrator Integration (TDD Cycle 7)
+### Phase 5: Orchestrator Integration (TDD Cycle 5)
 
 **Goal:** Wire everything together in the `ControlCenter` component.
 
@@ -189,19 +143,14 @@ ControlCenter
 1. **RED:** Write tests that:
    - Renders FeaturesCanvas with provided nodes and edges
    - Renders toolbar panel
-   - Renders status bar panel
-   - Shows detail panel when a FeatureNode is selected
-   - Hides detail panel when selection is cleared
    - Passes onAddFeature through to toolbar
 2. **GREEN:** Implement ControlCenter composing:
    - `FeaturesCanvas` with nodes, edges, and interaction callbacks
    - `ControlCenterToolbar` with action handlers
-   - `ControlCenterDetailPanel` with selected node data and visibility
-   - `ControlCenterStatusBar` with computed summary
    - All wired through `useControlCenterState`
 3. **REFACTOR:** Clean up prop threading; ensure minimal re-renders
 
-**Deliverables:** Full ControlCenter component with Storybook stories (Empty, WithFeatures, SelectedNode, WithToolbar)
+**Deliverables:** Full ControlCenter component with Storybook stories (Empty, WithFeatures, WithToolbar)
 
 ### Phase 6: Build Validation (No Tests)
 
@@ -220,20 +169,16 @@ ControlCenter
 
 ### New Files
 
-| File                                                      | Purpose                                 |
-| --------------------------------------------------------- | --------------------------------------- |
-| `features/control-center/control-center.tsx`              | Main orchestrator component             |
-| `features/control-center/use-control-center-state.ts`     | Custom hook: selection, panels, summary |
-| `features/control-center/control-center-toolbar.tsx`      | Top toolbar (add feature, auto-layout)  |
-| `features/control-center/control-center-detail-panel.tsx` | Right panel for selected feature info   |
-| `features/control-center/control-center-status-bar.tsx`   | Bottom status summary bar               |
-| `features/control-center/control-center.stories.tsx`      | Storybook stories for orchestrator      |
-| `features/control-center/index.ts`                        | Barrel exports                          |
-| `tests/.../use-control-center-state.test.ts`              | Hook unit tests                         |
-| `tests/.../control-center-toolbar.test.tsx`               | Toolbar unit tests                      |
-| `tests/.../control-center-detail-panel.test.tsx`          | Detail panel unit tests                 |
-| `tests/.../control-center-status-bar.test.tsx`            | Status bar unit tests                   |
-| `tests/.../control-center.test.tsx`                       | Orchestrator integration tests          |
+| File                                                  | Purpose                                |
+| ----------------------------------------------------- | -------------------------------------- |
+| `features/control-center/control-center.tsx`          | Main orchestrator component            |
+| `features/control-center/use-control-center-state.ts` | Custom hook: selection tracking        |
+| `features/control-center/control-center-toolbar.tsx`  | Top toolbar (add feature, auto-layout) |
+| `features/control-center/control-center.stories.tsx`  | Storybook stories for orchestrator     |
+| `features/control-center/index.ts`                    | Barrel exports                         |
+| `tests/.../use-control-center-state.test.ts`          | Hook unit tests                        |
+| `tests/.../control-center-toolbar.test.tsx`           | Toolbar unit tests                     |
+| `tests/.../control-center.test.tsx`                   | Orchestrator integration tests         |
 
 ### Modified Files
 
@@ -252,10 +197,8 @@ ControlCenter
 
 Write FIRST for:
 
-- `useControlCenterState` hook — selection tracking, panel visibility, summary computation, keyboard shortcuts
+- `useControlCenterState` hook — selection tracking, keyboard shortcuts
 - `ControlCenterToolbar` — button rendering, callback invocation
-- `ControlCenterDetailPanel` — feature info display, open/close state, close callback
-- `ControlCenterStatusBar` — count rendering, empty state
 - `FeatureNode` — selected ring visual (addition to existing tests)
 - `FeaturesCanvas` — callback prop pass-through (addition to existing tests)
 
@@ -266,9 +209,7 @@ Every component has colocated stories:
 - `FeatureNode` — add Selected variant to existing stories
 - `FeaturesCanvas` — add Interactive variant with callbacks
 - `ControlCenterToolbar` — Default, WithCallbacks
-- `ControlCenterDetailPanel` — Open, Closed, WithDescription, RunningState, ErrorState
-- `ControlCenterStatusBar` — Empty, WithFeatures, MixedStates
-- `ControlCenter` — Empty, WithFeatures, SelectedNode, WithToolbar
+- `ControlCenter` — Empty, WithFeatures, WithToolbar
 
 ### E2E Tests (Stretch)
 
@@ -276,13 +217,11 @@ Not required for initial implementation. Canvas interaction testing can be added
 
 ## Risk Mitigation
 
-| Risk                                                                | Mitigation                                                   |
-| ------------------------------------------------------------------- | ------------------------------------------------------------ |
-| React Flow Panel conflicts with existing Controls/MiniMap           | Test with Background and Controls present in stories         |
-| useOnSelectionChange callback not memoized causing re-subscriptions | Wrap in useCallback per React Flow docs                      |
-| Detail panel blocks canvas pan/zoom                                 | Panel is inside React Flow Panel (no overlay/backdrop)       |
-| FeatureNode ring conflicts with existing left border                | Test ring + border combination visually in Storybook         |
-| CSS transitions not GPU-accelerated                                 | Use transform/opacity only (no layout-triggering properties) |
+| Risk                                                                | Mitigation                                           |
+| ------------------------------------------------------------------- | ---------------------------------------------------- |
+| React Flow Panel conflicts with existing Controls/MiniMap           | Test with Background and Controls present in stories |
+| useOnSelectionChange callback not memoized causing re-subscriptions | Wrap in useCallback per React Flow docs              |
+| FeatureNode ring conflicts with existing left border                | Test ring + border combination visually in Storybook |
 
 ## Rollback Plan
 
