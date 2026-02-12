@@ -20,7 +20,7 @@ _From idea to deploy — orchestrate parallel feature development across repos w
 
 <br />
 
-<img src="imgs/01-features-control-center-overview.png" alt="Shep AI Control Center — manage all features across repos from a single canvas" width="100%" />
+<img src="imgs/00-control-center-hero.png" alt="Shep AI Control Center — manage all features across repos from a single canvas" width="100%" />
 
 <br />
 
@@ -44,6 +44,21 @@ shep ui
 ## Features
 
 <table>
+<tr>
+<td width="55%"><img src="imgs/01-features-control-center-overview.png" alt="Feature properties with attachments and metadata" /></td>
+<td width="45%">
+
+### Feature Properties & Attachments
+
+- **Rich feature detail panel** with name, description, and metadata
+- **File attachments** — requirements PDFs, mockup images, API specs linked directly to features
+- **Team & metadata** tracking for ownership and collaboration
+- **Dependency mapping** between features across repos
+- **Iterative refinement** — update properties as requirements evolve through the lifecycle
+
+</td>
+</tr>
+
 <tr>
 <td width="55%"><img src="imgs/02-feature-card-action-toolbar.png" alt="Feature card with action toolbar" /></td>
 <td width="45%">
