@@ -1,23 +1,28 @@
 /**
- * Agent Command Group
+ * Agent Command
  *
- * Provides subcommands for managing agent runs.
+ * Top-level agent command with subcommands for managing and viewing agent runs.
  *
  * Usage:
- *   shep agent ls          # List agent runs
- *   shep agent show <id>   # Show agent run details
+ *   shep agent [subcommand]
+ *
+ * Subcommands:
+ *   shep agent show <id>   Display details of an agent run
+ *   shep agent list        List all agent runs
  */
 
 import { Command } from 'commander';
-import { createLsCommand } from './ls.command.js';
 import { createShowCommand } from './show.command.js';
+import { createListCommand } from './list.command.js';
 
 /**
- * Create the agent command group
+ * Create the agent command with all subcommands
  */
 export function createAgentCommand(): Command {
-  return new Command('agent')
-    .description('Manage agent runs')
-    .addCommand(createLsCommand())
-    .addCommand(createShowCommand());
+  const agent = new Command('agent')
+    .description('Manage and view agent runs')
+    .addCommand(createShowCommand())
+    .addCommand(createListCommand());
+
+  return agent;
 }

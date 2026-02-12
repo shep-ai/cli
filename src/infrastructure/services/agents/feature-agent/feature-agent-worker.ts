@@ -17,7 +17,8 @@ import { createCheckpointer } from '../common/checkpointer.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agent-run-repository.interface.js';
 import type { IAgentExecutorFactory } from '@/application/ports/output/agent-executor-factory.interface.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
-import { getSettings } from '@/infrastructure/services/settings.service.js';
+import { getSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
+import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 
 export interface WorkerArgs {
   featureId: string;
@@ -60,12 +61,20 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
 export async function runWorker(args: WorkerArgs): Promise<void> {
   await initializeContainer();
 
+  // Initialize settings in the worker process
+  const initSettingsUseCase = container.resolve(InitializeSettingsUseCase);
+  const settings = await initSettingsUseCase.execute();
+  initializeSettings(settings);
+
   const runRepository = container.resolve<IAgentRunRepository>('IAgentRunRepository');
   const executorFactory = container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
 
-  // Create executor from configured agent settings
-  const settings = getSettings();
-  const executor = executorFactory.createExecutor(settings.agent.type, settings.agent);
+  // Create executor from configured agent settings (now settings are initialized)
+  const configuredSettings = getSettings();
+  const executor = executorFactory.createExecutor(
+    configuredSettings.agent.type,
+    configuredSettings.agent
+  );
 
   // Use a file-based checkpointer for persistence across restarts
   const checkpointPath = join(homedir(), '.shep', 'checkpoints', `${args.runId}.db`);
@@ -136,25 +145,31 @@ process.on('SIGTERM', async () => {
 });
 
 // Main execution when run as a script
+// When using fork(), the forked process runs the entire module, but we want to detect if we're the entrypoint
 const isMainModule =
   typeof require !== 'undefined'
     ? require.main === module
-    : import.meta.url === `file://${process.argv[1]}`;
+    : process.argv[1]?.includes('feature-agent-worker');
 
 if (isMainModule) {
-  const args = parseWorkerArgs(process.argv.slice(2));
-  runIdForSignal = args.runId;
+  try {
+    const args = parseWorkerArgs(process.argv.slice(2));
+    runIdForSignal = args.runId;
 
-  runWorker(args)
-    .then(() => {
-      // Get the repository reference for signal handler after container init
-      runRepoForSignal = container.resolve<IAgentRunRepository>('IAgentRunRepository');
-      process.exit(0);
-    })
-    .catch((err: unknown) => {
-      process.stderr.write(
-        `Worker fatal error: ${err instanceof Error ? err.message : String(err)}\n`
-      );
-      process.exit(1);
-    });
+    runWorker(args)
+      .then(() => {
+        // Get the repository reference for signal handler after container init
+        runRepoForSignal = container.resolve<IAgentRunRepository>('IAgentRunRepository');
+        process.exit(0);
+      })
+      .catch((err: unknown) => {
+        const msg = err instanceof Error ? err.message : String(err);
+        process.stderr.write(`Worker fatal error: ${msg}\n`);
+        process.exit(1);
+      });
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : String(err);
+    process.stderr.write(`Worker setup error: ${msg}\n`);
+    process.exit(1);
+  }
 }

@@ -10,6 +10,9 @@ import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fork } from 'node:child_process';
 import { join } from 'node:path';
+import { openSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { mkdirSync } from 'node:fs';
 import type { IFeatureAgentProcessService } from '@/application/ports/output/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agent-run-repository.interface.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
@@ -50,9 +53,15 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
       args.push('--worktree-path', worktreePath);
     }
 
+    // Create log file for worker output (for debugging)
+    const logsDir = join(homedir(), '.shep', 'logs');
+    mkdirSync(logsDir, { recursive: true });
+    const logPath = join(logsDir, `worker-${runId}.log`);
+    const logFd = openSync(logPath, 'a');
+
     const child = fork(workerPath, args, {
       detached: true,
-      stdio: 'ignore',
+      stdio: ['ignore', logFd, logFd, 'ipc'],
     });
 
     if (!child.pid) {
