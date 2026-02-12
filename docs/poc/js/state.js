@@ -16,7 +16,7 @@ export class AppState {
     this.features = []; // Array of Feature objects (following schema.js)
     this.repositories = []; // Array of Repository objects
     this.selectedFeatureId = null;
-    this.selectedRepoId = null; // Currently selected repo on welcome screen
+    // No selectedRepoId - UI is a pure view layer, no selection state
     this.presetIndex = 0;
     this.randomRepoIndex = 0;
     this.isSimulating = true; // Always on
@@ -44,7 +44,7 @@ export class AppState {
     const storedRepos = localStorage.getItem('featureFlowRepos');
     const storedEnvironments = localStorage.getItem('featureEnvironments');
     const wasCleared = localStorage.getItem('featureFlowCleared') === 'true';
-    const storedSelectedRepoId = localStorage.getItem('selectedRepoId');
+    // selectedRepoId removed - UI is pure view layer
 
     if (storedData) {
       try {
@@ -112,14 +112,8 @@ export class AppState {
       console.log('🧹 Data was cleared by user, staying empty');
     }
 
-    // Restore selected repo ID if it was previously set (but NOT if data was cleared)
-    if (storedSelectedRepoId && !wasCleared) {
-      this.selectedRepoId = storedSelectedRepoId;
-      console.log('✅ Restored selected repo:', this.selectedRepoId);
-    } else if (wasCleared) {
-      this.selectedRepoId = null;
-      console.log('🧹 Clearing selected repo after user clear');
-    }
+    // Clean up legacy selectedRepoId from localStorage
+    localStorage.removeItem('selectedRepoId');
   }
 
   /**
@@ -130,13 +124,10 @@ export class AppState {
       localStorage.setItem('featureFlowData', JSON.stringify(this.features));
       localStorage.setItem('featureFlowRepos', JSON.stringify(this.repositories));
       localStorage.setItem('featureEnvironments', JSON.stringify(this.featureEnvironments));
-      if (this.selectedRepoId) {
-        localStorage.setItem('selectedRepoId', this.selectedRepoId);
-      } else {
-        localStorage.removeItem('selectedRepoId');
+      // Clear the "cleared" flag once new data is saved, so repos persist on refresh
+      if (this.features.length > 0 || this.repositories.length > 0) {
+        localStorage.removeItem('featureFlowCleared');
       }
-      // Keep the "cleared" flag persistent - don't remove it when saving new data
-      // Once cleared by user, it stays cleared until they explicitly clear again
     } catch (e) {
       console.error('Failed to save features:', e);
     }
@@ -556,6 +547,36 @@ export class AppState {
   }
 
   /**
+   * Activate a repo (move from welcome to canvas)
+   * @param {string} repoId - Repository ID
+   * @returns {Object|null} Updated repository or null
+   */
+  activateRepo(repoId) {
+    const repo = this.repositories.find((r) => r.id === repoId);
+    if (repo) {
+      repo.onCanvas = true;
+      this.save();
+    }
+    return repo;
+  }
+
+  /**
+   * Get repos that are on the canvas
+   * @returns {Object[]} Repos with onCanvas === true
+   */
+  getCanvasRepos() {
+    return this.repositories.filter((r) => r.onCanvas === true);
+  }
+
+  /**
+   * Get repos that are NOT on the canvas (for welcome view)
+   * @returns {Object[]} Repos with onCanvas !== true
+   */
+  getWelcomeRepos() {
+    return this.repositories.filter((r) => r.onCanvas !== true);
+  }
+
+  /**
    * Add a random repository from the pool
    * @returns {Object} Created repository
    */
@@ -606,7 +627,6 @@ export class AppState {
     this.repositories = [];
     this.featureEnvironments = {}; // Clear environment state too
     this.selectedFeatureId = null;
-    this.selectedRepoId = null;
     this.viewMode = 'features';
     this.focusedFeatureId = null;
     localStorage.setItem('featureFlowCleared', 'true');

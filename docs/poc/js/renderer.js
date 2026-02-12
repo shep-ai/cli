@@ -32,12 +32,11 @@ export class Renderer {
     const topRightControls = document.querySelector('.fixed.top-4.right-4.z-40');
 
     // On empty canvas (welcome view): keep hero title visible, hide controls
-    const isEmpty = this.state.viewMode === 'features' && this.state.features.length === 0;
+    const isEmpty = this.state.viewMode === 'features' && this.state.getCanvasRepos().length === 0;
     if (isEmpty) {
       headerContainer.style.display = '';
-      // Hide controls only on welcome view (no repo selected)
-      if (topRightControls)
-        topRightControls.style.display = this.state.selectedRepoId ? '' : 'none';
+      // Hide controls on welcome view
+      if (topRightControls) topRightControls.style.display = 'none';
       // Reset to default hero title
       backBtn.classList.add('hidden');
       canvasTitle.textContent = '';
@@ -83,141 +82,23 @@ export class Renderer {
   }
 
   renderFeaturesView(container, svgLayer, onNodeClick, onAddChild, onDeepDive) {
-    const repos = this.state.getRepositories();
-    const hasFeatures = this.state.features.length > 0;
+    // Canvas is a pure view layer - show repos that are onCanvas in the DB
+    const canvasRepos = this.state.getCanvasRepos();
+    const hasCanvasRepos = canvasRepos.length > 0;
 
-    // If a repo is selected but no features, show empty canvas with only that repo
-    if (!hasFeatures && this.state.selectedRepoId) {
-      const selectedRepo = repos.find((r) => r.id === this.state.selectedRepoId);
-      if (selectedRepo) {
-        // Show empty canvas with only the selected repo pill
-        const offsetY = 140;
-        const repoX = 50;
-        const repoY = offsetY;
-        const repoHeight = 60;
-        const gap = 32;
-        const buttonHeight = 40;
-
-        const totalHeight = offsetY + repoHeight + gap + buttonHeight + 20; // +20 padding
-        container.style.height = `${totalHeight}px`;
-        svgLayer.style.height = `${totalHeight}px`;
-
-        // Render only the selected repo pill
-        const pill = document.createElement('div');
-        pill.className = 'canvas-repo-pill';
-        pill.style.position = 'absolute';
-        pill.style.left = `${repoX}px`;
-        pill.style.top = `${repoY}px`;
-
-        const icon = document.createElement('i');
-        icon.className = 'fab fa-github canvas-repo-icon';
-
-        const name = document.createElement('span');
-        name.className = 'canvas-repo-name';
-        name.textContent = selectedRepo.fullName;
-
-        const addBtn = document.createElement('button');
-        addBtn.className = 'canvas-repo-add-btn';
-        addBtn.title = 'Add feature to this repo';
-        addBtn.onclick = (e) => {
-          e.stopPropagation();
-          window.app.createFeatureForRepo(this.state.selectedRepoId);
-        };
-        const addIcon = document.createElement('i');
-        addIcon.className = 'fas fa-plus';
-        addBtn.appendChild(addIcon);
-
-        pill.appendChild(icon);
-        pill.appendChild(name);
-        pill.appendChild(addBtn);
-        container.appendChild(pill);
-
-        // Add Repository button below the repo pill (32px gap to match layout engine spacing)
-        const addRepoBtn = document.createElement('button');
-        addRepoBtn.className = 'welcome-add-repo-btn';
-        addRepoBtn.style.position = 'absolute';
-        addRepoBtn.style.left = `${repoX}px`;
-        addRepoBtn.style.top = `${repoY + 60 + 32}px`; // 60px repo height + 32px gap
-        addRepoBtn.style.width = 'auto';
-        addRepoBtn.style.maxWidth = '200px';
-        addRepoBtn.onclick = () => window.app.addNewRepository();
-        const addRepoIcon = document.createElement('i');
-        addRepoIcon.className = 'fas fa-plus';
-        const addRepoText = document.createElement('span');
-        addRepoText.textContent = 'Add Repository';
-        addRepoBtn.appendChild(addRepoIcon);
-        addRepoBtn.appendChild(addRepoText);
-        container.appendChild(addRepoBtn);
-
-        return;
-      }
-    }
-
-    // Show welcome view only when no features exist (even with default repos)
-    if (!hasFeatures) {
+    // Show welcome view when no repos are on canvas
+    if (!hasCanvasRepos) {
       this.renderWelcomeView(container, svgLayer, onAddChild);
       return;
     }
 
-    // If a repo is selected, filter to only show that repo
-    if (this.state.selectedRepoId) {
-      const filteredRepos = repos.filter((r) => r.id === this.state.selectedRepoId);
-      if (filteredRepos.length > 0) {
-        const featuresByRepo = this.state.getFeaturesByRepo();
-        const { repoPositions, featurePositions, totalHeight } = this.layout.calculateWithRepos(
-          featuresByRepo,
-          filteredRepos
-        );
-
-        // Always start below the fixed header
-        const offsetY = 140;
-
-        repoPositions.forEach((pos) => {
-          pos.y += offsetY;
-        });
-        featurePositions.forEach((pos) => {
-          pos.y += offsetY;
-        });
-
-        const totalContentHeight = totalHeight + offsetY + 160;
-        container.style.height = `${totalContentHeight}px`;
-        svgLayer.style.height = `${totalContentHeight}px`;
-
-        // Render repo-to-feature connectors
-        this.renderRepoConnectors(
-          filteredRepos,
-          repoPositions,
-          featuresByRepo,
-          featurePositions,
-          svgLayer
-        );
-
-        // Render feature-to-feature connectors (parent-child)
-        this.renderConnectors(featurePositions, svgLayer);
-
-        // Render repo pills
-        this.renderRepoPills(filteredRepos, repoPositions, container, onAddChild);
-
-        // Render feature nodes
-        this.renderNodes(featurePositions, onNodeClick, onAddChild, onDeepDive);
-
-        // Render "Add Repository" button below all features (64px gap)
-        const lastFeatureY = Math.max(...Array.from(featurePositions.values()).map((p) => p.y));
-        const featureHeight = this.layout.NODE_HEIGHT; // 96px
-        this.renderAddRepoButton(container, lastFeatureY + featureHeight + 64);
-
-        return;
-      }
-    }
-
-    // If we have repos, use repo-grouped layout (show all repos)
-    const hasRepos = repos.length > 0;
-    if (hasRepos) {
-      const featuresByRepo = this.state.getFeaturesByRepo();
-      const { repoPositions, featurePositions, totalHeight } = this.layout.calculateWithRepos(
-        featuresByRepo,
-        repos
-      );
+    // Render canvas with onCanvas repos (they may or may not have features)
+    const featuresByRepo = this.state.getFeaturesByRepo();
+    const { repoPositions, featurePositions, totalHeight } = this.layout.calculateWithRepos(
+      featuresByRepo,
+      canvasRepos
+    );
+    if (repoPositions) {
 
       // Always start below the fixed header
       const offsetY = 140;
@@ -234,13 +115,13 @@ export class Renderer {
       svgLayer.style.height = `${totalContentHeight}px`;
 
       // Render repo-to-feature connectors
-      this.renderRepoConnectors(repos, repoPositions, featuresByRepo, featurePositions, svgLayer);
+      this.renderRepoConnectors(canvasRepos, repoPositions, featuresByRepo, featurePositions, svgLayer);
 
       // Render feature-to-feature connectors (parent-child)
       this.renderConnectors(featurePositions, svgLayer);
 
       // Render repo pills
-      this.renderRepoPills(repos, repoPositions, container, onAddChild);
+      this.renderRepoPills(canvasRepos, repoPositions, container, onAddChild);
 
       // Render feature nodes
       this.renderNodes(featurePositions, onNodeClick, onAddChild, onDeepDive);
@@ -254,17 +135,17 @@ export class Renderer {
 
     // Fallback: features without repos (shouldn't happen with new model)
     const roots = this.state.getHierarchy();
-    const { positions, totalHeight } = this.layout.calculate(roots);
-    const offsetY = 140;
-    positions.forEach((pos) => {
-      pos.y += offsetY;
+    const fallbackResult = this.layout.calculate(roots);
+    const fallbackOffsetY = 140;
+    fallbackResult.positions.forEach((pos) => {
+      pos.y += fallbackOffsetY;
     });
-    const totalContentHeight = totalHeight + offsetY + 120;
-    container.style.height = `${totalContentHeight}px`;
-    svgLayer.style.height = `${totalContentHeight}px`;
-    this.renderConnectors(positions, svgLayer);
-    this.renderNodes(positions, onNodeClick, onAddChild, onDeepDive);
-    this.renderNewFeatureButton(container, totalHeight, offsetY, onAddChild);
+    const fallbackContentHeight = fallbackResult.totalHeight + fallbackOffsetY + 120;
+    container.style.height = `${fallbackContentHeight}px`;
+    svgLayer.style.height = `${fallbackContentHeight}px`;
+    this.renderConnectors(fallbackResult.positions, svgLayer);
+    this.renderNodes(fallbackResult.positions, onNodeClick, onAddChild, onDeepDive);
+    this.renderNewFeatureButton(container, fallbackResult.totalHeight, fallbackOffsetY, onAddChild);
   }
 
   renderWelcomeView(container, svgLayer, onAddChild) {
@@ -298,10 +179,10 @@ export class Renderer {
     repoList.className = 'welcome-repo-list';
     repoList.id = 'welcome-repo-list';
 
-    // Get existing repos - add 2 default repos if empty (welcome screen only)
-    let repos = this.state.getRepositories();
+    // Get repos NOT yet on canvas — add 2 default repos if none exist at all
+    let allRepos = this.state.getRepositories();
 
-    if (repos.length === 0) {
+    if (allRepos.length === 0) {
       // Initialize with 2 default repos on welcome screen
       const defaultRepos = [
         { fullName: 'shep-ai/cli', localPath: '/Users/developer/workspaces/shep-ai-cli' },
@@ -317,11 +198,12 @@ export class Renderer {
           repo.localPath = repoData.localPath;
         }
       });
-
-      repos = this.state.getRepositories();
     }
 
-    repos.forEach((repo) => {
+    // Only show repos NOT on canvas in the welcome view
+    const welcomeRepos = this.state.getWelcomeRepos();
+
+    welcomeRepos.forEach((repo) => {
       const pill = this.createRepoPillButton(repo);
       repoList.appendChild(pill);
     });
@@ -425,10 +307,6 @@ export class Renderer {
     const pill = document.createElement('button');
     pill.className = 'repo-pill-btn';
     pill.dataset.repoId = repo.id;
-
-    if (this.state.selectedRepoId === repo.id) {
-      pill.classList.add('active');
-    }
 
     pill.onclick = (e) => {
       e.stopPropagation();

@@ -867,8 +867,6 @@ class App {
 
       if (feature) {
         this.ui.showToast('Feature Created');
-        // Clear selectedRepoId to show all repos in multi-repo view
-        this.state.selectedRepoId = null;
         this.state.save();
       } else {
         this.ui.showToast('Failed to create feature', true);
@@ -1546,16 +1544,8 @@ class App {
 
   // Repository Management Methods
   selectWelcomeRepo(repoId) {
-    this.state.selectedRepoId = repoId;
-    this.state.save(); // Persist selected repo
-
-    // Update pill active states
-    const pills = document.querySelectorAll('.repo-pill-btn');
-    pills.forEach((pill) => {
-      pill.classList.toggle('active', pill.dataset.repoId === repoId);
-    });
-
-    // Render empty canvas with only this repo
+    // Activate repo in DB (move from welcome to canvas) - pure data update
+    this.state.activateRepo(repoId);
     this.render();
   }
 
@@ -1568,10 +1558,10 @@ class App {
       // Welcome screen with repos: show file browser
       this.openFileBrowserModal();
     } else {
-      // Not on welcome screen: add random repo (backward compat)
+      // Not on welcome screen: add random repo directly to canvas
       const repo = this.state.addRandomRepository();
       if (repo) {
-        this.state.selectedRepoId = null;
+        repo.onCanvas = true;
         this.state.save();
         this.ui.showToast(`Added ${repo.fullName}`);
         this.render();
@@ -1718,12 +1708,12 @@ class App {
 
   selectRepositoryFromBrowser(fullName, localPath) {
     const repo = this.state.addRepository(fullName);
-    if (repo && localPath) {
-      repo.localPath = localPath;
+    if (repo) {
+      repo.onCanvas = true;
+      if (localPath) repo.localPath = localPath;
     }
 
     this.closeFileBrowserModal();
-    this.state.selectedRepoId = null;
     this.state.save();
     this.ui.showToast(`Added ${fullName}`);
     this.render();
@@ -1747,9 +1737,7 @@ class App {
   }
 
   createFeatureForRepo(repoId) {
-    // Open create panel with repo pre-selected
-    this.state.selectedRepoId = repoId;
-    this.state.save(); // Persist selected repo
+    // Open create panel with repo pre-selected (no selection state stored)
     this.pendingRepoId = repoId;
     this.initCreate(null);
   }
