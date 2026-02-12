@@ -4,6 +4,7 @@ import { FeaturesCanvas } from './features-canvas';
 import type { CanvasNodeType } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
+import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 
 const meta: Meta<typeof FeaturesCanvas> = {
   title: 'Features/FeaturesCanvas',
@@ -221,8 +222,16 @@ const repoNode: RepositoryNodeType = {
   },
 };
 
+const addRepoNode: AddRepositoryNodeType = {
+  id: 'add-repo',
+  type: 'addRepositoryNode',
+  position: { x: 50, y: 280 },
+  data: {},
+};
+
 const repoFeatureNodes: CanvasNodeType[] = [
   repoNode,
+  addRepoNode,
   {
     id: 'feat-1',
     type: 'featureNode',
