@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
+import { within, expect, waitFor } from '@storybook/test';
+import { ReactFlowProvider, ReactFlow, useNodesState } from '@xyflow/react';
 import { FeatureNode } from './feature-node';
 import type {
   FeatureNodeData,
@@ -244,4 +245,95 @@ export const Selected: Story = {
     progress: 45,
   },
   render: (args) => <SelectedFeatureNodeCanvas data={args} />,
+};
+
+const interactiveInitialNodes: FeatureNodeType[] = [
+  {
+    id: 'node-1',
+    type: 'featureNode',
+    position: { x: 0, y: 0 },
+    data: {
+      name: 'Auth Module',
+      description: 'Implement OAuth2 authentication flow',
+      featureId: '#f1',
+      lifecycle: 'implementation' as FeatureLifecyclePhase,
+      state: 'running' as FeatureNodeState,
+      progress: 45,
+    },
+  },
+  {
+    id: 'node-2',
+    type: 'featureNode',
+    position: { x: 0, y: 200 },
+    data: {
+      name: 'Payment Gateway',
+      description: 'Stripe integration for subscriptions',
+      featureId: '#f2',
+      lifecycle: 'deploy' as FeatureLifecyclePhase,
+      state: 'done' as FeatureNodeState,
+      progress: 100,
+      runtime: '1h 42m',
+    },
+  },
+  {
+    id: 'node-3',
+    type: 'featureNode',
+    position: { x: 0, y: 400 },
+    data: {
+      name: 'Email Service',
+      description: 'Transactional email with SendGrid',
+      featureId: '#f3',
+      lifecycle: 'test' as FeatureLifecyclePhase,
+      state: 'error' as FeatureNodeState,
+      progress: 30,
+      errorMessage: 'Build failed: type mismatch',
+    },
+  },
+];
+
+/** Multi-node canvas with selection enabled — click a node to see the ring highlight. */
+function InteractiveCanvas() {
+  // useNodesState manages node state including selection, so clicking a node
+  // triggers onNodesChange → updates selected → re-renders with ring-2.
+  const [nodes, , onNodesChange] = useNodesState(interactiveInitialNodes);
+
+  return (
+    <div style={{ width: 500, height: 700 }}>
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={nodes}
+          onNodesChange={onNodesChange}
+          nodeTypes={nodeTypes}
+          nodesConnectable={false}
+          proOptions={{ hideAttribution: true }}
+          fitView
+        />
+      </ReactFlowProvider>
+    </div>
+  );
+}
+
+export const Interactive: Story = {
+  render: () => <InteractiveCanvas />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+
+    // React Flow's d3-zoom handler requires event.view.document to exist.
+    // Testing Library's fireEvent/userEvent set view to null in Storybook's iframe,
+    // so we dispatch a native MouseEvent with the proper view reference.
+    const nodeWrapper = canvasElement.querySelector('.react-flow__node') as HTMLElement;
+    await waitFor(() => expect(nodeWrapper).toBeTruthy());
+
+    const view = canvasElement.ownerDocument.defaultView!;
+    nodeWrapper.dispatchEvent(
+      new MouseEvent('mousedown', { bubbles: true, cancelable: true, view })
+    );
+    nodeWrapper.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view }));
+
+    // Assert the ring highlight appears on the selected node
+    await waitFor(() => {
+      const cards = canvas.getAllByTestId('feature-node-card');
+      expect(cards[0].className).toContain('ring-2');
+    });
+  },
 };
