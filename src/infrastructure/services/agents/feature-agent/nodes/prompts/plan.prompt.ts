@@ -19,9 +19,10 @@ export function buildPlanPrompt(state: FeatureAgentState): string {
 ## Your Task
 
 1. Read the feature spec (with requirements) and research findings
-2. Create a concrete implementation plan with architecture decisions and rationale
+2. Create a high-level implementation plan with architecture decisions, phases, and rationale
 3. Break the work into ordered tasks with TDD cycles (RED-GREEN-REFACTOR)
 4. Write the plan to plan.yaml AND the task breakdown to tasks.yaml
+5. plan.yaml covers strategy and architecture — tasks.yaml covers the concrete work items (no duplication)
 
 ## Feature Spec
 
@@ -33,12 +34,13 @@ ${researchContent}
 
 ## What to Produce
 
-### Implementation Plan (plan.yaml)
+### Implementation Plan (plan.yaml) — Strategy & Architecture Only
 - Architecture overview and how the feature fits the existing codebase
 - Key design decisions with rationale (reference research where applicable)
-- Implementation phases — logical groupings of related tasks
+- Implementation phases — high-level names and descriptions (NO individual task lists)
 - Files to create and files to modify
 - Risk mitigation strategies
+- Do NOT include task breakdowns — those belong exclusively in tasks.yaml
 
 ### Task Breakdown (tasks.yaml)
 - Concrete, ordered tasks that implement the plan
@@ -65,15 +67,12 @@ You MUST write TWO files:
   phases:
     - id: phase-1
       name: '(Phase Name — e.g., "Foundation & Domain Setup")'
+      description: '(What this phase accomplishes and why it comes first)'
       parallel: false
-      taskIds:
-        - task-1
-        - task-2
     - id: phase-2
       name: '(Next Phase)'
+      description: '(What this phase accomplishes)'
       parallel: false
-      taskIds:
-        - task-3
 
   filesToCreate:
     - (path/to/new/file.ts)
@@ -116,6 +115,7 @@ You MUST write TWO files:
 
   tasks:
     - id: task-1
+      phaseId: phase-1
       title: '(Task Title)'
       description: '(What this task accomplishes and why)'
       state: Todo
@@ -133,6 +133,7 @@ You MUST write TWO files:
       estimatedEffort: '(time estimate, e.g., 1h, 30min)'
 
     - id: task-2
+      phaseId: phase-1
       title: '(Next Task)'
       description: '...'
       state: Todo
@@ -153,21 +154,11 @@ You MUST write TWO files:
   openQuestions: []
 
   content: |
-    ## Task List
+    ## Summary
 
-    ### Phase 1: (Phase Name)
-
-    **RED:**
-    - [ ] (tests to write first)
-
-    **GREEN:**
-    - [ ] **Task 1:** (title) (effort)
-
-    **REFACTOR:**
-    - [ ] (cleanup items)
-
-    ### Phase 2: (Phase Name)
-    ...
+    (Brief narrative: what gets built, in what order, and why.
+    Do NOT list individual tasks — the structured tasks array above is the source of truth.
+    Instead, summarize the overall flow: "First we set up X, then wire Y, finally integrate Z.")
 
 ## Constraints
 
