@@ -30,39 +30,57 @@
 - [ ] Verify ring integrates with existing `border-l-4` styles
 - [ ] Add Selected story variant to `feature-node.stories.tsx`
 
-#### 2B: FeaturesCanvas Interaction Callbacks
+#### 2B: FeaturesCanvas Interaction and Contextual Add Callbacks
 
 **RED (Write Failing Tests First):**
 
 - [ ] Write test: FeaturesCanvas accepts and passes `onNodeClick` prop
 - [ ] Write test: FeaturesCanvas accepts and passes `onPaneClick` prop
+- [ ] Write test: FeaturesCanvas wires `onRepositoryAdd` to RepositoryNode `onAdd`
+- [ ] Write test: FeaturesCanvas wires `onNodeAction` to FeatureNode `onAction`
 
 **GREEN (Implement to Pass Tests):**
 
-- [ ] Add `onNodeClick` and `onPaneClick` to `FeaturesCanvasProps`
-- [ ] Pass callbacks through to `<ReactFlow>` component
+- [ ] Add `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, `onNodeAction` to `FeaturesCanvasProps`
+- [ ] Pass `onNodeClick`/`onPaneClick` through to `<ReactFlow>` component
+- [ ] Wire `onRepositoryAdd`/`onNodeAction` to nodes in enrichment `useMemo`
 
 **REFACTOR (Clean Up):**
 
 - [ ] Update type exports in index.ts
 - [ ] Add Interactive story variant
 
-### Phase 3: State Management Hook
+### Phase 3: State Management Hook (Selection + Contextual Add)
 
-**RED (Write Failing Tests First):**
+**RED — Selection & Keyboard (Write Failing Tests First):**
 
 - [ ] Write test: returns selectedNode when FeatureNode selected
 - [ ] Write test: returns null when no selection
 - [ ] Write test: Escape key clears selection
 
-**GREEN (Implement to Pass Tests):**
+**GREEN — Selection & Keyboard:**
 
 - [ ] Implement `useOnSelectionChange` for selection tracking
 - [ ] Add `useEffect` with keydown listener for Escape
 
+**RED — Contextual Add Handlers (Write Failing Tests First):**
+
+- [ ] Write test: `handleAddFeatureToRepo` adds node + edge
+- [ ] Write test: `handleAddFeatureToFeature` adds node + edge
+- [ ] Write test: `handleAddFeature` adds unconnected node
+- [ ] Write test: new node positioned at source.x + 350
+- [ ] Write test: new node is auto-selected
+
+**GREEN — Contextual Add Handlers:**
+
+- [ ] Implement add handlers using `useReactFlow` (`addNodes`, `addEdges`, `getNode`)
+- [ ] Calculate position from source node position
+
 **REFACTOR (Clean Up):**
 
 - [ ] Ensure all callbacks properly memoized
+- [ ] Extract `createDefaultFeatureNode` factory helper
+- [ ] Deduplicate add logic between repo/feature handlers
 
 ### Phase 4: Toolbar
 
@@ -87,16 +105,18 @@
 - [ ] Write test: renders FeaturesCanvas with nodes and edges
 - [ ] Write test: renders toolbar panel
 - [ ] Write test: passes onAddFeature to toolbar
+- [ ] Write test: wires onRepositoryAdd to FeaturesCanvas
+- [ ] Write test: wires onNodeAction to FeaturesCanvas
 
 **GREEN:**
 
 - [ ] Compose all sub-components in ControlCenter
 - [ ] Wire useControlCenterState hook
-- [ ] Connect callbacks and state
+- [ ] Connect callbacks, contextual add handlers, and state
 
 **REFACTOR:**
 
-- [ ] Add comprehensive Storybook stories (Empty, WithFeatures, WithToolbar)
+- [ ] Add comprehensive Storybook stories (Empty, WithFeatures, WithToolbar, WithNodeActions)
 - [ ] Verify no unnecessary re-renders
 
 ### Phase 6: Build Validation
