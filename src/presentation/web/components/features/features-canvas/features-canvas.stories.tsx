@@ -347,7 +347,7 @@ const multiRepoSingleFeatureNodes: CanvasNodeType[] = [
   {
     id: 'feat-1',
     type: 'featureNode',
-    position: { x: 450, y: 130 },
+    position: { x: 450, y: 125 },
     data: {
       name: 'SSO Integration',
       description: 'Single sign-on across all services',
@@ -378,13 +378,13 @@ const multiRepoNodes: CanvasNodeType[] = [
   {
     id: 'repo-1',
     type: 'repositoryNode',
-    position: { x: 50, y: 60 },
+    position: { x: 50, y: 86 },
     data: { name: 'shep-ai/cli' },
   },
   {
     id: 'repo-2',
     type: 'repositoryNode',
-    position: { x: 50, y: 310 },
+    position: { x: 50, y: 270 },
     data: { name: 'shep-ai/web' },
   },
   {
@@ -409,7 +409,7 @@ const multiRepoNodes: CanvasNodeType[] = [
   {
     id: 'feat-2',
     type: 'featureNode',
-    position: { x: 400, y: 290 },
+    position: { x: 400, y: 225 },
     data: {
       name: 'Dashboard UI',
       description: 'Main dashboard layout and widgets',
