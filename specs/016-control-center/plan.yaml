@@ -5,21 +5,9 @@ name: control-center
 summary: Implementation plan for 016-control-center
 
 # Relationships
-relatedFeatures:
-  - '015-feature-flow-canvas'
-  - '013-ui-arch'
-  - '014-ui-sidebar'
-technologies:
-  - '@xyflow/react ^12.10.0'
-  - React 19
-  - Tailwind CSS v4
-  - shadcn/ui
-  - Storybook 8
-  - Lucide React
-relatedLinks:
-  - https://reactflow.dev/api-reference/components/panel
-  - https://reactflow.dev/api-reference/hooks/use-on-selection-change
-  - https://reactflow.dev/api-reference/hooks/use-react-flow
+relatedFeatures: []
+technologies: []
+relatedLinks: []
 
 # Structured implementation phases
 phases:
@@ -28,245 +16,37 @@ phases:
     parallel: false
     taskIds:
       - task-1
-  - id: phase-2
-    name: 'Existing Component Updates'
-    parallel: true
-    taskIds:
       - task-2
+  - id: phase-2
+    name: 'Core Implementation'
+    parallel: false
+    taskIds:
       - task-3
-  - id: phase-3
-    name: 'State Management Hook'
-    parallel: false
-    taskIds:
       - task-4
-  - id: phase-4
-    name: 'Toolbar'
-    parallel: false
-    taskIds:
-      - task-5
-  - id: phase-5
-    name: 'Orchestrator Integration'
-    parallel: false
-    taskIds:
-      - task-6
-  - id: phase-6
-    name: 'DI Bridge + Feature Type Props'
-    parallel: false
-    taskIds:
-      - task-8
-  - id: phase-7
-    name: 'Build Validation'
-    parallel: false
-    taskIds:
-      - task-7
-  - id: phase-8
-    name: 'Lifecycle Alignment'
-    parallel: false
-    taskIds:
-      - task-9
-  - id: phase-9
-    name: 'Feature State Derivation from Domain Model'
-    parallel: false
-    taskIds:
-      - task-10
-  - id: phase-10
-    name: 'Story Updates'
-    parallel: false
-    taskIds:
-      - task-11
-  - id: phase-11
-    name: 'Feature Node Badge Improvements'
-    parallel: false
-    taskIds:
-      - task-12
-      - task-13
-      - task-14
-  - id: phase-12
-    name: 'Scaffold @shepai/core Package'
-    parallel: false
-    taskIds:
-      - task-15
-  - id: phase-13
-    name: 'Move Domain Layer to @shepai/core'
-    parallel: false
-    taskIds:
-      - task-16
-  - id: phase-14
-    name: 'Move Application Layer to @shepai/core'
-    parallel: false
-    taskIds:
-      - task-17
-  - id: phase-15
-    name: 'Move Infrastructure Layer to @shepai/core'
-    parallel: false
-    taskIds:
-      - task-18
-  - id: phase-16
-    name: 'Clean Up Root Package'
-    parallel: false
-    taskIds:
-      - task-19
-  - id: phase-17
-    name: 'Control Center Data Layer (Feature Type Props)'
-    parallel: false
-    taskIds:
-      - task-20
-  - id: phase-18
-    name: 'globalThis Bridge in WebServerService'
-    parallel: false
-    taskIds:
-      - task-21
-  - id: phase-19
-    name: 'Final Build Validation'
-    parallel: false
-    taskIds:
-      - task-22
 
 # File change tracking
 filesToCreate:
-  # Control center components (done)
-  - src/presentation/web/components/features/control-center/control-center.tsx
-  - src/presentation/web/components/features/control-center/control-center-inner.tsx
-  - src/presentation/web/components/features/control-center/use-control-center-state.ts
-  - src/presentation/web/components/features/control-center/control-center-empty-state.tsx
-  - src/presentation/web/components/features/control-center/control-center-empty-state.stories.tsx
-  - src/presentation/web/components/features/control-center/control-center.stories.tsx
-  - src/presentation/web/components/features/control-center/index.ts
-  - tests/unit/presentation/web/components/features/control-center/use-control-center-state.test.tsx
-  - tests/unit/presentation/web/components/features/control-center/control-center.test.tsx
-  - src/presentation/web/components/common/feature-node/agent-type-icons.tsx
-  - src/presentation/web/lib/use-cases.ts
-  # @shepai/core package (new)
-  - packages/core/package.json
-  - packages/core/tsconfig.json
-  - packages/core/tsconfig.build.json
-  - packages/core/src/index.ts
-  - packages/core/src/domain/index.ts
-  - packages/core/src/application/index.ts
-  - packages/core/src/infrastructure/index.ts
+  - src/domain/entities/{{ENTITY_NAME}}.ts
+  - tests/unit/domain/entities/{{ENTITY_NAME}}.test.ts
 
 filesToModify:
-  # Control center component updates (done)
-  - src/presentation/web/components/common/feature-node/feature-node.tsx
-  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
-  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
-  - src/presentation/web/components/common/feature-node/index.ts
-  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
-  - src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx
-  - tests/unit/presentation/web/components/features/features-canvas/features-canvas.test.tsx
-  - src/presentation/web/app/page.tsx
-  # @shepai/core extraction (new)
-  - pnpm-workspace.yaml # Add packages/core
-  - tspconfig.yaml # Output dir → packages/core/src/domain/generated
-  - package.json # Add @shepai/core dep, remove moved deps, update scripts
-  - tsconfig.json # Add @shepai/core path mapping
-  - tsconfig.build.json # Include only src/presentation/**/* + src/index.ts
-  - vitest.config.ts # Add @shepai/core alias
-  - src/presentation/web/package.json # Add @shepai/core: workspace:*
-  - src/presentation/web/tsconfig.json # Replace @cli/* with @shepai/core paths
-  - src/presentation/web/dev-server.ts # Import from @shepai/core
-  - src/presentation/web/lib/use-cases.ts # Import Feature from @shepai/core/domain/generated
-  - src/presentation/web/app/api/dialog/pick-folder/route.ts # @cli → @shepai/core
-  # Infrastructure layer updates
-  - src/infrastructure/services/web-server.service.ts # Set up globalThis bridge
-  - src/infrastructure/di/container.ts # Remove ListDashboardFeaturesUseCase registration
-  - src/application/ports/output/repositories/feature-repository.interface.ts # Remove DashboardFeature
-  - src/infrastructure/repositories/sqlite-feature.repository.ts # Remove listWithAgentRuns
-  - src/presentation/cli/index.ts # REVERT — remove globalThis bridge
-  # ~20 CLI command files: relative imports → @shepai/core/*
-  # ~30 infrastructure files: @/ aliases → relative paths (within core)
+  - src/infrastructure/di/container.ts
+  - package.json
 
-filesToDelete:
-  - src/presentation/web/lib/shep-data.ts # Direct filesystem access replaced by use case
-  - src/presentation/web/lib/features.ts # Direct SQL replaced by DI bridge
-  - src/presentation/web/app/control-center/ # Removed — control center is now the homepage (/ route)
-  - src/application/use-cases/features/list-dashboard-features.use-case.ts # Policy violation
-  - tests/unit/application/use-cases/features/list-dashboard-features.use-case.test.ts # Test for removed use case
-  - tests/unit/infrastructure/repositories/sqlite-feature-repository-list-with-agent-runs.test.ts # Test for removed repo method
-  - src/presentation/web/app/derive-state.ts # State derivation moves into feature-node component
-  # Moved to packages/core/src/ (deleted from root src/)
-  - src/domain/ # Moved to packages/core/src/domain/
-  - src/application/ # Moved to packages/core/src/application/
-  - src/infrastructure/ # Moved to packages/core/src/infrastructure/
-
-# Open questions
+# Open questions (should all be resolved before implementation)
 openQuestions: []
-
-# Status
-status:
-  phase: in-progress
-  updatedAt: '2026-02-16'
-  notes: 'Extract @shepai/core package (phases 12-19) + control center data layer. Phases 1-11 done, task-8 and task-10 superseded by new extraction plan.'
 
 # Markdown content (the full plan document)
 content: |
   ## Status
 
-  - **Phase:** In Progress (Phase 6 and 9 reopened)
-  - **Updated:** 2026-02-15
+  - **Phase:** Planning
+  - **Updated:** 2026-02-12
 
   ## Architecture Overview
 
   ```
-  ┌──────────────────────────────────────────────────────────────┐
-  │  ControlCenter (Tier 3 orchestrator)                         │
-  │  ┌────────────────────────────────────────────────────────┐  │
-  │  │  <Panel position="top-left">                          │  │
-  │  │    ControlCenterToolbar                                │  │
-  │  │    [Add Feature] [Auto-Layout]                         │  │
-  │  └────────────────────────────────────────────────────────┘  │
-  │  ┌────────────────────────────────────────────────────────┐  │
-  │  │                                                        │  │
-  │  │  FeaturesCanvas                                        │  │
-  │  │  (existing, stays pure)                                │  │
-  │  │                                                        │  │
-  │  │  ┌──────────┐ ┌──────────┐                             │  │
-  │  │  │FeatureNode│→│FeatureNode│                           │  │
-  │  │  │(selected) │ │          │                            │  │
-  │  │  │ ring-2    │ │          │                            │  │
-  │  │  └──────────┘ └──────────┘                             │  │
-  │  │       ↑                                                │  │
-  │  │  RepositoryNode                                        │  │
-  │  └────────────────────────────────────────────────────────┘  │
-  │                                                              │
-  │  useControlCenterState (custom hook)                         │
-  │  - Selection tracking (useOnSelectionChange)                 │
-  │  - Keyboard shortcuts (Escape)                               │
-  └──────────────────────────────────────────────────────────────┘
-  ```
-
-  ### Component Hierarchy
-
-  ```
-  Tier 3: features/control-center/     ← NEW orchestrator
-              ├── composes FeaturesCanvas (Tier 3)
-              ├── adds toolbar via React Flow <Panel>
-              └── manages state via useControlCenterState hook
-
-  Tier 3: features/features-canvas/    ← EXISTING (extend props)
-  Tier 1: common/feature-node/         ← EXISTING (add selected ring)
-  Tier 1: common/repository-node/      ← EXISTING (wire onAdd callback)
-  ```
-
-  ### Data Flow
-
-  ```
-  Props (nodes, edges, callbacks)
-       │
-       ▼
-  ControlCenter
-       │
-       ├──► useControlCenterState(initialNodes, initialEdges)
-       │         │
-       │         ├── selectedNode (from useOnSelectionChange)
-       │         ├── handleAddFeatureToRepo(repoNodeId)
-       │         ├── handleAddFeatureToFeature(featureNodeId)
-       │         └── handleAddFeature() (toolbar, unconnected)
-       │
-       ├──► FeaturesCanvas (nodes, edges, onNodeClick, onPaneClick,
-       │         onNodeAction, onRepositoryAdd)
-       │
-       └──► ControlCenterToolbar (onAddFeature, onAutoLayout)
+  {{ARCHITECTURE_DIAGRAM}}
   ```
 
   ## Implementation Strategy
@@ -275,359 +55,26 @@ content: |
 
   ### Phase 1: Foundation (No Tests)
 
-  **Goal:** Scaffold the control-center directory structure with empty component shells and barrel exports.
+  **Goal:** {{PHASE_1_GOAL}}
 
   **Steps:**
 
-  1. Create `features/control-center/` directory with all component files
-  2. Add minimal type-safe placeholder exports for each component
-  3. Set up `index.ts` barrel file with all exports
+  1. {{STEP_1}}
+  2. {{STEP_2}}
 
-  **Deliverables:** Empty scaffolded directory, compilable with `pnpm typecheck:web`
+  **Deliverables:** {{DELIVERABLES}}
 
-  ### Phase 2: Existing Component Updates (TDD Cycles 1-2) [P]
+  ### Phase 2: Core Implementation (TDD Cycle 1)
 
-  **Goal:** Update FeatureNode with selection visual and extend FeaturesCanvas with interaction callbacks. These two tasks are parallelizable.
-
-  #### 2A: FeatureNode Selected Highlight
+  **Goal:** {{PHASE_2_GOAL}}
 
   **TDD Workflow:**
 
-  1. **RED:** Write test that FeatureNode renders `ring-2 ring-primary` classes when `selected` prop is true, and does NOT render them when false
-  2. **GREEN:** Add conditional `ring-2 ring-primary` class to FeatureNode card wrapper using `cn()`, keyed on the `selected` prop from React Flow
-  3. **REFACTOR:** Ensure ring classes integrate cleanly with existing border styles; update Storybook stories to include Selected variant
-
-  #### 2B: FeaturesCanvas Interaction Callbacks
-
-  **TDD Workflow:**
-
-  1. **RED:** Write test that FeaturesCanvas passes `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, and `onNodeAction` through to the underlying ReactFlow/node components
-  2. **GREEN:** Add `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, and `onNodeAction` to `FeaturesCanvasProps`. Wire `onRepositoryAdd` to RepositoryNode's `onAdd` and `onNodeAction` to FeatureNode's `onAction` during node enrichment.
-  3. **REFACTOR:** Update type exports, verify stories still render correctly
-
-  **Deliverables:** FeatureNode with selection ring, FeaturesCanvas with interaction and contextual add callbacks
-
-  ### Phase 3: State Management Hook (TDD Cycles 3-4)
-
-  **Goal:** Implement `useControlCenterState` — the central state hook for the control center, including selection tracking, keyboard shortcuts, and contextual add handlers.
-
-  **TDD Workflow — Selection & Keyboard:**
-
-  1. **RED:** Write tests for:
-     - Returns selectedNode when a node is selected via useOnSelectionChange
-     - Returns null selectedNode when selection is cleared
-     - Escape keypress clears selection
-  2. **GREEN:** Implement hook composing:
-     - `useOnSelectionChange` for selection tracking
-     - `useEffect` + `keydown` listener for Escape shortcut
-     - `useCallback` for memoized event handlers
-  3. **REFACTOR:** Ensure all callbacks are properly memoized
-
-  **TDD Workflow — Contextual Add Handlers:**
-
-  1. **RED:** Write tests for:
-     - `handleAddFeatureToRepo(repoNodeId)` adds a new FeatureNode + edge to state
-     - `handleAddFeatureToFeature(featureNodeId)` adds a new FeatureNode + edge to state
-     - `handleAddFeature()` adds an unconnected FeatureNode to state
-     - New node is positioned to the right of source node (x + 350)
-     - New node is auto-selected after creation
-  2. **GREEN:** Implement using `useReactFlow()`:
-     - `addNodes()` to append new FeatureNode with default data
-     - `addEdges()` to create source→target edge
-     - `getNode()` to look up source node position for offset calculation
-     - Auto-select new node via `setNodes` with `selected: true`
-  3. **REFACTOR:** Extract node factory helper for default FeatureNode data, deduplicate add logic between repo/feature handlers
-
-  **Deliverables:** Fully tested `useControlCenterState` hook with selection + contextual add
-
-  ### Phase 4: Toolbar (TDD Cycle 4)
-
-  **Goal:** Build the toolbar panel sub-component.
-
-  **TDD Workflow:**
-
-  1. **RED:** Write tests that:
-     - Renders "Add Feature" button
-     - Renders "Auto-Layout" button (disabled placeholder)
-     - Calls `onAddFeature` callback when Add Feature clicked
-  2. **GREEN:** Implement toolbar as horizontal button bar with Lucide icons (Plus, LayoutGrid), using shadcn/ui Button components inside `<Panel position="top-left">`
-  3. **REFACTOR:** Add Storybook stories
-
-  **Deliverables:** Tested and storied toolbar component
-
-  ### Phase 5: Orchestrator Integration (TDD Cycle 6)
-
-  **Goal:** Wire everything together in the `ControlCenter` component, including contextual add actions.
-
-  **TDD Workflow:**
-
-  1. **RED:** Write tests that:
-     - Renders FeaturesCanvas with provided nodes and edges
-     - Renders toolbar panel
-     - Passes onAddFeature through to toolbar
-     - Wires handleAddFeatureToRepo to FeaturesCanvas onRepositoryAdd
-     - Wires handleAddFeatureToFeature to FeaturesCanvas onNodeAction
-  2. **GREEN:** Implement ControlCenter composing:
-     - `FeaturesCanvas` with nodes, edges, interaction callbacks, onRepositoryAdd, onNodeAction
-     - `ControlCenterToolbar` with action handlers
-     - All wired through `useControlCenterState`
-  3. **REFACTOR:** Clean up prop threading; ensure minimal re-renders
-
-  **Deliverables:** Full ControlCenter component with Storybook stories (Empty, WithFeatures, WithToolbar, WithNodeActions)
-
-  ### Phase 6: DI Bridge + Feature Type Props
-
-  **Goal:** Set up globalThis DI bridge in WebServerService using existing ListFeaturesUseCase.
-  Update FeatureNodeData to extend generated Feature type. Remove dashboard concept.
-
-  **Policy constraints:**
-  - No new use cases — use existing ListFeaturesUseCase returning Feature[]
-  - No CLI folder changes — bridge set up in WebServerService (infrastructure)
-  - FeatureNodeData extends Feature from feature.tsp/output.ts
-
-  #### 6A: Remove dashboard concept
-
-  **Steps:**
-
-  1. Delete `ListDashboardFeaturesUseCase` and its test
-  2. Remove `DashboardFeature` interface and `listWithAgentRuns()` from IFeatureRepository
-  3. Remove `listWithAgentRuns()` from SQLiteFeatureRepository
-  4. Remove `ListDashboardFeaturesUseCase` registration from DI container
-  5. Revert CLI index.ts — remove globalThis bridge and ListDashboardFeaturesUseCase import
-  6. Delete `derive-state.ts`
-
-  #### 6B: Set up bridge in WebServerService
-
-  **Steps:**
-
-  1. In `WebServerService.start()`, resolve `ListFeaturesUseCase` from DI container
-  2. Expose via `globalThis.__shepUseCases = { listFeatures }`
-  3. Rewrite `web/lib/use-cases.ts` — import `Feature` type via `@cli/domain/generated/output`,
-     export `getFeatures()` returning `Feature[]`
-
-  #### 6C: Update FeatureNodeData to extend Feature
-
-  **Steps:**
-
-  1. Import `Feature`, `SdlcLifecycle`, `TaskState` from `@cli/domain/generated/output`
-  2. `FeatureNodeData extends Feature` with UI callbacks (onAction, onSettings, showHandles)
-     and optional overrides (agentType, errorMessage, blockedBy, runtime)
-  3. Remove `FeatureLifecyclePhase` — use `SdlcLifecycle` directly
-  4. Update lifecycle display label and running verb maps to key on `SdlcLifecycle`
-  5. Add `deriveNodeState()` and `deriveProgress()` utilities in feature-node component
-  6. Simplify `page.tsx` — spread Feature directly into node data
-
-  **Deliverables:** Feature data flows through existing use case via DI bridge.
-  FeatureNodeData extends generated Feature type. No CLI changes. No new use cases.
-
-  ### Phase 8: Lifecycle Alignment
-
-  **Goal:** Align UI lifecycle phases with domain SdlcLifecycle 1:1 and add display labels.
-
-  **Steps:**
-
-  1. Update `FeatureLifecyclePhase` type: `'plan'→'research'`, `'test'→'review'`, `'maintenance'→'maintain'`
-  2. Add `lifecycleDisplayLabels` map (`maintain`→"COMPLETED", `deploy`→"DEPLOY & QA", etc.)
-  3. Update `feature-node.tsx` to use `lifecycleDisplayLabels[data.lifecycle]` instead of `.toUpperCase()`
-  4. Export `lifecycleDisplayLabels` from `index.ts`
-  5. Fix `lifecycleMap` in `page.tsx` to be 1:1 with domain
-
-  **Deliverables:** Lifecycle phases match domain, display labels are human-readable
-
-  ### Phase 9: Feature State Derivation from Domain Model
-
-  **Goal:** Verify state and progress derivation from Feature.plan.tasks works correctly.
-
-  **Steps:**
-
-  1. Test `deriveNodeState()`: Maintain=done, WIP tasks=running, all Done=done, Review=action-required, no plan=running
-  2. Test `deriveProgress()`: done tasks / total tasks * 100
-  3. Test optional overrides: errorMessage→error, blockedBy→blocked
-  4. Verify page.tsx passes Feature data directly to nodes
-  5. `pnpm build:web` passes
-
-  **Deliverables:** State derived from Feature domain model, not from agent_runs
-
-  ### Phase 10: Story Updates
-
-  **Goal:** Update all Storybook stories with new lifecycle values.
-
-  **Steps:**
-
-  1. Replace old phases in all story data (`'plan'`→`'research'`, `'test'`→`'review'`, `'maintenance'`→`'maintain'`)
-  2. Update `allLifecycles` array in feature-node.stories.tsx
-  3. Verify AllLifecycles story shows correct display labels
-
-  **Deliverables:** Stories reflect new lifecycle values, build passes
-
-  ### Phase 11: Feature Node Badge Improvements (TDD Cycles)
-
-  **Goal:** Hide featureId, add agent type icons, show lifecycle verbs in badge, keep CometSpinner.
-
-  #### 11A: Data plumbing + Agent type icons (task-12)
-
-  **Steps:**
-
-  1. `agentType` already flows through `DashboardFeature` from the use case (Phase 6A LEFT JOIN includes `ar.agent_type`)
-  2. Create `agent-type-icons.tsx` with `AgentTypeValue` union type mirroring TypeSpec `AgentType` enum
-  3. Implement inline SVG components: `ClaudeCodeIcon`, `CursorIcon`, `GeminiCliIcon`, `AiderIcon`, `ContinueIcon`, `DefaultAgentIcon`
-  4. Export `getAgentTypeIcon(agentType?)` resolver function
-  5. Add `agentType?: AgentTypeValue` to `FeatureNodeData`
-  6. Pass `agentType` through in `page.tsx` from bridge data
-
-  **Deliverables:** Agent type flows from DB through use case to UI, icon components ready
-
-  #### 11B: Badge updates (task-13)
-
-  **TDD Workflow:**
-
-  1. **RED:** Write tests for lifecycle running verbs, hidden featureId, agent icon rendering
-  2. **GREEN:**
-     - Remove featureId display from both views in `feature-node.tsx`
-     - Add `lifecycleRunningVerbs` map to `feature-node-state-config.ts`
-     - Update `getBadgeText` running case to use lifecycle verb
-     - In running badge: `[CometSpinner] [AgentTypeIcon] {lifecycle verb}`
-     - For non-running states: show agent icon (if available) before state icon
-     - Remove `agentName` from `FeatureNodeData` (replaced by `agentType`)
-  3. **REFACTOR:** Clean up unused imports, verify badge sizing
-
-  **Deliverables:** Badge shows agent icon + lifecycle verb, featureId hidden
-
-  #### 11C: Tests + Stories (task-14)
-
-  **Steps:**
-
-  1. Fix broken tests (featureId, badge text assertions)
-  2. Add lifecycle running verb tests for all 6 phases
-  3. Update all story data: replace `agentName` with `agentType`
-  4. Add `AllAgentTypes` story
-  5. Export `lifecycleRunningVerbs` and `getAgentTypeIcon` from `index.ts`
-
-  **Deliverables:** All tests green, stories updated, exports clean
-
-  ### Phase 12: Scaffold @shepai/core Package
-
-  **Goal:** Create the `packages/core/` workspace package with package.json, tsconfig files, and empty barrel exports.
-
-  **Steps:**
-
-  1. Create `packages/core/` with `package.json` (`@shepai/core`, private, type: module, subpath exports)
-  2. Create `tsconfig.json` (IDE/typecheck, noEmit) and `tsconfig.build.json` (compilation to dist/)
-  3. Create empty `src/index.ts` barrel export
-  4. Update `pnpm-workspace.yaml`: add `packages/core`
-  5. `pnpm install` to link workspace
-  6. Verify `pnpm build` still works
-
-  **Deliverables:** Empty @shepai/core package linked in workspace, all builds pass
-
-  ### Phase 13: Move Domain Layer
-
-  **Goal:** Move domain layer to @shepai/core and update all imports.
-
-  **Steps:**
-
-  1. Move `src/domain/` → `packages/core/src/domain/`
-  2. Create `packages/core/src/domain/index.ts` barrel
-  3. Update `tspconfig.yaml`: emitter output → `{cwd}/packages/core/src/domain/generated`
-  4. Update `tsp:codegen` script: `prettier --write packages/core/src/domain/generated/`
-  5. Update root `src/index.ts` to re-export from `@shepai/core/domain`
-  6. Update all imports across CLI, web, infrastructure, and tests
-
-  **Deliverables:** Domain types imported from @shepai/core/domain, TypeSpec output redirected
-
-  ### Phase 14: Move Application Layer
-
-  **Goal:** Move application layer to @shepai/core, delete policy-violating code.
-
-  **Steps:**
-
-  1. Move `src/application/` → `packages/core/src/application/`
-  2. Create `packages/core/src/application/index.ts` barrel
-  3. **Delete** `ListDashboardFeaturesUseCase` (policy violation — use existing `ListFeaturesUseCase`)
-  4. **Remove** `DashboardFeature` interface and `listWithAgentRuns()` from `IFeatureRepository`
-  5. Update all imports in infrastructure, CLI, web, and tests
-
-  **Deliverables:** Application layer in @shepai/core, dashboard concept removed
-
-  ### Phase 15: Move Infrastructure Layer
-
-  **Goal:** Move infrastructure layer to @shepai/core and update all consumers.
-
-  **Steps:**
-
-  1. Move `src/infrastructure/` → `packages/core/src/infrastructure/`
-  2. Create `packages/core/src/infrastructure/index.ts` barrel
-  3. Convert all `@/` alias imports within core to relative paths (~30 files)
-  4. Remove `ListDashboardFeaturesUseCase` from DI container registrations
-  5. Update CLI imports: `../../infrastructure/di/container.js` → `@shepai/core/infrastructure/di`
-  6. Update web imports: `@cli/*` → `@shepai/core/*`
-  7. Add `@shepai/core` dependency to `@shepai/web/package.json`
-  8. Remove `@cli/*` path from web `tsconfig.json`
-
-  **Deliverables:** All three layers in @shepai/core, web imports from @shepai/core
-
-  ### Phase 16: Clean Up Root Package
-
-  **Goal:** Remove moved code and dependencies from root package.
-
-  **Steps:**
-
-  1. Remove moved dependencies from root `package.json` (keep commander, @inquirer/prompts, cli-table3, picocolors + React/UI deps)
-  2. Update root `tsconfig.build.json`: include only `src/presentation/**/*` and `src/index.ts`
-  3. Update root `tsconfig.json` paths: add `@shepai/core` → `packages/core/src`
-  4. Update `vitest.config.ts`: add `@shepai/core` → `packages/core/src` alias
-  5. Remove `tsc-alias` entries no longer needed
-
-  **Deliverables:** Root package clean, only presentation layer remains in src/
-
-  ### Phase 17: Control Center Data Layer
-
-  **Goal:** Wire FeatureNodeData to extend generated Feature type, derive state from domain model.
-
-  **TDD Workflow:**
-
-  1. **RED:** Write tests for `deriveNodeState()` and `deriveProgress()` utilities
-  2. **GREEN:**
-     - Import `Feature`, `SdlcLifecycle`, `TaskState` from `@shepai/core/domain/generated`
-     - `FeatureNodeData extends Feature` with UI callbacks (onAction, onSettings, showHandles) and optional overrides
-     - Add `deriveNodeState()` and `deriveProgress()` in feature-node component
-     - Simplify `page.tsx` — spread Feature directly into node data
-     - Delete `derive-state.ts`
-  3. **REFACTOR:** Create `createMockFeature()` helper, update all stories/tests
-
-  **Deliverables:** Feature data flows from domain model, state derived in component
-
-  ### Phase 18: globalThis Bridge in WebServerService
-
-  **Goal:** Set up runtime bridge in WebServerService, clean up CLI.
-
-  **Steps:**
-
-  1. In `WebServerService.start()`, resolve `ListFeaturesUseCase` and set `globalThis.__shepUseCases`
-  2. CLI `index.ts` — remove the globalThis bridge setup
-  3. Web `dev-server.ts` — import from `@shepai/core` instead of relative paths
-  4. Rewrite `web/lib/use-cases.ts` — import `Feature` from `@shepai/core/domain/generated`, export `getFeatures()`
-
-  **Deliverables:** Bridge in infrastructure layer, CLI cleaned up, web imports from @shepai/core
-
-  ### Phase 19: Final Build Validation
-
-  **Goal:** Verify entire build pipeline works end-to-end.
-
-  **Steps:**
-
-  1. `pnpm install` — workspace links @shepai/core
-  2. `pnpm generate` — TypeSpec compiles to packages/core/
-  3. `pnpm --filter @shepai/core build` — core compiles to dist/
-  4. `pnpm typecheck` — CLI types valid
-  5. `pnpm typecheck:web` — web types valid with @shepai/core imports
-  6. `pnpm test:unit` — all unit tests pass
-  7. `pnpm lint` + `pnpm lint:web` — no lint errors
-  8. `pnpm build:web` — Next.js builds
-  9. `pnpm build:storybook` — stories build with Feature-based data
-  10. `pnpm build` — full build pipeline
-
-  **Deliverables:** All builds, tests, and linting pass with new package structure
+  1. **RED:** Write failing tests FIRST
+  2. **GREEN:** Implement minimal code to pass tests
+  3. **REFACTOR:** Improve code while keeping tests green
+
+  **Deliverables:** {{DELIVERABLES}}
 
   ## Files to Create/Modify
 
@@ -635,23 +82,13 @@ content: |
 
   | File | Purpose |
   | ---- | ------- |
-  | `features/control-center/control-center.tsx` | Main orchestrator component |
-  | `features/control-center/use-control-center-state.ts` | Custom hook: selection tracking |
-  | `features/control-center/control-center-toolbar.tsx` | Top toolbar (add feature, auto-layout) |
-  | `features/control-center/control-center.stories.tsx` | Storybook stories for orchestrator |
-  | `features/control-center/index.ts` | Barrel exports |
-  | `tests/.../use-control-center-state.test.ts` | Hook unit tests |
-  | `tests/.../control-center-toolbar.test.tsx` | Toolbar unit tests |
-  | `tests/.../control-center.test.tsx` | Orchestrator integration tests |
+  | {{FILE_PATH}} | {{PURPOSE}} |
 
   ### Modified Files
 
   | File | Changes |
   | ---- | ------- |
-  | `common/feature-node/feature-node.tsx` | Add conditional `ring-2 ring-primary` when `selected` |
-  | `common/feature-node/feature-node.stories.tsx` | Add Selected story variant |
-  | `features/features-canvas/features-canvas.tsx` | Add `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, `onNodeAction` props; wire to node enrichment |
-  | `features/features-canvas/features-canvas.stories.tsx` | Add Interactive story with callbacks |
+  | {{FILE_PATH}} | {{CHANGES}} |
 
   ## Testing Strategy (TDD: Tests FIRST)
 
@@ -660,36 +97,19 @@ content: |
   ### Unit Tests (RED -> GREEN -> REFACTOR)
 
   Write FIRST for:
-  - `useControlCenterState` hook — selection tracking, keyboard shortcuts, contextual add handlers
-  - `ControlCenterToolbar` — button rendering, callback invocation
-  - `FeatureNode` — selected ring visual (addition to existing tests)
-  - `FeaturesCanvas` — callback prop pass-through including `onRepositoryAdd`, `onNodeAction` (addition to existing tests)
+  - {{TEST_AREA_1}}
+  - {{TEST_AREA_2}}
 
-  ### Storybook Stories (Visual Verification)
+  ### Integration Tests
 
-  Every component has colocated stories:
-  - `FeatureNode` — add Selected variant to existing stories
-  - `FeaturesCanvas` — add Interactive variant with callbacks
-  - `ControlCenterToolbar` — Default, WithCallbacks
-  - `ControlCenter` — Empty, WithFeatures, WithToolbar, WithNodeActions
-
-  ### E2E Tests (Stretch)
-
-  Not required for initial implementation. Canvas interaction testing can be added post-merge.
+  Write FIRST for:
+  - {{INTEGRATION_TEST_1}}
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | React Flow Panel conflicts with existing Controls/MiniMap | Test with Background and Controls present in stories |
-  | useOnSelectionChange callback not memoized causing re-subscriptions | Wrap in useCallback per React Flow docs |
-  | FeatureNode ring conflicts with existing left border | Test ring + border combination visually in Storybook |
-  | New nodes overlap when adding multiple children to same parent | Y-offset based on existing children count |
-  | useReactFlow must be inside ReactFlowProvider | ControlCenter wraps everything in Provider; hook used in child |
-
-  ## Rollback Plan
-
-  Feature is purely additive UI. Rollback by reverting the feature branch merge. No data migrations, no backend changes, no breaking API changes.
+  | {{RISK}} | {{MITIGATION}} |
 
   ---
 

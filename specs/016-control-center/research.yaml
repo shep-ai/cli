@@ -5,244 +5,25 @@ name: control-center
 summary: Technical analysis for 016-control-center
 
 # Relationships
-relatedFeatures:
-  - '015-feature-flow-canvas'
-  - '013-ui-arch'
-technologies:
-  - '@xyflow/react ^12.10.0'
-  - React 19
-  - shadcn/ui
-  - Tailwind CSS v4
-relatedLinks:
-  - https://reactflow.dev/api-reference/components/panel
-  - https://reactflow.dev/api-reference/hooks/use-on-selection-change
-  - https://reactflow.dev/api-reference/hooks/use-react-flow
-  - https://reactflow.dev/learn/advanced-use/hooks-providers
+relatedFeatures: []
+technologies: []
+relatedLinks: []
 
 # Structured technology decisions
 decisions:
-  - title: Canvas overlay positioning
-    chosen: React Flow Panel component
+  - title: { { DECISION_TITLE } }
+    chosen: { { CHOSEN_OPTION } }
     rejected:
-      - Custom absolute-positioned divs
-      - CSS Grid overlay layout
-    rationale: >
-      React Flow provides a built-in <Panel> component with 8 position slots
-      (top-left, top-center, top-right, bottom-left, bottom-center, bottom-right,
-      center-left, center-right). Panels render above the viewport and do not
-      interfere with pan/zoom. This is the idiomatic approach used by React Flow's
-      own <Controls> and <MiniMap> components. No additional dependencies needed.
-
-  - title: State management approach
-    chosen: Custom hook (useControlCenterState) with React Flow built-in hooks
-    rejected:
-      - Zustand store
-      - React Context provider
-      - Lifting state to parent page
-    rationale: >
-      React Flow already provides useNodesState, useEdgesState, and
-      useOnSelectionChange hooks. A custom hook composing these with local
-      useState for panel visibility keeps all state co-located with the
-      ControlCenter component. No external state library needed. If state
-      needs to be shared beyond ControlCenter later, it can be lifted to
-      context without changing the hook API.
-
-  - title: Node selection tracking
-    chosen: React Flow built-in selection (selected prop) + useOnSelectionChange
-    rejected:
-      - Custom onNodeClick handler with manual state
-      - External selection library
-    rationale: >
-      React Flow has built-in selection support — clicking a node sets its
-      `selected` property to true. The useOnSelectionChange hook fires a
-      callback with the currently selected nodes/edges. Custom nodes receive
-      `selected` as a prop, which FeatureNode can use for visual highlight.
-      This avoids duplicating React Flow's internal selection state.
-
-  - title: Selected node visual highlight
-    chosen: Tailwind ring utility via selected prop
-    rejected:
-      - CSS box-shadow
-      - Separate wrapper div with border
-      - Framer Motion animated border
-    rationale: >
-      FeatureNode already accepts props from React Flow. The `selected` prop
-      is available on all custom nodes. Adding a conditional `ring-2 ring-blue-500`
-      class to the card when selected is minimal, performant, and consistent
-      with the existing Tailwind-based styling. No animation library needed.
-
-  - title: Keyboard shortcuts
-    chosen: Native useEffect with keydown event listener
-    rejected:
-      - useHotkeys library (react-hotkeys-hook)
-      - React Flow built-in keyboard handling
-    rationale: >
-      Only one shortcut needed initially (Escape to deselect). A simple useEffect
-      with addEventListener('keydown') is sufficient and avoids adding a dependency.
-      React Flow's built-in keyboard handling covers node deletion via Backspace/Delete
-      when deleteKeyCode is set, but Escape for panel dismissal is custom logic.
-      Can migrate to a library later if shortcuts grow.
-
-  - title: Programmatic node and edge creation
-    chosen: useReactFlow hook (addNodes/addEdges)
-    rejected:
-      - Manual setNodes/setEdges state updates
-      - External graph manipulation library
-    rationale: >
-      React Flow provides a useReactFlow() hook with addNodes() and addEdges()
-      methods that append to the existing graph without replacing state. This is
-      the idiomatic approach for programmatic graph manipulation. The hook also
-      provides getNode() to look up source node position for calculating new node
-      placement. Using setNodes/setEdges directly requires spreading existing state
-      which is error-prone. The hook is already available inside ReactFlowProvider.
-
-  - title: New node positioning strategy
-    chosen: Offset from source node position (x + 350, same y)
-    rejected:
-      - Random placement
-      - Center of viewport
-      - Auto-layout on every add
-    rationale: >
-      Placing the new node to the right of its source (x + 350px offset) provides
-      immediate visual feedback of the parent-child relationship. The 350px offset
-      accounts for node width (~288px for FeatureNode) plus spacing. If multiple
-      children exist at the same position, a y-offset based on existing children
-      count prevents overlap. Auto-layout on every add would be jarring and is
-      out of scope. Viewport center placement loses the visual connection context.
-
-  - title: Lifecycle phase alignment with domain
-    chosen: Map FeatureLifecyclePhase 1:1 to domain SdlcLifecycle enum values
-    rejected:
-      - Keep UI-specific simplified phases
-      - Create a separate presentation-layer enum
-    rationale: >
-      The UI had invented phases ('plan', 'test', 'maintenance') that don't exist
-      in the domain SdlcLifecycle enum (Requirements, Research, Implementation,
-      Review, Deploy & QA, Maintain). The lifecycleMap in page.tsx collapsed
-      multiple domain phases into single UI phases (Research→requirements,
-      Maintain→deploy), losing information. Aligning 1:1 ensures the UI always
-      reflects the real domain state. A display label map handles human-readable
-      names (e.g. 'maintain' displays as 'COMPLETED').
-
-  - title: Feature state derivation from domain model
-    chosen: Derive state and progress from Feature.plan.tasks inside the component
-    rejected:
-      - LEFT JOIN features with agent_runs (creates new use case and repo method)
-      - Read feature.yaml spec files from disk for progress
-      - Hardcode all features as running
-    rationale: >
-      The Feature domain model (from feature.tsp) already contains plan.tasks
-      with TaskState (Todo, WIP, Done, Review). State is derived inside the
-      component: Maintain lifecycle = done, all tasks Done = done, has WIP tasks
-      = running, has Review tasks = action-required, no plan = running. Progress
-      is computed as (done tasks / total tasks * 100). This avoids creating new
-      use cases or repository methods — the existing ListFeaturesUseCase returns
-      Feature[] with all needed data. Error/blocked states are set via optional
-      errorMessage/blockedBy fields on FeatureNodeData.
-
-  - title: Agent type icon display in feature node badge
-    chosen: Inline SVG components per AgentType with typed union mirroring TypeSpec enum
-    rejected:
-      - Lucide generic icons for all agent types
-      - External icon library (react-icons)
-    rationale: >
-      Each agent type (claude-code, cursor, gemini-cli, aider, continue) needs a
-      distinct brand icon recognizable at 14x14px. Inline SVGs keep the bundle small,
-      avoid external deps, and allow currentColor inheritance for badge theming. A
-      string literal union type (AgentTypeValue) mirrors the TypeSpec AgentType enum
-      since the web package can't import from domain/generated due to Turbopack ESM
-      incompatibility. The CometSpinner is kept as the activity indicator alongside
-      the agent icon in the running state badge. The agent_runs.agent_type column
-      stores the enum value per-run, so each feature knows which agent is working on it.
-
-  - title: Maintain lifecycle semantics
-    chosen: Maintain = Completed (done state, display label 'COMPLETED')
-    rejected:
-      - Show as 'MAINTENANCE' with running state
-      - Show as 'DEPLOY' (collapse with Deploy & QA)
-    rationale: >
-      In the Shep platform, a feature reaching the Maintain lifecycle stage means
-      it has been fully implemented, reviewed, deployed, and is now in ongoing
-      support. From the control center perspective, this is a completed feature.
-      Displaying it with 'COMPLETED' label and emerald done state gives clear
-      visual feedback that no further agent work is needed.
-
-  - title: Extract @shepai/core workspace package
-    chosen: Pre-compiled @shepai/core package exporting domain, application, and infrastructure layers
-    rejected:
-      - Keep layers in root src/ with @cli/* path aliases in web
-      - Shared ESM module imports from CLI source (Turbopack incompatible)
-      - Separate packages per layer (@shepai/domain, @shepai/application, @shepai/infrastructure)
-    rationale: >
-      Turbopack cannot resolve CLI source files that use Node.js ESM .js extension
-      imports. The @cli/* path alias is fragile, requires duplicated type definitions
-      in the web layer, and couples web to CLI. Extracting domain/, application/, and
-      infrastructure/ into a single @shepai/core workspace package solves this cleanly.
-      Both @shepai/cli and @shepai/web depend on @shepai/core via workspace:*.
-      A single package (not three) avoids circular dependency issues between layers
-      and simplifies the build pipeline. The package exports compiled JavaScript
-      (not TypeScript source) so Turbopack resolves it like any npm package.
-      IDE jump-to-definition works via tsconfig.json path mappings to source.
-
-  - title: '@shepai/core compilation strategy'
-    chosen: Pre-compiled JavaScript via tsc with separate build and typecheck configs
-    rejected:
-      - TypeScript source with transpilePackages in Next.js
-      - SWC compilation
-      - Bundle with tsup/rollup
-    rationale: >
-      A pre-compiled package avoids Turbopack compatibility issues entirely.
-      tsconfig.build.json compiles src/ to dist/ with declarations. tsconfig.json
-      (noEmit) is used for IDE and typecheck only. Build order is deterministic:
-      TypeSpec → core → CLI → web. IDE path mappings point to source for
-      jump-to-definition. No transpilePackages needed in Next.js config.
-
-  - title: '@shepai/core package exports structure'
-    chosen: Subpath exports with domain, application, infrastructure entry points
-    rejected:
-      - Single entry point exporting everything
-      - Deep path imports without exports map
-    rationale: >
-      Subpath exports allow consumers to import from specific layers:
-      @shepai/core/domain, @shepai/core/application, @shepai/core/infrastructure.
-      This maintains clear dependency boundaries — the web layer should only import
-      from domain and application, not infrastructure internals. The exports map
-      also includes @shepai/core/domain/generated for direct TypeSpec type access
-      and @shepai/core/infrastructure/di for container initialization.
-
-  - title: Web-to-CLI runtime data access bridge pattern
-    chosen: Global DI bridge via globalThis for runtime use case access, types from @shepai/core
-    rejected:
-      - Direct SQL queries in web presentation layer
-      - Next.js API routes with manual DB connection
-      - Setting up bridge in CLI bootstrap (violates no-CLI-changes policy)
-    rationale: >
-      The globalThis bridge is still needed for RUNTIME use case access because
-      the DI container is initialized by CLI or dev-server, not by Next.js.
-      However, with @shepai/core extracted, the bridge is much simpler:
-      WebServerService.start() resolves ListFeaturesUseCase from the container
-      and sets globalThis.__shepUseCases. The web layer imports the Feature TYPE
-      directly from @shepai/core/domain/generated (no path alias needed).
-      The bridge module (web/lib/use-cases.ts) only reads the runtime use case
-      instance from globalThis. No new use cases, no CLI folder changes.
-
-  - title: FeatureNodeData extends generated Feature type
-    chosen: FeatureNodeData extends Feature from @shepai/core/domain/generated with UI callback fields
-    rejected:
-      - Hand-crafted FeatureNodeData with duplicated domain fields
-      - DashboardFeature DTO with flattened agent_runs data
-    rationale: >
-      The Feature type generated from feature.tsp is the single source of truth
-      for the domain model. FeatureNodeData extends Feature and adds only UI-specific
-      fields (onAction, onSettings, showHandles, agentType, errorMessage, blockedBy,
-      runtime). The component derives state and progress from Feature.plan.tasks
-      internally. This eliminates the need for DashboardFeature, ListDashboardFeaturesUseCase,
-      and IFeatureRepository.listWithAgentRuns(). With @shepai/core extracted, the
-      web package imports Feature type directly from @shepai/core/domain/generated
-      (no @cli/* path alias needed).
+      - { { OPTION_1 } }
+      - { { OPTION_2 } }
+    rationale: { { RATIONALE } }
 
 # Open questions (should be resolved by end of research)
-openQuestions: []
+openQuestions:
+  []
+  # - question: "Which library should we use?"
+  #   resolved: true
+  #   answer: "Library X because of Y"
 
 # Markdown content (the full research document)
 content: |
@@ -253,218 +34,31 @@ content: |
 
   ## Technology Decisions
 
-  ### 1. Canvas Overlay Positioning
+  ### {{DECISION_TITLE}}
 
   **Options considered:**
 
-  1. **React Flow `<Panel>` component** — Built-in component with 8 position slots, renders above viewport
-  2. **Custom absolute-positioned divs** — Manual CSS positioning over the canvas
-  3. **CSS Grid overlay layout** — Grid wrapper with canvas in one cell, overlays in others
+  1. {{OPTION_1}}
+  2. {{OPTION_2}}
+  3. {{OPTION_3}}
 
-  **Decision:** React Flow `<Panel>` component
+  **Decision:** {{CHOSEN_OPTION}}
 
-  **Rationale:** Panel is the idiomatic React Flow approach. It's used internally by `<Controls>` and `<MiniMap>`. Panels don't interfere with pan/zoom, accept standard div props for styling, and require no additional dependencies. Position slots map directly to our layout needs:
-  - `top-left` → Toolbar
-  - `top-right` → Detail panel
-  - `bottom-left` → Status bar
-
-  ### 2. State Management Approach
-
-  **Options considered:**
-
-  1. **Custom hook composing React Flow hooks** — `useControlCenterState` wrapping `useNodesState`, `useEdgesState`, `useOnSelectionChange`, plus `useState` for panel visibility
-  2. **Zustand store** — External store for cross-component state
-  3. **React Context provider** — Context wrapping the control center
-  4. **Lift state to parent page** — Page component owns all state
-
-  **Decision:** Custom hook (`useControlCenterState`)
-
-  **Rationale:** React Flow already provides `useNodesState`, `useEdgesState`, and `useOnSelectionChange`. These hooks must be used inside a `<ReactFlowProvider>`. A custom hook composing them with local `useState` for panel visibility keeps state co-located and testable. No external dependency needed. The hook can be extracted to context later if state sharing becomes necessary.
-
-  ### 3. Node Selection Tracking
-
-  **Options considered:**
-
-  1. **React Flow built-in selection** — Nodes have a `selected` prop set by React Flow on click
-  2. **Custom `onNodeClick` handler** — Manual tracking of selected node ID in state
-  3. **External selection library** — Third-party selection management
-
-  **Decision:** React Flow built-in selection + `useOnSelectionChange`
-
-  **Rationale:** React Flow handles selection internally — clicking a node sets `node.selected = true`. The `useOnSelectionChange` hook fires when selection changes, providing the selected nodes array. Custom nodes receive `selected` as a prop. This avoids duplicating selection state and stays in sync with React Flow's internal model. The hook callback opens/closes the detail panel.
-
-  ### 4. Selected Node Visual Highlight
-
-  **Options considered:**
-
-  1. **Tailwind `ring` utility** — `ring-2 ring-blue-500` when `selected` prop is true
-  2. **CSS box-shadow** — Custom shadow on selection
-  3. **Wrapper div with border** — Additional DOM element
-  4. **Framer Motion animated border** — Animated highlight effect
-
-  **Decision:** Tailwind `ring-2 ring-blue-500`
-
-  **Rationale:** FeatureNode already uses Tailwind classes and receives props from React Flow including `selected`. A conditional ring class is minimal (one `cn()` addition), performant, and visually distinct from the existing left border. No new dependencies or DOM changes needed.
-
-  ### 5. Keyboard Shortcuts
-
-  **Options considered:**
-
-  1. **Native `useEffect` with `keydown` listener** — Simple event listener in custom hook
-  2. **`react-hotkeys-hook` library** — Declarative hotkey binding
-  3. **React Flow built-in keyboard handling** — `deleteKeyCode` prop
-
-  **Decision:** Native `useEffect` with `keydown` listener
-
-  **Rationale:** Only one shortcut needed initially (Escape to deselect). A `useEffect` with `addEventListener('keydown')` is 5 lines of code. Adding a library for one shortcut is unnecessary. React Flow's built-in `deleteKeyCode` handles node deletion but doesn't cover custom logic. Can revisit if shortcuts grow beyond 3-4.
-
-  ### 6. Programmatic Node and Edge Creation
-
-  **Options considered:**
-
-  1. **`useReactFlow` hook** — Built-in `addNodes()` and `addEdges()` methods
-  2. **Manual `setNodes`/`setEdges` state updates** — Spread existing state and append
-  3. **External graph manipulation library** — Third-party graph management
-
-  **Decision:** `useReactFlow` hook (`addNodes`/`addEdges`)
-
-  **Rationale:** React Flow provides `useReactFlow()` with `addNodes()` and `addEdges()` for appending to the graph without replacing state. The hook also exposes `getNode()` to look up the source node's position for calculating new node placement. Manual `setNodes` requires spreading existing state which is error-prone. The hook is already available inside `ReactFlowProvider`. This is needed for the contextual (+) add actions on RepositoryNode and FeatureNode.
-
-  ### 7. New Node Positioning Strategy
-
-  **Options considered:**
-
-  1. **Offset from source node** — Place new node at `x + 350, same y` relative to source
-  2. **Random placement** — Random position within viewport
-  3. **Center of viewport** — Always place at viewport center
-  4. **Auto-layout on every add** — Re-layout entire graph after each addition
-
-  **Decision:** Offset from source node position (`x + 350`, same `y`)
-
-  **Rationale:** Placing to the right of the source (350px offset = 288px node width + 62px gap) gives immediate visual feedback of parent-child relationship. If multiple children share the same position, a y-offset based on existing children count prevents overlap. Auto-layout on every add would be jarring. Viewport center loses the connection context.
+  **Rationale:** {{RATIONALE}}
 
   ## Library Analysis
 
-  | Library | Version | Purpose | Status |
-  | --- | --- | --- | --- |
-  | `@xyflow/react` | ^12.10.0 | Canvas, Panel, selection hooks, useReactFlow | Already installed |
-  | `react-hotkeys-hook` | N/A | Keyboard shortcuts | Rejected — overkill for 1 shortcut |
-
-  **No new dependencies required.** All decisions use existing packages (`@xyflow/react`, Tailwind CSS).
+  | Library     | Version     | Purpose     | Pros     | Cons     |
+  | ----------- | ----------- | ----------- | -------- | -------- |
+  | {{LIBRARY}} | {{VERSION}} | {{PURPOSE}} | {{PROS}} | {{CONS}} |
 
   ## Security Considerations
 
-  No security implications identified. This feature is purely presentational UI with no backend integration, user input handling, or data persistence.
+  No security implications identified.
 
   ## Performance Implications
 
-  - **Node enrichment memoization**: The existing `useMemo` in FeaturesCanvas for node enrichment should be preserved. The control center adds selection state which React Flow handles internally — no additional re-render overhead.
-  - **Panel rendering**: React Flow Panel uses CSS positioning, not portal rendering. Panels are only re-rendered when their content changes, not on every canvas pan/zoom.
-  - **useOnSelectionChange**: The callback must be memoized with `useCallback` (documented requirement from React Flow). Failure to memoize causes unnecessary re-subscriptions.
-  - **addNodes/addEdges**: These methods batch updates internally. Adding a node + edge in sequence is efficient and does not cause double renders.
-
-  ### 8. Lifecycle Phase Alignment with Domain
-
-  **Options considered:**
-
-  1. **Map FeatureLifecyclePhase 1:1 to domain SdlcLifecycle** — Use matching values (requirements, research, implementation, review, deploy, maintain) with display labels
-  2. **Keep UI-specific simplified phases** — Continue using invented phases ('plan', 'test', 'maintenance')
-  3. **Create a separate presentation-layer enum** — New enum decoupled from domain
-
-  **Decision:** Map 1:1 to domain SdlcLifecycle
-
-  **Rationale:** The UI phases ('plan', 'test', 'maintenance') have no domain counterpart. The lifecycleMap collapsed Research→requirements and Maintain→deploy, losing information. A 1:1 mapping with a display label map (`maintain` → "COMPLETED", `deploy` → "DEPLOY & QA") keeps the UI accurate while providing human-readable names.
-
-  ### 9. Feature State Derivation from Domain Model
-
-  **Options considered:**
-
-  1. **Derive from Feature.plan.tasks** — Use existing domain data in the component
-  2. **LEFT JOIN features with agent_runs** — Query agent status from DB (requires new use case)
-  3. **Read feature.yaml from disk** — Parse spec files for progress
-  4. **Hardcode all features as running** — Current approach (broken)
-
-  **Decision:** Derive from Feature.plan.tasks inside the component
-
-  **Rationale:** The Feature domain model from feature.tsp already contains `plan.tasks`
-  with `TaskState` (Todo, WIP, Done, Review). State is derived in the component:
-  Maintain lifecycle = done, all tasks Done = done, has WIP tasks = running,
-  has Review tasks = action-required, no plan = running. Progress = done tasks /
-  total tasks * 100. Error/blocked states are set via optional fields (errorMessage,
-  blockedBy). This avoids creating new use cases or repository methods.
-
-  ### 10. Maintain Lifecycle Semantics
-
-  **Decision:** Maintain = Completed (done state, "COMPLETED" display label)
-
-  **Rationale:** A feature in the Maintain lifecycle has been fully implemented, reviewed, and deployed. From the control center perspective, this is completed work. Emerald done state gives clear visual feedback.
-
-  ### 11. Web-to-CLI Data Access Bridge Pattern
-
-  **Options considered:**
-
-  1. **Global DI bridge via globalThis (set up in WebServerService)** — Infrastructure layer exposes resolved use cases
-  2. **Global DI bridge via globalThis (set up in CLI bootstrap)** — CLI exposes use cases (violates no-CLI-changes policy)
-  3. **Direct SQL in web layer** — Web package queries SQLite directly
-  4. **Next.js API routes with manual DB** — Create /api/features that opens its own DB connection
-  5. **Shared ESM module imports** — Import CLI source directly from web package
-
-  **Decision:** Global DI bridge via globalThis, set up in WebServerService
-
-  **Rationale:** Turbopack cannot resolve .js extension imports from CLI source. Direct SQL
-  in the web layer violates Clean Architecture. Since WebServerService starts Next.js in
-  the same Node.js process, globalThis is shared. WebServerService.start() resolves the
-  existing ListFeaturesUseCase from the DI container and sets globalThis.__shepUseCases.
-  The bridge is set up in infrastructure (not CLI) to comply with no-CLI-changes policy.
-  The web layer imports Feature type via @cli/domain/generated/output path alias. No new
-  use cases needed — ListFeaturesUseCase returns Feature[] with all data.
-
-  ### 12. FeatureNodeData Extends Generated Feature Type
-
-  **Decision:** FeatureNodeData extends Feature from output.ts
-
-  **Rationale:** The Feature type generated from feature.tsp is the single source of
-  truth. FeatureNodeData = Feature + UI callbacks (onAction, onSettings, showHandles)
-  + optional UI overrides (agentType, errorMessage, blockedBy, runtime). The component
-  derives state and progress from Feature.plan.tasks internally. This eliminates
-  DashboardFeature, ListDashboardFeaturesUseCase, and listWithAgentRuns().
-
-  ### 13. Extract @shepai/core Workspace Package
-
-  **Options considered:**
-
-  1. **Pre-compiled @shepai/core package** — Single workspace package with domain, application, infrastructure
-  2. **Keep layers in root src/ with @cli/* path aliases** — Current approach (Turbopack incompatible)
-  3. **Separate packages per layer** — @shepai/domain, @shepai/application, @shepai/infrastructure
-  4. **Shared ESM module imports** — Direct imports from CLI source
-
-  **Decision:** Pre-compiled @shepai/core package
-
-  **Rationale:** Turbopack cannot resolve CLI source files with Node.js ESM `.js` imports. The `@cli/*` path alias is fragile and requires duplicated type definitions. A single `@shepai/core` package avoids circular dependency issues between layers and simplifies the build pipeline. The package exports compiled JavaScript so Turbopack resolves it like any npm package. IDE jump-to-definition works via tsconfig.json path mappings to source.
-
-  ### 14. @shepai/core Compilation Strategy
-
-  **Options considered:**
-
-  1. **Pre-compiled JavaScript via tsc** — Separate tsconfig.build.json compiles to dist/
-  2. **TypeScript source with transpilePackages** — Next.js transpiles at build time
-  3. **Bundle with tsup/rollup** — Single-file bundle
-
-  **Decision:** Pre-compiled JavaScript via tsc
-
-  **Rationale:** A pre-compiled package avoids all Turbopack compatibility issues. `tsconfig.build.json` compiles `src/` to `dist/` with declarations. Build order: TypeSpec → core → CLI → web. No `transpilePackages` needed in Next.js config.
-
-  ### 15. @shepai/core Package Exports Structure
-
-  **Decision:** Subpath exports with domain, application, infrastructure entry points
-
-  **Rationale:** Consumers import from specific layers (`@shepai/core/domain`, `@shepai/core/application`, `@shepai/core/infrastructure`). This maintains clear dependency boundaries. The exports map also includes `@shepai/core/domain/generated` for direct TypeSpec type access and `@shepai/core/infrastructure/di` for container initialization.
-
-  ### 16. Updated Web-to-CLI Runtime Bridge
-
-  **Decision:** globalThis bridge for runtime only, types from @shepai/core
-
-  **Rationale:** With @shepai/core extracted, the bridge is much simpler. Types are imported directly from `@shepai/core/domain/generated` (no path alias). The globalThis bridge only carries the runtime use case instance. WebServerService.start() resolves ListFeaturesUseCase and sets `globalThis.__shepUseCases`.
+  No performance implications identified.
 
   ## Open Questions
 
