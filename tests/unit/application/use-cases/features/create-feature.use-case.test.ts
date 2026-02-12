@@ -11,13 +11,13 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { CreateFeatureUseCase } from '../../../../../src/application/use-cases/features/create-feature.use-case.js';
-import type { IFeatureRepository } from '../../../../../src/application/ports/output/feature-repository.interface.js';
-import type { IWorktreeService } from '../../../../../src/application/ports/output/worktree-service.interface.js';
-import type { IFeatureAgentProcessService } from '../../../../../src/application/ports/output/feature-agent-process.interface.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agent-run-repository.interface.js';
-import type { ISpecInitializerService } from '../../../../../src/application/ports/output/spec-initializer.interface.js';
-import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agent-executor-factory.interface.js';
-import type { IAgentExecutor } from '../../../../../src/application/ports/output/agent-executor.interface.js';
+import type { IFeatureRepository } from '../../../../../src/application/ports/output/repositories/feature-repository.interface.js';
+import type { IWorktreeService } from '../../../../../src/application/ports/output/services/worktree-service.interface.js';
+import type { IFeatureAgentProcessService } from '../../../../../src/application/ports/output/agents/feature-agent-process.interface.js';
+import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
+import type { ISpecInitializerService } from '../../../../../src/application/ports/output/services/spec-initializer.interface.js';
+import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutor } from '../../../../../src/application/ports/output/agents/agent-executor.interface.js';
 import { SdlcLifecycle } from '../../../../../src/domain/generated/output.js';
 
 // Mock settings service

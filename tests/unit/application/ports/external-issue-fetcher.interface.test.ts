@@ -12,13 +12,13 @@ import { describe, it, expect } from 'vitest';
 import type {
   IExternalIssueFetcher,
   ExternalIssue,
-} from '@/application/ports/output/external-issue-fetcher.interface.js';
+} from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 import {
   IssueFetcherError,
   IssueNotFoundError,
   IssueAuthenticationError,
   IssueServiceUnavailableError,
-} from '@/application/ports/output/external-issue-fetcher.interface.js';
+} from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 
 describe('IExternalIssueFetcher type contracts', () => {
   it('should define fetchGitHubIssue method returning Promise<ExternalIssue>', () => {

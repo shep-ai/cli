@@ -13,7 +13,7 @@ import {
   IssueNotFoundError,
   IssueAuthenticationError,
   IssueServiceUnavailableError,
-} from '@/application/ports/output/external-issue-fetcher.interface.js';
+} from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 
 describe('JiraTicketFetcher', () => {
   let fetcher: JiraTicketFetcher;

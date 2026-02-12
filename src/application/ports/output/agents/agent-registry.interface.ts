@@ -31,7 +31,7 @@
  * ```
  */
 
-import type { AgentDefinition } from '../../../domain/generated/output.js';
+import type { AgentDefinition } from '../../../../domain/generated/output.js';
 
 /**
  * Extended agent definition that includes a graph factory function.

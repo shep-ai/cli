@@ -9,7 +9,7 @@
  * - Infrastructure layer provides concrete implementations
  */
 
-import type { VersionInfo } from '../../../domain/value-objects/version-info.js';
+import type { VersionInfo } from '../../../../domain/value-objects/version-info.js';
 
 /**
  * Port interface for reading version information.

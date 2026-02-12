@@ -6,8 +6,8 @@
  */
 
 import type { AgentType, AgentConfig } from '../../../../../domain/generated/output.js';
-import type { IAgentExecutor } from '../../../../../application/ports/output/agent-executor.interface.js';
-import type { IAgentExecutorFactory } from '../../../../../application/ports/output/agent-executor-factory.interface.js';
+import type { IAgentExecutor } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
+import type { IAgentExecutorFactory } from '../../../../../application/ports/output/agents/agent-executor-factory.interface.js';
 import { MockAgentExecutorService } from './mock-executor.service.js';
 
 export class MockAgentExecutorFactory implements IAgentExecutorFactory {

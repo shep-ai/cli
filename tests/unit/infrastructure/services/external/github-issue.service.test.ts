@@ -12,7 +12,7 @@ import { GitHubIssueFetcher } from '@/infrastructure/services/external/github-is
 import {
   IssueNotFoundError,
   IssueServiceUnavailableError,
-} from '@/application/ports/output/external-issue-fetcher.interface.js';
+} from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 
 describe('GitHubIssueFetcher', () => {
   let fetcher: GitHubIssueFetcher;

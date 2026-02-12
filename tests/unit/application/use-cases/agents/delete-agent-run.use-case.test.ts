@@ -6,7 +6,7 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DeleteAgentRunUseCase } from '../../../../../src/application/use-cases/agents/delete-agent-run.use-case.js';
 import { AgentRunStatus, AgentType } from '../../../../../src/domain/generated/output.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agent-run-repository.interface.js';
+import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
 import type { AgentRun } from '../../../../../src/domain/generated/output.js';
 
 function makeAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {

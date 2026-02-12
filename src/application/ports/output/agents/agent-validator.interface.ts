@@ -9,7 +9,7 @@
  * - Infrastructure layer provides concrete implementations
  */
 
-import type { AgentType } from '../../../domain/generated/output.js';
+import type { AgentType } from '../../../../domain/generated/output.js';
 
 /**
  * Result of an agent availability check.

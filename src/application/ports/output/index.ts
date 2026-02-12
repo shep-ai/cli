@@ -1,24 +1,52 @@
 /**
  * Application Output Ports Module
  *
- * Exports repository interfaces (output ports) for the Application layer.
- * Infrastructure layer provides concrete implementations.
+ * Exports all output port interfaces organized by domain:
+ * - agents/       — Agent execution, orchestration, and persistence
+ * - repositories/ — Data access and persistence
+ * - services/     — External services and integrations
  */
 
-export type { ISettingsRepository } from './settings.repository.interface.js';
-export type { IAgentValidator, AgentValidationResult } from './agent-validator.interface.js';
-export type { IVersionService } from './version-service.interface.js';
-export type { IWebServerService } from './web-server-service.interface.js';
+// Agent ports
 export type {
   IAgentExecutor,
   AgentExecutionResult,
   AgentExecutionStreamEvent,
   AgentExecutionOptions,
-} from './agent-executor.interface.js';
-export type { IAgentExecutorFactory } from './agent-executor-factory.interface.js';
-export type { IAgentRunner, AgentRunOptions } from './agent-runner.interface.js';
-export type { IAgentRegistry, AgentDefinitionWithFactory } from './agent-registry.interface.js';
-export type { IAgentRunRepository } from './agent-run-repository.interface.js';
-export type { IWorktreeService, WorktreeInfo } from './worktree-service.interface.js';
-export { WorktreeError, WorktreeErrorCode } from './worktree-service.interface.js';
-export type { IFeatureAgentProcessService } from './feature-agent-process.interface.js';
+  IAgentExecutorFactory,
+  IAgentRegistry,
+  AgentDefinitionWithFactory,
+  IAgentRunner,
+  AgentRunOptions,
+  IAgentRunRepository,
+  IAgentValidator,
+  AgentValidationResult,
+  IFeatureAgentProcessService,
+} from './agents/index.js';
+
+// Repository ports
+export type {
+  IFeatureRepository,
+  FeatureListFilters,
+  ISettingsRepository,
+} from './repositories/index.js';
+
+// Service ports
+export type {
+  IExternalIssueFetcher,
+  ExternalIssue,
+  ISpecInitializerService,
+  SpecInitializerResult,
+  IVersionService,
+  IWebServerService,
+  IWorktreeService,
+  WorktreeInfo,
+} from './services/index.js';
+export {
+  IssueFetcherError,
+  IssueNotFoundError,
+  IssueAuthenticationError,
+  IssueServiceUnavailableError,
+  WorktreeError,
+  WorktreeErrorCode,
+} from './services/index.js';

@@ -1,5 +1,5 @@
 import { StateGraph, START, END, type BaseCheckpointSaver } from '@langchain/langgraph';
-import type { IAgentExecutor } from '@/application/ports/output/agent-executor.interface.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import { FeatureAgentAnnotation } from './state.js';
 import { createAnalyzeNode } from './nodes/analyze.node.js';
 import { createRequirementsNode } from './nodes/requirements.node.js';

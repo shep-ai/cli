@@ -9,7 +9,7 @@
  * - Infrastructure layer provides concrete implementations
  */
 
-import type { AgentRun, AgentRunStatus } from '../../../domain/generated/output.js';
+import type { AgentRun, AgentRunStatus } from '../../../../domain/generated/output.js';
 
 /**
  * Repository interface for AgentRun entity persistence.

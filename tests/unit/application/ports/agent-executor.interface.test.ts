@@ -12,8 +12,8 @@ import type {
   AgentExecutionResult,
   AgentExecutionStreamEvent,
   AgentExecutionOptions,
-} from '@/application/ports/output/agent-executor.interface.js';
-import type { IAgentExecutorFactory } from '@/application/ports/output/agent-executor-factory.interface.js';
+} from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
 import { AgentType, AgentFeature } from '@/domain/generated/output.js';
 
 describe('IAgentExecutor type contracts', () => {

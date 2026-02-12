@@ -15,7 +15,7 @@ import { colors, messages, symbols, renderDetailView } from '../../ui/index.js';
 import type { AgentRun } from '../../../../domain/generated/output.js';
 import { resolveAgentRun } from './resolve-run.js';
 import { container } from '../../../../infrastructure/di/container.js';
-import type { IFeatureRepository } from '../../../../application/ports/output/feature-repository.interface.js';
+import type { IFeatureRepository } from '../../../../application/ports/output/repositories/feature-repository.interface.js';
 import { SHEP_HOME_DIR } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
 
 function computeWorktreePath(repoPath: string, branch: string): string {

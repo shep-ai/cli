@@ -10,7 +10,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command, MemorySaver } from '@langchain/langgraph';
-import type { IAgentExecutor } from '../../../../../../src/application/ports/output/agent-executor.interface.js';
+import type { IAgentExecutor } from '../../../../../../src/application/ports/output/agents/agent-executor.interface.js';
 import type { AgentType } from '../../../../../../src/domain/generated/output.js';
 
 // Use vi.hoisted so the mock fn is available when vi.mock factory runs (hoisted to top)

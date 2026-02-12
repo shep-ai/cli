@@ -11,7 +11,7 @@
 import type {
   IAgentRegistry,
   AgentDefinitionWithFactory,
-} from '@/application/ports/output/agent-registry.interface.js';
+} from '@/application/ports/output/agents/agent-registry.interface.js';
 import { createAnalyzeRepositoryGraph } from '../analyze-repo/analyze-repository-graph.js';
 import { createFeatureAgentGraph } from '../feature-agent/feature-agent-graph.js';
 

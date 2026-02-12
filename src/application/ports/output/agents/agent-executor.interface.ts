@@ -21,7 +21,7 @@
  * ```
  */
 
-import type { AgentType, AgentFeature } from '../../../domain/generated/output.js';
+import type { AgentType, AgentFeature } from '../../../../domain/generated/output.js';
 
 /**
  * Result returned after an agent execution completes.

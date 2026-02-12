@@ -13,7 +13,7 @@ import { WorktreeService } from '../../../../../src/infrastructure/services/git/
 import {
   WorktreeError,
   WorktreeErrorCode,
-} from '../../../../../src/application/ports/output/worktree-service.interface.js';
+} from '../../../../../src/application/ports/output/services/worktree-service.interface.js';
 
 type ExecFileFn = (
   cmd: string,

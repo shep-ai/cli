@@ -10,7 +10,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ShowFeatureUseCase } from '../../../../../src/application/use-cases/features/show-feature.use-case.js';
-import type { IFeatureRepository } from '../../../../../src/application/ports/output/feature-repository.interface.js';
+import type { IFeatureRepository } from '../../../../../src/application/ports/output/repositories/feature-repository.interface.js';
 import { SdlcLifecycle } from '../../../../../src/domain/generated/output.js';
 import type { Feature } from '../../../../../src/domain/generated/output.js';
 

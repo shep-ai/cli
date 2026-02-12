@@ -9,7 +9,7 @@ import {
   reportNodeStart,
 } from '../../../../../src/infrastructure/services/agents/feature-agent/heartbeat.js';
 import { AgentRunStatus } from '../../../../../src/domain/generated/output.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agent-run-repository.interface.js';
+import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
 
 describe('heartbeat', () => {
   let mockRepo: IAgentRunRepository;

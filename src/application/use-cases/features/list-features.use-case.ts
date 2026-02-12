@@ -13,7 +13,7 @@ import type { Feature } from '../../../domain/generated/output.js';
 import type {
   IFeatureRepository,
   FeatureListFilters,
-} from '../../ports/output/feature-repository.interface.js';
+} from '../../ports/output/repositories/feature-repository.interface.js';
 
 @injectable()
 export class ListFeaturesUseCase {

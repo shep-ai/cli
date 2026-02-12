@@ -10,10 +10,10 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { DeleteFeatureUseCase } from '../../../../../src/application/use-cases/features/delete-feature.use-case.js';
-import type { IFeatureRepository } from '../../../../../src/application/ports/output/feature-repository.interface.js';
-import type { IWorktreeService } from '../../../../../src/application/ports/output/worktree-service.interface.js';
-import type { IFeatureAgentProcessService } from '../../../../../src/application/ports/output/feature-agent-process.interface.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agent-run-repository.interface.js';
+import type { IFeatureRepository } from '../../../../../src/application/ports/output/repositories/feature-repository.interface.js';
+import type { IWorktreeService } from '../../../../../src/application/ports/output/services/worktree-service.interface.js';
+import type { IFeatureAgentProcessService } from '../../../../../src/application/ports/output/agents/feature-agent-process.interface.js';
+import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
 import {
   AgentRunStatus,
   AgentType,

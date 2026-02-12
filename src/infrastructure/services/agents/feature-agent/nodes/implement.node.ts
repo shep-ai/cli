@@ -1,4 +1,4 @@
-import type { IAgentExecutor } from '@/application/ports/output/agent-executor.interface.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { FeatureAgentState } from '../state.js';
 import { createNodeLogger } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';

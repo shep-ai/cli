@@ -12,11 +12,11 @@ import { injectable, inject } from 'tsyringe';
 import type {
   IWorktreeService,
   WorktreeInfo,
-} from '../../../application/ports/output/worktree-service.interface.js';
+} from '../../../application/ports/output/services/worktree-service.interface.js';
 import {
   WorktreeError,
   WorktreeErrorCode,
-} from '../../../application/ports/output/worktree-service.interface.js';
+} from '../../../application/ports/output/services/worktree-service.interface.js';
 import { SHEP_HOME_DIR } from '../filesystem/shep-directory.service.js';
 
 /**

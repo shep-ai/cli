@@ -17,7 +17,7 @@
  * ```
  */
 
-import type { AgentType, AgentConfig } from '../../../domain/generated/output.js';
+import type { AgentType, AgentConfig } from '../../../../domain/generated/output.js';
 import type { IAgentExecutor } from './agent-executor.interface.js';
 
 /**

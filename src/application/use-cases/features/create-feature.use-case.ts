@@ -21,12 +21,12 @@ import { injectable, inject } from 'tsyringe';
 import { randomUUID } from 'node:crypto';
 import type { Feature } from '../../../domain/generated/output.js';
 import { SdlcLifecycle } from '../../../domain/generated/output.js';
-import type { IFeatureRepository } from '../../ports/output/feature-repository.interface.js';
-import type { IWorktreeService } from '../../ports/output/worktree-service.interface.js';
-import type { IFeatureAgentProcessService } from '../../ports/output/feature-agent-process.interface.js';
-import type { IAgentRunRepository } from '../../ports/output/agent-run-repository.interface.js';
-import type { ISpecInitializerService } from '../../ports/output/spec-initializer.interface.js';
-import type { IAgentExecutorFactory } from '../../ports/output/agent-executor-factory.interface.js';
+import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
+import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
+import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
+import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
+import type { ISpecInitializerService } from '../../ports/output/services/spec-initializer.interface.js';
+import type { IAgentExecutorFactory } from '../../ports/output/agents/agent-executor-factory.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 import { getSettings } from '../../../infrastructure/services/settings.service.js';
 

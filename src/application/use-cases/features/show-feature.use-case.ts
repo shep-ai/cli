@@ -10,7 +10,7 @@
 
 import { injectable, inject } from 'tsyringe';
 import type { Feature } from '../../../domain/generated/output.js';
-import type { IFeatureRepository } from '../../ports/output/feature-repository.interface.js';
+import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 
 @injectable()
 export class ShowFeatureUseCase {

@@ -5,7 +5,7 @@
  */
 
 import { injectable, inject } from 'tsyringe';
-import type { IAgentRunRepository } from '../../ports/output/agent-run-repository.interface.js';
+import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 
 @injectable()

@@ -21,7 +21,7 @@
  * ```
  */
 
-import type { AgentRun, AgentRunEvent } from '../../../domain/generated/output.js';
+import type { AgentRun, AgentRunEvent } from '../../../../domain/generated/output.js';
 
 /**
  * Options for controlling agent run behavior.

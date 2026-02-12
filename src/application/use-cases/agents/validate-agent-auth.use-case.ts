@@ -14,7 +14,7 @@ import type { AgentType } from '../../../domain/generated/output.js';
 import type {
   IAgentValidator,
   AgentValidationResult,
-} from '../../ports/output/agent-validator.interface.js';
+} from '../../ports/output/agents/agent-validator.interface.js';
 
 /**
  * Use case for validating agent availability.

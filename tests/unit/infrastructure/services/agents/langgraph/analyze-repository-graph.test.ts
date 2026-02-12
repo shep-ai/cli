@@ -13,7 +13,7 @@ import { MemorySaver } from '@langchain/langgraph';
 import type {
   IAgentExecutor,
   AgentExecutionResult,
-} from '../../../../../../src/application/ports/output/agent-executor.interface.js';
+} from '../../../../../../src/application/ports/output/agents/agent-executor.interface.js';
 import { AgentType } from '../../../../../../src/domain/generated/output.js';
 import {
   createAnalyzeRepositoryGraph,

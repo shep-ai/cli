@@ -10,7 +10,7 @@ import { injectable } from 'tsyringe';
 import type {
   IFeatureRepository,
   FeatureListFilters,
-} from '../../application/ports/output/feature-repository.interface.js';
+} from '../../application/ports/output/repositories/feature-repository.interface.js';
 import type { Feature } from '../../domain/generated/output.js';
 import {
   toDatabase,

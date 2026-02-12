@@ -13,8 +13,8 @@ import { join } from 'node:path';
 import { openSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { mkdirSync } from 'node:fs';
-import type { IFeatureAgentProcessService } from '@/application/ports/output/feature-agent-process.interface.js';
-import type { IAgentRunRepository } from '@/application/ports/output/agent-run-repository.interface.js';
+import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

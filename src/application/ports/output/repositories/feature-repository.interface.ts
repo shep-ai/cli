@@ -9,7 +9,7 @@
  * - Infrastructure layer provides concrete implementations
  */
 
-import type { Feature, SdlcLifecycle } from '../../../domain/generated/output.js';
+import type { Feature, SdlcLifecycle } from '../../../../domain/generated/output.js';
 
 /**
  * Filters for listing features.

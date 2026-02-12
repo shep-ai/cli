@@ -11,7 +11,7 @@ import { AgentType, AgentFeature } from '../../../../../../src/domain/generated/
 import type {
   IAgentExecutor,
   AgentExecutionStreamEvent,
-} from '../../../../../../src/application/ports/output/agent-executor.interface.js';
+} from '../../../../../../src/application/ports/output/agents/agent-executor.interface.js';
 import { EventChannel } from '../../../../../../src/infrastructure/services/agents/streaming/event-channel.js';
 import { StreamingExecutorProxy } from '../../../../../../src/infrastructure/services/agents/streaming/streaming-executor-proxy.js';
 

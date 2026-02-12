@@ -11,7 +11,7 @@ import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type {
   IAgentExecutor,
   AgentExecutionOptions,
-} from '@/application/ports/output/agent-executor.interface.js';
+} from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
 

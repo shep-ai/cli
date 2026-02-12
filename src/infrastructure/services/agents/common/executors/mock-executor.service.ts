@@ -13,7 +13,7 @@ import type {
   AgentExecutionOptions,
   AgentExecutionResult,
   AgentExecutionStreamEvent,
-} from '../../../../../application/ports/output/agent-executor.interface.js';
+} from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 
 function toSlug(text: string): string {
   return text
