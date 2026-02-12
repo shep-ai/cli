@@ -1,38 +1,40 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { useReactFlow, useOnSelectionChange } from '@xyflow/react';
-import type { Node } from '@xyflow/react';
+import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import type { CanvasNodeType } from '@/components/features/features-canvas';
 
 export interface ControlCenterState {
+  nodes: CanvasNodeType[];
+  edges: Edge[];
   selectedNode: FeatureNodeData | null;
   clearSelection: () => void;
+  handleNodeClick: (event: React.MouseEvent, node: CanvasNodeType) => void;
   handleAddFeature: () => void;
   handleAddFeatureToRepo: (repoNodeId: string) => void;
   handleAddFeatureToFeature: (featureNodeId: string) => void;
+  handleAddRepository: (path: string) => void;
 }
 
-export function useControlCenterState(): ControlCenterState {
+export function useControlCenterState(
+  initialNodes: CanvasNodeType[],
+  initialEdges: Edge[]
+): ControlCenterState {
+  const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
+  const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
-  const { addNodes, addEdges, getNode, setNodes } = useReactFlow();
 
   const clearSelection = useCallback(() => {
     setSelectedNode(null);
-    setNodes((nodes) => nodes.map((n) => ({ ...n, selected: false })));
-  }, [setNodes]);
+    setNodes((ns) => ns.map((n) => ({ ...n, selected: false })));
+  }, []);
 
-  // Track selection changes from React Flow
-  useOnSelectionChange({
-    onChange: useCallback(({ nodes }: { nodes: Node[] }) => {
-      const featureNode = nodes.find((n) => n.type === 'featureNode');
-      if (featureNode) {
-        setSelectedNode(featureNode.data as FeatureNodeData);
-      } else {
-        setSelectedNode(null);
-      }
-    }, []),
-  });
+  const handleNodeClick = useCallback((_event: React.MouseEvent, node: CanvasNodeType) => {
+    if (node.type === 'featureNode') {
+      setSelectedNode(node.data as FeatureNodeData);
+    }
+  }, []);
 
   // Keyboard shortcut: Escape to deselect
   useEffect(() => {
@@ -45,48 +47,58 @@ export function useControlCenterState(): ControlCenterState {
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [clearSelection]);
 
-  const createFeatureNode = useCallback(
-    (sourceNodeId: string | null) => {
-      const id = `feature-${Date.now()}`;
+  const createFeatureNode = useCallback((sourceNodeId: string | null) => {
+    const id = `feature-${Date.now()}`;
+    const newFeatureData: FeatureNodeData = {
+      name: 'New Feature',
+      featureId: `#${id.slice(-4)}`,
+      lifecycle: 'requirements',
+      state: 'running',
+      progress: 0,
+    };
+
+    setNodes((currentNodes) => {
       let position = { x: 400, y: 200 };
 
       if (sourceNodeId) {
-        const sourceNode = getNode(sourceNodeId);
+        const sourceNode = currentNodes.find((n) => n.id === sourceNodeId);
         if (sourceNode) {
-          position = { x: sourceNode.position.x + 350, y: sourceNode.position.y };
+          // Position to the right of source, offset vertically for each child
+          const existingChildren = currentNodes.filter(
+            (n) => n.type === 'featureNode' && n.position.x === sourceNode.position.x + 350
+          );
+          position = {
+            x: sourceNode.position.x + 350,
+            y: sourceNode.position.y + existingChildren.length * 200,
+          };
         }
       }
 
-      const newNode: Node<FeatureNodeData> = {
+      const newNode = {
         id,
-        type: 'featureNode',
+        type: 'featureNode' as const,
         position,
         selected: true,
-        data: {
-          name: 'New Feature',
-          featureId: `#${id.slice(-4)}`,
-          lifecycle: 'requirements',
-          state: 'running',
-          progress: 0,
-        },
-      };
+        data: newFeatureData,
+      } as CanvasNodeType;
 
-      addNodes(newNode);
+      return [...currentNodes.map((n) => ({ ...n, selected: false })), newNode];
+    });
 
-      if (sourceNodeId) {
-        addEdges({
+    if (sourceNodeId) {
+      setEdges((currentEdges) => [
+        ...currentEdges,
+        {
           id: `edge-${sourceNodeId}-${id}`,
           source: sourceNodeId,
           target: id,
           style: { strokeDasharray: '5 5' },
-        });
-      }
+        },
+      ]);
+    }
 
-      // Auto-select the new node
-      setSelectedNode(newNode.data as FeatureNodeData);
-    },
-    [addNodes, addEdges, getNode]
-  );
+    setSelectedNode(newFeatureData);
+  }, []);
 
   const handleAddFeature = useCallback(() => {
     createFeatureNode(null);
@@ -106,11 +118,42 @@ export function useControlCenterState(): ControlCenterState {
     [createFeatureNode]
   );
 
+  const handleAddRepository = useCallback((path: string) => {
+    const id = `repo-${Date.now()}`;
+
+    setNodes((currentNodes) => {
+      const addRepoNode = currentNodes.find((n) => n.type === 'addRepositoryNode');
+      const position = addRepoNode
+        ? { x: addRepoNode.position.x, y: addRepoNode.position.y }
+        : { x: 50, y: 50 };
+
+      const newNode = {
+        id,
+        type: 'repositoryNode' as const,
+        position,
+        data: { name: path },
+      } as CanvasNodeType;
+
+      // Shift the add-repo node down
+      return currentNodes
+        .map((n) =>
+          n.type === 'addRepositoryNode'
+            ? { ...n, position: { ...n.position, y: n.position.y + 80 } }
+            : n
+        )
+        .concat(newNode);
+    });
+  }, []);
+
   return {
+    nodes,
+    edges,
     selectedNode,
     clearSelection,
+    handleNodeClick,
     handleAddFeature,
     handleAddFeatureToRepo,
     handleAddFeatureToFeature,
+    handleAddRepository,
   };
 }

@@ -24,6 +24,7 @@ export interface FeaturesCanvasProps {
   onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
   onPaneClick?: (event: React.MouseEvent) => void;
   onRepositoryAdd?: (repoNodeId: string) => void;
+  onRepositorySelect?: (path: string) => void;
   toolbar?: React.ReactNode;
 }
 
@@ -36,6 +37,7 @@ export function FeaturesCanvas({
   onNodeClick,
   onPaneClick,
   onRepositoryAdd,
+  onRepositorySelect,
   toolbar,
 }: FeaturesCanvasProps) {
   const nodeTypes = useMemo(
@@ -61,9 +63,12 @@ export function FeaturesCanvas({
           ...(node.type === 'repositoryNode' && {
             onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
           }),
+          ...(node.type === 'addRepositoryNode' && {
+            onSelect: onRepositorySelect ? (path: string) => onRepositorySelect(path) : undefined,
+          }),
         },
       })) as CanvasNodeType[],
-    [nodes, edges.length, onNodeAction, onNodeSettings, onRepositoryAdd]
+    [nodes, edges.length, onNodeAction, onNodeSettings, onRepositoryAdd, onRepositorySelect]
   );
 
   if (nodes.length === 0) {

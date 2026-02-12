@@ -12,17 +12,27 @@ interface ControlCenterInnerProps {
 }
 
 export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenterInnerProps) {
-  const { handleAddFeature, handleAddFeatureToRepo, handleAddFeatureToFeature, clearSelection } =
-    useControlCenterState();
+  const {
+    nodes,
+    edges,
+    handleAddFeature,
+    handleAddFeatureToRepo,
+    handleAddFeatureToFeature,
+    handleAddRepository,
+    handleNodeClick,
+    clearSelection,
+  } = useControlCenterState(initialNodes, initialEdges);
 
   return (
     <FeaturesCanvas
-      nodes={initialNodes}
-      edges={initialEdges}
+      nodes={nodes}
+      edges={edges}
       onAddFeature={handleAddFeature}
       onNodeAction={handleAddFeatureToFeature}
+      onNodeClick={handleNodeClick}
       onPaneClick={clearSelection}
       onRepositoryAdd={handleAddFeatureToRepo}
+      onRepositorySelect={handleAddRepository}
       toolbar={<ControlCenterToolbar onAddFeature={handleAddFeature} />}
     />
   );

@@ -117,3 +117,27 @@ export const WithNodeActions: Story = {
     ] as Edge[],
   },
 };
+
+/**
+ * Interactive story — starts with just an "Add Repository" button.
+ *
+ * User flow:
+ * 1. Click "Add Repository" → native folder picker → select a folder → repo node appears
+ * 2. Hover the repo node → click (+) → a new feature node appears connected to the repo
+ * 3. Hover the feature node → click (+) → another feature appears connected to the first
+ *
+ * You can also use the toolbar "Add Feature" button to create unconnected features.
+ */
+export const Interactive: Story = {
+  args: {
+    initialNodes: [
+      {
+        id: 'add-repo',
+        type: 'addRepositoryNode',
+        position: { x: 50, y: 50 },
+        data: {},
+      } as AddRepositoryNodeType,
+    ] as CanvasNodeType[],
+    initialEdges: [],
+  },
+};
