@@ -1,11 +1,44 @@
+import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
 import { FeatureNode } from './feature-node';
 import type {
   FeatureNodeData,
+  FeatureNodeType,
   FeatureNodeState,
   FeatureLifecyclePhase,
 } from './feature-node-state-config';
+
+const nodeTypes = { featureNode: FeatureNode };
+
+/** Renders a single FeatureNode as a proper React Flow node (with node wrapper + pointer events). */
+function FeatureNodeCanvas({
+  data,
+  style = { width: 600, height: 400 },
+}: {
+  data: FeatureNodeData;
+  style?: React.CSSProperties;
+}) {
+  const nodes: FeatureNodeType[] = useMemo(
+    () => [{ id: 'node-1', type: 'featureNode', position: { x: 0, y: 0 }, data }],
+    [data]
+  );
+
+  return (
+    <div style={style}>
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={nodes}
+          nodeTypes={nodeTypes}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          proOptions={{ hideAttribution: true }}
+          fitView
+        />
+      </ReactFlowProvider>
+    </div>
+  );
+}
 
 const meta: Meta<FeatureNodeData> = {
   title: 'Composed/FeatureNode',
@@ -21,57 +54,66 @@ const meta: Meta<FeatureNodeData> = {
     state: 'running',
     progress: 45,
   },
-  decorators: [
-    (Story) => (
-      <ReactFlowProvider>
-        <ReactFlow
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-          style={{ width: 300, height: 200 }}
-        >
-          <Story />
-        </ReactFlow>
-      </ReactFlowProvider>
-    ),
-  ],
 };
 
 export default meta;
 type Story = StoryObj<FeatureNodeData>;
 
 export const Default: Story = {
-  render: (args) => <FeatureNode id="node-default" data={args} type="featureNode" />,
+  render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
-const allStates: FeatureNodeState[] = ['running', 'action-required', 'done', 'blocked', 'error'];
+const allStatesData: FeatureNodeData[] = [
+  {
+    name: 'Auth Module',
+    description: 'Implement OAuth2 authentication flow',
+    featureId: '#f1',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'running',
+    progress: 45,
+  },
+  {
+    name: 'API Rate Limiting',
+    description: 'Implement sliding window rate limiting for public...',
+    featureId: '#bi1',
+    lifecycle: 'requirements' as FeatureLifecyclePhase,
+    state: 'action-required',
+    progress: 22,
+  },
+  {
+    name: 'Payment Gateway',
+    description: 'Stripe integration for subscriptions',
+    featureId: '#f3',
+    lifecycle: 'deploy' as FeatureLifecyclePhase,
+    state: 'done',
+    progress: 100,
+    runtime: '1h 42m',
+  },
+  {
+    name: 'Search Index',
+    description: 'Elasticsearch full-text search setup',
+    featureId: '#f4',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'blocked',
+    progress: 20,
+    blockedBy: 'Auth Module',
+  },
+  {
+    name: 'Email Service',
+    description: 'Transactional email with SendGrid',
+    featureId: '#f5',
+    lifecycle: 'test' as FeatureLifecyclePhase,
+    state: 'error',
+    progress: 30,
+    errorMessage: 'Build failed: type mismatch',
+  },
+];
 
 export const AllStates: Story = {
-  decorators: [],
   render: () => (
     <div className="flex flex-wrap gap-6">
-      {allStates.map((state, i) => (
-        <ReactFlowProvider key={state}>
-          <ReactFlow
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={false}
-            style={{ width: 260, height: 160 }}
-          >
-            <FeatureNode
-              id={`node-${state}`}
-              data={{
-                name: 'Feature Name',
-                description: `This feature is ${state}`,
-                featureId: `#f${i + 1}`,
-                lifecycle: 'implementation' as FeatureLifecyclePhase,
-                state,
-                progress: [45, 60, 100, 20, 30][i],
-              }}
-              type="featureNode"
-            />
-          </ReactFlow>
-        </ReactFlowProvider>
+      {allStatesData.map((data) => (
+        <FeatureNodeCanvas key={data.state} style={{ width: 500, height: 350 }} data={data} />
       ))}
     </div>
   ),
@@ -87,42 +129,32 @@ const allLifecycles: FeatureLifecyclePhase[] = [
 ];
 
 export const AllLifecycles: Story = {
-  decorators: [],
   render: () => (
     <div className="flex flex-wrap gap-6">
       {allLifecycles.map((lifecycle, i) => (
-        <ReactFlowProvider key={lifecycle}>
-          <ReactFlow
-            nodesDraggable={false}
-            nodesConnectable={false}
-            elementsSelectable={false}
-            style={{ width: 260, height: 160 }}
-          >
-            <FeatureNode
-              id={`node-${lifecycle}`}
-              data={{
-                name: 'Feature Name',
-                description: `Currently in ${lifecycle} phase`,
-                featureId: `#f${i + 1}`,
-                lifecycle,
-                state: 'running' as FeatureNodeState,
-                progress: [10, 25, 50, 70, 90, 100][i],
-              }}
-              type="featureNode"
-            />
-          </ReactFlow>
-        </ReactFlowProvider>
+        <FeatureNodeCanvas
+          key={lifecycle}
+          style={{ width: 500, height: 350 }}
+          data={{
+            name: 'Feature Name',
+            description: `Currently in ${lifecycle} phase`,
+            featureId: `#f${i + 1}`,
+            lifecycle,
+            state: 'running' as FeatureNodeState,
+            progress: [10, 25, 50, 70, 90, 100][i],
+          }}
+        />
       ))}
     </div>
   ),
 };
 
 export const WithAction: Story = {
-  args: {
-    onAction: () => undefined,
-    onSettings: () => undefined,
+  argTypes: {
+    onAction: { action: 'onAction' },
+    onSettings: { action: 'onSettings' },
   },
-  render: (args) => <FeatureNode id="node-action" data={args} type="featureNode" />,
+  render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
 export const LongContent: Story = {
@@ -131,5 +163,44 @@ export const LongContent: Story = {
     description:
       'Implement a comprehensive OAuth2 authentication flow with support for multiple identity providers including Google, GitHub, and custom SAML-based enterprise SSO',
   },
-  render: (args) => <FeatureNode id="node-long" data={args} type="featureNode" />,
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const DoneWithRuntime: Story = {
+  args: {
+    name: 'Payment Gateway',
+    description: 'Stripe integration for subscriptions',
+    featureId: '#f3',
+    lifecycle: 'deploy',
+    state: 'done',
+    progress: 100,
+    runtime: '2h 15m',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const BlockedByFeature: Story = {
+  args: {
+    name: 'Search Index',
+    description: 'Elasticsearch full-text search setup',
+    featureId: '#f4',
+    lifecycle: 'implementation',
+    state: 'blocked',
+    progress: 20,
+    blockedBy: 'Auth Module',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const ErrorWithMessage: Story = {
+  args: {
+    name: 'Email Service',
+    description: 'Transactional email with SendGrid',
+    featureId: '#f5',
+    lifecycle: 'test',
+    state: 'error',
+    progress: 30,
+    errorMessage: 'Build failed: type mismatch',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
 };
