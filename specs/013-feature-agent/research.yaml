@@ -4,7 +4,9 @@
 name: feature-agent
 summary: >
   Technical research for 013-feature-agent covering database schema, git worktree management,
-  LangGraph agent design, CLI command architecture, and background execution patterns.
+  LangGraph agent design, CLI command architecture, background execution patterns, and
+  deferred capabilities: human-in-the-loop approval (interrupt/resume), external tool
+  integration (GitHub Issues via gh CLI, Jira tickets via REST API), and crash recovery resume.
 
 # Relationships
 relatedFeatures:
@@ -157,6 +159,65 @@ decisions:
       checkpointer enables resume by reusing same thread_id. User explicitly triggers
       resume. 'shep feat show' displays crashed status with resume suggestion.
 
+  # --- Gap 1: Human-in-the-Loop (deferred from initial implementation) ---
+  - title: Human-in-the-Loop Approval Pattern
+    chosen: LangGraph interrupt() inside nodes + Command({ resume }) from CLI
+    rejected:
+      - Database polling loop in approval checkpoint nodes (blocks worker thread, wasteful)
+      - interruptBefore/interruptAfter compile options (older LangGraph pattern, less flexible)
+      - Custom IPC-based approval channel (over-engineered for CLI use case)
+    rationale: >
+      LangGraph's native interrupt() function pauses graph execution and persists state
+      via checkpointer. The CLI can resume execution by invoking graph.invoke(new Command({ resume: decision })).
+      This is the official LangGraph human-in-the-loop pattern. No polling required — the worker
+      process exits after interrupt, and a new worker is spawned on resume. The checkpointer
+      (SqliteSaver) preserves full graph state between invocations. Approval mode is stored
+      on the AgentRun record so the resume worker knows which nodes need approval.
+
+  - title: Approval Mode Architecture
+    chosen: approvalMode field on AgentRun with 4 levels controlling which nodes call interrupt()
+    rejected:
+      - Per-node boolean flags (too granular, confusing UX)
+      - Single global toggle (not flexible enough for progressive autonomy)
+    rationale: >
+      Four escalating autonomy levels map to clear user intent.
+      'interactive' interrupts after every node (maximum control).
+      'allow-prd' auto-accepts analyze+requirements, interrupts research/plan/implement.
+      'allow-plan' auto-accepts through plan, interrupts only implement.
+      'allow-all' is fully autonomous (current behavior, MVP default).
+      Each node checks state.approvalMode to decide whether to call interrupt().
+      The interrupt payload includes node output summary for user review.
+
+  - title: Interrupt/Resume Worker Lifecycle
+    chosen: Worker exits after interrupt(), new worker spawned on resume with same thread_id
+    rejected:
+      - Worker stays alive polling DB (wastes resources, complex error handling)
+      - Worker uses IPC to CLI process (CLI may have exited)
+    rationale: >
+      LangGraph checkpointer persists state on every node completion AND on interrupt().
+      When worker calls interrupt(), graph.invoke() returns with the interrupt payload.
+      Worker updates AgentRun status to 'waiting_approval' and exits cleanly.
+      User runs 'shep agent approve <id>' which spawns a fresh worker with same thread_id.
+      The new graph.invoke(new Command({ resume: decision }), { configurable: { thread_id } })
+      resumes from the checkpoint. This is resource-efficient and crash-safe.
+
+  # --- Gap 2: External Tool Integration — OUT OF SCOPE ---
+  # GitHub Issue and Jira Ticket integration (tasks 34-36) deferred to future work.
+  # Research preserved for reference when this gap is revisited.
+
+  # --- Gap 3: Resume Command (deferred from initial implementation) ---
+  - title: Resume Command Implementation
+    chosen: shep feat resume <id> spawns new worker with checkpoint thread_id
+    rejected:
+      - Automatic resume on next CLI invocation (could resume unwanted runs)
+      - Resume via shep agent approve (conflates approval with crash recovery)
+    rationale: >
+      Explicit user intent via 'shep feat resume <id>'. Uses existing
+      FeatureAgentProcessService.spawn() with additional --resume flag.
+      Worker passes stored thread_id to graph.invoke(null, { configurable: { thread_id } }).
+      LangGraph SqliteSaver loads last checkpoint and continues from last completed node.
+      Works for both crash recovery AND resuming after approval.
+
 # Open questions (all resolved during research)
 openQuestions:
   - question: 'Where to store Feature records?'
@@ -171,6 +232,22 @@ openQuestions:
   - question: 'How to handle agent crashes and resume?'
     resolved: true
     answer: 'PID liveness check via process.kill(pid, 0). LangGraph SQLite checkpointing enables resume. Manual shep feat resume <id> command.'
+  - question: 'How should human-in-the-loop approval work with background workers?'
+    resolved: true
+    answer: >
+      Worker calls interrupt() inside node, graph persists state via checkpointer, worker
+      updates AgentRun to waiting_approval and exits. User runs shep agent approve <id>
+      which spawns new worker with Command({ resume: decision }) and same thread_id.
+      No polling, no long-lived processes.
+  - question: 'Should GitHub/Jira integration use API libraries or CLI tools?'
+    resolved: true
+    answer: 'OUT OF SCOPE — deferred to future work. Research preserved in git history.'
+  - question: 'What approval modes should be supported?'
+    resolved: true
+    answer: >
+      Four levels: interactive (interrupt every node), allow-prd (auto-accept analyze+requirements),
+      allow-plan (auto-accept through plan), allow-all (fully autonomous, current default).
+      Stored as approvalMode field on AgentRun record.
 
 # Markdown content (the full research document)
 content: |
@@ -368,6 +445,88 @@ content: |
 
   - Add `featureId?: string` and `repositoryPath?: string` to `AgentRun` model
   - Add `agentRunId?: string` to `Feature` model (optional back-reference)
+  - Add `approvalMode?: string` to `AgentRun` model (interactive|allow-prd|allow-plan|allow-all)
+  - Add `approvalStatus?: string` to `AgentRun` model (pending|approved|rejected)
+  - Add `waiting_approval` to `AgentRunStatus` enum
+
+  ---
+
+  ## Gap Analysis: Deferred Capabilities
+
+  The following capabilities were specified in the original spec but deferred during the initial
+  27-task implementation. Research findings below document the technical approach for each.
+
+  ### 7. Human-in-the-Loop Approval Pattern
+
+  **Chosen:** LangGraph native `interrupt()` + `Command({ resume })` pattern
+
+  **How it works:**
+
+  ```typescript
+  // Inside a node (e.g., plan.node.ts):
+  const shouldInterrupt = (
+    state.approvalMode === 'interactive' ||
+    (state.approvalMode === 'allow-prd' && !['analyze', 'requirements'].includes(nodeName)) ||
+    (state.approvalMode === 'allow-plan' && nodeName === 'implement')
+  );
+
+  if (shouldInterrupt) {
+    const decision = interrupt<{ approved: boolean; feedback?: string }>({
+      node: nodeName,
+      summary: `Completed ${nodeName} phase. Review output in spec directory.`,
+      specDir: state.specDir,
+    });
+    if (!decision.approved) {
+      return { error: `User rejected ${nodeName}: ${decision.feedback}` };
+    }
+  }
+  ```
+
+  **Worker lifecycle on interrupt:**
+  1. Node calls `interrupt()` → graph.invoke() returns with interrupt payload
+  2. Worker updates AgentRun: `status=waiting_approval`, stores interrupt metadata
+  3. Worker exits cleanly (process terminates)
+  4. User reviews output, runs `shep agent approve <id>` or `shep agent reject <id>`
+  5. CLI spawns new worker with: `graph.invoke(new Command({ resume: { approved: true } }), config)`
+  6. Graph resumes from checkpointed state, continues to next node
+
+  **Approval modes:**
+
+  | Flag | Behavior |
+  |------|----------|
+  | `--interactive` | Interrupt after every node |
+  | `--allow-prd` | Auto-accept analyze + requirements, interrupt rest |
+  | `--allow-plan` | Auto-accept through plan, interrupt only implement |
+  | `--allow-all` | Fully autonomous (default, current behavior) |
+
+  **New CLI commands:**
+  - `shep agent approve <id>` — approve pending approval, resume agent
+  - `shep agent reject <id> [--reason <text>]` — reject and fail the run
+
+  **New AgentRun fields:**
+  - `approvalMode` — which mode was requested
+  - `approvalStatus` — current approval state (null, pending, approved, rejected)
+
+  ### 8. External Tool Integration — OUT OF SCOPE
+
+  GitHub Issue and Jira Ticket integration deferred to future work.
+
+  ### 9. Resume Command
+
+  **Chosen:** `shep feat resume <id>` spawns new worker with checkpoint thread_id
+
+  ```typescript
+  // ResumeFeatureUseCase:
+  // 1. Load AgentRun by featureId
+  // 2. Verify status is 'interrupted' or 'failed'
+  // 3. Spawn new worker with --resume flag + existing runId
+  // 4. Worker calls graph.invoke(null, { configurable: { thread_id: runId } })
+  // 5. LangGraph loads checkpoint, continues from last completed node
+  ```
+
+  **Works for two scenarios:**
+  - Crash recovery: process died, checkpoint preserved, resume from last node
+  - Approval resume: same mechanism as `agent approve`, but for manual restart
 
   ## New Files Summary
 
@@ -393,6 +552,30 @@ content: |
   - `src/presentation/cli/commands/feat/ls.command.ts`
   - `src/presentation/cli/commands/feat/show.command.ts`
 
+  ## New Files for Deferred Capabilities
+
+  **Application Layer (new):**
+  - `src/application/use-cases/agents/approve-agent-run.use-case.ts`
+  - `src/application/use-cases/agents/reject-agent-run.use-case.ts`
+  - `src/application/use-cases/features/resume-feature.use-case.ts`
+
+  **Presentation Layer (new):**
+  - `src/presentation/cli/commands/agent/approve.command.ts`
+  - `src/presentation/cli/commands/agent/reject.command.ts`
+  - `src/presentation/cli/commands/feat/resume.command.ts`
+
+  **Modified Files:**
+  - `tsp/agents/agent-run.tsp` — Add approvalMode, approvalStatus fields
+  - `tsp/agents/enums/agent-run-status.tsp` — Add waiting_approval status
+  - `src/infrastructure/services/agents/feature-agent/state.ts` — Add approvalMode to state
+  - `src/infrastructure/services/agents/feature-agent/nodes/*.node.ts` — Add interrupt() logic
+  - `src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts` — No structural changes (interrupt is inline in nodes)
+  - `src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` — Parse --approval-mode, --resume args
+  - `src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` — Pass approval/resume args
+  - `src/presentation/cli/commands/feat/new.command.ts` — Add --interactive, --allow-prd, --allow-plan, --allow-all flags
+  - `src/infrastructure/di/container.ts` — Register new services and use cases
+  - `src/infrastructure/persistence/sqlite/migrations.ts` — New migration for approval fields
+
   ---
 
-  _Researched by 5 parallel agents. Proceed with `/shep-kit:plan`_
+  _Research updated 2026-02-12 with deferred capability analysis. Original research by 5 parallel agents._

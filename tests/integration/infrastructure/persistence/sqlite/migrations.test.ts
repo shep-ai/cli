@@ -234,4 +234,64 @@ describe('SQLite Migrations', () => {
       expect(schema.length).toBeGreaterThan(0);
     });
   });
+
+  describe('migration v6: approval workflow columns', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add approval_mode column to agent_runs table', () => {
+      const schema = getTableSchema(db, 'agent_runs');
+      const approvalMode = schema.find((col) => col.name === 'approval_mode');
+
+      expect(approvalMode).toBeDefined();
+      expect(approvalMode?.type).toBe('TEXT');
+      expect(approvalMode?.notnull).toBe(0); // nullable
+    });
+
+    it('should add approval_status column to agent_runs table', () => {
+      const schema = getTableSchema(db, 'agent_runs');
+      const approvalStatus = schema.find((col) => col.name === 'approval_status');
+
+      expect(approvalStatus).toBeDefined();
+      expect(approvalStatus?.type).toBe('TEXT');
+      expect(approvalStatus?.notnull).toBe(0); // nullable
+    });
+
+    it('should default approval columns to NULL for existing rows', () => {
+      // Insert a row before checking defaults
+      db.prepare(
+        `
+        INSERT INTO agent_runs (id, agent_type, agent_name, status, prompt, thread_id, created_at, updated_at)
+        VALUES ('test-001', 'claude-code', 'test', 'pending', 'test prompt', 'thread-1', 1000, 1000)
+      `
+      ).run();
+
+      const row = db
+        .prepare('SELECT approval_mode, approval_status FROM agent_runs WHERE id = ?')
+        .get('test-001') as Record<string, unknown>;
+      expect(row.approval_mode).toBeNull();
+      expect(row.approval_status).toBeNull();
+    });
+  });
+
+  describe('migration v7: spec_path on features', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add spec_path column to features table', () => {
+      const schema = getTableSchema(db, 'features');
+      const specPath = schema.find((col) => col.name === 'spec_path');
+
+      expect(specPath).toBeDefined();
+      expect(specPath?.type).toBe('TEXT');
+      expect(specPath?.notnull).toBe(0); // nullable
+    });
+
+    it('should set schema version to 7', () => {
+      const version = getSchemaVersion(db);
+      expect(version).toBe(7);
+    });
+  });
 });

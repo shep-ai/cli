@@ -33,11 +33,13 @@ src/infrastructure/services/agents/
 ├── feature-agent/                       # Feature SDLC workflow graph
 │   ├── state.ts                         # FeatureAgentAnnotation + type
 │   ├── nodes/                           # One file per graph node
+│   │   ├── node-helpers.ts
 │   │   ├── analyze.node.ts
 │   │   ├── requirements.node.ts
 │   │   ├── research.node.ts
 │   │   ├── plan.node.ts
 │   │   └── implement.node.ts
+│   ├── heartbeat.ts                     # Node heartbeat reporting
 │   ├── feature-agent-graph.ts           # Graph factory (wires nodes)
 │   ├── feature-agent-process.service.ts # Background process management
 │   └── feature-agent-worker.ts          # Detached worker entry point
@@ -98,14 +100,16 @@ The FeatureAgent is a LangGraph `StateGraph` implementing a linear SDLC workflow
 FeatureAgentAnnotation = Annotation.Root({
   featureId: Annotation<string>, // UUID of the feature
   repositoryPath: Annotation<string>, // Path to the git repository
+  worktreePath: Annotation<string>, // Path to the git worktree
   specDir: Annotation<string>, // Path to the spec directory
   currentNode: Annotation<string>, // Currently executing node name
+  approvalMode: Annotation<string>, // Human-in-the-loop mode
   error: Annotation<string | null>, // Error message (null = no error)
   messages: Annotation<string[]>, // Accumulated log messages (reducer: append)
 });
 ```
 
-The `messages` channel uses a reducer to accumulate messages from all nodes. The `error` channel preserves the previous value when `undefined` is returned.
+The `messages` channel uses a reducer to accumulate messages from all nodes. The `error` channel preserves the previous value when `undefined` is returned. The `approvalMode` channel controls human-in-the-loop interrupt behavior (see [Approval Workflow](#human-in-the-loop-approval-workflow)).
 
 #### Graph Nodes
 
@@ -143,6 +147,56 @@ The feature agent runs as a detached background process:
 
 - **Worker:** `feature-agent/feature-agent-worker.ts` — Entry point for `child_process.fork()`, initializes DI, runs graph, handles SIGTERM
 - **Process Service:** `feature-agent/feature-agent-process.service.ts` — `spawn()`, `isAlive()`, `checkAndMarkCrashed()` for process lifecycle management
+
+#### Node Helpers (`node-helpers.ts`)
+
+All nodes use the shared `executeNode()` helper which provides:
+
+- **Consistent logging** with timestamps and node name prefix
+- **Heartbeat reporting** via `reportNodeStart()`
+- **Error handling** that catches errors and sets state, while re-throwing LangGraph control-flow exceptions (`isGraphBubbleUp`)
+- **Human-in-the-loop interrupt** via `shouldInterrupt()` after node execution
+
+The `shouldInterrupt()` function determines whether a node should pause for human approval based on the configured approval mode.
+
+#### Human-in-the-Loop Approval Workflow
+
+The feature agent supports four approval modes controlled via CLI flags on `shep feat new`:
+
+| Flag            | Mode          | Behavior                                         |
+| --------------- | ------------- | ------------------------------------------------ |
+| `--interactive` | `interactive` | Pause after every node for approval              |
+| `--allow-prd`   | `allow-prd`   | Auto-approve analyze + requirements, pause after |
+| `--allow-plan`  | `allow-plan`  | Auto-approve through plan, pause at implement    |
+| `--allow-all`   | `allow-all`   | Fully autonomous (default, no pauses)            |
+
+**Implementation:**
+
+- Uses LangGraph's native `interrupt()` / `Command({ resume })` pattern
+- After each node completes execution, `shouldInterrupt()` checks if the node requires approval
+- If approval needed, `interrupt({ node, result, message })` pauses the graph
+- The worker detects the `__interrupt__` payload and updates the AgentRun status to `waiting_approval`
+- User runs `shep agent approve <id>` to resume, or `shep agent reject <id>` to cancel
+- On approve, a new worker is spawned with `--resume` flag, invoking `graph.invoke(new Command({ resume: { approved: true } }), config)`
+- LangGraph re-executes the interrupted node (interrupt returns the resume value), then continues to subsequent nodes
+
+**Key Technical Details:**
+
+- `interrupt()` throws `GraphInterrupt` (extends `GraphBubbleUp`) — catch blocks must re-throw with `isGraphBubbleUp(err)`
+- The `approvalMode` is stored in both `FeatureAgentState` (for node-level decisions) and `AgentRun` DB record (for resume persistence)
+- State is checkpointed to file-based SQLite DB at `~/.shep/checkpoints/<run-id>.db`
+
+#### Resume Command
+
+`shep feat resume <id>` resumes a stopped, failed, or interrupted feature agent:
+
+1. Resolves feature by ID or prefix
+2. Loads the most recent `AgentRun` for the feature
+3. Validates the run is in a resumable state (`interrupted`, `failed`, `waiting_approval`)
+4. Creates a new `AgentRun` record with the **same threadId** (for checkpoint continuity)
+5. Spawns a new worker with `--resume` flag
+
+This is distinct from `shep agent approve` which is specifically for human-in-the-loop approval flow.
 
 #### Error Handling
 

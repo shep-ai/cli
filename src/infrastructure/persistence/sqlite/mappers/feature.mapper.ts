@@ -30,6 +30,7 @@ export interface FeatureRow {
   plan: string | null;
   related_artifacts: string;
   agent_run_id: string | null;
+  spec_path: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -54,6 +55,7 @@ export function toDatabase(feature: Feature): FeatureRow {
     plan: feature.plan !== undefined ? JSON.stringify(feature.plan) : null,
     related_artifacts: JSON.stringify(feature.relatedArtifacts),
     agent_run_id: feature.agentRunId ?? null,
+    spec_path: feature.specPath ?? null,
     created_at: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
     updated_at: feature.updatedAt instanceof Date ? feature.updatedAt.getTime() : feature.updatedAt,
   };
@@ -81,5 +83,6 @@ export function fromDatabase(row: FeatureRow): Feature {
     updatedAt: new Date(row.updated_at),
     ...(row.plan !== null && { plan: JSON.parse(row.plan) }),
     ...(row.agent_run_id !== null && { agentRunId: row.agent_run_id }),
+    ...(row.spec_path !== null && { specPath: row.spec_path }),
   };
 }

@@ -30,25 +30,17 @@ import type { IAgentRegistry } from '../../../../../src/application/ports/output
 import type { IAgentRunner } from '../../../../../src/application/ports/output/agent-runner.interface.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 
-// Migration SQL
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { runSQLiteMigrations } from '../../../../../src/infrastructure/persistence/sqlite/migrations.js';
 
 describe('Agent Infrastructure Integration', () => {
   let db: Database.Database;
 
-  beforeAll(() => {
-    // Create in-memory database with agent_runs table
+  beforeAll(async () => {
+    // Create in-memory database with all migrations
     db = new DatabaseConstructor(':memory:');
     db.pragma('journal_mode = WAL');
 
-    // Run the agent_runs migration
-    const migrationPath = join(
-      import.meta.dirname,
-      '../../../../../src/infrastructure/persistence/sqlite/migrations/003_create_agent_runs.sql'
-    );
-    const migrationSQL = readFileSync(migrationPath, 'utf-8');
-    db.exec(migrationSQL);
+    await runSQLiteMigrations(db);
 
     // Register all agent infrastructure in the container
     container.registerInstance<Database.Database>('Database', db);

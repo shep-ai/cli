@@ -18,3 +18,11 @@ export { fmt, type Formatters } from './formatters.js';
 export { messages, type Messages } from './messages.js';
 export { TableFormatter, type DatabaseMeta } from './tables.js';
 export { OutputFormatter, type OutputFormat } from './output.js';
+export {
+  renderDetailView,
+  type DetailViewConfig,
+  type DetailSection,
+  type DetailField,
+  type DetailTextBlock,
+} from './detail-view.js';
+export { renderListView, type ListViewConfig, type ListColumn } from './list-view.js';

@@ -342,4 +342,17 @@ model Feature extends BaseEntity {
    */
   @doc("Associated agent run ID for process tracking (optional)")
   agentRunId?: string;
+
+  /**
+   * Absolute path to the spec directory for this feature.
+   *
+   * Points to the specs/NNN-slug/ directory inside the worktree where
+   * spec.yaml, research.yaml, plan.yaml, tasks.yaml, and feature.yaml live.
+   * Created during feature initialization and used by the feature agent
+   * to read and write spec artifacts.
+   *
+   * @example "~/.shep/repos/a1b2c3d4/wt/feat-user-auth/specs/001-user-auth"
+   */
+  @doc("Absolute path to the feature spec directory inside the worktree")
+  specPath?: string;
 }

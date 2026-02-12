@@ -1,22 +1,11 @@
 import type { IAgentExecutor } from '@/application/ports/output/agent-executor.interface.js';
-import { executeNode, readSpecFile } from './node-helpers.js';
+import { executeNode } from './node-helpers.js';
+import { buildPlanPrompt } from './prompts/plan.prompt.js';
 
 /**
- * Creates the plan node that generates an implementation plan
- * by delegating to the configured agent.
+ * Creates the plan node that generates an implementation plan (plan.yaml)
+ * and task breakdown with TDD cycles (tasks.yaml) from spec and research.
  */
 export function createPlanNode(executor: IAgentExecutor) {
-  return executeNode('plan', executor, (state) => {
-    const specContent = readSpecFile(state.specDir, 'spec.yaml');
-    const researchContent = readSpecFile(state.specDir, 'research.yaml');
-
-    return [
-      'Create a detailed implementation plan for this feature.',
-      'Break the work into tasks with clear acceptance criteria.',
-      'Follow TDD: define RED-GREEN-REFACTOR cycles for each task.',
-      '',
-      specContent ? `Feature spec:\n${specContent}` : `Feature: ${state.featureId}`,
-      researchContent ? `\nResearch findings:\n${researchContent}` : '',
-    ].join('\n');
-  });
+  return executeNode('plan', executor, buildPlanPrompt);
 }

@@ -12,6 +12,7 @@
  *               +--> failed
  *               +--> interrupted (crash detected)
  *               +--> cancelled (user-initiated)
+ *               +--> waiting_approval (human-in-the-loop)
  * ```
  */
 @doc("Agent run execution status")
@@ -33,4 +34,7 @@ enum AgentRunStatus {
 
   @doc("Manually cancelled by user")
   cancelled: "cancelled",
+
+  @doc("Paused awaiting human approval (human-in-the-loop)")
+  waitingApproval: "waiting_approval",
 }

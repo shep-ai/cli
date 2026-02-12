@@ -54,4 +54,10 @@ model AgentRun extends BaseEntity {
 
   @doc("Repository path for context scoping (optional)")
   repositoryPath?: string;
+
+  @doc("Approval mode for human-in-the-loop: interactive, allow-prd, allow-plan, allow-all (optional)")
+  approvalMode?: string;
+
+  @doc("Current approval status: pending, waiting, approved, rejected (optional)")
+  approvalStatus?: string;
 }

@@ -2,7 +2,7 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: feature-agent
-summary: Implementation plan for 013-feature-agent with 11 phases following Clean Architecture and TDD
+summary: Implementation plan for 013-feature-agent with 15 phases following Clean Architecture and TDD. Phases 1-11 complete (core agent system). Phases 12-14 human-in-the-loop, Phase 16 resume command. Phase 15 (external tools) out of scope.
 
 # Relationships
 relatedFeatures:
@@ -94,8 +94,37 @@ phases:
       - task-26
       - task-27
 
+  # === Deferred Gap Implementation (Phases 12-16) ===
+  - id: phase-12
+    name: 'Human-in-the-Loop: Domain & State (TDD)'
+    parallel: false
+    taskIds:
+      - task-28
+      - task-29
+  - id: phase-13
+    name: 'Human-in-the-Loop: Interrupt Logic & Worker (TDD)'
+    parallel: false
+    taskIds:
+      - task-30
+      - task-31
+  - id: phase-14
+    name: 'Human-in-the-Loop: Approve/Reject CLI (TDD)'
+    parallel: false
+    taskIds:
+      - task-32
+      - task-33
+  # Phase 15 (External Tool Integration) — OUT OF SCOPE. Tasks 34-36 deferred.
+  - id: phase-16
+    name: 'Resume Command & Final Integration (TDD)'
+    parallel: false
+    taskIds:
+      - task-37
+      - task-38
+      - task-39
+
 # File change tracking
 filesToCreate:
+  # Phase 1-11 (already created)
   - src/application/ports/output/feature-repository.interface.ts
   - src/application/ports/output/worktree-service.interface.ts
   - src/infrastructure/repositories/sqlite-feature.repository.ts
@@ -124,14 +153,51 @@ filesToCreate:
   - tests/unit/infrastructure/services/git/worktree.service.test.ts
   - tests/unit/application/use-cases/features/create-feature.use-case.test.ts
   - tests/e2e/cli/feat.test.ts
+  # Phase 12-16 (new files for deferred gaps)
+  - src/application/use-cases/agents/approve-agent-run.use-case.ts
+  - src/application/use-cases/agents/reject-agent-run.use-case.ts
+  - src/application/use-cases/features/resume-feature.use-case.ts
+  # External tool files (tasks 34-36) OUT OF SCOPE:
+  # - src/application/ports/output/external-issue-fetcher.interface.ts
+  # - src/infrastructure/services/github/github-issue.service.ts
+  # - src/infrastructure/services/jira/jira-ticket.service.ts
+  - src/presentation/cli/commands/agent/approve.command.ts
+  - src/presentation/cli/commands/agent/reject.command.ts
+  - src/presentation/cli/commands/feat/resume.command.ts
+  - tests/unit/application/use-cases/agents/approve-agent-run.use-case.test.ts
+  - tests/unit/application/use-cases/agents/reject-agent-run.use-case.test.ts
+  - tests/unit/application/use-cases/features/resume-feature.use-case.test.ts
+  # External tool test files (tasks 34-36) OUT OF SCOPE:
+  # - tests/unit/infrastructure/services/github/github-issue.service.test.ts
+  # - tests/unit/infrastructure/services/jira/jira-ticket.service.test.ts
+  - tests/unit/infrastructure/services/agents/interrupt-logic.test.ts
+  - tests/integration/agents/interrupt-resume.test.ts
 
 filesToModify:
+  # Phase 1-11 (already modified)
   - tsp/domain/entities/feature.tsp
   - tsp/agents/agent-run.tsp
   - src/infrastructure/di/container.ts
   - src/infrastructure/persistence/migrations.ts
   - package.json
   - src/presentation/cli/index.ts
+  # Phase 12-16 (modifications for deferred gaps)
+  - tsp/agents/enums/agent-run-status.tsp
+  - src/infrastructure/services/agents/feature-agent/state.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/analyze.node.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/requirements.node.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/research.node.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/plan.node.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/implement.node.ts
+  - src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
+  - src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts
+  - src/infrastructure/repositories/agent-run.repository.ts
+  - src/application/ports/output/agent-run-repository.interface.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - src/presentation/cli/commands/agent/index.ts
+  - src/presentation/cli/commands/agent/show.command.ts
+  - src/presentation/cli/commands/feat/index.ts
 
 # Open questions (should all be resolved before implementation)
 openQuestions: []
@@ -368,6 +434,87 @@ content: |
   - feat show command (detailed feature display)
   - Complete feature lifecycle (new -> running -> complete)
 
+  ---
+
+  ## Deferred Gap Implementation (Phases 12-16)
+
+  Phases 1-11 are **complete** (27/27 tasks). The following phases address 3 gaps identified
+  during requirements review: human-in-the-loop approval, external tool integration, and
+  crash recovery resume.
+
+  ### Phase 12: Human-in-the-Loop — Domain & State (TDD Cycle 10)
+
+  **Goal:** Extend TypeSpec models and LangGraph state to support approval workflow
+
+  **TDD Workflow:**
+  1. **RED:** Write tests that assert: AgentRunStatus includes `waiting_approval`;
+     AgentRun has `approvalMode` and `approvalStatus` fields; FeatureAgentState includes
+     `approvalMode` field; migration v6 adds columns to agent_runs table
+  2. **GREEN:** Update TypeSpec enum + model, run `tsp:compile`, add migration v6,
+     update state.ts with new Annotation field
+  3. **REFACTOR:** Verify generated types match, update agent-run repository updateStatus()
+     to handle new fields
+
+  **Deliverables:** Updated TypeSpec models, migration v6, extended state schema, passing tests
+
+  ### Phase 13: Human-in-the-Loop — Interrupt Logic & Worker (TDD Cycle 11)
+
+  **Goal:** Add `interrupt()` calls to nodes and teach worker to handle interrupt/resume
+
+  **TDD Workflow:**
+  1. **RED:** Write integration test that: creates graph with `approvalMode='interactive'`,
+     invokes graph, asserts execution pauses after first node with interrupt payload;
+     write test that resumes graph with `Command({ resume })` and asserts continuation
+  2. **GREEN:** Add `shouldInterrupt()` helper to node-helpers.ts; modify each node's
+     `buildPrompt` wrapper in executeNode() to call `interrupt()` conditionally after
+     executor completes; update worker to detect interrupt result and set
+     `status=waiting_approval` before exiting; update worker to accept `--resume` mode
+     that invokes `graph.invoke(new Command({ resume }), config)`
+  3. **REFACTOR:** Extract interrupt decision logic into single `shouldInterruptNode()`
+     function; ensure all 5 nodes share the same interrupt pattern
+
+  **Deliverables:** Interrupt-capable nodes, resume-capable worker, passing integration tests
+
+  ### Phase 14: Human-in-the-Loop — Approve/Reject CLI (TDD Cycle 12)
+
+  **Goal:** Implement `shep agent approve <id>` and `shep agent reject <id>` commands
+
+  **TDD Workflow:**
+  1. **RED:** Write unit tests for `ApproveAgentRunUseCase` (validates waiting_approval
+     status, updates approvalStatus, spawns resume worker); write unit tests for
+     `RejectAgentRunUseCase` (validates status, marks failed with reason); write CLI
+     command tests for approve/reject
+  2. **GREEN:** Implement use cases with status validation + process spawning; implement
+     CLI commands; register in DI container and agent command index; add approval mode
+     flags to `feat new` command (`--interactive`, `--allow-prd`, `--allow-plan`, `--allow-all`)
+  3. **REFACTOR:** Extract shared run-resolution logic (prefix match); update
+     `agent show` to display approval status and mode
+
+  **Deliverables:** approve/reject commands, feat new flags, updated agent show, passing tests
+
+  ### Phase 15: External Tool Integration — OUT OF SCOPE
+
+  Tasks 34-36 (GitHub/Jira integration) deferred to future work.
+
+  ### Phase 16: Resume Command & Final Integration (TDD Cycle 13)
+
+  **Goal:** Implement `shep feat resume <id>` and validate full end-to-end workflow
+
+  **TDD Workflow:**
+  1. **RED:** Write unit tests for `ResumeFeatureUseCase` (validates interrupted/failed
+     status, spawns worker with --resume flag, creates new AgentRun); write CLI command
+     test for feat resume; write integration test for full lifecycle: feat new with
+     --interactive → agent pauses → agent approve → agent completes
+  2. **GREEN:** Implement `ResumeFeatureUseCase` that loads feature + last AgentRun,
+     validates resumable status, creates new run, spawns worker with `--resume` + threadId;
+     implement feat resume command; update FeatureAgentProcessService.spawn() to accept
+     optional `resumeThreadId` arg; register in DI + CLI
+  3. **REFACTOR:** Update feat show to display "Waiting for approval — run `shep agent approve`"
+     suggestion; validate all tests pass (pnpm test); validate build (pnpm build);
+     validate typecheck (pnpm typecheck)
+
+  **Deliverables:** Resume command, full lifecycle test, all validation gates passing
+
   ## Risk Mitigation
 
   | Risk | Mitigation |
@@ -377,7 +524,11 @@ content: |
   | Git worktree conflicts | Check existence before create, validate branch availability |
   | Database schema changes | Versioned migrations with rollback support |
   | TypeSpec breaking changes | Compile after every TypeSpec edit, fix immediately |
+  | LangGraph interrupt() behavior | Verified via Context7 docs — interrupt pauses, checkpointer saves, Command resumes |
+  | Worker exit on interrupt | Worker detects interrupt result (no tasks array in output), updates DB, exits cleanly |
+  | gh CLI not installed | OUT OF SCOPE (deferred) |
+  | Jira auth not configured | OUT OF SCOPE (deferred) |
 
   ---
 
-  _Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_
+  _Updated 2026-02-12 with deferred gap phases (12-16). Original plan by `/shep-kit:plan`._

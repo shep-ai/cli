@@ -13,13 +13,13 @@ export const FeatureAgentAnnotation = Annotation.Root({
   specDir: Annotation<string>,
   worktreePath: Annotation<string>,
   currentNode: Annotation<string>,
-  sessionId: Annotation<string | undefined>({
-    reducer: (prev, next) => next ?? prev,
-    default: () => undefined,
-  }),
   error: Annotation<string | null>({
     reducer: (prev, next) => (next !== undefined ? next : prev),
     default: () => null,
+  }),
+  approvalMode: Annotation<string | undefined>({
+    reducer: (prev, next) => next ?? prev,
+    default: () => undefined,
   }),
   messages: Annotation<string[]>({
     reducer: (prev, next) => [...prev, ...next],

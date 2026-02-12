@@ -17,6 +17,10 @@ import { colors, messages } from '../../ui/index.js';
 
 interface NewOptions {
   repo?: string;
+  interactive?: boolean;
+  allowPrd?: boolean;
+  allowPlan?: boolean;
+  allowAll?: boolean;
 }
 
 /**
@@ -27,14 +31,26 @@ export function createNewCommand(): Command {
     .description('Create a new feature')
     .argument('<description>', 'Feature description')
     .option('-r, --repo <path>', 'Repository path (defaults to current directory)')
+    .option('--interactive', 'Require approval after every agent step')
+    .option('--allow-prd', 'Auto-approve through requirements, pause after')
+    .option('--allow-plan', 'Auto-approve through planning, pause at implementation')
+    .option('--allow-all', 'Run fully autonomous (no approval pauses)')
     .action(async (description: string, options: NewOptions) => {
       try {
         const useCase = container.resolve(CreateFeatureUseCase);
         const repoPath = options.repo ?? process.cwd();
 
+        // Determine approval mode from flags (last one wins if multiple specified)
+        let approvalMode: string | undefined;
+        if (options.interactive) approvalMode = 'interactive';
+        if (options.allowPrd) approvalMode = 'allow-prd';
+        if (options.allowPlan) approvalMode = 'allow-plan';
+        if (options.allowAll) approvalMode = 'allow-all';
+
         const feature = await useCase.execute({
-          description,
+          userInput: description,
           repositoryPath: repoPath,
+          approvalMode,
         });
 
         messages.newline();

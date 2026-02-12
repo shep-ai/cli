@@ -61,6 +61,10 @@ export const symbols = {
   pointer: unicode ? '❯' : '>',
   /** Ellipsis for loading/truncation */
   ellipsis: unicode ? '…' : '...',
+  /** Filled status dot */
+  dot: unicode ? '●' : '*',
+  /** Empty status dot */
+  dotEmpty: unicode ? '○' : 'o',
   /** Line separator */
   line: unicode ? '─' : '-',
   /** Spinner frames for loading animation */

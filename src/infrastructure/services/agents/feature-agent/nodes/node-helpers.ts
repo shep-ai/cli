@@ -7,11 +7,11 @@
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type {
   IAgentExecutor,
   AgentExecutionOptions,
 } from '@/application/ports/output/agent-executor.interface.js';
-import { AgentFeature } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
 
@@ -46,19 +46,30 @@ export function readSpecFile(specDir: string, filename: string): string {
 }
 
 /**
- * Build executor options with cwd and optional session resume.
+ * Build executor options with cwd. Each node gets a clean agent context.
  */
-export function buildExecutorOptions(
-  state: FeatureAgentState,
-  executor: IAgentExecutor
-): AgentExecutionOptions {
-  const options: AgentExecutionOptions = {
+export function buildExecutorOptions(state: FeatureAgentState): AgentExecutionOptions {
+  return {
     cwd: state.worktreePath || state.repositoryPath,
   };
-  if (state.sessionId && executor.supportsFeature(AgentFeature.sessionResume)) {
-    options.resumeSession = state.sessionId;
-  }
-  return options;
+}
+
+/** Nodes that are auto-approved (no interrupt) for each approval mode. */
+const AUTO_APPROVED_NODES: Record<string, string[]> = {
+  interactive: [],
+  'allow-prd': ['analyze', 'requirements'],
+  'allow-plan': ['analyze', 'requirements', 'research', 'plan'],
+  'allow-all': ['analyze', 'requirements', 'research', 'plan', 'implement'],
+};
+
+/**
+ * Determine whether the current node should trigger an interrupt
+ * for human approval given the configured approval mode.
+ */
+export function shouldInterrupt(nodeName: string, approvalMode: string | undefined): boolean {
+  if (!approvalMode || approvalMode === 'allow-all') return false;
+  const autoApproved = AUTO_APPROVED_NODES[approvalMode] ?? [];
+  return !autoApproved.includes(nodeName);
 }
 
 /**
@@ -83,21 +94,34 @@ export function executeNode(
 
     try {
       const prompt = buildPrompt(state, log);
-      const options = buildExecutorOptions(state, executor);
+      const options = buildExecutorOptions(state);
 
       log.info(`Executing agent at cwd=${options.cwd}`);
       log.info(`Prompt length: ${prompt.length} chars`);
       const result = await executor.execute(prompt, options);
-      log.info(`Agent returned sessionId=${result.sessionId ?? '(none)'}`);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
 
-      return {
+      const nodeResult: Partial<FeatureAgentState> = {
         currentNode: nodeName,
-        sessionId: result.sessionId ?? state.sessionId,
         messages: [`[${nodeName}] Complete (${result.result.length} chars, ${elapsed}s)`],
       };
+
+      // Human-in-the-loop: interrupt after node execution for review
+      if (shouldInterrupt(nodeName, state.approvalMode)) {
+        log.info('Interrupting for human approval');
+        interrupt({
+          node: nodeName,
+          result: result.result.slice(0, 500),
+          message: `Node "${nodeName}" completed. Approve to continue.`,
+        });
+      }
+
+      return nodeResult;
     } catch (err: unknown) {
+      // Re-throw LangGraph control-flow exceptions (interrupt, Command, etc.)
+      if (isGraphBubbleUp(err)) throw err;
+
       const message = err instanceof Error ? err.message : String(err);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.error(`${message} (after ${elapsed}s)`);

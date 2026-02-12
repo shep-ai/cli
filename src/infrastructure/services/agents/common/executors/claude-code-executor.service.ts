@@ -272,11 +272,10 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
       if (parsed.type === 'assistant' && Array.isArray(parsed.message?.content)) {
         for (const block of parsed.message.content) {
           if (block.type === 'tool_use') {
-            const inputPreview = JSON.stringify(block.input ?? {}).slice(0, 120);
-            this.log(`[tool] ${block.name} ${inputPreview}`);
+            const inputJson = JSON.stringify(block.input ?? {});
+            this.log(`[tool] ${block.name} ${inputJson}`);
           } else if (block.type === 'text' && block.text?.trim()) {
-            const preview = block.text.trim().slice(0, 200).replace(/\n/g, ' ');
-            this.log(`[text] ${preview}`);
+            this.log(`[text] ${block.text.trim().replace(/\n/g, ' ')}`);
           }
         }
         return;
@@ -293,9 +292,9 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         return;
       }
     } catch {
-      // Non-JSON line — log it raw (truncated)
+      // Non-JSON line — log it raw
       if (line.length > 0) {
-        this.log(`[raw] ${line.slice(0, 200)}`);
+        this.log(`[raw] ${line}`);
       }
     }
   }
