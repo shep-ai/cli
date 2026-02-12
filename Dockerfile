@@ -23,11 +23,9 @@ WORKDIR /app
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY src/presentation/web/package.json ./src/presentation/web/package.json
 
-# Install production dependencies only (ignore scripts to skip husky which is a devDep)
-RUN pnpm install --frozen-lockfile --prod --ignore-scripts
-
-# Rebuild native addons (better-sqlite3) for the target platform
-RUN pnpm rebuild better-sqlite3
+# Install production dependencies and rebuild native addons
+RUN pnpm install --frozen-lockfile --prod --ignore-scripts && \
+    pnpm rebuild better-sqlite3
 
 # =============================================================================
 # Stage 2: Build TypeScript
