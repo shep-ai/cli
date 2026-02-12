@@ -1,75 +1,30 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 import { ReactFlow, Background, Controls, ReactFlowProvider } from '@xyflow/react';
-import type { Connection, Edge, NodeChange } from '@xyflow/react';
+import type { Edge } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
 import type { FeatureNodeType } from '@/components/common/feature-node';
-import { RepositoryNode } from '@/components/common/repository-node';
-import type { RepositoryNodeType } from '@/components/common/repository-node';
-import { AddRepositoryNode } from '@/components/common/add-repository-node';
-import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
-
-export type CanvasNodeType = FeatureNodeType | RepositoryNodeType | AddRepositoryNodeType;
 
 export interface FeaturesCanvasProps {
-  nodes: CanvasNodeType[];
+  nodes: FeatureNodeType[];
   edges: Edge[];
-  onNodesChange?: (changes: NodeChange<CanvasNodeType>[]) => void;
   onAddFeature?: () => void;
   onNodeAction?: (nodeId: string) => void;
   onNodeSettings?: (nodeId: string) => void;
-  onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
-  onPaneClick?: (event: React.MouseEvent) => void;
-  onRepositoryAdd?: (repoNodeId: string) => void;
-  onConnect?: (connection: Connection) => void;
-  onRepositorySelect?: (path: string) => void;
-  toolbar?: React.ReactNode;
-  emptyState?: React.ReactNode;
 }
 
 export function FeaturesCanvas({
   nodes,
   edges,
-  onNodesChange,
   onAddFeature,
   onNodeAction,
   onNodeSettings,
-  onConnect,
-  onNodeClick,
-  onPaneClick,
-  onRepositoryAdd,
-  onRepositorySelect,
-  toolbar,
-  emptyState,
 }: FeaturesCanvasProps) {
-  const nodeTypes = useMemo(
-    () => ({
-      featureNode: FeatureNode,
-      repositoryNode: RepositoryNode,
-      addRepositoryNode: AddRepositoryNode,
-    }),
-    []
-  );
-
-  // Prevent a feature from having more than one source repository
-  const isValidConnection = useCallback(
-    (connection: Edge | Connection) => {
-      const sourceNode = nodes.find((n) => n.id === connection.source);
-      if (sourceNode?.type !== 'repositoryNode') return true;
-
-      const targetAlreadyHasRepo = edges.some((e) => {
-        const edgeSourceNode = nodes.find((n) => n.id === e.source);
-        return edgeSourceNode?.type === 'repositoryNode' && e.target === connection.target;
-      });
-
-      return !targetAlreadyHasRepo;
-    },
-    [nodes, edges]
-  );
+  const nodeTypes = useMemo(() => ({ featureNode: FeatureNode }), []);
 
   const enrichedNodes = useMemo(
     () =>
@@ -78,29 +33,14 @@ export function FeaturesCanvas({
         data: {
           ...node.data,
           showHandles: edges.length > 0,
-          ...(node.type === 'featureNode' && {
-            onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
-            onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
-          }),
-          ...(node.type === 'repositoryNode' && {
-            onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
-          }),
-          ...(node.type === 'addRepositoryNode' && {
-            onSelect: onRepositorySelect ? (path: string) => onRepositorySelect(path) : undefined,
-          }),
+          onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
+          onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
         },
-      })) as CanvasNodeType[],
-    [nodes, edges.length, onNodeAction, onNodeSettings, onRepositoryAdd, onRepositorySelect]
+      })),
+    [nodes, edges.length, onNodeAction, onNodeSettings]
   );
 
   if (nodes.length === 0) {
-    if (emptyState) {
-      return (
-        <div data-testid="features-canvas-empty" className="h-full w-full">
-          {emptyState}
-        </div>
-      );
-    }
     return (
       <div data-testid="features-canvas-empty">
         <EmptyState
@@ -120,23 +60,9 @@ export function FeaturesCanvas({
   return (
     <div data-testid="features-canvas" className="h-full w-full">
       <ReactFlowProvider>
-        <ReactFlow
-          nodes={enrichedNodes}
-          edges={edges}
-          nodeTypes={nodeTypes}
-          isValidConnection={isValidConnection}
-          onConnect={onConnect}
-          onNodesChange={onNodesChange}
-          onNodeClick={onNodeClick}
-          onPaneClick={onPaneClick}
-          defaultViewport={{ x: 30, y: 30, zoom: 0.85 }}
-          nodesDraggable={false}
-          nodesConnectable={false}
-          elementsSelectable={false}
-        >
+        <ReactFlow nodes={enrichedNodes} edges={edges} nodeTypes={nodeTypes} fitView>
           <Background />
           <Controls />
-          {toolbar}
         </ReactFlow>
       </ReactFlowProvider>
     </div>

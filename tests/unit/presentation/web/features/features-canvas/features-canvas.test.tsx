@@ -2,7 +2,6 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
-import type { RepositoryNodeType } from '@/components/common/repository-node';
 
 const mockNode: FeatureNodeType = {
   id: 'node-1',
@@ -59,36 +58,5 @@ describe('FeaturesCanvas', () => {
     const settingsButton = screen.getByTestId('feature-node-settings-button');
     fireEvent.click(settingsButton);
     expect(onNodeSettings).toHaveBeenCalledWith('node-1');
-  });
-
-  it('wires onRepositoryAdd to RepositoryNode onAdd', () => {
-    const onRepositoryAdd = vi.fn();
-    const mockRepoNode: RepositoryNodeType = {
-      id: 'repo-1',
-      type: 'repositoryNode',
-      position: { x: 0, y: 0 },
-      data: { name: 'shep-ai/cli' },
-    };
-    render(
-      <FeaturesCanvas
-        nodes={[mockRepoNode]}
-        edges={[{ id: 'e1', source: 'repo-1', target: 'feat-1' }]}
-        onRepositoryAdd={onRepositoryAdd}
-      />
-    );
-    const addButton = screen.getByTestId('repository-node-add-button');
-    fireEvent.click(addButton);
-    expect(onRepositoryAdd).toHaveBeenCalledWith('repo-1');
-  });
-
-  it('renders toolbar when provided', () => {
-    render(
-      <FeaturesCanvas
-        nodes={[mockNode]}
-        edges={[]}
-        toolbar={<div data-testid="custom-toolbar">Toolbar</div>}
-      />
-    );
-    expect(screen.getByTestId('custom-toolbar')).toBeInTheDocument();
   });
 });

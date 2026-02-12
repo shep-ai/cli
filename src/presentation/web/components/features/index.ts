@@ -1,1 +1,1 @@
-export { FeatureFlowCanvas, type FeatureFlowCanvasProps } from './feature-flow-canvas';
+export { FeaturesCanvas, type FeaturesCanvasProps } from './features-canvas';
