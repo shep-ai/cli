@@ -10,8 +10,10 @@ import { FeatureNode } from '@/components/common/feature-node';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
+import { AddRepositoryNode } from '@/components/common/add-repository-node';
+import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 
-export type CanvasNodeType = FeatureNodeType | RepositoryNodeType;
+export type CanvasNodeType = FeatureNodeType | RepositoryNodeType | AddRepositoryNodeType;
 
 export interface FeaturesCanvasProps {
   nodes: CanvasNodeType[];
@@ -29,7 +31,11 @@ export function FeaturesCanvas({
   onNodeSettings,
 }: FeaturesCanvasProps) {
   const nodeTypes = useMemo(
-    () => ({ featureNode: FeatureNode, repositoryNode: RepositoryNode }),
+    () => ({
+      featureNode: FeatureNode,
+      repositoryNode: RepositoryNode,
+      addRepositoryNode: AddRepositoryNode,
+    }),
     []
   );
 
