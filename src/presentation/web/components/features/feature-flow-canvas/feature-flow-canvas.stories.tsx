@@ -53,7 +53,7 @@ const multipleNodes: FeatureNodeType[] = [
   {
     id: 'node-2',
     type: 'featureNode',
-    position: { x: 350, y: 50 },
+    position: { x: 450, y: 50 },
     data: {
       name: 'User Dashboard',
       description: 'Main user dashboard view',
@@ -66,7 +66,7 @@ const multipleNodes: FeatureNodeType[] = [
   {
     id: 'node-3',
     type: 'featureNode',
-    position: { x: 50, y: 250 },
+    position: { x: 50, y: 280 },
     data: {
       name: 'API Gateway',
       description: 'Rate limiting and routing',
@@ -79,7 +79,7 @@ const multipleNodes: FeatureNodeType[] = [
   {
     id: 'node-4',
     type: 'featureNode',
-    position: { x: 350, y: 250 },
+    position: { x: 450, y: 280 },
     data: {
       name: 'Payment Integration',
       description: 'Stripe payment processing',
@@ -92,7 +92,7 @@ const multipleNodes: FeatureNodeType[] = [
   {
     id: 'node-5',
     type: 'featureNode',
-    position: { x: 650, y: 150 },
+    position: { x: 850, y: 165 },
     data: {
       name: 'Email Service',
       description: 'Transactional email delivery',
@@ -108,7 +108,7 @@ const connectedNodes: FeatureNodeType[] = [
   {
     id: 'node-1',
     type: 'featureNode',
-    position: { x: 50, y: 100 },
+    position: { x: 50, y: 120 },
     data: {
       name: 'Auth Module',
       description: 'OAuth2 authentication',
@@ -121,7 +121,7 @@ const connectedNodes: FeatureNodeType[] = [
   {
     id: 'node-2',
     type: 'featureNode',
-    position: { x: 350, y: 0 },
+    position: { x: 450, y: 0 },
     data: {
       name: 'User Dashboard',
       description: 'Depends on auth module',
@@ -129,12 +129,13 @@ const connectedNodes: FeatureNodeType[] = [
       lifecycle: 'plan',
       state: 'blocked',
       progress: 10,
+      blockedBy: 'Auth Module',
     },
   },
   {
     id: 'node-3',
     type: 'featureNode',
-    position: { x: 350, y: 200 },
+    position: { x: 450, y: 240 },
     data: {
       name: 'API Gateway',
       description: 'Depends on auth module',
@@ -147,7 +148,7 @@ const connectedNodes: FeatureNodeType[] = [
   {
     id: 'node-4',
     type: 'featureNode',
-    position: { x: 650, y: 100 },
+    position: { x: 850, y: 120 },
     data: {
       name: 'Admin Panel',
       description: 'Depends on dashboard and API',
@@ -155,6 +156,7 @@ const connectedNodes: FeatureNodeType[] = [
       lifecycle: 'requirements',
       state: 'blocked',
       progress: 0,
+      blockedBy: 'User Dashboard',
     },
   },
 ];
