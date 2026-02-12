@@ -25,8 +25,9 @@ export class LayoutEngine {
 
       if (features.length === 0) {
         // Repo with no features - still show the pill
-        repoPositions.set(repo.id, { x: repoX, y: currentY });
-        currentY += 60; // Minimal height for empty repo
+        const rowHeight = this.NODE_HEIGHT + 10;
+        repoPositions.set(repo.id, { x: repoX, y: currentY + rowHeight / 2 - 20 });
+        currentY += rowHeight; // Same height as a feature card row
         return;
       }
 
@@ -34,18 +35,15 @@ export class LayoutEngine {
       const roots = this.buildHierarchy(features);
 
       // Calculate feature positions within this repo group
-      let repoStartY = currentY;
-      let repoHeight = 0;
-
       roots.forEach((root) => {
         const treeSize = this.traverse(root, 0, currentY, featurePositions, featuresStartX);
         currentY += treeSize;
-        repoHeight += treeSize;
       });
 
-      // Position repo pill vertically centered relative to its features
-      const repoCenterY = repoStartY + repoHeight / 2 - 20; // 20 = half pill height
-      repoPositions.set(repo.id, { x: repoX, y: repoCenterY });
+      // Position repo pill so its center (y+20) aligns with average of root feature centers (y+48)
+      const rootCenters = roots.map((r) => featurePositions.get(r.id).y + this.NODE_HEIGHT / 2);
+      const avgCenter = rootCenters.reduce((sum, y) => sum + y, 0) / rootCenters.length;
+      repoPositions.set(repo.id, { x: repoX, y: avgCenter - 20 });
 
       currentY += 32; // Gap between repo groups
     });

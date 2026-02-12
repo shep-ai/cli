@@ -126,9 +126,8 @@ export class Renderer {
       // Render feature nodes
       this.renderNodes(featurePositions, onNodeClick, onAddChild, onDeepDive);
 
-      // Render "Add Repository" button below last repo (64px gap)
-      const lastRepoY = Math.max(...Array.from(repoPositions.values()).map((p) => p.y));
-      this.renderAddRepoButton(container, lastRepoY + 40 + 64); // 40px repo height + 64px gap
+      // Render "Add Repository" button aligned with where next repo pill would appear
+      this.renderAddRepoButton(container, totalHeight + offsetY + this.layout.NODE_HEIGHT / 2 - 20);
 
       return;
     }

@@ -48,6 +48,9 @@ export default tseslint.config(
       'test-results/**',
       'playwright-report/**',
 
+      // POC TypeScript files (not part of main tsconfig)
+      'docs/poc/**/*.ts',
+
       // Config files that don't need linting
       '*.config.js',
       '*.config.mjs',
