@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { FeatureFlowCanvas } from '@/components/features/feature-flow-canvas';
+import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 
 const mockNode: FeatureNodeType = {
@@ -17,31 +17,31 @@ const mockNode: FeatureNodeType = {
   },
 };
 
-describe('FeatureFlowCanvas', () => {
+describe('FeaturesCanvas', () => {
   it('renders empty state when nodes is empty', () => {
-    render(<FeatureFlowCanvas nodes={[]} edges={[]} />);
+    render(<FeaturesCanvas nodes={[]} edges={[]} />);
     expect(screen.getByText('No features yet')).toBeInTheDocument();
     expect(screen.getByText('Get started by creating your first feature.')).toBeInTheDocument();
-    expect(screen.getByTestId('feature-flow-canvas-empty')).toBeInTheDocument();
+    expect(screen.getByTestId('features-canvas-empty')).toBeInTheDocument();
   });
 
   it('empty state button fires onAddFeature', () => {
     const onAddFeature = vi.fn();
-    render(<FeatureFlowCanvas nodes={[]} edges={[]} onAddFeature={onAddFeature} />);
+    render(<FeaturesCanvas nodes={[]} edges={[]} onAddFeature={onAddFeature} />);
     const button = screen.getByRole('button', { name: /new feature/i });
     fireEvent.click(button);
     expect(onAddFeature).toHaveBeenCalledOnce();
   });
 
   it('renders ReactFlow when nodes are provided', () => {
-    render(<FeatureFlowCanvas nodes={[mockNode]} edges={[]} />);
-    expect(screen.getByTestId('feature-flow-canvas')).toBeInTheDocument();
-    expect(screen.queryByTestId('feature-flow-canvas-empty')).not.toBeInTheDocument();
+    render(<FeaturesCanvas nodes={[mockNode]} edges={[]} />);
+    expect(screen.getByTestId('features-canvas')).toBeInTheDocument();
+    expect(screen.queryByTestId('features-canvas-empty')).not.toBeInTheDocument();
   });
 
   it('forwards onNodeAction to nodes', () => {
     const onNodeAction = vi.fn();
-    render(<FeatureFlowCanvas nodes={[mockNode]} edges={[]} onNodeAction={onNodeAction} />);
+    render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeAction={onNodeAction} />);
     // The node should be rendered with data containing onAction
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
     // Click the action button on the node
@@ -52,7 +52,7 @@ describe('FeatureFlowCanvas', () => {
 
   it('forwards onNodeSettings to nodes', () => {
     const onNodeSettings = vi.fn();
-    render(<FeatureFlowCanvas nodes={[mockNode]} edges={[]} onNodeSettings={onNodeSettings} />);
+    render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeSettings={onNodeSettings} />);
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
     // Click the settings button on the node
     const settingsButton = screen.getByTestId('feature-node-settings-button');
