@@ -2,9 +2,9 @@
 
 # Shep AI
 
-### Manage Multiple AI Agent Sessions from One Place
+### Multi-Session SDLC Control Center for AI Coding Agents
 
-_Control Claude Code, Cursor CLI, or any coding agent running across features — monitor progress, switch context, approve decisions — all from a single UI_
+_Manage Claude Code, Cursor CLI, or any coding agent across the full development lifecycle — from requirements to deploy — with parallel sessions, instant context switching, and human-in-the-loop control_
 
 [![CI](https://github.com/shep-ai/cli/actions/workflows/ci.yml/badge.svg)](https://github.com/shep-ai/cli/actions/workflows/ci.yml)
 [![npm version](https://img.shields.io/npm/v/@shepai/cli.svg?color=cb3837&logo=npm)](https://www.npmjs.com/package/@shepai/cli)
@@ -29,7 +29,7 @@ _Control Claude Code, Cursor CLI, or any coding agent running across features �
 
 ---
 
-Running AI agents is easy. **Managing many of them at once is the hard part.** Shep gives you a control center for all your agent sessions — see what each one is doing, jump into any session's web preview, code editor, or terminal, approve plans and requirements when agents need your input, and let them keep working while you move on. Plug in Claude Code, Cursor CLI, Gemini CLI, or any coding agent. Each feature gets its own isolated worktree and dev environment. You just manage.
+Running AI agents is easy. **Managing many of them through a full SDLC is the hard part.** Shep gives you a control center that handles the entire lifecycle — requirements gathering, planning, implementation, QA, and deployment — across multiple agent sessions running in parallel. See what each agent is doing, jump into any session's web preview, code editor, or terminal, approve plans when agents need your input, and let them keep working while you move on. Plug in Claude Code, Cursor CLI, Gemini CLI, or any coding agent. Each feature gets its own isolated worktree and dev environment. You manage the lifecycle, agents do the work.
 
 ```bash
 npm i -g @shepai/cli
