@@ -1,3 +1,8 @@
+export {
+  AddRepositoryNode,
+  type AddRepositoryNodeData,
+  type AddRepositoryNodeType,
+} from './add-repository-node';
 export { ElapsedTime, formatElapsed } from './elapsed-time';
 export { EmptyState, type EmptyStateProps } from './empty-state';
 export { FeatureListItem, type FeatureListItemProps } from './feature-list-item';
