@@ -120,8 +120,8 @@ export function createShowCommand(): Command {
                 { label: 'Branch', value: colors.accent(feature.branch) },
                 { label: 'Status', value: formatStatus(feature, run) },
                 { label: 'Worktree', value: worktreePath },
-                { label: 'Spec Dir', value: feature.specPath || null },
-                { label: 'Agent Run', value: feature.agentRunId || null },
+                { label: 'Spec Dir', value: feature.specPath ?? null },
+                { label: 'Agent Run', value: feature.agentRunId ?? null },
               ],
             },
             {

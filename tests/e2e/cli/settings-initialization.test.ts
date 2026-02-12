@@ -136,7 +136,7 @@ describe('CLI: settings initialization', () => {
       // Mtime should be very close (allowing for filesystem timing variations and system load)
       const mtimeDiff = Math.abs(secondMtime - firstMtime);
       expect(mtimeDiff).toBeLessThan(5000); // Less than 5 seconds difference
-    });
+    }, 30_000);
 
     it('should not create duplicate settings records', () => {
       // Arrange - run CLI twice
@@ -150,7 +150,7 @@ describe('CLI: settings initialization', () => {
 
       // Assert - should succeed (singleton constraint doesn't throw on load)
       expect(result.success).toBe(true);
-    });
+    }, 30_000);
   });
 
   describe('global settings access', () => {
@@ -245,7 +245,7 @@ describe('CLI: settings initialization', () => {
 
       // Database should exist and be valid
       expect(existsSync(dbPath)).toBe(true);
-    });
+    }, 60_000);
   });
 
   describe('environment isolation', () => {

@@ -40,7 +40,7 @@ export interface ListViewConfig {
 export function renderListView(config: ListViewConfig): void {
   if (config.rows.length === 0) {
     messages.newline();
-    messages.info(config.emptyMessage || 'No items found');
+    messages.info(config.emptyMessage ?? 'No items found');
     messages.newline();
     return;
   }
