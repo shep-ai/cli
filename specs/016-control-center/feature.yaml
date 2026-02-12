@@ -1,0 +1,36 @@
+feature:
+  id: '016-control-center'
+  name: 'control-center'
+  number: 16
+  branch: 'feat/016-control-center'
+  lifecycle: 'research'
+  createdAt: '2026-02-12T20:31:19Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-12T20:31:19Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-12T20:31:19Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
