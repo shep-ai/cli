@@ -7,11 +7,19 @@ import type {
   FeatureLifecyclePhase,
 } from './feature-node-state-config';
 
-const meta: Meta = {
+const meta: Meta<FeatureNodeData> = {
   title: 'Composed/FeatureNode',
   tags: ['autodocs'],
   parameters: {
     layout: 'centered',
+  },
+  args: {
+    name: 'Auth Module',
+    description: 'Implement OAuth2 authentication flow',
+    featureId: '#f1',
+    lifecycle: 'requirements',
+    state: 'running',
+    progress: 45,
   },
   decorators: [
     (Story) => (
@@ -30,19 +38,10 @@ const meta: Meta = {
 };
 
 export default meta;
-type Story = StoryObj;
-
-const defaultData: FeatureNodeData = {
-  name: 'Auth Module',
-  description: 'Implement OAuth2 authentication flow',
-  featureId: '#f1',
-  lifecycle: 'requirements',
-  state: 'running',
-  progress: 45,
-};
+type Story = StoryObj<FeatureNodeData>;
 
 export const Default: Story = {
-  render: () => <FeatureNode id="node-default" data={defaultData} type="featureNode" />,
+  render: (args) => <FeatureNode id="node-default" data={args} type="featureNode" />,
 };
 
 const allStates: FeatureNodeState[] = ['running', 'action-required', 'done', 'blocked', 'error'];
@@ -119,30 +118,18 @@ export const AllLifecycles: Story = {
 };
 
 export const WithAction: Story = {
-  render: () => (
-    <FeatureNode
-      id="node-action"
-      data={{
-        ...defaultData,
-        onAction: () => undefined,
-        onSettings: () => undefined,
-      }}
-      type="featureNode"
-    />
-  ),
+  args: {
+    onAction: () => undefined,
+    onSettings: () => undefined,
+  },
+  render: (args) => <FeatureNode id="node-action" data={args} type="featureNode" />,
 };
 
 export const LongContent: Story = {
-  render: () => (
-    <FeatureNode
-      id="node-long"
-      data={{
-        ...defaultData,
-        name: 'Enterprise Authentication Module With SSO Integration',
-        description:
-          'Implement a comprehensive OAuth2 authentication flow with support for multiple identity providers including Google, GitHub, and custom SAML-based enterprise SSO',
-      }}
-      type="featureNode"
-    />
-  ),
+  args: {
+    name: 'Enterprise Authentication Module With SSO Integration',
+    description:
+      'Implement a comprehensive OAuth2 authentication flow with support for multiple identity providers including Google, GitHub, and custom SAML-based enterprise SSO',
+  },
+  render: (args) => <FeatureNode id="node-long" data={args} type="featureNode" />,
 };
