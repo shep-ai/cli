@@ -42,10 +42,30 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
 
   constructor(private readonly spawn: SpawnFunction) {}
 
+  /** Debug logging — writes to stdout so it appears in the worker log file */
+  private log(message: string): void {
+    const ts = new Date().toISOString();
+    process.stdout.write(`[${ts}] [claude-executor] ${message}\n`);
+  }
+
   async execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult> {
     const args = this.buildArgs(prompt, options);
     const spawnOpts = this.buildSpawnOptions(options);
+
+    this.log(
+      `Spawning: claude ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
+    );
+    this.log(`Spawn options: ${JSON.stringify(spawnOpts)}`);
+
     const proc = this.spawn('claude', args, spawnOpts);
+
+    this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
+
+    // Close stdin immediately — we pass the prompt via -p, not stdin.
+    // Without this, claude may wait for EOF on stdin before processing.
+    if (proc.stdin) {
+      proc.stdin.end();
+    }
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
       let stdout = '';
@@ -61,19 +81,29 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
       }
 
       proc.stdout?.on('data', (chunk: Buffer | string) => {
-        stdout += chunk.toString();
+        const data = chunk.toString();
+        stdout += data;
+        if (stdout.length <= 500) {
+          this.log(`stdout chunk (${data.length} bytes, total ${stdout.length})`);
+        }
       });
 
       proc.stderr?.on('data', (chunk: Buffer | string) => {
-        stderr += chunk.toString();
+        const data = chunk.toString();
+        stderr += data;
+        this.log(`stderr: ${data.trimEnd()}`);
       });
 
       proc.on('error', (error: Error) => {
+        this.log(`Process error event: ${error.message}`);
         if (timeoutId) clearTimeout(timeoutId);
         reject(error);
       });
 
       proc.on('close', (code: number | null) => {
+        this.log(
+          `Process closed with code ${code}, stdout=${stdout.length} bytes, stderr=${stderr.length} bytes`
+        );
         if (timeoutId) clearTimeout(timeoutId);
 
         if (timedOut) {
