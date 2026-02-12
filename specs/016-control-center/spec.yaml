@@ -11,7 +11,7 @@ summary: >
   canvas actions (add feature, auto-layout, filter), status bar, and centralized
   state management via a custom hook. Uses React Flow's built-in Panel component
   for overlays. FeaturesCanvas stays pure/dumb; Control Center adds all interactivity.
-phase: Research
+phase: Planning
 sizeEstimate: L
 
 # Relationships
