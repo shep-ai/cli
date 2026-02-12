@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from '@storybook/react';
 import type { Edge } from '@xyflow/react';
 import { FeaturesCanvas } from './features-canvas';
+import type { CanvasNodeType } from './features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
+import type { RepositoryNodeType } from '@/components/common/repository-node';
 
 const meta: Meta<typeof FeaturesCanvas> = {
   title: 'Features/FeaturesCanvas',
@@ -205,6 +207,59 @@ export const Interactive: Story = {
       { id: 'e3-4', source: 'node-3', target: 'node-4' },
     ],
     onAddFeature: () => undefined,
+    onNodeAction: () => undefined,
+    onNodeSettings: () => undefined,
+  },
+};
+
+const repoNode: RepositoryNodeType = {
+  id: 'repo-1',
+  type: 'repositoryNode',
+  position: { x: 50, y: 140 },
+  data: {
+    name: 'shep-ai/cli',
+  },
+};
+
+const repoFeatureNodes: CanvasNodeType[] = [
+  repoNode,
+  {
+    id: 'feat-1',
+    type: 'featureNode',
+    position: { x: 400, y: 0 },
+    data: {
+      name: 'Auth Module',
+      description: 'OAuth2 authentication flow',
+      featureId: '#f1',
+      lifecycle: 'implementation',
+      state: 'running',
+      progress: 65,
+    },
+  },
+  {
+    id: 'feat-2',
+    type: 'featureNode',
+    position: { x: 400, y: 230 },
+    data: {
+      name: 'Feature Flow Canvas',
+      description: 'React Flow canvas for features',
+      featureId: '#f2',
+      lifecycle: 'requirements',
+      state: 'action-required',
+      progress: 20,
+    },
+  },
+];
+
+const repoFeatureEdges: Edge[] = [
+  { id: 'e-repo-f1', source: 'repo-1', target: 'feat-1' },
+  { id: 'e-repo-f2', source: 'repo-1', target: 'feat-2' },
+];
+
+export const ConnectedRepository: Story = {
+  args: {
+    nodes: repoFeatureNodes,
+    edges: repoFeatureEdges,
     onNodeAction: () => undefined,
     onNodeSettings: () => undefined,
   },

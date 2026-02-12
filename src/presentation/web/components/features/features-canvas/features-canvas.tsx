@@ -8,9 +8,13 @@ import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
 import type { FeatureNodeType } from '@/components/common/feature-node';
+import { RepositoryNode } from '@/components/common/repository-node';
+import type { RepositoryNodeType } from '@/components/common/repository-node';
+
+export type CanvasNodeType = FeatureNodeType | RepositoryNodeType;
 
 export interface FeaturesCanvasProps {
-  nodes: FeatureNodeType[];
+  nodes: CanvasNodeType[];
   edges: Edge[];
   onAddFeature?: () => void;
   onNodeAction?: (nodeId: string) => void;
@@ -24,7 +28,10 @@ export function FeaturesCanvas({
   onNodeAction,
   onNodeSettings,
 }: FeaturesCanvasProps) {
-  const nodeTypes = useMemo(() => ({ featureNode: FeatureNode }), []);
+  const nodeTypes = useMemo(
+    () => ({ featureNode: FeatureNode, repositoryNode: RepositoryNode }),
+    []
+  );
 
   const enrichedNodes = useMemo(
     () =>
@@ -33,8 +40,10 @@ export function FeaturesCanvas({
         data: {
           ...node.data,
           showHandles: edges.length > 0,
-          onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
-          onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+          ...(node.type === 'featureNode' && {
+            onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
+            onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+          }),
         },
       })),
     [nodes, edges.length, onNodeAction, onNodeSettings]
