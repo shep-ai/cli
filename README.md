@@ -23,26 +23,182 @@ _Manage Claude Code, Cursor CLI, or any coding agent across the full development
 
 <img src="docs/poc/imgs/00-control-center-hero.png" alt="Shep AI Control Center — manage all features across repos from a single canvas" width="100%" />
 
-<br />
+[![Live Demo](https://img.shields.io/badge/Live_Demo-shep--ai.github.io-blue?style=for-the-badge)](https://shep-ai.github.io/cli/poc/)
 
 </div>
+
+### Install
+
+```bash
+npm i -g @shepai/cli
+```
+
+### Try it
+
+```bash
+cd your-project/
+shep feat new "Add unit tests for all source files"
+```
+
+<details>
+<summary><b>List features</b> &mdash; <code>shep feat ls</code></summary>
+<br />
+
+```
+  Features for /home/user/projects/my-app
+
+  ID        Name             Status          Branch               Created
+  1b0a7969  Add Unit Tests   ✓ Completed     feat/add-unit-tests  2/13/2026
+```
+
+</details>
+
+<details>
+<summary><b>Show feature detail</b> &mdash; <code>shep feat show 1b0a7969</code></summary>
+<br />
+
+```
+  Feature: Add Unit Tests
+
+  ID           1b0a7969-b420-4754-832f-5c38801b4852
+  Slug         add-unit-tests
+  Description  Add comprehensive unit tests for all existing source files
+               in the project to ensure code correctness and improve test coverage.
+  Repository   /home/user/projects/my-app
+  Branch       feat/add-unit-tests
+  Status       ✓ Completed
+  Worktree     ~/.shep/repos/9bbd30de/wt/feat-add-unit-tests
+  Spec Dir     ~/.shep/repos/9bbd30de/wt/feat-add-unit-tests/specs/001-add-unit-tests
+  Agent Run    732a1fc2-a346-4052-a028-dcb1a46b6f2c
+
+  Timestamps
+  Created  2/13/2026, 12:15:08 AM
+  Updated  2/13/2026, 12:15:08 AM
+```
+
+</details>
+
+<details>
+<summary><b>Isolated worktree per feature</b> &mdash; no stashing, no branch switching</summary>
+<br />
+
+Each feature gets its own git worktree — fully isolated from your main branch.
+
+```
+~/.shep/repos/9bbd30de/wt/feat-add-unit-tests/
+├── .git                    # linked worktree (not a clone)
+├── src/
+├── tests/
+├── specs/
+│   └── 001-add-unit-tests/
+│       ├── feature.yaml    # status tracking
+│       ├── spec.yaml       # requirements & scope
+│       ├── research.yaml   # technical decisions
+│       ├── plan.yaml       # implementation strategy
+│       └── tasks.yaml      # task breakdown
+├── pyproject.toml
+└── README.md
+```
+
+</details>
+
+<details>
+<summary><b>Auto-generated spec files</b> &mdash; real output from a single <code>shep feat new</code></summary>
+<br />
+
+> **`spec.yaml`** — requirements & scope
+
+```yaml
+name: add-unit-tests
+oneLiner: Add comprehensive unit tests for all source modules
+summary: >
+  Add unit tests for every module in the package. The project currently has
+  minimal test coverage (only 7 tests total). This feature adds tests for
+  config, agents, flows, tools, observability, and CLI — using pytest with
+  mocking to avoid external dependencies.
+sizeEstimate: M
+openQuestions:
+  - question: 'Should we set a minimum coverage threshold and enforce it in CI?'
+    resolved: true
+    answer: >
+      Set 70% minimum via --cov-fail-under=70. Achievable and prevents regression.
+```
+
+> **`research.yaml`** — technical decisions with rationale
+
+```yaml
+decisions:
+  - title: 'Test Framework'
+    chosen: 'pytest (already configured)'
+    rejected:
+      - 'unittest — More verbose, no fixture system'
+      - 'nose2 — Unmaintained, no advantage'
+    rationale: >
+      Already a dev dependency with asyncio and coverage plugins configured.
+
+  - title: 'Mocking Library'
+    chosen: 'unittest.mock (stdlib)'
+    rejected:
+      - 'pytest-mock — Adds a dependency for marginal convenience'
+    rationale: >
+      patch() for module-level replacement, MagicMock for spec objects,
+      assert_called_with for verification. No new dependency needed.
+```
+
+> **`tasks.yaml`** — TDD task breakdown
+
+```yaml
+tasks:
+  - id: task-1
+    title: 'Create conftest.py with shared fixtures'
+    dependencies: []
+    acceptanceCriteria:
+      - 'mock_settings returns a Settings instance with known values'
+      - 'mock_llm returns MagicMock(spec=LLM) for agent tests'
+      - 'tmp_repo creates a temp dir with git init and one commit'
+    tdd:
+      red: ['Write test_smoke.py that imports fixtures and asserts properties']
+      green: ['Implement conftest.py with all three fixtures']
+      refactor: ['Remove smoke test — subsumed by real test files']
+
+  - id: task-3
+    title: 'Test config/llm.py'
+    dependencies: [task-1]
+    acceptanceCriteria:
+      - 'test_create_llm_with_openai_provider: verifies model, temperature, api_key'
+      - 'test_create_llm_with_cursor_provider: verifies base_url included'
+      - 'test_get_fast_llm: calls create_llm with settings.fast_model'
+    tdd:
+      red: ['Patch LLM and get_settings, assert constructor kwargs']
+      green: ['Tests pass — they verify existing code with mocks']
+      refactor: ['Extract common patch decorators if repetitive']
+```
+
+> **`feature.yaml`** — machine-readable progress (updated continuously)
+
+```yaml
+feature:
+  id: '001-add-unit-tests'
+  branch: 'feat/001-add-unit-tests'
+  lifecycle: 'research'
+
+status:
+  phase: 'research'
+  progress: { completed: 0, total: 12, percentage: 0 }
+  lastUpdatedBy: 'feature-agent'
+```
+
+</details>
 
 ---
 
 Running AI agents is easy. **Managing many of them through a full SDLC is the hard part.** Shep gives you a control center that handles the entire lifecycle — requirements gathering, planning, implementation, QA, and deployment — across multiple agent sessions running in parallel. See what each agent is doing, jump into any session's web preview, code editor, or terminal, approve plans when agents need your input, and let them keep working while you move on. Plug in Claude Code, Cursor CLI, Gemini CLI, or any coding agent. Each feature gets its own isolated worktree and dev environment. You manage the lifecycle, agents do the work.
 
-```bash
-npm i -g @shepai/cli
-cd your-repo/
-shep feat new "Implement SSO with SAML 2.0"
-# Agent starts working in a dedicated worktree.
-# Open the control center to watch progress, intervene, or switch context.
-shep ui
-```
-
 ---
 
 ## Features
+
+> 🚧 **Under active development** — Web UI screenshots are from the design spec. Core CLI (`feat new`, `feat ls`, `feat show`, `settings`, `ui`) works today. Some commands (`mem`, `start`) are still WIP.
 
 <table>
 <tr>
@@ -182,21 +338,11 @@ shep ui
 ## Quick Start
 
 ```bash
-# Install
-npm i -g @shepai/cli
-
-# Start the background service
-shep start
-#  ➜  Local:   http://localhost:5173/
-#  Shep service is running in background, have fun!
-
-# Navigate to any repo
-cd ~/repos/your-project
-
-# Create your first feature
+# Navigate to any repo and create a feature
+cd ~/projects/your-app
 shep feat new "Add user authentication with OAuth 2.0"
 
-# Open the control center
+# Open the control center to watch progress
 shep ui
 ```
 
