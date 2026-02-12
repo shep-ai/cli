@@ -3,18 +3,18 @@ feature:
   name: 'control-center'
   number: 16
   branch: 'feat/016-control-center'
-  lifecycle: 'research'
+  lifecycle: 'planning'
   createdAt: '2026-02-12T20:31:19Z'
 
 status:
-  phase: 'research'
+  phase: 'planning'
   progress:
     completed: 0
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-12T20:31:19Z'
-  lastUpdatedBy: 'shep-kit:new-feature'
+  lastUpdated: '2026-02-12T22:45:00Z'
+  lastUpdatedBy: 'shep-kit:research'
 
 validation:
   lastRun: null
@@ -30,6 +30,9 @@ checkpoints:
   - phase: 'feature-created'
     completedAt: '2026-02-12T20:31:19Z'
     completedBy: 'shep-kit:new-feature'
+  - phase: 'research-complete'
+    completedAt: '2026-02-12T22:45:00Z'
+    completedBy: 'shep-kit:research'
 
 errors:
   current: null
