@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import type { Edge } from '@xyflow/react';
+import { applyNodeChanges } from '@xyflow/react';
+import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 
@@ -9,6 +10,8 @@ export interface ControlCenterState {
   nodes: CanvasNodeType[];
   edges: Edge[];
   selectedNode: FeatureNodeData | null;
+  onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
+  handleConnect: (connection: Connection) => void;
   clearSelection: () => void;
   handleNodeClick: (event: React.MouseEvent, node: CanvasNodeType) => void;
   handleAddFeature: () => void;
@@ -24,6 +27,10 @@ export function useControlCenterState(
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
+
+  const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
+    setNodes((ns) => applyNodeChanges(changes, ns));
+  }, []);
 
   const clearSelection = useCallback(() => {
     setSelectedNode(null);
@@ -47,10 +54,41 @@ export function useControlCenterState(
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [clearSelection]);
 
+  const handleConnect = useCallback((connection: Connection) => {
+    if (!connection.source || !connection.target) return;
+
+    setNodes((currentNodes) => {
+      const sourceNode = currentNodes.find((n) => n.id === connection.source);
+      if (sourceNode?.type !== 'repositoryNode') return currentNodes;
+
+      // Block if target feature already has a repo source
+      setEdges((currentEdges) => {
+        const targetAlreadyHasRepo = currentEdges.some((e) => {
+          const edgeSource = currentNodes.find((n) => n.id === e.source);
+          return edgeSource?.type === 'repositoryNode' && e.target === connection.target;
+        });
+        if (targetAlreadyHasRepo) return currentEdges;
+
+        return [
+          ...currentEdges,
+          {
+            id: `edge-${connection.source}-${connection.target}`,
+            source: connection.source,
+            target: connection.target,
+            style: { strokeDasharray: '5 5' },
+          },
+        ];
+      });
+
+      return currentNodes;
+    });
+  }, []);
+
   const createFeatureNode = useCallback((sourceNodeId: string | null) => {
     const id = `feature-${Date.now()}`;
     const newFeatureData: FeatureNodeData = {
       name: 'New Feature',
+      description: 'Describe what this feature does',
       featureId: `#${id.slice(-4)}`,
       lifecycle: 'requirements',
       state: 'running',
@@ -149,6 +187,8 @@ export function useControlCenterState(
     nodes,
     edges,
     selectedNode,
+    onNodesChange,
+    handleConnect,
     clearSelection,
     handleNodeClick,
     handleAddFeature,

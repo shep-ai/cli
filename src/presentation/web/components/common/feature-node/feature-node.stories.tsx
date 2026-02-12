@@ -252,6 +252,7 @@ const interactiveInitialNodes: FeatureNodeType[] = [
     id: 'node-1',
     type: 'featureNode',
     position: { x: 0, y: 0 },
+    draggable: true,
     data: {
       name: 'Auth Module',
       description: 'Implement OAuth2 authentication flow',
@@ -265,6 +266,7 @@ const interactiveInitialNodes: FeatureNodeType[] = [
     id: 'node-2',
     type: 'featureNode',
     position: { x: 0, y: 200 },
+    draggable: true,
     data: {
       name: 'Payment Gateway',
       description: 'Stripe integration for subscriptions',
@@ -279,6 +281,7 @@ const interactiveInitialNodes: FeatureNodeType[] = [
     id: 'node-3',
     type: 'featureNode',
     position: { x: 0, y: 400 },
+    draggable: true,
     data: {
       name: 'Email Service',
       description: 'Transactional email with SendGrid',
@@ -291,7 +294,7 @@ const interactiveInitialNodes: FeatureNodeType[] = [
   },
 ];
 
-/** Multi-node canvas with selection enabled — click a node to see the ring highlight. */
+/** Multi-node canvas with selection and drag enabled — click a node to see the ring highlight, drag to reposition. */
 function InteractiveCanvas() {
   // useNodesState manages node state including selection, so clicking a node
   // triggers onNodesChange → updates selected → re-renders with ring-2.
@@ -304,6 +307,7 @@ function InteractiveCanvas() {
           nodes={nodes}
           onNodesChange={onNodesChange}
           nodeTypes={nodeTypes}
+          nodesDraggable
           nodesConnectable={false}
           proOptions={{ hideAttribution: true }}
           fitView
