@@ -4,10 +4,11 @@
 name: control-center
 number: 016
 branch: feat/016-control-center
-oneLiner: Interactive orchestrator wrapping FeaturesCanvas with toolbar and state management
+oneLiner: Interactive orchestrator wrapping FeaturesCanvas with toolbar, contextual node actions, and state management
 summary: >
   Build a Control Center Tier 3 component that wraps the existing FeaturesCanvas
-  with interactive capabilities: node selection with visual highlight, toolbar with
+  with interactive capabilities: node selection with visual highlight, contextual
+  add-feature actions via (+) buttons on repo and feature nodes, toolbar with
   canvas actions (add feature, auto-layout), and centralized state management via
   a custom hook. Uses React Flow's built-in Panel component for overlay toolbar.
   FeaturesCanvas stays pure/dumb; Control Center adds all interactivity.
@@ -103,7 +104,11 @@ content: |
   Owns:
   - Node/edge state (React Flow's `useNodesState`/`useEdgesState`)
   - Selected node tracking
-  - Action handlers (add, delete, connect, etc.)
+  - Action handlers:
+    - `handleAddFeatureToRepo(repoNodeId)` — creates a new FeatureNode connected to the repo
+    - `handleAddFeatureToFeature(featureNodeId)` — creates a new FeatureNode connected to the parent feature
+    - `handleAddFeature()` — toolbar action, creates an unconnected feature node
+    - `handleSelectNode(nodeId)` / `handleDeselectNode()`
 
   ### ControlCenterToolbar (top panel)
 
@@ -113,20 +118,35 @@ content: |
 
   ## Interaction Layers
 
-  | Interaction        | Mechanism                                        |
-  | ------------------ | ------------------------------------------------ |
-  | Select node        | `onNodeClick` → highlight node                   |
-  | Deselect           | `onPaneClick` → clear selection                  |
-  | Canvas actions     | Toolbar buttons (add feature, auto-layout)       |
-  | Keyboard shortcuts | `useKeyboard` hook for Escape (deselect)         |
+  | Interaction              | Mechanism                                                        |
+  | ------------------------ | ---------------------------------------------------------------- |
+  | Select node              | `onNodeClick` → highlight node                                   |
+  | Deselect                 | `onPaneClick` → clear selection                                  |
+  | Add feature from repo    | RepositoryNode (+) button → `handleAddFeatureToRepo(repoNodeId)` |
+  | Add feature from feature | FeatureNode (+) button → `handleAddFeatureToFeature(featureNodeId)` |
+  | Toolbar add feature      | Toolbar button → `handleAddFeature()` (unconnected node)         |
+  | Auto-layout              | Toolbar button (placeholder only)                                |
+  | Keyboard shortcuts       | `useKeyboard` hook for Escape (deselect)                         |
+
+  ### Contextual Add Flow
+
+  When a user clicks the (+) button on a **RepositoryNode**:
+  1. A new FeatureNode is created with default data (name: "New Feature", state: running, progress: 0)
+  2. An edge is created from the repo node to the new feature node
+  3. The new node is positioned to the right of the source node
+  4. The new node is auto-selected
+
+  When a user clicks the (+) button on a **FeatureNode**:
+  1. Same behavior — creates a child FeatureNode connected via edge
+  2. Enables building feature hierarchies (repo → feature → sub-feature)
 
   ## Changes to Existing Components
 
   | Component        | Change                                                      |
   | ---------------- | ----------------------------------------------------------- |
-  | FeaturesCanvas   | Extend props — expose onNodeClick, onPaneClick, onConnect   |
-  | FeatureNode      | Add selected/highlighted visual state (ring or border glow) |
-  | RepositoryNode   | No change                                                   |
+  | FeaturesCanvas   | Extend props — expose onNodeClick, onPaneClick, onRepositoryAdd |
+  | FeatureNode      | Add selected/highlighted visual state (ring or border glow)     |
+  | RepositoryNode   | Wire onAdd callback through FeaturesCanvas props                |
   | ControlCenter    | New — wraps everything                                      |
   | Toolbar          | New — built inside control-center/                          |
 
@@ -137,9 +157,12 @@ content: |
   - [ ] Toolbar panel (top) with add-feature button
   - [ ] Node selection: click to select, click canvas to deselect
   - [ ] Selected node visual highlight (ring/glow on FeatureNode)
-  - [ ] FeaturesCanvas props extended with onNodeClick, onPaneClick
+  - [ ] RepositoryNode (+) creates connected FeatureNode
+  - [ ] FeatureNode (+) creates connected child FeatureNode
+  - [ ] New nodes positioned to the right and auto-selected
+  - [ ] FeaturesCanvas props extended with onNodeClick, onPaneClick, onRepositoryAdd
   - [ ] Keyboard shortcut: Escape to deselect
-  - [ ] Storybook stories: Empty, WithFeatures, WithToolbar
+  - [ ] Storybook stories: Empty, WithFeatures, WithToolbar, WithNodeActions
   - [ ] `pnpm build:storybook` passes
   - [ ] `pnpm build:web` passes
   - [ ] Components follow tier import rules (013-ui-arch)
@@ -150,7 +173,8 @@ content: |
   | ----------------------------------------------- | ------ | ------------------------------------------ |
   | `src/presentation/web/components/features/`     | High   | New control-center component directory     |
   | `src/presentation/web/components/features/features-canvas/` | Medium | Extend props for interaction callbacks |
-  | `src/presentation/web/components/common/feature-node/` | Low | Add selected visual state                 |
+  | `src/presentation/web/components/common/feature-node/` | Low    | Add selected visual state              |
+  | `src/presentation/web/components/common/repository-node/` | Low | Wire onAdd callback through canvas     |
 
   ## Dependencies
 
@@ -165,14 +189,17 @@ content: |
   - State management hook (useControlCenterState)
   - Toolbar via React Flow Panel
   - Node selection with visual highlight
+  - Contextual add via RepositoryNode (+) → creates connected FeatureNode
+  - Contextual add via FeatureNode (+) → creates connected child FeatureNode
+  - New node positioning (to the right of source) and auto-selection
   - Keyboard shortcut (Escape to deselect)
   - Storybook stories with mock data
-  - Extending FeaturesCanvas/FeatureNode props as needed
+  - Extending FeaturesCanvas/FeatureNode/RepositoryNode props as needed
 
   **Out of scope:**
   - Backend API integration for feature data
   - Real-time updates or WebSocket integration
-  - Drag-and-drop node creation or edge creation
+  - Drag-and-drop node creation (nodes added via (+) buttons, not drag)
   - Auto-layout algorithm implementation (button placeholder only)
   - Node context menu (stretch goal for future)
   - Filter/search in toolbar (stretch goal for future)

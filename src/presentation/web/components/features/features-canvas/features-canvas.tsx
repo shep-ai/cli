@@ -21,6 +21,10 @@ export interface FeaturesCanvasProps {
   onAddFeature?: () => void;
   onNodeAction?: (nodeId: string) => void;
   onNodeSettings?: (nodeId: string) => void;
+  onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
+  onPaneClick?: (event: React.MouseEvent) => void;
+  onRepositoryAdd?: (repoNodeId: string) => void;
+  toolbar?: React.ReactNode;
 }
 
 export function FeaturesCanvas({
@@ -29,6 +33,10 @@ export function FeaturesCanvas({
   onAddFeature,
   onNodeAction,
   onNodeSettings,
+  onNodeClick,
+  onPaneClick,
+  onRepositoryAdd,
+  toolbar,
 }: FeaturesCanvasProps) {
   const nodeTypes = useMemo(
     () => ({
@@ -50,9 +58,12 @@ export function FeaturesCanvas({
             onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
             onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
           }),
+          ...(node.type === 'repositoryNode' && {
+            onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
+          }),
         },
-      })),
-    [nodes, edges.length, onNodeAction, onNodeSettings]
+      })) as CanvasNodeType[],
+    [nodes, edges.length, onNodeAction, onNodeSettings, onRepositoryAdd]
   );
 
   if (nodes.length === 0) {
@@ -75,9 +86,17 @@ export function FeaturesCanvas({
   return (
     <div data-testid="features-canvas" className="h-full w-full">
       <ReactFlowProvider>
-        <ReactFlow nodes={enrichedNodes} edges={edges} nodeTypes={nodeTypes} fitView>
+        <ReactFlow
+          nodes={enrichedNodes}
+          edges={edges}
+          nodeTypes={nodeTypes}
+          onNodeClick={onNodeClick}
+          onPaneClick={onPaneClick}
+          fitView
+        >
           <Background />
           <Controls />
+          {toolbar}
         </ReactFlow>
       </ReactFlowProvider>
     </div>

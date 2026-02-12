@@ -63,37 +63,45 @@ tasks:
     estimatedEffort: S
 
   - id: task-3
-    title: 'Extend FeaturesCanvas with interaction callbacks [P]'
+    title: 'Extend FeaturesCanvas with interaction and contextual add callbacks [P]'
     description: >
-      Add onNodeClick and onPaneClick callback props to FeaturesCanvasProps.
-      Pass them through to the underlying ReactFlow component. Update stories.
+      Add onNodeClick, onPaneClick, onRepositoryAdd, and onNodeAction callback props
+      to FeaturesCanvasProps. Pass onNodeClick/onPaneClick to ReactFlow. Wire
+      onRepositoryAdd to RepositoryNode's onAdd and onNodeAction to FeatureNode's
+      onAction during node enrichment. Update stories.
     state: Todo
     dependencies:
       - task-1
     acceptanceCriteria:
-      - 'FeaturesCanvasProps includes onNodeClick and onPaneClick'
-      - 'Callbacks are passed through to ReactFlow component'
+      - 'FeaturesCanvasProps includes onNodeClick, onPaneClick, onRepositoryAdd, onNodeAction'
+      - 'onNodeClick and onPaneClick passed through to ReactFlow component'
+      - 'onRepositoryAdd wired to RepositoryNode onAdd during node enrichment'
+      - 'onNodeAction wired to FeatureNode onAction during node enrichment'
       - 'Existing stories still render correctly'
       - 'New Interactive story demonstrates callback usage'
-      - 'Unit test verifies callback prop pass-through'
+      - 'Unit tests verify callback prop pass-through and node enrichment wiring'
     tdd:
       red:
         - 'Write test: FeaturesCanvas accepts onNodeClick prop'
         - 'Write test: FeaturesCanvas accepts onPaneClick prop'
+        - 'Write test: FeaturesCanvas wires onRepositoryAdd to RepositoryNode onAdd'
+        - 'Write test: FeaturesCanvas wires onNodeAction to FeatureNode onAction'
       green:
-        - 'Add onNodeClick and onPaneClick to FeaturesCanvasProps interface'
-        - 'Pass callbacks to <ReactFlow> component'
+        - 'Add all four callback props to FeaturesCanvasProps interface'
+        - 'Pass onNodeClick/onPaneClick to <ReactFlow> component'
+        - 'Wire onRepositoryAdd/onNodeAction to nodes in enrichment useMemo'
       refactor:
         - 'Update type exports in index.ts'
         - 'Add Interactive story variant to features-canvas.stories.tsx'
     estimatedEffort: S
 
   - id: task-4
-    title: 'Implement useControlCenterState hook'
+    title: 'Implement useControlCenterState hook (selection + contextual add)'
     description: >
       Build the central state management hook that composes React Flow hooks
-      (useOnSelectionChange) with local state for selection tracking and
-      handles Escape keyboard shortcut.
+      (useOnSelectionChange, useReactFlow) with local state for selection tracking,
+      Escape keyboard shortcut, and contextual add handlers for creating new
+      FeatureNodes from repo and feature (+) buttons.
     state: Todo
     dependencies:
       - task-2
@@ -103,18 +111,32 @@ tasks:
       - 'Hook returns clearSelection function'
       - 'Escape key clears selection'
       - 'useOnSelectionChange callback is memoized with useCallback'
+      - 'handleAddFeatureToRepo(repoNodeId) adds FeatureNode + edge'
+      - 'handleAddFeatureToFeature(featureNodeId) adds FeatureNode + edge'
+      - 'handleAddFeature() adds unconnected FeatureNode'
+      - 'New nodes positioned to the right of source (x + 350)'
+      - 'New nodes are auto-selected after creation'
       - 'All tests pass'
     tdd:
       red:
         - 'Write test: returns selectedNode when FeatureNode selected'
         - 'Write test: returns null selectedNode when no selection'
         - 'Write test: Escape key clears selection'
+        - 'Write test: handleAddFeatureToRepo adds node + edge'
+        - 'Write test: handleAddFeatureToFeature adds node + edge'
+        - 'Write test: handleAddFeature adds unconnected node'
+        - 'Write test: new node positioned at source.x + 350'
+        - 'Write test: new node is auto-selected'
       green:
         - 'Implement useOnSelectionChange to track selected node'
         - 'Add useEffect with keydown listener for Escape'
+        - 'Implement add handlers using useReactFlow (addNodes, addEdges, getNode)'
+        - 'Calculate position from source node via getNode()'
       refactor:
         - 'Ensure all callbacks are properly memoized'
-    estimatedEffort: S
+        - 'Extract createDefaultFeatureNode factory helper'
+        - 'Deduplicate add logic between repo/feature handlers'
+    estimatedEffort: M
 
   - id: task-5
     title: 'Implement ControlCenterToolbar component'
@@ -149,7 +171,8 @@ tasks:
     description: >
       Wire all sub-components together in the main ControlCenter component.
       Composes FeaturesCanvas and toolbar via useControlCenterState hook.
-      Add comprehensive Storybook stories.
+      Wires contextual add handlers (onRepositoryAdd, onNodeAction) to canvas.
+      Add comprehensive Storybook stories including WithNodeActions.
     state: Todo
     dependencies:
       - task-4
@@ -158,21 +181,25 @@ tasks:
       - 'Renders FeaturesCanvas with nodes and edges'
       - 'Renders ControlCenterToolbar in top-left panel'
       - 'Passes onAddFeature callback to toolbar'
+      - 'Wires handleAddFeatureToRepo to FeaturesCanvas onRepositoryAdd'
+      - 'Wires handleAddFeatureToFeature to FeaturesCanvas onNodeAction'
       - 'Escape key deselects node'
-      - 'Storybook stories: Empty, WithFeatures, WithToolbar'
-      - 'ControlCenter props: nodes, edges, onAddFeature, onNodeAction, onNodeSettings'
+      - 'Storybook stories: Empty, WithFeatures, WithToolbar, WithNodeActions'
+      - 'ControlCenter props: initialNodes, initialEdges'
       - 'pnpm test passes for all control-center tests'
     tdd:
       red:
         - 'Write test: renders FeaturesCanvas with nodes and edges'
         - 'Write test: renders toolbar panel'
         - 'Write test: passes onAddFeature to toolbar'
+        - 'Write test: wires onRepositoryAdd to FeaturesCanvas'
+        - 'Write test: wires onNodeAction to FeaturesCanvas'
       green:
         - 'Compose all sub-components inside ControlCenter'
         - 'Wire useControlCenterState for state management'
-        - 'Pass interaction callbacks to FeaturesCanvas'
+        - 'Pass interaction callbacks and contextual add handlers to FeaturesCanvas'
       refactor:
-        - 'Add comprehensive Storybook stories'
+        - 'Add comprehensive Storybook stories (including WithNodeActions)'
         - 'Verify no unnecessary re-renders with React DevTools'
     estimatedEffort: M
 
@@ -234,39 +261,57 @@ content: |
   - [ ] Verify ring integrates with existing `border-l-4` styles
   - [ ] Add Selected story variant to `feature-node.stories.tsx`
 
-  #### 2B: FeaturesCanvas Interaction Callbacks
+  #### 2B: FeaturesCanvas Interaction and Contextual Add Callbacks
 
   **RED (Write Failing Tests First):**
 
   - [ ] Write test: FeaturesCanvas accepts and passes `onNodeClick` prop
   - [ ] Write test: FeaturesCanvas accepts and passes `onPaneClick` prop
+  - [ ] Write test: FeaturesCanvas wires `onRepositoryAdd` to RepositoryNode `onAdd`
+  - [ ] Write test: FeaturesCanvas wires `onNodeAction` to FeatureNode `onAction`
 
   **GREEN (Implement to Pass Tests):**
 
-  - [ ] Add `onNodeClick` and `onPaneClick` to `FeaturesCanvasProps`
-  - [ ] Pass callbacks through to `<ReactFlow>` component
+  - [ ] Add `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, `onNodeAction` to `FeaturesCanvasProps`
+  - [ ] Pass `onNodeClick`/`onPaneClick` through to `<ReactFlow>` component
+  - [ ] Wire `onRepositoryAdd`/`onNodeAction` to nodes in enrichment `useMemo`
 
   **REFACTOR (Clean Up):**
 
   - [ ] Update type exports in index.ts
   - [ ] Add Interactive story variant
 
-  ### Phase 3: State Management Hook
+  ### Phase 3: State Management Hook (Selection + Contextual Add)
 
-  **RED (Write Failing Tests First):**
+  **RED — Selection & Keyboard (Write Failing Tests First):**
 
   - [ ] Write test: returns selectedNode when FeatureNode selected
   - [ ] Write test: returns null when no selection
   - [ ] Write test: Escape key clears selection
 
-  **GREEN (Implement to Pass Tests):**
+  **GREEN — Selection & Keyboard:**
 
   - [ ] Implement `useOnSelectionChange` for selection tracking
   - [ ] Add `useEffect` with keydown listener for Escape
 
+  **RED — Contextual Add Handlers (Write Failing Tests First):**
+
+  - [ ] Write test: `handleAddFeatureToRepo` adds node + edge
+  - [ ] Write test: `handleAddFeatureToFeature` adds node + edge
+  - [ ] Write test: `handleAddFeature` adds unconnected node
+  - [ ] Write test: new node positioned at source.x + 350
+  - [ ] Write test: new node is auto-selected
+
+  **GREEN — Contextual Add Handlers:**
+
+  - [ ] Implement add handlers using `useReactFlow` (`addNodes`, `addEdges`, `getNode`)
+  - [ ] Calculate position from source node position
+
   **REFACTOR (Clean Up):**
 
   - [ ] Ensure all callbacks properly memoized
+  - [ ] Extract `createDefaultFeatureNode` factory helper
+  - [ ] Deduplicate add logic between repo/feature handlers
 
   ### Phase 4: Toolbar
 
@@ -291,16 +336,18 @@ content: |
   - [ ] Write test: renders FeaturesCanvas with nodes and edges
   - [ ] Write test: renders toolbar panel
   - [ ] Write test: passes onAddFeature to toolbar
+  - [ ] Write test: wires onRepositoryAdd to FeaturesCanvas
+  - [ ] Write test: wires onNodeAction to FeaturesCanvas
 
   **GREEN:**
 
   - [ ] Compose all sub-components in ControlCenter
   - [ ] Wire useControlCenterState hook
-  - [ ] Connect callbacks and state
+  - [ ] Connect callbacks, contextual add handlers, and state
 
   **REFACTOR:**
 
-  - [ ] Add comprehensive Storybook stories (Empty, WithFeatures, WithToolbar)
+  - [ ] Add comprehensive Storybook stories (Empty, WithFeatures, WithToolbar, WithNodeActions)
   - [ ] Verify no unnecessary re-renders
 
   ### Phase 6: Build Validation

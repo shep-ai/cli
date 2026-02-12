@@ -204,3 +204,44 @@ export const ErrorWithMessage: Story = {
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
+
+/** Renders a single FeatureNode with `selected: true` to show the primary ring highlight. */
+function SelectedFeatureNodeCanvas({
+  data,
+  style = { width: 600, height: 400 },
+}: {
+  data: FeatureNodeData;
+  style?: React.CSSProperties;
+}) {
+  const nodes: FeatureNodeType[] = useMemo(
+    () => [{ id: 'node-1', type: 'featureNode', position: { x: 0, y: 0 }, data, selected: true }],
+    [data]
+  );
+
+  return (
+    <div style={style}>
+      <ReactFlowProvider>
+        <ReactFlow
+          nodes={nodes}
+          nodeTypes={nodeTypes}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          proOptions={{ hideAttribution: true }}
+          fitView
+        />
+      </ReactFlowProvider>
+    </div>
+  );
+}
+
+export const Selected: Story = {
+  args: {
+    name: 'Auth Module',
+    description: 'Implement OAuth2 authentication flow',
+    featureId: '#f1',
+    lifecycle: 'implementation',
+    state: 'running',
+    progress: 45,
+  },
+  render: (args) => <SelectedFeatureNodeCanvas data={args} />,
+};

@@ -3,7 +3,7 @@
 import type { Edge } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
-import { ControlCenterEmptyState } from './control-center-empty-state';
+import { ControlCenterToolbar } from './control-center-toolbar';
 import { useControlCenterState } from './use-control-center-state';
 
 interface ControlCenterInnerProps {
@@ -12,32 +12,18 @@ interface ControlCenterInnerProps {
 }
 
 export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenterInnerProps) {
-  const {
-    nodes,
-    edges,
-    onNodesChange,
-    handleConnect,
-    handleAddFeature,
-    handleAddFeatureToRepo,
-    handleAddFeatureToFeature,
-    handleAddRepository,
-    handleNodeClick,
-    clearSelection,
-  } = useControlCenterState(initialNodes, initialEdges);
+  const { handleAddFeature, handleAddFeatureToRepo, handleAddFeatureToFeature, clearSelection } =
+    useControlCenterState();
 
   return (
     <FeaturesCanvas
-      nodes={nodes}
-      edges={edges}
-      onNodesChange={onNodesChange}
-      onConnect={handleConnect}
+      nodes={initialNodes}
+      edges={initialEdges}
       onAddFeature={handleAddFeature}
       onNodeAction={handleAddFeatureToFeature}
-      onNodeClick={handleNodeClick}
       onPaneClick={clearSelection}
       onRepositoryAdd={handleAddFeatureToRepo}
-      onRepositorySelect={handleAddRepository}
-      emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
+      toolbar={<ControlCenterToolbar onAddFeature={handleAddFeature} />}
     />
   );
 }

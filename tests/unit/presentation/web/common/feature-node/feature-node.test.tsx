@@ -15,10 +15,13 @@ const defaultData: FeatureNodeData = {
   progress: 45,
 };
 
-function renderFeatureNode(dataOverrides?: Partial<FeatureNodeData>) {
+function renderFeatureNode(
+  dataOverrides?: Partial<FeatureNodeData>,
+  nodeOverrides?: Partial<Omit<FeatureNodeType, 'data'>>
+) {
   const data = { ...defaultData, ...dataOverrides };
   const nodes: FeatureNodeType[] = [
-    { id: 'test-node', type: 'featureNode', position: { x: 0, y: 0 }, data },
+    { id: 'test-node', type: 'featureNode', position: { x: 0, y: 0 }, data, ...nodeOverrides },
   ];
   return render(
     <ReactFlowProvider>
@@ -195,6 +198,22 @@ describe('FeatureNode', () => {
     it('shows custom error message when provided', () => {
       renderFeatureNode({ state: 'error', progress: 30, errorMessage: 'Build failed' });
       expect(screen.getByText('Build failed')).toBeInTheDocument();
+    });
+  });
+
+  describe('selected highlight', () => {
+    it('applies ring classes when selected is true', () => {
+      renderFeatureNode(undefined, { selected: true });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).toContain('ring-2');
+      expect(card.className).toContain('ring-primary');
+    });
+
+    it('does not apply ring classes when selected is false', () => {
+      renderFeatureNode(undefined, { selected: false });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).not.toContain('ring-2');
+      expect(card.className).not.toContain('ring-primary');
     });
   });
 });
