@@ -1,0 +1,116 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-flow-canvas
+summary: Implementation plan for 015-feature-flow-canvas
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Foundation'
+    parallel: false
+    taskIds:
+      - task-1
+      - task-2
+  - id: phase-2
+    name: 'Core Implementation'
+    parallel: false
+    taskIds:
+      - task-3
+      - task-4
+
+# File change tracking
+filesToCreate:
+  - src/domain/entities/{{ENTITY_NAME}}.ts
+  - tests/unit/domain/entities/{{ENTITY_NAME}}.test.ts
+
+filesToModify:
+  - src/infrastructure/di/container.ts
+  - package.json
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-12
+
+  ## Architecture Overview
+
+  ```
+  {{ARCHITECTURE_DIAGRAM}}
+  ```
+
+  ## Implementation Strategy
+
+  **MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
+
+  ### Phase 1: Foundation (No Tests)
+
+  **Goal:** {{PHASE_1_GOAL}}
+
+  **Steps:**
+
+  1. {{STEP_1}}
+  2. {{STEP_2}}
+
+  **Deliverables:** {{DELIVERABLES}}
+
+  ### Phase 2: Core Implementation (TDD Cycle 1)
+
+  **Goal:** {{PHASE_2_GOAL}}
+
+  **TDD Workflow:**
+
+  1. **RED:** Write failing tests FIRST
+  2. **GREEN:** Implement minimal code to pass tests
+  3. **REFACTOR:** Improve code while keeping tests green
+
+  **Deliverables:** {{DELIVERABLES}}
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  | File | Purpose |
+  | ---- | ------- |
+  | {{FILE_PATH}} | {{PURPOSE}} |
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | {{FILE_PATH}} | {{CHANGES}} |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  **CRITICAL:** Tests are written FIRST in each TDD cycle.
+
+  ### Unit Tests (RED -> GREEN -> REFACTOR)
+
+  Write FIRST for:
+  - {{TEST_AREA_1}}
+  - {{TEST_AREA_2}}
+
+  ### Integration Tests
+
+  Write FIRST for:
+  - {{INTEGRATION_TEST_1}}
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | {{RISK}} | {{MITIGATION}} |
+
+  ---
+
+  _Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_
