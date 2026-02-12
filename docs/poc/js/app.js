@@ -910,7 +910,7 @@ class App {
   }
 
   clearAll() {
-    if (this.state.nodes.length === 0) return;
+    if (this.state.nodes.length === 0 && this.state.getCanvasRepos().length === 0) return;
     this.ui.showConfirm('Permanently delete all features?', () => {
       this.state.clearAll();
       clearInterval(this.state.simulationInterval);
@@ -1648,7 +1648,7 @@ class App {
 
     if (!fsNode || fsNode.type !== 'dir') {
       const empty = document.createElement('div');
-      empty.className = 'text-white/50 p-4';
+      empty.className = 'text-slate-400 text-xs p-4 text-center';
       empty.textContent = 'Directory not found';
       browserList.appendChild(empty);
       return;
@@ -1657,7 +1657,7 @@ class App {
     const items = fsNode.children || {};
     if (Object.keys(items).length === 0) {
       const empty = document.createElement('div');
-      empty.className = 'text-white/50 p-4';
+      empty.className = 'text-slate-400 text-xs p-4 text-center';
       empty.textContent = 'No repositories found';
       browserList.appendChild(empty);
       return;
@@ -1670,33 +1670,28 @@ class App {
         if (item.type === 'repo') {
           const itemEl = document.createElement('div');
           itemEl.className =
-            'flex items-center gap-3 px-4 py-3 hover:bg-white/5 cursor-pointer border-b border-white/5 group';
+            'flex items-center gap-2.5 px-4 py-2.5 hover:bg-slate-50 cursor-pointer border-b border-slate-100 last:border-0 group transition-colors';
 
           const icon = document.createElement('i');
-          icon.className = 'fab fa-github text-blue-400 text-sm flex-shrink-0';
+          icon.className = 'fab fa-github text-slate-400 text-xs flex-shrink-0 group-hover:text-blue-500';
 
           const content = document.createElement('div');
           content.className = 'flex-1 min-w-0';
 
           const fullName = document.createElement('div');
           fullName.className =
-            'text-white font-semibold text-sm truncate group-hover:text-blue-300';
+            'text-slate-700 font-semibold text-xs truncate group-hover:text-blue-600';
           fullName.textContent = item.fullName;
 
           const path = document.createElement('div');
-          path.className = 'text-white/50 text-xs truncate';
+          path.className = 'text-slate-400 text-[10px] truncate mt-0.5';
           path.textContent = item.path;
-
-          const chevron = document.createElement('i');
-          chevron.className = 'fas fa-chevron-right text-white/30 flex-shrink-0';
 
           content.appendChild(fullName);
           content.appendChild(path);
           itemEl.appendChild(icon);
           itemEl.appendChild(content);
-          itemEl.appendChild(chevron);
 
-          // Use arrow function to preserve 'this' context
           itemEl.onclick = () => {
             this.selectRepositoryFromBrowser(item.fullName, item.path);
           };

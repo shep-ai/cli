@@ -43,12 +43,6 @@
         </h1>
       </div>
       <div class="fixed top-4 right-4 z-40 flex items-center gap-2">
-        <div
-          class="flex items-center gap-2 rounded border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 shadow-sm"
-        >
-          <div class="h-2 w-2 animate-pulse rounded-full bg-emerald-500"></div>
-          <span>LIVE SIMULATION</span>
-        </div>
         <button
           onclick="app.clearAll()"
           class="flex items-center gap-2 rounded border border-slate-100 bg-white px-3 py-1.5 text-xs font-semibold text-slate-400 shadow-sm transition-all hover:bg-red-50 hover:text-red-600"
@@ -193,65 +187,40 @@
       <span id="toast-msg" class="text-xs font-semibold">Action Successful</span>
     </div>
 
-    <!-- File Browser Modal (Welcome Screen Only) -->
+    <!-- File Browser Modal -->
     <div
       id="file-browser-modal"
-      class="fixed inset-0 z-[100] hidden bg-white/40 opacity-0 backdrop-blur-md transition-opacity duration-300"
+      class="fixed inset-0 z-[100] hidden flex items-center justify-center opacity-0 bg-slate-900/20 backdrop-blur-sm transition-opacity duration-200"
     >
       <div
         id="file-browser-window"
-        class="absolute inset-8 flex scale-95 transform flex-col rounded-lg bg-white shadow-2xl transition-transform duration-300"
+        class="w-full max-w-sm flex scale-95 transform flex-col rounded-xl bg-white border border-slate-200 shadow-lg transition-transform duration-200 overflow-hidden"
       >
-        <!-- Title Bar -->
-        <div
-          class="flex h-12 flex-shrink-0 items-center rounded-t-lg border-b border-slate-200 bg-gradient-to-b from-slate-100 to-slate-50 px-4"
-        >
-          <div class="mr-4 flex items-center gap-2">
-            <button
-              onclick="app.closeFileBrowserModal()"
-              class="group flex h-3 w-3 items-center justify-center rounded-full bg-red-500 transition-colors hover:bg-red-600"
-              title="Close"
-            >
-              <i class="fas fa-times text-[6px] text-red-900 opacity-0 group-hover:opacity-100"></i>
-            </button>
-            <button
-              class="h-3 w-3 rounded-full bg-yellow-500 transition-colors hover:bg-yellow-600"
-              title="Minimize"
-            ></button>
-            <button
-              class="h-3 w-3 rounded-full bg-green-500 transition-colors hover:bg-green-600"
-              title="Maximize"
-            ></button>
-          </div>
-          <div class="flex-1 text-center">
+        <!-- Header -->
+        <div class="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+          <div class="flex items-center gap-2">
+            <i class="fas fa-folder-open text-xs text-slate-400"></i>
             <span class="text-xs font-semibold text-slate-600">Select Repository</span>
           </div>
-          <div class="w-20"></div>
+          <button
+            onclick="app.closeFileBrowserModal()"
+            class="flex items-center justify-center w-5 h-5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+          >
+            <i class="fas fa-times text-[10px]"></i>
+          </button>
         </div>
 
-        <!-- Breadcrumb Navigation -->
+        <!-- Breadcrumb -->
         <div
-          class="flex h-9 flex-shrink-0 items-center gap-2 border-b border-slate-200 bg-[#2c2c2c] px-4 font-mono text-sm"
+          class="flex items-center gap-1.5 px-4 py-2 border-b border-slate-100 bg-slate-50/50"
           id="file-browser-breadcrumb"
         ></div>
 
         <!-- File List -->
         <div
           id="file-browser-list"
-          class="flex-1 overflow-auto bg-[#1e1e1e]"
+          class="overflow-auto max-h-72"
         ></div>
-
-        <!-- Footer -->
-        <div
-          class="flex h-10 flex-shrink-0 items-center justify-end gap-2 border-t border-slate-200 bg-slate-50 px-4"
-        >
-          <button
-            onclick="app.closeFileBrowserModal()"
-            class="rounded border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition-colors hover:bg-slate-100"
-          >
-            Cancel
-          </button>
-        </div>
       </div>
     </div>
 
