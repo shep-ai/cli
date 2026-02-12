@@ -86,7 +86,9 @@ export function executeNode(
       const options = buildExecutorOptions(state, executor);
 
       log.info(`Executing agent at cwd=${options.cwd}`);
+      log.info(`Prompt length: ${prompt.length} chars`);
       const result = await executor.execute(prompt, options);
+      log.info(`Agent returned sessionId=${result.sessionId ?? '(none)'}`);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
 
