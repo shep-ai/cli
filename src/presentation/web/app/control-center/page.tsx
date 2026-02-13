@@ -1,68 +1,84 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getFeatures } from '@/lib/features';
-import { type CanvasNodeType } from '@/components/features/features-canvas';
-import { type Edge } from '@xyflow/react';
-import {
-  type FeatureNodeData,
-  type FeatureLifecyclePhase,
-  type FeatureNodeState,
+import { getGlobalFeatures } from '@/lib/shep-data';
+import type { CanvasNodeType } from '@/components/features/features-canvas';
+import type { Edge } from '@xyflow/react';
+import type {
+  FeatureNodeData,
+  FeatureLifecyclePhase,
+  FeatureNodeState,
 } from '@/components/common/feature-node';
 
 export default async function ControlCenterPage() {
-  const features = await getFeatures();
+  const globalFeatures = await getGlobalFeatures();
 
-  // Create Repository Node
-  const repoNodeId = 'repo-root';
-  const repoNode: CanvasNodeType = {
-    id: repoNodeId,
-    type: 'repositoryNode',
-    position: { x: 50, y: 300 },
-    data: {
-      name: 'Current Repository',
-    },
-  };
-
-  // Create Feature Nodes
-  const featureNodes: CanvasNodeType[] = features.map((feature, index) => {
-    // Map status/lifecycle to node state
-    let state: FeatureNodeState = 'running';
-    if (feature.status?.phase === 'complete') state = 'done';
-    if (feature.status?.phase === 'blocked') state = 'blocked';
-    // Default to 'running' for now as simple mapping
-
-    const lifecycle = (feature.lifecycle as FeatureLifecyclePhase) || 'requirements';
-
-    const nodeData: FeatureNodeData = {
-      name: feature.name,
-      description: feature.description ?? feature.id,
-      featureId: feature.id,
-      lifecycle,
-      state,
-      progress: feature.status?.progress?.percentage ?? 0,
-    };
-
-    return {
-      id: feature.id,
-      type: 'featureNode',
-      position: { x: 400, y: 50 + index * 200 }, // Simple vertical stack layout
-      data: nodeData,
-    };
+  // Group features by repository
+  const featuresByRepo: Record<string, typeof globalFeatures> = {};
+  globalFeatures.forEach((gf) => {
+    if (!featuresByRepo[gf.repoId]) {
+      featuresByRepo[gf.repoId] = [];
+    }
+    featuresByRepo[gf.repoId].push(gf);
   });
 
-  // Create Edges
-  const edges: Edge[] = features.map((feature) => ({
-    id: `edge-${repoNodeId}-${feature.id}`,
-    source: repoNodeId,
-    target: feature.id,
-    style: { strokeDasharray: '5 5' },
-  }));
+  const nodes: CanvasNodeType[] = [];
+  const edges: Edge[] = [];
 
-  const initialNodes = [repoNode, ...featureNodes];
-  const initialEdges = edges;
+  let yOffset = 50;
+
+  // Process each repository
+  Object.entries(featuresByRepo).forEach(([repoId, features]) => {
+    // Create Repository Node
+    const repoNodeId = `repo-${repoId}`;
+    nodes.push({
+      id: repoNodeId,
+      type: 'repositoryNode',
+      position: { x: 50, y: yOffset + (features.length * 150) / 2 }, // Center vertically relative to its features
+      data: {
+        name: repoId.substring(0, 8), // Display short hash/ID
+      },
+    });
+
+    // Create Feature Nodes for this repo
+    features.forEach((gf, index) => {
+      let state: FeatureNodeState = 'running';
+      if (gf.status?.phase === 'complete') state = 'done';
+      if (gf.status?.phase === 'blocked') state = 'blocked';
+
+      const lifecycle = (gf.feature.lifecycle as FeatureLifecyclePhase) || 'requirements';
+
+      const nodeData: FeatureNodeData = {
+        name: gf.feature.name,
+        description: gf.feature.description ?? gf.feature.id,
+        featureId: gf.feature.id,
+        lifecycle,
+        state,
+        progress: gf.status?.progress?.percentage ?? 0,
+      };
+
+      const featureNodeId = `feat-${repoId}-${gf.feature.id}`;
+      nodes.push({
+        id: featureNodeId,
+        type: 'featureNode',
+        position: { x: 400, y: yOffset + index * 200 },
+        data: nodeData,
+      });
+
+      // Connect Repo to Feature
+      edges.push({
+        id: `edge-${repoNodeId}-${featureNodeId}`,
+        source: repoNodeId,
+        target: featureNodeId,
+        style: { strokeDasharray: '5 5' },
+      });
+    });
+
+    // Increment Y offset for next repo block
+    yOffset += Math.max(features.length * 200, 200) + 100;
+  });
 
   return (
     <div className="h-screen w-full">
-      <ControlCenter initialNodes={initialNodes} initialEdges={initialEdges} />
+      <ControlCenter initialNodes={nodes} initialEdges={edges} />
     </div>
   );
 }
