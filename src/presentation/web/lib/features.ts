@@ -70,7 +70,7 @@ export async function getFeatures(): Promise<Feature[]> {
         try {
           const content = fs.readFileSync(featureYamlPath, 'utf8');
           const data = yaml.load(content) as FeatureYaml;
-          if (data && data.feature) {
+          if (data?.feature) {
             features.push({
               id: data.feature.id,
               name: data.feature.name,
