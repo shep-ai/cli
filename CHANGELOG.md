@@ -1,3 +1,13 @@
+# [1.16.0](https://github.com/shep-ai/cli/compare/v1.15.1...v1.16.0) (2026-02-13)
+
+### Bug Fixes
+
+- **agents:** resolve implement node crash and suppress executor noise in feat new ([4c1b0ae](https://github.com/shep-ai/cli/commit/4c1b0ae935954ca34d9bf50bc90b7f53db7b5748))
+
+### Features
+
+- **agents:** replace implement node placeholder with phase-level orchestrator ([d91be0d](https://github.com/shep-ai/cli/commit/d91be0d9bfc647ac5a27f1dcf5cd44490c4a11c8))
+
 ## [1.15.1](https://github.com/shep-ai/cli/compare/v1.15.0...v1.15.1) (2026-02-12)
 
 # [1.15.0](https://github.com/shep-ai/cli/compare/v1.14.2...v1.15.0) (2026-02-12)
