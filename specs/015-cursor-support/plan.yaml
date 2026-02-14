@@ -1,0 +1,207 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cursor-support
+summary: >
+  Add Cursor CLI (agent) as a second supported AI coding agent in Shep by creating a
+  CursorExecutorService that mirrors the ClaudeCodeExecutorService pattern. The implementation
+  proceeds in three phases: (1) extract shared types to decouple executor implementations,
+  (2) build and test the CursorExecutorService with Cursor-specific stream-json parsing, and
+  (3) wire the new executor into the factory, validator, TUI, and TypeSpec definitions. Research
+  corrections applied: system-prompt is NOT supported (no CLI flag), only streaming and
+  session-resume are declared as supported features, and spawn cwd is used instead of
+  --workspace (unconfirmed flag).
+
+# Relationships
+relatedFeatures:
+  - 008-agent-configuration
+
+technologies:
+  - TypeScript
+  - "Cursor CLI (agent binary)"
+  - "tsyringe (dependency injection)"
+  - "Vitest (testing)"
+  - "Node.js child_process (spawn)"
+  - "Commander.js (CLI)"
+  - "@inquirer/prompts (TUI)"
+  - "TypeSpec (domain models)"
+
+relatedLinks:
+  - https://www.codecademy.com/article/getting-started-with-cursor-cli
+  - https://tarq.net/posts/cursor-agent-stream-format/
+  - https://www.everydev.ai/tools/cursor-cli
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: "Shared Type Extraction"
+    description: >
+      Extract SpawnFunction and ExecFunction types from their current locations
+      (claude-code-executor.service.ts and agent-validator.service.ts) into a new shared
+      types.ts file in the common/ directory. This decouples executor implementations from
+      each other and is a prerequisite for the Cursor executor to import SpawnFunction without
+      depending on the Claude Code executor. Small, safe refactor with no behavioral changes.
+    parallel: false
+
+  - id: phase-2
+    name: "Cursor Executor Implementation"
+    description: >
+      Build the CursorExecutorService following the ClaudeCodeExecutorService structural pattern.
+      Includes Cursor-specific CLI argument building, NDJSON stream-json parsing (mapping Cursor
+      assistant/tool_call/result event types to AgentExecutionStreamEvent), execute() with text
+      accumulation from assistant events, executeStream() async generator, feature declaration,
+      and comprehensive unit tests. This is the core deliverable of the feature.
+    parallel: false
+
+  - id: phase-3
+    name: "Integration & Wiring"
+    description: >
+      Wire the CursorExecutorService into the existing infrastructure: add a cursor case to
+      AgentExecutorFactory, register agent in the AGENT_BINARY_MAP, enable the Cursor
+      option in the TUI agent-select prompt, update TypeSpec doc comments, update existing tests
+      to expect Cursor as a supported agent, and run final validation.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/infrastructure/services/agents/common/types.ts
+  - src/infrastructure/services/agents/common/executors/cursor-executor.service.ts
+  - tests/unit/infrastructure/services/agents/executors/cursor-executor.test.ts
+
+filesToModify:
+  - src/infrastructure/services/agents/common/executors/claude-code-executor.service.ts
+  - src/infrastructure/services/agents/common/agent-executor-factory.service.ts
+  - src/infrastructure/services/agents/common/agent-validator.service.ts
+  - src/presentation/tui/prompts/agent-select.prompt.ts
+  - tsp/common/enums/agent-config.tsp
+  - tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The Cursor executor fits cleanly into the existing agent abstraction. The architecture uses
+  a port/adapter pattern where:
+
+  - **Application port**: `IAgentExecutor` interface defines `execute()`, `executeStream()`,
+    and `supportsFeature()` — no changes needed
+  - **Infrastructure adapter**: `CursorExecutorService` implements `IAgentExecutor` — new file
+  - **Factory**: `AgentExecutorFactory` instantiates the correct executor via switch statement —
+    add one case
+  - **Validator**: `AgentValidatorService` checks binary availability via `AGENT_BINARY_MAP` —
+    add one entry
+
+  The domain and application layers remain untouched. `AgentType.Cursor` already exists in the
+  generated TypeSpec types. The `CursorExecutorService` lives entirely in the infrastructure
+  layer at `src/infrastructure/services/agents/common/executors/`, alongside the existing
+  `ClaudeCodeExecutorService`.
+
+  No DI container changes are needed — the factory already receives a `SpawnFunction` via its
+  constructor and passes it to executors. The container only knows about the factory interface,
+  not individual executor implementations.
+
+  ```
+  IAgentExecutor (application port)
+       |  implements
+  CursorExecutorService (new)  <--  SpawnFunction (from common/types.ts)
+       |  instantiated by
+  AgentExecutorFactory (existing, +1 case)
+       |  registered in
+  DI container (no changes)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Side-by-side executor (not shared base class)
+
+  **Chosen**: Create `CursorExecutorService` as a standalone class mirroring the structural
+  pattern of `ClaudeCodeExecutorService`.
+
+  **Why not a base class**: The NDJSON stream formats are fundamentally different. Claude Code
+  uses nested `stream_event` with `content_block_delta` while Cursor uses flat `assistant`,
+  `tool_call`, and `result` event types. A template-method base class would require messy
+  overrides and make both implementations harder to read. Two concrete classes behind a shared
+  interface is the simplest correct design for two implementations.
+
+  ### 2. Shared type extraction as prerequisite
+
+  **Chosen**: Extract `SpawnFunction` and `ExecFunction` to `common/types.ts` before creating
+  the Cursor executor.
+
+  **Rationale**: `SpawnFunction` is currently exported from `claude-code-executor.service.ts`
+  (line 26) and imported by `agent-executor-factory.service.ts` (line 16) and the factory
+  test file (line 13). The Cursor executor also needs `SpawnFunction`. Importing it from the
+  Claude Code executor creates undesirable coupling between executor implementations. A shared
+  types file in `common/` follows the existing directory pattern and keeps imports clean.
+
+  ### 3. Cursor stream-json parsing: accumulate assistant text
+
+  **Chosen**: Accumulate text from `assistant` events for the result; extract `session_id`
+  from the `result` event.
+
+  **Key difference from Claude Code**: Claude Code's `result` event contains the full response
+  text. Cursor's `result` event only contains `session_id` and `duration_ms` — the response
+  text is distributed across `assistant` events in `message.content[].text`. The `execute()`
+  method must accumulate text from all `assistant` events and use the accumulated text as the
+  final result.
+
+  ### 4. Supported features: streaming and session-resume only
+
+  **Chosen**: Declare only `streaming` and `session-resume` in SUPPORTED_FEATURES.
+
+  **Correction from spec**: The spec assumed `system-prompt` support via a `--system-prompt`
+  CLI flag. Research confirmed no such flag exists — Cursor uses `.cursor/rules/` files for
+  system behavior, which is a repo-level concern outside the executor's scope. Similarly,
+  `structured-output` and `tool-scoping` are not supported via CLI flags.
+
+  ### 5. Working directory via spawn cwd only
+
+  **Chosen**: Use Node.js spawn `{ cwd }` option, not `--workspace` flag.
+
+  **Correction from spec**: The spec suggested belt-and-suspenders with both. Research found
+  no evidence of `--workspace` as a valid `agent` flag. Passing an unknown flag would
+  cause the process to fail. Spawn `cwd` is reliable and matches the Claude Code pattern.
+
+  ### 6. Authentication: just call the binary (matching Claude Code pattern)
+
+  **Chosen**: Session-based auth — the executor spawns `agent` with no auth credentials.
+  The user logs in to the Cursor CLI independently, same as Claude Code.
+
+  **Rationale**: Codebase analysis shows the Claude Code executor does NOT pass any API keys,
+  env vars, or tokens to the subprocess. The `AgentConfig.token` field is stored in settings
+  but never used by the executor. The Cursor executor follows this same pattern. Auth failures
+  surface at execution time as non-zero exit codes. Token/API-key auth is a future enhancement.
+
+  ## Implementation Strategy
+
+  The three phases are ordered by dependency:
+
+  **Phase 1 (Shared Types)** must come first because the Cursor executor imports `SpawnFunction`
+  from `common/types.ts`. Without this refactor, the Cursor executor would need to import from
+  the Claude Code executor file, creating unwanted coupling. This phase is a safe, mechanical
+  refactor — move two type definitions, update ~5 import statements, verify all tests pass.
+
+  **Phase 2 (Cursor Executor)** is the core deliverable. It depends on Phase 1 for the
+  `SpawnFunction` import. The executor and its tests are self-contained — they don't require
+  factory or validator changes to be testable (the executor is tested via direct instantiation
+  with a mock spawn function, identical to the Claude Code test pattern). This phase is the
+  largest and benefits from being done before integration wiring.
+
+  **Phase 3 (Integration)** depends on Phase 2 — the factory can't reference
+  `CursorExecutorService` until it exists. This phase makes small, localized changes to
+  existing files: one switch case, one binary map entry, one TUI option update, one TypeSpec
+  comment, and test adjustments. The changes are independently testable and low-risk.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Cursor stream-json format differs from documentation | TDD approach: write tests with expected format first, adjust parser if actual format differs. Tests use fixture data based on documented format. |
+  | `agent` binary name changes or `--api-key` flag is invalid | Binary name and flags are soft-coded in the executor. Update constants if research proves wrong during implementation. supportsFeature() can disable features. |
+  | Shared type extraction breaks existing imports | Phase 1 runs all tests after refactor. TypeScript compiler catches missing imports at build time. |
+  | Executor exceeds 450-line limit (NFR-4) | Stream parsing is ~80 lines, arg building ~30 lines, execute/executeStream ~150 lines each. Total ~410 lines with headers. If it exceeds, extract NDJSON parsing to a utility. |
+  | agent hangs in -p mode (documented issue) | Timeout mechanism (setTimeout + proc.kill) is critical. Default timeout should be generous but finite. Tests verify timeout behavior explicitly. |
+  | Existing factory/validator tests assert Cursor is unsupported | Phase 3 updates these tests. Tests that assert cursor throws or is not in supported list will be updated to assert the opposite. |

@@ -1,0 +1,286 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cursor-support
+number: 015
+branch: feat/015-cursor-support
+oneLiner: Add Cursor CLI as a supported AI coding agent alongside Claude Code
+summary: >
+  Implement first-class Cursor CLI agent support in Shep, following the established executor pattern
+  used by Claude Code. This involves creating a CursorExecutorService that spawns the `agent`
+  binary, parsing its stream-json output format, wiring it into the agent factory/validator/TUI, and
+  updating tests to cover the new agent path. The SpawnFunction and ExecFunction shared types will be
+  extracted to a common location as a prerequisite refactor.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - 008-agent-configuration
+
+technologies:
+  - TypeScript
+  - Cursor CLI (agent binary)
+  - tsyringe (dependency injection)
+  - Vitest (testing)
+  - LangGraph (agent orchestration)
+  - Commander.js (CLI)
+  - "@inquirer/prompts (TUI)"
+  - TypeSpec (domain models)
+
+relatedLinks:
+  - https://www.codecademy.com/article/getting-started-with-cursor-cli
+  - https://tarq.net/posts/cursor-agent-stream-format/
+  - https://www.everydev.ai/tools/cursor-cli
+
+# Open questions — all resolved with AI-recommended defaults
+openQuestions:
+  - question: "Does the Cursor CLI `agent` binary need to be installed separately or does it ship with the Cursor IDE? Should Shep document installation instructions?"
+    context: "Installation can be via `curl https://cursor.com/install -fsS | bash` or `npm install -g cursor-cli`. Need to confirm the canonical binary name and install path."
+    resolved: true
+    answer: >
+      Recommend treating `agent` as an external prerequisite that users install independently,
+      identical to how Shep treats `claude` for Claude Code. Shep should NOT bundle or auto-install
+      Cursor CLI. The validator already uses `AGENT_BINARY_MAP` to check binary availability and
+      returns a clear error when the binary is missing — this pattern is sufficient. Add a brief note
+      in agent configuration docs pointing users to the official Cursor install instructions. The
+      canonical binary name to validate is `agent` (confirmed by stream-json output analysis).
+      Alternative: if user research during /research phase reveals `cursor` is the correct binary name
+      (not `agent`), update accordingly.
+
+  - question: "What authentication method should be the default for Cursor — session-based (CURSOR_API_KEY env var) or token-based (--api-key flag)?"
+    context: "Cursor CLI uses CURSOR_API_KEY environment variable or --api-key flag for headless/CI mode. The existing AgentAuthMethod enum has 'session' and 'token' options."
+    resolved: true
+    answer: >
+      Session-based auth — just call the binary, user logs in independently. Codebase analysis
+      shows the Claude Code executor does NOT pass any API keys, env vars, or auth tokens to the
+      subprocess. It simply spawns `claude` and assumes the user is authenticated. The Cursor
+      executor follows the same pattern: spawn `agent` with no auth args. Auth failures surface
+      at execution time as non-zero exit codes. Token/API-key auth via env vars or CLI flags
+      can be added as a future enhancement.
+
+  - question: "Should session resume be supported for Cursor from day one? The CLI supports `--resume <id>` but the stream-json format for session management needs verification."
+    context: "Claude Code executor supports session-resume as a feature. Cursor CLI has `agent resume` and `--resume <id>` flags."
+    resolved: true
+    answer: >
+      Recommend including session resume support from day one. The `--resume <id>` flag is documented
+      in the Cursor CLI and aligns with the existing `AgentFeature.SessionResume` capability. The
+      CursorExecutorService should declare `session-resume` in its SUPPORTED_FEATURES set and map
+      `options.resumeSession` to `--resume <session-id>`. If the session ID format or resume behavior
+      differs from expectations during implementation, the feature flag can be removed without breaking
+      the interface (supportsFeature would simply return false). The TDD approach will verify resume
+      behavior in RED phase before committing to it.
+
+  - question: "Should SpawnFunction and ExecFunction types be extracted to a shared location as part of this feature?"
+    context: "SpawnFunction is currently defined in claude-code-executor.service.ts and ExecFunction in agent-validator.service.ts. Both will be needed by the new CursorExecutorService."
+    resolved: true
+    answer: >
+      Recommend extracting both types to a new shared file
+      `src/infrastructure/services/agents/common/types.ts` as a prerequisite refactor task. This avoids
+      cross-importing between executor implementations and keeps the codebase DRY. The refactor is
+      small (move type definitions + update imports) and should be done as the first task before
+      creating the Cursor executor. Alternative: import SpawnFunction directly from the Claude Code
+      executor file, but this creates an undesirable coupling between executor implementations.
+
+  - question: "Which Cursor CLI flags should map to which AgentExecutionOptions fields?"
+    context: "Cursor CLI uses different flags than Claude Code. Need a clear mapping for the executor to build correct CLI args."
+    resolved: true
+    answer: >
+      Confirmed flag mapping (validated during research phase):
+      - `prompt` → `-p <prompt>` (same as Claude Code)
+      - `model` → `-m <model>` (short flag, Claude Code uses `--model`)
+      - `resumeSession` → `--resume <session-id>`
+      - `outputFormat` → `--output-format stream-json` (always, for streaming)
+      - `autoApprove` → `--force` (Claude Code uses `--dangerously-skip-permissions`)
+      - `cwd` → spawn `cwd` option only (no `--workspace` flag confirmed)
+      NOT supported (silently omitted): `systemPrompt`, `allowedTools`, `maxTurns`, `outputSchema`.
+      No auth flags passed — binary handles its own auth (matching Claude Code pattern).
+
+content: |
+  ## Problem Statement
+
+  Shep currently only supports Claude Code as an AI coding agent. The `AgentType` enum already
+  defines `cursor` as a value, and the TUI wizard shows it as "Coming Soon". Users who prefer
+  Cursor CLI cannot use Shep for autonomous SDLC operations.
+
+  The Cursor CLI (`agent`) has reached maturity with support for non-interactive mode (`-p`),
+  structured output (`--output-format json` and `--output-format stream-json`), model selection
+  (`-m`), and auto-approve mode (`--force`) — making it viable for subprocess-based integration
+  using the same executor pattern as Claude Code.
+
+  Adding Cursor as a second supported agent validates the executor abstraction, proves the
+  multi-agent architecture works, and doubles the potential user base for Shep.
+
+  ## Success Criteria
+
+  - [ ] `CursorExecutorService` implements `IAgentExecutor` and passes all unit tests
+  - [ ] `agent` binary is detected by `AgentValidatorService.isAvailable(AgentType.Cursor)`
+  - [ ] `AgentExecutorFactory.createExecutor(AgentType.Cursor, config)` returns a functioning executor
+  - [ ] `AgentExecutorFactory.getSupportedAgents()` includes `AgentType.Cursor`
+  - [ ] `execute()` spawns `agent` with correct CLI flags and returns `AgentExecutionResult`
+  - [ ] `executeStream()` parses Cursor stream-json NDJSON and yields `AgentExecutionStreamEvent` items
+  - [ ] `supportsFeature()` correctly reports supported Cursor features (streaming, session-resume) and unsupported ones (system-prompt, structured-output, tool-scoping)
+  - [ ] TUI agent-select prompt shows Cursor as a selectable (non-disabled) option
+  - [ ] All existing tests continue to pass (no regressions)
+  - [ ] New unit tests achieve ≥90% branch coverage for `CursorExecutorService`
+  - [ ] `pnpm validate` passes (lint, format, typecheck, tsp compile)
+  - [ ] TypeSpec doc comment on `AgentType.Cursor` updated from "coming soon" to reflect supported status
+
+  ## Functional Requirements
+
+  - **FR-1: Cursor Executor Service** — Create `CursorExecutorService` in `src/infrastructure/services/agents/common/executors/` implementing the `IAgentExecutor` interface. It must accept a `SpawnFunction` via constructor for testability, set `agentType` to `AgentType.Cursor`, and spawn the `agent` binary as a child process.
+
+  - **FR-2: CLI Argument Building** — The executor must translate `AgentExecutionOptions` into Cursor CLI flags: `-p` for prompt, `-m` for model, `--output-format stream-json` for streaming output, `--force` for auto-approve mode, `--resume` for session resume. Working directory is set via spawn `cwd` option (not a CLI flag). No authentication flags are passed — the binary handles its own auth.
+
+  - **FR-3: Synchronous Execution (`execute()`)** — The `execute()` method must spawn `agent`, collect all stdout, parse the final JSON result, and return an `AgentExecutionResult` with `result` (text output), `sessionId` (if available), and `usage` (token counts if reported).
+
+  - **FR-4: Streaming Execution (`executeStream()`)** — The `executeStream()` method must return an `AsyncIterable<AgentExecutionStreamEvent>` that yields events in real time as the Cursor CLI emits NDJSON lines. Each line must be parsed and mapped to the standard event types: `progress` (for assistant messages and tool calls), `result` (for final output), and `error` (for failures).
+
+  - **FR-5: Stream-JSON Parsing** — Implement Cursor-specific NDJSON parsing that maps Cursor event types (`user`, `assistant`, `tool_call`) to the internal `AgentExecutionStreamEvent` format. Handle malformed lines gracefully (log warning, skip line, continue processing).
+
+  - **FR-6: Feature Declaration** — The executor must implement `supportsFeature()` returning `true` for features the Cursor CLI supports (`streaming`, `session-resume`) and `false` for unsupported features (`system-prompt`, `structured-output`, `tool-scoping`). Feature support should be declared via a `SUPPORTED_FEATURES` constant set, matching the Claude Code executor pattern.
+
+  - **FR-7: Factory Registration** — Add a `case 'cursor'` branch to `AgentExecutorFactory.createExecutor()` that instantiates `CursorExecutorService` with the injected `SpawnFunction`. Update `getSupportedAgents()` to include `AgentType.Cursor`.
+
+  - **FR-8: Validator Registration** — Add `'cursor': 'agent'` to the `AGENT_BINARY_MAP` in `AgentValidatorService` so that `isAvailable(AgentType.Cursor)` correctly detects the `agent` binary via `agent --version`.
+
+  - **FR-9: TUI Integration** — Update `agent-select.prompt.ts` to remove the `disabled: '(Coming Soon)'` property from the Cursor option and add a description string (e.g., `'Cursor AI coding agent'`), making it selectable when available.
+
+  - **FR-10: TypeSpec Doc Update** — Update the doc comment on the `Cursor` value in `tsp/common/enums/agent-config.tsp` to indicate it is a supported agent (remove "coming soon" language).
+
+  - **FR-11: Error Handling** — The executor must handle: (a) `agent` binary not found (spawn ENOENT), (b) non-zero exit codes, (c) stderr output, (d) process timeout (kill child process after configurable timeout), (e) malformed JSON in stdout. Errors must be surfaced as rejected promises with descriptive messages.
+
+  - **FR-12: Authentication Model** — The executor does NOT pass any auth credentials to the subprocess, matching the Claude Code executor pattern. The `agent` binary handles its own authentication — users log in independently. Auth failures surface at execution time as non-zero exit codes with descriptive error messages from the CLI. Token/API-key auth via env vars or CLI flags is a future enhancement.
+
+  - **FR-13: Shared Type Extraction** — Extract `SpawnFunction` from `claude-code-executor.service.ts` and `ExecFunction` from `agent-validator.service.ts` into a new shared file `src/infrastructure/services/agents/common/types.ts`. Update all existing imports to reference the new location.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Test Coverage** — `CursorExecutorService` must have ≥90% branch coverage via unit tests. Tests must use the injected `SpawnFunction` mock pattern (no real process spawning). Tests must cover: happy path, error cases, stream parsing, feature support, CLI arg building, and timeout handling.
+
+  - **NFR-2: Pattern Consistency** — The Cursor executor must follow the same structural patterns as `ClaudeCodeExecutorService`: constructor injection of `SpawnFunction`, `SUPPORTED_FEATURES` set, private arg-building methods, consistent error message format. A reviewer should be able to compare the two files side-by-side and see structural parity.
+
+  - **NFR-3: No New Dependencies** — The implementation must use only existing npm packages (`child_process`, `events`, `stream`). No new external dependencies may be added.
+
+  - **NFR-4: File Size** — The `CursorExecutorService` file should stay under 450 lines. If it exceeds this, refactor shared logic (e.g., NDJSON parsing, process management) into utilities.
+
+  - **NFR-5: Startup Performance** — Adding Cursor support must not impact CLI startup time. The executor is lazily instantiated by the factory only when `AgentType.Cursor` is requested, and the validator only checks the binary when explicitly called.
+
+  - **NFR-6: Security — No Secret Leakage** — The executor does not pass auth credentials to the subprocess (matching Claude Code pattern). If token/API-key auth is added in the future, the executor must never log, print, or include API keys/tokens in error messages.
+
+  - **NFR-7: Graceful Degradation** — If `agent` is not installed, the validator returns `{ available: false }` and the TUI prompt may show Cursor as disabled based on runtime validation. The system must never crash or throw unhandled errors due to a missing binary.
+
+  - **NFR-8: Clean Architecture Compliance** — The `CursorExecutorService` lives in the infrastructure layer only. The application and domain layers must not reference Cursor-specific details. All interaction flows through the `IAgentExecutor` interface.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should Shep install the Cursor CLI for users? | No — treat as external prerequisite | Matches Claude Code pattern. Validator provides clear "not found" feedback. Avoids package management complexity. |
+  | 2 | Default auth method for Cursor? | Session-based — just call the binary | Matches Claude Code pattern: executor spawns binary, user logs in independently. No env vars or API keys passed. |
+  | 3 | Include session resume from day one? | Yes — declare in SUPPORTED_FEATURES | Flag is documented, low implementation cost, can be toggled off via `supportsFeature()` if issues arise during TDD. |
+  | 4 | Extract SpawnFunction/ExecFunction to shared types? | Yes — prerequisite refactor | Prevents cross-coupling between executor implementations. Small, safe refactor. |
+  | 5 | Which features should Cursor executor declare support for? | `streaming`, `session-resume` | Research confirmed: no `--system-prompt` flag (uses .cursor/rules/ files). No `--json-schema` or `--allowedTools` flags. |
+  | 6 | Should `--workspace` be passed in addition to spawn `cwd`? | No — spawn `cwd` only | Research found no evidence of `--workspace` as a valid `agent` flag. Spawn `cwd` is reliable and matches Claude Code pattern. |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The codebase follows Clean Architecture with four layers:
+
+  - **Domain** (`src/domain/`) — Generated TypeSpec types including `AgentType.Cursor` enum value (already exists)
+  - **Application** (`src/application/`) — Port interfaces (`IAgentExecutor`, `IAgentExecutorFactory`, `IAgentValidator`) that define the agent contract
+  - **Infrastructure** (`src/infrastructure/`) — Concrete implementations in `services/agents/common/`
+  - **Presentation** (`src/presentation/`) — CLI commands and TUI prompts that display agent selection
+
+  Key directories for this feature:
+  ```
+  src/infrastructure/services/agents/common/
+  ├── executors/
+  │   ├── claude-code-executor.service.ts   # Reference implementation (~437 lines)
+  │   └── mock-executor-factory.service.ts  # Mock for testing
+  ├── agent-executor-factory.service.ts     # Factory with switch statement
+  ├── agent-validator.service.ts            # Binary detection via AGENT_BINARY_MAP
+  └── agent-runner.service.ts               # Orchestrates execution
+  ```
+
+  ### Architecture Patterns
+
+  The agent system uses a well-defined pattern for adding new agents:
+
+  1. **Port Interface** (`IAgentExecutor`) — Defines `execute()`, `executeStream()`, and `supportsFeature()` methods
+  2. **Executor Implementation** — Spawns CLI subprocess, parses output (JSON or stream-json)
+  3. **Factory Registration** — `AgentExecutorFactory.createExecutor()` switch statement maps type to executor
+  4. **Validator Registration** — `AGENT_BINARY_MAP` maps agent type to binary name for availability checking
+  5. **TUI Integration** — `agent-select.prompt.ts` controls which agents appear as selectable vs disabled
+  6. **DI Container** — No changes needed; factory already handles executor creation
+
+  The `ClaudeCodeExecutorService` serves as the reference implementation. It:
+  - Accepts a `SpawnFunction` via constructor injection (testable without mocking `child_process`)
+  - Builds CLI args from `AgentExecutionOptions` (prompt, model, system prompt, session resume, etc.)
+  - Supports both `execute()` (collect full result) and `executeStream()` (async iterable of events)
+  - Parses stream-json NDJSON lines for progress, result, and error events
+  - Declares supported features via `SUPPORTED_FEATURES` set
+
+  ### Relevant Technologies
+
+  - **Cursor CLI binary**: `agent` — supports `-p` (print/non-interactive), `--output-format stream-json|json|text`, `-m` (model), `--force` (auto-approve), `--resume` (session resume)
+  - **Stream-JSON format**: NDJSON with event types: `user`, `assistant`, `tool_call` (started/completed) — different from Claude Code's `stream_event`/`assistant`/`result` format
+  - **Authentication**: User logs in to `agent` CLI independently (same as Claude Code pattern — no auth credentials passed by executor)
+  - **Session management**: `--resume <id>` flag for conversation continuity
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/infrastructure/services/agents/common/executors/` | High | New `cursor-executor.service.ts` implementing `IAgentExecutor` with Cursor CLI subprocess spawning and stream-json parsing |
+  | `src/infrastructure/services/agents/common/types.ts` | Medium | New shared types file extracting `SpawnFunction` and `ExecFunction` |
+  | `src/infrastructure/services/agents/common/agent-executor-factory.service.ts` | Medium | Add `case 'cursor'` to switch statement, import CursorExecutorService |
+  | `src/infrastructure/services/agents/common/agent-validator.service.ts` | Low | Add `'cursor': 'agent'` to `AGENT_BINARY_MAP` |
+  | `src/presentation/tui/prompts/agent-select.prompt.ts` | Low | Remove `disabled: '(Coming Soon)'` from Cursor option, add description |
+  | `tests/unit/infrastructure/services/agents/` | High | New `cursor-executor.service.test.ts` plus updates to factory and validator tests |
+  | `tsp/common/enums/agent-config.tsp` | Low | Update doc comment from "coming soon" to supported |
+  | `docs/` | Low | Update agent documentation to reflect Cursor as supported |
+
+  ## Dependencies
+
+  **External Dependencies:**
+  - `agent` binary must be installed on the user's system
+  - No new npm packages needed — uses existing `child_process.spawn` pattern
+
+  **Internal Dependencies:**
+  - `IAgentExecutor` interface (already defined in `application/ports/output/agents/`)
+  - `AgentType.Cursor` enum value (already generated from TypeSpec)
+  - `SpawnFunction` type (to be extracted to `common/types.ts`)
+  - `ExecFunction` type (to be extracted to `common/types.ts`)
+  - `AgentExecutionOptions`, `AgentExecutionResult`, `AgentExecutionStreamEvent` types (already defined)
+  - `AgentFeature` enum (already defined in TypeSpec)
+
+  **Key Difference from Claude Code:**
+  The Cursor CLI stream-json format differs from Claude Code's format:
+  - Cursor emits `user`, `assistant`, `tool_call` event types with `message.content[].text` structure
+  - Claude Code emits `stream_event`, `assistant`, `result` event types
+  - Cursor uses `agent` binary (not `cursor`)
+  - Cursor uses `--force` instead of `--dangerously-skip-permissions`
+  - Cursor uses spawn `cwd` for working directory (no `--workspace` flag)
+  - Cursor uses `-m` (short) instead of `--model` (long) for model selection
+  - Both use session-based auth (user logs in independently, executor passes no credentials)
+
+  ## Size Estimate
+
+  **M** — This is a well-scoped feature following an established pattern. The primary work is:
+  1. Extracting shared types (SpawnFunction, ExecFunction) to common file (~30 min)
+  2. Creating the `CursorExecutorService` (~300-400 lines, modeled on `ClaudeCodeExecutorService`)
+  3. Writing comprehensive unit tests for the executor (~200-250 lines)
+  4. Updating 3 existing files (factory, validator, TUI prompt) with minimal changes (~20 lines total)
+  5. Updating existing tests to expect Cursor as supported (~30 lines)
+  6. TypeSpec doc comment update (1 line)
+  7. Documentation updates
+
+  The stream-json parsing logic is the main complexity — Cursor's format differs from Claude Code's,
+  requiring its own parsing implementation. However, the overall structure and patterns are identical.
+
+  ---
+
+  _Requirements complete — proceed with `/shep-kit:research` to verify Cursor CLI flags and stream format_
