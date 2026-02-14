@@ -1,0 +1,36 @@
+feature:
+  id: '015-cursor-support'
+  name: 'cursor-support'
+  number: 15
+  branch: 'feat/015-cursor-support'
+  lifecycle: 'research'
+  createdAt: '2026-02-14T18:04:57Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-14T18:04:57Z'
+  lastUpdatedBy: 'feature-agent'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-14T18:04:57Z'
+    completedBy: 'feature-agent'
+
+errors:
+  current: null
+  history: []
