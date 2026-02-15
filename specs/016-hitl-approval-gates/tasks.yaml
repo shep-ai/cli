@@ -30,7 +30,7 @@ tasks:
       extending BaseEntity (agentRunId, phase, startedAt, completedAt?,
       durationMs?) in tsp/agents/phase-timing.tsp. Import both in
       tsp/agents/index.tsp.
-    state: Todo
+    state: Done
     dependencies: []
     acceptanceCriteria:
       - ApprovalGates model compiles with two boolean fields
@@ -46,7 +46,7 @@ tasks:
       approvalStatus?: string with approvalGates?: ApprovalGates. Run
       pnpm tsp:compile. Verify generated output.ts contains ApprovalGates
       type and updated AgentRun interface.
-    state: Todo
+    state: Done
     dependencies:
       - task-1
     acceptanceCriteria:
@@ -68,7 +68,7 @@ tasks:
       port interface (save, update, findByRunId, findByFeatureId). Implement
       SQLitePhaseTimingRepository. Update AgentRunRepository mapper to
       serialize/deserialize approval_gates JSON column. Register in DI container.
-    state: Todo
+    state: Done
     dependencies:
       - task-2
     acceptanceCriteria:
@@ -103,7 +103,7 @@ tasks:
       boolean checks. Update FeatureAgentState to use approvalGates instead of
       approvalMode. Update worker to parse --approval-gates JSON arg. Update
       process service to pass --approval-gates JSON in spawn().
-    state: Todo
+    state: Done
     dependencies:
       - task-2
     acceptanceCriteria:
@@ -138,7 +138,7 @@ tasks:
       entry, save a PhaseTiming record with startedAt. On success, update with
       completedAt and durationMs. On error, leave completedAt null (partial
       timing). When repository is not provided, skip timing (backward compat).
-    state: Todo
+    state: Done
     dependencies:
       - task-3
       - task-4
@@ -172,7 +172,7 @@ tasks:
       ApprovalGates object through to RunAgentUseCase and ultimately
       to the process service. Ensure backward compatibility when
       approvalGates is undefined (no gates = autonomous).
-    state: Todo
+    state: Done
     dependencies:
       - task-4
     acceptanceCriteria:
@@ -202,7 +202,7 @@ tasks:
       list features for the repo, find their agent runs, filter to
       waiting_approval status. Return the feature if exactly one match. Error
       with helpful message if zero or multiple.
-    state: Todo
+    state: Done
     dependencies:
       - task-3
     acceptanceCriteria:
@@ -233,7 +233,7 @@ tasks:
       feature's current waiting state, which phase triggered the interrupt,
       and the generated content (requirements or plan output). Displays
       approval instructions at the bottom.
-    state: Todo
+    state: Done
     dependencies:
       - task-7
     acceptanceCriteria:
@@ -262,7 +262,7 @@ tasks:
       argument. Uses resolveWaitingFeature() to find target. Delegates to
       existing ApproveAgentRunUseCase to resume the agent. Shows which phase
       was approved and what comes next.
-    state: Todo
+    state: Done
     dependencies:
       - task-7
     acceptanceCriteria:
@@ -290,7 +290,7 @@ tasks:
       argument and --reason <text> option. Uses resolveWaitingFeature() to
       find target. Delegates to existing RejectAgentRunUseCase to cancel
       the agent. Shows confirmation of rejection.
-    state: Todo
+    state: Done
     dependencies:
       - task-7
     acceptanceCriteria:
@@ -321,7 +321,7 @@ tasks:
       from --allow-prd, --allow-plan, --allow-all flags. Default (no flags)
       creates { allowPrd: false, allowPlan: false }. Pass ApprovalGates to
       CreateFeatureUseCase. Add output hint about approval behavior.
-    state: Todo
+    state: Done
     dependencies:
       - task-6
     acceptanceCriteria:
@@ -354,7 +354,7 @@ tasks:
       table with phase names, durations, and awaiting-review indicator. When
       the feature is in waiting_approval state, show which phase is waiting
       and approval instructions.
-    state: Todo
+    state: Done
     dependencies:
       - task-5
       - task-7
@@ -381,142 +381,313 @@ tasks:
     estimatedEffort: M
 
   # ── Phase 7: YAML Validation & Auto-Repair Graph Nodes (TDD) ──
+  # Detailed 10-task breakdown — each task has exact file paths and TDD steps.
 
   - id: task-13
-    title: Create schema validators for spec, research, plan, and tasks YAML
+    title: 'Shared validation types & helpers (requireString, requireNonEmptyArray, requireArrayOfShape)'
     description: >
-      Create hand-written TypeScript validator functions in nodes/schemas/.
-      Each returns {valid: boolean, errors: string[]} with specific, AI-friendly
-      error messages. spec.schema.ts handles both analyze and requirements phases
-      with different required fields. research.schema.ts validates decisions array.
-      plan.schema.ts validates phases array and cross-validates tasks.yaml phaseIds.
-    state: Todo
+      Create nodes/schemas/validation.ts with ValidationResult interface and
+      three helper functions: requireString, requireNonEmptyArray, requireArrayOfShape.
+      Each helper mutates an errors[] array with specific, AI-friendly messages.
+      requireArrayOfShape delegates to an itemChecker callback for nested validation.
+    state: Done
     dependencies:
       - task-4
+    files:
+      create:
+        - src/infrastructure/services/agents/feature-agent/nodes/schemas/validation.ts
+        - tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/validation.test.ts
     acceptanceCriteria:
-      - spec schema (analyze) validates name, oneLiner, summary, phase, sizeEstimate, content, technologies[]
-      - spec schema (requirements) additionally validates openQuestions[] with question/resolved/answer shape
-      - research schema validates name, summary, decisions[] with title/chosen/rejected[]/rationale, content
-      - plan schema validates phases[] with id/name/parallel, filesToCreate or filesToModify non-empty, content
-      - tasks schema validates tasks[] with id/phaseId/title/state/acceptanceCriteria[], phaseId references valid phase
-      - All validators return specific error messages (not generic)
-      - ValidationResult interface exported for consumers
+      - 'ValidationResult interface exported (valid: boolean, errors: string[])'
+      - requireString validates missing, non-string, and empty string
+      - requireNonEmptyArray validates missing, non-array, and empty array
+      - requireArrayOfShape validates each item with callback, reports indexed paths
+      - All helpers accept optional prefix for nested error paths
     tdd:
       red:
-        - Write tests for each schema with valid inputs (returns valid true, errors empty)
-        - Write tests for each schema with missing required fields
-        - Write tests for each schema with wrong types (string where array expected)
-        - Write tests for tasks schema cross-referencing plan phases
+        - Write tests for requireString with valid, missing, non-string, and empty inputs
+        - Write tests for requireNonEmptyArray with valid, missing, non-array, and empty inputs
+        - Write tests for requireArrayOfShape with valid items and with items missing fields
       green:
-        - Implement spec schema validator (analyze + requirements phases)
-        - Implement research schema validator
-        - Implement plan+tasks schema validators with cross-validation
+        - Implement ValidationResult interface
+        - Implement requireString, requireNonEmptyArray, requireArrayOfShape
       refactor:
-        - Extract shared validation helpers (requireString, requireArray, requireArrayOfShape)
-    estimatedEffort: M
+        - Ensure consistent error message formatting across all helpers
+    estimatedEffort: S
 
   - id: task-14
-    title: Create validate node factory
+    title: Spec schema validator (analyze + requirements phases)
     description: >
-      Create nodes/validate.node.ts with createValidateNode(target, schemaFn)
-      factory. The node reads the YAML file from specDir, runs safeYamlLoad,
-      then runs the schema validator. On success resets validationRetries to 0,
-      clears lastValidationErrors. On failure increments validationRetries,
-      sets lastValidationErrors with error messages. State updates drive the
-      conditional edge routing.
-    state: Todo
+      Create nodes/schemas/spec.schema.ts with validateSpecAnalyze() and
+      validateSpecRequirements(). Analyze validates: name, oneLiner, summary,
+      phase, sizeEstimate (enum S/M/L/XL), content, technologies[]. Requirements
+      additionally validates openQuestions[] (can be empty) with question field per item.
+    state: Done
     dependencies:
       - task-13
+    files:
+      create:
+        - src/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.ts
+        - tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.test.ts
     acceptanceCriteria:
-      - createValidateNode returns a LangGraph node function
-      - On valid YAML sets validationRetries=0, lastValidationErrors=[]
-      - On invalid YAML (parse error) sets errors with parse error message
-      - On invalid YAML (schema error) sets errors with schema error messages
-      - On retries >= 3 throws error (fails the run)
-      - Increments validationRetries on each failure
-      - Sets lastValidationTarget for repair node context
+      - validateSpecAnalyze passes for valid analyze spec, fails for missing fields
+      - sizeEstimate validated against S/M/L/XL enum
+      - Null input returns 'YAML parsed to null or non-object'
+      - validateSpecRequirements extends analyze validation with openQuestions[]
+      - Empty openQuestions array is valid (no questions is fine)
+      - OpenQuestion items validated for 'question' field
     tdd:
       red:
-        - Write tests for validate node with valid YAML input
-        - Write tests for validate node with unparseable YAML
-        - Write tests for validate node with schema violations
-        - Write tests for retry exhaustion (retries >= 3 throws)
+        - Test valid analyze spec passes
+        - Test missing name, empty technologies, invalid sizeEstimate, null input
+        - Test valid requirements spec passes
+        - Test missing openQuestions, missing question field in items
       green:
-        - Implement createValidateNode factory
-        - Read file, parse, validate, update state
-        - Handle parse errors vs schema errors
+        - Implement validateBaseSpec helper (shared fields)
+        - Implement validateSpecAnalyze wrapping validateBaseSpec
+        - Implement validateSpecRequirements extending with openQuestions validation
       refactor:
-        - Extract common state update patterns
-    estimatedEffort: M
+        - Ensure validateBaseSpec is reused cleanly by both functions
+    estimatedEffort: S
 
   - id: task-15
-    title: Create repair node factory
+    title: Research schema validator
     description: >
-      Create nodes/repair.node.ts with createRepairNode(filename, executor)
-      factory. The node reads the broken YAML file, builds a focused repair
-      prompt with the validation errors from state, and calls the executor
-      with constrained options (maxTurns 5, write-only tools, disableMcp true).
-      The executor writes the fixed file. The node returns updated state.
-    state: Todo
+      Create nodes/schemas/research.schema.ts with validateResearch().
+      Validates: name, summary, content, decisions[] with title/chosen/rejected[]/rationale per item.
+    state: Done
     dependencies:
-      - task-14
+      - task-13
+    files:
+      create:
+        - src/infrastructure/services/agents/feature-agent/nodes/schemas/research.schema.ts
+        - tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/research.schema.test.ts
     acceptanceCriteria:
-      - createRepairNode returns a LangGraph node function
-      - Reads broken YAML content and validation errors from state
-      - Builds focused repair prompt with errors + broken content
-      - Calls executor with maxTurns 5 and constrained tools
-      - Supports single file (spec.yaml) and multi-file (plan.yaml + tasks.yaml)
-      - Logs repair attempt number
+      - validateResearch passes for valid research object
+      - Fails when decisions array is empty
+      - Fails when decision item missing title, chosen, rationale
+      - Fails when decision item missing rejected array
+      - Null input handled gracefully
     tdd:
       red:
-        - Write tests for repair node prompt construction
-        - Write tests for executor options (maxTurns, tools constraint)
-        - Write tests for multi-file repair (plan + tasks)
-        - Write tests for state updates after repair
+        - Test valid research passes
+        - Test empty decisions, missing decision fields, null input
       green:
-        - Implement createRepairNode factory
-        - Build repair prompt from state
-        - Call executor with constrained options
+        - Implement validateResearch using requireString and requireArrayOfShape
       refactor:
-        - Extract prompt template as separate function for testability
-    estimatedEffort: M
+        - Consistent error message style with spec schema
+    estimatedEffort: S
 
   - id: task-16
-    title: Wire validate/repair nodes into feature-agent-graph with conditional edges
+    title: Plan + tasks schema validators (with cross-validation)
     description: >
-      Update feature-agent-graph.ts to add validate and repair nodes after each
-      YAML-producing node. Add conditional edges using routeValidation() factory.
-      Update state.ts with validationRetries, lastValidationTarget, and
-      lastValidationErrors annotations. The graph topology changes from linear
-      to linear-with-validation-loops.
-    state: Todo
+      Create nodes/schemas/plan.schema.ts with validatePlan() and validateTasks().
+      Plan validates phases[] with id/name/parallel, requires at least one of
+      filesToCreate or filesToModify non-empty, content. Tasks validates
+      tasks[] with id/phaseId/title/state/acceptanceCriteria[], cross-validates
+      phaseId references against provided phaseIds array.
+    state: Done
     dependencies:
-      - task-14
-      - task-15
+      - task-13
+    files:
+      create:
+        - src/infrastructure/services/agents/feature-agent/nodes/schemas/plan.schema.ts
+        - tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/plan.schema.test.ts
     acceptanceCriteria:
-      - State annotation includes validationRetries, lastValidationTarget, lastValidationErrors
-      - Graph has validate nodes after analyze, requirements, research, plan
-      - Graph has repair nodes paired with each validate node
-      - Conditional edges route pass to next node, fail to repair, exhausted to throw
-      - routeValidation() factory produces correct routing functions
+      - validatePlan passes for valid plan, fails for empty phases, missing phase.id
+      - At least one of filesToCreate/filesToModify must be non-empty
+      - validateTasks passes with matching phaseIds, fails for unknown phaseId
+      - Task items validated for id, title, state, acceptanceCriteria
+    tdd:
+      red:
+        - Test valid plan passes, empty phases fails, missing phase.id fails
+        - Test both filesToCreate and filesToModify empty fails
+        - Test valid tasks with matching phaseIds passes
+        - Test task with unknown phaseId fails, missing acceptanceCriteria fails
+      green:
+        - Implement validatePlan with phases and file list validation
+        - Implement validateTasks with phaseId cross-reference
+      refactor:
+        - Consistent phase validation pattern
+    estimatedEffort: S
+
+  - id: task-17
+    title: Validate node factory (createValidateNode)
+    description: >
+      Create nodes/validate.node.ts with createValidateNode(filename, schema)
+      factory. Reads YAML file from specDir, parses with safeYamlLoad, runs
+      schema validator. On success: resets validationRetries=0, clears errors.
+      On failure: increments validationRetries, sets lastValidationErrors.
+      On parse error: reports YAML parse error without calling schema.
+    state: Done
+    dependencies:
+      - task-13
+    files:
+      create:
+        - src/infrastructure/services/agents/feature-agent/nodes/validate.node.ts
+        - tests/unit/infrastructure/services/agents/feature-agent/nodes/validate.node.test.ts
+    acceptanceCriteria:
+      - Returns empty errors on valid YAML, validationRetries reset to 0
+      - Returns schema errors and increments validationRetries on failure
+      - Returns parse error when YAML is malformed, schema not called
+      - Accumulates retry count across invocations
+      - Sets lastValidationTarget to filename
+    tdd:
+      red:
+        - Test valid YAML returns empty errors, retries=0
+        - Test schema failure returns errors, increments retries
+        - Test malformed YAML returns parse error, schema not called
+        - Test retry accumulation across invocations
+      green:
+        - Implement createValidateNode factory using readSpecFile and safeYamlLoad
+        - Handle parse errors separately from schema errors
+      refactor:
+        - Ensure consistent logging via createNodeLogger
+    estimatedEffort: M
+
+  - id: task-18
+    title: Repair node factory (createRepairNode)
+    description: >
+      Create nodes/repair.node.ts with createRepairNode(filename, executor)
+      factory. Reads broken YAML, builds repair prompt with validation errors
+      from state, calls executor with constrained options (maxTurns: 5,
+      disableMcp: true, tools: ['write']). Supports single file or array
+      of filenames for multi-file repair (plan.yaml + tasks.yaml).
+    state: Done
+    dependencies:
+      - task-17
+    files:
+      create:
+        - src/infrastructure/services/agents/feature-agent/nodes/repair.node.ts
+        - tests/unit/infrastructure/services/agents/feature-agent/nodes/repair.node.test.ts
+    acceptanceCriteria:
+      - Sends repair prompt containing validation errors and broken YAML content
+      - Executor called with maxTurns=5, disableMcp=true, tools=['write']
+      - Supports single file (spec.yaml) and multi-file (plan.yaml + tasks.yaml)
+      - Returns messages about repair attempt
+      - Prompt includes file paths for executor to write fixed files
+    tdd:
+      red:
+        - Test repair prompt contains validation errors and broken YAML
+        - Test executor options (maxTurns, disableMcp, tools)
+        - Test multi-file repair includes all file contents
+        - Test messages returned about repair attempt
+      green:
+        - Implement buildRepairPrompt helper for prompt construction
+        - Implement createRepairNode factory calling executor
+      refactor:
+        - Extract buildRepairPrompt as separate exported function
+    estimatedEffort: M
+
+  - id: task-19
+    title: Update state annotation with validation channels
+    description: >
+      Add three new annotation channels to FeatureAgentAnnotation in state.ts:
+      validationRetries (number, default 0), lastValidationTarget (string, default ''),
+      lastValidationErrors (string[], default []). All use replace reducer.
+    state: Done
+    dependencies:
+      - task-4
+    files:
+      modify:
+        - src/infrastructure/services/agents/feature-agent/state.ts
+    acceptanceCriteria:
+      - validationRetries annotation with default 0
+      - lastValidationTarget annotation with default ''
+      - lastValidationErrors annotation with default []
+      - Existing tests pass (new channels have defaults)
+    tdd:
+      red:
+        - Run existing integration tests to verify baseline
+      green:
+        - Add three annotation channels with defaults
+      refactor:
+        - Group validation channels together with comment
+    estimatedEffort: S
+
+  - id: task-20
+    title: Wire validate/repair nodes into graph with conditional edges
+    description: >
+      Update feature-agent-graph.ts to add validate and repair nodes after
+      each YAML-producing node. Create routeValidation(successNode, repairNode)
+      factory for conditional edges. Create createPlanTasksValidator for
+      cross-validating plan.yaml and tasks.yaml. Wire: analyze→validate_spec_analyze,
+      requirements→validate_spec_requirements, research→validate_research,
+      plan→validate_plan. Each with repair loop (max 3 retries).
+    state: Done
+    dependencies:
+      - task-17
+      - task-18
+      - task-19
+    files:
+      modify:
+        - src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts
+    acceptanceCriteria:
+      - routeValidation routes to successNode on pass, repairNode on fail
+      - routeValidation throws after 3 retries
+      - createPlanTasksValidator cross-validates tasks.yaml phaseIds against plan phases
+      - Graph has 4 validate nodes and 4 repair nodes
+      - Conditional edges create retry loops
       - Graph compiles without errors
       - Existing HITL interrupt behavior preserved
     tdd:
       red:
-        - Write tests for routeValidation() with pass/fail/exhausted states
-        - Write tests for state annotation defaults
-        - Write integration test for validate-repair loop with mocked executor
+        - Write integration test verifying validation nodes run in graph
+        - Write test for validate-repair loop with mocked executor
       green:
-        - Add state annotation channels
-        - Add all validate and repair nodes to graph
-        - Wire conditional edges with routeValidation()
-        - Import and configure schema validators
+        - Implement routeValidation factory
+        - Implement createPlanTasksValidator
+        - Add all validate/repair nodes to graph builder
+        - Wire conditional edges
       refactor:
         - Group node registration by concern (producers, validators, repairers)
-    estimatedEffort: L
+    estimatedEffort: M
+
+  - id: task-21
+    title: Integration test for validate-repair loop
+    description: >
+      Add integration test to hitl-approval-flow.test.ts that verifies the
+      full validate-repair cycle. Mock executor writes intentionally invalid
+      YAML on first call, then valid YAML on repair call. Verify graph
+      completes, repair node ran, and validation eventually passed.
+    state: Done
+    dependencies:
+      - task-20
+    files:
+      modify:
+        - tests/integration/infrastructure/services/agents/hitl-approval-flow.test.ts
+    acceptanceCriteria:
+      - Test writes invalid spec.yaml, verifies repair node called
+      - Executor mock writes valid YAML on repair call
+      - Graph completes with repair messages in state
+      - Validation PASS message present after repair
+    tdd:
+      red:
+        - Write integration test for repair loop
+      green:
+        - Test should pass once graph wiring is correct
+      refactor:
+        - Ensure test is deterministic and fast
+    estimatedEffort: S
+
+  - id: task-22
+    title: Full suite verification (tests, typecheck, lint)
+    description: >
+      Run pnpm test, pnpm typecheck, pnpm lint to verify all changes work
+      together. Fix any type errors, lint issues, or test failures. This is
+      the final validation before the feature is complete.
+    state: Done
+    dependencies:
+      - task-21
+    acceptanceCriteria:
+      - pnpm test passes (all unit + integration tests)
+      - pnpm typecheck passes (no type errors)
+      - pnpm lint passes (no lint errors)
+    tdd: null
+    estimatedEffort: S
 
 # Total effort estimate
-totalEstimate: XL (16 tasks across 7 phases)
+totalEstimate: XL (22 tasks across 7 phases)
 
 # Open questions
 openQuestions: []
@@ -526,7 +697,7 @@ openQuestions: []
 content: |
   ## Summary
 
-  HITL Approval Gates + YAML Validation — 16 tasks across 7 phases.
+  HITL Approval Gates + YAML Validation — 22 tasks across 7 phases.
   Covers TypeSpec models, database migration, agent system refactor,
   new CLI commands, existing command enhancements, and LangGraph
   validate-repair loops for AI-generated YAML outputs.
@@ -535,7 +706,7 @@ content: |
 
   Before marking feature complete:
 
-  - [ ] All 16 tasks completed
+  - [ ] All 22 tasks completed
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)
