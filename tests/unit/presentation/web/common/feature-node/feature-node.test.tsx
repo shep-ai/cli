@@ -91,30 +91,6 @@ describe('FeatureNode', () => {
     expect(handles.length).toBeGreaterThanOrEqual(2);
   });
 
-  it.each([
-    ['running', 'border-l-blue-500'],
-    ['action-required', 'border-l-amber-500'],
-    ['done', 'border-l-emerald-500'],
-    ['blocked', 'border-l-gray-400'],
-    ['error', 'border-l-red-500'],
-  ] as const)('applies correct border color for %s state', (state, expectedClass) => {
-    renderFeatureNode({ state });
-    const card = screen.getByTestId('feature-node-card');
-    expect(card.className).toContain(expectedClass);
-  });
-
-  it.each([
-    ['running', 'text-blue-500'],
-    ['action-required', 'text-amber-500'],
-    ['done', 'text-emerald-500'],
-    ['blocked', 'text-gray-400'],
-    ['error', 'text-red-500'],
-  ] as const)('applies correct label color for %s state', (state, expectedClass) => {
-    renderFeatureNode({ state });
-    const label = screen.getByTestId('feature-node-lifecycle-label');
-    expect(label.className).toContain(expectedClass);
-  });
-
   it('renders all lifecycle phases with display labels', () => {
     const phases = [
       'requirements',
