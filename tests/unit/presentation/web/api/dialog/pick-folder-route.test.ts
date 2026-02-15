@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock the FolderDialogService before importing the route
 const mockPickFolder = vi.fn<() => string | null>();
-vi.mock('@shepai/core/infrastructure/services/folder-dialog.service', () => ({
+vi.mock('@cli/infrastructure/services/folder-dialog.service', () => ({
   FolderDialogService: class {
     pickFolder = mockPickFolder;
   },

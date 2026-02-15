@@ -1,8 +1,9 @@
 'use client';
 
-import { useRef, useState, useCallback } from 'react';
-import { Github, Plus, TerminalSquare, Copy, Check } from 'lucide-react';
+import { useState, useCallback } from 'react';
+import { Github, Plus, TerminalSquare, Copy, Check, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { pickFolder } from '@/components/common/add-repository-node/pick-folder';
 
 export interface ControlCenterEmptyStateProps {
   onRepositorySelect?: (path: string) => void;
@@ -15,20 +16,20 @@ export function ControlCenterEmptyState({
   onRepositorySelect,
   className,
 }: ControlCenterEmptyStateProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
+  const [loading, setLoading] = useState(false);
 
-  function handlePickerClick() {
-    inputRef.current?.click();
-  }
-
-  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = e.target.files;
-    if (files && files.length > 0) {
-      const folderPath = files[0].webkitRelativePath.split('/')[0];
-      onRepositorySelect?.(folderPath);
+  async function handlePickerClick() {
+    if (loading) return;
+    setLoading(true);
+    try {
+      const path = await pickFolder();
+      if (path) {
+        onRepositorySelect?.(path);
+      }
+    } finally {
+      setLoading(false);
     }
-    e.target.value = '';
   }
 
   const handleCopy = useCallback(async () => {
@@ -65,21 +66,12 @@ export function ControlCenterEmptyState({
             type="button"
             data-testid="empty-state-add-repository"
             onClick={handlePickerClick}
-            className="border-muted-foreground/30 hover:border-primary hover:text-primary flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed px-8 py-4 transition-colors"
+            disabled={loading}
+            className="border-muted-foreground/30 hover:border-primary hover:text-primary flex cursor-pointer items-center gap-3 rounded-lg border-2 border-dashed px-8 py-4 transition-colors disabled:cursor-wait disabled:opacity-60"
           >
-            <Plus className="h-5 w-5" />
-            <span className="text-sm font-medium">Add Repository</span>
+            {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : <Plus className="h-5 w-5" />}
+            <span className="text-sm font-medium">{loading ? 'Opening...' : 'Add Repository'}</span>
           </button>
-
-          <input
-            ref={inputRef}
-            type="file"
-            data-testid="empty-state-repository-input"
-            className="hidden"
-            onChange={handleFileChange}
-            /* @ts-expect-error -- webkitdirectory is non-standard but widely supported */
-            webkitdirectory=""
-          />
 
           {/* CLI divider */}
           <div className="text-muted-foreground flex items-center gap-3">

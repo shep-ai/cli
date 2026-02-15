@@ -487,7 +487,7 @@ describe('useControlCenterState', () => {
 
       const repoNode = capturedState!.nodes.find((n) => n.type === 'repositoryNode');
       expect(repoNode).toBeDefined();
-      expect((repoNode!.data as { name: string }).name).toBe('my-org/repo');
+      expect((repoNode!.data as { name: string }).name).toBe('repo');
     });
   });
 });
