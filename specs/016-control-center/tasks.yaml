@@ -221,7 +221,7 @@ tasks:
       (C) In CLI bootstrap, expose resolved use cases via globalThis.__shepUseCases.
       Create web/lib/use-cases.ts bridge module with local TS interfaces (no CLI source
       imports). Delete web/lib/features.ts. Update page.tsx to use bridge.
-    state: Todo
+    state: Done
     dependencies:
       - task-6
     acceptanceCriteria:
@@ -291,7 +291,7 @@ tasks:
       forces done state. Ensure all agent states display correctly (running, done,
       error, action-required). Update any tests that mock getFeatures() to mock
       the bridge module instead.
-    state: Todo
+    state: Done
     dependencies:
       - task-8
       - task-9
