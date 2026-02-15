@@ -116,6 +116,38 @@ No security implications identified. This feature is purely presentational UI wi
 - **useOnSelectionChange**: The callback must be memoized with `useCallback` (documented requirement from React Flow). Failure to memoize causes unnecessary re-subscriptions.
 - **addNodes/addEdges**: These methods batch updates internally. Adding a node + edge in sequence is efficient and does not cause double renders.
 
+### 8. Lifecycle Phase Alignment with Domain
+
+**Options considered:**
+
+1. **Map FeatureLifecyclePhase 1:1 to domain SdlcLifecycle** — Use matching values (requirements, research, implementation, review, deploy, maintain) with display labels
+2. **Keep UI-specific simplified phases** — Continue using invented phases ('plan', 'test', 'maintenance')
+3. **Create a separate presentation-layer enum** — New enum decoupled from domain
+
+**Decision:** Map 1:1 to domain SdlcLifecycle
+
+**Rationale:** The UI phases ('plan', 'test', 'maintenance') have no domain counterpart. The lifecycleMap collapsed Research→requirements and Maintain→deploy, losing information. A 1:1 mapping with a display label map (`maintain` → "COMPLETED", `deploy` → "DEPLOY & QA") keeps the UI accurate while providing human-readable names.
+
+### 9. Feature State Derivation from agent_runs
+
+**Options considered:**
+
+1. **LEFT JOIN features with agent_runs** — Query real status from DB
+2. **Read feature.yaml from disk** — Parse spec files for progress
+3. **Hardcode all features as running** — Current approach (broken)
+
+**Decision:** LEFT JOIN features with agent_runs
+
+**Rationale:** The feature-agent graph updates `agent_runs.status` as it progresses but does NOT update `feature.lifecycle` (stays at "Requirements"). Both tables live in `~/.shep/data`. A simple SQL JOIN provides real operational state without filesystem coupling. Maps: running→running, completed→done, failed→error, waiting_approval→action-required.
+
+**Key finding:** Agent graph nodes do NOT update `feature.lifecycle` in the DB. The `agent_runs.status` column is the real source of truth for operational state.
+
+### 10. Maintain Lifecycle Semantics
+
+**Decision:** Maintain = Completed (done state, "COMPLETED" display label)
+
+**Rationale:** A feature in the Maintain lifecycle has been fully implemented, reviewed, and deployed. From the control center perspective, this is completed work. Emerald done state gives clear visual feedback.
+
 ## Open Questions
 
 All questions resolved.

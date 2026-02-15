@@ -1,7 +1,7 @@
 ## Status
 
-- **Phase:** Planning
-- **Updated:** 2026-02-12
+- **Phase:** Complete
+- **Updated:** 2026-02-15
 
 ## Architecture Overview
 
@@ -185,6 +185,45 @@ ControlCenter
 4. `pnpm build:web` — Next.js production build passes
 
 **Deliverables:** All builds green
+
+### Phase 8: Lifecycle Alignment
+
+**Goal:** Align UI lifecycle phases with domain SdlcLifecycle 1:1 and add display labels.
+
+**Steps:**
+
+1. Update `FeatureLifecyclePhase` type: `'plan'→'research'`, `'test'→'review'`, `'maintenance'→'maintain'`
+2. Add `lifecycleDisplayLabels` map (`maintain`→"COMPLETED", `deploy`→"DEPLOY & QA", etc.)
+3. Update `feature-node.tsx` to use `lifecycleDisplayLabels[data.lifecycle]` instead of `.toUpperCase()`
+4. Export `lifecycleDisplayLabels` from `index.ts`
+5. Fix `lifecycleMap` in `page.tsx` to be 1:1 with domain
+
+**Deliverables:** Lifecycle phases match domain, display labels are human-readable
+
+### Phase 9: Agent State Integration
+
+**Goal:** Derive real feature state from agent_runs.status via SQL JOIN.
+
+**Steps:**
+
+1. Extend `getFeatures()` SQL: `LEFT JOIN agent_runs ar ON f.agent_run_id = ar.id`
+2. Add `agentStatus` and `agentError` fields to Feature interface
+3. Add `deriveState()` function in page.tsx mapping agent_runs.status → FeatureNodeState
+4. Maintain lifecycle always forces done state
+
+**Deliverables:** Features show real operational state from agent_runs
+
+### Phase 10: Story Updates
+
+**Goal:** Update all Storybook stories with new lifecycle values.
+
+**Steps:**
+
+1. Replace old phases in all story data (`'plan'`→`'research'`, `'test'`→`'review'`, `'maintenance'`→`'maintain'`)
+2. Update `allLifecycles` array in feature-node.stories.tsx
+3. Verify AllLifecycles story shows correct display labels
+
+**Deliverables:** Stories reflect new lifecycle values, build passes
 
 ## Files to Create/Modify
 

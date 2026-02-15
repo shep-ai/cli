@@ -8,8 +8,8 @@ oneLiner: Interactive orchestrator with real agent state, domain-aligned lifecyc
 summary: >
   Build a Control Center Tier 3 component that wraps the existing FeaturesCanvas
   with interactive capabilities: node selection with visual highlight, contextual
-  add-feature actions via (+) buttons on repo and feature nodes, toolbar with
-  canvas actions (add feature, auto-layout), and centralized state management via
+  add-feature actions via (+) buttons on repo and feature nodes, contextual
+  node actions (replaced original toolbar for cleaner canvas-first UX), and centralized state management via
   a custom hook. Align UI lifecycle phases 1:1 with domain SdlcLifecycle enum
   (requirements, research, implementation, review, deploy, maintain). Derive real
   feature state from agent_runs.status via SQL JOIN (running/done/error/action-required).
@@ -201,7 +201,7 @@ content: |
   **In scope:**
   - ControlCenter orchestrator wrapping FeaturesCanvas
   - State management hook (useControlCenterState)
-  - Toolbar via React Flow Panel
+  - Empty state CTA and contextual node actions (toolbar removed for cleaner UX)
   - Node selection with visual highlight
   - Contextual add via RepositoryNode (+) → creates connected FeatureNode
   - Contextual add via FeatureNode (+) → creates connected child FeatureNode
