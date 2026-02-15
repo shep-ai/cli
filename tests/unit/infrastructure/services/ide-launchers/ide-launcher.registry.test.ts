@@ -22,7 +22,7 @@ describe('createLauncherRegistry', () => {
     [EditorType.Cursor, 'cursor'],
     [EditorType.Windsurf, 'windsurf'],
     [EditorType.Zed, 'zed'],
-    [EditorType.Antigravity, 'agy'],
+    [EditorType.Antigravity, 'antigravity'],
   ])('should map editorId "%s" to binary "%s"', (editorId, expectedBinary) => {
     const registry = createLauncherRegistry();
     const launcher = registry.get(editorId);

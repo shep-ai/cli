@@ -6,7 +6,7 @@ import type { IdeLauncher } from './ide-launcher.interface';
 export class AntigravityLauncher implements IdeLauncher {
   readonly name = 'Antigravity';
   readonly editorId = EditorType.Antigravity;
-  readonly binary = 'agy';
+  readonly binary = 'antigravity';
 
   async launch(path: string): Promise<void> {
     const child = spawn(this.binary, [path], {
