@@ -13,7 +13,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
 
-/** Feature row as stored in the SQLite features table. */
+/** Feature row as stored in the SQLite features table (with LEFT JOIN agent_runs). */
 interface FeatureRow {
   id: string;
   name: string;
@@ -29,6 +29,8 @@ interface FeatureRow {
   spec_path: string | null;
   created_at: number;
   updated_at: number;
+  agent_status: string | null;
+  agent_error: string | null;
 }
 
 /** Domain Feature object returned to the UI. */
@@ -41,6 +43,8 @@ export interface Feature {
   branch: string;
   lifecycle: string;
   specPath?: string;
+  agentStatus?: string;
+  agentError?: string;
 }
 
 function fromRow(row: FeatureRow): Feature {
@@ -53,6 +57,8 @@ function fromRow(row: FeatureRow): Feature {
     branch: row.branch,
     lifecycle: row.lifecycle,
     ...(row.spec_path !== null && { specPath: row.spec_path }),
+    ...(row.agent_status !== null && { agentStatus: row.agent_status }),
+    ...(row.agent_error !== null && { agentError: row.agent_error }),
   };
 }
 
@@ -66,7 +72,11 @@ export async function getFeatures(): Promise<Feature[]> {
 
   try {
     const db = new Database(dbPath, { readonly: true });
-    const rows = db.prepare('SELECT * FROM features').all() as FeatureRow[];
+    const rows = db
+      .prepare(
+        'SELECT f.*, ar.status as agent_status, ar.error as agent_error FROM features f LEFT JOIN agent_runs ar ON f.agent_run_id = ar.id'
+      )
+      .all() as FeatureRow[];
     db.close();
     return rows.map(fromRow);
   } catch (error) {
