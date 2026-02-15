@@ -9,6 +9,7 @@ type IconProps = SVGProps<SVGSVGElement> & { className?: string };
 /** Create a stable image-based icon component for a brand. */
 function createBrandIcon(src: string, alt: string): ComponentType<IconProps> {
   function BrandIcon({ className }: IconProps) {
+    // eslint-disable-next-line @next/next/no-img-element
     return <img src={src} alt={alt} className={cn('rounded-sm object-contain', className)} />;
   }
   BrandIcon.displayName = `BrandIcon(${alt})`;
