@@ -26,7 +26,7 @@ export const Default: Story = {
         <div className="grid gap-4">
           <div className="space-y-2">
             <h4 className="leading-none font-medium">Dimensions</h4>
-            <p className="text-sm text-muted-foreground">Set the dimensions for the layer.</p>
+            <p className="text-muted-foreground text-sm">Set the dimensions for the layer.</p>
           </div>
           <div className="grid gap-2">
             <div className="grid grid-cols-3 items-center gap-4">
