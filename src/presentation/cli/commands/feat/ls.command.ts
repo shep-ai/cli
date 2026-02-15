@@ -11,6 +11,7 @@
  * $ shep feat ls --repo /path/to/project
  */
 
+import path from 'node:path';
 import { Command } from 'commander';
 import { container } from '../../../../infrastructure/di/container.js';
 import { ListFeaturesUseCase } from '../../../../application/use-cases/features/list-features.use-case.js';
@@ -79,6 +80,40 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+/** Format a duration in ms to a compact human-readable string. */
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  if (seconds < 60) return `${seconds}s`;
+  const minutes = Math.floor(seconds / 60);
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  const remMin = minutes % 60;
+  if (hours < 24) return remMin > 0 ? `${hours}h ${remMin}m` : `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
+}
+
+/** Format the time column based on run status. */
+function formatTime(feature: Feature, run: AgentRun | null): string {
+  const now = Date.now();
+
+  if (run) {
+    const isRunning = run.status === 'running' || run.status === 'pending';
+    if (isRunning && run.startedAt) {
+      const started = new Date(run.startedAt).getTime();
+      return colors.info(formatDuration(now - started));
+    }
+    if (run.status === 'completed' && run.completedAt) {
+      const completed = new Date(run.completedAt).getTime();
+      return colors.muted(`${formatDuration(now - completed)} ago`);
+    }
+  }
+
+  // Fallback to updatedAt
+  const updated = new Date(feature.updatedAt).getTime();
+  return colors.muted(`${formatDuration(now - updated)} ago`);
+}
+
 export function createLsCommand(): Command {
   return new Command('ls')
     .description('List features')
@@ -100,17 +135,16 @@ export function createLsCommand(): Command {
 
         const rows = features.map((feature, i) => {
           const run = runs[i];
-          const updated =
-            feature.updatedAt instanceof Date
-              ? feature.updatedAt.toLocaleDateString()
-              : String(feature.updatedAt);
+          const repo = path.basename(feature.repositoryPath);
+          const agent = run?.agentType ?? colors.muted('—');
 
           return [
             feature.id.slice(0, 8),
             feature.name.slice(0, 30),
             formatStatus(feature, run),
-            colors.muted(feature.branch),
-            colors.muted(updated),
+            colors.muted(repo),
+            agent,
+            formatTime(feature, run),
           ];
         });
 
@@ -120,8 +154,9 @@ export function createLsCommand(): Command {
             { label: 'ID', width: 10 },
             { label: 'Name', width: 32 },
             { label: 'Status', width: 20 },
-            { label: 'Branch', width: 28 },
-            { label: 'Updated', width: 12 },
+            { label: 'Repo', width: 20 },
+            { label: 'Agent', width: 14 },
+            { label: 'Time', width: 12 },
           ],
           rows,
           emptyMessage: 'No features found',
