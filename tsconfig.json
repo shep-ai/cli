@@ -18,19 +18,13 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@shepai/core": ["packages/core/src/index.ts"],
-      "@shepai/core/*": ["packages/core/src/*"],
-      "@/application/*": ["packages/core/src/application/*"],
-      "@/infrastructure/*": ["packages/core/src/infrastructure/*"],
-      "@/domain/*": ["packages/core/src/domain/*"],
       "@/*": ["src/*"],
       "@tests/*": ["tests/*"],
-      "@/app/*": ["src/presentation/web/app/*"],
       "@/components/*": ["src/presentation/web/components/*"],
       "@/lib/*": ["src/presentation/web/lib/*"],
       "@/hooks/*": ["src/presentation/web/hooks/*"],
       "@/types/*": ["src/presentation/web/types/*"],
-      "@domain/generated/*": ["packages/core/src/domain/generated/*"],
+      "@domain/generated/*": ["src/domain/generated/*"],
       "@cli/*": ["src/*"]
     },
     "jsx": "react-jsx",
@@ -44,7 +38,6 @@
   },
   "include": [
     "src/**/*",
-    "packages/core/src/**/*",
     "tests/**/*",
     "types/**/*",
     "vitest.config.ts",

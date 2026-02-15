@@ -221,6 +221,26 @@ tasks:
     tdd: null
     estimatedEffort: S
 
+  - id: task-8
+    title: 'Use existing ListFeaturesUseCase in control center page'
+    description: >
+      Replace direct filesystem reads in lib/shep-data.ts with the existing
+      ListFeaturesUseCase and IFeatureRepository (already on main). Merge main
+      to get the infrastructure, then refactor page.tsx to resolve the use case
+      from the DI container and delete lib/shep-data.ts.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'main merged into feature branch (brings ListFeaturesUseCase, IFeatureRepository, SQLiteFeatureRepository)'
+      - 'control-center/page.tsx resolves ListFeaturesUseCase from DI container'
+      - 'lib/shep-data.ts deleted (no direct filesystem access from presentation)'
+      - 'Node/edge mapping remains in page.tsx (presentation concern)'
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes'
+    tdd: null
+    estimatedEffort: S
+
 # Total effort estimate
 totalEstimate: M
 
