@@ -11,7 +11,10 @@ technologies:
   - TypeScript
   - Commander.js
   - '@inquirer/prompts'
-relatedLinks: []
+  - node:child_process
+relatedLinks:
+  - title: Google Antigravity IDE docs
+    url: https://antigravity.google/docs/command
 
 # Structured implementation phases
 phases:
@@ -21,24 +24,62 @@ phases:
     taskIds:
       - task-1
   - id: phase-2
-    name: 'CLI Command (TDD)'
+    name: 'CLI Settings IDE Command (TDD)'
     parallel: false
     taskIds:
       - task-2
   - id: phase-3
-    name: 'Wire Up & Verify'
+    name: 'Wire Up Settings IDE & Verify'
     parallel: false
     taskIds:
       - task-3
+  - id: phase-4
+    name: 'IDE Launcher Interface & Implementations (TDD)'
+    parallel: false
+    taskIds:
+      - task-4
+      - task-5
+      - task-6
+      - task-7
+      - task-8
+      - task-9
+  - id: phase-5
+    name: 'IDE Open Command (TDD)'
+    parallel: false
+    taskIds:
+      - task-10
+  - id: phase-6
+    name: 'Integrate Launchers into Settings IDE & Verify'
+    parallel: false
+    taskIds:
+      - task-11
 
 # File change tracking
 filesToCreate:
   - src/presentation/tui/prompts/ide-select.prompt.ts
   - src/presentation/cli/commands/settings/ide.command.ts
   - tests/unit/presentation/cli/commands/settings/ide.command.test.ts
+  - src/infrastructure/services/ide-launchers/ide-launcher.interface.ts
+  - src/infrastructure/services/ide-launchers/vscode.launcher.ts
+  - src/infrastructure/services/ide-launchers/cursor.launcher.ts
+  - src/infrastructure/services/ide-launchers/windsurf.launcher.ts
+  - src/infrastructure/services/ide-launchers/zed.launcher.ts
+  - src/infrastructure/services/ide-launchers/antigravity.launcher.ts
+  - src/infrastructure/services/ide-launchers/ide-launcher.registry.ts
+  - src/presentation/cli/commands/ide-open.command.ts
+  - tests/unit/infrastructure/services/ide-launchers/vscode.launcher.test.ts
+  - tests/unit/infrastructure/services/ide-launchers/cursor.launcher.test.ts
+  - tests/unit/infrastructure/services/ide-launchers/windsurf.launcher.test.ts
+  - tests/unit/infrastructure/services/ide-launchers/zed.launcher.test.ts
+  - tests/unit/infrastructure/services/ide-launchers/antigravity.launcher.test.ts
+  - tests/unit/infrastructure/services/ide-launchers/ide-launcher.registry.test.ts
+  - tests/unit/presentation/cli/commands/ide-open.command.test.ts
 
 filesToModify:
   - src/presentation/cli/commands/settings/index.ts
+  - src/presentation/tui/prompts/ide-select.prompt.ts
+  - src/presentation/cli/commands/settings/ide.command.ts
+  - src/presentation/cli/index.ts
 
 # Open questions (should all be resolved before implementation)
 openQuestions: []
@@ -47,88 +88,77 @@ openQuestions: []
 content: |
   ## Status
 
-  - **Phase:** Planning
+  - **Phase:** Implementation
   - **Updated:** 2026-02-15
 
   ## Architecture Overview
 
   ```
-  User -> `shep settings ide`
-          |
-          v
-  ide.command.ts (interactive or --editor flag)
-          |
-          v
-  ide-select.prompt.ts (TUI select: vscode/cursor/windsurf/zed)
-          |
-          v
-  getSettings() -> mutate environment.defaultEditor
-          |
-          v
-  UpdateSettingsUseCase.execute(settings) -> SQLite persist
-          |
-          v
-  resetSettings() + initializeSettings() -> refresh singleton
-          |
-          v
-  Success message (+ PATH warning if binary not found)
+  Part 1: `shep settings ide`
+  User -> ide.command.ts (interactive or --editor flag)
+       -> ide-select.prompt.ts (TUI: vscode/cursor/windsurf/zed/antigravity)
+       -> launcher registry for PATH check
+       -> UpdateSettingsUseCase -> SQLite persist
+       -> resetSettings() + initializeSettings() -> refresh singleton
+
+  Part 2: `shep ide <feat-id> [--cursor|--vscode|--windsurf|--zed|--antigravity]`
+  User -> ide-open.command.ts
+       -> ShowFeatureUseCase (resolve by ID prefix)
+       -> computeWorktreePath(repoPath, branch)
+       -> Determine editor: override flag > settings default
+       -> launcher registry -> IdeLauncher.launch(path)
+       -> spawn detached process, CLI exits
   ```
 
   ## Implementation Strategy
 
   **MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
 
-  ### Phase 1: TUI Prompt (No Tests)
+  ### Phase 1-3: `shep settings ide` — DONE
 
-  **Goal:** Create the IDE selection prompt configuration.
+  TUI prompt, CLI command, and wiring already implemented.
 
-  **Steps:**
+  ### Phase 4: IDE Launcher Interface & Implementations (TDD)
 
-  1. Create `ide-select.prompt.ts` following `agent-select.prompt.ts` pattern
-  2. Define choices: VS Code, Cursor, Windsurf, Zed with descriptions
-  3. Use `shepTheme` for consistent styling
+  **Goal:** Create per-IDE launcher files with interface and registry.
 
-  **Deliverables:** IDE select prompt config function
+  **TDD Workflow per launcher:**
 
-  ### Phase 2: CLI Command (TDD Cycle)
+  1. **RED:** Write test for launcher metadata (name, editorId, binary), spawn behavior, checkAvailable
+  2. **GREEN:** Implement launcher class with spawn + which check
+  3. **REFACTOR:** (minimal — each launcher is small)
 
-  **Goal:** Implement `shep settings ide` command with interactive and non-interactive modes.
-
-  **TDD Workflow:**
-
-  1. **RED:** Write tests for ide.command.ts — interactive mode, --editor flag, PATH validation warning, Ctrl+C handling, settings persistence
-  2. **GREEN:** Implement ide.command.ts following agent.command.ts pattern
-  3. **REFACTOR:** Extract IDE binary map if needed
-
-  **Deliverables:** Working `shep settings ide` command with full test coverage
-
-  ### Phase 3: Wire Up & Verify
-
-  **Goal:** Register command in settings group, verify end-to-end.
-
-  **Steps:**
-
-  1. Add `createIdeCommand()` to settings/index.ts
-  2. Run `pnpm validate` to verify lint, types, tests
-  3. Manual verification: `pnpm dev:cli -- settings ide`
-
-  **Deliverables:** Fully integrated, passing CI
-
-  ## Files to Create/Modify
-
-  ### New Files
+  **Files:**
 
   | File | Purpose |
   | ---- | ------- |
-  | `src/presentation/tui/prompts/ide-select.prompt.ts` | IDE selection prompt config |
-  | `src/presentation/cli/commands/settings/ide.command.ts` | `shep settings ide` command |
-  | `tests/unit/presentation/cli/commands/settings/ide.command.test.ts` | Unit tests for IDE command |
+  | `ide-launcher.interface.ts` | `IdeLauncher` interface |
+  | `vscode.launcher.ts` | binary: `code` |
+  | `cursor.launcher.ts` | binary: `cursor` |
+  | `windsurf.launcher.ts` | binary: `windsurf` |
+  | `zed.launcher.ts` | binary: `zed` |
+  | `antigravity.launcher.ts` | binary: `agy` |
+  | `ide-launcher.registry.ts` | Map<string, IdeLauncher> factory |
 
-  ### Modified Files
+  ### Phase 5: `shep ide <feat-id>` Command (TDD)
 
-  | File | Changes |
-  | ---- | ------- |
-  | `src/presentation/cli/commands/settings/index.ts` | Add `createIdeCommand()` to settings group |
+  **Goal:** Top-level command to open feature worktree in IDE.
+
+  **TDD Workflow:**
+
+  1. **RED:** Test command structure (5 override options), feature resolution, editor override logic, error handling
+  2. **GREEN:** Implement ide-open.command.ts, register in index.ts
+  3. **REFACTOR:** Extract shared computeWorktreePath if beneficial
+
+  ### Phase 6: Integrate & Verify
+
+  **Goal:** Refactor settings ide command to use launcher registry, add Antigravity to prompt, full validation.
+
+  **Steps:**
+
+  1. Add Antigravity to ide-select.prompt.ts
+  2. Refactor ide.command.ts to use launcher registry (remove IDE_BINARY_MAP)
+  3. Run `pnpm validate` — all checks pass
 
   ## Testing Strategy (TDD: Tests FIRST)
 
@@ -136,16 +166,14 @@ content: |
 
   ### Unit Tests (RED -> GREEN -> REFACTOR)
 
-  Write FIRST for:
-  - Interactive mode: calls select prompt, persists choice, refreshes singleton
-  - Non-interactive mode: `--editor vscode` saves directly
-  - PATH validation: warns when binary not found (non-blocking)
-  - Error handling: Ctrl+C cancellation handled gracefully
-  - Invalid editor: still saves (string is free-form)
+  - Per-IDE launcher: metadata, spawn args, checkAvailable
+  - Launcher registry: all 5 IDEs registered, correct binaries
+  - IDE open command: feature resolution, editor override flags, error handling
+  - Settings ide command: existing tests + Antigravity support
 
   ### Integration Tests
 
-  Not needed — UpdateSettingsUseCase and SQLite repository already have integration tests from 006-cli-settings-commands.
+  Not needed — UpdateSettingsUseCase, ShowFeatureUseCase, and SQLite repositories already have integration tests.
 
   ## Risk Mitigation
 
@@ -153,7 +181,8 @@ content: |
   | ---- | ---------- |
   | `which` not available on Windows | Use `where` on Windows or skip validation with warning |
   | User enters unknown editor name | Accept any string, just warn about PATH |
+  | Feature worktree doesn't exist | Show clear error with worktree path |
 
   ---
 
-  _Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_
+  _Updated by brainstorming — see tasks.yaml for detailed breakdown_

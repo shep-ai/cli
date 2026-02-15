@@ -11,22 +11,24 @@ technologies:
   - TypeScript
   - Commander.js
   - '@inquirer/prompts'
+  - node:child_process
 relatedLinks: []
 
 # Structured task list
 tasks:
+  # --- Phase 1-3: shep settings ide (DONE) ---
   - id: task-1
     title: Create IDE selection TUI prompt
     description: >
       Create ide-select.prompt.ts following agent-select.prompt.ts pattern.
       Define choices for vscode, cursor, windsurf, zed with descriptions.
-    state: Todo
+    state: Done
     dependencies: []
     acceptanceCriteria:
       - Prompt config function exported
-      - Four IDE choices with names, values, descriptions
+      - IDE choices with names, values, descriptions
       - Uses shepTheme
-    tdd: null # Simple config, no logic to test
+    tdd: null
     estimatedEffort: small
 
   - id: task-2
@@ -35,7 +37,7 @@ tasks:
       Create ide.command.ts with interactive (TUI prompt) and non-interactive
       (--editor flag) modes. Persist via UpdateSettingsUseCase, refresh
       in-memory singleton, warn if binary not in PATH.
-    state: Todo
+    state: Done
     dependencies:
       - task-1
     acceptanceCriteria:
@@ -51,32 +53,193 @@ tasks:
         - Test --editor flag saves directly without prompt
         - Test PATH warning when binary not found
         - Test Ctrl+C cancellation returns gracefully
-        - Test success message after save
       green:
         - Implement createIdeCommand() following agent.command.ts pattern
-        - Wire up getSettings(), UpdateSettingsUseCase, resetSettings/initializeSettings
-        - Add execFileNoThrow PATH check with warning
       refactor:
         - Extract IDE binary map constant
     estimatedEffort: medium
 
   - id: task-3
-    title: Register command and verify
+    title: Register settings ide command and verify
     description: >
       Add createIdeCommand() to settings/index.ts command group.
-      Run pnpm validate to ensure lint, types, and tests pass.
-    state: Todo
+    state: Done
     dependencies:
       - task-2
     acceptanceCriteria:
       - Command registered in settings group
       - pnpm validate passes
-      - shep settings ide shows in help
-    tdd: null # Wiring only
+    tdd: null
+    estimatedEffort: small
+
+  # --- Phase 4: IDE Launcher Interface & Implementations ---
+  - id: task-4
+    title: Create IdeLauncher interface
+    description: >
+      Create ide-launcher.interface.ts with IdeLauncher interface defining
+      name, editorId, binary, launch(path), checkAvailable().
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - Interface exported with all required members
+    tdd: null # Interface only, no logic
+    estimatedEffort: small
+
+  - id: task-5
+    title: Implement VS Code launcher (TDD)
+    description: >
+      Create vscode.launcher.ts implementing IdeLauncher. Binary: code.
+      Spawn detached process, unref. checkAvailable via which.
+    state: Done
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - Correct metadata (name, editorId, binary)
+      - Spawns detached process with path argument
+      - checkAvailable returns true/false based on PATH
+    tdd:
+      red:
+        - Test metadata (name=VS Code, editorId=vscode, binary=code)
+        - Test spawn called with correct args (detached, stdio ignore)
+        - Test unref called on spawned process
+        - Test checkAvailable returns true when binary found
+        - Test checkAvailable returns false when binary not found
+      green:
+        - Implement VsCodeLauncher class
+      refactor: null
+    estimatedEffort: small
+
+  - id: task-6
+    title: Implement Cursor, Windsurf, Zed launchers (TDD)
+    description: >
+      Create cursor.launcher.ts, windsurf.launcher.ts, zed.launcher.ts.
+      Same pattern as VS Code but with respective binary names.
+    state: Done
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - Each launcher has correct metadata and binary
+      - Tests for each launcher
+    tdd:
+      red:
+        - Test metadata for each launcher
+        - Test spawn and checkAvailable for each
+      green:
+        - Implement CursorLauncher (binary cursor)
+        - Implement WindsurfLauncher (binary windsurf)
+        - Implement ZedLauncher (binary zed)
+      refactor: null
+    estimatedEffort: small
+
+  - id: task-7
+    title: Implement Antigravity launcher (TDD)
+    description: >
+      Create antigravity.launcher.ts. Google Antigravity IDE, binary: agy.
+    state: Done
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - Correct metadata (name=Antigravity, editorId=antigravity, binary=agy)
+      - Tests pass
+    tdd:
+      red:
+        - Test metadata (name=Antigravity, binary=agy)
+        - Test spawn and checkAvailable
+      green:
+        - Implement AntigravityLauncher class
+      refactor: null
+    estimatedEffort: small
+
+  - id: task-8
+    title: Create IDE launcher registry (TDD)
+    description: >
+      Create ide-launcher.registry.ts with createLauncherRegistry() function
+      returning Map<EditorType, IdeLauncher> with all 5 IDEs.
+    state: Done
+    dependencies:
+      - task-5
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - Registry contains all 5 launchers
+      - Correct binary for each editor ID
+    tdd:
+      red:
+        - Test registry has 5 entries
+        - Test each editor ID maps to correct binary
+      green:
+        - Implement createLauncherRegistry()
+      refactor: null
+    estimatedEffort: small
+
+  # --- Phase 5: shep ide <feat-id> command ---
+  - id: task-9
+    title: Add Antigravity to settings ide prompt
+    description: >
+      Add Antigravity as 5th choice in ide-select.prompt.ts.
+    state: Done
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - Antigravity appears in interactive IDE selection
+    tdd: null # Config only
+    estimatedEffort: small
+
+  - id: task-10
+    title: Implement shep ide command (TDD)
+    description: >
+      Create ide-open.command.ts as top-level command. Resolves feature by ID,
+      computes worktree path, determines editor from flag or settings,
+      launches IDE via registry. Register in CLI index.ts.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - Command named 'ide' with feat-id argument
+      - All 5 IDE override flags (--vscode, --cursor, --windsurf, --zed, --antigravity)
+      - Help shows all options with descriptions
+      - Uses default editor from settings when no flag
+      - Override flag takes precedence over settings
+      - Feature resolved by ID prefix
+      - IDE spawned detached
+      - Error handling for unknown feature, unknown editor
+    tdd:
+      red:
+        - Test command structure (name, 5 options)
+        - Test uses defaultEditor from settings when no flag
+        - Test --cursor flag overrides settings
+        - Test --antigravity flag overrides settings
+        - Test feature resolved via ShowFeatureUseCase
+        - Test success message includes IDE name
+        - Test error when feature not found
+        - Test error when unknown editor in settings
+      green:
+        - Implement createIdeOpenCommand()
+        - Register in src/presentation/cli/index.ts
+      refactor:
+        - Extract shared computeWorktreePath if beneficial
+    estimatedEffort: medium
+
+  # --- Phase 6: Integrate & Verify ---
+  - id: task-11
+    title: Refactor settings ide command to use launcher registry and verify all
+    description: >
+      Replace IDE_BINARY_MAP in ide.command.ts with launcher registry.
+      Run pnpm validate to ensure all tests, lint, types pass.
+    state: Done
+    dependencies:
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - ide.command.ts uses createLauncherRegistry() instead of IDE_BINARY_MAP
+      - checkBinaryInPath removed (uses launcher.checkAvailable)
+      - pnpm validate passes
+      - shep ide --help shows all 5 options
+    tdd: null # Refactor with existing test coverage
     estimatedEffort: small
 
 # Total effort estimate
-totalEstimate: small
+totalEstimate: medium
 
 # Open questions
 openQuestions: []
@@ -90,31 +253,39 @@ content: |
 
   ## Task List
 
-  ### Phase 1: TUI Prompt
+  ### Phase 1-3: `shep settings ide` — DONE
 
-  - [ ] **Task 1:** Create IDE selection TUI prompt (`ide-select.prompt.ts`)
+  - [x] **Task 1:** Create IDE selection TUI prompt
+  - [x] **Task 2:** Implement shep settings ide command (TDD)
+  - [x] **Task 3:** Register and verify
 
-  ### Phase 2: CLI Command (TDD Cycle)
+  ### Phase 4: IDE Launcher Interface & Implementations (TDD)
 
-  **RED (Write Failing Tests First):**
+  - [x] **Task 4:** Create IdeLauncher interface (`ide-launcher.interface.ts`)
+  - [x] **Task 5:** Implement VS Code launcher (TDD) — binary: `code`
+  - [x] **Task 6:** Implement Cursor, Windsurf, Zed launchers (TDD)
+  - [x] **Task 7:** Implement Antigravity launcher (TDD) — binary: `agy`
+  - [x] **Task 8:** Create IDE launcher registry (TDD)
 
-  - [ ] Test interactive mode calls select prompt and persists result
-  - [ ] Test --editor flag saves directly without prompt
-  - [ ] Test PATH warning when binary not found
-  - [ ] Test Ctrl+C cancellation returns gracefully
+  ### Phase 5: `shep ide <feat-id>` Command (TDD)
 
-  **GREEN (Implement to Pass Tests):**
+  - [x] **Task 9:** Add Antigravity to settings ide prompt
+  - [x] **Task 10:** Implement `shep ide <feat-id>` command (TDD)
 
-  - [ ] Implement `createIdeCommand()` in `ide.command.ts`
+  **RED:**
+  - Test command structure (name, 5 override options)
+  - Test uses defaultEditor from settings when no flag
+  - Test --cursor and --antigravity flags override settings
+  - Test feature resolved via ShowFeatureUseCase
+  - Test error handling (unknown feature, unknown editor)
 
-  **REFACTOR (Clean Up):**
+  **GREEN:**
+  - Implement createIdeOpenCommand() in ide-open.command.ts
+  - Register in src/presentation/cli/index.ts
 
-  - [ ] Extract IDE binary map constant if needed
+  ### Phase 6: Integrate & Verify
 
-  ### Phase 3: Wire Up & Verify
-
-  - [ ] Register `createIdeCommand()` in `settings/index.ts`
-  - [ ] Run `pnpm validate` — all checks pass
+  - [x] **Task 11:** Refactor settings ide to use launcher registry, run `pnpm validate`
 
   ## TDD Notes
 
@@ -123,20 +294,15 @@ content: |
   - **GREEN**: Write minimal code to pass tests
   - **REFACTOR**: Improve code while keeping tests green
 
-  ## Progress Tracking (CRITICAL)
-
-  - **Update checkboxes FREQUENTLY** — as soon as each item is complete!
-  - **Don't batch updates** — check off items immediately, not at the end
-  - **Commit tasks.md updates** along with code changes to show progress
-
   ## Acceptance Checklist
 
   Before marking feature complete:
 
-  - [ ] All tasks completed
-  - [ ] Tests passing (`pnpm test`)
-  - [ ] Linting clean (`pnpm lint`)
-  - [ ] Types valid (`pnpm typecheck`)
+  - [x] All tasks completed
+  - [x] Tests passing (`pnpm test`) — 783 tests, 82 files
+  - [x] Linting clean (`pnpm lint`)
+  - [x] Types valid (`pnpm typecheck`)
+  - [x] `shep ide --help` shows all 5 IDE options
   - [ ] PR created and reviewed
 
   ---
