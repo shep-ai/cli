@@ -45,8 +45,7 @@ export function FeatureNode({
       <div
         data-testid="feature-node-card"
         className={cn(
-          'bg-card flex min-h-35 w-72 flex-col rounded-lg border border-l-4 p-3 shadow-sm',
-          config.borderClass,
+          'bg-card flex min-h-35 w-72 flex-col rounded-lg border p-3 shadow-sm',
           selected && 'ring-primary ring-2'
         )}
       >
@@ -54,7 +53,7 @@ export function FeatureNode({
         <div className="flex items-center justify-between">
           <span
             data-testid="feature-node-lifecycle-label"
-            className={cn('text-[10px] font-semibold tracking-wider', config.labelClass)}
+            className={cn('text-[10px] font-semibold tracking-wider')}
           >
             {lifecycleDisplayLabels[data.lifecycle]}
           </span>
