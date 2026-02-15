@@ -14,13 +14,13 @@ relatedFeatures:
 
 technologies:
   - TypeScript
-  - "Cursor CLI (agent binary)"
-  - "tsyringe (dependency injection)"
-  - "Vitest (testing)"
-  - "Node.js child_process (spawn)"
-  - "Commander.js (CLI)"
-  - "@inquirer/prompts (TUI)"
-  - "TypeSpec (domain models)"
+  - 'Cursor CLI (agent binary)'
+  - 'tsyringe (dependency injection)'
+  - 'Vitest (testing)'
+  - 'Node.js child_process (spawn)'
+  - 'Commander.js (CLI)'
+  - '@inquirer/prompts (TUI)'
+  - 'TypeSpec (domain models)'
 
 relatedLinks:
   - https://www.codecademy.com/article/getting-started-with-cursor-cli
@@ -30,11 +30,11 @@ relatedLinks:
   - https://docs.slicervm.com/examples/cursor-cli-agent/
 
 decisions:
-  - title: "Executor Implementation Pattern"
-    chosen: "Mirror ClaudeCodeExecutorService structure with Cursor-specific stream parsing"
+  - title: 'Executor Implementation Pattern'
+    chosen: 'Mirror ClaudeCodeExecutorService structure with Cursor-specific stream parsing'
     rejected:
-      - "Shared base class with template method pattern — Over-abstraction for two implementations with fundamentally different stream formats. The NDJSON parsing differs enough that polymorphism would require messy overrides. Side-by-side duplication with Cursor-specific logic is clearer and more maintainable."
-      - "Plugin/adapter pattern with external config — Adds unnecessary indirection. The factory already provides the extension point. Two concrete executor classes behind IAgentExecutor is the simplest correct design."
+      - 'Shared base class with template method pattern — Over-abstraction for two implementations with fundamentally different stream formats. The NDJSON parsing differs enough that polymorphism would require messy overrides. Side-by-side duplication with Cursor-specific logic is clearer and more maintainable.'
+      - 'Plugin/adapter pattern with external config — Adds unnecessary indirection. The factory already provides the extension point. Two concrete executor classes behind IAgentExecutor is the simplest correct design.'
     rationale: >
       The ClaudeCodeExecutorService (437 lines) is a well-structured reference implementation.
       The CursorExecutorService should follow the same structural pattern: constructor-injected
@@ -46,22 +46,22 @@ decisions:
       parseStreamLine() and logStreamEvent() methods. Side-by-side structural parity makes it
       easy for reviewers to compare the two executors and spot inconsistencies.
 
-  - title: "CLI Binary Name and Invocation"
-    chosen: "Use `agent` as the binary name with `-p` flag for non-interactive mode"
+  - title: 'CLI Binary Name and Invocation'
+    chosen: 'Use `agent` as the binary name with `-p` flag for non-interactive mode'
     rejected:
-      - "`cursor` binary — This is the Cursor IDE launcher, not the CLI agent. The headless/CI binary is explicitly `agent`, confirmed across all sources (Codecademy, tarq.net, EveryDev, PraisonAI, Slicervm)."
-      - "`npx agent` via npm — Adds npm as a runtime dependency and is slower. The binary should be installed system-wide via `curl https://cursor.com/install -fsS | bash` and available on PATH, matching how Shep treats the `claude` binary."
+      - '`cursor` binary — This is the Cursor IDE launcher, not the CLI agent. The headless/CI binary is explicitly `agent`, confirmed across all sources (Codecademy, tarq.net, EveryDev, PraisonAI, Slicervm).'
+      - '`npx agent` via npm — Adds npm as a runtime dependency and is slower. The binary should be installed system-wide via `curl https://cursor.com/install -fsS | bash` and available on PATH, matching how Shep treats the `claude` binary.'
     rationale: >
       The binary name `agent` is confirmed by multiple independent sources. It installs
       to `~/.local/bin/agent`. The `-p` (or `--print`) flag enables non-interactive mode,
       which is required for subprocess execution. This maps directly to the Claude Code pattern
       where `claude -p` is used. The AGENT_BINARY_MAP entry should be `'cursor': 'agent'`.
 
-  - title: "Stream-JSON Parsing Strategy"
-    chosen: "Custom Cursor-specific NDJSON parser mapping Cursor event types to AgentExecutionStreamEvent"
+  - title: 'Stream-JSON Parsing Strategy'
+    chosen: 'Custom Cursor-specific NDJSON parser mapping Cursor event types to AgentExecutionStreamEvent'
     rejected:
       - "Reuse Claude Code's parseStreamLine() method — Claude Code parses `stream_event` with nested `content_block_delta` and `message_stop`, while Cursor uses flat `assistant`/`tool_call`/`result` types. The formats are structurally different and sharing would require awkward branching."
-      - "Generic NDJSON parser with pluggable event mappers — Over-engineered for two event formats. A simple if/else chain in parseStreamLine() is sufficient and more readable."
+      - 'Generic NDJSON parser with pluggable event mappers — Over-engineered for two event formats. A simple if/else chain in parseStreamLine() is sufficient and more readable.'
     rationale: >
       Cursor's stream-json format is NDJSON where each line is a JSON object with these event types:
       (1) `user` — contains `message.content[].text` with the echoed prompt,
@@ -76,11 +76,11 @@ decisions:
       (it's just the echoed input prompt). Tool call `started` events can optionally be emitted
       as progress events to show real-time activity.
 
-  - title: "Shared Type Extraction (SpawnFunction and ExecFunction)"
-    chosen: "Extract both types to `src/infrastructure/services/agents/common/types.ts`"
+  - title: 'Shared Type Extraction (SpawnFunction and ExecFunction)'
+    chosen: 'Extract both types to `src/infrastructure/services/agents/common/types.ts`'
     rejected:
       - "Import SpawnFunction from ClaudeCodeExecutorService — Creates undesirable coupling between executor implementations. The Cursor executor shouldn't import from the Claude Code executor."
-      - "Define SpawnFunction independently in each executor file — Violates DRY. Two identical type definitions that must stay in sync invites drift."
+      - 'Define SpawnFunction independently in each executor file — Violates DRY. Two identical type definitions that must stay in sync invites drift.'
       - "Define in the application layer port interfaces — SpawnFunction and ExecFunction are infrastructure concerns (child_process types). They don't belong in the application layer."
     rationale: >
       SpawnFunction is currently exported from `claude-code-executor.service.ts` (line 26) and
@@ -92,11 +92,11 @@ decisions:
       from the shared types file instead. This is a small, safe refactor (move type definitions
       + update ~4 import statements) and should be the first task.
 
-  - title: "CLI Flag Mapping (AgentExecutionOptions to Cursor CLI flags)"
-    chosen: "Direct flag mapping with Cursor-specific flags, omitting unsupported options gracefully"
+  - title: 'CLI Flag Mapping (AgentExecutionOptions to Cursor CLI flags)'
+    chosen: 'Direct flag mapping with Cursor-specific flags, omitting unsupported options gracefully'
     rejected:
       - "Pass all options as environment variables — Cursor CLI doesn't support this pattern for most options. Only CURSOR_API_KEY works via env var."
-      - "Use a config file for options — Adds file I/O complexity. CLI flags are simpler and more explicit for single-shot execution."
+      - 'Use a config file for options — Adds file I/O complexity. CLI flags are simpler and more explicit for single-shot execution.'
     rationale: >
       Based on Cursor CLI documentation, the confirmed flag mapping is:
       - `prompt` → passed as positional argument after `-p` flag (e.g., `agent -p "prompt"`)
@@ -118,8 +118,8 @@ decisions:
       - `outputSchema` → No `--json-schema` flag. Cursor doesn't support structured output.
         supportsFeature('structured-output') should return FALSE.
 
-  - title: "Supported Features Declaration"
-    chosen: "Declare only `streaming` and `session-resume` as supported features"
+  - title: 'Supported Features Declaration'
+    chosen: 'Declare only `streaming` and `session-resume` as supported features'
     rejected:
       - "Declare `streaming`, `session-resume`, and `system-prompt` — The spec assumed `--system-prompt` exists, but research confirms Cursor uses `.cursor/rules/` files instead of a CLI flag. Since the executor can't pass systemPrompt via CLI args, it should not declare system-prompt support."
       - "Declare all features including `structured-output` and `tool-scoping` — Neither is supported by Cursor CLI. `--output-format json` gives single-result JSON but doesn't support schema enforcement. Tool scoping uses config files, not CLI flags."
@@ -133,12 +133,12 @@ decisions:
       phase should update accordingly. The supportsFeature() method using a Set makes this easy
       to update later if Cursor adds these flags.
 
-  - title: "Authentication Handling"
-    chosen: "Session-based auth — just call the binary, user logs in independently (matching Claude Code pattern)"
+  - title: 'Authentication Handling'
+    chosen: 'Session-based auth — just call the binary, user logs in independently (matching Claude Code pattern)'
     rejected:
-      - "Forward CURSOR_API_KEY env var via spawn options — Over-engineered. The Claude Code executor does NOT pass any API keys or env vars to the subprocess. It just calls `claude` and assumes the user is logged in. The Cursor executor should follow the same pattern: just spawn `agent` and let it use its own auth."
-      - "Pass --api-key flag for token auth — The Claude Code executor stores a token in settings via AgentConfig.token but never actually passes it to the subprocess. Token auth via CLI flags is a future enhancement, not needed for parity."
-      - "Use `agent login` interactive auth — Not viable for subprocess execution. Login requires a browser flow and is a one-time setup step, not a per-execution auth mechanism."
+      - 'Forward CURSOR_API_KEY env var via spawn options — Over-engineered. The Claude Code executor does NOT pass any API keys or env vars to the subprocess. It just calls `claude` and assumes the user is logged in. The Cursor executor should follow the same pattern: just spawn `agent` and let it use its own auth.'
+      - 'Pass --api-key flag for token auth — The Claude Code executor stores a token in settings via AgentConfig.token but never actually passes it to the subprocess. Token auth via CLI flags is a future enhancement, not needed for parity.'
+      - 'Use `agent login` interactive auth — Not viable for subprocess execution. Login requires a browser flow and is a one-time setup step, not a per-execution auth mechanism.'
     rationale: >
       Codebase analysis reveals the Claude Code executor does NOT pass any API keys, env vars,
       or auth tokens to the spawned `claude` process. It simply calls the binary and assumes
@@ -149,11 +149,11 @@ decisions:
       execution time (non-zero exit code with error message from the CLI), not during validation.
       Token/API-key auth via env vars or CLI flags can be added as a future enhancement if needed.
 
-  - title: "Working Directory Handling"
-    chosen: "Use spawn `cwd` option only (not --workspace flag)"
+  - title: 'Working Directory Handling'
+    chosen: 'Use spawn `cwd` option only (not --workspace flag)'
     rejected:
-      - "Use both spawn `cwd` and `--workspace` flag (belt-and-suspenders approach from spec) — Research could NOT confirm `--workspace` as a valid agent flag in any official documentation. Passing an invalid flag could cause the process to fail. The spawn `cwd` option is reliable and sufficient."
-      - "Use `--workspace` flag only — Flag not confirmed to exist. Would be risky to rely on."
+      - 'Use both spawn `cwd` and `--workspace` flag (belt-and-suspenders approach from spec) — Research could NOT confirm `--workspace` as a valid agent flag in any official documentation. Passing an invalid flag could cause the process to fail. The spawn `cwd` option is reliable and sufficient.'
+      - 'Use `--workspace` flag only — Flag not confirmed to exist. Would be risky to rely on.'
     rationale: >
       The spec suggested using both spawn `cwd` and `--workspace` for safety, but research found
       no evidence of `--workspace` as an agent flag. It may have been confused with a
@@ -162,11 +162,11 @@ decisions:
       agent respects the current working directory by default. Using spawn `cwd` alone
       follows the same pattern as the Claude Code executor (buildSpawnOptions line 332-336).
 
-  - title: "Result Parsing from Stream"
-    chosen: "Extract result text from the last `assistant` event and session_id from `result` event"
+  - title: 'Result Parsing from Stream'
+    chosen: 'Extract result text from the last `assistant` event and session_id from `result` event'
     rejected:
-      - "Extract result only from `result` event — The Cursor `result` event contains `duration_ms` and `session_id` but does NOT contain the full text result. The assistant response text must be accumulated from `assistant` events."
-      - "Concatenate all assistant event text — Multiple assistant events may occur. The last assistant event before the result event contains the final answer. Earlier assistant events may be intermediate reasoning."
+      - 'Extract result only from `result` event — The Cursor `result` event contains `duration_ms` and `session_id` but does NOT contain the full text result. The assistant response text must be accumulated from `assistant` events.'
+      - 'Concatenate all assistant event text — Multiple assistant events may occur. The last assistant event before the result event contains the final answer. Earlier assistant events may be intermediate reasoning.'
     rationale: >
       Cursor's stream-json format differs from Claude Code's in result delivery. Claude Code emits
       a single `result` event with the full `result` text. Cursor distributes the response across
@@ -177,11 +177,11 @@ decisions:
       in Cursor's result event — the usage field may be undefined. The executor should handle
       this gracefully by only populating usage if the fields are present.
 
-  - title: "Error Handling Strategy"
-    chosen: "Follow ClaudeCodeExecutorService error handling pattern with Cursor-specific timeout handling"
+  - title: 'Error Handling Strategy'
+    chosen: 'Follow ClaudeCodeExecutorService error handling pattern with Cursor-specific timeout handling'
     rejected:
-      - "Add retry logic in the executor — Retries belong in the AgentRunnerService orchestration layer, not in individual executors. The executor should fail fast and let the caller decide on retries."
-      - "Swallow errors and return empty results — Violates fail-fast principle. Errors must surface to the caller."
+      - 'Add retry logic in the executor — Retries belong in the AgentRunnerService orchestration layer, not in individual executors. The executor should fail fast and let the caller decide on retries.'
+      - 'Swallow errors and return empty results — Violates fail-fast principle. Errors must surface to the caller.'
     rationale: >
       The error handling should mirror ClaudeCodeExecutorService exactly:
       (1) spawn ENOENT → caught by proc.on('error'), rejected with descriptive message,
@@ -195,11 +195,11 @@ decisions:
       Claude Code pattern. Consider also adding SIGKILL fallback after a grace period if the
       process doesn't terminate, though this can be deferred to a follow-up.
 
-  - title: "Factory and Validator Registration Approach"
-    chosen: "Minimal additions to existing switch statement and binary map"
+  - title: 'Factory and Validator Registration Approach'
+    chosen: 'Minimal additions to existing switch statement and binary map'
     rejected:
-      - "Plugin registry pattern with dynamic loading — Over-engineered for adding one more case to a switch statement. The factory has 3 lines of code for the Claude Code case; adding Cursor is 3 more lines."
-      - "Auto-discovery via decorator scanning — Adds complexity and makes the code harder to understand. Explicit registration is preferred."
+      - 'Plugin registry pattern with dynamic loading — Over-engineered for adding one more case to a switch statement. The factory has 3 lines of code for the Claude Code case; adding Cursor is 3 more lines.'
+      - 'Auto-discovery via decorator scanning — Adds complexity and makes the code harder to understand. Explicit registration is preferred.'
     rationale: >
       The AgentExecutorFactory uses a switch statement (line 47-55) — add `case 'cursor':
       executor = new CursorExecutorService(this.spawn); break;`. Update getSupportedAgents()
@@ -208,11 +208,11 @@ decisions:
       line 41-45) — remove `disabled: '(Coming Soon)'` and add `description: 'Cursor AI
       coding agent'`. These are all minimal, localized changes following established patterns.
 
-  - title: "Test Architecture"
-    chosen: "Mirror ClaudeCodeExecutorService test structure with Cursor-specific stream fixtures"
+  - title: 'Test Architecture'
+    chosen: 'Mirror ClaudeCodeExecutorService test structure with Cursor-specific stream fixtures'
     rejected:
       - "Shared test helpers between Claude and Cursor tests — The mock ChildProcess helper (createMockChildProcess) and emitStreamData can be shared, but the stream data fixtures must be Cursor-specific. Extracting shared helpers can be done as a refactor task but isn't required for the first implementation."
-      - "Integration tests spawning real agent — Violates the unit test principle of isolation. Real binary tests belong in integration/e2e test layer, not unit tests."
+      - 'Integration tests spawning real agent — Violates the unit test principle of isolation. Real binary tests belong in integration/e2e test layer, not unit tests.'
     rationale: >
       The test file should follow the exact structure of claude-code-executor.test.ts (554 lines):
       createMockChildProcess() factory, buildStreamResult() helper (Cursor-specific format),
@@ -224,7 +224,7 @@ decisions:
       the accumulated assistant text becomes the final result.
 
 openQuestions:
-  - question: "Is `--workspace` a valid agent CLI flag?"
+  - question: 'Is `--workspace` a valid agent CLI flag?'
     resolved: true
     answer: >
       No. Research found no evidence of `--workspace` in official Cursor CLI documentation.
@@ -233,7 +233,7 @@ openQuestions:
       Node.js spawn `cwd` option instead, which is the standard approach and matches the
       Claude Code executor pattern.
 
-  - question: "Does Cursor CLI support a `--system-prompt` flag?"
+  - question: 'Does Cursor CLI support a `--system-prompt` flag?'
     resolved: true
     answer: >
       No. Cursor CLI does not have a `--system-prompt` or `--append-system-prompt` flag.
@@ -249,7 +249,7 @@ openQuestions:
       `assistant` events with content in `message.content[].text`. The executor must accumulate
       text from assistant events and use the last accumulated text as the result.
 
-  - question: "Does Cursor report token usage (input_tokens, output_tokens) in stream output?"
+  - question: 'Does Cursor report token usage (input_tokens, output_tokens) in stream output?'
     resolved: true
     answer: >
       Not confirmed. Claude Code's result event includes `input_tokens` and `output_tokens`,
@@ -257,14 +257,14 @@ openQuestions:
       executor should conditionally populate the `usage` field only if these fields are present
       in the result event, defaulting to undefined. Duration can be stored in metadata.
 
-  - question: "What is the exact binary name — `agent` or `cursor`?"
+  - question: 'What is the exact binary name — `agent` or `cursor`?'
     resolved: true
     answer: >
       The binary is `agent`. The `cursor` command is for the Cursor IDE itself.
       Installation via `curl https://cursor.com/install -fsS | bash` places it at
       `~/.local/bin/agent`. Version check via `agent --version`.
 
-  - question: "Does Cursor CLI support `--max-turns` or `--allowedTools` flags?"
+  - question: 'Does Cursor CLI support `--max-turns` or `--allowedTools` flags?'
     resolved: true
     answer: >
       No. Neither flag was found in Cursor CLI documentation. Max turns is not a supported
@@ -273,7 +273,7 @@ openQuestions:
       silently ignored when passed via AgentExecutionOptions, since the IAgentExecutor interface
       accepts them optionally.
 
-  - question: "Can `--api-key` be used as a CLI flag for Cursor authentication?"
+  - question: 'Can `--api-key` be used as a CLI flag for Cursor authentication?'
     resolved: true
     answer: >
       Irrelevant for initial implementation. Codebase analysis shows the Claude Code executor

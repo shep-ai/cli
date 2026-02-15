@@ -25,7 +25,7 @@ technologies:
   - Vitest (testing)
   - LangGraph (agent orchestration)
   - Commander.js (CLI)
-  - "@inquirer/prompts (TUI)"
+  - '@inquirer/prompts (TUI)'
   - TypeSpec (domain models)
 
 relatedLinks:
@@ -35,8 +35,8 @@ relatedLinks:
 
 # Open questions — all resolved with AI-recommended defaults
 openQuestions:
-  - question: "Does the Cursor CLI `agent` binary need to be installed separately or does it ship with the Cursor IDE? Should Shep document installation instructions?"
-    context: "Installation can be via `curl https://cursor.com/install -fsS | bash` or `npm install -g cursor-cli`. Need to confirm the canonical binary name and install path."
+  - question: 'Does the Cursor CLI `agent` binary need to be installed separately or does it ship with the Cursor IDE? Should Shep document installation instructions?'
+    context: 'Installation can be via `curl https://cursor.com/install -fsS | bash` or `npm install -g cursor-cli`. Need to confirm the canonical binary name and install path.'
     resolved: true
     answer: >
       Recommend treating `agent` as an external prerequisite that users install independently,
@@ -48,7 +48,7 @@ openQuestions:
       Alternative: if user research during /research phase reveals `cursor` is the correct binary name
       (not `agent`), update accordingly.
 
-  - question: "What authentication method should be the default for Cursor — session-based (CURSOR_API_KEY env var) or token-based (--api-key flag)?"
+  - question: 'What authentication method should be the default for Cursor — session-based (CURSOR_API_KEY env var) or token-based (--api-key flag)?'
     context: "Cursor CLI uses CURSOR_API_KEY environment variable or --api-key flag for headless/CI mode. The existing AgentAuthMethod enum has 'session' and 'token' options."
     resolved: true
     answer: >
@@ -59,8 +59,8 @@ openQuestions:
       at execution time as non-zero exit codes. Token/API-key auth via env vars or CLI flags
       can be added as a future enhancement.
 
-  - question: "Should session resume be supported for Cursor from day one? The CLI supports `--resume <id>` but the stream-json format for session management needs verification."
-    context: "Claude Code executor supports session-resume as a feature. Cursor CLI has `agent resume` and `--resume <id>` flags."
+  - question: 'Should session resume be supported for Cursor from day one? The CLI supports `--resume <id>` but the stream-json format for session management needs verification.'
+    context: 'Claude Code executor supports session-resume as a feature. Cursor CLI has `agent resume` and `--resume <id>` flags.'
     resolved: true
     answer: >
       Recommend including session resume support from day one. The `--resume <id>` flag is documented
@@ -71,8 +71,8 @@ openQuestions:
       the interface (supportsFeature would simply return false). The TDD approach will verify resume
       behavior in RED phase before committing to it.
 
-  - question: "Should SpawnFunction and ExecFunction types be extracted to a shared location as part of this feature?"
-    context: "SpawnFunction is currently defined in claude-code-executor.service.ts and ExecFunction in agent-validator.service.ts. Both will be needed by the new CursorExecutorService."
+  - question: 'Should SpawnFunction and ExecFunction types be extracted to a shared location as part of this feature?'
+    context: 'SpawnFunction is currently defined in claude-code-executor.service.ts and ExecFunction in agent-validator.service.ts. Both will be needed by the new CursorExecutorService.'
     resolved: true
     answer: >
       Recommend extracting both types to a new shared file
@@ -82,8 +82,8 @@ openQuestions:
       creating the Cursor executor. Alternative: import SpawnFunction directly from the Claude Code
       executor file, but this creates an undesirable coupling between executor implementations.
 
-  - question: "Which Cursor CLI flags should map to which AgentExecutionOptions fields?"
-    context: "Cursor CLI uses different flags than Claude Code. Need a clear mapping for the executor to build correct CLI args."
+  - question: 'Which Cursor CLI flags should map to which AgentExecutionOptions fields?'
+    context: 'Cursor CLI uses different flags than Claude Code. Need a clear mapping for the executor to build correct CLI args.'
     resolved: true
     answer: >
       Confirmed flag mapping (validated during research phase):

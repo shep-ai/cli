@@ -18,13 +18,13 @@ relatedFeatures:
 
 technologies:
   - TypeScript
-  - "Cursor CLI (agent binary)"
-  - "tsyringe (dependency injection)"
-  - "Vitest (testing)"
-  - "Node.js child_process (spawn)"
-  - "Commander.js (CLI)"
-  - "@inquirer/prompts (TUI)"
-  - "TypeSpec (domain models)"
+  - 'Cursor CLI (agent binary)'
+  - 'tsyringe (dependency injection)'
+  - 'Vitest (testing)'
+  - 'Node.js child_process (spawn)'
+  - 'Commander.js (CLI)'
+  - '@inquirer/prompts (TUI)'
+  - 'TypeSpec (domain models)'
 
 relatedLinks:
   - https://www.codecademy.com/article/getting-started-with-cursor-cli
@@ -34,7 +34,7 @@ relatedLinks:
 # Structured implementation phases
 phases:
   - id: phase-1
-    name: "Shared Type Extraction"
+    name: 'Shared Type Extraction'
     description: >
       Extract SpawnFunction and ExecFunction types from their current locations
       (claude-code-executor.service.ts and agent-validator.service.ts) into a new shared
@@ -44,7 +44,7 @@ phases:
     parallel: false
 
   - id: phase-2
-    name: "Cursor Executor Implementation"
+    name: 'Cursor Executor Implementation'
     description: >
       Build the CursorExecutorService following the ClaudeCodeExecutorService structural pattern.
       Includes Cursor-specific CLI argument building, NDJSON stream-json parsing (mapping Cursor
@@ -54,7 +54,7 @@ phases:
     parallel: false
 
   - id: phase-3
-    name: "Integration & Wiring"
+    name: 'Integration & Wiring'
     description: >
       Wire the CursorExecutorService into the existing infrastructure: add a cursor case to
       AgentExecutorFactory, register agent in the AGENT_BINARY_MAP, enable the Cursor

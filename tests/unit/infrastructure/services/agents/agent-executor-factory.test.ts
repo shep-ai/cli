@@ -10,7 +10,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentExecutorFactory } from '../../../../../src/infrastructure/services/agents/common/agent-executor-factory.service.js';
-import type { SpawnFunction } from '../../../../../src/infrastructure/services/agents/common/executors/claude-code-executor.service.js';
+import type { SpawnFunction } from '../../../../../src/infrastructure/services/agents/common/types.js';
 import { AgentType, AgentAuthMethod } from '../../../../../src/domain/generated/output.js';
 import type { AgentConfig } from '../../../../../src/domain/generated/output.js';
 
@@ -57,15 +57,16 @@ describe('AgentExecutorFactory', () => {
       );
     });
 
-    it('should include supported agents in error message', () => {
-      const unsupportedConfig: AgentConfig = {
+    it('should create CursorExecutor for cursor type', () => {
+      const cursorConfig: AgentConfig = {
         type: AgentType.Cursor,
         authMethod: AgentAuthMethod.Session,
       };
 
-      expect(() => factory.createExecutor(AgentType.Cursor, unsupportedConfig)).toThrow(
-        'claude-code'
-      );
+      const executor = factory.createExecutor(AgentType.Cursor, cursorConfig);
+
+      expect(executor).toBeDefined();
+      expect(executor.agentType).toBe(AgentType.Cursor);
     });
 
     it('should return executor with correct agentType', () => {
@@ -87,7 +88,8 @@ describe('AgentExecutorFactory', () => {
       const supported = factory.getSupportedAgents();
 
       expect(supported).toContain('claude-code');
-      expect(supported).toHaveLength(1);
+      expect(supported).toContain('cursor');
+      expect(supported).toHaveLength(2);
     });
 
     it('should not include unsupported agents', () => {
@@ -96,7 +98,6 @@ describe('AgentExecutorFactory', () => {
       expect(supported).not.toContain('gemini-cli');
       expect(supported).not.toContain('aider');
       expect(supported).not.toContain('continue');
-      expect(supported).not.toContain('cursor');
     });
   });
 });

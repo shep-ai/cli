@@ -13,13 +13,13 @@ relatedFeatures:
 
 technologies:
   - TypeScript
-  - "Cursor CLI (agent binary)"
-  - "tsyringe (dependency injection)"
-  - "Vitest (testing)"
-  - "Node.js child_process (spawn)"
-  - "Commander.js (CLI)"
-  - "@inquirer/prompts (TUI)"
-  - "TypeSpec (domain models)"
+  - 'Cursor CLI (agent binary)'
+  - 'tsyringe (dependency injection)'
+  - 'Vitest (testing)'
+  - 'Node.js child_process (spawn)'
+  - 'Commander.js (CLI)'
+  - '@inquirer/prompts (TUI)'
+  - 'TypeSpec (domain models)'
 
 relatedLinks: []
 
@@ -29,7 +29,7 @@ tasks:
 
   - id: task-1
     phaseId: phase-1
-    title: "Create shared types file with SpawnFunction and ExecFunction"
+    title: 'Create shared types file with SpawnFunction and ExecFunction'
     description: >
       Create src/infrastructure/services/agents/common/types.ts containing the SpawnFunction
       type (currently in claude-code-executor.service.ts line 26) and ExecFunction type
@@ -38,24 +38,24 @@ tasks:
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - "types.ts exists at src/infrastructure/services/agents/common/types.ts"
-      - "SpawnFunction type is exported with signature: (command: string, args: string[], options?: object) => ChildProcess"
-      - "ExecFunction type is exported with signature: (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>"
-      - "File includes JSDoc comments for both types"
-      - "File imports ChildProcess from node:child_process"
+      - 'types.ts exists at src/infrastructure/services/agents/common/types.ts'
+      - 'SpawnFunction type is exported with signature: (command: string, args: string[], options?: object) => ChildProcess'
+      - 'ExecFunction type is exported with signature: (file: string, args: string[]) => Promise<{ stdout: string; stderr: string }>'
+      - 'File includes JSDoc comments for both types'
+      - 'File imports ChildProcess from node:child_process'
     tdd:
       red:
-        - "Write a type-level test that imports SpawnFunction and ExecFunction from the new types.ts location and asserts they are assignable to the expected signatures"
+        - 'Write a type-level test that imports SpawnFunction and ExecFunction from the new types.ts location and asserts they are assignable to the expected signatures'
       green:
-        - "Create types.ts with both type exports moved from their current files"
+        - 'Create types.ts with both type exports moved from their current files'
       refactor:
-        - "Ensure JSDoc comments are clear and match the originals"
+        - 'Ensure JSDoc comments are clear and match the originals'
 
-    estimatedEffort: "20min"
+    estimatedEffort: '20min'
 
   - id: task-2
     phaseId: phase-1
-    title: "Update existing imports to use shared types"
+    title: 'Update existing imports to use shared types'
     description: >
       Update all files that currently import SpawnFunction from claude-code-executor.service.ts
       and ExecFunction from agent-validator.service.ts to import from the new common/types.ts.
@@ -68,31 +68,31 @@ tasks:
     dependencies:
       - task-1
     acceptanceCriteria:
-      - "SpawnFunction definition removed from claude-code-executor.service.ts, replaced with import from ../types.js"
-      - "ExecFunction definition removed from agent-validator.service.ts, replaced with import from ./types.js"
-      - "agent-executor-factory.service.ts imports SpawnFunction from ./types.js instead of executors/claude-code-executor.service.js"
-      - "agent-executor-factory.test.ts imports SpawnFunction from common/types.ts path"
-      - "All existing tests pass with no behavioral changes (pnpm test:unit)"
-      - "TypeScript compilation succeeds (pnpm typecheck)"
+      - 'SpawnFunction definition removed from claude-code-executor.service.ts, replaced with import from ../types.js'
+      - 'ExecFunction definition removed from agent-validator.service.ts, replaced with import from ./types.js'
+      - 'agent-executor-factory.service.ts imports SpawnFunction from ./types.js instead of executors/claude-code-executor.service.js'
+      - 'agent-executor-factory.test.ts imports SpawnFunction from common/types.ts path'
+      - 'All existing tests pass with no behavioral changes (pnpm test:unit)'
+      - 'TypeScript compilation succeeds (pnpm typecheck)'
     tdd:
       red:
-        - "Run existing unit tests — they should pass before the refactor (baseline verification)"
-        - "Verify TypeScript compiles with current code (pnpm typecheck)"
+        - 'Run existing unit tests — they should pass before the refactor (baseline verification)'
+        - 'Verify TypeScript compiles with current code (pnpm typecheck)'
       green:
-        - "Move SpawnFunction definition from claude-code-executor.service.ts to types.ts, add import"
-        - "Move ExecFunction definition from agent-validator.service.ts to types.ts, add import"
-        - "Update import in agent-executor-factory.service.ts to reference types.ts"
-        - "Update import in agent-executor-factory.test.ts to reference types.ts"
+        - 'Move SpawnFunction definition from claude-code-executor.service.ts to types.ts, add import'
+        - 'Move ExecFunction definition from agent-validator.service.ts to types.ts, add import'
+        - 'Update import in agent-executor-factory.service.ts to reference types.ts'
+        - 'Update import in agent-executor-factory.test.ts to reference types.ts'
       refactor:
-        - "Verify no other files import SpawnFunction or ExecFunction from old locations (grep search)"
-        - "Run full test suite to confirm no regressions"
-    estimatedEffort: "30min"
+        - 'Verify no other files import SpawnFunction or ExecFunction from old locations (grep search)'
+        - 'Run full test suite to confirm no regressions'
+    estimatedEffort: '30min'
 
   # ── Phase 2: Cursor Executor Implementation ─────────────────────────────
 
   - id: task-3
     phaseId: phase-2
-    title: "Write CursorExecutorService core structure and feature support tests"
+    title: 'Write CursorExecutorService core structure and feature support tests'
     description: >
       Create the test file and initial CursorExecutorService with agentType, constructor,
       SUPPORTED_FEATURES set (streaming, session-resume), and supportsFeature() method.
@@ -102,31 +102,31 @@ tasks:
     dependencies:
       - task-2
     acceptanceCriteria:
-      - "cursor-executor.test.ts exists with describe blocks for agentType and supportsFeature"
-      - "CursorExecutorService class exists implementing IAgentExecutor"
+      - 'cursor-executor.test.ts exists with describe blocks for agentType and supportsFeature'
+      - 'CursorExecutorService class exists implementing IAgentExecutor'
       - "agentType returns AgentType.Cursor ('cursor')"
-      - "supportsFeature returns true for streaming and session-resume"
-      - "supportsFeature returns false for system-prompt, structured-output, and tool-scoping"
-      - "Test helpers (createMockChildProcess, emitStreamData) are defined"
+      - 'supportsFeature returns true for streaming and session-resume'
+      - 'supportsFeature returns false for system-prompt, structured-output, and tool-scoping'
+      - 'Test helpers (createMockChildProcess, emitStreamData) are defined'
     tdd:
       red:
-        - "Write test: agentType should be AgentType.Cursor"
-        - "Write tests: supportsFeature should return true for streaming, session-resume"
-        - "Write tests: supportsFeature should return false for system-prompt, structured-output, tool-scoping"
+        - 'Write test: agentType should be AgentType.Cursor'
+        - 'Write tests: supportsFeature should return true for streaming, session-resume'
+        - 'Write tests: supportsFeature should return false for system-prompt, structured-output, tool-scoping'
       green:
-        - "Create cursor-executor.service.ts with class skeleton"
+        - 'Create cursor-executor.service.ts with class skeleton'
         - "Set readonly agentType = 'cursor' as AgentType"
         - "Define SUPPORTED_FEATURES = new Set(['streaming', 'session-resume'])"
-        - "Implement supportsFeature() checking the Set"
-        - "Accept SpawnFunction via constructor"
+        - 'Implement supportsFeature() checking the Set'
+        - 'Accept SpawnFunction via constructor'
       refactor:
-        - "Ensure structural parity with ClaudeCodeExecutorService (same field/method ordering)"
-        - "Add JSDoc comments matching Claude Code executor style"
-    estimatedEffort: "45min"
+        - 'Ensure structural parity with ClaudeCodeExecutorService (same field/method ordering)'
+        - 'Add JSDoc comments matching Claude Code executor style'
+    estimatedEffort: '45min'
 
   - id: task-4
     phaseId: phase-2
-    title: "Implement CLI argument building"
+    title: 'Implement CLI argument building'
     description: >
       Implement buildArgs() and buildStreamArgs() private methods that translate
       AgentExecutionOptions into Cursor CLI flags. Implement buildSpawnOptions() for cwd.
@@ -139,37 +139,37 @@ tasks:
     dependencies:
       - task-3
     acceptanceCriteria:
-      - "buildArgs() produces correct flags: -p <prompt>, --output-format json, --force"
-      - "buildArgs() includes -m <model> when model option is set"
-      - "buildArgs() includes --resume <id> when resumeSession option is set"
-      - "buildArgs() does NOT include --append-system-prompt, --allowedTools, --max-turns, or --json-schema"
-      - "buildArgs() does NOT include any auth flags (no --api-key, no env var forwarding)"
-      - "buildStreamArgs() changes output-format from json to stream-json"
-      - "buildSpawnOptions() sets cwd when provided"
+      - 'buildArgs() produces correct flags: -p <prompt>, --output-format json, --force'
+      - 'buildArgs() includes -m <model> when model option is set'
+      - 'buildArgs() includes --resume <id> when resumeSession option is set'
+      - 'buildArgs() does NOT include --append-system-prompt, --allowedTools, --max-turns, or --json-schema'
+      - 'buildArgs() does NOT include any auth flags (no --api-key, no env var forwarding)'
+      - 'buildStreamArgs() changes output-format from json to stream-json'
+      - 'buildSpawnOptions() sets cwd when provided'
     tdd:
       red:
-        - "Write test: should pass -p flag with prompt text"
-        - "Write test: should pass -m flag when model option is set"
-        - "Write test: should pass --resume flag when resumeSession option is set"
-        - "Write test: should pass --force for auto-approve"
-        - "Write test: should pass cwd option to spawn"
-        - "Write test: should NOT include --append-system-prompt even when systemPrompt is set"
-        - "Write test: should NOT include --allowedTools even when allowedTools is set"
-        - "Write test: should NOT include --max-turns even when maxTurns is set"
-        - "Write test: should NOT include any auth flags"
+        - 'Write test: should pass -p flag with prompt text'
+        - 'Write test: should pass -m flag when model option is set'
+        - 'Write test: should pass --resume flag when resumeSession option is set'
+        - 'Write test: should pass --force for auto-approve'
+        - 'Write test: should pass cwd option to spawn'
+        - 'Write test: should NOT include --append-system-prompt even when systemPrompt is set'
+        - 'Write test: should NOT include --allowedTools even when allowedTools is set'
+        - 'Write test: should NOT include --max-turns even when maxTurns is set'
+        - 'Write test: should NOT include any auth flags'
       green:
-        - "Implement buildArgs() with Cursor-specific flag mapping"
-        - "Implement buildStreamArgs() modifying output-format to stream-json"
-        - "Implement buildSpawnOptions() with cwd handling"
-        - "Implement log() method"
+        - 'Implement buildArgs() with Cursor-specific flag mapping'
+        - 'Implement buildStreamArgs() modifying output-format to stream-json'
+        - 'Implement buildSpawnOptions() with cwd handling'
+        - 'Implement log() method'
       refactor:
-        - "Verify flag order consistency with Claude Code executor"
-        - "Ensure all private methods follow single-responsibility"
-    estimatedEffort: "1h"
+        - 'Verify flag order consistency with Claude Code executor'
+        - 'Ensure all private methods follow single-responsibility'
+    estimatedEffort: '1h'
 
   - id: task-5
     phaseId: phase-2
-    title: "Implement execute() with Cursor stream-json parsing"
+    title: 'Implement execute() with Cursor stream-json parsing'
     description: >
       Implement the execute() method that spawns agent, parses stream-json NDJSON
       lines, accumulates text from assistant events, extracts session_id and duration_ms
@@ -180,44 +180,44 @@ tasks:
     dependencies:
       - task-4
     acceptanceCriteria:
-      - "execute() spawns agent with correct arguments"
-      - "Result text is accumulated from assistant event message.content[].text fields"
-      - "session_id is extracted from the result event"
-      - "duration_ms is stored in metadata from the result event"
-      - "Token usage is conditionally populated (only if present in result event)"
-      - "Non-zero exit codes reject with stderr or generic error message"
-      - "Spawn ENOENT errors reject with descriptive message"
+      - 'execute() spawns agent with correct arguments'
+      - 'Result text is accumulated from assistant event message.content[].text fields'
+      - 'session_id is extracted from the result event'
+      - 'duration_ms is stored in metadata from the result event'
+      - 'Token usage is conditionally populated (only if present in result event)'
+      - 'Non-zero exit codes reject with stderr or generic error message'
+      - 'Spawn ENOENT errors reject with descriptive message'
       - "Timeout kills the process and rejects with 'timed out' message"
-      - "Empty result (no assistant events) returns empty string without crashing"
-      - "Malformed JSON lines in stream are skipped gracefully"
-      - "user events (echoed input) are skipped"
-      - "tool_call events are logged but do not affect result text"
+      - 'Empty result (no assistant events) returns empty string without crashing'
+      - 'Malformed JSON lines in stream are skipped gracefully'
+      - 'user events (echoed input) are skipped'
+      - 'tool_call events are logged but do not affect result text'
     tdd:
       red:
-        - "Write test: should execute prompt and return accumulated result from assistant events"
-        - "Write test: should parse session_id from result event"
-        - "Write test: should store duration_ms in metadata"
-        - "Write test: should handle subprocess errors gracefully (non-zero exit)"
-        - "Write test: should handle spawn error event (ENOENT)"
-        - "Write test: should apply timeout and kill subprocess"
-        - "Write test: should handle empty result gracefully"
-        - "Write test: should skip user events (echoed input)"
-        - "Write test: should accumulate text from multiple assistant events"
-        - "Write test: should log tool_call events without affecting result"
+        - 'Write test: should execute prompt and return accumulated result from assistant events'
+        - 'Write test: should parse session_id from result event'
+        - 'Write test: should store duration_ms in metadata'
+        - 'Write test: should handle subprocess errors gracefully (non-zero exit)'
+        - 'Write test: should handle spawn error event (ENOENT)'
+        - 'Write test: should apply timeout and kill subprocess'
+        - 'Write test: should handle empty result gracefully'
+        - 'Write test: should skip user events (echoed input)'
+        - 'Write test: should accumulate text from multiple assistant events'
+        - 'Write test: should log tool_call events without affecting result'
       green:
-        - "Implement execute() with line-based NDJSON parsing"
-        - "Accumulate text from assistant events in processLine()"
-        - "Extract session_id and duration_ms from result event"
-        - "Implement timeout logic with setTimeout + proc.kill()"
-        - "Implement error handling for close/error events"
+        - 'Implement execute() with line-based NDJSON parsing'
+        - 'Accumulate text from assistant events in processLine()'
+        - 'Extract session_id and duration_ms from result event'
+        - 'Implement timeout logic with setTimeout + proc.kill()'
+        - 'Implement error handling for close/error events'
       refactor:
-        - "Extract logStreamEvent() for Cursor-specific event logging"
-        - "Verify structural parity with ClaudeCodeExecutorService.execute()"
-    estimatedEffort: "1.5h"
+        - 'Extract logStreamEvent() for Cursor-specific event logging'
+        - 'Verify structural parity with ClaudeCodeExecutorService.execute()'
+    estimatedEffort: '1.5h'
 
   - id: task-6
     phaseId: phase-2
-    title: "Implement executeStream() async generator"
+    title: 'Implement executeStream() async generator'
     description: >
       Implement the executeStream() method that returns an AsyncIterable<AgentExecutionStreamEvent>
       yielding events in real time as agent emits NDJSON lines. Implement
@@ -229,37 +229,37 @@ tasks:
     dependencies:
       - task-5
     acceptanceCriteria:
-      - "executeStream() returns AsyncIterable that yields AgentExecutionStreamEvent items"
-      - "assistant events yield progress events with text content"
-      - "tool_call events with subtype completed yield progress events with tool summary"
-      - "tool_call events with subtype started optionally yield progress events"
-      - "result events yield result events with session_id in content"
-      - "user events are skipped (not yielded)"
-      - "Subprocess failure yields error events with stderr content"
-      - "spawn error events yield error events"
-      - "All events include timestamp as Date"
-      - "Malformed JSON lines yield progress events with raw text (graceful fallback)"
+      - 'executeStream() returns AsyncIterable that yields AgentExecutionStreamEvent items'
+      - 'assistant events yield progress events with text content'
+      - 'tool_call events with subtype completed yield progress events with tool summary'
+      - 'tool_call events with subtype started optionally yield progress events'
+      - 'result events yield result events with session_id in content'
+      - 'user events are skipped (not yielded)'
+      - 'Subprocess failure yields error events with stderr content'
+      - 'spawn error events yield error events'
+      - 'All events include timestamp as Date'
+      - 'Malformed JSON lines yield progress events with raw text (graceful fallback)'
     tdd:
       red:
-        - "Write test: should stream execution events (assistant -> progress, result -> result)"
-        - "Write test: should yield error events on subprocess failure"
-        - "Write test: should include timestamps on all events"
-        - "Write test: should map tool_call completed to progress event"
-        - "Write test: should skip user events"
-        - "Write test: should handle malformed JSON lines as progress"
+        - 'Write test: should stream execution events (assistant -> progress, result -> result)'
+        - 'Write test: should yield error events on subprocess failure'
+        - 'Write test: should include timestamps on all events'
+        - 'Write test: should map tool_call completed to progress event'
+        - 'Write test: should skip user events'
+        - 'Write test: should handle malformed JSON lines as progress'
       green:
-        - "Implement parseStreamLine() with Cursor event type mapping"
-        - "Implement executeStream() with async queue pattern (enqueue/waitForItem)"
-        - "Wire up stdout line-buffer parsing and stderr collection"
-        - "Handle close event with remaining buffer flush"
+        - 'Implement parseStreamLine() with Cursor event type mapping'
+        - 'Implement executeStream() with async queue pattern (enqueue/waitForItem)'
+        - 'Wire up stdout line-buffer parsing and stderr collection'
+        - 'Handle close event with remaining buffer flush'
       refactor:
-        - "Verify parseStreamLine() handles all Cursor event type/subtype combinations"
-        - "Ensure queue pattern matches ClaudeCodeExecutorService structure"
-    estimatedEffort: "1.5h"
+        - 'Verify parseStreamLine() handles all Cursor event type/subtype combinations'
+        - 'Ensure queue pattern matches ClaudeCodeExecutorService structure'
+    estimatedEffort: '1.5h'
 
   - id: task-7
     phaseId: phase-2
-    title: "Achieve test coverage target and edge cases"
+    title: 'Achieve test coverage target and edge cases'
     description: >
       Review and fill coverage gaps in the CursorExecutorService test suite. Add tests for
       edge cases: multiple assistant events accumulation, tool_call with various tool types
@@ -270,33 +270,33 @@ tasks:
     dependencies:
       - task-6
     acceptanceCriteria:
-      - ">=90% branch coverage for cursor-executor.service.ts"
-      - "Test for no auth credentials passed to subprocess (matching Claude Code pattern)"
-      - "Test for multiple assistant events producing concatenated result"
-      - "Test for tool_call with shellToolCall, readToolCall subtypes"
-      - "Test for partial line buffering (data arriving in chunks mid-JSON-line)"
-      - "Test for silent mode suppressing log output"
-      - "All tests pass (pnpm test:single <path>)"
+      - '>=90% branch coverage for cursor-executor.service.ts'
+      - 'Test for no auth credentials passed to subprocess (matching Claude Code pattern)'
+      - 'Test for multiple assistant events producing concatenated result'
+      - 'Test for tool_call with shellToolCall, readToolCall subtypes'
+      - 'Test for partial line buffering (data arriving in chunks mid-JSON-line)'
+      - 'Test for silent mode suppressing log output'
+      - 'All tests pass (pnpm test:single <path>)'
     tdd:
       red:
-        - "Write test: should NOT pass any auth flags or env vars to subprocess"
-        - "Write test: should concatenate text from multiple assistant events"
-        - "Write test: should parse tool_call events with various tool types"
-        - "Write test: should handle partial JSON lines split across data events"
-        - "Write test: should suppress logging when silent option is set"
+        - 'Write test: should NOT pass any auth flags or env vars to subprocess'
+        - 'Write test: should concatenate text from multiple assistant events'
+        - 'Write test: should parse tool_call events with various tool types'
+        - 'Write test: should handle partial JSON lines split across data events'
+        - 'Write test: should suppress logging when silent option is set'
       green:
-        - "Verify all tests pass — no new implementation code should be needed if execute/executeStream are correct"
-        - "Fix any implementation gaps exposed by edge case tests"
+        - 'Verify all tests pass — no new implementation code should be needed if execute/executeStream are correct'
+        - 'Fix any implementation gaps exposed by edge case tests'
       refactor:
-        - "Organize test file with clear describe blocks matching Claude Code test structure"
-        - "Extract shared test fixtures if any patterns are repeated"
-    estimatedEffort: "1h"
+        - 'Organize test file with clear describe blocks matching Claude Code test structure'
+        - 'Extract shared test fixtures if any patterns are repeated'
+    estimatedEffort: '1h'
 
   # ── Phase 3: Integration & Wiring ───────────────────────────────────────
 
   - id: task-8
     phaseId: phase-3
-    title: "Wire Cursor into factory, validator, and TUI"
+    title: 'Wire Cursor into factory, validator, and TUI'
     description: >
       Add cursor case to AgentExecutorFactory.createExecutor() switch statement (instantiate
       CursorExecutorService with this.spawn). Update getSupportedAgents() to return both
@@ -307,29 +307,29 @@ tasks:
     dependencies:
       - task-7
     acceptanceCriteria:
-      - "factory.createExecutor(AgentType.Cursor, config) returns a CursorExecutorService instance"
+      - 'factory.createExecutor(AgentType.Cursor, config) returns a CursorExecutorService instance'
       - "factory.getSupportedAgents() returns ['claude-code', 'cursor']"
       - "AGENT_BINARY_MAP includes 'cursor': 'agent'"
       - "TUI agent-select prompt shows Cursor as enabled with description 'Cursor AI coding agent'"
-      - "Cursor option in TUI does NOT have disabled property"
+      - 'Cursor option in TUI does NOT have disabled property'
     tdd:
       red:
-        - "Write test: factory should create CursorExecutor for cursor type"
-        - "Write test: factory getSupportedAgents should include cursor"
-        - "Write test: validator binary map should map cursor to agent"
+        - 'Write test: factory should create CursorExecutor for cursor type'
+        - 'Write test: factory getSupportedAgents should include cursor'
+        - 'Write test: validator binary map should map cursor to agent'
       green:
         - "Add case 'cursor' to factory switch statement with CursorExecutorService instantiation"
-        - "Update getSupportedAgents() to include AgentType.Cursor"
+        - 'Update getSupportedAgents() to include AgentType.Cursor'
         - "Add 'cursor': 'agent' entry to AGENT_BINARY_MAP"
-        - "Remove disabled from Cursor TUI option, add description"
+        - 'Remove disabled from Cursor TUI option, add description'
       refactor:
-        - "Ensure factory import of CursorExecutorService follows same pattern as ClaudeCodeExecutorService import"
-        - "Verify alphabetical or logical ordering consistency"
-    estimatedEffort: "45min"
+        - 'Ensure factory import of CursorExecutorService follows same pattern as ClaudeCodeExecutorService import'
+        - 'Verify alphabetical or logical ordering consistency'
+    estimatedEffort: '45min'
 
   - id: task-9
     phaseId: phase-3
-    title: "Update existing tests and TypeSpec doc comments"
+    title: 'Update existing tests and TypeSpec doc comments'
     description: >
       Update agent-executor-factory.test.ts to expect Cursor as a supported agent instead of
       an unsupported one. Update the test that throws for cursor type to verify it creates
@@ -340,30 +340,30 @@ tasks:
     dependencies:
       - task-8
     acceptanceCriteria:
-      - "Factory test no longer asserts that cursor throws — asserts it creates a valid executor"
-      - "Factory test getSupportedAgents asserts length 2 with both claude-code and cursor"
+      - 'Factory test no longer asserts that cursor throws — asserts it creates a valid executor'
+      - 'Factory test getSupportedAgents asserts length 2 with both claude-code and cursor'
       - "Factory test 'should not include unsupported agents' no longer lists cursor"
       - "TypeSpec Cursor doc comment reads 'Cursor AI coding agent' (not 'coming soon')"
-      - "TypeSpec module-level doc updated to list cursor as supported"
-      - "pnpm tsp:compile succeeds and regenerates output.ts"
-      - "All unit tests pass (pnpm test:unit)"
+      - 'TypeSpec module-level doc updated to list cursor as supported'
+      - 'pnpm tsp:compile succeeds and regenerates output.ts'
+      - 'All unit tests pass (pnpm test:unit)'
     tdd:
       red:
-        - "Run existing factory tests — they should fail after task-8 changes (cursor is now supported)"
+        - 'Run existing factory tests — they should fail after task-8 changes (cursor is now supported)'
       green:
-        - "Update factory test: change cursor throw assertion to create-executor assertion"
+        - 'Update factory test: change cursor throw assertion to create-executor assertion'
         - "Update factory test: getSupportedAgents expects ['claude-code', 'cursor'] (length 2)"
         - "Update factory test: remove cursor from 'should not include unsupported agents'"
-        - "Update TypeSpec enum doc comment for Cursor"
-        - "Run pnpm tsp:compile to regenerate types"
+        - 'Update TypeSpec enum doc comment for Cursor'
+        - 'Run pnpm tsp:compile to regenerate types'
       refactor:
-        - "Verify test descriptions accurately reflect what they now test"
+        - 'Verify test descriptions accurately reflect what they now test'
         - "Ensure no stale comments reference cursor as 'coming soon'"
-    estimatedEffort: "45min"
+    estimatedEffort: '45min'
 
   - id: task-10
     phaseId: phase-3
-    title: "Run full validation suite"
+    title: 'Run full validation suite'
     description: >
       Run pnpm validate (lint, format, typecheck, tsp) and pnpm test to verify no regressions.
       Fix any lint, formatting, or type errors introduced by the new code. Verify all success
@@ -372,19 +372,19 @@ tasks:
     dependencies:
       - task-9
     acceptanceCriteria:
-      - "pnpm lint passes with no errors"
-      - "pnpm format:check passes"
-      - "pnpm typecheck passes"
-      - "pnpm typecheck:web passes (no cross-package impact)"
-      - "pnpm tsp:compile passes"
-      - "pnpm test:unit passes with all tests green"
-      - "No regressions in existing Claude Code executor tests"
-      - "CursorExecutorService test coverage >=90% branches"
+      - 'pnpm lint passes with no errors'
+      - 'pnpm format:check passes'
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes (no cross-package impact)'
+      - 'pnpm tsp:compile passes'
+      - 'pnpm test:unit passes with all tests green'
+      - 'No regressions in existing Claude Code executor tests'
+      - 'CursorExecutorService test coverage >=90% branches'
     tdd: null
-    estimatedEffort: "30min"
+    estimatedEffort: '30min'
 
 # Total effort estimate
-totalEstimate: "8h"
+totalEstimate: '8h'
 
 # Open questions
 openQuestions: []
