@@ -5,25 +5,51 @@ name: feat-ide-open
 summary: Technical analysis for 018-feat-ide-open
 
 # Relationships
-relatedFeatures: []
-technologies: []
+relatedFeatures:
+  - '006-cli-settings-commands'
+technologies:
+  - TypeScript
+  - Commander.js
+  - '@inquirer/prompts'
 relatedLinks: []
 
 # Structured technology decisions
 decisions:
-  - title: { { DECISION_TITLE } }
-    chosen: { { CHOSEN_OPTION } }
+  - title: Command pattern — dedicated use case vs direct UpdateSettingsUseCase
+    chosen: Direct UpdateSettingsUseCase with settings mutation in command
     rejected:
-      - { { OPTION_1 } }
-      - { { OPTION_2 } }
-    rationale: { { RATIONALE } }
+      - Dedicated ConfigureIdeUseCase (like ConfigureAgentUseCase)
+    rationale: >
+      The agent command uses a dedicated ConfigureAgentUseCase because it has
+      complex validation (agent type enum, auth method combinations, token
+      presence). IDE selection is trivial — just setting a string field.
+      A dedicated use case would be over-engineering. Follow the KISS principle:
+      mutate the settings object in the command handler, call
+      UpdateSettingsUseCase.execute(), and refresh the singleton.
+
+  - title: IDE binary validation approach
+    chosen: 'Non-blocking PATH check with warning via execFileNoThrow'
+    rejected:
+      - Blocking validation (reject save if binary not found)
+      - No validation at all
+    rationale: >
+      Users may configure their IDE before installing it, or the binary may be
+      in a non-standard location. Blocking would frustrate users. No validation
+      gives no feedback. A warning strikes the right balance: inform but don't
+      block. Use the project's execFileNoThrow utility for safe PATH checking.
+
+  - title: Supported IDE list
+    chosen: 'vscode, cursor, windsurf, zed (extensible string, not enum)'
+    rejected:
+      - Hardcoded enum in TypeSpec
+    rationale: >
+      The existing TypeSpec model defines defaultEditor as `string`, not an
+      enum. This is intentional — users may have other editors. The CLI command
+      offers known IDEs as select options but also accepts any string via the
+      --editor flag. No TypeSpec changes needed.
 
 # Open questions (should be resolved by end of research)
-openQuestions:
-  []
-  # - question: "Which library should we use?"
-  #   resolved: true
-  #   answer: "Library X because of Y"
+openQuestions: []
 
 # Markdown content (the full research document)
 content: |
@@ -34,31 +60,98 @@ content: |
 
   ## Technology Decisions
 
-  ### {{DECISION_TITLE}}
+  ### 1. Command Pattern — Dedicated Use Case vs Direct UpdateSettingsUseCase
 
   **Options considered:**
 
-  1. {{OPTION_1}}
-  2. {{OPTION_2}}
-  3. {{OPTION_3}}
+  1. **Dedicated ConfigureIdeUseCase** — Like ConfigureAgentUseCase, with validation logic
+  2. **Direct UpdateSettingsUseCase** — Mutate settings in command handler, persist via generic use case
 
-  **Decision:** {{CHOSEN_OPTION}}
+  **Decision:** Direct UpdateSettingsUseCase
 
-  **Rationale:** {{RATIONALE}}
+  **Rationale:** Agent configuration has complex validation (enum types, auth method combos, token presence), justifying a dedicated use case. IDE selection is a single string field — a dedicated use case would be over-engineering. Mutate the settings object, call `UpdateSettingsUseCase.execute()`, refresh the in-memory singleton via `resetSettings()` + `initializeSettings()`.
+
+  ### 2. IDE Binary Validation Approach
+
+  **Options considered:**
+
+  1. **Blocking validation** — Reject save if IDE binary not found in PATH
+  2. **Non-blocking warning** — Save anyway, show warning if binary not found
+  3. **No validation** — Just save the value
+
+  **Decision:** Non-blocking PATH check with warning
+
+  **Rationale:** Users may configure an IDE before installing it, or the binary may exist in a non-standard PATH. Blocking frustrates users. No feedback is unhelpful. Warning is the right balance.
+
+  **Implementation:** Use project's `execFileNoThrow` utility (safe, no shell injection) to check PATH availability via `which`. Map editor names to binaries:
+
+  | Editor   | Binary     |
+  | -------- | ---------- |
+  | vscode   | `code`     |
+  | cursor   | `cursor`   |
+  | windsurf | `windsurf` |
+  | zed      | `zed`      |
+
+  ### 3. Supported IDE List
+
+  **Options considered:**
+
+  1. **Hardcoded TypeSpec enum** — Restrict to known values
+  2. **String with known options** — CLI offers select menu, --editor accepts any string
+
+  **Decision:** String with known options (no TypeSpec changes)
+
+  **Rationale:** `defaultEditor` is already `string` in TypeSpec. Users may have other editors. The interactive prompt offers known options, but `--editor` accepts any string for flexibility.
+
+  ## Architecture
+
+  ### File Structure (new files only)
+
+  ```
+  src/presentation/
+  ├── cli/commands/settings/
+  │   └── ide.command.ts              # New: shep settings ide command
+  └── tui/prompts/
+      └── ide-select.prompt.ts        # New: IDE selection prompt config
+  ```
+
+  ### Flow
+
+  ```
+  User runs `shep settings ide`
+    -> Interactive: TUI select prompt (vscode/cursor/windsurf/zed)
+    -> Non-interactive: --editor flag value
+    -> Validate binary in PATH (warn if not found, using execFileNoThrow)
+    -> getSettings() -> mutate environment.defaultEditor
+    -> UpdateSettingsUseCase.execute(settings)
+    -> resetSettings() + initializeSettings(updatedSettings)
+    -> Success message
+  ```
+
+  ### Pattern Reference
+
+  Follows the exact pattern of `agent.command.ts`:
+  - Interactive wizard vs non-interactive flags
+  - Resolve use case from container
+  - Update in-memory singleton after persistence
+  - Graceful Ctrl+C handling
 
   ## Library Analysis
 
-  | Library     | Version     | Purpose     | Pros     | Cons     |
-  | ----------- | ----------- | ----------- | -------- | -------- |
-  | {{LIBRARY}} | {{VERSION}} | {{PURPOSE}} | {{PROS}} | {{CONS}} |
+  | Library            | Version  | Purpose                    | Pros                       | Cons         |
+  | ------------------ | -------- | -------------------------- | -------------------------- | ------------ |
+  | @inquirer/prompts  | existing | Interactive IDE selection   | Already used, TypeScript   | None         |
+  | commander          | existing | CLI flag parsing           | Already used               | None         |
+  | execFileNoThrow    | internal | PATH validation via which  | Safe, no shell injection   | None         |
 
   ## Security Considerations
 
-  No security implications identified.
+  - Use `execFileNoThrow('which', [binary])` — safe against command injection
+  - No user input is passed to shell execution (binary names are from a known map)
 
   ## Performance Implications
 
-  No performance implications identified.
+  No performance implications. Single `which` call is negligible.
 
   ## Open Questions
 

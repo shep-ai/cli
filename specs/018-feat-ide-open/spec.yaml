@@ -10,7 +10,7 @@ summary: >
   (VS Code, Cursor, Windsurf, Zed) via interactive prompt or --editor flag.
   Persists choice using existing Settings.environment.defaultEditor field and
   UpdateSettingsUseCase. Already displayed in `settings show`.
-phase: Requirements
+phase: Research
 sizeEstimate: small
 
 # Relationships
