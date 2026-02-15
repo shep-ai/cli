@@ -11,10 +11,13 @@
  */
 
 import { Command } from 'commander';
+import { createHash } from 'node:crypto';
+import { join } from 'node:path';
 import { container } from '../../../../infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '../../../../application/use-cases/features/create-feature.use-case.js';
 import type { ApprovalGates } from '../../../../domain/generated/output.js';
 import { colors, messages, spinner } from '../../ui/index.js';
+import { SHEP_HOME_DIR } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
 
 interface NewOptions {
   repo?: string;
@@ -53,21 +56,32 @@ export function createNewCommand(): Command {
           })
         );
 
+        const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
+        const wtSlug = feature.branch.replace(/\//g, '-');
+        const worktreePath = join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', wtSlug);
+
         messages.newline();
         messages.success('Feature created');
-        console.log(`  ${colors.muted('ID:')}     ${colors.accent(feature.id)}`);
-        console.log(`  ${colors.muted('Name:')}   ${feature.name}`);
-        console.log(`  ${colors.muted('Branch:')} ${colors.accent(feature.branch)}`);
-        console.log(`  ${colors.muted('Status:')} ${feature.lifecycle}`);
+        console.log(`  ${colors.muted('ID:')}       ${colors.accent(feature.id)}`);
+        console.log(`  ${colors.muted('Name:')}     ${feature.name}`);
+        console.log(`  ${colors.muted('Branch:')}   ${colors.accent(feature.branch)}`);
+        console.log(`  ${colors.muted('Status:')}   ${feature.lifecycle}`);
+        console.log(`  ${colors.muted('Worktree:')} ${worktreePath}`);
+        if (feature.specPath) {
+          console.log(`  ${colors.muted('Spec:')}     ${feature.specPath}`);
+        }
         if (feature.agentRunId) {
           console.log(
-            `  ${colors.muted('Agent:')}  ${colors.success('spawned')} (run ${feature.agentRunId.slice(0, 8)})`
+            `  ${colors.muted('Agent:')}    ${colors.success('spawned')} (run ${feature.agentRunId.slice(0, 8)})`
           );
         }
         if (approvalGates) {
-          console.log(
-            `  ${colors.muted('Review:')} Agent will pause for approval after each phase`
-          );
+          const hint = !approvalGates.allowPrd
+            ? 'pause after every phase'
+            : !approvalGates.allowPlan
+              ? 'auto-approve through requirements, pause after'
+              : 'auto-approve through planning, pause at implementation';
+          console.log(`  ${colors.muted('Review:')}   ${hint}`);
         }
         messages.newline();
       } catch (error) {
