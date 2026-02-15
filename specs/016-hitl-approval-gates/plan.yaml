@@ -62,14 +62,30 @@ phases:
       - task-11
       - task-12
 
-  - id: phase-7
-    name: 'YAML Validation & Auto-Repair Graph Nodes'
-    parallel: false
+  - id: phase-7a
+    name: 'YAML Schema Validators (parallel)'
+    parallel: true
     taskIds:
       - task-13
       - task-14
       - task-15
       - task-16
+
+  - id: phase-7b
+    name: 'Validate & Repair Nodes'
+    parallel: true
+    taskIds:
+      - task-17
+      - task-18
+      - task-19
+
+  - id: phase-7c
+    name: 'Graph Wiring & Integration Tests'
+    parallel: false
+    taskIds:
+      - task-20
+      - task-21
+      - task-22
 
 # File change tracking
 filesToCreate:
