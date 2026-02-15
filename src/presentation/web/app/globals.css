@@ -70,6 +70,7 @@
   /* Animation */
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
+  --animate-spinner: spinner 1s infinite;
 }
 
 /* Dark Mode Theme Overrides */
@@ -119,6 +120,12 @@
   }
   to {
     height: 0;
+  }
+}
+
+@keyframes spinner {
+  to {
+    transform: rotate(0.5turn);
   }
 }
 
