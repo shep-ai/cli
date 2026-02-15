@@ -12,7 +12,7 @@ summary: >
   --allow-prd / --allow-plan CLI flags, user-friendly `shep feat review/approve/reject`
   commands, and a lifecycle event infrastructure that records phase timings shown
   as a breakdown in `feat show`.
-phase: research
+phase: planning
 sizeEstimate: L
 
 # Relationships

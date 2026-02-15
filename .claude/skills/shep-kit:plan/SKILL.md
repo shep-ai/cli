@@ -102,6 +102,15 @@ Write structured YAML source files (the source of truth):
 - `specs/NNN-feature-name/plan.yaml` - Architecture and strategy
 - `specs/NNN-feature-name/tasks.yaml` - Detailed task list
 
+**NO DUPLICATION between files:**
+
+- **plan.yaml `content`**: Architecture overview, implementation strategy walkthrough,
+  file tables, testing strategy, risks. NO task-by-task listing (that's in tasks.yaml).
+- **tasks.yaml `content`**: Brief summary (scope + counts) and acceptance checklist ONLY.
+  Individual task details live exclusively in the `tasks[]` structured array.
+- **tasks.yaml `tasks[]`**: The single source of truth for all task details (title,
+  description, TDD cycles, acceptance criteria, dependencies, effort).
+
 Then generate Markdown from YAML:
 
 ```bash

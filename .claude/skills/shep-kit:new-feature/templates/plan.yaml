@@ -36,7 +36,8 @@ filesToModify:
 # Open questions (should all be resolved before implementation)
 openQuestions: []
 
-# Markdown content (the full plan document)
+# Markdown content — architecture, strategy, and risks only.
+# Task-level detail lives in tasks.yaml (no duplication).
 content: |
   ## Status
 
@@ -51,30 +52,11 @@ content: |
 
   ## Implementation Strategy
 
-  **MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
+  **MANDATORY TDD**: All phases with executable code follow RED-GREEN-REFACTOR cycles.
 
-  ### Phase 1: Foundation (No Tests)
-
-  **Goal:** {{PHASE_1_GOAL}}
-
-  **Steps:**
-
-  1. {{STEP_1}}
-  2. {{STEP_2}}
-
-  **Deliverables:** {{DELIVERABLES}}
-
-  ### Phase 2: Core Implementation (TDD Cycle 1)
-
-  **Goal:** {{PHASE_2_GOAL}}
-
-  **TDD Workflow:**
-
-  1. **RED:** Write failing tests FIRST
-  2. **GREEN:** Implement minimal code to pass tests
-  3. **REFACTOR:** Improve code while keeping tests green
-
-  **Deliverables:** {{DELIVERABLES}}
+  High-level walkthrough of how the phases connect and why they are ordered
+  this way. Focus on architectural decisions and data flow — not individual
+  task descriptions (see tasks.yaml for the detailed breakdown).
 
   ## Files to Create/Modify
 
@@ -96,13 +78,11 @@ content: |
 
   ### Unit Tests (RED -> GREEN -> REFACTOR)
 
-  Write FIRST for:
   - {{TEST_AREA_1}}
   - {{TEST_AREA_2}}
 
   ### Integration Tests
 
-  Write FIRST for:
   - {{INTEGRATION_TEST_1}}
 
   ## Risk Mitigation
@@ -113,4 +93,4 @@ content: |
 
   ---
 
-  _Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_
+  _Updated by `/shep-kit:plan` — see tasks.yaml for detailed task breakdown_

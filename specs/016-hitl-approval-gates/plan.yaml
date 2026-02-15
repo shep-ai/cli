@@ -5,38 +5,101 @@ name: hitl-approval-gates
 summary: Implementation plan for 016-hitl-approval-gates
 
 # Relationships
-relatedFeatures: []
-technologies: []
+relatedFeatures:
+  - '008-agent-configuration'
+  - '013-feature-agent'
+  - '015-cursor-support'
+technologies:
+  - TypeSpec
+  - TypeScript
+  - LangGraph
+  - Commander.js
+  - better-sqlite3
+  - tsyringe
 relatedLinks: []
 
 # Structured implementation phases
 phases:
   - id: phase-1
-    name: 'Foundation'
+    name: 'TypeSpec Models & Code Generation'
     parallel: false
     taskIds:
       - task-1
       - task-2
+
   - id: phase-2
-    name: 'Core Implementation'
+    name: 'Database Migration & Phase Timing Repository'
     parallel: false
     taskIds:
       - task-3
+
+  - id: phase-3
+    name: 'Agent System Core — ApprovalGates & Phase Timing'
+    parallel: false
+    taskIds:
       - task-4
+      - task-5
+
+  - id: phase-4
+    name: 'Application Layer — Use Case Updates'
+    parallel: true
+    taskIds:
+      - task-6
+      - task-7
+
+  - id: phase-5
+    name: 'New CLI Commands — feat review/approve/reject'
+    parallel: true
+    taskIds:
+      - task-8
+      - task-9
+      - task-10
+
+  - id: phase-6
+    name: 'CLI Enhancement — feat new & feat show'
+    parallel: true
+    taskIds:
+      - task-11
+      - task-12
 
 # File change tracking
 filesToCreate:
-  - src/domain/entities/{{ENTITY_NAME}}.ts
-  - tests/unit/domain/entities/{{ENTITY_NAME}}.test.ts
+  - tsp/agents/approval-gates.tsp
+  - tsp/agents/phase-timing.tsp
+  - src/application/ports/output/agents/phase-timing-repository.interface.ts
+  - src/infrastructure/repositories/sqlite-phase-timing.repository.ts
+  - src/presentation/cli/commands/feat/review.command.ts
+  - src/presentation/cli/commands/feat/approve.command.ts
+  - src/presentation/cli/commands/feat/reject.command.ts
+  - src/presentation/cli/commands/feat/resolve-waiting-feature.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts
+  - tests/unit/infrastructure/repositories/sqlite-phase-timing.repository.test.ts
+  - tests/unit/presentation/cli/commands/feat/review.command.test.ts
+  - tests/unit/presentation/cli/commands/feat/approve.command.test.ts
+  - tests/unit/presentation/cli/commands/feat/reject.command.test.ts
+  - tests/unit/application/use-cases/features/create-feature.use-case.test.ts
 
 filesToModify:
+  - tsp/agents/agent-run.tsp
+  - tsp/agents/index.tsp
+  - src/infrastructure/persistence/sqlite/migrations.ts
+  - src/infrastructure/repositories/agent-run.repository.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
+  - src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
+  - src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts
+  - src/infrastructure/services/agents/feature-agent/state.ts
   - src/infrastructure/di/container.ts
-  - package.json
+  - src/application/ports/output/agents/index.ts
+  - src/application/use-cases/features/create-feature.use-case.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - src/presentation/cli/commands/feat/show.command.ts
+  - src/presentation/cli/commands/feat/index.ts
 
 # Open questions (should all be resolved before implementation)
 openQuestions: []
 
-# Markdown content (the full plan document)
+# Markdown content — architecture, strategy, and risks only.
+# Task-level detail lives in tasks.yaml (no duplication).
 content: |
   ## Status
 
@@ -46,35 +109,123 @@ content: |
   ## Architecture Overview
 
   ```
-  {{ARCHITECTURE_DIAGRAM}}
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                    Presentation (CLI)                           │
+  │  feat new ──► ApprovalGates from flags                         │
+  │  feat review/approve/reject ──► resolveWaitingFeature()        │
+  │  feat show ──► phase timing breakdown display                  │
+  └──────────────────────────┬──────────────────────────────────────┘
+                             │
+  ┌──────────────────────────▼──────────────────────────────────────┐
+  │                    Application (Use Cases)                      │
+  │  CreateFeatureUseCase (ApprovalGates input)                    │
+  │  ApproveAgentRunUseCase (existing)                             │
+  │  RejectAgentRunUseCase  (existing)                             │
+  │  IPhaseTimingRepository (new port)                             │
+  └──────────────────────────┬──────────────────────────────────────┘
+                             │
+  ┌──────────────────────────▼──────────────────────────────────────┐
+  │                    Infrastructure                               │
+  │  ┌─────────────────────────────────────────┐                   │
+  │  │        Agent System                     │                   │
+  │  │  shouldInterrupt(name, ApprovalGates)   │                   │
+  │  │  executeNode() + PhaseTiming recording  │                   │
+  │  │  Worker: --approval-gates JSON arg      │                   │
+  │  │  ProcessService: spawn w/ ApprovalGates │                   │
+  │  └─────────────────────────────────────────┘                   │
+  │  SQLitePhaseTimingRepository ◄── IPhaseTimingRepository        │
+  │  AgentRunRepository (approval_gates JSON column)               │
+  │  Migration 008 (approval_gates + phase_timings table)          │
+  │  DI Container (register PhaseTimingRepository)                 │
+  └──────────────────────────┬──────────────────────────────────────┘
+                             │
+  ┌──────────────────────────▼──────────────────────────────────────┐
+  │                    Domain (TypeSpec)                             │
+  │  ApprovalGates { allowPrd: boolean, allowPlan: boolean }       │
+  │  PhaseTiming extends BaseEntity { agentRunId, phase, timing }  │
+  │  AgentRun.approvalGates?: ApprovalGates  (replaces string)     │
+  └─────────────────────────────────────────────────────────────────┘
+  ```
+
+  ## Data Flow
+
+  ### Approval Gates Flow
+
+  ```
+  CLI flags (--allow-prd, --allow-plan, --allow-all)
+    │
+    ▼
+  Build ApprovalGates { allowPrd, allowPlan }
+    │
+    ├──► CreateFeatureUseCase (stores in AgentRun as JSON)
+    │
+    ▼
+  ProcessService.spawn() passes --approval-gates JSON to worker
+    │
+    ▼
+  Worker parses JSON, sets in graph state
+    │
+    ▼
+  executeNode() → shouldInterrupt(nodeName, gates)
+    │
+    ├── requirements node: interrupt if !gates.allowPrd
+    └── plan node: interrupt if !gates.allowPlan
+  ```
+
+  ### Phase Timing Flow
+
+  ```
+  executeNode() entry
+    │
+    ├──► IPhaseTimingRepository.save({ startedAt: now })
+    │
+    ▼
+  Node executes (agent call)
+    │
+    ▼
+  executeNode() exit
+    │
+    ├──► IPhaseTimingRepository.update({ completedAt, durationMs })
+    │
+    ▼
+  feat show → IPhaseTimingRepository.findByRunId() → display breakdown
   ```
 
   ## Implementation Strategy
 
-  **MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
+  **MANDATORY TDD**: All phases with executable code follow RED-GREEN-REFACTOR cycles.
 
-  ### Phase 1: Foundation (No Tests)
+  The implementation follows a bottom-up dependency order across 6 phases.
+  Each phase produces independently verifiable, working code.
 
-  **Goal:** {{PHASE_1_GOAL}}
+  **Phase 1** establishes the domain model foundation via TypeSpec. Two new models
+  (`ApprovalGates` value object, `PhaseTiming` entity) are defined and the existing
+  `AgentRun` model is updated. TypeSpec compilation generates TypeScript types. No
+  tests needed — this is pure code generation.
 
-  **Steps:**
+  **Phase 2** builds the database layer. Migration 008 adds `approval_gates TEXT` to
+  `agent_runs` (with data transformation from the old string column) and creates the
+  `phase_timings` table. A new `SQLitePhaseTimingRepository` implements the port
+  interface. The existing `AgentRunRepository` mapper is updated to read/write the
+  new JSON column. Full TDD — repository tests against in-memory SQLite.
 
-  1. {{STEP_1}}
-  2. {{STEP_2}}
+  **Phase 3** refactors the agent system core. `shouldInterrupt()` switches from the
+  string lookup table to typed boolean checks on `ApprovalGates`. The worker and
+  process service switch from `--approval-mode` string to `--approval-gates` JSON.
+  `executeNode()` gains optional `IPhaseTimingRepository` injection for recording
+  timing. TDD drives all changes.
 
-  **Deliverables:** {{DELIVERABLES}}
+  **Phase 4** updates the application layer. `CreateFeatureUseCase` accepts
+  `ApprovalGates` instead of a string. A shared `resolveWaitingFeature()` helper
+  finds the single waiting feature in the current repo. Tasks are parallelizable.
 
-  ### Phase 2: Core Implementation (TDD Cycle 1)
+  **Phase 5** adds three new CLI commands (`feat review`, `feat approve`,
+  `feat reject`). All use the `resolveWaitingFeature()` helper and delegate to
+  existing use cases. Commands are independent and can be built in parallel.
 
-  **Goal:** {{PHASE_2_GOAL}}
-
-  **TDD Workflow:**
-
-  1. **RED:** Write failing tests FIRST
-  2. **GREEN:** Implement minimal code to pass tests
-  3. **REFACTOR:** Improve code while keeping tests green
-
-  **Deliverables:** {{DELIVERABLES}}
+  **Phase 6** updates existing CLI commands. `feat new` builds `ApprovalGates` from
+  flags (removes `--interactive`), displays approval behavior hint. `feat show`
+  adds phase timing breakdown section and approval context. Parallelizable.
 
   ## Files to Create/Modify
 
@@ -82,13 +233,33 @@ content: |
 
   | File | Purpose |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{PURPOSE}} |
+  | `tsp/agents/approval-gates.tsp` | ApprovalGates value object TypeSpec model |
+  | `tsp/agents/phase-timing.tsp` | PhaseTiming entity TypeSpec model |
+  | `src/application/ports/output/agents/phase-timing-repository.interface.ts` | IPhaseTimingRepository port interface |
+  | `src/infrastructure/repositories/sqlite-phase-timing.repository.ts` | SQLite implementation of IPhaseTimingRepository |
+  | `src/presentation/cli/commands/feat/review.command.ts` | `feat review [id]` command |
+  | `src/presentation/cli/commands/feat/approve.command.ts` | `feat approve [id]` command |
+  | `src/presentation/cli/commands/feat/reject.command.ts` | `feat reject [id]` command |
+  | `src/presentation/cli/commands/feat/resolve-waiting-feature.ts` | Shared helper to auto-resolve single waiting feature |
 
   ### Modified Files
 
   | File | Changes |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{CHANGES}} |
+  | `tsp/agents/agent-run.tsp` | Replace `approvalMode?: string` + `approvalStatus?: string` with `approvalGates?: ApprovalGates` |
+  | `tsp/agents/index.tsp` | Import new ApprovalGates and PhaseTiming models |
+  | `src/infrastructure/persistence/sqlite/migrations.ts` | Add migration 008: `approval_gates` column + `phase_timings` table |
+  | `src/infrastructure/repositories/agent-run.repository.ts` | Update mapper: serialize/deserialize `approval_gates` JSON |
+  | `src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts` | Refactor `shouldInterrupt()` to use `ApprovalGates`; add timing recording to `executeNode()` |
+  | `src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` | Parse `--approval-gates` JSON arg instead of `--approval-mode` string |
+  | `src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Pass `--approval-gates` JSON arg in spawn() |
+  | `src/infrastructure/services/agents/feature-agent/state.ts` | Update state annotation: `approvalGates` replaces `approvalMode` |
+  | `src/infrastructure/di/container.ts` | Register `IPhaseTimingRepository` → `SQLitePhaseTimingRepository` |
+  | `src/application/ports/output/agents/index.ts` | Export `IPhaseTimingRepository` |
+  | `src/application/use-cases/features/create-feature.use-case.ts` | Accept `ApprovalGates` instead of `approvalMode` string |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Build `ApprovalGates` from flags, remove `--interactive`, add output hint |
+  | `src/presentation/cli/commands/feat/show.command.ts` | Add phase timing breakdown and approval context display |
+  | `src/presentation/cli/commands/feat/index.ts` | Register review, approve, reject subcommands |
 
   ## Testing Strategy (TDD: Tests FIRST)
 
@@ -97,20 +268,31 @@ content: |
   ### Unit Tests (RED -> GREEN -> REFACTOR)
 
   Write FIRST for:
-  - {{TEST_AREA_1}}
-  - {{TEST_AREA_2}}
+  - `shouldInterrupt()` with `ApprovalGates` — all gate combinations
+  - `executeNode()` — phase timing repository calls on entry/exit/error
+  - `resolveWaitingFeature()` — 0, 1, multiple waiting features
+  - `CreateFeatureUseCase` — ApprovalGates passed through to run
+  - `feat review/approve/reject` commands — auto-resolve and delegation
+  - `feat new` — flag-to-ApprovalGates mapping, output messaging
+  - `feat show` — phase timing breakdown rendering
 
   ### Integration Tests
 
   Write FIRST for:
-  - {{INTEGRATION_TEST_1}}
+  - `SQLitePhaseTimingRepository` — save/update/query against test SQLite
+  - `AgentRunRepository` — approval_gates JSON serialization round-trip
+  - Migration 008 — data transformation from `approval_mode` strings
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | {{RISK}} | {{MITIGATION}} |
+  | SQLite cannot drop old `approval_mode`/`approval_status` columns | Old columns stay in schema but are ignored by updated mapper. No application code reads them after migration. |
+  | Existing agent runs have null `approval_gates` | Mapper defaults to `undefined` when column is null. `shouldInterrupt()` returns `false` when gates is undefined (backward compat — no interrupts). |
+  | Worker JSON parsing failure for `--approval-gates` | Worker validates parsed object shape before use. Logs error and falls back to no-gates behavior. |
+  | Phase timing repository not available in worker process | Repository passed as optional parameter to `executeNode()`. When absent, timing is not recorded (existing behavior preserved). |
+  | Breaking change to `feat new` default behavior | Users who ran autonomous by default now get pauses. Document in CLI output: "Agent will pause for review. Use --allow-all for autonomous." |
 
   ---
 
-  _Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_
+  _Updated by `/shep-kit:plan` — see tasks.yaml for detailed task breakdown_
