@@ -129,28 +129,54 @@ describe('ResumeFeatureUseCase', () => {
       '/test/repo',
       '/wt/path',
       '/wt/path',
-      expect.objectContaining({ resume: true })
+      expect.objectContaining({
+        resume: true,
+        threadId: 'thread-001',
+        resumeFromInterrupt: false, // interrupted !== waitingApproval
+      })
     );
   });
 
-  it('should resume a failed run', async () => {
+  it('should resume a failed run without resumeFromInterrupt', async () => {
     featureRepo.findById.mockResolvedValue(createTestFeature());
     runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));
 
     const result = await useCase.execute('feat-001');
 
     expect(result.feature.id).toBe('feat-001');
-    expect(processService.spawn).toHaveBeenCalled();
+    expect(processService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resume: true,
+        threadId: 'thread-001',
+        resumeFromInterrupt: false,
+      })
+    );
   });
 
-  it('should resume a waiting_approval run', async () => {
+  it('should resume a waiting_approval run with resumeFromInterrupt', async () => {
     featureRepo.findById.mockResolvedValue(createTestFeature());
     runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.waitingApproval }));
 
     const result = await useCase.execute('feat-001');
 
     expect(result.feature.id).toBe('feat-001');
-    expect(processService.spawn).toHaveBeenCalled();
+    expect(processService.spawn).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.any(String),
+      expect.objectContaining({
+        resume: true,
+        threadId: 'thread-001',
+        resumeFromInterrupt: true,
+      })
+    );
   });
 
   it('should resolve feature by ID prefix', async () => {

@@ -4,7 +4,7 @@
 >
 > This guide describes the **planned LangGraph-based agent system** which is **not yet implemented**. The code examples, graph definitions, and node functions shown below do not exist in the codebase. This document is retained as architectural planning documentation for future implementation.
 >
-> The current agent system only handles configuration of external AI coding tools (Claude Code, Gemini CLI, etc.). See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+> The current agent system handles configuration and execution of external AI coding tools (Claude Code, Cursor currently available; Gemini CLI, Aider, Continue planned). Agent selection is settings-driven — see [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
 
 ---
 

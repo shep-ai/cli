@@ -18,6 +18,7 @@ import {
   readSpecFile,
   buildExecutorOptions,
   shouldInterrupt,
+  safeYamlLoad,
 } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import {
@@ -91,8 +92,8 @@ export function createImplementNode(executor: IAgentExecutor) {
         return { currentNode: 'implement', error: msg, messages: [`[implement] Error: ${msg}`] };
       }
 
-      const planData = yaml.load(planContent) as PlanYaml;
-      const tasksData = yaml.load(tasksContent) as TasksYaml;
+      const planData = safeYamlLoad(planContent) as PlanYaml;
+      const tasksData = safeYamlLoad(tasksContent) as TasksYaml;
 
       if (!planData?.phases?.length || !tasksData?.tasks?.length) {
         const msg = 'Empty phases or tasks — nothing to implement';
@@ -216,11 +217,10 @@ export function createImplementNode(executor: IAgentExecutor) {
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.error(`${message} (after ${elapsed}s)`);
 
-      return {
-        currentNode: 'implement',
-        error: message,
-        messages: [...messages, `[implement] Error: ${message}`],
-      };
+      // Throw so LangGraph does NOT checkpoint this node as "completed".
+      // The worker catch block marks the run as failed, and on resume
+      // LangGraph re-executes from the last successfully checkpointed node.
+      throw new Error(`[implement] ${message}`);
     }
   };
 }

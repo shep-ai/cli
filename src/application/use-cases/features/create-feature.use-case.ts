@@ -26,7 +26,7 @@ import type { IWorktreeService } from '../../ports/output/services/worktree-serv
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
 import type { ISpecInitializerService } from '../../ports/output/services/spec-initializer.interface.js';
-import type { IAgentExecutorFactory } from '../../ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutorProvider } from '../../ports/output/agents/agent-executor-provider.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 import { getSettings } from '../../../infrastructure/services/settings.service.js';
 
@@ -58,8 +58,8 @@ export class CreateFeatureUseCase {
     private readonly runRepository: IAgentRunRepository,
     @inject('ISpecInitializerService')
     private readonly specInitializer: ISpecInitializerService,
-    @inject('IAgentExecutorFactory')
-    private readonly executorFactory: IAgentExecutorFactory
+    @inject('IAgentExecutorProvider')
+    private readonly executorProvider: IAgentExecutorProvider
   ) {}
 
   async execute(input: CreateFeatureInput): Promise<Feature> {
@@ -128,22 +128,17 @@ export class CreateFeatureUseCase {
     };
     await this.runRepository.create(agentRun);
 
-    this.agentProcess.spawn(
-      feature.id,
-      runId,
-      input.repositoryPath,
-      specDir,
-      worktreePath,
-      input.approvalMode ? { approvalMode: input.approvalMode } : undefined
-    );
+    this.agentProcess.spawn(feature.id, runId, input.repositoryPath, specDir, worktreePath, {
+      ...(input.approvalMode ? { approvalMode: input.approvalMode } : {}),
+      threadId: agentRun.threadId,
+    });
 
     return feature;
   }
 
   private async generateMetadata(userInput: string): Promise<FeatureMetadata> {
     try {
-      const settings = getSettings();
-      const executor = this.executorFactory.createExecutor(settings.agent.type, settings.agent);
+      const executor = this.executorProvider.getExecutor();
 
       const truncated =
         userInput.length > MAX_INPUT_FOR_AI

@@ -105,7 +105,12 @@ export class ResumeFeatureUseCase {
       feature.repositoryPath,
       worktreePath,
       worktreePath,
-      { resume: true, approvalMode: lastRun.approvalMode }
+      {
+        resume: true,
+        approvalMode: lastRun.approvalMode,
+        threadId: lastRun.threadId,
+        resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
+      }
     );
 
     return { feature, newRun };

@@ -5,6 +5,7 @@
  * and error handling so every node follows the same patterns.
  */
 
+import yaml from 'js-yaml';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
@@ -52,6 +53,34 @@ export function buildExecutorOptions(state: FeatureAgentState): AgentExecutionOp
   return {
     cwd: state.worktreePath || state.repositoryPath,
   };
+}
+
+/**
+ * Sanitize YAML content to handle common AI-generated issues.
+ * Quotes unquoted list items containing `{` or `}` characters
+ * which js-yaml interprets as flow mappings.
+ */
+function sanitizeYamlBraces(content: string): string {
+  return content.replace(
+    /^(\s*- )(?!['"])(.+[{}].+)$/gm,
+    (_match, prefix: string, value: string) =>
+      `${prefix}"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
+  );
+}
+
+/**
+ * Parse YAML with automatic sanitization of common AI-generated issues.
+ * First attempts normal parsing; on failure, sanitizes unquoted braces
+ * in list items and retries.
+ */
+export function safeYamlLoad(content: string): unknown {
+  try {
+    return yaml.load(content);
+  } catch (firstError) {
+    const sanitized = sanitizeYamlBraces(content);
+    if (sanitized === content) throw firstError; // nothing to sanitize
+    return yaml.load(sanitized);
+  }
 }
 
 /** Nodes that are auto-approved (no interrupt) for each approval mode. */
@@ -126,11 +155,10 @@ export function executeNode(
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.error(`${message} (after ${elapsed}s)`);
 
-      return {
-        currentNode: nodeName,
-        error: message,
-        messages: [`[${nodeName}] Error: ${message}`],
-      };
+      // Throw so LangGraph does NOT checkpoint this node as "completed".
+      // The worker catch block marks the run as failed, and on resume
+      // LangGraph re-executes from the last successfully checkpointed node.
+      throw new Error(`[${nodeName}] ${message}`);
     }
   };
 }

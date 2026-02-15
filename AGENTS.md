@@ -4,7 +4,7 @@
 >
 > The **FeatureAgent LangGraph graph** is implemented with background execution support. Each agent graph lives in its own subdirectory under `src/infrastructure/services/agents/` with separated state, nodes, and graph factory files. The full multi-agent supervisor pattern described later in this document remains **planned architecture**.
 >
-> The agent system also handles **configuration of external AI coding tools** (Claude Code, Gemini CLI, Aider, Continue, Cursor) via the `shep settings agent` command. See [Current Implementation](#current-implementation) below.
+> The agent system also handles **configuration and execution of external AI coding tools** (Claude Code, Cursor currently available; Gemini CLI, Aider, Continue planned) via the `shep settings agent` command and the `AgentExecutorFactory`. See [Current Implementation](#current-implementation) below.
 
 ## Current Implementation
 
@@ -24,8 +24,10 @@ src/infrastructure/services/agents/
 │   ├── agent-runner.service.ts
 │   ├── agent-validator.service.ts
 │   ├── checkpointer.ts
+│   ├── types.ts                         # Shared types (SpawnFunction, ExecFunction)
 │   └── executors/
-│       └── claude-code-executor.service.ts
+│       ├── claude-code-executor.service.ts
+│       └── cursor-executor.service.ts
 ├── analyze-repo/                        # Repository analysis graph
 │   ├── analyze-repository-graph.ts
 │   └── prompts/
@@ -51,28 +53,86 @@ src/infrastructure/services/agents/
 
 ### What Exists Today
 
-| Component                    | Location                                                                            | Purpose                                                                                   |
-| ---------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `AgentType` enum             | `src/domain/generated/output.ts`                                                    | Defines supported agent tools: `claude-code`, `gemini-cli`, `aider`, `continue`, `cursor` |
-| `AgentAuthMethod` enum       | `src/domain/generated/output.ts`                                                    | Authentication methods: `session`, `token`                                                |
-| `IAgentValidator`            | `src/application/ports/output/agent-validator.interface.ts`                         | Port interface for checking agent binary availability                                     |
-| `AgentValidatorService`      | `src/infrastructure/services/agents/common/agent-validator.service.ts`              | Checks if agent binaries (e.g., `claude`) exist on the system via `--version`             |
-| `AgentRunnerService`         | `src/infrastructure/services/agents/common/agent-runner.service.ts`                 | Orchestrates graph execution with streaming support                                       |
-| `FeatureAgentProcessService` | `src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Spawns/manages background worker processes via fork()                                     |
-| `ConfigureAgentUseCase`      | `src/application/use-cases/agents/configure-agent.use-case.ts`                      | Validates agent availability, then persists agent config to settings                      |
-| `ValidateAgentAuthUseCase`   | `src/application/use-cases/agents/validate-agent-auth.use-case.ts`                  | Delegates to `IAgentValidator` to check binary availability                               |
-| `createAgentCommand()`       | `src/presentation/cli/commands/settings/agent.command.ts`                           | CLI command: `shep settings agent` (interactive wizard or `--agent`/`--auth` flags)       |
-| `agentConfigWizard()`        | `src/presentation/tui/wizards/agent-config.wizard.ts`                               | Interactive TUI for selecting agent type and auth method                                  |
-| `createAgentSelectConfig()`  | `src/presentation/tui/prompts/agent-select.prompt.ts`                               | Prompt choices (only Claude Code enabled; others show "Coming Soon")                      |
+| Component                    | Location                                                                              | Purpose                                                                                           |
+| ---------------------------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `AgentType` enum             | `src/domain/generated/output.ts`                                                      | Defines supported agent tools: `claude-code`, `cursor`, `gemini-cli`, `aider`, `continue`         |
+| `AgentAuthMethod` enum       | `src/domain/generated/output.ts`                                                      | Authentication methods: `session`, `token`                                                        |
+| `IAgentExecutor`             | `src/application/ports/output/agents/agent-executor.interface.ts`                     | Port interface for executing agent commands (`execute()`, `executeStream()`, `supportsFeature()`) |
+| `IAgentValidator`            | `src/application/ports/output/agent-validator.interface.ts`                           | Port interface for checking agent binary availability                                             |
+| `AgentExecutorFactory`       | `src/infrastructure/services/agents/common/agent-executor-factory.service.ts`         | **Single point of executor creation** — maps `AgentType` → concrete executor via settings         |
+| `IAgentExecutorProvider`     | `src/application/ports/output/agents/agent-executor-provider.interface.ts`            | Port interface for settings-aware executor resolution (`getExecutor()`)                           |
+| `AgentExecutorProvider`      | `src/infrastructure/services/agents/common/agent-executor-provider.service.ts`        | Reads settings, delegates to factory — the consumer-facing API for getting executors              |
+| `ClaudeCodeExecutorService`  | `src/infrastructure/services/agents/common/executors/claude-code-executor.service.ts` | Claude Code executor: spawns `claude` binary                                                      |
+| `CursorExecutorService`      | `src/infrastructure/services/agents/common/executors/cursor-executor.service.ts`      | Cursor executor: spawns `agent` binary with Cursor-specific stream-json parsing                   |
+| `AgentValidatorService`      | `src/infrastructure/services/agents/common/agent-validator.service.ts`                | Checks if agent binaries (`claude`, `agent`) exist on the system via `--version`                  |
+| `AgentRunnerService`         | `src/infrastructure/services/agents/common/agent-runner.service.ts`                   | Orchestrates graph execution with streaming support                                               |
+| `FeatureAgentProcessService` | `src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts`   | Spawns/manages background worker processes via fork()                                             |
+| `ConfigureAgentUseCase`      | `src/application/use-cases/agents/configure-agent.use-case.ts`                        | Validates agent availability, then persists agent config to settings                              |
+| `ValidateAgentAuthUseCase`   | `src/application/use-cases/agents/validate-agent-auth.use-case.ts`                    | Delegates to `IAgentValidator` to check binary availability                                       |
+| `createAgentCommand()`       | `src/presentation/cli/commands/settings/agent.command.ts`                             | CLI command: `shep settings agent` (interactive wizard or `--agent`/`--auth` flags)               |
+| `agentConfigWizard()`        | `src/presentation/tui/wizards/agent-config.wizard.ts`                                 | Interactive TUI for selecting agent type and auth method                                          |
+| `createAgentSelectConfig()`  | `src/presentation/tui/prompts/agent-select.prompt.ts`                                 | Prompt choices (Claude Code and Cursor enabled; others show "Coming Soon")                        |
+
+### Settings-Driven Agent Resolution (MANDATORY)
+
+> **ARCHITECTURAL RULE: No component may hardcode, guess, or default an agent type at execution time. ALL agent executor resolution MUST flow through `IAgentExecutorProvider.getExecutor()`, which internally reads `getSettings().agent.type` and delegates to the factory.**
+
+This rule applies to ALL current and future agent implementations. The agent type configured via `shep settings agent` is the single source of truth for which executor runs. Any code path that needs an `IAgentExecutor` must:
+
+1. Inject `IAgentExecutorProvider` (registered in DI as `'IAgentExecutorProvider'`)
+2. Call `provider.getExecutor()` — it reads settings and delegates to the factory internally
+3. Use the returned `IAgentExecutor` — never instantiate an executor directly
+
+**Violations of this rule:**
+
+- Hardcoding `AgentType.ClaudeCode` or any specific agent type at execution time
+- Importing a specific executor class (e.g., `ClaudeCodeExecutorService`) outside the factory
+- Using a fallback/default agent type when settings are available
+- Passing a different agent type than what settings specify
+- Calling `IAgentExecutorFactory.createExecutor()` directly in consumer code (use `IAgentExecutorProvider` instead)
+
+**The factory is the ONLY place** that maps `AgentType` → concrete executor class. All other code depends on the `IAgentExecutor` interface and the settings-driven agent type.
+
+```
+Settings (source of truth)
+  → IAgentExecutorProvider.getExecutor()
+    → internally: getSettings().agent.type  (e.g., 'cursor')
+    → internally: AgentExecutorFactory.createExecutor(type, config)
+  → IAgentExecutor (concrete executor: CursorExecutorService)
+  → Used by all consumers (use cases, workers, graphs)
+```
+
+### Agent Resolution Flow
+
+```
+1. User runs `shep settings agent`
+   → Interactive wizard (or CLI flags)
+   → Select agent type (Claude Code, Cursor, etc.)
+   → Select auth method (session or token)
+   → AgentValidatorService checks binary availability
+   → ConfigureAgentUseCase persists to Settings
+
+2. User runs `shep feat new "description"`
+   → bootstrap() loads settings from SQLite
+   → Consumer injects IAgentExecutorProvider
+   → provider.getExecutor() reads settings and creates executor via factory
+   → All downstream code uses IAgentExecutor interface
+
+3. Feature agent worker (background process)
+   → Worker initializes own DI container and settings
+   → Resolves IAgentExecutorProvider from container
+   → provider.getExecutor() reads settings and creates executor
+   → Graph nodes receive executor as injected dependency
+```
 
 ### Current Flow
 
 ```
 User runs `shep settings agent`
   → Interactive wizard (or CLI flags)
-  → Select agent type (Claude Code only currently enabled)
+  → Select agent type (Claude Code or Cursor currently enabled)
   → Select auth method (session or token)
-  → AgentValidatorService checks binary availability (`claude --version`)
+  → AgentValidatorService checks binary availability
   → ConfigureAgentUseCase persists to Settings
 ```
 
@@ -81,10 +141,10 @@ User runs `shep settings agent`
 | Agent       | Enum Value    | Status      |
 | ----------- | ------------- | ----------- |
 | Claude Code | `claude-code` | Available   |
+| Cursor      | `cursor`      | Available   |
 | Gemini CLI  | `gemini-cli`  | Coming Soon |
 | Aider       | `aider`       | Coming Soon |
 | Continue    | `continue`    | Coming Soon |
-| Cursor      | `cursor`      | Coming Soon |
 
 ### FeatureAgent Graph
 
@@ -136,10 +196,10 @@ Linear flow — each node executes sequentially. Future iterations may add condi
 **File:** `feature-agent/feature-agent-graph.ts`
 
 ```typescript
-createFeatureAgentGraph(checkpointer?: BaseCheckpointSaver): CompiledStateGraph
+createFeatureAgentGraph(executor: IAgentExecutor, checkpointer?: BaseCheckpointSaver): CompiledStateGraph
 ```
 
-Accepts an optional `BaseCheckpointSaver` for state persistence across invocations. The DI container registers a `:memory:` SQLite checkpointer by default.
+Accepts an `IAgentExecutor` (resolved from settings via the factory — see [Settings-Driven Agent Resolution](#settings-driven-agent-resolution-mandatory)) and an optional `BaseCheckpointSaver` for state persistence across invocations. The executor is passed to all graph nodes that need it — **nodes never resolve an executor themselves**. The DI container registers a `:memory:` SQLite checkpointer by default.
 
 #### Background Execution
 

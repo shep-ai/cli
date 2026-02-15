@@ -4,7 +4,13 @@
 >
 > This guide describes how to extend the **planned LangGraph-based agent system** which is **not yet implemented**. The `src/infrastructure/agents/langgraph/` directory, node functions, graph definitions, and tool bindings described below do not exist in the codebase. This document is retained as architectural planning documentation for future implementation.
 >
-> The current agent system only handles configuration of external AI coding tools (Claude Code, Gemini CLI, etc.). See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+> The current agent system handles configuration and execution of external AI coding tools (Claude Code, Cursor currently available; Gemini CLI, Aider, Continue planned). See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+
+---
+
+## Settings-Driven Agent Resolution (MANDATORY)
+
+> **Before adding any new node or agent capability, understand this rule:** The agent executor used by any node, graph, or worker is ALWAYS resolved from `getSettings().agent.type` via `AgentExecutorFactory.createExecutor()`. Nodes receive the executor as a dependency — they never create or choose an executor themselves. See [AGENTS.md — Settings-Driven Agent Resolution](../../AGENTS.md#settings-driven-agent-resolution-mandatory).
 
 ---
 
@@ -26,6 +32,7 @@ Shep's agent system will be built on LangGraph StateGraphs. Adding new capabilit
 
 Before adding a new node, understand:
 
+- [AGENTS.md — Settings-Driven Agent Resolution](../../AGENTS.md#settings-driven-agent-resolution-mandatory) - **MANDATORY: How agent executors are resolved**
 - [LangGraph Agents Guide](../guides/langgraph-agents.md) - Core concepts
 - [Agent System Architecture](../architecture/agent-system.md) - Full architecture
 - [Context Layer](../architecture/context-layer.md) - Vector DB integration

@@ -711,7 +711,7 @@ enum AgentType {
   /** Continue IDE extension (coming soon) */
   Continue = 'continue',
 
-  /** Cursor AI IDE (coming soon) */
+  /** Cursor AI coding agent */
   Cursor = 'cursor',
 }
 ```

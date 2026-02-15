@@ -14,7 +14,7 @@ import type {
   AgentRunOptions,
 } from '@/application/ports/output/agents/agent-runner.interface.js';
 import type { IAgentRegistry } from '@/application/ports/output/agents/agent-registry.interface.js';
-import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { AgentExecutionStreamEvent } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { AgentRun, AgentRunEvent } from '@/domain/generated/output.js';
@@ -26,7 +26,7 @@ import { StreamingExecutorProxy } from '../streaming/streaming-executor-proxy.js
 export class AgentRunnerService implements IAgentRunner {
   constructor(
     private readonly registry: IAgentRegistry,
-    private readonly executorFactory: IAgentExecutorFactory,
+    private readonly executorProvider: IAgentExecutorProvider,
     private readonly checkpointer: BaseCheckpointSaver,
     private readonly runRepository: IAgentRunRepository
   ) {}
@@ -107,7 +107,7 @@ export class AgentRunnerService implements IAgentRunner {
 
     const settings = getSettings();
     const agentType = settings.agent.type;
-    const executor = this.executorFactory.createExecutor(agentType, settings.agent);
+    const executor = this.executorProvider.getExecutor();
 
     const runId = crypto.randomUUID();
     const threadId = crypto.randomUUID();
