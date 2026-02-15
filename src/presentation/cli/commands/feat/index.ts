@@ -16,6 +16,9 @@ import { createLsCommand } from './ls.command.js';
 import { createShowCommand } from './show.command.js';
 import { createDelCommand } from './del.command.js';
 import { createResumeCommand } from './resume.command.js';
+import { createReviewCommand } from './review.command.js';
+import { createApproveCommand } from './approve.command.js';
+import { createRejectCommand } from './reject.command.js';
 
 /**
  * Create the feat command group
@@ -27,5 +30,8 @@ export function createFeatCommand(): Command {
     .addCommand(createLsCommand())
     .addCommand(createShowCommand())
     .addCommand(createDelCommand())
-    .addCommand(createResumeCommand());
+    .addCommand(createResumeCommand())
+    .addCommand(createReviewCommand())
+    .addCommand(createApproveCommand())
+    .addCommand(createRejectCommand());
 }
