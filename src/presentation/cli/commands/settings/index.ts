@@ -13,6 +13,7 @@ import { Command } from 'commander';
 import { createShowCommand } from './show.command.js';
 import { createInitCommand } from './init.command.js';
 import { createAgentCommand } from './agent.command.js';
+import { createIdeCommand } from './ide.command.js';
 
 /**
  * Create the settings command group
@@ -22,5 +23,6 @@ export function createSettingsCommand(): Command {
     .description('Manage Shep global settings')
     .addCommand(createShowCommand())
     .addCommand(createInitCommand())
-    .addCommand(createAgentCommand());
+    .addCommand(createAgentCommand())
+    .addCommand(createIdeCommand());
 }
