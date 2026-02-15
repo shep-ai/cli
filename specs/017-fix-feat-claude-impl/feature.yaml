@@ -3,18 +3,18 @@ feature:
   name: 'fix-feat-claude-impl'
   number: 17
   branch: 'fix/feat-claude-impl'
-  lifecycle: 'research'
+  lifecycle: 'planning'
   createdAt: '2026-02-15T13:57:38Z'
 
 status:
-  phase: 'research'
+  phase: 'planning'
   progress:
     completed: 0
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-15T13:57:38Z'
-  lastUpdatedBy: 'shep-kit:new-feature'
+  lastUpdated: '2026-02-15T14:30:00Z'
+  lastUpdatedBy: 'shep-kit:research'
 
 validation:
   lastRun: null
@@ -30,6 +30,9 @@ checkpoints:
   - phase: 'feature-created'
     completedAt: '2026-02-15T13:57:38Z'
     completedBy: 'shep-kit:new-feature'
+  - phase: 'research-complete'
+    completedAt: '2026-02-15T14:30:00Z'
+    completedBy: 'shep-kit:research'
 
 errors:
   current: null

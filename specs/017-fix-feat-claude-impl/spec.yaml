@@ -3,60 +3,93 @@
 
 name: fix-feat-claude-impl
 number: 017
-branch: feat/017-fix-feat-claude-impl
-oneLiner: { { ONE_LINER } }
+branch: fix/feat-claude-impl
+oneLiner: Harden feature agent implement phase against Claude Code API failures
 summary: >
-  {{SUMMARY}}
-phase: Requirements
-sizeEstimate: { { SIZE } }
+  The feature agent's implement node fails catastrophically on long-running missions when Claude Code
+  encounters an Anthropic API 400 error (tool_use.name exceeds 200 characters). After ~49 minutes of
+  successful work across 3 phases, the agent fails on phase 4 with no retry, no recovery, and no
+  phase-level resumption — losing all progress. This spec addresses error resilience, retry logic,
+  tool restriction, and prompt size management for the implement phase.
+phase: research
+sizeEstimate: Medium
 
 # Relationships
 relatedFeatures:
-  []
-  # - "008-agent-configuration"
+  - '009-feature-agent'
 
 technologies:
-  []
-  # - TypeScript
-  # - React
+  - TypeScript
+  - LangGraph
+  - Claude Code CLI
 
 relatedLinks:
-  []
-  # - https://example.com/relevant-doc
+  - https://github.com/anthropics/claude-code/issues/7370
+  - https://github.com/anthropics/claude-code/issues/23149
+  - https://code.claude.com/docs/en/cli-reference
 
 # Open questions (must be resolved before implementation)
-openQuestions:
-  []
-  # - question: "Should we use approach A or B?"
-  #   resolved: false
-  #   answer: null
+openQuestions: []
 
 # Markdown content (the actual spec)
 content: |
   ## Problem Statement
 
-  {{PROBLEM_STATEMENT}}
+  The feature agent's implement phase (phase-level orchestrator in `implement.node.ts`) spawns
+  Claude Code subprocesses to execute each implementation phase. When the Anthropic API returns
+  a 400 error with `tool_use.name: String should have at most 200 characters`, the entire agent
+  run fails with no recovery mechanism.
+
+  **Observed failure chain:**
+  1. Phases 1-3 complete successfully (~45 minutes of work)
+  2. Phase 4 spawns a new Claude Code subprocess with an 83K character prompt
+  3. Claude Code makes its first API call, the model responds with tool_use
+  4. On the subsequent API call, the API rejects the request: `messages.1.content.1.tool_use.name: String should have at most 200 characters`
+  5. Claude Code exits with code 1
+  6. The implement node throws, LangGraph does NOT checkpoint, run is marked failed
+  7. All 49 minutes of work is effectively lost (though git commits from phases 1-3 survive)
+
+  **Root cause:** Known Claude Code bug ([#7370](https://github.com/anthropics/claude-code/issues/7370))
+  where tool names can exceed the API's 200-character limit. Additionally, MCP tool names using the
+  `mcp__plugin_{plugin}_{server}__{tool}` pattern can exceed limits
+  ([#23149](https://github.com/anthropics/claude-code/issues/23149)).
+
+  **Contributing factors in Shep's code:**
+  - No retry logic for transient/recoverable API errors
+  - No phase-level error recovery or resumption
+  - No `--max-turns` limit on Claude Code subprocess
+  - No MCP tool restriction (`--strict-mcp-config` or `--tools`)
+  - No prompt size management (83K char prompts with full spec+research+plan context)
+  - Single executor.execute() failure = entire phase failure = entire run failure
 
   ## Success Criteria
 
-  - [ ] {{CRITERION_1}}
-  - [ ] {{CRITERION_2}}
-  - [ ] {{CRITERION_3}}
+  - [ ] Implement retry logic (max 3 attempts per phase) with exponential backoff for transient errors
+  - [ ] Add error classification to distinguish API errors from implementation errors
+  - [ ] Pass `--max-turns` to Claude Code subprocesses to prevent runaway sessions
+  - [ ] Restrict available tools via `--tools` or `--strict-mcp-config` to prevent MCP tool name issues
+  - [ ] Add prompt size management with configurable threshold and context summarization
+  - [ ] Ensure phase-level progress survives individual phase failures (phases 1-3 should not be re-executed)
+  - [ ] All existing tests pass, new tests cover retry and error classification logic
 
   ## Affected Areas
 
-  | Area       | Impact       | Reasoning       |
-  | ---------- | ------------ | --------------- |
-  | {{AREA_1}} | {{IMPACT_1}} | {{REASONING_1}} |
-  | {{AREA_2}} | {{IMPACT_2}} | {{REASONING_2}} |
+  | Area                              | Impact | Reasoning                                              |
+  | --------------------------------- | ------ | ------------------------------------------------------ |
+  | implement.node.ts                 | High   | Add retry logic, error classification, phase recovery  |
+  | claude-code-executor.service.ts   | Medium | Pass new CLI flags (--max-turns, --tools, etc.)        |
+  | agent-executor.interface.ts       | Low    | May need new options for tool restriction and retries   |
+  | node-helpers.ts                   | Low    | Add shared error classification utility                |
+  | implement.prompt.ts               | Low    | Add prompt size management/truncation                  |
 
   ## Dependencies
 
-  None identified.
+  None — all changes are within the existing agent infrastructure.
 
   ## Size Estimate
 
-  **{{SIZE}}** - {{SIZE_REASONING}}
+  **Medium** - Core changes are in implement.node.ts (retry logic, error handling) and
+  claude-code-executor.service.ts (CLI flags). No new external dependencies needed.
 
   ---
 
