@@ -58,13 +58,13 @@ describe('FeatureNode', () => {
   });
 
   describe('running state', () => {
-    it('shows badge instead of progress bar', () => {
+    it('shows indeterminate progress bar instead of badge', () => {
       renderFeatureNode({ state: 'running', progress: 45 });
-      expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
-      expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
+      expect(screen.queryByTestId('feature-node-badge')).not.toBeInTheDocument();
     });
 
-    it('shows lifecycle running verb in badge text', () => {
+    it('shows lifecycle running verb in inline text', () => {
       renderFeatureNode({ state: 'running', progress: 45, lifecycle: 'implementation' });
       expect(screen.getByText('Implementing')).toBeInTheDocument();
     });
