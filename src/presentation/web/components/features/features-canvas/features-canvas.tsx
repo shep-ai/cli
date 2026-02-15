@@ -28,6 +28,7 @@ export interface FeaturesCanvasProps {
   onConnect?: (connection: Connection) => void;
   onRepositorySelect?: (path: string) => void;
   toolbar?: React.ReactNode;
+  emptyState?: React.ReactNode;
 }
 
 export function FeaturesCanvas({
@@ -43,6 +44,7 @@ export function FeaturesCanvas({
   onRepositoryAdd,
   onRepositorySelect,
   toolbar,
+  emptyState,
 }: FeaturesCanvasProps) {
   const nodeTypes = useMemo(
     () => ({
@@ -92,6 +94,13 @@ export function FeaturesCanvas({
   );
 
   if (nodes.length === 0) {
+    if (emptyState) {
+      return (
+        <div data-testid="features-canvas-empty" className="h-full w-full">
+          {emptyState}
+        </div>
+      );
+    }
     return (
       <div data-testid="features-canvas-empty">
         <EmptyState
