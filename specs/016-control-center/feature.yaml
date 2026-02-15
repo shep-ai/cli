@@ -7,14 +7,14 @@ feature:
   createdAt: '2026-02-12T20:31:19Z'
 
 status:
-  phase: 'in-review'
+  phase: 'review-watching'
   progress:
     completed: 10
     total: 10
     percentage: 100
-  notes: 'task-5 (toolbar) removed post-implementation — replaced by contextual node actions'
+  notes: 'CI green after lint fix; watching for review comments'
   currentTask: null
-  lastUpdated: '2026-02-15T15:01:00Z'
+  lastUpdated: '2026-02-15T15:45:00Z'
   lastUpdatedBy: 'shep-kit:commit-pr'
 
 prUrl: 'https://github.com/shep-ai/cli/pull/49'
@@ -45,6 +45,19 @@ checkpoints:
   - phase: 'pr-created'
     completedAt: '2026-02-15T15:01:00Z'
     completedBy: 'shep-kit:commit-pr'
+  - phase: 'ci-green'
+    completedAt: '2026-02-15T15:45:00Z'
+    completedBy: 'shep-kit:commit-pr'
+  - phase: 'review-loop-started'
+    completedAt: '2026-02-15T15:45:00Z'
+    completedBy: 'shep-kit:commit-pr'
+
+reviewLoop:
+  iteration: 0
+  maxIterations: 5
+  commentsAddressed: []
+  commentsRemaining: []
+  status: 'watching'
 
 errors:
   current: null
