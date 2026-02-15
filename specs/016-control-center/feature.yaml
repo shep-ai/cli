@@ -11,8 +11,9 @@ status:
   progress:
     completed: 10
     total: 10
+    removed: 1
     percentage: 100
-  notes: 'CI green; no actionable review comments; awaiting human review'
+  notes: 'CI green; awaiting human review. 11 tasks defined, 1 removed (task-5 toolbar), 10 completed.'
   currentTask: null
   lastUpdated: '2026-02-15T15:55:00Z'
   lastUpdatedBy: 'shep-kit:commit-pr'

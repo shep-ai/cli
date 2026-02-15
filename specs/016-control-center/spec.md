@@ -7,6 +7,13 @@ interactive Control Center that wraps the canvas and adds the orchestration
 layer: selecting nodes with visual highlight, toolbar actions for managing
 features, and keyboard shortcuts for power users.
 
+## Routing
+
+The Control Center is the **default homepage** of the web UI, rendered at the `/` route.
+There is no separate `/control-center` route — the root `app/page.tsx` is the Control Center
+server component that fetches features and renders the canvas. The sidebar nav item
+"Control Center" links to `href="/"`.
+
 ## Architecture
 
 ```
@@ -44,9 +51,11 @@ the canvas without interfering with pan/zoom.
 
 ```
 features/control-center/
-├── control-center.tsx              ← Main orchestrator component
-├── use-control-center-state.ts     ← Custom hook: selection, keyboard
-├── control-center-toolbar.tsx      ← Top toolbar (add, layout)
+├── control-center.tsx              ← Main orchestrator (ReactFlowProvider wrapper)
+├── control-center-inner.tsx        ← Inner component (uses hook, wires canvas)
+├── use-control-center-state.ts     ← Custom hook: selection, keyboard, add handlers
+├── control-center-empty-state.tsx  ← Empty state CTA ("Add Repository")
+├── control-center-empty-state.stories.tsx
 ├── control-center.stories.tsx
 └── index.ts
 ```
@@ -70,11 +79,10 @@ Owns:
   - `handleAddFeature()` — toolbar action, creates an unconnected feature node
   - `handleSelectNode(nodeId)` / `handleDeselectNode()`
 
-### ControlCenterToolbar (top panel)
+### Empty State CTA
 
-- Add feature button
-- Auto-layout button
-- Filter/search (stretch goal)
+- "Add Repository" button shown when canvas has no nodes
+- Replaces the originally-planned toolbar (removed for cleaner canvas-first UX)
 
 ## Interaction Layers
 
@@ -84,8 +92,6 @@ Owns:
 | Deselect                 | `onPaneClick` → clear selection                                     |
 | Add feature from repo    | RepositoryNode (+) button → `handleAddFeatureToRepo(repoNodeId)`    |
 | Add feature from feature | FeatureNode (+) button → `handleAddFeatureToFeature(featureNodeId)` |
-| Toolbar add feature      | Toolbar button → `handleAddFeature()` (unconnected node)            |
-| Auto-layout              | Toolbar button (placeholder only)                                   |
 | Keyboard shortcuts       | `useKeyboard` hook for Escape (deselect)                            |
 
 ### Contextual Add Flow
@@ -110,33 +116,39 @@ When a user clicks the (+) button on a **FeatureNode**:
 | FeatureNode    | Add selected/highlighted visual state (ring or border glow)     |
 | RepositoryNode | Wire onAdd callback through FeaturesCanvas props                |
 | ControlCenter  | New — wraps everything                                          |
-| Toolbar        | New — built inside control-center/                              |
+| EmptyState     | New — CTA for initial repository selection                      |
 
 ## Success Criteria
 
-- [ ] `ControlCenter` component in `features/control-center/`
-- [ ] `useControlCenterState` hook managing all interactive state
-- [ ] Toolbar panel (top) with add-feature button
-- [ ] Node selection: click to select, click canvas to deselect
-- [ ] Selected node visual highlight (ring/glow on FeatureNode)
-- [ ] RepositoryNode (+) creates connected FeatureNode
-- [ ] FeatureNode (+) creates connected child FeatureNode
-- [ ] New nodes positioned to the right and auto-selected
-- [ ] FeaturesCanvas props extended with onNodeClick, onPaneClick, onRepositoryAdd
-- [ ] Keyboard shortcut: Escape to deselect
-- [ ] Storybook stories: Empty, WithFeatures, WithToolbar, WithNodeActions
-- [ ] `pnpm build:storybook` passes
-- [ ] `pnpm build:web` passes
-- [ ] Components follow tier import rules (013-ui-arch)
+- [x] `ControlCenter` component in `features/control-center/`
+- [x] `useControlCenterState` hook managing all interactive state
+- [x] Empty state CTA for initial repository selection (replaced toolbar)
+- [x] Node selection: click to select, click canvas to deselect
+- [x] Selected node visual highlight (ring/glow on FeatureNode)
+- [x] RepositoryNode (+) creates connected FeatureNode
+- [x] FeatureNode (+) creates connected child FeatureNode
+- [x] New nodes positioned to the right and auto-selected
+- [x] FeaturesCanvas props extended with onNodeClick, onPaneClick, onRepositoryAdd
+- [x] Keyboard shortcut: Escape to deselect
+- [x] Storybook stories: Empty, WithFeatures, WithNodeActions
+- [x] `pnpm build:storybook` passes
+- [x] `pnpm build:web` passes
+- [x] Components follow tier import rules (013-ui-arch)
+- [x] Data loaded via repository query (Clean Architecture, no direct filesystem reads in presentation)
+- [x] FeatureLifecyclePhase matches domain SdlcLifecycle 1:1 (requirements, research, implementation, review, deploy, maintain)
+- [x] Lifecycle display labels show human-readable names (e.g. "DEPLOY & QA", "COMPLETED" for maintain)
+- [x] Feature node state derived from agent_runs.status (running/done/error/action-required)
+- [x] Maintain lifecycle always renders as done/completed state
 
 ## Affected Areas
 
-| Area                                                        | Impact | Reasoning                              |
-| ----------------------------------------------------------- | ------ | -------------------------------------- |
-| `src/presentation/web/components/features/`                 | High   | New control-center component directory |
-| `src/presentation/web/components/features/features-canvas/` | Medium | Extend props for interaction callbacks |
-| `src/presentation/web/components/common/feature-node/`      | Low    | Add selected visual state              |
-| `src/presentation/web/components/common/repository-node/`   | Low    | Wire onAdd callback through canvas     |
+| Area                                                        | Impact | Reasoning                                |
+| ----------------------------------------------------------- | ------ | ---------------------------------------- |
+| `src/presentation/web/components/features/`                 | High   | New control-center component directory   |
+| `src/presentation/web/components/features/features-canvas/` | Medium | Extend props for interaction callbacks   |
+| `src/presentation/web/components/common/feature-node/`      | Low    | Add selected visual state                |
+| `src/presentation/web/components/common/repository-node/`   | Low    | Wire onAdd callback through canvas       |
+| `src/presentation/web/app/page.tsx`                         | Medium | Control Center is the homepage (/ route) |
 
 ## Dependencies
 
@@ -150,7 +162,7 @@ When a user clicks the (+) button on a **FeatureNode**:
 
 - ControlCenter orchestrator wrapping FeaturesCanvas
 - State management hook (useControlCenterState)
-- Toolbar via React Flow Panel
+- Empty state CTA and contextual node actions (toolbar removed for cleaner UX)
 - Node selection with visual highlight
 - Contextual add via RepositoryNode (+) → creates connected FeatureNode
 - Contextual add via FeatureNode (+) → creates connected child FeatureNode
@@ -158,10 +170,10 @@ When a user clicks the (+) button on a **FeatureNode**:
 - Keyboard shortcut (Escape to deselect)
 - Storybook stories with mock data
 - Extending FeaturesCanvas/FeatureNode/RepositoryNode props as needed
+- Control center page consumes data via existing ListFeaturesUseCase (not direct filesystem access)
 
 **Out of scope:**
 
-- Backend API integration for feature data
 - Real-time updates or WebSocket integration
 - Drag-and-drop node creation (nodes added via (+) buttons, not drag)
 - Auto-layout algorithm implementation (button placeholder only)
