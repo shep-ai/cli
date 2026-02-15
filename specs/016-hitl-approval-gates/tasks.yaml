@@ -380,8 +380,143 @@ tasks:
         - Extract timing formatting into reusable helper
     estimatedEffort: M
 
+  # ── Phase 7: YAML Validation & Auto-Repair Graph Nodes (TDD) ──
+
+  - id: task-13
+    title: Create schema validators for spec, research, plan, and tasks YAML
+    description: >
+      Create hand-written TypeScript validator functions in nodes/schemas/.
+      Each returns {valid: boolean, errors: string[]} with specific, AI-friendly
+      error messages. spec.schema.ts handles both analyze and requirements phases
+      with different required fields. research.schema.ts validates decisions array.
+      plan.schema.ts validates phases array and cross-validates tasks.yaml phaseIds.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - spec schema (analyze) validates name, oneLiner, summary, phase, sizeEstimate, content, technologies[]
+      - spec schema (requirements) additionally validates openQuestions[] with question/resolved/answer shape
+      - research schema validates name, summary, decisions[] with title/chosen/rejected[]/rationale, content
+      - plan schema validates phases[] with id/name/parallel, filesToCreate or filesToModify non-empty, content
+      - tasks schema validates tasks[] with id/phaseId/title/state/acceptanceCriteria[], phaseId references valid phase
+      - All validators return specific error messages (not generic)
+      - ValidationResult interface exported for consumers
+    tdd:
+      red:
+        - Write tests for each schema with valid inputs (returns valid true, errors empty)
+        - Write tests for each schema with missing required fields
+        - Write tests for each schema with wrong types (string where array expected)
+        - Write tests for tasks schema cross-referencing plan phases
+      green:
+        - Implement spec schema validator (analyze + requirements phases)
+        - Implement research schema validator
+        - Implement plan+tasks schema validators with cross-validation
+      refactor:
+        - Extract shared validation helpers (requireString, requireArray, requireArrayOfShape)
+    estimatedEffort: M
+
+  - id: task-14
+    title: Create validate node factory
+    description: >
+      Create nodes/validate.node.ts with createValidateNode(target, schemaFn)
+      factory. The node reads the YAML file from specDir, runs safeYamlLoad,
+      then runs the schema validator. On success resets validationRetries to 0,
+      clears lastValidationErrors. On failure increments validationRetries,
+      sets lastValidationErrors with error messages. State updates drive the
+      conditional edge routing.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - createValidateNode returns a LangGraph node function
+      - On valid YAML sets validationRetries=0, lastValidationErrors=[]
+      - On invalid YAML (parse error) sets errors with parse error message
+      - On invalid YAML (schema error) sets errors with schema error messages
+      - On retries >= 3 throws error (fails the run)
+      - Increments validationRetries on each failure
+      - Sets lastValidationTarget for repair node context
+    tdd:
+      red:
+        - Write tests for validate node with valid YAML input
+        - Write tests for validate node with unparseable YAML
+        - Write tests for validate node with schema violations
+        - Write tests for retry exhaustion (retries >= 3 throws)
+      green:
+        - Implement createValidateNode factory
+        - Read file, parse, validate, update state
+        - Handle parse errors vs schema errors
+      refactor:
+        - Extract common state update patterns
+    estimatedEffort: M
+
+  - id: task-15
+    title: Create repair node factory
+    description: >
+      Create nodes/repair.node.ts with createRepairNode(filename, executor)
+      factory. The node reads the broken YAML file, builds a focused repair
+      prompt with the validation errors from state, and calls the executor
+      with constrained options (maxTurns 5, write-only tools, disableMcp true).
+      The executor writes the fixed file. The node returns updated state.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - createRepairNode returns a LangGraph node function
+      - Reads broken YAML content and validation errors from state
+      - Builds focused repair prompt with errors + broken content
+      - Calls executor with maxTurns 5 and constrained tools
+      - Supports single file (spec.yaml) and multi-file (plan.yaml + tasks.yaml)
+      - Logs repair attempt number
+    tdd:
+      red:
+        - Write tests for repair node prompt construction
+        - Write tests for executor options (maxTurns, tools constraint)
+        - Write tests for multi-file repair (plan + tasks)
+        - Write tests for state updates after repair
+      green:
+        - Implement createRepairNode factory
+        - Build repair prompt from state
+        - Call executor with constrained options
+      refactor:
+        - Extract prompt template as separate function for testability
+    estimatedEffort: M
+
+  - id: task-16
+    title: Wire validate/repair nodes into feature-agent-graph with conditional edges
+    description: >
+      Update feature-agent-graph.ts to add validate and repair nodes after each
+      YAML-producing node. Add conditional edges using routeValidation() factory.
+      Update state.ts with validationRetries, lastValidationTarget, and
+      lastValidationErrors annotations. The graph topology changes from linear
+      to linear-with-validation-loops.
+    state: Todo
+    dependencies:
+      - task-14
+      - task-15
+    acceptanceCriteria:
+      - State annotation includes validationRetries, lastValidationTarget, lastValidationErrors
+      - Graph has validate nodes after analyze, requirements, research, plan
+      - Graph has repair nodes paired with each validate node
+      - Conditional edges route pass to next node, fail to repair, exhausted to throw
+      - routeValidation() factory produces correct routing functions
+      - Graph compiles without errors
+      - Existing HITL interrupt behavior preserved
+    tdd:
+      red:
+        - Write tests for routeValidation() with pass/fail/exhausted states
+        - Write tests for state annotation defaults
+        - Write integration test for validate-repair loop with mocked executor
+      green:
+        - Add state annotation channels
+        - Add all validate and repair nodes to graph
+        - Wire conditional edges with routeValidation()
+        - Import and configure schema validators
+      refactor:
+        - Group node registration by concern (producers, validators, repairers)
+    estimatedEffort: L
+
 # Total effort estimate
-totalEstimate: L (12 tasks across 6 phases)
+totalEstimate: XL (16 tasks across 7 phases)
 
 # Open questions
 openQuestions: []
@@ -391,19 +526,21 @@ openQuestions: []
 content: |
   ## Summary
 
-  HITL Approval Gates implementation — 12 tasks across 6 phases.
+  HITL Approval Gates + YAML Validation — 16 tasks across 7 phases.
   Covers TypeSpec models, database migration, agent system refactor,
-  new CLI commands, and existing command enhancements.
+  new CLI commands, existing command enhancements, and LangGraph
+  validate-repair loops for AI-generated YAML outputs.
 
   ## Acceptance Checklist
 
   Before marking feature complete:
 
-  - [ ] All 12 tasks completed
+  - [ ] All 16 tasks completed
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)
   - [ ] TypeSpec compiles (`pnpm tsp:compile`)
+  - [ ] YAML validation loops tested with mock executor
   - [ ] PR created and reviewed
 
   ---

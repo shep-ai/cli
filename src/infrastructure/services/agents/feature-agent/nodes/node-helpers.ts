@@ -249,6 +249,20 @@ export function executeNode(
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
     log.info('Starting...');
     reportNodeStart(nodeName);
+
+    // On resume from interrupt, LangGraph re-executes the node function from
+    // the top. Skip the expensive executor call if this phase already completed
+    // (markPhaseComplete is called before interrupt, so completed = done but
+    // awaiting approval; the approval has now been granted).
+    const completedPhases = getCompletedPhases(state.specDir);
+    if (completedPhases.includes(nodeName)) {
+      log.info('Phase already completed (resuming from approval), skipping execution');
+      return {
+        currentNode: nodeName,
+        messages: [`[${nodeName}] Approved — continuing`],
+      };
+    }
+
     const startTime = Date.now();
 
     // Record phase start (no-op if timing context not set)
@@ -267,6 +281,10 @@ export function executeNode(
 
       // Record phase completion
       await recordPhaseEnd(timingId, durationMs);
+
+      // Mark phase complete BEFORE interrupting so that on resume the
+      // node detects the work is already done and skips re-execution.
+      markPhaseComplete(state.specDir, nodeName, log);
 
       const nodeResult: Partial<FeatureAgentState> = {
         currentNode: nodeName,

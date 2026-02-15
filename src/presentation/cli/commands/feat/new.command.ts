@@ -48,7 +48,7 @@ export function createNewCommand(): Command {
         if (options.allowPlan) approvalGates = { allowPrd: true, allowPlan: true };
         if (options.allowAll) approvalGates = undefined; // no gates = fully autonomous
 
-        const feature = await spinner('Thinking', () =>
+        const result = await spinner('Thinking', () =>
           useCase.execute({
             userInput: description,
             repositoryPath: repoPath,
@@ -56,11 +56,15 @@ export function createNewCommand(): Command {
           })
         );
 
+        const { feature, warning } = result;
         const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
         const wtSlug = feature.branch.replace(/\//g, '-');
         const worktreePath = join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', wtSlug);
 
         messages.newline();
+        if (warning) {
+          messages.warning(warning);
+        }
         messages.success('Feature created');
         console.log(`  ${colors.muted('ID:')}       ${colors.accent(feature.id)}`);
         console.log(`  ${colors.muted('Name:')}     ${feature.name}`);

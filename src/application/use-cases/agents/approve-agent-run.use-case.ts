@@ -60,6 +60,7 @@ export class ApproveAgentRunUseCase {
       {
         resume: true,
         approvalGates: run.approvalGates,
+        threadId: run.threadId,
         resumeFromInterrupt: true,
       }
     );

@@ -4,14 +4,16 @@
 name: hitl-approval-gates
 number: 016
 branch: feat/016-hitl-approval-gates
-oneLiner: Default human approval gates with TypeSpec-first config and phase timing
+oneLiner: Default human approval gates with TypeSpec-first config, phase timing, and YAML auto-repair
 summary: >
   Flip the feature agent default from fully autonomous to pause-after-requirements
   and pause-after-plan. Model approval configuration as a TypeSpec value object
   (ApprovalGates) passed as a structured object through the system. Add composable
   --allow-prd / --allow-plan CLI flags, user-friendly `shep feat review/approve/reject`
-  commands, and a lifecycle event infrastructure that records phase timings shown
-  as a breakdown in `feat show`.
+  commands, a lifecycle event infrastructure that records phase timings shown
+  as a breakdown in `feat show`, and LangGraph validate-repair loops that catch
+  malformed AI-generated YAML outputs (parse + schema) and auto-fix them via
+  focused executor repair prompts.
 phase: planning
 sizeEstimate: L
 
@@ -228,7 +230,43 @@ content: |
   - Which phase is waiting
   - Approval instructions: `Run "shep feat approve" or "shep feat reject"`
 
-  ### 6. `feat new` Output Enhancement
+  ### 6. YAML Validation & Auto-Repair in LangGraph
+
+  Add validate-and-repair loops to the feature agent graph using LangGraph
+  conditional edges. Each YAML-producing node (analyze, requirements, research,
+  plan) gets a paired validate node that checks parse + schema conformance.
+  On failure, a repair node sends the broken YAML + validation errors back to
+  the executor with a focused "fix this YAML" prompt, then loops back to validate.
+  Max 3 repair attempts before failing the run.
+
+  **Graph topology change:**
+
+  ```
+  analyze → validate_spec_analyze ──(pass)──→ requirements → validate_spec_req ──(pass)──→ ...
+                                    └─(fail)──→ repair_spec_analyze ──→ validate_spec_analyze
+  ```
+
+  **State additions:**
+  - `validationRetries: number` — reset on success, incremented on failure
+  - `lastValidationTarget: string` — which file(s) failed
+  - `lastValidationErrors: string[]` — human-readable errors for repair prompt
+
+  **Schema validation** (per file, hand-written TypeScript functions):
+  - `spec.yaml` (analyze): requires name, oneLiner, summary, phase, sizeEstimate, content, technologies[]
+  - `spec.yaml` (requirements): adds openQuestions[] with question/resolved/answer shape
+  - `research.yaml`: requires name, summary, decisions[] with title/chosen/rejected[]/rationale, content
+  - `plan.yaml`: requires phases[] with id/name/parallel, filesToCreate or filesToModify (non-empty), content
+  - `tasks.yaml`: requires tasks[] with id/phaseId/title/state/acceptanceCriteria[], phaseId must reference a valid phase
+
+  **Repair prompt** — constrained executor call:
+  - maxTurns: 5, tools restricted to write only
+  - Sends broken YAML + specific error messages
+  - "Fix ONLY the YAML issues. Do not change semantic content."
+
+  **Routing logic:**
+  - Conditional edges: pass → next real node, fail + retries < 3 → repair, fail + retries >= 3 → throw error
+
+  ### 7. `feat new` Output Enhancement
 
   When the agent is created with default approval gates, hint at the behaviour:
   ```
@@ -265,6 +303,12 @@ content: |
   - [ ] `feat show` displays phase timing breakdown section
   - [ ] `feat show` displays approval context when waiting
   - [ ] `feat new` output mentions approval behaviour
+  - [ ] Validate nodes check YAML parse + schema for spec, research, plan, tasks
+  - [ ] Repair nodes send focused fix prompts to executor on validation failure
+  - [ ] Conditional edges route between validate → repair → validate (max 3 retries)
+  - [ ] Graph state includes validationRetries, lastValidationTarget, lastValidationErrors
+  - [ ] Schema validators cover all required fields per file type
+  - [ ] Repair prompt constrained (maxTurns: 5, write-only tools)
 
   ## Affected Areas
 
@@ -282,6 +326,11 @@ content: |
   | `infrastructure/repositories/` | Medium | New `SQLitePhaseTimingRepository` |
   | `infrastructure/persistence/` | Low | Migration for `phase_timings` table |
   | `infrastructure/di/container.ts` | Low | Register new repository |
+  | `feature-agent-graph.ts` | High | New validate/repair nodes, conditional edges |
+  | `state.ts` | Medium | New validation state channels |
+  | `nodes/validate.node.ts` | High | New file — validate node factory |
+  | `nodes/repair.node.ts` | High | New file — repair node factory |
+  | `nodes/schemas/` | High | New files — schema validators per YAML type |
 
   ## Dependencies
 
