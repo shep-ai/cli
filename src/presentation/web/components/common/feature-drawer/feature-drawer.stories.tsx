@@ -1,11 +1,9 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
-import { fn } from '@storybook/test';
 import { FeatureDrawer } from './feature-drawer';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { FeatureLifecyclePhase, FeatureNodeState } from '@/components/common/feature-node';
-
-const noop = fn();
+import { Button } from '@/components/ui/button';
 
 const meta: Meta<typeof FeatureDrawer> = {
   title: 'Composed/FeatureDrawer',
@@ -13,9 +11,6 @@ const meta: Meta<typeof FeatureDrawer> = {
   tags: ['autodocs'],
   parameters: {
     layout: 'fullscreen',
-  },
-  args: {
-    onClose: noop,
   },
 };
 
@@ -84,65 +79,75 @@ const errorData: FeatureNodeData = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Trigger wrapper — starts closed, click to open
+ * ------------------------------------------------------------------------- */
+
+function DrawerTrigger({ data, label }: { data: FeatureNodeData; label: string }) {
+  const [selected, setSelected] = useState<FeatureNodeData | null>(null);
+
+  return (
+    <div className="flex h-screen items-start p-4">
+      <Button variant="outline" onClick={() => setSelected(data)}>
+        {label}
+      </Button>
+      <FeatureDrawer selectedNode={selected} onClose={() => setSelected(null)} />
+    </div>
+  );
+}
+
+/* ---------------------------------------------------------------------------
  * Per-state stories
  * ------------------------------------------------------------------------- */
 
 export const Running: Story = {
-  args: { selectedNode: runningData },
+  render: () => <DrawerTrigger data={runningData} label="Open Running" />,
 };
 
 export const ActionRequired: Story = {
-  args: { selectedNode: actionRequiredData },
+  render: () => <DrawerTrigger data={actionRequiredData} label="Open Action Required" />,
 };
 
 export const Done: Story = {
-  args: { selectedNode: doneData },
+  render: () => <DrawerTrigger data={doneData} label="Open Done" />,
 };
 
 export const Blocked: Story = {
-  args: { selectedNode: blockedData },
+  render: () => <DrawerTrigger data={blockedData} label="Open Blocked" />,
 };
 
 export const Error: Story = {
-  args: { selectedNode: errorData },
+  render: () => <DrawerTrigger data={errorData} label="Open Error" />,
 };
 
 /* ---------------------------------------------------------------------------
  * Edge-case stories
  * ------------------------------------------------------------------------- */
 
-/** Drawer renders nothing when selectedNode is null. */
-export const Closed: Story = {
-  args: { selectedNode: null },
-};
-
 /** Minimal data — only required fields, no optional details section. */
 export const MinimalData: Story = {
-  args: {
-    selectedNode: {
-      ...baseData,
-      progress: 0,
-    },
-  },
+  render: () => <DrawerTrigger data={{ ...baseData, progress: 0 }} label="Open Minimal" />,
 };
 
 /** All optional fields populated — description, agent, runtime, blockedBy, error. */
 export const AllFields: Story = {
-  args: {
-    selectedNode: {
-      name: 'Enterprise Authentication Module',
-      description:
-        'Implement a comprehensive OAuth2 authentication flow with support for multiple identity providers including Google, GitHub, and custom SAML-based enterprise SSO.',
-      featureId: '#f99',
-      lifecycle: 'implementation',
-      state: 'running',
-      progress: 68,
-      agentName: 'Implementer',
-      runtime: '3h 15m',
-      blockedBy: 'Database Migration',
-      errorMessage: 'Token refresh failed: invalid_grant',
-    },
-  },
+  render: () => (
+    <DrawerTrigger
+      data={{
+        name: 'Enterprise Authentication Module',
+        description:
+          'Implement a comprehensive OAuth2 authentication flow with support for multiple identity providers including Google, GitHub, and custom SAML-based enterprise SSO.',
+        featureId: '#f99',
+        lifecycle: 'implementation',
+        state: 'running',
+        progress: 68,
+        agentName: 'Implementer',
+        runtime: '3h 15m',
+        blockedBy: 'Database Migration',
+        errorMessage: 'Token refresh failed: invalid_grant',
+      }}
+      label="Open All Fields"
+    />
+  ),
 };
 
 /* ---------------------------------------------------------------------------
@@ -168,6 +173,7 @@ const allLifecycles: FeatureLifecyclePhase[] = [
 
 function AllStatesRender() {
   const [state, setState] = useState<FeatureNodeState>('running');
+  const [selected, setSelected] = useState<FeatureNodeData | null>(null);
   const data = stateFixtures[state];
 
   return (
@@ -180,7 +186,10 @@ function AllStatesRender() {
           <button
             key={s}
             type="button"
-            onClick={() => setState(s)}
+            onClick={() => {
+              setState(s);
+              setSelected(stateFixtures[s]);
+            }}
             className={`rounded-md px-3 py-1.5 text-left text-sm ${
               s === state ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
             }`}
@@ -189,7 +198,7 @@ function AllStatesRender() {
           </button>
         ))}
       </div>
-      <FeatureDrawer selectedNode={data} onClose={noop} />
+      <FeatureDrawer selectedNode={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
@@ -201,6 +210,7 @@ export const AllStates: Story = {
 
 function AllLifecyclesRender() {
   const [lifecycle, setLifecycle] = useState<FeatureLifecyclePhase>('requirements');
+  const [selected, setSelected] = useState<FeatureNodeData | null>(null);
 
   return (
     <div className="flex h-screen">
@@ -212,7 +222,18 @@ function AllLifecyclesRender() {
           <button
             key={phase}
             type="button"
-            onClick={() => setLifecycle(phase)}
+            onClick={() => {
+              setLifecycle(phase);
+              setSelected({
+                name: 'Feature Name',
+                description: `Currently in ${phase} phase`,
+                featureId: '#f1',
+                lifecycle: phase,
+                state: 'running',
+                progress: 50,
+                agentName: 'Agent',
+              });
+            }}
             className={`rounded-md px-3 py-1.5 text-left text-sm ${
               phase === lifecycle
                 ? 'bg-primary text-primary-foreground'
@@ -223,18 +244,7 @@ function AllLifecyclesRender() {
           </button>
         ))}
       </div>
-      <FeatureDrawer
-        selectedNode={{
-          name: 'Feature Name',
-          description: `Currently in ${lifecycle} phase`,
-          featureId: '#f1',
-          lifecycle,
-          state: 'running',
-          progress: 50,
-          agentName: 'Agent',
-        }}
-        onClose={noop}
-      />
+      <FeatureDrawer selectedNode={selected} onClose={() => setSelected(null)} />
     </div>
   );
 }
