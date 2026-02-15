@@ -4,6 +4,7 @@ import type { Edge } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { ControlCenterToolbar } from './control-center-toolbar';
+import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
 interface ControlCenterInnerProps {
@@ -39,6 +40,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       onRepositoryAdd={handleAddFeatureToRepo}
       onRepositorySelect={handleAddRepository}
       toolbar={<ControlCenterToolbar onAddFeature={handleAddFeature} onLayout={handleLayout} />}
+      emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
     />
   );
 }
