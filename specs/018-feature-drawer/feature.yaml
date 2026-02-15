@@ -2,18 +2,19 @@ feature:
   id: 018-feature-drawer
   name: feature-drawer
   number: 18
-  branch: feat/018-feature-drawer
-  lifecycle: research
+  branch: feat/feature-drawer
+  lifecycle: review
   createdAt: '2026-02-15T18:11:21Z'
 status:
-  phase: implementing-phase-2
+  phase: in-review
   progress:
-    completed: 2
+    completed: 8
     total: 8
-    percentage: 25
-  currentTask: task-3
-  lastUpdated: '2026-02-15T18:36:22.759Z'
-  lastUpdatedBy: feature-agent:implement
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-15T21:43:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
+prUrl: https://github.com/shep-ai/cli/pull/55
 validation:
   lastRun: null
   gatesPassed: []
@@ -26,6 +27,9 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-15T18:11:21Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-15T21:43:00.000Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
