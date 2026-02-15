@@ -5,43 +5,78 @@ name: feat-ide-open
 summary: Task breakdown for 018-feat-ide-open
 
 # Relationships
-relatedFeatures: []
-technologies: []
+relatedFeatures:
+  - '006-cli-settings-commands'
+technologies:
+  - TypeScript
+  - Commander.js
+  - '@inquirer/prompts'
 relatedLinks: []
 
 # Structured task list
 tasks:
   - id: task-1
-    title: { { TASK_1_TITLE } }
-    description: { { TASK_1_DESCRIPTION } }
+    title: Create IDE selection TUI prompt
+    description: >
+      Create ide-select.prompt.ts following agent-select.prompt.ts pattern.
+      Define choices for vscode, cursor, windsurf, zed with descriptions.
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd:
-      red:
-        - Write tests for {{FEATURE_1}}
-      green:
-        - Implement {{FEATURE_1}} to pass tests
-      refactor:
-        - Extract helpers, improve naming
-    estimatedEffort: { { EFFORT_1 } }
+      - Prompt config function exported
+      - Four IDE choices with names, values, descriptions
+      - Uses shepTheme
+    tdd: null # Simple config, no logic to test
+    estimatedEffort: small
 
   - id: task-2
-    title: { { TASK_2_TITLE } }
-    description: { { TASK_2_DESCRIPTION } }
+    title: Implement shep settings ide command (TDD)
+    description: >
+      Create ide.command.ts with interactive (TUI prompt) and non-interactive
+      (--editor flag) modes. Persist via UpdateSettingsUseCase, refresh
+      in-memory singleton, warn if binary not in PATH.
     state: Todo
     dependencies:
       - task-1
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd: null # No TDD for foundational/doc tasks
-    estimatedEffort: { { EFFORT_2 } }
+      - Interactive mode works with TUI prompt
+      - Non-interactive --editor flag works
+      - Settings persisted via UpdateSettingsUseCase
+      - In-memory singleton refreshed after save
+      - PATH warning shown if binary not found (non-blocking)
+      - Ctrl+C handled gracefully
+    tdd:
+      red:
+        - Test interactive mode calls select prompt and persists result
+        - Test --editor flag saves directly without prompt
+        - Test PATH warning when binary not found
+        - Test Ctrl+C cancellation returns gracefully
+        - Test success message after save
+      green:
+        - Implement createIdeCommand() following agent.command.ts pattern
+        - Wire up getSettings(), UpdateSettingsUseCase, resetSettings/initializeSettings
+        - Add execFileNoThrow PATH check with warning
+      refactor:
+        - Extract IDE binary map constant
+    estimatedEffort: medium
+
+  - id: task-3
+    title: Register command and verify
+    description: >
+      Add createIdeCommand() to settings/index.ts command group.
+      Run pnpm validate to ensure lint, types, and tests pass.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - Command registered in settings group
+      - pnpm validate passes
+      - shep settings ide shows in help
+    tdd: null # Wiring only
+    estimatedEffort: small
 
 # Total effort estimate
-totalEstimate: { { TOTAL_EFFORT } }
+totalEstimate: small
 
 # Open questions
 openQuestions: []
@@ -55,24 +90,31 @@ content: |
 
   ## Task List
 
-  ### Phase 1: Foundation
+  ### Phase 1: TUI Prompt
 
-  - [ ] {{TASK_1_DESCRIPTION}}
-  - [ ] {{TASK_2_DESCRIPTION}}
+  - [ ] **Task 1:** Create IDE selection TUI prompt (`ide-select.prompt.ts`)
 
-  ### Phase 2: Core Implementation (TDD Cycle)
+  ### Phase 2: CLI Command (TDD Cycle)
 
   **RED (Write Failing Tests First):**
 
-  - [ ] Write unit tests for {{FEATURE}}
+  - [ ] Test interactive mode calls select prompt and persists result
+  - [ ] Test --editor flag saves directly without prompt
+  - [ ] Test PATH warning when binary not found
+  - [ ] Test Ctrl+C cancellation returns gracefully
 
   **GREEN (Implement to Pass Tests):**
 
-  - [ ] Implement {{FEATURE}}
+  - [ ] Implement `createIdeCommand()` in `ide.command.ts`
 
   **REFACTOR (Clean Up):**
 
-  - [ ] Extract helpers and improve code quality
+  - [ ] Extract IDE binary map constant if needed
+
+  ### Phase 3: Wire Up & Verify
+
+  - [ ] Register `createIdeCommand()` in `settings/index.ts`
+  - [ ] Run `pnpm validate` — all checks pass
 
   ## TDD Notes
 
@@ -83,9 +125,9 @@ content: |
 
   ## Progress Tracking (CRITICAL)
 
-  - **Update checkboxes FREQUENTLY** - as soon as each item is complete!
-  - **Don't batch updates** - check off items immediately, not at the end
-  - **Commit task.md updates** along with code changes to show progress
+  - **Update checkboxes FREQUENTLY** — as soon as each item is complete!
+  - **Don't batch updates** — check off items immediately, not at the end
+  - **Commit tasks.md updates** along with code changes to show progress
 
   ## Acceptance Checklist
 
@@ -95,8 +137,6 @@ content: |
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)
-  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-  - [ ] Documentation updated
   - [ ] PR created and reviewed
 
   ---
