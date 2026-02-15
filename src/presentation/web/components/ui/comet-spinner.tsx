@@ -76,8 +76,8 @@ function CometSpinner({ className, size = 'md', duration = 5, ...props }: CometS
           repeatCount="indefinite"
         />
 
-        {PARTICLES.map((p) => (
-          <g key={p.r}>
+        {PARTICLES.map((p, i) => (
+          <g key={i}>
             <animateTransform
               attributeName="transform"
               type="rotate"

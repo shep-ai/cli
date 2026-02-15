@@ -36,8 +36,11 @@ function Spinner({ className, size = 'md', ...props }: SpinnerProps) {
       aria-label="Loading"
       className={cn(spinnerVariants({ size }), className)}
       style={{
-        background: `conic-gradient(from 220deg, transparent 0%, currentColor 80%, transparent 100%)`,
-        WebkitMask: `radial-gradient(farthest-side, #0000 calc(100% - ${b}), #000 calc(100% - ${b} + 1px))`,
+        background: 'currentColor',
+        WebkitMask: `repeating-conic-gradient(#0000 0deg,#000 1deg 70deg,#0000 71deg 90deg),
+          radial-gradient(farthest-side,#0000 calc(100% - ${b} - 1px),#000 calc(100% - ${b}))`,
+        WebkitMaskComposite: 'destination-in',
+        maskComposite: 'intersect',
       }}
       {...props}
     />
