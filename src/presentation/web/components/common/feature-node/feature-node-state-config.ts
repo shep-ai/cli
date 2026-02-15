@@ -35,6 +35,8 @@ export interface FeatureNodeData {
   blockedBy?: string;
   /** Short error message for error state */
   errorMessage?: string;
+  /** Agent name shown in the running badge (e.g. "Planner") */
+  agentName?: string;
   onAction?: () => void;
   onSettings?: () => void;
   showHandles?: boolean;
@@ -62,7 +64,7 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     badgeClass: 'text-blue-700',
     badgeBgClass: 'bg-blue-50',
     label: 'Running',
-    showProgressBar: true,
+    showProgressBar: false,
   },
   'action-required': {
     icon: CircleAlert,
