@@ -1,0 +1,211 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-drawer
+summary: >
+  Implementation plan for the feature drawer — a right-side sliding inspector panel that displays
+  feature details when a node is selected on the ReactFlow canvas. Uses Vaul-based shadcn Drawer
+  with non-modal mode (no overlay, canvas stays interactive). Three-phase approach: (1) install
+  vaul and create the Tier 0 Drawer UI primitive, (2) build the Tier 1 FeatureDrawer common
+  component with header/status/details sections and TDD test coverage, (3) integrate into
+  ControlCenterInner. All phases follow TDD with colocated Storybook stories.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - vaul (headless drawer library)
+  - shadcn/ui Drawer (Tier 0 UI primitive)
+  - React 19
+  - Next.js 16 (App Router)
+  - Tailwind CSS v4
+  - ReactFlow (@xyflow/react)
+  - Storybook
+  - class-variance-authority (CVA)
+  - Lucide React (icons)
+  - Vitest
+
+relatedLinks:
+  - https://vaul.emilkowal.ski/
+  - https://ui.shadcn.com/docs/components/drawer
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Tier 0 Drawer UI Primitive'
+    description: >
+      Install vaul dependency and create the generic Drawer component in components/ui/. This
+      must come first because the Tier 1 FeatureDrawer depends on it. The Drawer primitive
+      follows the same pattern as the existing Sheet component (sheet.tsx) — wrapping a headless
+      library with styled sub-components using data-slot attributes and cn() utility. Includes
+      colocated Storybook stories covering all four directions.
+    parallel: false
+
+  - id: phase-2
+    name: 'Tier 1 FeatureDrawer Common Component'
+    description: >
+      Create the FeatureDrawer component in components/common/feature-drawer/ that composes the
+      Drawer primitive with feature-specific content layout. Three sections: Header (name + ID),
+      Status (lifecycle label + state badge + progress bar), Details (description + agent + runtime +
+      blocked-by + error). Includes TDD unit tests for content rendering across all 5 states and 6
+      lifecycle phases, barrel exports, and colocated Storybook stories.
+    parallel: false
+
+  - id: phase-3
+    name: 'Integration & Validation'
+    description: >
+      Wire the FeatureDrawer into ControlCenterInner as a sibling to FeaturesCanvas. Pass
+      selectedNode and clearSelection from the existing useControlCenterState hook. The hook
+      already provides these values — no changes needed to the hook itself. Validate the full
+      end-to-end flow: open/close/switch behavior, keyboard accessibility, and dark mode.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/web/components/ui/drawer.tsx
+  - src/presentation/web/components/ui/drawer.stories.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+  - src/presentation/web/components/common/feature-drawer/index.ts
+  - tests/unit/presentation/web/components/common/feature-drawer/feature-drawer.test.tsx
+
+filesToModify:
+  - src/presentation/web/package.json
+  - src/presentation/web/components/common/index.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The feature drawer integrates into the existing four-tier component hierarchy:
+
+  ```
+  ControlCenterInner (Tier 3 - features/)
+  ├── FeaturesCanvas (Tier 3 - features/)
+  │   └── FeatureNode (Tier 1 - common/)
+  └── FeatureDrawer (Tier 1 - common/)    ← NEW
+      └── Drawer (Tier 0 - ui/)           ← NEW
+          └── Vaul primitives
+  ```
+
+  The Drawer UI primitive follows the exact pattern established by `sheet.tsx`: a headless library
+  (Vaul instead of Radix Dialog) wrapped with styled sub-components. Each sub-component uses
+  `data-slot` attributes for CSS targeting, `cn()` for className merging, and spreads remaining
+  props. The component exports follow the named-function pattern with a barrel export at the bottom.
+
+  The FeatureDrawer follows the same directory structure as `feature-node/` — a subdirectory
+  under `components/common/` containing the component file, colocated stories, and a barrel
+  `index.ts`. It is re-exported from `components/common/index.ts`.
+
+  The integration point is `ControlCenterInner`, which already destructures `selectedNode` and
+  `clearSelection` from `useControlCenterState` but currently passes neither to any visible UI.
+  The drawer renders as a Vaul portal (to `document.body`) — it does not affect the FeaturesCanvas
+  DOM tree or ReactFlow's viewport calculations.
+
+  ### Data Flow
+
+  ```
+  User clicks FeatureNode on canvas
+    → handleNodeClick sets selectedNode (useControlCenterState)
+    → ControlCenterInner re-renders
+    → FeatureDrawer receives selectedNode !== null → Drawer opens
+
+  User clicks canvas pane / Escape / close button
+    → clearSelection / onOpenChange(false) sets selectedNode to null
+    → ControlCenterInner re-renders
+    → FeatureDrawer receives selectedNode === null → Drawer closes
+
+  User clicks different FeatureNode while drawer is open
+    → handleNodeClick updates selectedNode with new data
+    → FeatureDrawer re-renders in-place with new content (no close/reopen)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Vaul Drawer over existing Sheet (Radix Dialog)
+  The Sheet component (`sheet.tsx`) wraps Radix Dialog which is inherently modal — it traps
+  focus, adds an overlay, and blocks background interaction. Achieving non-modal behavior
+  requires fighting against Radix Dialog's design (removing overlay, disabling focus trap,
+  preventing `pointer-events: none` on body). Vaul provides `modal={false}` natively, keeping
+  the canvas fully interactive while the drawer is open. This matches the inspector panel UX
+  pattern used in Figma, Miro, and VS Code. The ~3-5KB gzipped bundle cost is minimal.
+
+  ### 2. Derived open state (no new state variable)
+  The drawer's visibility is derived from `selectedNode !== null`. No additional `isDrawerOpen`
+  boolean is needed. This avoids redundant state that must be kept in sync and eliminates a
+  class of consistency bugs. The `onOpenChange` callback from Vaul maps directly to
+  `clearSelection` via the `onClose` prop.
+
+  ### 3. Portal rendering with fixed positioning
+  Vaul renders via portal to `document.body` with `position: fixed`, overlaying the right 384px
+  (w-96) of the canvas viewport. This avoids fighting Vaul's layout model and prevents ReactFlow
+  viewport recalculation that would occur with a flex-sibling approach where the canvas resizes.
+
+  ### 4. Inline progress bar (no new Progress UI component)
+  The existing `feature-node.tsx` implements an inline progress bar using simple divs
+  (`bg-muted` container + colored fill with `progressClass`). The drawer follows the same
+  pattern for consistency. A Tier 0 Progress component can be extracted later if more consumers
+  need it.
+
+  ### 5. Three inline sections (no sub-components)
+  Header, Status, and Details are rendered as inline JSX within FeatureDrawer (~80-100 lines
+  total). Each section is ~15-25 lines of JSX used in one place. Splitting into separate
+  sub-component files would be premature abstraction. Sections are delimited by the existing
+  Separator component.
+
+  ### 6. Styling reuse from featureNodeStateConfig
+  The drawer imports `featureNodeStateConfig` and `lifecycleDisplayLabels` directly from
+  `components/common/feature-node/feature-node-state-config.ts` (already re-exported via
+  `components/common/index.ts`). This ensures visual consistency between the canvas node
+  and the drawer content — same icons, colors, and labels.
+
+  ## Implementation Strategy
+
+  Phase 1 comes first because the Tier 0 Drawer primitive is a dependency of the Tier 1
+  FeatureDrawer. Phase 2 builds the feature-specific component with full test coverage using
+  the Drawer from Phase 1. Phase 3 wires everything together in the actual page component.
+
+  This ordering means each phase can be independently verified:
+  - **Phase 1**: Storybook stories confirm Drawer opens/closes/animates in all four directions
+  - **Phase 2**: Vitest unit tests confirm all 5 states × 6 lifecycle phases render correctly;
+    Storybook stories provide visual coverage of every state combination
+  - **Phase 3**: Manual verification of the full integration — open/close/switch/Escape/pane-click
+
+  ### Vaul Configuration for Right-Side Non-Modal Drawer
+
+  ```tsx
+  <Drawer.Root direction="right" modal={false} open={open} onOpenChange={onOpenChange}>
+    <Drawer.Portal>
+      <Drawer.Content
+        className="fixed inset-y-0 right-0 z-50 flex h-full w-96 flex-col bg-background"
+        style={{ '--initial-transform': 'calc(100% + 8px)' }}
+      >
+        {/* content */}
+      </Drawer.Content>
+    </Drawer.Portal>
+  </Drawer.Root>
+  ```
+
+  ### Composed Existing Primitives
+
+  The FeatureDrawer composes these existing UI components:
+  - **Badge** (`components/ui/badge.tsx`) — State badge with icon and styled background
+  - **Separator** (`components/ui/separator.tsx`) — Between Header, Status, and Details sections
+  - **CometSpinner** (`components/ui/comet-spinner.tsx`) — Animated spinner for running state
+  - **Lucide icons** — State icons from `featureNodeStateConfig`, XIcon for close button
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Vaul non-modal + right-direction edge cases | Research confirmed this combination works. Use `--initial-transform: calc(100% + 8px)` CSS variable on DrawerContent. Verify in Storybook before integration. |
+  | Escape key conflict between Vaul and useControlCenterState | Both fire clearSelection — selectedNode is set to null either way. No conflict. Verified by reading both implementations. |
+  | Drawer portal outside React context providers | Vaul uses React portal which preserves React context (theme, providers). Standard React behavior. |
+  | Canvas re-renders when drawer content changes | Drawer is portal-based, outside ReactFlow DOM. FeaturesCanvas does not consume selectedNode. Only ControlCenterInner re-renders, passing new props to FeatureDrawer. |
+  | No existing Progress UI component | Use inline div-based progress bar matching feature-node.tsx pattern. Keep it consistent, extract later if needed. |
+  | vaul peer dependency compatibility with React 19 | Check vaul's peerDependencies during install. Vaul v1+ supports React 18/19. Fall back to pinning a compatible version if needed. |
+  | `selectedNode` carries callback props (onAction, onSettings) | FeatureDrawer should only read data display fields from FeatureNodeData, ignoring callback props. These callbacks are for node interactions, not drawer actions. |

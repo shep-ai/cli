@@ -1,0 +1,31 @@
+feature:
+  id: 018-feature-drawer
+  name: feature-drawer
+  number: 18
+  branch: feat/018-feature-drawer
+  lifecycle: research
+  createdAt: '2026-02-15T18:11:21Z'
+status:
+  phase: implementing-phase-2
+  progress:
+    completed: 2
+    total: 8
+    percentage: 25
+  currentTask: task-3
+  lastUpdated: '2026-02-15T18:36:22.759Z'
+  lastUpdatedBy: feature-agent:implement
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-15T18:11:21Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

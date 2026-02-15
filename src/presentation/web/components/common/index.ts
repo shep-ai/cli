@@ -5,6 +5,7 @@ export {
 } from './add-repository-node';
 export { ElapsedTime, formatElapsed } from './elapsed-time';
 export { EmptyState, type EmptyStateProps } from './empty-state';
+export { FeatureDrawer, type FeatureDrawerProps } from './feature-drawer';
 export { FeatureListItem, type FeatureListItemProps } from './feature-list-item';
 export {
   FeatureNode,
