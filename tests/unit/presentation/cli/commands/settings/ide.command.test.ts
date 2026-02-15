@@ -2,22 +2,20 @@
  * IDE Command Unit Tests
  *
  * Tests for the `shep settings ide` command.
- *
- * TDD Phase: RED → GREEN
  */
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 
-const { mockMessages, mockExecFile } = vi.hoisted(() => ({
+const { mockMessages, mockCheckAvailable } = vi.hoisted(() => ({
   mockMessages: {
     success: vi.fn(),
     error: vi.fn(),
     warning: vi.fn(),
     info: vi.fn(),
   },
-  mockExecFile: vi.fn(),
+  mockCheckAvailable: vi.fn(),
 }));
 
 // Mock the container
@@ -44,11 +42,52 @@ vi.mock('../../../../../../src/presentation/cli/ui/index.js', () => ({
   messages: mockMessages,
 }));
 
-// Mock node:child_process (used by checkBinaryInPath via dynamic import)
-vi.mock('node:child_process', () => ({
-  execFile: mockExecFile,
-  default: { execFile: mockExecFile },
-}));
+// Mock the launcher registry
+vi.mock(
+  '../../../../../../src/infrastructure/services/ide-launchers/ide-launcher.registry.js',
+  () => ({
+    createLauncherRegistry: vi.fn(() => {
+      const launcher = {
+        name: 'VS Code',
+        editorId: 'vscode',
+        binary: 'code',
+        launch: vi.fn(),
+        checkAvailable: mockCheckAvailable,
+      };
+      const map = new Map();
+      map.set('vscode', launcher);
+      map.set('cursor', {
+        ...launcher,
+        name: 'Cursor',
+        editorId: 'cursor',
+        binary: 'cursor',
+        checkAvailable: mockCheckAvailable,
+      });
+      map.set('windsurf', {
+        ...launcher,
+        name: 'Windsurf',
+        editorId: 'windsurf',
+        binary: 'windsurf',
+        checkAvailable: mockCheckAvailable,
+      });
+      map.set('zed', {
+        ...launcher,
+        name: 'Zed',
+        editorId: 'zed',
+        binary: 'zed',
+        checkAvailable: mockCheckAvailable,
+      });
+      map.set('antigravity', {
+        ...launcher,
+        name: 'Antigravity',
+        editorId: 'antigravity',
+        binary: 'agy',
+        checkAvailable: mockCheckAvailable,
+      });
+      return map;
+    }),
+  })
+);
 
 import { container } from '../../../../../../src/infrastructure/di/container.js';
 import { select } from '@inquirer/prompts';
@@ -88,11 +127,7 @@ describe('IDE Command', () => {
     });
     mockUpdateUseCase.execute.mockResolvedValue(mockSettings);
     // Default: binary found in PATH
-    mockExecFile.mockImplementation(
-      (_cmd: string, _args: string[], cb: (err: Error | null, stdout: string) => void) => {
-        cb(null, '/usr/bin/code');
-      }
-    );
+    mockCheckAvailable.mockResolvedValue(true);
   });
 
   describe('command structure', () => {
@@ -159,11 +194,7 @@ describe('IDE Command', () => {
 
   describe('PATH validation warning', () => {
     it('should warn when IDE binary not found in PATH', async () => {
-      mockExecFile.mockImplementation(
-        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(new Error('not found'));
-        }
-      );
+      mockCheckAvailable.mockResolvedValue(false);
 
       const cmd = createIdeCommand();
       await cmd.parseAsync(['--editor', 'vscode'], { from: 'user' });
