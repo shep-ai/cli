@@ -8,6 +8,8 @@
  * Run via: tsx --tsconfig ../../tsconfig.json dev-server.ts
  */
 
+/* eslint-disable no-console */
+
 // IMPORTANT: reflect-metadata must be imported first for tsyringe DI
 import 'reflect-metadata';
 
