@@ -118,8 +118,10 @@ export function useControlCenterState(
         } else if (sourceNodeId) {
           // First child — position to the right of parent
           const parent = currentNodes.find((n) => n.id === sourceNodeId);
+          // Parent width + consistent 56px gap (repo: 224+56=280, feature: 288+56=344)
+          const xOffset = parent?.type === 'featureNode' ? 344 : 280;
           position = parent
-            ? { x: parent.position.x + 280, y: parent.position.y }
+            ? { x: parent.position.x + xOffset, y: parent.position.y }
             : { x: 400, y: 200 };
         } else {
           // Standalone feature — place below all existing nodes
@@ -155,16 +157,16 @@ export function useControlCenterState(
               })
             : currentNodes;
 
-        // Re-center the parent repo node vertically to its children
+        // Re-center the parent node vertically to its children
         const recentered = sourceNodeId
           ? shifted.map((n) => {
               if (n.id !== sourceNodeId) return n;
               const allChildYs = [...siblings.map((s) => s.position.y), position.y];
               const groupCenter = (Math.min(...allChildYs) + Math.max(...allChildYs) + 140) / 2;
-              const repoHeight = 50;
+              const parentHeight = n.type === 'featureNode' ? 140 : 50;
               return {
                 ...n,
-                position: { ...n.position, y: groupCenter - repoHeight / 2 },
+                position: { ...n.position, y: groupCenter - parentHeight / 2 },
               };
             })
           : shifted;

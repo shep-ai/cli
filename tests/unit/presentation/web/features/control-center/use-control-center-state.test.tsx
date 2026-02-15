@@ -155,7 +155,7 @@ describe('useControlCenterState', () => {
   });
 
   describe('handleAddFeatureToFeature', () => {
-    it('adds a connected feature node with edge', () => {
+    it('adds a child feature connected to the parent feature', () => {
       renderHook([mockFeatureNode] as CanvasNodeType[]);
 
       act(() => {
@@ -165,6 +165,52 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('node-count')).toHaveTextContent('2');
       expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
       expect(screen.getByTestId('selected-node')).toHaveTextContent('New Feature');
+    });
+
+    it('does not shift parent feature when adding first child at same Y', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      const parentYBefore = mockFeatureNode.position.y;
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-feature'));
+      });
+
+      const parentAfter = capturedState!.nodes.find((n) => n.id === 'feat-1')!;
+      // Parent feature should stay in place (not shift) when first child is at same Y
+      expect(parentAfter.position.y).toBe(parentYBefore);
+    });
+
+    it('keeps parent feature centered after adding multiple children', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      // Add two child features
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-feature'));
+      });
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-feature'));
+      });
+
+      const parent = capturedState!.nodes.find((n) => n.id === 'feat-1')!;
+      const childNodes = capturedState!.nodes.filter(
+        (n) =>
+          n.type === 'featureNode' &&
+          n.id !== 'feat-1' &&
+          capturedState!.edges.some((e) => e.source === 'feat-1' && e.target === n.id)
+      );
+
+      const childYs = childNodes.map((n) => n.position.y);
+      const groupCenter = (Math.min(...childYs) + Math.max(...childYs) + 140) / 2;
+      const parentCenter = parent.position.y + 140 / 2; // featureNode height = 140
+
+      expect(parentCenter).toBe(groupCenter);
     });
   });
 
