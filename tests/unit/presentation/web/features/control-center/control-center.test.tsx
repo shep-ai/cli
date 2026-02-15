@@ -48,10 +48,4 @@ describe('ControlCenter', () => {
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
     expect(screen.getByText('Another Feature')).toBeInTheDocument();
   });
-
-  it('renders toolbar with "Add Feature" button', () => {
-    render(<ControlCenter initialNodes={[mockFeatureNode]} initialEdges={[]} />);
-    expect(screen.getByTestId('toolbar-add-feature')).toBeInTheDocument();
-    expect(screen.getByText('Add Feature')).toBeInTheDocument();
-  });
 });

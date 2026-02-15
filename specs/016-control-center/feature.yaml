@@ -9,9 +9,10 @@ feature:
 status:
   phase: 'in-review'
   progress:
-    completed: 11
-    total: 11
+    completed: 10
+    total: 10
     percentage: 100
+  notes: 'task-5 (toolbar) removed post-implementation — replaced by contextual node actions'
   currentTask: null
   lastUpdated: '2026-02-15T15:01:00Z'
   lastUpdatedBy: 'shep-kit:commit-pr'

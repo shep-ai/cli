@@ -141,57 +141,46 @@ tasks:
   - id: task-5
     title: 'Implement ControlCenterToolbar component'
     description: >
-      Build the top toolbar panel with Add Feature and Auto-Layout buttons.
-      Uses shadcn/ui Button components and Lucide icons inside a React Flow
-      Panel positioned at top-left.
-    state: Todo
+      Originally planned as a top toolbar panel with Add Feature and Auto-Layout
+      buttons. Implemented initially but REMOVED in refactor (commit 0c9afbe) —
+      toolbar was replaced by contextual (+) buttons on nodes and empty state CTA,
+      providing a cleaner canvas-first UX.
+    state: Removed
     dependencies:
       - task-1
     acceptanceCriteria:
-      - 'Renders inside <Panel position="top-left">'
-      - 'Shows "Add Feature" button with Plus icon'
-      - 'Shows "Auto-Layout" button with LayoutGrid icon (disabled)'
-      - 'onAddFeature callback fires when Add Feature clicked'
-      - 'Storybook stories: Default, WithCallbacks'
-      - 'Unit tests verify rendering and callback invocation'
-    tdd:
-      red:
-        - 'Write test: renders Add Feature button'
-        - 'Write test: renders Auto-Layout button (disabled)'
-        - 'Write test: calls onAddFeature when Add Feature clicked'
-      green:
-        - 'Implement toolbar with Panel, Button, and Lucide icons'
-        - 'Wire onAddFeature to button onClick'
-      refactor:
-        - 'Add Storybook stories (Default, WithCallbacks)'
+      - 'REMOVED — toolbar replaced by contextual node actions and empty state CTA'
+    tdd: null
     estimatedEffort: S
+    removedReason: >
+      Toolbar was removed post-implementation in favor of contextual (+) buttons
+      on repository/feature nodes and an empty-state CTA for initial repo selection.
+      This provides a cleaner canvas-first experience without overlay chrome.
 
   - id: task-6
     title: 'Implement ControlCenter orchestrator component'
     description: >
       Wire all sub-components together in the main ControlCenter component.
-      Composes FeaturesCanvas and toolbar via useControlCenterState hook.
-      Wires contextual add handlers (onRepositoryAdd, onNodeAction) to canvas.
-      Add comprehensive Storybook stories including WithNodeActions.
+      Composes FeaturesCanvas via useControlCenterState hook with
+      ControlCenterInner wrapper. Wires contextual add handlers
+      (onRepositoryAdd, onNodeAction) to canvas. Shows empty state CTA
+      when no nodes present. Toolbar was removed in favor of contextual actions.
     state: Todo
     dependencies:
       - task-4
-      - task-5
     acceptanceCriteria:
       - 'Renders FeaturesCanvas with nodes and edges'
-      - 'Renders ControlCenterToolbar in top-left panel'
-      - 'Passes onAddFeature callback to toolbar'
       - 'Wires handleAddFeatureToRepo to FeaturesCanvas onRepositoryAdd'
       - 'Wires handleAddFeatureToFeature to FeaturesCanvas onNodeAction'
+      - 'Shows empty state with "Add Repository" CTA when no nodes'
       - 'Escape key deselects node'
-      - 'Storybook stories: Empty, WithFeatures, WithToolbar, WithNodeActions'
+      - 'Storybook stories: Empty, WithFeatures, WithNodeActions'
       - 'ControlCenter props: initialNodes, initialEdges'
       - 'pnpm test passes for all control-center tests'
     tdd:
       red:
         - 'Write test: renders FeaturesCanvas with nodes and edges'
-        - 'Write test: renders toolbar panel'
-        - 'Write test: passes onAddFeature to toolbar'
+        - 'Write test: shows empty state when no nodes provided'
         - 'Write test: wires onRepositoryAdd to FeaturesCanvas'
         - 'Write test: wires onNodeAction to FeaturesCanvas'
       green:
