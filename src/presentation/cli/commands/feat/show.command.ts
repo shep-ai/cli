@@ -13,7 +13,8 @@ import { join } from 'node:path';
 import { container } from '../../../../infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '../../../../application/use-cases/features/show-feature.use-case.js';
 import type { IAgentRunRepository } from '../../../../application/ports/output/agents/agent-run-repository.interface.js';
-import type { Feature, AgentRun } from '../../../../domain/generated/output.js';
+import type { IPhaseTimingRepository } from '../../../../application/ports/output/agents/phase-timing-repository.interface.js';
+import type { Feature, AgentRun, PhaseTiming } from '../../../../domain/generated/output.js';
 import { colors, symbols, messages, renderDetailView } from '../../ui/index.js';
 import { SHEP_HOME_DIR } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
 
@@ -75,9 +76,10 @@ export function createShowCommand(): Command {
       try {
         const useCase = container.resolve(ShowFeatureUseCase);
         const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
+        const timingRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
         const feature = await useCase.execute(featureId);
-
         const run = feature.agentRunId ? await runRepo.findById(feature.agentRunId) : null;
+        const timings = feature.agentRunId ? await timingRepo.findByRunId(feature.agentRunId) : [];
 
         const worktreePath = computeWorktreePath(feature.repositoryPath, feature.branch);
 
@@ -105,6 +107,33 @@ export function createShowCommand(): Command {
           textBlocks.push({
             title: `Messages (${feature.messages.length})`,
             content: last5,
+          });
+        }
+
+        if (timings.length > 0) {
+          const lines = timings.map((t) => {
+            const label = (NODE_TO_PHASE[t.phase] ?? t.phase).padEnd(16);
+            if (t.completedAt && t.durationMs != null) {
+              const secs = (Number(t.durationMs) / 1000).toFixed(1);
+              return `${label} ${colors.success(`${secs}s`)}`;
+            }
+            return `${label} ${colors.warning('awaiting review')}`;
+          });
+          textBlocks.push({ title: 'Phase Timing', content: lines.join('\n') });
+        }
+
+        if (run?.status === 'waiting_approval') {
+          const phase = run.result?.startsWith('node:')
+            ? (NODE_TO_PHASE[run.result.slice(5)] ?? run.result.slice(5))
+            : 'current phase';
+          textBlocks.push({
+            title: 'Awaiting Approval',
+            content: [
+              `${phase} is waiting for your review.`,
+              '',
+              `  ${colors.accent('shep feat approve')}  Resume the agent`,
+              `  ${colors.accent('shep feat reject')}   Cancel with feedback`,
+            ].join('\n'),
           });
         }
 
