@@ -289,9 +289,47 @@ describe('SQLite Migrations', () => {
       expect(specPath?.notnull).toBe(0); // nullable
     });
 
-    it('should set schema version to 7', () => {
+    it('should set schema version to 8', () => {
       const version = getSchemaVersion(db);
-      expect(version).toBe(7);
+      expect(version).toBe(8);
+    });
+  });
+
+  describe('migration v8: approval_gates and phase_timings', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add approval_gates column to agent_runs table', () => {
+      const schema = getTableSchema(db, 'agent_runs');
+      const approvalGates = schema.find((col) => col.name === 'approval_gates');
+
+      expect(approvalGates).toBeDefined();
+      expect(approvalGates?.type).toBe('TEXT');
+      expect(approvalGates?.notnull).toBe(0); // nullable
+    });
+
+    it('should create phase_timings table', () => {
+      expect(tableExists(db, 'phase_timings')).toBe(true);
+    });
+
+    it('should have correct phase_timings schema', () => {
+      const schema = getTableSchema(db, 'phase_timings');
+      const columnNames = schema.map((col) => col.name);
+
+      expect(columnNames).toContain('id');
+      expect(columnNames).toContain('agent_run_id');
+      expect(columnNames).toContain('phase');
+      expect(columnNames).toContain('started_at');
+      expect(columnNames).toContain('completed_at');
+      expect(columnNames).toContain('duration_ms');
+      expect(columnNames).toContain('created_at');
+      expect(columnNames).toContain('updated_at');
+    });
+
+    it('should create index on phase_timings agent_run_id', () => {
+      const indexes = getTableIndexes(db, 'phase_timings');
+      expect(indexes).toContain('idx_phase_timings_run');
     });
   });
 });

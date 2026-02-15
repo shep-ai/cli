@@ -13,6 +13,7 @@
 import { Command } from 'commander';
 import { container } from '../../../../infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '../../../../application/use-cases/features/create-feature.use-case.js';
+import type { ApprovalGates } from '../../../../domain/generated/output.js';
 import { colors, messages, spinner } from '../../ui/index.js';
 
 interface NewOptions {
@@ -40,18 +41,18 @@ export function createNewCommand(): Command {
         const useCase = container.resolve(CreateFeatureUseCase);
         const repoPath = options.repo ?? process.cwd();
 
-        // Determine approval mode from flags (last one wins if multiple specified)
-        let approvalMode: string | undefined;
-        if (options.interactive) approvalMode = 'interactive';
-        if (options.allowPrd) approvalMode = 'allow-prd';
-        if (options.allowPlan) approvalMode = 'allow-plan';
-        if (options.allowAll) approvalMode = 'allow-all';
+        // Build approval gates from flags
+        let approvalGates: ApprovalGates | undefined;
+        if (options.interactive) approvalGates = { allowPrd: false, allowPlan: false };
+        if (options.allowPrd) approvalGates = { allowPrd: true, allowPlan: false };
+        if (options.allowPlan) approvalGates = { allowPrd: true, allowPlan: true };
+        if (options.allowAll) approvalGates = undefined; // no gates = fully autonomous
 
         const feature = await spinner('Thinking', () =>
           useCase.execute({
             userInput: description,
             repositoryPath: repoPath,
-            approvalMode,
+            approvalGates,
           })
         );
 

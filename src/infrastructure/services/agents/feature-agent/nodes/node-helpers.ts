@@ -14,6 +14,7 @@ import type {
   AgentExecutionOptions,
   AgentExecutionResult,
 } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { ApprovalGates } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
 
@@ -86,22 +87,25 @@ export function safeYamlLoad(content: string): unknown {
   }
 }
 
-/** Nodes that are auto-approved (no interrupt) for each approval mode. */
-const AUTO_APPROVED_NODES: Record<string, string[]> = {
-  interactive: [],
-  'allow-prd': ['analyze', 'requirements'],
-  'allow-plan': ['analyze', 'requirements', 'research', 'plan'],
-  'allow-all': ['analyze', 'requirements', 'research', 'plan', 'implement'],
-};
-
 /**
  * Determine whether the current node should trigger an interrupt
- * for human approval given the configured approval mode.
+ * for human approval given the configured approval gates.
+ *
+ * Gates control which phases auto-approve:
+ * - allowPrd: when true, skip interrupt after requirements phase
+ * - allowPlan: when true, skip interrupt after plan phase
+ *
+ * Nodes not covered by a gate (analyze, research) never interrupt.
+ * The implement node always interrupts when gates are present
+ * (unless both gates are true, meaning fully autonomous).
  */
-export function shouldInterrupt(nodeName: string, approvalMode: string | undefined): boolean {
-  if (!approvalMode || approvalMode === 'allow-all') return false;
-  const autoApproved = AUTO_APPROVED_NODES[approvalMode] ?? [];
-  return !autoApproved.includes(nodeName);
+export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefined): boolean {
+  if (!gates) return false;
+  if (gates.allowPrd && gates.allowPlan) return false;
+  if (nodeName === 'requirements') return !gates.allowPrd;
+  if (nodeName === 'plan') return !gates.allowPlan;
+  if (nodeName === 'implement') return true;
+  return false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -262,7 +266,7 @@ export function executeNode(
       };
 
       // Human-in-the-loop: interrupt after node execution for review
-      if (shouldInterrupt(nodeName, state.approvalMode)) {
+      if (shouldInterrupt(nodeName, state.approvalGates)) {
         log.info('Interrupting for human approval');
         interrupt({
           node: nodeName,

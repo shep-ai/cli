@@ -10,6 +10,8 @@
  * - Infrastructure layer provides concrete implementation
  */
 
+import type { ApprovalGates } from '../../../../domain/generated/output.js';
+
 /**
  * Service interface for feature agent background process management.
  */
@@ -30,7 +32,7 @@ export interface IFeatureAgentProcessService {
     specDir: string,
     worktreePath?: string,
     options?: {
-      approvalMode?: string;
+      approvalGates?: ApprovalGates;
       resume?: boolean;
       threadId?: string;
       resumeFromInterrupt?: boolean;

@@ -15,7 +15,7 @@ import { homedir } from 'node:os';
 import { mkdirSync } from 'node:fs';
 import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
-import { AgentRunStatus } from '@/domain/generated/output.js';
+import { AgentRunStatus, type ApprovalGates } from '@/domain/generated/output.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -37,7 +37,7 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     specDir: string,
     worktreePath?: string,
     options?: {
-      approvalMode?: string;
+      approvalGates?: ApprovalGates;
       resume?: boolean;
       threadId?: string;
       resumeFromInterrupt?: boolean;
@@ -58,8 +58,8 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     if (worktreePath) {
       args.push('--worktree-path', worktreePath);
     }
-    if (options?.approvalMode) {
-      args.push('--approval-mode', options.approvalMode);
+    if (options?.approvalGates) {
+      args.push('--approval-gates', JSON.stringify(options.approvalGates));
     }
     if (options?.threadId) {
       args.push('--thread-id', options.threadId);

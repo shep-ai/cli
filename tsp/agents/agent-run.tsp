@@ -10,6 +10,7 @@
 import "../common/base.tsp";
 import "../common/enums/agent-config.tsp";
 import "./enums/agent-run-status.tsp";
+import "./approval-gates.tsp";
 
 @doc("Agent execution run record")
 model AgentRun extends BaseEntity {
@@ -55,9 +56,6 @@ model AgentRun extends BaseEntity {
   @doc("Repository path for context scoping (optional)")
   repositoryPath?: string;
 
-  @doc("Approval mode for human-in-the-loop: interactive, allow-prd, allow-plan, allow-all (optional)")
-  approvalMode?: string;
-
-  @doc("Current approval status: pending, waiting, approved, rejected (optional)")
-  approvalStatus?: string;
+  @doc("Approval gate configuration for human-in-the-loop review (optional)")
+  approvalGates?: ApprovalGates;
 }

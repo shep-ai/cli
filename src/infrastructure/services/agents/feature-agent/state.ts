@@ -1,4 +1,5 @@
 import { Annotation } from '@langchain/langgraph';
+import type { ApprovalGates } from '@/domain/generated/output.js';
 
 /**
  * State annotation for the feature-agent graph.
@@ -17,7 +18,7 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (prev, next) => (next !== undefined ? next : prev),
     default: () => null,
   }),
-  approvalMode: Annotation<string | undefined>({
+  approvalGates: Annotation<ApprovalGates | undefined>({
     reducer: (prev, next) => next ?? prev,
     default: () => undefined,
   }),

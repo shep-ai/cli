@@ -216,7 +216,7 @@ export function createImplementNode(executor: IAgentExecutor) {
         `[implement] Complete: ${totalTasks} tasks across ${totalPhases} phases (${elapsed}s)`
       );
 
-      if (shouldInterrupt('implement', state.approvalMode)) {
+      if (shouldInterrupt('implement', state.approvalGates)) {
         log.info('Interrupting for human approval');
         interrupt({
           node: 'implement',

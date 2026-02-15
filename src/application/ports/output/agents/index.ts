@@ -15,5 +15,6 @@ export type { IAgentExecutorProvider } from './agent-executor-provider.interface
 export type { IAgentRegistry, AgentDefinitionWithFactory } from './agent-registry.interface.js';
 export type { IAgentRunner, AgentRunOptions } from './agent-runner.interface.js';
 export type { IAgentRunRepository } from './agent-run-repository.interface.js';
+export type { IPhaseTimingRepository } from './phase-timing-repository.interface.js';
 export type { IAgentValidator, AgentValidationResult } from './agent-validator.interface.js';
 export type { IFeatureAgentProcessService } from './feature-agent-process.interface.js';

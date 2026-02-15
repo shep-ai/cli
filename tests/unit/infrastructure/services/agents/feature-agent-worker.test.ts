@@ -119,7 +119,7 @@ describe('parseWorkerArgs', () => {
       repo: '/path/to/repo',
       specDir: '/path/to/specs/001-feature',
       worktreePath: undefined,
-      approvalMode: undefined,
+      approvalGates: undefined,
       resume: false,
       threadId: undefined,
       resumeFromInterrupt: false,
@@ -168,7 +168,8 @@ describe('parseWorkerArgs', () => {
     expect(() => parseWorkerArgs(args)).toThrow('--spec-dir');
   });
 
-  it('should parse optional approval-mode argument', () => {
+  it('should parse optional approval-gates argument as JSON', () => {
+    const gates = { allowPrd: true, allowPlan: false };
     const args = [
       '--feature-id',
       'feat-123',
@@ -178,12 +179,12 @@ describe('parseWorkerArgs', () => {
       '/path/to/repo',
       '--spec-dir',
       '/path/to/specs',
-      '--approval-mode',
-      'interactive',
+      '--approval-gates',
+      JSON.stringify(gates),
     ];
 
     const parsed = parseWorkerArgs(args);
-    expect(parsed.approvalMode).toBe('interactive');
+    expect(parsed.approvalGates).toEqual(gates);
   });
 
   it('should parse optional resume flag', () => {
@@ -203,7 +204,7 @@ describe('parseWorkerArgs', () => {
     expect(parsed.resume).toBe(true);
   });
 
-  it('should default approvalMode to undefined and resume to false', () => {
+  it('should default approvalGates to undefined and resume to false', () => {
     const args = [
       '--feature-id',
       'feat-123',
@@ -216,7 +217,7 @@ describe('parseWorkerArgs', () => {
     ];
 
     const parsed = parseWorkerArgs(args);
-    expect(parsed.approvalMode).toBeUndefined();
+    expect(parsed.approvalGates).toBeUndefined();
     expect(parsed.resume).toBe(false);
   });
 
@@ -440,19 +441,20 @@ describe('runWorker', () => {
     );
   });
 
-  it('should pass approvalMode in graph invoke state', async () => {
+  it('should pass approvalGates in graph invoke state', async () => {
+    const gates = { allowPrd: false, allowPlan: false };
     await runWorker({
       featureId: 'feat-1',
       runId: 'run-1',
       repo: '/repo',
       specDir: '/specs',
-      approvalMode: 'interactive',
+      approvalGates: gates,
       resume: false,
     });
 
     expect(mockGraphInvoke).toHaveBeenCalledWith(
       expect.objectContaining({
-        approvalMode: 'interactive',
+        approvalGates: gates,
       }),
       expect.anything()
     );
@@ -475,7 +477,7 @@ describe('runWorker', () => {
       runId: 'run-1',
       repo: '/repo',
       specDir: '/specs',
-      approvalMode: 'interactive',
+      approvalGates: { allowPrd: false, allowPlan: false },
       resume: false,
     });
 
@@ -483,7 +485,7 @@ describe('runWorker', () => {
       'run-1',
       AgentRunStatus.waitingApproval,
       expect.objectContaining({
-        approvalStatus: 'waiting',
+        updatedAt: expect.any(Date),
       })
     );
   });

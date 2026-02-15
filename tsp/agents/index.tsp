@@ -74,3 +74,7 @@ import "./enums/agent-feature.tsp";
 import "./agent-run.tsp";
 import "./agent-run-event.tsp";
 import "./agent-definition.tsp";
+
+// Human-in-the-loop approval gates and phase timing
+import "./approval-gates.tsp";
+import "./phase-timing.tsp";

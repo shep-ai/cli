@@ -331,11 +331,12 @@ describe('CreateFeatureUseCase', () => {
     expect(result.relatedArtifacts).toEqual([]);
   });
 
-  it('should pass approvalMode and threadId to agent process spawn', async () => {
+  it('should pass approvalGates and threadId to agent process spawn', async () => {
+    const gates = { allowPrd: false, allowPlan: false };
     await useCase.execute({
       userInput: 'Add feature',
       repositoryPath: '/repo',
-      approvalMode: 'interactive',
+      approvalGates: gates,
     });
     expect(mockAgentProcess.spawn).toHaveBeenCalledWith(
       expect.any(String),
@@ -344,7 +345,7 @@ describe('CreateFeatureUseCase', () => {
       expect.any(String),
       expect.any(String),
       expect.objectContaining({
-        approvalMode: 'interactive',
+        approvalGates: gates,
         threadId: expect.any(String),
       })
     );

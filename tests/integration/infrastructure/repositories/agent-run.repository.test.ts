@@ -308,11 +308,10 @@ describe('SQLiteAgentRunRepository', () => {
     });
   });
 
-  describe('approval workflow fields', () => {
-    it('should store approvalMode and approvalStatus when creating agent run', async () => {
+  describe('approval gates fields', () => {
+    it('should store approvalGates as JSON when creating agent run', async () => {
       const agentRun = createTestAgentRun({
-        approvalMode: 'interactive',
-        approvalStatus: 'pending',
+        approvalGates: { allowPrd: false, allowPlan: false },
       });
 
       await repository.create(agentRun);
@@ -321,11 +320,10 @@ describe('SQLiteAgentRunRepository', () => {
         string,
         unknown
       >;
-      expect(row.approval_mode).toBe('interactive');
-      expect(row.approval_status).toBe('pending');
+      expect(row.approval_gates).toBe('{"allowPrd":false,"allowPlan":false}');
     });
 
-    it('should store approval fields as NULL when not provided', async () => {
+    it('should store approval_gates as NULL when not provided', async () => {
       const agentRun = createTestAgentRun();
 
       await repository.create(agentRun);
@@ -334,73 +332,53 @@ describe('SQLiteAgentRunRepository', () => {
         string,
         unknown
       >;
-      expect(row.approval_mode).toBeNull();
-      expect(row.approval_status).toBeNull();
+      expect(row.approval_gates).toBeNull();
     });
 
-    it('should return approvalMode and approvalStatus via findById', async () => {
+    it('should return approvalGates object via findById', async () => {
       const agentRun = createTestAgentRun({
-        approvalMode: 'allow-prd',
-        approvalStatus: 'approved',
+        approvalGates: { allowPrd: true, allowPlan: false },
       });
       await repository.create(agentRun);
 
       const found = await repository.findById('run-001');
 
-      expect(found?.approvalMode).toBe('allow-prd');
-      expect(found?.approvalStatus).toBe('approved');
+      expect(found?.approvalGates).toEqual({ allowPrd: true, allowPlan: false });
     });
 
-    it('should not include approval fields when they are NULL', async () => {
+    it('should not include approvalGates when it is NULL', async () => {
       const agentRun = createTestAgentRun();
       await repository.create(agentRun);
 
       const found = await repository.findById('run-001');
 
-      expect(found?.approvalMode).toBeUndefined();
-      expect(found?.approvalStatus).toBeUndefined();
+      expect(found?.approvalGates).toBeUndefined();
     });
 
-    it('should update approvalMode via updateStatus', async () => {
+    it('should update approvalGates via updateStatus', async () => {
       const agentRun = createTestAgentRun();
       await repository.create(agentRun);
 
       await repository.updateStatus('run-001', AgentRunStatus.running, {
-        approvalMode: 'interactive',
+        approvalGates: { allowPrd: true, allowPlan: true },
       });
 
       const found = await repository.findById('run-001');
-      expect(found?.approvalMode).toBe('interactive');
+      expect(found?.approvalGates).toEqual({ allowPrd: true, allowPlan: true });
     });
 
-    it('should update approvalStatus via updateStatus', async () => {
-      const agentRun = createTestAgentRun({
-        approvalMode: 'interactive',
-      });
-      await repository.create(agentRun);
-
-      await repository.updateStatus('run-001', AgentRunStatus.running, {
-        approvalStatus: 'waiting',
-      });
-
-      const found = await repository.findById('run-001');
-      expect(found?.approvalStatus).toBe('waiting');
-    });
-
-    it('should update status to waiting_approval with approval fields', async () => {
+    it('should update status to waiting_approval with approval gates', async () => {
       const agentRun = createTestAgentRun({
         status: AgentRunStatus.running,
-        approvalMode: 'interactive',
+        approvalGates: { allowPrd: false, allowPlan: false },
       });
       await repository.create(agentRun);
 
-      await repository.updateStatus('run-001', AgentRunStatus.waitingApproval, {
-        approvalStatus: 'waiting',
-      });
+      await repository.updateStatus('run-001', AgentRunStatus.waitingApproval);
 
       const found = await repository.findById('run-001');
       expect(found?.status).toBe(AgentRunStatus.waitingApproval);
-      expect(found?.approvalStatus).toBe('waiting');
+      expect(found?.approvalGates).toEqual({ allowPrd: false, allowPlan: false });
     });
   });
 

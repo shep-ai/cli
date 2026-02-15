@@ -23,13 +23,15 @@ import { initializeSettings } from '@/infrastructure/services/settings.service.j
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
 
+import type { ApprovalGates } from '@/domain/generated/output.js';
+
 export interface WorkerArgs {
   featureId: string;
   runId: string;
   repo: string;
   specDir: string;
   worktreePath?: string;
-  approvalMode?: string;
+  approvalGates?: ApprovalGates;
   resume?: boolean;
   threadId?: string;
   resumeFromInterrupt?: boolean;
@@ -52,9 +54,16 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const worktreePath =
     worktreeIdx !== -1 && worktreeIdx + 1 < args.length ? args[worktreeIdx + 1] : undefined;
 
-  const approvalIdx = args.indexOf('--approval-mode');
-  const approvalMode =
-    approvalIdx !== -1 && approvalIdx + 1 < args.length ? args[approvalIdx + 1] : undefined;
+  const approvalIdx = args.indexOf('--approval-gates');
+  let approvalGates: ApprovalGates | undefined;
+  if (approvalIdx !== -1 && approvalIdx + 1 < args.length) {
+    try {
+      approvalGates = JSON.parse(args[approvalIdx + 1]) as ApprovalGates;
+    } catch {
+      // Fall back to no gates if JSON parse fails
+      approvalGates = undefined;
+    }
+  }
 
   const resume = args.includes('--resume');
   const resumeFromInterrupt = args.includes('--resume-from-interrupt');
@@ -69,7 +78,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     repo: getArg('repo'),
     specDir: getArg('spec-dir'),
     worktreePath,
-    approvalMode,
+    approvalGates,
     resume,
     threadId,
     resumeFromInterrupt,
@@ -115,7 +124,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   log(`  repo=${args.repo}`);
   log(`  specDir=${args.specDir}`);
   log(`  worktreePath=${args.worktreePath ?? '(none)'}`);
-  log(`  approvalMode=${args.approvalMode ?? '(none)'}`);
+  log(`  approvalGates=${args.approvalGates ? JSON.stringify(args.approvalGates) : '(none)'}`);
   log(`  resume=${args.resume}`);
 
   log('Initializing container...');
@@ -177,7 +186,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           worktreePath: args.worktreePath ?? args.repo,
           specDir: args.specDir,
           error: undefined, // Clear previous error state
-          ...(args.approvalMode ? { approvalMode: args.approvalMode } : {}),
+          ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
         },
         graphConfig
       );
@@ -189,7 +198,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           repositoryPath: args.repo,
           worktreePath: args.worktreePath ?? args.repo,
           specDir: args.specDir,
-          ...(args.approvalMode ? { approvalMode: args.approvalMode } : {}),
+          ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
         },
         graphConfig
       );
@@ -203,7 +212,6 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
     if (interruptPayload && interruptPayload.length > 0) {
       const now = new Date();
       await runRepository.updateStatus(args.runId, AgentRunStatus.waitingApproval, {
-        approvalStatus: 'waiting',
         updatedAt: now,
       });
       log('Run paused — waiting for human approval');

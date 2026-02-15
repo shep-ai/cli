@@ -62,8 +62,7 @@ function createWaitingRun(overrides?: Partial<AgentRun>): AgentRun {
     threadId: 'thread-001',
     featureId: 'feat-001',
     repositoryPath: '/test/repo',
-    approvalMode: 'interactive',
-    approvalStatus: 'waiting',
+    approvalGates: { allowPrd: false, allowPlan: false },
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -105,7 +104,7 @@ describe('ApproveAgentRunUseCase', () => {
       'run-001',
       AgentRunStatus.running,
       expect.objectContaining({
-        approvalStatus: 'approved',
+        updatedAt: expect.any(Date),
       })
     );
     expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith(

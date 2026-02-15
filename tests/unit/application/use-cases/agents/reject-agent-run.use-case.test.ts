@@ -34,8 +34,7 @@ function createWaitingRun(overrides?: Partial<AgentRun>): AgentRun {
     threadId: 'thread-001',
     featureId: 'feat-001',
     repositoryPath: '/test/repo',
-    approvalMode: 'interactive',
-    approvalStatus: 'waiting',
+    approvalGates: { allowPrd: false, allowPlan: false },
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -61,7 +60,6 @@ describe('RejectAgentRunUseCase', () => {
       'run-001',
       AgentRunStatus.cancelled,
       expect.objectContaining({
-        approvalStatus: 'rejected',
         error: 'User rejected the plan',
       })
     );
