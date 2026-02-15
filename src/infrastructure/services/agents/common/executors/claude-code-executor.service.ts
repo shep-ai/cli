@@ -309,6 +309,8 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     if (options?.allowedTools?.length) args.push('--allowedTools', options.allowedTools.join(','));
     if (options?.outputSchema) args.push('--json-schema', JSON.stringify(options.outputSchema));
     if (options?.maxTurns) args.push('--max-turns', String(options.maxTurns));
+    if (options?.disableMcp) args.push('--strict-mcp-config');
+    if (options?.tools?.length) args.push('--tools', options.tools.join(','));
     return args;
   }
 

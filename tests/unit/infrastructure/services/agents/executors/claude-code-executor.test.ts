@@ -440,6 +440,82 @@ describe('ClaudeCodeExecutorService', () => {
       // Assert
       expect(result.metadata).toEqual(expect.objectContaining({ cost_usd: 0.01, num_turns: 1 }));
     });
+
+    describe('disableMcp option', () => {
+      it('should add --strict-mcp-config when disableMcp is true', async () => {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+        const resultLine = buildStreamResult({ result: 'Done' });
+        const executePromise = executor.execute('Test', { disableMcp: true });
+        emitStreamData(mockProc, [resultLine], null, 0);
+        await executePromise;
+        expect(mockSpawn).toHaveBeenCalledWith(
+          'claude',
+          expect.arrayContaining(['--strict-mcp-config']),
+          expect.any(Object)
+        );
+      });
+
+      it('should NOT add --strict-mcp-config when disableMcp is false', async () => {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+        const resultLine = buildStreamResult({ result: 'Done' });
+        const executePromise = executor.execute('Test', { disableMcp: false });
+        emitStreamData(mockProc, [resultLine], null, 0);
+        await executePromise;
+        const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+        expect(args).not.toContain('--strict-mcp-config');
+      });
+
+      it('should NOT add --strict-mcp-config when disableMcp is undefined', async () => {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+        const resultLine = buildStreamResult({ result: 'Done' });
+        const executePromise = executor.execute('Test', {});
+        emitStreamData(mockProc, [resultLine], null, 0);
+        await executePromise;
+        const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+        expect(args).not.toContain('--strict-mcp-config');
+      });
+    });
+
+    describe('tools option', () => {
+      it('should add --tools with comma-separated values when tools provided', async () => {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+        const resultLine = buildStreamResult({ result: 'Done' });
+        const executePromise = executor.execute('Test', { tools: ['Bash', 'Read', 'Write'] });
+        emitStreamData(mockProc, [resultLine], null, 0);
+        await executePromise;
+        expect(mockSpawn).toHaveBeenCalledWith(
+          'claude',
+          expect.arrayContaining(['--tools', 'Bash,Read,Write']),
+          expect.any(Object)
+        );
+      });
+
+      it('should NOT add --tools when tools is undefined', async () => {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+        const resultLine = buildStreamResult({ result: 'Done' });
+        const executePromise = executor.execute('Test', {});
+        emitStreamData(mockProc, [resultLine], null, 0);
+        await executePromise;
+        const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+        expect(args).not.toContain('--tools');
+      });
+
+      it('should NOT add --tools when tools array is empty', async () => {
+        const mockProc = createMockChildProcess();
+        vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+        const resultLine = buildStreamResult({ result: 'Done' });
+        const executePromise = executor.execute('Test', { tools: [] });
+        emitStreamData(mockProc, [resultLine], null, 0);
+        await executePromise;
+        const args = vi.mocked(mockSpawn).mock.calls[0][1] as string[];
+        expect(args).not.toContain('--tools');
+      });
+    });
   });
 
   describe('executeStream', () => {

@@ -19,6 +19,9 @@ import {
   buildExecutorOptions,
   shouldInterrupt,
   safeYamlLoad,
+  retryExecute,
+  getCompletedPhases,
+  markPhaseComplete,
 } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import {
@@ -106,6 +109,10 @@ export function createImplementNode(executor: IAgentExecutor) {
       let completedTasks = 0;
       const totalPhases = planData.phases.length;
 
+      // --- Check for completed phases (skip on resume) ---
+      const completedPhaseIds = getCompletedPhases(state.specDir);
+      const retryOpts = { logger: log };
+
       // --- Execute phases in order ---
       for (let i = 0; i < totalPhases; i++) {
         const phase = planData.phases[i];
@@ -116,6 +123,13 @@ export function createImplementNode(executor: IAgentExecutor) {
               .map((id) => taskMap.get(id))
               .filter((t): t is PhaseTask => t !== undefined)
           : tasksData.tasks.filter((t) => t.phaseId === phase.id);
+
+        // Skip already-completed phases
+        if (completedPhaseIds.includes(phase.id)) {
+          completedTasks += phaseTasks.length;
+          log.info(`Phase ${phase.id} "${phase.name}" — already complete, skipping`);
+          continue;
+        }
 
         if (phaseTasks.length === 0) {
           log.info(`Phase ${phase.id} "${phase.name}" — no tasks, skipping`);
@@ -154,7 +168,7 @@ export function createImplementNode(executor: IAgentExecutor) {
                 promptContext
               );
               log.info(`  [parallel] Task ${task.id}: "${task.title}" — ${prompt.length} chars`);
-              return executor.execute(prompt, options);
+              return retryExecute(executor, prompt, options, retryOpts);
             })
           );
 
@@ -167,11 +181,12 @@ export function createImplementNode(executor: IAgentExecutor) {
           // Sequential: single executor call with all phase tasks
           const prompt = buildImplementPhasePrompt(state, phase, phaseTasks, promptContext);
           log.info(`Executing phase prompt — ${prompt.length} chars`);
-          const result = await executor.execute(prompt, options);
+          const result = await retryExecute(executor, prompt, options, retryOpts);
           log.info(`Phase complete (${result.result.length} chars)`);
         }
 
         completedTasks += phaseTasks.length;
+        markPhaseComplete(state.specDir, phase.id, log);
         const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
         messages.push(
           `[implement] Phase ${phase.id} "${phase.name}" — ${phaseTasks.length} task(s) done (${elapsed}s)`
