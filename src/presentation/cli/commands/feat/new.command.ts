@@ -18,7 +18,6 @@ import { colors, messages, spinner } from '../../ui/index.js';
 
 interface NewOptions {
   repo?: string;
-  interactive?: boolean;
   allowPrd?: boolean;
   allowPlan?: boolean;
   allowAll?: boolean;
@@ -32,7 +31,6 @@ export function createNewCommand(): Command {
     .description('Create a new feature')
     .argument('<description>', 'Feature description')
     .option('-r, --repo <path>', 'Repository path (defaults to current directory)')
-    .option('--interactive', 'Require approval after every agent step')
     .option('--allow-prd', 'Auto-approve through requirements, pause after')
     .option('--allow-plan', 'Auto-approve through planning, pause at implementation')
     .option('--allow-all', 'Run fully autonomous (no approval pauses)')
@@ -41,10 +39,9 @@ export function createNewCommand(): Command {
         const useCase = container.resolve(CreateFeatureUseCase);
         const repoPath = options.repo ?? process.cwd();
 
-        // Build approval gates from flags
-        let approvalGates: ApprovalGates | undefined;
-        if (options.interactive) approvalGates = { allowPrd: false, allowPlan: false };
-        if (options.allowPrd) approvalGates = { allowPrd: true, allowPlan: false };
+        // Build approval gates from flags (default: pause after every phase)
+        let approvalGates: ApprovalGates | undefined = { allowPrd: false, allowPlan: false };
+        if (options.allowPrd) approvalGates = { ...approvalGates, allowPrd: true };
         if (options.allowPlan) approvalGates = { allowPrd: true, allowPlan: true };
         if (options.allowAll) approvalGates = undefined; // no gates = fully autonomous
 
@@ -65,6 +62,11 @@ export function createNewCommand(): Command {
         if (feature.agentRunId) {
           console.log(
             `  ${colors.muted('Agent:')}  ${colors.success('spawned')} (run ${feature.agentRunId.slice(0, 8)})`
+          );
+        }
+        if (approvalGates) {
+          console.log(
+            `  ${colors.muted('Review:')} Agent will pause for approval after each phase`
           );
         }
         messages.newline();
