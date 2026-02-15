@@ -2,28 +2,112 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: fix-feat-claude-impl
-summary: Technical analysis for 017-fix-feat-claude-impl
+summary: >
+  Root cause analysis and technical decisions for hardening the feature agent's implement phase
+  against Claude Code API failures. Covers retry logic, error classification, tool restriction,
+  prompt size management, and phase-level recovery.
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '009-feature-agent'
+technologies:
+  - TypeScript
+  - LangGraph
+  - Claude Code CLI
+relatedLinks:
+  - https://github.com/anthropics/claude-code/issues/7370
+  - https://github.com/anthropics/claude-code/issues/23149
+  - https://github.com/anthropics/claude-code/issues/20983
+  - https://code.claude.com/docs/en/cli-reference
 
 # Structured technology decisions
 decisions:
-  - title: { { DECISION_TITLE } }
-    chosen: { { CHOSEN_OPTION } }
+  - title: 'MCP tool isolation strategy'
+    chosen: 'Use --strict-mcp-config with empty config to disable all MCP tools'
     rejected:
-      - { { OPTION_1 } }
-      - { { OPTION_2 } }
-    rationale: { { RATIONALE } }
+      - 'Use --tools to whitelist specific built-in tools only'
+      - 'Use --disallowedTools to block known problematic MCP tools'
+      - 'Do nothing and rely on retry logic alone'
+    rationale: >
+      The --strict-mcp-config flag (with no --mcp-config or an empty config) prevents Claude Code
+      from loading ANY MCP tools from user/project settings. This eliminates the entire class of
+      MCP tool name length bugs (issue #23149, #20983) without needing to know which specific
+      tools are problematic. The --tools flag only restricts built-in tools, not MCP tools.
+      --disallowedTools requires knowing tool names in advance. Combined with retry logic,
+      this provides defense-in-depth.
 
-# Open questions (should be resolved by end of research)
-openQuestions:
-  []
-  # - question: "Which library should we use?"
-  #   resolved: true
-  #   answer: "Library X because of Y"
+  - title: 'Retry strategy for transient API errors'
+    chosen: 'Bounded retry with exponential backoff (max 3 attempts, 2s/4s/8s delays)'
+    rejected:
+      - 'No retry (current behavior)'
+      - 'Unlimited retry with circuit breaker'
+      - 'Retry with session resume (--resume flag)'
+    rationale: >
+      The API 400 error for tool_use.name is transient in nature — spawning a fresh Claude Code
+      session often succeeds because the model may choose different tools or the context
+      management behaves differently. 3 attempts with exponential backoff (2s, 4s, 8s) provides
+      adequate recovery without excessive delay. Unlimited retry risks infinite loops. Session
+      resume would carry the corrupted conversation history, making the error persistent.
+      Fresh sessions are the correct recovery strategy.
+
+  - title: 'Error classification approach'
+    chosen: 'Pattern-based error classifier in node-helpers with categorized error types'
+    rejected:
+      - 'Classify only by process exit code'
+      - 'Parse Claude Code stderr for error details'
+      - 'No classification — retry everything'
+    rationale: >
+      Claude Code's error messages contain structured information (API error codes, error types)
+      that can be pattern-matched to classify errors. Exit code alone (0 vs non-zero) doesn't
+      distinguish API errors from implementation failures. Retrying everything wastes time on
+      non-recoverable errors. A classifier that identifies retryable errors (API 400/429/500,
+      network errors, timeout) vs non-retryable (implementation logic errors) enables smart
+      retry behavior. The classifier lives in node-helpers.ts as a shared utility.
+
+  - title: 'Phase-level progress preservation'
+    chosen: 'Track completed phases in feature.yaml and skip on retry/resume'
+    rejected:
+      - 'Use LangGraph checkpointing alone'
+      - 'Re-execute from the beginning on every retry'
+      - 'Store phase completion in a separate state file'
+    rationale: >
+      LangGraph checkpoints at the NODE level (analyze, requirements, research, plan, implement),
+      not at the PHASE level within the implement node. Since all phases execute inside a single
+      implement node invocation, LangGraph would re-execute ALL phases on resume. By tracking
+      completed phases in feature.yaml (which already has progress tracking), the implement
+      node can skip completed phases on retry. This builds on existing infrastructure and
+      survives both intra-node retries and full graph resumption.
+
+  - title: 'Prompt size management strategy'
+    chosen: 'Add --max-turns limit, defer prompt truncation to future work'
+    rejected:
+      - 'Truncate spec/research/plan content when prompt exceeds threshold'
+      - 'Summarize previous context using a separate LLM call'
+      - 'Split large phases into smaller sub-phases'
+    rationale: >
+      The 83K prompt size is not the root cause — it's within Claude's 200K context window.
+      Adding --max-turns (e.g., 50) prevents runaway sessions that accumulate context and
+      trigger the tool_use.name bug. Prompt truncation risks losing critical implementation
+      context. LLM-based summarization adds latency and cost. Sub-phase splitting adds
+      significant complexity. The combination of --strict-mcp-config + retry logic + --max-turns
+      addresses the immediate failures without over-engineering.
+
+  - title: 'AgentExecutionOptions extension'
+    chosen: 'Add disableMcp boolean and tools string array to AgentExecutionOptions'
+    rejected:
+      - 'Add raw CLI args passthrough'
+      - 'Create a separate ClaudeCodeExecutionOptions type'
+      - 'Configure via settings only'
+    rationale: >
+      The AgentExecutionOptions interface already has allowedTools and maxTurns fields.
+      Adding disableMcp (boolean → --strict-mcp-config) and tools (string[] → --tools)
+      follows the existing pattern. Raw CLI passthrough breaks the abstraction. A separate
+      type violates the port/adapter pattern. Settings-only configuration doesn't allow
+      per-invocation control. The implement node sets these options when building executor
+      options for each phase call.
+
+# Open questions (resolved)
+openQuestions: []
 
 # Markdown content (the full research document)
 content: |
@@ -32,33 +116,159 @@ content: |
   - **Phase:** Research
   - **Updated:** 2026-02-15
 
+  ## Root Cause Analysis
+
+  ### The Error
+
+  ```
+  API Error: 400 {"type":"error","error":{"type":"invalid_request_error",
+  "message":"messages.1.content.1.tool_use.name: String should have at most 200 characters"}}
+  ```
+
+  The Anthropic API rejects a request because a `tool_use.name` field in the conversation
+  messages exceeds 200 characters. This occurs inside the Claude Code subprocess spawned
+  by Shep's implement phase.
+
+  ### Known Claude Code Bugs
+
+  1. **[#7370](https://github.com/anthropics/claude-code/issues/7370)** — Extended sessions
+     cause tool_use.name corruption. Confirmed to happen even WITHOUT MCP servers. The session
+     becomes completely unusable with no recovery. An Anthropic collaborator confirmed that
+     "Claude Code's built-in tools should not run into this issue" but users report it happens
+     without MCP.
+
+  2. **[#23149](https://github.com/anthropics/claude-code/issues/23149)** (dup of #20983) —
+     MCP plugin tool names using `mcp__plugin_{plugin}_{server}__{tool}` pattern exceed the
+     API's character limits (64 chars for tool definitions, 200 chars for tool_use in messages).
+
+  ### Failure Chain in Shep
+
+  ```
+  Phase 4 starts → claude -p "<83K prompt>" --output-format stream-json ...
+  → Model responds with text + tool_use (Task tool, 4 chars)
+  → Claude Code sends next API request with conversation history
+  → API rejects: tool_use.name > 200 chars
+  → Claude Code exits with code 1
+  → executor.execute() rejects with Error
+  → implement node throws (prevents LangGraph checkpoint)
+  → Worker marks run as failed
+  → 49 minutes of work lost
+  ```
+
+  ### Contributing Factors (Shep-side)
+
+  | Factor | Current State | Impact |
+  |--------|---------------|--------|
+  | Retry logic | None | Single failure = run failure |
+  | Phase recovery | None | All phases re-execute on resume |
+  | MCP isolation | None | MCP tools loaded from user config |
+  | Max turns | Not set | Runaway sessions possible |
+  | Error classification | None | Can't distinguish API vs impl errors |
+  | Prompt size | Unmanaged (83K+) | May stress context management |
+
   ## Technology Decisions
 
-  ### {{DECISION_TITLE}}
+  ### 1. MCP Tool Isolation
+
+  **Decision:** Use `--strict-mcp-config` with no config to disable all MCP tools.
 
   **Options considered:**
+  1. `--strict-mcp-config` (no config) — Disables all MCP tools entirely
+  2. `--tools "Bash,Edit,Read,Write,Glob,Grep"` — Whitelist built-in tools only
+  3. `--disallowedTools` — Block specific problematic tools
+  4. Do nothing, rely on retry
 
-  1. {{OPTION_1}}
-  2. {{OPTION_2}}
-  3. {{OPTION_3}}
+  **Rationale:** `--strict-mcp-config` eliminates the entire class of MCP tool name bugs
+  without needing to know which tools are problematic. It's the cleanest solution since
+  implementation phases should not need MCP tools.
 
-  **Decision:** {{CHOSEN_OPTION}}
+  **Implementation:** In `buildExecutorOptions()` or `buildArgs()`, add `--strict-mcp-config`
+  when no MCP config is explicitly provided.
 
-  **Rationale:** {{RATIONALE}}
+  ### 2. Retry Strategy
+
+  **Decision:** Bounded retry with exponential backoff (max 3 attempts, 2s/4s/8s delays).
+
+  **Key insight:** Each retry spawns a FRESH Claude Code subprocess. This is critical because
+  the tool_use.name corruption is tied to a specific session — a new session won't inherit
+  the corrupted state.
+
+  **Implementation:** Wrap the `executor.execute()` call in the implement node with retry
+  logic. Only retry on classified-retryable errors (API 400/429/500, network, timeout).
+  Non-retryable errors (e.g., missing files, invalid YAML) fail immediately.
+
+  ### 3. Error Classification
+
+  **Decision:** Pattern-based classifier with error categories.
+
+  **Categories:**
+  - `retryable-api`: API 400 (tool_use.name, etc.), 429 (rate limit), 500 (server error)
+  - `retryable-network`: Connection refused, timeout, DNS failure
+  - `non-retryable`: Implementation errors, missing files, invalid config
+  - `unknown`: Unclassified errors (treated as retryable for safety)
+
+  **Pattern matching on error message:**
+  ```
+  /API Error: (400|429|5\d{2})/  → retryable-api
+  /timed out|ECONNREFUSED|ETIMEDOUT/  → retryable-network
+  /Process exited with code [^0]/  → check nested error message
+  ```
+
+  ### 4. Phase-Level Progress Preservation
+
+  **Decision:** Track completed phases in feature.yaml, skip on retry.
+
+  **Current behavior:** `updateFeatureProgress()` already updates feature.yaml between phases.
+  We extend this to record completed phase IDs, allowing the implement node to skip them.
+
+  **Implementation:** Before executing a phase, check if it's marked complete in feature.yaml.
+  After successful execution, mark it complete. On retry (either intra-node or graph resume),
+  skip completed phases.
+
+  ### 5. Max Turns Limit
+
+  **Decision:** Set `--max-turns 50` for implement phase executor calls.
+
+  **Rationale:** Prevents runaway sessions that accumulate context and trigger the tool_use.name
+  bug. 50 turns is generous for a single phase's implementation work while preventing
+  unbounded execution.
+
+  ### 6. AgentExecutionOptions Extension
+
+  **Decision:** Add `disableMcp: boolean` and `tools: string[]` to `AgentExecutionOptions`.
+
+  **Current interface fields:** `cwd`, `allowedTools`, `resumeSession`, `maxTurns`, `model`,
+  `systemPrompt`, `outputSchema`, `timeout`, `silent`.
+
+  **New fields:**
+  - `disableMcp?: boolean` → maps to `--strict-mcp-config` flag
+  - `tools?: string[]` → maps to `--tools` flag (restricts available built-in tools)
 
   ## Library Analysis
 
-  | Library     | Version     | Purpose     | Pros     | Cons     |
-  | ----------- | ----------- | ----------- | -------- | -------- |
-  | {{LIBRARY}} | {{VERSION}} | {{PURPOSE}} | {{PROS}} | {{CONS}} |
+  | Library   | Version | Purpose              | Pros                              | Cons                     |
+  |-----------|---------|----------------------|-----------------------------------|--------------------------|
+  | js-yaml   | ^4.1    | YAML parsing         | Already in use, works well        | None                     |
+  | LangGraph | ^0.2    | Graph orchestration  | Checkpoint/resume support         | Node-level, not phase-level |
+  | Commander | ^12     | CLI framework        | Not affected by this change       | N/A                      |
+
+  No new library dependencies required. All changes use existing infrastructure.
 
   ## Security Considerations
 
-  No security implications identified.
+  - `--strict-mcp-config` reduces attack surface by preventing untrusted MCP tools from
+    executing in the agent subprocess
+  - `--max-turns 50` prevents cost-runaway scenarios where a buggy session makes unlimited
+    API calls
+  - Retry logic includes bounded attempts (max 3) to prevent infinite retry loops
 
   ## Performance Implications
 
-  No performance implications identified.
+  - Retry with exponential backoff adds up to 14 seconds delay per phase on full retry
+    (2s + 4s + 8s). This is negligible compared to phase execution time (minutes).
+  - `--strict-mcp-config` may slightly speed up Claude Code startup by skipping MCP
+    server initialization.
+  - Phase skipping on retry saves significant time by not re-executing completed phases.
 
   ## Open Questions
 
