@@ -3,18 +3,20 @@ feature:
   name: 'hitl-approval-gates'
   number: 16
   branch: 'feat/016-hitl-approval-gates'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-15T13:37:36Z'
 
 status:
-  phase: 'complete'
+  phase: 'in-review'
   progress:
     completed: 22
     total: 22
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-15T23:30:00Z'
-  lastUpdatedBy: 'manual'
+  lastUpdated: '2026-02-15T23:45:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/53'
 
 validation:
   lastRun: '2026-02-15T16:30:00Z'
@@ -41,6 +43,9 @@ checkpoints:
   - phase: 'implementation-complete'
     completedAt: '2026-02-15T17:40:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-15T23:45:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
