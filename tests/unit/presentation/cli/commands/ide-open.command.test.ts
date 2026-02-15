@@ -16,7 +16,7 @@ import { EditorType } from '../../../../../src/domain/generated/output.js';
 // --- Mocks (no top-level variables in factories since vi.mock is hoisted) ---
 
 vi.mock('node:child_process', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:child_process')>();
+  const actual = (await importOriginal()) as Record<string, unknown>;
   return { ...actual, spawn: vi.fn(), execFile: vi.fn() };
 });
 

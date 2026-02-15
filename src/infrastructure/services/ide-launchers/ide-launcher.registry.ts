@@ -1,10 +1,10 @@
 import type { EditorType } from '../../../domain/generated/output.js';
-import type { IdeLauncher } from './ide-launcher.interface';
-import { AntigravityLauncher } from './antigravity.launcher';
-import { CursorLauncher } from './cursor.launcher';
-import { VsCodeLauncher } from './vscode.launcher';
-import { WindsurfLauncher } from './windsurf.launcher';
-import { ZedLauncher } from './zed.launcher';
+import type { IdeLauncher } from './ide-launcher.interface.js';
+import { AntigravityLauncher } from './antigravity.launcher.js';
+import { CursorLauncher } from './cursor.launcher.js';
+import { VsCodeLauncher } from './vscode.launcher.js';
+import { WindsurfLauncher } from './windsurf.launcher.js';
+import { ZedLauncher } from './zed.launcher.js';
 
 /**
  * Create a registry of all supported IDE launchers, keyed by EditorType.

@@ -6,7 +6,7 @@ const mockSpawn = vi.hoisted(() => vi.fn());
 const mockExecFile = vi.hoisted(() => vi.fn());
 
 vi.mock('node:child_process', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:child_process')>();
+  const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
     spawn: mockSpawn,
