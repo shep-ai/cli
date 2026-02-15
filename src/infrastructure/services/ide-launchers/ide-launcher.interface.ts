@@ -5,12 +5,15 @@
  * its own implementation of this interface. Launchers are responsible for
  * spawning a detached editor process and checking binary availability.
  */
+
+import type { EditorType } from '../../../domain/generated/output.js';
+
 export interface IdeLauncher {
   /** Display name shown to the user (e.g., "VS Code"). */
   readonly name: string;
 
-  /** Editor identifier matching the Settings `defaultEditor` value (e.g., "vscode"). */
-  readonly editorId: string;
+  /** Editor identifier matching the EditorType enum value. */
+  readonly editorId: EditorType;
 
   /** CLI binary used to launch the editor (e.g., "code"). */
   readonly binary: string;

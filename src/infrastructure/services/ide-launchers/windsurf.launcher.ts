@@ -1,10 +1,11 @@
 import { spawn, execFile } from 'node:child_process';
 
+import { EditorType } from '../../../domain/generated/output.js';
 import type { IdeLauncher } from './ide-launcher.interface';
 
 export class WindsurfLauncher implements IdeLauncher {
   readonly name = 'Windsurf';
-  readonly editorId = 'windsurf';
+  readonly editorId = EditorType.Windsurf;
   readonly binary = 'windsurf';
 
   async launch(path: string): Promise<void> {

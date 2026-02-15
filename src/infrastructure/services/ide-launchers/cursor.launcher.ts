@@ -1,10 +1,11 @@
 import { spawn, execFile } from 'node:child_process';
 
+import { EditorType } from '../../../domain/generated/output.js';
 import type { IdeLauncher } from './ide-launcher.interface';
 
 export class CursorLauncher implements IdeLauncher {
   readonly name = 'Cursor';
-  readonly editorId = 'cursor';
+  readonly editorId = EditorType.Cursor;
   readonly binary = 'cursor';
 
   async launch(path: string): Promise<void> {

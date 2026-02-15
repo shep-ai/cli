@@ -12,7 +12,11 @@
  */
 
 import type { Settings } from '../../../../domain/generated/output.js';
-import { type AgentType, type AgentAuthMethod } from '../../../../domain/generated/output.js';
+import {
+  type AgentType,
+  type AgentAuthMethod,
+  type EditorType,
+} from '../../../../domain/generated/output.js';
 
 /**
  * Database row type matching the settings table schema.
@@ -122,7 +126,7 @@ export function fromDatabase(row: SettingsRow): Settings {
 
     // EnvironmentConfig
     environment: {
-      defaultEditor: row.env_default_editor,
+      defaultEditor: row.env_default_editor as EditorType,
       shellPreference: row.env_shell_preference,
     },
 

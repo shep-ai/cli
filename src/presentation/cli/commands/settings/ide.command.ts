@@ -10,6 +10,7 @@
 
 import { Command } from 'commander';
 import { select } from '@inquirer/prompts';
+import { EditorType } from '../../../../domain/generated/output.js';
 import { container } from '../../../../infrastructure/di/container.js';
 import { UpdateSettingsUseCase } from '../../../../application/use-cases/settings/update-settings.use-case.js';
 import { createIdeSelectConfig } from '../../../tui/prompts/ide-select.prompt.js';
@@ -20,6 +21,9 @@ import {
 } from '../../../../infrastructure/services/settings.service.js';
 import { createLauncherRegistry } from '../../../../infrastructure/services/ide-launchers/ide-launcher.registry.js';
 import { messages } from '../../ui/index.js';
+
+/** Valid EditorType values for input validation. */
+const VALID_EDITORS = new Set<string>(Object.values(EditorType));
 
 /**
  * Create the IDE configuration command.
@@ -38,10 +42,18 @@ Examples:
     )
     .action(async (options: { editor?: string }) => {
       try {
-        let editorValue: string;
+        let editorValue: EditorType;
 
         if (options.editor !== undefined) {
-          editorValue = options.editor;
+          if (!VALID_EDITORS.has(options.editor)) {
+            messages.error(
+              `Unknown editor "${options.editor}". Valid: ${[...VALID_EDITORS].join(', ')}`,
+              new Error(`Unknown editor: ${options.editor}`)
+            );
+            process.exitCode = 1;
+            return;
+          }
+          editorValue = options.editor as EditorType;
         } else {
           editorValue = await select(createIdeSelectConfig());
         }

@@ -11,6 +11,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
+import { EditorType } from '../../../../../src/domain/generated/output.js';
 
 // --- Mocks (no top-level variables in factories since vi.mock is hoisted) ---
 
@@ -66,11 +67,11 @@ import { createLauncherRegistry } from '../../../../../src/infrastructure/servic
 import { messages } from '../../../../../src/presentation/cli/ui/index.js';
 
 // Helper to build a mock launcher
-function makeLauncher(name: string, editorId: string) {
+function makeLauncher(name: string, editorId: EditorType) {
   return {
     name,
     editorId,
-    binary: editorId,
+    binary: editorId as string,
     launch: vi.fn().mockResolvedValue(undefined),
     checkAvailable: vi.fn().mockResolvedValue(true),
   };
@@ -78,14 +79,16 @@ function makeLauncher(name: string, editorId: string) {
 
 function setupRegistry() {
   const launchers = {
-    vscode: makeLauncher('VS Code', 'vscode'),
-    cursor: makeLauncher('Cursor', 'cursor'),
-    windsurf: makeLauncher('Windsurf', 'windsurf'),
-    zed: makeLauncher('Zed', 'zed'),
-    antigravity: makeLauncher('Antigravity', 'antigravity'),
+    vscode: makeLauncher('VS Code', EditorType.VsCode),
+    cursor: makeLauncher('Cursor', EditorType.Cursor),
+    windsurf: makeLauncher('Windsurf', EditorType.Windsurf),
+    zed: makeLauncher('Zed', EditorType.Zed),
+    antigravity: makeLauncher('Antigravity', EditorType.Antigravity),
   };
-  const registry = new Map(Object.entries(launchers));
-  vi.mocked(createLauncherRegistry).mockReturnValue(registry);
+  const registry = new Map<EditorType, (typeof launchers)[keyof typeof launchers]>(
+    Object.entries(launchers) as any
+  );
+  vi.mocked(createLauncherRegistry).mockReturnValue(registry as any);
   return launchers;
 }
 

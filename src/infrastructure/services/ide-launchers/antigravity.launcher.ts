@@ -1,10 +1,11 @@
 import { spawn, execFile } from 'node:child_process';
 
+import { EditorType } from '../../../domain/generated/output.js';
 import type { IdeLauncher } from './ide-launcher.interface';
 
 export class AntigravityLauncher implements IdeLauncher {
   readonly name = 'Antigravity';
-  readonly editorId = 'antigravity';
+  readonly editorId = EditorType.Antigravity;
   readonly binary = 'agy';
 
   async launch(path: string): Promise<void> {

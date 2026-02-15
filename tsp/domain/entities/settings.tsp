@@ -34,6 +34,7 @@
  */
 import "../../common/base.tsp";
 import "../../common/enums/agent-config.tsp";
+import "../../common/enums/editor.tsp";
 
 /**
  * Model Configuration
@@ -150,10 +151,10 @@ model UserProfile {
 model EnvironmentConfig {
   /**
    * Preferred code editor.
-   * Common values: vscode, vim, nano, emacs, code, cursor
+   * Must be one of the supported EditorType values.
    */
   @doc("Preferred code editor")
-  defaultEditor: string = "vscode";
+  defaultEditor: EditorType = EditorType.VsCode;
 
   /**
    * Preferred shell.

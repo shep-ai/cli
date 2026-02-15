@@ -1,5 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
+import { EditorType } from '@/domain/generated/output';
 
 const mockSpawn = vi.hoisted(() => vi.fn());
 const mockExecFile = vi.hoisted(() => vi.fn());
@@ -17,11 +18,11 @@ describe('createLauncherRegistry', () => {
   });
 
   it.each([
-    ['vscode', 'code'],
-    ['cursor', 'cursor'],
-    ['windsurf', 'windsurf'],
-    ['zed', 'zed'],
-    ['antigravity', 'agy'],
+    [EditorType.VsCode, 'code'],
+    [EditorType.Cursor, 'cursor'],
+    [EditorType.Windsurf, 'windsurf'],
+    [EditorType.Zed, 'zed'],
+    [EditorType.Antigravity, 'agy'],
   ])('should map editorId "%s" to binary "%s"', (editorId, expectedBinary) => {
     const registry = createLauncherRegistry();
     const launcher = registry.get(editorId);

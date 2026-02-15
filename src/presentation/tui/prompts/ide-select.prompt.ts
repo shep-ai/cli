@@ -5,6 +5,7 @@
  * choose their preferred IDE/editor.
  */
 
+import { EditorType } from '../../../domain/generated/output.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 /**
@@ -16,27 +17,27 @@ export function createIdeSelectConfig() {
     choices: [
       {
         name: 'VS Code',
-        value: 'vscode',
+        value: EditorType.VsCode,
         description: 'Visual Studio Code',
       },
       {
         name: 'Cursor',
-        value: 'cursor',
+        value: EditorType.Cursor,
         description: 'Cursor AI editor',
       },
       {
         name: 'Windsurf',
-        value: 'windsurf',
+        value: EditorType.Windsurf,
         description: 'Windsurf editor',
       },
       {
         name: 'Zed',
-        value: 'zed',
+        value: EditorType.Zed,
         description: 'Zed editor',
       },
       {
         name: 'Antigravity',
-        value: 'antigravity',
+        value: EditorType.Antigravity,
         description: 'Google Antigravity IDE',
       },
     ],

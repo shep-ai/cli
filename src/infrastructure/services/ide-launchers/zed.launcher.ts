@@ -1,10 +1,11 @@
 import { spawn, execFile } from 'node:child_process';
 
+import { EditorType } from '../../../domain/generated/output.js';
 import type { IdeLauncher } from './ide-launcher.interface';
 
 export class ZedLauncher implements IdeLauncher {
   readonly name = 'Zed';
-  readonly editorId = 'zed';
+  readonly editorId = EditorType.Zed;
   readonly binary = 'zed';
 
   async launch(path: string): Promise<void> {
