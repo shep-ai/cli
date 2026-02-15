@@ -1,6 +1,7 @@
 import { ControlCenter } from '@/components/features/control-center';
 import { getFeatures } from '@/lib/features';
 import { deriveState } from './derive-state';
+import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
@@ -40,21 +41,17 @@ export default async function HomePage() {
   const nodes: CanvasNodeType[] = [];
   const edges: Edge[] = [];
 
-  let yOffset = 50;
-
   Object.entries(featuresByRepo).forEach(([repoPath, repoFeatures]) => {
     const repoNodeId = `repo-${repoPath}`;
     const repoName = repoPath.split('/').pop() ?? repoPath;
     nodes.push({
       id: repoNodeId,
       type: 'repositoryNode',
-      position: { x: 50, y: yOffset + (repoFeatures.length * 150) / 2 },
+      position: { x: 0, y: 0 },
       data: { name: repoName },
     });
 
-    repoFeatures.forEach((feature, index) => {
-      // Derive lifecycle from the agent's current graph node (dynamic) when
-      // available, falling back to the static feature.lifecycle field.
+    repoFeatures.forEach((feature) => {
       const agentNode = feature.agentResult?.startsWith('node:')
         ? feature.agentResult.slice(5)
         : undefined;
@@ -76,7 +73,7 @@ export default async function HomePage() {
       nodes.push({
         id: featureNodeId,
         type: 'featureNode',
-        position: { x: 400, y: yOffset + index * 200 },
+        position: { x: 0, y: 0 },
         data: nodeData,
       });
 
@@ -87,13 +84,18 @@ export default async function HomePage() {
         style: { strokeDasharray: '5 5' },
       });
     });
+  });
 
-    yOffset += Math.max(repoFeatures.length * 200, 200) + 100;
+  // Use dagre LR layout for compact, automatic positioning
+  const laid = layoutWithDagre(nodes, edges, {
+    direction: 'LR',
+    ranksep: 60,
+    nodesep: 20,
   });
 
   return (
     <div className="h-screen w-full">
-      <ControlCenter initialNodes={nodes} initialEdges={edges} />
+      <ControlCenter initialNodes={laid.nodes} initialEdges={laid.edges} />
     </div>
   );
 }
