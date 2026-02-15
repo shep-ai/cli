@@ -104,11 +104,11 @@ export function useControlCenterState(
         if (sourceNode) {
           // Position to the right of source, offset vertically for each child
           const existingChildren = currentNodes.filter(
-            (n) => n.type === 'featureNode' && n.position.x === sourceNode.position.x + 350
+            (n) => n.type === 'featureNode' && n.position.x === sourceNode.position.x + 280
           );
           position = {
-            x: sourceNode.position.x + 350,
-            y: sourceNode.position.y + existingChildren.length * 200,
+            x: sourceNode.position.x + 280,
+            y: sourceNode.position.y + existingChildren.length * 160,
           };
         }
       }
@@ -160,7 +160,11 @@ export function useControlCenterState(
     (direction: LayoutDirection) => {
       setNodes((currentNodes) => {
         const currentEdges = edges;
-        const result = layoutWithDagre(currentNodes, currentEdges, { direction });
+        const result = layoutWithDagre(currentNodes, currentEdges, {
+          direction,
+          ranksep: 60,
+          nodesep: 20,
+        });
         setEdges(result.edges);
         return result.nodes;
       });
