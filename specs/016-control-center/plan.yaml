@@ -96,11 +96,12 @@ filesToModify:
   - src/presentation/web/components/features/features-canvas/features-canvas.tsx
   - src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx
   - tests/unit/presentation/web/components/features/features-canvas/features-canvas.test.tsx
-  - src/presentation/web/app/control-center/page.tsx
+  - src/presentation/web/app/page.tsx # Control Center is the homepage (/ route)
   - src/presentation/web/lib/features.ts
 
 filesToDelete:
   - src/presentation/web/lib/shep-data.ts # Direct filesystem access replaced by use case
+  - src/presentation/web/app/control-center/ # Removed — control center is now the homepage (/ route)
 
 # Open questions
 openQuestions: []

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { deriveState } from '@/app/control-center/derive-state';
+import { deriveState } from '@/app/derive-state';
 
 describe('deriveState', () => {
   it('returns done state for maintain lifecycle', () => {
