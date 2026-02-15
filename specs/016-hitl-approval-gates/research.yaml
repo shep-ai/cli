@@ -5,25 +5,137 @@ name: hitl-approval-gates
 summary: Technical analysis for 016-hitl-approval-gates
 
 # Relationships
-relatedFeatures: []
-technologies: []
+relatedFeatures:
+  - '008-agent-configuration'
+  - '013-feature-agent'
+technologies:
+  - TypeSpec
+  - TypeScript
+  - LangGraph
+  - Commander.js
+  - better-sqlite3
 relatedLinks: []
 
 # Structured technology decisions
 decisions:
-  - title: { { DECISION_TITLE } }
-    chosen: { { CHOSEN_OPTION } }
+  - title: ApprovalGates TypeSpec Modeling
+    chosen: Plain value object model (no BaseEntity)
     rejected:
-      - { { OPTION_1 } }
-      - { { OPTION_2 } }
-    rationale: { { RATIONALE } }
+      - Extend BaseEntity with id/timestamps
+      - Keep raw string enum
+    rationale: >
+      ApprovalGates is an embedded value object with just two boolean fields
+      (allowPrd, allowPlan). It has no identity of its own and is always
+      attached to an AgentRun. Following the existing AgentRunEvent pattern
+      which is also a plain model without BaseEntity. Extending BaseEntity
+      would add unnecessary id/createdAt/updatedAt fields for what is
+      essentially a configuration tuple.
+
+  - title: ApprovalGates Database Storage
+    chosen: Single JSON TEXT column replacing approval_mode and approval_status
+    rejected:
+      - Two separate boolean columns (allow_prd INTEGER, allow_plan INTEGER)
+      - Keep approval_mode string and parse at read time
+    rationale: >
+      A single approval_gates TEXT column storing JSON (e.g.
+      '{"allowPrd":false,"allowPlan":false}') replaces both the
+      approval_mode and approval_status columns. JSON storage preserves
+      the structured nature of the value object, is extensible if more
+      gates are added later, and aligns with how other complex objects
+      (messages, plan) are stored as JSON TEXT in the features table.
+      Two boolean columns would be more normalized but less extensible
+      and creates a divergent pattern from the rest of the schema.
+
+  - title: Worker Communication of ApprovalGates
+    chosen: JSON CLI argument (--approval-gates)
+    rejected:
+      - Separate --allow-prd and --allow-plan boolean flags
+      - Encode as delimited string
+    rationale: >
+      The worker process receives configuration via CLI args from fork().
+      Passing ApprovalGates as a single --approval-gates JSON string
+      (e.g. --approval-gates '{"allowPrd":true,"allowPlan":false}')
+      keeps the interface simple — one arg replaces --approval-mode.
+      The worker already has JSON.parse capability. Separate boolean
+      flags would work but diverge from the single-object pattern
+      used throughout the system.
+
+  - title: PhaseTiming TypeSpec Modeling
+    chosen: Persisted entity extending BaseEntity with own table
+    rejected:
+      - Reuse existing TimelineEvent model
+      - Store as JSON array on AgentRun
+    rationale: >
+      PhaseTiming is a persisted record with its own identity (id, timestamps),
+      queried independently by agentRunId and featureId. It needs its own table
+      for efficient querying and indexing. TimelineEvent is a different domain
+      concept (user-facing audit trail) with different fields (userQuery).
+      Storing as JSON on AgentRun would make querying across runs impossible
+      and bloat the agent_runs table. A dedicated phase_timings table with
+      proper indexes enables efficient aggregation and display.
+
+  - title: Phase Timing Recording Location
+    chosen: Inline in executeNode() function
+    rejected:
+      - Separate middleware/wrapper around graph nodes
+      - LangGraph state channel for timing data
+    rationale: >
+      executeNode() in node-helpers.ts already tracks startTime and computes
+      elapsed duration. Adding IPhaseTimingRepository calls at entry (save
+      with startedAt) and exit (update completedAt + durationMs) is minimal
+      and keeps timing logic co-located with execution. A separate wrapper
+      would add indirection without benefit. LangGraph state channels are
+      for data flowing between nodes, not for side-effect persistence.
+      The repository is passed as an optional parameter to executeNode()
+      so existing tests continue to work without mocking it.
+
+  - title: Auto-Resolve Pattern for feat review/approve/reject
+    chosen: Helper function querying features by repo + waiting_approval status
+    rejected:
+      - Global search across all repositories
+      - Require ID always (no auto-resolve)
+    rationale: >
+      When id is omitted, the command lists all features for the current
+      repository (process.cwd()), loads their agent runs, and filters to
+      those with status=waiting_approval. If exactly one match, use it.
+      If zero, error "No features waiting for approval". If multiple,
+      error listing the waiting features so user can specify an ID.
+      Scoping to the current repo matches the existing feat ls behavior
+      and prevents surprising cross-repo resolution.
+
+  - title: shouldInterrupt() Refactor Approach
+    chosen: Boolean field checks replacing string lookup table
+    rejected:
+      - Keep AUTO_APPROVED_NODES map with object keys
+      - Enum-based approval mode with method dispatch
+    rationale: >
+      The current shouldInterrupt() uses a string-keyed lookup table
+      (AUTO_APPROVED_NODES) mapping mode names to arrays of auto-approved
+      node names. With ApprovalGates as a typed object, the logic simplifies
+      to direct boolean checks: interrupt after requirements if !allowPrd,
+      interrupt after plan if !allowPlan, never interrupt other nodes.
+      This is clearer, more type-safe, and eliminates the fragile string
+      comparisons. The --interactive mode (interrupt everywhere) is removed
+      per spec. analyze, research, and implement nodes never interrupt.
+
+  - title: Migration Strategy for approval_mode to approval_gates
+    chosen: New migration with data transformation and column addition
+    rejected:
+      - In-place column rename (not supported in SQLite)
+      - Drop and recreate table
+    rationale: >
+      SQLite does not support DROP COLUMN or RENAME COLUMN with data
+      transformation. Migration 008 will: (1) add approval_gates TEXT
+      column, (2) use UPDATE to transform existing approval_mode values
+      into JSON objects (e.g. 'allow-prd' becomes
+      '{"allowPrd":true,"allowPlan":false}'), (3) create the
+      phase_timings table. The old approval_mode and approval_status
+      columns remain in the schema (SQLite limitation) but are no longer
+      read by the application code. This is safe because the mapper will
+      read from approval_gates and ignore the old columns.
 
 # Open questions (should be resolved by end of research)
-openQuestions:
-  []
-  # - question: "Which library should we use?"
-  #   resolved: true
-  #   answer: "Library X because of Y"
+openQuestions: []
 
 # Markdown content (the full research document)
 content: |
@@ -34,31 +146,239 @@ content: |
 
   ## Technology Decisions
 
-  ### {{DECISION_TITLE}}
+  ### 1. ApprovalGates TypeSpec Modeling
 
   **Options considered:**
 
-  1. {{OPTION_1}}
-  2. {{OPTION_2}}
-  3. {{OPTION_3}}
+  1. **Plain value object model (no BaseEntity)** — Two boolean fields, no identity
+  2. **Extend BaseEntity** — Full entity with id/createdAt/updatedAt
+  3. **Keep raw string enum** — Continue with `approvalMode?: string`
 
-  **Decision:** {{CHOSEN_OPTION}}
+  **Decision:** Plain value object model (no BaseEntity)
 
-  **Rationale:** {{RATIONALE}}
+  **Rationale:** ApprovalGates is an embedded configuration tuple (`allowPrd: boolean`,
+  `allowPlan: boolean`) with no independent identity. It follows the existing
+  `AgentRunEvent` pattern — a plain TypeSpec `model` without BaseEntity extension.
+  Adding id/timestamps would bloat what is essentially two booleans attached to an
+  AgentRun.
+
+  **TypeSpec definition:**
+
+  ```typespec
+  model ApprovalGates {
+    /** Skip human review after requirements phase */
+    allowPrd: boolean;
+    /** Skip human review after plan phase */
+    allowPlan: boolean;
+  }
+  ```
+
+  ### 2. ApprovalGates Database Storage
+
+  **Options considered:**
+
+  1. **Single JSON TEXT column** — `approval_gates TEXT` storing `{"allowPrd":false,"allowPlan":false}`
+  2. **Two boolean columns** — `allow_prd INTEGER`, `allow_plan INTEGER`
+  3. **Keep string column** — Reparse at read time
+
+  **Decision:** Single JSON TEXT column replacing both `approval_mode` and `approval_status`
+
+  **Rationale:** JSON storage preserves the structured nature of the value object,
+  is extensible for future gates, and aligns with how other complex objects (messages,
+  plan, related_artifacts) are stored as JSON TEXT in the features table. The mapper
+  handles serialization/deserialization as it does for other JSON fields.
+
+  ### 3. Worker Communication of ApprovalGates
+
+  **Options considered:**
+
+  1. **JSON CLI argument** — `--approval-gates '{"allowPrd":true,"allowPlan":false}'`
+  2. **Separate boolean flags** — `--allow-prd --allow-plan`
+  3. **Delimited string** — `--approval-gates allowPrd:true,allowPlan:false`
+
+  **Decision:** JSON CLI argument (`--approval-gates`)
+
+  **Rationale:** Single arg with JSON.parse keeps the interface simple. The worker
+  already handles JSON data. Replaces the existing `--approval-mode` string arg with
+  a structured alternative. The graph state `approvalGates` annotation receives the
+  parsed object directly.
+
+  ### 4. PhaseTiming TypeSpec Modeling
+
+  **Options considered:**
+
+  1. **Persisted entity extending BaseEntity with own table**
+  2. **Reuse existing TimelineEvent model** — Add phase timing fields to it
+  3. **Store as JSON array on AgentRun** — Embed timing data in the run record
+
+  **Decision:** Persisted entity extending BaseEntity with own table
+
+  **Rationale:** PhaseTiming needs independent querying (by run ID, by feature ID),
+  proper indexing, and its own lifecycle. TimelineEvent is a user-facing audit concept
+  with different fields (`userQuery`). JSON on AgentRun would prevent cross-run queries
+  and bloat the agent_runs row.
+
+  **TypeSpec definition:**
+
+  ```typespec
+  model PhaseTiming extends BaseEntity {
+    agentRunId: string;
+    phase: string;
+    startedAt: utcDateTime;
+    completedAt?: utcDateTime;
+    durationMs?: int64;
+  }
+  ```
+
+  ### 5. Phase Timing Recording Location
+
+  **Options considered:**
+
+  1. **Inline in `executeNode()`** — Add repository calls alongside existing timing
+  2. **Separate middleware** — Wrap graph nodes with timing decorator
+  3. **LangGraph state channel** — Flow timing data through graph state
+
+  **Decision:** Inline in `executeNode()`
+
+  **Rationale:** `executeNode()` already computes `startTime` and `elapsed`. Adding
+  `IPhaseTimingRepository` as an optional parameter keeps timing co-located with
+  execution. The repository is optional so existing tests work without mocking it.
+  No new abstraction layer needed.
+
+  ### 6. Auto-Resolve Pattern for `feat review/approve/reject`
+
+  **Options considered:**
+
+  1. **Query features by repo + waiting_approval status** — Scoped to current repo
+  2. **Global search across all repositories** — Find any waiting feature
+  3. **Always require ID** — No auto-resolve
+
+  **Decision:** Query features by repo + waiting_approval status
+
+  **Rationale:** When `[id]` is omitted, resolve the single feature waiting for approval
+  in the current repository (matching `feat ls` scoping). If zero matches: error. If
+  multiple: list them so user can choose. This enables the simple `shep feat approve`
+  flow without requiring users to look up IDs. Scoping to current repo prevents
+  surprising cross-repo actions.
+
+  **Implementation:** A shared `resolveWaitingFeature()` helper used by all three
+  commands. Lists features for `process.cwd()`, loads their agent runs, filters to
+  `waiting_approval` status, validates exactly one match.
+
+  ### 7. `shouldInterrupt()` Refactor
+
+  **Options considered:**
+
+  1. **Boolean field checks** — `if (nodeName === 'requirements') return !gates.allowPrd`
+  2. **Object-keyed lookup table** — Restructure AUTO_APPROVED_NODES with object keys
+  3. **Enum-based dispatch** — Create an enum for approval modes with methods
+
+  **Decision:** Boolean field checks replacing string lookup table
+
+  **Rationale:** With typed `ApprovalGates`, the logic reduces to two simple conditionals:
+  interrupt after `requirements` if `!allowPrd`, interrupt after `plan` if `!allowPlan`.
+  All other nodes (`analyze`, `research`, `implement`) never interrupt. The
+  `AUTO_APPROVED_NODES` map and string comparisons are deleted entirely. Removes the
+  `--interactive` mode per spec.
+
+  **New implementation:**
+
+  ```typescript
+  export function shouldInterrupt(nodeName: string, gates?: ApprovalGates): boolean {
+    if (!gates) return false; // No gates = no interrupts (backward compat)
+    if (nodeName === 'requirements') return !gates.allowPrd;
+    if (nodeName === 'plan') return !gates.allowPlan;
+    return false;
+  }
+  ```
+
+  ### 8. Migration Strategy
+
+  **Options considered:**
+
+  1. **Add column + data transformation** — New column, UPDATE to migrate data
+  2. **In-place column modification** — ALTER COLUMN (not supported in SQLite)
+  3. **Drop and recreate table** — Risky data loss
+
+  **Decision:** New migration with data transformation and column addition
+
+  **Rationale:** Migration 008 adds `approval_gates TEXT` column and creates the
+  `phase_timings` table. An UPDATE statement transforms existing `approval_mode`
+  string values into JSON. The old `approval_mode`/`approval_status` columns remain
+  (SQLite cannot drop columns) but are ignored by the updated mapper.
+
+  **Migration SQL (high-level):**
+
+  ```sql
+  -- Add new column
+  ALTER TABLE agent_runs ADD COLUMN approval_gates TEXT;
+
+  -- Migrate existing data
+  UPDATE agent_runs SET approval_gates = '{"allowPrd":true,"allowPlan":false}'
+    WHERE approval_mode = 'allow-prd';
+  UPDATE agent_runs SET approval_gates = '{"allowPrd":false,"allowPlan":true}'
+    WHERE approval_mode = 'allow-plan';
+  UPDATE agent_runs SET approval_gates = '{"allowPrd":true,"allowPlan":true}'
+    WHERE approval_mode IN ('allow-all', 'allow-plan');
+  UPDATE agent_runs SET approval_gates = '{"allowPrd":false,"allowPlan":false}'
+    WHERE approval_mode = 'interactive';
+
+  -- Create phase_timings table
+  CREATE TABLE phase_timings (
+    id TEXT PRIMARY KEY,
+    agent_run_id TEXT NOT NULL,
+    phase TEXT NOT NULL,
+    started_at INTEGER NOT NULL,
+    completed_at INTEGER,
+    duration_ms INTEGER,
+    created_at INTEGER NOT NULL,
+    updated_at INTEGER NOT NULL
+  );
+  CREATE INDEX idx_phase_timings_run ON phase_timings(agent_run_id);
+  ```
 
   ## Library Analysis
 
-  | Library     | Version     | Purpose     | Pros     | Cons     |
-  | ----------- | ----------- | ----------- | -------- | -------- |
-  | {{LIBRARY}} | {{VERSION}} | {{PURPOSE}} | {{PROS}} | {{CONS}} |
+  No new libraries required. All changes use existing dependencies:
+
+  | Library         | Version  | Purpose                            | Status   |
+  | --------------- | -------- | ---------------------------------- | -------- |
+  | TypeSpec         | existing | Domain model definitions           | Extended |
+  | @langchain/langgraph | existing | Graph execution + interrupt     | No change |
+  | Commander.js    | existing | CLI command definitions             | Extended |
+  | better-sqlite3  | existing | SQLite database access              | Extended |
+  | chalk           | existing | CLI output formatting               | No change |
+  | tsyringe        | existing | Dependency injection                | Extended |
 
   ## Security Considerations
 
-  No security implications identified.
+  - **JSON parsing of CLI args**: The worker receives `--approval-gates` as a JSON
+    string from `fork()`. Since the parent process constructs this JSON (not user
+    input), there is no injection risk. The worker validates the parsed object has
+    the expected shape before use.
+  - **No new external API calls**: All changes are internal to the CLI process and
+    its forked worker. No new network requests or credential handling.
+  - **SQLite parameterized queries**: All database operations use prepared statements
+    with named parameters, consistent with existing repository implementations.
+    No raw string interpolation in SQL.
+  - **Process isolation**: The worker runs as a detached child process with its own
+    DI container. ApprovalGates are passed at spawn time and cannot be modified
+    externally during execution.
 
   ## Performance Implications
 
-  No performance implications identified.
+  - **Phase timing writes**: Two additional SQLite writes per graph node (save on
+    entry, update on exit). These are async and non-blocking. Each write is a single
+    row INSERT/UPDATE on an indexed table — sub-millisecond overhead against node
+    execution times of seconds to minutes.
+  - **feat show additional query**: Loading phase timings adds one indexed query
+    (`SELECT * FROM phase_timings WHERE agent_run_id = ?`). Negligible latency
+    for the expected data volume (5 rows per run).
+  - **Auto-resolve queries**: When id is omitted from feat review/approve/reject,
+    a list of features is loaded and their runs checked. For the expected scale
+    (tens of features, not thousands), this is fast and does not need optimization.
+  - **No impact on graph execution**: The approval gate check in `shouldInterrupt()`
+    changes from a string lookup to two boolean comparisons — marginally faster.
 
   ## Open Questions
 
