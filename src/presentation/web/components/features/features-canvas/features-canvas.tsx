@@ -129,8 +129,10 @@ export function FeaturesCanvas({
           onNodesChange={onNodesChange}
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
-          fitView
-          fitViewOptions={{ padding: 0.4, maxZoom: 0.85 }}
+          defaultViewport={{ x: 0, y: 0, zoom: 0.85 }}
+          nodesDraggable={false}
+          nodesConnectable={false}
+          elementsSelectable={false}
         >
           <Background />
           <Controls />
