@@ -7,7 +7,7 @@ test.describe('Theme Toggle', () => {
 
     // Wait for page to load (content main; layout has multiple main elements)
     await expect(page.locator('main:not([data-slot="sidebar-inset"])').locator('h1')).toContainText(
-      'Shep AI'
+      'Features'
     );
 
     // Get initial theme state (default is light)
@@ -28,7 +28,7 @@ test.describe('Theme Toggle', () => {
 
     // Wait for page to load (content main; layout has multiple main elements)
     await expect(page.locator('main:not([data-slot="sidebar-inset"])').locator('h1')).toContainText(
-      'Shep AI'
+      'Features'
     );
 
     // Verify the page is visible and styled correctly

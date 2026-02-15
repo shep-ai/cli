@@ -67,7 +67,7 @@ test.describe('Version Page', () => {
 
     await expect(page).toHaveURL('/');
     const contentMain = page.locator('main:not([data-slot="sidebar-inset"])');
-    await expect(contentMain.locator('h1')).toContainText('Shep AI');
+    await expect(contentMain.locator('h1')).toContainText('Features');
   });
 
   test('should display license information', async ({ page }) => {
