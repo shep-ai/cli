@@ -3,18 +3,18 @@ feature:
   name: 'feat-ide-open'
   number: 18
   branch: 'feat/ide-open'
-  lifecycle: 'Implementation'
+  lifecycle: 'Review'
   createdAt: '2026-02-15T16:12:29Z'
 
 status:
-  phase: 'review'
+  phase: 'in-review'
   progress:
     completed: 11
     total: 11
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-15T22:25:00Z'
-  lastUpdatedBy: 'claude-code'
+  lastUpdated: '2026-02-15T22:40:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
 
 prUrl: 'https://github.com/shep-ai/cli/pull/54'
 
@@ -46,6 +46,9 @@ checkpoints:
     completedBy: 'shep-kit:implement'
   - phase: 'pr-created'
     completedAt: '2026-02-15T18:55:00Z'
+    completedBy: 'shep-kit:commit-pr'
+  - phase: 'ci-passed'
+    completedAt: '2026-02-15T22:40:00Z'
     completedBy: 'shep-kit:commit-pr'
 
 errors:
