@@ -3,7 +3,7 @@
 import { Handle, Position } from '@xyflow/react';
 import { Settings, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { featureNodeStateConfig } from './feature-node-state-config';
+import { featureNodeStateConfig, lifecycleDisplayLabels } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
 
 function getBadgeText(data: FeatureNodeData): string {
@@ -20,7 +20,14 @@ function getBadgeText(data: FeatureNodeData): string {
   }
 }
 
-export function FeatureNode({ data }: { data: FeatureNodeData; [key: string]: unknown }) {
+export function FeatureNode({
+  data,
+  selected,
+}: {
+  data: FeatureNodeData;
+  selected?: boolean;
+  [key: string]: unknown;
+}) {
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
 
@@ -39,7 +46,8 @@ export function FeatureNode({ data }: { data: FeatureNodeData; [key: string]: un
         data-testid="feature-node-card"
         className={cn(
           'bg-card flex min-h-35 w-72 flex-col rounded-lg border border-l-4 p-3 shadow-sm',
-          config.borderClass
+          config.borderClass,
+          selected && 'ring-primary ring-2'
         )}
       >
         {/* Top row: lifecycle label + settings */}
@@ -48,7 +56,7 @@ export function FeatureNode({ data }: { data: FeatureNodeData; [key: string]: un
             data-testid="feature-node-lifecycle-label"
             className={cn('text-[10px] font-semibold tracking-wider', config.labelClass)}
           >
-            {data.lifecycle.toUpperCase()}
+            {lifecycleDisplayLabels[data.lifecycle]}
           </span>
           {data.onSettings ? (
             <button

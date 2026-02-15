@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
-import { FeatureNode } from '@/components/common/feature-node';
+import { FeatureNode, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureNodeType } from '@/components/common/feature-node';
 
 const nodeTypes = { featureNode: FeatureNode };
@@ -31,7 +31,7 @@ function renderFeatureNode(
 }
 
 describe('FeatureNode', () => {
-  it('renders lifecycle phase label in uppercase', () => {
+  it('renders lifecycle phase label using display labels', () => {
     renderFeatureNode({ lifecycle: 'requirements' });
     expect(screen.getByText('REQUIREMENTS')).toBeInTheDocument();
   });
@@ -108,18 +108,26 @@ describe('FeatureNode', () => {
     expect(label.className).toContain(expectedClass);
   });
 
-  it('renders all lifecycle phases correctly', () => {
+  it('renders all lifecycle phases with display labels', () => {
     const phases = [
       'requirements',
-      'plan',
+      'research',
       'implementation',
-      'test',
+      'review',
       'deploy',
-      'maintenance',
+      'maintain',
     ] as const;
+    const expectedLabels: Record<string, string> = {
+      requirements: 'REQUIREMENTS',
+      research: 'RESEARCH',
+      implementation: 'IMPLEMENTATION',
+      review: 'REVIEW',
+      deploy: 'DEPLOY & QA',
+      maintain: 'COMPLETED',
+    };
     for (const phase of phases) {
       const { unmount } = renderFeatureNode({ lifecycle: phase });
-      expect(screen.getByText(phase.toUpperCase())).toBeInTheDocument();
+      expect(screen.getByText(expectedLabels[phase])).toBeInTheDocument();
       unmount();
     }
   });
@@ -198,6 +206,24 @@ describe('FeatureNode', () => {
     it('shows custom error message when provided', () => {
       renderFeatureNode({ state: 'error', progress: 30, errorMessage: 'Build failed' });
       expect(screen.getByText('Build failed')).toBeInTheDocument();
+    });
+  });
+
+  describe('lifecycleDisplayLabels', () => {
+    it('maps maintain to COMPLETED', () => {
+      expect(lifecycleDisplayLabels.maintain).toBe('COMPLETED');
+    });
+
+    it('maps deploy to DEPLOY & QA', () => {
+      expect(lifecycleDisplayLabels.deploy).toBe('DEPLOY & QA');
+    });
+
+    it('maps research to RESEARCH', () => {
+      expect(lifecycleDisplayLabels.research).toBe('RESEARCH');
+    });
+
+    it('maps review to REVIEW', () => {
+      expect(lifecycleDisplayLabels.review).toBe('REVIEW');
     });
   });
 

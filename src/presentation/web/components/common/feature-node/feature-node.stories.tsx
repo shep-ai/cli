@@ -103,7 +103,7 @@ const allStatesData: FeatureNodeData[] = [
     name: 'Email Service',
     description: 'Transactional email with SendGrid',
     featureId: '#f5',
-    lifecycle: 'test' as FeatureLifecyclePhase,
+    lifecycle: 'review' as FeatureLifecyclePhase,
     state: 'error',
     progress: 30,
     errorMessage: 'Build failed: type mismatch',
@@ -122,11 +122,11 @@ export const AllStates: Story = {
 
 const allLifecycles: FeatureLifecyclePhase[] = [
   'requirements',
-  'plan',
+  'research',
   'implementation',
-  'test',
+  'review',
   'deploy',
-  'maintenance',
+  'maintain',
 ];
 
 export const AllLifecycles: Story = {
@@ -198,7 +198,7 @@ export const ErrorWithMessage: Story = {
     name: 'Email Service',
     description: 'Transactional email with SendGrid',
     featureId: '#f5',
-    lifecycle: 'test',
+    lifecycle: 'review',
     state: 'error',
     progress: 30,
     errorMessage: 'Build failed: type mismatch',
@@ -245,7 +245,7 @@ const interactiveInitialNodes: FeatureNodeType[] = [
       name: 'Email Service',
       description: 'Transactional email with SendGrid',
       featureId: '#f3',
-      lifecycle: 'test' as FeatureLifecyclePhase,
+      lifecycle: 'review' as FeatureLifecyclePhase,
       state: 'error' as FeatureNodeState,
       progress: 30,
       errorMessage: 'Build failed: type mismatch',
