@@ -1,0 +1,282 @@
+## Problem Statement
+
+The feature agent currently runs **fully autonomously by default** — no human
+checkpoints between phases. The approval mechanism exists but uses a raw string
+(`approvalMode?: string`) instead of a typed domain model, and there is no
+visibility into how long each phase takes.
+
+Three problems to solve:
+
+1. **Default is autonomous** — users get no chance to review requirements or plans.
+2. **Approval config is an untyped string** — not modelled in TypeSpec, no structured
+   object flows through agents/workers, fragile string comparisons everywhere.
+3. **No phase timing** — users have no breakdown of how long analyze, requirements,
+   research, plan, implement took, and no extensible lifecycle event infrastructure
+   for future hooks.
+
+## Current State (What Already Exists)
+
+| Component                                                               | Status                               | Location                                 |
+| ----------------------------------------------------------------------- | ------------------------------------ | ---------------------------------------- |
+| CLI flags `--allow-prd`, `--allow-plan`, `--allow-all`, `--interactive` | Defined but default is autonomous    | `feat/new.command.ts`                    |
+| `shouldInterrupt()` + `AUTO_APPROVED_NODES` map                         | Working but string-based             | `nodes/node-helpers.ts`                  |
+| `approvalMode?: string` on AgentRun                                     | Untyped string field                 | `tsp/agents/agent-run.tsp`               |
+| `waitingApproval` AgentRunStatus                                        | Exists                               | `tsp/agents/enums/agent-run-status.tsp`  |
+| `shep agent approve/reject <id>` commands                               | Working                              | `commands/agent/`                        |
+| Approve/Reject use cases                                                | Working                              | `use-cases/agents/`                      |
+| LangGraph `interrupt()` mechanism                                       | Working                              | `node-helpers.ts`                        |
+| Worker `--resume-from-interrupt` support                                | Working                              | `feature-agent-worker.ts`                |
+| `TimelineEvent` TypeSpec model                                          | Exists but not used for phase timing | `tsp/domain/entities/timeline-event.tsp` |
+
+## Changes Required
+
+### 1. TypeSpec-First Approval Configuration (ApprovalGates)
+
+Define a new TypeSpec value object `ApprovalGates` as the **source of truth** for
+approval configuration. Replace the raw `approvalMode?: string` field everywhere.
+
+**New TypeSpec model** (`tsp/agents/approval-gates.tsp`):
+
+```
+model ApprovalGates {
+  /** Skip human review after requirements phase */
+  allowPrd: boolean;
+
+  /** Skip human review after plan phase */
+  allowPlan: boolean;
+}
+```
+
+**Derived behaviour** (computed, not stored):
+
+- Both `false` (default) → pause after requirements AND plan
+- `allowPrd: true` → skip requirements pause, still pause after plan
+- `allowPlan: true` → skip plan pause, still pause after requirements
+- Both `true` → fully autonomous (= `--allow-all`)
+
+**Update AgentRun** (`tsp/agents/agent-run.tsp`):
+
+- Replace `approvalMode?: string` with `approvalGates?: ApprovalGates`
+- Remove `approvalStatus?: string` (derive from AgentRunStatus instead)
+
+**CLI flag mapping** in `new.command.ts`:
+
+- Remove `--interactive` flag entirely
+- `--allow-prd` → `{ allowPrd: true, allowPlan: false }`
+- `--allow-plan` → `{ allowPrd: false, allowPlan: true }`
+- `--allow-all` → `{ allowPrd: true, allowPlan: true }`
+- No flags → `{ allowPrd: false, allowPlan: false }` (default, pauses at both gates)
+
+**Update `shouldInterrupt()`** in `node-helpers.ts`:
+
+- Accept `ApprovalGates` object instead of string
+- Logic: interrupt after `requirements` node if `!gates.allowPrd`, interrupt
+  after `plan` node if `!gates.allowPlan`
+- Simple boolean checks replace string-based lookup table
+
+**Worker serialization**: Pass `ApprovalGates` as JSON via `--approval-gates`
+CLI arg to the worker process (replacing `--approval-mode` string arg).
+
+### 2. Default Approval Mode — Pause After Requirements & Plan
+
+Change the default behaviour when no flags are provided:
+
+| Current (no flags)          | New Default (no flags)                                   |
+| --------------------------- | -------------------------------------------------------- |
+| Fully autonomous, no pauses | Pause after `requirements` node, pause after `plan` node |
+
+Updated approval mode resolution:
+
+| Flags Provided             | ApprovalGates                           | Behaviour                       |
+| -------------------------- | --------------------------------------- | ------------------------------- |
+| _(none)_                   | `{ allowPrd: false, allowPlan: false }` | Pause after requirements + plan |
+| `--allow-prd`              | `{ allowPrd: true, allowPlan: false }`  | Skip requirements pause only    |
+| `--allow-plan`             | `{ allowPrd: false, allowPlan: true }`  | Skip plan pause only            |
+| `--allow-prd --allow-plan` | `{ allowPrd: true, allowPlan: true }`   | Skip all pauses (composable)    |
+| `--allow-all`              | `{ allowPrd: true, allowPlan: true }`   | Skip all pauses (shorthand)     |
+
+### 3. User-Friendly CLI Commands — `feat review/approve/reject`
+
+Add three new subcommands under `shep feat`:
+
+**`shep feat review [id]`**
+
+- Shows the feature's current waiting state with context
+- Displays the generated requirements or plan output that needs review
+- If no `id`, finds the single feature in `waiting_approval` state (error if 0 or >1)
+- Shows approval instructions at the bottom
+
+**`shep feat approve [id]`**
+
+- Approves and resumes the waiting feature agent
+- If no `id`, auto-resolves single waiting feature
+- Delegates to existing `ApproveAgentRunUseCase`
+- Shows what phase was approved and what comes next
+
+**`shep feat reject [id] [--reason <text>]`**
+
+- Rejects and cancels the waiting feature agent
+- If no `id`, auto-resolves single waiting feature
+- Delegates to existing `RejectAgentRunUseCase`
+
+The `id` argument is **optional** in all three — when omitted, auto-resolve
+the single feature currently waiting for approval. This enables the simple flow:
+
+```
+shep feat new "add auth"    # creates + runs, pauses after requirements
+shep feat review             # see what was generated
+shep feat approve            # continue to research → plan → pause again
+shep feat review             # see the plan
+shep feat approve            # continue to implementation
+```
+
+### 4. Lifecycle Event Infrastructure & Phase Timing
+
+Introduce a **lifecycle event system** that records timestamped events for each
+feature. Phase timing is the first consumer, but the infrastructure supports
+future extensions (webhooks, notifications, audit logs, etc.).
+
+**New TypeSpec model** (`tsp/agents/phase-timing.tsp`):
+
+```
+/** Timing record for a single agent graph node execution */
+model PhaseTiming extends BaseEntity {
+  /** Agent run this timing belongs to */
+  agentRunId: string;
+
+  /** Graph node name: analyze, requirements, research, plan, implement */
+  phase: string;
+
+  /** When the phase started executing */
+  startedAt: utcDateTime;
+
+  /** When the phase finished executing (null if still running) */
+  completedAt?: utcDateTime;
+
+  /** Duration in milliseconds (computed on completion) */
+  durationMs?: int64;
+}
+```
+
+**Clean Architecture layers**:
+
+- **Domain**: Generated `PhaseTiming` type from TypeSpec
+- **Application port**: `IPhaseTimingRepository` interface in `application/ports/output/agents/`
+  - `save(timing: PhaseTiming): Promise<void>`
+  - `findByRunId(runId: string): Promise<PhaseTiming[]>`
+  - `findByFeatureId(featureId: string): Promise<PhaseTiming[]>`
+- **Infrastructure**: `SQLitePhaseTimingRepository` in `infrastructure/repositories/`
+  - New `phase_timings` table with migration
+- **DI**: Register in container
+
+**Recording** in `node-helpers.ts`:
+
+- `executeNode()` already tracks `startTime` and computes `elapsed`
+- Add `IPhaseTimingRepository` calls: save timing record with `startedAt` on entry,
+  update `completedAt` + `durationMs` on exit
+- On error, still record partial timing (no `completedAt`)
+
+**Extensibility for future hooks**:
+
+- The `IPhaseTimingRepository` port is the first of a family of lifecycle event ports
+- Future additions (same pattern): `IPhaseWebhookPort`, `IPhaseNotificationPort`
+- Graph nodes already call `reportNodeStart()` for heartbeats — phase timing
+  follows the same observer pattern
+
+### 5. `feat show` Phase Timing Breakdown
+
+When `feat show <id>` is called and phase timings exist, display a breakdown:
+
+```
+Phase Breakdown
+  analyze        12.3s
+  requirements   45.1s   ← awaiting review
+  research        —
+  plan            —
+  implement       —
+  ─────────────────
+  Total          57.4s
+```
+
+Show `←  awaiting review` next to the phase that triggered the interrupt.
+Show `—` for phases not yet executed.
+Show the elapsed duration for phases still in progress.
+
+Also display approval context when in `waiting_approval` state:
+
+- Which phase is waiting
+- Approval instructions: `Run "shep feat approve" or "shep feat reject"`
+
+### 6. `feat new` Output Enhancement
+
+When the agent is created with default approval gates, hint at the behaviour:
+
+```
+Feature created
+  ID:     abc123
+  Name:   add-auth
+  Branch: feat/add-auth
+  Status: Requirements
+
+Agent will pause for review after requirements and plan.
+Use --allow-all to run fully autonomous.
+```
+
+## Success Criteria
+
+- [ ] `ApprovalGates` TypeSpec model defined and generates TypeScript type
+- [ ] `AgentRun.approvalMode` replaced with `AgentRun.approvalGates?: ApprovalGates`
+- [ ] `--interactive` flag removed from `feat new`
+- [ ] Default `feat new` (no flags) pauses after requirements and after plan
+- [ ] `--allow-prd` skips requirements pause only
+- [ ] `--allow-plan` skips plan pause only
+- [ ] `--allow-prd --allow-plan` skips both (= `--allow-all`)
+- [ ] `--allow-all` runs fully autonomous
+- [ ] `shouldInterrupt()` uses `ApprovalGates` object, not string comparison
+- [ ] Worker receives `ApprovalGates` as JSON, not string
+- [ ] `shep feat review [id]` shows waiting phase with generated content
+- [ ] `shep feat approve [id]` approves and resumes the agent
+- [ ] `shep feat reject [id]` rejects and cancels the agent
+- [ ] Auto-resolve single waiting feature when `id` omitted
+- [ ] `PhaseTiming` TypeSpec model defined and generates TypeScript type
+- [ ] `IPhaseTimingRepository` port interface defined
+- [ ] `SQLitePhaseTimingRepository` with migration
+- [ ] Phase timings recorded by `executeNode()` in node-helpers
+- [ ] `feat show` displays phase timing breakdown section
+- [ ] `feat show` displays approval context when waiting
+- [ ] `feat new` output mentions approval behaviour
+
+## Affected Areas
+
+| Area                               | Impact | Reasoning                                                    |
+| ---------------------------------- | ------ | ------------------------------------------------------------ |
+| `tsp/agents/`                      | High   | New `ApprovalGates` and `PhaseTiming` TypeSpec models        |
+| `tsp/agents/agent-run.tsp`         | High   | Replace `approvalMode` string with `approvalGates` object    |
+| `node-helpers.ts`                  | High   | `shouldInterrupt()` uses ApprovalGates; record phase timings |
+| `feature-agent-worker.ts`          | Medium | Parse `ApprovalGates` JSON from CLI args                     |
+| `new.command.ts`                   | Medium | Build `ApprovalGates` from flags, remove `--interactive`     |
+| `feat/` commands                   | High   | Three new commands: review, approve, reject                  |
+| `feat/index.ts`                    | Low    | Register new subcommands                                     |
+| `show.command.ts`                  | Medium | Phase timing breakdown + approval context                    |
+| `application/ports/output/agents/` | Medium | New `IPhaseTimingRepository` interface                       |
+| `infrastructure/repositories/`     | Medium | New `SQLitePhaseTimingRepository`                            |
+| `infrastructure/persistence/`      | Low    | Migration for `phase_timings` table                          |
+| `infrastructure/di/container.ts`   | Low    | Register new repository                                      |
+
+## Dependencies
+
+- **013-feature-agent**: The LangGraph graph, interrupt mechanism, and worker process
+- **008-agent-configuration**: Agent run status and approval use cases
+
+## Size Estimate
+
+**L** — Three distinct workstreams:
+
+1. TypeSpec-first ApprovalGates model + refactor string→object (~100 lines across layers)
+2. Three new CLI commands (review/approve/reject) + enhanced output (~400 lines)
+3. Lifecycle event infra: TypeSpec model, port, repository, migration, recording,
+   display in feat show (~300 lines)
+
+---
+
+_Generated by `/shep-kit:new-feature` — proceed with `/shep-kit:research`_
