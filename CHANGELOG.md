@@ -1,3 +1,18 @@
+# [1.18.0](https://github.com/shep-ai/cli/compare/v1.17.0...v1.18.0) (2026-02-15)
+
+### Bug Fixes
+
+- **web:** apply prettier formatting to 18 web ui files ([68a9c1b](https://github.com/shep-ai/cli/commit/68a9c1b6df2c6eb2583116fdad063fdb58e1f765))
+- **config:** disable tailwind classnames-order eslint rule conflicting with prettier ([2a6f29d](https://github.com/shep-ai/cli/commit/2a6f29d619c28eabe60d34dc0e687abf424002b8))
+- **agents:** harden implement node with retry, mcp isolation, and phase resume ([81dd865](https://github.com/shep-ai/cli/commit/81dd8656f58d078039d58e081b4eaa502e39c6e7))
+- **config:** resolve tailwind eslint plugin config for tailwind v4 ([f129f52](https://github.com/shep-ai/cli/commit/f129f526e15acc92408316cb07317d113626faca))
+
+### Features
+
+- **specs:** add 017-fix-feat-claude-impl implementation plan ([033d25c](https://github.com/shep-ai/cli/commit/033d25c0b9d7f9f06ac6ff15c537c14954178b07))
+- **specs:** add 017-fix-feat-claude-impl research ([f406865](https://github.com/shep-ai/cli/commit/f406865cf71f0a42f9b8f937d6bb114d07f85f38))
+- **specs:** add 017-fix-feat-claude-impl specification ([5376c74](https://github.com/shep-ai/cli/commit/5376c74f4547df135e1aeb6b227e94bb1d2929ad))
+
 # [1.17.0](https://github.com/shep-ai/cli/compare/v1.16.0...v1.17.0) (2026-02-15)
 
 ### Features
