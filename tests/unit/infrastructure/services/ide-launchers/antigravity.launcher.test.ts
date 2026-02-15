@@ -34,7 +34,7 @@ describe('AntigravityLauncher', () => {
     });
 
     it('should have binary "agy"', () => {
-      expect(launcher.binary).toBe('agy');
+      expect(launcher.binary).toBe('antigravity');
     });
   });
 
@@ -45,7 +45,7 @@ describe('AntigravityLauncher', () => {
 
       await launcher.launch('/some/project');
 
-      expect(mockSpawn).toHaveBeenCalledWith('agy', ['/some/project'], {
+      expect(mockSpawn).toHaveBeenCalledWith('antigravity', ['/some/project'], {
         detached: true,
         stdio: 'ignore',
       });
@@ -72,7 +72,7 @@ describe('AntigravityLauncher', () => {
       const result = await launcher.checkAvailable();
 
       expect(result).toBe(true);
-      expect(mockExecFile).toHaveBeenCalledWith('which', ['agy'], expect.any(Function));
+      expect(mockExecFile).toHaveBeenCalledWith('which', ['antigravity'], expect.any(Function));
     });
 
     it('should return false when the binary is not found', async () => {
