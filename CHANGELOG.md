@@ -1,3 +1,12 @@
+# [1.17.0](https://github.com/shep-ai/cli/compare/v1.16.0...v1.17.0) (2026-02-15)
+
+### Features
+
+- **agents:** add agent executor provider for settings-driven resolution ([09d6213](https://github.com/shep-ai/cli/commit/09d6213cc5b8eb408f7593fd142465fbade59068))
+- **agents:** add cursor cli as supported ai coding agent ([a86a540](https://github.com/shep-ai/cli/commit/a86a5406c4398f2943a57a16f5b83ec5d4d170ab))
+- **specs:** add cursor support specification ([264cdd2](https://github.com/shep-ai/cli/commit/264cdd2430e2d7f0a17f74c7ddd668e4b8e6a83c))
+- **cli:** improve feat ls columns with repo, agent, and relative time ([2643796](https://github.com/shep-ai/cli/commit/26437967c3172ad1992845e6c113e50053e55668))
+
 # [1.16.0](https://github.com/shep-ai/cli/compare/v1.15.1...v1.16.0) (2026-02-13)
 
 ### Bug Fixes
