@@ -5,43 +5,199 @@ name: fix-feat-claude-impl
 summary: Task breakdown for 017-fix-feat-claude-impl
 
 # Relationships
-relatedFeatures: []
-technologies: []
+relatedFeatures:
+  - '009-feature-agent'
+technologies:
+  - TypeScript
+  - LangGraph
+  - Claude Code CLI
 relatedLinks: []
 
 # Structured task list
 tasks:
   - id: task-1
-    title: { { TASK_1_TITLE } }
-    description: { { TASK_1_DESCRIPTION } }
+    title: 'RED: Write classifyError() tests'
+    description: >
+      Write failing unit tests for classifyError() in node-helpers.test.ts covering all error
+      categories: retryable-api (400/429/500), retryable-network (ECONNREFUSED/ETIMEDOUT/timeout),
+      non-retryable (implementation errors), and unknown (unclassified). Use real error message
+      strings from the observed failure logs.
     state: Todo
+    phaseId: phase-1
     dependencies: []
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
+      - Tests cover API 400 (tool_use.name), 429 (rate limit), 500 (server error) patterns
+      - Tests cover network errors (ECONNREFUSED, ETIMEDOUT, DNS failures)
+      - Tests cover non-retryable errors (generic process exit, missing files)
+      - Tests cover unknown/unclassified errors
+      - All tests fail (RED phase)
     tdd:
       red:
-        - Write tests for {{FEATURE_1}}
+        - Write test cases for classifyError() with real error message patterns
       green:
-        - Implement {{FEATURE_1}} to pass tests
+        - Implement classifyError() with regex pattern matching
       refactor:
-        - Extract helpers, improve naming
-    estimatedEffort: { { EFFORT_1 } }
+        - Extract error category constants
+    estimatedEffort: Small
 
   - id: task-2
-    title: { { TASK_2_TITLE } }
-    description: { { TASK_2_DESCRIPTION } }
+    title: 'GREEN+REFACTOR: Implement classifyError() and retryExecute()'
+    description: >
+      Implement classifyError() to pass the RED tests. Then write RED tests for retryExecute()
+      covering: successful first attempt, retry on retryable error, immediate fail on non-retryable,
+      max attempts exhaustion, and backoff delay verification. Implement retryExecute() to pass.
+      Refactor both functions.
     state: Todo
+    phaseId: phase-1
     dependencies:
       - task-1
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd: null # No TDD for foundational/doc tasks
-    estimatedEffort: { { EFFORT_2 } }
+      - classifyError() passes all tests from task-1
+      - retryExecute() has tests for success, retry, fail-fast, max-attempts, and backoff
+      - retryExecute() uses classifyError() to decide retry vs fail
+      - Exponential backoff: 2s, 4s, 8s (configurable base delay)
+      - Max 3 attempts by default
+      - All tests pass (GREEN), code is clean (REFACTOR)
+    tdd:
+      red:
+        - Write retryExecute() test cases (success, retry, fail-fast, max-attempts, backoff)
+      green:
+        - Implement classifyError() and retryExecute() to pass all tests
+      refactor:
+        - Extract ErrorCategory type, RETRY_DEFAULTS constant, clean up generics
+    estimatedEffort: Medium
+
+  - id: task-3
+    title: 'RED: Write AgentExecutionOptions and buildArgs() tests'
+    description: >
+      Write failing unit tests for buildArgs() in claude-code-executor.test.ts verifying:
+      (1) --strict-mcp-config is added when disableMcp is true, (2) --strict-mcp-config is NOT
+      added when disableMcp is false/undefined, (3) --tools flag is added with comma-separated
+      values when tools array is provided, (4) --tools is NOT added when tools is empty/undefined.
+    state: Todo
+    phaseId: phase-2
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - Test verifies --strict-mcp-config present when disableMcp=true
+      - Test verifies --strict-mcp-config absent when disableMcp=false
+      - Test verifies --tools "Bash,Read,Write" when tools=["Bash","Read","Write"]
+      - Test verifies --tools absent when tools=undefined
+      - All tests fail (RED phase)
+    tdd:
+      red:
+        - Write buildArgs() tests for disableMcp and tools options
+      green:
+        - Add fields to interface, update buildArgs()
+      refactor:
+        - Verify consistent option naming
+    estimatedEffort: Small
+
+  - id: task-4
+    title: 'GREEN+REFACTOR: Implement AgentExecutionOptions and buildArgs() changes'
+    description: >
+      Add disableMcp and tools fields to AgentExecutionOptions interface. Update buildArgs()
+      in ClaudeCodeExecutorService to map disableMcp to --strict-mcp-config and tools to --tools.
+      Verify all tests pass. Refactor if needed.
+    state: Todo
+    phaseId: phase-2
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'AgentExecutionOptions has disableMcp (boolean) and tools (string array) fields'
+      - buildArgs() appends --strict-mcp-config when disableMcp is true
+      - buildArgs() appends --tools with comma-separated list when tools is provided
+      - All existing executor tests still pass
+      - All new tests pass (GREEN)
+    tdd:
+      red:
+        - Tests already written in task-3
+      green:
+        - Implement interface changes and buildArgs() mapping
+      refactor:
+        - Ensure flag ordering consistency in buildArgs()
+    estimatedEffort: Small
+
+  - id: task-5
+    title: 'RED: Write buildExecutorOptions() hardening tests'
+    description: >
+      Write failing unit tests verifying that buildExecutorOptions() in node-helpers.ts (or
+      implement.node.ts) returns maxTurns: 50 and disableMcp: true in addition to the existing
+      cwd field when called from the implement node context.
+    state: Todo
+    phaseId: phase-3
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - Test verifies maxTurns=50 in returned options
+      - Test verifies disableMcp=true in returned options
+      - Test verifies cwd still comes from state.worktreePath or state.repositoryPath
+      - All tests fail (RED phase)
+    tdd:
+      red:
+        - Write buildExecutorOptions() tests for hardened defaults
+      green:
+        - Update buildExecutorOptions() to include maxTurns and disableMcp
+      refactor:
+        - Consider extracting implement-specific options builder
+    estimatedEffort: Small
+
+  - id: task-6
+    title: 'RED: Write phase-skipping and completed-phases tracking tests'
+    description: >
+      Write failing unit tests for phase completion tracking: (1) reading completedPhases from
+      feature.yaml, (2) writing a phase as complete to feature.yaml, (3) the implement node
+      skipping phases already marked complete. Test with mock filesystem or temp files.
+    state: Todo
+    phaseId: phase-3
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - Test verifies completed phases are read from feature.yaml status.completedPhases array
+      - Test verifies a phase ID is appended to completedPhases after execution
+      - Test verifies implement node skips phases listed in completedPhases
+      - Test verifies implement node executes phases NOT in completedPhases
+      - All tests fail (RED phase)
+    tdd:
+      red:
+        - Write tests for phase completion read/write and skip logic
+      green:
+        - Implement completedPhases tracking in updateFeatureProgress()
+      refactor:
+        - Extract phase completion helpers
+    estimatedEffort: Small
+
+  - id: task-7
+    title: 'GREEN+REFACTOR: Implement all Phase 3 changes'
+    description: >
+      Implement all Phase 3 functionality to pass tests from task-5 and task-6: (1) Update
+      buildExecutorOptions() to return maxTurns and disableMcp, (2) Add completedPhases tracking
+      to updateFeatureProgress(), (3) Add phase-skip check in the implement node phase loop,
+      (4) Replace executor.execute() calls with retryExecute() from Phase 1. Run all tests.
+      Refactor for clarity.
+    state: Todo
+    phaseId: phase-3
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - buildExecutorOptions() returns maxTurns=50, disableMcp=true, cwd
+      - feature.yaml gains status.completedPhases array updated after each phase
+      - Implement node skips phases already in completedPhases
+      - Implement node uses retryExecute() for all executor.execute() calls
+      - All tests pass (pnpm test)
+      - Linting clean (pnpm lint)
+      - Types valid (pnpm typecheck)
+    tdd:
+      red:
+        - Tests already written in task-5 and task-6
+      green:
+        - Implement buildExecutorOptions() hardening, completedPhases tracking, phase skipping, retryExecute() integration
+      refactor:
+        - Extract phase-completion helpers, clean up logging, verify error messages
+    estimatedEffort: Medium
 
 # Total effort estimate
-totalEstimate: { { TOTAL_EFFORT } }
+totalEstimate: Medium (7 tasks across 3 phases)
 
 # Open questions
 openQuestions: []
@@ -55,28 +211,40 @@ content: |
 
   ## Task List
 
-  ### Phase 1: Foundation
-
-  - [ ] {{TASK_1_DESCRIPTION}}
-  - [ ] {{TASK_2_DESCRIPTION}}
-
-  ### Phase 2: Core Implementation (TDD Cycle)
+  ### Phase 1: Error Classification & Retry Utility (TDD)
 
   **RED (Write Failing Tests First):**
 
-  - [ ] Write unit tests for {{FEATURE}}
+  - [ ] task-1: Write classifyError() tests covering API 400/429/500, network, non-retryable, unknown
 
-  **GREEN (Implement to Pass Tests):**
+  **GREEN + REFACTOR:**
 
-  - [ ] Implement {{FEATURE}}
+  - [ ] task-2: Implement classifyError() + retryExecute() with tests, pass all, refactor
 
-  **REFACTOR (Clean Up):**
+  ### Phase 2: AgentExecutionOptions & Executor Wiring (TDD)
 
-  - [ ] Extract helpers and improve code quality
+  **RED:**
+
+  - [ ] task-3: Write buildArgs() tests for disableMcp and tools options
+
+  **GREEN + REFACTOR:**
+
+  - [ ] task-4: Add disableMcp/tools to AgentExecutionOptions, update buildArgs()
+
+  ### Phase 3: Implement Node Hardening (TDD)
+
+  **RED:**
+
+  - [ ] task-5: Write buildExecutorOptions() hardening tests (maxTurns, disableMcp)
+  - [ ] task-6: Write phase-skipping and completedPhases tracking tests
+
+  **GREEN + REFACTOR:**
+
+  - [ ] task-7: Implement all Phase 3 changes, pass all tests, refactor
 
   ## TDD Notes
 
-  - **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
+  - **MANDATORY**: All phases follow RED -> GREEN -> REFACTOR
   - **RED**: Write failing tests FIRST (never skip this!)
   - **GREEN**: Write minimal code to pass tests
   - **REFACTOR**: Improve code while keeping tests green
@@ -91,12 +259,11 @@ content: |
 
   Before marking feature complete:
 
-  - [ ] All tasks completed
+  - [ ] All 7 tasks completed
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)
   - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-  - [ ] Documentation updated
   - [ ] PR created and reviewed
 
   ---

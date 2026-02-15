@@ -5,28 +5,40 @@
 
 ## Task List
 
-### Phase 1: Foundation
-
-- [ ] {{TASK_1_DESCRIPTION}}
-- [ ] {{TASK_2_DESCRIPTION}}
-
-### Phase 2: Core Implementation (TDD Cycle)
+### Phase 1: Error Classification & Retry Utility (TDD)
 
 **RED (Write Failing Tests First):**
 
-- [ ] Write unit tests for {{FEATURE}}
+- [ ] task-1: Write classifyError() tests covering API 400/429/500, network, non-retryable, unknown
 
-**GREEN (Implement to Pass Tests):**
+**GREEN + REFACTOR:**
 
-- [ ] Implement {{FEATURE}}
+- [ ] task-2: Implement classifyError() + retryExecute() with tests, pass all, refactor
 
-**REFACTOR (Clean Up):**
+### Phase 2: AgentExecutionOptions & Executor Wiring (TDD)
 
-- [ ] Extract helpers and improve code quality
+**RED:**
+
+- [ ] task-3: Write buildArgs() tests for disableMcp and tools options
+
+**GREEN + REFACTOR:**
+
+- [ ] task-4: Add disableMcp/tools to AgentExecutionOptions, update buildArgs()
+
+### Phase 3: Implement Node Hardening (TDD)
+
+**RED:**
+
+- [ ] task-5: Write buildExecutorOptions() hardening tests (maxTurns, disableMcp)
+- [ ] task-6: Write phase-skipping and completedPhases tracking tests
+
+**GREEN + REFACTOR:**
+
+- [ ] task-7: Implement all Phase 3 changes, pass all tests, refactor
 
 ## TDD Notes
 
-- **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
+- **MANDATORY**: All phases follow RED -> GREEN -> REFACTOR
 - **RED**: Write failing tests FIRST (never skip this!)
 - **GREEN**: Write minimal code to pass tests
 - **REFACTOR**: Improve code while keeping tests green
@@ -41,12 +53,11 @@
 
 Before marking feature complete:
 
-- [ ] All tasks completed
+- [ ] All 7 tasks completed
 - [ ] Tests passing (`pnpm test`)
 - [ ] Linting clean (`pnpm lint`)
 - [ ] Types valid (`pnpm typecheck`)
 - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-- [ ] Documentation updated
 - [ ] PR created and reviewed
 
 ---

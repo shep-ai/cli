@@ -11,7 +11,7 @@ summary: >
   successful work across 3 phases, the agent fails on phase 4 with no retry, no recovery, and no
   phase-level resumption — losing all progress. This spec addresses error resilience, retry logic,
   tool restriction, and prompt size management for the implement phase.
-phase: research
+phase: planning
 sizeEstimate: Medium
 
 # Relationships
