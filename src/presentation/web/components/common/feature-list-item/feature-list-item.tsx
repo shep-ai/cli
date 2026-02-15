@@ -30,7 +30,7 @@ export function FeatureListItem({
         {status === 'in-progress' && startedAt != null ? (
           <span
             data-testid="feature-list-item-meta"
-            className="ml-auto text-xs text-muted-foreground tabular-nums"
+            className="text-muted-foreground ml-auto text-xs tabular-nums"
           >
             <ElapsedTime startedAt={startedAt} />
           </span>
@@ -38,7 +38,7 @@ export function FeatureListItem({
         {status === 'done' && duration ? (
           <span
             data-testid="feature-list-item-meta"
-            className="ml-auto text-xs text-muted-foreground tabular-nums"
+            className="text-muted-foreground ml-auto text-xs tabular-nums"
           >
             {duration}
           </span>
