@@ -9,6 +9,8 @@
  * @see https://typescript-eslint.io/getting-started/
  */
 
+import { dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import eslint from '@eslint/js';
 import tseslint from 'typescript-eslint';
 import prettierConfig from 'eslint-config-prettier';
@@ -17,6 +19,8 @@ import reactHooksPlugin from 'eslint-plugin-react-hooks';
 import nextPlugin from '@next/eslint-plugin-next';
 import tailwindPlugin from 'eslint-plugin-tailwindcss';
 import storybookPlugin from 'eslint-plugin-storybook';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default tseslint.config(
   // =============================================================================
@@ -224,6 +228,9 @@ export default tseslint.config(
     settings: {
       react: {
         version: 'detect',
+      },
+      tailwindcss: {
+        config: `${__dirname}/src/presentation/web/app/globals.css`,
       },
     },
     rules: {

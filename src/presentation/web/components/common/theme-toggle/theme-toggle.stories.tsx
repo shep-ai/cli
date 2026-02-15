@@ -20,7 +20,7 @@ export const Default: Story = {
 export const InContext: Story = {
   render: () => (
     <div className="flex items-center gap-4 rounded-lg border p-4">
-      <span className="text-muted-foreground text-sm">Toggle theme:</span>
+      <span className="text-sm text-muted-foreground">Toggle theme:</span>
       <ThemeToggle />
     </div>
   ),
