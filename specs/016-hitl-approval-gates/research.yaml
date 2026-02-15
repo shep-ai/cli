@@ -134,6 +134,62 @@ decisions:
       read by the application code. This is safe because the mapper will
       read from approval_gates and ignore the old columns.
 
+  - title: YAML Validation Graph Wiring
+    chosen: Paired validate/repair nodes per producer with conditional edges
+    rejected:
+      - Single generic validate node with dynamic routing
+      - Subgraph abstraction for validate-repair loop
+    rationale: >
+      Each YAML-producing node gets dedicated validate_<name> and repair_<name>
+      nodes wired with conditional edges. This makes the graph self-documenting —
+      each validation pair is explicit and easy to debug. The generic approach
+      requires complex routing state to track "which file am I validating?" and
+      "where do I go next?". The subgraph approach adds LangGraph composition
+      complexity and makes debugging nested graphs harder. The paired approach
+      adds more nodes (~8 for 4 producers) but each is simple (pure validation
+      or a focused repair prompt).
+
+  - title: YAML Schema Validation Approach
+    chosen: Hand-written TypeScript validator functions (parse + schema)
+    rejected:
+      - Zod schema validation library
+      - JSON Schema with Ajv
+      - Parse-only validation (no schema)
+    rationale: >
+      Each schema is a pure function returning {valid, errors[]}. Hand-written
+      checks produce specific, actionable error messages tailored to what the AI
+      repair prompt needs (e.g. "missing required field 'decisions' in research.yaml"
+      rather than generic Zod paths). No external library dependency. The error
+      messages must be AI-friendly since they're fed directly to the repair prompt.
+      Parse-only validation catches syntax errors but misses structural issues
+      (missing fields, wrong types) that cause downstream node crashes.
+
+  - title: YAML Repair Strategy
+    chosen: AI executor repair prompt (focused, constrained)
+    rejected:
+      - Programmatic repair (code-based fixes for known patterns)
+      - Programmatic first, AI fallback
+    rationale: >
+      AI-generated YAML issues are diverse and unpredictable — bad indentation,
+      unquoted special chars, missing fields, wrong nesting. A code-based approach
+      can only handle known patterns (like the existing brace sanitization). The
+      executor repair prompt sends the broken YAML + specific validation errors
+      back to the AI with constraints (maxTurns: 5, write-only tools) for a cheap,
+      focused fix. The AI understands YAML structure and can fix arbitrary issues.
+      The combined approach adds complexity without significant benefit since the
+      AI handles known patterns too.
+
+  - title: Validation Retry Limit
+    chosen: 3 attempts maximum
+    rejected:
+      - 1 attempt (too fragile)
+      - 5 attempts (too expensive, unlikely to help)
+    rationale: >
+      Matches the existing retryExecute pattern used for transient API errors.
+      If the AI can't produce valid YAML in 3 attempts, the issue likely requires
+      human intervention (fundamentally wrong prompt, executor bug, etc.). Each
+      repair attempt costs an executor call, so 3 balances resilience vs cost.
+
 # Open questions (should be resolved by end of research)
 openQuestions: []
 
@@ -379,6 +435,42 @@ content: |
     (tens of features, not thousands), this is fast and does not need optimization.
   - **No impact on graph execution**: The approval gate check in `shouldInterrupt()`
     changes from a string lookup to two boolean comparisons — marginally faster.
+
+  ### 9. YAML Validation Graph Wiring
+
+  **Options considered:**
+
+  1. **Paired validate/repair nodes per producer** — Dedicated nodes with conditional edges
+  2. **Single generic validate node** — One node with dynamic routing
+  3. **Subgraph abstraction** — Reusable validate-repair subgraph
+
+  **Decision:** Paired validate/repair nodes per producer
+
+  **Rationale:** Each YAML-producing node gets dedicated validate and repair nodes.
+  The graph is self-documenting and each pair is independently debuggable. More nodes
+  but each is simple. The generic approach needs complex routing state; the subgraph
+  approach adds composition complexity.
+
+  ### 10. YAML Schema Validation Approach
+
+  **Decision:** Hand-written TypeScript validator functions (no Zod/Ajv)
+
+  **Rationale:** Error messages must be specific and AI-friendly since they're fed
+  directly to the repair prompt. Hand-written validators produce tailored messages
+  like "missing required field 'decisions'" rather than generic schema paths. No new
+  library dependencies.
+
+  ### 11. YAML Repair Strategy
+
+  **Decision:** Focused AI executor repair prompt (maxTurns: 5, write-only tools)
+
+  **Rationale:** AI-generated YAML issues are diverse and unpredictable. The executor
+  repair prompt is cheap and focused — sends broken YAML + specific errors, asks for
+  structural fix only. Constrained tools prevent unintended side effects.
+
+  ### 12. Validation Retry Limit
+
+  **Decision:** 3 attempts maximum (matching existing retryExecute pattern)
 
   ## Open Questions
 

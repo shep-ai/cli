@@ -39,6 +39,7 @@ vi.mock('../../../../../../src/presentation/cli/ui/index.js', () => ({
   messages: {
     newline: vi.fn(),
     success: vi.fn(),
+    warning: vi.fn(),
     error: vi.fn(),
     info: vi.fn(),
   },
@@ -58,13 +59,15 @@ describe('createNewCommand', () => {
       return {};
     });
     mockCreateExecute.mockResolvedValue({
-      id: 'feat-001',
-      name: 'Test Feature',
-      slug: 'test-feature',
-      branch: 'feat/test-feature',
-      lifecycle: 'Requirements',
-      agentRunId: 'run-001',
-      specPath: '/specs/001-test-feature',
+      feature: {
+        id: 'feat-001',
+        name: 'Test Feature',
+        slug: 'test-feature',
+        branch: 'feat/test-feature',
+        lifecycle: 'Requirements',
+        agentRunId: 'run-001',
+        specPath: '/specs/001-test-feature',
+      },
     });
   });
 

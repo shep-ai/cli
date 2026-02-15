@@ -62,6 +62,15 @@ phases:
       - task-11
       - task-12
 
+  - id: phase-7
+    name: 'YAML Validation & Auto-Repair Graph Nodes'
+    parallel: false
+    taskIds:
+      - task-13
+      - task-14
+      - task-15
+      - task-16
+
 # File change tracking
 filesToCreate:
   - tsp/agents/approval-gates.tsp
@@ -72,7 +81,17 @@ filesToCreate:
   - src/presentation/cli/commands/feat/approve.command.ts
   - src/presentation/cli/commands/feat/reject.command.ts
   - src/presentation/cli/commands/feat/resolve-waiting-feature.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/validate.node.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/repair.node.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/schemas/research.schema.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/schemas/plan.schema.ts
   - tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/research.schema.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/schemas/plan.schema.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/validate.node.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/repair.node.test.ts
   - tests/unit/infrastructure/repositories/sqlite-phase-timing.repository.test.ts
   - tests/unit/presentation/cli/commands/feat/review.command.test.ts
   - tests/unit/presentation/cli/commands/feat/approve.command.test.ts
@@ -87,6 +106,7 @@ filesToModify:
   - src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
   - src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
   - src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts
+  - src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts
   - src/infrastructure/services/agents/feature-agent/state.ts
   - src/infrastructure/di/container.ts
   - src/application/ports/output/agents/index.ts
@@ -226,6 +246,12 @@ content: |
   **Phase 6** updates existing CLI commands. `feat new` builds `ApprovalGates` from
   flags (removes `--interactive`), displays approval behavior hint. `feat show`
   adds phase timing breakdown section and approval context. Parallelizable.
+
+  **Phase 7** adds YAML validation & auto-repair to the LangGraph. Schema validators
+  are created for each YAML file type (spec, research, plan+tasks). Validate and
+  repair nodes are implemented as factories, then wired into the graph with
+  conditional edges that create retry loops (max 3 attempts). The graph topology
+  changes from linear to linear-with-validation-loops.
 
   ## Files to Create/Modify
 

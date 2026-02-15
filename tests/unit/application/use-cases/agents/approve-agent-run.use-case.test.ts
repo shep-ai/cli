@@ -118,7 +118,12 @@ describe('ApproveAgentRunUseCase', () => {
       '/test/repo',
       wt,
       wt,
-      expect.objectContaining({ resume: true })
+      expect.objectContaining({
+        resume: true,
+        threadId: 'thread-001',
+        resumeFromInterrupt: true,
+        approvalGates: { allowPrd: false, allowPlan: false },
+      })
     );
   });
 

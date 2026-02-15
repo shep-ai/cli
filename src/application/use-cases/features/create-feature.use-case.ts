@@ -40,6 +40,11 @@ export interface CreateFeatureInput {
   approvalGates?: ApprovalGates;
 }
 
+export interface CreateFeatureResult {
+  feature: Feature;
+  warning?: string;
+}
+
 interface FeatureMetadata {
   slug: string;
   name: string;
@@ -63,15 +68,15 @@ export class CreateFeatureUseCase {
     private readonly executorProvider: IAgentExecutorProvider
   ) {}
 
-  async execute(input: CreateFeatureInput): Promise<Feature> {
+  async execute(input: CreateFeatureInput): Promise<CreateFeatureResult> {
     const metadata = await this.generateMetadata(input.userInput);
-    const slug = metadata.slug;
-    const branch = `feat/${slug}`;
+    const originalSlug = metadata.slug;
 
-    const existing = await this.featureRepo.findBySlug(slug, input.repositoryPath);
-    if (existing) {
-      throw new Error(`Feature with slug "${slug}" already exists in this repository`);
-    }
+    // Find a unique slug — the branch may exist from a previous (deleted) feature
+    const { slug, branch, warning } = await this.resolveUniqueSlug(
+      originalSlug,
+      input.repositoryPath
+    );
 
     // Determine next feature number for this repo
     const existingFeatures = await this.featureRepo.list({
@@ -134,7 +139,48 @@ export class CreateFeatureUseCase {
       threadId: agentRun.threadId,
     });
 
-    return feature;
+    return { feature, warning };
+  }
+
+  /**
+   * Find a unique slug by checking both the feature DB and git branches.
+   * If the original slug conflicts, appends -2, -3, etc. until a free one is found.
+   */
+  private async resolveUniqueSlug(
+    originalSlug: string,
+    repositoryPath: string
+  ): Promise<{ slug: string; branch: string; warning?: string }> {
+    const MAX_SUFFIX = 10;
+
+    for (let suffix = 0; suffix <= MAX_SUFFIX; suffix++) {
+      const slug = suffix === 0 ? originalSlug : `${originalSlug}-${suffix + 1}`;
+      const branch = `feat/${slug}`;
+
+      // Check if a feature with this slug already exists in the DB
+      const existing = await this.featureRepo.findBySlug(slug, repositoryPath);
+      if (existing) {
+        if (suffix === 0) continue; // try suffixed version
+        continue;
+      }
+
+      // Check if the git branch already exists (leftover from deleted feature)
+      const branchInUse = await this.worktreeService.exists(repositoryPath, branch);
+      if (branchInUse) continue;
+
+      if (suffix > 0) {
+        return {
+          slug,
+          branch,
+          warning: `Branch "feat/${originalSlug}" already exists, using "${branch}" instead`,
+        };
+      }
+
+      return { slug, branch };
+    }
+
+    throw new Error(
+      `Could not find a unique slug for "${originalSlug}" after ${MAX_SUFFIX} attempts`
+    );
   }
 
   private async generateMetadata(userInput: string): Promise<FeatureMetadata> {

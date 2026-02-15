@@ -23,13 +23,22 @@ interface LsOptions {
   repo?: string;
 }
 
-/** Map graph node names to human-readable phase labels. */
+/** Map graph node names to human-readable phase labels (active). */
 const NODE_TO_PHASE: Record<string, string> = {
   analyze: 'Analyzing',
   requirements: 'Requirements',
   research: 'Researching',
   plan: 'Planning',
   implement: 'Implementing',
+};
+
+/** Map graph node names to approval action labels. */
+const NODE_TO_APPROVE: Record<string, string> = {
+  analyze: 'Approve Analysis',
+  requirements: 'Approve PRD',
+  research: 'Approve Research',
+  plan: 'Approve Plan',
+  implement: 'Approve Merge',
 };
 
 /**
@@ -43,9 +52,8 @@ function formatStatus(feature: Feature, run: AgentRun | null): string {
   }
 
   const isRunning = run.status === 'running' || run.status === 'pending';
-  const phase = run.result?.startsWith('node:')
-    ? (NODE_TO_PHASE[run.result.slice(5)] ?? run.result.slice(5))
-    : feature.lifecycle;
+  const nodeName = run.result?.startsWith('node:') ? run.result.slice(5) : undefined;
+  const phase = nodeName ? (NODE_TO_PHASE[nodeName] ?? nodeName) : feature.lifecycle;
 
   if (isRunning) {
     // Check PID liveness for running agents
@@ -62,7 +70,8 @@ function formatStatus(feature: Feature, run: AgentRun | null): string {
     return `${colors.error(symbols.error)} ${colors.error('Failed')}`;
   }
   if (run.status === 'waiting_approval') {
-    return `${colors.warning(symbols.warning)} ${colors.warning(phase)}`;
+    const action = nodeName ? (NODE_TO_APPROVE[nodeName] ?? phase) : phase;
+    return `${colors.warning(symbols.warning)} ${colors.warning(action)}`;
   }
   if (run.status === 'interrupted') {
     return `${colors.error(symbols.error)} ${colors.error('Interrupted')}`;
