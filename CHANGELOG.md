@@ -1,3 +1,25 @@
+# [1.20.0](https://github.com/shep-ai/cli/compare/v1.19.0...v1.20.0) (2026-02-15)
+
+### Bug Fixes
+
+- **cli:** limit fallback slug length to 50 chars ([c5ccb18](https://github.com/shep-ai/cli/commit/c5ccb18479d4e1b4510e78fd335a7295d8c46838))
+- **cli:** remove unused type import from show command ([19988f0](https://github.com/shep-ai/cli/commit/19988f0c0f68ccf12d52b174ccb720182c9c6fbd))
+- **test:** update e2e test for auto-resolved duplicate slugs ([85f17c5](https://github.com/shep-ai/cli/commit/85f17c53d3a1d042d65d65c8295f352bfed0c66a))
+
+### Features
+
+- **specs:** add 016-hitl-approval-gates implementation plan ([334ac72](https://github.com/shep-ai/cli/commit/334ac727698c872e1fb6fc76b9c8fb4d23d21aec))
+- **specs:** add 016-hitl-approval-gates research ([af9ce5d](https://github.com/shep-ai/cli/commit/af9ce5d5ad56537304b46ab5c5bd571b336e36d1))
+- **specs:** add 016-hitl-approval-gates specification ([53b89e4](https://github.com/shep-ai/cli/commit/53b89e4c29ee1ab8dd7c41a5c936ca9ef5619065))
+- **cli:** add feat review, approve, and reject commands ([3d2cf05](https://github.com/shep-ai/cli/commit/3d2cf05731d30ec2f3b4d8cef73ee5202b437d4e))
+- **cli:** add phase timing breakdown and approval context to feat show ([d160335](https://github.com/shep-ai/cli/commit/d160335663db9811fbfcf25e07fce0ddbfe6aa76))
+- **agents:** add phase timing recording to graph node execution ([4ba8882](https://github.com/shep-ai/cli/commit/4ba888221dc026537bd9527e1faaf0bec947f3de))
+- **agents:** add typed approval gates and phase timing infrastructure ([ec194e3](https://github.com/shep-ai/cli/commit/ec194e38138bb797c308639f8aefbeb4f4350f05))
+- **cli:** add worktree, spec path and detailed review hint to feat new output ([6d4af44](https://github.com/shep-ai/cli/commit/6d4af44ac93719e5a5b3adc2b67725df0e8be397))
+- **agents:** add yaml validation and auto-repair loops to feature agent graph ([76ba86b](https://github.com/shep-ai/cli/commit/76ba86b021554d95fd046f5e3de1dbbd8eb0679e))
+- **agents:** fix approval resume, unique slug resolution, and plan phase 7 ([ae2bb24](https://github.com/shep-ai/cli/commit/ae2bb24861317ce467a804db4fa7643f172656db))
+- **cli:** update feat new flags and default approval behavior ([46e1f12](https://github.com/shep-ai/cli/commit/46e1f12659ce16aff542353672fbec0486b06bb4))
+
 # [1.19.0](https://github.com/shep-ai/cli/compare/v1.18.0...v1.19.0) (2026-02-15)
 
 ### Bug Fixes
