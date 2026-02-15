@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "next dev",
+    "dev": "tsx --tsconfig ../../../tsconfig.json dev-server.ts",
     "dev:e2e": "next dev -p 3001",
     "build": "next build",
     "start": "next start",
