@@ -50,7 +50,7 @@ phases:
     taskIds:
       - task-6
   - id: phase-6
-    name: 'Clean Architecture Data Layer'
+    name: 'Clean Architecture Data Layer + DI Bridge'
     parallel: false
     taskIds:
       - task-8
@@ -65,7 +65,7 @@ phases:
     taskIds:
       - task-9
   - id: phase-9
-    name: 'Agent State Integration'
+    name: 'Agent State E2E Verification'
     parallel: false
     taskIds:
       - task-10
@@ -74,6 +74,13 @@ phases:
     parallel: false
     taskIds:
       - task-11
+  - id: phase-11
+    name: 'Feature Node Badge Improvements'
+    parallel: false
+    taskIds:
+      - task-12
+      - task-13
+      - task-14
 
 # File change tracking
 filesToCreate:
@@ -86,6 +93,11 @@ filesToCreate:
   - src/presentation/web/components/features/control-center/index.ts
   - tests/unit/presentation/web/components/features/control-center/use-control-center-state.test.tsx
   - tests/unit/presentation/web/components/features/control-center/control-center.test.tsx
+  - src/presentation/web/components/common/feature-node/agent-type-icons.tsx
+  - src/presentation/web/lib/use-cases.ts # Global DI bridge — reads resolved use cases from globalThis
+  - src/application/use-cases/features/list-dashboard-features.use-case.ts # New use case with agent run data
+  - tests/unit/application/use-cases/features/list-dashboard-features.use-case.test.ts
+  - tests/unit/infrastructure/repositories/sqlite-feature-repository-list-with-agent-runs.test.ts
   # NOTE: control-center-toolbar.tsx was created then removed — replaced by contextual node actions
 
 filesToModify:
@@ -97,10 +109,15 @@ filesToModify:
   - src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx
   - tests/unit/presentation/web/components/features/features-canvas/features-canvas.test.tsx
   - src/presentation/web/app/page.tsx # Control Center is the homepage (/ route)
-  - src/presentation/web/lib/features.ts
+  - src/application/ports/output/repositories/feature-repository.interface.ts # Add listWithAgentRuns()
+  - src/infrastructure/repositories/sqlite-feature.repository.ts # Implement listWithAgentRuns()
+  - src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts # Add DashboardFeature mapping
+  - src/infrastructure/di/container.ts # Register ListDashboardFeaturesUseCase
+  - src/presentation/cli/index.ts # Expose use cases via globalThis after initializeContainer()
 
 filesToDelete:
   - src/presentation/web/lib/shep-data.ts # Direct filesystem access replaced by use case
+  - src/presentation/web/lib/features.ts # Direct SQL replaced by DI bridge
   - src/presentation/web/app/control-center/ # Removed — control center is now the homepage (/ route)
 
 # Open questions
@@ -108,14 +125,15 @@ openQuestions: []
 
 # Status
 status:
-  phase: complete
+  phase: in-progress
   updatedAt: '2026-02-15'
+  notes: 'Reopened Phase 6 and 9 — replacing direct SQL with use cases via global DI bridge'
 
 # Markdown content (the full plan document)
 content: |
   ## Status
 
-  - **Phase:** Complete
+  - **Phase:** In Progress (Phase 6 and 9 reopened)
   - **Updated:** 2026-02-15
 
   ## Architecture Overview
@@ -288,18 +306,47 @@ content: |
 
   **Deliverables:** Full ControlCenter component with Storybook stories (Empty, WithFeatures, WithToolbar, WithNodeActions)
 
-  ### Phase 6: Build Validation (No Tests)
+  ### Phase 6: Clean Architecture Data Layer + DI Bridge (TDD)
 
-  **Goal:** Ensure everything compiles and passes quality gates.
+  **Goal:** Replace direct SQL in `lib/features.ts` with proper use cases accessed via global DI bridge.
+
+  **Constraint:** Next.js (Turbopack) cannot resolve CLI source `.js` extension imports. The web server runs in the same Node.js process as the CLI, so globalThis is shared. See Research Decision #11.
+
+  #### 6A: Repository + Use Case (TDD)
+
+  **RED:**
+
+  1. Write test: `IFeatureRepository.listWithAgentRuns()` returns features with agentStatus, agentError, agentResult, agentType from LEFT JOIN
+  2. Write test: `ListDashboardFeaturesUseCase.execute()` returns `DashboardFeature[]` with agent data
+  3. Write test: `ListDashboardFeaturesUseCase.execute({ repositoryPath })` filters correctly
+
+  **GREEN:**
+
+  1. Define `DashboardFeature` type (Feature fields + optional agentStatus, agentError, agentResult, agentType)
+  2. Add `listWithAgentRuns(filters?)` to `IFeatureRepository` interface
+  3. Implement in `SQLiteFeatureRepository` using `LEFT JOIN agent_runs ar ON f.agent_run_id = ar.id` (reuse proven SQL from current `lib/features.ts`)
+  4. Create `ListDashboardFeaturesUseCase` calling `repo.listWithAgentRuns()`
+  5. Register `ListDashboardFeaturesUseCase` in DI container
+
+  **REFACTOR:**
+
+  - Ensure mapper handles null agent_run columns cleanly
+  - Verify DashboardFeature type aligns with web UI needs
+
+  #### 6B: Global DI Bridge
 
   **Steps:**
 
-  1. `pnpm lint:web` — ESLint passes
-  2. `pnpm typecheck:web` — TypeScript compiles
-  3. `pnpm build:storybook` — Storybook builds
-  4. `pnpm build:web` — Next.js production build passes
+  1. In CLI bootstrap (after `initializeContainer()`), expose resolved use cases via `globalThis.__shepUseCases`
+  2. Create `web/lib/use-cases.ts` bridge module:
+     - Define local TS interfaces mirroring use case contracts (no CLI source imports)
+     - Read from `globalThis.__shepUseCases`
+     - Export typed accessor functions (e.g. `getDashboardFeatures()`)
+  3. Delete `web/lib/features.ts` (direct SQL access removed)
+  4. Update `page.tsx` to use bridge module for data fetching
+  5. `deriveState()` stays in `page.tsx` (presentation concern — maps domain data to UI state)
 
-  **Deliverables:** All builds green
+  **Deliverables:** Feature data flows through use cases via DI bridge; no direct SQL in presentation layer
 
   ### Phase 8: Lifecycle Alignment
 
@@ -315,18 +362,19 @@ content: |
 
   **Deliverables:** Lifecycle phases match domain, display labels are human-readable
 
-  ### Phase 9: Agent State Integration
+  ### Phase 9: Agent State E2E Verification
 
-  **Goal:** Derive real feature state from agent_runs.status via SQL JOIN.
+  **Goal:** Verify that agent run status flows correctly from DB through the use case and DI bridge to the UI.
 
   **Steps:**
 
-  1. Extend `getFeatures()` SQL: `LEFT JOIN agent_runs ar ON f.agent_run_id = ar.id`
-  2. Add `agentStatus` and `agentError` fields to Feature interface
-  3. Add `deriveState()` function in page.tsx mapping agent_runs.status → FeatureNodeState
-  4. Maintain lifecycle always forces done state
+  1. Verify `deriveState()` in `page.tsx` works with `DashboardFeature` type from bridge (not raw SQL row)
+  2. Confirm all agent states display correctly: running, done, error, action-required
+  3. Verify maintain lifecycle forces done state
+  4. Update any tests that mock `getFeatures()` to mock the bridge module instead
+  5. `pnpm build:web` passes
 
-  **Deliverables:** Features show real operational state from agent_runs
+  **Deliverables:** Features show real operational state from agent_runs via use case (no direct SQL)
 
   ### Phase 10: Story Updates
 
@@ -339,6 +387,51 @@ content: |
   3. Verify AllLifecycles story shows correct display labels
 
   **Deliverables:** Stories reflect new lifecycle values, build passes
+
+  ### Phase 11: Feature Node Badge Improvements (TDD Cycles)
+
+  **Goal:** Hide featureId, add agent type icons, show lifecycle verbs in badge, keep CometSpinner.
+
+  #### 11A: Data plumbing + Agent type icons (task-12)
+
+  **Steps:**
+
+  1. `agentType` already flows through `DashboardFeature` from the use case (Phase 6A LEFT JOIN includes `ar.agent_type`)
+  2. Create `agent-type-icons.tsx` with `AgentTypeValue` union type mirroring TypeSpec `AgentType` enum
+  3. Implement inline SVG components: `ClaudeCodeIcon`, `CursorIcon`, `GeminiCliIcon`, `AiderIcon`, `ContinueIcon`, `DefaultAgentIcon`
+  4. Export `getAgentTypeIcon(agentType?)` resolver function
+  5. Add `agentType?: AgentTypeValue` to `FeatureNodeData`
+  6. Pass `agentType` through in `page.tsx` from bridge data
+
+  **Deliverables:** Agent type flows from DB through use case to UI, icon components ready
+
+  #### 11B: Badge updates (task-13)
+
+  **TDD Workflow:**
+
+  1. **RED:** Write tests for lifecycle running verbs, hidden featureId, agent icon rendering
+  2. **GREEN:**
+     - Remove featureId display from both views in `feature-node.tsx`
+     - Add `lifecycleRunningVerbs` map to `feature-node-state-config.ts`
+     - Update `getBadgeText` running case to use lifecycle verb
+     - In running badge: `[CometSpinner] [AgentTypeIcon] {lifecycle verb}`
+     - For non-running states: show agent icon (if available) before state icon
+     - Remove `agentName` from `FeatureNodeData` (replaced by `agentType`)
+  3. **REFACTOR:** Clean up unused imports, verify badge sizing
+
+  **Deliverables:** Badge shows agent icon + lifecycle verb, featureId hidden
+
+  #### 11C: Tests + Stories (task-14)
+
+  **Steps:**
+
+  1. Fix broken tests (featureId, badge text assertions)
+  2. Add lifecycle running verb tests for all 6 phases
+  3. Update all story data: replace `agentName` with `agentType`
+  4. Add `AllAgentTypes` story
+  5. Export `lifecycleRunningVerbs` and `getAgentTypeIcon` from `index.ts`
+
+  **Deliverables:** All tests green, stories updated, exports clean
 
   ## Files to Create/Modify
 

@@ -174,11 +174,16 @@ content: |
   - [x] `pnpm build:storybook` passes
   - [x] `pnpm build:web` passes
   - [x] Components follow tier import rules (013-ui-arch)
-  - [x] Data loaded via repository query (Clean Architecture, no direct filesystem reads in presentation)
+  - [ ] Data loaded via use cases through global DI bridge (no direct SQL in presentation layer)
   - [x] FeatureLifecyclePhase matches domain SdlcLifecycle 1:1 (requirements, research, implementation, review, deploy, maintain)
   - [x] Lifecycle display labels show human-readable names (e.g. "DEPLOY & QA", "COMPLETED" for maintain)
   - [x] Feature node state derived from agent_runs.status (running/done/error/action-required)
   - [x] Maintain lifecycle always renders as done/completed state
+  - [ ] featureId hidden from feature node card (not rendered visually)
+  - [ ] Badge shows agent type icon (SVG) for each AgentType enum value (claude-code, cursor, gemini-cli, aider, continue)
+  - [ ] Badge shows lifecycle-derived verb for running state (Analyzing, Researching, Implementing, Reviewing, Deploying)
+  - [ ] CometSpinner kept alongside agent icon in running badge
+  - [ ] AgentTypeValue union type mirrors TypeSpec AgentType enum
 
   ## Affected Areas
 
@@ -209,7 +214,10 @@ content: |
   - Keyboard shortcut (Escape to deselect)
   - Storybook stories with mock data
   - Extending FeaturesCanvas/FeatureNode/RepositoryNode props as needed
-  - Control center page consumes data via existing ListFeaturesUseCase (not direct filesystem access)
+  - Global DI bridge module (globalThis) for web-to-CLI use case access
+  - New ListDashboardFeaturesUseCase composing feature + agent run data via repository LEFT JOIN
+  - New IFeatureRepository.listWithAgentRuns() method
+  - Control center page consumes data via use cases through DI bridge (no direct SQL in presentation)
 
   **Out of scope:**
   - Real-time updates or WebSocket integration

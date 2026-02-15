@@ -211,24 +211,46 @@ tasks:
     estimatedEffort: S
 
   - id: task-8
-    title: 'Use existing ListFeaturesUseCase in control center page'
+    title: 'Create ListDashboardFeaturesUseCase and global DI bridge'
     description: >
-      Replace direct filesystem reads in lib/shep-data.ts with the existing
-      ListFeaturesUseCase and IFeatureRepository (already on main). Merge main
-      to get the infrastructure, then refactor page.tsx to resolve the use case
-      from the DI container and delete lib/shep-data.ts.
-    state: Done
+      Replace direct SQL in lib/features.ts with proper Clean Architecture data access.
+      Three sub-steps: (A) Add listWithAgentRuns() to IFeatureRepository that LEFT JOINs
+      with agent_runs table, returning DashboardFeature[] with agentStatus/agentError/
+      agentResult/agentType. Implement in SQLiteFeatureRepository. (B) Create
+      ListDashboardFeaturesUseCase calling the new repo method. Register in DI container.
+      (C) In CLI bootstrap, expose resolved use cases via globalThis.__shepUseCases.
+      Create web/lib/use-cases.ts bridge module with local TS interfaces (no CLI source
+      imports). Delete web/lib/features.ts. Update page.tsx to use bridge.
+    state: Todo
     dependencies:
       - task-6
     acceptanceCriteria:
-      - 'main merged into feature branch (brings ListFeaturesUseCase, IFeatureRepository, SQLiteFeatureRepository)'
-      - 'control-center/page.tsx resolves ListFeaturesUseCase from DI container'
-      - 'lib/shep-data.ts deleted (no direct filesystem access from presentation)'
-      - 'Node/edge mapping remains in page.tsx (presentation concern)'
-      - 'pnpm typecheck passes'
-      - 'pnpm typecheck:web passes'
-    tdd: null
-    estimatedEffort: S
+      - 'IFeatureRepository has listWithAgentRuns(filters?) method'
+      - 'SQLiteFeatureRepository implements it with LEFT JOIN agent_runs'
+      - 'DashboardFeature type defined with agentStatus/agentError/agentResult/agentType'
+      - 'ListDashboardFeaturesUseCase exists and is registered in DI container'
+      - 'CLI bootstrap exposes use cases via globalThis.__shepUseCases'
+      - 'web/lib/use-cases.ts bridge module reads from globalThis (no CLI imports)'
+      - 'web/lib/features.ts deleted (no direct SQL in presentation layer)'
+      - 'page.tsx uses bridge module for feature data'
+      - 'pnpm typecheck and pnpm typecheck:web pass'
+    tdd:
+      red:
+        - 'Write test: listWithAgentRuns returns features with agentStatus from JOIN'
+        - 'Write test: ListDashboardFeaturesUseCase.execute() returns DashboardFeature[]'
+        - 'Write test: bridge module returns features when globalThis is populated'
+      green:
+        - 'Add listWithAgentRuns to IFeatureRepository interface'
+        - 'Implement in SQLiteFeatureRepository with LEFT JOIN'
+        - 'Create ListDashboardFeaturesUseCase'
+        - 'Set globalThis.__shepUseCases in CLI bootstrap'
+        - 'Create web/lib/use-cases.ts bridge'
+        - 'Delete web/lib/features.ts'
+        - 'Update page.tsx'
+      refactor:
+        - 'Ensure DashboardFeature type covers all web UI needs'
+        - 'Clean up unused imports'
+    estimatedEffort: M
 
   - id: task-9
     title: 'Align FeatureLifecyclePhase with domain SdlcLifecycle'
@@ -261,23 +283,25 @@ tasks:
     estimatedEffort: S
 
   - id: task-10
-    title: 'Integrate agent_run status for real feature state'
+    title: 'Verify agent state integration end-to-end via use case'
     description: >
-      Extend getFeatures() in features.ts to LEFT JOIN with agent_runs table,
-      returning agentStatus and agentError. Add deriveState() function in
-      page.tsx that maps agent_runs.status to FeatureNodeState (running→running,
-      completed→done, failed→error, waiting_approval→action-required).
-      Maintain lifecycle always forces done state.
-    state: Done
+      With the DI bridge in place (task-8), verify that agent run status flows
+      correctly from DB through the use case to the UI. deriveState() in page.tsx
+      maps the DashboardFeature agentStatus to FeatureNodeState. Maintain lifecycle
+      forces done state. Ensure all agent states display correctly (running, done,
+      error, action-required). Update any tests that mock getFeatures() to mock
+      the bridge module instead.
+    state: Todo
     dependencies:
+      - task-8
       - task-9
     acceptanceCriteria:
-      - 'getFeatures() returns agentStatus and agentError from agent_runs JOIN'
-      - 'Feature interface includes optional agentStatus and agentError fields'
-      - 'deriveState() maps agent_runs.status to correct FeatureNodeState'
+      - 'Features display correct state from agent_runs via use case (not direct SQL)'
+      - 'deriveState() maps DashboardFeature.agentStatus to correct FeatureNodeState'
       - 'Maintain lifecycle always returns done state with progress 100'
       - 'Features with no agent_run show as running (default)'
-      - 'pnpm typecheck:web passes'
+      - 'agentError propagates to errorMessage in node data'
+      - 'pnpm build:web passes'
     tdd:
       red:
         - 'Write test: deriveState returns done for maintain lifecycle'
@@ -285,12 +309,10 @@ tasks:
         - 'Write test: deriveState returns error for failed agent status'
         - 'Write test: deriveState returns action-required for waiting_approval'
       green:
-        - 'Extend SQL query with LEFT JOIN agent_runs'
-        - 'Add agentStatus/agentError to Feature interface and fromRow'
-        - 'Implement deriveState function in page.tsx'
-        - 'Use deriveState when building FeatureNodeData'
+        - 'Verify deriveState works with DashboardFeature type from bridge'
+        - 'Update page.tsx to use DashboardFeature fields from bridge module'
       refactor:
-        - 'Ensure error messages propagate from agent_runs.error'
+        - 'Remove any remaining references to direct SQL in presentation layer'
     estimatedEffort: S
 
   - id: task-11
@@ -311,6 +333,113 @@ tasks:
     tdd: null
     estimatedEffort: S
 
+  - id: task-12
+    title: 'Create agent type icons and plumb agentType from use case'
+    description: >
+      agentType already flows through DashboardFeature from the use case
+      (Phase 6A LEFT JOIN includes ar.agent_type). Create agent-type-icons.tsx
+      with an AgentTypeValue union type mirroring the TypeSpec AgentType enum
+      (claude-code, cursor, gemini-cli, aider, continue). Implement inline
+      SVG icon components for each agent type plus a DefaultAgentIcon fallback.
+      Export a getAgentTypeIcon() resolver. Add agentType to FeatureNodeData
+      and pass it through in page.tsx from bridge data.
+    state: Done
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'agentType flows from DashboardFeature through bridge to page.tsx'
+      - 'agent-type-icons.tsx exports AgentTypeValue union type'
+      - 'SVG components exist for all 5 AgentType enum values plus DefaultAgentIcon'
+      - 'getAgentTypeIcon() resolves agent type string to icon component'
+      - 'FeatureNodeData includes agentType?: AgentTypeValue'
+      - 'page.tsx passes agentType to FeatureNodeData from bridge data'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Write test: getAgentTypeIcon returns ClaudeCodeIcon for claude-code'
+        - 'Write test: getAgentTypeIcon returns DefaultAgentIcon for undefined'
+      green:
+        - 'Create agent-type-icons.tsx with SVG components and resolver'
+        - 'Add agentType to FeatureNodeData'
+        - 'Pass agentType in page.tsx nodeData from bridge'
+      refactor:
+        - 'Ensure all SVGs use currentColor and accept className'
+    estimatedEffort: M
+
+  - id: task-13
+    title: 'Update feature node badge (hide featureId, agent icon, lifecycle verbs)'
+    description: >
+      Remove featureId rendering from both the progress-bar and non-progress
+      views in feature-node.tsx. Add lifecycleRunningVerbs map to
+      feature-node-state-config.ts mapping lifecycle phases to present-participle
+      verbs (Analyzing, Researching, Implementing, Reviewing, Deploying,
+      Maintaining). Update getBadgeText running case to use lifecycle verb.
+      In running badge: show CometSpinner + AgentTypeIcon + lifecycle verb text.
+      For non-running states: show agent icon (if agentType available) before
+      state icon. Remove agentName from FeatureNodeData (replaced by agentType).
+    state: Done
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'featureId not rendered in the feature node card'
+      - 'Running badge shows CometSpinner + agent type icon + lifecycle verb'
+      - 'lifecycleRunningVerbs maps all 6 phases to verbs'
+      - 'getBadgeText running case returns lifecycle verb (e.g. Analyzing)'
+      - 'Non-running states show agent icon before state icon when agentType set'
+      - 'agentName removed from FeatureNodeData'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Write test: featureId is NOT rendered in the card'
+        - 'Write test: running badge shows lifecycle verb for each phase'
+        - 'Write test: running badge does not show featureId in text'
+      green:
+        - 'Remove featureId spans from both views'
+        - 'Add lifecycleRunningVerbs map'
+        - 'Update getBadgeText running case'
+        - 'Update badge icon rendering with agent type icon + CometSpinner'
+        - 'Remove agentName from FeatureNodeData'
+      refactor:
+        - 'Remove unused agentName imports'
+        - 'Verify badge sizing and spacing'
+    estimatedEffort: M
+
+  - id: task-14
+    title: 'Update tests and Storybook stories for badge improvements'
+    description: >
+      Fix broken tests that assert featureId rendering and old badge text.
+      Add tests for lifecycle running verbs across all 6 phases. Update all
+      Storybook story data to replace agentName with agentType. Add
+      AllAgentTypes story showcasing all 5 agent types plus fallback.
+      Export lifecycleRunningVerbs and getAgentTypeIcon from index.ts.
+    state: Done
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'Test "renders featureId" updated to assert featureId NOT rendered'
+      - 'Test "agent name and featureId in badge text" updated for lifecycle verb'
+      - 'Test "defaults to Agent" updated for lifecycle verb'
+      - 'Tests for all 6 lifecycle running verbs pass'
+      - 'All story data uses agentType instead of agentName'
+      - 'AllAgentTypes story exists showing all 5 types + fallback'
+      - 'lifecycleRunningVerbs and getAgentTypeIcon exported from index.ts'
+      - 'pnpm build:storybook passes'
+      - 'All unit tests pass'
+    tdd:
+      red:
+        - 'Write test: each lifecycle phase shows correct running verb'
+        - 'Write test: agent icon renders for known agent type'
+        - 'Write test: fallback icon renders for unknown agent type'
+      green:
+        - 'Fix existing broken tests'
+        - 'Add lifecycle verb tests'
+        - 'Update stories with agentType'
+        - 'Add AllAgentTypes story'
+        - 'Export new symbols from index.ts'
+      refactor:
+        - 'Remove all agentName references from stories'
+    estimatedEffort: S
+
 # Total effort estimate
 totalEstimate: L
 
@@ -321,7 +450,7 @@ openQuestions: []
 content: |
   ## Status
 
-  - **Phase:** Complete
+  - **Phase:** In Progress (Phase 6 and 9 reopened — replacing direct SQL with use cases via DI bridge)
   - **Updated:** 2026-02-15
 
   ## Task List
@@ -428,11 +557,35 @@ content: |
   - [x]Add comprehensive Storybook stories (Empty, WithFeatures, WithToolbar, WithNodeActions)
   - [x]Verify no unnecessary re-renders
 
-  ### Phase 6: Clean Architecture Data Layer
+  ### Phase 6: Clean Architecture Data Layer + DI Bridge
 
-  - [x] Replace lib/shep-data.ts with ListFeaturesUseCase
-  - [x] page.tsx resolves use case from DI container
-  - [x] pnpm typecheck passes
+  #### 6A: Repository + Use Case (TDD)
+
+  **RED:**
+
+  - [ ] Write test: listWithAgentRuns returns features with agentStatus from JOIN
+  - [ ] Write test: ListDashboardFeaturesUseCase.execute() returns DashboardFeature[]
+  - [ ] Write test: bridge module returns features when globalThis is populated
+
+  **GREEN:**
+
+  - [ ] Define DashboardFeature type (Feature + optional agentStatus, agentError, agentResult, agentType)
+  - [ ] Add listWithAgentRuns(filters?) to IFeatureRepository interface
+  - [ ] Implement in SQLiteFeatureRepository with LEFT JOIN agent_runs
+  - [ ] Create ListDashboardFeaturesUseCase
+  - [ ] Register in DI container
+
+  **REFACTOR:**
+
+  - [ ] Ensure mapper handles null agent_run columns cleanly
+
+  #### 6B: Global DI Bridge
+
+  - [ ] Expose resolved use cases via globalThis.__shepUseCases in CLI bootstrap
+  - [ ] Create web/lib/use-cases.ts bridge module (local TS interfaces, no CLI imports)
+  - [ ] Delete web/lib/features.ts (direct SQL removed)
+  - [ ] Update page.tsx to use bridge module
+  - [ ] pnpm typecheck and pnpm typecheck:web pass
 
   ### Phase 7: Build Validation
 
@@ -460,25 +613,23 @@ content: |
 
   - [x]Export lifecycleDisplayLabels from index.ts
 
-  ### Phase 9: Agent State Integration
+  ### Phase 9: Agent State E2E Verification
 
   **RED:**
 
-  - [x]Write test: deriveState returns done for maintain lifecycle
-  - [x]Write test: deriveState returns done for completed agent status
-  - [x]Write test: deriveState returns error for failed agent status
-  - [x]Write test: deriveState returns action-required for waiting_approval
+  - [ ] Write test: deriveState returns done for maintain lifecycle
+  - [ ] Write test: deriveState returns done for completed agent status
+  - [ ] Write test: deriveState returns error for failed agent status
+  - [ ] Write test: deriveState returns action-required for waiting_approval
 
   **GREEN:**
 
-  - [x]Extend getFeatures() SQL with LEFT JOIN agent_runs
-  - [x]Add agentStatus/agentError to Feature interface and fromRow
-  - [x]Implement deriveState() in page.tsx
-  - [x]Use deriveState when building FeatureNodeData
+  - [ ] Verify deriveState works with DashboardFeature type from bridge
+  - [ ] Update page.tsx to use DashboardFeature fields from bridge module
 
   **REFACTOR:**
 
-  - [x]Ensure error messages propagate from agent_runs.error
+  - [ ] Remove any remaining references to direct SQL in presentation layer
 
   ### Phase 10: Story Updates
 
@@ -486,6 +637,49 @@ content: |
   - [x]Update allLifecycles array
   - [x]Verify AllLifecycles story shows correct display labels
   - [x]pnpm build:storybook passes
+
+  ### Phase 11: Feature Node Badge Improvements
+
+  #### 11A: Agent type icons (task-12)
+
+  - [ ] agentType already flows through DashboardFeature from use case (Phase 6A)
+  - [ ] Create `agent-type-icons.tsx` with `AgentTypeValue` union type mirroring TypeSpec `AgentType` enum
+  - [ ] Implement SVG components: `ClaudeCodeIcon`, `CursorIcon`, `GeminiCliIcon`, `AiderIcon`, `ContinueIcon`, `DefaultAgentIcon`
+  - [ ] Export `getAgentTypeIcon()` resolver
+  - [ ] Add `agentType?: AgentTypeValue` to `FeatureNodeData`
+  - [ ] Pass `agentType` through in `page.tsx` from bridge data
+
+  #### 11B: Badge updates (task-13)
+
+  **RED:**
+
+  - [ ] Write test: featureId is NOT rendered in the card
+  - [ ] Write test: running badge shows lifecycle verb for each phase
+  - [ ] Write test: running badge does not show featureId in text
+
+  **GREEN:**
+
+  - [ ] Remove featureId spans from both views
+  - [ ] Add `lifecycleRunningVerbs` map
+  - [ ] Update `getBadgeText` running case to use lifecycle verb
+  - [ ] Running badge: `[CometSpinner] [AgentTypeIcon] {lifecycle verb}`
+  - [ ] Non-running states: show agent icon before state icon when agentType set
+  - [ ] Remove `agentName` from `FeatureNodeData`
+
+  **REFACTOR:**
+
+  - [ ] Remove unused agentName imports
+  - [ ] Verify badge sizing and spacing
+
+  #### 11C: Tests + Stories (task-14)
+
+  - [ ] Fix test "renders featureId" → assert NOT rendered
+  - [ ] Fix test "agent name and featureId in badge text" → assert lifecycle verb
+  - [ ] Fix test "defaults to Agent" → assert lifecycle verb
+  - [ ] Add tests for all 6 lifecycle running verbs
+  - [ ] Update all story data: replace `agentName` with `agentType`
+  - [ ] Add `AllAgentTypes` story
+  - [ ] Export `lifecycleRunningVerbs` and `getAgentTypeIcon` from `index.ts`
 
   ## TDD Notes
 
@@ -504,14 +698,14 @@ content: |
 
   Before marking feature complete:
 
-  - [x]All 11 tasks completed
-  - [x]Tests passing (`pnpm test`)
-  - [x]Linting clean (`pnpm lint:web`)
-  - [x]Types valid (`pnpm typecheck:web`)
-  - [x]Storybook builds (`pnpm build:storybook`)
-  - [x]Web builds (`pnpm build:web`)
-  - [x]Components follow tier import rules (013-ui-arch)
-  - [x]PR created and reviewed
+  - [ ]All 14 tasks completed (11 done + 3 new)
+  - [ ]Tests passing (`pnpm test`)
+  - [ ]Linting clean (`pnpm lint:web`)
+  - [ ]Types valid (`pnpm typecheck:web`)
+  - [ ]Storybook builds (`pnpm build:storybook`)
+  - [ ]Web builds (`pnpm build:web`)
+  - [ ]Components follow tier import rules (013-ui-arch)
+  - [ ]PR updated and reviewed
 
   ---
 

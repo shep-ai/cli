@@ -3,20 +3,20 @@ feature:
   name: 'control-center'
   number: 16
   branch: 'feat/016-control-center'
-  lifecycle: 'review'
+  lifecycle: 'implementation'
   createdAt: '2026-02-12T20:31:19Z'
 
 status:
-  phase: 'in-review'
+  phase: 'implementation'
   progress:
-    completed: 10
-    total: 10
+    completed: 11
+    total: 13
     removed: 1
-    percentage: 100
-  notes: 'CI green; awaiting human review. 11 tasks defined, 1 removed (task-5 toolbar), 10 completed.'
-  currentTask: null
-  lastUpdated: '2026-02-15T15:55:00Z'
-  lastUpdatedBy: 'shep-kit:commit-pr'
+    percentage: 85
+  notes: 'Reopened tasks 8, 10 — replacing direct SQL with use cases via global DI bridge'
+  currentTask: 'task-8'
+  lastUpdated: '2026-02-15T22:00:00Z'
+  lastUpdatedBy: 'manual'
 
 prUrl: 'https://github.com/shep-ai/cli/pull/49'
 
@@ -26,7 +26,7 @@ validation:
   autoFixesApplied: []
 
 tasks:
-  current: null
+  current: 'task-8'
   blocked: []
   failed: []
 
@@ -40,26 +40,10 @@ checkpoints:
   - phase: 'plan-complete'
     completedAt: '2026-02-12T23:30:00Z'
     completedBy: 'shep-kit:plan'
-  - phase: 'implementation-complete'
-    completedAt: '2026-02-13T00:00:00Z'
-    completedBy: 'shep-kit:implement'
-  - phase: 'pr-created'
-    completedAt: '2026-02-15T15:01:00Z'
-    completedBy: 'shep-kit:commit-pr'
-  - phase: 'ci-green'
-    completedAt: '2026-02-15T15:45:00Z'
-    completedBy: 'shep-kit:commit-pr'
-  - phase: 'review-loop-started'
-    completedAt: '2026-02-15T15:45:00Z'
-    completedBy: 'shep-kit:commit-pr'
-
-reviewLoop:
-  iteration: 0
-  maxIterations: 5
-  commentsAddressed: []
-  commentsRemaining: []
-  status: 'watching'
-  notes: 'No actionable comments found; CI green on all checks'
+  - phase: 'implementation-reopened'
+    completedAt: '2026-02-15T22:00:00Z'
+    completedBy: 'manual'
+    notes: 'Reopened tasks 8, 10 — direct SQL in web layer replaced with use cases via DI bridge'
 
 errors:
   current: null

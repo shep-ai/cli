@@ -138,6 +138,21 @@ decisions:
       waiting_approval→action-required. Reading spec files from disk would couple
       the web UI to the filesystem and is fragile.
 
+  - title: Agent type icon display in feature node badge
+    chosen: Inline SVG components per AgentType with typed union mirroring TypeSpec enum
+    rejected:
+      - Lucide generic icons for all agent types
+      - External icon library (react-icons)
+    rationale: >
+      Each agent type (claude-code, cursor, gemini-cli, aider, continue) needs a
+      distinct brand icon recognizable at 14x14px. Inline SVGs keep the bundle small,
+      avoid external deps, and allow currentColor inheritance for badge theming. A
+      string literal union type (AgentTypeValue) mirrors the TypeSpec AgentType enum
+      since the web package can't import from domain/generated due to Turbopack ESM
+      incompatibility. The CometSpinner is kept as the activity indicator alongside
+      the agent icon in the running state badge. The agent_runs.agent_type column
+      stores the enum value per-run, so each feature knows which agent is working on it.
+
   - title: Maintain lifecycle semantics
     chosen: Maintain = Completed (done state, display label 'COMPLETED')
     rejected:
@@ -149,6 +164,23 @@ decisions:
       support. From the control center perspective, this is a completed feature.
       Displaying it with 'COMPLETED' label and emerald done state gives clear
       visual feedback that no further agent work is needed.
+
+  - title: Web-to-CLI data access bridge pattern
+    chosen: Global DI bridge via globalThis
+    rejected:
+      - Direct SQL queries in web presentation layer
+      - Next.js API routes with manual DB connection
+      - Shared ESM module imports from CLI source
+    rationale: >
+      Next.js (Turbopack) cannot resolve CLI source files that use Node.js ESM
+      .js extension imports. However, the web server runs in the same Node.js
+      process as the CLI (WebServerService starts Next.js programmatically).
+      After initializeContainer(), the CLI bootstrap exposes resolved use case
+      instances via globalThis.__shepUseCases. The web layer reads these without
+      importing any CLI source. Local TypeScript interfaces in the web package
+      mirror the use case contracts for type safety. This preserves Clean
+      Architecture (presentation calls use cases, not SQL) while respecting
+      the Turbopack constraint.
 
 # Open questions (should be resolved by end of research)
 openQuestions: []
@@ -303,6 +335,19 @@ content: |
   **Decision:** Maintain = Completed (done state, "COMPLETED" display label)
 
   **Rationale:** A feature in the Maintain lifecycle has been fully implemented, reviewed, and deployed. From the control center perspective, this is completed work. Emerald done state gives clear visual feedback.
+
+  ### 11. Web-to-CLI Data Access Bridge Pattern
+
+  **Options considered:**
+
+  1. **Global DI bridge via globalThis** — CLI exposes resolved use cases on globalThis, web reads them
+  2. **Direct SQL in web layer** — Web package queries SQLite directly
+  3. **Next.js API routes with manual DB** — Create /api/features that opens its own DB connection
+  4. **Shared ESM module imports** — Import CLI source directly from web package
+
+  **Decision:** Global DI bridge via globalThis
+
+  **Rationale:** Turbopack cannot resolve .js extension imports from CLI source. Direct SQL in the web layer violates Clean Architecture. API routes with their own DB connection duplicate connection management. Since WebServerService starts Next.js in the same Node.js process, globalThis is shared. The CLI bootstrap sets globalThis.__shepUseCases with resolved instances after initializeContainer(). The web package defines local interfaces mirroring use case contracts (no CLI imports needed). This gives the web layer type-safe access to use cases without any Turbopack compatibility issues.
 
   ## Open Questions
 
