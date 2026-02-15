@@ -241,8 +241,89 @@ tasks:
     tdd: null
     estimatedEffort: S
 
+  - id: task-9
+    title: 'Align FeatureLifecyclePhase with domain SdlcLifecycle'
+    description: >
+      Update FeatureLifecyclePhase type to match domain SdlcLifecycle 1:1.
+      Replace invented UI phases ('plan', 'test', 'maintenance') with domain
+      values ('research', 'review', 'maintain'). Add lifecycleDisplayLabels
+      map for human-readable names (maintain→'COMPLETED', deploy→'DEPLOY & QA').
+      Update feature-node.tsx to use display labels. Fix lifecycleMap in page.tsx.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - "FeatureLifecyclePhase type is 'requirements'|'research'|'implementation'|'review'|'deploy'|'maintain'"
+      - 'lifecycleDisplayLabels map exported from feature-node index.ts'
+      - 'feature-node.tsx uses lifecycleDisplayLabels[data.lifecycle] instead of .toUpperCase()'
+      - 'lifecycleMap in page.tsx maps domain values 1:1'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Write test: lifecycleDisplayLabels maps maintain to COMPLETED'
+        - 'Write test: lifecycleDisplayLabels maps deploy to DEPLOY & QA'
+      green:
+        - 'Update FeatureLifecyclePhase type union'
+        - 'Add lifecycleDisplayLabels const'
+        - 'Update feature-node.tsx to use display labels'
+        - 'Fix lifecycleMap in page.tsx'
+      refactor:
+        - 'Export lifecycleDisplayLabels from index.ts'
+    estimatedEffort: S
+
+  - id: task-10
+    title: 'Integrate agent_run status for real feature state'
+    description: >
+      Extend getFeatures() in features.ts to LEFT JOIN with agent_runs table,
+      returning agentStatus and agentError. Add deriveState() function in
+      page.tsx that maps agent_runs.status to FeatureNodeState (running→running,
+      completed→done, failed→error, waiting_approval→action-required).
+      Maintain lifecycle always forces done state.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'getFeatures() returns agentStatus and agentError from agent_runs JOIN'
+      - 'Feature interface includes optional agentStatus and agentError fields'
+      - 'deriveState() maps agent_runs.status to correct FeatureNodeState'
+      - 'Maintain lifecycle always returns done state with progress 100'
+      - 'Features with no agent_run show as running (default)'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Write test: deriveState returns done for maintain lifecycle'
+        - 'Write test: deriveState returns done for completed agent status'
+        - 'Write test: deriveState returns error for failed agent status'
+        - 'Write test: deriveState returns action-required for waiting_approval'
+      green:
+        - 'Extend SQL query with LEFT JOIN agent_runs'
+        - 'Add agentStatus/agentError to Feature interface and fromRow'
+        - 'Implement deriveState function in page.tsx'
+        - 'Use deriveState when building FeatureNodeData'
+      refactor:
+        - 'Ensure error messages propagate from agent_runs.error'
+    estimatedEffort: S
+
+  - id: task-11
+    title: 'Update stories with new lifecycle values'
+    description: >
+      Update all Storybook stories in feature-node.stories.tsx to use new
+      lifecycle phase values. Replace 'plan' with 'research', 'test' with
+      'review', 'maintenance' with 'maintain'. Update allLifecycles array.
+      Verify AllLifecycles story renders correct display labels.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'No old lifecycle values (plan, test, maintenance) in stories'
+      - 'allLifecycles array uses new values'
+      - 'AllLifecycles story shows REQUIREMENTS, RESEARCH, IMPLEMENTATION, REVIEW, DEPLOY & QA, COMPLETED'
+      - 'pnpm build:storybook passes'
+    tdd: null
+    estimatedEffort: S
+
 # Total effort estimate
-totalEstimate: M
+totalEstimate: L
 
 # Open questions
 openQuestions: []
@@ -378,6 +459,51 @@ content: |
   - [ ] `pnpm build:web` passes
   - [ ] All unit tests pass (`pnpm test:unit`)
 
+  ### Phase 8: Lifecycle Alignment
+
+  **RED:**
+
+  - [ ] Write test: lifecycleDisplayLabels maps maintain to COMPLETED
+  - [ ] Write test: lifecycleDisplayLabels maps deploy to DEPLOY & QA
+
+  **GREEN:**
+
+  - [ ] Update FeatureLifecyclePhase type union (plan→research, test→review, maintenance→maintain)
+  - [ ] Add lifecycleDisplayLabels const in feature-node-state-config.ts
+  - [ ] Update feature-node.tsx to use lifecycleDisplayLabels[data.lifecycle]
+  - [ ] Fix lifecycleMap in page.tsx to 1:1 domain mapping
+
+  **REFACTOR:**
+
+  - [ ] Export lifecycleDisplayLabels from index.ts
+
+  ### Phase 9: Agent State Integration
+
+  **RED:**
+
+  - [ ] Write test: deriveState returns done for maintain lifecycle
+  - [ ] Write test: deriveState returns done for completed agent status
+  - [ ] Write test: deriveState returns error for failed agent status
+  - [ ] Write test: deriveState returns action-required for waiting_approval
+
+  **GREEN:**
+
+  - [ ] Extend getFeatures() SQL with LEFT JOIN agent_runs
+  - [ ] Add agentStatus/agentError to Feature interface and fromRow
+  - [ ] Implement deriveState() in page.tsx
+  - [ ] Use deriveState when building FeatureNodeData
+
+  **REFACTOR:**
+
+  - [ ] Ensure error messages propagate from agent_runs.error
+
+  ### Phase 10: Story Updates
+
+  - [ ] Replace old lifecycle values in all story data (plan→research, test→review, maintenance→maintain)
+  - [ ] Update allLifecycles array
+  - [ ] Verify AllLifecycles story shows correct display labels
+  - [ ] pnpm build:storybook passes
+
   ## TDD Notes
 
   - **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
@@ -395,7 +521,7 @@ content: |
 
   Before marking feature complete:
 
-  - [ ] All 7 tasks completed
+  - [ ] All 11 tasks completed
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint:web`)
   - [ ] Types valid (`pnpm typecheck:web`)
