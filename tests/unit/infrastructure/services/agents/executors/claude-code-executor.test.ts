@@ -11,10 +11,8 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import {
-  ClaudeCodeExecutorService,
-  type SpawnFunction,
-} from '../../../../../../src/infrastructure/services/agents/common/executors/claude-code-executor.service.js';
+import { ClaudeCodeExecutorService } from '../../../../../../src/infrastructure/services/agents/common/executors/claude-code-executor.service.js';
+import type { SpawnFunction } from '../../../../../../src/infrastructure/services/agents/common/types.js';
 import { AgentType, AgentFeature } from '../../../../../../src/domain/generated/output.js';
 
 /**

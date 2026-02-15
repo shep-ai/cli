@@ -41,7 +41,7 @@ export function createAgentSelectConfig() {
       {
         name: 'Cursor',
         value: AgentType.Cursor,
-        disabled: '(Coming Soon)',
+        description: 'Cursor AI coding agent',
       },
     ],
     theme: shepTheme,

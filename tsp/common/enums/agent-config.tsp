@@ -7,8 +7,8 @@
  *
  * ## Supported Agents
  *
- * Currently only Claude Code is fully supported. Other agents
- * (Gemini CLI, Aider, Continue, Cursor) are listed for future
+ * Claude Code and Cursor are fully supported. Other agents
+ * (Gemini CLI, Aider, Continue) are listed for future
  * extensibility and appear as "Coming Soon" in the TUI wizard.
  */
 /**
@@ -16,10 +16,10 @@
  *
  * ```
  * claude-code  ← Currently supported
+ * cursor       ← Currently supported
  * gemini-cli   ← Coming Soon
  * aider        ← Coming Soon
  * continue     ← Coming Soon
- * cursor       ← Coming Soon
  * ```
  */
 @doc("AI coding agent tool selection")
@@ -53,10 +53,10 @@ enum AgentType {
   Continue: "continue",
 
   /**
-   * Cursor AI IDE.
-   * Not yet supported — listed for future extensibility.
+   * Cursor AI coding agent.
+   * Supported — uses the `agent` binary for CLI execution.
    */
-  @doc("Cursor AI IDE (coming soon)")
+  @doc("Cursor AI coding agent")
   Cursor: "cursor",
 }
 

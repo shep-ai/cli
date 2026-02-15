@@ -17,21 +17,14 @@ import type {
   AgentValidationResult,
 } from '../../../../application/ports/output/agents/agent-validator.interface.js';
 
-/**
- * Type for the command executor dependency.
- * Matches the promisified signature of child_process.execFile.
- * Injected via constructor to avoid direct node module mocking in tests.
- */
-export type ExecFunction = (
-  file: string,
-  args: string[]
-) => Promise<{ stdout: string; stderr: string }>;
+import type { ExecFunction } from './types.js';
 
 /**
  * Map of supported agent types to their binary command names.
  */
 const AGENT_BINARY_MAP: Partial<Record<AgentType, string>> = {
   'claude-code': 'claude',
+  cursor: 'agent',
 };
 
 /**

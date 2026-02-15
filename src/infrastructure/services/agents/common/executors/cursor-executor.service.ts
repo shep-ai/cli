@@ -1,8 +1,8 @@
 /**
- * Claude Code Executor Service
+ * Cursor Executor Service
  *
- * Infrastructure implementation of IAgentExecutor for Claude Code agent.
- * Executes prompts via the `claude` CLI subprocess with JSON and stream-json
+ * Infrastructure implementation of IAgentExecutor for the Cursor agent.
+ * Executes prompts via the `agent` CLI subprocess with JSON and stream-json
  * output formats.
  *
  * Uses constructor dependency injection for the spawn function
@@ -18,20 +18,15 @@ import type {
 } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
 import type { SpawnFunction } from '../types.js';
 
-/** Features supported by Claude Code CLI */
-const SUPPORTED_FEATURES = new Set<string>([
-  'session-resume',
-  'streaming',
-  'system-prompt',
-  'structured-output',
-]);
+/** Features supported by Cursor CLI */
+const SUPPORTED_FEATURES = new Set<string>(['session-resume', 'streaming']);
 
 /**
- * Executor service for Claude Code agent.
- * Uses subprocess spawning to interact with the `claude` CLI.
+ * Executor service for Cursor agent.
+ * Uses subprocess spawning to interact with the `agent` CLI.
  */
-export class ClaudeCodeExecutorService implements IAgentExecutor {
-  readonly agentType: AgentType = 'claude-code' as AgentType;
+export class CursorExecutorService implements IAgentExecutor {
+  readonly agentType: AgentType = 'cursor' as AgentType;
 
   /** When true, suppresses debug logging (set per-call via options.silent) */
   private silent = false;
@@ -42,41 +37,37 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
   private log(message: string): void {
     if (this.silent) return;
     const ts = new Date().toISOString();
-    process.stdout.write(`[${ts}] [claude-executor] ${message}\n`);
+    process.stdout.write(`[${ts}] [cursor-executor] ${message}\n`);
+  }
+
+  supportsFeature(feature: AgentFeature): boolean {
+    return SUPPORTED_FEATURES.has(feature as string);
   }
 
   async execute(prompt: string, options?: AgentExecutionOptions): Promise<AgentExecutionResult> {
     this.silent = options?.silent ?? false;
-    // Use stream-json so we get real-time events in the worker log
-    // instead of zero output for minutes with --output-format json
     const args = this.buildStreamArgs(prompt, options);
     const spawnOpts = this.buildSpawnOptions(options);
 
     this.log(
-      `Spawning: claude ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
+      `Spawning: agent ${args.map((a) => (a.length > 80 ? `${a.slice(0, 77)}...` : a)).join(' ')}`
     );
     this.log(`Spawn options: ${JSON.stringify(spawnOpts)}`);
 
-    const proc = this.spawn('claude', args, spawnOpts);
-
+    const proc = this.spawn('agent', args, spawnOpts);
     this.log(`Subprocess PID: ${proc.pid ?? 'undefined (spawn may have failed)'}`);
 
-    // Close stdin immediately — we pass the prompt via -p, not stdin.
-    if (proc.stdin) {
-      proc.stdin.end();
-    }
+    if (proc.stdin) proc.stdin.end();
 
     return new Promise<AgentExecutionResult>((resolve, reject) => {
-      // Line-based parsing: only keep the data we need, not all of stdout
       let lineBuffer = '';
       let stderr = '';
       let timedOut = false;
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
-      // Collected from the stream — only the final result line matters
+      // Accumulated from assistant events
       let resultText = '';
       let sessionId: string | undefined;
-      let usage: { inputTokens: number; outputTokens: number } | undefined;
       let metadata: Record<string, unknown> | undefined;
 
       if (options?.timeout) {
@@ -90,25 +81,19 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         this.logStreamEvent(line);
         try {
           const parsed = JSON.parse(line);
-          if (parsed.type === 'result') {
-            resultText = parsed.result ?? '';
-            if (parsed.session_id) sessionId = parsed.session_id;
-            if (parsed.input_tokens !== undefined && parsed.output_tokens !== undefined) {
-              usage = { inputTokens: parsed.input_tokens, outputTokens: parsed.output_tokens };
+          if (parsed.type === 'assistant' && Array.isArray(parsed.message?.content)) {
+            for (const block of parsed.message.content) {
+              if (block.type === 'text' && block.text) resultText += block.text;
             }
-
-            const {
-              type: _t,
-              result: _r,
-              session_id: _s,
-              input_tokens: _it,
-              output_tokens: _ot,
-              ...rest
-            } = parsed;
-            if (Object.keys(rest).length > 0) metadata = rest;
+          } else if (parsed.type === 'result') {
+            if (parsed.session_id) sessionId = parsed.session_id;
+            if (parsed.duration_ms !== undefined) {
+              metadata = { ...metadata, duration_ms: parsed.duration_ms };
+            }
           }
+          // user events and tool_call events: logged but don't affect result
         } catch {
-          /* not JSON — already logged by logStreamEvent */
+          /* malformed JSON — already logged */
         }
       };
 
@@ -135,9 +120,7 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
       });
 
       proc.on('close', (code: number | null) => {
-        // Flush remaining buffer
         if (lineBuffer.trim()) processLine(lineBuffer.trim());
-
         this.log(`Process closed with code ${code}, result=${resultText.length} chars`);
         if (timeoutId) clearTimeout(timeoutId);
 
@@ -153,7 +136,6 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
 
         const result: AgentExecutionResult = { result: resultText };
         if (sessionId) result.sessionId = sessionId;
-        if (usage) result.usage = usage;
         if (metadata) result.metadata = metadata;
         resolve(result);
       });
@@ -166,18 +148,13 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
   ): AsyncIterable<AgentExecutionStreamEvent> {
     const args = this.buildStreamArgs(prompt, options);
     const spawnOpts = this.buildSpawnOptions(options);
-    const proc = this.spawn('claude', args, spawnOpts);
+    const proc = this.spawn('agent', args, spawnOpts);
 
-    // Close stdin immediately - we're not sending input in print mode
-    if (proc.stdin) {
-      proc.stdin.end();
-    }
+    if (proc.stdin) proc.stdin.end();
 
-    // Buffer for incomplete lines
     let lineBuffer = '';
     let stderr = '';
 
-    // Create an async queue to bridge event-based IO to async iteration
     const queue: (AgentExecutionStreamEvent | null)[] = [];
     let resolve: (() => void) | null = null;
     let error: Error | null = null;
@@ -200,17 +177,12 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     proc.stdout?.on('data', (chunk: Buffer | string) => {
       lineBuffer += chunk.toString();
       const lines = lineBuffer.split('\n');
-      // Keep the last partial line in the buffer
       lineBuffer = lines.pop() ?? '';
-
       for (const line of lines) {
         const trimmed = line.trim();
         if (!trimmed) continue;
-
         const event = this.parseStreamLine(trimmed);
-        if (event) {
-          enqueue(event);
-        }
+        if (event) enqueue(event);
       }
     });
 
@@ -220,27 +192,20 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
 
     proc.on('error', (err: Error) => {
       error = err;
-      enqueue(null); // signal end
+      enqueue(null);
     });
 
     proc.on('close', (code: number | null) => {
-      // Process any remaining data in the buffer
       if (lineBuffer.trim()) {
         const event = this.parseStreamLine(lineBuffer.trim());
         if (event) enqueue(event);
       }
-
       if (code !== 0 && code !== null && stderr.trim()) {
-        enqueue({
-          type: 'error',
-          content: stderr.trim(),
-          timestamp: new Date(),
-        });
+        enqueue({ type: 'error', content: stderr.trim(), timestamp: new Date() });
       }
-      enqueue(null); // signal end
+      enqueue(null);
     });
 
-    // Yield events as they arrive
     while (true) {
       await waitForItem();
       const item = queue.shift();
@@ -260,55 +225,47 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
 
   /**
    * Log a stream-json line as a human-readable event in the worker log.
-   * Extracts tool calls, assistant text, and result summaries.
    */
   private logStreamEvent(line: string): void {
     try {
       const parsed = JSON.parse(line);
 
-      // Assistant messages contain tool_use and text blocks
       if (parsed.type === 'assistant' && Array.isArray(parsed.message?.content)) {
         for (const block of parsed.message.content) {
-          if (block.type === 'tool_use') {
-            const inputJson = JSON.stringify(block.input ?? {});
-            this.log(`[tool] ${block.name} ${inputJson}`);
-          } else if (block.type === 'text' && block.text?.trim()) {
+          if (block.type === 'text' && block.text?.trim()) {
             this.log(`[text] ${block.text.trim().replace(/\n/g, ' ')}`);
           }
         }
         return;
       }
 
-      // Final result — summary with session and token info
-      if (parsed.type === 'result') {
-        this.log(
-          `[result] ${(parsed.result ?? '').length} chars, session=${parsed.session_id ?? 'none'}`
-        );
-        if (parsed.input_tokens != null) {
-          this.log(`[tokens] ${parsed.input_tokens} in / ${parsed.output_tokens} out`);
-        }
+      if (parsed.type === 'tool_call') {
+        const toolName =
+          Object.keys(parsed).find((k) => k.endsWith('ToolCall') || k.endsWith('toolCall')) ??
+          'unknown';
+        this.log(`[tool] ${parsed.subtype ?? 'call'}: ${toolName}`);
         return;
       }
-    } catch {
-      // Non-JSON line — log it raw
-      if (line.length > 0) {
-        this.log(`[raw] ${line}`);
+
+      if (parsed.type === 'result') {
+        this.log(
+          `[result] session=${parsed.session_id ?? 'none'}, duration=${parsed.duration_ms ?? 'unknown'}ms`
+        );
+        return;
       }
+
+      if (parsed.type === 'user') return; // Skip echoed input
+    } catch {
+      if (line.length > 0) this.log(`[raw] ${line}`);
     }
   }
 
-  supportsFeature(feature: AgentFeature): boolean {
-    return SUPPORTED_FEATURES.has(feature as string);
-  }
-
   private buildArgs(prompt: string, options?: AgentExecutionOptions): string[] {
-    const args = ['-p', prompt, '--output-format', 'json', '--dangerously-skip-permissions'];
+    const args = ['-p', prompt, '--output-format', 'json', '--force'];
     if (options?.resumeSession) args.push('--resume', options.resumeSession);
-    if (options?.model) args.push('--model', options.model);
-    if (options?.systemPrompt) args.push('--append-system-prompt', options.systemPrompt);
-    if (options?.allowedTools?.length) args.push('--allowedTools', options.allowedTools.join(','));
-    if (options?.outputSchema) args.push('--json-schema', JSON.stringify(options.outputSchema));
-    if (options?.maxTurns) args.push('--max-turns', String(options.maxTurns));
+    if (options?.model) args.push('-m', options.model);
+    // Unsupported options silently omitted: systemPrompt, allowedTools, maxTurns, outputSchema
+    // No auth flags — binary handles its own auth
     return args;
   }
 
@@ -316,9 +273,6 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     const args = this.buildArgs(prompt, options);
     const fmtIdx = args.indexOf('--output-format');
     if (fmtIdx !== -1) args[fmtIdx + 1] = 'stream-json';
-    // stream-json requires --verbose and --include-partial-messages when using -p (--print)
-    // --no-chrome ensures it runs in non-interactive mode without browser integration
-    args.push('--verbose', '--include-partial-messages', '--no-chrome');
     return args;
   }
 
@@ -328,75 +282,40 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
     return spawnOpts;
   }
 
-  private parseJsonResult(stdout: string): AgentExecutionResult {
-    const trimmed = stdout.trim();
-
-    try {
-      const parsed = JSON.parse(trimmed);
-      const result: AgentExecutionResult = {
-        result: parsed.result ?? trimmed,
-      };
-
-      if (parsed.session_id) {
-        result.sessionId = parsed.session_id;
-      }
-
-      if (parsed.input_tokens !== undefined && parsed.output_tokens !== undefined) {
-        result.usage = {
-          inputTokens: parsed.input_tokens,
-          outputTokens: parsed.output_tokens,
-        };
-      }
-
-      // Store additional metadata
-      const { result: _r, session_id: _s, input_tokens: _it, output_tokens: _ot, ...rest } = parsed;
-      if (Object.keys(rest).length > 0) {
-        result.metadata = rest;
-      }
-
-      return result;
-    } catch {
-      // If stdout is not valid JSON, treat it as raw text result
-      return { result: trimmed };
-    }
-  }
-
   private parseStreamLine(line: string): AgentExecutionStreamEvent | null {
     try {
       const parsed = JSON.parse(line);
 
-      // Handle Claude Code stream_json format with nested events
-      if (parsed.type === 'stream_event' && parsed.event) {
-        const { event } = parsed;
-
-        // Extract text deltas for progress
-        if (event.type === 'content_block_delta' && event.delta?.text) {
-          return {
-            type: 'progress',
-            content: event.delta.text,
-            timestamp: new Date(),
-          };
+      if (parsed.type === 'assistant' && Array.isArray(parsed.message?.content)) {
+        const textParts: string[] = [];
+        for (const block of parsed.message.content) {
+          if (block.type === 'text' && block.text) textParts.push(block.text);
         }
-
-        // Message complete - ignore for now (accumulated text is in progress events)
-        if (event.type === 'message_stop') {
-          return null;
+        if (textParts.length > 0) {
+          return { type: 'progress', content: textParts.join(''), timestamp: new Date() };
         }
-      }
-
-      // Ignore assistant messages - we already get all text via content_block_delta events
-      if (parsed.type === 'assistant') {
         return null;
       }
 
-      // Handle legacy format (backward compatibility)
-      if (parsed.type === 'result') {
-        return {
-          type: 'result',
-          content: parsed.result ?? '',
-          timestamp: new Date(),
-        };
+      if (parsed.type === 'tool_call' && parsed.subtype === 'completed') {
+        const toolName =
+          Object.keys(parsed).find((k) => k.endsWith('ToolCall') || k.endsWith('toolCall')) ??
+          'tool';
+        return { type: 'progress', content: `Tool completed: ${toolName}`, timestamp: new Date() };
       }
+
+      if (parsed.type === 'tool_call' && parsed.subtype === 'started') {
+        const toolName =
+          Object.keys(parsed).find((k) => k.endsWith('ToolCall') || k.endsWith('toolCall')) ??
+          'tool';
+        return { type: 'progress', content: `Tool started: ${toolName}`, timestamp: new Date() };
+      }
+
+      if (parsed.type === 'result') {
+        return { type: 'result', content: parsed.session_id ?? '', timestamp: new Date() };
+      }
+
+      if (parsed.type === 'user') return null; // Skip echoed input
 
       if (parsed.type === 'error') {
         return {
@@ -406,25 +325,9 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
         };
       }
 
-      // Generic progress for other event types (ensure content is a string)
-      if (parsed.content || parsed.message) {
-        const rawContent = parsed.content ?? parsed.message;
-        const content = typeof rawContent === 'string' ? rawContent : JSON.stringify(rawContent);
-        return {
-          type: 'progress',
-          content,
-          timestamp: new Date(),
-        };
-      }
-
       return null;
     } catch {
-      // Non-JSON line, treat as progress text
-      return {
-        type: 'progress',
-        content: line,
-        timestamp: new Date(),
-      };
+      return { type: 'progress', content: line, timestamp: new Date() };
     }
   }
 }

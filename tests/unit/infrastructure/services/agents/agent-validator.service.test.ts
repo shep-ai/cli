@@ -9,10 +9,8 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import {
-  AgentValidatorService,
-  type ExecFunction,
-} from '../../../../../src/infrastructure/services/agents/common/agent-validator.service.js';
+import { AgentValidatorService } from '../../../../../src/infrastructure/services/agents/common/agent-validator.service.js';
+import type { ExecFunction } from '../../../../../src/infrastructure/services/agents/common/types.js';
 import { AgentType } from '../../../../../src/domain/generated/output.js';
 
 describe('AgentValidatorService', () => {
@@ -113,14 +111,23 @@ describe('AgentValidatorService', () => {
       expect(result.available).toBe(false);
       expect(result.error).toContain('not supported yet');
     });
+  });
 
-    it('should return not available for cursor', async () => {
+  describe('isAvailable - cursor', () => {
+    it('should return available with version when binary is found', async () => {
+      // Arrange
+      vi.mocked(mockExec).mockResolvedValue({
+        stdout: '0.48.0\n',
+        stderr: '',
+      });
+
       // Act
       const result = await service.isAvailable(AgentType.Cursor);
 
       // Assert
-      expect(result.available).toBe(false);
-      expect(result.error).toContain('not supported yet');
+      expect(result.available).toBe(true);
+      expect(result.version).toBe('0.48.0');
+      expect(mockExec).toHaveBeenCalledWith('agent', ['--version']);
     });
   });
 });
