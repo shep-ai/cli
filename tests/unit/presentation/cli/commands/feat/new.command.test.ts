@@ -22,6 +22,13 @@ vi.mock('../../../../../../src/application/use-cases/features/create-feature.use
   },
 }));
 
+vi.mock(
+  '../../../../../../src/infrastructure/services/filesystem/shep-directory.service.js',
+  () => ({
+    SHEP_HOME_DIR: '/home/test/.shep',
+  })
+);
+
 vi.mock('../../../../../../src/presentation/cli/ui/index.js', () => ({
   colors: {
     muted: (s: string) => s,
@@ -57,6 +64,7 @@ describe('createNewCommand', () => {
       branch: 'feat/test-feature',
       lifecycle: 'Requirements',
       agentRunId: 'run-001',
+      specPath: '/specs/001-test-feature',
     });
   });
 
@@ -128,6 +136,28 @@ describe('createNewCommand', () => {
     });
   });
 
+  it('should show worktree path in output', async () => {
+    const cmd = createNewCommand();
+    await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+    const logCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls
+      .map((args) => args.join(' '))
+      .join('\n');
+    expect(logCalls).toMatch(/worktree/i);
+    expect(logCalls).toMatch(/\.shep/);
+  });
+
+  it('should show spec path in output', async () => {
+    const cmd = createNewCommand();
+    await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+    const logCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls
+      .map((args) => args.join(' '))
+      .join('\n');
+    expect(logCalls).toMatch(/spec/i);
+    expect(logCalls).toMatch(/001-test-feature/);
+  });
+
   it('should show approval behavior hint in output', async () => {
     const cmd = createNewCommand();
     await cmd.parseAsync(['Add feature'], { from: 'user' });
@@ -135,7 +165,17 @@ describe('createNewCommand', () => {
     const logCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls
       .map((args) => args.join(' '))
       .join('\n');
-    expect(logCalls).toMatch(/approval|review|pause/i);
+    expect(logCalls).toMatch(/pause after every phase/);
+  });
+
+  it('should show specific hint for --allow-prd', async () => {
+    const cmd = createNewCommand();
+    await cmd.parseAsync(['Add feature', '--allow-prd'], { from: 'user' });
+
+    const logCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls
+      .map((args) => args.join(' '))
+      .join('\n');
+    expect(logCalls).toMatch(/auto-approve through requirements/);
   });
 
   it('should set exitCode 1 on error', async () => {
