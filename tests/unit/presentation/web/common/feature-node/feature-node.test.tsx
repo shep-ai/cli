@@ -8,11 +8,7 @@ import {
   getAgentTypeIcon,
 } from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureNodeType } from '@/components/common/feature-node';
-import {
-  ClaudeCodeIcon,
-  CursorIcon,
-  DefaultAgentIcon,
-} from '@/components/common/feature-node/agent-type-icons';
+import { DefaultAgentIcon } from '@/components/common/feature-node/agent-type-icons';
 
 const nodeTypes = { featureNode: FeatureNode };
 
@@ -268,12 +264,16 @@ describe('FeatureNode', () => {
   });
 
   describe('getAgentTypeIcon', () => {
-    it('returns ClaudeCodeIcon for claude-code', () => {
-      expect(getAgentTypeIcon('claude-code')).toBe(ClaudeCodeIcon);
+    it('returns a brand icon component for claude-code', () => {
+      const icon = getAgentTypeIcon('claude-code');
+      expect(icon).not.toBe(DefaultAgentIcon);
+      expect(icon.displayName).toBe('BrandIcon(Claude Code)');
     });
 
-    it('returns CursorIcon for cursor', () => {
-      expect(getAgentTypeIcon('cursor')).toBe(CursorIcon);
+    it('returns a brand icon component for cursor', () => {
+      const icon = getAgentTypeIcon('cursor');
+      expect(icon).not.toBe(DefaultAgentIcon);
+      expect(icon.displayName).toBe('BrandIcon(Cursor)');
     });
 
     it('returns DefaultAgentIcon for undefined', () => {
