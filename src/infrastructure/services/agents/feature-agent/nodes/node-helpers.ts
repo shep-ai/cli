@@ -6,12 +6,13 @@
  */
 
 import yaml from 'js-yaml';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type {
   IAgentExecutor,
   AgentExecutionOptions,
+  AgentExecutionResult,
 } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
@@ -52,6 +53,8 @@ export function readSpecFile(specDir: string, filename: string): string {
 export function buildExecutorOptions(state: FeatureAgentState): AgentExecutionOptions {
   return {
     cwd: state.worktreePath || state.repositoryPath,
+    maxTurns: 50,
+    disableMcp: true,
   };
 }
 
@@ -99,6 +102,128 @@ export function shouldInterrupt(nodeName: string, approvalMode: string | undefin
   if (!approvalMode || approvalMode === 'allow-all') return false;
   const autoApproved = AUTO_APPROVED_NODES[approvalMode] ?? [];
   return !autoApproved.includes(nodeName);
+}
+
+/* ------------------------------------------------------------------ */
+/*  Error classification & retry                                      */
+/* ------------------------------------------------------------------ */
+
+export type ErrorCategory = 'retryable-api' | 'retryable-network' | 'non-retryable' | 'unknown';
+
+const API_ERROR_RE = /API Error: (400|429|5\d{2})/;
+const NETWORK_ERROR_RE = /ECONNREFUSED|ETIMEDOUT|ENOTFOUND|timed out/i;
+const NON_RETRYABLE_RE = /Process exited with code|ENOENT|SyntaxError/;
+
+/**
+ * Classify an error message into a retry category.
+ *
+ * - **retryable-api**: Transient API errors (rate-limit, overload, bad request)
+ * - **retryable-network**: Network-level failures (DNS, timeouts, connection refused)
+ * - **non-retryable**: Logic / filesystem / syntax errors that won't resolve on retry
+ * - **unknown**: Anything unrecognised (callers may choose to retry cautiously)
+ */
+export function classifyError(errorMessage: string): ErrorCategory {
+  if (API_ERROR_RE.test(errorMessage)) return 'retryable-api';
+  if (NETWORK_ERROR_RE.test(errorMessage)) return 'retryable-network';
+  if (NON_RETRYABLE_RE.test(errorMessage)) return 'non-retryable';
+  return 'unknown';
+}
+
+export interface RetryOptions {
+  /** Maximum number of execution attempts (default 3). */
+  maxAttempts?: number;
+  /** Base delay in ms before the first retry (default 2000). Doubles each retry. */
+  baseDelayMs?: number;
+  /** Optional logger for retry messages. */
+  logger?: NodeLogger;
+}
+
+/**
+ * Execute a prompt via the given executor with automatic retry and
+ * exponential back-off for transient errors.
+ *
+ * Non-retryable errors are thrown immediately. Unknown errors are
+ * retried (conservative stance: could be transient).
+ */
+export async function retryExecute(
+  executor: IAgentExecutor,
+  prompt: string,
+  options: AgentExecutionOptions,
+  retryOpts?: RetryOptions
+): Promise<AgentExecutionResult> {
+  const maxAttempts = retryOpts?.maxAttempts ?? 3;
+  const baseDelayMs = retryOpts?.baseDelayMs ?? 2000;
+  const log = retryOpts?.logger;
+
+  let lastError: Error | undefined;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await executor.execute(prompt, options);
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      const category = classifyError(lastError.message);
+
+      if (category === 'non-retryable') {
+        throw lastError;
+      }
+
+      if (attempt < maxAttempts) {
+        const delayMs = baseDelayMs * Math.pow(2, attempt - 1);
+        log?.info(
+          `Attempt ${attempt}/${maxAttempts} failed (${category}), retrying in ${delayMs}ms`
+        );
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+      }
+    }
+  }
+
+  throw lastError!;
+}
+
+/**
+ * Read completed phases from feature.yaml.
+ */
+export function getCompletedPhases(specDir: string): string[] {
+  const content = readSpecFile(specDir, 'feature.yaml');
+  if (!content) return [];
+  try {
+    const data = yaml.load(content) as Record<string, unknown>;
+    const status = (data?.status ?? {}) as Record<string, unknown>;
+    const phases = status.completedPhases;
+    return Array.isArray(phases) ? phases : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Mark a phase as complete in feature.yaml by adding its ID to completedPhases.
+ */
+export function markPhaseComplete(specDir: string, phaseId: string, log?: NodeLogger): void {
+  try {
+    const content = readSpecFile(specDir, 'feature.yaml');
+    if (!content) return;
+    const data = yaml.load(content) as Record<string, unknown>;
+    if (!data || typeof data !== 'object') return;
+    const status = (data.status ?? {}) as Record<string, unknown>;
+    const completedPhases = Array.isArray(status.completedPhases)
+      ? [...status.completedPhases]
+      : [];
+    if (!completedPhases.includes(phaseId)) {
+      completedPhases.push(phaseId);
+    }
+    data.status = { ...status, completedPhases };
+    writeFileSync(
+      join(specDir, 'feature.yaml'),
+      yaml.dump(data, { indent: 2, lineWidth: -1 }),
+      'utf-8'
+    );
+  } catch (err) {
+    log?.error(
+      `Failed to mark phase complete: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
 }
 
 /**

@@ -71,6 +71,10 @@ export interface AgentExecutionOptions {
   timeout?: number;
   /** Suppress executor debug logging (e.g. for quick foreground calls) */
   silent?: boolean;
+  /** When true, adds --strict-mcp-config to disable all MCP tools */
+  disableMcp?: boolean;
+  /** Restrict available built-in tools via --tools flag */
+  tools?: string[];
 }
 
 /**
