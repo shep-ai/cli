@@ -3,11 +3,11 @@ feature:
   name: 'control-center'
   number: 16
   branch: 'feat/016-control-center'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-12T20:31:19Z'
 
 status:
-  phase: 'ready-for-review'
+  phase: 'in-review'
   progress:
     completed: 13
     total: 13
@@ -47,6 +47,9 @@ checkpoints:
   - phase: 'implementation-complete'
     completedAt: '2026-02-16T05:22:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-16T05:25:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
