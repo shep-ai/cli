@@ -22,6 +22,8 @@ export interface ControlCenterState {
   handleLayout: (direction: LayoutDirection) => void;
 }
 
+let nextFeatureId = 0;
+
 export function useControlCenterState(
   initialNodes: CanvasNodeType[],
   initialEdges: Edge[]
@@ -85,58 +87,115 @@ export function useControlCenterState(
     });
   }, []);
 
-  const createFeatureNode = useCallback((sourceNodeId: string | null) => {
-    const id = `feature-${Date.now()}`;
-    const newFeatureData: FeatureNodeData = {
-      name: 'New Feature',
-      description: 'Describe what this feature does',
-      featureId: `#${id.slice(-4)}`,
-      lifecycle: 'requirements',
-      state: 'running',
-      progress: 0,
-    };
+  const createFeatureNode = useCallback(
+    (sourceNodeId: string | null) => {
+      const id = `feature-${Date.now()}-${nextFeatureId++}`;
+      const newFeatureData: FeatureNodeData = {
+        name: 'New Feature',
+        description: 'Describe what this feature does',
+        featureId: `#${id.slice(-4)}`,
+        lifecycle: 'requirements',
+        state: 'running',
+        progress: 0,
+      };
 
-    setNodes((currentNodes) => {
-      let position = { x: 400, y: 200 };
+      setNodes((currentNodes) => {
+        // Find siblings connected to the same parent
+        const siblingIds = sourceNodeId
+          ? new Set(edges.filter((e) => e.source === sourceNodeId).map((e) => e.target))
+          : new Set<string>();
+        const siblings = currentNodes.filter((n) => siblingIds.has(n.id));
+
+        let position: { x: number; y: number };
+
+        if (siblings.length > 0) {
+          // Place below the bottom-most sibling, matching X
+          const sortedYs = siblings.map((n) => n.position.y).sort((a, b) => a - b);
+          const maxY = sortedYs[sortedYs.length - 1];
+          // Derive gap from existing spacing between siblings, or use default
+          const gap = sortedYs.length > 1 ? sortedYs[1] - sortedYs[0] : 160;
+          position = { x: siblings[0].position.x, y: maxY + gap };
+        } else if (sourceNodeId) {
+          // First child — position to the right of parent
+          const parent = currentNodes.find((n) => n.id === sourceNodeId);
+          position = parent
+            ? { x: parent.position.x + 280, y: parent.position.y }
+            : { x: 400, y: 200 };
+        } else {
+          // Standalone feature — place below all existing nodes
+          const maxY =
+            currentNodes.length > 0 ? Math.max(...currentNodes.map((n) => n.position.y)) : 0;
+          position = { x: 400, y: currentNodes.length > 0 ? maxY + 160 : 200 };
+        }
+
+        // The new node's bottom edge (featureNode height = 140)
+        const newBottom = position.y + 140;
+
+        // Find the old group bottom before adding the new node
+        const groupNodeIds = new Set([sourceNodeId, ...siblingIds]);
+        const oldGroupBottom = currentNodes
+          .filter((n) => groupNodeIds.has(n.id))
+          .reduce((max, n) => {
+            const h = n.type === 'featureNode' ? 140 : 50;
+            return Math.max(max, n.position.y + h);
+          }, 0);
+
+        // Shift amount: how much the group grew past its old bottom
+        const shift = Math.max(0, newBottom - oldGroupBottom);
+
+        // Push down all nodes that are below the old group bottom
+        const shifted =
+          shift > 0
+            ? currentNodes.map((n) => {
+                if (groupNodeIds.has(n.id) || siblingIds.has(n.id)) return n;
+                if (n.position.y >= oldGroupBottom) {
+                  return { ...n, position: { ...n.position, y: n.position.y + shift } };
+                }
+                return n;
+              })
+            : currentNodes;
+
+        // Re-center the parent repo node vertically to its children
+        const recentered = sourceNodeId
+          ? shifted.map((n) => {
+              if (n.id !== sourceNodeId) return n;
+              const allChildYs = [...siblings.map((s) => s.position.y), position.y];
+              const groupCenter = (Math.min(...allChildYs) + Math.max(...allChildYs) + 140) / 2;
+              const repoHeight = 50;
+              return {
+                ...n,
+                position: { ...n.position, y: groupCenter - repoHeight / 2 },
+              };
+            })
+          : shifted;
+
+        return [
+          ...recentered,
+          {
+            id,
+            type: 'featureNode' as const,
+            position,
+            data: newFeatureData,
+          } as CanvasNodeType,
+        ];
+      });
 
       if (sourceNodeId) {
-        const sourceNode = currentNodes.find((n) => n.id === sourceNodeId);
-        if (sourceNode) {
-          // Position to the right of source, offset vertically for each child
-          const existingChildren = currentNodes.filter(
-            (n) => n.type === 'featureNode' && n.position.x === sourceNode.position.x + 280
-          );
-          position = {
-            x: sourceNode.position.x + 280,
-            y: sourceNode.position.y + existingChildren.length * 160,
-          };
-        }
+        setEdges((currentEdges) => [
+          ...currentEdges,
+          {
+            id: `edge-${sourceNodeId}-${id}`,
+            source: sourceNodeId,
+            target: id,
+            style: { strokeDasharray: '5 5' },
+          },
+        ]);
       }
 
-      const newNode = {
-        id,
-        type: 'featureNode' as const,
-        position,
-        data: newFeatureData,
-      } as CanvasNodeType;
-
-      return [...currentNodes, newNode];
-    });
-
-    if (sourceNodeId) {
-      setEdges((currentEdges) => [
-        ...currentEdges,
-        {
-          id: `edge-${sourceNodeId}-${id}`,
-          source: sourceNodeId,
-          target: id,
-          style: { strokeDasharray: '5 5' },
-        },
-      ]);
-    }
-
-    setSelectedNode(newFeatureData);
-  }, []);
+      setSelectedNode(newFeatureData);
+    },
+    [edges]
+  );
 
   const handleAddFeature = useCallback(() => {
     createFeatureNode(null);
