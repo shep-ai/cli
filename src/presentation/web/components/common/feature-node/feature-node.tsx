@@ -3,7 +3,6 @@
 import { Handle, Position } from '@xyflow/react';
 import { Settings, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { CometSpinner } from '@/components/ui/comet-spinner';
 import {
   featureNodeStateConfig,
   lifecycleDisplayLabels,
@@ -101,14 +100,30 @@ export function FeatureNode({
 
         {/* Bottom section — pushed to bottom for consistent card height */}
         <div className="mt-auto pt-2">
-          {config.showProgressBar ? (
+          {data.state === 'running' ? (
+            <>
+              {/* Running status: agent icon + verb */}
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+                <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
+                <span className="text-muted-foreground">{getBadgeText(data)}</span>
+              </div>
+
+              {/* Indeterminate progress bar */}
+              <div
+                data-testid="feature-node-progress-bar"
+                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
+              >
+                <div className="animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
+              </div>
+            </>
+          ) : config.showProgressBar ? (
             <>
               {/* Bottom row: progress percentage */}
               <div className="text-muted-foreground flex items-center justify-end text-[10px]">
                 <span>{data.progress}%</span>
               </div>
 
-              {/* Progress bar */}
+              {/* Determinate progress bar */}
               <div
                 data-testid="feature-node-progress-bar"
                 className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
@@ -128,18 +143,8 @@ export function FeatureNode({
                 config.badgeClass
               )}
             >
-              {data.state === 'running' ? (
-                <>
-                  <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{getBadgeText(data)}</span>
-                  <CometSpinner size="sm" className="shrink-0" />
-                </>
-              ) : (
-                <>
-                  <Icon className="h-3.5 w-3.5 shrink-0" />
-                  <span className="truncate">{getBadgeText(data)}</span>
-                </>
-              )}
+              <Icon className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">{getBadgeText(data)}</span>
             </div>
           )}
         </div>
