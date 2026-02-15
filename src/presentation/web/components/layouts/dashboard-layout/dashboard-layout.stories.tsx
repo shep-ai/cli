@@ -37,15 +37,15 @@ export const WithContent: Story = {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <div className="rounded-lg border p-4">
           <h3 className="font-semibold">Auth Module</h3>
-          <p className="text-muted-foreground text-sm">User authentication and authorization</p>
+          <p className="text-sm text-muted-foreground">User authentication and authorization</p>
         </div>
         <div className="rounded-lg border p-4">
           <h3 className="font-semibold">Dashboard</h3>
-          <p className="text-muted-foreground text-sm">Analytics and reporting</p>
+          <p className="text-sm text-muted-foreground">Analytics and reporting</p>
         </div>
         <div className="rounded-lg border p-4">
           <h3 className="font-semibold">API Gateway</h3>
-          <p className="text-muted-foreground text-sm">Request routing and rate limiting</p>
+          <p className="text-sm text-muted-foreground">Request routing and rate limiting</p>
         </div>
       </div>
     ),
@@ -58,7 +58,7 @@ export const WithActions: Story = {
     pathname: '/features',
     title: 'Features',
     actions: (
-      <button className="bg-primary text-primary-foreground rounded-md px-4 py-2 text-sm">
+      <button className="rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground">
         New Feature
       </button>
     ),

@@ -17,7 +17,7 @@ interface InfoRowProps {
 function InfoRow({ label, value, badge, badgeVariant = 'secondary' }: InfoRowProps) {
   return (
     <div className="flex items-center justify-between py-2">
-      <span className="text-muted-foreground text-sm">{label}</span>
+      <span className="text-sm text-muted-foreground">{label}</span>
       {badge ? (
         <Badge variant={badgeVariant}>{value}</Badge>
       ) : (
@@ -38,7 +38,7 @@ export default function VersionPageClient({ versionInfo, systemInfo }: VersionPa
       <div className="w-full max-w-2xl space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold tracking-tight">{versionInfo.name}</h1>
-          <p className="text-muted-foreground mt-2">{versionInfo.description}</p>
+          <p className="mt-2 text-muted-foreground">{versionInfo.description}</p>
           <div className="mt-4">
             <Badge variant="default" data-testid="version-badge">
               v{versionInfo.version}

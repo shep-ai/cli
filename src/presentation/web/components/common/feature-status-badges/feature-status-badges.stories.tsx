@@ -12,7 +12,7 @@ const meta: Meta<typeof FeatureStatusBadges> = {
   decorators: [
     (Story) => (
       <SidebarProvider defaultOpen={false}>
-        <div className="bg-sidebar flex w-12 justify-center rounded-md p-2">
+        <div className="flex w-12 justify-center rounded-md bg-sidebar p-2">
           <Story />
         </div>
       </SidebarProvider>

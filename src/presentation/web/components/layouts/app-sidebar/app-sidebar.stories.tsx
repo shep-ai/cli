@@ -21,7 +21,7 @@ const meta: Meta<typeof AppSidebar> = {
           <Story />
           <SidebarInset aria-label="Main content">
             <div className="flex items-center gap-2 border-b px-4 py-2">
-              <span className="text-muted-foreground text-sm">Content area</span>
+              <span className="text-sm text-muted-foreground">Content area</span>
             </div>
           </SidebarInset>
         </SidebarProvider>
