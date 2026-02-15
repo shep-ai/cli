@@ -258,7 +258,8 @@ export default tseslint.config(
       '@next/next/no-sync-scripts': 'error',
 
       // Tailwind CSS rules
-      'tailwindcss/classnames-order': 'warn',
+      // Class sorting is handled by prettier-plugin-tailwindcss
+      'tailwindcss/classnames-order': 'off',
       'tailwindcss/no-contradicting-classname': 'error',
       'tailwindcss/no-unnecessary-arbitrary-value': 'warn',
       'tailwindcss/enforces-shorthand': 'warn',
