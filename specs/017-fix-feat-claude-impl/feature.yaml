@@ -1,0 +1,36 @@
+feature:
+  id: '017-fix-feat-claude-impl'
+  name: 'fix-feat-claude-impl'
+  number: 17
+  branch: 'fix/feat-claude-impl'
+  lifecycle: 'research'
+  createdAt: '2026-02-15T13:57:38Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-15T13:57:38Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-15T13:57:38Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
