@@ -22,6 +22,8 @@ import { AgentRunStatus } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
+import { setPhaseTimingContext } from './phase-timing-context.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 
 import type { ApprovalGates } from '@/domain/generated/output.js';
 
@@ -166,6 +168,10 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
 
   // Set heartbeat context so node-helpers can update current node
   setHeartbeatContext(args.runId, runRepository);
+
+  // Set phase timing context so executeNode() records per-phase durations
+  const timingRepository = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
+  setPhaseTimingContext(args.runId, timingRepository);
 
   try {
     const graphConfig = { configurable: { thread_id: checkpointId } };
