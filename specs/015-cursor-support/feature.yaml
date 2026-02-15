@@ -3,18 +3,20 @@ feature:
   name: 'cursor-support'
   number: 15
   branch: 'feat/015-cursor-support'
-  lifecycle: 'research'
+  lifecycle: 'review'
   createdAt: '2026-02-14T18:04:57Z'
 
 status:
-  phase: 'ready-for-review'
+  phase: 'in-review'
   progress:
     completed: 10
     total: 10
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-14T21:26:00Z'
-  lastUpdatedBy: 'shep-kit:implement'
+  lastUpdated: '2026-02-15T00:00:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/50'
 
 validation:
   lastRun: null
@@ -33,6 +35,9 @@ checkpoints:
   - phase: 'implementation-complete'
     completedAt: '2026-02-14T21:26:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-15T00:00:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
