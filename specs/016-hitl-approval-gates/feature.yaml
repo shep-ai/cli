@@ -7,13 +7,13 @@ feature:
   createdAt: '2026-02-15T13:37:36Z'
 
 status:
-  phase: 'implementing'
+  phase: 'ready-for-review'
   progress:
-    completed: 3
+    completed: 12
     total: 12
-    percentage: 25
-  currentTask: 'task-4'
-  lastUpdated: '2026-02-15T16:35:00Z'
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-15T17:40:00Z'
   lastUpdatedBy: 'shep-kit:implement'
 
 validation:
@@ -24,7 +24,7 @@ validation:
   autoFixesApplied: []
 
 tasks:
-  current: 'task-4'
+  current: null
   blocked: []
   failed: []
 
@@ -38,6 +38,9 @@ checkpoints:
   - phase: 'plan-complete'
     completedAt: '2026-02-15T15:30:00Z'
     completedBy: 'shep-kit:plan'
+  - phase: 'implementation-complete'
+    completedAt: '2026-02-15T17:40:00Z'
+    completedBy: 'shep-kit:implement'
 
 errors:
   current: null
