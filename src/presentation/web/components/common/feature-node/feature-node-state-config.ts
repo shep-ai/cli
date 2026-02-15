@@ -1,4 +1,4 @@
-import { Loader2, CircleAlert, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
+import { Loader2, AlertTriangle, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
 import type { Node } from '@xyflow/react';
 import type { AgentTypeValue } from './agent-type-icons';
 
@@ -78,12 +78,12 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     showProgressBar: false,
   },
   'action-required': {
-    icon: CircleAlert,
+    icon: AlertTriangle,
     borderClass: 'border-l-amber-500',
     labelClass: 'text-amber-500',
     progressClass: 'bg-amber-500',
-    badgeClass: 'text-amber-700',
-    badgeBgClass: 'bg-amber-50',
+    badgeClass: 'text-amber-800',
+    badgeBgClass: 'bg-amber-50 border border-amber-200',
     label: 'User action required',
     showProgressBar: false,
   },
