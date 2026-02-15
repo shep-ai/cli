@@ -31,6 +31,7 @@ interface FeatureRow {
   updated_at: number;
   agent_status: string | null;
   agent_error: string | null;
+  agent_result: string | null;
 }
 
 /** Domain Feature object returned to the UI. */
@@ -45,6 +46,8 @@ export interface Feature {
   specPath?: string;
   agentStatus?: string;
   agentError?: string;
+  /** Current agent graph node, e.g. "node:plan". */
+  agentResult?: string;
 }
 
 function fromRow(row: FeatureRow): Feature {
@@ -59,6 +62,7 @@ function fromRow(row: FeatureRow): Feature {
     ...(row.spec_path !== null && { specPath: row.spec_path }),
     ...(row.agent_status !== null && { agentStatus: row.agent_status }),
     ...(row.agent_error !== null && { agentError: row.agent_error }),
+    ...(row.agent_result !== null && { agentResult: row.agent_result }),
   };
 }
 
@@ -74,7 +78,7 @@ export async function getFeatures(): Promise<Feature[]> {
     const db = new Database(dbPath, { readonly: true });
     const rows = db
       .prepare(
-        'SELECT f.*, ar.status as agent_status, ar.error as agent_error FROM features f LEFT JOIN agent_runs ar ON f.agent_run_id = ar.id'
+        'SELECT f.*, ar.status as agent_status, ar.error as agent_error, ar.result as agent_result FROM features f LEFT JOIN agent_runs ar ON f.agent_run_id = ar.id'
       )
       .all() as FeatureRow[];
     db.close();
