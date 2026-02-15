@@ -44,14 +44,14 @@ export class SQLiteAgentRunRepository implements IAgentRunRepository {
         started_at, completed_at, error,
         feature_id, repository_path,
         created_at, updated_at,
-        approval_mode, approval_status
+        approval_gates
       ) VALUES (
         @id, @agent_type, @agent_name, @status, @prompt, @result,
         @session_id, @thread_id, @pid, @last_heartbeat,
         @started_at, @completed_at, @error,
         @feature_id, @repository_path,
         @created_at, @updated_at,
-        @approval_mode, @approval_status
+        @approval_gates
       )
     `);
 
@@ -127,14 +127,9 @@ export class SQLiteAgentRunRepository implements IAgentRunRepository {
       params.error = updates.error;
     }
 
-    if (updates?.approvalMode !== undefined) {
-      setClauses.push('approval_mode = @approval_mode');
-      params.approval_mode = updates.approvalMode;
-    }
-
-    if (updates?.approvalStatus !== undefined) {
-      setClauses.push('approval_status = @approval_status');
-      params.approval_status = updates.approvalStatus;
+    if (updates?.approvalGates !== undefined) {
+      setClauses.push('approval_gates = @approval_gates');
+      params.approval_gates = JSON.stringify(updates.approvalGates);
     }
 
     const stmt = this.db.prepare(`UPDATE agent_runs SET ${setClauses.join(', ')} WHERE id = @id`);

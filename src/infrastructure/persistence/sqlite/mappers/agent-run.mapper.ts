@@ -10,7 +10,7 @@
  * - AgentType and AgentRunStatus stored as string values
  */
 
-import type { AgentRun } from '../../../../domain/generated/output.js';
+import type { AgentRun, ApprovalGates } from '../../../../domain/generated/output.js';
 import { type AgentType, type AgentRunStatus } from '../../../../domain/generated/output.js';
 
 /**
@@ -35,8 +35,7 @@ export interface AgentRunRow {
   repository_path: string | null;
   created_at: number;
   updated_at: number;
-  approval_mode: string | null;
-  approval_status: string | null;
+  approval_gates: string | null;
 }
 
 /**
@@ -68,8 +67,7 @@ export function toDatabase(agentRun: AgentRun): AgentRunRow {
       agentRun.createdAt instanceof Date ? agentRun.createdAt.getTime() : agentRun.createdAt,
     updated_at:
       agentRun.updatedAt instanceof Date ? agentRun.updatedAt.getTime() : agentRun.updatedAt,
-    approval_mode: agentRun.approvalMode ?? null,
-    approval_status: agentRun.approvalStatus ?? null,
+    approval_gates: agentRun.approvalGates ? JSON.stringify(agentRun.approvalGates) : null,
   };
 }
 
@@ -100,7 +98,8 @@ export function fromDatabase(row: AgentRunRow): AgentRun {
     ...(row.error !== null && { error: row.error }),
     ...(row.feature_id !== null && { featureId: row.feature_id }),
     ...(row.repository_path !== null && { repositoryPath: row.repository_path }),
-    ...(row.approval_mode !== null && { approvalMode: row.approval_mode }),
-    ...(row.approval_status !== null && { approvalStatus: row.approval_status }),
+    ...(row.approval_gates !== null && {
+      approvalGates: JSON.parse(row.approval_gates) as ApprovalGates,
+    }),
   };
 }

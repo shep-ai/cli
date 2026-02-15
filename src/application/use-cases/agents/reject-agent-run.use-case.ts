@@ -31,7 +31,6 @@ export class RejectAgentRunUseCase {
 
     const now = new Date();
     await this.agentRunRepository.updateStatus(id, AgentRunStatus.cancelled, {
-      approvalStatus: 'rejected',
       error: reason ?? 'Rejected by user',
       completedAt: now,
       updatedAt: now,

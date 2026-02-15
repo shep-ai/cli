@@ -80,7 +80,7 @@ export class ResumeFeatureUseCase {
       threadId: lastRun.threadId, // Same thread for checkpoint continuity
       featureId: feature.id,
       repositoryPath: feature.repositoryPath,
-      approvalMode: lastRun.approvalMode,
+      approvalGates: lastRun.approvalGates,
       createdAt: now,
       updatedAt: now,
     };
@@ -107,7 +107,7 @@ export class ResumeFeatureUseCase {
       worktreePath,
       {
         resume: true,
-        approvalMode: lastRun.approvalMode,
+        approvalGates: lastRun.approvalGates,
         threadId: lastRun.threadId,
         resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
       }

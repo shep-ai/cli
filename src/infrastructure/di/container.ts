@@ -41,6 +41,7 @@ import type { IAgentExecutorProvider } from '../../application/ports/output/agen
 import type { IAgentRegistry } from '../../application/ports/output/agents/agent-registry.interface.js';
 import type { IAgentRunner } from '../../application/ports/output/agents/agent-runner.interface.js';
 import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '../../application/ports/output/agents/phase-timing-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../application/ports/output/agents/feature-agent-process.interface.js';
 import type { ISpecInitializerService } from '../../application/ports/output/services/spec-initializer.interface.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
@@ -49,6 +50,7 @@ import { MockAgentExecutorFactory } from '../services/agents/common/executors/mo
 import { AgentRegistryService } from '../services/agents/common/agent-registry.service.js';
 import { AgentRunnerService } from '../services/agents/common/agent-runner.service.js';
 import { SQLiteAgentRunRepository } from '../repositories/agent-run.repository.js';
+import { SQLitePhaseTimingRepository } from '../repositories/sqlite-phase-timing.repository.js';
 import { FeatureAgentProcessService } from '../services/agents/feature-agent/feature-agent-process.service.js';
 import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 import { createCheckpointer } from '../services/agents/common/checkpointer.js';
@@ -126,6 +128,13 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: (c) => {
       const database = c.resolve<Database.Database>('Database');
       return new SQLiteAgentRunRepository(database);
+    },
+  });
+
+  container.register<IPhaseTimingRepository>('IPhaseTimingRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLitePhaseTimingRepository(database);
     },
   });
 

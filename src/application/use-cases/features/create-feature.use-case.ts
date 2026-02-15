@@ -28,6 +28,7 @@ import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-re
 import type { ISpecInitializerService } from '../../ports/output/services/spec-initializer.interface.js';
 import type { IAgentExecutorProvider } from '../../ports/output/agents/agent-executor-provider.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
+import type { ApprovalGates } from '../../../domain/generated/output.js';
 import { getSettings } from '../../../infrastructure/services/settings.service.js';
 
 /** Maximum characters of user input sent to the AI for metadata generation. */
@@ -36,7 +37,7 @@ const MAX_INPUT_FOR_AI = 500;
 export interface CreateFeatureInput {
   userInput: string;
   repositoryPath: string;
-  approvalMode?: string;
+  approvalGates?: ApprovalGates;
 }
 
 interface FeatureMetadata {
@@ -122,14 +123,14 @@ export class CreateFeatureUseCase {
       threadId: randomUUID(),
       featureId: feature.id,
       repositoryPath: input.repositoryPath,
-      ...(input.approvalMode ? { approvalMode: input.approvalMode } : {}),
+      ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
     };
     await this.runRepository.create(agentRun);
 
     this.agentProcess.spawn(feature.id, runId, input.repositoryPath, specDir, worktreePath, {
-      ...(input.approvalMode ? { approvalMode: input.approvalMode } : {}),
+      ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
       threadId: agentRun.threadId,
     });
 
