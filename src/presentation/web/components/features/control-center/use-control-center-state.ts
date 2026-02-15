@@ -246,7 +246,13 @@ export function useControlCenterState(
         id,
         type: 'repositoryNode' as const,
         position,
-        data: { name: path },
+        data: {
+          name:
+            path
+              .replace(/[\\/]+$/, '')
+              .split(/[\\/]/)
+              .pop() ?? path,
+        },
       } as CanvasNodeType;
 
       // Shift the add-repo node down

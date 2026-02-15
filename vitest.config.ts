@@ -37,6 +37,8 @@ export default defineConfig({
       { find: '@/hooks', replacement: resolve(__dirname, './src/presentation/web/hooks') },
       { find: '@/app', replacement: resolve(__dirname, './src/presentation/web/app') },
       { find: '@/types', replacement: resolve(__dirname, './src/presentation/web/types') },
+      // @cli alias matches web tsconfig: @cli/* → src/* (root package)
+      { find: '@cli', replacement: resolve(__dirname, './src') },
       // General alias last
       { find: '@', replacement: resolve(__dirname, './src') },
       { find: '@tests', replacement: resolve(__dirname, './tests') },
