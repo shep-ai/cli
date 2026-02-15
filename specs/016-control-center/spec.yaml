@@ -4,15 +4,17 @@
 name: control-center
 number: 016
 branch: feat/016-control-center
-oneLiner: Interactive orchestrator wrapping FeaturesCanvas with toolbar, contextual node actions, and state management
+oneLiner: Interactive orchestrator with real agent state, domain-aligned lifecycle phases, and contextual node actions
 summary: >
   Build a Control Center Tier 3 component that wraps the existing FeaturesCanvas
   with interactive capabilities: node selection with visual highlight, contextual
   add-feature actions via (+) buttons on repo and feature nodes, toolbar with
   canvas actions (add feature, auto-layout), and centralized state management via
-  a custom hook. Uses React Flow's built-in Panel component for overlay toolbar.
-  FeaturesCanvas stays pure/dumb; Control Center adds all interactivity.
-phase: Planning
+  a custom hook. Align UI lifecycle phases 1:1 with domain SdlcLifecycle enum
+  (requirements, research, implementation, review, deploy, maintain). Derive real
+  feature state from agent_runs.status via SQL JOIN (running/done/error/action-required).
+  Maintain lifecycle = Completed.
+phase: Implementation
 sizeEstimate: M
 
 # Relationships
@@ -167,6 +169,10 @@ content: |
   - [ ] `pnpm build:web` passes
   - [ ] Components follow tier import rules (013-ui-arch)
   - [ ] Data loaded via existing `ListFeaturesUseCase` (Clean Architecture, no direct filesystem reads in presentation)
+  - [ ] FeatureLifecyclePhase matches domain SdlcLifecycle 1:1 (requirements, research, implementation, review, deploy, maintain)
+  - [ ] Lifecycle display labels show human-readable names (e.g. "DEPLOY & QA", "COMPLETED" for maintain)
+  - [ ] Feature node state derived from agent_runs.status (running/done/error/action-required)
+  - [ ] Maintain lifecycle always renders as done/completed state
 
   ## Affected Areas
 
