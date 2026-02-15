@@ -4,7 +4,15 @@
 >
 > This document describes the **planned architecture** for the LangGraph-based multi-agent workflow system. **None of the LangGraph components described below are implemented yet.** The `src/infrastructure/agents/langgraph/` directory does not exist.
 >
-> The current agent system only handles configuration of external AI coding tools (Claude Code, Gemini CLI, etc.) via `AgentValidatorService`, `ConfigureAgentUseCase`, and the `shep settings agent` command. See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+> The current agent system handles configuration and execution of external AI coding tools (Claude Code, Cursor currently available; Gemini CLI, Aider, Continue planned) via `AgentValidatorService`, `AgentExecutorFactory`, `ConfigureAgentUseCase`, and the `shep settings agent` command. See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+
+---
+
+## Settings-Driven Agent Resolution (MANDATORY — Applies to All Architecture)
+
+> **ARCHITECTURAL RULE:** Whether using the current executor-based system or the planned LangGraph system, agent type resolution MUST always come from `getSettings().agent.type` via `AgentExecutorFactory.createExecutor()`. No node, graph, use case, or worker may hardcode, guess, or default an agent type. This rule applies to ALL current and future agent implementations.
+
+See [AGENTS.md — Settings-Driven Agent Resolution](../../AGENTS.md#settings-driven-agent-resolution-mandatory) for the full rule and resolution flow.
 
 ---
 

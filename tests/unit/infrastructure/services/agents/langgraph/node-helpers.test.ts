@@ -8,7 +8,51 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { shouldInterrupt } from '../../../../../../src/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import {
+  shouldInterrupt,
+  safeYamlLoad,
+} from '../../../../../../src/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+
+describe('safeYamlLoad', () => {
+  it('parses valid YAML normally', () => {
+    const content = `tasks:\n  - id: task-1\n    title: Do something`;
+    const result = safeYamlLoad(content) as { tasks: { id: string; title: string }[] };
+    expect(result.tasks[0].id).toBe('task-1');
+    expect(result.tasks[0].title).toBe('Do something');
+  });
+
+  it('handles list items with unquoted braces', () => {
+    const content = `tdd:\n  red:\n    - Assert screen.getByRole('heading', { name: 'Widgets' }) is in the document`;
+    const result = safeYamlLoad(content) as { tdd: { red: string[] } };
+    expect(result.tdd.red[0]).toContain('getByRole');
+    expect(result.tdd.red[0]).toContain('{ name:');
+  });
+
+  it('handles multiple list items with braces', () => {
+    const content = [
+      'steps:',
+      '  - Add icon={LayoutDashboard} to sidebar',
+      "  - Check active={pathname === '/widgets'}",
+      '  - Normal item without braces',
+    ].join('\n');
+    const result = safeYamlLoad(content) as { steps: string[] };
+    expect(result.steps).toHaveLength(3);
+    expect(result.steps[0]).toContain('{LayoutDashboard}');
+    expect(result.steps[1]).toContain('{pathname');
+    expect(result.steps[2]).toBe('Normal item without braces');
+  });
+
+  it('does not double-quote already quoted items', () => {
+    const content = `items:\n  - "Already quoted { braces }"`;
+    const result = safeYamlLoad(content) as { items: string[] };
+    expect(result.items[0]).toBe('Already quoted { braces }');
+  });
+
+  it('throws on genuinely invalid YAML without braces', () => {
+    const content = `bad:\n  - item\n invalid: [`;
+    expect(() => safeYamlLoad(content)).toThrow();
+  });
+});
 
 describe('shouldInterrupt', () => {
   describe('interactive mode', () => {

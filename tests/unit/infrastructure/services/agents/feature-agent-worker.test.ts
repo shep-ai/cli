@@ -87,9 +87,9 @@ function makeMockRunRepository() {
   };
 }
 
-function makeMockExecutorFactory() {
+function makeMockExecutorProvider() {
   return {
-    createExecutor: vi.fn().mockReturnValue({
+    getExecutor: vi.fn().mockReturnValue({
       agentType: 'claude-code',
       execute: vi.fn().mockResolvedValue({ result: 'mock', sessionId: 'sess-1' }),
       executeStream: vi.fn(),
@@ -121,6 +121,8 @@ describe('parseWorkerArgs', () => {
       worktreePath: undefined,
       approvalMode: undefined,
       resume: false,
+      threadId: undefined,
+      resumeFromInterrupt: false,
     });
   });
 
@@ -217,21 +219,58 @@ describe('parseWorkerArgs', () => {
     expect(parsed.approvalMode).toBeUndefined();
     expect(parsed.resume).toBe(false);
   });
+
+  it('should parse optional thread-id argument', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+      '--thread-id',
+      'thread-789',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.threadId).toBe('thread-789');
+  });
+
+  it('should parse optional resume-from-interrupt flag', () => {
+    const args = [
+      '--feature-id',
+      'feat-123',
+      '--run-id',
+      'run-456',
+      '--repo',
+      '/path/to/repo',
+      '--spec-dir',
+      '/path/to/specs',
+      '--resume',
+      '--resume-from-interrupt',
+    ];
+
+    const parsed = parseWorkerArgs(args);
+    expect(parsed.resume).toBe(true);
+    expect(parsed.resumeFromInterrupt).toBe(true);
+  });
 });
 
 describe('runWorker', () => {
   let mockRunRepo: ReturnType<typeof makeMockRunRepository>;
-  let mockExecutorFactory: ReturnType<typeof makeMockExecutorFactory>;
+  let mockExecutorProvider: ReturnType<typeof makeMockExecutorProvider>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockRunRepo = makeMockRunRepository();
-    mockExecutorFactory = makeMockExecutorFactory();
+    mockExecutorProvider = makeMockExecutorProvider();
     mockInitializeContainer.mockResolvedValue({ resolve: mockResolve });
     mockResolve.mockImplementation((token: unknown) => {
       const key = typeof token === 'string' ? token : (token as { name?: string })?.name;
       if (key === 'IAgentRunRepository') return mockRunRepo;
-      if (key === 'IAgentExecutorFactory') return mockExecutorFactory;
+      if (key === 'IAgentExecutorProvider') return mockExecutorProvider;
       // InitializeSettingsUseCase — return a mock with execute()
       if (key === 'InitializeSettingsUseCase') {
         return {
@@ -272,10 +311,22 @@ describe('runWorker', () => {
     });
 
     expect(mockResolve).toHaveBeenCalledWith('IAgentRunRepository');
-    expect(mockResolve).toHaveBeenCalledWith('IAgentExecutorFactory');
+    expect(mockResolve).toHaveBeenCalledWith('IAgentExecutorProvider');
   });
 
-  it('should create a file-based checkpointer', async () => {
+  it('should create a file-based checkpointer using threadId when provided', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      threadId: 'thread-abc',
+    });
+
+    expect(mockCreateCheckpointer).toHaveBeenCalledWith(expect.stringContaining('thread-abc'));
+  });
+
+  it('should fall back to runId for checkpointer when no threadId', async () => {
     await runWorker({
       featureId: 'feat-1',
       runId: 'run-1',
@@ -322,6 +373,7 @@ describe('runWorker', () => {
       repo: '/repo',
       specDir: '/specs',
       worktreePath: '/wt/path',
+      threadId: 'thread-abc',
     });
 
     expect(mockGraphInvoke).toHaveBeenCalledWith(
@@ -331,7 +383,7 @@ describe('runWorker', () => {
         worktreePath: '/wt/path',
         specDir: '/specs',
       },
-      { configurable: { thread_id: 'run-1' } }
+      { configurable: { thread_id: 'thread-abc' } }
     );
   });
 
@@ -436,20 +488,40 @@ describe('runWorker', () => {
     );
   });
 
-  it('should invoke graph with Command resume when --resume is true', async () => {
+  it('should invoke graph with Command resume when resuming from interrupt', async () => {
     await runWorker({
       featureId: 'feat-1',
       runId: 'run-1',
       repo: '/repo',
       specDir: '/specs',
       resume: true,
+      resumeFromInterrupt: true,
+      threadId: 'thread-abc',
     });
 
-    // When resuming, first arg should be a Command, not state object
+    // When resuming from interrupt, first arg should be a Command
     const firstArg = mockGraphInvoke.mock.calls[0][0];
     expect(firstArg).toBeDefined();
-    // Command objects have a resume property
     expect(firstArg.resume).toBeDefined();
+  });
+
+  it('should invoke graph with initial state when resuming from error', async () => {
+    await runWorker({
+      featureId: 'feat-1',
+      runId: 'run-1',
+      repo: '/repo',
+      specDir: '/specs',
+      resume: true,
+      resumeFromInterrupt: false,
+      threadId: 'thread-abc',
+    });
+
+    // When resuming from error, first arg should be state object (not Command)
+    const firstArg = mockGraphInvoke.mock.calls[0][0];
+    expect(firstArg).toBeDefined();
+    expect(firstArg.featureId).toBe('feat-1');
+    expect(firstArg.repositoryPath).toBe('/repo');
+    expect(firstArg.error).toBeUndefined();
   });
 
   it('should handle graph returning error state', async () => {

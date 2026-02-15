@@ -3,7 +3,7 @@
  *
  * Tests for feature creation use case.
  * Uses mock repository, worktree service, agent process, run repository,
- * spec initializer, and agent executor factory.
+ * spec initializer, and agent executor provider.
  *
  * TDD Phase: RED-GREEN
  */
@@ -16,7 +16,7 @@ import type { IWorktreeService } from '../../../../../src/application/ports/outp
 import type { IFeatureAgentProcessService } from '../../../../../src/application/ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
 import type { ISpecInitializerService } from '../../../../../src/application/ports/output/services/spec-initializer.interface.js';
-import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutorProvider } from '../../../../../src/application/ports/output/agents/agent-executor-provider.interface.js';
 import type { IAgentExecutor } from '../../../../../src/application/ports/output/agents/agent-executor.interface.js';
 import { SdlcLifecycle } from '../../../../../src/domain/generated/output.js';
 
@@ -43,7 +43,7 @@ describe('CreateFeatureUseCase', () => {
   let mockAgentProcess: IFeatureAgentProcessService;
   let mockRunRepo: IAgentRunRepository;
   let mockSpecInitializer: ISpecInitializerService;
-  let mockExecutorFactory: IAgentExecutorFactory;
+  let mockExecutorProvider: IAgentExecutorProvider;
   let mockExecutor: IAgentExecutor;
 
   const WORKTREE_PATH = '/home/user/.shep/repos/abc123/wt/feat-test';
@@ -95,9 +95,8 @@ describe('CreateFeatureUseCase', () => {
       initialize: vi.fn().mockResolvedValue({ specDir: SPEC_DIR, featureNumber: '001' }),
     };
     mockExecutor = createMockExecutor(AI_RESPONSE);
-    mockExecutorFactory = {
-      createExecutor: vi.fn().mockReturnValue(mockExecutor),
-      getSupportedAgents: vi.fn().mockReturnValue(['claude-code']),
+    mockExecutorProvider = {
+      getExecutor: vi.fn().mockReturnValue(mockExecutor),
     };
     useCase = new CreateFeatureUseCase(
       mockRepo,
@@ -105,7 +104,7 @@ describe('CreateFeatureUseCase', () => {
       mockAgentProcess,
       mockRunRepo,
       mockSpecInitializer,
-      mockExecutorFactory
+      mockExecutorProvider
     );
   });
 
@@ -117,7 +116,7 @@ describe('CreateFeatureUseCase', () => {
       repositoryPath: '/repo',
     });
 
-    expect(mockExecutorFactory.createExecutor).toHaveBeenCalledOnce();
+    expect(mockExecutorProvider.getExecutor).toHaveBeenCalledOnce();
     expect(mockExecutor.execute).toHaveBeenCalledOnce();
     expect(result.slug).toBe('user-auth');
     expect(result.name).toBe('User Authentication');
@@ -167,9 +166,8 @@ describe('CreateFeatureUseCase', () => {
 
   it('should fall back to regex slug when AI returns invalid JSON', async () => {
     mockExecutor = createMockExecutor('not valid json at all');
-    mockExecutorFactory = {
-      createExecutor: vi.fn().mockReturnValue(mockExecutor),
-      getSupportedAgents: vi.fn().mockReturnValue(['claude-code']),
+    mockExecutorProvider = {
+      getExecutor: vi.fn().mockReturnValue(mockExecutor),
     };
     useCase = new CreateFeatureUseCase(
       mockRepo,
@@ -177,7 +175,7 @@ describe('CreateFeatureUseCase', () => {
       mockAgentProcess,
       mockRunRepo,
       mockSpecInitializer,
-      mockExecutorFactory
+      mockExecutorProvider
     );
 
     const result = await useCase.execute({
@@ -197,9 +195,8 @@ describe('CreateFeatureUseCase', () => {
       executeStream: vi.fn(),
       supportsFeature: vi.fn().mockReturnValue(false),
     };
-    mockExecutorFactory = {
-      createExecutor: vi.fn().mockReturnValue(mockExecutor),
-      getSupportedAgents: vi.fn().mockReturnValue(['claude-code']),
+    mockExecutorProvider = {
+      getExecutor: vi.fn().mockReturnValue(mockExecutor),
     };
     useCase = new CreateFeatureUseCase(
       mockRepo,
@@ -207,7 +204,7 @@ describe('CreateFeatureUseCase', () => {
       mockAgentProcess,
       mockRunRepo,
       mockSpecInitializer,
-      mockExecutorFactory
+      mockExecutorProvider
     );
 
     const result = await useCase.execute({
@@ -226,9 +223,8 @@ describe('CreateFeatureUseCase', () => {
         description: 'Some desc',
       })
     );
-    mockExecutorFactory = {
-      createExecutor: vi.fn().mockReturnValue(mockExecutor),
-      getSupportedAgents: vi.fn().mockReturnValue(['claude-code']),
+    mockExecutorProvider = {
+      getExecutor: vi.fn().mockReturnValue(mockExecutor),
     };
     useCase = new CreateFeatureUseCase(
       mockRepo,
@@ -236,7 +232,7 @@ describe('CreateFeatureUseCase', () => {
       mockAgentProcess,
       mockRunRepo,
       mockSpecInitializer,
-      mockExecutorFactory
+      mockExecutorProvider
     );
 
     const result = await useCase.execute({
@@ -335,7 +331,7 @@ describe('CreateFeatureUseCase', () => {
     expect(result.relatedArtifacts).toEqual([]);
   });
 
-  it('should pass approvalMode to agent process spawn', async () => {
+  it('should pass approvalMode and threadId to agent process spawn', async () => {
     await useCase.execute({
       userInput: 'Add feature',
       repositoryPath: '/repo',
@@ -347,7 +343,10 @@ describe('CreateFeatureUseCase', () => {
       '/repo',
       expect.any(String),
       expect.any(String),
-      { approvalMode: 'interactive' }
+      expect.objectContaining({
+        approvalMode: 'interactive',
+        threadId: expect.any(String),
+      })
     );
   });
 
@@ -415,7 +414,7 @@ describe('CreateFeatureUseCase', () => {
       '/repo', // repoPath
       SPEC_DIR, // specDir
       WORKTREE_PATH, // worktreePath
-      undefined // no approval options
+      expect.objectContaining({ threadId: expect.any(String) })
     );
   });
 

@@ -14,6 +14,7 @@ export type {
   AgentExecutionStreamEvent,
   AgentExecutionOptions,
   IAgentExecutorFactory,
+  IAgentExecutorProvider,
   IAgentRegistry,
   AgentDefinitionWithFactory,
   IAgentRunner,

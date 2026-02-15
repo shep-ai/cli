@@ -17,9 +17,9 @@ import { initializeContainer, container } from '@/infrastructure/di/container.js
 import { createFeatureAgentGraph } from './feature-agent-graph.js';
 import { createCheckpointer } from '../common/checkpointer.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
-import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
-import { getSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
+import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
 
@@ -31,6 +31,8 @@ export interface WorkerArgs {
   worktreePath?: string;
   approvalMode?: string;
   resume?: boolean;
+  threadId?: string;
+  resumeFromInterrupt?: boolean;
 }
 
 /**
@@ -55,6 +57,11 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     approvalIdx !== -1 && approvalIdx + 1 < args.length ? args[approvalIdx + 1] : undefined;
 
   const resume = args.includes('--resume');
+  const resumeFromInterrupt = args.includes('--resume-from-interrupt');
+
+  const threadIdx = args.indexOf('--thread-id');
+  const threadId =
+    threadIdx !== -1 && threadIdx + 1 < args.length ? args[threadIdx + 1] : undefined;
 
   return {
     featureId: getArg('feature-id'),
@@ -64,6 +71,8 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     worktreePath,
     approvalMode,
     resume,
+    threadId,
+    resumeFromInterrupt,
   };
 }
 
@@ -119,19 +128,17 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   initializeSettings(settings);
 
   const runRepository = container.resolve<IAgentRunRepository>('IAgentRunRepository');
-  const executorFactory = container.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
+  const executorProvider = container.resolve<IAgentExecutorProvider>('IAgentExecutorProvider');
 
-  // Create executor from configured agent settings (now settings are initialized)
-  const configuredSettings = getSettings();
-  log(`Creating executor for agent type: ${configuredSettings.agent.type}`);
-  const executor = executorFactory.createExecutor(
-    configuredSettings.agent.type,
-    configuredSettings.agent
-  );
+  // Create executor from configured agent settings
+  log('Creating executor from configured agent settings...');
+  const executor = executorProvider.getExecutor();
 
-  // Use a file-based checkpointer for persistence across restarts
-  const checkpointPath = join(homedir(), '.shep', 'checkpoints', `${args.runId}.db`);
-  log(`Creating checkpointer at ${checkpointPath}`);
+  // Use threadId for checkpoint path so resume runs share the same checkpoint DB.
+  // Falls back to runId for backwards compatibility with existing runs.
+  const checkpointId = args.threadId ?? args.runId;
+  const checkpointPath = join(homedir(), '.shep', 'checkpoints', `${checkpointId}.db`);
+  log(`Creating checkpointer at ${checkpointPath} (thread: ${checkpointId})`);
   const checkpointer = createCheckpointer(checkpointPath);
   const graph = createFeatureAgentGraph(executor, checkpointer);
 
@@ -152,12 +159,28 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   setHeartbeatContext(args.runId, runRepository);
 
   try {
-    const graphConfig = { configurable: { thread_id: args.runId } };
+    const graphConfig = { configurable: { thread_id: checkpointId } };
 
     let result: Record<string, unknown>;
-    if (args.resume) {
-      log('Resuming graph from checkpoint...');
+    if (args.resume && args.resumeFromInterrupt) {
+      // Resume from an interrupt (human-in-the-loop approval)
+      log('Resuming graph from interrupt checkpoint...');
       result = await graph.invoke(new Command({ resume: { approved: true } }), graphConfig);
+    } else if (args.resume) {
+      // Resume from error — re-invoke with initial state; LangGraph continues
+      // from the last successfully checkpointed node.
+      log('Resuming graph from error checkpoint...');
+      result = await graph.invoke(
+        {
+          featureId: args.featureId,
+          repositoryPath: args.repo,
+          worktreePath: args.worktreePath ?? args.repo,
+          specDir: args.specDir,
+          error: undefined, // Clear previous error state
+          ...(args.approvalMode ? { approvalMode: args.approvalMode } : {}),
+        },
+        graphConfig
+      );
     } else {
       log('Starting graph invocation...');
       result = await graph.invoke(

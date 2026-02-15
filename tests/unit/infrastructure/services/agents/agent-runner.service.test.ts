@@ -14,17 +14,13 @@ import type {
   IAgentRegistry,
   AgentDefinitionWithFactory,
 } from '../../../../../src/application/ports/output/agents/agent-registry.interface.js';
-import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutorProvider } from '../../../../../src/application/ports/output/agents/agent-executor-provider.interface.js';
 import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
 import type {
   IAgentExecutor,
   AgentExecutionStreamEvent,
 } from '../../../../../src/application/ports/output/agents/agent-executor.interface.js';
-import {
-  AgentRunStatus,
-  AgentType,
-  AgentAuthMethod,
-} from '../../../../../src/domain/generated/output.js';
+import { AgentRunStatus, AgentType } from '../../../../../src/domain/generated/output.js';
 import type { AgentRun, AgentRunEvent } from '../../../../../src/domain/generated/output.js';
 import { StreamingExecutorProxy } from '../../../../../src/infrastructure/services/agents/streaming/streaming-executor-proxy.js';
 
@@ -44,7 +40,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 describe('AgentRunnerService', () => {
   let runner: AgentRunnerService;
   let mockRegistry: IAgentRegistry;
-  let mockExecutorFactory: IAgentExecutorFactory;
+  let mockExecutorProvider: IAgentExecutorProvider;
   let mockCheckpointer: any;
   let mockRunRepository: IAgentRunRepository;
   let mockExecutor: IAgentExecutor;
@@ -78,9 +74,8 @@ describe('AgentRunnerService', () => {
       list: vi.fn().mockReturnValue([mockDefinition]),
     };
 
-    mockExecutorFactory = {
-      createExecutor: vi.fn().mockReturnValue(mockExecutor),
-      getSupportedAgents: vi.fn().mockReturnValue([AgentType.ClaudeCode]),
+    mockExecutorProvider = {
+      getExecutor: vi.fn().mockReturnValue(mockExecutor),
     };
 
     mockCheckpointer = {};
@@ -111,7 +106,7 @@ describe('AgentRunnerService', () => {
 
     runner = new AgentRunnerService(
       mockRegistry,
-      mockExecutorFactory,
+      mockExecutorProvider,
       mockCheckpointer,
       mockRunRepository
     );
@@ -135,16 +130,10 @@ describe('AgentRunnerService', () => {
       expect(mockRegistry.get).toHaveBeenCalledWith('analyze-repository');
     });
 
-    it('should create executor using factory with settings agent type', async () => {
+    it('should get executor from provider', async () => {
       await runner.runAgent('analyze-repository', 'Analyze');
 
-      expect(mockExecutorFactory.createExecutor).toHaveBeenCalledWith(
-        AgentType.ClaudeCode,
-        expect.objectContaining({
-          type: AgentType.ClaudeCode,
-          authMethod: AgentAuthMethod.Session,
-        })
-      );
+      expect(mockExecutorProvider.getExecutor).toHaveBeenCalledOnce();
     });
 
     it('should save agent run with pending status first', async () => {

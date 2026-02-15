@@ -214,7 +214,7 @@ describe('createFeatureAgentGraph', () => {
       expect(result.error).toBeNull();
     });
 
-    it('should handle executor errors gracefully', async () => {
+    it('should throw on executor errors for resumability', async () => {
       setupSpecFileMocks();
       (mockExecutor.execute as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Executor failed')
@@ -222,18 +222,19 @@ describe('createFeatureAgentGraph', () => {
 
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
 
-      const result = await compiled.invoke(
-        {
-          featureId: 'feat-err',
-          repositoryPath: '/test/repo',
-          worktreePath: '/test/repo',
-          specDir: '/test/specs/001-test',
-        },
-        { configurable: { thread_id: 'err-thread' } }
-      );
-
-      expect(result.error).toContain('Executor failed');
-      expect(result.messages).toContainEqual(expect.stringContaining('[analyze] Error'));
+      // Nodes now throw errors so LangGraph does NOT checkpoint them,
+      // enabling resume to re-execute from the last successful node.
+      await expect(
+        compiled.invoke(
+          {
+            featureId: 'feat-err',
+            repositoryPath: '/test/repo',
+            worktreePath: '/test/repo',
+            specDir: '/test/specs/001-test',
+          },
+          { configurable: { thread_id: 'err-thread' } }
+        )
+      ).rejects.toThrow('Executor failed');
     });
   });
 

@@ -26,9 +26,11 @@ import { RunAgentUseCase } from '../../../../../src/application/use-cases/agents
 // Port interfaces
 import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutorProvider } from '../../../../../src/application/ports/output/agents/agent-executor-provider.interface.js';
 import type { IAgentRegistry } from '../../../../../src/application/ports/output/agents/agent-registry.interface.js';
 import type { IAgentRunner } from '../../../../../src/application/ports/output/agents/agent-runner.interface.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
+import { AgentExecutorProvider } from '../../../../../src/infrastructure/services/agents/common/agent-executor-provider.service.js';
 
 import { runSQLiteMigrations } from '../../../../../src/infrastructure/persistence/sqlite/migrations.js';
 
@@ -61,13 +63,20 @@ describe('Agent Infrastructure Integration', () => {
       useFactory: () => createCheckpointer(':memory:'),
     });
 
+    container.register<IAgentExecutorProvider>('IAgentExecutorProvider', {
+      useFactory: (c) => {
+        const factory = c.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
+        return new AgentExecutorProvider(factory);
+      },
+    });
+
     container.register<IAgentRunner>('IAgentRunner', {
       useFactory: (c) => {
         const registry = c.resolve<IAgentRegistry>('IAgentRegistry');
-        const executorFactory = c.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
+        const executorProvider = c.resolve<IAgentExecutorProvider>('IAgentExecutorProvider');
         const checkpointer = c.resolve('Checkpointer') as BaseCheckpointSaver;
         const runRepository = c.resolve<IAgentRunRepository>('IAgentRunRepository');
-        return new AgentRunnerService(registry, executorFactory, checkpointer, runRepository);
+        return new AgentRunnerService(registry, executorProvider, checkpointer, runRepository);
       },
     });
 

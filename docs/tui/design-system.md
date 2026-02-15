@@ -38,11 +38,11 @@ const choice = await select({
   message: 'Select your AI coding agent',
   choices: [
     { name: 'Claude Code', value: 'claude-code', description: 'Anthropic AI coding assistant' },
+    { name: 'Cursor', value: 'cursor', description: 'Cursor AI coding agent' },
     new Separator('─── Coming Soon ───'),
     { name: 'Gemini CLI', value: 'gemini-cli', disabled: '(Coming Soon)' },
     { name: 'Aider', value: 'aider', disabled: '(Coming Soon)' },
     { name: 'Continue', value: 'continue', disabled: '(Coming Soon)' },
-    { name: 'Cursor', value: 'cursor', disabled: '(Coming Soon)' },
   ],
   theme: shepTheme,
 });

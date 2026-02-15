@@ -29,7 +29,12 @@ export interface IFeatureAgentProcessService {
     repoPath: string,
     specDir: string,
     worktreePath?: string,
-    options?: { approvalMode?: string; resume?: boolean }
+    options?: {
+      approvalMode?: string;
+      resume?: boolean;
+      threadId?: string;
+      resumeFromInterrupt?: boolean;
+    }
   ): number;
 
   /**

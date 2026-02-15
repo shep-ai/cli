@@ -281,10 +281,27 @@ Global application configuration (singleton).
 
 Located in `infrastructure/services/agents/`, organized into subdirectories:
 
-- `common/` — Shared infrastructure (executor factory, registry, runner, validator, checkpointer)
+- `common/` — Shared infrastructure (executor factory, registry, runner, validator, checkpointer, shared types)
+- `common/executors/` — Concrete executor implementations (`ClaudeCodeExecutorService`, `CursorExecutorService`)
 - `feature-agent/` — FeatureAgent LangGraph graph with per-node files, background worker, process management
 - `analyze-repo/` — Repository analysis graph
 - `streaming/` — SSE streaming infrastructure
+
+### Settings-Driven Agent Resolution (MANDATORY)
+
+**No component may hardcode, guess, or default an agent type at execution time.** ALL agent executor resolution MUST flow through settings:
+
+```
+IAgentExecutorProvider.getExecutor() → [reads settings internally] → AgentExecutorFactory.createExecutor() → IAgentExecutor
+```
+
+**Rules for ALL current and future agent implementations:**
+
+1. Inject `IAgentExecutorProvider` — the consumer-facing API for executor resolution
+2. Call `provider.getExecutor()` — it reads `getSettings().agent.type` and delegates to `AgentExecutorFactory` internally
+3. Use the returned `IAgentExecutor` interface — never instantiate an executor directly
+4. Never import a specific executor class outside the factory (e.g., don't import `ClaudeCodeExecutorService` in a use case or worker)
+5. Never call `IAgentExecutorFactory.createExecutor()` directly in consumer code — always go through the provider
 
 See [AGENTS.md](./AGENTS.md) for full architecture and implementation details.
 

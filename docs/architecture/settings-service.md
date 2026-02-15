@@ -480,6 +480,29 @@ bootstrap();
 5. CLI continues with new settings for remaining commands
 ```
 
+### Agent Configuration Flow
+
+```
+1. User runs: shep settings agent --agent cursor
+   ↓
+2. ConfigureAgentUseCase:
+   ├─ AgentValidatorService.isAvailable('cursor') → checks `agent --version`
+   ├─ Load current settings
+   ├─ Update settings.agent.type = 'cursor'
+   └─ repository.update(settings) → SQL UPDATE
+       ↓
+3. Singleton reset + reinitialize (agent.command.ts)
+   ↓
+4. Any subsequent command that needs an executor:
+   ├─ Inject IAgentExecutorProvider from DI container
+   └─ provider.getExecutor()
+       → internally reads getSettings().agent.type → 'cursor'
+       → delegates to AgentExecutorFactory.createExecutor('cursor', settings.agent)
+       → CursorExecutorService
+```
+
+> **ARCHITECTURAL RULE:** The `settings.agent.type` field is the single source of truth for which agent executor runs. All code paths that need an `IAgentExecutor` MUST go through `IAgentExecutorProvider.getExecutor()` — never call the factory directly or hardcode the agent type. See [AGENTS.md — Settings-Driven Agent Resolution](../../AGENTS.md#settings-driven-agent-resolution-mandatory).
+
 ## File Structure
 
 ```

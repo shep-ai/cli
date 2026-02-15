@@ -163,6 +163,31 @@ Remove a perspective to skip it.
 
 ## Agent Settings
 
+### Agent Selection (Settings-Driven)
+
+The configured agent type determines which AI coding tool Shep uses for ALL operations (feature creation, implementation, analysis). Configure via:
+
+```bash
+# Interactive wizard
+shep settings agent
+
+# Direct flags
+shep settings agent --agent cursor
+shep settings agent --agent claude-code
+```
+
+**Available agents:**
+
+| Agent       | Binary   | Status      |
+| ----------- | -------- | ----------- |
+| Claude Code | `claude` | Available   |
+| Cursor      | `agent`  | Available   |
+| Gemini CLI  | —        | Coming Soon |
+| Aider       | —        | Coming Soon |
+| Continue    | —        | Coming Soon |
+
+The selected agent type is persisted in `~/.shep/data` (SQLite) and used by all subsequent commands. When you run `shep feat new`, the configured agent is resolved via `AgentExecutorFactory` — no command or component guesses or defaults the agent type.
+
 ### Concurrency
 
 Control parallel agent execution:
