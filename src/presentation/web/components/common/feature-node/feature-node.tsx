@@ -130,18 +130,16 @@ export function FeatureNode({
             >
               {data.state === 'running' ? (
                 <>
-                  <CometSpinner size="sm" className="shrink-0" />
                   <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{getBadgeText(data)}</span>
+                  <CometSpinner size="sm" className="shrink-0" />
                 </>
               ) : (
                 <>
-                  {data.agentType ? (
-                    <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
-                  ) : null}
                   <Icon className="h-3.5 w-3.5 shrink-0" />
+                  <span className="truncate">{getBadgeText(data)}</span>
                 </>
               )}
-              <span className="truncate">{getBadgeText(data)}</span>
             </div>
           )}
         </div>
