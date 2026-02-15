@@ -166,6 +166,7 @@ content: |
   - [ ] `pnpm build:storybook` passes
   - [ ] `pnpm build:web` passes
   - [ ] Components follow tier import rules (013-ui-arch)
+  - [ ] Data loaded via existing `ListFeaturesUseCase` (Clean Architecture, no direct filesystem reads in presentation)
 
   ## Affected Areas
 
@@ -175,6 +176,7 @@ content: |
   | `src/presentation/web/components/features/features-canvas/` | Medium | Extend props for interaction callbacks |
   | `src/presentation/web/components/common/feature-node/` | Low    | Add selected visual state              |
   | `src/presentation/web/components/common/repository-node/` | Low | Wire onAdd callback through canvas     |
+  | `src/presentation/web/app/control-center/page.tsx` | Medium | Refactor to use existing ListFeaturesUseCase |
 
   ## Dependencies
 
@@ -195,9 +197,9 @@ content: |
   - Keyboard shortcut (Escape to deselect)
   - Storybook stories with mock data
   - Extending FeaturesCanvas/FeatureNode/RepositoryNode props as needed
+  - Control center page consumes data via existing ListFeaturesUseCase (not direct filesystem access)
 
   **Out of scope:**
-  - Backend API integration for feature data
   - Real-time updates or WebSocket integration
   - Drag-and-drop node creation (nodes added via (+) buttons, not drag)
   - Auto-layout algorithm implementation (button placeholder only)

@@ -1,92 +1,45 @@
-import fs from 'fs';
-import path from 'path';
-import yaml from 'js-yaml';
+/**
+ * Feature Data Access
+ *
+ * Provides feature data to the web UI via the application layer's
+ * ListFeaturesUseCase, following Clean Architecture.
+ *
+ * Manually instantiates the use case with the repository since the
+ * web package doesn't share the CLI's tsyringe DI container.
+ */
 
-export interface Feature {
-  id: string;
-  name: string;
-  description?: string;
-  branch?: string;
-  lifecycle: string;
-  status?: {
-    phase: string;
-    progress: {
-      completed: number;
-      total: number;
-      percentage: number;
-    };
-  };
+import type { Feature } from '@cli/domain/generated/output.js';
+import type { FeatureListFilters } from '@cli/application/ports/output/repositories/feature-repository.interface.js';
+import { SQLiteFeatureRepository } from '@cli/infrastructure/repositories/sqlite-feature.repository.js';
+import { getSQLiteConnection } from '@cli/infrastructure/persistence/sqlite/connection.js';
+import { runSQLiteMigrations } from '@cli/infrastructure/persistence/sqlite/migrations.js';
+import { ListFeaturesUseCase } from '@cli/application/use-cases/features/list-features.use-case.js';
+
+export type { Feature };
+
+let useCaseInstance: ListFeaturesUseCase | null = null;
+
+async function getUseCase(): Promise<ListFeaturesUseCase> {
+  if (useCaseInstance) return useCaseInstance;
+
+  const db = await getSQLiteConnection();
+  await runSQLiteMigrations(db);
+  const repo = new SQLiteFeatureRepository(db);
+  useCaseInstance = new ListFeaturesUseCase(repo);
+  return useCaseInstance;
 }
 
-interface FeatureYaml {
-  feature: {
-    id: string;
-    name: string;
-    description?: string;
-    branch?: string;
-    lifecycle: string;
-  };
-  status?: {
-    phase: string;
-    progress: {
-      completed: number;
-      total: number;
-      percentage: number;
-    };
-  };
-}
-
-function findRoot(currentDir: string): string | null {
-  if (fs.existsSync(path.join(currentDir, 'pnpm-workspace.yaml'))) {
-    return currentDir;
-  }
-  const parent = path.dirname(currentDir);
-  if (parent === currentDir) return null;
-  return findRoot(parent);
-}
-
-export async function getFeatures(): Promise<Feature[]> {
-  const root = findRoot(process.cwd());
-  if (!root) {
+/**
+ * List features using the application layer use case.
+ * Server-side only — reads from the shared ~/.shep/data SQLite database.
+ */
+export async function getFeatures(filters?: FeatureListFilters): Promise<Feature[]> {
+  try {
+    const useCase = await getUseCase();
+    return await useCase.execute(filters);
+  } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Could not find workspace root');
+    console.error('Failed to load features:', error);
     return [];
   }
-
-  const specsDir = path.join(root, 'specs');
-  if (!fs.existsSync(specsDir)) {
-    // eslint-disable-next-line no-console
-    console.warn('specs directory not found at', specsDir);
-    return [];
-  }
-
-  const features: Feature[] = [];
-  const entries = fs.readdirSync(specsDir, { withFileTypes: true });
-
-  for (const entry of entries) {
-    if (entry.isDirectory()) {
-      const featureYamlPath = path.join(specsDir, entry.name, 'feature.yaml');
-      if (fs.existsSync(featureYamlPath)) {
-        try {
-          const content = fs.readFileSync(featureYamlPath, 'utf8');
-          const data = yaml.load(content) as FeatureYaml;
-          if (data?.feature) {
-            features.push({
-              id: data.feature.id,
-              name: data.feature.name,
-              description: data.feature.description,
-              branch: data.feature.branch,
-              lifecycle: data.feature.lifecycle,
-              status: data.status,
-            });
-          }
-        } catch (error) {
-          // eslint-disable-next-line no-console
-          console.error(`Error parsing ${featureYamlPath}:`, error);
-        }
-      }
-    }
-  }
-
-  return features;
 }
