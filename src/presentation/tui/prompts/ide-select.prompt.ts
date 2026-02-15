@@ -34,6 +34,11 @@ export function createIdeSelectConfig() {
         value: 'zed',
         description: 'Zed editor',
       },
+      {
+        name: 'Antigravity',
+        value: 'antigravity',
+        description: 'Google Antigravity IDE',
+      },
     ],
     theme: shepTheme,
   } as const;
