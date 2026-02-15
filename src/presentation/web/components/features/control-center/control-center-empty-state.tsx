@@ -9,14 +9,14 @@ export interface ControlCenterEmptyStateProps {
   className?: string;
 }
 
+const commands = ['cd ~/my-repo', 'shep feat new "create modern, sleek dashboards"'];
+
 export function ControlCenterEmptyState({
   onRepositorySelect,
   className,
 }: ControlCenterEmptyStateProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [copied, setCopied] = useState(false);
-
-  const commands = ['cd ~/my-repo', 'shep feat new "create modern, sleek dashboards"'];
 
   function handlePickerClick() {
     inputRef.current?.click();
@@ -35,7 +35,7 @@ export function ControlCenterEmptyState({
     await navigator.clipboard.writeText(commands.join('\n'));
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
-  }, [commands]);
+  }, []);
 
   return (
     <div

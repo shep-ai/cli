@@ -22,15 +22,17 @@ describe('ControlCenterToolbar', () => {
     expect(screen.getByText('Add Feature')).toBeInTheDocument();
   });
 
-  it('renders "Auto-Layout" button text', () => {
+  it('renders layout buttons', () => {
     renderToolbar();
-    expect(screen.getByText('Auto-Layout')).toBeInTheDocument();
+    expect(screen.getByText('Vertical')).toBeInTheDocument();
+    expect(screen.getByText('Horizontal')).toBeInTheDocument();
   });
 
-  it('Auto-Layout button is disabled', () => {
-    renderToolbar();
-    const button = screen.getByTestId('toolbar-auto-layout');
-    expect(button).toBeDisabled();
+  it('calls onLayout when layout button is clicked', () => {
+    const onLayout = vi.fn();
+    renderToolbar({ onLayout });
+    fireEvent.click(screen.getByTestId('toolbar-layout-vertical'));
+    expect(onLayout).toHaveBeenCalledWith('TB');
   });
 
   it('calls onAddFeature when Add Feature button is clicked', () => {

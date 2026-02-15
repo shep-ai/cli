@@ -2,7 +2,6 @@ import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ControlCenter } from '@/components/features/control-center';
 import type { FeatureNodeType } from '@/components/common/feature-node';
-import type { RepositoryNodeType } from '@/components/common/repository-node';
 
 const mockFeatureNode: FeatureNodeType = {
   id: 'node-1',
@@ -40,8 +39,8 @@ describe('ControlCenter', () => {
 
   it('shows empty state when no nodes provided', () => {
     render(<ControlCenter initialNodes={[]} initialEdges={[]} />);
-    expect(screen.getByText('No features yet')).toBeInTheDocument();
-    expect(screen.getByText('Get started by creating your first feature.')).toBeInTheDocument();
+    expect(screen.getByTestId('control-center-empty-state')).toBeInTheDocument();
+    expect(screen.getByText('Add Repository')).toBeInTheDocument();
   });
 
   it('renders feature nodes when initialNodes has feature nodes', () => {
