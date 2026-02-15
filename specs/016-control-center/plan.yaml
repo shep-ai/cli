@@ -78,13 +78,15 @@ phases:
 # File change tracking
 filesToCreate:
   - src/presentation/web/components/features/control-center/control-center.tsx
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
   - src/presentation/web/components/features/control-center/use-control-center-state.ts
-  - src/presentation/web/components/features/control-center/control-center-toolbar.tsx
+  - src/presentation/web/components/features/control-center/control-center-empty-state.tsx
+  - src/presentation/web/components/features/control-center/control-center-empty-state.stories.tsx
   - src/presentation/web/components/features/control-center/control-center.stories.tsx
   - src/presentation/web/components/features/control-center/index.ts
-  - tests/unit/presentation/web/components/features/control-center/use-control-center-state.test.ts
-  - tests/unit/presentation/web/components/features/control-center/control-center-toolbar.test.tsx
+  - tests/unit/presentation/web/components/features/control-center/use-control-center-state.test.tsx
   - tests/unit/presentation/web/components/features/control-center/control-center.test.tsx
+  # NOTE: control-center-toolbar.tsx was created then removed — replaced by contextual node actions
 
 filesToModify:
   - src/presentation/web/components/common/feature-node/feature-node.tsx
