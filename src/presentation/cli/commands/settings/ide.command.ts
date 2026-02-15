@@ -18,27 +18,8 @@ import {
   resetSettings,
   initializeSettings,
 } from '../../../../infrastructure/services/settings.service.js';
+import { createLauncherRegistry } from '../../../../infrastructure/services/ide-launchers/ide-launcher.registry.js';
 import { messages } from '../../ui/index.js';
-
-/** Map of editor names to their CLI binary names for PATH checking. */
-const IDE_BINARY_MAP: Record<string, string> = {
-  vscode: 'code',
-  cursor: 'cursor',
-  windsurf: 'windsurf',
-  zed: 'zed',
-};
-
-/**
- * Check if a binary exists in PATH. Returns true if found.
- */
-export async function checkBinaryInPath(binary: string): Promise<boolean> {
-  const { execFile } = await import('node:child_process');
-  return new Promise((resolve) => {
-    execFile('which', [binary], (err) => {
-      resolve(!err);
-    });
-  });
-}
 
 /**
  * Create the IDE configuration command.
@@ -46,13 +27,14 @@ export async function checkBinaryInPath(binary: string): Promise<boolean> {
 export function createIdeCommand(): Command {
   return new Command('ide')
     .description('Configure preferred IDE/editor')
-    .option('--editor <name>', 'IDE/editor name (e.g., vscode, cursor, windsurf, zed)')
+    .option('--editor <name>', 'IDE/editor name (e.g., vscode, cursor, windsurf, zed, antigravity)')
     .addHelpText(
       'after',
       `
 Examples:
-  $ shep settings ide                    Interactive selection
-  $ shep settings ide --editor cursor    Non-interactive`
+  $ shep settings ide                           Interactive selection
+  $ shep settings ide --editor cursor           Non-interactive
+  $ shep settings ide --editor antigravity      Set Google Antigravity`
     )
     .action(async (options: { editor?: string }) => {
       try {
@@ -64,12 +46,15 @@ Examples:
           editorValue = await select(createIdeSelectConfig());
         }
 
-        // PATH check (non-blocking warning)
-        const binary = IDE_BINARY_MAP[editorValue];
-        if (binary) {
-          const found = await checkBinaryInPath(binary);
-          if (!found) {
-            messages.warning(`'${binary}' not found in PATH. The editor will still be saved.`);
+        // PATH check via launcher registry (non-blocking warning)
+        const registry = createLauncherRegistry();
+        const launcher = registry.get(editorValue);
+        if (launcher) {
+          const available = await launcher.checkAvailable();
+          if (!available) {
+            messages.warning(
+              `'${launcher.binary}' not found in PATH. The editor will still be saved.`
+            );
           }
         }
 
