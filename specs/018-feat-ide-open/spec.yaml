@@ -4,63 +4,60 @@
 name: feat-ide-open
 number: 018
 branch: feat/ide-open
-oneLiner: Add IDE open command to launch feature worktrees in user's chosen editor
+oneLiner: Add CLI command to configure preferred IDE via settings service
 summary: >
-  Implement `shep feat ide <feature-id> [--editor-flag]` command that opens a feature's worktree in the user's selected IDE (VS Code, Cursor, Antigravity, or Windsurf). Supports flag overrides for CLI-level editor selection.
+  Add `shep settings ide` command that lets users configure their preferred IDE
+  (VS Code, Cursor, Windsurf, Zed) via interactive prompt or --editor flag.
+  Persists choice using existing Settings.environment.defaultEditor field and
+  UpdateSettingsUseCase. Already displayed in `settings show`.
 phase: Requirements
-sizeEstimate: medium
+sizeEstimate: small
 
 # Relationships
 relatedFeatures:
-  []
-  # - "008-agent-configuration"
+  - '006-cli-settings-commands'
 
 technologies:
-  []
-  # - TypeScript
-  # - React
+  - TypeScript
+  - Commander.js
+  - '@inquirer/prompts'
 
-relatedLinks:
-  []
-  # - https://example.com/relevant-doc
+relatedLinks: []
 
 # Open questions (must be resolved before implementation)
-openQuestions:
-  []
-  # - question: "Should we use approach A or B?"
-  #   resolved: false
-  #   answer: null
+openQuestions: []
 
 # Markdown content (the actual spec)
 content: |
   ## Problem Statement
 
-  When developing features, engineers need quick access to their feature's worktree in their preferred IDE. Currently, there's no convenient way to open a feature's isolated worktree in VS Code, Cursor, Antigravity, or Windsurf directly from the CLI. Users must manually navigate to `.worktrees/<feature>` and open it in their editor, which is tedious and breaks workflow momentum.
+  The `Settings.environment.defaultEditor` field exists in the data model (TypeSpec, generated types, SQLite schema) and is already displayed in `settings show`, but there is no CLI command to configure it. Users are stuck with the default value ("vscode") with no way to change their preferred IDE.
 
   ## Success Criteria
 
-  - [ ] `shep feat ide <feature-id>` command opens feature worktree in configured default IDE
-  - [ ] `--vscode`, `--cursor`, `--antigravity`, `--windsurf` flags override default IDE selection
-  - [ ] Command validates feature exists and has a worktree in `.worktrees/`
-  - [ ] Clear error messages when feature not found or worktree missing
-  - [ ] IDE is launched with the worktree directory as the open folder
-  - [ ] Respects Settings.environment.defaultEditor configuration
+  - [ ] `shep settings ide` command allows interactive selection of preferred IDE (vscode, cursor, windsurf, zed)
+  - [ ] `shep settings ide --editor <name>` allows non-interactive configuration
+  - [ ] Selected IDE is persisted via `UpdateSettingsUseCase`
+  - [ ] `shep settings show` displays the configured editor (existing behavior — no changes needed)
+  - [ ] Validation: warn if chosen IDE binary isn't found in PATH (non-blocking warning, still saves)
 
   ## Affected Areas
 
-  | Area                | Impact       | Reasoning                                  |
-  | ------------------- | ------------ | ------------------------------------------ |
-  | CLI Commands        | New          | Add new feat/ide.command.ts                |
-  | Settings Schema     | Minimal      | Default editor may already exist           |
-  | Use Cases           | New          | OpenFeatureInIdeUseCase orchestrates logic |
-  | Domain Models       | No change    | Feature model already has branch/worktree  |
-  | Infrastructure      | New          | IDE launcher service for each IDE type     |
+  | Area             | Impact        | Reasoning                                        |
+  | ---------------- | ------------- | ------------------------------------------------ |
+  | CLI Commands     | **New**       | Add `settings/ide.command.ts`                    |
+  | Use Cases        | **Reuse**     | Uses existing `UpdateSettingsUseCase`            |
+  | TUI              | **New**       | Interactive IDE selection prompt                 |
+  | Settings Schema  | **No change** | `defaultEditor` already exists in EnvironmentConfig |
+  | Domain Models    | **No change** | EnvironmentConfig already has the field          |
+  | Infrastructure   | **No change** | SQLite mapper already handles the field          |
 
   ## Dependencies
 
-  - Feature must have a worktree (created by `/shep-kit:new-feature` or `/shep-kit:parallel-task`)
-  - IDEs must be installed and available in PATH (or registered in Settings)
+  - Existing `UpdateSettingsUseCase`
+  - Existing `getSettings()` singleton
+  - Existing `Settings.environment.defaultEditor` field
 
   ## Size Estimate
 
-  **Medium** - Involves new command, use case, IDE launcher service, and light integration with Settings. No database changes needed.
+  **Small** — Single new CLI command + TUI prompt, reusing existing settings infrastructure entirely.
