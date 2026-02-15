@@ -1,8 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
-import { SidebarProvider, SidebarInset, SidebarTrigger } from '@/components/ui/sidebar';
-import { Separator } from '@/components/ui/separator';
+import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
 import { ThemeToggle } from '@/components/common/theme-toggle';
 
@@ -15,13 +14,12 @@ export function AppShell({ children }: AppShellProps) {
     <SidebarProvider>
       <AppSidebar features={[]} />
       <SidebarInset>
-        <header className="flex h-14 items-center gap-2 border-b px-4">
-          <SidebarTrigger />
-          <Separator orientation="vertical" className="h-4" />
-          <div className="flex-1" />
-          <ThemeToggle />
-        </header>
-        <main className="flex-1 overflow-auto p-6">{children}</main>
+        <div className="relative h-full">
+          <div className="absolute top-3 right-3 z-50">
+            <ThemeToggle />
+          </div>
+          <main className="h-full">{children}</main>
+        </div>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -15,6 +15,15 @@ const lifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Maintain: 'maintain',
 };
 
+/** Map agent graph node names (from agent_run.result) to UI lifecycle phases. */
+const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
+  analyze: 'requirements',
+  requirements: 'requirements',
+  research: 'research',
+  plan: 'implementation',
+  implement: 'implementation',
+};
+
 export default async function ControlCenterPage() {
   const features = await getFeatures();
 
@@ -44,7 +53,15 @@ export default async function ControlCenterPage() {
     });
 
     repoFeatures.forEach((feature, index) => {
-      const lifecycle = lifecycleMap[feature.lifecycle] ?? 'requirements';
+      // Derive lifecycle from the agent's current graph node (dynamic) when
+      // available, falling back to the static feature.lifecycle field.
+      const agentNode = feature.agentResult?.startsWith('node:')
+        ? feature.agentResult.slice(5)
+        : undefined;
+      const lifecycle: FeatureLifecyclePhase =
+        (agentNode ? nodeToLifecyclePhase[agentNode] : undefined) ??
+        lifecycleMap[feature.lifecycle] ??
+        'requirements';
 
       const nodeData: FeatureNodeData = {
         name: feature.name,
