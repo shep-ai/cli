@@ -30,13 +30,37 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-const MOCK_PLAN_YAML = `name: test
+const MOCK_SPEC_YAML = `name: test
+oneLiner: A test feature
+summary: Test feature summary
+phase: analyze
+content: Full content of the spec
+technologies:
+  - TypeScript
+sizeEstimate: S
+openQuestions: []
+`;
+
+const MOCK_RESEARCH_YAML = `name: test
+summary: Research summary
+content: Research content
+decisions:
+  - title: Framework choice
+    chosen: LangGraph
+    rejected:
+      - Custom solution
+    rationale: Better state management
+`;
+
+const MOCK_PLAN_YAML = `content: Plan content
 phases:
   - id: phase-1
     name: 'Test Phase'
     parallel: false
     taskIds:
       - task-1
+filesToCreate:
+  - src/new-file.ts
 `;
 
 const MOCK_TASKS_YAML = `name: test
@@ -45,6 +69,7 @@ tasks:
     title: Test Task
     description: A test task
     state: Todo
+    phaseId: phase-1
     dependencies: []
     acceptanceCriteria:
       - It works
@@ -70,6 +95,8 @@ status:
 function setupSpecFileMocks(): void {
   mockReadFileSync.mockImplementation((path: string) => {
     if (typeof path === 'string') {
+      if (path.endsWith('spec.yaml')) return MOCK_SPEC_YAML;
+      if (path.endsWith('research.yaml')) return MOCK_RESEARCH_YAML;
       if (path.endsWith('plan.yaml')) return MOCK_PLAN_YAML;
       if (path.endsWith('tasks.yaml')) return MOCK_TASKS_YAML;
       if (path.endsWith('feature.yaml')) return MOCK_FEATURE_YAML;
@@ -163,30 +190,50 @@ describe('createFeatureAgentGraph', () => {
   });
 
   describe('graph structure', () => {
-    it('should have all 5 nodes', () => {
+    it('should have all producer, validate, and repair nodes', () => {
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
       const graphRepr = compiled.getGraph();
       const nodeIds = Object.keys(graphRepr.nodes);
 
+      // Producer nodes
       expect(nodeIds).toContain('analyze');
       expect(nodeIds).toContain('requirements');
       expect(nodeIds).toContain('research');
       expect(nodeIds).toContain('plan');
       expect(nodeIds).toContain('implement');
+
+      // Validation nodes
+      expect(nodeIds).toContain('validate_spec_analyze');
+      expect(nodeIds).toContain('validate_spec_requirements');
+      expect(nodeIds).toContain('validate_research');
+      expect(nodeIds).toContain('validate_plan_tasks');
+
+      // Repair nodes
+      expect(nodeIds).toContain('repair_spec_analyze');
+      expect(nodeIds).toContain('repair_spec_requirements');
+      expect(nodeIds).toContain('repair_research');
+      expect(nodeIds).toContain('repair_plan_tasks');
     });
 
-    it('should have linear flow from START to END', () => {
+    it('should have flow with validation gates from START to END', () => {
       const compiled = createFeatureAgentGraph(mockExecutor, checkpointer);
       const graphRepr = compiled.getGraph();
 
       const edgePairs = graphRepr.edges.map((e) => [e.source, e.target]);
 
+      // Linear flow through validation gates
       expect(edgePairs).toContainEqual(['__start__', 'analyze']);
-      expect(edgePairs).toContainEqual(['analyze', 'requirements']);
-      expect(edgePairs).toContainEqual(['requirements', 'research']);
-      expect(edgePairs).toContainEqual(['research', 'plan']);
-      expect(edgePairs).toContainEqual(['plan', 'implement']);
+      expect(edgePairs).toContainEqual(['analyze', 'validate_spec_analyze']);
+      expect(edgePairs).toContainEqual(['requirements', 'validate_spec_requirements']);
+      expect(edgePairs).toContainEqual(['research', 'validate_research']);
+      expect(edgePairs).toContainEqual(['plan', 'validate_plan_tasks']);
       expect(edgePairs).toContainEqual(['implement', '__end__']);
+
+      // Repair loops
+      expect(edgePairs).toContainEqual(['repair_spec_analyze', 'validate_spec_analyze']);
+      expect(edgePairs).toContainEqual(['repair_spec_requirements', 'validate_spec_requirements']);
+      expect(edgePairs).toContainEqual(['repair_research', 'validate_research']);
+      expect(edgePairs).toContainEqual(['repair_plan_tasks', 'validate_plan_tasks']);
     });
   });
 

@@ -31,12 +31,16 @@ export default tseslint.config(
       // Build outputs
       'dist/**',
       'build/**',
+      'web/**',
       '**/.next/**',
       'out/**',
       '**/storybook-static/**',
 
       // Dependencies
       'node_modules/**',
+
+      // Git worktrees (parallel development checkouts)
+      '.worktrees/**',
 
       // Generated files
       'apis/**',

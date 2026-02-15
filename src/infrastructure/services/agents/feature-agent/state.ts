@@ -26,6 +26,19 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),
+  // --- Validation state channels (for validate/repair loops) ---
+  validationRetries: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
+  lastValidationTarget: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => '',
+  }),
+  lastValidationErrors: Annotation<string[]>({
+    reducer: (_prev, next) => next,
+    default: () => [],
+  }),
 });
 
 export type FeatureAgentState = typeof FeatureAgentAnnotation.State;

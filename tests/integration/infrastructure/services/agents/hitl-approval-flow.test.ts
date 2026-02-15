@@ -46,19 +46,49 @@ describe('HITL Approval Flow (Graph-level)', () => {
     specDir = join(tempDir, 'specs', '001-test');
     mkdirSync(specDir, { recursive: true });
 
+    // spec.yaml must pass both validateSpecAnalyze and validateSpecRequirements
     writeFileSync(
       join(specDir, 'spec.yaml'),
-      'name: Test Feature\ndescription: Test feature for HITL e2e\n'
+      `${[
+        'name: Test Feature',
+        'oneLiner: A test feature for HITL e2e',
+        'summary: This is a test feature used in integration tests',
+        'phase: implementation',
+        'sizeEstimate: S',
+        'content: Full description of the test feature for HITL approval flow testing',
+        'technologies:',
+        '  - TypeScript',
+        'openQuestions: []',
+      ].join('\n')}\n`
     );
+    // research.yaml must pass validateResearch
+    writeFileSync(
+      join(specDir, 'research.yaml'),
+      `${[
+        'name: Test Research',
+        'summary: Research for test feature',
+        'content: Detailed research content for the test feature',
+        'decisions:',
+        '  - title: Testing approach',
+        '    chosen: Vitest',
+        '    rejected:',
+        '      - Jest',
+        '    rationale: Vitest is faster and natively supports ESM',
+      ].join('\n')}\n`
+    );
+    // plan.yaml must pass validatePlan (needs content, phases, filesToCreate/filesToModify)
     writeFileSync(
       join(specDir, 'plan.yaml'),
       `${[
+        'content: Implementation plan for test feature',
         'phases:',
         '  - id: phase-1',
         '    name: Setup',
         '    parallel: false',
         '    taskIds:',
         '      - task-1',
+        'filesToCreate:',
+        '  - src/test-feature.ts',
       ].join('\n')}\n`
     );
     writeFileSync(
@@ -277,5 +307,78 @@ describe('HITL Approval Flow (Graph-level)', () => {
     // Both gates allowed → shouldInterrupt returns false for all nodes
     // (allowPrd && allowPlan is the "fully autonomous" path)
     expect(getInterrupts(result)).toHaveLength(0);
+  });
+
+  it('should trigger repair when spec.yaml is invalid, then continue after fix', async () => {
+    const executor = createMockExecutor();
+    const checkpointer = createCheckpointer(':memory:');
+    const graph = createFeatureAgentGraph(executor, checkpointer);
+    const config = { configurable: { thread_id: 'repair-loop-thread' } };
+
+    // Write INVALID spec.yaml (missing most required fields)
+    writeFileSync(join(specDir, 'spec.yaml'), 'name: Broken Spec\n');
+
+    // Mock executor: on the REPAIR call, write valid spec.yaml
+    let callCount = 0;
+    (executor.execute as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      callCount++;
+      // The repair node is the 2nd executor call (after analyze)
+      if (callCount === 2) {
+        // Repair call: write a valid spec.yaml
+        writeFileSync(
+          join(specDir, 'spec.yaml'),
+          `${[
+            'name: Fixed Spec',
+            'oneLiner: A repaired spec',
+            'summary: This spec was repaired by the repair node',
+            'phase: implementation',
+            'sizeEstimate: S',
+            'content: Full content of the repaired spec',
+            'technologies:',
+            '  - TypeScript',
+            'openQuestions: []',
+          ].join('\n')}\n`
+        );
+      }
+      return { result: 'Mock agent response' };
+    });
+
+    const result = await graph.invoke(
+      {
+        featureId: 'feat-test-repair',
+        repositoryPath: tempDir,
+        worktreePath: tempDir,
+        specDir,
+        approvalGates: { allowPrd: false, allowPlan: false },
+      },
+      config
+    );
+
+    // Verify repair ran (at least analyze + repair = 2 calls)
+    expect(callCount).toBeGreaterThanOrEqual(2);
+
+    // Graph should have continued past validation to requirements interrupt
+    const interrupts = getInterrupts(result);
+    expect(interrupts.length).toBe(1);
+    expect(interrupts[0].value.node).toBe('requirements');
+
+    // Verify repair message is in the accumulated messages
+    expect(result.messages.some((m: string) => m.includes('repair'))).toBe(true);
+
+    // Restore valid spec.yaml for subsequent tests
+    writeFileSync(
+      join(specDir, 'spec.yaml'),
+      `${[
+        'name: Test Feature',
+        'oneLiner: A test feature for HITL e2e',
+        'summary: This is a test feature used in integration tests',
+        'phase: implementation',
+        'sizeEstimate: S',
+        'content: Full description of the test feature for HITL approval flow testing',
+        'technologies:',
+        '  - TypeScript',
+        'openQuestions: []',
+      ].join('\n')}\n`
+    );
   });
 });
