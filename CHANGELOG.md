@@ -1,3 +1,23 @@
+# [1.19.0](https://github.com/shep-ai/cli/compare/v1.18.0...v1.19.0) (2026-02-15)
+
+### Bug Fixes
+
+- **cli:** add .js extensions to registry imports and fix lint warnings ([1461a79](https://github.com/shep-ai/cli/commit/1461a793c5834cab7912c4495242470a48724f37))
+- **cli:** change antigravity binary from agy to antigravity ([7eaf0d5](https://github.com/shep-ai/cli/commit/7eaf0d50d9169758a96797df2d46e25cede0ee68))
+
+### Features
+
+- **specs:** add 018-feat-ide-open implementation plan ([cc1cef9](https://github.com/shep-ai/cli/commit/cc1cef9c97b24517d50180f8460ca14465d5df2f))
+- **specs:** add 018-feat-ide-open research ([3ac8259](https://github.com/shep-ai/cli/commit/3ac82597a7e990b71002e63f4be2275f0685555c))
+- **specs:** add 018-feat-ide-open specification ([e1b13a2](https://github.com/shep-ai/cli/commit/e1b13a2ced7b36beb7a8aa840ffbc16471e73fc0))
+- **specs:** add 018-feat-ide-open specification ([cb064f9](https://github.com/shep-ai/cli/commit/cb064f9c17eeb3250df92d244a001c967cdb6401))
+- **tsp:** add editor type enum and use throughout codebase ([0a4961b](https://github.com/shep-ai/cli/commit/0a4961b85cde13519bfa467273d3e22b093fb1d4))
+- **cli:** add ide launcher implementations for all 5 editors ([f1978c2](https://github.com/shep-ai/cli/commit/f1978c23cc7fdec0678f196f83d573e926a5344c))
+- **cli:** add ide launcher interface for per-ide launch files ([e6c87cd](https://github.com/shep-ai/cli/commit/e6c87cdc9341653787c5f26ee8915f5e60d22618))
+- **cli:** add ide launcher registry and antigravity to settings prompt ([c0297ab](https://github.com/shep-ai/cli/commit/c0297ab22d95d535d1634b3d3c9d34efa7f3c6be))
+- **cli:** add settings ide command for editor configuration ([f0d45f2](https://github.com/shep-ai/cli/commit/f0d45f25f3b09c5d6a905d8c335c8471e4cc1478))
+- **cli:** add shep ide command to open features in editor ([48cfc30](https://github.com/shep-ai/cli/commit/48cfc304b11c2a5eeaab4c1b6f7872cdc8090a78))
+
 # [1.18.0](https://github.com/shep-ai/cli/compare/v1.17.0...v1.18.0) (2026-02-15)
 
 ### Bug Fixes
