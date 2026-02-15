@@ -17,6 +17,7 @@ import type {
 import type { ApprovalGates } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
+import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
 
 /**
  * Create a scoped logger that prefixes messages with the node name.
@@ -250,6 +251,9 @@ export function executeNode(
     reportNodeStart(nodeName);
     const startTime = Date.now();
 
+    // Record phase start (no-op if timing context not set)
+    const timingId = await recordPhaseStart(nodeName);
+
     try {
       const prompt = buildPrompt(state, log);
       const options = buildExecutorOptions(state);
@@ -257,8 +261,12 @@ export function executeNode(
       log.info(`Executing agent at cwd=${options.cwd}`);
       log.info(`Prompt length: ${prompt.length} chars`);
       const result = await executor.execute(prompt, options);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      const durationMs = Date.now() - startTime;
+      const elapsed = (durationMs / 1000).toFixed(1);
       log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
+
+      // Record phase completion
+      await recordPhaseEnd(timingId, durationMs);
 
       const nodeResult: Partial<FeatureAgentState> = {
         currentNode: nodeName,
@@ -281,8 +289,11 @@ export function executeNode(
       if (isGraphBubbleUp(err)) throw err;
 
       const message = err instanceof Error ? err.message : String(err);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      const durationMs = Date.now() - startTime;
+      const elapsed = (durationMs / 1000).toFixed(1);
       log.error(`${message} (after ${elapsed}s)`);
+
+      // Leave timingId without completedAt (partial timing for failed nodes)
 
       // Throw so LangGraph does NOT checkpoint this node as "completed".
       // The worker catch block marks the run as failed, and on resume
