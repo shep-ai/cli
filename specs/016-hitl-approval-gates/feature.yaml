@@ -3,18 +3,18 @@ feature:
   name: 'hitl-approval-gates'
   number: 16
   branch: 'feat/016-hitl-approval-gates'
-  lifecycle: 'planning'
+  lifecycle: 'implementation'
   createdAt: '2026-02-15T13:37:36Z'
 
 status:
-  phase: 'planning'
+  phase: 'ready-to-implement'
   progress:
     completed: 0
-    total: 0
+    total: 12
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-15T14:15:00Z'
-  lastUpdatedBy: 'shep-kit:research'
+  lastUpdated: '2026-02-15T15:30:00Z'
+  lastUpdatedBy: 'shep-kit:plan'
 
 validation:
   lastRun: null
@@ -33,6 +33,9 @@ checkpoints:
   - phase: 'research-complete'
     completedAt: '2026-02-15T14:15:00Z'
     completedBy: 'shep-kit:research'
+  - phase: 'plan-complete'
+    completedAt: '2026-02-15T15:30:00Z'
+    completedBy: 'shep-kit:plan'
 
 errors:
   current: null

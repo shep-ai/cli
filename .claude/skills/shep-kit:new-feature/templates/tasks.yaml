@@ -9,7 +9,8 @@ relatedFeatures: []
 technologies: []
 relatedLinks: []
 
-# Structured task list
+# Structured task list — this is the single source of truth for tasks.
+# The content field below is a summary only; it does NOT duplicate task details.
 tasks:
   - id: task-1
     title: { { TASK_1_TITLE } }
@@ -46,46 +47,12 @@ totalEstimate: { { TOTAL_EFFORT } }
 # Open questions
 openQuestions: []
 
-# Markdown content (the full tasks document)
+# Markdown content — summary and acceptance checklist only.
+# Individual task details live in the tasks[] array above (no duplication).
 content: |
-  ## Status
+  ## Summary
 
-  - **Phase:** Implementation
-  - **Updated:** {{DATE}}
-
-  ## Task List
-
-  ### Phase 1: Foundation
-
-  - [ ] {{TASK_1_DESCRIPTION}}
-  - [ ] {{TASK_2_DESCRIPTION}}
-
-  ### Phase 2: Core Implementation (TDD Cycle)
-
-  **RED (Write Failing Tests First):**
-
-  - [ ] Write unit tests for {{FEATURE}}
-
-  **GREEN (Implement to Pass Tests):**
-
-  - [ ] Implement {{FEATURE}}
-
-  **REFACTOR (Clean Up):**
-
-  - [ ] Extract helpers and improve code quality
-
-  ## TDD Notes
-
-  - **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
-  - **RED**: Write failing tests FIRST (never skip this!)
-  - **GREEN**: Write minimal code to pass tests
-  - **REFACTOR**: Improve code while keeping tests green
-
-  ## Progress Tracking (CRITICAL)
-
-  - **Update checkboxes FREQUENTLY** - as soon as each item is complete!
-  - **Don't batch updates** - check off items immediately, not at the end
-  - **Commit task.md updates** along with code changes to show progress
+  {{BRIEF_DESCRIPTION_OF_SCOPE}} — {{TASK_COUNT}} tasks across {{PHASE_COUNT}} phases.
 
   ## Acceptance Checklist
 
@@ -96,9 +63,8 @@ content: |
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)
   - [ ] TypeSpec compiles (`pnpm tsp:compile`)
-  - [ ] Documentation updated
   - [ ] PR created and reviewed
 
   ---
 
-  _Task breakdown for implementation tracking_
+  _Task details are in the tasks[] array of tasks.yaml_
