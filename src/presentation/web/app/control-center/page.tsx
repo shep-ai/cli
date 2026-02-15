@@ -1,23 +1,30 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getGlobalFeatures } from '@/lib/shep-data';
+import { getFeatures } from '@/lib/features';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
-import type {
-  FeatureNodeData,
-  FeatureLifecyclePhase,
-  FeatureNodeState,
-} from '@/components/common/feature-node';
+import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
+
+/** Map domain SdlcLifecycle enum values to UI FeatureLifecyclePhase. */
+const lifecycleMap: Record<string, FeatureLifecyclePhase> = {
+  Requirements: 'requirements',
+  Research: 'requirements',
+  Implementation: 'implementation',
+  Review: 'test',
+  'Deploy & QA': 'deploy',
+  Maintain: 'deploy',
+};
 
 export default async function ControlCenterPage() {
-  const globalFeatures = await getGlobalFeatures();
+  const features = await getFeatures();
 
-  // Group features by repository
-  const featuresByRepo: Record<string, typeof globalFeatures> = {};
-  globalFeatures.forEach((gf) => {
-    if (!featuresByRepo[gf.repoId]) {
-      featuresByRepo[gf.repoId] = [];
+  // Group features by repository path
+  const featuresByRepo: Record<string, typeof features> = {};
+  features.forEach((f) => {
+    const repoKey = f.repositoryPath;
+    if (!featuresByRepo[repoKey]) {
+      featuresByRepo[repoKey] = [];
     }
-    featuresByRepo[gf.repoId].push(gf);
+    featuresByRepo[repoKey].push(f);
   });
 
   const nodes: CanvasNodeType[] = [];
@@ -25,37 +32,29 @@ export default async function ControlCenterPage() {
 
   let yOffset = 50;
 
-  // Process each repository
-  Object.entries(featuresByRepo).forEach(([repoId, features]) => {
-    // Create Repository Node
-    const repoNodeId = `repo-${repoId}`;
+  Object.entries(featuresByRepo).forEach(([repoPath, repoFeatures]) => {
+    const repoNodeId = `repo-${repoPath}`;
+    const repoName = repoPath.split('/').pop() ?? repoPath;
     nodes.push({
       id: repoNodeId,
       type: 'repositoryNode',
-      position: { x: 50, y: yOffset + (features.length * 150) / 2 }, // Center vertically relative to its features
-      data: {
-        name: repoId.substring(0, 8), // Display short hash/ID
-      },
+      position: { x: 50, y: yOffset + (repoFeatures.length * 150) / 2 },
+      data: { name: repoName },
     });
 
-    // Create Feature Nodes for this repo
-    features.forEach((gf, index) => {
-      let state: FeatureNodeState = 'running';
-      if (gf.status?.phase === 'complete') state = 'done';
-      if (gf.status?.phase === 'blocked') state = 'blocked';
-
-      const lifecycle = (gf.feature.lifecycle as FeatureLifecyclePhase) || 'requirements';
+    repoFeatures.forEach((feature, index) => {
+      const lifecycle = lifecycleMap[feature.lifecycle] ?? 'requirements';
 
       const nodeData: FeatureNodeData = {
-        name: gf.feature.name,
-        description: gf.feature.description ?? gf.feature.id,
-        featureId: gf.feature.id,
+        name: feature.name,
+        description: feature.description ?? feature.slug,
+        featureId: feature.id,
         lifecycle,
-        state,
-        progress: gf.status?.progress?.percentage ?? 0,
+        state: 'running',
+        progress: 0,
       };
 
-      const featureNodeId = `feat-${repoId}-${gf.feature.id}`;
+      const featureNodeId = `feat-${feature.id}`;
       nodes.push({
         id: featureNodeId,
         type: 'featureNode',
@@ -63,7 +62,6 @@ export default async function ControlCenterPage() {
         data: nodeData,
       });
 
-      // Connect Repo to Feature
       edges.push({
         id: `edge-${repoNodeId}-${featureNodeId}`,
         source: repoNodeId,
@@ -72,8 +70,7 @@ export default async function ControlCenterPage() {
       });
     });
 
-    // Increment Y offset for next repo block
-    yOffset += Math.max(features.length * 200, 200) + 100;
+    yOffset += Math.max(repoFeatures.length * 200, 200) + 100;
   });
 
   return (
