@@ -26,7 +26,7 @@ export function DefaultAgentIcon(props: IconProps) {
 }
 
 const agentTypeIconMap: Record<AgentTypeValue, ComponentType<IconProps>> = {
-  'claude-code': createBrandIcon('/icons/agents/claude-code.jpeg', 'Claude Code'),
+  'claude-code': createBrandIcon('/icons/agents/claude-ai-icon.svg', 'Claude Code'),
   cursor: createBrandIcon('/icons/agents/cursor.jpeg', 'Cursor'),
   'gemini-cli': createBrandIcon('/icons/agents/gemini-cli.jpeg', 'Gemini CLI'),
   aider: createBrandIcon('/icons/agents/aider.png', 'Aider'),
