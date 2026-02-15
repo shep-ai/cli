@@ -6,49 +6,120 @@
 ## Architecture Overview
 
 ```
-{{ARCHITECTURE_DIAGRAM}}
++-----------------------------------------------------------+
+|                    implement.node.ts                       |
+|                                                           |
+|  for each phase:                                          |
+|    +----------------------------------------------------+ |
+|    |  1. Check feature.yaml -- skip if complete         | |
+|    |  2. Build executor options (+ disableMcp, maxTurns)| |
+|    |  3. Call executor.execute() with retry:             | |
+|    |     +------------------------------------------+   | |
+|    |     |  retryExecute() wrapper                  |   | |
+|    |     |  - max 3 attempts                        |   | |
+|    |     |  - classifyError() on failure            |   | |
+|    |     |  - exponential backoff (2/4/8s)          |   | |
+|    |     |  - only retry retryable errors           |   | |
+|    |     +------------------------------------------+   | |
+|    |  4. Mark phase complete in feature.yaml             | |
+|    +----------------------------------------------------+ |
++-----------------------------------------------------------+
+
+Layers modified:
+
++----------------------------+
+| Application Layer          |
+|  AgentExecutionOptions     |  + disableMcp, tools
++----------------------------+
+             |
++----------------------------+
+| Infrastructure Layer       |
+|  ClaudeCodeExecutorService |  maps to --strict-mcp-config, --tools
+|  node-helpers.ts           |  + classifyError(), retryExecute()
+|  implement.node.ts         |  uses retry, phase skipping
++----------------------------+
 ```
 
 ## Implementation Strategy
 
-**MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
+**MANDATORY TDD**: All phases follow RED-GREEN-REFACTOR cycles.
 
-### Phase 1: Foundation (No Tests)
+### Phase 1: Error Classification & Retry Utility (TDD)
 
-**Goal:** {{PHASE_1_GOAL}}
-
-**Steps:**
-
-1. {{STEP_1}}
-2. {{STEP_2}}
-
-**Deliverables:** {{DELIVERABLES}}
-
-### Phase 2: Core Implementation (TDD Cycle 1)
-
-**Goal:** {{PHASE_2_GOAL}}
+**Goal:** Add error classification and a reusable retry wrapper to node-helpers.ts.
 
 **TDD Workflow:**
 
-1. **RED:** Write failing tests FIRST
-2. **GREEN:** Implement minimal code to pass tests
-3. **REFACTOR:** Improve code while keeping tests green
+1. **RED:** Write failing tests for `classifyError()` covering API 400/429/500,
+   network errors, non-retryable errors, and unknown errors. Write failing tests
+   for `retryExecute()` covering successful execution, retry on retryable errors,
+   immediate failure on non-retryable errors, max attempts exhaustion, and
+   exponential backoff timing.
 
-**Deliverables:** {{DELIVERABLES}}
+2. **GREEN:** Implement `classifyError()` with regex pattern matching against error
+   messages. Implement `retryExecute()` with bounded attempts and exponential
+   backoff that only retries when `classifyError()` returns a retryable category.
+
+3. **REFACTOR:** Extract error category constants, clean up types.
+
+**Deliverables:** `classifyError()` and `retryExecute()` in node-helpers.ts with
+full test coverage.
+
+### Phase 2: AgentExecutionOptions & Executor Wiring (TDD)
+
+**Goal:** Extend the port interface and wire new flags into the Claude Code executor.
+
+**TDD Workflow:**
+
+1. **RED:** Write failing tests for `buildArgs()` verifying `--strict-mcp-config` is
+   added when `disableMcp: true`, and `--tools` is added when `tools` array is provided.
+
+2. **GREEN:** Add `disableMcp?: boolean` and `tools?: string[]` to
+   `AgentExecutionOptions`. Update `buildArgs()` in `ClaudeCodeExecutorService` to
+   map these to CLI flags.
+
+3. **REFACTOR:** Ensure consistent naming and documentation.
+
+**Deliverables:** Updated interface and executor with test coverage.
+
+### Phase 3: Implement Node Hardening (TDD)
+
+**Goal:** Integrate retry logic, phase skipping, and hardened executor options into
+implement.node.ts.
+
+**TDD Workflow:**
+
+1. **RED:** Write failing tests for `buildExecutorOptions()` returning `maxTurns` and
+   `disableMcp`. Write failing tests for phase-skipping logic (reading/writing
+   completed phases in feature.yaml). Write failing tests for the implement node
+   using `retryExecute()` instead of raw `executor.execute()`.
+
+2. **GREEN:** Update `buildExecutorOptions()` to include `maxTurns: 50` and
+   `disableMcp: true`. Add `completedPhases` tracking in `updateFeatureProgress()`.
+   Add phase-skip check before execution. Replace `executor.execute()` calls with
+   `retryExecute()`.
+
+3. **REFACTOR:** Extract phase-completion helpers, clean up logging.
+
+**Deliverables:** Hardened implement node that retries transient failures and skips
+completed phases.
 
 ## Files to Create/Modify
 
 ### New Files
 
-| File          | Purpose     |
-| ------------- | ----------- |
-| {{FILE_PATH}} | {{PURPOSE}} |
+No new files needed. All changes go into existing files.
 
 ### Modified Files
 
-| File          | Changes     |
-| ------------- | ----------- |
-| {{FILE_PATH}} | {{CHANGES}} |
+| File                              | Changes                                                       |
+| --------------------------------- | ------------------------------------------------------------- |
+| `node-helpers.ts`                 | Add `classifyError()`, `retryExecute()`, error category types |
+| `node-helpers.test.ts`            | Add tests for error classification and retry                  |
+| `agent-executor.interface.ts`     | Add `disableMcp?: boolean`, `tools?: string[]`                |
+| `claude-code-executor.service.ts` | Map new options to `--strict-mcp-config`, `--tools`           |
+| `claude-code-executor.test.ts`    | Add tests for new CLI flags                                   |
+| `implement.node.ts`               | Use `retryExecute()`, add phase skipping, hardened options    |
 
 ## Testing Strategy (TDD: Tests FIRST)
 
@@ -58,21 +129,27 @@
 
 Write FIRST for:
 
-- {{TEST_AREA_1}}
-- {{TEST_AREA_2}}
+- `classifyError()` -- all error categories with real-world error messages
+- `retryExecute()` -- retry behavior, backoff timing, max attempts
+- `buildArgs()` -- new CLI flag generation
+- `buildExecutorOptions()` -- hardened option defaults
+- Phase skip logic -- reading/writing completed phases
 
 ### Integration Tests
 
-Write FIRST for:
-
-- {{INTEGRATION_TEST_1}}
+Not required. All changes are pure logic (string matching, option building,
+retry loops) testable via unit tests with mocked dependencies.
 
 ## Risk Mitigation
 
-| Risk     | Mitigation     |
-| -------- | -------------- |
-| {{RISK}} | {{MITIGATION}} |
+| Risk                                   | Mitigation                                       |
+| -------------------------------------- | ------------------------------------------------ |
+| Retry masks real implementation errors | classifyError() only retries API/network errors  |
+| Phase skipping causes stale state      | Only skip if feature.yaml explicitly lists phase |
+| --strict-mcp-config breaks tool use    | Implementation phases don't need MCP tools       |
+| --max-turns too low for complex phases | 50 turns is generous; overridable later          |
+| Backoff delays slow CI                 | Max total delay 14s per phase (negligible)       |
 
 ---
 
-_Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_
+_Updated by `/shep-kit:plan` -- see tasks.md for detailed breakdown_
