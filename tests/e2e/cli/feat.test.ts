@@ -134,7 +134,7 @@ describe('CLI: feat', () => {
       expect(files).toContain('feature.yaml');
     }, 60_000);
 
-    it('should reject duplicate feature slugs', () => {
+    it('should auto-resolve duplicate feature slugs with suffix', () => {
       const runner = createCliRunner({
         env: { HOME: tempHome },
         timeout: 30000,
@@ -144,10 +144,10 @@ describe('CLI: feat', () => {
       expect(first.success).toBe(true);
 
       const second = runner.run(`feat new "Duplicate test" --repo ${tempRepo}`);
-      expect(second.success).toBe(false);
-      // Error message goes to stderr via messages.error + console.error
+      expect(second.success).toBe(true);
+      // Should use a suffixed slug and warn about it
       const output = `${second.stdout} ${second.stderr}`;
-      expect(output).toMatch(/already exists/i);
+      expect(output).toMatch(/already exists.*using/i);
     }, 60_000);
 
     it('should show error when no description is provided', () => {
