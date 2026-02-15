@@ -1,8 +1,18 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
-import { FeatureNode, lifecycleDisplayLabels } from '@/components/common/feature-node';
+import {
+  FeatureNode,
+  lifecycleDisplayLabels,
+  lifecycleRunningVerbs,
+  getAgentTypeIcon,
+} from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureNodeType } from '@/components/common/feature-node';
+import {
+  ClaudeCodeIcon,
+  CursorIcon,
+  DefaultAgentIcon,
+} from '@/components/common/feature-node/agent-type-icons';
 
 const nodeTypes = { featureNode: FeatureNode };
 
@@ -46,9 +56,9 @@ describe('FeatureNode', () => {
     expect(screen.getByText('Implement authentication flow')).toBeInTheDocument();
   });
 
-  it('renders featureId', () => {
+  it('does not render featureId in the card', () => {
     renderFeatureNode({ featureId: '#f1' });
-    expect(screen.getByText('#f1')).toBeInTheDocument();
+    expect(screen.queryByText('#f1')).not.toBeInTheDocument();
   });
 
   describe('running state', () => {
@@ -58,14 +68,14 @@ describe('FeatureNode', () => {
       expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
     });
 
-    it('shows agent name and featureId in badge text', () => {
-      renderFeatureNode({ state: 'running', progress: 45, agentName: 'Planner' });
-      expect(screen.getByText('Planner #f1 running')).toBeInTheDocument();
+    it('shows lifecycle running verb in badge text', () => {
+      renderFeatureNode({ state: 'running', progress: 45, lifecycle: 'implementation' });
+      expect(screen.getByText('Implementing')).toBeInTheDocument();
     });
 
-    it('defaults to "Agent" when agentName not provided', () => {
-      renderFeatureNode({ state: 'running', progress: 45 });
-      expect(screen.getByText('Agent #f1 running')).toBeInTheDocument();
+    it('shows Analyzing verb for requirements phase', () => {
+      renderFeatureNode({ state: 'running', progress: 45, lifecycle: 'requirements' });
+      expect(screen.getByText('Analyzing')).toBeInTheDocument();
     });
   });
 
@@ -207,6 +217,71 @@ describe('FeatureNode', () => {
 
     it('maps review to REVIEW', () => {
       expect(lifecycleDisplayLabels.review).toBe('REVIEW');
+    });
+  });
+
+  describe('lifecycle running verbs', () => {
+    const verbMap: Record<string, string> = {
+      requirements: 'Analyzing',
+      research: 'Researching',
+      implementation: 'Implementing',
+      review: 'Reviewing',
+      deploy: 'Deploying',
+      maintain: 'Maintaining',
+    };
+
+    for (const [phase, verb] of Object.entries(verbMap)) {
+      it(`shows "${verb}" for ${phase} phase`, () => {
+        renderFeatureNode({
+          state: 'running',
+          lifecycle: phase as FeatureNodeData['lifecycle'],
+        });
+        expect(screen.getByText(verb)).toBeInTheDocument();
+      });
+    }
+  });
+
+  describe('lifecycleRunningVerbs', () => {
+    it('maps requirements to Analyzing', () => {
+      expect(lifecycleRunningVerbs.requirements).toBe('Analyzing');
+    });
+
+    it('maps research to Researching', () => {
+      expect(lifecycleRunningVerbs.research).toBe('Researching');
+    });
+
+    it('maps implementation to Implementing', () => {
+      expect(lifecycleRunningVerbs.implementation).toBe('Implementing');
+    });
+
+    it('maps review to Reviewing', () => {
+      expect(lifecycleRunningVerbs.review).toBe('Reviewing');
+    });
+
+    it('maps deploy to Deploying', () => {
+      expect(lifecycleRunningVerbs.deploy).toBe('Deploying');
+    });
+
+    it('maps maintain to Maintaining', () => {
+      expect(lifecycleRunningVerbs.maintain).toBe('Maintaining');
+    });
+  });
+
+  describe('getAgentTypeIcon', () => {
+    it('returns ClaudeCodeIcon for claude-code', () => {
+      expect(getAgentTypeIcon('claude-code')).toBe(ClaudeCodeIcon);
+    });
+
+    it('returns CursorIcon for cursor', () => {
+      expect(getAgentTypeIcon('cursor')).toBe(CursorIcon);
+    });
+
+    it('returns DefaultAgentIcon for undefined', () => {
+      expect(getAgentTypeIcon(undefined)).toBe(DefaultAgentIcon);
+    });
+
+    it('returns DefaultAgentIcon for unknown type', () => {
+      expect(getAgentTypeIcon('unknown-agent')).toBe(DefaultAgentIcon);
     });
   });
 

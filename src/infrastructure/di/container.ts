@@ -81,6 +81,7 @@ import { DeleteFeatureUseCase } from '../../application/use-cases/features/delet
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
+import { ListDashboardFeaturesUseCase } from '../../application/use-cases/features/list-dashboard-features.use-case.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -222,6 +223,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ResumeFeatureUseCase);
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
+  container.registerSingleton(ListDashboardFeaturesUseCase);
 
   return container;
 }

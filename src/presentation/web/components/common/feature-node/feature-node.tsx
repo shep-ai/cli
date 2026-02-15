@@ -4,16 +4,24 @@ import { Handle, Position } from '@xyflow/react';
 import { Settings, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { CometSpinner } from '@/components/ui/comet-spinner';
-import { featureNodeStateConfig, lifecycleDisplayLabels } from './feature-node-state-config';
+import {
+  featureNodeStateConfig,
+  lifecycleDisplayLabels,
+  lifecycleRunningVerbs,
+} from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
+import { getAgentTypeIcon } from './agent-type-icons';
+
+function AgentIcon({ agentType, className }: { agentType?: string; className?: string }) {
+  const IconComponent = getAgentTypeIcon(agentType);
+  return <IconComponent className={className} />;
+}
 
 function getBadgeText(data: FeatureNodeData): string {
   const config = featureNodeStateConfig[data.state];
   switch (data.state) {
-    case 'running': {
-      const agent = data.agentName ?? 'Agent';
-      return `${agent} ${data.featureId} running`;
-    }
+    case 'running':
+      return lifecycleRunningVerbs[data.lifecycle];
     case 'done':
       return data.runtime ? `Completed in ${data.runtime}` : 'Completed';
     case 'blocked':
@@ -95,9 +103,8 @@ export function FeatureNode({
         <div className="mt-auto pt-2">
           {config.showProgressBar ? (
             <>
-              {/* Bottom row: featureId + progress percentage */}
-              <div className="text-muted-foreground flex items-center justify-between text-[10px]">
-                <span>{data.featureId}</span>
+              {/* Bottom row: progress percentage */}
+              <div className="text-muted-foreground flex items-center justify-end text-[10px]">
                 <span>{data.progress}%</span>
               </div>
 
@@ -113,29 +120,29 @@ export function FeatureNode({
               </div>
             </>
           ) : (
-            <>
-              {/* featureId row (no progress percentage) */}
-              <div className="text-muted-foreground text-[10px]">
-                <span>{data.featureId}</span>
-              </div>
-
-              {/* State badge */}
-              <div
-                data-testid="feature-node-badge"
-                className={cn(
-                  'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                  config.badgeBgClass,
-                  config.badgeClass
-                )}
-              >
-                {data.state === 'running' ? (
+            <div
+              data-testid="feature-node-badge"
+              className={cn(
+                'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                config.badgeBgClass,
+                config.badgeClass
+              )}
+            >
+              {data.state === 'running' ? (
+                <>
                   <CometSpinner size="sm" className="shrink-0" />
-                ) : (
+                  <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
+                </>
+              ) : (
+                <>
+                  {data.agentType ? (
+                    <AgentIcon agentType={data.agentType} className="h-3.5 w-3.5 shrink-0" />
+                  ) : null}
                   <Icon className="h-3.5 w-3.5 shrink-0" />
-                )}
-                <span className="truncate">{getBadgeText(data)}</span>
-              </div>
-            </>
+                </>
+              )}
+              <span className="truncate">{getBadgeText(data)}</span>
+            </div>
           )}
         </div>
       </div>

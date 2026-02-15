@@ -1,5 +1,5 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getFeatures } from '@/lib/features';
+import { getDashboardFeatures } from '@/lib/use-cases';
 import { deriveState } from './derive-state';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -26,7 +26,7 @@ const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
 };
 
 export default async function HomePage() {
-  const features = await getFeatures();
+  const features = await getDashboardFeatures();
 
   // Group features by repository path
   const featuresByRepo: Record<string, typeof features> = {};
@@ -67,6 +67,7 @@ export default async function HomePage() {
         lifecycle,
         ...deriveState(lifecycle, feature.agentStatus),
         ...(feature.agentError && { errorMessage: feature.agentError }),
+        ...(feature.agentType && { agentType: feature.agentType as FeatureNodeData['agentType'] }),
       };
 
       const featureNodeId = `feat-${feature.id}`;
