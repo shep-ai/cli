@@ -7,14 +7,14 @@ feature:
   createdAt: '2026-02-12T20:31:19Z'
 
 status:
-  phase: 'review-watching'
+  phase: 'in-review'
   progress:
     completed: 10
     total: 10
     percentage: 100
-  notes: 'CI green after lint fix; watching for review comments'
+  notes: 'CI green; no actionable review comments; awaiting human review'
   currentTask: null
-  lastUpdated: '2026-02-15T15:45:00Z'
+  lastUpdated: '2026-02-15T15:55:00Z'
   lastUpdatedBy: 'shep-kit:commit-pr'
 
 prUrl: 'https://github.com/shep-ai/cli/pull/49'
@@ -58,6 +58,7 @@ reviewLoop:
   commentsAddressed: []
   commentsRemaining: []
   status: 'watching'
+  notes: 'No actionable comments found; CI green on all checks'
 
 errors:
   current: null
