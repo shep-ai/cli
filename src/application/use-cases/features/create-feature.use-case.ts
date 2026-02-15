@@ -229,11 +229,19 @@ JSON only, no markdown fences.`;
   }
 
   private toSlug(text: string): string {
-    return text
+    const slug = text
       .toLowerCase()
       .replace(/[^a-z0-9\s-]/g, '')
       .replace(/\s+/g, '-')
       .replace(/-+/g, '-')
       .replace(/^-|-$/g, '');
+
+    // Limit to ~50 chars, cutting at a word boundary
+    if (slug.length <= 50) {
+      return slug;
+    }
+    const truncated = slug.slice(0, 50);
+    const lastDash = truncated.lastIndexOf('-');
+    return lastDash > 10 ? truncated.slice(0, lastDash) : truncated;
   }
 }
