@@ -1,17 +1,18 @@
 import { ControlCenter } from '@/components/features/control-center';
 import { getFeatures } from '@/lib/features';
+import { deriveState } from './derive-state';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
 
-/** Map domain SdlcLifecycle enum values to UI FeatureLifecyclePhase. */
+/** Map domain SdlcLifecycle enum values to UI FeatureLifecyclePhase (1:1). */
 const lifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Requirements: 'requirements',
-  Research: 'requirements',
+  Research: 'research',
   Implementation: 'implementation',
-  Review: 'test',
+  Review: 'review',
   'Deploy & QA': 'deploy',
-  Maintain: 'deploy',
+  Maintain: 'maintain',
 };
 
 export default async function ControlCenterPage() {
@@ -50,8 +51,8 @@ export default async function ControlCenterPage() {
         description: feature.description ?? feature.slug,
         featureId: feature.id,
         lifecycle,
-        state: 'running',
-        progress: 0,
+        ...deriveState(lifecycle, feature.agentStatus),
+        ...(feature.agentError && { errorMessage: feature.agentError }),
       };
 
       const featureNodeId = `feat-${feature.id}`;

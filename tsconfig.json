@@ -20,6 +20,7 @@
     "paths": {
       "@/*": ["src/*"],
       "@tests/*": ["tests/*"],
+      "@/app/*": ["src/presentation/web/app/*"],
       "@/components/*": ["src/presentation/web/components/*"],
       "@/lib/*": ["src/presentation/web/lib/*"],
       "@/hooks/*": ["src/presentation/web/hooks/*"],

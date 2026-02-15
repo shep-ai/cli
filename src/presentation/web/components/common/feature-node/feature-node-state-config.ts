@@ -5,11 +5,21 @@ export type FeatureNodeState = 'running' | 'action-required' | 'done' | 'blocked
 
 export type FeatureLifecyclePhase =
   | 'requirements'
-  | 'plan'
+  | 'research'
   | 'implementation'
-  | 'test'
+  | 'review'
   | 'deploy'
-  | 'maintenance';
+  | 'maintain';
+
+/** Human-readable display labels for lifecycle phases. */
+export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
+  requirements: 'REQUIREMENTS',
+  research: 'RESEARCH',
+  implementation: 'IMPLEMENTATION',
+  review: 'REVIEW',
+  deploy: 'DEPLOY & QA',
+  maintain: 'COMPLETED',
+};
 
 export interface FeatureNodeData {
   [key: string]: unknown;

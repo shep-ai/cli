@@ -35,6 +35,7 @@ export default defineConfig({
       },
       { find: '@/lib', replacement: resolve(__dirname, './src/presentation/web/lib') },
       { find: '@/hooks', replacement: resolve(__dirname, './src/presentation/web/hooks') },
+      { find: '@/app', replacement: resolve(__dirname, './src/presentation/web/app') },
       { find: '@/types', replacement: resolve(__dirname, './src/presentation/web/types') },
       // General alias last
       { find: '@', replacement: resolve(__dirname, './src') },
