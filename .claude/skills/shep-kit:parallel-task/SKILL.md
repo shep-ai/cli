@@ -130,10 +130,20 @@ git commit -m "feat(specs): add NNN-feature-name specification"
 
 **CRITICAL: Do NOT start implementation. Do NOT run `/shep-kit:research`, `/shep-kit:plan`, or `/shep-kit:implement`.**
 
-**Auto-open editor:** Attempt to open the worktree in a new editor window. Try `cursor` first, then `code`:
+**Auto-open editor:** Detect the current execution context from `$TERM_PROGRAM` and open the worktree with the matching editor:
+
+- If `$TERM_PROGRAM` is `vscode` → use `code`
+- If `$TERM_PROGRAM` is `cursor` → use `cursor`
+- Otherwise → try `code`, then fall back to `cursor`
 
 ```bash
-cursor .worktrees/<dir-name> || code .worktrees/<dir-name>
+if [ "$TERM_PROGRAM" = "vscode" ]; then
+  code .worktrees/<dir-name>
+elif [ "$TERM_PROGRAM" = "cursor" ]; then
+  cursor .worktrees/<dir-name>
+else
+  code .worktrees/<dir-name> || cursor .worktrees/<dir-name>
+fi
 ```
 
 **If the command succeeds**, print:

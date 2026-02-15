@@ -1,0 +1,535 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: control-center
+summary: Task breakdown for 016-control-center
+
+# Relationships
+relatedFeatures:
+  - '015-feature-flow-canvas'
+  - '013-ui-arch'
+technologies:
+  - '@xyflow/react ^12.10.0'
+  - React 19
+  - Tailwind CSS v4
+  - shadcn/ui
+  - Storybook 8
+  - Lucide React
+relatedLinks:
+  - https://reactflow.dev/api-reference/components/panel
+  - https://reactflow.dev/api-reference/hooks/use-on-selection-change
+
+# Structured task list
+tasks:
+  - id: task-1
+    title: 'Scaffold control-center directory structure'
+    description: >
+      Create the features/control-center/ directory with empty component shells,
+      TypeScript interfaces, and barrel exports. All files should compile with
+      pnpm typecheck:web.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Directory features/control-center/ exists with all 5 files'
+      - 'index.ts barrel exports all components and types'
+      - 'pnpm typecheck:web passes with placeholder implementations'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-2
+    title: 'Add selected visual highlight to FeatureNode [P]'
+    description: >
+      Add a ring-2 ring-primary highlight to FeatureNode when the selected prop
+      is true. React Flow passes selected as a prop to all custom nodes. Update
+      Storybook stories with a Selected variant.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeatureNode renders ring-2 ring-primary when selected=true'
+      - 'FeatureNode does NOT render ring classes when selected=false'
+      - 'Ring does not conflict with existing left border styling'
+      - 'Storybook has Selected variant for each state'
+      - 'Unit test verifies conditional ring class application'
+    tdd:
+      red:
+        - 'Write test: FeatureNode renders ring-2 ring-primary when selected=true'
+        - 'Write test: FeatureNode does NOT render ring classes when selected=false'
+      green:
+        - 'Add conditional cn() class: ring-2 ring-primary when selected prop is true'
+      refactor:
+        - 'Verify ring integrates cleanly with existing border-l-4 styles'
+        - 'Add Selected story variant to feature-node.stories.tsx'
+    estimatedEffort: S
+
+  - id: task-3
+    title: 'Extend FeaturesCanvas with interaction and contextual add callbacks [P]'
+    description: >
+      Add onNodeClick, onPaneClick, onRepositoryAdd, and onNodeAction callback props
+      to FeaturesCanvasProps. Pass onNodeClick/onPaneClick to ReactFlow. Wire
+      onRepositoryAdd to RepositoryNode's onAdd and onNodeAction to FeatureNode's
+      onAction during node enrichment. Update stories.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeaturesCanvasProps includes onNodeClick, onPaneClick, onRepositoryAdd, onNodeAction'
+      - 'onNodeClick and onPaneClick passed through to ReactFlow component'
+      - 'onRepositoryAdd wired to RepositoryNode onAdd during node enrichment'
+      - 'onNodeAction wired to FeatureNode onAction during node enrichment'
+      - 'Existing stories still render correctly'
+      - 'New Interactive story demonstrates callback usage'
+      - 'Unit tests verify callback prop pass-through and node enrichment wiring'
+    tdd:
+      red:
+        - 'Write test: FeaturesCanvas accepts onNodeClick prop'
+        - 'Write test: FeaturesCanvas accepts onPaneClick prop'
+        - 'Write test: FeaturesCanvas wires onRepositoryAdd to RepositoryNode onAdd'
+        - 'Write test: FeaturesCanvas wires onNodeAction to FeatureNode onAction'
+      green:
+        - 'Add all four callback props to FeaturesCanvasProps interface'
+        - 'Pass onNodeClick/onPaneClick to <ReactFlow> component'
+        - 'Wire onRepositoryAdd/onNodeAction to nodes in enrichment useMemo'
+      refactor:
+        - 'Update type exports in index.ts'
+        - 'Add Interactive story variant to features-canvas.stories.tsx'
+    estimatedEffort: S
+
+  - id: task-4
+    title: 'Implement useControlCenterState hook (selection + contextual add)'
+    description: >
+      Build the central state management hook that composes React Flow hooks
+      (useOnSelectionChange, useReactFlow) with local state for selection tracking,
+      Escape keyboard shortcut, and contextual add handlers for creating new
+      FeatureNodes from repo and feature (+) buttons.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'Hook returns selectedNode (FeatureNodeData | null)'
+      - 'Hook returns clearSelection function'
+      - 'Escape key clears selection'
+      - 'useOnSelectionChange callback is memoized with useCallback'
+      - 'handleAddFeatureToRepo(repoNodeId) adds FeatureNode + edge'
+      - 'handleAddFeatureToFeature(featureNodeId) adds FeatureNode + edge'
+      - 'handleAddFeature() adds unconnected FeatureNode'
+      - 'New nodes positioned to the right of source (x + 350)'
+      - 'New nodes are auto-selected after creation'
+      - 'All tests pass'
+    tdd:
+      red:
+        - 'Write test: returns selectedNode when FeatureNode selected'
+        - 'Write test: returns null selectedNode when no selection'
+        - 'Write test: Escape key clears selection'
+        - 'Write test: handleAddFeatureToRepo adds node + edge'
+        - 'Write test: handleAddFeatureToFeature adds node + edge'
+        - 'Write test: handleAddFeature adds unconnected node'
+        - 'Write test: new node positioned at source.x + 350'
+        - 'Write test: new node is auto-selected'
+      green:
+        - 'Implement useOnSelectionChange to track selected node'
+        - 'Add useEffect with keydown listener for Escape'
+        - 'Implement add handlers using useReactFlow (addNodes, addEdges, getNode)'
+        - 'Calculate position from source node via getNode()'
+      refactor:
+        - 'Ensure all callbacks are properly memoized'
+        - 'Extract createDefaultFeatureNode factory helper'
+        - 'Deduplicate add logic between repo/feature handlers'
+    estimatedEffort: M
+
+  - id: task-5
+    title: 'Implement ControlCenterToolbar component'
+    description: >
+      Build the top toolbar panel with Add Feature and Auto-Layout buttons.
+      Uses shadcn/ui Button components and Lucide icons inside a React Flow
+      Panel positioned at top-left.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Renders inside <Panel position="top-left">'
+      - 'Shows "Add Feature" button with Plus icon'
+      - 'Shows "Auto-Layout" button with LayoutGrid icon (disabled)'
+      - 'onAddFeature callback fires when Add Feature clicked'
+      - 'Storybook stories: Default, WithCallbacks'
+      - 'Unit tests verify rendering and callback invocation'
+    tdd:
+      red:
+        - 'Write test: renders Add Feature button'
+        - 'Write test: renders Auto-Layout button (disabled)'
+        - 'Write test: calls onAddFeature when Add Feature clicked'
+      green:
+        - 'Implement toolbar with Panel, Button, and Lucide icons'
+        - 'Wire onAddFeature to button onClick'
+      refactor:
+        - 'Add Storybook stories (Default, WithCallbacks)'
+    estimatedEffort: S
+
+  - id: task-6
+    title: 'Implement ControlCenter orchestrator component'
+    description: >
+      Wire all sub-components together in the main ControlCenter component.
+      Composes FeaturesCanvas and toolbar via useControlCenterState hook.
+      Wires contextual add handlers (onRepositoryAdd, onNodeAction) to canvas.
+      Add comprehensive Storybook stories including WithNodeActions.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Renders FeaturesCanvas with nodes and edges'
+      - 'Renders ControlCenterToolbar in top-left panel'
+      - 'Passes onAddFeature callback to toolbar'
+      - 'Wires handleAddFeatureToRepo to FeaturesCanvas onRepositoryAdd'
+      - 'Wires handleAddFeatureToFeature to FeaturesCanvas onNodeAction'
+      - 'Escape key deselects node'
+      - 'Storybook stories: Empty, WithFeatures, WithToolbar, WithNodeActions'
+      - 'ControlCenter props: initialNodes, initialEdges'
+      - 'pnpm test passes for all control-center tests'
+    tdd:
+      red:
+        - 'Write test: renders FeaturesCanvas with nodes and edges'
+        - 'Write test: renders toolbar panel'
+        - 'Write test: passes onAddFeature to toolbar'
+        - 'Write test: wires onRepositoryAdd to FeaturesCanvas'
+        - 'Write test: wires onNodeAction to FeaturesCanvas'
+      green:
+        - 'Compose all sub-components inside ControlCenter'
+        - 'Wire useControlCenterState for state management'
+        - 'Pass interaction callbacks and contextual add handlers to FeaturesCanvas'
+      refactor:
+        - 'Add comprehensive Storybook stories (including WithNodeActions)'
+        - 'Verify no unnecessary re-renders with React DevTools'
+    estimatedEffort: M
+
+  - id: task-7
+    title: 'Build validation and final cleanup'
+    description: >
+      Run all build validation commands to ensure the feature compiles,
+      lints, and builds correctly across all targets.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm lint:web passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm build:storybook passes'
+      - 'pnpm build:web passes'
+      - 'All unit tests pass (pnpm test:unit)'
+      - 'Components follow tier import rules (013-ui-arch)'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-8
+    title: 'Use existing ListFeaturesUseCase in control center page'
+    description: >
+      Replace direct filesystem reads in lib/shep-data.ts with the existing
+      ListFeaturesUseCase and IFeatureRepository (already on main). Merge main
+      to get the infrastructure, then refactor page.tsx to resolve the use case
+      from the DI container and delete lib/shep-data.ts.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'main merged into feature branch (brings ListFeaturesUseCase, IFeatureRepository, SQLiteFeatureRepository)'
+      - 'control-center/page.tsx resolves ListFeaturesUseCase from DI container'
+      - 'lib/shep-data.ts deleted (no direct filesystem access from presentation)'
+      - 'Node/edge mapping remains in page.tsx (presentation concern)'
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-9
+    title: 'Align FeatureLifecyclePhase with domain SdlcLifecycle'
+    description: >
+      Update FeatureLifecyclePhase type to match domain SdlcLifecycle 1:1.
+      Replace invented UI phases ('plan', 'test', 'maintenance') with domain
+      values ('research', 'review', 'maintain'). Add lifecycleDisplayLabels
+      map for human-readable names (maintain→'COMPLETED', deploy→'DEPLOY & QA').
+      Update feature-node.tsx to use display labels. Fix lifecycleMap in page.tsx.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - "FeatureLifecyclePhase type is 'requirements'|'research'|'implementation'|'review'|'deploy'|'maintain'"
+      - 'lifecycleDisplayLabels map exported from feature-node index.ts'
+      - 'feature-node.tsx uses lifecycleDisplayLabels[data.lifecycle] instead of .toUpperCase()'
+      - 'lifecycleMap in page.tsx maps domain values 1:1'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Write test: lifecycleDisplayLabels maps maintain to COMPLETED'
+        - 'Write test: lifecycleDisplayLabels maps deploy to DEPLOY & QA'
+      green:
+        - 'Update FeatureLifecyclePhase type union'
+        - 'Add lifecycleDisplayLabels const'
+        - 'Update feature-node.tsx to use display labels'
+        - 'Fix lifecycleMap in page.tsx'
+      refactor:
+        - 'Export lifecycleDisplayLabels from index.ts'
+    estimatedEffort: S
+
+  - id: task-10
+    title: 'Integrate agent_run status for real feature state'
+    description: >
+      Extend getFeatures() in features.ts to LEFT JOIN with agent_runs table,
+      returning agentStatus and agentError. Add deriveState() function in
+      page.tsx that maps agent_runs.status to FeatureNodeState (running→running,
+      completed→done, failed→error, waiting_approval→action-required).
+      Maintain lifecycle always forces done state.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'getFeatures() returns agentStatus and agentError from agent_runs JOIN'
+      - 'Feature interface includes optional agentStatus and agentError fields'
+      - 'deriveState() maps agent_runs.status to correct FeatureNodeState'
+      - 'Maintain lifecycle always returns done state with progress 100'
+      - 'Features with no agent_run show as running (default)'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Write test: deriveState returns done for maintain lifecycle'
+        - 'Write test: deriveState returns done for completed agent status'
+        - 'Write test: deriveState returns error for failed agent status'
+        - 'Write test: deriveState returns action-required for waiting_approval'
+      green:
+        - 'Extend SQL query with LEFT JOIN agent_runs'
+        - 'Add agentStatus/agentError to Feature interface and fromRow'
+        - 'Implement deriveState function in page.tsx'
+        - 'Use deriveState when building FeatureNodeData'
+      refactor:
+        - 'Ensure error messages propagate from agent_runs.error'
+    estimatedEffort: S
+
+  - id: task-11
+    title: 'Update stories with new lifecycle values'
+    description: >
+      Update all Storybook stories in feature-node.stories.tsx to use new
+      lifecycle phase values. Replace 'plan' with 'research', 'test' with
+      'review', 'maintenance' with 'maintain'. Update allLifecycles array.
+      Verify AllLifecycles story renders correct display labels.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'No old lifecycle values (plan, test, maintenance) in stories'
+      - 'allLifecycles array uses new values'
+      - 'AllLifecycles story shows REQUIREMENTS, RESEARCH, IMPLEMENTATION, REVIEW, DEPLOY & QA, COMPLETED'
+      - 'pnpm build:storybook passes'
+    tdd: null
+    estimatedEffort: S
+
+# Total effort estimate
+totalEstimate: L
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Status
+
+  - **Phase:** Implementation
+  - **Updated:** 2026-02-12
+
+  ## Task List
+
+  ### Phase 1: Foundation
+
+  - [ ] **task-1**: Scaffold control-center directory structure
+    - Create `features/control-center/` with 5 files (component, hook, toolbar, stories, index)
+    - Add minimal type-safe placeholder exports
+    - Verify `pnpm typecheck:web` passes
+
+  ### Phase 2: Existing Component Updates [P]
+
+  #### 2A: FeatureNode Selected Highlight
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Write test: FeatureNode renders `ring-2 ring-primary` when `selected=true`
+  - [ ] Write test: FeatureNode does NOT render ring classes when `selected=false`
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] Add conditional `cn()` class for ring highlight keyed on `selected` prop
+
+  **REFACTOR (Clean Up):**
+
+  - [ ] Verify ring integrates with existing `border-l-4` styles
+  - [ ] Add Selected story variant to `feature-node.stories.tsx`
+
+  #### 2B: FeaturesCanvas Interaction and Contextual Add Callbacks
+
+  **RED (Write Failing Tests First):**
+
+  - [ ] Write test: FeaturesCanvas accepts and passes `onNodeClick` prop
+  - [ ] Write test: FeaturesCanvas accepts and passes `onPaneClick` prop
+  - [ ] Write test: FeaturesCanvas wires `onRepositoryAdd` to RepositoryNode `onAdd`
+  - [ ] Write test: FeaturesCanvas wires `onNodeAction` to FeatureNode `onAction`
+
+  **GREEN (Implement to Pass Tests):**
+
+  - [ ] Add `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, `onNodeAction` to `FeaturesCanvasProps`
+  - [ ] Pass `onNodeClick`/`onPaneClick` through to `<ReactFlow>` component
+  - [ ] Wire `onRepositoryAdd`/`onNodeAction` to nodes in enrichment `useMemo`
+
+  **REFACTOR (Clean Up):**
+
+  - [ ] Update type exports in index.ts
+  - [ ] Add Interactive story variant
+
+  ### Phase 3: State Management Hook (Selection + Contextual Add)
+
+  **RED — Selection & Keyboard (Write Failing Tests First):**
+
+  - [ ] Write test: returns selectedNode when FeatureNode selected
+  - [ ] Write test: returns null when no selection
+  - [ ] Write test: Escape key clears selection
+
+  **GREEN — Selection & Keyboard:**
+
+  - [ ] Implement `useOnSelectionChange` for selection tracking
+  - [ ] Add `useEffect` with keydown listener for Escape
+
+  **RED — Contextual Add Handlers (Write Failing Tests First):**
+
+  - [ ] Write test: `handleAddFeatureToRepo` adds node + edge
+  - [ ] Write test: `handleAddFeatureToFeature` adds node + edge
+  - [ ] Write test: `handleAddFeature` adds unconnected node
+  - [ ] Write test: new node positioned at source.x + 350
+  - [ ] Write test: new node is auto-selected
+
+  **GREEN — Contextual Add Handlers:**
+
+  - [ ] Implement add handlers using `useReactFlow` (`addNodes`, `addEdges`, `getNode`)
+  - [ ] Calculate position from source node position
+
+  **REFACTOR (Clean Up):**
+
+  - [ ] Ensure all callbacks properly memoized
+  - [ ] Extract `createDefaultFeatureNode` factory helper
+  - [ ] Deduplicate add logic between repo/feature handlers
+
+  ### Phase 4: Toolbar
+
+  **RED:**
+
+  - [ ] Write test: renders Add Feature button
+  - [ ] Write test: renders Auto-Layout button (disabled)
+  - [ ] Write test: calls onAddFeature callback
+
+  **GREEN:**
+
+  - [ ] Implement toolbar with Panel, Button, Lucide icons
+
+  **REFACTOR:**
+
+  - [ ] Add Storybook stories (Default, WithCallbacks)
+
+  ### Phase 5: Orchestrator Integration
+
+  **RED:**
+
+  - [ ] Write test: renders FeaturesCanvas with nodes and edges
+  - [ ] Write test: renders toolbar panel
+  - [ ] Write test: passes onAddFeature to toolbar
+  - [ ] Write test: wires onRepositoryAdd to FeaturesCanvas
+  - [ ] Write test: wires onNodeAction to FeaturesCanvas
+
+  **GREEN:**
+
+  - [ ] Compose all sub-components in ControlCenter
+  - [ ] Wire useControlCenterState hook
+  - [ ] Connect callbacks, contextual add handlers, and state
+
+  **REFACTOR:**
+
+  - [ ] Add comprehensive Storybook stories (Empty, WithFeatures, WithToolbar, WithNodeActions)
+  - [ ] Verify no unnecessary re-renders
+
+  ### Phase 6: Build Validation
+
+  - [ ] `pnpm lint:web` passes
+  - [ ] `pnpm typecheck:web` passes
+  - [ ] `pnpm build:storybook` passes
+  - [ ] `pnpm build:web` passes
+  - [ ] All unit tests pass (`pnpm test:unit`)
+
+  ### Phase 8: Lifecycle Alignment
+
+  **RED:**
+
+  - [ ] Write test: lifecycleDisplayLabels maps maintain to COMPLETED
+  - [ ] Write test: lifecycleDisplayLabels maps deploy to DEPLOY & QA
+
+  **GREEN:**
+
+  - [ ] Update FeatureLifecyclePhase type union (plan→research, test→review, maintenance→maintain)
+  - [ ] Add lifecycleDisplayLabels const in feature-node-state-config.ts
+  - [ ] Update feature-node.tsx to use lifecycleDisplayLabels[data.lifecycle]
+  - [ ] Fix lifecycleMap in page.tsx to 1:1 domain mapping
+
+  **REFACTOR:**
+
+  - [ ] Export lifecycleDisplayLabels from index.ts
+
+  ### Phase 9: Agent State Integration
+
+  **RED:**
+
+  - [ ] Write test: deriveState returns done for maintain lifecycle
+  - [ ] Write test: deriveState returns done for completed agent status
+  - [ ] Write test: deriveState returns error for failed agent status
+  - [ ] Write test: deriveState returns action-required for waiting_approval
+
+  **GREEN:**
+
+  - [ ] Extend getFeatures() SQL with LEFT JOIN agent_runs
+  - [ ] Add agentStatus/agentError to Feature interface and fromRow
+  - [ ] Implement deriveState() in page.tsx
+  - [ ] Use deriveState when building FeatureNodeData
+
+  **REFACTOR:**
+
+  - [ ] Ensure error messages propagate from agent_runs.error
+
+  ### Phase 10: Story Updates
+
+  - [ ] Replace old lifecycle values in all story data (plan→research, test→review, maintenance→maintain)
+  - [ ] Update allLifecycles array
+  - [ ] Verify AllLifecycles story shows correct display labels
+  - [ ] pnpm build:storybook passes
+
+  ## TDD Notes
+
+  - **MANDATORY**: All phases with code follow RED -> GREEN -> REFACTOR
+  - **RED**: Write failing tests FIRST (never skip this!)
+  - **GREEN**: Write minimal code to pass tests
+  - **REFACTOR**: Improve code while keeping tests green
+
+  ## Progress Tracking (CRITICAL)
+
+  - **Update checkboxes FREQUENTLY** - as soon as each item is complete!
+  - **Don't batch updates** - check off items immediately, not at the end
+  - **Commit task.md updates** along with code changes to show progress
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All 11 tasks completed
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint:web`)
+  - [ ] Types valid (`pnpm typecheck:web`)
+  - [ ] Storybook builds (`pnpm build:storybook`)
+  - [ ] Web builds (`pnpm build:web`)
+  - [ ] Components follow tier import rules (013-ui-arch)
+  - [ ] PR created and reviewed
+
+  ---
+
+  _Task breakdown for implementation tracking_

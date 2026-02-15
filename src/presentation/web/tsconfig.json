@@ -14,9 +14,12 @@
     "jsx": "react-jsx",
     "allowJs": true,
     "incremental": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@cli/*": ["../../*"]
     },
     "plugins": [
       {

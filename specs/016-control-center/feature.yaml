@@ -1,0 +1,50 @@
+feature:
+  id: '016-control-center'
+  name: 'control-center'
+  number: 16
+  branch: 'feat/016-control-center'
+  lifecycle: 'review'
+  createdAt: '2026-02-12T20:31:19Z'
+
+status:
+  phase: 'in-review'
+  progress:
+    completed: 11
+    total: 11
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-15T15:01:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/49'
+
+validation:
+  lastRun: '2026-02-13T00:00:00Z'
+  gatesPassed: ['completeness', 'consistency']
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-12T20:31:19Z'
+    completedBy: 'shep-kit:new-feature'
+  - phase: 'research-complete'
+    completedAt: '2026-02-12T22:45:00Z'
+    completedBy: 'shep-kit:research'
+  - phase: 'plan-complete'
+    completedAt: '2026-02-12T23:30:00Z'
+    completedBy: 'shep-kit:plan'
+  - phase: 'implementation-complete'
+    completedAt: '2026-02-13T00:00:00Z'
+    completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-15T15:01:00Z'
+    completedBy: 'shep-kit:commit-pr'
+
+errors:
+  current: null
+  history: []

@@ -204,6 +204,57 @@ export const Collapsed: Story = {
 };
 ```
 
+### Args and Controls (CRITICAL)
+
+Storybook controls only appear when stories define `args`. **Never use hardcoded render-only stories** — always define `args` so the Controls panel works.
+
+**Standard components (flat props):** Use `component` in meta and `args` in stories. Controls are auto-generated.
+
+```typescript
+const meta: Meta<typeof MyComponent> = {
+  component: MyComponent,
+  args: {
+    label: 'Default label',
+    variant: 'primary',
+  },
+};
+
+export const Default: Story = {
+  args: {
+    label: 'Example',
+  },
+};
+```
+
+**Wrapped/nested-data components (e.g. React Flow nodes):** When a component receives data through a nested object (like `{ data }`) or requires wrapper context that prevents using `component` directly, use the **existing data interface** as the args type. Storybook auto-infers controls from the `args` values — no `argTypes` needed. Do NOT create a duplicate args interface.
+
+```typescript
+import type { FeatureNodeData } from './feature-node-state-config';
+
+// 1. Use the component's own data interface — controls auto-inferred from args
+const meta: Meta<FeatureNodeData> = {
+  title: 'Composed/FeatureNode',
+  args: { name: 'Auth Module', state: 'running', progress: 45, featureId: '#f1', lifecycle: 'requirements' },
+};
+
+type Story = StoryObj<FeatureNodeData>;
+
+// 2. Pass args directly as data — no mapping function needed
+export const Default: Story = {
+  render: (args) => <FeatureNode id="n1" data={args} type="featureNode" />,
+};
+
+// 3. Stories needing callbacks pass them via story-level args
+export const WithAction: Story = {
+  args: { onAction: () => undefined, onSettings: () => undefined },
+  render: (args) => <FeatureNode id="n1" data={args} type="featureNode" />,
+};
+```
+
+Only add `argTypes` when you need to **override** defaults (e.g. `select` dropdown instead of free text, `range` slider instead of number input, or `{ table: { disable: true } }` to hide a field).
+
+**Gallery/showcase stories** (AllStates, AllLifecycles) may use hardcoded render without args — controls are not useful when showing all variants at once. But the **Default** story must always have args.
+
 ### Story coverage requirements
 
 Stories must cover:
@@ -371,6 +422,7 @@ Before considering a component done, verify:
 - [ ] Barrel export (`index.ts`) created
 - [ ] Tier-level barrel updated (`common/index.ts`, etc.)
 - [ ] Storybook stories colocated with all variants covered
+- [ ] Default story has `args` defined (controls must work)
 - [ ] Stories use explicit `Meta<typeof X>` type annotation (not `satisfies`)
 - [ ] Story title uses correct tier prefix (`Primitives/`, `Composed/`, `Layout/`, `Features/`)
 - [ ] Unit test created in `tests/unit/presentation/web/[tier]/`
@@ -387,3 +439,4 @@ Before considering a component done, verify:
 - **Missing `data-testid`** — every component root must have one.
 - **Magic numbers in styles** — use design tokens and Tailwind spacing scale.
 - **Uppercase in commit subjects** — commitlint rejects it; use all-lowercase.
+- **Render-only stories without `args`** — controls panel will be empty. Always define `args`. For nested-data components, reuse the component's data interface as args type (don't create a duplicate), add `argTypes` for control customization, and pass `args` directly as data.

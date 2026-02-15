@@ -20,11 +20,13 @@
     "paths": {
       "@/*": ["src/*"],
       "@tests/*": ["tests/*"],
+      "@/app/*": ["src/presentation/web/app/*"],
       "@/components/*": ["src/presentation/web/components/*"],
       "@/lib/*": ["src/presentation/web/lib/*"],
       "@/hooks/*": ["src/presentation/web/hooks/*"],
       "@/types/*": ["src/presentation/web/types/*"],
-      "@domain/generated/*": ["src/domain/generated/*"]
+      "@domain/generated/*": ["src/domain/generated/*"],
+      "@cli/*": ["src/*"]
     },
     "jsx": "react-jsx",
     "allowJs": true,
