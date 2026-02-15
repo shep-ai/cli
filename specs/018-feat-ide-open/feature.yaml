@@ -1,0 +1,36 @@
+feature:
+  id: '018-feat-ide-open'
+  name: 'feat-ide-open'
+  number: 18
+  branch: 'feat/ide-open'
+  lifecycle: 'research'
+  createdAt: '2026-02-15T16:12:29Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-15T16:12:29Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-15T16:12:29Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
