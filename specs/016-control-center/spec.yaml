@@ -50,6 +50,13 @@ content: |
   layer: selecting nodes with visual highlight, toolbar actions for managing
   features, and keyboard shortcuts for power users.
 
+  ## Routing
+
+  The Control Center is the **default homepage** of the web UI, rendered at the `/` route.
+  There is no separate `/control-center` route — the root `app/page.tsx` is the Control Center
+  server component that fetches features and renders the canvas. The sidebar nav item
+  "Control Center" links to `href="/"`.
+
   ## Architecture
 
   ```
@@ -181,7 +188,7 @@ content: |
   | `src/presentation/web/components/features/features-canvas/` | Medium | Extend props for interaction callbacks |
   | `src/presentation/web/components/common/feature-node/` | Low    | Add selected visual state              |
   | `src/presentation/web/components/common/repository-node/` | Low | Wire onAdd callback through canvas     |
-  | `src/presentation/web/app/control-center/page.tsx` | Medium | Refactor to use existing ListFeaturesUseCase |
+  | `src/presentation/web/app/page.tsx`                 | Medium | Control Center is the homepage (/ route)     |
 
   ## Dependencies
 

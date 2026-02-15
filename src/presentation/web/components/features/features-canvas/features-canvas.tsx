@@ -130,6 +130,7 @@ export function FeaturesCanvas({
           onNodeClick={onNodeClick}
           onPaneClick={onPaneClick}
           fitView
+          fitViewOptions={{ padding: 0.4, maxZoom: 0.85 }}
         >
           <Background />
           <Controls />
