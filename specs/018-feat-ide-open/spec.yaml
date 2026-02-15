@@ -1,0 +1,66 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feat-ide-open
+number: 018
+branch: feat/ide-open
+oneLiner: Add IDE open command to launch feature worktrees in user's chosen editor
+summary: >
+  Implement `shep feat ide <feature-id> [--editor-flag]` command that opens a feature's worktree in the user's selected IDE (VS Code, Cursor, Antigravity, or Windsurf). Supports flag overrides for CLI-level editor selection.
+phase: Requirements
+sizeEstimate: medium
+
+# Relationships
+relatedFeatures:
+  []
+  # - "008-agent-configuration"
+
+technologies:
+  []
+  # - TypeScript
+  # - React
+
+relatedLinks:
+  []
+  # - https://example.com/relevant-doc
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  []
+  # - question: "Should we use approach A or B?"
+  #   resolved: false
+  #   answer: null
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When developing features, engineers need quick access to their feature's worktree in their preferred IDE. Currently, there's no convenient way to open a feature's isolated worktree in VS Code, Cursor, Antigravity, or Windsurf directly from the CLI. Users must manually navigate to `.worktrees/<feature>` and open it in their editor, which is tedious and breaks workflow momentum.
+
+  ## Success Criteria
+
+  - [ ] `shep feat ide <feature-id>` command opens feature worktree in configured default IDE
+  - [ ] `--vscode`, `--cursor`, `--antigravity`, `--windsurf` flags override default IDE selection
+  - [ ] Command validates feature exists and has a worktree in `.worktrees/`
+  - [ ] Clear error messages when feature not found or worktree missing
+  - [ ] IDE is launched with the worktree directory as the open folder
+  - [ ] Respects Settings.environment.defaultEditor configuration
+
+  ## Affected Areas
+
+  | Area                | Impact       | Reasoning                                  |
+  | ------------------- | ------------ | ------------------------------------------ |
+  | CLI Commands        | New          | Add new feat/ide.command.ts                |
+  | Settings Schema     | Minimal      | Default editor may already exist           |
+  | Use Cases           | New          | OpenFeatureInIdeUseCase orchestrates logic |
+  | Domain Models       | No change    | Feature model already has branch/worktree  |
+  | Infrastructure      | New          | IDE launcher service for each IDE type     |
+
+  ## Dependencies
+
+  - Feature must have a worktree (created by `/shep-kit:new-feature` or `/shep-kit:parallel-task`)
+  - IDEs must be installed and available in PATH (or registered in Settings)
+
+  ## Size Estimate
+
+  **Medium** - Involves new command, use case, IDE launcher service, and light integration with Settings. No database changes needed.
