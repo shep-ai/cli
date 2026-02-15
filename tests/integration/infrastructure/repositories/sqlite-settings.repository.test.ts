@@ -16,7 +16,7 @@ import { createInMemoryDatabase, tableExists } from '../../../helpers/database.h
 import { runSQLiteMigrations } from '../../../../src/infrastructure/persistence/sqlite/migrations.js';
 import { SQLiteSettingsRepository } from '../../../../src/infrastructure/repositories/sqlite-settings.repository.js';
 import type { Settings } from '../../../../src/domain/generated/output.js';
-import { AgentType, AgentAuthMethod } from '../../../../src/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, EditorType } from '../../../../src/domain/generated/output.js';
 
 describe('SQLiteSettingsRepository', () => {
   let db: Database.Database;
@@ -39,7 +39,7 @@ describe('SQLiteSettingsRepository', () => {
       githubUsername: 'testuser',
     },
     environment: {
-      defaultEditor: 'vscode',
+      defaultEditor: EditorType.VsCode,
       shellPreference: 'zsh',
     },
     system: {
@@ -428,7 +428,7 @@ describe('SQLiteSettingsRepository', () => {
 
       // Modify environment
       settings.environment = {
-        defaultEditor: 'vim',
+        defaultEditor: EditorType.Cursor,
         shellPreference: 'bash',
       };
 
@@ -506,17 +506,17 @@ describe('SQLiteSettingsRepository', () => {
       expect(loaded?.user.email).toBe("test'@example.com");
     });
 
-    it('should safely handle quotes in editor preference', async () => {
+    it('should safely handle quotes in shell preference', async () => {
       // Arrange
       const settings = createTestSettings();
-      settings.environment.defaultEditor = 'vi\'"m';
+      settings.environment.shellPreference = 'ba\'"sh';
 
       // Act
       await repository.initialize(settings);
 
       // Assert
       const loaded = await repository.load();
-      expect(loaded?.environment.defaultEditor).toBe('vi\'"m');
+      expect(loaded?.environment.shellPreference).toBe('ba\'"sh');
     });
   });
 

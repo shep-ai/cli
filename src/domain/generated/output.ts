@@ -279,6 +279,13 @@ export type UserProfile = {
    */
   githubUsername?: string;
 };
+export enum EditorType {
+  VsCode = 'vscode',
+  Cursor = 'cursor',
+  Windsurf = 'windsurf',
+  Zed = 'zed',
+  Antigravity = 'antigravity',
+}
 
 /**
  * Environment and tooling preferences
@@ -287,7 +294,7 @@ export type EnvironmentConfig = {
   /**
    * Preferred code editor
    */
-  defaultEditor: string;
+  defaultEditor: EditorType;
   /**
    * Preferred shell
    */

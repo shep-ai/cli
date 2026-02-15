@@ -9,6 +9,7 @@
 import { Command } from 'commander';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
+import { EditorType } from '../../../domain/generated/output.js';
 import { container } from '../../../infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '../../../application/use-cases/features/show-feature.use-case.js';
 import { getSettings } from '../../../infrastructure/services/settings.service.js';
@@ -22,8 +23,14 @@ function computeWorktreePath(repoPath: string, branch: string): string {
   return join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', slug);
 }
 
-/** IDE flag names in the order they are checked. */
-const IDE_FLAGS = ['vscode', 'cursor', 'windsurf', 'zed', 'antigravity'] as const;
+/** IDE flag names mapped to their EditorType values. */
+const IDE_FLAG_MAP: Record<string, EditorType> = {
+  vscode: EditorType.VsCode,
+  cursor: EditorType.Cursor,
+  windsurf: EditorType.Windsurf,
+  zed: EditorType.Zed,
+  antigravity: EditorType.Antigravity,
+};
 
 interface IdeOpenOptions {
   vscode?: boolean;
@@ -34,17 +41,16 @@ interface IdeOpenOptions {
 }
 
 /**
- * Determine which editor ID to use based on CLI flags and settings.
+ * Determine which editor to use based on CLI flags and settings.
  * Flag takes precedence over settings.
  */
-function resolveEditorId(options: IdeOpenOptions): string {
-  for (const flag of IDE_FLAGS) {
-    if (options[flag]) {
-      return flag;
+function resolveEditorId(options: IdeOpenOptions): EditorType {
+  for (const [flag, editorType] of Object.entries(IDE_FLAG_MAP)) {
+    if (options[flag as keyof IdeOpenOptions]) {
+      return editorType;
     }
   }
-  const settings = getSettings();
-  return settings.environment.defaultEditor;
+  return getSettings().environment.defaultEditor;
 }
 
 export function createIdeOpenCommand(): Command {

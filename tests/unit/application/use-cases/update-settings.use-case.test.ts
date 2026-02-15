@@ -14,6 +14,7 @@ import { UpdateSettingsUseCase } from '../../../../src/application/use-cases/set
 import { MockSettingsRepository } from '../../../helpers/mock-repository.helper.js';
 import { createDefaultSettings } from '../../../../src/domain/factories/settings-defaults.factory.js';
 import type { Settings } from '../../../../src/domain/generated/output.js';
+import { EditorType } from '../../../../src/domain/generated/output.js';
 
 describe('UpdateSettingsUseCase', () => {
   let useCase: UpdateSettingsUseCase;
@@ -32,7 +33,7 @@ describe('UpdateSettingsUseCase', () => {
         ...settings,
         environment: {
           ...settings.environment,
-          defaultEditor: 'neovim',
+          defaultEditor: EditorType.Cursor,
         },
       };
 
@@ -41,7 +42,7 @@ describe('UpdateSettingsUseCase', () => {
 
       // Assert
       expect(result).toBeDefined();
-      expect(result.environment.defaultEditor).toBe('neovim');
+      expect(result.environment.defaultEditor).toBe(EditorType.Cursor);
     });
 
     it('should call repository.update() with correct data', async () => {
@@ -171,7 +172,7 @@ describe('UpdateSettingsUseCase', () => {
         ...settings,
         environment: {
           ...settings.environment,
-          defaultEditor: 'sublime',
+          defaultEditor: EditorType.Windsurf,
         },
       };
 
@@ -179,7 +180,7 @@ describe('UpdateSettingsUseCase', () => {
       const result = await useCase.execute(updatedSettings);
 
       // Assert
-      expect(result.environment.defaultEditor).toBe('sublime');
+      expect(result.environment.defaultEditor).toBe(EditorType.Windsurf);
     });
 
     it('should update shell preference', async () => {

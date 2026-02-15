@@ -1,10 +1,11 @@
 import { spawn, execFile } from 'node:child_process';
 
+import { EditorType } from '../../../domain/generated/output.js';
 import type { IdeLauncher } from './ide-launcher.interface';
 
 export class VsCodeLauncher implements IdeLauncher {
   readonly name = 'VS Code';
-  readonly editorId = 'vscode';
+  readonly editorId = EditorType.VsCode;
   readonly binary = 'code';
 
   async launch(path: string): Promise<void> {
