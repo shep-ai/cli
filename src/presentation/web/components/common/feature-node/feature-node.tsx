@@ -3,12 +3,17 @@
 import { Handle, Position } from '@xyflow/react';
 import { Settings, Plus } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { CometSpinner } from '@/components/ui/comet-spinner';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from './feature-node-state-config';
 import type { FeatureNodeData } from './feature-node-state-config';
 
 function getBadgeText(data: FeatureNodeData): string {
   const config = featureNodeStateConfig[data.state];
   switch (data.state) {
+    case 'running': {
+      const agent = data.agentName ?? 'Agent';
+      return `${agent} ${data.featureId} running`;
+    }
     case 'done':
       return data.runtime ? `Completed in ${data.runtime}` : 'Completed';
     case 'blocked':
@@ -123,7 +128,11 @@ export function FeatureNode({
                   config.badgeClass
                 )}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {data.state === 'running' ? (
+                  <CometSpinner size="sm" className="shrink-0" />
+                ) : (
+                  <Icon className="h-3.5 w-3.5 shrink-0" />
+                )}
                 <span className="truncate">{getBadgeText(data)}</span>
               </div>
             </>

@@ -54,6 +54,7 @@ const meta: Meta<FeatureNodeData> = {
     lifecycle: 'requirements',
     state: 'running',
     progress: 45,
+    agentName: 'Planner',
   },
 };
 
@@ -72,6 +73,7 @@ const allStatesData: FeatureNodeData[] = [
     lifecycle: 'implementation' as FeatureLifecyclePhase,
     state: 'running',
     progress: 45,
+    agentName: 'Planner',
   },
   {
     name: 'API Rate Limiting',
@@ -143,6 +145,7 @@ export const AllLifecycles: Story = {
             lifecycle,
             state: 'running' as FeatureNodeState,
             progress: [10, 25, 50, 70, 90, 100][i],
+            agentName: 'Researcher',
           }}
         />
       ))}
@@ -219,6 +222,7 @@ const interactiveInitialNodes: FeatureNodeType[] = [
       lifecycle: 'implementation' as FeatureLifecyclePhase,
       state: 'running' as FeatureNodeState,
       progress: 45,
+      agentName: 'Planner',
     },
   },
   {

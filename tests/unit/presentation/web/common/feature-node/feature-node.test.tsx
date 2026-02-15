@@ -51,15 +51,22 @@ describe('FeatureNode', () => {
     expect(screen.getByText('#f1')).toBeInTheDocument();
   });
 
-  it('renders progress percentage for running state', () => {
-    renderFeatureNode({ state: 'running', progress: 45 });
-    expect(screen.getByText('45%')).toBeInTheDocument();
-  });
+  describe('running state', () => {
+    it('shows badge instead of progress bar', () => {
+      renderFeatureNode({ state: 'running', progress: 45 });
+      expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
+    });
 
-  it('renders progress bar for running state', () => {
-    renderFeatureNode({ state: 'running', progress: 60 });
-    const progressBar = screen.getByTestId('feature-node-progress-bar');
-    expect(progressBar).toBeInTheDocument();
+    it('shows agent name and featureId in badge text', () => {
+      renderFeatureNode({ state: 'running', progress: 45, agentName: 'Planner' });
+      expect(screen.getByText('Planner #f1 running')).toBeInTheDocument();
+    });
+
+    it('defaults to "Agent" when agentName not provided', () => {
+      renderFeatureNode({ state: 'running', progress: 45 });
+      expect(screen.getByText('Agent #f1 running')).toBeInTheDocument();
+    });
   });
 
   it('action button fires onAction callback', () => {
