@@ -1,3 +1,9 @@
+## [1.22.1](https://github.com/shep-ai/cli/compare/v1.22.0...v1.22.1) (2026-02-16)
+
+### Bug Fixes
+
+- **ci:** correct cursor tool definitions and add post-install verification ([#58](https://github.com/shep-ai/cli/issues/58)) ([8b60f2c](https://github.com/shep-ai/cli/commit/8b60f2cf2aa0f1913907f8b216803fcc87952d89))
+
 # [1.22.0](https://github.com/shep-ai/cli/compare/v1.21.0...v1.22.0) (2026-02-16)
 
 ### Features
