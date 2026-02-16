@@ -1,3 +1,9 @@
+# [1.21.0](https://github.com/shep-ai/cli/compare/v1.20.1...v1.21.0) (2026-02-16)
+
+### Features
+
+- **cli:** add unified tool installer with dynamic json-based tool registry ([#57](https://github.com/shep-ai/cli/issues/57)) ([ba57e94](https://github.com/shep-ai/cli/commit/ba57e94d4619f858a5477d415f4118d2364a2b66))
+
 ## [1.20.1](https://github.com/shep-ai/cli/compare/v1.20.0...v1.20.1) (2026-02-16)
 
 # [1.20.0](https://github.com/shep-ai/cli/compare/v1.19.0...v1.20.0) (2026-02-15)
