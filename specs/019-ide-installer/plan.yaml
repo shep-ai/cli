@@ -30,7 +30,7 @@ architectureOverview: >
   Infrastructure layer: IToolInstallerService interface, ToolInstallerServiceImpl with metadata-driven tool configs.
   Presentation layer: `shep install <tool>` CLI command using generated types.
 
-implementationPhases:
+phases:
   - id: 1
     name: TypeSpec Definitions (Foundational)
     description: >

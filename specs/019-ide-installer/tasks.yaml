@@ -59,7 +59,7 @@ tasks:
 
   # Phase 2: Domain Layer (TDD)
   - id: 2.1
-    title: "[RED] Write ToolInstallationStatus tests"
+    title: '[RED] Write ToolInstallationStatus tests'
     description: >
       Write unit tests for ToolInstallationStatus value object creation, validation,
       and immutability. Use generated types from TypeSpec.
@@ -75,7 +75,7 @@ tasks:
       - All tests fail initially (RED)
 
   - id: 2.2
-    title: "[GREEN] Implement ToolInstallationStatus"
+    title: '[GREEN] Implement ToolInstallationStatus'
     description: >
       Implement ToolInstallationStatus value object using generated TypeSpec types.
       Minimal code to pass RED tests.
@@ -90,7 +90,7 @@ tasks:
       - No extra functionality
 
   - id: 2.3
-    title: "[REFACTOR] Polish ToolInstallationStatus implementation"
+    title: '[REFACTOR] Polish ToolInstallationStatus implementation'
     description: >
       Refactor for clarity, edge cases, defensive copying if needed.
       Keep all tests passing.
@@ -105,7 +105,7 @@ tasks:
 
   # Phase 3: Application Layer (TDD)
   - id: 3.1
-    title: "[RED] Write ValidateToolAvailabilityUseCase tests"
+    title: '[RED] Write ValidateToolAvailabilityUseCase tests'
     description: >
       Write unit tests for ValidateToolAvailabilityUseCase with mocked IToolInstallerService.
       Test tool found, tool missing, tool error scenarios. Tests return generated ToolInstallationStatus.
@@ -122,7 +122,7 @@ tasks:
       - All tests fail initially (RED)
 
   - id: 3.2
-    title: "[GREEN] Implement ValidateToolAvailabilityUseCase"
+    title: '[GREEN] Implement ValidateToolAvailabilityUseCase'
     description: >
       Implement use case: call mocked service, validate availability, return ToolInstallationStatus.
       Minimal code to pass tests.
@@ -137,7 +137,7 @@ tasks:
       - Returns generated ToolInstallationStatus type
 
   - id: 3.3
-    title: "[REFACTOR] Polish ValidateToolAvailabilityUseCase"
+    title: '[REFACTOR] Polish ValidateToolAvailabilityUseCase'
     description: >
       Refactor for clarity, add logging if needed, ensure DI readiness.
       Keep tests passing.
@@ -151,7 +151,7 @@ tasks:
       - Ready for DI container registration
 
   - id: 3.4
-    title: "[RED] Write InstallToolUseCase tests (with mocked spawn)"
+    title: '[RED] Write InstallToolUseCase tests (with mocked spawn)'
     description: >
       Write unit tests for InstallToolUseCase. Mock spawn(), mock user confirmation,
       test installation success, timeout, permission denied, user cancel scenarios.
@@ -169,7 +169,7 @@ tasks:
       - All tests fail initially (RED)
 
   - id: 3.5
-    title: "[GREEN] Implement InstallToolUseCase"
+    title: '[GREEN] Implement InstallToolUseCase'
     description: >
       Implement use case: orchestrate user confirmation, spawn process with streaming,
       timeout handling, post-install validation. Minimal code to pass tests.
@@ -185,7 +185,7 @@ tasks:
       - Returns final ToolInstallationStatus
 
   - id: 3.6
-    title: "[REFACTOR] Polish InstallToolUseCase"
+    title: '[REFACTOR] Polish InstallToolUseCase'
     description: >
       Refactor for clarity, handle edge cases, ensure timeout logic is clean.
       Keep tests passing.
@@ -200,7 +200,7 @@ tasks:
 
   # Phase 4: Infrastructure - Tool Installer Service (TDD)
   - id: 4.1
-    title: "[RED] Write IToolInstallerService interface tests (mock impl)"
+    title: '[RED] Write IToolInstallerService interface tests (mock impl)'
     description: >
       Write tests for IToolInstallerService interface using mock implementation.
       Test getInstallCommand(), executeInstall() with mocked spawn.
@@ -215,7 +215,7 @@ tasks:
       - All tests fail initially with real impl (RED)
 
   - id: 4.2
-    title: "[GREEN] Implement IToolInstallerService interface"
+    title: '[GREEN] Implement IToolInstallerService interface'
     description: >
       Implement ToolInstallerServiceImpl: tool metadata map, platform detection,
       getInstallCommand(), executeInstall() methods. Minimal code to pass tests.
@@ -232,7 +232,7 @@ tasks:
       - All RED tests now pass (GREEN)
 
   - id: 4.3
-    title: "[REFACTOR] Polish ToolInstallerServiceImpl"
+    title: '[REFACTOR] Polish ToolInstallerServiceImpl'
     description: >
       Refactor metadata structure, command construction, error handling.
       Keep tests passing.
@@ -247,7 +247,7 @@ tasks:
       - Ready for integration testing
 
   - id: 4.4
-    title: "[RED] Write ToolInstallerServiceImpl integration tests"
+    title: '[RED] Write ToolInstallerServiceImpl integration tests'
     description: >
       Write integration tests verifying correct commands per platform/tool.
       Mock spawn(), verify commands executed correctly. Test error scenarios.
@@ -264,7 +264,7 @@ tasks:
       - All tests fail initially (RED)
 
   - id: 4.5
-    title: "[GREEN] Update ToolInstallerServiceImpl for integration tests"
+    title: '[GREEN] Update ToolInstallerServiceImpl for integration tests'
     description: >
       Enhance implementation to handle all integration test scenarios.
       Timeout logic, error capture, live streaming. Minimal code to pass.
@@ -279,7 +279,7 @@ tasks:
       - Live output streaming implemented
 
   - id: 4.6
-    title: "[REFACTOR] Polish ToolInstallerServiceImpl"
+    title: '[REFACTOR] Polish ToolInstallerServiceImpl'
     description: >
       Refactor error handling, timeout logic, output streaming.
       Keep tests passing.
@@ -309,7 +309,7 @@ tasks:
 
   # Phase 6: CLI Command (TDD)
   - id: 6.1
-    title: "[RED] Write install.command.ts tests (including --how)"
+    title: '[RED] Write install.command.ts tests (including --how)'
     description: >
       Write CLI tests with mocked use cases. Test command parsing, valid tool names,
       invalid tool names, user interaction flow. Also test --how flag prints instructions
@@ -330,7 +330,7 @@ tasks:
       - All tests fail initially (RED)
 
   - id: 6.2
-    title: "[GREEN] Implement install.command.ts with --how flag"
+    title: '[GREEN] Implement install.command.ts with --how flag'
     description: >
       Implement shep install <tool> and shep install <tool> --how using Commander.js.
       --how reads tool metadata via getInstallCommand() and prints structured output:
@@ -348,7 +348,7 @@ tasks:
       - All RED tests now pass (GREEN)
 
   - id: 6.3
-    title: "[REFACTOR] Polish install.command.ts"
+    title: '[REFACTOR] Polish install.command.ts'
     description: >
       Refactor for clarity, add help text, improve error messages.
       Ensure --how output is clean and consistent.
@@ -391,11 +391,11 @@ tasks:
     acceptance:
       - install.command.ts imported in CLI index
       - Command registered in CLI
-      - "shep install --help works"
+      - 'shep install --help works'
 
   # Phase 8: E2E Testing (TDD)
   - id: 8.1
-    title: "[RED] Write E2E tests for install command"
+    title: '[RED] Write E2E tests for install command'
     description: >
       Write E2E tests for complete `shep install cursor` flow.
       Mock all spawned processes. Test success, error, timeout scenarios.
@@ -414,7 +414,7 @@ tasks:
       - All tests fail initially (RED)
 
   - id: 8.2
-    title: "[GREEN] Update code for E2E test pass-through"
+    title: '[GREEN] Update code for E2E test pass-through'
     description: >
       Ensure all E2E tests pass with mocked spawn. Mock user input, verify output.
       Minimal adjustments to code if needed.
@@ -429,7 +429,7 @@ tasks:
       - Success messages show expected output
 
   - id: 8.3
-    title: "[REFACTOR] Polish E2E tests and edge cases"
+    title: '[REFACTOR] Polish E2E tests and edge cases'
     description: >
       Refactor for clarity, add additional edge cases, stress test with multiple tools.
       Keep tests passing.

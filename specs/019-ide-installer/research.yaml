@@ -16,7 +16,7 @@ relatedFeatures:
 technologies:
   - TypeScript (existing)
   - Commander.js (existing, for CLI option parsing)
-  - '@inquirer/prompts' (existing, for user confirmation)
+  - '@inquirer/prompts (existing, for user confirmation)'
   - node:child_process (spawn, execFile — built-in)
   - node:os (platform detection — built-in)
   - node:path (cross-platform paths — built-in)
@@ -194,7 +194,7 @@ decisions:
       (whether IDE or CLI). Metadata-driven design allows easy additions without modifying command logic.
       Keeps `shep ide` focused on IDE launching; installation is orthogonal concern.
 
-  - title: "--how flag for dry-run instruction printing"
+  - title: '--how flag for dry-run instruction printing'
     chosen: >
       Add --how boolean flag to shep install command. When set, prints concise installation
       instructions without executing anything. Output includes: tool name, binary name,
@@ -401,7 +401,7 @@ linuxSystemDependencies:
 
 # Open questions (should be resolved by end of research)
 openQuestions:
-  - question: "Should IDE installation attempt to auto-resolve platform-specific package names, or fail if exact package name not found?"
+  - question: 'Should IDE installation attempt to auto-resolve platform-specific package names, or fail if exact package name not found?'
     resolved: true
     answer: >
       Fail with clear error. Use exact package names from metadata map (e.g., 'code' for VS Code
@@ -409,7 +409,7 @@ openQuestions:
       once, not every installation attempt. This is safer and easier to maintain than attempting
       fallbacks or fuzzy matching.
 
-  - question: "Should we support Scoop on Windows as an alternative to Chocolatey/winget?"
+  - question: 'Should we support Scoop on Windows as an alternative to Chocolatey/winget?'
     resolved: true
     answer: >
       Not for MVP. Winget is Windows 11+ standard; Chocolatey has broad adoption. Adding Scoop
@@ -417,14 +417,14 @@ openQuestions:
       implement primary methods first, add alternatives if users request. Metadata map makes adding
       Scoop easy in the future.
 
-  - question: "Should installation commands include platform-specific flags (e.g., --quiet, --no-confirm)?"
+  - question: 'Should installation commands include platform-specific flags (e.g., --quiet, --no-confirm)?'
     resolved: true
     answer: >
       NO. Run commands with default flags. Avoid --quiet or --no-confirm because they reduce
       visibility into what's happening. Users need to see real-time output to trust the process.
       Package managers naturally prompt user if needed; let them handle it.
 
-  - question: "Should we check system PATH explicitly before falling back to package manager detection?"
+  - question: 'Should we check system PATH explicitly before falling back to package manager detection?'
     resolved: true
     answer: >
       The existing launcher.checkAvailable() already does this (uses 'which' on Unix, 'where' on

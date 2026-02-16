@@ -22,3 +22,4 @@ import "./feature-spec.tsp";
 import "./research-spec.tsp";
 import "./plan-spec.tsp";
 import "./tasks-spec.tsp";
+import "./tool.tsp";

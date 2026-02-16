@@ -13,3 +13,4 @@ import "./requirement.tsp";
 import "./agent.tsp";
 import "./agent-config.tsp";
 import "./editor.tsp";
+import "./tool.tsp";
