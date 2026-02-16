@@ -1,0 +1,388 @@
+name: feature-drawer
+summary: >
+  Research confirms the feature-drawer implementation is architecturally sound and ~70% complete.
+  Key decisions validate: Vaul-based shadcn/ui Drawer as the Tier 0 primitive (over Radix Sheet),
+  non-modal right-side panel pattern (over modal overlay), derived open state from selectedNode
+  (over separate boolean state), and reuse of featureNodeStateConfig for visual consistency.
+  Remaining work is integration glue (barrel export, ControlCenterInner wiring), Storybook stories,
+  and integration tests — no new libraries, no architectural changes, no data model updates needed.
+
+relatedFeatures: []
+
+technologies:
+  - Vaul ^1.1.2 (headless drawer library, already installed)
+  - shadcn/ui Drawer primitive (Tier 0, already built)
+  - React 19 (useState/useCallback for local state)
+  - Next.js 16 (App Router, 'use client' directive)
+  - Tailwind CSS v4 (utility-first styling)
+  - ReactFlow @xyflow/react (canvas node click events)
+  - Radix UI Separator (section dividers)
+  - Lucide React (XIcon for close button, state icons)
+  - CometSpinner (custom animated SVG for running state)
+  - class-variance-authority (CVA, used in Tier 0 drawer)
+  - Vitest + React Testing Library (unit/integration tests)
+  - Storybook 8 (component documentation)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Drawer Library Selection'
+    chosen: 'Vaul (via shadcn/ui Drawer wrapper)'
+    rejected:
+      - "Radix UI Dialog/Sheet — Radix Sheet is designed for modal overlays with focus trapping, not non-modal side panels. It lacks native direction support and swipe-to-dismiss gestures. Would require significant customization to achieve non-modal behavior, working against the library's intent."
+      - 'Custom CSS-only drawer — A pure CSS transform-based slide panel would avoid a dependency but lacks keyboard management, ARIA attributes, portal rendering, and animation orchestration. Maintenance burden increases significantly for accessibility compliance.'
+      - "Headless UI Dialog — Tailwind's Headless UI focuses on modal dialogs and doesn't provide drawer/panel primitives. Would require building drawer behavior from scratch on top of a dialog foundation."
+    rationale: >
+      Vaul is purpose-built for drawer UIs with native support for directional sliding (top/right/bottom/left),
+      non-modal mode (modal={false}), CSS transform-based GPU-accelerated animations, and proper ARIA
+      semantics. The project already uses shadcn/ui conventions (Radix primitives + Tailwind styling),
+      and the shadcn/ui Drawer component wraps Vaul following the same pattern. Vaul is already installed
+      (vaul@^1.1.2 in @shepai/web package.json) and the Tier 0 drawer.tsx primitive is fully built with
+      direction support, configurable close button, and 6 Storybook stories. Zero additional dependency cost.
+
+  - title: 'Drawer Modality (Modal vs Non-Modal)'
+    chosen: 'Non-modal (modal={false}, no overlay, canvas stays interactive)'
+    rejected:
+      - 'Modal with overlay — Would dim the canvas behind the drawer and trap focus inside it. This is appropriate for destructive confirmation dialogs but wrong for an inspection panel. Users need to see canvas context (node positions, connections) while reading feature details, and need to click other nodes to compare features without first closing the drawer.'
+      - 'Semi-modal with transparent overlay — Would capture clicks on the overlay to close the drawer but still allow visual context. However, this prevents clicking other nodes while the drawer is open, breaking the seamless switch requirement (FR-10). Also adds unnecessary DOM element.'
+    rationale: >
+      The drawer is an inspector/detail panel, following the pattern used by Figma, Miro, and VS Code
+      side panels. Users inspect one feature while maintaining spatial context of the entire canvas.
+      Non-modal mode enables FR-10 (clicking a different node seamlessly switches drawer content) without
+      a close-reopen animation cycle. The existing implementation already uses modal={false} and the
+      useControlCenterState hook already handles pane clicks (clearSelection) and node clicks
+      (handleNodeClick) independently, making non-modal the natural fit.
+
+  - title: 'Drawer Open State Management'
+    chosen: 'Derived from selectedNode !== null (no separate open boolean)'
+    rejected:
+      - 'Separate isDrawerOpen boolean state — Would introduce a second state variable that must be kept in sync with selectedNode. Risk of desync bugs (e.g., drawer open but selectedNode is null, or selectedNode set but drawer closed). Adds complexity to clearSelection (must reset both) and handleNodeClick (must set both). Violates single-source-of-truth principle.'
+      - 'useReducer with combined state — Overkill for two related pieces of state (selected node + open/close). A reducer adds boilerplate (action types, dispatch) for what is naturally a derived value. The current useState + useCallback pattern is simpler and already implemented.'
+    rationale: >
+      The open state is a pure derivation: open={selectedNode !== null}. This eliminates an entire
+      class of sync bugs and matches React''s recommendation of deriving state from existing state
+      rather than duplicating it. The useControlCenterState hook already implements this correctly —
+      handleNodeClick calls setSelectedNode(data) to open, clearSelection calls setSelectedNode(null)
+      to close, and createFeatureNode calls setSelectedNode(newFeatureData) to open for new features
+      (line 197). No changes needed.
+
+  - title: 'Component Architecture Tier Placement'
+    chosen: 'Tier 1 common component (components/common/feature-drawer/)'
+    rejected:
+      - 'Tier 0 UI primitive — FeatureDrawer is not a generic reusable primitive. It has domain knowledge (FeatureNodeData, lifecycle phases, state configs) and composes multiple Tier 0 primitives (Drawer, Separator, CometSpinner). Placing it in ui/ would violate the principle that Tier 0 components are domain-agnostic.'
+      - 'Tier 3 feature component (inside control-center/) — Would couple the drawer to the control-center feature, preventing reuse if feature details need to be shown elsewhere (e.g., a feature list view, a sidebar panel). Tier 1 common components are shared across features.'
+    rationale: >
+      The four-tier component hierarchy (ui/ → common/ → layouts/ → features/) is a mandatory
+      architectural pattern in this project. FeatureDrawer composes Tier 0 primitives (Drawer,
+      Separator, CometSpinner) and adds domain-specific rendering (state badges, lifecycle labels,
+      progress bars). It is consumed by Tier 3 feature components (ControlCenterInner). This matches
+      the existing pattern of FeatureNode, FeatureListItem, and FeatureStatusBadges — all Tier 1
+      common components that render domain data using Tier 0 primitives.
+
+  - title: 'ControlCenterInner Integration Pattern'
+    chosen: 'Fragment wrapper with FeatureDrawer as sibling to FeaturesCanvas'
+    rejected:
+      - "Wrap FeaturesCanvas in a div with relative positioning and render drawer inside — Would change the layout relationship between the canvas and drawer. The drawer uses Vaul's portal rendering (fixed positioning to document.body), so nesting it inside the canvas container is unnecessary and could cause stacking context issues with ReactFlow's internal z-index management."
+      - 'Render FeatureDrawer inside FeaturesCanvas as a child — Would violate component responsibility boundaries. FeaturesCanvas manages ReactFlow rendering; it should not know about the drawer. Adding drawer props to FeaturesCanvas would bloat its interface and couple two unrelated concerns.'
+    rationale: >
+      The cleanest integration is a React Fragment (<></>) wrapping FeaturesCanvas and FeatureDrawer
+      as siblings. Since Vaul renders the drawer via a portal to document.body with fixed positioning,
+      the drawer''s DOM location in the component tree doesn''t affect its visual position. This keeps
+      ControlCenterInner as a thin composition layer (its existing role) and requires only 3 changes:
+      (1) import FeatureDrawer, (2) destructure selectedNode from the hook (it''s already returned but
+      unused in JSX), (3) add <FeatureDrawer selectedNode={selectedNode} onClose={clearSelection} />
+      as a sibling after FeaturesCanvas.
+
+  - title: 'Storybook Stories Strategy'
+    chosen: 'Controlled stories with explicit selectedNode props (no DrawerTrigger needed)'
+    rejected:
+      - 'Interactive stories with DrawerTrigger button — The FeatureDrawer is controlled externally (open state derived from selectedNode prop), not internally via a trigger button. Adding a trigger button to stories would misrepresent how the component actually works in production. It would also require wrapping each story in additional state management boilerplate.'
+      - 'Single story with Storybook controls for all props — Would not adequately show the visual differences between all 5 states and 6 lifecycle phases. Users browsing Storybook need to see each variant at a glance without manually toggling controls.'
+    rationale: >
+      Since FeatureDrawer is a controlled component (open when selectedNode is non-null), stories
+      should render it with explicit selectedNode data — already open, no trigger needed. This matches
+      how the component is used in production. Create individual stories for each state (running,
+      action-required, done, blocked, error) and representative lifecycle phases. Use the pattern
+      from feature-node.stories.tsx which creates per-variant stories with explicit data fixtures.
+      A matrix story (AllStates) showing all 5 states side-by-side would provide the at-a-glance
+      overview, following the AllSizes/AllVariants pattern used in button.stories.tsx and
+      comet-spinner.stories.tsx.
+
+  - title: 'Integration Testing Approach'
+    chosen: 'Vitest + React Testing Library rendering ControlCenterInner with ReactFlowProvider'
+    rejected:
+      - 'Playwright E2E tests — Heavyweight for testing drawer open/close/switch behavior. E2E tests require a running dev server, browser automation, and are significantly slower. The drawer behavior is deterministic UI rendering that can be fully verified with component-level tests using JSDOM.'
+      - 'Storybook interaction tests (play functions) — While Storybook supports interaction testing via the play function, these tests run in the browser during Storybook builds and are harder to integrate into the CI test pipeline. They also require Storybook-specific test utilities rather than standard Testing Library patterns.'
+    rationale: >
+      Integration tests should render ControlCenterInner with mock initial nodes, simulate node
+      clicks via fireEvent/userEvent, and assert drawer content appears/disappears. ReactFlow
+      requires a ReactFlowProvider wrapper and a container with dimensions (getBoundingClientRect
+      mock). The existing feature-drawer.test.tsx already demonstrates the testing patterns (render
+      helper, data-testid queries, vi.fn() for callbacks). Integration tests extend this by testing
+      the full composition: click node → drawer opens with correct data → click pane → drawer closes
+      → click different node → drawer switches content. Place in
+      tests/unit/presentation/web/components/features/control-center/.
+
+  - title: 'FeatureCreateDrawer Storybook Strategy: Play Functions for Uncontrolled Forms'
+    chosen: 'Use @storybook/test play functions (userEvent.type, userEvent.upload) to pre-fill uncontrolled form state, plus native value setters for matrix story'
+    rejected:
+      - 'Add controlled-value props (initialName, initialDescription, initialAttachments) to the component — Adds props only used by stories, polluting the production API with story-specific concerns.'
+      - 'Render static JSX clones for pre-filled states — Defeats purpose of testing the real component behavior.'
+      - 'Use useEffect + DOM manipulation only — Fragile, doesnt use the testing-library ecosystem already in the project.'
+    rationale: >
+      The FeatureCreateDrawer uses internal useState for name, description, and attachments with no
+      controlled-value props. Play functions from @storybook/test (re-exporting @testing-library/user-event)
+      can type into inputs and upload files after the story renders, achieving pre-filled states without
+      modifying the component API. For the FormStatesMatrix story, key={phase} forces React remount and
+      native value setters (Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set)
+      programmatically fill fields for each phase. This pattern is well-established in React testing.
+
+  - title: 'Drawer Width Strategy'
+    chosen: 'Fixed w-96 (384px) via Tailwind class override'
+    rejected:
+      - 'Responsive width (w-1/3 or w-[30vw]) — Proportional widths create inconsistent detail layouts. On a 2560px monitor, 30vw = 768px which is excessive for a detail panel. On a 1280px monitor, 30vw = 384px which happens to match w-96. Fixed width ensures consistent layout regardless of viewport.'
+      - "Resizable drawer with drag handle — Adds significant complexity (resize observer, min/max constraints, state persistence) for minimal benefit. The drawer shows a fixed set of detail fields that don't benefit from user-adjustable width. Over-engineering for the current requirements."
+    rationale: >
+      384px (w-96) balances readability and canvas visibility. It provides enough horizontal space
+      for labels + values in the detail section while preserving the majority of canvas area for
+      spatial context. The Tier 0 DrawerContent already provides w-3/4 sm:max-w-sm as a responsive
+      base; the FeatureDrawer overrides with w-96 for consistency. On viewports narrower than 384px,
+      the w-3/4 base class takes effect proportionally before the w-96 override applies, providing
+      natural responsive fallback.
+
+openQuestions:
+  - question: 'Should the drawer content area be scrollable for features with long descriptions?'
+    resolved: true
+    answer: >
+      Yes. The current implementation uses flex-col layout inside DrawerContent. The DrawerContent
+      for right direction sets h-full and flex flex-col. If the total content height exceeds the
+      viewport, it will be clipped without explicit overflow handling. The DetailsSection should
+      have overflow-y-auto if not already present on a scrollable container. However, looking at
+      the current feature-drawer.tsx, the content naturally flows within the flex column and Vaul
+      handles the container scroll. For the initial implementation, the existing layout is sufficient.
+      If content truncation is reported, add overflow-y-auto to a wrapper div around the status
+      and details sections. Low priority — most feature data is short-form text.
+
+  - question: 'Does the Escape key handler in useControlCenterState conflict with Vaul internal keyboard handling?'
+    resolved: true
+    answer: >
+      No conflict. The useControlCenterState hook registers a document-level keydown listener for
+      Escape that calls clearSelection() (setting selectedNode to null). Since the drawer is non-modal
+      (modal={false}), Vaul does not register its own Escape handler (Vaul only traps focus and
+      handles Escape in modal mode). The existing Escape handler at line 50-58 of
+      use-control-center-state.ts is the sole Escape handler and correctly closes the drawer by
+      clearing the selection state. No changes needed.
+
+  - question: 'Should FeatureDrawer be exported from components/common/index.ts via the feature-drawer barrel or directly?'
+    resolved: true
+    answer: >
+      Via the feature-drawer barrel (index.ts), following the established pattern. Looking at
+      common/index.ts, every Tier 1 component is re-exported from its subdirectory barrel:
+      e.g., "export { FeatureNode, ... } from './feature-node'" where feature-node/index.ts
+      re-exports from feature-node.tsx. The feature-drawer/index.ts barrel already exists and
+      exports FeatureDrawer and FeatureDrawerProps. The common/index.ts just needs to add:
+      "export { FeatureDrawer, type FeatureDrawerProps } from './feature-drawer'".
+
+  - question: 'Is there a risk of the drawer portal interfering with ReactFlow pointer events?'
+    resolved: true
+    answer: >
+      No. Vaul renders the drawer content via a portal to document.body with fixed positioning.
+      In non-modal mode, no overlay element is created, so there is no transparent overlay
+      intercepting pointer events over the canvas. The drawer occupies a fixed 384px strip on
+      the right edge. ReactFlow nodes and edges in that strip will be visually behind the drawer
+      but the drawer''s fixed positioning naturally captures pointer events only within its own
+      bounds. Canvas interactions outside the drawer bounds work normally. The only visual impact
+      is that nodes positioned under the drawer are partially obscured — this is acceptable
+      inspector panel behavior (same as VS Code, Figma, Miro panels).
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Drawer Library: Vaul via shadcn/ui Wrapper
+
+  **Chosen:** Vaul ^1.1.2 wrapped by the existing Tier 0 `drawer.tsx` primitive.
+
+  **Rejected:**
+  - Radix UI Sheet — Designed for modal overlays, not non-modal side panels. No native direction support.
+  - Custom CSS-only panel — Lacks keyboard management, ARIA semantics, portal rendering.
+  - Headless UI Dialog — No drawer primitives; would require building from scratch.
+
+  **Rationale:** Vaul is purpose-built for drawer UIs with directional sliding, non-modal mode,
+  GPU-accelerated animations, and ARIA compliance. Already installed and wrapped in the project's
+  shadcn/ui convention. The Tier 0 primitive (`components/ui/drawer.tsx`, 153 lines) is complete
+  with direction support, configurable close button, and 6 Storybook variants.
+
+  ### 2. Modality: Non-Modal Inspector Panel
+
+  **Chosen:** `modal={false}` — no overlay, canvas stays interactive.
+
+  **Rejected:**
+  - Modal with overlay — Blocks canvas interaction, prevents seamless node switching (FR-10).
+  - Semi-modal with transparent overlay — Still captures clicks, preventing node-to-node switching.
+
+  **Rationale:** Inspector panel pattern (Figma, Miro, VS Code). Users need spatial context while
+  reading feature details. Non-modal enables clicking different nodes to switch drawer content
+  without close/reopen animation.
+
+  ### 3. State Management: Derived Open State
+
+  **Chosen:** `open={selectedNode !== null}` — no separate boolean.
+
+  **Rejected:**
+  - Separate `isDrawerOpen` state — Sync risk, violates single-source-of-truth.
+  - useReducer — Overkill for naturally derived state.
+
+  **Rationale:** The hook (`use-control-center-state.ts`) already manages `selectedNode` via
+  `handleNodeClick` (set), `clearSelection` (null), and `createFeatureNode` (set, line 197).
+  Open/closed is a pure derivation — zero additional state management code needed.
+
+  ### 4. Component Tier: Tier 1 Common Component
+
+  **Chosen:** `components/common/feature-drawer/` — domain-aware, composing Tier 0 primitives.
+
+  **Rejected:**
+  - Tier 0 (ui/) — Has domain knowledge (FeatureNodeData, lifecycle labels), not generic.
+  - Tier 3 (inside control-center/) — Would prevent reuse from other feature contexts.
+
+  **Rationale:** Matches FeatureNode, FeatureListItem, FeatureStatusBadges pattern. Composes
+  Drawer, Separator, CometSpinner (Tier 0) with domain data rendering.
+
+  ### 5. Integration Pattern: Sibling Composition
+
+  **Chosen:** `<><FeaturesCanvas .../><FeatureDrawer .../></>` in ControlCenterInner.
+
+  **Rejected:**
+  - Nest inside canvas div — Unnecessary; Vaul uses portals with fixed positioning.
+  - Render inside FeaturesCanvas — Violates component responsibility boundaries.
+
+  **Rationale:** Three-line change to ControlCenterInner: import, destructure `selectedNode`,
+  add sibling component. Portal rendering makes DOM position irrelevant to visual output.
+
+  ### 6. Storybook: Controlled Per-State Stories
+
+  **Chosen:** Individual stories with explicit `selectedNode` data, plus matrix story.
+
+  **Rejected:**
+  - Interactive with DrawerTrigger — Misrepresents controlled component usage.
+  - Single story with controls — Doesn't show visual differences at a glance.
+
+  **Rationale:** Follow existing patterns (feature-node.stories.tsx per-variant, button.stories.tsx
+  AllVariants matrix). Cover all 5 states × representative lifecycle phases.
+
+  ### 7. Testing: Vitest Component Integration Tests
+
+  **Chosen:** Vitest + RTL rendering ControlCenterInner with mock nodes.
+
+  **Rejected:**
+  - Playwright E2E — Heavyweight for deterministic UI behavior.
+  - Storybook play functions — Harder CI integration, non-standard test utilities.
+
+  **Rationale:** Component-level tests cover open/close/switch behavior efficiently. ReactFlow
+  needs provider wrapper and dimension mocks (existing patterns in codebase).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | vaul ^1.1.2 | Headless drawer primitives | Use (already installed) | Native direction, non-modal, ARIA support. Zero new dependency cost. |
+  | lucide-react ^0.563.0 | Icons (XIcon, state icons) | Use (already installed) | Consistent with all other components. XIcon for close button. |
+  | @radix-ui/react-separator | Section dividers | Use (already installed) | Standard shadcn/ui separator, used between header/status/details. |
+  | class-variance-authority | Variant styling | Use (already installed) | Used in Tier 0 drawer for variant-based class composition. |
+  | CometSpinner (custom) | Running state animation | Use (already built) | Custom animated SVG at ui/comet-spinner.tsx. Used for 'running' state badge. |
+  | @testing-library/react | Component testing | Use (already installed) | Standard for unit and integration tests. render, screen, fireEvent. |
+  | vitest | Test runner | Use (already installed) | Project standard. vi.fn() for callback mocks, describe/it/expect. |
+  | zustand / redux | External state management | Reject | Over-engineering. useState + useCallback in useControlCenterState is sufficient for selectedNode state. No cross-component state sharing beyond prop drilling from ControlCenterInner. |
+  | framer-motion | Animation library | Reject | Vaul handles slide animations natively via CSS transforms. Adding framer-motion would duplicate animation responsibility and increase bundle size (~30KB) for no benefit. |
+  | @radix-ui/react-dialog | Modal dialog | Reject | Sheet/Dialog is modal-first. Vaul provides non-modal drawer natively. |
+
+  ## Security Considerations
+
+  **No security implications identified.** This feature is a purely presentational UI component that:
+  - Displays read-only feature data already present in the React component tree
+  - Does not fetch data from APIs or external sources
+  - Does not handle user input (no forms, no text fields)
+  - Does not modify application state (only reads selectedNode, calls onClose)
+  - Does not persist data to storage
+  - Does not introduce new dependencies (all libraries already installed)
+
+  The only user interaction is click-to-close, which calls a callback prop (clearSelection)
+  that simply sets state to null. No injection vectors, no authentication surface, no data
+  exposure beyond what is already rendered on the canvas node.
+
+  ## Performance Implications
+
+  **Animation Performance:**
+  - Vaul uses CSS transforms (`--initial-transform` CSS variable) for GPU-accelerated slide animation
+  - No JavaScript-driven animations — browser compositor handles transform transitions
+  - Content switching (node-to-node) is a React re-render, not an unmount/mount cycle
+  - Drawer stays mounted while open; only inner content re-renders on selectedNode change
+
+  **Render Performance:**
+  - Conditional rendering (`selectedNode ? content : null`) prevents unnecessary DOM creation when closed
+  - Sub-components (StateBadge, DetailsSection, DetailRow) are pure function components — no hooks, no state
+  - featureNodeStateConfig lookup is O(1) object property access
+  - lifecycleDisplayLabels lookup is O(1) object property access
+  - No computed styles, no dynamic class generation — all classes are static Tailwind utilities
+
+  **Bundle Impact:**
+  - Vaul: ~3-5KB gzipped (already in bundle, no incremental cost)
+  - feature-drawer.tsx: ~2KB minified
+  - No new dependencies added
+  - Total incremental: ~2KB (component code only)
+
+  **Memory:**
+  - Portal rendering adds one DOM subtree to document.body
+  - Non-modal mode: no overlay element, no focus trap listeners
+  - Cleanup: Vaul unmounts portal content when drawer closes
+
+  ## Architecture Notes
+
+  ### Component Hierarchy
+
+  ```
+  ControlCenterInner (Tier 3: features/control-center/)
+  ├── FeaturesCanvas (Tier 3: features/features-canvas/)
+  │   └── FeatureNode (Tier 1: common/feature-node/)
+  │       └── Uses featureNodeStateConfig (shared data contract)
+  └── FeatureDrawer (Tier 1: common/feature-drawer/)     ← Integration point
+      ├── Drawer (Tier 0: ui/drawer.tsx, wraps Vaul)
+      ├── Separator (Tier 0: ui/separator.tsx, wraps Radix)
+      └── CometSpinner (Tier 0: ui/comet-spinner.tsx)
+  ```
+
+  ### Data Flow
+
+  ```
+  useControlCenterState (hook)
+  ├── selectedNode: FeatureNodeData | null  ──→  FeatureDrawer.selectedNode
+  ├── clearSelection: () => void            ──→  FeatureDrawer.onClose
+  ├── handleNodeClick: (event, node) => void ──→  FeaturesCanvas.onNodeClick
+  └── createFeatureNode: (sourceId) => void
+      └── calls setSelectedNode(newData) at line 197 ──→ opens drawer for new feature
+  ```
+
+  ### Shared Data Contract
+
+  `FeatureNodeData` (from `feature-node-state-config.ts`) is the shared interface between
+  FeatureNode (canvas node rendering) and FeatureDrawer (detail panel rendering). Both
+  consume the same `featureNodeStateConfig` for styling consistency (colors, icons, labels)
+  and `lifecycleDisplayLabels` for phase display text. This ensures visual coherence between
+  the compact node view and the expanded drawer view.
+
+  ### Files Modified (Remaining Work)
+
+  | File | Change | Lines |
+  | ---- | ------ | ----- |
+  | `components/common/index.ts` | Add FeatureDrawer + FeatureDrawerProps export | +1 |
+  | `components/features/control-center/control-center-inner.tsx` | Import FeatureDrawer, destructure selectedNode, add sibling component | +5 |
+  | `components/common/feature-drawer/feature-drawer.stories.tsx` | NEW: Storybook stories for all 5 states + lifecycle phases | ~120 |
+  | `tests/.../control-center/control-center-integration.test.tsx` | NEW: Integration tests for open/close/switch behavior | ~80 |
+
+  ### No Data Model Changes
+
+  No schema, TypeSpec, database, or API changes required. The feature is purely presentational,
+  consuming existing `FeatureNodeData` types and `useControlCenterState` hook output.
+
+  ### No New Dependencies
+
+  All libraries are already installed. No package.json changes needed.

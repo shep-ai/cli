@@ -1,0 +1,207 @@
+name: feature-drawer
+number: 018
+branch: feat/feature-drawer
+oneLiner: Sliding drawer panel to display feature details when a feature node is selected on the canvas
+summary: >
+  Add a right-side sliding drawer component (Vaul-based shadcn/ui Drawer) that opens when a user
+  clicks a feature node on the ReactFlow canvas. The drawer displays feature details (name, lifecycle,
+  state, progress, description) using existing data contracts and state configs, and integrates into
+  the ControlCenterInner as a sibling to FeaturesCanvas.
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - shadcn/ui Drawer (Vaul-based)
+  - Vaul (headless drawer library for React)
+  - Radix UI primitives
+  - React 19
+  - Next.js 16 (App Router)
+  - Tailwind CSS v4
+  - ReactFlow (@xyflow/react)
+  - Storybook
+  - class-variance-authority (CVA)
+  - Lucide React (icons)
+  - Vitest + Testing Library
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'Should the drawer use modal mode (with overlay backdrop) or non-modal (no overlay, canvas stays interactive)?'
+    resolved: true
+    answer: >
+      Recommend non-modal (modal={false}) because the drawer is a detail panel, not a blocking dialog.
+      Users should be able to see the canvas context behind the drawer and potentially click other nodes
+      to switch selection without closing first. The existing implementation already uses modal={false}.
+      Alternative: modal mode if future requirements add destructive actions (delete feature) that
+      need focus trapping.
+
+  - question: 'Should clicking a different feature node while the drawer is open switch to the new feature, or close then reopen?'
+    resolved: true
+    answer: >
+      Recommend seamless switching — clicking another feature node should update the drawer content
+      in-place without a close/reopen animation. The existing useControlCenterState.handleNodeClick
+      simply calls setSelectedNode with the new data, which naturally achieves this since the drawer
+      stays open (selectedNode !== null) and React re-renders with new props. No extra work needed.
+
+  - question: 'Should the drawer panel be scrollable for features with long descriptions or many detail fields?'
+    resolved: true
+    answer: >
+      Recommend yes, the drawer content area should scroll vertically via overflow-y-auto. The current
+      component uses flex-col layout which will naturally overflow for long content. The DrawerContent
+      from the Tier 0 primitive already sets flex-col and h-full for right-direction drawers. If content
+      exceeds viewport height, it will be clipped without explicit overflow handling. Add overflow-y-auto
+      on the scrollable region (below the header) if not already present. This is a low-risk enhancement
+      that prevents content truncation.
+
+  - question: 'What fixed width should the drawer panel use?'
+    resolved: true
+    answer: >
+      Recommend w-96 (384px) as already implemented. This provides enough space for feature details
+      without consuming too much canvas real estate. The Tier 0 DrawerContent for right direction defaults
+      to w-3/4 sm:max-w-sm (384px), but the FeatureDrawer overrides with w-96 for consistency.
+      Alternative: w-80 (320px) for minimal footprint, or responsive width.
+
+content: |
+  ## Problem Statement
+
+  When users click a feature node on the ReactFlow canvas in the Control Center, there is no detail
+  panel to inspect or manage the feature. The `selectedNode` state is already tracked in
+  `useControlCenterState` (via `handleNodeClick` and `clearSelection`) and even set when creating
+  new features (line 197 of `use-control-center-state.ts`), but is never consumed by any visible UI
+  component. The feature node itself shows truncated information (name limited to one line, description
+  to two lines) and cannot accommodate the full detail needed for feature inspection.
+
+  The infrastructure for this feature is partially built: `selectedNode` state exists, `clearSelection`
+  is wired to `onPaneClick` and Escape key, and `handleNodeClick` sets selection for `featureNode`
+  types. What's missing is the visual drawer component that renders when `selectedNode` is non-null.
+
+  ## Success Criteria
+
+  - [ ] Clicking a feature node on the canvas opens a right-side drawer panel showing that feature's details
+  - [ ] The drawer displays: feature name (title), feature ID (subtitle), lifecycle phase label, state badge with icon, progress bar (when progress > 0), and all optional detail fields (description, agent, runtime, blocked by, error)
+  - [ ] Clicking the canvas background (pane click) closes the drawer
+  - [ ] Pressing Escape closes the drawer
+  - [ ] Clicking the drawer's close button (X) closes the drawer
+  - [ ] Clicking a different feature node while the drawer is open switches content in-place without close/reopen animation
+  - [ ] Creating a new feature (via any "add feature" action) opens the drawer for that new feature
+  - [ ] The drawer uses non-modal mode — no overlay backdrop, canvas remains visible behind the panel
+  - [ ] FeatureDrawer component is exported from `components/common/index.ts` barrel
+  - [ ] FeatureDrawer has colocated Storybook stories covering all 5 states × 6 lifecycle phases
+  - [ ] All existing unit tests pass (18 tests in feature-drawer.test.tsx)
+  - [ ] Integration tests verify open/close/switch behavior in the ControlCenterInner context
+  - [ ] `pnpm validate` passes (lint, format, typecheck)
+  - [ ] `pnpm build:storybook` succeeds with the new stories
+
+  ## Functional Requirements
+
+  - **FR-1: Drawer opens on feature node click.** When a user clicks a feature node (type `featureNode`) on the ReactFlow canvas, the FeatureDrawer opens on the right side of the viewport. The drawer receives the clicked node's `FeatureNodeData` as its `selectedNode` prop.
+
+  - **FR-2: Drawer displays feature header.** The drawer header section shows the feature name as `DrawerTitle` and the feature ID as `DrawerDescription`. These map directly to `selectedNode.name` and `selectedNode.featureId`.
+
+  - **FR-3: Drawer displays lifecycle phase.** The status section displays the lifecycle phase as an uppercase label using `lifecycleDisplayLabels[selectedNode.lifecycle]`. All 6 phases must render correctly: REQUIREMENTS, RESEARCH, IMPLEMENTATION, REVIEW, DEPLOY & QA, COMPLETED.
+
+  - **FR-4: Drawer displays state badge.** The status section shows a badge with the state icon and label from `featureNodeStateConfig[selectedNode.state]`. The running state uses `CometSpinner` instead of the static Loader2 icon. All 5 states must render correctly: Running, User action required, Done, Blocked, Error.
+
+  - **FR-5: Drawer displays progress bar conditionally.** When `selectedNode.progress > 0`, a progress bar is shown with percentage label (e.g., "45%"). The bar fill uses the state's `progressClass` for color. When progress is 0, the progress bar is hidden.
+
+  - **FR-6: Drawer displays optional detail fields.** The details section shows `DetailRow` entries for each present optional field: description, agentName ("Agent"), runtime ("Runtime"), blockedBy ("Blocked by"), errorMessage ("Error"). Fields with undefined values are not rendered. If no detail fields are present, the entire details section is hidden.
+
+  - **FR-7: Drawer closes on pane click.** Clicking the canvas background (outside any node) triggers `clearSelection`, setting `selectedNode` to null, which closes the drawer.
+
+  - **FR-8: Drawer closes on Escape key.** Pressing Escape triggers the global keydown handler in `useControlCenterState` which calls `clearSelection`, closing the drawer.
+
+  - **FR-9: Drawer closes on close button click.** Clicking the X button in the drawer's top-right corner calls the `onClose` callback, which maps to `clearSelection`.
+
+  - **FR-10: Drawer content switches on different node click.** When the drawer is open and the user clicks a different feature node, `handleNodeClick` updates `selectedNode` to the new node's data. The drawer re-renders with the new content without a close/reopen animation cycle.
+
+  - **FR-11: Drawer opens for newly created features.** When a feature is created via `createFeatureNode` (handleAddFeature, handleAddFeatureToRepo, handleAddFeatureToFeature), `setSelectedNode(newFeatureData)` is called (line 197), automatically opening the drawer for the new feature.
+
+  - **FR-12: Non-modal drawer behavior.** The drawer uses `modal={false}` so no overlay/backdrop is rendered. The canvas behind the drawer remains visible and interactive. Focus is not trapped within the drawer.
+
+  - **FR-13: FeatureCreateDrawer Storybook Documentation.** The FeatureCreateDrawer component has comprehensive, interactive Storybook documentation. Stories cover: (a) all prop states via argTypes controls (open, onClose, onSubmit, isSubmitting), (b) pre-filled form state via play functions, (c) file attachment display showing all 4 MIME icon categories (image=blue, PDF=red, code=emerald, generic=gray), (d) form validation state (disabled submit when name is empty), (e) submitting/loading state with disabled fields, (f) interactive story with submission payload display and Actions panel logging, (g) form states matrix with sidebar switching between Empty/Partial/Complete/Submitting phases. Component JSDoc populates the autodocs page with architecture description.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Component architecture compliance.** FeatureDrawer is a Tier 1 common component (`components/common/feature-drawer/`), composing Tier 0 primitives (Drawer, Separator, CometSpinner). It is integrated by Tier 3 feature components (ControlCenterInner). This follows the project's four-tier component hierarchy.
+
+  - **NFR-2: Barrel export.** FeatureDrawer and FeatureDrawerProps must be exported from `components/common/index.ts` to maintain the established pattern of all Tier 1 components being re-exported from the common barrel.
+
+  - **NFR-3: Storybook coverage.** A colocated `.stories.tsx` file must exist at `components/common/feature-drawer/feature-drawer.stories.tsx`. It must cover all 5 states (running, action-required, done, blocked, error) and representative lifecycle phases. This is a MANDATORY project requirement per CLAUDE.md.
+
+  - **NFR-4: Test coverage.** Unit tests must cover: closed state, header rendering, all 5 state badges, all 6 lifecycle labels, progress bar visibility, all optional detail fields, close button behavior. The existing 18 tests in `feature-drawer.test.tsx` already satisfy this. Integration tests should verify the drawer opens/closes/switches within ControlCenterInner.
+
+  - **NFR-5: Animation performance.** The drawer slide animation must use CSS transforms (`--initial-transform` variable) for GPU-accelerated rendering. No JavaScript-driven animations. The Vaul library handles this natively.
+
+  - **NFR-6: Accessibility.** The close button must have an accessible label (`aria-label="Close"`). The drawer title must use `DrawerTitle` (maps to Vaul's `Title` with proper ARIA role). The drawer description must use `DrawerDescription` for screen reader context. Keyboard dismissal via Escape must work.
+
+  - **NFR-7: Responsive drawer width.** The drawer uses a fixed width of `w-96` (384px). On viewports narrower than the drawer width, the Tier 0 DrawerContent's `w-3/4` base class provides proportional fallback before the override applies.
+
+  - **NFR-8: No external state management.** The feature uses React local state via `useControlCenterState` hook (useState/useCallback). No Redux, Zustand, or other external state library is introduced.
+
+  - **NFR-9: FeatureCreateDrawer Storybook Quality.** The FeatureCreateDrawer stories file must have at least 9 stories covering all visual states and interactive scenarios. Every story must have a JSDoc comment. The meta configuration must include argTypes with descriptions for all props. Mock File objects must cover all 4 MIME icon categories (image, PDF, code/text, generic). Play functions must use @storybook/test utilities (userEvent.type, userEvent.upload) to pre-fill uncontrolled form state.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Modal vs non-modal drawer? | Non-modal (no overlay) | The drawer is a detail/inspection panel, not a blocking action. Users need to see canvas context and click other nodes freely. Already implemented as `modal={false}`. |
+  | 2 | Switch behavior when clicking different node? | Seamless in-place switch | `setSelectedNode(newData)` naturally re-renders without close/reopen. Better UX than flickering. No extra code needed. |
+  | 3 | Scrollable content area? | Yes, overflow-y-auto on content below header | Prevents content truncation for features with long descriptions or many detail fields. Low-risk enhancement. |
+  | 4 | Drawer panel width? | w-96 (384px) fixed | Already implemented. Good balance between detail readability and canvas visibility. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `components/ui/drawer.tsx` | Already Done | Tier 0 primitive already created with direction support, custom close button control, and all drawer sub-components exported. Stories at `drawer.stories.tsx` cover 6 variants. |
+  | `components/common/feature-drawer/` | Already Done (Partial) | FeatureDrawer component exists with header, status, and details sections. Has index.ts barrel export. Missing: Storybook stories file, not yet exported from `common/index.ts`. |
+  | `components/common/index.ts` | Low | Must add FeatureDrawer and FeatureDrawerProps exports. Currently missing from barrel. |
+  | `components/features/control-center/control-center-inner.tsx` | Medium | Must integrate FeatureDrawer as sibling to FeaturesCanvas. Currently `selectedNode` is returned from hook but not consumed in JSX. Needs to pass `selectedNode` and `clearSelection` to FeatureDrawer. |
+  | `components/features/control-center/use-control-center-state.ts` | None | Already provides `selectedNode` and `clearSelection`. No changes needed — the state infrastructure is complete. |
+  | `tests/unit/.../feature-drawer/feature-drawer.test.tsx` | Already Done | 18 test cases covering closed state, header, status (all 5 states, all 6 phases, progress bar), details (all optional fields), and close behavior. |
+  | `package.json` (@shepai/web) | Already Done | `vaul: ^1.1.2` already listed as dependency. |
+
+  ## Dependencies
+
+  - **vaul ^1.1.2**: Already installed. Provides `Drawer.Root`, `Drawer.Content`, `Drawer.Title`, etc.
+  - **FeatureNodeData interface** (`feature-node-state-config.ts`): Defines the data contract with
+    name, description, featureId, lifecycle, state, progress, and optional fields (runtime, blockedBy,
+    errorMessage, agentName).
+  - **featureNodeStateConfig** (`feature-node-state-config.ts`): Maps states to icon, border/label/
+    progress/badge classes, label text, and `showProgressBar` boolean.
+  - **lifecycleDisplayLabels** (`feature-node-state-config.ts`): Maps 6 lifecycle phases to display labels.
+  - **useControlCenterState hook**: Already provides `selectedNode: FeatureNodeData | null` and
+    `clearSelection: () => void`. Also returns `handleNodeClick` which sets selection.
+  - **Existing shadcn/ui primitives**: Separator (section dividers), CometSpinner (running state animation).
+  - **Drawer Tier 0 primitive** (`components/ui/drawer.tsx`): Wraps Vaul with direction support, custom
+    close button control, and slide animation via `--initial-transform` CSS variable.
+
+  ## Implementation Status Assessment
+
+  Significant work has already been completed on this feature branch:
+
+  1. **DONE**: Vaul dependency installed (`vaul: ^1.1.2` in package.json)
+  2. **DONE**: Tier 0 Drawer UI primitive (`components/ui/drawer.tsx`) with direction support
+  3. **DONE**: Drawer Storybook stories (`drawer.stories.tsx`) with 6 variants
+  4. **DONE**: FeatureDrawer component (`components/common/feature-drawer/feature-drawer.tsx`) with
+     header, status badge, progress bar, and details sections
+  5. **DONE**: FeatureDrawer barrel export (`feature-drawer/index.ts`)
+  6. **DONE**: Unit tests (`feature-drawer.test.tsx`) with 18 test cases
+  7. **REMAINING**: FeatureDrawer Storybook stories (`.stories.tsx` file missing)
+  8. **REMAINING**: Export from `components/common/index.ts` barrel
+  9. **REMAINING**: Integration into `ControlCenterInner` (passing selectedNode/clearSelection)
+  10. **REMAINING**: Integration tests for open/close/switch behavior
+
+  ## Size Estimate
+
+  **M** — The core component, data contracts, state management, and unit tests are complete. Remaining
+  work is integration and documentation:
+  - Adding FeatureDrawer to common barrel export (~5 min)
+  - Creating comprehensive Storybook stories covering all 5 states × 6 phases (~1 hour)
+  - Integrating FeatureDrawer into ControlCenterInner (~30 min)
+  - Writing integration tests for open/close/content-switch behavior (~1-2 hours)
+  - Total remaining: ~half day
+
+  The M estimate is appropriate given the scope of remaining integration and testing work.

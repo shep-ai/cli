@@ -1,0 +1,182 @@
+name: feature-drawer
+summary: >
+  4 tasks across 3 phases to complete the feature-drawer integration.
+  Phase 1: barrel export + ControlCenterInner wiring (2 tasks).
+  Phase 2: Storybook stories (1 task).
+  Phase 3: integration tests (1 task).
+  Total estimated effort: ~3-4 hours.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add FeatureDrawer export to common barrel'
+    description: >
+      Export FeatureDrawer and FeatureDrawerProps from components/common/index.ts via the
+      feature-drawer subdirectory barrel. This follows the established pattern where every
+      Tier 1 component is re-exported from the common barrel (e.g., FeatureNode, EmptyState).
+      The feature-drawer/index.ts barrel already exports both symbols.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'components/common/index.ts exports FeatureDrawer and type FeatureDrawerProps from ./feature-drawer'
+      - 'Import { FeatureDrawer } from "@/components/common" resolves correctly'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Verify that importing FeatureDrawer from @/components/common currently fails or is not present in the barrel'
+      green:
+        - 'Add export line: export { FeatureDrawer, type FeatureDrawerProps } from "./feature-drawer" to common/index.ts'
+      refactor:
+        - 'Ensure alphabetical ordering of exports matches the existing convention in the barrel file'
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Integrate FeatureDrawer into ControlCenterInner'
+    description: >
+      Wire the existing FeatureDrawer component into ControlCenterInner as a sibling to
+      FeaturesCanvas. The hook already returns selectedNode and clearSelection — they just
+      need to be destructured and passed as props. The ControlCenterInner currently returns
+      a single FeaturesCanvas; it needs to return a Fragment wrapping both FeaturesCanvas
+      and FeatureDrawer.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'ControlCenterInner imports FeatureDrawer from @/components/common'
+      - 'selectedNode is destructured from useControlCenterState return value'
+      - 'FeatureDrawer is rendered as sibling to FeaturesCanvas with selectedNode and onClose={clearSelection} props'
+      - 'Clicking a feature node on the canvas opens the drawer with that feature data'
+      - 'Clicking the canvas background closes the drawer'
+      - 'Pressing Escape closes the drawer'
+      - 'Clicking a different feature node switches drawer content in-place'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm lint:web passes'
+      - 'Existing unit tests pass (pnpm test:unit)'
+    tdd:
+      red:
+        - 'Write a test that renders ControlCenterInner with initial feature nodes and asserts that clicking a node causes drawer content to appear (e.g., the feature name appears in a drawer header). This will fail because FeatureDrawer is not yet rendered.'
+      green:
+        - 'Import FeatureDrawer in control-center-inner.tsx'
+        - 'Destructure selectedNode from the useControlCenterState hook return (already returned but not destructured)'
+        - 'Wrap FeaturesCanvas and FeatureDrawer in a Fragment'
+        - 'Pass selectedNode={selectedNode} and onClose={clearSelection} to FeatureDrawer'
+      refactor:
+        - 'Verify no unnecessary re-renders by confirming FeatureDrawer only re-renders when selectedNode changes'
+        - 'Confirm the Fragment wrapper does not affect FeaturesCanvas layout or ReactFlow behavior'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Create FeatureDrawer Storybook stories'
+    description: >
+      Create colocated .stories.tsx file for FeatureDrawer covering all 5 states and
+      representative lifecycle phases. Follow the pattern from feature-node.stories.tsx:
+      per-variant stories with explicit data fixtures and an AllStates matrix story.
+      Since FeatureDrawer is a controlled component, stories render with explicit
+      selectedNode data (already open, no DrawerTrigger needed).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'feature-drawer.stories.tsx exists at components/common/feature-drawer/'
+      - 'Stories cover all 5 states: Running, ActionRequired, Done, Blocked, Error'
+      - 'Stories cover representative lifecycle phases via state variants'
+      - 'AllStates matrix story shows all 5 states at a glance'
+      - 'MinimalData story shows drawer with only required fields (no optional details)'
+      - 'AllFields story shows drawer with every optional field populated'
+      - 'Closed story demonstrates null selectedNode (renders nothing)'
+      - 'Meta title follows convention: "Composed/FeatureDrawer"'
+      - 'pnpm build:storybook succeeds'
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Write integration tests for drawer open/close/switch behavior'
+    description: >
+      Write integration tests that verify the full data flow from node click to drawer
+      render within ControlCenterInner. Tests render ControlCenterInner with mock initial
+      nodes inside ReactFlowProvider, simulate node clicks, and assert drawer content
+      appears/disappears/updates. Cover: open on node click, close on pane click, close
+      on Escape, switch content when clicking different node, open for newly created feature.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Test file exists at tests/unit/presentation/web/components/features/control-center/control-center-integration.test.tsx'
+      - 'Tests render ControlCenterInner inside ReactFlowProvider with dimension mocks'
+      - 'Test: clicking a feature node opens the drawer displaying that feature name'
+      - 'Test: clicking the canvas pane closes the drawer'
+      - 'Test: pressing Escape closes the drawer'
+      - 'Test: clicking a different feature node switches drawer content in-place'
+      - 'Test: drawer shows correct state badge for the selected node'
+      - 'All tests pass with pnpm test:unit'
+    tdd:
+      red:
+        - 'Write test that renders ControlCenterInner with 2 feature nodes, simulates click on first node, asserts drawer shows first node name'
+        - 'Write test that opens drawer via node click, then simulates pane click, asserts drawer content disappears'
+        - 'Write test that opens drawer via node click, then simulates Escape key, asserts drawer content disappears'
+        - 'Write test that opens drawer for node A, then clicks node B, asserts drawer now shows node B data'
+        - 'Write test that verifies correct state badge text appears for a given node state'
+      green:
+        - 'All tests should pass immediately since the integration was wired in task-2 — these tests validate correctness, not drive new implementation'
+        - 'If any test fails, fix the integration wiring in control-center-inner.tsx'
+      refactor:
+        - 'Extract shared test fixtures (mock nodes, render helper) to reduce duplication'
+        - 'Extract ReactFlowProvider wrapper helper if reusable across other integration tests'
+    estimatedEffort: '2h'
+
+  - id: task-5
+    phaseId: phase-4
+    title: 'Upgrade FeatureCreateDrawer Storybook stories'
+    description: >
+      Rewrite feature-create-drawer.stories.tsx with comprehensive documentation: meta JSDoc +
+      argTypes for all 4 props, mock File fixtures for all MIME categories, action-logged trigger
+      wrappers, 9 stories (Default, PreFilled, WithAttachments, Submitting, SubmittingPreOpened,
+      ValidationDisabled, PreOpened, Interactive, FormStatesMatrix), play functions for pre-filled
+      states, and native value setters for the matrix story. Addresses FR-13 and NFR-9.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Stories file has 9 exported stories with JSDoc on each'
+      - 'Meta has argTypes for open, onClose, onSubmit, isSubmitting with descriptions'
+      - 'Mock File objects cover image/png, application/pdf, text/typescript, application/json, application/zip'
+      - 'PreFilled story uses play function to type name + description'
+      - 'WithAttachments story uses play function with userEvent.upload for 5 mock files'
+      - 'Interactive story shows submitted payload in a styled panel + Actions log'
+      - 'FormStatesMatrix has sidebar buttons switching Empty/Partial/Complete/Submitting'
+      - 'pnpm build:storybook succeeds'
+      - 'pnpm lint:web passes'
+      - 'pnpm typecheck:web passes'
+    tdd: null
+    estimatedEffort: '1.5h'
+
+totalEstimate: '5-6 hours'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The feature-drawer is ~70% complete. The core component, Tier 0 primitive, state management
+  hook, and 25 unit tests are all built and working. The remaining work is integration glue
+  and documentation.
+
+  First, we wire the existing FeatureDrawer into the application by adding it to the common
+  barrel export and rendering it in ControlCenterInner as a sibling to FeaturesCanvas (Phase 1).
+  This is a minimal-diff change — one export line and ~5 lines in the render function.
+
+  Next, we create comprehensive Storybook stories covering all 5 states and lifecycle phase
+  variants (Phase 2). This satisfies the mandatory Storybook requirement from CLAUDE.md and
+  provides visual documentation for review.
+
+  Finally, we write integration tests that verify the complete data flow from node click to
+  drawer render (Phase 3). These tests exercise the wiring from Phase 1 and validate
+  open/close/switch behavior within the full ControlCenterInner composition.
+
+  Task 1 (barrel export) and Task 3 (stories) have no dependencies on each other and could
+  be executed in parallel. However, Task 2 (integration) depends on Task 1, and Task 4
+  (integration tests) depends on Task 2. The critical path is: Task 1 → Task 2 → Task 4.
