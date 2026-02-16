@@ -4,18 +4,19 @@
 name: control-center
 number: 016
 branch: feat/016-control-center
-oneLiner: Interactive orchestrator with real agent state, domain-aligned lifecycle phases, and contextual node actions
+oneLiner: Control center orchestrator + extract @shepai/core workspace package for clean web-to-CLI data access
 summary: >
-  Build a Control Center Tier 3 component that wraps the existing FeaturesCanvas
-  with interactive capabilities: node selection with visual highlight, contextual
-  add-feature actions via (+) buttons on repo and feature nodes, contextual
-  node actions (replaced original toolbar for cleaner canvas-first UX), and centralized state management via
-  a custom hook. Align UI lifecycle phases 1:1 with domain SdlcLifecycle enum
-  (requirements, research, implementation, review, deploy, maintain). Derive real
-  feature state from agent_runs.status via SQL JOIN (running/done/error/action-required).
-  Maintain lifecycle = Completed.
+  Two-part feature: (1) Build a Control Center Tier 3 component wrapping FeaturesCanvas
+  with interactive capabilities — node selection, contextual add-feature actions via (+)
+  buttons, centralized state management via custom hook. (2) Extract domain/, application/,
+  and infrastructure/ into a @shepai/core workspace package. Both @shepai/cli and @shepai/web
+  depend on @shepai/core directly, eliminating the Turbopack-incompatible @cli/* path alias
+  hack and enabling clean type imports. The globalThis bridge remains for runtime use case
+  access only (DI container initialized by CLI/dev-server, not Next.js). FeatureNodeData
+  extends the generated Feature type — state/progress derived from Feature.plan.tasks.
+  Uses existing ListFeaturesUseCase (no new use cases). No CLI folder changes.
 phase: Implementation
-sizeEstimate: M
+sizeEstimate: XL
 
 # Relationships
 relatedFeatures:
@@ -31,6 +32,8 @@ technologies:
   - shadcn/ui
   - Storybook 8
   - Lucide React
+  - pnpm workspaces (@shepai/core)
+  - TypeScript (pre-compiled package with tsc)
 
 relatedLinks:
   - https://reactflow.dev/api-reference/components/panel
@@ -174,26 +177,44 @@ content: |
   - [x] `pnpm build:storybook` passes
   - [x] `pnpm build:web` passes
   - [x] Components follow tier import rules (013-ui-arch)
-  - [ ] Data loaded via use cases through global DI bridge (no direct SQL in presentation layer)
-  - [x] FeatureLifecyclePhase matches domain SdlcLifecycle 1:1 (requirements, research, implementation, review, deploy, maintain)
-  - [x] Lifecycle display labels show human-readable names (e.g. "DEPLOY & QA", "COMPLETED" for maintain)
-  - [x] Feature node state derived from agent_runs.status (running/done/error/action-required)
-  - [x] Maintain lifecycle always renders as done/completed state
-  - [ ] featureId hidden from feature node card (not rendered visually)
+  - [ ] @shepai/core workspace package created in packages/core/ with pre-compiled JS output
+  - [ ] domain/, application/, infrastructure/ moved to packages/core/src/
+  - [ ] @shepai/cli and @shepai/web both depend on @shepai/core via workspace:*
+  - [ ] TypeSpec output dir updated to packages/core/src/domain/generated/
+  - [ ] Build pipeline: TypeSpec → core build → CLI build → web build
+  - [ ] Data loaded via existing ListFeaturesUseCase through global DI bridge (no direct SQL, no new use cases)
+  - [ ] FeatureNodeData extends generated Feature type from feature.tsp/output.ts
+  - [ ] State and progress derived from Feature.plan.tasks inside the component (no pre-computed fields)
+  - [ ] SdlcLifecycle enum used directly (no FeatureLifecyclePhase wrapper type)
+  - [ ] Lifecycle display labels show human-readable names (e.g. "DEPLOY & QA", "COMPLETED" for maintain)
+  - [ ] Maintain lifecycle always renders as done/completed state
+  - [ ] globalThis DI bridge set up in WebServerService (not CLI folder)
+  - [ ] No changes to src/presentation/cli/ folder
   - [ ] Badge shows agent type icon (SVG) for each AgentType enum value (claude-code, cursor, gemini-cli, aider, continue)
   - [ ] Badge shows lifecycle-derived verb for running state (Analyzing, Researching, Implementing, Reviewing, Deploying)
-  - [ ] CometSpinner kept alongside agent icon in running badge
   - [ ] AgentTypeValue union type mirrors TypeSpec AgentType enum
+  - [ ] Web imports use @shepai/core/* instead of @cli/* path aliases
+  - [ ] All @/ alias imports within core converted to relative paths
+  - [ ] pnpm install links @shepai/core workspace, all builds pass
 
   ## Affected Areas
 
   | Area                                            | Impact | Reasoning                                  |
   | ----------------------------------------------- | ------ | ------------------------------------------ |
-  | `src/presentation/web/components/features/`     | High   | New control-center component directory     |
-  | `src/presentation/web/components/features/features-canvas/` | Medium | Extend props for interaction callbacks |
-  | `src/presentation/web/components/common/feature-node/` | Low    | Add selected visual state              |
-  | `src/presentation/web/components/common/repository-node/` | Low | Wire onAdd callback through canvas     |
-  | `src/presentation/web/app/page.tsx`                 | Medium | Control Center is the homepage (/ route)     |
+  | `packages/core/`                                | High   | New @shepai/core workspace package (domain + app + infra) |
+  | `src/domain/`, `src/application/`, `src/infrastructure/` | High | Moved to packages/core/src/ |
+  | `pnpm-workspace.yaml`                           | High   | Add packages/core entry |
+  | `tspconfig.yaml`                                | Medium | TypeSpec output dir → packages/core/src/domain/generated |
+  | `package.json` (root)                           | Medium | Add @shepai/core dep, remove moved deps |
+  | `tsconfig.json`, `tsconfig.build.json` (root)   | Medium | Update paths and includes |
+  | `vitest.config.ts`                              | Medium | Add @shepai/core alias |
+  | `src/presentation/web/package.json`             | Medium | Add @shepai/core dependency |
+  | `src/presentation/web/tsconfig.json`            | Medium | Replace @cli/* with @shepai/core paths |
+  | `src/presentation/web/components/features/`     | High   | New control-center component directory |
+  | `src/presentation/web/components/common/feature-node/` | Low | Add selected visual state |
+  | `src/presentation/web/app/page.tsx`             | Medium | Control Center homepage, Feature data flow |
+  | `~20 CLI command files`                         | Medium | Relative imports → @shepai/core/* |
+  | `~30 infrastructure files`                      | Medium | @/ aliases → relative paths within core |
 
   ## Dependencies
 
@@ -204,6 +225,8 @@ content: |
   ## Scope Boundaries
 
   **In scope:**
+  - Extract @shepai/core workspace package (domain, application, infrastructure layers)
+  - Pre-compiled package with tsc build step → packages/core/dist/
   - ControlCenter orchestrator wrapping FeaturesCanvas
   - State management hook (useControlCenterState)
   - Empty state CTA and contextual node actions (toolbar removed for cleaner UX)
@@ -214,10 +237,13 @@ content: |
   - Keyboard shortcut (Escape to deselect)
   - Storybook stories with mock data
   - Extending FeaturesCanvas/FeatureNode/RepositoryNode props as needed
-  - Global DI bridge module (globalThis) for web-to-CLI use case access
-  - New ListDashboardFeaturesUseCase composing feature + agent run data via repository LEFT JOIN
-  - New IFeatureRepository.listWithAgentRuns() method
-  - Control center page consumes data via use cases through DI bridge (no direct SQL in presentation)
+  - Global DI bridge module (globalThis) set up in WebServerService for runtime use case access
+  - Uses existing ListFeaturesUseCase returning Feature[] (no new use cases, no new repo methods)
+  - FeatureNodeData extends generated Feature type — component derives state/progress from domain data
+  - Control center page consumes data via existing use cases through DI bridge (no direct SQL)
+  - Web imports from @shepai/core (not @cli/* path aliases)
+  - No modifications to src/presentation/cli/ folder
+  - Update build pipeline: TypeSpec → core → CLI → web
 
   **Out of scope:**
   - Real-time updates or WebSocket integration

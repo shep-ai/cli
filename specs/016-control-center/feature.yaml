@@ -3,20 +3,21 @@ feature:
   name: 'control-center'
   number: 16
   branch: 'feat/016-control-center'
-  lifecycle: 'review'
+  lifecycle: 'implementation'
   createdAt: '2026-02-12T20:31:19Z'
 
 status:
-  phase: 'in-review'
+  phase: 'in-progress'
   progress:
-    completed: 13
-    total: 13
+    completed: 12
+    total: 22
     removed: 1
-    percentage: 100
-  notes: 'All tasks complete — direct SQL replaced with use cases via global DI bridge'
-  currentTask: null
-  lastUpdated: '2026-02-16T05:22:00Z'
-  lastUpdatedBy: 'shep-kit:implement'
+    superseded: 2
+    percentage: 54
+  notes: 'Extract @shepai/core workspace package (tasks 15-22). Tasks 1-7,9,11-14 done. Tasks 8,10 superseded by new extraction plan.'
+  currentTask: task-15
+  lastUpdated: '2026-02-16T18:00:00Z'
+  lastUpdatedBy: 'manual'
 
 prUrl: 'https://github.com/shep-ai/cli/pull/49'
 
@@ -26,7 +27,7 @@ validation:
   autoFixesApplied: []
 
 tasks:
-  current: null
+  current: task-15
   blocked: []
   failed: []
 
@@ -50,6 +51,22 @@ checkpoints:
   - phase: 'pr-created'
     completedAt: '2026-02-16T05:25:00Z'
     completedBy: 'shep-kit:commit-pr'
+  - phase: 'specs-reworked'
+    completedAt: '2026-02-16T12:00:00Z'
+    completedBy: 'manual'
+    notes: >
+      Policy rework: remove dashboard concept (ListDashboardFeaturesUseCase, DashboardFeature,
+      listWithAgentRuns), use existing ListFeaturesUseCase, FeatureNodeData extends Feature type
+      from feature.tsp, derive state/progress from Feature.plan.tasks, move globalThis bridge
+      to WebServerService, no CLI folder changes. Tasks 8 and 10 rewritten, task-12 updated.
+  - phase: 'core-extraction-planned'
+    completedAt: '2026-02-16T18:00:00Z'
+    completedBy: 'manual'
+    notes: >
+      Extract @shepai/core workspace package plan added. Tasks 8 and 10 superseded by
+      tasks 15-22 covering: scaffold core package, move domain/application/infrastructure
+      layers, clean up root package, control center data layer, globalThis bridge, and
+      final validation. Size estimate upgraded to XL.
 
 errors:
   current: null

@@ -124,19 +124,21 @@ decisions:
       reflects the real domain state. A display label map handles human-readable
       names (e.g. 'maintain' displays as 'COMPLETED').
 
-  - title: Feature state derivation from agent_runs
-    chosen: LEFT JOIN features with agent_runs to derive FeatureNodeState
+  - title: Feature state derivation from domain model
+    chosen: Derive state and progress from Feature.plan.tasks inside the component
     rejected:
+      - LEFT JOIN features with agent_runs (creates new use case and repo method)
       - Read feature.yaml spec files from disk for progress
       - Hardcode all features as running
     rationale: >
-      The feature-agent graph (analyze→requirements→research→plan→implement)
-      updates agent_runs.status in the DB but does NOT update feature.lifecycle
-      (stays at 'Requirements'). Both tables live in ~/.shep/data, so a simple
-      LEFT JOIN on features.agent_run_id = agent_runs.id provides real operational
-      state: pending→running, running→running, completed→done, failed→error,
-      waiting_approval→action-required. Reading spec files from disk would couple
-      the web UI to the filesystem and is fragile.
+      The Feature domain model (from feature.tsp) already contains plan.tasks
+      with TaskState (Todo, WIP, Done, Review). State is derived inside the
+      component: Maintain lifecycle = done, all tasks Done = done, has WIP tasks
+      = running, has Review tasks = action-required, no plan = running. Progress
+      is computed as (done tasks / total tasks * 100). This avoids creating new
+      use cases or repository methods — the existing ListFeaturesUseCase returns
+      Feature[] with all needed data. Error/blocked states are set via optional
+      errorMessage/blockedBy fields on FeatureNodeData.
 
   - title: Agent type icon display in feature node badge
     chosen: Inline SVG components per AgentType with typed union mirroring TypeSpec enum
@@ -165,22 +167,79 @@ decisions:
       Displaying it with 'COMPLETED' label and emerald done state gives clear
       visual feedback that no further agent work is needed.
 
-  - title: Web-to-CLI data access bridge pattern
-    chosen: Global DI bridge via globalThis
+  - title: Extract @shepai/core workspace package
+    chosen: Pre-compiled @shepai/core package exporting domain, application, and infrastructure layers
+    rejected:
+      - Keep layers in root src/ with @cli/* path aliases in web
+      - Shared ESM module imports from CLI source (Turbopack incompatible)
+      - Separate packages per layer (@shepai/domain, @shepai/application, @shepai/infrastructure)
+    rationale: >
+      Turbopack cannot resolve CLI source files that use Node.js ESM .js extension
+      imports. The @cli/* path alias is fragile, requires duplicated type definitions
+      in the web layer, and couples web to CLI. Extracting domain/, application/, and
+      infrastructure/ into a single @shepai/core workspace package solves this cleanly.
+      Both @shepai/cli and @shepai/web depend on @shepai/core via workspace:*.
+      A single package (not three) avoids circular dependency issues between layers
+      and simplifies the build pipeline. The package exports compiled JavaScript
+      (not TypeScript source) so Turbopack resolves it like any npm package.
+      IDE jump-to-definition works via tsconfig.json path mappings to source.
+
+  - title: '@shepai/core compilation strategy'
+    chosen: Pre-compiled JavaScript via tsc with separate build and typecheck configs
+    rejected:
+      - TypeScript source with transpilePackages in Next.js
+      - SWC compilation
+      - Bundle with tsup/rollup
+    rationale: >
+      A pre-compiled package avoids Turbopack compatibility issues entirely.
+      tsconfig.build.json compiles src/ to dist/ with declarations. tsconfig.json
+      (noEmit) is used for IDE and typecheck only. Build order is deterministic:
+      TypeSpec → core → CLI → web. IDE path mappings point to source for
+      jump-to-definition. No transpilePackages needed in Next.js config.
+
+  - title: '@shepai/core package exports structure'
+    chosen: Subpath exports with domain, application, infrastructure entry points
+    rejected:
+      - Single entry point exporting everything
+      - Deep path imports without exports map
+    rationale: >
+      Subpath exports allow consumers to import from specific layers:
+      @shepai/core/domain, @shepai/core/application, @shepai/core/infrastructure.
+      This maintains clear dependency boundaries — the web layer should only import
+      from domain and application, not infrastructure internals. The exports map
+      also includes @shepai/core/domain/generated for direct TypeSpec type access
+      and @shepai/core/infrastructure/di for container initialization.
+
+  - title: Web-to-CLI runtime data access bridge pattern
+    chosen: Global DI bridge via globalThis for runtime use case access, types from @shepai/core
     rejected:
       - Direct SQL queries in web presentation layer
       - Next.js API routes with manual DB connection
-      - Shared ESM module imports from CLI source
+      - Setting up bridge in CLI bootstrap (violates no-CLI-changes policy)
     rationale: >
-      Next.js (Turbopack) cannot resolve CLI source files that use Node.js ESM
-      .js extension imports. However, the web server runs in the same Node.js
-      process as the CLI (WebServerService starts Next.js programmatically).
-      After initializeContainer(), the CLI bootstrap exposes resolved use case
-      instances via globalThis.__shepUseCases. The web layer reads these without
-      importing any CLI source. Local TypeScript interfaces in the web package
-      mirror the use case contracts for type safety. This preserves Clean
-      Architecture (presentation calls use cases, not SQL) while respecting
-      the Turbopack constraint.
+      The globalThis bridge is still needed for RUNTIME use case access because
+      the DI container is initialized by CLI or dev-server, not by Next.js.
+      However, with @shepai/core extracted, the bridge is much simpler:
+      WebServerService.start() resolves ListFeaturesUseCase from the container
+      and sets globalThis.__shepUseCases. The web layer imports the Feature TYPE
+      directly from @shepai/core/domain/generated (no path alias needed).
+      The bridge module (web/lib/use-cases.ts) only reads the runtime use case
+      instance from globalThis. No new use cases, no CLI folder changes.
+
+  - title: FeatureNodeData extends generated Feature type
+    chosen: FeatureNodeData extends Feature from @shepai/core/domain/generated with UI callback fields
+    rejected:
+      - Hand-crafted FeatureNodeData with duplicated domain fields
+      - DashboardFeature DTO with flattened agent_runs data
+    rationale: >
+      The Feature type generated from feature.tsp is the single source of truth
+      for the domain model. FeatureNodeData extends Feature and adds only UI-specific
+      fields (onAction, onSettings, showHandles, agentType, errorMessage, blockedBy,
+      runtime). The component derives state and progress from Feature.plan.tasks
+      internally. This eliminates the need for DashboardFeature, ListDashboardFeaturesUseCase,
+      and IFeatureRepository.listWithAgentRuns(). With @shepai/core extracted, the
+      web package imports Feature type directly from @shepai/core/domain/generated
+      (no @cli/* path alias needed).
 
 # Open questions (should be resolved by end of research)
 openQuestions: []
@@ -316,19 +375,23 @@ content: |
 
   **Rationale:** The UI phases ('plan', 'test', 'maintenance') have no domain counterpart. The lifecycleMap collapsed Research→requirements and Maintain→deploy, losing information. A 1:1 mapping with a display label map (`maintain` → "COMPLETED", `deploy` → "DEPLOY & QA") keeps the UI accurate while providing human-readable names.
 
-  ### 9. Feature State Derivation from agent_runs
+  ### 9. Feature State Derivation from Domain Model
 
   **Options considered:**
 
-  1. **LEFT JOIN features with agent_runs** — Query real status from DB
-  2. **Read feature.yaml from disk** — Parse spec files for progress
-  3. **Hardcode all features as running** — Current approach (broken)
+  1. **Derive from Feature.plan.tasks** — Use existing domain data in the component
+  2. **LEFT JOIN features with agent_runs** — Query agent status from DB (requires new use case)
+  3. **Read feature.yaml from disk** — Parse spec files for progress
+  4. **Hardcode all features as running** — Current approach (broken)
 
-  **Decision:** LEFT JOIN features with agent_runs
+  **Decision:** Derive from Feature.plan.tasks inside the component
 
-  **Rationale:** The feature-agent graph updates `agent_runs.status` as it progresses but does NOT update `feature.lifecycle` (stays at "Requirements"). Both tables live in `~/.shep/data`. A simple SQL JOIN provides real operational state without filesystem coupling. Maps: running→running, completed→done, failed→error, waiting_approval→action-required.
-
-  **Key finding:** Agent graph nodes do NOT update `feature.lifecycle` in the DB. The `agent_runs.status` column is the real source of truth for operational state.
+  **Rationale:** The Feature domain model from feature.tsp already contains `plan.tasks`
+  with `TaskState` (Todo, WIP, Done, Review). State is derived in the component:
+  Maintain lifecycle = done, all tasks Done = done, has WIP tasks = running,
+  has Review tasks = action-required, no plan = running. Progress = done tasks /
+  total tasks * 100. Error/blocked states are set via optional fields (errorMessage,
+  blockedBy). This avoids creating new use cases or repository methods.
 
   ### 10. Maintain Lifecycle Semantics
 
@@ -340,14 +403,68 @@ content: |
 
   **Options considered:**
 
-  1. **Global DI bridge via globalThis** — CLI exposes resolved use cases on globalThis, web reads them
-  2. **Direct SQL in web layer** — Web package queries SQLite directly
-  3. **Next.js API routes with manual DB** — Create /api/features that opens its own DB connection
-  4. **Shared ESM module imports** — Import CLI source directly from web package
+  1. **Global DI bridge via globalThis (set up in WebServerService)** — Infrastructure layer exposes resolved use cases
+  2. **Global DI bridge via globalThis (set up in CLI bootstrap)** — CLI exposes use cases (violates no-CLI-changes policy)
+  3. **Direct SQL in web layer** — Web package queries SQLite directly
+  4. **Next.js API routes with manual DB** — Create /api/features that opens its own DB connection
+  5. **Shared ESM module imports** — Import CLI source directly from web package
 
-  **Decision:** Global DI bridge via globalThis
+  **Decision:** Global DI bridge via globalThis, set up in WebServerService
 
-  **Rationale:** Turbopack cannot resolve .js extension imports from CLI source. Direct SQL in the web layer violates Clean Architecture. API routes with their own DB connection duplicate connection management. Since WebServerService starts Next.js in the same Node.js process, globalThis is shared. The CLI bootstrap sets globalThis.__shepUseCases with resolved instances after initializeContainer(). The web package defines local interfaces mirroring use case contracts (no CLI imports needed). This gives the web layer type-safe access to use cases without any Turbopack compatibility issues.
+  **Rationale:** Turbopack cannot resolve .js extension imports from CLI source. Direct SQL
+  in the web layer violates Clean Architecture. Since WebServerService starts Next.js in
+  the same Node.js process, globalThis is shared. WebServerService.start() resolves the
+  existing ListFeaturesUseCase from the DI container and sets globalThis.__shepUseCases.
+  The bridge is set up in infrastructure (not CLI) to comply with no-CLI-changes policy.
+  The web layer imports Feature type via @cli/domain/generated/output path alias. No new
+  use cases needed — ListFeaturesUseCase returns Feature[] with all data.
+
+  ### 12. FeatureNodeData Extends Generated Feature Type
+
+  **Decision:** FeatureNodeData extends Feature from output.ts
+
+  **Rationale:** The Feature type generated from feature.tsp is the single source of
+  truth. FeatureNodeData = Feature + UI callbacks (onAction, onSettings, showHandles)
+  + optional UI overrides (agentType, errorMessage, blockedBy, runtime). The component
+  derives state and progress from Feature.plan.tasks internally. This eliminates
+  DashboardFeature, ListDashboardFeaturesUseCase, and listWithAgentRuns().
+
+  ### 13. Extract @shepai/core Workspace Package
+
+  **Options considered:**
+
+  1. **Pre-compiled @shepai/core package** — Single workspace package with domain, application, infrastructure
+  2. **Keep layers in root src/ with @cli/* path aliases** — Current approach (Turbopack incompatible)
+  3. **Separate packages per layer** — @shepai/domain, @shepai/application, @shepai/infrastructure
+  4. **Shared ESM module imports** — Direct imports from CLI source
+
+  **Decision:** Pre-compiled @shepai/core package
+
+  **Rationale:** Turbopack cannot resolve CLI source files with Node.js ESM `.js` imports. The `@cli/*` path alias is fragile and requires duplicated type definitions. A single `@shepai/core` package avoids circular dependency issues between layers and simplifies the build pipeline. The package exports compiled JavaScript so Turbopack resolves it like any npm package. IDE jump-to-definition works via tsconfig.json path mappings to source.
+
+  ### 14. @shepai/core Compilation Strategy
+
+  **Options considered:**
+
+  1. **Pre-compiled JavaScript via tsc** — Separate tsconfig.build.json compiles to dist/
+  2. **TypeScript source with transpilePackages** — Next.js transpiles at build time
+  3. **Bundle with tsup/rollup** — Single-file bundle
+
+  **Decision:** Pre-compiled JavaScript via tsc
+
+  **Rationale:** A pre-compiled package avoids all Turbopack compatibility issues. `tsconfig.build.json` compiles `src/` to `dist/` with declarations. Build order: TypeSpec → core → CLI → web. No `transpilePackages` needed in Next.js config.
+
+  ### 15. @shepai/core Package Exports Structure
+
+  **Decision:** Subpath exports with domain, application, infrastructure entry points
+
+  **Rationale:** Consumers import from specific layers (`@shepai/core/domain`, `@shepai/core/application`, `@shepai/core/infrastructure`). This maintains clear dependency boundaries. The exports map also includes `@shepai/core/domain/generated` for direct TypeSpec type access and `@shepai/core/infrastructure/di` for container initialization.
+
+  ### 16. Updated Web-to-CLI Runtime Bridge
+
+  **Decision:** globalThis bridge for runtime only, types from @shepai/core
+
+  **Rationale:** With @shepai/core extracted, the bridge is much simpler. Types are imported directly from `@shepai/core/domain/generated` (no path alias). The globalThis bridge only carries the runtime use case instance. WebServerService.start() resolves ListFeaturesUseCase and sets `globalThis.__shepUseCases`.
 
   ## Open Questions
 
