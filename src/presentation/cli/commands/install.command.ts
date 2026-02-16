@@ -11,10 +11,10 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../infrastructure/di/container.js';
-import { ValidateToolAvailabilityUseCase } from '../../../application/use-cases/tools/validate-tool-availability.use-case.js';
-import { InstallToolUseCase } from '../../../application/use-cases/tools/install-tool.use-case.js';
-import { TOOL_METADATA } from '../../../infrastructure/services/tool-installer/tool-metadata.js';
+import { container } from '@/infrastructure/di/container.js';
+import { ValidateToolAvailabilityUseCase } from '@/application/use-cases/tools/validate-tool-availability.use-case.js';
+import { InstallToolUseCase } from '@/application/use-cases/tools/install-tool.use-case.js';
+import { TOOL_METADATA } from '@/infrastructure/services/tool-installer/tool-metadata.js';
 import { messages, fmt, colors } from '../ui/index.js';
 
 interface InstallOptions {

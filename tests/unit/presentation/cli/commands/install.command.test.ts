@@ -19,24 +19,21 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, spawn: vi.fn(), execFile: vi.fn() };
 });
 
-vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
     resolve: vi.fn(() => ({ execute: vi.fn() })),
   },
 }));
 
-vi.mock(
-  '../../../../../src/application/use-cases/tools/validate-tool-availability.use-case.js',
-  () => ({
-    ValidateToolAvailabilityUseCase: class MockValidateToolAvailabilityUseCase {},
-  })
-);
+vi.mock('@/application/use-cases/tools/validate-tool-availability.use-case.js', () => ({
+  ValidateToolAvailabilityUseCase: class MockValidateToolAvailabilityUseCase {},
+}));
 
-vi.mock('../../../../../src/application/use-cases/tools/install-tool.use-case.js', () => ({
+vi.mock('@/application/use-cases/tools/install-tool.use-case.js', () => ({
   InstallToolUseCase: class MockInstallToolUseCase {},
 }));
 
-vi.mock('../../../../../src/infrastructure/services/tool-installer/tool-metadata.js', () => ({
+vi.mock('@/infrastructure/services/tool-installer/tool-metadata.js', () => ({
   TOOL_METADATA: {
     vscode: {
       name: 'Visual Studio Code',
@@ -131,7 +128,7 @@ vi.mock('../../../../../src/infrastructure/services/tool-installer/tool-metadata
   },
 }));
 
-vi.mock('../../../../../src/presentation/cli/ui/index.js', () => ({
+vi.mock('@cli/presentation/cli/ui/index.js', () => ({
   messages: {
     success: vi.fn(),
     error: vi.fn(),
@@ -151,9 +148,9 @@ vi.mock('../../../../../src/presentation/cli/ui/index.js', () => ({
 }));
 
 // Import after mocks
-import { createInstallCommand } from '../../../../../src/presentation/cli/commands/install.command.js';
-import { container } from '../../../../../src/infrastructure/di/container.js';
-import { messages } from '../../../../../src/presentation/cli/ui/index.js';
+import { createInstallCommand } from '@cli/presentation/cli/commands/install.command.js';
+import { container } from '@/infrastructure/di/container.js';
+import { messages } from '@cli/presentation/cli/ui/index.js';
 
 describe('Install Command', () => {
   let mockValidateExecute: ReturnType<typeof vi.fn>;

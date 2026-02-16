@@ -9,9 +9,9 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { InstallToolUseCase } from '../../../../../src/application/use-cases/tools/install-tool.use-case.js';
-import type { ToolInstallationStatus } from '../../../../../src/domain/generated/output.js';
-import type { IToolInstallerService } from '../../../../../src/application/ports/output/services/index.js';
+import { InstallToolUseCase } from '@/application/use-cases/tools/install-tool.use-case.js';
+import type { ToolInstallationStatus } from '@/domain/generated/output.js';
+import type { IToolInstallerService } from '@/application/ports/output/services/index.js';
 
 describe('InstallToolUseCase', () => {
   let useCase: InstallToolUseCase;
