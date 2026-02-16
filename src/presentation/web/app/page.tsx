@@ -1,5 +1,5 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getFeatures } from '@/lib/features';
+import { getAgentRun, getFeatures } from '@/lib/use-cases';
 import { deriveState } from './derive-state';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -27,15 +27,26 @@ const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
 
 export default async function HomePage() {
   const features = await getFeatures();
+  const featuresWithRuns = await Promise.all(
+    features.map(async (feature) => {
+      const run = feature.agentRunId ? await getAgentRun(feature.agentRunId) : null;
+      return {
+        feature,
+        agentStatus: run?.status,
+        agentError: run?.error,
+        agentResult: run?.result,
+      };
+    })
+  );
 
   // Group features by repository path
-  const featuresByRepo: Record<string, typeof features> = {};
-  features.forEach((f) => {
-    const repoKey = f.repositoryPath;
+  const featuresByRepo: Record<string, typeof featuresWithRuns> = {};
+  featuresWithRuns.forEach((entry) => {
+    const repoKey = entry.feature.repositoryPath;
     if (!featuresByRepo[repoKey]) {
       featuresByRepo[repoKey] = [];
     }
-    featuresByRepo[repoKey].push(f);
+    featuresByRepo[repoKey].push(entry);
   });
 
   const nodes: CanvasNodeType[] = [];
@@ -51,12 +62,10 @@ export default async function HomePage() {
       data: { name: repoName },
     });
 
-    repoFeatures.forEach((feature) => {
-      const agentNode = feature.agentResult?.startsWith('node:')
-        ? feature.agentResult.slice(5)
-        : undefined;
+    repoFeatures.forEach(({ feature, agentStatus, agentError, agentResult }) => {
+      const agentNode = agentResult?.startsWith('node:') ? agentResult.slice(5) : undefined;
       const lifecycle: FeatureLifecyclePhase =
-        feature.agentStatus === 'completed'
+        agentStatus === 'completed'
           ? 'maintain'
           : ((agentNode ? nodeToLifecyclePhase[agentNode] : undefined) ??
             lifecycleMap[feature.lifecycle] ??
@@ -67,8 +76,8 @@ export default async function HomePage() {
         description: feature.description ?? feature.slug,
         featureId: feature.id,
         lifecycle,
-        ...deriveState(lifecycle, feature.agentStatus),
-        ...(feature.agentError && { errorMessage: feature.agentError }),
+        ...deriveState(lifecycle, agentStatus),
+        ...(agentError && { errorMessage: agentError }),
       };
 
       const featureNodeId = `feat-${feature.id}`;

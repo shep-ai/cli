@@ -104,6 +104,30 @@ describe('WorktreeService', () => {
 
       await expect(service.create('/repo', 'my-branch', '/path')).rejects.toThrow(WorktreeError);
     });
+
+    it('should match created worktree when git reports /private/var path on macOS', async () => {
+      const expectedPath = '/var/folders/abc/worktree-path';
+      const reportedPath = process.platform === 'darwin' ? `/private${expectedPath}` : expectedPath;
+
+      mockExecFile.mockResolvedValueOnce({ stdout: '', stderr: '' }).mockResolvedValueOnce({
+        stdout: [
+          'worktree /repo',
+          'HEAD 111111',
+          'branch refs/heads/main',
+          '',
+          `worktree ${reportedPath}`,
+          'HEAD abc123',
+          'branch refs/heads/my-branch',
+          '',
+        ].join('\n'),
+        stderr: '',
+      });
+
+      const result = await service.create('/repo', 'my-branch', expectedPath);
+
+      expect(result.path).toBe(reportedPath);
+      expect(result.branch).toBe('my-branch');
+    });
   });
 
   describe('remove', () => {

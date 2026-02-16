@@ -31,17 +31,11 @@ function loadDevFallbacks(): Record<string, string> {
 }
 
 const nextConfig: NextConfig = {
-  // Enable Turbopack for faster development builds
-  turbopack: {},
-
   // Enable typed routes (moved from experimental in Next.js 16)
   typedRoutes: true,
 
   // Configure the output directory
   distDir: '.next',
-
-  // Native Node modules used by CLI infrastructure (server-side only)
-  serverExternalPackages: ['better-sqlite3'],
 
   // Inject version info from package.json for the web UI
   env: loadDevFallbacks(),

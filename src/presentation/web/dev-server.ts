@@ -22,6 +22,7 @@ import type { IAgentRunRepository } from '@/application/ports/output/agents/agen
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 
 const DEFAULT_PORT = 3000;
+const SHEP_USE_CASES_KEY = '__shepUseCases';
 
 async function main() {
   const port = parseInt(process.env.PORT ?? '', 10) || DEFAULT_PORT;
@@ -36,10 +37,12 @@ async function main() {
     initializeSettings(settings);
 
     // Set globalThis bridge for the web layer (same as CLI bootstrap index.ts:74-76)
-    (globalThis as Record<string, unknown>).__shepUseCases = {
+    const bridge = {
       listFeatures: container.resolve(ListFeaturesUseCase),
       agentRunRepo: container.resolve<IAgentRunRepository>('IAgentRunRepository'),
     };
+    (globalThis as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
+    (process as unknown as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
 
     console.log('[dev-server] DI bridge initialized');
   } catch (error) {

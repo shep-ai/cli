@@ -33,8 +33,35 @@ interface ShepUseCases {
   agentRunRepo: AgentRunRepository;
 }
 
+const SHEP_USE_CASES_KEY = '__shepUseCases';
+
+function isShepUseCases(value: unknown): value is ShepUseCases {
+  if (!value || typeof value !== 'object') return false;
+
+  const maybe = value as Record<string, unknown>;
+  const listFeatures = maybe.listFeatures as Record<string, unknown> | undefined;
+  const agentRunRepo = maybe.agentRunRepo as Record<string, unknown> | undefined;
+
+  return (
+    !!listFeatures &&
+    typeof listFeatures.execute === 'function' &&
+    !!agentRunRepo &&
+    typeof agentRunRepo.findById === 'function'
+  );
+}
+
 function getUseCases(): ShepUseCases | undefined {
-  return (globalThis as Record<string, unknown>).__shepUseCases as ShepUseCases | undefined;
+  const globalBridge = (globalThis as Record<string, unknown>)[SHEP_USE_CASES_KEY];
+  if (isShepUseCases(globalBridge)) {
+    return globalBridge;
+  }
+
+  const processBridge = (process as unknown as Record<string, unknown>)[SHEP_USE_CASES_KEY];
+  if (isShepUseCases(processBridge)) {
+    return processBridge;
+  }
+
+  return undefined;
 }
 
 /**
