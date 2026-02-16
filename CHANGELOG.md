@@ -1,3 +1,9 @@
+## [1.23.2](https://github.com/shep-ai/cli/compare/v1.23.1...v1.23.2) (2026-02-16)
+
+### Bug Fixes
+
+- **cli:** web ui startup, shutdown, and phase timing improvements ([#61](https://github.com/shep-ai/cli/issues/61)) ([c8aae95](https://github.com/shep-ai/cli/commit/c8aae954d659981751d62ed23ae731b36824b6e1))
+
 ## [1.23.1](https://github.com/shep-ai/cli/compare/v1.23.0...v1.23.1) (2026-02-16)
 
 ### Bug Fixes
