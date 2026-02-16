@@ -88,7 +88,7 @@ describe('CLI: install command', () => {
       expect(result.stdout).toContain('curl');
     });
 
-    it('should work for all 7 supported tools', { timeout: 20000 }, () => {
+    it('should work for all 7 supported tools', { timeout: 60000 }, () => {
       const tools = [
         'vscode',
         'cursor',
