@@ -34,6 +34,8 @@ import type { IWebServerService } from '../../application/ports/output/services/
 import { WebServerService } from '../services/web-server.service.js';
 import type { IWorktreeService } from '../../application/ports/output/services/worktree-service.interface.js';
 import { WorktreeService } from '../services/git/worktree.service.js';
+import type { IToolInstallerService } from '../../application/ports/output/services/tool-installer.service.js';
+import { ToolInstallerServiceImpl } from '../services/tool-installer/tool-installer.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -77,6 +79,8 @@ import { ListFeaturesUseCase } from '../../application/use-cases/features/list-f
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
+import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
+import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -124,6 +128,10 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: () => new WebServerService(),
   });
   container.registerSingleton<IWorktreeService>('IWorktreeService', WorktreeService);
+  container.registerSingleton<IToolInstallerService>(
+    'IToolInstallerService',
+    ToolInstallerServiceImpl
+  );
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {
@@ -212,6 +220,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ShowFeatureUseCase);
   container.registerSingleton(DeleteFeatureUseCase);
   container.registerSingleton(ResumeFeatureUseCase);
+  container.registerSingleton(ValidateToolAvailabilityUseCase);
+  container.registerSingleton(InstallToolUseCase);
 
   return container;
 }

@@ -1,0 +1,695 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ide-installer
+summary: >
+  Unified tool installer supports IDEs (VS Code, Cursor, Windsurf, Zed, Antigravity) and CLI agents
+  (cursor-cli, claude-code). Single `shep install <tool>` command with platform-aware package manager
+  (apt/brew/winget) or curl-based script installation. Architecture: spawned processes for live output
+  streaming, domain value objects for status/suggestions, metadata-driven tool registry. Built on Node.js
+  built-ins; no external dependencies.
+
+# Relationships
+relatedFeatures:
+  - '018-feat-ide-open'
+
+technologies:
+  - TypeScript (existing)
+  - Commander.js (existing, for CLI option parsing)
+  - '@inquirer/prompts (existing, for user confirmation)'
+  - node:child_process (spawn, execFile — built-in)
+  - node:os (platform detection — built-in)
+  - node:path (cross-platform paths — built-in)
+  - node:util (promisify — built-in)
+  - TSyringe (existing, for DI)
+  - TypeSpec (existing, domain models)
+
+relatedLinks:
+  - title: Node.js child_process API
+    url: https://nodejs.org/api/child_process.html
+  - title: Node.js os.platform() reference
+    url: https://nodejs.org/api/os.html#os_os_platform
+  - title: APT Package Manager (Ubuntu/Debian)
+    url: https://wiki.debian.org/apt
+  - title: Homebrew (macOS) Package Manager
+    url: https://brew.sh
+  - title: Windows Package Manager (winget)
+    url: https://github.com/microsoft/winget-cli
+  - title: Chocolatey (Windows) Package Manager
+    url: https://chocolatey.org
+
+# Structured technology decisions
+decisions:
+  - title: Unified Tool Installer Service Architecture
+    chosen: >
+      Single `IToolInstallerService` interface with two methods:
+      `getInstallCommand(toolName, platform)` returning command metadata (package manager, command, timeout),
+      and `executeInstall(toolName)` orchestrating installation with live output streaming.
+      Metadata-driven: tools (IDEs + CLI agents) stored in map keyed by toolName with platform-specific commands.
+      Supports: VS Code, Cursor, Windsurf, Zed, Antigravity (IDEs) + cursor-cli, claude-code (CLI agents).
+    rejected:
+      - >
+        Separate IDE vs CLI agent services — harder to extend, duplicates logic.
+      - >
+        Hardcode install commands in CLI command — violates Clean Architecture, no reusability.
+      - >
+        Per-platform services (LinuxToolInstaller, etc.) — unnecessary abstraction layers.
+    rationale: >
+      Unified metadata-driven service scales to 7 tools (and beyond). Adding new tools = one metadata entry.
+      Consistent interface for both IDEs and CLI agents reduces cognitive load. Follows existing patterns
+      (VersionService, WorktreeService). Clean Architecture: domain/application/infrastructure layering,
+      CLI is presentation-only. Easy to test with mocked service.
+
+  - title: Process Output Streaming Strategy
+    chosen: >
+      Use `spawn()` with piped stdio (stdio: 'pipe') and subscribe to 'data' events on
+      stdout/stderr streams. Pipe each chunk to CLI output in real-time without buffering.
+      Capture exit code to determine success/failure.
+    rejected:
+      - >
+        Use `execFile()` with callbacks — buffers all output in memory, impossible to stream
+        live progress for large downloads (brew/apt can take 2+ minutes).
+      - >
+        Use shell script invocation — adds shell injection risk and harder to capture exit codes.
+      - >
+        Use `exec()` with shell — higher injection risk and no fine-grained control over streams.
+    rationale: >
+      The spec requirement for live output streaming demands `spawn()` with piped streams.
+      Existing agent infrastructure in this codebase already uses spawn this way (see
+      AgentExecutorFactory wrapping spawn with stdio: 'pipe'), so this is a proven pattern.
+      Real-time feedback is critical for CLI UX when operations take 1-3 minutes.
+
+  - title: Platform-Specific Package Manager Selection
+    chosen: >
+      Linux: apt (Debian/Ubuntu focus). macOS: brew (universal standard). Windows: winget
+      (Windows 11+) with chocolatey fallback. Commands constructed with package names
+      from a metadata map keyed by (editorType, platform).
+    rejected:
+      - >
+        Single universal installer script — doesn't exist; each platform requires different
+        package manager and syntax.
+      - >
+        Attempt multiple installers in sequence (e.g., scoop then chocolatey on Windows) —
+        creates confusing error states; single primary per platform is clearer.
+      - >
+        Use official IDE installers directly — VS Code provides .deb/.rpm/.pkg, but they
+        require manual PATH configuration; package managers handle this automatically.
+    rationale: >
+      apt/brew/winget are the most reliable and common across user bases. They integrate with
+      system updates, require no GUI interaction, and handle PATH configuration. Package names
+      are stable (e.g., 'code' for VS Code in apt, 'visual-studio-code' in chocolatey). Metadata
+      map approach allows easy IDE additions without modifying service logic.
+
+  - title: Error Handling and No Auto-Elevation
+    chosen: >
+      NO auto-elevation with sudo. Let package manager handle permissions. If command exits
+      non-zero, capture stderr, display error message, and optionally suggest manual installation
+      or alternative methods. Surface permission errors explicitly to user.
+    rejected:
+      - >
+        Auto-escalate with sudo when permission denied — security risk; conflicts with users
+        who have passwordless sudo, run in containers, or use polkit. Also sudo prompts would
+        break unattended installation.
+      - >
+        Silently retry with sudo if first attempt fails — masks actual permission issues and
+        violates principle of explicit error handling.
+    rationale: >
+      Auto-elevation violates security best practices (least privilege). Users should see
+      permission errors clearly and decide how to proceed (e.g., configure sudoers, run as
+      admin, or use alternative installation method). Explicit errors are more actionable.
+
+  - title: Installation Timeout and Handling
+    chosen: >
+      Set 10-minute timeout per installation (configurable per IDE in metadata). Use
+      `setTimeout()` on a promise that races spawn completion. On timeout, kill child process
+      and display timeout error with suggestion to check network/resources or try manual install.
+    rejected:
+      - >
+        No timeout — package manager operations can hang indefinitely on network issues or slow
+        systems; user experience suffers (CLI appears frozen).
+      - >
+        Global timeout of 30 seconds — too short for slow networks or large downloads; causes
+        false positives.
+      - >
+        Retry automatically on timeout — retrying silently masks underlying issues.
+    rationale: >
+      10 minutes accommodates slow networks and large package downloads while preventing infinite
+      hangs. Explicit timeout error with recovery suggestions is user-friendly. Racing promise
+      with timeout is a standard Node.js pattern and easy to test.
+
+  - title: Use Case Layer Architecture
+    chosen: >
+      Create two use cases: ValidateToolAvailabilityUseCase (checks binary availability, returns
+      status + installation suggestions without side effects) and InstallToolUseCase (executes
+      installation, orchestrates user confirmation, monitors output). Both depend on injected
+      IToolInstallerService interface, not concrete service. Tool-agnostic: works for IDEs and CLI agents.
+    rejected:
+      - >
+        Single use case for both validation and installation — violates Single Responsibility
+        and makes testing harder.
+      - >
+        Embed installation logic directly in CLI command — violates Clean Architecture.
+      - >
+        Separate use cases per tool — doesn't scale; defeats purpose of unified installer.
+    rationale: >
+      Two focused use cases follow existing pattern (ConfigureAgentUseCase vs ValidateAgentAuthUseCase).
+      Tool-agnostic design supports 7+ tools uniformly. Dependency injection via IToolInstallerService
+      enables easy testing with mocks (no real process spawning). ValidateToolAvailabilityUseCase useful
+      for status checking before installing.
+
+  - title: Domain Model for Installation Status
+    chosen: >
+      Create value object `ToolInstallationStatus` with fields: status ('available'|'missing'|'error'),
+      toolName: string, errorMessage?: string, suggestions?: InstallationSuggestion[]. Suggestions include:
+      packageManager (apt/npm/curl), command (e.g., 'apt install code'), documentation link,
+      and alternate methods. Keep as value object (no entity ID or persistence).
+    rejected:
+      - >
+        Persist installation status in database — tool state changes outside ShepCLI; stale data
+        causes bugs. Fresh checks on each run are simpler and more reliable.
+      - >
+        Return raw strings from service — loses structure; CLI must parse manually, duplicating logic.
+    rationale: >
+      Value object captures complete installation context for CLI rendering. No persistence needed;
+      fresh check on each run (via checkAvailable()) is source of truth. Includes toolName for
+      generic error handling. Suggestions structure scales to any installer method. Works uniformly
+      for IDEs and CLI agents.
+
+  - title: New "shep install" Command Architecture
+    chosen: >
+      Create dedicated `shep install <tool>` command (new command, not extending ide). Supports tools:
+      IDEs (vscode, cursor, windsurf, zed, antigravity) and CLI agents (cursor-cli, claude-code).
+      Tool metadata centralized in ToolInstallerService with platform-specific commands.
+      Validates availability, prompts user for confirmation, executes installation with live output.
+    rejected:
+      - >
+        Extend `shep ide --install` — mixes IDE opening with tool installation; confuses responsibilities.
+        Doesn't support CLI agents (cursor-cli, claude-code) elegantly.
+      - >
+        Separate commands per tool (`shep install-cursor`, `shep install-vscode`) — repetitive,
+        hard to extend, poor UX.
+    rationale: >
+      Dedicated `shep install` command is cleaner, more extensible, and future-proof. Supports IDEs
+      and CLI agents uniformly. Users naturally expect `shep install cursor` to "install the Cursor tool"
+      (whether IDE or CLI). Metadata-driven design allows easy additions without modifying command logic.
+      Keeps `shep ide` focused on IDE launching; installation is orthogonal concern.
+
+  - title: '--how flag for dry-run instruction printing'
+    chosen: >
+      Add --how boolean flag to shep install command. When set, prints concise installation
+      instructions without executing anything. Output includes: tool name, binary name,
+      install command for detected platform, official documentation link, prerequisite checks
+      (e.g. curl available, npm available), and post-install verification command (e.g. "code --version").
+      No side effects; safe to run anytime. Uses same tool metadata as the installer service.
+    rejected:
+      - >
+        Separate shep install-info command — splits UX unnecessarily; --how is more natural.
+      - >
+        Always print instructions before install — adds noise for users who just want to install.
+    rationale: >
+      Users often want to see what will happen before running an install. --how provides transparency
+      and is useful for: manual installation, scripting, documentation, and debugging failed installs.
+      Reuses the same metadata from IToolInstallerService.getInstallCommand() so instructions are
+      always in sync with actual install behavior. Zero-cost addition since metadata already exists.
+
+  - title: Shell Safety and Command Escaping
+    chosen: >
+      Use `spawn()` with array argument syntax (arguments passed separately, not as shell string).
+      No need for manual escaping; spawn handles argument boundaries automatically.
+      Example: `spawn('apt', ['install', 'code'])` is always safe, never interpreted as shell.
+    rejected:
+      - >
+        Build command strings and pass to shell — requires careful escaping (use shlex-style
+        quoting); error-prone even with libraries.
+      - >
+        Embed user-provided input in commands — reject upfront; only allow predefined package names.
+    rationale: >
+      `spawn()` with array arguments is the Node.js best practice for shell safety. No command
+      injection risk because each argument is a separate item, not interpreted by shell.
+      Package names are hardcoded in metadata (not user-provided), so no untrusted input reaches
+      the command.
+
+  - title: DI Container Registration Pattern
+    chosen: >
+      Register `IIdeInstallerService` as singleton in container (like IVersionService, IWorktreeService).
+      Register ValidateIdeAvailabilityUseCase and InstallIdeUseCase as singletons with injected service.
+      Follow existing container pattern in src/infrastructure/di/container.ts.
+    rejected:
+      - >
+        Create installer service without DI — hard to mock in tests; CLI command becomes tightly
+        coupled to concrete service.
+      - >
+        Use factory functions instead of classes — inconsistent with existing use case pattern in
+        this codebase.
+    rationale: >
+      Consistent with existing DI patterns in the codebase. Singleton registration ensures
+      efficient resource use (only one installer service instance per CLI run). Injected dependencies
+      make testing simple (mock service, inject, verify behavior).
+
+  - title: No Persistence for Installation State
+    chosen: >
+      Installation is a transient operation. No database changes; no "last_attempted_install_date"
+      or similar metadata in settings. Each `shep ide --install` re-checks availability fresh using
+      existing launcher.checkAvailable() method.
+    rejected:
+      - >
+        Store installation timestamp in settings — IDE state changes outside ShepCLI; stale metadata
+        leads to bugs. Fresh checks prevent inconsistency.
+    rationale: >
+      IDEs are installed/uninstalled by package managers and users outside ShepCLI. Persistent
+      metadata would quickly become stale. Fresh availability checks (via launcher.checkAvailable())
+      are the source of truth and require no schema changes or migration complexity. Simpler
+      implementation, fewer bugs.
+
+# Tool Installation Metadata (hardcoded in ToolInstallerService)
+# Last verified: 2026-02-16 via official sources
+# Strategy: apt (Ubuntu/Debian) for tools with repos; curl scripts for everything else
+# Supports: IDEs (5 tools) + CLI Agents (2 tools) = 7 total tools
+toolInstallationMetadata:
+  vs-code:
+    name: Visual Studio Code
+    binaryName: code
+    linuxPrimary: apt # apt available; use as primary
+    platforms:
+      linux:
+        packageManager: apt
+        command: 'sudo apt update && sudo apt install -y code'
+        packageName: code
+        timeout: 300
+        source: 'https://code.visualstudio.com/docs/setup/linux'
+        notes: >
+          Official Microsoft apt repository. Adds to PATH automatically.
+
+  cursor:
+    name: Cursor IDE
+    binaryName: cursor
+    linuxPrimary: curl # no apt repo; use curl script
+    platforms:
+      linux:
+        packageManager: curl
+        command: 'curl -fsSL https://www.cursor.com/linux/install.sh | sh'
+        timeout: 600
+        source: 'https://www.cursor.com/download'
+        notes: >
+          Official installer script. Extracts AppImage and adds to PATH.
+
+  windsurf:
+    name: Windsurf IDE
+    binaryName: windsurf
+    linuxPrimary: curl # no apt repo; use curl script
+    platforms:
+      linux:
+        packageManager: curl
+        command: 'curl -fsSL https://windsurf.com/download/linux -o windsurf.tar.gz && tar -xzf windsurf.tar.gz && ./windsurf-install'
+        timeout: 600
+        source: 'https://windsurf.com/download'
+        notes: >
+          Codeium's Windsurf. Official installer script detects system and installs.
+
+  zed:
+    name: Zed Editor
+    binaryName: zed
+    linuxPrimary: curl # no apt repo; use curl script
+    platforms:
+      linux:
+        packageManager: curl
+        command: 'curl https://zed.dev/install.sh | sh'
+        timeout: 300
+        source: 'https://zed.dev/docs/linux'
+        notes: >
+          Official installer script detects distro. Adds to PATH automatically.
+
+  antigravity:
+    name: Google Antigravity IDE
+    binaryName: antigravity
+    linuxPrimary: curl # no apt repo; use curl script
+    requiresAuth: true
+    platforms:
+      linux:
+        packageManager: curl
+        command: 'curl -fsSL https://antigravity.google/download/linux -o antigravity.tar.gz && tar -xzf antigravity.tar.gz && ./antigravity-install'
+        timeout: 600
+        source: 'https://antigravity.google/'
+        notes: >
+          Google's AI IDE (public preview, free). Requires personal Gmail account.
+          Workspace accounts not yet supported.
+
+  # CLI AGENTS
+  cursor-cli:
+    name: Cursor CLI Agent
+    binaryName: cursor-cli
+    type: agent # Distinguish from IDE
+    linuxPrimary: npm # No native package; use npm
+    platforms:
+      linux:
+        packageManager: npm
+        command: 'npm install -g @anysphere/cursor-cli'
+        timeout: 120
+        source: 'https://www.npmjs.com/package/@anysphere/cursor-cli'
+        notes: >
+          Cursor CLI agent distributed via npm. Requires Node.js and npm.
+          Global install adds to PATH automatically.
+
+  claude-code:
+    name: Claude Code CLI
+    binaryName: claude-code
+    type: agent # Distinguish from IDE
+    linuxPrimary: npm # No native package; use npm
+    platforms:
+      linux:
+        packageManager: npm
+        command: 'npm install -g @anthropic-ai/claude-code'
+        timeout: 120
+        source: 'https://www.npmjs.com/package/@anthropic-ai/claude-code'
+        notes: >
+          Claude Code CLI distributed via npm. Requires Node.js and npm.
+          Global install adds to PATH automatically.
+
+# Linux Installation Strategy (Ubuntu/Debian focus)
+linuxInstallationStrategy: >
+  Three-tier approach for 7 tools total:
+  1. **apt packages** (VS Code) — use apt for stable, official repos
+  2. **curl scripts** (Cursor, Windsurf, Zed, Antigravity IDEs) — use official vendor scripts
+  3. **npm packages** (cursor-cli, claude-code CLI agents) — use npm for Node.js CLI tools
+  All tools add to PATH automatically. ShepCLI does NOT auto-elevate with sudo;
+  user will see sudo prompt if needed for apt commands. Curl scripts run as user (no sudo needed).
+  npm installs require Node.js/npm pre-installed.
+
+# System Dependencies for Linux
+linuxSystemDependencies:
+  - name: curl
+    required: true
+    description: >
+      Required for Cursor, Windsurf, Zed, and Antigravity installation scripts.
+      Usually pre-installed. If missing: sudo apt install curl
+  - name: node.js & npm
+    required: conditional
+    description: >
+      Required ONLY for CLI agent installs (cursor-cli, claude-code).
+      Not needed for IDE installations. Check: node --version && npm --version
+      Install if needed: sudo apt install nodejs npm
+  - name: git
+    required: false
+    description: >
+      Optional; some installers may use git for updates.
+      Install if needed: sudo apt install git
+  - name: build-essential
+    required: false
+    description: >
+      Some IDEs (Zed) may need compilation on unsupported distros.
+      Install if needed: sudo apt install build-essential
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should IDE installation attempt to auto-resolve platform-specific package names, or fail if exact package name not found?'
+    resolved: true
+    answer: >
+      Fail with clear error. Use exact package names from metadata map (e.g., 'code' for VS Code
+      in apt). If package manager's naming changes (e.g., 'code-insiders' vs 'code'), update metadata
+      once, not every installation attempt. This is safer and easier to maintain than attempting
+      fallbacks or fuzzy matching.
+
+  - question: 'Should we support Scoop on Windows as an alternative to Chocolatey/winget?'
+    resolved: true
+    answer: >
+      Not for MVP. Winget is Windows 11+ standard; Chocolatey has broad adoption. Adding Scoop
+      adds testing complexity (test 3 package managers on Windows instead of 2). Scope control:
+      implement primary methods first, add alternatives if users request. Metadata map makes adding
+      Scoop easy in the future.
+
+  - question: 'Should installation commands include platform-specific flags (e.g., --quiet, --no-confirm)?'
+    resolved: true
+    answer: >
+      NO. Run commands with default flags. Avoid --quiet or --no-confirm because they reduce
+      visibility into what's happening. Users need to see real-time output to trust the process.
+      Package managers naturally prompt user if needed; let them handle it.
+
+  - question: 'Should we check system PATH explicitly before falling back to package manager detection?'
+    resolved: true
+    answer: >
+      The existing launcher.checkAvailable() already does this (uses 'which' on Unix, 'where' on
+      Windows). InstallIdeUseCase will call this first. No additional PATH checking needed; reuse
+      existing infrastructure.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-16
+  - **Completed:** Yes
+
+  ## Technology Decisions
+
+  ### 1. IDE Installer Service Architecture
+
+  **Chosen:** Single `IIdeInstallerService` interface with two methods:
+  - `getInstallCommand(editorType, platform)` — returns command metadata (package name, timeout)
+  - `executeInstall(editorType, platform)` — spawns process and orchestrates installation
+
+  **Rejected:**
+  - Extend launcher implementations with install methods — would duplicate platform logic across 5 launchers
+  - Create per-platform services — unnecessary abstraction layers
+
+  **Rationale:** Centralizing metadata makes IDE additions trivial (one map entry, not 5 launcher changes). Follows existing service pattern (VersionService, WorktreeService). Clear separation: launchers handle launch/availability; installer handles installation.
+
+  ### 2. Process Output Streaming
+
+  **Chosen:** Use `spawn()` with piped stdio and subscribe to 'data' events. Stream output in real-time.
+
+  **Rejected:**
+  - `execFile()` with callbacks — buffers all output; impossible to stream 2+ minute operations
+  - Shell script invocation — injection risk; harder to capture exit codes
+
+  **Rationale:** Spec explicitly requires live CLI output. `spawn()` is proven in agent executor factory. Real-time feedback critical for 1-3 minute operations.
+
+  ### 3. Platform-Specific Package Managers
+
+  **Chosen:**
+  - Linux: apt (Debian/Ubuntu focus)
+  - macOS: brew (universal)
+  - Windows: winget (Windows 11+) with chocolatey fallback
+
+  **Rejected:**
+  - Single universal installer — doesn't exist
+  - Multiple installers in sequence — confusing error states
+  - Official IDE installers — require manual PATH configuration
+
+  **Rationale:** apt/brew/winget are most reliable and common. Integrate with system updates, require no GUI. Metadata map approach makes future extensions easy.
+
+  ### 4. Error Handling: No Auto-Elevation
+
+  **Chosen:** NO auto-elevation with sudo. Let package manager handle permissions. Surface errors explicitly.
+
+  **Rejected:**
+  - Auto-escalate with sudo — security risk; conflicts with user permission models
+  - Silently retry — masks actual issues
+
+  **Rationale:** Auto-elevation violates security best practices. Users should see errors clearly and decide next steps. Explicit error handling is safer and more actionable.
+
+  ### 5. Installation Timeout
+
+  **Chosen:** 10-minute timeout per installation. Race promise with timeout. On timeout, kill child process and display actionable error.
+
+  **Rejected:**
+  - No timeout — CLI appears frozen on network issues
+  - 30-second timeout — too short for large downloads
+  - Auto-retry — masks underlying issues
+
+  **Rationale:** 10 minutes accommodates slow networks while preventing indefinite hangs. Standard Node.js pattern. Explicit error message guides user toward recovery.
+
+  ### 6. Use Case Layer
+
+  **Chosen:** Two focused use cases:
+  - `ValidateIdeAvailabilityUseCase` — checks availability, returns status + suggestions (no side effects)
+  - `InstallIdeUseCase` — executes installation, orchestrates user confirmation
+
+  Both depend on injected `IIdeInstallerService` interface.
+
+  **Rejected:**
+  - Single use case for both — violates SRP; harder to test
+  - Embed logic in CLI command — violates Clean Architecture
+
+  **Rationale:** Follows existing pattern (ConfigureAgentUseCase vs. ValidateAgentAuthUseCase). DI enables easy mocking. ValidateIdeAvailabilityUseCase can be called to show status without risk.
+
+  ### 7. Domain Model: Installation Status
+
+  **Chosen:** Value object `IdeInstallationStatus`:
+  ```
+  status: 'available' | 'missing' | 'error'
+  errorMessage?: string
+  suggestions?: {
+    packageManager: string
+    command: string
+    documentationLink: string
+  }[]
+  ```
+
+  **Rejected:**
+  - Persist status in database — stale data bugs; IDEs change outside ShepCLI
+  - Return raw strings — loses structure; duplicates formatting logic
+
+  **Rationale:** Captures complete context for CLI rendering. No persistence needed; fresh checks on each run (launcher.checkAvailable()) are source of truth.
+
+  ### 8. CLI Command Extension
+
+  **Chosen:** Add `--install` flag to existing `shep ide` command. When set:
+  1. Check availability
+  2. If missing, prompt user
+  3. If confirmed, execute installation
+  4. If successful, launch IDE
+
+  **Rejected:**
+  - New `shep ide-install` command — splits workflow unnecessarily
+  - Subcommand `shep ide install` — doesn't align with Commander.js conventions
+
+  **Rationale:** Spec says "extend existing command". Single command for complete workflow (check → install → launch) is more intuitive. Commander.js options are idiomatic.
+
+  ### 9. Shell Safety
+
+  **Chosen:** Use `spawn()` with array arguments (not shell strings). Arguments passed separately; spawn handles boundaries.
+
+  **Rejected:**
+  - Build command strings — requires careful escaping; error-prone
+  - Embed user input — dangerous
+
+  **Rationale:** `spawn()` with array arguments is Node.js best practice for shell safety. No command injection risk. Package names hardcoded (not user-provided).
+
+  ### 10. DI Container Integration
+
+  **Chosen:** Register `IIdeInstallerService` as singleton. Register use cases as singletons with injected service. Follow existing pattern in container.ts.
+
+  **Rejected:**
+  - No DI — hard to mock; tight coupling
+  - Factory functions — inconsistent with codebase
+
+  **Rationale:** Consistent with existing patterns. Singleton ensures efficient resource use. Injected dependencies enable easy mocking and testing.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | node:child_process (spawn) | Spawn installer processes | Use | Built-in; proven in agent executor; needed for output streaming |
+  | node:os | Detect platform | Use | Built-in; single `os.platform()` call suffices |
+  | node:path | Cross-platform paths | Use | Built-in; used by launchers |
+  | node:util (promisify) | Convert callbacks | Use | Built-in; already in container.ts |
+  | @inquirer/prompts | User confirmation | Use | Existing dependency; TUI standard |
+  | Commander.js | CLI option parsing | Use | Existing; adds --install flag |
+  | TSyringe | Dependency injection | Use | Existing; register service and use cases |
+  | TypeSpec | Domain modeling | Use | Existing; EditorType already present |
+
+  **No new external dependencies required.** All technology choices use existing libraries or Node.js built-ins.
+
+  ## Security Considerations
+
+  **Command Injection Prevention:**
+  - Use `spawn()` with array arguments, never shell strings
+  - Package names hardcoded in metadata map (not user-provided)
+  - No user input reaches shell commands
+
+  **Permission Handling:**
+  - NO auto-elevation with sudo (security risk)
+  - Surface permission errors explicitly
+  - User decides next steps (configure sudoers, alternative method, etc.)
+
+  **Process Safety:**
+  - Timeout after 10 minutes prevents indefinite child process hangs
+  - Explicit error messages guide user recovery
+  - Child process killed on timeout
+
+  **No Arbitrary Script Execution:**
+  - Only package manager commands allowed
+  - IDE metadata centralized and immutable
+  - No support for custom install scripts (future enhancement)
+
+  ## Performance Implications
+
+  **Installation Responsiveness:**
+  - Live streaming of output via spawn() provides real-time feedback
+  - No memory buffering of large outputs (apt/brew can produce megabytes)
+  - Typical apt/brew operations: 30 seconds to 3 minutes (within 10-minute timeout)
+
+  **Availability Check Performance:**
+  - Reuses existing launcher.checkAvailable() (uses 'which'/'where' — <100ms per IDE)
+  - Multiple IDEs: ~500ms total for 5 IDEs (acceptable)
+  - No new bottlenecks introduced
+
+  **DI Container:**
+  - Singleton registration ensures only one installer service instance
+  - No performance regression vs. existing use cases
+
+  ## Architecture Notes
+
+  **Clean Architecture Adherence:**
+
+  1. **Domain Layer:**
+     - Value object: `IdeInstallationStatus` (status, error, suggestions)
+     - No business logic; only data structures
+
+  2. **Application Layer:**
+     - `ValidateIdeAvailabilityUseCase` — orchestrates domain + infrastructure
+     - `InstallIdeUseCase` — orchestrates installation + user interaction
+     - Both depend only on injected interfaces
+
+  3. **Infrastructure Layer:**
+     - `IIdeInstallerService` interface (application/ports/output/services/)
+     - `IdeInstallerServiceImpl` (infrastructure/services/ide-installers/)
+     - Centralizes all platform-specific commands, timeouts, package names
+
+  4. **Presentation Layer (CLI):**
+     - `ide-open.command.ts` remains presentation-only
+     - Calls use cases; no business logic
+     - Formats and displays output via CLI UI components
+
+  **Layering Benefits:**
+  - New IDE additions require only one metadata entry (infrastructure layer)
+  - Testing: mocks installer service; no real spawning
+  - Future enhancements: add new installation methods without touching CLI command
+
+  **Existing Pattern Reuse:**
+  - Service interface pattern: matches VersionService, WorktreeService
+  - Use case pattern: matches ConfigureAgentUseCase, ValidateAgentAuthUseCase
+  - DI registration: matches existing container setup
+  - CLI output: uses existing messages.error(), messages.success()
+
+  ## Testability
+
+  **Unit Tests:**
+  - Mock `IIdeInstallerService`; test use cases with mocked service
+  - Mock `launcher.checkAvailable()`; test decision logic
+  - Test error handling: timeout, permission denied, user cancel
+
+  **Integration Tests:**
+  - Mock `spawn()` callback to avoid real package manager execution
+  - Test correct commands constructed per platform/IDE
+  - Verify timeout logic with mocked delays
+
+  **E2E Tests:**
+  - Mock installation (don't execute real apt/brew)
+  - Verify complete flow: detect missing → prompt → install → launch
+  - Test error scenarios
+
+  **Coverage Target:** ≥90% for use cases and value objects (CLAUDE.md requirement).
+
+  ## Implementation Sequence
+
+  1. **Domain:** Create `IdeInstallationStatus` value object
+  2. **Ports:** Create `IIdeInstallerService` interface
+  3. **Application:** Create `ValidateIdeAvailabilityUseCase` and `InstallIdeUseCase`
+  4. **Infrastructure:** Implement `IdeInstallerServiceImpl` with platform-specific metadata
+  5. **DI:** Register service and use cases in container
+  6. **CLI:** Add `--install` flag and wire up use cases
+  7. **Tests:** Unit, integration, E2E tests (TDD: RED → GREEN → REFACTOR)
+
+  ## All Technical Questions Resolved
+
+  ✓ Auto-detect default IDE from settings; prompt if not set.
+  ✓ Require user confirmation before each installation.
+  ✓ Package managers as primary; link to official docs.
+  ✓ Fail immediately with clear error; user decides next step.
+  ✓ Single primary installer per OS; no confusing attempts.
+  ✓ NO auto-elevation with sudo; surface permission errors explicitly.
+  ✓ NO persistence; transient operation with fresh checks.
+  ✓ 10-minute timeout with graceful error and recovery suggestions.
+  ✓ NO partial installation detection for MVP; PATH-based suffices.
+  ✓ Live streaming of stdout/stderr to CLI with real-time feedback.

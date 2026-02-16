@@ -15,6 +15,7 @@ export type {
   ISpecInitializerService,
   SpecInitializerResult,
 } from './spec-initializer.interface.js';
+export type { IToolInstallerService } from './tool-installer.service.js';
 export type { IVersionService } from './version-service.interface.js';
 export type { IWebServerService } from './web-server-service.interface.js';
 export type { IWorktreeService, WorktreeInfo } from './worktree-service.interface.js';

@@ -1,0 +1,301 @@
+name: ide-installer
+number: 019
+branch: feat/019-ide-installer
+oneLiner: Create unified "shep install" command for IDEs and CLI agents with cross-platform support
+summary: >
+  Create new `shep install <tool>` command that validates and installs IDEs (VS Code, Cursor, Windsurf,
+  Zed, Antigravity) and CLI agents (cursor-cli, claude-code) with live CLI output. Centralizes installation
+  logic in domain/application/infrastructure layers following Clean Architecture. One command for all
+  development tools, with platform-aware package manager or script-based installation.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - '018-feat-ide-open'
+
+technologies:
+  - TypeScript
+  - Commander.js
+  - '@inquirer/prompts'
+  - node:child_process (spawn, execFile)
+  - node:os (platform detection)
+  - node:path (cross-platform paths)
+  - TSyringe (DI)
+  - TypeSpec (domain models)
+
+relatedLinks:
+  - title: VS Code Installation Docs
+    url: https://code.visualstudio.com/download
+  - title: Cursor IDE Installation
+    url: https://www.cursor.com
+  - title: Windsurf Installation
+    url: https://codeium.com/windsurf
+  - title: Zed Editor Installation
+    url: https://zed.dev
+  - title: Google Antigravity IDE Docs
+    url: https://antigravity.google/docs/command
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the `--install` flag automatically detect the default IDE from settings or require explicit selection?'
+    resolved: true
+    answer: 'Recommend automatic detection: use settings.environment.defaultEditor if set, otherwise prompt user. Rationale: users who run `shep ide` have already configured a preference; automatic detection respects that and reduces friction. If no default exists, interactive selection ensures correct IDE is installed.'
+  - question: 'Should installation run unattended or should all commands require user confirmation?'
+    resolved: true
+    answer: 'Recommend confirmation before each platform-specific install command executes. Rationale: installation involves system-level package managers (apt, brew, etc.) that may have side effects (sudo prompts, repository additions). User consent is a safety best practice. For automated environments, a future `--non-interactive` flag can skip confirmation.'
+  - question: 'Should the feature support IDE-specific installers (e.g., VS Code official installer) or only package manager methods?'
+    resolved: true
+    answer: 'Recommend package manager methods as primary (apt, brew, chocolatey, winget). VS Code and others also provide official scripts; we can surface direct links in suggestions. Rationale: package managers are more reliable across environments, integrate with system updates, and are simpler to implement. Official installers require GUI interaction and are harder to stream output for.'
+  - question: 'How should we handle installation failures—retry with alternative methods or fail immediately?'
+    resolved: true
+    answer: 'Recommend fail immediately with clear error messaging and user options. Rationale: retrying silently masks underlying issues (missing package manager, permission errors, no internet). User should see the actual error and decide whether to retry, use alternative method, or install manually. This aligns with Unix philosophy of explicit error handling.'
+  - question: 'Should the feature attempt to install on Windows using different methods (scoop, chocolatey, winget) if the first fails?'
+    resolved: true
+    answer: 'Recommend single primary method per IDE per platform (e.g., winget for VS Code on Windows 11+, chocolatey as fallback). Rationale: attempting multiple installers in sequence creates confusing error states. Instead, provide clear messaging about which method is attempted and suggest manual installation or alternative package managers if it fails.'
+  - question: 'Should installation commands be elevated with sudo on Linux/macOS or assume permission is already available?'
+    resolved: true
+    answer: 'Recommend: do NOT auto-elevate with sudo. Instead, let the package manager (apt, brew) handle permissions and show output to user. If the command fails due to permissions, surface that error clearly. Rationale: auto-elevating sudo is a security risk and conflicts with users who manage permissions differently (passwordless sudo, docker containers, etc.). Explicit error messaging is safer.'
+  - question: 'Should we persist the installation result in settings for future reference (e.g., last_attempted_install_date)?'
+    resolved: true
+    answer: 'Recommend NO persistence. Keep installation as a transient operation. Rationale: IDEs get installed/uninstalled outside ShepCLI; persistent state would become stale. Each `shep ide --install` should re-check availability fresh via checkAvailable(). Lighter implementation, fewer bugs.'
+  - question: 'What is the maximum timeout for installation operations? Should we handle timeouts gracefully?'
+    resolved: true
+    answer: 'Recommend 10-minute timeout for most IDEs, configurable per IDE in installer metadata. Catch timeout errors gracefully and suggest user manually complete installation or check network/system resources. Rationale: package manager operations vary widely (slow network, large downloads); a global timeout prevents hanging. User-visible messaging makes it actionable.'
+  - question: 'Should the feature support partial installation detection (e.g., IDE downloaded but binary not in PATH)?'
+    resolved: true
+    answer: 'Recommend NO for MVP. checkAvailable() is PATH-based; if binary is not in PATH, treat as not installed. Future enhancement: allow manual PATH configuration. Rationale: scope control for MVP; most installations automatically add to PATH. Simpler implementation, clearer behavior.'
+  - question: 'Should installation output be streamed live or collected and shown after completion?'
+    resolved: true
+    answer: 'Recommend live streaming of installation stdout/stderr to CLI. Rationale: users expect real-time feedback during long operations (apt/brew can take 1-3 min); builds confidence that something is happening. Implementation uses spawn() with piped stdio.'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The current `shep ide` command only opens worktrees in already-installed IDEs. Users who don't
+  have a selected IDE installed encounter a silent failure or unclear messaging. The feature request
+  asks for:
+
+  1. **IDE Installation Detection**: Check if each IDE launcher is installed on the system
+  2. **Proactive Suggestions**: When IDE is not installed, suggest installation methods via:
+     - ShepCLI installation helpers (if available)
+     - Manual installation instructions
+     - Link to official documentation
+  3. **Installation Execution**: Run platform-specific shell commands to install selected IDE
+  4. **Live Output Monitoring**: Show installation progress to the user in real-time
+  5. **Cross-Platform Support**: Support installation on Linux, macOS, and Windows with appropriate commands
+  6. **Clean Architecture**: Extract all logic to domain/application/infrastructure layers;
+     CLI must be presentation-only (Model-View pattern)
+
+  ## Success Criteria
+
+  - [ ] `shep ide --install` flag recognized and parsed by Commander.js CLI
+  - [ ] When `--install` used and IDE not found: user prompted to confirm installation
+  - [ ] Installation commands execute with live stdout/stderr streamed to CLI for visual feedback
+  - [ ] Installation succeeds on Linux (apt), macOS (brew), and Windows (winget/chocolatey)
+  - [ ] After successful installation, IDE launcher is available and launches correctly
+  - [ ] If installation fails, user receives clear error message and suggestions for recovery
+  - [ ] All IDE installer logic isolated in `IIdeInstallerService` (infrastructure layer)
+  - [ ] `ValidateIdeAvailabilityUseCase` returns installation status + suggestions without side effects
+  - [ ] `InstallIdeUseCase` executes installation in response to user confirmation
+  - [ ] CLI command layer is presentation-only; no installation logic directly in command file
+  - [ ] Unit tests cover all use cases with mocked installer service
+  - [ ] Integration tests verify installer service with mocked spawn() calls
+  - [ ] E2E test validates complete flow: detect missing IDE → prompt → install → launch (with mocked install)
+  - [ ] All five supported IDEs (VS Code, Cursor, Windsurf, Zed, Antigravity) can be installed
+  - [ ] Error scenarios (permission denied, network down, timeout) handled gracefully with actionable messages
+  - [ ] Installation timeout enforced at 10 minutes with clear user messaging
+  - [ ] No sudo auto-elevation; permission errors surfaced explicitly to user
+  - [ ] Cross-platform shell escaping safe (no command injection risks)
+  - [ ] TSyringe DI container registers IIdeInstallerService and new use cases
+  - [ ] Installer metadata (package names, commands per platform) centralized in installer service, not hardcoded in launchers
+
+  ## Functional Requirements
+
+  ### IDE Availability Detection (Core)
+
+  - **FR-1**: System SHALL check if selected IDE binary is available in system PATH using `which <binary>` on Unix or `where <binary>` on Windows
+  - **FR-2**: If IDE is not available, system SHALL NOT attempt to launch it; instead SHALL return status indicating missing IDE
+  - **FR-3**: Availability check SHALL complete within 2 seconds; timeout results treated as "not available"
+
+  ### Installation Flag & CLI Integration
+
+  - **FR-4**: `shep ide` command SHALL accept a new boolean `--install` flag via Commander.js option
+  - **FR-5**: When `--install` flag is set, the command SHALL first run availability check before attempting launch
+  - **FR-6**: If IDE is available and `--install` is set, command SHALL bypass installation and proceed directly to launch
+  - **FR-7**: If IDE is not available and `--install` is set, command SHALL display suggestions and prompt user for confirmation
+
+  ### Suggestions & User Guidance
+
+  - **FR-8**: When IDE is missing, system SHALL provide:
+    - Specific package manager command for detected platform (apt, brew, chocolatey, etc.)
+    - Link to official IDE documentation (from relatedLinks)
+    - Alternative installation methods if available
+  - **FR-9**: Suggestions SHALL be platform-aware; Linux user sees `apt install`, macOS user sees `brew install`, Windows user sees `winget install`
+  - **FR-10**: If IDE has official installation scripts, suggestions MAY include link to script (not automatic execution)
+
+  ### Installation Execution
+
+  - **FR-11**: Upon user confirmation, system SHALL execute platform-specific installation command via `spawn()`
+  - **FR-12**: Installation command SHALL include package manager invocation (apt, brew, chocolatey, winget) with IDE-specific package name
+  - **FR-13**: Installation command output (stdout/stderr) SHALL be streamed in real-time to CLI for user visibility
+  - **FR-14**: Installation process SHALL NOT be backgrounded; user SHALL see progress and completion status in CLI
+  - **FR-15**: If installation command exits with non-zero status, system SHALL capture and display error message to user
+
+  ### Cross-Platform Support
+
+  - **FR-16**: System SHALL detect platform via `os.platform()` and route to appropriate installation command
+  - **FR-17**: System SHALL support:
+    - **Linux**: apt (Debian/Ubuntu); fallback suggestions for other distros
+    - **macOS**: brew (Homebrew)
+    - **Windows**: winget (Windows 11+) with chocolatey fallback
+  - **FR-18**: Each IDE SHALL have platform-specific package names mapped (e.g., VS Code: `code` on Linux, `visual-studio-code` via chocolatey on Windows)
+  - **FR-19**: Installation commands SHALL be safe against shell injection; all arguments escaped/quoted
+
+  ### Post-Installation Flow
+
+  - **FR-20**: After successful installation, system SHALL re-run availability check to confirm IDE is now in PATH
+  - **FR-21**: If post-installation check succeeds, command SHALL automatically proceed to launch the IDE (or inform user it's ready)
+  - **FR-22**: If post-installation check fails, command SHALL display error and suggest manual PATH configuration or troubleshooting
+
+  ### Architecture & Layering
+
+  - **FR-23**: All IDE detection logic SHALL reside in domain layer (value objects: `IdeInstallationStatus`, `IdeInstallationCommand`)
+  - **FR-24**: Use cases (`ValidateIdeAvailabilityUseCase`, `InstallIdeUseCase`) SHALL depend only on injected ports, not concrete services
+  - **FR-25**: `IIdeInstallerService` interface SHALL define methods: `getInstallCommand(editorType, platform)`, `executeInstall(editorType)`
+  - **FR-26**: `IdeInstallerServiceImpl` (infrastructure) SHALL contain all platform-specific commands and spawn logic
+  - **FR-27**: CLI command layer SHALL be presentation-only: parse options, call use cases, format/display output; NO business logic
+  - **FR-28**: Launcher implementations SHALL NOT contain installation logic; only `checkAvailable()` and `launch()` methods
+  - **FR-29**: Installer metadata (package names, commands) SHALL be centralized in infrastructure service, never duplicated in launchers
+
+  ### Error Handling & Recovery
+
+  - **FR-30**: If installation is cancelled by user, command SHALL exit gracefully with informative message
+  - **FR-31**: If installation timeout occurs (>10 minutes), process SHALL be terminated and user shown timeout message with recovery suggestions
+  - **FR-32**: If installation fails due to missing package manager, system SHALL show error and suggest alternative methods (manual download, different OS, etc.)
+  - **FR-33**: Permission errors (e.g., sudo: command not found) SHALL be captured and shown to user; NO auto-elevation attempted
+  - **FR-34**: Network errors during installation SHALL be caught and displayed; user guided to check connectivity
+
+  ### Persistence & State
+
+  - **FR-35**: Installation state SHALL NOT be persisted; each `shep ide --install` re-checks availability fresh
+  - **FR-36**: No database changes needed; operation is purely transient
+
+  ## Non-Functional Requirements
+
+  ### Performance
+
+  - **NFR-1**: Availability check SHALL complete in ≤2 seconds per IDE
+  - **NFR-2**: CLI responsiveness SHALL not degrade when installation streams output; no blocking I/O
+  - **NFR-3**: Installation timeout SHALL be enforced at 10 minutes per IDE to prevent indefinite hangs
+  - **NFR-4**: Failure to resolve installer service SHALL not crash CLI; graceful error handling required
+
+  ### Security
+
+  - **NFR-5**: NO `sudo` auto-elevation permitted; permission errors surfaced explicitly
+  - **NFR-6**: All shell commands SHALL use safe escaping/quoting to prevent command injection
+  - **NFR-7**: Installation commands SHALL NOT contain hardcoded credentials or tokens
+  - **NFR-8**: Installation shall not execute arbitrary scripts; only package manager commands allowed
+  - **NFR-9**: No local file modifications outside ~/.shep/ and standard IDE installation directories permitted
+
+  ### Reliability & Error Recovery
+
+  - **NFR-10**: Installation failures SHALL be atomic; partial installation state not left on filesystem
+  - **NFR-11**: Retries not automatic; user decides whether to retry after failure
+  - **NFR-12**: Error messages SHALL be actionable and specific (not generic "failed" messages)
+  - **NFR-13**: If IDE is installed mid-installation, subsequent availability checks SHALL detect it correctly
+
+  ### Architecture & Maintainability
+
+  - **NFR-14**: IDE installer metadata SHALL be centralized and easy to extend for new IDEs
+  - **NFR-15**: Platform-specific logic SHALL be isolated per-OS (no mixed platform logic in single function)
+  - **NFR-16**: Clean Architecture layers SHALL be strictly enforced; no domain logic in presentation layer
+  - **NFR-17**: New IDE additions SHALL NOT require changes outside infrastructure/tsp layers
+
+  ### Testing & Quality
+
+  - **NFR-18**: Unit test coverage ≥90% for use cases and value objects
+  - **NFR-19**: Integration tests SHALL mock `spawn()` to avoid actual package manager execution
+  - **NFR-20**: E2E tests SHALL verify complete flow with mocked installation (not real packages)
+  - **NFR-21**: All error scenarios SHALL have corresponding tests (timeout, permission denied, network error, user cancel)
+  - **NFR-22**: No external dependencies added beyond built-in Node.js modules
+
+  ### Accessibility & UX
+
+  - **NFR-23**: Installation progress feedback SHALL be text-based and screen-reader compatible
+  - **NFR-24**: Error and success messages SHALL use consistent formatting (colors optional, text always clear)
+  - **NFR-25**: User prompts SHALL clearly state what action is required and consequences of choice
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should `--install` auto-detect default IDE or require explicit selection? | Auto-detect from settings; prompt if no default exists. | Respects existing user preference; reduces friction by not re-asking what IDE to use. |
+  | 2 | Require user confirmation before installation? | YES, confirm before each install command executes. | Installation involves system-level changes; user consent is a security best practice. Unattended mode can be added later via `--non-interactive`. |
+  | 3 | Support IDE-specific official installers or package managers only? | Package managers as primary (apt, brew, winget). Link to official installers in suggestions. | Package managers more reliable, integrate with system updates, simpler to implement. Official installers require GUI and are harder to stream output. |
+  | 4 | Retry with alternative methods on failure or fail immediately? | Fail immediately with clear error; user decides next step. | Retrying silently masks root cause. Explicit error handling aligns with Unix philosophy. |
+  | 5 | Multiple install methods per OS (e.g., scoop + chocolatey on Windows)? | Single primary per IDE/OS; suggest alternatives on failure. | Multiple attempts create confusing error states. Single primary + clear fallback is cleaner. |
+  | 6 | Auto-elevate with sudo on Linux/macOS? | NO. Let package manager handle permissions; surface permission errors explicitly. | Auto-elevation is security risk; conflicts with user permission models. Explicit errors are safer. |
+  | 7 | Persist installation metadata in settings? | NO. Keep as transient operation; fresh availability check each run. | IDEs get installed/uninstalled outside ShepCLI; persistent state becomes stale. Lighter, fewer bugs. |
+  | 8 | Installation timeout and handling? | 10 minutes per IDE with graceful timeout error and suggestions. | Package managers vary widely in speed; timeout prevents hangs. User-visible messaging is actionable. |
+  | 9 | Partial installation detection (binary exists but not in PATH)? | NO for MVP. Treat as not installed; future enhancement for PATH configuration. | Scope control for MVP; most installations auto-configure PATH. Simpler, clearer behavior. |
+  | 10 | Stream installation output live or show after completion? | Live streaming of stdout/stderr to CLI. | Users expect real-time feedback for long operations (1-3 min). Builds confidence that work is happening. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | **CLI: `ide-open.command.ts`** | High | Add `--install` flag; dispatch to ValidateIdeAvailabilityUseCase and InstallIdeUseCase when flag present |
+  | **Application: Use Cases** | High | New `ValidateIdeAvailabilityUseCase` (check binary), new `InstallIdeUseCase` (orchestrate install) |
+  | **Application: Ports** | High | New `IIdeInstallerService` interface for platform-specific install logic |
+  | **Infrastructure: Services** | High | New `IdeInstallerServiceImpl` with platform-specific shell commands (linux/macos/windows) |
+  | **Infrastructure: Services** | Medium | Launcher implementations unchanged; checkAvailable() already exists, reuse as-is |
+  | **Domain: Value Objects** | Medium | New `IdeInstallationStatus` (available/missing/error), `IdeInstallationCommand` (command + platform) |
+  | **Domain: Generated** | Low | No changes; existing EditorType enum covers all 5 IDEs |
+  | **TSyringe Container** | Medium | Register `IIdeInstallerService`, new use cases; update existing IDE command registration |
+  | **CLI UI Output** | Medium | New message templates for installation prompts, progress, completion in cli/ui/ |
+  | **Tests** | High | Unit tests for use cases, integration tests for installer service (mocked spawn), E2E with mocked install |
+
+  ## Dependencies
+
+  **Existing Infrastructure**:
+  - `IdeLauncher` interface with 5 implementations (reuse `checkAvailable()` method)
+  - `ShowFeatureUseCase` to resolve feature worktree
+  - `getSettings()` singleton to read configured IDE
+  - `createLauncherRegistry()` to get launchers by type
+  - Settings model with `environment.defaultEditor` field
+  - Commander.js for CLI option parsing
+
+  **Required External Dependencies**:
+  - None new; rely on built-in Node.js modules (`os`, `child_process`, `path`)
+
+  **New Interfaces to Create**:
+  - `IIdeInstallerService` — maps EditorType + platform to install command; executes installation
+  - `IdeInstallationStatus` — value object: status enum + error message (if any)
+  - `IdeInstallationCommand` — value object: command string + platform flags
+
+  **New Use Cases**:
+  - `ValidateIdeAvailabilityUseCase` — checks if IDE binary exists, returns status + suggestions
+  - `InstallIdeUseCase` — executes installation command, monitors output, returns result
+
+  **New Infrastructure Service**:
+  - `IdeInstallerServiceImpl` — implements IIdeInstallerService with per-platform commands (apt, brew, winget, etc.)
+
+  ## Size Estimate
+
+  **M (3-5 days)**
+
+  **Rationale**:
+  - **Complexity**: Platform-specific shell commands, process monitoring, error handling
+  - **Testing**: Need unit tests for use cases + integration tests with real/mocked shell execution
+  - **Surface Area**: Touches 6 layers (domain, application/ports, infrastructure/services, DI, CLI, UI)
+  - **Not Small**: Requires new service implementation, 2 new use cases, launcher extensions, CLI flag handling
+  - **Not Large**: Uses existing IDE launcher registry, no database schema changes, no complex orchestration logic
+
+  **Breakdown**:
+  - Domain value objects: 0.5 days
+  - Application layer (use cases + ports): 1 day
+  - Infrastructure installer service: 1.5 days (platform-specific commands, testing)
+  - CLI integration & UI: 0.5 days
+  - Testing & refinement: 1 day

@@ -4,7 +4,8 @@
     "noEmit": false,
     "declaration": true,
     "declarationMap": true,
-    "outDir": "dist"
+    "outDir": "dist",
+    "rootDir": "."
   },
   "include": ["src/**/*", "types/**/*"],
   "exclude": ["node_modules", "dist", "tsp", "apis", "**/*.test.ts", "**/*.spec.ts"]

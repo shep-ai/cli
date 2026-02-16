@@ -784,6 +784,107 @@ export type TasksSpec = SpecArtifactBase & {
    */
   totalEstimate: string;
 };
+export enum ToolType {
+  VsCode = 'vscode',
+  Cursor = 'cursor',
+  Windsurf = 'windsurf',
+  Zed = 'zed',
+  Antigravity = 'antigravity',
+  CursorCli = 'cursor-cli',
+  ClaudeCode = 'claude-code',
+}
+
+/**
+ * IDE or CLI tool entity with installation tracking
+ */
+export type Tool = BaseEntity & {
+  /**
+   * Display name of the tool
+   */
+  toolName: string;
+  /**
+   * Tool type classification
+   */
+  type: ToolType;
+  /**
+   * Installed version number
+   */
+  installedVersion?: string;
+  /**
+   * Tool installation timestamp
+   */
+  installedAt?: any;
+};
+
+/**
+ * Single installation suggestion for a tool
+ */
+export type InstallationSuggestion = {
+  /**
+   * Package manager or installation method
+   */
+  packageManager: string;
+  /**
+   * Installation command
+   */
+  command: string;
+  /**
+   * Official documentation URL
+   */
+  documentationUrl: string;
+  /**
+   * Additional notes for installation
+   */
+  notes?: string;
+};
+
+/**
+ * Installation status and suggestions for a tool
+ */
+export type ToolInstallationStatus = {
+  /**
+   * Current installation status
+   */
+  status: 'available' | 'missing' | 'error';
+  /**
+   * Tool name
+   */
+  toolName: string;
+  /**
+   * Error message if status is error
+   */
+  errorMessage?: string;
+  /**
+   * Installation suggestions
+   */
+  suggestions?: InstallationSuggestion[];
+};
+
+/**
+ * Executable installation command for a tool
+ */
+export type ToolInstallCommand = {
+  /**
+   * Shell command string to execute
+   */
+  command: string;
+  /**
+   * Target platform identifier
+   */
+  platform: string;
+  /**
+   * Execution timeout in milliseconds
+   */
+  timeout: number;
+  /**
+   * Tool name
+   */
+  toolName: string;
+  /**
+   * Package manager identifier
+   */
+  packageManager: string;
+};
 export enum AgentStatus {
   Idle = 'Idle',
   Running = 'Running',

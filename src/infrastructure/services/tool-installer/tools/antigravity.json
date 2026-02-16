@@ -1,0 +1,20 @@
+{
+  "name": "Google Antigravity",
+  "summary": "AI-powered agentic development platform",
+  "description": "Google Antigravity is an AI-powered platform that enables agentic development workflows, helping developers build intelligent applications with autonomous agents.",
+  "category": "ide",
+  "binary": {
+    "linux": "antigravity",
+    "darwin": "agy"
+  },
+  "packageManager": "download",
+  "commands": {
+    "linux": "echo \"Download from https://antigravity.google/download\"",
+    "darwin": "echo \"Download from https://antigravity.google/download\""
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://codelabs.developers.google.com/getting-started-google-antigravity",
+  "verifyCommand": "agy --version",
+  "autoInstall": false,
+  "openDirectory": "agy ."
+}
