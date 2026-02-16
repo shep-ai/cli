@@ -6,13 +6,13 @@ feature:
   lifecycle: review
   createdAt: '2026-02-16T16:45:48Z'
 status:
-  phase: in-review
+  phase: review-complete
   progress:
     completed: 4
     total: 4
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-16T17:05:15Z'
+  lastUpdated: '2026-02-16T17:10:30Z'
   lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
@@ -22,6 +22,12 @@ status:
     - phase-1
     - phase-2
 prUrl: https://github.com/shep-ai/cli/pull/59
+reviewLoop:
+  iteration: 0
+  maxIterations: 5
+  commentsAddressed: []
+  commentsRemaining: []
+  status: approved
 validation:
   lastRun: null
   gatesPassed: []
@@ -36,6 +42,15 @@ checkpoints:
     completedBy: feature-agent
   - phase: pr-created
     completedAt: '2026-02-16T17:05:15Z'
+    completedBy: shep-kit:commit-pr
+  - phase: ci-passed
+    completedAt: '2026-02-16T17:08:45Z'
+    completedBy: shep-kit:commit-pr
+  - phase: review-loop-started
+    completedAt: '2026-02-16T17:08:50Z'
+    completedBy: shep-kit:commit-pr
+  - phase: review-complete
+    completedAt: '2026-02-16T17:10:30Z'
     completedBy: shep-kit:commit-pr
 errors:
   current: null
