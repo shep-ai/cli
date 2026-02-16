@@ -1,7 +1,10 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getDashboardFeatures } from '@/lib/use-cases';
-import { deriveState } from './derive-state';
+import { getFeatures } from '@/lib/use-cases';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
+import {
+  deriveNodeState,
+  deriveProgress,
+} from '@/components/common/feature-node/derive-feature-state';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
@@ -16,17 +19,8 @@ const lifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Maintain: 'maintain',
 };
 
-/** Map agent graph node names (from agent_run.result) to UI lifecycle phases. */
-const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
-  analyze: 'requirements',
-  requirements: 'requirements',
-  research: 'research',
-  plan: 'implementation',
-  implement: 'implementation',
-};
-
 export default async function HomePage() {
-  const features = await getDashboardFeatures();
+  const features = await getFeatures();
 
   // Group features by repository path
   const featuresByRepo: Record<string, typeof features> = {};
@@ -52,22 +46,16 @@ export default async function HomePage() {
     });
 
     repoFeatures.forEach((feature) => {
-      const agentNode = feature.agentResult?.startsWith('node:')
-        ? feature.agentResult.slice(5)
-        : undefined;
-      const lifecycle: FeatureLifecyclePhase =
-        (agentNode ? nodeToLifecyclePhase[agentNode] : undefined) ??
-        lifecycleMap[feature.lifecycle] ??
-        'requirements';
+      const lifecycle: FeatureLifecyclePhase = lifecycleMap[feature.lifecycle] ?? 'requirements';
 
       const nodeData: FeatureNodeData = {
         name: feature.name,
         description: feature.description ?? feature.slug,
         featureId: feature.id,
         lifecycle,
-        ...deriveState(lifecycle, feature.agentStatus),
-        ...(feature.agentError && { errorMessage: feature.agentError }),
-        ...(feature.agentType && { agentType: feature.agentType as FeatureNodeData['agentType'] }),
+        state: deriveNodeState(feature),
+        progress: deriveProgress(feature),
+        ...(feature.agentRunId && { agentType: 'claude-code' as FeatureNodeData['agentType'] }),
       };
 
       const featureNodeId = `feat-${feature.id}`;

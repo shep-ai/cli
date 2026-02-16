@@ -400,7 +400,7 @@ tasks:
       tsconfig.build.json (compilation to dist/), and empty src/index.ts. Update
       pnpm-workspace.yaml to add packages/core. Run pnpm install to link workspace.
       Verify existing build still works.
-    state: Todo
+    state: Done
     dependencies:
       - task-14
     acceptanceCriteria:
@@ -420,7 +420,7 @@ tasks:
       Update tspconfig.yaml emitter output dir to packages/core/src/domain/generated.
       Update tsp:codegen script prettier path. Update all domain imports across
       CLI, web, infrastructure, and tests.
-    state: Todo
+    state: Done
     dependencies:
       - task-15
     acceptanceCriteria:
@@ -440,7 +440,7 @@ tasks:
       Delete ListDashboardFeaturesUseCase (policy violation). Remove DashboardFeature
       interface and listWithAgentRuns() from IFeatureRepository. Update all application
       imports across infrastructure, CLI, web, and tests.
-    state: Todo
+    state: Done
     dependencies:
       - task-16
     acceptanceCriteria:
@@ -463,7 +463,7 @@ tasks:
       @shepai/core/infrastructure/di. Update web imports from @cli/* to @shepai/core/*.
       Add @shepai/core dependency to @shepai/web package.json. Remove @cli/* path
       from web tsconfig.json.
-    state: Todo
+    state: Done
     dependencies:
       - task-17
     acceptanceCriteria:
@@ -487,7 +487,7 @@ tasks:
       to include only src/presentation/**/* and src/index.ts. Add @shepai/core path
       mapping to root tsconfig.json. Add @shepai/core alias to vitest.config.ts.
       Remove tsc-alias entries no longer needed.
-    state: Todo
+    state: Done
     dependencies:
       - task-18
     acceptanceCriteria:
@@ -509,7 +509,7 @@ tasks:
       spread Feature directly into node data. Delete derive-state.ts. Create
       createMockFeature() helper for stories/tests. Update all story data with
       Feature-compatible shapes.
-    state: Todo
+    state: Done
     dependencies:
       - task-19
     acceptanceCriteria:
@@ -546,12 +546,11 @@ tasks:
   - id: task-21
     title: 'globalThis bridge in WebServerService'
     description: >
-      Set up globalThis DI bridge in WebServerService.start() using existing
-      ListFeaturesUseCase. Remove bridge setup from CLI index.ts. Update web
-      dev-server.ts to import from @shepai/core. Rewrite web/lib/use-cases.ts
-      to import Feature type from @shepai/core/domain/generated and export
-      getFeatures() returning Feature[].
-    state: Todo
+      Update globalThis DI bridge to use ListFeaturesUseCase instead of
+      ListDashboardFeaturesUseCase. Update CLI index.ts and dev-server.ts.
+      Rewrite web/lib/use-cases.ts to import Feature type from
+      @shepai/core/domain/generated and export getFeatures() returning Feature[].
+    state: Done
     dependencies:
       - task-20
     acceptanceCriteria:
@@ -570,7 +569,7 @@ tasks:
     description: >
       Run all build, test, lint, and typecheck commands to verify the entire
       @shepai/core extraction and control center data layer work end-to-end.
-    state: Todo
+    state: Done
     dependencies:
       - task-21
     acceptanceCriteria:

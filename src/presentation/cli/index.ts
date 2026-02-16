@@ -41,7 +41,7 @@ import { messages } from './ui/index.js';
 // DI container and settings
 import { initializeContainer, container } from '../../infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
-import { ListDashboardFeaturesUseCase } from '../../application/use-cases/features/list-dashboard-features.use-case.js';
+import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
 import { initializeSettings } from '../../infrastructure/services/settings.service.js';
 
 /**
@@ -74,7 +74,7 @@ async function bootstrap() {
     // The Next.js web server runs in the same process, so globalThis is shared.
     // Web layer reads from this instead of importing CLI source (Turbopack incompatibility).
     (globalThis as Record<string, unknown>).__shepUseCases = {
-      listDashboardFeatures: container.resolve(ListDashboardFeaturesUseCase),
+      listFeatures: container.resolve(ListFeaturesUseCase),
     };
 
     // Step 3: Set up Commander CLI

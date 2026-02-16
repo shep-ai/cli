@@ -15,6 +15,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@shepai/core": "workspace:*",
     "@dagrejs/dagre": "^2.0.4",
     "@xyflow/react": "^12.10.0",
     "class-variance-authority": "^0.7.1",

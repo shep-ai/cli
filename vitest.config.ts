@@ -28,6 +28,8 @@ export default defineConfig({
   },
   resolve: {
     alias: [
+      // @shepai/core workspace package
+      { find: '@shepai/core', replacement: resolve(__dirname, './packages/core/src') },
       // More specific aliases first
       {
         find: '@/components',

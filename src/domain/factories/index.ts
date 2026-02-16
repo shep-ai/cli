@@ -1,7 +1,4 @@
 /**
- * Domain Factories Module
- *
- * Exports factory functions for creating domain entities with sensible defaults.
+ * Re-export shim — domain factories have moved to @shepai/core
  */
-
-export { createDefaultSettings } from './settings-defaults.factory.js';
+export { createDefaultSettings } from '../../../packages/core/src/domain/factories/settings-defaults.factory.js';

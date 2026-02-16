@@ -48,6 +48,7 @@ export default tseslint.config(
       'coverage/**',
       'next-env.d.ts',
       'src/domain/generated/**', // TypeSpec-generated domain models
+      'packages/core/src/domain/generated/**', // TypeSpec-generated domain models (core)
 
       // TypeSpec (handled by tsp linter)
       'tsp/**',

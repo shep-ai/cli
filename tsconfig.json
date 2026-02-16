@@ -18,6 +18,8 @@
     "emitDecoratorMetadata": true,
     "baseUrl": ".",
     "paths": {
+      "@shepai/core": ["packages/core/src/index.ts"],
+      "@shepai/core/*": ["packages/core/src/*"],
       "@/*": ["src/*"],
       "@tests/*": ["tests/*"],
       "@/app/*": ["src/presentation/web/app/*"],
@@ -39,6 +41,7 @@
   },
   "include": [
     "src/**/*",
+    "packages/core/src/**/*",
     "tests/**/*",
     "types/**/*",
     "vitest.config.ts",

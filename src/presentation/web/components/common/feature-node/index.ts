@@ -10,3 +10,4 @@ export {
   type FeatureNodeStateConfig,
 } from './feature-node-state-config';
 export { getAgentTypeIcon, type AgentTypeValue } from './agent-type-icons';
+export { deriveNodeState, deriveProgress } from './derive-feature-state';

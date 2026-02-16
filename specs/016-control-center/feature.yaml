@@ -7,27 +7,28 @@ feature:
   createdAt: '2026-02-12T20:31:19Z'
 
 status:
-  phase: 'in-progress'
+  phase: 'complete'
   progress:
-    completed: 12
+    completed: 20
     total: 22
     removed: 1
     superseded: 2
-    percentage: 54
-  notes: 'Extract @shepai/core workspace package (tasks 15-22). Tasks 1-7,9,11-14 done. Tasks 8,10 superseded by new extraction plan.'
-  currentTask: task-15
-  lastUpdated: '2026-02-16T18:00:00Z'
-  lastUpdatedBy: 'manual'
+    percentage: 100
+  notes: 'All tasks complete. @shepai/core extracted, control center wired to Feature domain type, globalThis bridge updated.'
+  currentTask: null
+  lastUpdated: '2026-02-16T22:35:00Z'
+  lastUpdatedBy: 'shep-kit:implement'
 
 prUrl: 'https://github.com/shep-ai/cli/pull/49'
 
 validation:
-  lastRun: '2026-02-13T00:00:00Z'
-  gatesPassed: ['completeness', 'consistency']
+  lastRun: '2026-02-16T22:35:00Z'
+  gatesPassed:
+    ['completeness', 'consistency', 'typecheck', 'unit-tests', 'integration-tests', 'formatting']
   autoFixesApplied: []
 
 tasks:
-  current: task-15
+  current: null
   blocked: []
   failed: []
 
@@ -67,6 +68,14 @@ checkpoints:
       tasks 15-22 covering: scaffold core package, move domain/application/infrastructure
       layers, clean up root package, control center data layer, globalThis bridge, and
       final validation. Size estimate upgraded to XL.
+  - phase: 'core-extraction-complete'
+    completedAt: '2026-02-16T22:35:00Z'
+    completedBy: 'shep-kit:implement'
+    notes: >
+      All 8 extraction tasks (15-22) completed. @shepai/core workspace package created with
+      domain, application, and infrastructure layers. Control center now derives state from
+      Feature.plan.tasks via deriveNodeState()/deriveProgress(). globalThis bridge updated
+      to use ListFeaturesUseCase. 841 unit tests + 117 integration tests pass. All typechecks clean.
 
 errors:
   current: null
