@@ -1,0 +1,13 @@
+{
+  "binary": "claude",
+  "packageManager": "curl",
+  "commands": {
+    "linux": ["sh", "-c", "curl -fsSL https://claude.ai/install.sh | bash"],
+    "darwin": ["sh", "-c", "curl -fsSL https://claude.ai/install.sh | bash"]
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://code.claude.com/docs/en/overview",
+  "verifyCommand": ["claude", "--version"],
+  "autoInstall": true,
+  "notes": "Claude Code - AI-powered code assistant from Anthropic"
+}

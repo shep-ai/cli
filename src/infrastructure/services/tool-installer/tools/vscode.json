@@ -1,0 +1,13 @@
+{
+  "binary": "code",
+  "packageManager": "apt",
+  "commands": {
+    "linux": ["sudo", "apt", "update", "&&", "sudo", "apt", "install", "-y", "code"],
+    "darwin": ["brew", "install", "visual-studio-code"]
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://code.visualstudio.com/docs/setup/linux",
+  "verifyCommand": ["code", "--version"],
+  "autoInstall": true,
+  "notes": "Microsoft Visual Studio Code"
+}

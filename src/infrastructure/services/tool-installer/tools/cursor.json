@@ -1,0 +1,13 @@
+{
+  "binary": "cursor",
+  "packageManager": "curl",
+  "commands": {
+    "linux": ["sh", "-c", "curl -fsSL https://www.cursor.com/linux/install.sh | sh"],
+    "darwin": ["sh", "-c", "curl -fsSL https://www.cursor.com/mac/install.sh | sh"]
+  },
+  "timeout": 600000,
+  "documentationUrl": "https://www.cursor.com/docs",
+  "verifyCommand": ["cursor", "--version"],
+  "autoInstall": true,
+  "notes": "AI-powered code editor"
+}

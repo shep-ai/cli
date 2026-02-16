@@ -90,6 +90,13 @@ export function createInstallCommand(): Command {
           return;
         }
 
+        // Tools that don't support auto-install — show instructions instead
+        if (metadata.autoInstall === false) {
+          messages.warning(`${tool} does not support automated installation`);
+          printInstallInstructions(tool, metadata);
+          return;
+        }
+
         // Install
         const installUseCase = container.resolve(InstallToolUseCase);
         const result = await installUseCase.execute(tool, (data) => process.stdout.write(data));
@@ -122,7 +129,13 @@ function printInstallInstructions(
   console.log(fmt.heading(`Installation Instructions for ${toolName}`));
   console.log();
 
-  console.log(`${fmt.label('Binary:')} ${metadata.binary}`);
+  const binaryDisplay =
+    typeof metadata.binary === 'string'
+      ? metadata.binary
+      : Object.entries(metadata.binary)
+          .map(([platform, bin]) => `${bin} (${platform})`)
+          .join(', ');
+  console.log(`${fmt.label('Binary:')} ${binaryDisplay}`);
   console.log(`${fmt.label('Package Manager:')} ${metadata.packageManager}`);
   console.log();
 

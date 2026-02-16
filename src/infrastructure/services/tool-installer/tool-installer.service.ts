@@ -26,7 +26,16 @@ import {
   createMissingStatus,
   createErrorStatus,
 } from '../../../domain/value-objects/tool-installation-status.js';
-import { TOOL_METADATA } from './tool-metadata.js';
+import { TOOL_METADATA, type ToolMetadata } from './tool-metadata.js';
+
+/**
+ * Resolve binary name for the current platform.
+ * Supports both simple string binaries and per-platform maps.
+ */
+function resolveBinary(metadata: ToolMetadata): string {
+  if (typeof metadata.binary === 'string') return metadata.binary;
+  return metadata.binary[platform()] ?? Object.values(metadata.binary)[0];
+}
 
 /**
  * Check if a binary exists in the system PATH using 'which' command.
@@ -53,7 +62,7 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
     }
 
     try {
-      const result = await checkBinaryExists(metadata.binary);
+      const result = await checkBinaryExists(resolveBinary(metadata));
 
       if (result.found) {
         return createAvailableStatus(toolName);

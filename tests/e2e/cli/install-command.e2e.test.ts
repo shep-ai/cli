@@ -66,7 +66,8 @@ describe('CLI: install command', () => {
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Installation Instructions for antigravity');
       expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('antigravity');
+      expect(result.stdout).toContain('antigravity (linux)');
+      expect(result.stdout).toContain('agy (darwin)');
     });
 
     it('should print installation instructions for cursor-cli', () => {
@@ -75,7 +76,7 @@ describe('CLI: install command', () => {
       expect(result.stdout).toContain('Installation Instructions for cursor-cli');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('cursor-cli');
-      expect(result.stdout).toContain('npm');
+      expect(result.stdout).toContain('curl');
     });
 
     it('should print installation instructions for claude-code', () => {
@@ -84,7 +85,7 @@ describe('CLI: install command', () => {
       expect(result.stdout).toContain('Installation Instructions for claude-code');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('claude');
-      expect(result.stdout).toContain('npm');
+      expect(result.stdout).toContain('curl');
     });
 
     it('should work for all 7 supported tools', { timeout: 20000 }, () => {
@@ -168,8 +169,8 @@ describe('CLI: install command', () => {
       }
     });
 
-    it('should format Binary: label consistently', () => {
-      const tools = ['vscode', 'cursor', 'windsurf'];
+    it('should format Binary: label consistently', { timeout: 20000 }, () => {
+      const tools = ['vscode', 'cursor', 'windsurf', 'zed'];
       for (const tool of tools) {
         const result = runCli(`install ${tool} --how`);
         // Should have Binary: on a line by itself
@@ -197,25 +198,25 @@ describe('CLI: install command', () => {
     });
   });
 
-  describe('npm-based tools', () => {
-    it('should show npm as package manager for cursor-cli', () => {
+  describe('curl-based tools', () => {
+    it('should show curl as package manager for cursor-cli', () => {
       const result = runCli('install cursor-cli --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('npm');
+      expect(result.stdout).toContain('curl');
       expect(result.stdout).toContain('Package Manager');
     });
 
-    it('should show npm as package manager for claude-code', () => {
+    it('should show curl as package manager for claude-code', () => {
       const result = runCli('install claude-code --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('npm');
+      expect(result.stdout).toContain('curl');
       expect(result.stdout).toContain('Package Manager');
     });
 
-    it('should include npm install commands for npm tools', () => {
+    it('should include curl install commands for curl tools', () => {
       const result = runCli('install cursor-cli --how');
-      expect(result.stdout).toContain('npm');
-      expect(result.stdout).toContain('install');
+      expect(result.stdout).toContain('curl');
+      expect(result.stdout).toContain('bash');
     });
   });
 

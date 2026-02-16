@@ -48,7 +48,7 @@
     "prebuild": "pnpm generate",
     "pretest": "pnpm generate",
     "prelint": "pnpm generate",
-    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && pnpm build:web:prod",
+    "build": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json && cp -r src/infrastructure/services/tool-installer/tools dist/infrastructure/services/tool-installer/tools && pnpm build:web:prod",
     "build:web:prod": "pnpm build:web && mkdir -p web && cp -r src/presentation/web/.next web/.next && cp src/presentation/web/package.json web/ && node -e \"require('fs').writeFileSync('web/next.config.mjs','const c={turbopack:{},typedRoutes:true,distDir:\\\".next\\\"};export default c;\\n')\"",
     "build:web": "pnpm --filter @shepai/web build",
     "build:storybook": "storybook build",

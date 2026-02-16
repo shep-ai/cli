@@ -1,14 +1,20 @@
 /**
  * Tool Installation Metadata
  *
- * Defines installation commands and metadata for all supported development tools
- * across different platforms. Each tool specifies its binary name, package manager,
- * platform-specific installation commands, timeout, and documentation URL.
+ * Dynamically loads tool definitions from individual JSON files in the tools/ directory.
+ * Each JSON file defines installation commands and metadata for a single development tool.
+ *
+ * To add a new tool, create a JSON file in tools/ matching the ToolMetadata schema:
+ *   tools/<tool-name>.json
  */
 
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, basename } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 export interface ToolMetadata {
-  /** Binary name to check with 'which' command */
-  binary: string;
+  /** Binary name to check with 'which' command (string or per-platform map) */
+  binary: string | Record<string, string>;
 
   /** Package manager or installation method */
   packageManager: string;
@@ -25,107 +31,51 @@ export interface ToolMetadata {
   /** Command to verify installation (e.g., check version) */
   verifyCommand: string[];
 
+  /** Whether the tool supports automated installation (default: true) */
+  autoInstall?: boolean;
+
   /** Optional notes for installation */
   notes?: string;
 }
 
-export const TOOL_METADATA: Record<string, ToolMetadata> = {
-  vscode: {
-    binary: 'code',
-    packageManager: 'apt',
-    commands: {
-      linux: ['sudo', 'apt', 'update', '&&', 'sudo', 'apt', 'install', '-y', 'code'],
-      darwin: ['brew', 'install', 'visual-studio-code'],
-    },
-    timeout: 300000, // 5 minutes
-    documentationUrl: 'https://code.visualstudio.com/docs/setup/linux',
-    verifyCommand: ['code', '--version'],
-    notes: 'Microsoft Visual Studio Code',
-  },
+const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [
+  'binary',
+  'packageManager',
+  'commands',
+  'timeout',
+  'documentationUrl',
+  'verifyCommand',
+];
 
-  cursor: {
-    binary: 'cursor',
-    packageManager: 'curl',
-    commands: {
-      linux: ['sh', '-c', 'curl -fsSL https://www.cursor.com/linux/install.sh | sh'],
-      darwin: ['sh', '-c', 'curl -fsSL https://www.cursor.com/mac/install.sh | sh'],
-    },
-    timeout: 600000, // 10 minutes
-    documentationUrl: 'https://www.cursor.com/docs',
-    verifyCommand: ['cursor', '--version'],
-    notes: 'AI-powered code editor',
-  },
+function loadToolMetadata(): Record<string, ToolMetadata> {
+  const toolsDir = join(fileURLToPath(import.meta.url), '..', 'tools');
+  const metadata: Record<string, ToolMetadata> = {};
 
-  windsurf: {
-    binary: 'windsurf',
-    packageManager: 'curl',
-    commands: {
-      linux: [
-        'sh',
-        '-c',
-        'curl -fsSL https://windsurf-stable.codeium.com/linux-x64/latest/install.sh | sh',
-      ],
-      darwin: [
-        'sh',
-        '-c',
-        'curl -fsSL https://windsurf-stable.codeium.com/mac-arm64/latest/install.sh | sh',
-      ],
-    },
-    timeout: 600000, // 10 minutes
-    documentationUrl: 'https://docs.codeium.com/windsurf/getting-started',
-    verifyCommand: ['windsurf', '--version'],
-    notes: 'Codeium Windsurf IDE',
-  },
+  let files: string[];
+  try {
+    files = readdirSync(toolsDir).filter((f) => f.endsWith('.json'));
+  } catch {
+    return metadata;
+  }
 
-  zed: {
-    binary: 'zed',
-    packageManager: 'curl',
-    commands: {
-      linux: ['sh', '-c', 'curl -fsSL https://zed.dev/install.sh | sh'],
-      darwin: ['sh', '-c', 'curl -fsSL https://zed.dev/install.sh | sh'],
-    },
-    timeout: 300000, // 5 minutes
-    documentationUrl: 'https://zed.dev/docs/getting-started',
-    verifyCommand: ['zed', '--version'],
-    notes: 'Zed Code Editor',
-  },
+  for (const file of files) {
+    const toolName = basename(file, '.json');
+    try {
+      const raw = readFileSync(join(toolsDir, file), 'utf-8');
+      const parsed = JSON.parse(raw) as ToolMetadata;
 
-  antigravity: {
-    binary: 'antigravity',
-    packageManager: 'curl',
-    commands: {
-      linux: ['sh', '-c', 'curl -fsSL https://antigravity.dev/install.sh | sh'],
-      darwin: ['sh', '-c', 'curl -fsSL https://antigravity.dev/install.sh | sh'],
-    },
-    timeout: 600000, // 10 minutes
-    documentationUrl: 'https://antigravity.dev/docs',
-    verifyCommand: ['antigravity', '--version'],
-    notes: 'Antigravity IDE',
-  },
+      const missing = REQUIRED_FIELDS.filter((field) => !(field in parsed));
+      if (missing.length > 0) {
+        continue;
+      }
 
-  'cursor-cli': {
-    binary: 'cursor-cli',
-    packageManager: 'npm',
-    commands: {
-      linux: ['npm', 'install', '-g', '@anysphere/cursor-cli'],
-      darwin: ['npm', 'install', '-g', '@anysphere/cursor-cli'],
-    },
-    timeout: 120000, // 2 minutes
-    documentationUrl: 'https://www.npmjs.com/package/@anysphere/cursor-cli',
-    verifyCommand: ['cursor-cli', '--version'],
-    notes: 'Cursor CLI tool for terminal usage',
-  },
+      metadata[toolName] = parsed;
+    } catch {
+      // Skip malformed JSON files
+    }
+  }
 
-  'claude-code': {
-    binary: 'claude',
-    packageManager: 'npm',
-    commands: {
-      linux: ['npm', 'install', '-g', '@anthropic-ai/claude-code'],
-      darwin: ['npm', 'install', '-g', '@anthropic-ai/claude-code'],
-    },
-    timeout: 120000, // 2 minutes
-    documentationUrl: 'https://www.npmjs.com/package/@anthropic-ai/claude-code',
-    verifyCommand: ['claude', '--version'],
-    notes: 'Claude Code - AI-powered code assistant from Anthropic',
-  },
-};
+  return metadata;
+}
+
+export const TOOL_METADATA: Record<string, ToolMetadata> = loadToolMetadata();

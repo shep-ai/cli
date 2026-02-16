@@ -1,0 +1,13 @@
+{
+  "binary": "cursor",
+  "packageManager": "curl",
+  "commands": {
+    "linux": ["sh", "-c", "curl https://cursor.com/install -fsS | bash"],
+    "darwin": ["sh", "-c", "curl https://cursor.com/install -fsS | bash"]
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://cursor.com",
+  "verifyCommand": ["cursor", "--version"],
+  "autoInstall": true,
+  "notes": "Cursor CLI - AI-powered code editor CLI"
+}

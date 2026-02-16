@@ -1,0 +1,16 @@
+{
+  "binary": {
+    "linux": "antigravity",
+    "darwin": "agy"
+  },
+  "packageManager": "download",
+  "commands": {
+    "linux": ["sh", "-c", "echo \"Download from https://antigravity.google/download\""],
+    "darwin": ["sh", "-c", "echo \"Download from https://antigravity.google/download\""]
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://codelabs.developers.google.com/getting-started-google-antigravity",
+  "verifyCommand": ["agy", "--version"],
+  "autoInstall": false,
+  "notes": "Google Antigravity - AI-powered agentic development platform"
+}

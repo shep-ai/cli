@@ -1,0 +1,13 @@
+{
+  "binary": "zed",
+  "packageManager": "curl",
+  "commands": {
+    "linux": ["sh", "-c", "curl -f https://zed.dev/install.sh | sh"],
+    "darwin": ["sh", "-c", "curl -f https://zed.dev/install.sh | sh"]
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://zed.dev/docs/installation",
+  "verifyCommand": ["zed", "--version"],
+  "autoInstall": true,
+  "notes": "Zed Code Editor"
+}
