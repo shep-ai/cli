@@ -76,6 +76,11 @@ Examples:
           isShuttingDown = true;
           messages.newline();
           messages.info('Shutting down...');
+
+          // Force exit after 5s if graceful shutdown stalls
+          const forceExit = setTimeout(() => process.exit(0), 5000);
+          forceExit.unref();
+
           await service.stop();
           process.exit(0);
         };

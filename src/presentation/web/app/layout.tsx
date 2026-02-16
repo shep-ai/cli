@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import '@xyflow/react/dist/base.css';
 import './globals.css';
 import { AppShell } from '@/components/layouts/app-shell';
 
