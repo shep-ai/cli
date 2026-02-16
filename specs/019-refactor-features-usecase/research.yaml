@@ -11,12 +11,33 @@ relatedLinks: []
 
 # Structured technology decisions
 decisions:
-  - title: { { DECISION_TITLE } }
-    chosen: { { CHOSEN_OPTION } }
+  - title: Service Extraction Pattern
+    chosen: Separate injectable services (MetadataGenerator, SlugResolver)
     rejected:
-      - { { OPTION_1 } }
-      - { { OPTION_2 } }
-    rationale: { { RATIONALE } }
+      - Inline private methods (current approach — SRP violation)
+      - Domain services (not appropriate for application-layer concerns)
+      - Static utility functions (loses testability and DI benefits)
+    rationale: >
+      Extracting into injectable services allows independent unit testing, promotes reusability (slug resolution could be used elsewhere),
+      and follows the project's established use case pattern. Each service has a single responsibility and can be mocked in tests.
+
+  - title: Settings Access Pattern
+    chosen: Inject ISettingsRepository and call load() method
+    rejected:
+      - Continue importing getSettings() directly (violates Clean Architecture)
+      - Create new ISettingsProvider port interface (over-engineering for one use case)
+    rationale: >
+      ISettingsRepository already exists and is properly injected. The Settings singleton is immutable during the use case execution,
+      so calling load() once per execute() is acceptable. This maintains architectural purity without introducing new abstractions.
+
+  - title: Directory Structure
+    chosen: 'Subdirectory per use case: features/create/, features/delete/, features/resume/ (complex ones only)'
+    rejected:
+      - Flat structure with all use cases at features/ level (current — becomes cluttered as code grows)
+      - One directory per use case always (over-engineering for simple 28-line use cases)
+    rationale: >
+      Follows project convention in CLAUDE.md: "Group related files into subdirectories instead of flat structures when complexity warrants it."
+      This scales: list/show stay flat (~30 lines), complex ones like create get subdirectories when they have 3+ concerns.
 
 # Open questions (should be resolved by end of research)
 openQuestions:
@@ -34,31 +55,79 @@ content: |
 
   ## Technology Decisions
 
-  ### {{DECISION_TITLE}}
+  ### 1. Service Extraction Pattern
 
   **Options considered:**
 
-  1. {{OPTION_1}}
-  2. {{OPTION_2}}
-  3. {{OPTION_3}}
+  1. Inline private methods (current approach)
+  2. Separate injectable services (MetadataGenerator, SlugResolver)
+  3. Domain services
+  4. Static utility functions
 
-  **Decision:** {{CHOSEN_OPTION}}
+  **Decision:** Separate injectable services
 
-  **Rationale:** {{RATIONALE}}
+  **Rationale:**
+  Extracting into injectable services allows independent unit testing, promotes reusability (slug resolution could be used elsewhere),
+  and follows the project's established use case pattern. Each service has a single responsibility and can be mocked in tests.
 
-  ## Library Analysis
+  ### 2. Settings Access Pattern
 
-  | Library     | Version     | Purpose     | Pros     | Cons     |
-  | ----------- | ----------- | ----------- | -------- | -------- |
-  | {{LIBRARY}} | {{VERSION}} | {{PURPOSE}} | {{PROS}} | {{CONS}} |
+  **Options considered:**
+
+  1. Continue importing `getSettings()` directly from infrastructure
+  2. Inject `ISettingsRepository` and call `load()`
+  3. Create new `ISettingsProvider` port interface
+
+  **Decision:** Inject `ISettingsRepository` and call `load()`
+
+  **Rationale:**
+  `ISettingsRepository` already exists and is properly injected. The Settings singleton is immutable during the use case execution,
+  so calling `load()` once per `execute()` is acceptable. This maintains architectural purity without introducing new abstractions.
+
+  ### 3. Directory Structure
+
+  **Options considered:**
+
+  1. Flat structure: all use cases at `features/` level
+  2. One subdirectory per use case always
+  3. Subdirectories only for complex use cases (3+ concerns)
+
+  **Decision:** Subdirectories only for complex use cases
+
+  **Rationale:**
+  Follows project convention in CLAUDE.md. This scales well: `list/show` stay flat (~30 lines), complex ones like `create` get subdirectories
+  when they have 3+ distinct responsibilities.
+
+  ## Architectural Compliance
+
+  This refactor **fixes an architectural violation** in the codebase:
+
+  | Violation | Current | After Refactor |
+  | --------- | ------- | -------------- |
+  | Application layer importing infrastructure | ✗ `getSettings()` import | ✓ Injected via `ISettingsRepository` |
+  | Single responsibility in use case | ✗ 3 concerns mixed | ✓ Pure orchestration (~80 lines) |
+  | File size guideline (<150 lines) | ✗ 247 lines | ✓ 80 + 50 + 50 lines (focused) |
+
+  ## Codebase Impact
+
+  **Files to modify:**
+  - `src/application/use-cases/features/create-feature.use-case.ts` → Move to `create/` subdirectory and refactor
+  - `src/infrastructure/di/container.ts` → Register 2 new services
+  - `tests/unit/use-cases/features/create-feature.use-case.spec.ts` → Update imports, add service tests
+
+  **Tests affected:**
+  - All existing tests will pass with minimal import path changes
+  - New service tests will be added for `MetadataGenerator` and `SlugResolver`
 
   ## Security Considerations
 
-  No security implications identified.
+  No new security implications. The refactor maintains the same dependency injection patterns and does not introduce new external dependencies or network calls.
 
   ## Performance Implications
 
-  No performance implications identified.
+  **Positive:** Smaller files improve IDE performance (syntax highlighting, autocomplete) and reduce cognitive load during maintenance.
+
+  **Neutral:** No runtime performance change. All services are singleton-scoped in the DI container, same as before.
 
   ## Open Questions
 

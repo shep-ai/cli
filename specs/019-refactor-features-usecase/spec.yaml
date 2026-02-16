@@ -7,7 +7,7 @@ branch: feat/019-refactor-features-usecase
 oneLiner: Split oversized CreateFeatureUseCase into focused modules following SRP
 summary: >
   Refactor the CreateFeatureUseCase (247 lines) by extracting metadata generation and slug resolution into separate injectable services. This reduces complexity, improves testability, and establishes a scalable pattern for features/ use cases.
-phase: Requirements
+phase: Planning
 sizeEstimate: M
 
 # Relationships
