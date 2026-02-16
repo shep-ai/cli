@@ -16,6 +16,7 @@
  *   shep agent        Manage and view agent runs
  *   shep feat         Manage features through the SDLC lifecycle
  *   shep settings     Configure Shep settings
+ *   shep upgrade      Upgrade Shep CLI to the latest version
  *   shep --version    Display version number only
  *
  * Global Options:
@@ -36,6 +37,7 @@ import { createAgentCommand } from './commands/agent/index.js';
 import { createFeatCommand } from './commands/feat/index.js';
 import { createIdeOpenCommand } from './commands/ide-open.command.js';
 import { createInstallCommand } from './commands/install.command.js';
+import { createUpgradeCommand } from './commands/upgrade.command.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
@@ -100,6 +102,7 @@ async function bootstrap() {
     program.addCommand(createFeatCommand());
     program.addCommand(createIdeOpenCommand());
     program.addCommand(createInstallCommand());
+    program.addCommand(createUpgradeCommand());
 
     // Parse arguments (parseAsync needed for async command actions like init)
     await program.parseAsync();

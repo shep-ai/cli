@@ -1,0 +1,342 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cli-upgrade-command
+summary: >
+  Technical research for the `shep upgrade` command. The feature is a purely presentation-layer
+  addition that spawns `npm i -g @shepai/cli@latest` with streaming output. Key decisions:
+  keep all logic in the command file (no new use case or port needed), inject spawn for
+  testability, use stdio 'inherit' for direct output streaming, and add a 10-second timeout
+  on the version check. Follows all existing CLI command patterns.
+
+relatedFeatures: []
+
+technologies:
+  - Commander.js
+  - Node.js child_process (spawn)
+  - Vitest
+  - picocolors (via existing CLI UI utilities)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Architecture Layer Placement'
+    chosen: 'Presentation layer only — command file with inline spawn logic'
+    rejected:
+      - >
+        Application layer use case (UpgradeCliUseCase) — Rejected because self-upgrading
+        is not domain or application logic. It is a CLI-specific concern (spawning npm).
+        Creating a use case + port + infrastructure service for a single spawn call violates
+        YAGNI and adds 3+ files for no architectural benefit. The codebase reserves use cases
+        for operations involving domain entities and repository interactions.
+      - >
+        Infrastructure service (IUpgradeService) — Rejected for the same reason. An interface
+        and implementation pair would be warranted if multiple consumers needed upgrade
+        functionality or if the logic were complex. A single spawn call does not justify this.
+    rationale: >
+      The spec explicitly states this is a purely presentation-layer addition. The upgrade
+      command has no domain logic, no data persistence, and no business rules. It spawns
+      a child process and reports the result. This matches the pattern of the version command
+      which also lives entirely in the presentation layer, resolving IVersionService from
+      the container but containing all display logic inline. Adding application/infrastructure
+      layers would over-engineer a ~50-line feature.
+
+  - title: 'Spawn Configuration for npm install'
+    chosen: 'spawn with stdio: "inherit" for direct terminal streaming'
+    rejected:
+      - >
+        spawn with stdio: "pipe" and manual stream forwarding — Rejected because piping
+        requires manually reading stdout/stderr chunks and writing them to process.stdout/stderr.
+        This adds complexity for no benefit since we want unmodified npm output. It also
+        loses npm's TTY detection (progress bars, colors) because piped streams are not TTYs.
+      - >
+        child_process.execSync (synchronous) — Rejected because it blocks the Node.js event
+        loop. While this command doesn't need concurrency, using sync APIs is an anti-pattern
+        and would prevent future enhancements like timeout handling.
+    rationale: >
+      stdio "inherit" directly connects the child process's stdin/stdout/stderr to the parent
+      process. This gives the user real-time npm output with full TTY support (colors, progress
+      bars). It is the simplest implementation — no stream handling code needed. The tradeoff
+      is that we cannot capture output programmatically, but we don't need to. The existing
+      ToolInstallerService uses "pipe" because it needs to capture output for verification;
+      we don't have that requirement.
+
+  - title: 'Version Check Implementation'
+    chosen: 'spawn npm view with pipe stdio and 10-second timeout, fail-open on error'
+    rejected:
+      - >
+        HTTP request to npm registry API (https://registry.npmjs.org/@shepai/cli/latest) —
+        Rejected because it would require an HTTP client dependency (node-fetch or undici).
+        The codebase doesn't currently use direct HTTP calls for npm operations. Using
+        `npm view` is simpler and handles registry authentication/proxy configuration that
+        npm already knows about.
+      - >
+        Skip version check entirely, always run npm install — Rejected because it gives
+        poor UX. Running `npm i -g` when already on latest wastes time and network bandwidth.
+        The version check is cheap (single npm view) and provides valuable user feedback.
+    rationale: >
+      Spawning `npm view @shepai/cli version` is the simplest way to get the latest published
+      version. It respects the user's npm configuration (registry, proxy, auth). The 10-second
+      timeout (FR-8, NFR-6) ensures the command doesn't hang on network issues. Fail-open
+      behavior means if the version check fails, we proceed with the upgrade anyway — the
+      user explicitly asked to upgrade, so we should try. Current version from IVersionService,
+      latest from npm view output (trimmed).
+
+  - title: 'Testability Strategy'
+    chosen: 'Accept spawn as optional parameter to factory function'
+    rejected:
+      - >
+        Global vi.mock('node:child_process') — Brittle, hard to read, affects all imports
+        in the test file. The codebase already demonstrates the pattern of injecting
+        spawn as a dependency (see ClaudeCodeExecutorService and CursorExecutorService
+        which accept SpawnFunction via constructor).
+      - >
+        Register spawn in DI container and resolve in command — Over-engineering. Commands
+        are factory functions, not classes with constructors. Adding DI resolution for a
+        single built-in function is unnecessary. The codebase registers ExecFunction in
+        the container for services, but that pattern doesn't apply to commands.
+    rationale: >
+      The command factory function will accept an optional spawn parameter with a default
+      of the real child_process.spawn. This follows the dependency injection principle
+      without requiring the DI container. Pattern:
+      `createUpgradeCommand(spawnFn = spawn): Command`. Tests pass a mock spawn function.
+      This is clean, explicit, and matches how the executor services handle testability.
+
+  - title: 'Error Handling Strategy'
+    chosen: 'try/catch with messages.error() and process.exitCode = 1'
+    rejected:
+      - >
+        Throw errors and let global handler catch — Rejected because the global uncaughtException
+        handler calls process.exit(1) which is harder to test and doesn't allow cleanup.
+        Explicit error handling in the command action is the pattern used by install.command.ts
+        and other commands.
+      - >
+        Return exit codes from command function — Rejected because Commander actions don't
+        use return values for exit codes. The codebase convention is setting process.exitCode.
+    rationale: >
+      Follows the exact pattern used by install.command.ts: try/catch wrapping the async
+      action, messages.error() for user-facing error display, and process.exitCode = 1
+      for non-zero exit. This handles three failure modes: (1) npm not found (spawn error
+      event), (2) npm install failure (non-zero exit code), (3) unexpected errors. The
+      version check failure is handled separately with a warning message (fail-open per FR-8).
+
+  - title: 'Command Registration Approach'
+    chosen: 'Top-level command registered in CLI bootstrap index.ts'
+    rejected:
+      - >
+        Subcommand under a parent group (e.g., shep self upgrade) — Rejected because the
+        spec explicitly requires a top-level `shep upgrade` command. Adding a parent group
+        for a single subcommand adds unnecessary nesting. Other tools (rustup, brew, pip)
+        use top-level upgrade commands.
+    rationale: >
+      Matches the spec requirement (FR-1) and follows the pattern of other top-level
+      commands like `version`, `install`, and `ui`. Registration is a single
+      `program.addCommand(createUpgradeCommand())` line in index.ts, identical to
+      how existing commands are added.
+
+openQuestions:
+  - question: 'Should we use stdio "inherit" or "pipe" for the npm install spawn?'
+    resolved: true
+    answer: >
+      Use "inherit". The spec says to stream npm output directly to the terminal (FR-5).
+      stdio "inherit" is the simplest way to achieve this and preserves TTY features like
+      npm's progress bar and colored output. We don't need to capture or process the output.
+
+  - question: 'How should the spawn function be injected for testability?'
+    resolved: true
+    answer: >
+      Accept spawn as an optional parameter to createUpgradeCommand() with a default of
+      the real child_process.spawn. Tests pass a mock spawn function that returns a fake
+      ChildProcess.
+
+  - question: 'Does the feature need any new DI container registrations?'
+    resolved: true
+    answer: >
+      No. IVersionService is already registered. The command resolves it from the container
+      at runtime. The spawn function is passed as a parameter default, not via DI. No new
+      ports, services, or use cases are needed.
+
+  - question: 'How should the version comparison work?'
+    resolved: true
+    answer: >
+      Simple string equality comparison between the current version (from IVersionService)
+      and the latest version (from npm view output, trimmed). Semver comparison is unnecessary
+      because npm view returns the exact latest version string and our version comes from
+      package.json. If they match, the user is up to date. No need for a semver library.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Architecture Layer Placement
+
+  **Chosen:** Presentation layer only — command file with inline spawn logic
+
+  **Rejected:**
+  - Application layer use case (UpgradeCliUseCase) — Over-engineering for a single spawn call. No domain logic involved.
+  - Infrastructure service (IUpgradeService) — No multiple consumers, no complex logic to abstract.
+
+  **Rationale:** Self-upgrading is a CLI-specific concern, not business logic. The version command follows the same pattern — presentation layer only, resolving IVersionService from the container. No new ports, services, or use cases needed.
+
+  ### 2. Spawn Configuration for npm install
+
+  **Chosen:** `spawn('npm', ['i', '-g', '@shepai/cli@latest'], { stdio: 'inherit' })`
+
+  **Rejected:**
+  - `stdio: 'pipe'` with manual forwarding — Added complexity, loses TTY features (progress bars, colors)
+  - `child_process.execSync` — Blocks event loop, anti-pattern
+
+  **Rationale:** `stdio: 'inherit'` connects the child process directly to the parent terminal. Real-time output with full TTY support. Zero stream-handling code. The tradeoff (can't capture output) is acceptable — we don't need to process npm's output.
+
+  ### 3. Version Check Implementation
+
+  **Chosen:** Spawn `npm view @shepai/cli version` with piped stdio and 10-second timeout
+
+  **Rejected:**
+  - Direct HTTP to npm registry — Requires HTTP client, ignores user's npm config (proxy, auth, custom registry)
+  - Skip version check — Poor UX, wastes time on no-op installs
+
+  **Rationale:** `npm view` respects all user npm configuration. 10-second timeout prevents hanging. Fail-open behavior (FR-8): if the check fails, warn and proceed with upgrade. Current version from IVersionService, latest from npm view output (trimmed).
+
+  ### 4. Testability Strategy
+
+  **Chosen:** Accept spawn as optional parameter to factory function
+
+  **Rejected:**
+  - Global vi.mock('node:child_process') — Brittle, hard to read, affects all imports
+  - DI container registration for spawn — Over-engineering for a command-level dependency
+
+  **Rationale:** `createUpgradeCommand(spawnFn = spawn): Command` — clean, explicit, follows the injection pattern used by executor services. Tests pass a mock spawn function that returns a fake ChildProcess.
+
+  ### 5. Error Handling Strategy
+
+  **Chosen:** try/catch with messages.error() and process.exitCode = 1
+
+  **Rejected:**
+  - Let global handler catch — process.exit(1) is harder to test
+  - Return exit codes — Commander doesn't use return values for exit codes
+
+  **Rationale:** Matches install.command.ts pattern exactly. Three failure modes handled: spawn error (npm not found), non-zero exit code (install failed), unexpected errors. Version check failure is a warning, not an error (fail-open).
+
+  ### 6. Command Registration
+
+  **Chosen:** Top-level `shep upgrade` command
+
+  **Rejected:**
+  - Subcommand group (e.g., `shep self upgrade`) — Unnecessary nesting for a single command
+
+  **Rationale:** Matches spec (FR-1), follows existing top-level command pattern (version, install, ui).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Commander.js | CLI framework | Use (existing) | Already the project's CLI framework, provides Command class |
+  | node:child_process | Spawn npm processes | Use (built-in) | Required for spawn, no external dependency needed |
+  | picocolors | Terminal colors | Use (existing, via CLI UI) | Already wrapped in the `colors` utility module |
+  | semver | Version comparison | Reject | Simple string equality is sufficient for "current == latest" check |
+  | node-fetch / undici | HTTP client for npm registry | Reject | npm view command handles registry access with user config |
+  | ora / nanospinner | Spinner for progress | Reject | Spec says stream npm output directly, not wrap in spinner |
+
+  ## Security Considerations
+
+  - **Command injection**: No user input is interpolated into the spawn arguments. The command
+    and arguments are hardcoded strings (`'npm'`, `['i', '-g', '@shepai/cli@latest']`).
+    Using spawn with an args array (not shell mode) is inherently safe against injection.
+  - **Privilege escalation**: `npm i -g` may require elevated permissions on some systems.
+    This is npm's standard behavior — the command doesn't use sudo or modify permissions.
+    If npm fails due to permissions, the non-zero exit code is reported to the user.
+  - **Network security**: npm install uses the user's npm configuration for registry URLs,
+    proxies, and authentication. We don't bypass or override any security settings.
+  - **No secrets involved**: The command doesn't handle credentials, tokens, or sensitive data.
+
+  ## Performance Implications
+
+  - **Version check latency**: `npm view` typically completes in 1-3 seconds. The 10-second
+    timeout prevents hanging. This is acceptable UX for an explicit upgrade command.
+  - **npm install duration**: Depends on network speed and package size. stdio inherit means
+    the user sees real-time progress. No performance optimization needed — this is a
+    user-initiated, one-time operation.
+  - **No impact on normal CLI usage**: The upgrade command is only invoked explicitly.
+    It adds zero overhead to other commands (no new imports at bootstrap time beyond
+    the command registration).
+
+  ## Architecture Notes
+
+  ### File Structure
+
+  ```
+  src/presentation/cli/commands/upgrade.command.ts  (NEW — ~60 lines)
+  src/presentation/cli/index.ts                     (MODIFY — add 1 import + 1 addCommand line)
+  tests/unit/presentation/cli/commands/upgrade.command.test.ts  (NEW — ~100 lines)
+  ```
+
+  ### Command Implementation Sketch
+
+  ```typescript
+  import { Command } from 'commander';
+  import { spawn, type ChildProcess } from 'node:child_process';
+  import { container } from '@/infrastructure/di/container.js';
+  import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
+  import { colors, fmt, messages } from '../ui/index.js';
+
+  type SpawnFn = typeof spawn;
+
+  export function createUpgradeCommand(spawnFn: SpawnFn = spawn): Command {
+    return new Command('upgrade')
+      .description('Upgrade Shep CLI to the latest version')
+      .action(async () => {
+        try {
+          const versionService = container.resolve<IVersionService>('IVersionService');
+          const { version: currentVersion } = versionService.getVersion();
+
+          // 1. Check latest version (fail-open with 10s timeout)
+          const latestVersion = await getLatestVersion(spawnFn);
+
+          // 2. Compare — exit early if up to date
+          if (latestVersion && latestVersion === currentVersion) {
+            messages.success(`Already up to date (v${currentVersion})`);
+            return;
+          }
+
+          // 3. Show what we're doing
+          if (latestVersion) {
+            messages.info(`Upgrading from v${currentVersion} to v${latestVersion}`);
+          } else {
+            messages.info(`Upgrading from v${currentVersion} to latest`);
+          }
+
+          // 4. Run npm i -g @shepai/cli@latest with inherited stdio
+          const exitCode = await runNpmInstall(spawnFn);
+
+          if (exitCode === 0) {
+            messages.success('Shep CLI upgraded successfully');
+          } else {
+            messages.error('Upgrade failed');
+            process.exitCode = 1;
+          }
+        } catch (error) {
+          const err = error instanceof Error ? error : new Error(String(error));
+          messages.error('Upgrade failed', err);
+          process.exitCode = 1;
+        }
+      });
+  }
+  ```
+
+  ### Integration Points
+
+  - **IVersionService** (existing): Resolved from DI container to get current version
+  - **CLI UI utilities** (existing): messages, fmt, colors for all output
+  - **CLI bootstrap** (existing): Single addCommand() call to register
+
+  ### Test Strategy
+
+  Four test cases covering the spec's success criteria:
+  1. **Success path**: Mock npm view returning newer version, mock npm install exiting 0
+  2. **Already up to date**: Mock npm view returning same version as current
+  3. **npm install failure**: Mock npm install exiting non-zero
+  4. **Version check failure**: Mock npm view failing (error event), verify upgrade proceeds anyway
+
+  Mock approach: Pass a stub spawnFn that returns a fake ChildProcess (EventEmitter with
+  stdout/stderr streams). Control behavior by emitting 'close' with desired exit code
+  or 'error' for spawn failures.
