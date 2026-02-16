@@ -50,7 +50,7 @@ export { UpdateSettingsUseCase } from './use-cases/settings/update-settings.use-
 // Feature use cases
 export { ListFeaturesUseCase } from './use-cases/features/list-features.use-case.js';
 export { ShowFeatureUseCase } from './use-cases/features/show-feature.use-case.js';
-export { CreateFeatureUseCase } from './use-cases/features/create-feature.use-case.js';
+export { CreateFeatureUseCase } from './use-cases/features/create/create-feature.use-case.js';
 export { DeleteFeatureUseCase } from './use-cases/features/delete-feature.use-case.js';
 export { ResumeFeatureUseCase } from './use-cases/features/resume-feature.use-case.js';
 

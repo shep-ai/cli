@@ -1,4 +1,4 @@
-import type { IAgentExecutor } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import { executeNode } from './node-helpers.js';
 import { buildRequirementsPrompt } from './prompts/requirements.prompt.js';
 

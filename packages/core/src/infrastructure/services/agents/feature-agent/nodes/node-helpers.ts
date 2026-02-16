@@ -13,9 +13,11 @@ import type {
   IAgentExecutor,
   AgentExecutionOptions,
   AgentExecutionResult,
-} from '../../../../../application/ports/output/agents/agent-executor.interface.js';
+} from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { ApprovalGates } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
+import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
 
 /**
  * Create a scoped logger that prefixes messages with the node name.
@@ -86,22 +88,25 @@ export function safeYamlLoad(content: string): unknown {
   }
 }
 
-/** Nodes that are auto-approved (no interrupt) for each approval mode. */
-const AUTO_APPROVED_NODES: Record<string, string[]> = {
-  interactive: [],
-  'allow-prd': ['analyze', 'requirements'],
-  'allow-plan': ['analyze', 'requirements', 'research', 'plan'],
-  'allow-all': ['analyze', 'requirements', 'research', 'plan', 'implement'],
-};
-
 /**
  * Determine whether the current node should trigger an interrupt
- * for human approval given the configured approval mode.
+ * for human approval given the configured approval gates.
+ *
+ * Gates control which phases auto-approve:
+ * - allowPrd: when true, skip interrupt after requirements phase
+ * - allowPlan: when true, skip interrupt after plan phase
+ *
+ * Nodes not covered by a gate (analyze, research) never interrupt.
+ * The implement node always interrupts when gates are present
+ * (unless both gates are true, meaning fully autonomous).
  */
-export function shouldInterrupt(nodeName: string, approvalMode: string | undefined): boolean {
-  if (!approvalMode || approvalMode === 'allow-all') return false;
-  const autoApproved = AUTO_APPROVED_NODES[approvalMode] ?? [];
-  return !autoApproved.includes(nodeName);
+export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefined): boolean {
+  if (!gates) return false;
+  if (gates.allowPrd && gates.allowPlan) return false;
+  if (nodeName === 'requirements') return !gates.allowPrd;
+  if (nodeName === 'plan') return !gates.allowPlan;
+  if (nodeName === 'implement') return true;
+  return false;
 }
 
 /* ------------------------------------------------------------------ */
@@ -244,7 +249,24 @@ export function executeNode(
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
     log.info('Starting...');
     reportNodeStart(nodeName);
+
+    // On resume from interrupt, LangGraph re-executes the node function from
+    // the top. Skip the expensive executor call if this phase already completed
+    // (markPhaseComplete is called before interrupt, so completed = done but
+    // awaiting approval; the approval has now been granted).
+    const completedPhases = getCompletedPhases(state.specDir);
+    if (completedPhases.includes(nodeName)) {
+      log.info('Phase already completed (resuming from approval), skipping execution');
+      return {
+        currentNode: nodeName,
+        messages: [`[${nodeName}] Approved — continuing`],
+      };
+    }
+
     const startTime = Date.now();
+
+    // Record phase start (no-op if timing context not set)
+    const timingId = await recordPhaseStart(nodeName);
 
     try {
       const prompt = buildPrompt(state, log);
@@ -253,8 +275,16 @@ export function executeNode(
       log.info(`Executing agent at cwd=${options.cwd}`);
       log.info(`Prompt length: ${prompt.length} chars`);
       const result = await executor.execute(prompt, options);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      const durationMs = Date.now() - startTime;
+      const elapsed = (durationMs / 1000).toFixed(1);
       log.info(`Complete (${result.result.length} chars, ${elapsed}s)`);
+
+      // Record phase completion
+      await recordPhaseEnd(timingId, durationMs);
+
+      // Mark phase complete BEFORE interrupting so that on resume the
+      // node detects the work is already done and skips re-execution.
+      markPhaseComplete(state.specDir, nodeName, log);
 
       const nodeResult: Partial<FeatureAgentState> = {
         currentNode: nodeName,
@@ -262,7 +292,7 @@ export function executeNode(
       };
 
       // Human-in-the-loop: interrupt after node execution for review
-      if (shouldInterrupt(nodeName, state.approvalMode)) {
+      if (shouldInterrupt(nodeName, state.approvalGates)) {
         log.info('Interrupting for human approval');
         interrupt({
           node: nodeName,
@@ -277,8 +307,11 @@ export function executeNode(
       if (isGraphBubbleUp(err)) throw err;
 
       const message = err instanceof Error ? err.message : String(err);
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      const durationMs = Date.now() - startTime;
+      const elapsed = (durationMs / 1000).toFixed(1);
       log.error(`${message} (after ${elapsed}s)`);
+
+      // Leave timingId without completedAt (partial timing for failed nodes)
 
       // Throw so LangGraph does NOT checkpoint this node as "completed".
       // The worker catch block marks the run as failed, and on resume

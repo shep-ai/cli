@@ -48,7 +48,6 @@ export class ApproveAgentRunUseCase {
 
     const now = new Date();
     await this.agentRunRepository.updateStatus(id, AgentRunStatus.running, {
-      approvalStatus: 'approved',
       updatedAt: now,
     });
 
@@ -58,7 +57,12 @@ export class ApproveAgentRunUseCase {
       repoPath,
       worktreePath, // specDir = worktree path (same as initial spawn)
       worktreePath,
-      { resume: true, approvalMode: run.approvalMode }
+      {
+        resume: true,
+        approvalGates: run.approvalGates,
+        threadId: run.threadId,
+        resumeFromInterrupt: true,
+      }
     );
 
     return { approved: true, reason: 'Approved and resumed' };

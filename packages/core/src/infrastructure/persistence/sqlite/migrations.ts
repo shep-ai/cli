@@ -131,6 +131,37 @@ ALTER TABLE agent_runs ADD COLUMN approval_status TEXT;
 ALTER TABLE features ADD COLUMN spec_path TEXT;
 `,
   },
+  {
+    version: 8,
+    sql: `
+-- Migration 008: Add approval_gates JSON column and phase_timings table
+ALTER TABLE agent_runs ADD COLUMN approval_gates TEXT;
+
+-- Transform existing approval_mode strings to JSON
+UPDATE agent_runs SET approval_gates = '{"allowPrd":true,"allowPlan":false}'
+  WHERE approval_mode = 'allow-prd';
+UPDATE agent_runs SET approval_gates = '{"allowPrd":false,"allowPlan":true}'
+  WHERE approval_mode = 'allow-plan';
+UPDATE agent_runs SET approval_gates = '{"allowPrd":true,"allowPlan":true}'
+  WHERE approval_mode = 'allow-all';
+UPDATE agent_runs SET approval_gates = '{"allowPrd":false,"allowPlan":false}'
+  WHERE approval_mode = 'interactive';
+
+-- Create phase_timings table
+CREATE TABLE phase_timings (
+  id TEXT PRIMARY KEY,
+  agent_run_id TEXT NOT NULL,
+  phase TEXT NOT NULL,
+  started_at INTEGER NOT NULL,
+  completed_at INTEGER,
+  duration_ms INTEGER,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_phase_timings_run ON phase_timings(agent_run_id);
+`,
+  },
 ];
 
 /**

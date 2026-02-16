@@ -279,6 +279,13 @@ export type UserProfile = {
    */
   githubUsername?: string;
 };
+export enum EditorType {
+  VsCode = 'vscode',
+  Cursor = 'cursor',
+  Windsurf = 'windsurf',
+  Zed = 'zed',
+  Antigravity = 'antigravity',
+}
 
 /**
  * Environment and tooling preferences
@@ -287,7 +294,7 @@ export type EnvironmentConfig = {
   /**
    * Preferred code editor
    */
-  defaultEditor: string;
+  defaultEditor: EditorType;
   /**
    * Preferred shell
    */
@@ -1000,6 +1007,20 @@ export enum AgentRunStatus {
 }
 
 /**
+ * Configuration for human-in-the-loop approval gates
+ */
+export type ApprovalGates = {
+  /**
+   * Skip human review after requirements phase
+   */
+  allowPrd: boolean;
+  /**
+   * Skip human review after plan phase
+   */
+  allowPlan: boolean;
+};
+
+/**
  * Agent execution run record
  */
 export type AgentRun = BaseEntity & {
@@ -1060,13 +1081,9 @@ export type AgentRun = BaseEntity & {
    */
   repositoryPath?: string;
   /**
-   * Approval mode for human-in-the-loop: interactive, allow-prd, allow-plan, allow-all (optional)
+   * Approval gate configuration for human-in-the-loop review (optional)
    */
-  approvalMode?: string;
-  /**
-   * Current approval status: pending, waiting, approved, rejected (optional)
-   */
-  approvalStatus?: string;
+  approvalGates?: ApprovalGates;
 };
 
 /**
@@ -1099,6 +1116,32 @@ export type AgentDefinition = {
    * Human-readable description of what this agent does
    */
   description: string;
+};
+
+/**
+ * Timing record for a single agent graph node execution
+ */
+export type PhaseTiming = BaseEntity & {
+  /**
+   * Agent run this timing belongs to
+   */
+  agentRunId: string;
+  /**
+   * Graph node name: analyze, requirements, research, plan, implement
+   */
+  phase: string;
+  /**
+   * When the phase started executing
+   */
+  startedAt: any;
+  /**
+   * When the phase finished executing (null if still running)
+   */
+  completedAt?: any;
+  /**
+   * Duration in milliseconds (computed on completion)
+   */
+  durationMs?: bigint;
 };
 export enum AgentFeature {
   sessionResume = 'session-resume',

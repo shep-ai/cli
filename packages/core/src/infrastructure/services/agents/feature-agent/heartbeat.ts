@@ -6,8 +6,8 @@
  * This is a module-level singleton since only one worker runs per process.
  */
 
-import type { IAgentRunRepository } from '../../../../application/ports/output/agents/agent-run-repository.interface.js';
-import { AgentRunStatus } from '../../../../domain/generated/output.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import { AgentRunStatus } from '@/domain/generated/output.js';
 
 let contextRunId: string | undefined;
 let contextRepository: IAgentRunRepository | undefined;

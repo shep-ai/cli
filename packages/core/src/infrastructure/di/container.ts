@@ -41,6 +41,7 @@ import type { IAgentExecutorProvider } from '../../application/ports/output/agen
 import type { IAgentRegistry } from '../../application/ports/output/agents/agent-registry.interface.js';
 import type { IAgentRunner } from '../../application/ports/output/agents/agent-runner.interface.js';
 import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '../../application/ports/output/agents/phase-timing-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../application/ports/output/agents/feature-agent-process.interface.js';
 import type { ISpecInitializerService } from '../../application/ports/output/services/spec-initializer.interface.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
@@ -49,6 +50,7 @@ import { MockAgentExecutorFactory } from '../services/agents/common/executors/mo
 import { AgentRegistryService } from '../services/agents/common/agent-registry.service.js';
 import { AgentRunnerService } from '../services/agents/common/agent-runner.service.js';
 import { SQLiteAgentRunRepository } from '../repositories/agent-run.repository.js';
+import { SQLitePhaseTimingRepository } from '../repositories/sqlite-phase-timing.repository.js';
 import { FeatureAgentProcessService } from '../services/agents/feature-agent/feature-agent-process.service.js';
 import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 import { createCheckpointer } from '../services/agents/common/checkpointer.js';
@@ -68,7 +70,9 @@ import { StopAgentRunUseCase } from '../../application/use-cases/agents/stop-age
 import { DeleteAgentRunUseCase } from '../../application/use-cases/agents/delete-agent-run.use-case.js';
 import { ApproveAgentRunUseCase } from '../../application/use-cases/agents/approve-agent-run.use-case.js';
 import { RejectAgentRunUseCase } from '../../application/use-cases/agents/reject-agent-run.use-case.js';
-import { CreateFeatureUseCase } from '../../application/use-cases/features/create-feature.use-case.js';
+import { CreateFeatureUseCase } from '../../application/use-cases/features/create/create-feature.use-case.js';
+import { MetadataGenerator } from '../../application/use-cases/features/create/metadata-generator.js';
+import { SlugResolver } from '../../application/use-cases/features/create/slug-resolver.js';
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
@@ -126,6 +130,13 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: (c) => {
       const database = c.resolve<Database.Database>('Database');
       return new SQLiteAgentRunRepository(database);
+    },
+  });
+
+  container.register<IPhaseTimingRepository>('IPhaseTimingRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLitePhaseTimingRepository(database);
     },
   });
 
@@ -194,11 +205,14 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(DeleteAgentRunUseCase);
   container.registerSingleton(ApproveAgentRunUseCase);
   container.registerSingleton(RejectAgentRunUseCase);
+  container.registerSingleton(MetadataGenerator);
+  container.registerSingleton(SlugResolver);
   container.registerSingleton(CreateFeatureUseCase);
   container.registerSingleton(ListFeaturesUseCase);
   container.registerSingleton(ShowFeatureUseCase);
   container.registerSingleton(DeleteFeatureUseCase);
   container.registerSingleton(ResumeFeatureUseCase);
+
   return container;
 }
 

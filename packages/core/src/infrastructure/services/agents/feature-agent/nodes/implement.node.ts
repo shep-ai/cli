@@ -11,7 +11,7 @@ import yaml from 'js-yaml';
 import { writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
-import type { IAgentExecutor } from '../../../../../application/ports/output/agents/agent-executor.interface.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { FeatureAgentState } from '../state.js';
 import {
   createNodeLogger,
@@ -216,7 +216,7 @@ export function createImplementNode(executor: IAgentExecutor) {
         `[implement] Complete: ${totalTasks} tasks across ${totalPhases} phases (${elapsed}s)`
       );
 
-      if (shouldInterrupt('implement', state.approvalMode)) {
+      if (shouldInterrupt('implement', state.approvalGates)) {
         log.info('Interrupting for human approval');
         interrupt({
           node: 'implement',

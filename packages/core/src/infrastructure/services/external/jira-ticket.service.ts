@@ -8,12 +8,12 @@
 import type {
   IExternalIssueFetcher,
   ExternalIssue,
-} from '../../../application/ports/output/services/external-issue-fetcher.interface.js';
+} from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 import {
   IssueNotFoundError,
   IssueAuthenticationError,
   IssueServiceUnavailableError,
-} from '../../../application/ports/output/services/external-issue-fetcher.interface.js';
+} from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 
 type FetchFn = (url: string, init?: RequestInit) => Promise<Response>;
 

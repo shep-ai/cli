@@ -12,14 +12,14 @@ import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import type {
   IAgentRunner,
   AgentRunOptions,
-} from '../../../../application/ports/output/agents/agent-runner.interface.js';
-import type { IAgentRegistry } from '../../../../application/ports/output/agents/agent-registry.interface.js';
-import type { IAgentExecutorProvider } from '../../../../application/ports/output/agents/agent-executor-provider.interface.js';
-import type { IAgentRunRepository } from '../../../../application/ports/output/agents/agent-run-repository.interface.js';
-import type { AgentExecutionStreamEvent } from '../../../../application/ports/output/agents/agent-executor.interface.js';
-import type { AgentRun, AgentRunEvent } from '../../../../domain/generated/output.js';
-import { AgentRunStatus } from '../../../../domain/generated/output.js';
-import { getSettings } from '../../settings.service.js';
+} from '@/application/ports/output/agents/agent-runner.interface.js';
+import type { IAgentRegistry } from '@/application/ports/output/agents/agent-registry.interface.js';
+import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { AgentExecutionStreamEvent } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { AgentRun, AgentRunEvent } from '@/domain/generated/output.js';
+import { AgentRunStatus } from '@/domain/generated/output.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
 import { EventChannel } from '../streaming/event-channel.js';
 import { StreamingExecutorProxy } from '../streaming/streaming-executor-proxy.js';
 

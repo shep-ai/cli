@@ -21,7 +21,7 @@ import type {
   SystemConfig,
   AgentConfig,
 } from '../generated/output';
-import { AgentType, AgentAuthMethod } from '../generated/output';
+import { AgentType, AgentAuthMethod, EditorType } from '../generated/output';
 
 /**
  * Default AI model for all SDLC agents.
@@ -33,7 +33,7 @@ const DEFAULT_MODEL = 'claude-sonnet-4-5' as const;
  * Default code editor preference.
  * Most widely used editor in the development community.
  */
-const DEFAULT_EDITOR = 'vscode' as const;
+const DEFAULT_EDITOR = EditorType.VsCode;
 
 /**
  * Default shell preference.

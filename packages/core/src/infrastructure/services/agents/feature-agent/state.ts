@@ -1,4 +1,5 @@
 import { Annotation } from '@langchain/langgraph';
+import type { ApprovalGates } from '@/domain/generated/output.js';
 
 /**
  * State annotation for the feature-agent graph.
@@ -17,12 +18,25 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (prev, next) => (next !== undefined ? next : prev),
     default: () => null,
   }),
-  approvalMode: Annotation<string | undefined>({
+  approvalGates: Annotation<ApprovalGates | undefined>({
     reducer: (prev, next) => next ?? prev,
     default: () => undefined,
   }),
   messages: Annotation<string[]>({
     reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+  // --- Validation state channels (for validate/repair loops) ---
+  validationRetries: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
+  lastValidationTarget: Annotation<string>({
+    reducer: (_prev, next) => next,
+    default: () => '',
+  }),
+  lastValidationErrors: Annotation<string[]>({
+    reducer: (_prev, next) => next,
     default: () => [],
   }),
 });

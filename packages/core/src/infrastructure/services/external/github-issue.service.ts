@@ -8,11 +8,11 @@
 import type {
   IExternalIssueFetcher,
   ExternalIssue,
-} from '../../../application/ports/output/services/external-issue-fetcher.interface.js';
+} from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 import {
   IssueNotFoundError,
   IssueServiceUnavailableError,
-} from '../../../application/ports/output/services/external-issue-fetcher.interface.js';
+} from '@/application/ports/output/services/external-issue-fetcher.interface.js';
 
 type ExecFileFn = (
   cmd: string,

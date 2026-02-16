@@ -11,7 +11,7 @@ import { join } from 'node:path';
 import type {
   ISpecInitializerService,
   SpecInitializerResult,
-} from '../../../application/ports/output/services/spec-initializer.interface.js';
+} from '@/application/ports/output/services/spec-initializer.interface.js';
 
 /**
  * Pad a number to 3 digits with leading zeros.
