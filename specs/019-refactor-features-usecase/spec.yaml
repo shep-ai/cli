@@ -1,0 +1,73 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: refactor-features-usecase
+number: 019
+branch: feat/019-refactor-features-usecase
+oneLiner: Split oversized CreateFeatureUseCase into focused modules following SRP
+summary: >
+  Refactor the CreateFeatureUseCase (247 lines) by extracting metadata generation and slug resolution into separate injectable services. This reduces complexity, improves testability, and establishes a scalable pattern for features/ use cases.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  []
+  # - "008-agent-configuration"
+
+technologies:
+  []
+  # - TypeScript
+  # - React
+
+relatedLinks:
+  - https://github.com/shep-ai/cli/blob/main/CLAUDE.md#code-organization-rules
+  - https://github.com/shep-ai/cli/blob/main/CLAUDE.md#clean-architecture
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  []
+  # - question: "Should we use approach A or B?"
+  #   resolved: false
+  #   answer: null
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The `CreateFeatureUseCase` class (247 lines) violates Single Responsibility Principle by mixing three distinct concerns:
+  1. **Metadata generation** — AI-driven feature name/description inference with regex fallback
+  2. **Slug resolution** — Ensuring unique slugs by checking database and git branches
+  3. **Orchestration** — Coordinating worktree creation, spec initialization, persistence, and agent spawning
+
+  This large file is difficult to test in isolation, hides reusable logic, and makes the use case harder to understand at a glance.
+
+  Additionally, the use case directly imports `getSettings()` from the infrastructure layer, violating the Clean Architecture dependency rule (application layer must not depend on infrastructure).
+
+  ## Success Criteria
+
+  - [ ] Create `src/application/use-cases/features/create/` subdirectory structure
+  - [ ] Extract `MetadataGenerator` as injectable service with `generateMetadata()` method
+  - [ ] Extract `SlugResolver` as injectable service with `resolveUniqueSlug()` method
+  - [ ] Refactor `CreateFeatureUseCase` to pure orchestration (~80 lines)
+  - [ ] Fix architecture violation by injecting settings via `ISettingsRepository` instead of importing `getSettings()`
+  - [ ] Create `create/types.ts` with shared interfaces
+  - [ ] All existing tests pass without modification
+  - [ ] New services have unit test coverage
+
+  ## Affected Areas
+
+  | Area       | Impact       | Reasoning       |
+  | ---------- | ------------ | --------------- |
+  | `src/application/use-cases/features/` | High | Main refactoring zone — folder structure reorganization |
+  | `src/application/use-cases/features/create-feature.use-case.ts` | High | Broken into three files with extracted logic |
+  | `src/infrastructure/di/container.ts` | Medium | Register new injectable services (MetadataGenerator, SlugResolver) |
+  | Test suite (`tests/unit/use-cases/features/`) | Medium | Update imports, add new service unit tests |
+
+  ## Dependencies
+
+  None identified.
+
+  ## Size Estimate
+
+  **Medium** - This is a refactoring task affecting one use case (247 → ~80 lines core, plus two new services at ~50 lines each). No new functionality, no API changes. Estimated effort: 2-3 hours including tests and verification.

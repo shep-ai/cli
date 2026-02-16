@@ -1,0 +1,36 @@
+feature:
+  id: '019-refactor-features-usecase'
+  name: 'refactor-features-usecase'
+  number: 19
+  branch: 'feat/019-refactor-features-usecase'
+  lifecycle: 'research'
+  createdAt: '2026-02-16T10:43:26Z'
+
+status:
+  phase: 'research'
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-16T10:43:26Z'
+  lastUpdatedBy: 'shep-kit:new-feature'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-16T10:43:26Z'
+    completedBy: 'shep-kit:new-feature'
+
+errors:
+  current: null
+  history: []
