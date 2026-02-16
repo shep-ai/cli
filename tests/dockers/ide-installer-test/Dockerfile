@@ -5,11 +5,12 @@ FROM node:22-bookworm
 
 # Install system dependencies required for tool installations
 RUN apt-get update && apt-get install -y \
+    sudo \
     curl \
     wget \
     git \
     gpg \
-    && rm -rf /var/lib/apt/lists/*
+    libfuse2
 
 # Install pnpm
 RUN npm install -g pnpm
@@ -41,59 +42,58 @@ RUN echo "=== Checking build output ===" && \
 # Make CLI globally available
 RUN pnpm link --global && \
     echo "=== Verifying shep command location ===" && \
-    which shep || echo "shep not in PATH" && \
-    ls -la /root/.local/bin/ || echo "bin directory not found"
+    which shep && \
+    ls -la /root/.local/bin/
 
-# Test installations for all supported tools
-# vscode - installs without running the GUI
+# Test installations for all supported tools (excluding manual-install-only tools)
+# vscode
 RUN echo "=== Installing vscode ===" && \
-    shep install vscode || true
+    shep install vscode
 
 RUN echo "=== Verifying vscode installation ===" && \
-    code --version || echo "vscode verification skipped (GUI tool)"
-
-# cursor
-RUN echo "=== Installing cursor ===" && \
-    shep install cursor || true
-
-RUN echo "=== Verifying cursor installation ===" && \
-    cursor --version || echo "cursor verification skipped"
+    code --version --no-sandbox --user-data-dir=/tmp/vscode-test
 
 # windsurf
 RUN echo "=== Installing windsurf ===" && \
-    shep install windsurf || true
+    shep install windsurf
 
 RUN echo "=== Verifying windsurf installation ===" && \
-    windsurf --version || echo "windsurf verification skipped"
+    windsurf --version --no-sandbox --user-data-dir=/tmp/windsurf-test
 
 # zed
 RUN echo "=== Installing zed ===" && \
-    shep install zed || true
+    shep install zed
 
 RUN echo "=== Verifying zed installation ===" && \
-    zed --version || echo "zed verification skipped"
+    ZED_ALLOW_ROOT=true zed --version
 
 # cursor-cli
 RUN echo "=== Installing cursor-cli ===" && \
-    shep install cursor-cli || true
+    shep install cursor-cli
 
 RUN echo "=== Verifying cursor-cli installation ===" && \
-    cursor --version || echo "cursor-cli verification skipped"
+    cursor-agent --version
 
 # claude-code
 RUN echo "=== Installing claude-code ===" && \
-    shep install claude-code || true
+    shep install claude-code
 
 RUN echo "=== Verifying claude-code installation ===" && \
-    claude --version || echo "claude-code verification skipped"
+    claude --version
 
 # antigravity (note: autoInstall=false, so this will show instructions only)
 RUN echo "=== Installing antigravity (manual install tool) ===" && \
-    shep install antigravity || true
+    shep install antigravity
+
+# Manual installation tests for tools that require manual download
+# cursor IDE (manual AppImage installation for testing)
+RUN echo "=== Manually installing Cursor IDE for testing ===" && \
+    wget -O /root/.local/bin/cursor.appimage https://download.cursor.sh/linux/appImage/x64 && \
+    chmod +x /root/.local/bin/cursor.appimage && \
+    echo "=== Verifying manual Cursor IDE installation ===" && \
+    cursor.appimage --appimage-extract-and-run --version || echo "Cursor IDE installed but requires GUI"
 
 # Final verification that CLI is working
 RUN echo "=== Final CLI verification ===" && \
-    echo "PATH=$PATH" && \
-    which shep || echo "Using direct path" && \
-    (shep --version || /root/.local/bin/shep --version || node /app/dist/src/presentation/cli/index.js --version) && \
+    shep --version && \
     echo "=== CLI build and tool installation test completed successfully ==="

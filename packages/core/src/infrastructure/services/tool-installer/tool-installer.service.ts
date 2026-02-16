@@ -159,9 +159,23 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
         resolve(returnStatus);
       };
 
-      child.on('close', (code: number) => {
+      child.on('close', async (code: number) => {
         if (code === 0) {
-          cleanup();
+          // Verify the installation by checking if binary exists
+          const metadata = TOOL_METADATA[toolName];
+          if (metadata) {
+            const binary = resolveBinary(metadata);
+            const verifyResult = await checkBinaryExists(binary);
+            if (verifyResult.found) {
+              cleanup();
+            } else {
+              cleanup(
+                `Installation completed but binary '${binary}' not found in PATH. The installation may require a shell restart or PATH update.`
+              );
+            }
+          } else {
+            cleanup();
+          }
         } else {
           cleanup(`Installation failed with exit code ${code}. Output: ${output.slice(0, 200)}`);
         }
