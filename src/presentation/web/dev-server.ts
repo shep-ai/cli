@@ -18,6 +18,7 @@ import http from 'node:http';
 import { initializeContainer, container } from '../../infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
+import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
 import { initializeSettings } from '../../infrastructure/services/settings.service.js';
 
 const DEFAULT_PORT = 3000;
@@ -37,6 +38,7 @@ async function main() {
     // Set globalThis bridge for the web layer (same as CLI bootstrap index.ts:74-76)
     (globalThis as Record<string, unknown>).__shepUseCases = {
       listFeatures: container.resolve(ListFeaturesUseCase),
+      agentRunRepo: container.resolve<IAgentRunRepository>('IAgentRunRepository'),
     };
 
     console.log('[dev-server] DI bridge initialized');

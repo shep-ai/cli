@@ -9,7 +9,7 @@
  * Server-side only (used in server components).
  */
 
-import type { Feature } from '@shepai/core/domain/generated';
+import type { Feature, AgentRun } from '@shepai/core/domain/generated';
 
 /** Filters for listing features. */
 interface FeatureListFilters {
@@ -22,9 +22,15 @@ interface ListFeaturesUseCase {
   execute(filters?: FeatureListFilters): Promise<Feature[]>;
 }
 
+/** Minimal repository shape for agent run lookups. */
+interface AgentRunRepository {
+  findById(id: string): Promise<AgentRun | null>;
+}
+
 /** Shape of the globalThis.__shepUseCases bridge object. */
 interface ShepUseCases {
   listFeatures: ListFeaturesUseCase;
+  agentRunRepo: AgentRunRepository;
 }
 
 function getUseCases(): ShepUseCases | undefined {
@@ -46,5 +52,20 @@ export async function getFeatures(filters?: FeatureListFilters): Promise<Feature
     // eslint-disable-next-line no-console
     console.error('Failed to load features:', error);
     return [];
+  }
+}
+
+/**
+ * Find an agent run by ID.
+ * Returns null if the DI bridge is not initialized or the run is not found.
+ */
+export async function getAgentRun(id: string): Promise<AgentRun | null> {
+  const useCases = getUseCases();
+  if (!useCases?.agentRunRepo) return null;
+
+  try {
+    return await useCases.agentRunRepo.findById(id);
+  } catch {
+    return null;
   }
 }

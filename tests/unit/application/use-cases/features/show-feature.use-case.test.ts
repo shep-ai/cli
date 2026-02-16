@@ -41,7 +41,6 @@ describe('ShowFeatureUseCase', () => {
       findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn(),
       list: vi.fn(),
-      listWithAgentRuns: vi.fn(),
       update: vi.fn(),
       delete: vi.fn(),
     };

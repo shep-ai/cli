@@ -10,15 +10,12 @@ import { injectable } from 'tsyringe';
 import type {
   IFeatureRepository,
   FeatureListFilters,
-  DashboardFeature,
 } from '../../application/ports/output/repositories/feature-repository.interface.js';
 import type { Feature } from '../../domain/generated/output.js';
 import {
   toDatabase,
   fromDatabase,
-  fromDashboardDatabase,
   type FeatureRow,
-  type DashboardFeatureRow,
 } from '../persistence/sqlite/mappers/feature.mapper.js';
 
 /**
@@ -102,29 +99,6 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
     const rows = stmt.all(...params) as FeatureRow[];
 
     return rows.map(fromDatabase);
-  }
-
-  async listWithAgentRuns(filters?: FeatureListFilters): Promise<DashboardFeature[]> {
-    const conditions: string[] = [];
-    const params: unknown[] = [];
-
-    if (filters?.repositoryPath) {
-      conditions.push('f.repository_path = ?');
-      params.push(filters.repositoryPath);
-    }
-
-    if (filters?.lifecycle) {
-      conditions.push('f.lifecycle = ?');
-      params.push(filters.lifecycle);
-    }
-
-    const where = conditions.length > 0 ? ` WHERE ${conditions.join(' AND ')}` : '';
-    const stmt = this.db.prepare(
-      `SELECT f.*, ar.status as agent_status, ar.error as agent_error, ar.result as agent_result, ar.agent_type as agent_type FROM features f LEFT JOIN agent_runs ar ON f.agent_run_id = ar.id${where}`
-    );
-    const rows = stmt.all(...params) as DashboardFeatureRow[];
-
-    return rows.map(fromDashboardDatabase);
   }
 
   async update(feature: Feature): Promise<void> {

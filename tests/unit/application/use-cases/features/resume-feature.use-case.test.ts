@@ -19,7 +19,6 @@ function createMockFeatureRepo() {
     findByIdPrefix: vi.fn(),
     findBySlug: vi.fn(),
     list: vi.fn(),
-    listWithAgentRuns: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
   };

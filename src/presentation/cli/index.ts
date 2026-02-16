@@ -42,6 +42,7 @@ import { messages } from './ui/index.js';
 import { initializeContainer, container } from '../../infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
+import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
 import { initializeSettings } from '../../infrastructure/services/settings.service.js';
 
 /**
@@ -75,6 +76,7 @@ async function bootstrap() {
     // Web layer reads from this instead of importing CLI source (Turbopack incompatibility).
     (globalThis as Record<string, unknown>).__shepUseCases = {
       listFeatures: container.resolve(ListFeaturesUseCase),
+      agentRunRepo: container.resolve<IAgentRunRepository>('IAgentRunRepository'),
     };
 
     // Step 3: Set up Commander CLI

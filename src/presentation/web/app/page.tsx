@@ -1,5 +1,5 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getFeatures } from '@/lib/use-cases';
+import { getFeatures, getAgentRun } from '@/lib/use-cases';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import {
   deriveNodeState,
@@ -22,14 +22,20 @@ const lifecycleMap: Record<string, FeatureLifecyclePhase> = {
 export default async function HomePage() {
   const features = await getFeatures();
 
+  // Load agent runs for all features in parallel (mirrors CLI feat ls)
+  const agentRuns = await Promise.all(
+    features.map((f) => (f.agentRunId ? getAgentRun(f.agentRunId) : Promise.resolve(null)))
+  );
+
   // Group features by repository path
-  const featuresByRepo: Record<string, typeof features> = {};
-  features.forEach((f) => {
+  const featuresByRepo: Record<string, { index: number; feature: (typeof features)[number] }[]> =
+    {};
+  features.forEach((f, i) => {
     const repoKey = f.repositoryPath;
     if (!featuresByRepo[repoKey]) {
       featuresByRepo[repoKey] = [];
     }
-    featuresByRepo[repoKey].push(f);
+    featuresByRepo[repoKey].push({ index: i, feature: f });
   });
 
   const nodes: CanvasNodeType[] = [];
@@ -45,7 +51,8 @@ export default async function HomePage() {
       data: { name: repoName },
     });
 
-    repoFeatures.forEach((feature) => {
+    repoFeatures.forEach(({ index, feature }) => {
+      const run = agentRuns[index];
       const lifecycle: FeatureLifecyclePhase = lifecycleMap[feature.lifecycle] ?? 'requirements';
 
       const nodeData: FeatureNodeData = {
@@ -53,9 +60,9 @@ export default async function HomePage() {
         description: feature.description ?? feature.slug,
         featureId: feature.id,
         lifecycle,
-        state: deriveNodeState(feature),
+        state: deriveNodeState(feature, run),
         progress: deriveProgress(feature),
-        ...(feature.agentRunId && { agentType: 'claude-code' as FeatureNodeData['agentType'] }),
+        ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
       };
 
       const featureNodeId = `feat-${feature.id}`;

@@ -13,7 +13,6 @@
 
 import type { Feature } from '../../../../domain/generated/output.js';
 import { type SdlcLifecycle } from '../../../../domain/generated/output.js';
-import type { DashboardFeature } from '../../../../application/ports/output/repositories/feature-repository.interface.js';
 
 /**
  * Database row type matching the features table schema.
@@ -34,36 +33,6 @@ export interface FeatureRow {
   spec_path: string | null;
   created_at: number;
   updated_at: number;
-}
-
-/**
- * Database row type for features LEFT JOINed with agent_runs.
- */
-export interface DashboardFeatureRow extends FeatureRow {
-  agent_status: string | null;
-  agent_error: string | null;
-  agent_result: string | null;
-  agent_type: string | null;
-}
-
-/**
- * Maps a feature+agent_run joined row to a DashboardFeature.
- */
-export function fromDashboardDatabase(row: DashboardFeatureRow): DashboardFeature {
-  return {
-    id: row.id,
-    name: row.name,
-    slug: row.slug,
-    description: row.description,
-    repositoryPath: row.repository_path,
-    branch: row.branch,
-    lifecycle: row.lifecycle,
-    ...(row.spec_path !== null && { specPath: row.spec_path }),
-    ...(row.agent_status !== null && { agentStatus: row.agent_status }),
-    ...(row.agent_error !== null && { agentError: row.agent_error }),
-    ...(row.agent_result !== null && { agentResult: row.agent_result }),
-    ...(row.agent_type !== null && { agentType: row.agent_type }),
-  };
 }
 
 /**

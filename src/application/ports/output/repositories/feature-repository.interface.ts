@@ -12,25 +12,6 @@
 import type { Feature, SdlcLifecycle } from '../../../../domain/generated/output.js';
 
 /**
- * Feature with joined agent run data for dashboard display.
- * Extends core Feature fields with optional agent execution metadata.
- */
-export interface DashboardFeature {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  repositoryPath: string;
-  branch: string;
-  lifecycle: string;
-  specPath?: string;
-  agentStatus?: string;
-  agentError?: string;
-  agentResult?: string;
-  agentType?: string;
-}
-
-/**
  * Filters for listing features.
  */
 export interface FeatureListFilters {
@@ -93,15 +74,6 @@ export interface IFeatureRepository {
    * @param feature - The feature with updated fields
    */
   update(feature: Feature): Promise<void>;
-
-  /**
-   * List features with joined agent run data for dashboard display.
-   * Performs LEFT JOIN with agent_runs table to include agent status metadata.
-   *
-   * @param filters - Optional filters for repositoryPath and lifecycle
-   * @returns Array of features with agent run data
-   */
-  listWithAgentRuns(filters?: FeatureListFilters): Promise<DashboardFeature[]>;
 
   /**
    * Delete a feature by ID.

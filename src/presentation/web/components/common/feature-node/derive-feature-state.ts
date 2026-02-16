@@ -1,25 +1,44 @@
 /**
  * Feature State Derivation
  *
- * Derives UI node state and progress from the Feature domain model.
- * State is computed from Feature.lifecycle and Feature.plan.tasks.
+ * Derives UI node state and progress from the Feature domain model
+ * and its associated AgentRun status (mirrors CLI feat ls logic).
  */
 
-import { SdlcLifecycle, TaskState } from '@shepai/core/domain/generated';
-import type { Feature } from '@shepai/core/domain/generated';
+import { SdlcLifecycle, AgentRunStatus, TaskState } from '@shepai/core/domain/generated';
+import type { Feature, AgentRun } from '@shepai/core/domain/generated';
 import type { FeatureNodeState } from './feature-node-state-config';
 
 /**
- * Derives the visual node state from a Feature domain entity.
+ * Derives the visual node state from a Feature and its optional AgentRun.
  *
- * Priority:
- * 1. Maintain lifecycle → done
- * 2. Plan tasks with Review state → action-required
- * 3. Plan tasks with WIP state → running
- * 4. All tasks Done → done
- * 5. No plan → running (feature is being set up)
+ * Priority (mirrors CLI formatStatus):
+ * 1. Agent waiting_approval → action-required
+ * 2. Agent failed → error
+ * 3. Agent interrupted/cancelled → blocked
+ * 4. Agent completed + Maintain lifecycle → done
+ * 5. Agent running/pending → running
+ * 6. No agent run → fall back to plan tasks / lifecycle
  */
-export function deriveNodeState(feature: Feature): FeatureNodeState {
+export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): FeatureNodeState {
+  if (agentRun) {
+    switch (agentRun.status) {
+      case AgentRunStatus.waitingApproval:
+        return 'action-required';
+      case AgentRunStatus.failed:
+        return 'error';
+      case AgentRunStatus.interrupted:
+      case AgentRunStatus.cancelled:
+        return 'blocked';
+      case AgentRunStatus.completed:
+        return feature.lifecycle === SdlcLifecycle.Maintain ? 'done' : 'done';
+      case AgentRunStatus.running:
+      case AgentRunStatus.pending:
+        return 'running';
+    }
+  }
+
+  // No agent run — fall back to plan tasks
   if (feature.lifecycle === SdlcLifecycle.Maintain) {
     return 'done';
   }
@@ -29,18 +48,13 @@ export function deriveNodeState(feature: Feature): FeatureNodeState {
     return 'running';
   }
 
-  const hasReview = tasks.some((t) => t.state === TaskState.Review);
-  if (hasReview) {
+  if (tasks.some((t) => t.state === TaskState.Review)) {
     return 'action-required';
   }
-
-  const hasWip = tasks.some((t) => t.state === TaskState.WIP);
-  if (hasWip) {
+  if (tasks.some((t) => t.state === TaskState.WIP)) {
     return 'running';
   }
-
-  const allDone = tasks.every((t) => t.state === TaskState.Done);
-  if (allDone) {
+  if (tasks.every((t) => t.state === TaskState.Done)) {
     return 'done';
   }
 
