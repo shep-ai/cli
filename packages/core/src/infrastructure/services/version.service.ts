@@ -18,17 +18,32 @@ import type { VersionInfo } from '../../domain/value-objects/version-info.js';
 export type { VersionInfo } from '../../domain/value-objects/version-info.js';
 
 /**
- * Find package.json by traversing up from a starting directory.
+ * Find the root package.json by traversing up from a starting directory.
+ * Skips workspace sub-packages (e.g. packages/core/package.json) that lack
+ * the required version/name/description fields.
  * Works in both development (src/) and production (dist/) environments.
  */
 function findPackageJson(startDir: string): string | null {
   let currentDir = startDir;
 
-  // Traverse up to find package.json (max 5 levels to avoid infinite loops)
-  for (let i = 0; i < 5; i++) {
+  // Traverse up to find package.json (max 10 levels for packages/core depth)
+  for (let i = 0; i < 10; i++) {
     const pkgPath = join(currentDir, 'package.json');
     if (existsSync(pkgPath)) {
-      return pkgPath;
+      try {
+        const content = readFileSync(pkgPath, 'utf-8');
+        const parsed = JSON.parse(content) as Record<string, unknown>;
+        // Only accept package.json with all required fields (skip workspace sub-packages)
+        if (
+          typeof parsed.version === 'string' &&
+          typeof parsed.name === 'string' &&
+          typeof parsed.description === 'string'
+        ) {
+          return pkgPath;
+        }
+      } catch {
+        // Malformed JSON, continue traversing
+      }
     }
     const parentDir = dirname(currentDir);
     if (parentDir === currentDir) break; // Reached filesystem root

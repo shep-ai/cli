@@ -32,22 +32,23 @@ const defaultDeps: WebServerDeps = {
  * Resolve the web UI directory path.
  * Works in both development (src/) and production (dist/) contexts.
  *
- * Development: import.meta.dirname = <root>/src/infrastructure/services/
- *   → ../../presentation/web → <root>/src/presentation/web/
+ * Development: import.meta.dirname = <root>/packages/core/src/infrastructure/services/
+ *   → 5 levels up → <root>/src/presentation/web/
  *
- * Production (npm install): import.meta.dirname = <root>/dist/src/infrastructure/services/
- *   → ../../../../web → <root>/web/
+ * Production (npm install): import.meta.dirname = <root>/dist/packages/core/src/infrastructure/services/
+ *   → 6 levels up → <root>/web/
  */
 export function resolveWebDir(): { dir: string; dev: boolean } {
   // Check for development source directory first
-  const devDir = path.resolve(import.meta.dirname, '../../presentation/web');
+  // From packages/core/src/infrastructure/services/ → 5 levels up to root, then src/presentation/web
+  const devDir = path.resolve(import.meta.dirname, '../../../../../src/presentation/web');
   if (fs.existsSync(path.join(devDir, 'next.config.ts'))) {
     return { dir: devDir, dev: true };
   }
 
   // Production: web UI is shipped alongside dist/ in the package
-  // From dist/src/infrastructure/services/ we need 4 levels up to reach the package root
-  const prodDir = path.resolve(import.meta.dirname, '../../../../web');
+  // From dist/packages/core/src/infrastructure/services/ → 6 levels up to package root
+  const prodDir = path.resolve(import.meta.dirname, '../../../../../../web');
   if (fs.existsSync(path.join(prodDir, '.next'))) {
     return { dir: prodDir, dev: false };
   }
