@@ -4,11 +4,12 @@
 name: feature-drawer
 summary: >
   Implementation plan for the feature drawer — a right-side sliding inspector panel that displays
-  feature details when a node is selected on the ReactFlow canvas. Uses Vaul-based shadcn Drawer
-  with non-modal mode (no overlay, canvas stays interactive). Three-phase approach: (1) install
-  vaul and create the Tier 0 Drawer UI primitive, (2) build the Tier 1 FeatureDrawer common
-  component with header/status/details sections and TDD test coverage, (3) integrate into
-  ControlCenterInner. All phases follow TDD with colocated Storybook stories.
+  feature details when a node is selected on the ReactFlow canvas, plus a feature creation drawer
+  with native OS file picker for attachments. Phases 1-3 (complete): install vaul, create Drawer
+  UI primitive, FeatureDrawer component, and integration. Phases 4-5 (new): extend the native
+  dialog service to support file picking (not just folders), integrate native file picker into
+  FeatureCreateDrawer so attachments include full absolute file paths, and add Playwright E2E
+  test verifying the full create-feature-with-attachment flow.
 
 # Relationships
 relatedFeatures: []
@@ -24,6 +25,8 @@ technologies:
   - class-variance-authority (CVA)
   - Lucide React (icons)
   - Vitest
+  - Playwright (E2E tests)
+  - Node.js child_process (native OS dialog commands)
 
 relatedLinks:
   - https://vaul.emilkowal.ski/
@@ -60,19 +63,58 @@ phases:
       end-to-end flow: open/close/switch behavior, keyboard accessibility, and dark mode.
     parallel: false
 
+  - id: phase-4
+    name: 'Native File Dialog Infrastructure'
+    description: >
+      Extend the native OS dialog bridge (currently folder-only via FolderDialogService) to
+      support file picking. Create a new FileDialogService with platform-specific commands
+      (osascript choose file / zenity --file-selection / PowerShell OpenFileDialog) that returns
+      absolute file paths with metadata (name, size). Create the corresponding Next.js API route
+      at /api/dialog/pick-files and a client-side pickFiles() helper. This follows the same
+      pattern established by the existing folder picker: infrastructure service → API route →
+      client helper. All with TDD unit tests.
+    parallel: false
+
+  - id: phase-5
+    name: 'FeatureCreateDrawer Native File Integration & E2E'
+    description: >
+      Replace the browser-native <input type="file"> in FeatureCreateDrawer with the native OS
+      file picker from Phase 4. Change CreateFeatureFormData.attachments from File[] to
+      FileAttachment[] (with full path, name, size). Update AttachmentCard to display the full
+      absolute file path. Update icon mapping to use file extension instead of MIME type. Update
+      all unit tests and Storybook stories. Write Playwright E2E test verifying the full scenario:
+      navigate to control center → open create drawer → attach a file via native picker → verify
+      attachment card shows full file path → submit. The E2E test uses Playwright route
+      interception to mock the /api/dialog/pick-files endpoint.
+    parallel: false
+
 # File change tracking
 filesToCreate:
+  # Phase 1-3 (complete)
   - src/presentation/web/components/ui/drawer.tsx
   - src/presentation/web/components/ui/drawer.stories.tsx
   - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
   - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
   - src/presentation/web/components/common/feature-drawer/index.ts
   - tests/unit/presentation/web/components/common/feature-drawer/feature-drawer.test.tsx
+  # Phase 4 (new — native file dialog infrastructure)
+  - src/infrastructure/services/file-dialog.service.ts
+  - src/presentation/web/app/api/dialog/pick-files/route.ts
+  - src/presentation/web/components/common/feature-create-drawer/pick-files.ts
+  - tests/unit/infrastructure/services/file-dialog.service.test.ts
+  - tests/unit/presentation/web/api/dialog/pick-files-route.test.ts
+  # Phase 5 (new — E2E test)
+  - tests/e2e/web/feature-create-drawer.spec.ts
 
 filesToModify:
+  # Phase 1-3 (complete)
   - src/presentation/web/package.json
   - src/presentation/web/components/common/index.ts
   - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  # Phase 5 (new — native file integration)
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
+  - tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx
 
 # Open questions (should all be resolved before implementation)
 openQuestions: []
@@ -209,3 +251,84 @@ content: |
   | No existing Progress UI component | Use inline div-based progress bar matching feature-node.tsx pattern. Keep it consistent, extract later if needed. |
   | vaul peer dependency compatibility with React 19 | Check vaul's peerDependencies during install. Vaul v1+ supports React 18/19. Fall back to pinning a compatible version if needed. |
   | `selectedNode` carries callback props (onAction, onSettings) | FeatureDrawer should only read data display fields from FeatureNodeData, ignoring callback props. These callbacks are for node interactions, not drawer actions. |
+  | Native OS dialog blocks E2E tests | Use Playwright route interception to mock `/api/dialog/pick-files`. Return controlled file paths without spawning actual OS dialogs. |
+  | `CreateFeatureFormData` interface change breaks consumers | Only `handleCreateFeatureSubmit` in `useControlCenterState` consumes this type, and it doesn't use `attachments` at all — safe to change from `File[]` to `FileAttachment[]`. |
+  | File picker returns paths but no metadata | The API route calls `fs.statSync()` on each returned path to get file size. File name is derived from `path.basename()`. |
+  | MIME type unavailable from native picker | Switch icon mapping from MIME-based to extension-based. Use a simple extension lookup (`.png`→image, `.pdf`→pdf, `.ts`→code, etc.). |
+
+  ## Phase 4-5: Native File Picker Integration
+
+  ### Architecture
+
+  Extends the existing native dialog bridge pattern (FolderDialogService → API route → client helper):
+
+  ```
+  FeatureCreateDrawer (client)
+    → pickFiles() (client helper)
+    → POST /api/dialog/pick-files (Next.js API route)
+    → FileDialogService.pickFiles() (infrastructure service)
+    → OS-native file dialog (osascript / zenity / PowerShell)
+    → Returns: FileAttachment[] { path, name, size }
+  ```
+
+  ### FileDialogService Design
+
+  New sibling to `FolderDialogService`, same architecture pattern:
+
+  ```typescript
+  // Platform-specific commands
+  darwin: osascript -e 'set f to (choose file with prompt "Select files" with multiple selections allowed)
+          set paths to {} / repeat with i in f / copy POSIX path of i to end of paths / end repeat
+          set text item delimiters to "\n" / paths as text'
+  linux:  zenity --file-selection --multiple --separator="\n" --title="Select files" 2>/dev/null
+  win32:  powershell OpenFileDialog with Multiselect, FileNames joined by newline
+  ```
+
+  Returns `string[]` (array of absolute paths) or `null` on cancel.
+
+  ### FileAttachment Interface
+
+  Replaces `File[]` in `CreateFeatureFormData`:
+
+  ```typescript
+  interface FileAttachment {
+    path: string;   // Full absolute path (e.g., /Users/dev/docs/spec.pdf)
+    name: string;   // Filename only (e.g., spec.pdf)
+    size: number;   // Size in bytes from fs.statSync()
+  }
+
+  interface CreateFeatureFormData {
+    name: string;
+    description: string;
+    attachments: FileAttachment[];  // Changed from File[]
+  }
+  ```
+
+  ### AttachmentCard Changes
+
+  - Shows full file path as subtitle below the filename
+  - Icon mapping uses file extension instead of MIME type
+  - File size display unchanged (same formatFileSize utility)
+
+  ### E2E Test Strategy
+
+  The Playwright E2E test uses route interception to avoid spawning actual OS dialogs:
+
+  ```typescript
+  await page.route('**/api/dialog/pick-files', (route) =>
+    route.fulfill({
+      json: {
+        files: [{ path: '/Users/test/docs/requirements.pdf', name: 'requirements.pdf', size: 42000 }],
+        cancelled: false,
+      },
+    })
+  );
+  ```
+
+  Test scenario:
+  1. Navigate to control center (/)
+  2. Click "+ Add Feature" to open create drawer
+  3. Type feature name
+  4. Click "Add Files" (triggers mocked native picker)
+  5. Verify attachment card shows full path (/Users/test/docs/requirements.pdf)
+  6. Submit and verify

@@ -3,10 +3,12 @@
 
 name: feature-drawer
 summary: >
-  8 tasks across 3 phases. Phase 1 (2 tasks): install vaul and create Tier 0 Drawer primitive
-  with stories. Phase 2 (4 tasks): create FeatureDrawer component with TDD tests, Storybook
-  stories, and barrel exports. Phase 3 (2 tasks): integrate into ControlCenterInner and
-  run final validation.
+  12 tasks across 5 phases. Phases 1-3 (8 tasks, complete): install vaul, create Drawer primitive,
+  FeatureDrawer component with TDD tests and stories, integration into ControlCenterInner. Phase 4
+  (2 tasks, new): create FileDialogService for native OS file picking with API route and client
+  helper. Phase 5 (2 tasks, new): integrate native file picker into FeatureCreateDrawer replacing
+  browser File[] with FileAttachment[] (full paths), update tests/stories, and add Playwright E2E
+  test verifying create-feature-with-attachment flow shows full file paths.
 
 # Relationships
 relatedFeatures: []
@@ -16,6 +18,8 @@ technologies:
   - Tailwind CSS v4
   - Storybook
   - Vitest
+  - Playwright
+  - Node.js child_process / fs
 relatedLinks: []
 
 # Structured task list
@@ -27,7 +31,7 @@ tasks:
       Add vaul as a dependency to @shepai/web package.json and install it. Verify the installed
       version is compatible with React 19 by checking peer dependencies. Run pnpm install to
       update the lockfile.
-    state: Todo
+    state: Done
     dependencies: []
     acceptanceCriteria:
       - 'vaul appears in src/presentation/web/package.json dependencies'
@@ -46,7 +50,7 @@ tasks:
       directions via a direction prop on DrawerContent. Use data-slot attributes, cn() utility,
       and the same naming conventions as sheet.tsx. Create colocated drawer.stories.tsx with stories
       covering right-side drawer (primary use case), all four directions, and non-modal mode.
-    state: Todo
+    state: Done
     dependencies:
       - task-1
     acceptanceCriteria:
@@ -85,7 +89,7 @@ tasks:
       section shows/hides optional fields (description, agentName, runtime, blockedBy,
       errorMessage), (7) onClose callback is invoked. Use React Testing Library with data-slot
       or data-testid selectors.
-    state: Todo
+    state: Done
     dependencies:
       - task-2
     acceptanceCriteria:
@@ -130,7 +134,7 @@ tasks:
       title, featureId as subtitle, (2) Status — lifecycle phase label, state badge with
       icon/color from featureNodeStateConfig, progress bar when progress > 0, (3) Details —
       description, agentName, runtime, blockedBy, errorMessage. Undefined/null fields are hidden.
-    state: Todo
+    state: Done
     dependencies:
       - task-3
     acceptanceCriteria:
@@ -170,7 +174,7 @@ tasks:
       feature states (running, action-required, done, blocked, error), all 6 lifecycle phases,
       with/without optional fields, and a composite AllStates story. Follow the same pattern as
       feature-node.stories.tsx — define data arrays and render each variant.
-    state: Todo
+    state: Done
     dependencies:
       - task-4
     acceptanceCriteria:
@@ -202,7 +206,7 @@ tasks:
       Create index.ts in components/common/feature-drawer/ exporting the component and its props
       type. Add the FeatureDrawer export to components/common/index.ts following the existing
       barrel pattern (see FeatureNode, EmptyState, etc.).
-    state: Todo
+    state: Done
     dependencies:
       - task-4
     acceptanceCriteria:
@@ -221,7 +225,7 @@ tasks:
       Destructure selectedNode from useControlCenterState (already returned but not used in JSX).
       Pass selectedNode and clearSelection (as onClose) to FeatureDrawer. Wrap the return value
       in a Fragment (<>) to render both FeaturesCanvas and FeatureDrawer as siblings.
-    state: Todo
+    state: Done
     dependencies:
       - task-6
     acceptanceCriteria:
@@ -255,7 +259,7 @@ tasks:
       Run the full validation suite: typecheck, lint, format, and all tests. Verify Storybook
       builds without errors. Test dark mode rendering. Verify keyboard accessibility (Escape
       closes, Tab navigates drawer content). Fix any issues found during validation.
-    state: Todo
+    state: Done
     dependencies:
       - task-7
     acceptanceCriteria:
@@ -271,8 +275,180 @@ tasks:
     tdd: null
     estimatedEffort: '30min'
 
+  # --- Phase 4: Native File Dialog Infrastructure ---
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Create FileDialogService with pickFiles() method (TDD)'
+    description: >
+      Create a new FileDialogService in infrastructure/services/file-dialog.service.ts following
+      the same pattern as FolderDialogService. Platform-specific commands: macOS uses osascript
+      with "choose file" (multiple selections allowed), Linux uses zenity --file-selection
+      --multiple, Windows uses PowerShell OpenFileDialog with Multiselect. The service returns
+      an array of objects containing { path, name, size } for each selected file, or null on
+      cancel. For each path returned by the OS command, call fs.statSync() to get the file size
+      and path.basename() to extract the filename. Write comprehensive TDD unit tests following
+      the existing folder-dialog.service.test.ts pattern — covering all three platforms, cancel
+      handling, error handling, multi-file parsing, and file metadata extraction.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'file-dialog.service.ts exists in infrastructure/services/'
+      - 'FileDialogService has pickFiles() method returning FileAttachment[] | null'
+      - 'FileAttachment interface exported with { path: string; name: string; size: number }'
+      - 'macOS command uses osascript with choose file and multiple selections allowed'
+      - 'Linux command uses zenity --file-selection --multiple --separator="\n"'
+      - 'Windows command uses PowerShell OpenFileDialog with Multiselect'
+      - 'File metadata (name, size) populated via path.basename() and fs.statSync()'
+      - 'Returns null when user cancels (exit code 1)'
+      - 'Throws for unsupported platforms'
+      - 'Unit tests cover all platforms, cancel, errors, multi-file parsing, metadata extraction'
+      - 'pnpm test:single passes for the test file'
+    tdd:
+      red:
+        - 'Create test file at tests/unit/infrastructure/services/file-dialog.service.test.ts'
+        - 'Write tests for getCommand() per platform (darwin, linux, win32, unsupported)'
+        - 'Write tests for pickFiles() returning parsed FileAttachment[] with paths and sizes'
+        - 'Write tests for multi-file output parsing (newline-separated)'
+        - 'Write tests for cancel handling (exit code 1 → null)'
+        - 'Write tests for error re-throwing (non-cancel errors)'
+        - 'Write tests for empty/whitespace output → null'
+        - 'All tests FAIL (RED — service does not exist yet)'
+      green:
+        - 'Create FileDialogService class with PLATFORM_COMMANDS for file picking'
+        - 'Implement pickFiles() — parse newline-separated output, stat each file, return array'
+        - 'Export FileAttachment interface'
+        - 'All tests PASS'
+      refactor:
+        - 'Extract shared error-handling logic if duplicated with FolderDialogService'
+        - 'Ensure consistent typing and dep injection pattern'
+    estimatedEffort: '1.5h'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Create API route and client helper for file picking'
+    description: >
+      Create the Next.js API route at app/api/dialog/pick-files/route.ts that instantiates
+      FileDialogService, calls pickFiles(), and returns JSON { files: FileAttachment[] | null,
+      cancelled: boolean }. Create a client-side pickFiles() helper at
+      components/common/feature-create-drawer/pick-files.ts that POSTs to /api/dialog/pick-files
+      and returns the parsed FileAttachment array or null. Write unit tests for both the API route
+      (following pick-folder-route.test.ts pattern) and the client helper.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'API route exists at app/api/dialog/pick-files/route.ts'
+      - 'POST returns { files: [...], cancelled: false } on success'
+      - 'POST returns { files: null, cancelled: true } on cancel'
+      - 'POST returns { error: string } with status 500 on failure'
+      - 'Client helper pickFiles() exists in feature-create-drawer/pick-files.ts'
+      - 'Client helper returns FileAttachment[] or null'
+      - 'Client helper throws on non-OK response'
+      - 'Unit tests pass for both route and client helper'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Create route test at tests/unit/presentation/web/api/dialog/pick-files-route.test.ts'
+        - 'Write test: success response with file paths and metadata'
+        - 'Write test: cancelled response (null files)'
+        - 'Write test: error response (500 status)'
+        - 'All tests FAIL (route does not exist yet)'
+      green:
+        - 'Create route.ts importing FileDialogService'
+        - 'Create pick-files.ts client helper with POST fetch'
+        - 'All tests PASS'
+      refactor:
+        - 'Verify error messages are descriptive'
+        - 'Ensure response typing is consistent with pick-folder pattern'
+    estimatedEffort: '45min'
+
+  # --- Phase 5: FeatureCreateDrawer Native Integration & E2E ---
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'Update FeatureCreateDrawer to use native file picker with full paths'
+    description: >
+      Replace the browser <input type="file"> in FeatureCreateDrawer with the native OS file
+      picker. Change CreateFeatureFormData.attachments from File[] to FileAttachment[] (imported
+      from file-dialog.service). Replace the hidden file input + handleFileChange with an async
+      onClick handler that calls pickFiles(). Update AttachmentCard to accept FileAttachment
+      instead of File — show the full absolute path as a subtitle below the file name. Change
+      icon mapping functions (getFileIcon, getFileIconColor) from MIME-type-based to
+      extension-based lookup. Update the attachment key from
+      `${file.name}-${file.size}-${file.lastModified}` to `${file.path}`. Update unit tests
+      to mock pickFiles() and verify full paths are displayed. Update Storybook stories
+      (especially the Interactive story) to show full paths in the submitted data panel.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'CreateFeatureFormData.attachments is FileAttachment[] (not File[])'
+      - 'FileAttachment interface used: { path: string; name: string; size: number }'
+      - 'Browser <input type="file"> removed — replaced with pickFiles() call'
+      - '"Add Files" button triggers async pickFiles() → native OS dialog'
+      - 'AttachmentCard displays full file path below file name'
+      - 'Icon mapping uses file extension (not MIME type)'
+      - 'Attachment key uses file.path for stable identity'
+      - 'All existing unit tests updated to use FileAttachment mocks'
+      - 'Storybook Interactive story shows full paths in submitted data panel'
+      - 'pnpm test passes (all unit tests green)'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm lint:web passes'
+      - 'Storybook builds without errors'
+    tdd:
+      red:
+        - 'Update existing unit tests to expect FileAttachment[] instead of File[]'
+        - 'Add test: "Add Files" calls pickFiles() and adds returned FileAttachment to state'
+        - 'Add test: attachment card displays full file path'
+        - 'Add test: attachment card displays correct icon based on file extension'
+        - 'Add test: submission payload includes FileAttachment[] with paths'
+        - 'Tests FAIL (component still uses File[])'
+      green:
+        - 'Change CreateFeatureFormData.attachments type to FileAttachment[]'
+        - 'Replace file input with pickFiles() async call on button click'
+        - 'Update AttachmentCard to render path, name, and size from FileAttachment'
+        - 'Refactor getFileIcon/getFileIconColor to use file extension'
+        - 'Update Storybook stories with FileAttachment mock data'
+        - 'All tests PASS'
+      refactor:
+        - 'Verify error handling when pickFiles() throws or returns null'
+        - 'Ensure accessible labels still reference file name correctly'
+        - 'Clean up unused File-related imports'
+    estimatedEffort: '2h'
+
+  - id: task-12
+    phaseId: phase-5
+    title: 'E2E test: create feature with file attachment showing full path'
+    description: >
+      Write a Playwright E2E test at tests/e2e/web/feature-create-drawer.spec.ts that validates
+      the full create-feature-with-attachment scenario. Use Playwright route interception to mock
+      the POST /api/dialog/pick-files endpoint (returning a controlled file path like
+      /Users/test/docs/requirements.pdf with metadata). Test scenario: navigate to control center
+      → click "+ Feature" to open the create drawer → type a feature name → click "Add Files"
+      (triggers mocked native picker) → verify the attachment card shows the full file path
+      (/Users/test/docs/requirements.pdf) → verify the file name and size are displayed →
+      submit the feature. This is the Definition of Done for the entire native file integration.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'E2E test file exists at tests/e2e/web/feature-create-drawer.spec.ts'
+      - 'Test mocks POST /api/dialog/pick-files via Playwright route interception'
+      - 'Test opens the create drawer via the canvas add-feature action'
+      - 'Test fills in a feature name'
+      - 'Test clicks "Add Files" button'
+      - 'Test verifies attachment card shows full file path (e.g., /Users/test/docs/requirements.pdf)'
+      - 'Test verifies file name is displayed (requirements.pdf)'
+      - 'Test verifies file size is displayed'
+      - 'Test submits the form successfully'
+      - 'pnpm test:e2e passes for this test file'
+    tdd: null
+    estimatedEffort: '1h'
+
 # Total effort estimate
-totalEstimate: '6h'
+totalEstimate: '11h'
 
 # Open questions
 openQuestions: []
@@ -281,21 +457,35 @@ openQuestions: []
 content: |
   ## Summary
 
-  8 tasks across 3 phases, estimated at ~6 hours total.
+  12 tasks across 5 phases, estimated at ~11 hours total.
 
-  **Phase 1 (Tier 0 Drawer Primitive)** establishes the foundation: install vaul and create
-  the generic Drawer UI component following the sheet.tsx pattern. This produces a reusable
-  primitive that any future drawer use case can consume.
+  **Phases 1-3 (complete, 8 tasks)** established the Drawer UI primitive, FeatureDrawer
+  component, and integration into ControlCenterInner.
 
-  **Phase 2 (Tier 1 FeatureDrawer)** is the core work: TDD-first unit tests covering all 5
-  feature states and optional field visibility, followed by the minimal implementation to pass
-  those tests, then Storybook stories for visual coverage and barrel exports for clean imports.
+  **Phase 4 (Native File Dialog Infrastructure, 2 tasks)** creates the FileDialogService
+  with platform-specific OS commands for file picking (parallel to the existing
+  FolderDialogService for folders). Includes the API route and client helper following
+  the same architecture pattern.
 
-  **Phase 3 (Integration)** wires the FeatureDrawer into the actual page by modifying
-  ControlCenterInner to pass selectedNode and clearSelection. This is a small change because
-  the state management already exists in useControlCenterState — the drawer just needs to
-  consume it. Final validation ensures typecheck, lint, tests, and Storybook all pass.
+  **Phase 5 (FeatureCreateDrawer Integration & E2E, 2 tasks)** replaces the browser
+  `<input type="file">` with the native OS file picker, changes the attachment data model
+  from `File[]` to `FileAttachment[]` (with full absolute paths), updates the UI to display
+  full file paths, and validates with a Playwright E2E test.
 
-  The TDD cycle is concentrated in Phase 2 tasks 3-4: task-3 writes all failing tests (RED),
-  task-4 implements the component to pass them (GREEN) with refactoring. Phase 3 task-7 adds
-  lightweight integration tests for the wiring.
+  ### Definition of Done
+
+  E2E test passes with the following scenario:
+  1. Navigate to control center
+  2. Open create feature drawer
+  3. Type a feature name
+  4. Click "Add Files" → native file picker returns a file
+  5. Attachment card shows the **full absolute file path** (not just name/size/type)
+  6. Submit the feature successfully
+
+  ### TDD Cycles
+
+  - **Task 9 (RED→GREEN)**: Unit tests for FileDialogService before implementation
+  - **Task 10 (RED→GREEN)**: Unit tests for API route before implementation
+  - **Task 11 (RED→GREEN)**: Update existing unit tests to expect FileAttachment[], then
+    modify the component to pass them
+  - **Task 12**: Playwright E2E test (no TDD cycle — E2E is the final validation)

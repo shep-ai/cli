@@ -3,17 +3,17 @@ feature:
   name: feature-drawer
   number: 18
   branch: feat/feature-drawer
-  lifecycle: review
+  lifecycle: implementation
   createdAt: '2026-02-15T18:11:21Z'
 status:
-  phase: in-review
+  phase: in-progress
   progress:
     completed: 8
-    total: 8
-    percentage: 100
-  currentTask: null
-  lastUpdated: '2026-02-16T13:25:00.000Z'
-  lastUpdatedBy: shep-kit:commit-pr
+    total: 12
+    percentage: 67
+  currentTask: task-9
+  lastUpdated: '2026-02-16T20:00:00.000Z'
+  lastUpdatedBy: shep-kit:plan
 prUrl: https://github.com/shep-ai/cli/pull/55
 validation:
   lastRun: '2026-02-16T13:15:00.000Z'
@@ -24,7 +24,7 @@ validation:
     - storybook-build
   autoFixesApplied: []
 tasks:
-  current: null
+  current: task-9
   blocked: []
   failed: []
 checkpoints:
@@ -40,6 +40,10 @@ checkpoints:
   - phase: ci-passed
     completedAt: '2026-02-16T13:25:00.000Z'
     completedBy: shep-kit:commit-pr
+  - phase: plan-updated
+    completedAt: '2026-02-16T20:00:00.000Z'
+    completedBy: shep-kit:plan
+    notes: 'Added phases 4-5: native file dialog service + FeatureCreateDrawer integration + E2E test (tasks 9-12)'
 errors:
   current: null
   history: []
