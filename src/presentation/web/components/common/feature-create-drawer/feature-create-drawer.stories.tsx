@@ -101,7 +101,7 @@ const logSubmit = fn().mockName('onSubmit');
 const logClose = fn().mockName('onClose');
 
 /* ---------------------------------------------------------------------------
- * Trigger wrappers
+ * Trigger wrapper — every story uses this so nothing auto-opens on Docs page
  * ------------------------------------------------------------------------- */
 
 /** Starts closed — click button to open. Actions are logged. */
@@ -135,20 +135,6 @@ function CreateDrawerTrigger({
   );
 }
 
-/** Pre-opened drawer — visible on mount, action-logged callbacks. */
-function PreOpenedDrawer({ isSubmitting = false }: { isSubmitting?: boolean }) {
-  return (
-    <div className="flex h-screen items-start p-4">
-      <FeatureCreateDrawer
-        open={true}
-        onClose={logClose}
-        onSubmit={logSubmit}
-        isSubmitting={isSubmitting}
-      />
-    </div>
-  );
-}
-
 /* ---------------------------------------------------------------------------
  * Per-state stories
  * ------------------------------------------------------------------------- */
@@ -159,18 +145,19 @@ export const Default: Story = {
 };
 
 /**
- * Pre-filled form — drawer opens with name and description already entered.
+ * Pre-filled form — click to open, then name and description are typed in.
  * Demonstrates the form in a "ready to submit" state.
- *
- * Uses a `play` function to type into the uncontrolled form fields after the
- * drawer renders, simulating real user input.
  */
 export const PreFilled: Story = {
-  render: () => <PreOpenedDrawer />,
+  render: () => <CreateDrawerTrigger label="Open Pre-Filled" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const nameInput = canvas.getByPlaceholderText('e.g. GitHub OAuth Login');
-    const descInput = canvas.getByPlaceholderText('Describe what this feature does...');
+    await userEvent.click(canvas.getByRole('button', { name: 'Open Pre-Filled' }));
+
+    // Drawer renders in a portal — query from document body
+    const body = within(canvasElement.ownerDocument.body);
+    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
+    const descInput = body.getByPlaceholderText('Describe what this feature does...');
 
     await userEvent.type(nameInput, 'GitHub OAuth Login');
     await userEvent.type(
@@ -188,17 +175,21 @@ export const PreFilled: Story = {
  * - PDF (`application/pdf`) → red FileTextIcon
  * - code (`text/typescript`, `application/json`) → emerald CodeIcon
  * - generic (`application/zip`) → gray FileIcon
- *
- * Uses `userEvent.upload` to inject mock `File` objects into the hidden file input.
  */
 export const WithAttachments: Story = {
-  render: () => <PreOpenedDrawer />,
+  render: () => <CreateDrawerTrigger label="Open With Attachments" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const nameInput = canvas.getByPlaceholderText('e.g. GitHub OAuth Login');
+    await userEvent.click(canvas.getByRole('button', { name: 'Open With Attachments' }));
+
+    // Drawer renders in a portal — query from document body
+    const body = within(canvasElement.ownerDocument.body);
+    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
     await userEvent.type(nameInput, 'Dashboard Redesign');
 
-    const fileInput = canvasElement.querySelector('input[type="file"]') as HTMLInputElement;
+    const fileInput = canvasElement.ownerDocument.body.querySelector(
+      'input[type="file"]'
+    ) as HTMLInputElement;
     await userEvent.upload(fileInput, [mockScreenshot, mockPdf, mockTypeScript, mockJson, mockZip]);
   },
 };
@@ -214,16 +205,17 @@ export const Submitting: Story = {
 /**
  * Pre-opened submitting state with fields pre-filled.
  * Demonstrates how the form looks mid-submission with data already entered.
- *
- * **Note:** The play function fills fields before the component re-renders with
- * `isSubmitting`, so the final visual shows disabled fields with values.
  */
 export const SubmittingPreOpened: Story = {
-  render: () => <PreOpenedDrawer isSubmitting />,
+  render: () => <CreateDrawerTrigger isSubmitting label="Open Submitting (Pre-filled)" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const nameInput = canvas.getByPlaceholderText('e.g. GitHub OAuth Login');
-    const descInput = canvas.getByPlaceholderText('Describe what this feature does...');
+    await userEvent.click(canvas.getByRole('button', { name: 'Open Submitting (Pre-filled)' }));
+
+    // Drawer renders in a portal — query from document body
+    const body = within(canvasElement.ownerDocument.body);
+    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
+    const descInput = body.getByPlaceholderText('Describe what this feature does...');
 
     await userEvent.type(nameInput, 'GitHub OAuth Login');
     await userEvent.type(descInput, 'Implement OAuth2 authentication with GitHub.');
@@ -231,19 +223,24 @@ export const SubmittingPreOpened: Story = {
 };
 
 /**
- * Validation state — drawer is open with an empty name field.
+ * Validation state — open the drawer with an empty name field.
  * The "+ Create Feature" button is disabled because name validation fails.
- *
- * Demonstrates the form's built-in validation guard: submit requires a
- * non-empty trimmed name.
  */
 export const ValidationDisabled: Story = {
-  render: () => <PreOpenedDrawer />,
+  render: () => <CreateDrawerTrigger label="Open Validation Demo" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open Validation Demo' }));
+  },
 };
 
-/** Pre-opened drawer for quick visual inspection without clicking a trigger. */
+/** Click to open the drawer for quick visual inspection. */
 export const PreOpened: Story = {
-  render: () => <PreOpenedDrawer />,
+  render: () => <CreateDrawerTrigger label="Open Drawer" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open Drawer' }));
+  },
 };
 
 /* ---------------------------------------------------------------------------
@@ -326,11 +323,11 @@ const formPhaseLabels: Record<FormPhase, string> = {
  * Uses `key={phase}` to force React remount (resetting internal state), then
  * programmatically fills form fields via native value setters after mount.
  */
-function FormPhaseDrawer({ phase }: { phase: FormPhase }) {
+function FormPhaseDrawer({ phase, open }: { phase: FormPhase; open: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (phase === 'empty') return;
+    if (!open || phase === 'empty') return;
 
     const raf = requestAnimationFrame(() => {
       const container = containerRef.current;
@@ -370,13 +367,13 @@ function FormPhaseDrawer({ phase }: { phase: FormPhase }) {
     });
 
     return () => cancelAnimationFrame(raf);
-  }, [phase]);
+  }, [phase, open]);
 
   return (
     <div ref={containerRef} className="flex-1">
       <FeatureCreateDrawer
         key={phase}
-        open={true}
+        open={open}
         onClose={logClose}
         onSubmit={logSubmit}
         isSubmitting={phase === 'submitting'}
@@ -386,9 +383,8 @@ function FormPhaseDrawer({ phase }: { phase: FormPhase }) {
 }
 
 /**
- * Form states matrix — switch between **Empty**, **Partial** (name only),
- * **Complete** (all fields + attachments), and **Submitting** states via
- * sidebar buttons.
+ * Form states matrix — click a phase button to open the drawer in that state.
+ * Click the same button again (or close the drawer) to dismiss it.
  *
  * Demonstrates how the drawer looks at each stage of the form completion
  * lifecycle. Each phase forces a full React remount via `key={phase}` and
@@ -397,6 +393,7 @@ function FormPhaseDrawer({ phase }: { phase: FormPhase }) {
 export const FormStatesMatrix: Story = {
   render: function FormStatesMatrixRender() {
     const [phase, setPhase] = useState<FormPhase>('empty');
+    const [open, setOpen] = useState(false);
 
     return (
       <div className="flex h-screen">
@@ -408,16 +405,25 @@ export const FormStatesMatrix: Story = {
             <button
               key={p}
               type="button"
-              onClick={() => setPhase(p)}
+              onClick={() => {
+                if (open && p === phase) {
+                  setOpen(false);
+                } else {
+                  setPhase(p);
+                  setOpen(true);
+                }
+              }}
               className={`rounded-md px-3 py-1.5 text-left text-sm ${
-                p === phase ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-muted/80'
+                open && p === phase
+                  ? 'bg-primary text-primary-foreground'
+                  : 'bg-muted hover:bg-muted/80'
               }`}
             >
               {formPhaseLabels[p]}
             </button>
           ))}
         </div>
-        <FormPhaseDrawer phase={phase} />
+        <FormPhaseDrawer phase={phase} open={open} />
       </div>
     );
   },
