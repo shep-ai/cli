@@ -1,4 +1,7 @@
 {
+  "name": "Claude Code",
+  "summary": "AI-powered code assistant from Anthropic",
+  "description": "Claude Code is an AI-powered code assistant from Anthropic that helps you write, understand, and debug code with advanced AI capabilities.",
   "binary": "claude",
   "packageManager": "curl",
   "commands": {

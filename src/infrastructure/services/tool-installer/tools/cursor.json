@@ -1,4 +1,7 @@
 {
+  "name": "Cursor",
+  "summary": "AI-powered code editor for efficient development",
+  "description": "Cursor is an AI-powered code editor built on VS Code, designed to streamline development workflows with advanced AI-assisted coding capabilities.",
   "binary": "cursor",
   "packageManager": "curl",
   "commands": {

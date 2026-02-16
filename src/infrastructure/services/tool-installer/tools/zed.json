@@ -1,4 +1,7 @@
 {
+  "name": "Zed",
+  "summary": "High-performance code editor written in Rust",
+  "description": "Zed is a high-performance code editor written in Rust, designed for speed and collaboration with modern developer workflows.",
   "binary": "zed",
   "packageManager": "curl",
   "commands": {

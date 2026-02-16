@@ -13,6 +13,15 @@ import { join, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export interface ToolMetadata {
+  /** Human-readable display name */
+  name: string;
+
+  /** Short one-line summary */
+  summary: string;
+
+  /** Detailed description */
+  description: string;
+
   /** Binary name to check with 'which' command (string or per-platform map) */
   binary: string | Record<string, string>;
 
@@ -39,6 +48,9 @@ export interface ToolMetadata {
 }
 
 const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [
+  'name',
+  'summary',
+  'description',
   'binary',
   'packageManager',
   'commands',

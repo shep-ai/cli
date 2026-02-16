@@ -32,15 +32,15 @@ function printToolsList(): void {
 
   console.log(fmt.heading('IDEs:'));
   for (const key of ides) {
-    const note = TOOL_METADATA[key].notes ?? '';
-    console.log(`  ${colors.accent(key.padEnd(16))}${colors.muted(note)}`);
+    const meta = TOOL_METADATA[key];
+    console.log(`  ${colors.accent(key.padEnd(16))}${meta.name} - ${colors.muted(meta.summary)}`);
   }
   console.log();
 
   console.log(fmt.heading('CLI Agents:'));
   for (const key of cliAgents) {
-    const note = TOOL_METADATA[key].notes ?? '';
-    console.log(`  ${colors.accent(key.padEnd(16))}${colors.muted(note)}`);
+    const meta = TOOL_METADATA[key];
+    console.log(`  ${colors.accent(key.padEnd(16))}${meta.name} - ${colors.muted(meta.summary)}`);
   }
   console.log();
 }
@@ -77,7 +77,7 @@ export function createInstallCommand(): Command {
 
         if (options.how) {
           // Print installation instructions without executing
-          printInstallInstructions(tool, metadata);
+          printInstallInstructions(metadata);
           return;
         }
 
@@ -93,7 +93,7 @@ export function createInstallCommand(): Command {
         // Tools that don't support auto-install — show instructions instead
         if (metadata.autoInstall === false) {
           messages.warning(`${tool} does not support automated installation`);
-          printInstallInstructions(tool, metadata);
+          printInstallInstructions(metadata);
           return;
         }
 
@@ -121,12 +121,13 @@ export function createInstallCommand(): Command {
 /**
  * Print installation instructions for a tool
  */
-function printInstallInstructions(
-  toolName: string,
-  metadata: (typeof TOOL_METADATA)[keyof typeof TOOL_METADATA]
-) {
+function printInstallInstructions(metadata: (typeof TOOL_METADATA)[keyof typeof TOOL_METADATA]) {
   console.log();
-  console.log(fmt.heading(`Installation Instructions for ${toolName}`));
+  console.log(fmt.heading(`Installation Instructions for ${metadata.name}`));
+  console.log();
+  console.log(`${fmt.label('Name:')} ${metadata.name}`);
+  console.log(`${fmt.label('Summary:')} ${metadata.summary}`);
+  console.log(`${fmt.label('Description:')} ${metadata.description}`);
   console.log();
 
   const binaryDisplay =

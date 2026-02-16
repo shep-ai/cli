@@ -1,4 +1,7 @@
 {
+  "name": "Cursor CLI",
+  "summary": "AI-powered code editor command-line interface",
+  "description": "Cursor CLI provides command-line access to Cursor, an AI-powered code editor designed for efficient AI-assisted development.",
   "binary": "cursor",
   "packageManager": "curl",
   "commands": {
