@@ -3,17 +3,17 @@ feature:
   name: cli-upgrade-command
   number: 20
   branch: feat/020-cli-upgrade-command
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-16T16:45:48Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 4
     total: 4
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-16T17:03:42.295Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-16T17:05:15Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -21,6 +21,7 @@ status:
     - plan
     - phase-1
     - phase-2
+prUrl: https://github.com/shep-ai/cli/pull/59
 validation:
   lastRun: null
   gatesPassed: []
@@ -33,6 +34,9 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-16T16:45:48Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-16T17:05:15Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
