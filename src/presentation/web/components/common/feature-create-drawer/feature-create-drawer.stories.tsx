@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { within, userEvent, fn } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
@@ -16,8 +16,9 @@ import { Button } from '@/components/ui/button';
  * ### Form sections
  * - **Feature Name** (required) — text input, submit is disabled when empty
  * - **Description** (optional) — multi-line textarea
- * - **Attachments** (optional) — file picker with MIME-based icon system:
- *   image → blue, PDF → red, code/text → emerald, generic → gray
+ * - **Attachments** (optional) — native OS file picker with extension-based icon system:
+ *   image → blue, PDF → red, code/text → emerald, generic → gray.
+ *   Each attachment card shows the **full absolute file path**.
  *
  * ### Props
  * | Prop | Type | Description |
@@ -32,6 +33,8 @@ import { Button } from '@/components/ui/button';
  * - Submit button is disabled when name is empty OR `isSubmitting` is true
  * - Non-modal (`modal={false}`) — canvas stays interactive behind the drawer
  * - Fixed width: 384px (`w-96`)
+ * - Attachments use native OS file picker via `pickFiles()` — returns `FileAttachment[]`
+ *   with full absolute paths, filenames, and sizes
  */
 const meta: Meta<typeof FeatureCreateDrawer> = {
   title: 'Composed/FeatureCreateDrawer',
@@ -63,35 +66,6 @@ const meta: Meta<typeof FeatureCreateDrawer> = {
 
 export default meta;
 type Story = StoryObj<typeof FeatureCreateDrawer>;
-
-/* ---------------------------------------------------------------------------
- * Mock file fixtures — cover all four MIME icon categories
- * ------------------------------------------------------------------------- */
-
-/** Image file → ImageIcon (blue-50/blue-600) */
-const mockScreenshot = new File(['screenshot-data'], 'dashboard-screenshot.png', {
-  type: 'image/png',
-});
-
-/** PDF file → FileTextIcon (red-50/red-600) */
-const mockPdf = new File(['pdf-content'], 'requirements-document.pdf', {
-  type: 'application/pdf',
-});
-
-/** Code/text file → CodeIcon (emerald-50/emerald-600) */
-const mockTypeScript = new File(['export const config = {};'], 'api-config.ts', {
-  type: 'text/typescript',
-});
-
-/** JSON file → CodeIcon (emerald-50/emerald-600) */
-const mockJson = new File(['{"key": "value"}'], 'openapi-spec.json', {
-  type: 'application/json',
-});
-
-/** Generic/unknown file → FileIcon (gray-50/gray-600) */
-const mockZip = new File(['binary-data'], 'assets-bundle.zip', {
-  type: 'application/zip',
-});
 
 /* ---------------------------------------------------------------------------
  * Shared action loggers
@@ -168,58 +142,11 @@ export const PreFilled: Story = {
 };
 
 /**
- * Drawer with multiple file attachments of varying MIME types.
- *
- * Showcases the **AttachmentCard** sub-component with MIME-based icon mapping:
- * - image (`image/png`) → blue ImageIcon
- * - PDF (`application/pdf`) → red FileTextIcon
- * - code (`text/typescript`, `application/json`) → emerald CodeIcon
- * - generic (`application/zip`) → gray FileIcon
- */
-export const WithAttachments: Story = {
-  render: () => <CreateDrawerTrigger label="Open With Attachments" />,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Open With Attachments' }));
-
-    // Drawer renders in a portal — query from document body
-    const body = within(canvasElement.ownerDocument.body);
-    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
-    await userEvent.type(nameInput, 'Dashboard Redesign');
-
-    const fileInput = canvasElement.ownerDocument.body.querySelector(
-      'input[type="file"]'
-    ) as HTMLInputElement;
-    await userEvent.upload(fileInput, [mockScreenshot, mockPdf, mockTypeScript, mockJson, mockZip]);
-  },
-};
-
-/**
  * Submitting/loading state — all form fields are disabled, submit button shows "Creating...".
  * Click the trigger to open and observe the disabled form.
  */
 export const Submitting: Story = {
   render: () => <CreateDrawerTrigger isSubmitting label="Open (Submitting)" />,
-};
-
-/**
- * Pre-opened submitting state with fields pre-filled.
- * Demonstrates how the form looks mid-submission with data already entered.
- */
-export const SubmittingPreOpened: Story = {
-  render: () => <CreateDrawerTrigger isSubmitting label="Open Submitting (Pre-filled)" />,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Open Submitting (Pre-filled)' }));
-
-    // Drawer renders in a portal — query from document body
-    const body = within(canvasElement.ownerDocument.body);
-    const nameInput = await body.findByPlaceholderText('e.g. GitHub OAuth Login');
-    const descInput = body.getByPlaceholderText('Describe what this feature does...');
-
-    await userEvent.type(nameInput, 'GitHub OAuth Login');
-    await userEvent.type(descInput, 'Implement OAuth2 authentication with GitHub.');
-  },
 };
 
 /**
@@ -244,16 +171,18 @@ export const PreOpened: Story = {
 };
 
 /* ---------------------------------------------------------------------------
- * Interactive / matrix stories
+ * Interactive story — full paths shown in submitted data panel
  * ------------------------------------------------------------------------- */
 
 /**
- * Fully interactive story — open the drawer, fill the form, add files via
- * the native file picker, and click "+ Create Feature".
+ * Fully interactive story — open the drawer, fill the form, and click
+ * "Add Files" to attach files via the native OS file picker.
  *
- * **Submitted data** is displayed in a styled panel next to the trigger button
- * AND logged to the Storybook **Actions** panel, so you can inspect the exact
- * `CreateFeatureFormData` payload that would be sent to the backend.
+ * **Submitted data** is displayed in a styled panel showing `FileAttachment[]`
+ * with **full absolute file paths**, filenames, and sizes.
+ *
+ * In Storybook, the native picker won't work (no backend), but submitted data
+ * would show the paths if files were attached programmatically.
  */
 export const Interactive: Story = {
   render: function InteractiveRender() {
@@ -277,9 +206,9 @@ export const Interactive: Story = {
                     name: submitted.name,
                     description: submitted.description,
                     attachments: submitted.attachments.map((f) => ({
+                      path: f.path,
                       name: f.name,
                       size: f.size,
-                      type: f.type,
                     })),
                   },
                   null,
@@ -301,129 +230,6 @@ export const Interactive: Story = {
             setOpen(false);
           }}
         />
-      </div>
-    );
-  },
-};
-
-/* ---------------------------------------------------------------------------
- * Form states matrix — sidebar switcher
- * ------------------------------------------------------------------------- */
-
-type FormPhase = 'empty' | 'partial' | 'complete' | 'submitting';
-
-const formPhaseLabels: Record<FormPhase, string> = {
-  empty: 'Empty',
-  partial: 'Partial (name only)',
-  complete: 'Complete (all fields)',
-  submitting: 'Submitting',
-};
-
-/**
- * Uses `key={phase}` to force React remount (resetting internal state), then
- * programmatically fills form fields via native value setters after mount.
- */
-function FormPhaseDrawer({ phase, open }: { phase: FormPhase; open: boolean }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open || phase === 'empty') return;
-
-    const raf = requestAnimationFrame(() => {
-      const container = containerRef.current;
-      if (!container) return;
-
-      const nameInput = container.querySelector<HTMLInputElement>('#feature-name');
-      const descInput = container.querySelector<HTMLTextAreaElement>('#feature-description');
-      const fileInput = container.querySelector<HTMLInputElement>('input[type="file"]');
-
-      // Set name for partial, complete, and submitting
-      if (nameInput) {
-        const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
-        setter.call(nameInput, 'GitHub OAuth Login');
-        nameInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-
-      // Set description for complete and submitting
-      if (descInput && (phase === 'complete' || phase === 'submitting')) {
-        const setter = Object.getOwnPropertyDescriptor(
-          HTMLTextAreaElement.prototype,
-          'value'
-        )!.set!;
-        setter.call(
-          descInput,
-          'Implement OAuth2 authentication with GitHub as the identity provider.'
-        );
-        descInput.dispatchEvent(new Event('input', { bubbles: true }));
-      }
-
-      // Add attachments for complete and submitting
-      if (fileInput && (phase === 'complete' || phase === 'submitting')) {
-        const dt = new DataTransfer();
-        [mockScreenshot, mockPdf, mockTypeScript].forEach((f) => dt.items.add(f));
-        fileInput.files = dt.files;
-        fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    });
-
-    return () => cancelAnimationFrame(raf);
-  }, [phase, open]);
-
-  return (
-    <div ref={containerRef} className="flex-1">
-      <FeatureCreateDrawer
-        key={phase}
-        open={open}
-        onClose={logClose}
-        onSubmit={logSubmit}
-        isSubmitting={phase === 'submitting'}
-      />
-    </div>
-  );
-}
-
-/**
- * Form states matrix — click a phase button to open the drawer in that state.
- * Click the same button again (or close the drawer) to dismiss it.
- *
- * Demonstrates how the drawer looks at each stage of the form completion
- * lifecycle. Each phase forces a full React remount via `key={phase}` and
- * programmatically fills fields to match the selected state.
- */
-export const FormStatesMatrix: Story = {
-  render: function FormStatesMatrixRender() {
-    const [phase, setPhase] = useState<FormPhase>('empty');
-    const [open, setOpen] = useState(false);
-
-    return (
-      <div className="flex h-screen">
-        <div className="flex flex-col gap-2 p-4">
-          <span className="text-muted-foreground mb-2 text-xs font-semibold tracking-wider uppercase">
-            Form state
-          </span>
-          {(Object.keys(formPhaseLabels) as FormPhase[]).map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => {
-                if (open && p === phase) {
-                  setOpen(false);
-                } else {
-                  setPhase(p);
-                  setOpen(true);
-                }
-              }}
-              className={`rounded-md px-3 py-1.5 text-left text-sm ${
-                open && p === phase
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-muted hover:bg-muted/80'
-              }`}
-            >
-              {formPhaseLabels[p]}
-            </button>
-          ))}
-        </div>
-        <FormPhaseDrawer phase={phase} open={open} />
       </div>
     );
   },

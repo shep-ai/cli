@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import type { Edge } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -29,6 +30,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleCreateFeatureSubmit,
     closeCreateDrawer,
   } = useControlCenterState(initialNodes, initialEdges);
+
+  // Listen for global "open create drawer" events from the sidebar
+  useEffect(() => {
+    const handler = () => handleAddFeature();
+    window.addEventListener('shep:open-create-drawer', handler);
+    return () => window.removeEventListener('shep:open-create-drawer', handler);
+  }, [handleAddFeature]);
 
   return (
     <>

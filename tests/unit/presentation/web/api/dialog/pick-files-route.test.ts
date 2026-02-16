@@ -1,45 +1,49 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the FolderDialogService before importing the route
-const mockPickFolder = vi.fn<() => string | null>();
-vi.mock('@shepai/core/infrastructure/services/folder-dialog.service', () => ({
-  FolderDialogService: class {
-    pickFolder = mockPickFolder;
+// Mock the FileDialogService before importing the route
+const mockPickFiles = vi.fn<() => { path: string; name: string; size: number }[] | null>();
+vi.mock('@shepai/core/infrastructure/services/file-dialog.service', () => ({
+  FileDialogService: class {
+    pickFiles = mockPickFiles;
   },
 }));
 
 // Must import after mock setup
 const { POST } = await import(
-  '../../../../../../src/presentation/web/app/api/dialog/pick-folder/route.js'
+  '../../../../../../src/presentation/web/app/api/dialog/pick-files/route.js'
 );
 
-describe('POST /api/dialog/pick-folder', () => {
+describe('POST /api/dialog/pick-files', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('returns selected path when user picks a folder', async () => {
-    mockPickFolder.mockReturnValue('/Users/dev/my-repo');
+  it('returns selected files when user picks files', async () => {
+    const files = [
+      { path: '/Users/dev/docs/requirements.pdf', name: 'requirements.pdf', size: 42000 },
+      { path: '/Users/dev/images/screenshot.png', name: 'screenshot.png', size: 150000 },
+    ];
+    mockPickFiles.mockReturnValue(files);
 
     const response = await POST();
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ path: '/Users/dev/my-repo', cancelled: false });
+    expect(body).toEqual({ files, cancelled: false });
   });
 
   it('returns cancelled: true when user cancels the dialog', async () => {
-    mockPickFolder.mockReturnValue(null);
+    mockPickFiles.mockReturnValue(null);
 
     const response = await POST();
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body).toEqual({ path: null, cancelled: true });
+    expect(body).toEqual({ files: null, cancelled: true });
   });
 
   it('returns 500 with error message on service failure', async () => {
-    mockPickFolder.mockImplementation(() => {
+    mockPickFiles.mockImplementation(() => {
       throw new Error('Unsupported platform: freebsd');
     });
 
@@ -51,7 +55,7 @@ describe('POST /api/dialog/pick-folder', () => {
   });
 
   it('returns generic error message for non-Error throws', async () => {
-    mockPickFolder.mockImplementation(() => {
+    mockPickFiles.mockImplementation(() => {
       throw 'something unexpected';
     });
 
@@ -59,6 +63,6 @@ describe('POST /api/dialog/pick-folder', () => {
     const body = await response.json();
 
     expect(response.status).toBe(500);
-    expect(body).toEqual({ error: 'Failed to open folder dialog' });
+    expect(body).toEqual({ error: 'Failed to open file dialog' });
   });
 });

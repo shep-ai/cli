@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   XIcon,
@@ -26,11 +26,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+import { pickFiles } from './pick-files';
+
+export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 
 export interface CreateFeatureFormData {
   name: string;
   description: string;
-  attachments: File[];
+  attachments: FileAttachment[];
 }
 
 export interface FeatureCreateDrawerProps {
@@ -48,8 +52,7 @@ export function FeatureCreateDrawer({
 }: FeatureCreateDrawerProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
 
   const resetForm = useCallback(() => {
     setName('');
@@ -76,15 +79,19 @@ export function FeatureCreateDrawer({
     [name, description, attachments, onSubmit]
   );
 
-  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      setAttachments((prev) => [...prev, ...Array.from(e.target.files!)]);
-      e.target.value = '';
+  const handleAddFiles = useCallback(async () => {
+    try {
+      const files = await pickFiles();
+      if (files) {
+        setAttachments((prev) => [...prev, ...files]);
+      }
+    } catch {
+      // Native dialog failed — silently ignore (user can retry)
     }
   }, []);
 
-  const handleRemoveFile = useCallback((index: number) => {
-    setAttachments((prev) => prev.filter((_, i) => i !== index));
+  const handleRemoveFile = useCallback((path: string) => {
+    setAttachments((prev) => prev.filter((f) => f.path !== path));
   }, []);
 
   return (
@@ -167,28 +174,21 @@ export function FeatureCreateDrawer({
                   type="button"
                   variant="outline"
                   size="xs"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={handleAddFiles}
                   disabled={isSubmitting}
                 >
                   <PlusIcon className="size-3" />
                   Add Files
                 </Button>
               </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                className="hidden"
-                onChange={handleFileChange}
-              />
 
               {attachments.length > 0 && (
                 <div className="flex flex-col gap-2">
-                  {attachments.map((file, index) => (
+                  {attachments.map((file) => (
                     <AttachmentCard
-                      key={`${file.name}-${file.size}-${file.lastModified}`}
+                      key={file.path}
                       file={file}
-                      onRemove={() => handleRemoveFile(index)}
+                      onRemove={() => handleRemoveFile(file.path)}
                       disabled={isSubmitting}
                     />
                   ))}
@@ -222,12 +222,13 @@ function AttachmentCard({
   onRemove,
   disabled,
 }: {
-  file: File;
+  file: FileAttachment;
   onRemove: () => void;
   disabled?: boolean;
 }) {
-  const Icon = getFileIcon(file.type);
-  const iconColorClass = getFileIconColor(file.type);
+  const ext = getExtension(file.name);
+  const Icon = getFileIcon(ext);
+  const iconColorClass = getFileIconColor(ext);
 
   return (
     <div className="flex items-center gap-3 rounded-md border p-2">
@@ -238,6 +239,7 @@ function AttachmentCard({
       </div>
       <div className="flex min-w-0 flex-1 flex-col">
         <span className="truncate text-sm font-medium">{file.name}</span>
+        <span className="text-muted-foreground truncate text-xs">{file.path}</span>
         <span className="text-muted-foreground text-xs">{formatFileSize(file.size)}</span>
       </div>
       <Button
@@ -254,33 +256,37 @@ function AttachmentCard({
   );
 }
 
-function getFileIcon(mimeType: string): LucideIcon {
-  if (mimeType.startsWith('image/')) return ImageIcon;
-  if (mimeType === 'application/pdf') return FileTextIcon;
-  if (
-    mimeType.startsWith('text/') ||
-    mimeType.includes('javascript') ||
-    mimeType.includes('typescript') ||
-    mimeType.includes('json') ||
-    mimeType.includes('yaml') ||
-    mimeType.includes('xml')
-  )
-    return CodeIcon;
+function getExtension(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  return dot >= 0 ? filename.slice(dot).toLowerCase() : '';
+}
+
+const IMAGE_EXTS = new Set(['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.ico', '.bmp']);
+const CODE_EXTS = new Set([
+  '.ts',
+  '.tsx',
+  '.js',
+  '.jsx',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.xml',
+  '.html',
+  '.css',
+  '.md',
+]);
+
+function getFileIcon(ext: string): LucideIcon {
+  if (IMAGE_EXTS.has(ext)) return ImageIcon;
+  if (ext === '.pdf') return FileTextIcon;
+  if (CODE_EXTS.has(ext)) return CodeIcon;
   return FileIcon;
 }
 
-function getFileIconColor(mimeType: string): string {
-  if (mimeType === 'application/pdf') return 'bg-red-50 text-red-600';
-  if (mimeType.startsWith('image/')) return 'bg-blue-50 text-blue-600';
-  if (
-    mimeType.startsWith('text/') ||
-    mimeType.includes('javascript') ||
-    mimeType.includes('typescript') ||
-    mimeType.includes('json') ||
-    mimeType.includes('yaml') ||
-    mimeType.includes('xml')
-  )
-    return 'bg-emerald-50 text-emerald-600';
+function getFileIconColor(ext: string): string {
+  if (ext === '.pdf') return 'bg-red-50 text-red-600';
+  if (IMAGE_EXTS.has(ext)) return 'bg-blue-50 text-blue-600';
+  if (CODE_EXTS.has(ext)) return 'bg-emerald-50 text-emerald-600';
   return 'bg-gray-50 text-gray-600';
 }
 

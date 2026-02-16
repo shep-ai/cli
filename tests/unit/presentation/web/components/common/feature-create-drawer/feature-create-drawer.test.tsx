@@ -1,7 +1,14 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { FeatureCreateDrawer } from '@/components/common/feature-create-drawer';
+import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+
+// Mock pickFiles client helper
+const mockPickFiles = vi.fn<() => Promise<FileAttachment[] | null>>();
+vi.mock('@/components/common/feature-create-drawer/pick-files', () => ({
+  pickFiles: () => mockPickFiles(),
+}));
 
 // Vaul drawer uses pointer capture + getComputedStyle().transform in jsdom — stub to avoid exceptions
 beforeAll(() => {
@@ -18,6 +25,11 @@ beforeAll(() => {
   });
 });
 
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockPickFiles.mockResolvedValue(null);
+});
+
 const defaultProps = {
   open: true,
   onClose: vi.fn(),
@@ -29,6 +41,24 @@ function renderDrawer(overrides: Partial<typeof defaultProps> = {}) {
   const props = { ...defaultProps, ...overrides };
   return render(<FeatureCreateDrawer {...props} />);
 }
+
+const mockPdf: FileAttachment = {
+  path: '/Users/dev/docs/requirements.pdf',
+  name: 'requirements.pdf',
+  size: 42000,
+};
+
+const mockPng: FileAttachment = {
+  path: '/Users/dev/images/screenshot.png',
+  name: 'screenshot.png',
+  size: 150000,
+};
+
+const mockTs: FileAttachment = {
+  path: '/Users/dev/src/index.ts',
+  name: 'index.ts',
+  size: 1024,
+};
 
 describe('FeatureCreateDrawer', () => {
   describe('rendering', () => {
@@ -123,23 +153,21 @@ describe('FeatureCreateDrawer', () => {
       });
     });
 
-    it('includes attachments in submission payload', async () => {
+    it('includes FileAttachment[] in submission payload', async () => {
+      mockPickFiles.mockResolvedValue([mockPdf]);
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
-
-      const file = new File(['content'], 'test.png', { type: 'image/png' });
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      await user.upload(fileInput, file);
+      await user.click(screen.getByRole('button', { name: /add files/i }));
 
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledOnce();
       const submittedData = onSubmit.mock.calls[0][0];
       expect(submittedData.attachments).toHaveLength(1);
-      expect(submittedData.attachments[0].name).toBe('test.png');
+      expect(submittedData.attachments[0]).toEqual(mockPdf);
     });
   });
 
@@ -211,59 +239,85 @@ describe('FeatureCreateDrawer', () => {
     });
   });
 
-  describe('attachments', () => {
-    it('displays attachment card after file upload', async () => {
+  describe('attachments (native file picker)', () => {
+    it('calls pickFiles and displays attachment card with full path', async () => {
+      mockPickFiles.mockResolvedValue([mockPdf]);
       const user = userEvent.setup();
       renderDrawer();
 
-      const file = new File(['data'], 'readme.pdf', { type: 'application/pdf' });
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      await user.upload(fileInput, file);
+      await user.click(screen.getByRole('button', { name: /add files/i }));
 
-      expect(screen.getByText('readme.pdf')).toBeInTheDocument();
+      expect(mockPickFiles).toHaveBeenCalledOnce();
+      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+      expect(screen.getByText('/Users/dev/docs/requirements.pdf')).toBeInTheDocument();
     });
 
-    it('supports multiple file uploads', async () => {
+    it('displays file size', async () => {
+      mockPickFiles.mockResolvedValue([mockPdf]);
       const user = userEvent.setup();
       renderDrawer();
 
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
+      await user.click(screen.getByRole('button', { name: /add files/i }));
 
-      const file1 = new File(['a'], 'file1.png', { type: 'image/png' });
-      await user.upload(fileInput, file1);
+      expect(screen.getByText('41.0 KB')).toBeInTheDocument();
+    });
 
-      const file2 = new File(['b'], 'file2.ts', { type: 'text/typescript' });
-      await user.upload(fileInput, file2);
+    it('supports multiple file selections across multiple picks', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
 
-      expect(screen.getByText('file1.png')).toBeInTheDocument();
-      expect(screen.getByText('file2.ts')).toBeInTheDocument();
+      mockPickFiles.mockResolvedValueOnce([mockPdf]);
+      await user.click(screen.getByRole('button', { name: /add files/i }));
+
+      mockPickFiles.mockResolvedValueOnce([mockPng, mockTs]);
+      await user.click(screen.getByRole('button', { name: /add files/i }));
+
+      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
+      expect(screen.getByText('screenshot.png')).toBeInTheDocument();
+      expect(screen.getByText('index.ts')).toBeInTheDocument();
     });
 
     it('removes attachment when remove button is clicked', async () => {
+      mockPickFiles.mockResolvedValue([mockPdf]);
       const user = userEvent.setup();
       renderDrawer();
 
-      const file = new File(['data'], 'to-remove.json', { type: 'application/json' });
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      await user.upload(fileInput, file);
+      await user.click(screen.getByRole('button', { name: /add files/i }));
+      expect(screen.getByText('requirements.pdf')).toBeInTheDocument();
 
-      expect(screen.getByText('to-remove.json')).toBeInTheDocument();
-
-      await user.click(screen.getByRole('button', { name: 'Remove to-remove.json' }));
-      expect(screen.queryByText('to-remove.json')).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: 'Remove requirements.pdf' }));
+      expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
     });
 
     it('shows attachment count badge', async () => {
+      mockPickFiles.mockResolvedValue([mockPdf, mockPng]);
       const user = userEvent.setup();
       renderDrawer();
 
-      const fileInput = document.querySelector('input[type="file"]') as HTMLInputElement;
-      await user.upload(fileInput, [
-        new File(['a'], 'a.png', { type: 'image/png' }),
-        new File(['b'], 'b.pdf', { type: 'application/pdf' }),
-      ]);
+      await user.click(screen.getByRole('button', { name: /add files/i }));
 
       expect(screen.getByText('(2)')).toBeInTheDocument();
+    });
+
+    it('does not add files when user cancels the picker', async () => {
+      mockPickFiles.mockResolvedValue(null);
+      const user = userEvent.setup();
+      renderDrawer();
+
+      await user.click(screen.getByRole('button', { name: /add files/i }));
+
+      expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
+    });
+
+    it('handles pickFiles error gracefully', async () => {
+      mockPickFiles.mockRejectedValue(new Error('Dialog failed'));
+      const user = userEvent.setup();
+      renderDrawer();
+
+      // Should not throw — error is swallowed
+      await user.click(screen.getByRole('button', { name: /add files/i }));
+
+      expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
     });
   });
 });

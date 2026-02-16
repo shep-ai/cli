@@ -56,9 +56,11 @@ export default async function HomePage() {
         ? feature.agentResult.slice(5)
         : undefined;
       const lifecycle: FeatureLifecyclePhase =
-        (agentNode ? nodeToLifecyclePhase[agentNode] : undefined) ??
-        lifecycleMap[feature.lifecycle] ??
-        'requirements';
+        feature.agentStatus === 'completed'
+          ? 'maintain'
+          : ((agentNode ? nodeToLifecyclePhase[agentNode] : undefined) ??
+            lifecycleMap[feature.lifecycle] ??
+            'requirements');
 
       const nodeData: FeatureNodeData = {
         name: feature.name,
