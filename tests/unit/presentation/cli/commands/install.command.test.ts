@@ -74,6 +74,15 @@ vi.mock('../../../../../src/infrastructure/services/tool-installer/tool-metadata
       verifyCommand: ['claude', '--version'],
       notes: 'Claude Code - AI-powered code assistant',
     },
+    windsurf: {
+      binary: 'windsurf',
+      packageManager: 'curl',
+      commands: { linux: ['curl', 'https://windsurf.codeium.com/install.sh'] },
+      timeout: 600000,
+      documentationUrl: 'https://docs.codeium.com/windsurf',
+      verifyCommand: ['windsurf', '--version'],
+      notes: 'Codeium Windsurf IDE',
+    },
   },
 }));
 
@@ -91,6 +100,7 @@ vi.mock('../../../../../src/presentation/cli/ui/index.js', () => ({
   fmt: {
     heading: (s: string) => s,
     label: (s: string) => s,
+    code: (s: string) => s,
   },
   symbols: {},
 }));
@@ -163,12 +173,12 @@ describe('Install Command', () => {
       expect(cmd.name()).toBe('install');
     });
 
-    it('should accept tool as a required argument', () => {
+    it('should accept tool as an optional argument', () => {
       const cmd = createInstallCommand();
       const args = (cmd as any)._args;
       expect(args).toHaveLength(1);
       expect(args[0].name()).toBe('tool');
-      expect(args[0].required).toBe(true);
+      expect(args[0].required).toBe(false);
     });
 
     it('should have --how option flag', () => {
@@ -179,12 +189,31 @@ describe('Install Command', () => {
   });
 
   describe('tool validation', () => {
-    it('should reject unknown tool', async () => {
+    it('should show tool list for unknown tool', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
       const cmd = createInstallCommand();
       await cmd.parseAsync(['node', 'test', 'invalid-tool']);
 
-      expect(messages.error).toHaveBeenCalled();
+      expect(messages.error).not.toHaveBeenCalled();
       expect(process.exitCode).toBe(1);
+
+      const allLogs = consoleSpy.mock.calls.flat().join('\n');
+      expect(allLogs).toContain("don't recognize");
+      expect(allLogs).toContain('invalid-tool');
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should display available tools when unknown tool is given', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+      const cmd = createInstallCommand();
+      await cmd.parseAsync(['node', 'test', 'invalid-tool']);
+
+      const allLogs = consoleSpy.mock.calls.flat().join('\n');
+      expect(allLogs).toContain('vscode');
+      expect(allLogs).toContain('claude-code');
+
+      consoleSpy.mockRestore();
     });
 
     it('should accept vscode', async () => {
@@ -233,6 +262,54 @@ describe('Install Command', () => {
       await cmd.parseAsync(['node', 'test', 'claude-code']);
 
       expect(mockValidateExecute).toHaveBeenCalledWith('claude-code');
+    });
+  });
+
+  describe('tool listing (no arguments)', () => {
+    it('should print tool list when no tool argument is given', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+      const cmd = createInstallCommand();
+      await cmd.parseAsync(['node', 'test']);
+
+      const allLogs = consoleSpy.mock.calls.flat().join('\n');
+      expect(allLogs).toContain('shep install <tool>');
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should not set error exit code when no tool argument is given', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+      const cmd = createInstallCommand();
+      await cmd.parseAsync(['node', 'test']);
+
+      expect(process.exitCode).toBe(0);
+      expect(messages.error).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should display tool names in the listing', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+      const cmd = createInstallCommand();
+      await cmd.parseAsync(['node', 'test']);
+
+      const allLogs = consoleSpy.mock.calls.flat().join('\n');
+      expect(allLogs).toContain('vscode');
+      expect(allLogs).toContain('cursor-cli');
+      expect(allLogs).toContain('claude-code');
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should not call any use cases when no tool is given', async () => {
+      const consoleSpy = vi.spyOn(console, 'log');
+      const cmd = createInstallCommand();
+      await cmd.parseAsync(['node', 'test']);
+
+      expect(mockValidateExecute).not.toHaveBeenCalled();
+      expect(mockInstallExecute).not.toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
     });
   });
 

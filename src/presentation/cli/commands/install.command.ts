@@ -23,23 +23,54 @@ interface InstallOptions {
   how?: boolean;
 }
 
+const IDE_TOOLS = ['vscode', 'cursor', 'windsurf', 'zed', 'antigravity'];
+
+function printToolsList(): void {
+  const tools = Object.keys(TOOL_METADATA);
+  const ides = tools.filter((t) => IDE_TOOLS.includes(t));
+  const cliAgents = tools.filter((t) => !IDE_TOOLS.includes(t));
+
+  console.log(fmt.heading('IDEs:'));
+  for (const key of ides) {
+    const note = TOOL_METADATA[key].notes ?? '';
+    console.log(`  ${colors.accent(key.padEnd(16))}${colors.muted(note)}`);
+  }
+  console.log();
+
+  console.log(fmt.heading('CLI Agents:'));
+  for (const key of cliAgents) {
+    const note = TOOL_METADATA[key].notes ?? '';
+    console.log(`  ${colors.accent(key.padEnd(16))}${colors.muted(note)}`);
+  }
+  console.log();
+}
+
 export function createInstallCommand(): Command {
   return new Command('install')
     .description('Install a development tool (IDE or CLI agent)')
     .argument(
-      '<tool>',
+      '[tool]',
       'Tool to install (vscode, cursor, windsurf, zed, antigravity, cursor-cli, claude-code)'
     )
     .option('--how', 'Show installation instructions without executing')
-    .action(async (tool: string, options: InstallOptions) => {
+    .action(async (tool: string | undefined, options: InstallOptions) => {
       try {
+        // No tool specified — show available tools
+        if (!tool) {
+          console.log();
+          console.log(`Run ${fmt.code('shep install <tool>')} with one of these options:`);
+          console.log();
+          printToolsList();
+          return;
+        }
+
         // Validate tool name
         const metadata = TOOL_METADATA[tool];
         if (!metadata) {
-          messages.error(
-            `Unknown tool: "${tool}". Available: ${Object.keys(TOOL_METADATA).join(', ')}`,
-            new Error(`Unknown tool: ${tool}`)
-          );
+          console.log();
+          console.log(`Hmm, I don't recognize '${tool}'. Did you mean one of these?`);
+          console.log();
+          printToolsList();
           process.exitCode = 1;
           return;
         }
