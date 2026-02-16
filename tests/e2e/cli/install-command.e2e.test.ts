@@ -29,7 +29,7 @@ describe('CLI: install command', () => {
     it.concurrent('should print installation instructions for vscode', async () => {
       const result = await runCliAsync('install vscode --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for vscode');
+      expect(result.stdout).toContain('Installation Instructions for Visual Studio Code');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('code');
       expect(result.stdout).toContain('Installation Commands');
@@ -40,7 +40,7 @@ describe('CLI: install command', () => {
     it.concurrent('should print installation instructions for cursor', async () => {
       const result = await runCliAsync('install cursor --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for cursor');
+      expect(result.stdout).toContain('Installation Instructions for Cursor');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('cursor');
     });
@@ -48,7 +48,7 @@ describe('CLI: install command', () => {
     it.concurrent('should print installation instructions for windsurf', async () => {
       const result = await runCliAsync('install windsurf --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for windsurf');
+      expect(result.stdout).toContain('Installation Instructions for Windsurf');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('windsurf');
     });
@@ -56,7 +56,7 @@ describe('CLI: install command', () => {
     it.concurrent('should print installation instructions for zed', async () => {
       const result = await runCliAsync('install zed --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for zed');
+      expect(result.stdout).toContain('Installation Instructions for Zed');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('zed');
     });
@@ -64,7 +64,7 @@ describe('CLI: install command', () => {
     it.concurrent('should print installation instructions for antigravity', async () => {
       const result = await runCliAsync('install antigravity --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for antigravity');
+      expect(result.stdout).toContain('Installation Instructions for Google Antigravity');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('antigravity (linux)');
       expect(result.stdout).toContain('agy (darwin)');
@@ -73,16 +73,16 @@ describe('CLI: install command', () => {
     it.concurrent('should print installation instructions for cursor-cli', async () => {
       const result = await runCliAsync('install cursor-cli --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for cursor-cli');
+      expect(result.stdout).toContain('Installation Instructions for Cursor CLI');
       expect(result.stdout).toContain('Binary:');
-      expect(result.stdout).toContain('cursor-cli');
+      expect(result.stdout).toContain('cursor');
       expect(result.stdout).toContain('curl');
     });
 
     it.concurrent('should print installation instructions for claude-code', async () => {
       const result = await runCliAsync('install claude-code --how');
       expect(result.success).toBe(true);
-      expect(result.stdout).toContain('Installation Instructions for claude-code');
+      expect(result.stdout).toContain('Installation Instructions for Claude Code');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('claude');
       expect(result.stdout).toContain('curl');
@@ -135,7 +135,7 @@ describe('CLI: install command', () => {
       const output = result.stdout;
 
       const sections = [
-        'Installation Instructions for vscode',
+        'Installation Instructions for Visual Studio Code',
         'Binary:',
         'Installation Commands',
         'Documentation',
@@ -166,10 +166,10 @@ describe('CLI: install command', () => {
       expect(result.stdout).toContain('--version');
     });
 
-    it('should include notes when available', () => {
+    it('should include name and summary in output', () => {
       const result = runCli('install vscode --how');
-      expect(result.stdout).toContain('Notes');
-      expect(result.stdout).toContain('Microsoft Visual Studio Code');
+      expect(result.stdout).toContain('Visual Studio Code');
+      expect(result.stdout).toContain('Lightweight but powerful source code editor');
     });
   });
 

@@ -865,9 +865,9 @@ export type ToolInstallationStatus = {
  */
 export type ToolInstallCommand = {
   /**
-   * Command array to execute
+   * Shell command string to execute
    */
-  command: string[];
+  command: string;
   /**
    * Target platform identifier
    */

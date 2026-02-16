@@ -71,7 +71,7 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
       // Check if it's just "not found" or another error
       if (result.error?.message.includes('not found')) {
         // Binary doesn't exist in PATH - create suggestions for installation
-        const suggestions = this.createInstallationSuggestions(toolName, metadata);
+        const suggestions = this.createInstallationSuggestions(metadata);
         return createMissingStatus(toolName, suggestions);
       }
 
@@ -123,10 +123,9 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
     }
 
     return new Promise((resolve) => {
-      const [cmd, ...args] = installCommand.command;
       let output = '';
 
-      const child = spawn(cmd, args, {
+      const child = spawn('sh', ['-c', installCommand.command], {
         shell: false,
         stdio: ['ignore', 'pipe', 'pipe'],
       });
@@ -178,7 +177,6 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
    * Create installation suggestions for a tool based on its metadata
    */
   private createInstallationSuggestions(
-    toolName: string,
     metadata: (typeof TOOL_METADATA)[string]
   ): InstallationSuggestion[] {
     const suggestions: InstallationSuggestion[] = [];
@@ -188,12 +186,10 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
     const command = metadata.commands[currentPlatform];
 
     if (command) {
-      const commandStr = command.join(' ');
       suggestions.push({
         packageManager: metadata.packageManager,
-        command: commandStr,
+        command,
         documentationUrl: metadata.documentationUrl,
-        notes: metadata.notes,
       });
     }
 
@@ -203,7 +199,6 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
         packageManager: metadata.packageManager,
         command: 'Visit official documentation',
         documentationUrl: metadata.documentationUrl,
-        notes: metadata.notes,
       });
     }
 

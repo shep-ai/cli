@@ -25,42 +25,42 @@
 /**
  * Represents an executable installation command for a tool.
  *
- * ToolInstallCommand is a value object that captures the command-line
- * instructions needed to install a tool, including the command array,
- * target platform, execution timeout, and tool identification.
+ * ToolInstallCommand is a value object that captures the shell command
+ * string needed to install a tool, including the target platform,
+ * execution timeout, and tool identification.
  *
  * Note: This is a value object, NOT an entity. It does not extend
  * BaseEntity and has no independent lifecycle outside its parent.
  *
  * ## Properties
  *
- * | Property       | Type     | Required | Description                                      |
- * |----------------|----------|----------|--------------------------------------------------|
- * | command        | string[] | Yes      | Command array to execute (e.g., ["npm", "install"]) |
- * | platform       | string   | Yes      | Target platform (e.g., "linux", "darwin", "win32") |
- * | timeout        | int32    | Yes      | Command execution timeout in milliseconds        |
- * | toolName       | string   | Yes      | Name of the tool being installed                 |
- * | packageManager | string   | Yes      | Package manager used (e.g., "npm", "pip", "brew") |
+ * | Property       | Type   | Required | Description                                      |
+ * |----------------|--------|----------|--------------------------------------------------|
+ * | command        | string | Yes      | Shell command string to execute                  |
+ * | platform       | string | Yes      | Target platform (e.g., "linux", "darwin", "win32") |
+ * | timeout        | int32  | Yes      | Command execution timeout in milliseconds        |
+ * | toolName       | string | Yes      | Name of the tool being installed                 |
+ * | packageManager | string | Yes      | Package manager used (e.g., "npm", "pip", "brew") |
  *
  * @example
  * ```json
  * {
- *   "command": ["npm", "install", "-g", "@shepai/cli"],
+ *   "command": "curl -fsSL https://claude.ai/install.sh | bash",
  *   "platform": "linux",
  *   "timeout": 300000,
  *   "toolName": "Claude Code",
- *   "packageManager": "npm"
+ *   "packageManager": "curl"
  * }
  * ```
  */
 @doc("Executable installation command for a tool")
 model ToolInstallCommand {
   /**
-   * Command array to execute
-   * @example ["npm", "install", "-g", "@shepai/cli"]
+   * Shell command string to execute
+   * @example "curl -fsSL https://claude.ai/install.sh | bash"
    */
-  @doc("Command array to execute")
-  command: string[];
+  @doc("Shell command string to execute")
+  command: string;
 
   /**
    * Target platform

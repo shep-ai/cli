@@ -7,9 +7,7 @@
  *   shep install <tool>           Install a tool
  *   shep install <tool> --how     Show installation instructions without executing
  *
- * Available tools:
- *   - vscode, cursor, windsurf, zed, antigravity (IDEs)
- *   - cursor-cli, claude-code (CLI agents)
+ * Available tools are loaded dynamically from JSON files in the tools/ directory.
  */
 
 import { Command } from 'commander';
@@ -23,23 +21,19 @@ interface InstallOptions {
   how?: boolean;
 }
 
-const IDE_TOOLS = ['vscode', 'cursor', 'windsurf', 'zed', 'antigravity'];
-
 function printToolsList(): void {
-  const tools = Object.keys(TOOL_METADATA);
-  const ides = tools.filter((t) => IDE_TOOLS.includes(t));
-  const cliAgents = tools.filter((t) => !IDE_TOOLS.includes(t));
+  const tools = Object.entries(TOOL_METADATA);
+  const ides = tools.filter(([, meta]) => meta.category === 'ide');
+  const cliAgents = tools.filter(([, meta]) => meta.category === 'cli-agent');
 
   console.log(fmt.heading('IDEs:'));
-  for (const key of ides) {
-    const meta = TOOL_METADATA[key];
+  for (const [key, meta] of ides) {
     console.log(`  ${colors.accent(key.padEnd(16))}${meta.name} - ${colors.muted(meta.summary)}`);
   }
   console.log();
 
   console.log(fmt.heading('CLI Agents:'));
-  for (const key of cliAgents) {
-    const meta = TOOL_METADATA[key];
+  for (const [key, meta] of cliAgents) {
     console.log(`  ${colors.accent(key.padEnd(16))}${meta.name} - ${colors.muted(meta.summary)}`);
   }
   console.log();
@@ -128,6 +122,7 @@ function printInstallInstructions(metadata: (typeof TOOL_METADATA)[keyof typeof 
   console.log(`${fmt.label('Name:')} ${metadata.name}`);
   console.log(`${fmt.label('Summary:')} ${metadata.summary}`);
   console.log(`${fmt.label('Description:')} ${metadata.description}`);
+  console.log(`${fmt.label('Category:')} ${metadata.category}`);
   console.log();
 
   const binaryDisplay =
@@ -142,24 +137,25 @@ function printInstallInstructions(metadata: (typeof TOOL_METADATA)[keyof typeof 
 
   // Print platform-specific commands
   console.log(fmt.heading('Installation Commands'));
-  for (const [platform, commands] of Object.entries(metadata.commands)) {
-    console.log(`${colors.muted(`[${platform}]`)} ${commands.join(' ')}`);
+  for (const [platform, command] of Object.entries(metadata.commands)) {
+    console.log(`${colors.muted(`[${platform}]`)} ${command}`);
   }
   console.log();
+
+  // Print verify command
+  console.log(fmt.heading('Verify Installation'));
+  console.log(`${colors.muted('$')} ${metadata.verifyCommand}`);
+  console.log();
+
+  // Print open directory command if available
+  if (metadata.openDirectory) {
+    console.log(fmt.heading('Open Directory'));
+    console.log(`${colors.muted('$')} ${metadata.openDirectory}`);
+    console.log();
+  }
 
   // Print documentation link
   console.log(fmt.heading('Documentation'));
   console.log(`${colors.muted('→')} ${metadata.documentationUrl}`);
   console.log();
-
-  // Print verify command
-  console.log(fmt.heading('Verify Installation'));
-  console.log(`${colors.muted('$')} ${metadata.verifyCommand.join(' ')}`);
-  console.log();
-
-  if (metadata.notes) {
-    console.log(fmt.heading('Notes'));
-    console.log(`${colors.muted('→')} ${metadata.notes}`);
-    console.log();
-  }
 }

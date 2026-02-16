@@ -22,14 +22,17 @@ export interface ToolMetadata {
   /** Detailed description */
   description: string;
 
+  /** Tool category for grouping in listings */
+  category: 'ide' | 'cli-agent';
+
   /** Binary name to check with 'which' command (string or per-platform map) */
   binary: string | Record<string, string>;
 
   /** Package manager or installation method */
   packageManager: string;
 
-  /** Platform-specific installation commands (keyed by os.platform()) */
-  commands: Record<string, string[]>;
+  /** Platform-specific installation commands as shell strings (keyed by os.platform()) */
+  commands: Record<string, string>;
 
   /** Installation timeout in milliseconds */
   timeout: number;
@@ -37,20 +40,21 @@ export interface ToolMetadata {
   /** Official documentation URL */
   documentationUrl: string;
 
-  /** Command to verify installation (e.g., check version) */
-  verifyCommand: string[];
+  /** Command to verify installation (e.g., "code --version") */
+  verifyCommand: string;
 
   /** Whether the tool supports automated installation (default: true) */
   autoInstall?: boolean;
 
-  /** Optional notes for installation */
-  notes?: string;
+  /** Command to open a directory in this tool (e.g., "code .") */
+  openDirectory?: string;
 }
 
 const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [
   'name',
   'summary',
   'description',
+  'category',
   'binary',
   'packageManager',
   'commands',

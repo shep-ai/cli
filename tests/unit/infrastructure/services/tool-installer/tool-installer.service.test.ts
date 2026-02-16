@@ -102,7 +102,7 @@ describe('ToolInstallerServiceImpl', () => {
       expect(command!.toolName).toBe('vscode');
       expect(command!.platform).toBe('linux');
       expect(command!.command).toBeDefined();
-      expect(Array.isArray(command!.command)).toBe(true);
+      expect(typeof command!.command).toBe('string');
       expect(command!.timeout).toBeGreaterThan(0);
       expect(command!.packageManager).toBeDefined();
     });
