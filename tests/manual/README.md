@@ -46,22 +46,29 @@ pnpm test:manual -- --reporter=verbose
 
 ### Agent Configuration
 
-Manual tests that use agent executors require:
+Manual tests use **your local agent settings** (stored in `~/.shep/data`).
+
+**No environment variables needed!** Tests automatically use whatever agent is configured in your settings:
 
 ```bash
-# Set your agent type (one of: claude-code, cursor, etc.)
-export SHEP_AGENT_TYPE=claude-code
+# Your settings are automatically loaded from: ~/.shep/data
+# Just run the tests with your agent already configured
+pnpm test:manual
+```
 
-# Set your authentication token (agent-specific)
-export SHEP_AGENT_TOKEN=<your-token>
+If you haven't configured an agent yet:
 
-# Optional: Use mock executor for testing without real API
-export SHEP_MOCK_EXECUTOR=1
+```bash
+# Configure your agent (one-time setup)
+pnpm cli settings agent
+
+# Then run tests - they'll use your configured agent
+pnpm test:manual
 ```
 
 ### Database
 
-Tests initialize a real SQLite database at `~/.shep/data`. This is created automatically on first run.
+Tests use your real SQLite database at `~/.shep/data` with your configured agent defaults. This is the same database your CLI uses—no test-specific setup needed!
 
 ## Test Naming Convention
 
@@ -136,9 +143,10 @@ describe('MetadataGenerator (MANUAL - Real Agent)', () => {
 
 ### Test hangs or times out
 
-- Check agent authentication is configured
+- Check agent is configured: `pnpm cli settings show`
 - Verify network connectivity to your agent service
-- Increase timeout if needed: edit `vitest.config.manual.ts`
+- Check that your agent token is valid
+- Increase timeout if needed: edit `vitest.config.manual.mjs` (change `testTimeout`)
 
 ### "Cannot resolve module" errors
 

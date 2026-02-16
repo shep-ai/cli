@@ -1,17 +1,14 @@
 /**
  * MANUAL TEST: MetadataGenerator with Real Agent Executor
  *
- * This test uses the REAL IAgentExecutor (not mocked) to generate feature metadata.
- * It only runs when manually invoked via IDE or explicit command.
+ * This test uses the REAL IAgentExecutor (not mocked) to generate feature metadata
+ * using your configured agent from ~/.shep/data (local settings database).
  *
- * ⚠️ Requirements:
- * - SHEP_AGENT_TYPE env var must be set (e.g., claude-code, cursor)
- * - Agent must be authenticated (token configured)
- * - This test makes real API calls to your agent
+ * ✅ Uses your real agent settings - no env vars needed!
  *
  * Run manually only:
- * - In IDE: Click on the test or use Vitest UI
- * - CLI: vitest --config vitest.config.manual.ts tests/manual/metadata-generator.manual.test.ts
+ * - In IDE: Click the ▶️ Run button or use Vitest UI
+ * - CLI: pnpm test:manual
  * - NOT included in: pnpm test, pnpm test:watch, CI/CD pipelines
  */
 
@@ -109,7 +106,7 @@ describe('MetadataGenerator (MANUAL - Real Agent Executor)', () => {
       console.log(`  ✅ AI is CONDENSING input (${wordCount} words is good!)`);
     } else if (wordCount >= 12) {
       console.log(`  ⚠️  FALLBACK ACTIVE (${wordCount} words = full input)`);
-      console.log(`  To test AI: Configure SHEP_AGENT_TYPE and SHEP_AGENT_TOKEN`);
+      console.log(`  To test AI: Configure agent via: pnpm cli settings agent`);
     } else {
       console.log(`  📊 Partial AI response (${wordCount} words)`);
     }
