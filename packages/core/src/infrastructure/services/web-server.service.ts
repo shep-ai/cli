@@ -108,6 +108,7 @@ export class WebServerService implements IWebServerService {
 
   /**
    * Gracefully stop the server.
+   * Destroys active connections to avoid hanging on keep-alive sockets.
    */
   async stop(): Promise<void> {
     if (this.isShuttingDown) return;
@@ -115,6 +116,9 @@ export class WebServerService implements IWebServerService {
 
     try {
       if (this.server) {
+        // Destroy all active connections so server.close() resolves immediately
+        // Without this, HTTP keep-alive connections keep the server hanging
+        this.server.closeAllConnections();
         await new Promise<void>((resolve) => {
           this.server!.close(() => resolve());
         });
