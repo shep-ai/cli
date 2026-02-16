@@ -1,3 +1,9 @@
+# [1.23.0](https://github.com/shep-ai/cli/compare/v1.22.1...v1.23.0) (2026-02-16)
+
+### Features
+
+- **web:** add feature drawer inspector panel ([#55](https://github.com/shep-ai/cli/issues/55)) ([e79b0fc](https://github.com/shep-ai/cli/commit/e79b0fc805dfbc219c7db0995547d41f93cdb019))
+
 ## [1.22.1](https://github.com/shep-ai/cli/compare/v1.22.0...v1.22.1) (2026-02-16)
 
 ### Bug Fixes
