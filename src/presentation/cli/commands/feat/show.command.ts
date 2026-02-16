@@ -10,13 +10,13 @@
 import { Command } from 'commander';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { container } from '../../../../infrastructure/di/container.js';
-import { ShowFeatureUseCase } from '../../../../application/use-cases/features/show-feature.use-case.js';
-import type { IAgentRunRepository } from '../../../../application/ports/output/agents/agent-run-repository.interface.js';
-import type { IPhaseTimingRepository } from '../../../../application/ports/output/agents/phase-timing-repository.interface.js';
-import type { Feature, AgentRun } from '../../../../domain/generated/output.js';
+import { container } from '@/infrastructure/di/container.js';
+import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { Feature, AgentRun } from '@/domain/generated/output.js';
 import { colors, symbols, messages, renderDetailView } from '../../ui/index.js';
-import { SHEP_HOME_DIR } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
+import { SHEP_HOME_DIR } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 
 function computeWorktreePath(repoPath: string, branch: string): string {
   const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);

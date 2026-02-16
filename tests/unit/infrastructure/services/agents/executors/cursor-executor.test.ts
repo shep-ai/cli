@@ -11,9 +11,9 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'node:events';
 import { PassThrough } from 'node:stream';
-import { CursorExecutorService } from '../../../../../../src/infrastructure/services/agents/common/executors/cursor-executor.service.js';
-import type { SpawnFunction } from '../../../../../../src/infrastructure/services/agents/common/types.js';
-import { AgentType, AgentFeature } from '../../../../../../src/domain/generated/output.js';
+import { CursorExecutorService } from '@/infrastructure/services/agents/common/executors/cursor-executor.service.js';
+import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
+import { AgentType, AgentFeature } from '@/domain/generated/output.js';
 
 /**
  * Creates a mock ChildProcess-like object that can emit events and provide

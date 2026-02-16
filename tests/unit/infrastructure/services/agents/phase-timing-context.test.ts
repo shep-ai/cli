@@ -13,8 +13,8 @@ import {
   clearPhaseTimingContext,
   recordPhaseStart,
   recordPhaseEnd,
-} from '../../../../../src/infrastructure/services/agents/feature-agent/phase-timing-context.js';
-import type { IPhaseTimingRepository } from '../../../../../src/application/ports/output/agents/phase-timing-repository.interface.js';
+} from '@/infrastructure/services/agents/feature-agent/phase-timing-context.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 
 function createMockTimingRepo(): IPhaseTimingRepository {
   return {

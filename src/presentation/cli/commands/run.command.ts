@@ -13,8 +13,8 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../infrastructure/di/container.js';
-import { RunAgentUseCase } from '../../../application/use-cases/agents/run-agent.use-case.js';
+import { container } from '@/infrastructure/di/container.js';
+import { RunAgentUseCase } from '@/application/use-cases/agents/run-agent.use-case.js';
 import { colors, symbols, fmt, messages } from '../ui/index.js';
 
 /**

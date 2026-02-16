@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { FolderDialogService } from '@cli/infrastructure/services/folder-dialog.service';
+import { FolderDialogService } from '@shepai/core/infrastructure/services/folder-dialog.service';
 
 export async function POST() {
   const service = new FolderDialogService();

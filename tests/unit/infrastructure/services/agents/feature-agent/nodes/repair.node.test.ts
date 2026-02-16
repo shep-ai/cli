@@ -6,7 +6,7 @@ vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
 // Mock readSpecFile to avoid real filesystem access
 vi.mock(
-  '../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
+  '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
   async (importOriginal) => {
     const actual = (await importOriginal()) as Record<string, unknown>;
     return {
@@ -19,9 +19,9 @@ vi.mock(
 import {
   createRepairNode,
   buildRepairPrompt,
-} from '../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/repair.node.js';
-import type { FeatureAgentState } from '../../../../../../../src/infrastructure/services/agents/feature-agent/state.js';
-import type { IAgentExecutor } from '../../../../../../../src/application/ports/output/agents/agent-executor.interface.js';
+} from '@/infrastructure/services/agents/feature-agent/nodes/repair.node.js';
+import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {

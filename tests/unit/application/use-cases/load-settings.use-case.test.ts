@@ -10,9 +10,9 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { LoadSettingsUseCase } from '../../../../src/application/use-cases/settings/load-settings.use-case.js';
+import { LoadSettingsUseCase } from '@/application/use-cases/settings/load-settings.use-case.js';
 import { MockSettingsRepository } from '../../../helpers/mock-repository.helper.js';
-import { createDefaultSettings } from '../../../../src/domain/factories/settings-defaults.factory.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 
 describe('LoadSettingsUseCase', () => {
   let useCase: LoadSettingsUseCase;

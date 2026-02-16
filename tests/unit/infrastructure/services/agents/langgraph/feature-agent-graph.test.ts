@@ -10,8 +10,8 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command, MemorySaver } from '@langchain/langgraph';
-import type { IAgentExecutor } from '../../../../../../src/application/ports/output/agents/agent-executor.interface.js';
-import type { AgentType } from '../../../../../../src/domain/generated/output.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { AgentType } from '@/domain/generated/output.js';
 
 // Use vi.hoisted so the mock fn is available when vi.mock factory runs (hoisted to top)
 const { mockReadFileSync, mockWriteFileSync } = vi.hoisted(() => ({
@@ -108,7 +108,7 @@ function setupSpecFileMocks(): void {
 import {
   createFeatureAgentGraph,
   FeatureAgentAnnotation,
-} from '../../../../../../src/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
+} from '@/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {

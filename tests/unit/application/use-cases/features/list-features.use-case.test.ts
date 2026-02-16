@@ -9,9 +9,9 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ListFeaturesUseCase } from '../../../../../src/application/use-cases/features/list-features.use-case.js';
-import type { IFeatureRepository } from '../../../../../src/application/ports/output/repositories/feature-repository.interface.js';
-import { SdlcLifecycle } from '../../../../../src/domain/generated/output.js';
+import { ListFeaturesUseCase } from '@/application/use-cases/features/list-features.use-case.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import { SdlcLifecycle } from '@/domain/generated/output.js';
 
 describe('ListFeaturesUseCase', () => {
   let useCase: ListFeaturesUseCase;

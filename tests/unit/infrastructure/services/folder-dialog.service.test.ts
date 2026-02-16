@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import {
   FolderDialogService,
   type FolderDialogDeps,
-} from '../../../../src/infrastructure/services/folder-dialog.service.js';
+} from '@/infrastructure/services/folder-dialog.service.js';
 
 function createService(platform: NodeJS.Platform, execReturn?: string, execThrow?: unknown) {
   const exec = vi.fn<FolderDialogDeps['exec']>();

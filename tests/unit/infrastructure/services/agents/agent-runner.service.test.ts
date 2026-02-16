@@ -9,23 +9,23 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentRunnerService } from '../../../../../src/infrastructure/services/agents/common/agent-runner.service.js';
+import { AgentRunnerService } from '@/infrastructure/services/agents/common/agent-runner.service.js';
 import type {
   IAgentRegistry,
   AgentDefinitionWithFactory,
-} from '../../../../../src/application/ports/output/agents/agent-registry.interface.js';
-import type { IAgentExecutorProvider } from '../../../../../src/application/ports/output/agents/agent-executor-provider.interface.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
+} from '@/application/ports/output/agents/agent-registry.interface.js';
+import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type {
   IAgentExecutor,
   AgentExecutionStreamEvent,
-} from '../../../../../src/application/ports/output/agents/agent-executor.interface.js';
-import { AgentRunStatus, AgentType } from '../../../../../src/domain/generated/output.js';
-import type { AgentRun, AgentRunEvent } from '../../../../../src/domain/generated/output.js';
-import { StreamingExecutorProxy } from '../../../../../src/infrastructure/services/agents/streaming/streaming-executor-proxy.js';
+} from '@/application/ports/output/agents/agent-executor.interface.js';
+import { AgentRunStatus, AgentType } from '@/domain/generated/output.js';
+import type { AgentRun, AgentRunEvent } from '@/domain/generated/output.js';
+import { StreamingExecutorProxy } from '@/infrastructure/services/agents/streaming/streaming-executor-proxy.js';
 
 // Mock the settings singleton — no top-level variable references inside factory
-vi.mock('../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: vi.fn().mockReturnValue({
     agent: {
       type: 'claude-code',

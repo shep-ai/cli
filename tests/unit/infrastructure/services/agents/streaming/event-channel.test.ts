@@ -7,7 +7,7 @@
 
 import 'reflect-metadata';
 import { describe, it, expect } from 'vitest';
-import { EventChannel } from '../../../../../../src/infrastructure/services/agents/streaming/event-channel.js';
+import { EventChannel } from '@/infrastructure/services/agents/streaming/event-channel.js';
 
 describe('EventChannel', () => {
   it('should yield pushed events in order', async () => {

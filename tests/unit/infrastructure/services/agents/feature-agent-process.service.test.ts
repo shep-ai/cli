@@ -9,9 +9,9 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
-import type { AgentRun } from '../../../../../src/domain/generated/output.js';
-import { AgentRunStatus, AgentType } from '../../../../../src/domain/generated/output.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { AgentRun } from '@/domain/generated/output.js';
+import { AgentRunStatus, AgentType } from '@/domain/generated/output.js';
 
 // Use vi.hoisted so mock fn is available when vi.mock factory runs
 const { mockFork } = vi.hoisted(() => ({
@@ -27,7 +27,7 @@ vi.mock(import('node:child_process'), async (importOriginal) => {
   };
 });
 
-import { FeatureAgentProcessService } from '../../../../../src/infrastructure/services/agents/feature-agent/feature-agent-process.service.js';
+import { FeatureAgentProcessService } from '@/infrastructure/services/agents/feature-agent/feature-agent-process.service.js';
 
 function makeAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {
   const now = new Date().toISOString();

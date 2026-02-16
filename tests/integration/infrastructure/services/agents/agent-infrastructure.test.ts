@@ -16,23 +16,23 @@ import type Database from 'better-sqlite3';
 import { spawn } from 'node:child_process';
 
 // Infrastructure imports
-import { SQLiteAgentRunRepository } from '../../../../../src/infrastructure/repositories/agent-run.repository.js';
-import { AgentExecutorFactory } from '../../../../../src/infrastructure/services/agents/common/agent-executor-factory.service.js';
-import { AgentRegistryService } from '../../../../../src/infrastructure/services/agents/common/agent-registry.service.js';
-import { AgentRunnerService } from '../../../../../src/infrastructure/services/agents/common/agent-runner.service.js';
-import { createCheckpointer } from '../../../../../src/infrastructure/services/agents/common/checkpointer.js';
-import { RunAgentUseCase } from '../../../../../src/application/use-cases/agents/run-agent.use-case.js';
+import { SQLiteAgentRunRepository } from '@/infrastructure/repositories/agent-run.repository.js';
+import { AgentExecutorFactory } from '@/infrastructure/services/agents/common/agent-executor-factory.service.js';
+import { AgentRegistryService } from '@/infrastructure/services/agents/common/agent-registry.service.js';
+import { AgentRunnerService } from '@/infrastructure/services/agents/common/agent-runner.service.js';
+import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
+import { RunAgentUseCase } from '@/application/use-cases/agents/run-agent.use-case.js';
 
 // Port interfaces
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
-import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agents/agent-executor-factory.interface.js';
-import type { IAgentExecutorProvider } from '../../../../../src/application/ports/output/agents/agent-executor-provider.interface.js';
-import type { IAgentRegistry } from '../../../../../src/application/ports/output/agents/agent-registry.interface.js';
-import type { IAgentRunner } from '../../../../../src/application/ports/output/agents/agent-runner.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IAgentRegistry } from '@/application/ports/output/agents/agent-registry.interface.js';
+import type { IAgentRunner } from '@/application/ports/output/agents/agent-runner.interface.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
-import { AgentExecutorProvider } from '../../../../../src/infrastructure/services/agents/common/agent-executor-provider.service.js';
+import { AgentExecutorProvider } from '@/infrastructure/services/agents/common/agent-executor-provider.service.js';
 
-import { runSQLiteMigrations } from '../../../../../src/infrastructure/persistence/sqlite/migrations.js';
+import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations.js';
 
 describe('Agent Infrastructure Integration', () => {
   let db: Database.Database;

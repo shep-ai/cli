@@ -7,7 +7,7 @@
  * @module tables
  */
 
-import type { Settings } from '../../../domain/generated/output.js';
+import type { Settings } from '@/domain/generated/output.js';
 import { colors } from './colors.js';
 import pc from 'picocolors';
 

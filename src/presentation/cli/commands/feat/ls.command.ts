@@ -13,10 +13,10 @@
 
 import path from 'node:path';
 import { Command } from 'commander';
-import { container } from '../../../../infrastructure/di/container.js';
-import { ListFeaturesUseCase } from '../../../../application/use-cases/features/list-features.use-case.js';
-import type { IAgentRunRepository } from '../../../../application/ports/output/agents/agent-run-repository.interface.js';
-import type { Feature, AgentRun } from '../../../../domain/generated/output.js';
+import { container } from '@/infrastructure/di/container.js';
+import { ListFeaturesUseCase } from '@/application/use-cases/features/list-features.use-case.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { Feature, AgentRun } from '@/domain/generated/output.js';
 import { colors, symbols, messages, renderListView } from '../../ui/index.js';
 
 interface LsOptions {

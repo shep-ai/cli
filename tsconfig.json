@@ -20,6 +20,9 @@
     "paths": {
       "@shepai/core": ["packages/core/src/index.ts"],
       "@shepai/core/*": ["packages/core/src/*"],
+      "@/application/*": ["packages/core/src/application/*"],
+      "@/infrastructure/*": ["packages/core/src/infrastructure/*"],
+      "@/domain/*": ["packages/core/src/domain/*"],
       "@/*": ["src/*"],
       "@tests/*": ["tests/*"],
       "@/app/*": ["src/presentation/web/app/*"],
@@ -27,7 +30,7 @@
       "@/lib/*": ["src/presentation/web/lib/*"],
       "@/hooks/*": ["src/presentation/web/hooks/*"],
       "@/types/*": ["src/presentation/web/types/*"],
-      "@domain/generated/*": ["src/domain/generated/*"],
+      "@domain/generated/*": ["packages/core/src/domain/generated/*"],
       "@cli/*": ["src/*"]
     },
     "jsx": "react-jsx",

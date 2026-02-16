@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   validatePlan,
   validateTasks,
-} from '../../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/schemas/plan.schema.js';
+} from '@/infrastructure/services/agents/feature-agent/nodes/schemas/plan.schema.js';
 
 const validPlan = {
   phases: [

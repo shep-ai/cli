@@ -9,9 +9,9 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../../infrastructure/di/container.js';
-import type { IFeatureRepository } from '../../../../application/ports/output/repositories/feature-repository.interface.js';
-import type { IAgentRunRepository } from '../../../../application/ports/output/agents/agent-run-repository.interface.js';
+import { container } from '@/infrastructure/di/container.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import { resolveWaitingFeature } from './resolve-waiting-feature.js';
 import { colors, messages } from '../../ui/index.js';
 

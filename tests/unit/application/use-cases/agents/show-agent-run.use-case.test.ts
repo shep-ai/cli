@@ -9,11 +9,11 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ShowAgentRunUseCase } from '../../../../../src/application/use-cases/agents/show-agent-run.use-case.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
-import type { IFeatureAgentProcessService } from '../../../../../src/application/ports/output/agents/feature-agent-process.interface.js';
-import type { AgentRun } from '../../../../../src/domain/generated/output.js';
-import { AgentRunStatus, AgentType } from '../../../../../src/domain/generated/output.js';
+import { ShowAgentRunUseCase } from '@/application/use-cases/agents/show-agent-run.use-case.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
+import type { AgentRun } from '@/domain/generated/output.js';
+import { AgentRunStatus, AgentType } from '@/domain/generated/output.js';
 
 function createMockAgentRun(overrides?: Partial<AgentRun>): AgentRun {
   return {

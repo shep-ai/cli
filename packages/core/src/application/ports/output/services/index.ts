@@ -19,3 +19,4 @@ export type { IVersionService } from './version-service.interface.js';
 export type { IWebServerService } from './web-server-service.interface.js';
 export type { IWorktreeService, WorktreeInfo } from './worktree-service.interface.js';
 export { WorktreeError, WorktreeErrorCode } from './worktree-service.interface.js';
+export type { IToolInstallerService } from './tool-installer.service.js';

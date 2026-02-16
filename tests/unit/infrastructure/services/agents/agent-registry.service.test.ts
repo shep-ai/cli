@@ -8,8 +8,8 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { AgentRegistryService } from '../../../../../src/infrastructure/services/agents/common/agent-registry.service.js';
-import type { AgentDefinitionWithFactory } from '../../../../../src/application/ports/output/agents/agent-registry.interface.js';
+import { AgentRegistryService } from '@/infrastructure/services/agents/common/agent-registry.service.js';
+import type { AgentDefinitionWithFactory } from '@/application/ports/output/agents/agent-registry.interface.js';
 
 describe('AgentRegistryService', () => {
   let registry: AgentRegistryService;

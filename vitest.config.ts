@@ -30,6 +30,16 @@ export default defineConfig({
     alias: [
       // @shepai/core workspace package
       { find: '@shepai/core', replacement: resolve(__dirname, './packages/core/src') },
+      // Core layer redirects — resolve @/application, @/infrastructure, @/domain to core
+      {
+        find: '@/application',
+        replacement: resolve(__dirname, './packages/core/src/application'),
+      },
+      {
+        find: '@/infrastructure',
+        replacement: resolve(__dirname, './packages/core/src/infrastructure'),
+      },
+      { find: '@/domain', replacement: resolve(__dirname, './packages/core/src/domain') },
       // More specific aliases first
       {
         find: '@/components',

@@ -14,7 +14,7 @@ import {
   findAvailablePort,
   DEFAULT_PORT,
   MAX_PORT_ATTEMPTS,
-} from '../../../../src/infrastructure/services/port.service.js';
+} from '@/infrastructure/services/port.service.js';
 
 describe('Port Service', () => {
   describe('isPortAvailable', () => {

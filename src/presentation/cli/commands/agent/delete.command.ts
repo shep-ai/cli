@@ -8,8 +8,8 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../../infrastructure/di/container.js';
-import { DeleteAgentRunUseCase } from '../../../../application/use-cases/agents/delete-agent-run.use-case.js';
+import { container } from '@/infrastructure/di/container.js';
+import { DeleteAgentRunUseCase } from '@/application/use-cases/agents/delete-agent-run.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 import { resolveAgentRun } from './resolve-run.js';
 
@@ -30,7 +30,7 @@ export function createDeleteCommand(): Command {
         if (opts.force && resolved.run.status === 'running') {
           // Force delete: stop first, then delete
           const { StopAgentRunUseCase } = await import(
-            '../../../../application/use-cases/agents/stop-agent-run.use-case.js'
+            '@/application/use-cases/agents/stop-agent-run.use-case.js'
           );
           const stopUseCase = container.resolve(StopAgentRunUseCase);
           await stopUseCase.execute(resolved.run.id);

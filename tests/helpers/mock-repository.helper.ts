@@ -5,7 +5,7 @@
  * Allows tests to control repository behavior without database dependencies.
  */
 
-import type { Settings } from '../../src/domain/generated/output.js';
+import type { Settings } from '@/domain/generated/output.js';
 
 /**
  * Mock implementation of ISettingsRepository interface.

@@ -9,12 +9,12 @@
 import { Command } from 'commander';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { EditorType } from '../../../domain/generated/output.js';
-import { container } from '../../../infrastructure/di/container.js';
-import { ShowFeatureUseCase } from '../../../application/use-cases/features/show-feature.use-case.js';
-import { getSettings } from '../../../infrastructure/services/settings.service.js';
-import { createLauncherRegistry } from '../../../infrastructure/services/ide-launchers/ide-launcher.registry.js';
-import { SHEP_HOME_DIR } from '../../../infrastructure/services/filesystem/shep-directory.service.js';
+import { EditorType } from '@/domain/generated/output.js';
+import { container } from '@/infrastructure/di/container.js';
+import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
+import { createLauncherRegistry } from '@/infrastructure/services/ide-launchers/ide-launcher.registry.js';
+import { SHEP_HOME_DIR } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { messages } from '../ui/index.js';
 
 function computeWorktreePath(repoPath: string, branch: string): string {

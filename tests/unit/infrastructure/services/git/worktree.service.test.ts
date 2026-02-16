@@ -9,11 +9,11 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { WorktreeService } from '../../../../../src/infrastructure/services/git/worktree.service.js';
+import { WorktreeService } from '@/infrastructure/services/git/worktree.service.js';
 import {
   WorktreeError,
   WorktreeErrorCode,
-} from '../../../../../src/application/ports/output/services/worktree-service.interface.js';
+} from '@/application/ports/output/services/worktree-service.interface.js';
 
 type ExecFileFn = (
   cmd: string,

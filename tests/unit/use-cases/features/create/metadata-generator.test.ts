@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IAgentExecutor } from '../../../../../src/application/ports/output/agents/agent-executor.interface.js';
-import type { IAgentExecutorProvider } from '../../../../../src/application/ports/output/agents/agent-executor-provider.interface.js';
-import { MetadataGenerator } from '../../../../../src/application/use-cases/features/create/metadata-generator.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
+import { MetadataGenerator } from '@/application/use-cases/features/create/metadata-generator.js';
 
 describe('MetadataGenerator', () => {
   let mockExecutor: IAgentExecutor;

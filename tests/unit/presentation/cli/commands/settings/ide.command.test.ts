@@ -19,7 +19,7 @@ const { mockMessages, mockCheckAvailable } = vi.hoisted(() => ({
 }));
 
 // Mock the container
-vi.mock('../../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
     resolve: vi.fn(),
   },
@@ -31,7 +31,7 @@ vi.mock('@inquirer/prompts', () => ({
 }));
 
 // Mock the settings service
-vi.mock('../../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: vi.fn(),
   initializeSettings: vi.fn(),
   resetSettings: vi.fn(),
@@ -43,59 +43,56 @@ vi.mock('../../../../../../src/presentation/cli/ui/index.js', () => ({
 }));
 
 // Mock the launcher registry
-vi.mock(
-  '../../../../../../src/infrastructure/services/ide-launchers/ide-launcher.registry.js',
-  () => ({
-    createLauncherRegistry: vi.fn(() => {
-      const launcher = {
-        name: 'VS Code',
-        editorId: 'vscode',
-        binary: 'code',
-        launch: vi.fn(),
-        checkAvailable: mockCheckAvailable,
-      };
-      const map = new Map();
-      map.set('vscode', launcher);
-      map.set('cursor', {
-        ...launcher,
-        name: 'Cursor',
-        editorId: 'cursor',
-        binary: 'cursor',
-        checkAvailable: mockCheckAvailable,
-      });
-      map.set('windsurf', {
-        ...launcher,
-        name: 'Windsurf',
-        editorId: 'windsurf',
-        binary: 'windsurf',
-        checkAvailable: mockCheckAvailable,
-      });
-      map.set('zed', {
-        ...launcher,
-        name: 'Zed',
-        editorId: 'zed',
-        binary: 'zed',
-        checkAvailable: mockCheckAvailable,
-      });
-      map.set('antigravity', {
-        ...launcher,
-        name: 'Antigravity',
-        editorId: 'antigravity',
-        binary: 'agy',
-        checkAvailable: mockCheckAvailable,
-      });
-      return map;
-    }),
-  })
-);
+vi.mock('@/infrastructure/services/ide-launchers/ide-launcher.registry.js', () => ({
+  createLauncherRegistry: vi.fn(() => {
+    const launcher = {
+      name: 'VS Code',
+      editorId: 'vscode',
+      binary: 'code',
+      launch: vi.fn(),
+      checkAvailable: mockCheckAvailable,
+    };
+    const map = new Map();
+    map.set('vscode', launcher);
+    map.set('cursor', {
+      ...launcher,
+      name: 'Cursor',
+      editorId: 'cursor',
+      binary: 'cursor',
+      checkAvailable: mockCheckAvailable,
+    });
+    map.set('windsurf', {
+      ...launcher,
+      name: 'Windsurf',
+      editorId: 'windsurf',
+      binary: 'windsurf',
+      checkAvailable: mockCheckAvailable,
+    });
+    map.set('zed', {
+      ...launcher,
+      name: 'Zed',
+      editorId: 'zed',
+      binary: 'zed',
+      checkAvailable: mockCheckAvailable,
+    });
+    map.set('antigravity', {
+      ...launcher,
+      name: 'Antigravity',
+      editorId: 'antigravity',
+      binary: 'agy',
+      checkAvailable: mockCheckAvailable,
+    });
+    return map;
+  }),
+}));
 
-import { container } from '../../../../../../src/infrastructure/di/container.js';
+import { container } from '@/infrastructure/di/container.js';
 import { select } from '@inquirer/prompts';
 import {
   getSettings,
   initializeSettings,
   resetSettings,
-} from '../../../../../../src/infrastructure/services/settings.service.js';
+} from '@/infrastructure/services/settings.service.js';
 import { createIdeCommand } from '../../../../../../src/presentation/cli/commands/settings/ide.command.js';
 
 describe('IDE Command', () => {

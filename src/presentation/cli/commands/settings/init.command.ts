@@ -10,11 +10,8 @@
 
 import { Command } from 'commander';
 import { createInterface } from 'node:readline';
-import { createDefaultSettings } from '../../../../domain/factories/settings-defaults.factory.js';
-import {
-  resetSettings,
-  initializeSettings,
-} from '../../../../infrastructure/services/settings.service.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
+import { resetSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { messages } from '../../ui/index.js';
 
 /**

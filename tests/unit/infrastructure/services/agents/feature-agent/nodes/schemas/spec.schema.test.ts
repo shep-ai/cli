@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   validateSpecAnalyze,
   validateSpecRequirements,
-} from '../../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.js';
+} from '@/infrastructure/services/agents/feature-agent/nodes/schemas/spec.schema.js';
 
 const validAnalyzeSpec = {
   name: 'test-feature',

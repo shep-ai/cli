@@ -12,22 +12,19 @@ const { mockResolve, mockCreateExecute } = vi.hoisted(() => ({
   mockCreateExecute: vi.fn(),
 }));
 
-vi.mock('../../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: { resolve: (...args: unknown[]) => mockResolve(...args) },
 }));
 
-vi.mock('../../../../../../src/application/use-cases/features/create-feature.use-case.js', () => ({
+vi.mock('@/application/use-cases/features/create-feature.use-case.js', () => ({
   CreateFeatureUseCase: class {
     execute = mockCreateExecute;
   },
 }));
 
-vi.mock(
-  '../../../../../../src/infrastructure/services/filesystem/shep-directory.service.js',
-  () => ({
-    SHEP_HOME_DIR: '/home/test/.shep',
-  })
-);
+vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => ({
+  SHEP_HOME_DIR: '/home/test/.shep',
+}));
 
 vi.mock('../../../../../../src/presentation/cli/ui/index.js', () => ({
   colors: {

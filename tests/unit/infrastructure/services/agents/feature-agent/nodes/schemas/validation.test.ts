@@ -3,7 +3,7 @@ import {
   requireString,
   requireNonEmptyArray,
   requireArrayOfShape,
-} from '../../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/schemas/validation.js';
+} from '@/infrastructure/services/agents/feature-agent/nodes/schemas/validation.js';
 
 describe('validation helpers', () => {
   describe('requireString', () => {

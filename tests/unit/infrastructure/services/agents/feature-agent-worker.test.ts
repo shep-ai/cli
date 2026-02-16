@@ -10,8 +10,8 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentRunStatus } from '../../../../../src/domain/generated/output.js';
-import type { AgentRun } from '../../../../../src/domain/generated/output.js';
+import { AgentRunStatus } from '@/domain/generated/output.js';
+import type { AgentRun } from '@/domain/generated/output.js';
 
 // Use vi.hoisted so mock fns are available when vi.mock factories run
 const {
@@ -28,30 +28,27 @@ const {
   mockCreateCheckpointer: vi.fn().mockReturnValue({}),
 }));
 
-vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   initializeContainer: () => mockInitializeContainer(),
   container: { resolve: (...args: unknown[]) => mockResolve(...args) },
 }));
 
-vi.mock(
-  '../../../../../src/infrastructure/services/agents/feature-agent/feature-agent-graph.js',
-  () => ({
-    createFeatureAgentGraph: (...args: unknown[]) => mockCreateFeatureAgentGraph(...args),
-  })
-);
+vi.mock('@/infrastructure/services/agents/feature-agent/feature-agent-graph.js', () => ({
+  createFeatureAgentGraph: (...args: unknown[]) => mockCreateFeatureAgentGraph(...args),
+}));
 
-vi.mock('../../../../../src/infrastructure/services/agents/common/checkpointer.js', () => ({
+vi.mock('@/infrastructure/services/agents/common/checkpointer.js', () => ({
   createCheckpointer: (...args: unknown[]) => mockCreateCheckpointer(...args),
 }));
 
-vi.mock('../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: () => ({
     agent: { type: 'claude-code', authMethod: 'token', token: 'test' },
   }),
   initializeSettings: vi.fn(),
 }));
 
-vi.mock('../../../../../src/infrastructure/services/agents/feature-agent/heartbeat.js', () => ({
+vi.mock('@/infrastructure/services/agents/feature-agent/heartbeat.js', () => ({
   setHeartbeatContext: vi.fn(),
   reportNodeStart: vi.fn(),
 }));
@@ -59,7 +56,7 @@ vi.mock('../../../../../src/infrastructure/services/agents/feature-agent/heartbe
 import {
   parseWorkerArgs,
   runWorker,
-} from '../../../../../src/infrastructure/services/agents/feature-agent/feature-agent-worker.js';
+} from '@/infrastructure/services/agents/feature-agent/feature-agent-worker.js';
 
 function makeMockRunRepository() {
   const stored = new Map<string, AgentRun>();

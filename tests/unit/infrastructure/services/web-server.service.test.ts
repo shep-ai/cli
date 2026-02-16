@@ -12,7 +12,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import {
   WebServerService,
   type WebServerDeps,
-} from '../../../../src/infrastructure/services/web-server.service.js';
+} from '@/infrastructure/services/web-server.service.js';
 
 function createMockDeps() {
   const mockHandle = vi.fn();

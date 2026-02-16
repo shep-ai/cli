@@ -15,11 +15,11 @@ import 'reflect-metadata';
 
 import next from 'next';
 import http from 'node:http';
-import { initializeContainer, container } from '../../infrastructure/di/container.js';
-import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
-import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
-import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
-import { initializeSettings } from '../../infrastructure/services/settings.service.js';
+import { initializeContainer, container } from '@/infrastructure/di/container.js';
+import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
+import { ListFeaturesUseCase } from '@/application/use-cases/features/list-features.use-case.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 
 const DEFAULT_PORT = 3000;
 

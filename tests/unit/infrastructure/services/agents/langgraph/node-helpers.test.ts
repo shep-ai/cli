@@ -20,13 +20,13 @@ import {
   buildExecutorOptions,
   getCompletedPhases,
   markPhaseComplete,
-} from '../../../../../../src/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
-import type { FeatureAgentState } from '../../../../../../src/infrastructure/services/agents/feature-agent/state.js';
+} from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type {
   IAgentExecutor,
   AgentExecutionResult,
-} from '../../../../../../src/application/ports/output/agents/agent-executor.interface.js';
-import type { AgentType } from '../../../../../../src/domain/generated/output.js';
+} from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { AgentType } from '@/domain/generated/output.js';
 
 describe('safeYamlLoad', () => {
   it('parses valid YAML normally', () => {

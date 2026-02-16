@@ -6,13 +6,13 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentRunStatus } from '../../../../../../src/domain/generated/output.js';
+import { AgentRunStatus } from '@/domain/generated/output.js';
 
 const { mockResolve } = vi.hoisted(() => ({
   mockResolve: vi.fn(),
 }));
 
-vi.mock('../../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: { resolve: (...args: unknown[]) => mockResolve(...args) },
 }));
 

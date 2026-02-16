@@ -11,14 +11,14 @@ import { describe, it, expect, vi } from 'vitest';
 import { Command } from 'commander';
 
 // Mock the DI container (prevents runtime resolution errors)
-vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
     resolve: vi.fn(),
   },
 }));
 
 // Mock the use case module (prevents import errors since it doesn't exist yet)
-vi.mock('../../../../../src/application/use-cases/agents/run-agent.use-case.js', () => ({
+vi.mock('@/application/use-cases/agents/run-agent.use-case.js', () => ({
   RunAgentUseCase: class MockRunAgentUseCase {},
 }));
 
