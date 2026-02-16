@@ -32,13 +32,17 @@ export class MetadataGenerator {
           ? `${userInput.slice(0, MAX_INPUT_FOR_AI)}...`
           : userInput;
 
-      const prompt = `Generate feature metadata from this user request:
+      const prompt = `Analyze this user request and extract the CORE feature intent. Condense to essential concepts.
+
+User request:
 "${truncated}"
 
+IMPORTANT: Don't use the request as-is. Extract the key feature being requested and improve the wording.
+
 Return ONLY a JSON object with these fields:
-- slug: kebab-case identifier, 2-4 words max (e.g., "github-oauth-login")
-- name: short human-readable title (e.g., "GitHub OAuth Login")
-- description: refined 1-2 sentence description
+- slug: kebab-case identifier, 2-4 words MAX. Extract the core feature name (e.g., "github-oauth-login" from "add github oauth")
+- name: polished, professional title (improve upon user's wording)
+- description: refined 1-2 sentence description that captures the feature essence (not the request verbatim)
 
 JSON only, no markdown fences.`;
 
