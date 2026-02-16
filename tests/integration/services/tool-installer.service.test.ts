@@ -107,6 +107,12 @@ describe('ToolInstallerServiceImpl - Integration Tests', () => {
     it('should complete installation successfully with exit code 0', async () => {
       const mockProc = createMockProcess(0);
       mockSpawn.mockReturnValue(mockProc);
+      // Mock binary check to return success after installation
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
+          cb(null);
+        }
+      );
 
       const result = await service.executeInstall('vscode');
 
@@ -130,6 +136,12 @@ describe('ToolInstallerServiceImpl - Integration Tests', () => {
     it('should stream output during installation', async () => {
       const mockProc = createMockProcess(0);
       mockSpawn.mockReturnValue(mockProc);
+      // Mock binary check to return success after installation
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
+          cb(null);
+        }
+      );
 
       const outputLines: string[] = [];
       const onOutput = (data: string) => {

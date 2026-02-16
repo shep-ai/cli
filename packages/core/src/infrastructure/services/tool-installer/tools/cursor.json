@@ -4,14 +4,14 @@
   "description": "Cursor is an AI-powered code editor built on VS Code, designed to streamline development workflows with advanced AI-assisted coding capabilities.",
   "category": "ide",
   "binary": "cursor",
-  "packageManager": "curl",
+  "packageManager": "manual",
   "commands": {
-    "linux": "curl -fsSL https://www.cursor.com/linux/install.sh | sh",
-    "darwin": "curl -fsSL https://www.cursor.com/mac/install.sh | sh"
+    "linux": "Download from https://cursor.com/download and install the AppImage manually",
+    "darwin": "Download from https://cursor.com/download or use: brew install --cask cursor"
   },
   "timeout": 600000,
-  "documentationUrl": "https://www.cursor.com/docs",
+  "documentationUrl": "https://cursor.com/download",
   "verifyCommand": "cursor --version",
-  "autoInstall": true,
+  "autoInstall": false,
   "openDirectory": "cursor ."
 }

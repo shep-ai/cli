@@ -1,16 +1,16 @@
 {
   "name": "Cursor CLI",
-  "summary": "AI-powered code editor command-line interface",
-  "description": "Cursor CLI provides command-line access to Cursor, an AI-powered code editor designed for efficient AI-assisted development.",
+  "summary": "AI-powered terminal coding agent",
+  "description": "Cursor CLI is a terminal-based AI coding agent that brings conversational AI assistance directly to your command line for any IDE or terminal.",
   "category": "cli-agent",
-  "binary": "cursor",
+  "binary": "cursor-agent",
   "packageManager": "curl",
   "commands": {
     "linux": "curl https://cursor.com/install -fsS | bash",
     "darwin": "curl https://cursor.com/install -fsS | bash"
   },
   "timeout": 300000,
-  "documentationUrl": "https://cursor.com",
-  "verifyCommand": "cursor --version",
+  "documentationUrl": "https://www.codecademy.com/article/getting-started-with-cursor-cli",
+  "verifyCommand": "cursor-agent --version",
   "autoInstall": true
 }

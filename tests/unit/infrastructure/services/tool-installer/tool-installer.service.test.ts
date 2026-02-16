@@ -118,7 +118,7 @@ describe('ToolInstallerServiceImpl', () => {
 
       expect(command).not.toBeNull();
       expect(command!.toolName).toBe('cursor');
-      expect(command!.packageManager).toBe('curl');
+      expect(command!.packageManager).toBe('manual');
     });
   });
 
@@ -141,6 +141,12 @@ describe('ToolInstallerServiceImpl', () => {
     it('should return "available" status on exit code 0', async () => {
       const mockProc = createMockProcess(0);
       mockSpawn.mockReturnValue(mockProc);
+      // Mock binary check to return success after installation
+      mockExecFile.mockImplementation(
+        (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
+          cb(null);
+        }
+      );
 
       const result = await service.executeInstall('vscode');
 
