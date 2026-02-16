@@ -186,7 +186,7 @@ export function FeatureCreateDrawer({
                 <div className="flex flex-col gap-2">
                   {attachments.map((file, index) => (
                     <AttachmentCard
-                      key={`${file.name}-${file.size}-${index}`}
+                      key={`${file.name}-${file.size}-${file.lastModified}`}
                       file={file}
                       onRemove={() => handleRemoveFile(index)}
                       disabled={isSubmitting}
