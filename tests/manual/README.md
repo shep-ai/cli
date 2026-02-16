@@ -67,13 +67,38 @@ Tests initialize a real SQLite database at `~/.shep/data`. This is created autom
 
 Manual tests use the `.manual.test.ts` or `.manual.test.tsx` naming convention to distinguish them from standard unit tests.
 
+## AI Detection in Tests
+
+Tests now include **AI working detection** by checking slug word count:
+
+**How to detect if AI is working:**
+
+| Slug Word Count | Status              | Example                                     |
+| --------------- | ------------------- | ------------------------------------------- |
+| **2-5 words**   | ✅ AI working       | `dark-mode-toggle`                          |
+| **6-8 words**   | ⚠️ Partial fallback | `add-dark-mode-toggle-to-the`               |
+| **9+ words**    | ❌ Full fallback    | `add-dark-mode-toggle-to-the-settings-page` |
+
+**Why this matters:**
+
+- **Good AI response**: Condenses long input to 2-5 word slug (e.g., "Add dark mode toggle" → "dark-mode-toggle")
+- **Fallback response**: Uses full input as slug (e.g., "Add dark mode toggle" → "add-dark-mode-toggle-to-the-settings-page")
+
+Test output tells you status:
+
+```
+⚡ AI Working Check: slug word count = 8
+  ⚠️  Slug has 8 words - looks like FALLBACK (not AI)
+  Expected AI to condense to 2-5 words, got full input instead
+```
+
 ## Examples
 
 ### Example 1: MetadataGenerator with Real Agent
 
 ```typescript
 import 'reflect-metadata';
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { initializeContainer, container } from '@/infrastructure/di/container';
 import { MetadataGenerator } from '@/application/use-cases/features/create/metadata-generator';
 
@@ -91,6 +116,10 @@ describe('MetadataGenerator (MANUAL - Real Agent)', () => {
     expect(metadata.slug).toBeDefined();
     expect(metadata.name).toBeDefined();
     expect(metadata.description).toBeDefined();
+
+    // Check if AI is working by slug word count
+    const wordCount = metadata.slug.split('-').length;
+    console.log(`Slug has ${wordCount} words (AI: ${wordCount <= 5 ? '✅' : '❌'})`);
   });
 });
 ```

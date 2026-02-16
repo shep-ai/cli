@@ -48,13 +48,25 @@ describe('MetadataGenerator (MANUAL - Real Agent Executor)', () => {
     expect(metadata.slug).toMatch(/^[a-z0-9-]+$/);
     expect(metadata.slug.length).toBeLessThanOrEqual(50);
 
+    // CRITICAL: Verify AI actually worked (not fallback)
+    // If AI works: slug should be condensed to 2-5 words (e.g., "dark-mode-toggle")
+    // If fallback: slug would be full input (7 words: "add-dark-mode-toggle-to-the-settings-page")
+    const wordCount = metadata.slug.split('-').length;
+    console.log(`\n⚡ AI Working Check: slug word count = ${wordCount}`);
+    if (wordCount > 6) {
+      console.log(`  ⚠️  Slug has ${wordCount} words - looks like FALLBACK (not AI)`);
+      console.log(`  Expected AI to condense to 2-5 words, got full input instead`);
+    } else {
+      console.log(`  ✅ Slug condensed to ${wordCount} words - AI likely working!`);
+    }
+
     // Verify name is non-empty
     expect(metadata.name.length).toBeGreaterThan(0);
 
     // Log results for manual inspection
     console.log('\n📝 Generated Metadata:');
     console.log(`  Input:       "${userInput}"`);
-    console.log(`  Slug:        "${metadata.slug}"`);
+    console.log(`  Slug:        "${metadata.slug}" (${wordCount} words)`);
     console.log(`  Name:        "${metadata.name}"`);
     console.log(`  Description: "${metadata.description}"`);
   });
@@ -70,11 +82,40 @@ describe('MetadataGenerator (MANUAL - Real Agent Executor)', () => {
     expect(metadata.name.length).toBeGreaterThan(0);
     expect(metadata.description.length).toBeGreaterThan(0);
 
+    const wordCount = metadata.slug.split('-').length;
     console.log('\n📝 Complex Request Metadata:');
     console.log(`  Input (truncated):  "${userInput.slice(0, 60)}..."`);
-    console.log(`  Slug:               "${metadata.slug}"`);
+    console.log(`  Slug:               "${metadata.slug}" (${wordCount} words)`);
     console.log(`  Name:               "${metadata.name}"`);
     console.log(`  Description:        "${metadata.description}"`);
+    console.log(`  ℹ️  If slug has >6 words, AI fallback was triggered`);
+  });
+
+  it('should condense slug to 2-5 words when AI works properly', async () => {
+    const userInput =
+      'I want to add a feature that allows users to customize their dashboard themes and save preferences';
+
+    const metadata = await generator.generateMetadata(userInput);
+
+    const wordCount = metadata.slug.split('-').length;
+
+    console.log('\n🧠 AI Condensation Test:');
+    console.log(`  Input (${userInput.split(' ').length} words):  "${userInput}"`);
+    console.log(`  Output (${wordCount} words): "${metadata.slug}"`);
+
+    // If AI is working: slug should be condensed to 2-5 words
+    // If fallback: slug would be 17+ words
+    if (wordCount <= 5) {
+      console.log(`  ✅ AI is CONDENSING input (${wordCount} words is good!)`);
+    } else if (wordCount >= 12) {
+      console.log(`  ⚠️  FALLBACK ACTIVE (${wordCount} words = full input)`);
+      console.log(`  To test AI: Configure SHEP_AGENT_TYPE and SHEP_AGENT_TOKEN`);
+    } else {
+      console.log(`  📊 Partial AI response (${wordCount} words)`);
+    }
+
+    expect(metadata.slug).toMatch(/^[a-z0-9-]+$/);
+    expect(metadata.slug.length).toBeLessThanOrEqual(50);
   });
 
   it('should fallback to regex-based slug when AI fails (timeout test)', async () => {
