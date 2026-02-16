@@ -194,6 +194,24 @@ decisions:
       (whether IDE or CLI). Metadata-driven design allows easy additions without modifying command logic.
       Keeps `shep ide` focused on IDE launching; installation is orthogonal concern.
 
+  - title: "--how flag for dry-run instruction printing"
+    chosen: >
+      Add --how boolean flag to shep install command. When set, prints concise installation
+      instructions without executing anything. Output includes: tool name, binary name,
+      install command for detected platform, official documentation link, prerequisite checks
+      (e.g. curl available, npm available), and post-install verification command (e.g. "code --version").
+      No side effects; safe to run anytime. Uses same tool metadata as the installer service.
+    rejected:
+      - >
+        Separate shep install-info command — splits UX unnecessarily; --how is more natural.
+      - >
+        Always print instructions before install — adds noise for users who just want to install.
+    rationale: >
+      Users often want to see what will happen before running an install. --how provides transparency
+      and is useful for: manual installation, scripting, documentation, and debugging failed installs.
+      Reuses the same metadata from IToolInstallerService.getInstallCommand() so instructions are
+      always in sync with actual install behavior. Zero-cost addition since metadata already exists.
+
   - title: Shell Safety and Command Escaping
     chosen: >
       Use `spawn()` with array argument syntax (arguments passed separately, not as shell string).

@@ -87,8 +87,9 @@ implementationPhases:
   - id: 6
     name: CLI Command - install.command.ts (TDD)
     description: >
-      RED: Write CLI tests with mocked use cases, validate command parsing.
-      GREEN: Implement `shep install <tool>` using Commander.js, dispatching to use cases.
+      RED: Write CLI tests with mocked use cases, validate command parsing including --how flag.
+      GREEN: Implement `shep install <tool>` and `shep install <tool> --how` using Commander.js.
+      --how prints concise install instructions (command, docs link, prerequisites, verify command) without executing.
       REFACTOR: Help text, error messages, user prompts using CLI UI messages.
     testingRequired: true
     dependencies: [5]

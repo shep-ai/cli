@@ -309,43 +309,49 @@ tasks:
 
   # Phase 6: CLI Command (TDD)
   - id: 6.1
-    title: "[RED] Write install.command.ts tests"
+    title: "[RED] Write install.command.ts tests (including --how)"
     description: >
       Write CLI tests with mocked use cases. Test command parsing, valid tool names,
-      invalid tool names, user interaction flow.
+      invalid tool names, user interaction flow. Also test --how flag prints instructions
+      without executing (no spawn, no user confirmation prompt).
     phase: Presentation
     tddCycle: RED
-    effort: 0.75d
+    effort: 1d
     dependencies: [5.1]
     acceptance:
       - Test file: tests/unit/cli/commands/install.command.test.ts
-      - Tests for `shep install vscode` → calls ValidateToolAvailabilityUseCase
-      - Tests for `shep install cursor-cli` → CLI accepts CLI agent names
-      - Tests for `shep install invalid-tool` → error message
+      - Tests for shep install vscode calls ValidateToolAvailabilityUseCase
+      - Tests for shep install cursor-cli accepts CLI agent names
+      - Tests for shep install invalid-tool shows error message
       - Tests for user confirming installation
       - Tests for user cancelling installation
+      - Tests for --how flag prints install command, docs link, prerequisites, verify command
+      - Tests for --how flag does NOT call InstallToolUseCase (no side effects)
       - All tests fail initially (RED)
 
   - id: 6.2
-    title: "[GREEN] Implement install.command.ts"
+    title: "[GREEN] Implement install.command.ts with --how flag"
     description: >
-      Implement `shep install <tool>` command using Commander.js.
-      Parse tool name, call use cases, dispatch to InstallToolUseCase.
-      Minimal code to pass tests.
+      Implement shep install <tool> and shep install <tool> --how using Commander.js.
+      --how reads tool metadata via getInstallCommand() and prints structured output:
+      tool name, binary, install command, docs link, prerequisites, verify command.
+      No execution when --how is set. Minimal code to pass tests.
     phase: Presentation
     tddCycle: GREEN
-    effort: 0.75d
+    effort: 1d
     dependencies: [6.1]
     acceptance:
       - Implementation in src/presentation/cli/commands/install.command.ts
       - Uses generated ToolType enum from TypeSpec
-      - Calls mocked use cases from tests
+      - --how flag prints concise instructions without executing
+      - --how output includes install command, docs link, prerequisites, verify command
       - All RED tests now pass (GREEN)
 
   - id: 6.3
     title: "[REFACTOR] Polish install.command.ts"
     description: >
       Refactor for clarity, add help text, improve error messages.
+      Ensure --how output is clean and consistent.
       Keep tests passing.
     phase: Presentation
     tddCycle: REFACTOR
@@ -354,6 +360,7 @@ tasks:
     acceptance:
       - Help text clear and complete
       - Error messages actionable
+      - --how output formatted consistently across all 7 tools
       - Tests still pass
       - Ready for CLI registration
 
