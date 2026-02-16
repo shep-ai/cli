@@ -211,24 +211,19 @@ tasks:
     estimatedEffort: S
 
   - id: task-8
-    title: 'Use existing ListFeaturesUseCase in control center page'
+    title: 'Set up DI bridge with existing ListFeaturesUseCase and Feature type props'
     description: >
-      Replace direct filesystem reads in lib/shep-data.ts with the existing
-      ListFeaturesUseCase and IFeatureRepository (already on main). Merge main
-      to get the infrastructure, then refactor page.tsx to resolve the use case
-      from the DI container and delete lib/shep-data.ts.
-    state: Done
+      SUPERSEDED by tasks 15-22 (@shepai/core extraction plan). The original approach
+      of patching imports with @cli/* path aliases is replaced by extracting a proper
+      @shepai/core workspace package.
+    state: Superseded
     dependencies:
       - task-6
     acceptanceCriteria:
-      - 'main merged into feature branch (brings ListFeaturesUseCase, IFeatureRepository, SQLiteFeatureRepository)'
-      - 'control-center/page.tsx resolves ListFeaturesUseCase from DI container'
-      - 'lib/shep-data.ts deleted (no direct filesystem access from presentation)'
-      - 'Node/edge mapping remains in page.tsx (presentation concern)'
-      - 'pnpm typecheck passes'
-      - 'pnpm typecheck:web passes'
+      - 'SUPERSEDED — see tasks 15-22'
     tdd: null
-    estimatedEffort: S
+    estimatedEffort: L
+    supersededBy: 'tasks 15-22 (@shepai/core extraction)'
 
   - id: task-9
     title: 'Align FeatureLifecyclePhase with domain SdlcLifecycle'
@@ -261,37 +256,19 @@ tasks:
     estimatedEffort: S
 
   - id: task-10
-    title: 'Integrate agent_run status for real feature state'
+    title: 'Update stories and tests for Feature type props'
     description: >
-      Extend getFeatures() in features.ts to LEFT JOIN with agent_runs table,
-      returning agentStatus and agentError. Add deriveState() function in
-      page.tsx that maps agent_runs.status to FeatureNodeState (running→running,
-      completed→done, failed→error, waiting_approval→action-required).
-      Maintain lifecycle always forces done state.
-    state: Done
+      SUPERSEDED by task-20 (control center data layer). Story/test updates
+      are now part of the @shepai/core extraction plan.
+    state: Superseded
     dependencies:
+      - task-8
       - task-9
     acceptanceCriteria:
-      - 'getFeatures() returns agentStatus and agentError from agent_runs JOIN'
-      - 'Feature interface includes optional agentStatus and agentError fields'
-      - 'deriveState() maps agent_runs.status to correct FeatureNodeState'
-      - 'Maintain lifecycle always returns done state with progress 100'
-      - 'Features with no agent_run show as running (default)'
-      - 'pnpm typecheck:web passes'
-    tdd:
-      red:
-        - 'Write test: deriveState returns done for maintain lifecycle'
-        - 'Write test: deriveState returns done for completed agent status'
-        - 'Write test: deriveState returns error for failed agent status'
-        - 'Write test: deriveState returns action-required for waiting_approval'
-      green:
-        - 'Extend SQL query with LEFT JOIN agent_runs'
-        - 'Add agentStatus/agentError to Feature interface and fromRow'
-        - 'Implement deriveState function in page.tsx'
-        - 'Use deriveState when building FeatureNodeData'
-      refactor:
-        - 'Ensure error messages propagate from agent_runs.error'
-    estimatedEffort: S
+      - 'SUPERSEDED — see task-20'
+    tdd: null
+    estimatedEffort: M
+    supersededBy: 'task-20 (control center data layer)'
 
   - id: task-11
     title: 'Update stories with new lifecycle values'
@@ -311,8 +288,307 @@ tasks:
     tdd: null
     estimatedEffort: S
 
+  - id: task-12
+    title: 'Create agent type icons with agentType as optional FeatureNodeData field'
+    description: >
+      Create agent-type-icons.tsx with an AgentTypeValue union type mirroring
+      the TypeSpec AgentType enum (claude-code, cursor, gemini-cli, aider,
+      continue). Implement inline SVG icon components for each agent type
+      plus a DefaultAgentIcon fallback. Export a getAgentTypeIcon() resolver.
+      agentType is an optional UI override field on FeatureNodeData (not from
+      the Feature domain model). Currently shows DefaultAgentIcon when not set.
+    state: Done
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'agent-type-icons.tsx exports AgentTypeValue union type'
+      - 'SVG components exist for all 5 AgentType enum values plus DefaultAgentIcon'
+      - 'getAgentTypeIcon() resolves agent type string to icon component'
+      - 'FeatureNodeData includes agentType?: AgentTypeValue as optional override'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Write test: getAgentTypeIcon returns ClaudeCodeIcon for claude-code'
+        - 'Write test: getAgentTypeIcon returns DefaultAgentIcon for undefined'
+      green:
+        - 'Create agent-type-icons.tsx with SVG components and resolver'
+        - 'Add agentType to FeatureNodeData'
+        - 'Pass agentType in page.tsx nodeData from bridge'
+      refactor:
+        - 'Ensure all SVGs use currentColor and accept className'
+    estimatedEffort: M
+
+  - id: task-13
+    title: 'Update feature node badge (hide featureId, agent icon, lifecycle verbs)'
+    description: >
+      Remove featureId rendering from both the progress-bar and non-progress
+      views in feature-node.tsx. Add lifecycleRunningVerbs map to
+      feature-node-state-config.ts mapping lifecycle phases to present-participle
+      verbs (Analyzing, Researching, Implementing, Reviewing, Deploying,
+      Maintaining). Update getBadgeText running case to use lifecycle verb.
+      In running badge: show CometSpinner + AgentTypeIcon + lifecycle verb text.
+      For non-running states: show agent icon (if agentType available) before
+      state icon. Remove agentName from FeatureNodeData (replaced by agentType).
+    state: Done
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'featureId not rendered in the feature node card'
+      - 'Running badge shows CometSpinner + agent type icon + lifecycle verb'
+      - 'lifecycleRunningVerbs maps all 6 phases to verbs'
+      - 'getBadgeText running case returns lifecycle verb (e.g. Analyzing)'
+      - 'Non-running states show agent icon before state icon when agentType set'
+      - 'agentName removed from FeatureNodeData'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Write test: featureId is NOT rendered in the card'
+        - 'Write test: running badge shows lifecycle verb for each phase'
+        - 'Write test: running badge does not show featureId in text'
+      green:
+        - 'Remove featureId spans from both views'
+        - 'Add lifecycleRunningVerbs map'
+        - 'Update getBadgeText running case'
+        - 'Update badge icon rendering with agent type icon + CometSpinner'
+        - 'Remove agentName from FeatureNodeData'
+      refactor:
+        - 'Remove unused agentName imports'
+        - 'Verify badge sizing and spacing'
+    estimatedEffort: M
+
+  - id: task-14
+    title: 'Update tests and Storybook stories for badge improvements'
+    description: >
+      Fix broken tests that assert featureId rendering and old badge text.
+      Add tests for lifecycle running verbs across all 6 phases. Update all
+      Storybook story data to replace agentName with agentType. Add
+      AllAgentTypes story showcasing all 5 agent types plus fallback.
+      Export lifecycleRunningVerbs and getAgentTypeIcon from index.ts.
+    state: Done
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'Test "renders featureId" updated to assert featureId NOT rendered'
+      - 'Test "agent name and featureId in badge text" updated for lifecycle verb'
+      - 'Test "defaults to Agent" updated for lifecycle verb'
+      - 'Tests for all 6 lifecycle running verbs pass'
+      - 'All story data uses agentType instead of agentName'
+      - 'AllAgentTypes story exists showing all 5 types + fallback'
+      - 'lifecycleRunningVerbs and getAgentTypeIcon exported from index.ts'
+      - 'pnpm build:storybook passes'
+      - 'All unit tests pass'
+    tdd:
+      red:
+        - 'Write test: each lifecycle phase shows correct running verb'
+        - 'Write test: agent icon renders for known agent type'
+        - 'Write test: fallback icon renders for unknown agent type'
+      green:
+        - 'Fix existing broken tests'
+        - 'Add lifecycle verb tests'
+        - 'Update stories with agentType'
+        - 'Add AllAgentTypes story'
+        - 'Export new symbols from index.ts'
+      refactor:
+        - 'Remove all agentName references from stories'
+    estimatedEffort: S
+
+  - id: task-15
+    title: 'Scaffold @shepai/core workspace package'
+    description: >
+      Create packages/core/ with package.json (@shepai/core, private, type: module,
+      subpath exports for domain/application/infrastructure), tsconfig.json (noEmit),
+      tsconfig.build.json (compilation to dist/), and empty src/index.ts. Update
+      pnpm-workspace.yaml to add packages/core. Run pnpm install to link workspace.
+      Verify existing build still works.
+    state: Done
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'packages/core/package.json exists with subpath exports'
+      - 'packages/core/tsconfig.json and tsconfig.build.json configured'
+      - 'packages/core/src/index.ts exists (empty barrel)'
+      - 'pnpm-workspace.yaml includes packages/core'
+      - 'pnpm install succeeds with workspace link'
+      - 'Existing pnpm build still passes'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-16
+    title: 'Move domain layer to @shepai/core'
+    description: >
+      Move src/domain/ → packages/core/src/domain/. Create barrel export.
+      Update tspconfig.yaml emitter output dir to packages/core/src/domain/generated.
+      Update tsp:codegen script prettier path. Update all domain imports across
+      CLI, web, infrastructure, and tests.
+    state: Done
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - 'src/domain/ contents moved to packages/core/src/domain/'
+      - 'packages/core/src/domain/index.ts barrel export exists'
+      - 'tspconfig.yaml output dir points to packages/core/src/domain/generated'
+      - 'pnpm tsp:compile generates to new location'
+      - 'All domain type imports updated across codebase'
+      - 'pnpm typecheck passes'
+    tdd: null
+    estimatedEffort: M
+
+  - id: task-17
+    title: 'Move application layer to @shepai/core'
+    description: >
+      Move src/application/ → packages/core/src/application/. Create barrel export.
+      Delete ListDashboardFeaturesUseCase (policy violation). Remove DashboardFeature
+      interface and listWithAgentRuns() from IFeatureRepository. Update all application
+      imports across infrastructure, CLI, web, and tests.
+    state: Done
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - 'src/application/ contents moved to packages/core/src/application/'
+      - 'packages/core/src/application/index.ts barrel export exists'
+      - 'ListDashboardFeaturesUseCase deleted'
+      - 'DashboardFeature removed from IFeatureRepository'
+      - 'listWithAgentRuns() removed from interface and SQLite repo'
+      - 'All application imports updated across codebase'
+      - 'pnpm typecheck passes'
+    tdd: null
+    estimatedEffort: M
+
+  - id: task-18
+    title: 'Move infrastructure layer to @shepai/core'
+    description: >
+      Move src/infrastructure/ → packages/core/src/infrastructure/. Create barrel
+      export. Convert all @/ alias imports within core to relative paths (~30 files).
+      Remove ListDashboardFeaturesUseCase from DI container. Update CLI imports to
+      @shepai/core/infrastructure/di. Update web imports from @cli/* to @shepai/core/*.
+      Add @shepai/core dependency to @shepai/web package.json. Remove @cli/* path
+      from web tsconfig.json.
+    state: Done
+    dependencies:
+      - task-17
+    acceptanceCriteria:
+      - 'src/infrastructure/ contents moved to packages/core/src/infrastructure/'
+      - 'packages/core/src/infrastructure/index.ts barrel export exists'
+      - 'All @/ aliases within core converted to relative paths'
+      - 'ListDashboardFeaturesUseCase removed from DI container'
+      - 'CLI imports use @shepai/core/*'
+      - 'Web imports use @shepai/core/* instead of @cli/*'
+      - '@shepai/core: workspace:* in web package.json'
+      - '@cli/* path removed from web tsconfig.json'
+      - 'pnpm typecheck and pnpm typecheck:web pass'
+    tdd: null
+    estimatedEffort: L
+
+  - id: task-19
+    title: 'Clean up root package'
+    description: >
+      Remove moved dependencies from root package.json (keep commander, @inquirer/prompts,
+      cli-table3, picocolors + all React/UI deps). Update root tsconfig.build.json
+      to include only src/presentation/**/* and src/index.ts. Add @shepai/core path
+      mapping to root tsconfig.json. Add @shepai/core alias to vitest.config.ts.
+      Remove tsc-alias entries no longer needed.
+    state: Done
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - 'Moved dependencies removed from root package.json'
+      - 'Root tsconfig.build.json includes only presentation + index'
+      - '@shepai/core path mapping in root tsconfig.json'
+      - '@shepai/core alias in vitest.config.ts'
+      - 'Unused tsc-alias entries removed'
+      - 'pnpm install, pnpm typecheck, pnpm build all pass'
+    tdd: null
+    estimatedEffort: M
+
+  - id: task-20
+    title: 'Control center data layer — FeatureNodeData extends Feature'
+    description: >
+      Wire FeatureNodeData to extend the generated Feature type from @shepai/core.
+      Import Feature, SdlcLifecycle, TaskState from @shepai/core/domain/generated.
+      Add deriveNodeState() and deriveProgress() utilities. Update page.tsx to
+      spread Feature directly into node data. Delete derive-state.ts. Create
+      createMockFeature() helper for stories/tests. Update all story data with
+      Feature-compatible shapes.
+    state: Done
+    dependencies:
+      - task-19
+    acceptanceCriteria:
+      - 'FeatureNodeData extends Feature from @shepai/core/domain/generated'
+      - 'SdlcLifecycle used directly (no FeatureLifecyclePhase wrapper)'
+      - 'deriveNodeState() returns correct state for each lifecycle/task combo'
+      - 'deriveProgress() returns correct percentage from plan tasks'
+      - 'page.tsx spreads Feature directly into node data'
+      - 'derive-state.ts deleted'
+      - 'createMockFeature() helper exists for stories/tests'
+      - 'All story data uses Feature-compatible shapes'
+      - 'pnpm test:unit passes'
+      - 'pnpm build:storybook passes'
+    tdd:
+      red:
+        - 'Write test: deriveNodeState returns done for Maintain lifecycle'
+        - 'Write test: deriveNodeState returns running when tasks have WIP state'
+        - 'Write test: deriveNodeState returns done when all tasks Done'
+        - 'Write test: deriveNodeState returns action-required for Review tasks'
+        - 'Write test: deriveProgress returns correct percentage from plan tasks'
+      green:
+        - 'Import Feature type from @shepai/core/domain/generated'
+        - 'Update FeatureNodeData to extend Feature'
+        - 'Add deriveNodeState() and deriveProgress() utilities'
+        - 'Simplify page.tsx to spread Feature'
+        - 'Delete derive-state.ts'
+        - 'Create createMockFeature() helper'
+        - 'Update all story data'
+      refactor:
+        - 'Remove all old FeatureLifecyclePhase string literal references'
+        - 'Verify all stories render correctly'
+    estimatedEffort: L
+
+  - id: task-21
+    title: 'globalThis bridge in WebServerService'
+    description: >
+      Update globalThis DI bridge to use ListFeaturesUseCase instead of
+      ListDashboardFeaturesUseCase. Update CLI index.ts and dev-server.ts.
+      Rewrite web/lib/use-cases.ts to import Feature type from
+      @shepai/core/domain/generated and export getFeatures() returning Feature[].
+    state: Done
+    dependencies:
+      - task-20
+    acceptanceCriteria:
+      - 'WebServerService.start() resolves ListFeaturesUseCase and sets globalThis.__shepUseCases'
+      - 'CLI index.ts has no globalThis bridge setup'
+      - 'Web dev-server.ts imports from @shepai/core'
+      - 'web/lib/use-cases.ts imports Feature from @shepai/core/domain/generated'
+      - 'getFeatures() returns Feature[] via globalThis bridge'
+      - 'No changes to src/presentation/cli/ folder'
+      - 'pnpm typecheck and pnpm typecheck:web pass'
+    tdd: null
+    estimatedEffort: M
+
+  - id: task-22
+    title: 'Final build validation'
+    description: >
+      Run all build, test, lint, and typecheck commands to verify the entire
+      @shepai/core extraction and control center data layer work end-to-end.
+    state: Done
+    dependencies:
+      - task-21
+    acceptanceCriteria:
+      - 'pnpm install succeeds with workspace links'
+      - 'pnpm generate compiles TypeSpec to packages/core/'
+      - 'pnpm --filter @shepai/core build compiles to dist/'
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm test:unit passes'
+      - 'pnpm lint passes'
+      - 'pnpm lint:web passes'
+      - 'pnpm build:web passes'
+      - 'pnpm build:storybook passes'
+      - 'pnpm build passes (full pipeline)'
+    tdd: null
+    estimatedEffort: S
+
 # Total effort estimate
-totalEstimate: L
+totalEstimate: XL
 
 # Open questions
 openQuestions: []
@@ -321,8 +597,8 @@ openQuestions: []
 content: |
   ## Status
 
-  - **Phase:** Complete
-  - **Updated:** 2026-02-15
+  - **Phase:** In Progress — @shepai/core extraction (tasks 15-22)
+  - **Updated:** 2026-02-16
 
   ## Task List
 
@@ -428,11 +704,10 @@ content: |
   - [x]Add comprehensive Storybook stories (Empty, WithFeatures, WithToolbar, WithNodeActions)
   - [x]Verify no unnecessary re-renders
 
-  ### Phase 6: Clean Architecture Data Layer
+  ### Phase 6: DI Bridge + Feature Type Props — SUPERSEDED
 
-  - [x] Replace lib/shep-data.ts with ListFeaturesUseCase
-  - [x] page.tsx resolves use case from DI container
-  - [x] pnpm typecheck passes
+  ~~Superseded by tasks 15-22 (@shepai/core extraction plan).
+  Original task-8 replaced by phases 12-18.~~
 
   ### Phase 7: Build Validation
 
@@ -460,25 +735,10 @@ content: |
 
   - [x]Export lifecycleDisplayLabels from index.ts
 
-  ### Phase 9: Agent State Integration
+  ### Phase 9: Feature State Derivation from Domain Model — SUPERSEDED
 
-  **RED:**
-
-  - [x]Write test: deriveState returns done for maintain lifecycle
-  - [x]Write test: deriveState returns done for completed agent status
-  - [x]Write test: deriveState returns error for failed agent status
-  - [x]Write test: deriveState returns action-required for waiting_approval
-
-  **GREEN:**
-
-  - [x]Extend getFeatures() SQL with LEFT JOIN agent_runs
-  - [x]Add agentStatus/agentError to Feature interface and fromRow
-  - [x]Implement deriveState() in page.tsx
-  - [x]Use deriveState when building FeatureNodeData
-
-  **REFACTOR:**
-
-  - [x]Ensure error messages propagate from agent_runs.error
+  ~~Superseded by task-20 (control center data layer).
+  Original task-10 replaced by phase 17.~~
 
   ### Phase 10: Story Updates
 
@@ -486,6 +746,99 @@ content: |
   - [x]Update allLifecycles array
   - [x]Verify AllLifecycles story shows correct display labels
   - [x]pnpm build:storybook passes
+
+  ### Phase 11: Feature Node Badge Improvements (Done)
+
+  - [x] Agent type icons created with AgentTypeValue union type
+  - [x] Badge shows lifecycle verb + agent icon + CometSpinner
+  - [x] featureId hidden, agentName replaced with agentType
+  - [x] All tests and stories updated
+
+  ### Phase 12: Scaffold @shepai/core Package (task-15)
+
+  - [ ] Create `packages/core/package.json` with subpath exports
+  - [ ] Create `tsconfig.json` (noEmit) and `tsconfig.build.json` (dist/)
+  - [ ] Create empty `src/index.ts` barrel
+  - [ ] Update `pnpm-workspace.yaml`: add `packages/core`
+  - [ ] `pnpm install` to link workspace
+  - [ ] Verify existing `pnpm build` still passes
+
+  ### Phase 13: Move Domain Layer (task-16)
+
+  - [ ] Move `src/domain/` → `packages/core/src/domain/`
+  - [ ] Create `packages/core/src/domain/index.ts` barrel
+  - [ ] Update `tspconfig.yaml` output dir → `packages/core/src/domain/generated`
+  - [ ] Update `tsp:codegen` script prettier path
+  - [ ] Update all domain imports across codebase
+
+  ### Phase 14: Move Application Layer (task-17)
+
+  - [ ] Move `src/application/` → `packages/core/src/application/`
+  - [ ] Create `packages/core/src/application/index.ts` barrel
+  - [ ] **Delete** `ListDashboardFeaturesUseCase` (policy violation)
+  - [ ] **Remove** `DashboardFeature` and `listWithAgentRuns()` from `IFeatureRepository`
+  - [ ] Update all application imports
+
+  ### Phase 15: Move Infrastructure Layer (task-18)
+
+  - [ ] Move `src/infrastructure/` → `packages/core/src/infrastructure/`
+  - [ ] Create `packages/core/src/infrastructure/index.ts` barrel
+  - [ ] Convert `@/` alias imports within core to relative paths (~30 files)
+  - [ ] Remove `ListDashboardFeaturesUseCase` from DI container
+  - [ ] Update CLI imports → `@shepai/core/infrastructure/di`
+  - [ ] Update web imports → `@shepai/core/*`
+  - [ ] Add `@shepai/core: workspace:*` to web `package.json`
+  - [ ] Remove `@cli/*` path from web `tsconfig.json`
+
+  ### Phase 16: Clean Up Root Package (task-19)
+
+  - [ ] Remove moved dependencies from root `package.json`
+  - [ ] Update root `tsconfig.build.json`: include only `src/presentation/**/*`
+  - [ ] Add `@shepai/core` path mapping to root `tsconfig.json`
+  - [ ] Add `@shepai/core` alias to `vitest.config.ts`
+  - [ ] Remove unused `tsc-alias` entries
+
+  ### Phase 17: Control Center Data Layer (task-20)
+
+  **RED:**
+
+  - [ ] Write test: deriveNodeState returns done for Maintain lifecycle
+  - [ ] Write test: deriveNodeState returns running when tasks have WIP state
+  - [ ] Write test: deriveNodeState returns done when all tasks Done
+  - [ ] Write test: deriveNodeState returns action-required for Review tasks
+  - [ ] Write test: deriveProgress returns correct percentage from plan tasks
+
+  **GREEN:**
+
+  - [ ] Import Feature from `@shepai/core/domain/generated`
+  - [ ] `FeatureNodeData extends Feature` with UI callbacks
+  - [ ] Add `deriveNodeState()` and `deriveProgress()` utilities
+  - [ ] Simplify `page.tsx` — spread Feature directly into node data
+  - [ ] Delete `derive-state.ts`
+  - [ ] Create `createMockFeature()` helper
+
+  **REFACTOR:**
+
+  - [ ] Update all story data with Feature-compatible shapes
+  - [ ] Remove all old FeatureLifecyclePhase references
+
+  ### Phase 18: globalThis Bridge in WebServerService (task-21)
+
+  - [ ] `WebServerService.start()` resolves `ListFeaturesUseCase`, sets `globalThis.__shepUseCases`
+  - [ ] CLI `index.ts` — remove globalThis bridge setup
+  - [ ] Web `dev-server.ts` — import from `@shepai/core`
+  - [ ] Rewrite `web/lib/use-cases.ts` — import Feature from `@shepai/core/domain/generated`
+
+  ### Phase 19: Final Build Validation (task-22)
+
+  - [ ] `pnpm install` — workspace links
+  - [ ] `pnpm generate` — TypeSpec to packages/core/
+  - [ ] `pnpm --filter @shepai/core build` — core compiles
+  - [ ] `pnpm typecheck` + `pnpm typecheck:web` — all types valid
+  - [ ] `pnpm test:unit` — all tests pass
+  - [ ] `pnpm lint` + `pnpm lint:web` — clean
+  - [ ] `pnpm build:web` + `pnpm build:storybook` — build passes
+  - [ ] `pnpm build` — full pipeline
 
   ## TDD Notes
 
@@ -504,14 +857,20 @@ content: |
 
   Before marking feature complete:
 
-  - [x]All 11 tasks completed
-  - [x]Tests passing (`pnpm test`)
-  - [x]Linting clean (`pnpm lint:web`)
-  - [x]Types valid (`pnpm typecheck:web`)
-  - [x]Storybook builds (`pnpm build:storybook`)
-  - [x]Web builds (`pnpm build:web`)
-  - [x]Components follow tier import rules (013-ui-arch)
-  - [x]PR created and reviewed
+  - [ ] All 22 tasks completed (12 done, 2 superseded, 8 new)
+  - [ ] @shepai/core package exists with domain, application, infrastructure layers
+  - [ ] No domain/application/infrastructure code remains in root src/
+  - [ ] Web imports use @shepai/core/* (no @cli/* path aliases)
+  - [ ] FeatureNodeData extends generated Feature type
+  - [ ] globalThis bridge in WebServerService (not CLI)
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint` + `pnpm lint:web`)
+  - [ ] Types valid (`pnpm typecheck` + `pnpm typecheck:web`)
+  - [ ] Storybook builds (`pnpm build:storybook`)
+  - [ ] Web builds (`pnpm build:web`)
+  - [ ] Full build pipeline (`pnpm build`)
+  - [ ] Components follow tier import rules (013-ui-arch)
+  - [ ] PR updated and reviewed
 
   ---
 
