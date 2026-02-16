@@ -1,0 +1,294 @@
+## Status
+
+- **Phase:** Complete
+- **Updated:** 2026-02-15
+
+## Architecture Overview
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  ControlCenter (Tier 3 orchestrator)                         │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  <Panel position="top-left">                          │  │
+│  │    ControlCenterToolbar                                │  │
+│  │    [Add Feature] [Auto-Layout]                         │  │
+│  └────────────────────────────────────────────────────────┘  │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │                                                        │  │
+│  │  FeaturesCanvas                                        │  │
+│  │  (existing, stays pure)                                │  │
+│  │                                                        │  │
+│  │  ┌──────────┐ ┌──────────┐                             │  │
+│  │  │FeatureNode│→│FeatureNode│                           │  │
+│  │  │(selected) │ │          │                            │  │
+│  │  │ ring-2    │ │          │                            │  │
+│  │  └──────────┘ └──────────┘                             │  │
+│  │       ↑                                                │  │
+│  │  RepositoryNode                                        │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  useControlCenterState (custom hook)                         │
+│  - Selection tracking (useOnSelectionChange)                 │
+│  - Keyboard shortcuts (Escape)                               │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Component Hierarchy
+
+```
+Tier 3: features/control-center/     ← NEW orchestrator
+            ├── composes FeaturesCanvas (Tier 3)
+            ├── adds toolbar via React Flow <Panel>
+            └── manages state via useControlCenterState hook
+
+Tier 3: features/features-canvas/    ← EXISTING (extend props)
+Tier 1: common/feature-node/         ← EXISTING (add selected ring)
+Tier 1: common/repository-node/      ← EXISTING (wire onAdd callback)
+```
+
+### Data Flow
+
+```
+Props (nodes, edges, callbacks)
+     │
+     ▼
+ControlCenter
+     │
+     ├──► useControlCenterState(initialNodes, initialEdges)
+     │         │
+     │         ├── selectedNode (from useOnSelectionChange)
+     │         ├── handleAddFeatureToRepo(repoNodeId)
+     │         ├── handleAddFeatureToFeature(featureNodeId)
+     │         └── handleAddFeature() (toolbar, unconnected)
+     │
+     ├──► FeaturesCanvas (nodes, edges, onNodeClick, onPaneClick,
+     │         onNodeAction, onRepositoryAdd)
+     │
+     └──► ControlCenterToolbar (onAddFeature, onAutoLayout)
+```
+
+## Implementation Strategy
+
+**MANDATORY TDD**: All implementation phases with executable code follow RED-GREEN-REFACTOR cycles.
+
+### Phase 1: Foundation (No Tests)
+
+**Goal:** Scaffold the control-center directory structure with empty component shells and barrel exports.
+
+**Steps:**
+
+1. Create `features/control-center/` directory with all component files
+2. Add minimal type-safe placeholder exports for each component
+3. Set up `index.ts` barrel file with all exports
+
+**Deliverables:** Empty scaffolded directory, compilable with `pnpm typecheck:web`
+
+### Phase 2: Existing Component Updates (TDD Cycles 1-2) [P]
+
+**Goal:** Update FeatureNode with selection visual and extend FeaturesCanvas with interaction callbacks. These two tasks are parallelizable.
+
+#### 2A: FeatureNode Selected Highlight
+
+**TDD Workflow:**
+
+1. **RED:** Write test that FeatureNode renders `ring-2 ring-primary` classes when `selected` prop is true, and does NOT render them when false
+2. **GREEN:** Add conditional `ring-2 ring-primary` class to FeatureNode card wrapper using `cn()`, keyed on the `selected` prop from React Flow
+3. **REFACTOR:** Ensure ring classes integrate cleanly with existing border styles; update Storybook stories to include Selected variant
+
+#### 2B: FeaturesCanvas Interaction Callbacks
+
+**TDD Workflow:**
+
+1. **RED:** Write test that FeaturesCanvas passes `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, and `onNodeAction` through to the underlying ReactFlow/node components
+2. **GREEN:** Add `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, and `onNodeAction` to `FeaturesCanvasProps`. Wire `onRepositoryAdd` to RepositoryNode's `onAdd` and `onNodeAction` to FeatureNode's `onAction` during node enrichment.
+3. **REFACTOR:** Update type exports, verify stories still render correctly
+
+**Deliverables:** FeatureNode with selection ring, FeaturesCanvas with interaction and contextual add callbacks
+
+### Phase 3: State Management Hook (TDD Cycles 3-4)
+
+**Goal:** Implement `useControlCenterState` — the central state hook for the control center, including selection tracking, keyboard shortcuts, and contextual add handlers.
+
+**TDD Workflow — Selection & Keyboard:**
+
+1. **RED:** Write tests for:
+   - Returns selectedNode when a node is selected via useOnSelectionChange
+   - Returns null selectedNode when selection is cleared
+   - Escape keypress clears selection
+2. **GREEN:** Implement hook composing:
+   - `useOnSelectionChange` for selection tracking
+   - `useEffect` + `keydown` listener for Escape shortcut
+   - `useCallback` for memoized event handlers
+3. **REFACTOR:** Ensure all callbacks are properly memoized
+
+**TDD Workflow — Contextual Add Handlers:**
+
+1. **RED:** Write tests for:
+   - `handleAddFeatureToRepo(repoNodeId)` adds a new FeatureNode + edge to state
+   - `handleAddFeatureToFeature(featureNodeId)` adds a new FeatureNode + edge to state
+   - `handleAddFeature()` adds an unconnected FeatureNode to state
+   - New node is positioned to the right of source node (x + 350)
+   - New node is auto-selected after creation
+2. **GREEN:** Implement using `useReactFlow()`:
+   - `addNodes()` to append new FeatureNode with default data
+   - `addEdges()` to create source→target edge
+   - `getNode()` to look up source node position for offset calculation
+   - Auto-select new node via `setNodes` with `selected: true`
+3. **REFACTOR:** Extract node factory helper for default FeatureNode data, deduplicate add logic between repo/feature handlers
+
+**Deliverables:** Fully tested `useControlCenterState` hook with selection + contextual add
+
+### Phase 4: Toolbar (TDD Cycle 4)
+
+**Goal:** Build the toolbar panel sub-component.
+
+**TDD Workflow:**
+
+1. **RED:** Write tests that:
+   - Renders "Add Feature" button
+   - Renders "Auto-Layout" button (disabled placeholder)
+   - Calls `onAddFeature` callback when Add Feature clicked
+2. **GREEN:** Implement toolbar as horizontal button bar with Lucide icons (Plus, LayoutGrid), using shadcn/ui Button components inside `<Panel position="top-left">`
+3. **REFACTOR:** Add Storybook stories
+
+**Deliverables:** Tested and storied toolbar component
+
+### Phase 5: Orchestrator Integration (TDD Cycle 6)
+
+**Goal:** Wire everything together in the `ControlCenter` component, including contextual add actions.
+
+**TDD Workflow:**
+
+1. **RED:** Write tests that:
+   - Renders FeaturesCanvas with provided nodes and edges
+   - Renders toolbar panel
+   - Passes onAddFeature through to toolbar
+   - Wires handleAddFeatureToRepo to FeaturesCanvas onRepositoryAdd
+   - Wires handleAddFeatureToFeature to FeaturesCanvas onNodeAction
+2. **GREEN:** Implement ControlCenter composing:
+   - `FeaturesCanvas` with nodes, edges, interaction callbacks, onRepositoryAdd, onNodeAction
+   - `ControlCenterToolbar` with action handlers
+   - All wired through `useControlCenterState`
+3. **REFACTOR:** Clean up prop threading; ensure minimal re-renders
+
+**Deliverables:** Full ControlCenter component with Storybook stories (Empty, WithFeatures, WithToolbar, WithNodeActions)
+
+### Phase 6: Build Validation (No Tests)
+
+**Goal:** Ensure everything compiles and passes quality gates.
+
+**Steps:**
+
+1. `pnpm lint:web` — ESLint passes
+2. `pnpm typecheck:web` — TypeScript compiles
+3. `pnpm build:storybook` — Storybook builds
+4. `pnpm build:web` — Next.js production build passes
+
+**Deliverables:** All builds green
+
+### Phase 8: Lifecycle Alignment
+
+**Goal:** Align UI lifecycle phases with domain SdlcLifecycle 1:1 and add display labels.
+
+**Steps:**
+
+1. Update `FeatureLifecyclePhase` type: `'plan'→'research'`, `'test'→'review'`, `'maintenance'→'maintain'`
+2. Add `lifecycleDisplayLabels` map (`maintain`→"COMPLETED", `deploy`→"DEPLOY & QA", etc.)
+3. Update `feature-node.tsx` to use `lifecycleDisplayLabels[data.lifecycle]` instead of `.toUpperCase()`
+4. Export `lifecycleDisplayLabels` from `index.ts`
+5. Fix `lifecycleMap` in `page.tsx` to be 1:1 with domain
+
+**Deliverables:** Lifecycle phases match domain, display labels are human-readable
+
+### Phase 9: Agent State Integration
+
+**Goal:** Derive real feature state from agent_runs.status via SQL JOIN.
+
+**Steps:**
+
+1. Extend `getFeatures()` SQL: `LEFT JOIN agent_runs ar ON f.agent_run_id = ar.id`
+2. Add `agentStatus` and `agentError` fields to Feature interface
+3. Add `deriveState()` function in page.tsx mapping agent_runs.status → FeatureNodeState
+4. Maintain lifecycle always forces done state
+
+**Deliverables:** Features show real operational state from agent_runs
+
+### Phase 10: Story Updates
+
+**Goal:** Update all Storybook stories with new lifecycle values.
+
+**Steps:**
+
+1. Replace old phases in all story data (`'plan'`→`'research'`, `'test'`→`'review'`, `'maintenance'`→`'maintain'`)
+2. Update `allLifecycles` array in feature-node.stories.tsx
+3. Verify AllLifecycles story shows correct display labels
+
+**Deliverables:** Stories reflect new lifecycle values, build passes
+
+## Files to Create/Modify
+
+### New Files
+
+| File                                                  | Purpose                                |
+| ----------------------------------------------------- | -------------------------------------- |
+| `features/control-center/control-center.tsx`          | Main orchestrator component            |
+| `features/control-center/use-control-center-state.ts` | Custom hook: selection tracking        |
+| `features/control-center/control-center-toolbar.tsx`  | Top toolbar (add feature, auto-layout) |
+| `features/control-center/control-center.stories.tsx`  | Storybook stories for orchestrator     |
+| `features/control-center/index.ts`                    | Barrel exports                         |
+| `tests/.../use-control-center-state.test.ts`          | Hook unit tests                        |
+| `tests/.../control-center-toolbar.test.tsx`           | Toolbar unit tests                     |
+| `tests/.../control-center.test.tsx`                   | Orchestrator integration tests         |
+
+### Modified Files
+
+| File                                                   | Changes                                                                                            |
+| ------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `common/feature-node/feature-node.tsx`                 | Add conditional `ring-2 ring-primary` when `selected`                                              |
+| `common/feature-node/feature-node.stories.tsx`         | Add Selected story variant                                                                         |
+| `features/features-canvas/features-canvas.tsx`         | Add `onNodeClick`, `onPaneClick`, `onRepositoryAdd`, `onNodeAction` props; wire to node enrichment |
+| `features/features-canvas/features-canvas.stories.tsx` | Add Interactive story with callbacks                                                               |
+
+## Testing Strategy (TDD: Tests FIRST)
+
+**CRITICAL:** Tests are written FIRST in each TDD cycle.
+
+### Unit Tests (RED -> GREEN -> REFACTOR)
+
+Write FIRST for:
+
+- `useControlCenterState` hook — selection tracking, keyboard shortcuts, contextual add handlers
+- `ControlCenterToolbar` — button rendering, callback invocation
+- `FeatureNode` — selected ring visual (addition to existing tests)
+- `FeaturesCanvas` — callback prop pass-through including `onRepositoryAdd`, `onNodeAction` (addition to existing tests)
+
+### Storybook Stories (Visual Verification)
+
+Every component has colocated stories:
+
+- `FeatureNode` — add Selected variant to existing stories
+- `FeaturesCanvas` — add Interactive variant with callbacks
+- `ControlCenterToolbar` — Default, WithCallbacks
+- `ControlCenter` — Empty, WithFeatures, WithToolbar, WithNodeActions
+
+### E2E Tests (Stretch)
+
+Not required for initial implementation. Canvas interaction testing can be added post-merge.
+
+## Risk Mitigation
+
+| Risk                                                                | Mitigation                                                     |
+| ------------------------------------------------------------------- | -------------------------------------------------------------- |
+| React Flow Panel conflicts with existing Controls/MiniMap           | Test with Background and Controls present in stories           |
+| useOnSelectionChange callback not memoized causing re-subscriptions | Wrap in useCallback per React Flow docs                        |
+| FeatureNode ring conflicts with existing left border                | Test ring + border combination visually in Storybook           |
+| New nodes overlap when adding multiple children to same parent      | Y-offset based on existing children count                      |
+| useReactFlow must be inside ReactFlowProvider                       | ControlCenter wraps everything in Provider; hook used in child |
+
+## Rollback Plan
+
+Feature is purely additive UI. Rollback by reverting the feature branch merge. No data migrations, no backend changes, no breaking API changes.
+
+---
+
+_Updated by `/shep-kit:plan` — see tasks.md for detailed breakdown_

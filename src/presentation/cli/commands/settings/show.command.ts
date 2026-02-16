@@ -11,8 +11,8 @@
 
 import { Command, Option } from 'commander';
 import { OutputFormatter, type OutputFormat } from '../../ui/output.js';
-import { getShepDbPath } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
-import { getSettings } from '../../../../infrastructure/services/settings.service.js';
+import { getShepDbPath } from '@/infrastructure/services/filesystem/shep-directory.service.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
 import { statSync } from 'node:fs';
 import { messages } from '../../ui/index.js';
 

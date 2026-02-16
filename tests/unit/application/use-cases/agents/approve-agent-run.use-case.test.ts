@@ -8,9 +8,9 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentRunStatus } from '../../../../../src/domain/generated/output.js';
-import type { AgentRun } from '../../../../../src/domain/generated/output.js';
-import { ApproveAgentRunUseCase } from '../../../../../src/application/use-cases/agents/approve-agent-run.use-case.js';
+import { AgentRunStatus } from '@/domain/generated/output.js';
+import type { AgentRun } from '@/domain/generated/output.js';
+import { ApproveAgentRunUseCase } from '@/application/use-cases/agents/approve-agent-run.use-case.js';
 
 function createMockRunRepository() {
   return {

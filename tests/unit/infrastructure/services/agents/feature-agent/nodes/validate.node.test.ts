@@ -7,8 +7,8 @@ import { tmpdir } from 'node:os';
 vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-import { createValidateNode } from '../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/validate.node.js';
-import type { FeatureAgentState } from '../../../../../../../src/infrastructure/services/agents/feature-agent/state.js';
+import { createValidateNode } from '@/infrastructure/services/agents/feature-agent/nodes/validate.node.js';
+import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 
 describe('createValidateNode', () => {
   let tempDir: string;

@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, readFileSync, readdirSync, mkdtempSync, mkdirSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { SpecInitializerService } from '../../../../../src/infrastructure/services/spec/spec-initializer.service.js';
+import { SpecInitializerService } from '@/infrastructure/services/spec/spec-initializer.service.js';
 
 describe('SpecInitializerService', () => {
   let service: SpecInitializerService;

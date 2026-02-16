@@ -13,10 +13,10 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type Database from 'better-sqlite3';
 import { createInMemoryDatabase, tableExists } from '../../../helpers/database.helper.js';
-import { runSQLiteMigrations } from '../../../../src/infrastructure/persistence/sqlite/migrations.js';
-import { SQLiteSettingsRepository } from '../../../../src/infrastructure/repositories/sqlite-settings.repository.js';
-import type { Settings } from '../../../../src/domain/generated/output.js';
-import { AgentType, AgentAuthMethod, EditorType } from '../../../../src/domain/generated/output.js';
+import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations.js';
+import { SQLiteSettingsRepository } from '@/infrastructure/repositories/sqlite-settings.repository.js';
+import type { Settings } from '@/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, EditorType } from '@/domain/generated/output.js';
 
 describe('SQLiteSettingsRepository', () => {
   let db: Database.Database;

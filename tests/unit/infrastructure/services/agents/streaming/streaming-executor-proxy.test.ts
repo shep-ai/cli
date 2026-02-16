@@ -7,13 +7,13 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentType, AgentFeature } from '../../../../../../src/domain/generated/output.js';
+import { AgentType, AgentFeature } from '@/domain/generated/output.js';
 import type {
   IAgentExecutor,
   AgentExecutionStreamEvent,
-} from '../../../../../../src/application/ports/output/agents/agent-executor.interface.js';
-import { EventChannel } from '../../../../../../src/infrastructure/services/agents/streaming/event-channel.js';
-import { StreamingExecutorProxy } from '../../../../../../src/infrastructure/services/agents/streaming/streaming-executor-proxy.js';
+} from '@/application/ports/output/agents/agent-executor.interface.js';
+import { EventChannel } from '@/infrastructure/services/agents/streaming/event-channel.js';
+import { StreamingExecutorProxy } from '@/infrastructure/services/agents/streaming/streaming-executor-proxy.js';
 
 /** Helper to create a mock executor with a predefined stream sequence. */
 function createMockExecutor(streamEvents: AgentExecutionStreamEvent[]): IAgentExecutor {

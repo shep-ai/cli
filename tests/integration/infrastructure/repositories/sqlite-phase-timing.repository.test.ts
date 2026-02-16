@@ -12,9 +12,9 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import type Database from 'better-sqlite3';
 import { createInMemoryDatabase, tableExists } from '../../../helpers/database.helper.js';
-import { runSQLiteMigrations } from '../../../../src/infrastructure/persistence/sqlite/migrations.js';
-import { SQLitePhaseTimingRepository } from '../../../../src/infrastructure/repositories/sqlite-phase-timing.repository.js';
-import type { PhaseTiming } from '../../../../src/domain/generated/output.js';
+import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations.js';
+import { SQLitePhaseTimingRepository } from '@/infrastructure/repositories/sqlite-phase-timing.repository.js';
+import type { PhaseTiming } from '@/domain/generated/output.js';
 
 describe('SQLitePhaseTimingRepository', () => {
   let db: Database.Database;

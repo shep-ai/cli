@@ -9,9 +9,9 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentValidatorService } from '../../../../../src/infrastructure/services/agents/common/agent-validator.service.js';
-import type { ExecFunction } from '../../../../../src/infrastructure/services/agents/common/types.js';
-import { AgentType } from '../../../../../src/domain/generated/output.js';
+import { AgentValidatorService } from '@/infrastructure/services/agents/common/agent-validator.service.js';
+import type { ExecFunction } from '@/infrastructure/services/agents/common/types.js';
+import { AgentType } from '@/domain/generated/output.js';
 
 describe('AgentValidatorService', () => {
   let mockExec: ExecFunction;

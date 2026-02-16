@@ -3,5 +3,7 @@
 packages:
   # Root package (main CLI)
   - '.'
+  # Core package (domain, application, infrastructure layers)
+  - 'packages/core'
   # Web UI package
   - 'src/presentation/web'

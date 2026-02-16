@@ -1,14 +1,14 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentExecutorProvider } from '../../../../../src/infrastructure/services/agents/common/agent-executor-provider.service.js';
-import type { IAgentExecutorFactory } from '../../../../../src/application/ports/output/agents/agent-executor-factory.interface.js';
-import type { IAgentExecutor } from '../../../../../src/application/ports/output/agents/agent-executor.interface.js';
+import { AgentExecutorProvider } from '@/infrastructure/services/agents/common/agent-executor-provider.service.js';
+import type { IAgentExecutorFactory } from '@/application/ports/output/agents/agent-executor-factory.interface.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 
 const { mockGetSettings } = vi.hoisted(() => ({
   mockGetSettings: vi.fn(),
 }));
 
-vi.mock('../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: mockGetSettings,
 }));
 

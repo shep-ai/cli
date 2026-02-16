@@ -1,0 +1,192 @@
+## Problem Statement
+
+The FeaturesCanvas (015) renders feature nodes on a React Flow graph but is
+purely presentational — it has no selection state, no detail views, no toolbar,
+and no way for users to interact beyond basic pan/zoom. The web UI needs an
+interactive Control Center that wraps the canvas and adds the orchestration
+layer: selecting nodes with visual highlight, toolbar actions for managing
+features, and keyboard shortcuts for power users.
+
+## Routing
+
+The Control Center is the **default homepage** of the web UI, rendered at the `/` route.
+There is no separate `/control-center` route — the root `app/page.tsx` is the Control Center
+server component that fetches features and renders the canvas. The sidebar nav item
+"Control Center" links to `href="/"`.
+
+## Architecture
+
+```
+Tier 3: features/control-center/     ← NEW orchestrator
+            ├── composes FeaturesCanvas (canvas layer)
+            ├── adds panels/toolbars (UI overlay layer)
+            └── manages state + interactions (logic layer)
+
+Tier 3: features/features-canvas/    ← EXISTING (stays pure/dumb)
+Tier 1: common/feature-node/         ← EXISTING nodes
+```
+
+Key principle: Keep FeaturesCanvas as a pure presentation component. Build the
+Control Center as a new Tier 3 component that wraps it and adds interactivity.
+
+### Layout
+
+```
+┌─────────────────────────────────────────┐
+│ [Toolbar Panel - top-left]              │
+├─────────────────────────────────────────┤
+│                                         │
+│   FeaturesCanvas                        │
+│   (React Flow)                          │
+│                                         │
+└─────────────────────────────────────────┘
+```
+
+Toolbar uses React Flow's `<Panel>` component for positioning on top of
+the canvas without interfering with pan/zoom.
+
+## Components
+
+### File Structure
+
+```
+features/control-center/
+├── control-center.tsx              ← Main orchestrator (ReactFlowProvider wrapper)
+├── control-center-inner.tsx        ← Inner component (uses hook, wires canvas)
+├── use-control-center-state.ts     ← Custom hook: selection, keyboard, add handlers
+├── control-center-empty-state.tsx  ← Empty state CTA ("Add Repository")
+├── control-center-empty-state.stories.tsx
+├── control-center.stories.tsx
+└── index.ts
+```
+
+### ControlCenter (orchestrator)
+
+- Renders FeaturesCanvas inside a ReactFlowProvider
+- Uses `useControlCenterState` hook for all state management
+- Passes interaction callbacks (onNodeClick, onPaneClick, onConnect) to canvas
+- Renders Panel overlays for toolbar and status bar
+
+### useControlCenterState (custom hook)
+
+Owns:
+
+- Node/edge state (React Flow's `useNodesState`/`useEdgesState`)
+- Selected node tracking
+- Action handlers:
+  - `handleAddFeatureToRepo(repoNodeId)` — creates a new FeatureNode connected to the repo
+  - `handleAddFeatureToFeature(featureNodeId)` — creates a new FeatureNode connected to the parent feature
+  - `handleAddFeature()` — toolbar action, creates an unconnected feature node
+  - `handleSelectNode(nodeId)` / `handleDeselectNode()`
+
+### Empty State CTA
+
+- "Add Repository" button shown when canvas has no nodes
+- Replaces the originally-planned toolbar (removed for cleaner canvas-first UX)
+
+## Interaction Layers
+
+| Interaction              | Mechanism                                                           |
+| ------------------------ | ------------------------------------------------------------------- |
+| Select node              | `onNodeClick` → highlight node                                      |
+| Deselect                 | `onPaneClick` → clear selection                                     |
+| Add feature from repo    | RepositoryNode (+) button → `handleAddFeatureToRepo(repoNodeId)`    |
+| Add feature from feature | FeatureNode (+) button → `handleAddFeatureToFeature(featureNodeId)` |
+| Keyboard shortcuts       | `useKeyboard` hook for Escape (deselect)                            |
+
+### Contextual Add Flow
+
+When a user clicks the (+) button on a **RepositoryNode**:
+
+1. A new FeatureNode is created with default data (name: "New Feature", state: running, progress: 0)
+2. An edge is created from the repo node to the new feature node
+3. The new node is positioned to the right of the source node
+4. The new node is auto-selected
+
+When a user clicks the (+) button on a **FeatureNode**:
+
+1. Same behavior — creates a child FeatureNode connected via edge
+2. Enables building feature hierarchies (repo → feature → sub-feature)
+
+## Changes to Existing Components
+
+| Component      | Change                                                          |
+| -------------- | --------------------------------------------------------------- |
+| FeaturesCanvas | Extend props — expose onNodeClick, onPaneClick, onRepositoryAdd |
+| FeatureNode    | Add selected/highlighted visual state (ring or border glow)     |
+| RepositoryNode | Wire onAdd callback through FeaturesCanvas props                |
+| ControlCenter  | New — wraps everything                                          |
+| EmptyState     | New — CTA for initial repository selection                      |
+
+## Success Criteria
+
+- [x] `ControlCenter` component in `features/control-center/`
+- [x] `useControlCenterState` hook managing all interactive state
+- [x] Empty state CTA for initial repository selection (replaced toolbar)
+- [x] Node selection: click to select, click canvas to deselect
+- [x] Selected node visual highlight (ring/glow on FeatureNode)
+- [x] RepositoryNode (+) creates connected FeatureNode
+- [x] FeatureNode (+) creates connected child FeatureNode
+- [x] New nodes positioned to the right and auto-selected
+- [x] FeaturesCanvas props extended with onNodeClick, onPaneClick, onRepositoryAdd
+- [x] Keyboard shortcut: Escape to deselect
+- [x] Storybook stories: Empty, WithFeatures, WithNodeActions
+- [x] `pnpm build:storybook` passes
+- [x] `pnpm build:web` passes
+- [x] Components follow tier import rules (013-ui-arch)
+- [x] Data loaded via repository query (Clean Architecture, no direct filesystem reads in presentation)
+- [x] FeatureLifecyclePhase matches domain SdlcLifecycle 1:1 (requirements, research, implementation, review, deploy, maintain)
+- [x] Lifecycle display labels show human-readable names (e.g. "DEPLOY & QA", "COMPLETED" for maintain)
+- [x] Feature node state derived from agent_runs.status (running/done/error/action-required)
+- [x] Maintain lifecycle always renders as done/completed state
+
+## Affected Areas
+
+| Area                                                        | Impact | Reasoning                                |
+| ----------------------------------------------------------- | ------ | ---------------------------------------- |
+| `src/presentation/web/components/features/`                 | High   | New control-center component directory   |
+| `src/presentation/web/components/features/features-canvas/` | Medium | Extend props for interaction callbacks   |
+| `src/presentation/web/components/common/feature-node/`      | Low    | Add selected visual state                |
+| `src/presentation/web/components/common/repository-node/`   | Low    | Wire onAdd callback through canvas       |
+| `src/presentation/web/app/page.tsx`                         | Medium | Control Center is the homepage (/ route) |
+
+## Dependencies
+
+- **015-feature-flow-canvas** (Complete): FeaturesCanvas and node components
+- **013-ui-arch** (Complete): Four-tier component hierarchy
+- **014-ui-sidebar** (Complete): Sidebar navigation context
+
+## Scope Boundaries
+
+**In scope:**
+
+- ControlCenter orchestrator wrapping FeaturesCanvas
+- State management hook (useControlCenterState)
+- Empty state CTA and contextual node actions (toolbar removed for cleaner UX)
+- Node selection with visual highlight
+- Contextual add via RepositoryNode (+) → creates connected FeatureNode
+- Contextual add via FeatureNode (+) → creates connected child FeatureNode
+- New node positioning (to the right of source) and auto-selection
+- Keyboard shortcut (Escape to deselect)
+- Storybook stories with mock data
+- Extending FeaturesCanvas/FeatureNode/RepositoryNode props as needed
+- Control center page consumes data via existing ListFeaturesUseCase (not direct filesystem access)
+
+**Out of scope:**
+
+- Real-time updates or WebSocket integration
+- Drag-and-drop node creation (nodes added via (+) buttons, not drag)
+- Auto-layout algorithm implementation (button placeholder only)
+- Node context menu (stretch goal for future)
+- Filter/search in toolbar (stretch goal for future)
+
+## Size Estimate
+
+**M** - Creates a new orchestrator component with 3 files (component, hook,
+toolbar), modifies 2 existing components (FeaturesCanvas props, FeatureNode
+selected state), and requires comprehensive Storybook stories. Moderate
+complexity from React Flow Panel integration and state management.
+
+---
+
+_Generated by `/shep-kit:new-feature` — proceed with `/shep-kit:research`_

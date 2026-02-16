@@ -95,12 +95,12 @@ describe('ToolInstallerServiceImpl', () => {
   });
 
   describe('getInstallCommand', () => {
-    it('should return correct install command for known tool on linux', () => {
+    it('should return correct install command for known tool on current platform', () => {
       const command = service.getInstallCommand('vscode');
 
       expect(command).not.toBeNull();
       expect(command!.toolName).toBe('vscode');
-      expect(command!.platform).toBe('linux');
+      expect(command!.platform).toBe(process.platform);
       expect(command!.command).toBeDefined();
       expect(typeof command!.command).toBe('string');
       expect(command!.timeout).toBeGreaterThan(0);

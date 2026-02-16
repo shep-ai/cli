@@ -1,8 +1,8 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import type { IFeatureRepository } from '../../../../../src/application/ports/output/repositories/feature-repository.interface.js';
-import type { IWorktreeService } from '../../../../../src/application/ports/output/services/worktree-service.interface.js';
-import { SlugResolver } from '../../../../../src/application/use-cases/features/create/slug-resolver.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { IWorktreeService } from '@/application/ports/output/services/worktree-service.interface.js';
+import { SlugResolver } from '@/application/use-cases/features/create/slug-resolver.js';
 
 describe('SlugResolver', () => {
   let mockFeatureRepo: IFeatureRepository;

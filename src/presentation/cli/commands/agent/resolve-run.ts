@@ -2,10 +2,10 @@
  * Shared helper: resolve an agent run by exact or prefix ID.
  */
 
-import { container } from '../../../../infrastructure/di/container.js';
-import { GetAgentRunUseCase } from '../../../../application/use-cases/agents/get-agent-run.use-case.js';
-import { ListAgentRunsUseCase } from '../../../../application/use-cases/agents/list-agent-runs.use-case.js';
-import type { AgentRun } from '../../../../domain/generated/output.js';
+import { container } from '@/infrastructure/di/container.js';
+import { GetAgentRunUseCase } from '@/application/use-cases/agents/get-agent-run.use-case.js';
+import { ListAgentRunsUseCase } from '@/application/use-cases/agents/list-agent-runs.use-case.js';
+import type { AgentRun } from '@/domain/generated/output.js';
 
 export async function resolveAgentRun(id: string): Promise<{ run: AgentRun } | { error: string }> {
   const getUseCase = container.resolve(GetAgentRunUseCase);

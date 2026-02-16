@@ -17,11 +17,8 @@ import {
   createAvailableStatus,
   createMissingStatus,
   createErrorStatus,
-} from '../../../../src/domain/value-objects/tool-installation-status.js';
-import type {
-  ToolInstallationStatus,
-  InstallationSuggestion,
-} from '../../../../src/domain/generated/output.js';
+} from '@/domain/value-objects/tool-installation-status.js';
+import type { ToolInstallationStatus, InstallationSuggestion } from '@/domain/generated/output.js';
 
 describe('ToolInstallationStatus Value Object', () => {
   describe('createToolInstallationStatus', () => {

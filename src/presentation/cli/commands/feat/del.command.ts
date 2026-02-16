@@ -11,9 +11,9 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../../infrastructure/di/container.js';
-import { DeleteFeatureUseCase } from '../../../../application/use-cases/features/delete-feature.use-case.js';
-import { ShowFeatureUseCase } from '../../../../application/use-cases/features/show-feature.use-case.js';
+import { container } from '@/infrastructure/di/container.js';
+import { DeleteFeatureUseCase } from '@/application/use-cases/features/delete-feature.use-case.js';
+import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 import { confirm } from '@inquirer/prompts';
 

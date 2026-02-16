@@ -1,0 +1,94 @@
+feature:
+  id: '016-control-center'
+  name: 'control-center'
+  number: 16
+  branch: 'feat/016-control-center'
+  lifecycle: 'review'
+  createdAt: '2026-02-12T20:31:19Z'
+
+status:
+  phase: 'in-review'
+  progress:
+    completed: 20
+    total: 22
+    removed: 1
+    superseded: 2
+    percentage: 100
+  notes: 'CI fully green. All checks pass including E2E CLI, Docker Build, and security scans.'
+  currentTask: null
+  lastUpdated: '2026-02-16T18:15:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/49'
+
+validation:
+  lastRun: '2026-02-16T22:35:00Z'
+  gatesPassed:
+    ['completeness', 'consistency', 'typecheck', 'unit-tests', 'integration-tests', 'formatting']
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-12T20:31:19Z'
+    completedBy: 'shep-kit:new-feature'
+  - phase: 'research-complete'
+    completedAt: '2026-02-12T22:45:00Z'
+    completedBy: 'shep-kit:research'
+  - phase: 'plan-complete'
+    completedAt: '2026-02-12T23:30:00Z'
+    completedBy: 'shep-kit:plan'
+  - phase: 'implementation-reopened'
+    completedAt: '2026-02-15T22:00:00Z'
+    completedBy: 'manual'
+    notes: 'Reopened tasks 8, 10 — direct SQL in web layer replaced with use cases via DI bridge'
+  - phase: 'implementation-complete'
+    completedAt: '2026-02-16T05:22:00Z'
+    completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-16T05:25:00Z'
+    completedBy: 'shep-kit:commit-pr'
+  - phase: 'specs-reworked'
+    completedAt: '2026-02-16T12:00:00Z'
+    completedBy: 'manual'
+    notes: >
+      Policy rework: remove dashboard concept (ListDashboardFeaturesUseCase, DashboardFeature,
+      listWithAgentRuns), use existing ListFeaturesUseCase, FeatureNodeData extends Feature type
+      from feature.tsp, derive state/progress from Feature.plan.tasks, move globalThis bridge
+      to WebServerService, no CLI folder changes. Tasks 8 and 10 rewritten, task-12 updated.
+  - phase: 'core-extraction-planned'
+    completedAt: '2026-02-16T18:00:00Z'
+    completedBy: 'manual'
+    notes: >
+      Extract @shepai/core workspace package plan added. Tasks 8 and 10 superseded by
+      tasks 15-22 covering: scaffold core package, move domain/application/infrastructure
+      layers, clean up root package, control center data layer, globalThis bridge, and
+      final validation. Size estimate upgraded to XL.
+  - phase: 'core-extraction-complete'
+    completedAt: '2026-02-16T22:35:00Z'
+    completedBy: 'shep-kit:implement'
+    notes: >
+      All 8 extraction tasks (15-22) completed. @shepai/core workspace package created with
+      domain, application, and infrastructure layers. Control center now derives state from
+      Feature.plan.tasks via deriveNodeState()/deriveProgress(). globalThis bridge updated
+      to use ListFeaturesUseCase. 841 unit tests + 117 integration tests pass. All typechecks clean.
+  - phase: 'ci-green'
+    completedAt: '2026-02-16T18:15:00Z'
+    completedBy: 'shep-kit:commit-pr'
+    notes: >
+      All CI checks pass: Type Check, Unit Tests, E2E (CLI/TUI/Web), Lint & Format,
+      Docker Build, Trivy (deps/container), Gitleaks, Semgrep, Hadolint. Fixed: TypeSpec
+      regeneration, stale duplicate files, import path aliases, ESM extensions, Dockerfile
+      packages/core, web-server/version-service path resolution, cross-platform test.
+  - phase: 'review-watching'
+    completedAt: '2026-02-16T18:15:00Z'
+    completedBy: 'shep-kit:commit-pr'
+    notes: 'No actionable review comments. Human comments are FYI/future considerations.'
+
+errors:
+  current: null
+  history: []

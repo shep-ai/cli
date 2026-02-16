@@ -9,10 +9,10 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../../infrastructure/di/container.js';
-import { ListAgentRunsUseCase } from '../../../../application/use-cases/agents/list-agent-runs.use-case.js';
+import { container } from '@/infrastructure/di/container.js';
+import { ListAgentRunsUseCase } from '@/application/use-cases/agents/list-agent-runs.use-case.js';
 import { colors, symbols, messages, renderListView } from '../../ui/index.js';
-import type { AgentRun } from '../../../../domain/generated/output.js';
+import type { AgentRun } from '@/domain/generated/output.js';
 
 function isProcessAlive(pid: number): boolean {
   try {

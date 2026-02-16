@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateResearch } from '../../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/schemas/research.schema.js';
+import { validateResearch } from '@/infrastructure/services/agents/feature-agent/nodes/schemas/research.schema.js';
 
 const validResearch = {
   name: 'test-feature',

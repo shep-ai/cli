@@ -28,6 +28,18 @@ export default defineConfig({
   },
   resolve: {
     alias: [
+      // @shepai/core workspace package
+      { find: '@shepai/core', replacement: resolve(__dirname, './packages/core/src') },
+      // Core layer redirects — resolve @/application, @/infrastructure, @/domain to core
+      {
+        find: '@/application',
+        replacement: resolve(__dirname, './packages/core/src/application'),
+      },
+      {
+        find: '@/infrastructure',
+        replacement: resolve(__dirname, './packages/core/src/infrastructure'),
+      },
+      { find: '@/domain', replacement: resolve(__dirname, './packages/core/src/domain') },
       // More specific aliases first
       {
         find: '@/components',
@@ -35,7 +47,10 @@ export default defineConfig({
       },
       { find: '@/lib', replacement: resolve(__dirname, './src/presentation/web/lib') },
       { find: '@/hooks', replacement: resolve(__dirname, './src/presentation/web/hooks') },
+      { find: '@/app', replacement: resolve(__dirname, './src/presentation/web/app') },
       { find: '@/types', replacement: resolve(__dirname, './src/presentation/web/types') },
+      // @cli alias matches web tsconfig: @cli/* → src/* (root package)
+      { find: '@cli', replacement: resolve(__dirname, './src') },
       // General alias last
       { find: '@', replacement: resolve(__dirname, './src') },
       { find: '@tests', replacement: resolve(__dirname, './tests') },

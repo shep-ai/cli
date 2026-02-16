@@ -9,10 +9,10 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentExecutorFactory } from '../../../../../src/infrastructure/services/agents/common/agent-executor-factory.service.js';
-import type { SpawnFunction } from '../../../../../src/infrastructure/services/agents/common/types.js';
-import { AgentType, AgentAuthMethod } from '../../../../../src/domain/generated/output.js';
-import type { AgentConfig } from '../../../../../src/domain/generated/output.js';
+import { AgentExecutorFactory } from '@/infrastructure/services/agents/common/agent-executor-factory.service.js';
+import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
+import { AgentType, AgentAuthMethod } from '@/domain/generated/output.js';
+import type { AgentConfig } from '@/domain/generated/output.js';
 
 describe('AgentExecutorFactory', () => {
   let factory: AgentExecutorFactory;

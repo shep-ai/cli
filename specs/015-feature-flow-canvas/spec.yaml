@@ -1,0 +1,234 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-flow-canvas
+number: 015
+branch: feat/015-feature-flow-canvas
+oneLiner: React Flow canvas with feature node components for SDLC lifecycle visualization
+summary: >
+  Build a Feature Node custom React Flow node and a Feature Flow Canvas component
+  for the "Features Control Center" view. The FeatureNode displays lifecycle phase,
+  name, description, ID, progress, and state (Running, Action Required, Done,
+  Blocked, Error) with an action button. The canvas supports empty state (with
+  add-feature CTA), single node, multiple nodes, and connected nodes (edges
+  between related features). Both components follow the four-tier component
+  hierarchy with full Storybook coverage.
+phase: Planning
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - '013-ui-arch'
+  - '014-ui-sidebar'
+  - '004-web-ui-component-library'
+
+technologies:
+  - React 19
+  - Next.js 16
+  - '@xyflow/react (React Flow)'
+  - Tailwind CSS v4
+  - shadcn/ui
+  - Storybook 8
+  - Lucide React
+
+relatedLinks:
+  - https://reactflow.dev/
+  - https://reactflow.dev/learn/customization/custom-nodes
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The web UI needs a visual "Features Control Center" — a canvas where users can
+  see all their features as interactive cards positioned on a React Flow graph.
+  Each feature card shows its current SDLC lifecycle phase (Requirements, Plan,
+  Implementation, Test, Deploy, Maintenance), name, description, progress
+  percentage, and state indicator. Features can be connected via edges to show
+  relationships/dependencies.
+
+  Currently there are no flow/graph components in the web UI. React Flow
+  (`@xyflow/react`) needs to be installed and custom node/canvas components
+  built from scratch, following the established four-tier component hierarchy
+  from 013-ui-arch.
+
+  ## Visual Design (from reference screenshots)
+
+  ### Feature Node
+  - **Left border**: Color-coded by state (green=Running, amber=Action Required, emerald=Done, red=Error, gray=Blocked)
+  - **Top-left**: Lifecycle phase label in uppercase (e.g., "REQUIREMENTS") colored by state
+  - **Top-right**: Settings/gear icon button
+  - **Title**: Feature name (bold, truncated if too long)
+  - **Description**: Brief description (truncated with ellipsis)
+  - **Bottom-left**: Feature ID (e.g., "#f1")
+  - **Bottom-right**: Progress percentage (e.g., "3%")
+  - **Bottom**: Progress bar (thin line under the card, colored by state)
+  - **Right side**: Floating action button (blue circle with "+" icon) — callback exposed as prop
+  - **React Flow handles**: Source handle on right, target handle on left for edges
+
+  ### Feature Flow Canvas
+  - **Title**: "Features / Control Center" heading
+  - **Empty state**: Centered empty state with "+ NEW FEATURE" button
+  - **With nodes**: Feature nodes arranged on canvas with pan/zoom
+  - **Connected view**: Edges between related feature nodes
+  - **Controls**: React Flow minimap and controls (zoom in/out, fit view)
+
+  ## Component Architecture
+
+  Following the 013-ui-arch four-tier hierarchy:
+
+  ```
+  components/
+  ├── common/                              # Tier 1: Composed building blocks
+  │   └── feature-node/                    # Custom React Flow node
+  │       ├── feature-node.tsx
+  │       ├── feature-node.stories.tsx
+  │       └── index.ts
+  │
+  └── features/                            # Tier 3: Feature-specific components
+      └── feature-flow-canvas/             # Canvas with React Flow
+          ├── feature-flow-canvas.tsx
+          ├── feature-flow-canvas.stories.tsx
+          └── index.ts
+  ```
+
+  ## Feature Node States
+
+  Extending the existing `FeatureStatus` type from `feature-status-config.ts`:
+
+  | State            | Left Border | Phase Label Color | Description              |
+  | ---------------- | ----------- | ----------------- | ------------------------ |
+  | `running`        | Blue        | Blue              | Feature is being worked on |
+  | `action-required`| Amber       | Amber             | User input needed        |
+  | `done`           | Emerald     | Emerald           | Feature completed        |
+  | `blocked`        | Gray        | Gray              | Blocked by dependency    |
+  | `error`          | Red         | Red               | Error in processing      |
+
+  ## SDLC Lifecycle Phases
+
+  From the domain model (`SdlcLifecycle` enum):
+
+  - Requirements
+  - Plan
+  - Implementation
+  - Test
+  - Deploy
+  - Maintenance
+
+  Displayed as uppercase label in the node header.
+
+  ## Props Design
+
+  ### FeatureNode (Custom React Flow Node)
+  ```typescript
+  export type FeatureNodeState = 'running' | 'action-required' | 'done' | 'blocked' | 'error';
+
+  export type FeatureLifecyclePhase =
+    | 'requirements' | 'plan' | 'implementation'
+    | 'test' | 'deploy' | 'maintenance';
+
+  export interface FeatureNodeData {
+    name: string;
+    description?: string;
+    featureId: string;              // e.g., "#f1"
+    lifecycle: FeatureLifecyclePhase;
+    state: FeatureNodeState;
+    progress: number;               // 0-100
+    onAction?: () => void;          // Action button callback
+    onSettings?: () => void;        // Settings icon callback
+  }
+  ```
+
+  ### FeatureFlowCanvas
+  ```typescript
+  export interface FeatureFlowCanvasProps {
+    nodes: Node<FeatureNodeData>[];
+    edges: Edge[];
+    onAddFeature?: () => void;      // Empty state CTA callback
+    onNodeAction?: (nodeId: string) => void;
+    onNodeSettings?: (nodeId: string) => void;
+  }
+  ```
+
+  ## Storybook Stories
+
+  ### FeatureNode stories
+  - **Default**: Single node with "Requirements" phase, running state
+  - **AllStates**: Grid showing all 5 states
+  - **AllLifecycles**: Grid showing all 6 lifecycle phases
+  - **WithAction**: Node with action callback wired to Storybook action
+  - **LongContent**: Node with very long name/description (truncation test)
+
+  ### FeatureFlowCanvas stories
+  - **Empty**: Empty canvas with "+ NEW FEATURE" CTA
+  - **SingleNode**: Canvas with one feature node
+  - **MultipleNodes**: Canvas with 5-6 feature nodes in various states/phases
+  - **ConnectedNodes**: Canvas with nodes connected by edges (dependency relationships)
+  - **Interactive**: Full interactive canvas with action/settings callbacks wired
+
+  ## Success Criteria
+
+  - [ ] `@xyflow/react` package installed in web workspace
+  - [ ] `FeatureNode` custom node component in `common/feature-node/`
+  - [ ] `FeatureNode` renders lifecycle phase, name, description, ID, progress
+  - [ ] `FeatureNode` supports all 5 states with distinct visual styling
+  - [ ] `FeatureNode` has action button (right side) with `onAction` callback prop
+  - [ ] `FeatureNode` has settings icon with `onSettings` callback prop
+  - [ ] `FeatureNode` has React Flow handles (source right, target left)
+  - [ ] `FeatureFlowCanvas` in `features/feature-flow-canvas/`
+  - [ ] Canvas empty state with "+ NEW FEATURE" button calling `onAddFeature`
+  - [ ] Canvas renders nodes with pan/zoom support
+  - [ ] Canvas renders edges between connected nodes
+  - [ ] Storybook stories for FeatureNode: Default, AllStates, AllLifecycles, WithAction, LongContent
+  - [ ] Storybook stories for Canvas: Empty, SingleNode, MultipleNodes, ConnectedNodes
+  - [ ] `pnpm build:storybook` passes
+  - [ ] `pnpm build:web` passes
+  - [ ] All components follow tier import rules (013-ui-arch)
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | --- | --- | --- |
+  | `src/presentation/web/components/common/` | High | New FeatureNode component |
+  | `src/presentation/web/components/features/` | High | New FeatureFlowCanvas component |
+  | `src/presentation/web/package.json` | Medium | @xyflow/react dependency |
+  | `src/presentation/web/components/common/feature-status-config.ts` | Low | May extend with new node states |
+
+  ## Dependencies
+
+  - **013-ui-arch** (Complete): Four-tier component hierarchy
+  - **014-ui-sidebar** (Complete): Existing FeatureStatus types and feature-status-config
+  - **004-web-ui-component-library** (Complete): shadcn/ui + Tailwind v4 foundation
+
+  ## Scope Boundaries
+
+  **In scope:**
+  - Install `@xyflow/react` in web workspace
+  - FeatureNode custom React Flow node component
+  - FeatureFlowCanvas component with empty/populated/connected views
+  - Node state styling (5 states) and lifecycle phase display (6 phases)
+  - Action button and settings icon with callback props
+  - Storybook stories for all variants
+  - Static/mock data (no backend integration)
+
+  **Out of scope:**
+  - Backend API integration for feature data
+  - Real-time updates or WebSocket integration
+  - Drag-and-drop node creation
+  - Node editing inline
+  - Edge creation by dragging between handles
+  - Minimap/controls configuration beyond defaults
+  - Layout algorithms (auto-positioning)
+
+  ## Size Estimate
+
+  **M** - Installs 1 new dependency (@xyflow/react), creates 2 components
+  (FeatureNode + FeatureFlowCanvas) with comprehensive Storybook stories.
+  Purely presentational with mock data. Moderate scope with well-defined
+  building blocks and clear visual reference from screenshots.
+
+  ---
+
+  _Generated by `/shep-kit:new-feature` — proceed with `/shep-kit:research`_

@@ -10,16 +10,13 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../../infrastructure/di/container.js';
+import { container } from '@/infrastructure/di/container.js';
 import {
   ConfigureAgentUseCase,
   type ConfigureAgentInput,
-} from '../../../../application/use-cases/agents/configure-agent.use-case.js';
+} from '@/application/use-cases/agents/configure-agent.use-case.js';
 import { agentConfigWizard } from '../../../tui/wizards/agent-config.wizard.js';
-import {
-  resetSettings,
-  initializeSettings,
-} from '../../../../infrastructure/services/settings.service.js';
+import { resetSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { messages } from '../../ui/index.js';
 
 /**

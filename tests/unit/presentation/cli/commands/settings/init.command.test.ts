@@ -12,21 +12,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 
 // Mock the settings service
-vi.mock('../../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: vi.fn(),
   resetSettings: vi.fn(),
   initializeSettings: vi.fn(),
 }));
 
 // Mock the domain factory
-vi.mock('../../../../../../src/domain/factories/settings-defaults.factory.js', () => ({
+vi.mock('@/domain/factories/settings-defaults.factory.js', () => ({
   createDefaultSettings: vi.fn().mockReturnValue({ id: 'test-id', models: {} }),
 }));
 
-import {
-  resetSettings,
-  initializeSettings,
-} from '../../../../../../src/infrastructure/services/settings.service.js';
+import { resetSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { createInitCommand } from '../../../../../../src/presentation/cli/commands/settings/init.command.js';
 
 describe('Init Command', () => {

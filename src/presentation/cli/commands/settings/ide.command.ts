@@ -10,16 +10,16 @@
 
 import { Command } from 'commander';
 import { select } from '@inquirer/prompts';
-import { EditorType } from '../../../../domain/generated/output.js';
-import { container } from '../../../../infrastructure/di/container.js';
-import { UpdateSettingsUseCase } from '../../../../application/use-cases/settings/update-settings.use-case.js';
+import { EditorType } from '@/domain/generated/output.js';
+import { container } from '@/infrastructure/di/container.js';
+import { UpdateSettingsUseCase } from '@/application/use-cases/settings/update-settings.use-case.js';
 import { createIdeSelectConfig } from '../../../tui/prompts/ide-select.prompt.js';
 import {
   getSettings,
   resetSettings,
   initializeSettings,
-} from '../../../../infrastructure/services/settings.service.js';
-import { createLauncherRegistry } from '../../../../infrastructure/services/ide-launchers/ide-launcher.registry.js';
+} from '@/infrastructure/services/settings.service.js';
+import { createLauncherRegistry } from '@/infrastructure/services/ide-launchers/ide-launcher.registry.js';
 import { messages } from '../../ui/index.js';
 
 /** Valid EditorType values for input validation. */

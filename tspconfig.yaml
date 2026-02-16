@@ -34,7 +34,7 @@ options:
     # bundleId: "shep-ai-models"  # Bundle all schemas (optional)
 
   '@typespec-tools/emitter-typescript':
-    emitter-output-dir: '{cwd}/src/domain/generated'
+    emitter-output-dir: '{cwd}/packages/core/src/domain/generated'
 
   # "@typespec/protobuf":
   #   emitter-output-dir: "{output-dir}/protobuf"

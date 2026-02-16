@@ -5,7 +5,7 @@
  * choose their preferred IDE/editor.
  */
 
-import { EditorType } from '../../../domain/generated/output.js';
+import { EditorType } from '@/domain/generated/output.js';
 import { shepTheme } from '../themes/shep.theme.js';
 
 /**

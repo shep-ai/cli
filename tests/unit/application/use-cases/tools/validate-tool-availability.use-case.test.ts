@@ -9,12 +9,9 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ValidateToolAvailabilityUseCase } from '../../../../../src/application/use-cases/tools/validate-tool-availability.use-case.js';
-import type {
-  ToolInstallationStatus,
-  InstallationSuggestion,
-} from '../../../../../src/domain/generated/output.js';
-import type { IToolInstallerService } from '../../../../../src/application/ports/output/services/index.js';
+import { ValidateToolAvailabilityUseCase } from '@/application/use-cases/tools/validate-tool-availability.use-case.js';
+import type { ToolInstallationStatus, InstallationSuggestion } from '@/domain/generated/output.js';
+import type { IToolInstallerService } from '@/application/ports/output/services/index.js';
 
 describe('ValidateToolAvailabilityUseCase', () => {
   let useCase: ValidateToolAvailabilityUseCase;

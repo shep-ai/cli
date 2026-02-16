@@ -9,17 +9,13 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { DeleteFeatureUseCase } from '../../../../../src/application/use-cases/features/delete-feature.use-case.js';
-import type { IFeatureRepository } from '../../../../../src/application/ports/output/repositories/feature-repository.interface.js';
-import type { IWorktreeService } from '../../../../../src/application/ports/output/services/worktree-service.interface.js';
-import type { IFeatureAgentProcessService } from '../../../../../src/application/ports/output/agents/feature-agent-process.interface.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
-import {
-  AgentRunStatus,
-  AgentType,
-  SdlcLifecycle,
-} from '../../../../../src/domain/generated/output.js';
-import type { Feature, AgentRun } from '../../../../../src/domain/generated/output.js';
+import { DeleteFeatureUseCase } from '@/application/use-cases/features/delete-feature.use-case.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { IWorktreeService } from '@/application/ports/output/services/worktree-service.interface.js';
+import type { IFeatureAgentProcessService } from '@/application/ports/output/agents/feature-agent-process.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import { AgentRunStatus, AgentType, SdlcLifecycle } from '@/domain/generated/output.js';
+import type { Feature, AgentRun } from '@/domain/generated/output.js';
 
 function createMockFeature(overrides?: Partial<Feature>): Feature {
   return {

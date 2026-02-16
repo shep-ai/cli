@@ -9,12 +9,12 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ValidateAgentAuthUseCase } from '../../../../../src/application/use-cases/agents/validate-agent-auth.use-case.js';
-import { AgentType } from '../../../../../src/domain/generated/output.js';
+import { ValidateAgentAuthUseCase } from '@/application/use-cases/agents/validate-agent-auth.use-case.js';
+import { AgentType } from '@/domain/generated/output.js';
 import type {
   IAgentValidator,
   AgentValidationResult,
-} from '../../../../../src/application/ports/output/agents/agent-validator.interface.js';
+} from '@/application/ports/output/agents/agent-validator.interface.js';
 
 describe('ValidateAgentAuthUseCase', () => {
   let useCase: ValidateAgentAuthUseCase;

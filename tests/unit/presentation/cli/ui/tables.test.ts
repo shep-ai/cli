@@ -7,7 +7,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { TableFormatter } from '../../../../../src/presentation/cli/ui/tables.js';
-import { createDefaultSettings } from '../../../../../src/domain/factories/settings-defaults.factory.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 
 describe('TableFormatter', () => {
   const sampleSettings = createDefaultSettings();

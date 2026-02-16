@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 
 // Mock the port service - factory must not reference outer variables (hoisted)
-vi.mock('../../../../../src/infrastructure/services/port.service.js', () => ({
+vi.mock('@/infrastructure/services/port.service.js', () => ({
   findAvailablePort: vi.fn(),
   DEFAULT_PORT: 4050,
 }));
@@ -22,7 +22,7 @@ const mockWebServerService = {
 };
 
 // Mock the DI container - returns different services based on token
-vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
     resolve: vi.fn().mockImplementation((token: string) => {
       if (token === 'IVersionService') {
@@ -43,20 +43,20 @@ vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
 }));
 
 // Mock setVersionEnvVars (standalone utility, not part of DI)
-vi.mock('../../../../../src/infrastructure/services/version.service.js', () => ({
+vi.mock('@/infrastructure/services/version.service.js', () => ({
   setVersionEnvVars: vi.fn(),
 }));
 
 // Mock resolveWebDir (standalone function, not part of DI)
-vi.mock('../../../../../src/infrastructure/services/web-server.service.js', () => ({
+vi.mock('@/infrastructure/services/web-server.service.js', () => ({
   resolveWebDir: vi.fn().mockReturnValue({
     dir: '/mock/web/dir',
     dev: true,
   }),
 }));
 
-import { findAvailablePort } from '../../../../../src/infrastructure/services/port.service.js';
-import { resolveWebDir } from '../../../../../src/infrastructure/services/web-server.service.js';
+import { findAvailablePort } from '@/infrastructure/services/port.service.js';
+import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
 import { createUiCommand } from '../../../../../src/presentation/cli/commands/ui.command.js';
 
 describe('UI Command', () => {

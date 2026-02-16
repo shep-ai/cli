@@ -8,12 +8,8 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { AgentRunStatus } from '../../../../../../src/domain/generated/output.js';
-import type {
-  Feature,
-  AgentRun,
-  PhaseTiming,
-} from '../../../../../../src/domain/generated/output.js';
+import { AgentRunStatus } from '@/domain/generated/output.js';
+import type { Feature, AgentRun, PhaseTiming } from '@/domain/generated/output.js';
 
 const { mockResolve, mockShowExecute, mockFindById, mockFindByRunId } = vi.hoisted(() => ({
   mockResolve: vi.fn(),
@@ -22,22 +18,19 @@ const { mockResolve, mockShowExecute, mockFindById, mockFindByRunId } = vi.hoist
   mockFindByRunId: vi.fn(),
 }));
 
-vi.mock('../../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: { resolve: (...args: unknown[]) => mockResolve(...args) },
 }));
 
-vi.mock('../../../../../../src/application/use-cases/features/show-feature.use-case.js', () => ({
+vi.mock('@/application/use-cases/features/show-feature.use-case.js', () => ({
   ShowFeatureUseCase: class {
     execute = mockShowExecute;
   },
 }));
 
-vi.mock(
-  '../../../../../../src/infrastructure/services/filesystem/shep-directory.service.js',
-  () => ({
-    SHEP_HOME_DIR: '/home/test/.shep',
-  })
-);
+vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => ({
+  SHEP_HOME_DIR: '/home/test/.shep',
+}));
 
 import { createShowCommand } from '../../../../../../src/presentation/cli/commands/feat/show.command.js';
 

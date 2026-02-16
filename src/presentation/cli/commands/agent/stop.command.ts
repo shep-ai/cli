@@ -8,8 +8,8 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../../infrastructure/di/container.js';
-import { StopAgentRunUseCase } from '../../../../application/use-cases/agents/stop-agent-run.use-case.js';
+import { container } from '@/infrastructure/di/container.js';
+import { StopAgentRunUseCase } from '@/application/use-cases/agents/stop-agent-run.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 import { resolveAgentRun } from './resolve-run.js';
 

@@ -27,7 +27,7 @@
 import 'reflect-metadata';
 
 import { Command } from 'commander';
-import type { IVersionService } from '../../application/ports/output/services/version-service.interface.js';
+import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import { createVersionCommand } from './commands/version.command.js';
 import { createSettingsCommand } from './commands/settings/index.js';
 import { createUiCommand } from './commands/ui.command.js';
@@ -39,9 +39,11 @@ import { createInstallCommand } from './commands/install.command.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
-import { initializeContainer, container } from '../../infrastructure/di/container.js';
-import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
-import { initializeSettings } from '../../infrastructure/services/settings.service.js';
+import { initializeContainer, container } from '@/infrastructure/di/container.js';
+import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
+import { ListFeaturesUseCase } from '@/application/use-cases/features/list-features.use-case.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 
 /**
  * Bootstrap function - initializes all dependencies before CLI starts.
@@ -68,6 +70,14 @@ async function bootstrap() {
       messages.error('Failed to initialize settings', err);
       throw error;
     }
+
+    // Step 2b: Expose resolved use cases for the web layer via globalThis bridge
+    // The Next.js web server runs in the same process, so globalThis is shared.
+    // Web layer reads from this instead of importing CLI source (Turbopack incompatibility).
+    (globalThis as Record<string, unknown>).__shepUseCases = {
+      listFeatures: container.resolve(ListFeaturesUseCase),
+      agentRunRepo: container.resolve<IAgentRunRepository>('IAgentRunRepository'),
+    };
 
     // Step 3: Set up Commander CLI
     const versionService = container.resolve<IVersionService>('IVersionService');

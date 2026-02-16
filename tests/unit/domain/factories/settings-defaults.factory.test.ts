@@ -10,15 +10,15 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { createDefaultSettings } from '../../../../src/domain/factories/settings-defaults.factory.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 import type {
   Settings,
   ModelConfiguration,
   UserProfile,
   EnvironmentConfig,
   SystemConfig,
-} from '../../../../src/domain/generated/output.js';
-import { AgentType, AgentAuthMethod } from '../../../../src/domain/generated/output.js';
+} from '@/domain/generated/output.js';
+import { AgentType, AgentAuthMethod } from '@/domain/generated/output.js';
 
 describe('createDefaultSettings', () => {
   describe('return type and structure', () => {

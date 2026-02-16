@@ -18,7 +18,7 @@ import {
   getTableSchema,
   getTableIndexes,
 } from '../../../../helpers/database.helper.js';
-import { runSQLiteMigrations } from '../../../../../src/infrastructure/persistence/sqlite/migrations.js';
+import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations.js';
 
 describe('SQLite Migrations', () => {
   let db: Database.Database;

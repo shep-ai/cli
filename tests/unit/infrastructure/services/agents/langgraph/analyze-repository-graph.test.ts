@@ -13,13 +13,13 @@ import { MemorySaver } from '@langchain/langgraph';
 import type {
   IAgentExecutor,
   AgentExecutionResult,
-} from '../../../../../../src/application/ports/output/agents/agent-executor.interface.js';
-import { AgentType } from '../../../../../../src/domain/generated/output.js';
+} from '@/application/ports/output/agents/agent-executor.interface.js';
+import { AgentType } from '@/domain/generated/output.js';
 import {
   createAnalyzeRepositoryGraph,
   AnalyzeRepositoryState,
-} from '../../../../../../src/infrastructure/services/agents/analyze-repo/analyze-repository-graph.js';
-import { buildAnalyzePrompt } from '../../../../../../src/infrastructure/services/agents/analyze-repo/prompts/analyze-repository.prompt.js';
+} from '@/infrastructure/services/agents/analyze-repo/analyze-repository-graph.js';
+import { buildAnalyzePrompt } from '@/infrastructure/services/agents/analyze-repo/prompts/analyze-repository.prompt.js';
 
 describe('analyzeRepositoryGraph', () => {
   let mockExecutor: IAgentExecutor;

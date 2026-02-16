@@ -11,7 +11,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 
 // Mock the container - factory must not reference outer variables (hoisted)
-vi.mock('../../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
     resolve: vi.fn(),
   },
@@ -23,19 +23,16 @@ vi.mock('../../../../../../src/presentation/tui/wizards/agent-config.wizard.js',
 }));
 
 // Mock the settings service
-vi.mock('../../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   initializeSettings: vi.fn(),
   resetSettings: vi.fn(),
 }));
 
-import { container } from '../../../../../../src/infrastructure/di/container.js';
+import { container } from '@/infrastructure/di/container.js';
 import { agentConfigWizard } from '../../../../../../src/presentation/tui/wizards/agent-config.wizard.js';
-import {
-  initializeSettings,
-  resetSettings,
-} from '../../../../../../src/infrastructure/services/settings.service.js';
+import { initializeSettings, resetSettings } from '@/infrastructure/services/settings.service.js';
 import { createAgentCommand } from '../../../../../../src/presentation/cli/commands/settings/agent.command.js';
-import { AgentType, AgentAuthMethod } from '../../../../../../src/domain/generated/output.js';
+import { AgentType, AgentAuthMethod } from '@/domain/generated/output.js';
 
 describe('Agent Command', () => {
   const mockSettings = {

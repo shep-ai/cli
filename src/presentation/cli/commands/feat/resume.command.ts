@@ -8,8 +8,8 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../../infrastructure/di/container.js';
-import { ResumeFeatureUseCase } from '../../../../application/use-cases/features/resume-feature.use-case.js';
+import { container } from '@/infrastructure/di/container.js';
+import { ResumeFeatureUseCase } from '@/application/use-cases/features/resume-feature.use-case.js';
 import { colors, messages } from '../../ui/index.js';
 
 export function createResumeCommand(): Command {

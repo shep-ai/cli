@@ -10,11 +10,11 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach } from 'vitest';
-import { UpdateSettingsUseCase } from '../../../../src/application/use-cases/settings/update-settings.use-case.js';
+import { UpdateSettingsUseCase } from '@/application/use-cases/settings/update-settings.use-case.js';
 import { MockSettingsRepository } from '../../../helpers/mock-repository.helper.js';
-import { createDefaultSettings } from '../../../../src/domain/factories/settings-defaults.factory.js';
-import type { Settings } from '../../../../src/domain/generated/output.js';
-import { EditorType } from '../../../../src/domain/generated/output.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
+import type { Settings } from '@/domain/generated/output.js';
+import { EditorType } from '@/domain/generated/output.js';
 
 describe('UpdateSettingsUseCase', () => {
   let useCase: UpdateSettingsUseCase;

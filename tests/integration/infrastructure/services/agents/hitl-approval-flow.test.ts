@@ -17,9 +17,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { Command } from '@langchain/langgraph';
-import { createFeatureAgentGraph } from '../../../../../src/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
-import { createCheckpointer } from '../../../../../src/infrastructure/services/agents/common/checkpointer.js';
-import type { IAgentExecutor } from '../../../../../src/application/ports/output/agents/agent-executor.interface.js';
+import { createFeatureAgentGraph } from '@/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
+import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {

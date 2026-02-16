@@ -6,10 +6,10 @@
  * feature that is currently waiting for human approval.
  */
 
-import type { Feature, AgentRun } from '../../../../domain/generated/output.js';
-import { AgentRunStatus } from '../../../../domain/generated/output.js';
-import type { IFeatureRepository } from '../../../../application/ports/output/repositories/feature-repository.interface.js';
-import type { IAgentRunRepository } from '../../../../application/ports/output/agents/agent-run-repository.interface.js';
+import type { Feature, AgentRun } from '@/domain/generated/output.js';
+import { AgentRunStatus } from '@/domain/generated/output.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 
 export interface ResolveWaitingFeatureOptions {
   featureId?: string;

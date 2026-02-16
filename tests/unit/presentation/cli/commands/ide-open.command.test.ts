@@ -11,7 +11,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { EditorType } from '../../../../../src/domain/generated/output.js';
+import { EditorType } from '@/domain/generated/output.js';
 
 // --- Mocks (no top-level variables in factories since vi.mock is hoisted) ---
 
@@ -20,30 +20,27 @@ vi.mock('node:child_process', async (importOriginal) => {
   return { ...actual, spawn: vi.fn(), execFile: vi.fn() };
 });
 
-vi.mock('../../../../../src/infrastructure/di/container.js', () => ({
+vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
     resolve: vi.fn(() => ({ execute: vi.fn() })),
   },
 }));
 
-vi.mock('../../../../../src/application/use-cases/features/show-feature.use-case.js', () => ({
+vi.mock('@/application/use-cases/features/show-feature.use-case.js', () => ({
   ShowFeatureUseCase: class MockShowFeatureUseCase {},
 }));
 
-vi.mock('../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: vi.fn(() => ({
     environment: { defaultEditor: 'vscode' },
   })),
 }));
 
-vi.mock(
-  '../../../../../src/infrastructure/services/ide-launchers/ide-launcher.registry.js',
-  () => ({
-    createLauncherRegistry: vi.fn(() => new Map()),
-  })
-);
+vi.mock('@/infrastructure/services/ide-launchers/ide-launcher.registry.js', () => ({
+  createLauncherRegistry: vi.fn(() => new Map()),
+}));
 
-vi.mock('../../../../../src/infrastructure/services/filesystem/shep-directory.service.js', () => ({
+vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => ({
   SHEP_HOME_DIR: '/mock/.shep',
 }));
 
@@ -61,9 +58,9 @@ vi.mock('../../../../../src/presentation/cli/ui/index.js', () => ({
 
 // Import after mocks
 import { createIdeOpenCommand } from '../../../../../src/presentation/cli/commands/ide-open.command.js';
-import { container } from '../../../../../src/infrastructure/di/container.js';
-import { getSettings } from '../../../../../src/infrastructure/services/settings.service.js';
-import { createLauncherRegistry } from '../../../../../src/infrastructure/services/ide-launchers/ide-launcher.registry.js';
+import { container } from '@/infrastructure/di/container.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
+import { createLauncherRegistry } from '@/infrastructure/services/ide-launchers/ide-launcher.registry.js';
 import { messages } from '../../../../../src/presentation/cli/ui/index.js';
 
 // Helper to build a mock launcher

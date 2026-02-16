@@ -16,8 +16,8 @@
  */
 
 import { Command } from 'commander';
-import { container } from '../../../infrastructure/di/container.js';
-import type { IVersionService } from '../../../application/ports/output/services/version-service.interface.js';
+import { container } from '@/infrastructure/di/container.js';
+import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import { colors, fmt, messages } from '../ui/index.js';
 
 /**

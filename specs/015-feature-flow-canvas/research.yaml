@@ -1,0 +1,245 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-flow-canvas
+summary: Technical analysis for 015-feature-flow-canvas
+
+# Relationships
+relatedFeatures:
+  - '013-ui-arch'
+  - '014-ui-sidebar'
+technologies:
+  - '@xyflow/react ^12.10.0'
+  - React 19
+  - Next.js 16
+  - Tailwind CSS v4
+  - Storybook 8
+relatedLinks:
+  - https://reactflow.dev/learn/customization/custom-nodes
+  - https://reactflow.dev/examples/styling/tailwind
+  - https://reactflow.dev/examples/styling/base-style
+  - https://reactflow.dev/api-reference/types/node-props
+
+# Structured technology decisions
+decisions:
+  - title: Graph Visualization Library
+    chosen: '@xyflow/react v12.10.0'
+    rejected:
+      - 'D3.js (manual SVG graph rendering)'
+      - 'vis-network (canvas-based graph)'
+      - 'Custom SVG implementation'
+    rationale: >
+      @xyflow/react is the de facto standard for React node-based UIs.
+      v12.10.0 fully supports React 19 and Tailwind CSS v4. Has first-class
+      custom node support, built-in pan/zoom/minimap/controls, and excellent
+      TypeScript types. D3/vis-network would require significantly more glue code.
+
+  - title: CSS Strategy for React Flow
+    chosen: 'base.css + Tailwind utilities'
+    rejected:
+      - 'Full style.css (includes all default styling)'
+      - 'No CSS import (fully custom from scratch)'
+    rationale: >
+      Using base.css provides minimal required structural styles (handles,
+      edges, viewport) while letting us style nodes entirely with Tailwind
+      classes. This matches the existing shadcn/ui + Tailwind v4 design system.
+      Full style.css would conflict with our Tailwind-based theme.
+
+  - title: State Management Approach
+    chosen: 'Controlled component with props-driven data'
+    rejected:
+      - 'Uncontrolled with useNodesState/useEdgesState inside component'
+      - 'External state manager (Zustand/Redux)'
+    rationale: >
+      Controlled approach accepts nodes/edges as props, making the component
+      Storybook-friendly — stories can render with different data via args
+      without the component managing its own state. Canvas wraps internally
+      with useNodesState for interactivity but accepts initial data via props.
+      External state managers are overkill for this presentational component.
+
+  - title: Component Tier Placement
+    chosen: 'FeatureNode in common/ (Tier 1), FeatureFlowCanvas in features/ (Tier 3)'
+    rejected:
+      - 'Both in features/ (Tier 3)'
+      - 'Both in common/ (Tier 1)'
+    rationale: >
+      FeatureNode is a reusable composed component (could appear in sidebar,
+      dashboards, etc.) so it belongs in common/ (Tier 1). FeatureFlowCanvas
+      is a domain-specific feature component that composes FeatureNode with
+      React Flow — it belongs in features/ (Tier 3). This follows the 013-ui-arch
+      tier import rules.
+
+  - title: Node State Type Strategy
+    chosen: 'New FeatureNodeState type separate from existing FeatureStatus'
+    rejected:
+      - 'Extend existing FeatureStatus type'
+      - 'Reuse FeatureStatus directly'
+    rationale: >
+      The node states (running, action-required, done, blocked, error) are a
+      superset of sidebar FeatureStatus (action-needed, in-progress, done).
+      Creating a separate FeatureNodeState type avoids coupling the canvas to
+      sidebar concerns. A shared mapping utility can convert between them if
+      needed later. The node needs "blocked" and "error" states not relevant
+      to the sidebar.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-12
+
+  ## Technology Decisions
+
+  ### 1. Graph Visualization Library
+
+  **Options considered:**
+
+  1. **@xyflow/react v12.10.0** — De facto standard for React node-based UIs
+  2. **D3.js** — Low-level SVG manipulation library
+  3. **vis-network** — Canvas-based graph visualization
+  4. **Custom SVG** — Hand-built SVG graph rendering
+
+  **Decision:** @xyflow/react v12.10.0
+
+  **Rationale:** @xyflow/react is purpose-built for node-based graph UIs in React.
+  v12.10.0 has confirmed React 19 and Tailwind CSS v4 compatibility. Provides
+  custom nodes, pan/zoom, minimap, controls, handles, and edges out of the box.
+  Alternatives require significantly more custom code for the same functionality.
+
+  ### 2. CSS Strategy for React Flow
+
+  **Options considered:**
+
+  1. **base.css + Tailwind utilities** — Minimal structural CSS, style with Tailwind
+  2. **Full style.css** — Complete default styling from React Flow
+  3. **No CSS import** — Fully custom styles from scratch
+
+  **Decision:** base.css + Tailwind utilities
+
+  **Rationale:** `@xyflow/react/dist/base.css` provides only the structural styles
+  needed for handles, edges, and viewport. All visual styling (colors, spacing,
+  typography) is done with Tailwind classes, matching our existing design system.
+  Import in `globals.css` after Tailwind:
+
+  ```css
+  @import 'tailwindcss';
+  @import '@xyflow/react/dist/base.css';
+  ```
+
+  ### 3. State Management Approach
+
+  **Options considered:**
+
+  1. **Controlled component** — Accept nodes/edges as props
+  2. **Uncontrolled** — Use useNodesState/useEdgesState internally
+  3. **External state** — Zustand or Redux
+
+  **Decision:** Controlled component with props-driven data
+
+  **Rationale:** The FeatureFlowCanvas accepts `nodes` and `edges` as props.
+  Internally it uses `useNodesState(nodes)` and `useEdgesState(edges)` for
+  interactivity (drag, pan, zoom). Callbacks like `onAddFeature`, `onNodeAction`,
+  and `onNodeSettings` are exposed as props. This makes Storybook stories
+  trivial — just pass different node/edge arrays.
+
+  ### 4. Component Tier Placement
+
+  **Decision:**
+
+  | Component          | Tier          | Location                                       |
+  | ------------------ | ------------- | ---------------------------------------------- |
+  | FeatureNode        | Tier 1 Common | `components/common/feature-node/`              |
+  | FeatureFlowCanvas  | Tier 3 Feature| `components/features/feature-flow-canvas/`     |
+
+  FeatureNode is reusable (could appear outside the canvas), so it's a Tier 1
+  common component. FeatureFlowCanvas is domain-specific, composing FeatureNode
+  with React Flow infrastructure.
+
+  ### 5. Node State Type Strategy
+
+  **Decision:** New `FeatureNodeState` type, separate from sidebar `FeatureStatus`.
+
+  | FeatureNodeState    | Color   | Use Case                    |
+  | ------------------- | ------- | --------------------------- |
+  | `running`           | Blue    | Feature actively worked on  |
+  | `action-required`   | Amber   | User input needed           |
+  | `done`              | Emerald | Feature completed           |
+  | `blocked`           | Gray    | Blocked by dependency       |
+  | `error`             | Red     | Error in processing         |
+
+  The sidebar uses `FeatureStatus` ('action-needed' | 'in-progress' | 'done').
+  The canvas needs two additional states ('blocked', 'error'). A mapping utility
+  can bridge them if needed later.
+
+  ## Library Analysis
+
+  | Library         | Version  | Purpose                    | Pros                                                              | Cons                                       |
+  | --------------- | -------- | -------------------------- | ----------------------------------------------------------------- | ------------------------------------------ |
+  | @xyflow/react   | ^12.10.0 | Node-based graph UI        | React 19 compatible, custom nodes, pan/zoom, handles, TypeScript  | ~150KB bundle, requires container height   |
+
+  ## Integration Notes
+
+  ### Next.js App Router
+
+  - All React Flow components must use `'use client'` directive
+  - No SSR issues — Next.js pre-renders static HTML, React Flow hydrates on client
+  - Wrap with `ReactFlowProvider` when using hooks outside the `ReactFlow` component
+
+  ### Storybook 8
+
+  - Use `parameters: { layout: 'fullscreen' }` for canvas stories
+  - Decorator: wrap in `<div style={{ height: '100vh' }}>` for proper sizing
+  - FeatureNode stories can use `parameters: { layout: 'centered' }` for isolated node view
+  - Actions addon for callback props (`onAction`, `onSettings`, `onAddFeature`)
+
+  ### Custom Node Pattern (from @xyflow/react v12)
+
+  ```typescript
+  import { Handle, Position } from '@xyflow/react';
+  import type { Node, NodeProps } from '@xyflow/react';
+
+  export type FeatureNodeType = Node<FeatureNodeData, 'featureNode'>;
+
+  function FeatureNode({ data }: NodeProps<FeatureNodeType>) {
+    return (
+      <div className="...">
+        <Handle type="target" position={Position.Left} />
+        {/* Node content */}
+        <Handle type="source" position={Position.Right} />
+      </div>
+    );
+  }
+
+  // Register in canvas:
+  const nodeTypes = { featureNode: FeatureNode };
+  ```
+
+  ## Security Considerations
+
+  No security implications. React Flow is a client-side rendering library with
+  no network calls, authentication, or data persistence. All data is passed via
+  props from the parent component.
+
+  ## Performance Implications
+
+  - **Bundle size:** @xyflow/react adds ~150KB to the client bundle. Acceptable
+    for a feature dashboard page. Can be code-split with Next.js dynamic imports
+    if needed later.
+  - **Rendering:** React Flow uses internal Zustand store for efficient re-renders.
+    Custom nodes only re-render when their data changes.
+  - **Large graphs:** For 100+ nodes, consider `nodesDraggable={false}` and
+    virtualization. Our use case (typically <50 features) is well within limits.
+  - **Container height:** React Flow requires an explicit height on its container.
+    Use `h-full` or `h-screen` in Tailwind.
+
+  ## Open Questions
+
+  All questions resolved.
+
+  ---
+
+  _Updated by `/shep-kit:research` — proceed with `/shep-kit:plan`_

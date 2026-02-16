@@ -10,7 +10,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { OutputFormatter } from '../../../../../src/presentation/cli/ui/output.js';
-import { createDefaultSettings } from '../../../../../src/domain/factories/settings-defaults.factory.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 
 describe('OutputFormatter', () => {
   const sampleSettings = createDefaultSettings();

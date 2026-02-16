@@ -9,23 +9,20 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { createDefaultSettings } from '../../../../../../src/domain/factories/settings-defaults.factory.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 import { Command } from 'commander';
 
 // Mock the settings service - factory must not reference outer variables (hoisted)
-vi.mock('../../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: vi.fn(),
 }));
 
 // Mock the shep directory service
-vi.mock(
-  '../../../../../../src/infrastructure/services/filesystem/shep-directory.service.js',
-  () => ({
-    getShepDbPath: vi.fn().mockReturnValue('/home/test/.shep/data'),
-  })
-);
+vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => ({
+  getShepDbPath: vi.fn().mockReturnValue('/home/test/.shep/data'),
+}));
 
-import { getSettings } from '../../../../../../src/infrastructure/services/settings.service.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
 import { createShowCommand } from '../../../../../../src/presentation/cli/commands/settings/show.command.js';
 
 describe('Show Command', () => {
