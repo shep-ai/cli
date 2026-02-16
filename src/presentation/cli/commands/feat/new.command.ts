@@ -14,7 +14,7 @@ import { Command } from 'commander';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 import { container } from '../../../../infrastructure/di/container.js';
-import { CreateFeatureUseCase } from '../../../../application/use-cases/features/create-feature.use-case.js';
+import { CreateFeatureUseCase } from '../../../../application/use-cases/features/create/create-feature.use-case.js';
 import type { ApprovalGates } from '../../../../domain/generated/output.js';
 import { colors, messages, spinner } from '../../ui/index.js';
 import { SHEP_HOME_DIR } from '../../../../infrastructure/services/filesystem/shep-directory.service.js';
