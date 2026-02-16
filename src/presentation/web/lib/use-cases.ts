@@ -9,21 +9,7 @@
  * Server-side only (used in server components).
  */
 
-/** Feature with joined agent run data for dashboard display. */
-export interface DashboardFeature {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  repositoryPath: string;
-  branch: string;
-  lifecycle: string;
-  specPath?: string;
-  agentStatus?: string;
-  agentError?: string;
-  agentResult?: string;
-  agentType?: string;
-}
+import type { Feature } from '@shepai/core/domain/generated';
 
 /** Filters for listing features. */
 interface FeatureListFilters {
@@ -32,13 +18,13 @@ interface FeatureListFilters {
 }
 
 /** Shape of the use case exposed via globalThis. */
-interface ListDashboardFeaturesUseCase {
-  execute(filters?: FeatureListFilters): Promise<DashboardFeature[]>;
+interface ListFeaturesUseCase {
+  execute(filters?: FeatureListFilters): Promise<Feature[]>;
 }
 
 /** Shape of the globalThis.__shepUseCases bridge object. */
 interface ShepUseCases {
-  listDashboardFeatures: ListDashboardFeaturesUseCase;
+  listFeatures: ListFeaturesUseCase;
 }
 
 function getUseCases(): ShepUseCases | undefined {
@@ -46,21 +32,19 @@ function getUseCases(): ShepUseCases | undefined {
 }
 
 /**
- * List all features with agent run data for the dashboard.
+ * List all features for the control center.
  * Returns an empty array if the DI bridge is not initialized
  * (e.g. during static builds or when running outside the CLI process).
  */
-export async function getDashboardFeatures(
-  filters?: FeatureListFilters
-): Promise<DashboardFeature[]> {
+export async function getFeatures(filters?: FeatureListFilters): Promise<Feature[]> {
   const useCases = getUseCases();
-  if (!useCases?.listDashboardFeatures) return [];
+  if (!useCases?.listFeatures) return [];
 
   try {
-    return await useCases.listDashboardFeatures.execute(filters);
+    return await useCases.listFeatures.execute(filters);
   } catch (error) {
     // eslint-disable-next-line no-console
-    console.error('Failed to load dashboard features:', error);
+    console.error('Failed to load features:', error);
     return [];
   }
 }

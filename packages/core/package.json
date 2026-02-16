@@ -1,0 +1,48 @@
+{
+  "name": "@shepai/core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./domain": {
+      "import": "./src/domain/index.ts",
+      "types": "./src/domain/index.ts"
+    },
+    "./domain/*": {
+      "import": "./src/domain/*.ts",
+      "types": "./src/domain/*.ts"
+    },
+    "./domain/generated": {
+      "import": "./src/domain/generated/output.ts",
+      "types": "./src/domain/generated/output.ts"
+    },
+    "./application": {
+      "import": "./src/application/index.ts",
+      "types": "./src/application/index.ts"
+    },
+    "./application/*": {
+      "import": "./src/application/*.ts",
+      "types": "./src/application/*.ts"
+    },
+    "./infrastructure": {
+      "import": "./src/infrastructure/index.ts",
+      "types": "./src/infrastructure/index.ts"
+    },
+    "./infrastructure/*": {
+      "import": "./src/infrastructure/*.ts",
+      "types": "./src/infrastructure/*.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.3.0"
+  }
+}
