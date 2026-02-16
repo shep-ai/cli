@@ -95,7 +95,7 @@ describe('ToolInstallerServiceImpl - Integration Tests', () => {
         expect(command).not.toBeNull();
         expect(command!.toolName).toBe(toolName);
         expect(command!.platform).toBe('linux');
-        expect(Array.isArray(command!.command)).toBe(true);
+        expect(typeof command!.command).toBe('string');
         expect(command!.command.length).toBeGreaterThan(0);
         expect(command!.timeout).toBeGreaterThan(0);
         expect(command!.packageManager).toBeDefined();
