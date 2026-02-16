@@ -6,12 +6,12 @@
   "binary": "code",
   "packageManager": "apt",
   "commands": {
-    "linux": "sudo apt update && sudo apt install -y code",
+    "linux": "curl -fsSL https://packages.microsoft.com/keys/microsoft.asc | sudo gpg --dearmor -o /usr/share/keyrings/packages.microsoft.gpg && echo \"deb [arch=amd64 signed-by=/usr/share/keyrings/packages.microsoft.gpg] https://packages.microsoft.com/repos/code stable main\" | sudo tee /etc/apt/sources.list.d/vscode.list > /dev/null && sudo apt-get update && sudo apt-get install -y code",
     "darwin": "brew install visual-studio-code"
   },
   "timeout": 300000,
   "documentationUrl": "https://code.visualstudio.com/docs/setup/linux",
-  "verifyCommand": "code --version",
+  "verifyCommand": "code --version --no-sandbox --user-data-dir=/tmp/vscode-test",
   "autoInstall": true,
   "openDirectory": "code ."
 }
