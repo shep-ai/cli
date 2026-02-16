@@ -174,7 +174,7 @@ const allLifecycles: FeatureLifecyclePhase[] = [
 function AllStatesRender() {
   const [state, setState] = useState<FeatureNodeState>('running');
   const [selected, setSelected] = useState<FeatureNodeData | null>(null);
-  const data = stateFixtures[state];
+  const _data = stateFixtures[state];
 
   return (
     <div className="flex h-screen">

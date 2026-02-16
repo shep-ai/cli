@@ -3,7 +3,7 @@
 import type { Edge } from '@xyflow/react';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
-import { FeatureDrawer } from '@/components/common';
+import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -17,6 +17,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     nodes,
     edges,
     selectedNode,
+    isCreateDrawerOpen,
     onNodesChange,
     handleConnect,
     handleAddFeature,
@@ -25,6 +26,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleAddRepository,
     handleNodeClick,
     clearSelection,
+    handleCreateFeatureSubmit,
+    closeCreateDrawer,
   } = useControlCenterState(initialNodes, initialEdges);
 
   return (
@@ -43,6 +46,11 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />
       <FeatureDrawer selectedNode={selectedNode} onClose={clearSelection} />
+      <FeatureCreateDrawer
+        open={isCreateDrawerOpen}
+        onClose={closeCreateDrawer}
+        onSubmit={handleCreateFeatureSubmit}
+      />
     </>
   );
 }
