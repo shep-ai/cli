@@ -57,7 +57,7 @@ RUN echo "=== Installing cursor ===" && \
     shep install cursor
 
 RUN echo "=== Verifying cursor installation ===" && \
-    cursor --version
+    cursor.appimage --version
 
 # windsurf
 RUN echo "=== Installing windsurf ===" && \
@@ -78,7 +78,7 @@ RUN echo "=== Installing cursor-cli ===" && \
     shep install cursor-cli
 
 RUN echo "=== Verifying cursor-cli installation ===" && \
-    cursor --version
+    cursor-agent --version
 
 # claude-code
 RUN echo "=== Installing claude-code ===" && \
