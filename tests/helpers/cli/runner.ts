@@ -18,8 +18,11 @@
  * const result = runner.run('version');
  */
 
-import { execSync, type ExecSyncOptionsWithStringEncoding } from 'node:child_process';
+import { execSync, exec, type ExecSyncOptionsWithStringEncoding } from 'node:child_process';
+import { promisify } from 'node:util';
 import { resolve } from 'node:path';
+
+const execAsync = promisify(exec);
 
 /**
  * Result of a CLI command execution
@@ -189,6 +192,48 @@ export function createCliRunner(options: CliRunnerOptions = {}, useDist = false)
 export function runCli(args: string): CliResult {
   const runner = createCliRunner();
   return runner.run(args);
+}
+
+/**
+ * Run a CLI command asynchronously (non-blocking, safe for concurrent tests)
+ */
+export async function runCliAsync(args: string): Promise<CliResult> {
+  const cliPath = CLI_PATH_DEV;
+  const command = `npx tsx ${cliPath} ${args}`;
+
+  const execOptions = {
+    cwd: DEFAULT_OPTIONS.cwd,
+    encoding: 'utf-8' as const,
+    timeout: DEFAULT_OPTIONS.timeout,
+    env: {
+      ...process.env,
+      ...DEFAULT_OPTIONS.env,
+      NO_COLOR: '1',
+      FORCE_COLOR: '0',
+    },
+  };
+
+  try {
+    const { stdout, stderr } = await execAsync(command, execOptions);
+    return {
+      stdout: stdout.trim(),
+      stderr: stderr.trim(),
+      exitCode: 0,
+      success: true,
+    };
+  } catch (error) {
+    const execError = error as {
+      stdout?: string;
+      stderr?: string;
+      code?: number;
+    };
+    return {
+      stdout: String(execError.stdout ?? '').trim(),
+      stderr: String(execError.stderr ?? '').trim(),
+      exitCode: execError.code ?? 1,
+      success: false,
+    };
+  }
 }
 
 /**

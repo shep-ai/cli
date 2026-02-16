@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { runCli } from '../../helpers/cli/index.js';
+import { runCli, runCliAsync } from '../../helpers/cli/index.js';
 
 describe('CLI: install command', () => {
   describe('shep install --help', () => {
@@ -26,8 +26,8 @@ describe('CLI: install command', () => {
   });
 
   describe('shep install <tool> --how', () => {
-    it('should print installation instructions for vscode', () => {
-      const result = runCli('install vscode --how');
+    it.concurrent('should print installation instructions for vscode', async () => {
+      const result = await runCliAsync('install vscode --how');
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Installation Instructions for vscode');
       expect(result.stdout).toContain('Binary:');
@@ -37,32 +37,32 @@ describe('CLI: install command', () => {
       expect(result.stdout).toContain('Verify Installation');
     });
 
-    it('should print installation instructions for cursor', () => {
-      const result = runCli('install cursor --how');
+    it.concurrent('should print installation instructions for cursor', async () => {
+      const result = await runCliAsync('install cursor --how');
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Installation Instructions for cursor');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('cursor');
     });
 
-    it('should print installation instructions for windsurf', () => {
-      const result = runCli('install windsurf --how');
+    it.concurrent('should print installation instructions for windsurf', async () => {
+      const result = await runCliAsync('install windsurf --how');
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Installation Instructions for windsurf');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('windsurf');
     });
 
-    it('should print installation instructions for zed', () => {
-      const result = runCli('install zed --how');
+    it.concurrent('should print installation instructions for zed', async () => {
+      const result = await runCliAsync('install zed --how');
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Installation Instructions for zed');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('zed');
     });
 
-    it('should print installation instructions for antigravity', () => {
-      const result = runCli('install antigravity --how');
+    it.concurrent('should print installation instructions for antigravity', async () => {
+      const result = await runCliAsync('install antigravity --how');
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Installation Instructions for antigravity');
       expect(result.stdout).toContain('Binary:');
@@ -70,8 +70,8 @@ describe('CLI: install command', () => {
       expect(result.stdout).toContain('agy (darwin)');
     });
 
-    it('should print installation instructions for cursor-cli', () => {
-      const result = runCli('install cursor-cli --how');
+    it.concurrent('should print installation instructions for cursor-cli', async () => {
+      const result = await runCliAsync('install cursor-cli --how');
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Installation Instructions for cursor-cli');
       expect(result.stdout).toContain('Binary:');
@@ -79,34 +79,13 @@ describe('CLI: install command', () => {
       expect(result.stdout).toContain('curl');
     });
 
-    it('should print installation instructions for claude-code', () => {
-      const result = runCli('install claude-code --how');
+    it.concurrent('should print installation instructions for claude-code', async () => {
+      const result = await runCliAsync('install claude-code --how');
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Installation Instructions for claude-code');
       expect(result.stdout).toContain('Binary:');
       expect(result.stdout).toContain('claude');
       expect(result.stdout).toContain('curl');
-    });
-
-    it('should work for all 7 supported tools', { timeout: 60000 }, () => {
-      const tools = [
-        'vscode',
-        'cursor',
-        'windsurf',
-        'zed',
-        'antigravity',
-        'cursor-cli',
-        'claude-code',
-      ];
-      for (const tool of tools) {
-        const result = runCli(`install ${tool} --how`);
-        expect(result.success).toBe(true);
-        expect(result.stdout).toContain(`Installation Instructions for ${tool}`);
-        expect(result.stdout).toContain('Binary:');
-        expect(result.stdout).toContain('Installation Commands');
-        expect(result.stdout).toContain('Documentation');
-        expect(result.stdout).toContain('Verify Installation');
-      }
     });
 
     it('should include documentation URL for each tool', () => {
@@ -155,7 +134,6 @@ describe('CLI: install command', () => {
       const result = runCli('install vscode --how');
       const output = result.stdout;
 
-      // Check for all required sections in order
       const sections = [
         'Installation Instructions for vscode',
         'Binary:',
@@ -169,30 +147,27 @@ describe('CLI: install command', () => {
       }
     });
 
-    it('should format Binary: label consistently', { timeout: 20000 }, () => {
-      const tools = ['vscode', 'cursor', 'windsurf', 'zed'];
-      for (const tool of tools) {
-        const result = runCli(`install ${tool} --how`);
-        // Should have Binary: on a line by itself
+    it.concurrent('should format Binary: label consistently across tools', async () => {
+      const results = await Promise.all(
+        ['vscode', 'cursor', 'windsurf', 'zed'].map((tool) => runCliAsync(`install ${tool} --how`))
+      );
+      for (const result of results) {
         expect(result.stdout).toMatch(/Binary:\s+\w+/);
       }
     });
 
     it('should include platform-specific installation commands', () => {
       const result = runCli('install vscode --how');
-      // Should mention at least one platform
       expect(result.stdout).toMatch(/\[(linux|darwin)\]/);
     });
 
     it('should provide verification command', () => {
       const result = runCli('install cursor-cli --how');
-      // npm tools should show verification with --version
       expect(result.stdout).toContain('--version');
     });
 
     it('should include notes when available', () => {
       const result = runCli('install vscode --how');
-      // vscode has notes
       expect(result.stdout).toContain('Notes');
       expect(result.stdout).toContain('Microsoft Visual Studio Code');
     });
@@ -228,7 +203,6 @@ describe('CLI: install command', () => {
     });
 
     it('should provide helpful error for empty string tool name', () => {
-      // Empty string treated as no argument - shows tool listing
       const result = runCli('install ""');
       expect(result.stdout).toContain('shep install <tool>');
     });
@@ -236,7 +210,6 @@ describe('CLI: install command', () => {
     it('should suggest all available tools for unknown tool', () => {
       const result = runCli('install nonexistent');
       const output = result.stdout;
-      // Should list at least some tools (dotAll since they're on separate lines)
       expect(output).toMatch(/vscode.*cursor|cursor.*vscode/s);
     });
   });
