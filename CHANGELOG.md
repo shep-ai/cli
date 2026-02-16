@@ -1,3 +1,9 @@
+# [1.22.0](https://github.com/shep-ai/cli/compare/v1.21.0...v1.22.0) (2026-02-16)
+
+### Features
+
+- **web:** add control center with repo-feature canvas ([#49](https://github.com/shep-ai/cli/issues/49)) ([f576a7d](https://github.com/shep-ai/cli/commit/f576a7df5e8dcdceef2059af2d441b662db2c6f7))
+
 # [1.21.0](https://github.com/shep-ai/cli/compare/v1.20.1...v1.21.0) (2026-02-16)
 
 ### Features
