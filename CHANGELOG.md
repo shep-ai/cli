@@ -1,3 +1,9 @@
+## [1.23.1](https://github.com/shep-ai/cli/compare/v1.23.0...v1.23.1) (2026-02-16)
+
+### Bug Fixes
+
+- **cli:** correct Next.js route types import path ([#60](https://github.com/shep-ai/cli/issues/60)) ([37e030b](https://github.com/shep-ai/cli/commit/37e030b97e43a20347d2eeeecd8573c0a6e3763d))
+
 # [1.23.0](https://github.com/shep-ai/cli/compare/v1.22.1...v1.23.0) (2026-02-16)
 
 ### Features
