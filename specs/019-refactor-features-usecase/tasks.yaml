@@ -1,0 +1,222 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: refactor-features-usecase
+summary: Task breakdown for 019-refactor-features-usecase
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured task list — this is the single source of truth for tasks.
+# The content field below is a summary only; it does NOT duplicate task details.
+tasks:
+  - id: task-1
+    title: Write MetadataGenerator Unit Tests
+    description: >
+      Create unit tests for the MetadataGenerator service covering AI call success, fallback to regex,
+      and slug formatting (kebab-case conversion, special char removal, 50-char limit).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Tests verify AI executor call and JSON parsing
+      - Tests verify fallback when AI fails or returns invalid JSON
+      - Tests verify toSlug() handles special characters and 50-char truncation
+      - All tests are isolated with mocked IAgentExecutorProvider
+    tdd:
+      red:
+        - Create tests/unit/use-cases/features/create/metadata-generator.test.ts
+        - Write failing tests for generateMetadata() success path
+        - Write failing tests for generateMetadata() fallback path
+        - Write failing tests for toSlug() formatting
+      green:
+        - Implement MetadataGenerator class with minimal code to pass tests
+        - Extract generateMetadata() from current use case
+        - Extract toSlug() from current use case
+      refactor:
+        - Extract slug formatting into focused private method if needed
+        - Add comprehensive JSDoc comments
+        - Optimize regex patterns
+    estimatedEffort: 45 minutes
+
+  - id: task-2
+    title: Implement MetadataGenerator Service
+    description: >
+      Create src/application/use-cases/features/create/metadata-generator.ts with generateMetadata()
+      and toSlug() methods extracted from the current CreateFeatureUseCase.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - MetadataGenerator is @injectable with IAgentExecutorProvider dependency
+      - generateMetadata() returns FeatureMetadata with slug/name/description
+      - toSlug() formats strings to kebab-case with 50-char limit
+      - All unit tests pass
+      - TypeScript compiles without errors
+    tdd: null # Tests written in task-1 (RED), this is GREEN+REFACTOR
+    estimatedEffort: 30 minutes
+
+  - id: task-3
+    title: Write SlugResolver Unit Tests
+    description: >
+      Create unit tests for the SlugResolver service covering unique slug generation via DB checks,
+      git branch checks, and suffix incrementing up to MAX_SUFFIX=10.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Tests verify DB uniqueness check via IFeatureRepository.findBySlug()
+      - Tests verify git branch check via IWorktreeService.exists()
+      - Tests verify suffix incrementing (-2, -3, etc.) until unique
+      - Tests verify MAX_SUFFIX=10 limit throws error
+      - All tests are isolated with mocked IFeatureRepository and IWorktreeService
+    tdd:
+      red:
+        - Create tests/unit/use-cases/features/create/slug-resolver.test.ts
+        - Write failing tests for slug uniqueness (DB check)
+        - Write failing tests for slug uniqueness (git check)
+        - Write failing tests for MAX_SUFFIX limit
+      green:
+        - Implement SlugResolver class with minimal code to pass tests
+        - Extract resolveUniqueSlug() from current use case
+      refactor:
+        - Extract constants (MAX_SUFFIX) to top of class
+        - Add comprehensive JSDoc comments
+        - Improve variable naming for clarity
+    estimatedEffort: 45 minutes
+
+  - id: task-4
+    title: Implement SlugResolver Service
+    description: >
+      Create src/application/use-cases/features/create/slug-resolver.ts with resolveUniqueSlug()
+      method extracted from the current CreateFeatureUseCase.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - SlugResolver is @injectable with IFeatureRepository and IWorktreeService dependencies
+      - resolveUniqueSlug() returns { slug, branch, warning? }
+      - MAX_SUFFIX constant is defined and enforced
+      - All unit tests pass
+      - TypeScript compiles without errors
+    tdd: null # Tests written in task-3 (RED), this is GREEN+REFACTOR
+    estimatedEffort: 30 minutes
+
+  - id: task-5
+    title: Write Updated CreateFeatureUseCase Tests
+    description: >
+      Update and refactor tests/unit/use-cases/features/create-feature.use-case.spec.ts to work with
+      the refactored CreateFeatureUseCase that depends on MetadataGenerator and SlugResolver services.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-4
+    acceptanceCriteria:
+      - Tests mock MetadataGenerator instead of testing generateMetadata() directly
+      - Tests mock SlugResolver instead of testing resolveUniqueSlug() directly
+      - Tests verify use case orchestration flow (calls services in correct order)
+      - Tests verify ISettingsRepository is used instead of getSettings()
+      - All existing tests pass with new structure
+    tdd:
+      red:
+        - Update existing tests to fail with new MetadataGenerator/SlugResolver structure
+      green:
+        - Refactor tests to mock the new services
+        - Update assertions to match new orchestration flow
+      refactor:
+        - Improve test organization and readability
+        - Add comments explaining the orchestration flow
+    estimatedEffort: 45 minutes
+
+  - id: task-6
+    title: Refactor CreateFeatureUseCase to Use Services
+    description: >
+      Refactor src/application/use-cases/features/create/create-feature.use-case.ts to be pure orchestration
+      (~80 lines), removing the extracted methods and injecting MetadataGenerator and SlugResolver services.
+      Fix the architecture violation by injecting ISettingsRepository instead of importing getSettings().
+    state: Todo
+    dependencies:
+      - task-2
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - CreateFeatureUseCase is moved to src/application/use-cases/features/create/ subdirectory
+      - generateMetadata(), resolveUniqueSlug(), toSlug() methods are removed
+      - MetadataGenerator is injected and called in execute()
+      - SlugResolver is injected and called in execute()
+      - ISettingsRepository is injected and used instead of getSettings() import
+      - Use case file is ~80 lines or less
+      - All tests pass
+      - TypeScript compiles without errors
+    tdd: null # Tests updated in task-5 (RED), this is GREEN+REFACTOR
+    estimatedEffort: 45 minutes
+
+  - id: task-7
+    title: Update DI Container Registrations
+    description: >
+      Register MetadataGenerator and SlugResolver as injectable singletons in src/infrastructure/di/container.ts.
+      Also update the CreateFeatureUseCase registration to inject the new services.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - MetadataGenerator is registered with @singleton scope
+      - SlugResolver is registered with @singleton scope
+      - CreateFeatureUseCase registration includes MetadataGenerator and SlugResolver dependencies
+      - Container compiles without errors
+      - Services are available for dependency injection
+    tdd: null # Integration verification in task-8
+    estimatedEffort: 20 minutes
+
+  - id: task-8
+    title: Verify Integration & Run Full Test Suite
+    description: >
+      Update CLI command imports, run full test suite, verify TypeScript compilation,
+      and confirm the refactored code works end-to-end.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - src/presentation/cli/commands/features/create.command.ts imports from new create/ path
+      - All tests pass (pnpm test)
+      - Linting passes (pnpm lint)
+      - TypeScript compiles (pnpm typecheck)
+      - Old src/application/use-cases/features/create-feature.use-case.ts is deleted
+      - Old tests file is updated and tests pass
+      - No unused imports or type errors
+    tdd:
+      red:
+        - Run test suite to verify all tests pass with new structure
+      green:
+        - Fix any import/path issues that arise
+      refactor:
+        - Clean up any temporary files or debug code
+    estimatedEffort: 30 minutes
+
+# Total effort estimate
+totalEstimate: 4.5 hours
+
+# Open questions
+openQuestions: []
+
+# Markdown content — summary and acceptance checklist only.
+# Individual task details live in the tasks[] array above (no duplication).
+content: |
+  ## Summary
+
+  Refactor CreateFeatureUseCase (247 lines) into focused modules following SRP — 8 tasks across 4 phases (MetadataGenerator, SlugResolver, Use Case Refactoring, DI + Integration).
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All tasks completed
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint`)
+  - [ ] Types valid (`pnpm typecheck`)
+  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
+  - [ ] PR created and reviewed
+
+  ---
+
+  _Task details are in the tasks[] array of tasks.yaml_

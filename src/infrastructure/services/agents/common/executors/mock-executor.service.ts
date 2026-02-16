@@ -30,10 +30,10 @@ function toTitleCase(text: string): string {
 
 /**
  * Extract the quoted user input from the metadata generation prompt.
- * Prompt format: `Generate feature metadata from this user request:\n"<input>"\n...`
+ * Prompt format: `...User request:\n"<input>"\n...`
  */
 function extractUserInput(prompt: string): string | null {
-  const match = prompt.match(/user request:\n"(.+?)"\n/s);
+  const match = prompt.match(/User request:\n"(.+?)"\n/s);
   return match ? match[1] : null;
 }
 

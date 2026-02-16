@@ -1,0 +1,223 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: refactor-features-usecase
+summary: Implementation plan for 019-refactor-features-usecase
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Extract MetadataGenerator Service'
+    parallel: false
+    taskIds:
+      - task-1
+      - task-2
+  - id: phase-2
+    name: 'Extract SlugResolver Service'
+    parallel: false
+    taskIds:
+      - task-3
+      - task-4
+  - id: phase-3
+    name: 'Refactor CreateFeatureUseCase'
+    parallel: false
+    taskIds:
+      - task-5
+      - task-6
+  - id: phase-4
+    name: 'Update DI Container & Tests'
+    parallel: false
+    taskIds:
+      - task-7
+      - task-8
+
+# File change tracking
+filesToCreate:
+  - src/application/use-cases/features/create/types.ts
+  - src/application/use-cases/features/create/metadata-generator.ts
+  - src/application/use-cases/features/create/slug-resolver.ts
+  - src/application/use-cases/features/create/create-feature.use-case.ts
+  - tests/unit/use-cases/features/create/metadata-generator.test.ts
+  - tests/unit/use-cases/features/create/slug-resolver.test.ts
+
+filesToModify:
+  - src/application/use-cases/features/create-feature.use-case.ts (DELETE - move to create/)
+  - tests/unit/use-cases/features/create-feature.use-case.spec.ts (UPDATE imports)
+  - src/infrastructure/di/container.ts (ADD service registrations)
+  - src/presentation/cli/commands/features/create.command.ts (UPDATE imports)
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content — architecture, strategy, and risks only.
+# Task-level detail lives in tasks.yaml (no duplication).
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-16
+
+  ## Architecture Overview
+
+  ```
+  Current Structure (247-line monolith):
+  ┌─────────────────────────────────────────┐
+  │  CreateFeatureUseCase                   │
+  │  ├─ generateMetadata() [70 lines]       │
+  │  ├─ resolveUniqueSlug() [35 lines]      │
+  │  ├─ toSlug() [15 lines]                 │
+  │  ├─ execute() [72 lines] ← pure logic   │
+  │  └─ constructor dependencies [6]        │
+  └─────────────────────────────────────────┘
+
+  Proposed Structure (separated concerns):
+  ┌────────────────────────────────────────────────────────────────┐
+  │ CreateFeatureUseCase (80 lines — pure orchestration)           │
+  │ ├─ metadata = MetadataGenerator.generateMetadata()             │
+  │ ├─ slug = SlugResolver.resolveUniqueSlug()                     │
+  │ ├─ worktree = worktreeService.create()                         │
+  │ ├─ spec = specInitializer.initialize()                         │
+  │ ├─ feature = featureRepo.create()                              │
+  │ ├─ run = runRepository.create()                                │
+  │ └─ agentProcess.spawn()                                        │
+  └────────────────────────────────────────────────────────────────┘
+         ↓              ↓                      ↓ (injects)
+    ┌─────────────┐ ┌──────────────┐ ┌────────────────────────┐
+    │ Metadata    │ │ SlugResolver │ │ Infrastructure Deps    │
+    │ Generator   │ │              │ │ - IFeatureRepository   │
+    │ [50 lines]  │ │ [50 lines]   │ │ - IWorktreeService     │
+    │             │ │              │ │ - IAgentExecutorProv   │
+    │ - AI call   │ │ - DB check   │ │ - ISpecInitializer     │
+    │ - Fallback  │ │ - Git check  │ │ - IAgentRunRepository  │
+    │ - Slug fmt  │ │ - Unique gen │ │ - IFeatureAgentProc    │
+    └─────────────┘ └──────────────┘ └────────────────────────┘
+  ```
+
+  ## Implementation Strategy
+
+  **MANDATORY TDD**: All 4 phases with executable code follow RED-GREEN-REFACTOR cycles.
+
+  ### Phase 1: Extract MetadataGenerator Service
+  - Creates the first extracted service with AI integration and slug formatting
+  - TDD cycle: Write unit tests for AI call and fallback, implement minimal code, refactor slug logic
+  - Depends on: Nothing (standalone)
+
+  ### Phase 2: Extract SlugResolver Service
+  - Creates the second extracted service with database and git branch checking
+  - TDD cycle: Mock IFeatureRepository and IWorktreeService, test uniqueness logic
+  - Depends on: Nothing (can run in parallel with Phase 1, but sequences first for clarity)
+
+  ### Phase 3: Refactor CreateFeatureUseCase
+  - Rewires the use case to call both services
+  - Fixes architecture violation by injecting ISettingsRepository instead of importing getSettings()
+  - TDD cycle: Update existing tests to use new service mocks, verify orchestration flow
+  - Depends on: Phases 1 & 2 (both services must exist)
+
+  ### Phase 4: Update DI Container & Integration Tests
+  - Registers MetadataGenerator and SlugResolver as injectable singletons
+  - Updates CLI command imports and runs full integration test suite
+  - TDD cycle: Verify DI wiring with container tests, run existing test suite
+  - Depends on: Phase 3 (use case must be refactored first)
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `src/application/use-cases/features/create/types.ts` | Shared interfaces (CreateFeatureInput, CreateFeatureResult, FeatureMetadata) |
+  | `src/application/use-cases/features/create/metadata-generator.ts` | Injectable service: AI metadata generation + slug sanitization |
+  | `src/application/use-cases/features/create/slug-resolver.ts` | Injectable service: Unique slug resolution via DB + git checks |
+  | `src/application/use-cases/features/create/create-feature.use-case.ts` | Refactored use case: Pure orchestration (~80 lines) |
+  | `tests/unit/use-cases/features/create/metadata-generator.test.ts` | Unit tests for AI call, fallback, slug formatting |
+  | `tests/unit/use-cases/features/create/slug-resolver.test.ts` | Unit tests for DB/git uniqueness checks |
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | `src/application/use-cases/features/create-feature.use-case.ts` | DELETE (moved to create/create-feature.use-case.ts) |
+  | `tests/unit/use-cases/features/create-feature.use-case.spec.ts` | UPDATE: Import from create/ subdir, update mocks for services |
+  | `src/infrastructure/di/container.ts` | ADD: Register MetadataGenerator and SlugResolver as singletons |
+  | `src/presentation/cli/commands/features/create.command.ts` | UPDATE: Import CreateFeatureUseCase from create/ path |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  **CRITICAL:** Each TDD cycle writes tests FIRST, then minimal implementation.
+
+  ### Phase 1 TDD Cycle: MetadataGenerator
+
+  **RED:** Write failing unit tests
+  - Test AI call success path (mock executor returns valid JSON)
+  - Test AI call failure → fallback to regex
+  - Test toSlug() formatting (kebab-case, special chars removed, 50-char limit)
+
+  **GREEN:** Implement minimal code to pass tests
+  - Extract generateMetadata() and toSlug() from use case
+  - Inject IAgentExecutorProvider
+  - Handle JSON parse errors gracefully
+
+  **REFACTOR:** Improve while keeping tests green
+  - Extract slug formatting logic into focused private method
+  - Add JSDoc comments
+  - Optimize string operations
+
+  ### Phase 2 TDD Cycle: SlugResolver
+
+  **RED:** Write failing unit tests
+  - Test uniqueness check: slug exists in DB → try suffixed version
+  - Test uniqueness check: branch exists in git → try suffixed version
+  - Test max suffix limit (10) → throw error
+  - Test successful unique slug generation
+
+  **GREEN:** Implement minimal code to pass tests
+  - Extract resolveUniqueSlug() loop from use case
+  - Inject IFeatureRepository and IWorktreeService
+  - Implement suffix logic
+
+  **REFACTOR:** Improve while keeping tests green
+  - Extract constants (MAX_SUFFIX)
+  - Improve branch naming consistency
+  - Add JSDoc comments
+
+  ### Phase 3 TDD Cycle: CreateFeatureUseCase Refactoring
+
+  **RED:** Update existing tests to fail with new structure
+  - Existing tests expect the old class structure
+  - Update mocks to inject MetadataGenerator and SlugResolver services
+
+  **GREEN:** Refactor use case to call services
+  - Remove generateMetadata(), resolveUniqueSlug(), toSlug() methods
+  - Inject MetadataGenerator and SlugResolver
+  - Update execute() to call services
+  - Fix getSettings() → inject ISettingsRepository
+
+  **REFACTOR:** Clean up while keeping tests green
+  - Verify orchestration flow clarity
+  - Update JSDoc comments
+  - Ensure error messages remain consistent
+
+  ### Phase 4 Integration Tests
+
+  - Verify container registers all services
+  - Run full test suite: `pnpm test`
+  - Verify CLI command still works: `pnpm dev:cli feat create "test feature"`
+  - Verify TypeScript compiles: `pnpm typecheck`
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking changes to CLI | All changes are internal; CLI command input/output unchanged |
+  | Existing tests fail | Tests will be updated during Phase 3 to use new structure |
+  | DI container registration errors | Phase 4 explicitly tests container wiring before full suite |
+  | Import path confusion | Clear subdirectory structure (create/) establishes pattern for future growth |
+
+  ---
+
+  _Updated by `/shep-kit:plan` — see tasks.yaml for detailed task breakdown_
