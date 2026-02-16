@@ -11,7 +11,7 @@
   },
   "timeout": 300000,
   "documentationUrl": "https://docs.windsurf.com/windsurf/getting-started",
-  "verifyCommand": "windsurf --version",
+  "verifyCommand": "windsurf --version --no-sandbox --user-data-dir=/tmp/windsurf-test",
   "autoInstall": true,
   "openDirectory": "windsurf ."
 }
