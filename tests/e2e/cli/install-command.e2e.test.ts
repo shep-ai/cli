@@ -20,7 +20,7 @@ describe('CLI: install command', () => {
       const result = runCli('install --help');
       expect(result.success).toBe(true);
       expect(result.stdout).toContain('Install a development tool');
-      expect(result.stdout).toContain('<tool>');
+      expect(result.stdout).toContain('[tool]');
       expect(result.stdout).toContain('--how');
     });
   });
@@ -122,28 +122,30 @@ describe('CLI: install command', () => {
   });
 
   describe('shep install <invalid-tool>', () => {
-    it('should fail for unknown tool', () => {
+    it('should fail for unknown tool with friendly message', () => {
       const result = runCli('install nonexistent-tool');
       expect(result.success).toBe(false);
-      expect(result.stderr).toContain('Unknown tool');
       expect(result.exitCode).not.toBe(0);
+      expect(result.stdout).toContain("don't recognize");
+      expect(result.stdout).toContain('nonexistent-tool');
     });
 
-    it('should suggest available tools in error message', () => {
+    it('should suggest available tools for unknown tool', () => {
       const result = runCli('install invalid');
       expect(result.success).toBe(false);
-      expect(result.stderr).toContain('Available:');
-      expect(result.stderr).toContain('vscode');
-      expect(result.stderr).toContain('cursor');
+      expect(result.stdout).toContain('vscode');
+      expect(result.stdout).toContain('cursor');
+      expect(result.stdout).toContain('claude-code');
     });
   });
 
   describe('shep install (without arguments)', () => {
-    it('should show error for missing tool argument', () => {
+    it('should show tool listing when no argument given', () => {
       const result = runCli('install');
-      expect(result.success).toBe(false);
-      // Commander error message
-      expect(result.stdout + result.stderr).toMatch(/missing|required/i);
+      expect(result.success).toBe(true);
+      expect(result.stdout).toContain('shep install <tool>');
+      expect(result.stdout).toContain('vscode');
+      expect(result.stdout).toContain('claude-code');
     });
   });
 
@@ -221,20 +223,20 @@ describe('CLI: install command', () => {
     it('should handle tool with special characters gracefully', () => {
       const result = runCli('install "invalid-tool!"');
       expect(result.success).toBe(false);
-      expect(result.stderr).toContain('Unknown tool');
+      expect(result.stdout).toContain("don't recognize");
     });
 
     it('should provide helpful error for empty string tool name', () => {
-      // Commander should handle this
+      // Empty string treated as no argument - shows tool listing
       const result = runCli('install ""');
-      expect(result.success).toBe(false);
+      expect(result.stdout).toContain('shep install <tool>');
     });
 
-    it('should suggest all available tools in error message', () => {
+    it('should suggest all available tools for unknown tool', () => {
       const result = runCli('install nonexistent');
-      const output = result.stderr;
-      // Should list at least some tools
-      expect(output).toMatch(/vscode.*cursor|cursor.*vscode/);
+      const output = result.stdout;
+      // Should list at least some tools (dotAll since they're on separate lines)
+      expect(output).toMatch(/vscode.*cursor|cursor.*vscode/s);
     });
   });
 });
