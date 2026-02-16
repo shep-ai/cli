@@ -1,0 +1,39 @@
+feature:
+  id: 019-ide-installer
+  name: ide-installer
+  number: 19
+  branch: feat/019-ide-installer
+  lifecycle: implementation
+  createdAt: '2026-02-16T10:37:49Z'
+status:
+  phase: ready-to-implement
+  progress:
+    completed: 0
+    total: 33
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-16T14:00:00Z'
+  lastUpdatedBy: shep-kit:plan
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - planning
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-16T10:37:49Z'
+    completedBy: feature-agent
+  - phase: plan-complete
+    completedAt: '2026-02-16T14:00:00Z'
+    completedBy: shep-kit:plan
+errors:
+  current: null
+  history: []

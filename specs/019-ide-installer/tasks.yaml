@@ -1,0 +1,489 @@
+# Task Breakdown (YAML - Source of Truth)
+name: ide-installer
+phase: implementation
+status:
+  phase: implementation
+  updatedAt: '2026-02-16T00:00:00Z'
+  updatedBy: shep-kit:plan
+
+summary: >
+  8 implementation tasks following TDD (RED-GREEN-REFACTOR) for unified tool installer.
+  TypeSpec models + domain → application use cases → infrastructure service → CLI command → E2E testing.
+  42 total tasks (some parallelizable with [P] marker).
+
+totalEstimate: 8-10 days
+
+tasks:
+  # Phase 1: TypeSpec Definitions
+  - id: 1.1
+    title: Create ToolType enum in TypeSpec
+    description: >
+      Define ToolType enum with 7 values: VsCode, Cursor, Windsurf, Zed, Antigravity (IDEs),
+      CursorCli, ClaudeCode (CLI agents). This is the SOURCE OF TRUTH for all tool definitions.
+    phase: Foundational
+    effort: 0.5d
+    dependencies: []
+    acceptance:
+      - ToolType enum defined in tsp/common/enums/tool.tsp
+      - Imported in tsp/common/enums/index.tsp
+      - All 7 values have @doc annotations
+      - TypeSpec compiles without errors
+
+  - id: 1.2
+    title: Create TypeSpec domain models (Tool, ToolInstallationStatus, etc.)
+    description: >
+      Define Tool entity, ToolInstallationStatus value object, InstallationSuggestion,
+      ToolInstallCommand. Use generated types throughout implementation.
+    phase: Foundational
+    effort: 0.5d
+    dependencies: [1.1]
+    acceptance:
+      - Tool entity in tsp/domain/entities/tool.tsp with: id, toolName, type, installedVersion, installedAt
+      - ToolInstallationStatus in tsp/domain/value-objects/tool-installation-status.tsp
+      - InstallationSuggestion with: packageManager, command, documentationUrl, notes
+      - ToolInstallCommand in tsp/domain/value-objects/tool-install-command.tsp
+      - pnpm tsp:compile generates src/domain/generated/output.ts
+
+  - id: 1.3
+    title: Compile TypeSpec and verify generated types
+    description: >
+      Run pnpm tsp:compile, verify TypeScript types generated correctly in src/domain/generated/output.ts.
+      Test imports work in TypeScript.
+    phase: Foundational
+    effort: 0.25d
+    dependencies: [1.2]
+    acceptance:
+      - TypeScript generation succeeds
+      - Generated types importable in TS code
+      - No type errors from generated types
+
+  # Phase 2: Domain Layer (TDD)
+  - id: 2.1
+    title: "[RED] Write ToolInstallationStatus tests"
+    description: >
+      Write unit tests for ToolInstallationStatus value object creation, validation,
+      and immutability. Use generated types from TypeSpec.
+    phase: Domain
+    tddCycle: RED
+    effort: 0.5d
+    dependencies: [1.3]
+    acceptance:
+      - Test file: tests/unit/domain/value-objects/tool-installation-status.test.ts
+      - Tests for creation with valid data
+      - Tests for validation (status enum values, non-empty toolName)
+      - Tests for immutability (frozen object or defensive copies)
+      - All tests fail initially (RED)
+
+  - id: 2.2
+    title: "[GREEN] Implement ToolInstallationStatus"
+    description: >
+      Implement ToolInstallationStatus value object using generated TypeSpec types.
+      Minimal code to pass RED tests.
+    phase: Domain
+    tddCycle: GREEN
+    effort: 0.5d
+    dependencies: [2.1]
+    acceptance:
+      - Implementation in src/domain/value-objects/tool-installation-status.ts
+      - Uses generated types from TypeSpec
+      - All RED tests now pass (GREEN)
+      - No extra functionality
+
+  - id: 2.3
+    title: "[REFACTOR] Polish ToolInstallationStatus implementation"
+    description: >
+      Refactor for clarity, edge cases, defensive copying if needed.
+      Keep all tests passing.
+    phase: Domain
+    tddCycle: REFACTOR
+    effort: 0.25d
+    dependencies: [2.2]
+    acceptance:
+      - Code clean and readable
+      - Tests still pass (GREEN maintained)
+      - Full coverage of happy path and edge cases
+
+  # Phase 3: Application Layer (TDD)
+  - id: 3.1
+    title: "[RED] Write ValidateToolAvailabilityUseCase tests"
+    description: >
+      Write unit tests for ValidateToolAvailabilityUseCase with mocked IToolInstallerService.
+      Test tool found, tool missing, tool error scenarios. Tests return generated ToolInstallationStatus.
+    phase: Application
+    tddCycle: RED
+    effort: 1d
+    dependencies: [2.3]
+    acceptance:
+      - Test file: tests/unit/use-cases/tools/validate-tool-availability.use-case.test.ts
+      - Tests for mocked service returning "available"
+      - Tests for mocked service returning "missing" with suggestions
+      - Tests for mocked service returning "error"
+      - Tests verify correct suggestions structure (packageManager, command, documentation link)
+      - All tests fail initially (RED)
+
+  - id: 3.2
+    title: "[GREEN] Implement ValidateToolAvailabilityUseCase"
+    description: >
+      Implement use case: call mocked service, validate availability, return ToolInstallationStatus.
+      Minimal code to pass tests.
+    phase: Application
+    tddCycle: GREEN
+    effort: 0.75d
+    dependencies: [3.1]
+    acceptance:
+      - Implementation in src/application/use-cases/tools/validate-tool-availability.use-case.ts
+      - Depends on IToolInstallerService (injected via constructor)
+      - All RED tests now pass (GREEN)
+      - Returns generated ToolInstallationStatus type
+
+  - id: 3.3
+    title: "[REFACTOR] Polish ValidateToolAvailabilityUseCase"
+    description: >
+      Refactor for clarity, add logging if needed, ensure DI readiness.
+      Keep tests passing.
+    phase: Application
+    tddCycle: REFACTOR
+    effort: 0.25d
+    dependencies: [3.2]
+    acceptance:
+      - Code clean
+      - Tests still pass
+      - Ready for DI container registration
+
+  - id: 3.4
+    title: "[RED] Write InstallToolUseCase tests (with mocked spawn)"
+    description: >
+      Write unit tests for InstallToolUseCase. Mock spawn(), mock user confirmation,
+      test installation success, timeout, permission denied, user cancel scenarios.
+    phase: Application
+    tddCycle: RED
+    effort: 1.25d
+    dependencies: [3.3]
+    acceptance:
+      - Test file: tests/unit/use-cases/tools/install-tool.use-case.test.ts
+      - Tests for mocked spawn() returning exit code 0 (success)
+      - Tests for spawn() timing out (kill process, return error status)
+      - Tests for spawn() returning non-zero exit (capture stderr, return error)
+      - Tests for user cancellation (prompt returns false, abort)
+      - Tests verify live output streamed from spawn
+      - All tests fail initially (RED)
+
+  - id: 3.5
+    title: "[GREEN] Implement InstallToolUseCase"
+    description: >
+      Implement use case: orchestrate user confirmation, spawn process with streaming,
+      timeout handling, post-install validation. Minimal code to pass tests.
+    phase: Application
+    tddCycle: GREEN
+    effort: 1d
+    dependencies: [3.4]
+    acceptance:
+      - Implementation in src/application/use-cases/tools/install-tool.use-case.ts
+      - Depends on IToolInstallerService (injected)
+      - All RED tests now pass (GREEN)
+      - Live output streaming works with mocked spawn
+      - Returns final ToolInstallationStatus
+
+  - id: 3.6
+    title: "[REFACTOR] Polish InstallToolUseCase"
+    description: >
+      Refactor for clarity, handle edge cases, ensure timeout logic is clean.
+      Keep tests passing.
+    phase: Application
+    tddCycle: REFACTOR
+    effort: 0.5d
+    dependencies: [3.5]
+    acceptance:
+      - Code clean and readable
+      - Tests still pass
+      - Timeout logic clear and correct
+
+  # Phase 4: Infrastructure - Tool Installer Service (TDD)
+  - id: 4.1
+    title: "[RED] Write IToolInstallerService interface tests (mock impl)"
+    description: >
+      Write tests for IToolInstallerService interface using mock implementation.
+      Test getInstallCommand(), executeInstall() with mocked spawn.
+    phase: Infrastructure
+    tddCycle: RED
+    effort: 0.75d
+    dependencies: [3.6]
+    acceptance:
+      - Test file: tests/unit/services/tool-installer.service.test.ts
+      - Tests verify interface contract
+      - Mock implementation passes all tests
+      - All tests fail initially with real impl (RED)
+
+  - id: 4.2
+    title: "[GREEN] Implement IToolInstallerService interface"
+    description: >
+      Implement ToolInstallerServiceImpl: tool metadata map, platform detection,
+      getInstallCommand(), executeInstall() methods. Minimal code to pass tests.
+    phase: Infrastructure
+    tddCycle: GREEN
+    effort: 1.5d
+    dependencies: [4.1]
+    acceptance:
+      - Implementation in src/infrastructure/services/tool-installer/tool-installer.service.ts
+      - Tool metadata in src/infrastructure/services/tool-installer/tool-metadata.ts
+      - Metadata for all 7 tools (IDEs + CLI agents)
+      - Per-platform commands (apt, curl, npm)
+      - Platform detection using os.platform()
+      - All RED tests now pass (GREEN)
+
+  - id: 4.3
+    title: "[REFACTOR] Polish ToolInstallerServiceImpl"
+    description: >
+      Refactor metadata structure, command construction, error handling.
+      Keep tests passing.
+    phase: Infrastructure
+    tddCycle: REFACTOR
+    effort: 0.5d
+    dependencies: [4.2]
+    acceptance:
+      - Metadata organized clearly
+      - Command construction logic clean
+      - Tests still pass
+      - Ready for integration testing
+
+  - id: 4.4
+    title: "[RED] Write ToolInstallerServiceImpl integration tests"
+    description: >
+      Write integration tests verifying correct commands per platform/tool.
+      Mock spawn(), verify commands executed correctly. Test error scenarios.
+    phase: Infrastructure
+    tddCycle: RED
+    effort: 1d
+    dependencies: [4.3]
+    acceptance:
+      - Test file: tests/integration/services/tool-installer.service.test.ts
+      - Tests verify apt command for VS Code on Linux
+      - Tests verify curl command for Cursor on Linux
+      - Tests verify npm command for cursor-cli on Linux
+      - Tests for permission denied, timeout, network error scenarios
+      - All tests fail initially (RED)
+
+  - id: 4.5
+    title: "[GREEN] Update ToolInstallerServiceImpl for integration tests"
+    description: >
+      Enhance implementation to handle all integration test scenarios.
+      Timeout logic, error capture, live streaming. Minimal code to pass.
+    phase: Infrastructure
+    tddCycle: GREEN
+    effort: 1d
+    dependencies: [4.4]
+    acceptance:
+      - All integration tests now pass (GREEN)
+      - Timeout implemented (10 min per tool)
+      - Error messages captured from spawn
+      - Live output streaming implemented
+
+  - id: 4.6
+    title: "[REFACTOR] Polish ToolInstallerServiceImpl"
+    description: >
+      Refactor error handling, timeout logic, output streaming.
+      Keep tests passing.
+    phase: Infrastructure
+    tddCycle: REFACTOR
+    effort: 0.5d
+    dependencies: [4.5]
+    acceptance:
+      - Code clean and maintainable
+      - Tests still pass
+      - Error scenarios clear and actionable
+
+  # Phase 5: DI Container Setup (No Tests)
+  - id: 5.1
+    title: Register ToolInstallerService in DI container
+    description: >
+      Update src/infrastructure/di/container.ts: register IToolInstallerService as singleton,
+      register use cases with injected service. Follow existing patterns.
+    phase: Integration
+    effort: 0.5d
+    dependencies: [4.6]
+    acceptance:
+      - IToolInstallerService registered as singleton
+      - ValidateToolAvailabilityUseCase registered with injected service
+      - InstallToolUseCase registered with injected service
+      - Follows existing container patterns
+
+  # Phase 6: CLI Command (TDD)
+  - id: 6.1
+    title: "[RED] Write install.command.ts tests"
+    description: >
+      Write CLI tests with mocked use cases. Test command parsing, valid tool names,
+      invalid tool names, user interaction flow.
+    phase: Presentation
+    tddCycle: RED
+    effort: 0.75d
+    dependencies: [5.1]
+    acceptance:
+      - Test file: tests/unit/cli/commands/install.command.test.ts
+      - Tests for `shep install vscode` → calls ValidateToolAvailabilityUseCase
+      - Tests for `shep install cursor-cli` → CLI accepts CLI agent names
+      - Tests for `shep install invalid-tool` → error message
+      - Tests for user confirming installation
+      - Tests for user cancelling installation
+      - All tests fail initially (RED)
+
+  - id: 6.2
+    title: "[GREEN] Implement install.command.ts"
+    description: >
+      Implement `shep install <tool>` command using Commander.js.
+      Parse tool name, call use cases, dispatch to InstallToolUseCase.
+      Minimal code to pass tests.
+    phase: Presentation
+    tddCycle: GREEN
+    effort: 0.75d
+    dependencies: [6.1]
+    acceptance:
+      - Implementation in src/presentation/cli/commands/install.command.ts
+      - Uses generated ToolType enum from TypeSpec
+      - Calls mocked use cases from tests
+      - All RED tests now pass (GREEN)
+
+  - id: 6.3
+    title: "[REFACTOR] Polish install.command.ts"
+    description: >
+      Refactor for clarity, add help text, improve error messages.
+      Keep tests passing.
+    phase: Presentation
+    tddCycle: REFACTOR
+    effort: 0.5d
+    dependencies: [6.2]
+    acceptance:
+      - Help text clear and complete
+      - Error messages actionable
+      - Tests still pass
+      - Ready for CLI registration
+
+  # Phase 7: CLI UI Messages (No Tests)
+  - id: 7.1
+    title: Create install UI messages
+    description: >
+      Create src/presentation/cli/ui/install-messages.ts with message templates
+      for installation prompts, progress indicators, success/failure messages.
+      Use existing CLI UI system (chalk, formatting).
+    phase: Presentation
+    effort: 0.5d
+    dependencies: [6.3]
+    acceptance:
+      - install-messages.ts defines message templates
+      - Includes: confirmation prompt, progress, success, error messages
+      - Uses consistent formatting with existing CLI messages
+      - Supports all 7 tools
+
+  - id: 7.2
+    title: Register install command in CLI
+    description: >
+      Update src/presentation/cli/index.ts to import and register install command.
+      Add to command hierarchy.
+    phase: Presentation
+    effort: 0.25d
+    dependencies: [7.1]
+    acceptance:
+      - install.command.ts imported in CLI index
+      - Command registered in CLI
+      - "shep install --help works"
+
+  # Phase 8: E2E Testing (TDD)
+  - id: 8.1
+    title: "[RED] Write E2E tests for install command"
+    description: >
+      Write E2E tests for complete `shep install cursor` flow.
+      Mock all spawned processes. Test success, error, timeout scenarios.
+    phase: Testing
+    tddCycle: RED
+    effort: 1d
+    dependencies: [7.2]
+    acceptance:
+      - Test file: tests/e2e/cli/install-command.e2e.test.ts
+      - Tests for `shep install vscode` → full flow
+      - Tests for `shep install cursor-cli` → full CLI agent flow
+      - Tests for tool not found scenario
+      - Tests for permission denied scenario
+      - Tests for timeout scenario
+      - Tests for user cancellation
+      - All tests fail initially (RED)
+
+  - id: 8.2
+    title: "[GREEN] Update code for E2E test pass-through"
+    description: >
+      Ensure all E2E tests pass with mocked spawn. Mock user input, verify output.
+      Minimal adjustments to code if needed.
+    phase: Testing
+    tddCycle: GREEN
+    effort: 0.75d
+    dependencies: [8.1]
+    acceptance:
+      - All E2E tests now pass (GREEN)
+      - Complete flow verified end-to-end
+      - Error messages render correctly
+      - Success messages show expected output
+
+  - id: 8.3
+    title: "[REFACTOR] Polish E2E tests and edge cases"
+    description: >
+      Refactor for clarity, add additional edge cases, stress test with multiple tools.
+      Keep tests passing.
+    phase: Testing
+    tddCycle: REFACTOR
+    effort: 0.5d
+    dependencies: [8.2]
+    acceptance:
+      - E2E tests comprehensive and clear
+      - Edge cases covered
+      - Tests still pass
+      - Ready for CI validation
+
+# Acceptance Checklist (Summary)
+acceptanceChecklist:
+  - All TypeSpec models compile correctly
+  - All unit tests pass (≥90% coverage for use cases)
+  - All integration tests pass (≥85% coverage for service)
+  - All E2E tests pass with mocked installations
+  - CLI command `shep install <tool>` works for all 7 tools
+  - Error handling clear and actionable
+  - Live output streaming visible during installation
+  - Timeout enforced at 10 minutes
+  - CI validates all phases before next phase
+  - Documentation updated with new command
+
+content: |
+  ## Task Breakdown: Unified Tool Installer
+
+  ### Summary
+
+  8 phases, 33 tasks (includes TDD cycles: RED, GREEN, REFACTOR for applicable phases).
+  Total effort estimate: 8-10 days.
+
+  ### Quick Navigation
+
+  | Phase | Tasks | Effort | Type |
+  |-------|-------|--------|------|
+  | 1. TypeSpec Definitions | 1.1-1.3 | 1.25d | Foundational |
+  | 2. Domain Layer | 2.1-2.3 | 1.25d | TDD |
+  | 3. Application Layer | 3.1-3.6 | 4.5d | TDD |
+  | 4. Infrastructure Service | 4.1-4.6 | 4.75d | TDD |
+  | 5. DI Container | 5.1 | 0.5d | Integration |
+  | 6. CLI Command | 6.1-6.3 | 2d | TDD |
+  | 7. CLI UI Messages | 7.1-7.2 | 0.75d | Presentation |
+  | 8. E2E Testing | 8.1-8.3 | 2.25d | TDD |
+
+  ### TDD Workflow (Mandatory)
+
+  For each TDD phase:
+  1. **RED**: Write failing test first
+  2. **GREEN**: Implement minimal code to pass test
+  3. **REFACTOR**: Improve code while keeping tests green
+
+  Quality gate: All tests must pass before proceeding to next phase.
+
+  ### Key Dependencies
+
+  - TypeSpec models (Phase 1) → All downstream tasks
+  - Domain layer (Phase 2) → Application layer (Phase 3)
+  - Application layer (Phase 3) → Infrastructure (Phase 4)
+  - Infrastructure (Phase 4) → DI setup (Phase 5)
+  - DI setup (Phase 5) → CLI command (Phase 6)
+  - CLI command (Phase 6) → UI messages (Phase 7) + E2E tests (Phase 8)

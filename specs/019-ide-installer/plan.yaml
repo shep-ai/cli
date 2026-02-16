@@ -1,0 +1,255 @@
+# Implementation Plan (YAML - Source of Truth)
+name: ide-installer
+phase: implementation
+
+status:
+  phase: planning
+  updatedAt: '2026-02-16T00:00:00Z'
+  updatedBy: shep-kit:plan
+
+summary: >
+  Unified tool installer for IDEs and CLI agents. TypeSpec-first architecture defining ToolType enum,
+  ToolInstallationStatus, and Tool entity. Single `shep install <tool>` command supporting 7 tools.
+  Clean architecture: domain (TypeSpec types) → application (use cases) → infrastructure (service).
+
+technologies:
+  - TypeScript (existing)
+  - TypeSpec (existing, domain models)
+  - Commander.js (existing, CLI)
+  - node:child_process (spawn - built-in)
+  - node:os (platform detection - built-in)
+  - TSyringe (existing, DI)
+
+relatedFeatures:
+  - '018-feat-ide-open'
+
+architectureOverview: >
+  Four-layer clean architecture with TypeSpec as single source of truth for all tool definitions.
+  Domain layer: ToolType enum (TypeSpec), Tool entity, ToolInstallationStatus value objects (generated TypeScript).
+  Application layer: ValidateToolAvailabilityUseCase, InstallToolUseCase.
+  Infrastructure layer: IToolInstallerService interface, ToolInstallerServiceImpl with metadata-driven tool configs.
+  Presentation layer: `shep install <tool>` CLI command using generated types.
+
+implementationPhases:
+  - id: 1
+    name: TypeSpec Definitions (Foundational)
+    description: >
+      Create ToolType enum (5 IDEs + 2 CLI agents), Tool entity, ToolInstallationStatus/InstallationSuggestion
+      value objects, ToolInstallCommand value object. Compile TypeSpec → generate TypeScript types.
+    testingRequired: false
+    dependencies: []
+
+  - id: 2
+    name: Domain Layer - Value Objects (TDD)
+    description: >
+      RED: Write tests for ToolInstallationStatus creation/validation using generated types.
+      GREEN: Implement value object ensuring immutability.
+      REFACTOR: Defensive copies, validation logic.
+    testingRequired: true
+    dependencies: [1]
+    tddCycle: RED-GREEN-REFACTOR
+
+  - id: 3
+    name: Application Layer - Use Cases (TDD)
+    description: >
+      RED: Write tests for ValidateToolAvailabilityUseCase (mocked service).
+      GREEN: Implement use case orchestrating tool validation, returning generated ToolInstallationStatus.
+      REFACTOR: Error handling, edge cases.
+      RED: Write tests for InstallToolUseCase with mocked spawn.
+      GREEN: Implement orchestrating installation, streaming output, timeout handling.
+      REFACTOR: User interaction, confirmation prompts.
+    testingRequired: true
+    dependencies: [2]
+    tddCycle: RED-GREEN-REFACTOR
+
+  - id: 4
+    name: Infrastructure - Tool Installer Service (TDD)
+    description: >
+      RED: Write interface tests with mock implementation.
+      GREEN: Implement IToolInstallerService and ToolInstallerServiceImpl with metadata map (IDEs + CLI agents).
+      REFACTOR: Command construction per platform, timeout configs.
+      RED: Write integration tests verifying correct commands per platform/tool.
+      GREEN: Implement full service with platform detection, error handling.
+      REFACTOR: Error scenarios (permission, network, timeout).
+    testingRequired: true
+    dependencies: [3]
+    tddCycle: RED-GREEN-REFACTOR
+
+  - id: 5
+    name: DI Container Setup (No Tests)
+    description: >
+      Register IToolInstallerService as singleton in container.
+      Register ValidateToolAvailabilityUseCase, InstallToolUseCase with injected service.
+      Update container.ts following existing patterns.
+    testingRequired: false
+    dependencies: [4]
+
+  - id: 6
+    name: CLI Command - install.command.ts (TDD)
+    description: >
+      RED: Write CLI tests with mocked use cases, validate command parsing.
+      GREEN: Implement `shep install <tool>` using Commander.js, dispatching to use cases.
+      REFACTOR: Help text, error messages, user prompts using CLI UI messages.
+    testingRequired: true
+    dependencies: [5]
+    tddCycle: RED-GREEN-REFACTOR
+
+  - id: 7
+    name: CLI UI & Output Messages (No Tests)
+    description: >
+      Create install-messages.ts with templated messages for installation prompts, progress indicators,
+      success/failure messages. Use existing CLI UI system (chalk, formatting).
+    testingRequired: false
+    dependencies: [6]
+
+  - id: 8
+    name: E2E Testing & Integration (TDD)
+    description: >
+      RED: Write E2E tests for `shep install cursor` flow, `shep install claude-code` flow.
+      GREEN: Mock all spawn() calls, verify complete flow works end-to-end.
+      REFACTOR: Test all error scenarios (missing tool, permission denied, timeout, user cancel).
+    testingRequired: true
+    dependencies: [7]
+    tddCycle: RED-GREEN-REFACTOR
+
+filesToCreate:
+  - path: tsp/common/enums/tool.tsp
+    description: ToolType enum (5 IDEs + 2 CLI agents) - SOURCE OF TRUTH
+  - path: tsp/domain/value-objects/tool-installation-status.tsp
+    description: ToolInstallationStatus, InstallationSuggestion value objects
+  - path: tsp/domain/value-objects/tool-install-command.tsp
+    description: ToolInstallCommand value object
+  - path: tsp/domain/entities/tool.tsp
+    description: Tool entity for future persistence
+  - path: src/application/use-cases/tools/validate-tool-availability.use-case.ts
+    description: Use case for checking tool availability
+  - path: src/application/use-cases/tools/install-tool.use-case.ts
+    description: Use case for executing tool installation
+  - path: src/application/ports/output/services/tool-installer.service.ts
+    description: IToolInstallerService interface
+  - path: src/infrastructure/services/tool-installer/tool-installer.service.ts
+    description: ToolInstallerServiceImpl implementation
+  - path: src/infrastructure/services/tool-installer/tool-metadata.ts
+    description: Tool configurations (IDEs + CLI agents, per-platform commands)
+  - path: src/presentation/cli/commands/install.command.ts
+    description: CLI command for `shep install <tool>`
+  - path: src/presentation/cli/ui/install-messages.ts
+    description: Installation UI message templates
+  - path: tests/unit/use-cases/tools/validate-tool-availability.use-case.test.ts
+    description: Unit tests for ValidateToolAvailabilityUseCase
+  - path: tests/unit/use-cases/tools/install-tool.use-case.test.ts
+    description: Unit tests for InstallToolUseCase
+  - path: tests/integration/services/tool-installer.service.test.ts
+    description: Integration tests for ToolInstallerServiceImpl
+  - path: tests/e2e/cli/install-command.e2e.test.ts
+    description: E2E tests for CLI install command
+
+filesToModify:
+  - path: tsp/common/enums/index.tsp
+    changes: Import ToolType enum from tool.tsp
+  - path: src/infrastructure/di/container.ts
+    changes: >
+      Register IToolInstallerService (singleton), ValidateToolAvailabilityUseCase,
+      InstallToolUseCase with injected service
+  - path: src/presentation/cli/index.ts
+    changes: Import and register install command
+
+content: |
+  ## Implementation Plan: Unified Tool Installer
+
+  ### Overview
+
+  Create a unified `shep install <tool>` command for IDEs and CLI agents with **TypeSpec-first architecture**.
+  All tool definitions (types, statuses, metadata) originate in TypeSpec; generated TypeScript types are used throughout.
+
+  ### Supported Tools (7 total)
+
+  **IDEs (5)**:
+  - VS Code (apt: `sudo apt install code`)
+  - Cursor (curl: `curl -fsSL https://www.cursor.com/linux/install.sh | sh`)
+  - Windsurf (curl: Codeium's script)
+  - Zed (curl: Official script)
+  - Antigravity (curl: Google's script)
+
+  **CLI Agents (2)**:
+  - cursor-cli (npm: `npm install -g @anysphere/cursor-cli`)
+  - claude-code (npm: `npm install -g @anthropic-ai/claude-code`)
+
+  ### Architecture
+
+  ```
+  Presentation Layer
+  └── install.command.ts (shep install <tool>)
+      ├── Parses tool name using generated ToolType enum
+      ├── Calls ValidateToolAvailabilityUseCase
+      ├── Prompts user confirmation
+      └── Calls InstallToolUseCase
+
+  Application Layer
+  ├── ValidateToolAvailabilityUseCase
+  │   ├── Returns generated ToolInstallationStatus type
+  │   └── No side effects (safe status check)
+  └── InstallToolUseCase
+      ├── Executes IToolInstallerService
+      ├── Streams live output
+      └── Returns final status
+
+  Domain Layer (TypeSpec-generated types)
+  ├── ToolType enum (5 IDEs + 2 CLI agents)
+  ├── Tool entity (id, toolName, type, installedVersion, installedAt)
+  ├── ToolInstallationStatus (status, toolName, errorMessage, suggestions)
+  ├── InstallationSuggestion (packageManager, command, documentationUrl, notes)
+  └── ToolInstallCommand (command, platform, timeout)
+
+  Infrastructure Layer
+  ├── IToolInstallerService interface
+  └── ToolInstallerServiceImpl
+      ├── Tool metadata map (platforms, commands, timeouts)
+      ├── Platform detection (os.platform())
+      ├── spawn() with live output streaming
+      └── Error handling & timeouts (10 minutes per tool)
+  ```
+
+  ### Implementation Phases (8 Total)
+
+  **Phase 1**: TypeSpec Definitions (foundational, no tests)
+  - Define ToolType enum (generated source of truth)
+  - Define Tool entity, value objects
+  - Compile → generate TypeScript types
+
+  **Phases 2-4, 6, 8**: TDD Cycles (RED-GREEN-REFACTOR)
+  - RED: Write failing test first
+  - GREEN: Implement minimal code to pass
+  - REFACTOR: Improve while keeping tests green
+
+  **Phases 5, 7**: Integration Setup (no tests)
+  - DI container registration
+  - CLI UI messages
+
+  ### TDD Strategy
+
+  **Unit Tests** (≥90% coverage):
+  - Domain value objects (creation, validation)
+  - Use cases with mocked service
+
+  **Integration Tests** (≥85% coverage):
+  - ToolInstallerServiceImpl with mocked spawn()
+  - Verify correct commands per platform/tool
+
+  **E2E Tests**:
+  - Complete `shep install cursor` flow
+  - Error scenarios (missing tool, permission denied, timeout, user cancel)
+
+  ### Risks & Mitigations
+
+  | Risk | Mitigation |
+  |------|-----------|
+  | Cross-platform command variance | Metadata-driven approach; integration tests verify per platform |
+  | Process spawning complexity | Reuse proven pattern from AgentExecutorFactory |
+  | Permission model variance | NO auto-elevation; surface errors explicitly |
+  | Tool naming changes | Metadata is source of truth; update once if needed |
+
+  ### Quality Gate
+
+  All phases must have passing CI before proceeding to next phase.
+  E2E tests validate complete flow with realistic error scenarios.
