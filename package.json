@@ -61,6 +61,8 @@
     "test:e2e:tui": "vitest run tests/e2e/tui",
     "test:e2e:web": "playwright test",
     "test:e2e:scripts": "vitest run tests/e2e/cli/script-runner.test.ts",
+    "test:manual": "vitest --config vitest.config.manual.mjs run",
+    "test:manual:watch": "vitest --config vitest.config.manual.mjs",
     "test:single": "vitest run",
     "lint": "eslint . --max-warnings 0",
     "lint:fix": "eslint . --fix --max-warnings 0",
