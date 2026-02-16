@@ -9,7 +9,6 @@ import type {
   FeatureNodeState,
   FeatureLifecyclePhase,
 } from './feature-node-state-config';
-import type { AgentTypeValue } from './agent-type-icons';
 
 const nodeTypes = { featureNode: FeatureNode };
 
@@ -55,7 +54,7 @@ const meta: Meta<FeatureNodeData> = {
     lifecycle: 'requirements',
     state: 'running',
     progress: 45,
-    agentType: 'claude-code',
+    agentName: 'Planner',
   },
 };
 
@@ -74,7 +73,7 @@ const allStatesData: FeatureNodeData[] = [
     lifecycle: 'implementation' as FeatureLifecyclePhase,
     state: 'running',
     progress: 45,
-    agentType: 'claude-code',
+    agentName: 'Planner',
   },
   {
     name: 'API Rate Limiting',
@@ -146,7 +145,7 @@ export const AllLifecycles: Story = {
             lifecycle,
             state: 'running' as FeatureNodeState,
             progress: [10, 25, 50, 70, 90, 100][i],
-            agentType: 'claude-code',
+            agentName: 'Researcher',
           }}
         />
       ))}
@@ -210,37 +209,6 @@ export const ErrorWithMessage: Story = {
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
-const allAgentTypes: (AgentTypeValue | undefined)[] = [
-  'claude-code',
-  'cursor',
-  'gemini-cli',
-  'aider',
-  'continue',
-  undefined,
-];
-
-export const AllAgentTypes: Story = {
-  render: () => (
-    <div className="flex flex-wrap gap-6">
-      {allAgentTypes.map((agentType, i) => (
-        <FeatureNodeCanvas
-          key={agentType ?? 'fallback'}
-          style={{ width: 500, height: 350 }}
-          data={{
-            name: agentType ?? 'Unknown Agent',
-            description: agentType ? `Running with ${agentType}` : 'Fallback icon',
-            featureId: `#f${i + 1}`,
-            lifecycle: 'implementation' as FeatureLifecyclePhase,
-            state: 'running' as FeatureNodeState,
-            progress: 45,
-            agentType,
-          }}
-        />
-      ))}
-    </div>
-  ),
-};
-
 const interactiveInitialNodes: FeatureNodeType[] = [
   {
     id: 'node-1',
@@ -254,7 +222,7 @@ const interactiveInitialNodes: FeatureNodeType[] = [
       lifecycle: 'implementation' as FeatureLifecyclePhase,
       state: 'running' as FeatureNodeState,
       progress: 45,
-      agentType: 'claude-code',
+      agentName: 'Planner',
     },
   },
   {

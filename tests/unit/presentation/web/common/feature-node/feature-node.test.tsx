@@ -1,14 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
-import {
-  FeatureNode,
-  lifecycleDisplayLabels,
-  lifecycleRunningVerbs,
-  getAgentTypeIcon,
-} from '@/components/common/feature-node';
+import { FeatureNode, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureNodeType } from '@/components/common/feature-node';
-import { DefaultAgentIcon } from '@/components/common/feature-node/agent-type-icons';
 
 const nodeTypes = { featureNode: FeatureNode };
 
@@ -52,26 +46,26 @@ describe('FeatureNode', () => {
     expect(screen.getByText('Implement authentication flow')).toBeInTheDocument();
   });
 
-  it('does not render featureId in the card', () => {
+  it('renders featureId', () => {
     renderFeatureNode({ featureId: '#f1' });
-    expect(screen.queryByText('#f1')).not.toBeInTheDocument();
+    expect(screen.getByText('#f1')).toBeInTheDocument();
   });
 
   describe('running state', () => {
-    it('shows indeterminate progress bar instead of badge', () => {
+    it('shows badge instead of progress bar', () => {
       renderFeatureNode({ state: 'running', progress: 45 });
-      expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
-      expect(screen.queryByTestId('feature-node-badge')).not.toBeInTheDocument();
+      expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
     });
 
-    it('shows lifecycle running verb in inline text', () => {
-      renderFeatureNode({ state: 'running', progress: 45, lifecycle: 'implementation' });
-      expect(screen.getByText('Implementing')).toBeInTheDocument();
+    it('shows agent name and featureId in badge text', () => {
+      renderFeatureNode({ state: 'running', progress: 45, agentName: 'Planner' });
+      expect(screen.getByText('Planner #f1 running')).toBeInTheDocument();
     });
 
-    it('shows Analyzing verb for requirements phase', () => {
-      renderFeatureNode({ state: 'running', progress: 45, lifecycle: 'requirements' });
-      expect(screen.getByText('Analyzing')).toBeInTheDocument();
+    it('defaults to "Agent" when agentName not provided', () => {
+      renderFeatureNode({ state: 'running', progress: 45 });
+      expect(screen.getByText('Agent #f1 running')).toBeInTheDocument();
     });
   });
 
@@ -213,75 +207,6 @@ describe('FeatureNode', () => {
 
     it('maps review to REVIEW', () => {
       expect(lifecycleDisplayLabels.review).toBe('REVIEW');
-    });
-  });
-
-  describe('lifecycle running verbs', () => {
-    const verbMap: Record<string, string> = {
-      requirements: 'Analyzing',
-      research: 'Researching',
-      implementation: 'Implementing',
-      review: 'Reviewing',
-      deploy: 'Deploying',
-      maintain: 'Maintaining',
-    };
-
-    for (const [phase, verb] of Object.entries(verbMap)) {
-      it(`shows "${verb}" for ${phase} phase`, () => {
-        renderFeatureNode({
-          state: 'running',
-          lifecycle: phase as FeatureNodeData['lifecycle'],
-        });
-        expect(screen.getByText(verb)).toBeInTheDocument();
-      });
-    }
-  });
-
-  describe('lifecycleRunningVerbs', () => {
-    it('maps requirements to Analyzing', () => {
-      expect(lifecycleRunningVerbs.requirements).toBe('Analyzing');
-    });
-
-    it('maps research to Researching', () => {
-      expect(lifecycleRunningVerbs.research).toBe('Researching');
-    });
-
-    it('maps implementation to Implementing', () => {
-      expect(lifecycleRunningVerbs.implementation).toBe('Implementing');
-    });
-
-    it('maps review to Reviewing', () => {
-      expect(lifecycleRunningVerbs.review).toBe('Reviewing');
-    });
-
-    it('maps deploy to Deploying', () => {
-      expect(lifecycleRunningVerbs.deploy).toBe('Deploying');
-    });
-
-    it('maps maintain to Maintaining', () => {
-      expect(lifecycleRunningVerbs.maintain).toBe('Maintaining');
-    });
-  });
-
-  describe('getAgentTypeIcon', () => {
-    it('returns a brand icon component for claude-code', () => {
-      const icon = getAgentTypeIcon('claude-code');
-      expect(icon).not.toBe(DefaultAgentIcon);
-      expect(icon.displayName).toBe('BrandIcon(Claude Code)');
-    });
-
-    it('returns a brand icon component for cursor', () => {
-      const icon = getAgentTypeIcon('cursor');
-      expect(icon).not.toBe(DefaultAgentIcon);
-      expect(icon.displayName).toBe('BrandIcon(Cursor)');
-    });
-
-    it('returns DefaultAgentIcon for undefined', () => {
-      expect(getAgentTypeIcon(undefined)).toBe(DefaultAgentIcon);
-    });
-
-    it('returns DefaultAgentIcon for unknown type', () => {
-      expect(getAgentTypeIcon('unknown-agent')).toBe(DefaultAgentIcon);
     });
   });
 

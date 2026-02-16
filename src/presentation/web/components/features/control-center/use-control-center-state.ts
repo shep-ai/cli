@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import type { CreateFeatureFormData } from '@/components/common/feature-create-drawer';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 
@@ -11,6 +12,7 @@ export interface ControlCenterState {
   nodes: CanvasNodeType[];
   edges: Edge[];
   selectedNode: FeatureNodeData | null;
+  isCreateDrawerOpen: boolean;
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
   clearSelection: () => void;
@@ -20,6 +22,8 @@ export interface ControlCenterState {
   handleAddFeatureToFeature: (featureNodeId: string) => void;
   handleAddRepository: (path: string) => void;
   handleLayout: (direction: LayoutDirection) => void;
+  handleCreateFeatureSubmit: (data: CreateFeatureFormData) => void;
+  closeCreateDrawer: () => void;
 }
 
 let nextFeatureId = 0;
@@ -31,6 +35,7 @@ export function useControlCenterState(
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
+  const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
@@ -42,6 +47,7 @@ export function useControlCenterState(
 
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: CanvasNodeType) => {
     if (node.type === 'featureNode') {
+      setIsCreateDrawerOpen(false);
       setSelectedNode(node.data as FeatureNodeData);
     }
   }, []);
@@ -88,11 +94,11 @@ export function useControlCenterState(
   }, []);
 
   const createFeatureNode = useCallback(
-    (sourceNodeId: string | null) => {
+    (sourceNodeId: string | null, dataOverride?: Partial<FeatureNodeData>) => {
       const id = `feature-${Date.now()}-${nextFeatureId++}`;
       const newFeatureData: FeatureNodeData = {
-        name: 'New Feature',
-        description: 'Describe what this feature does',
+        name: dataOverride?.name ?? 'New Feature',
+        description: dataOverride?.description ?? 'Describe what this feature does',
         featureId: `#${id.slice(-4)}`,
         lifecycle: 'requirements',
         state: 'running',
@@ -200,8 +206,24 @@ export function useControlCenterState(
   );
 
   const handleAddFeature = useCallback(() => {
-    createFeatureNode(null);
-  }, [createFeatureNode]);
+    setSelectedNode(null);
+    setIsCreateDrawerOpen(true);
+  }, []);
+
+  const handleCreateFeatureSubmit = useCallback(
+    (data: CreateFeatureFormData) => {
+      setIsCreateDrawerOpen(false);
+      createFeatureNode(null, {
+        name: data.name,
+        description: data.description || undefined,
+      });
+    },
+    [createFeatureNode]
+  );
+
+  const closeCreateDrawer = useCallback(() => {
+    setIsCreateDrawerOpen(false);
+  }, []);
 
   const handleAddFeatureToRepo = useCallback(
     (repoNodeId: string) => {
@@ -270,6 +292,7 @@ export function useControlCenterState(
     nodes,
     edges,
     selectedNode,
+    isCreateDrawerOpen,
     onNodesChange,
     handleConnect,
     clearSelection,
@@ -279,5 +302,7 @@ export function useControlCenterState(
     handleAddFeatureToFeature,
     handleAddRepository,
     handleLayout,
+    handleCreateFeatureSubmit,
+    closeCreateDrawer,
   };
 }

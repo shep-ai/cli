@@ -1,10 +1,7 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getFeatures, getAgentRun } from '@/lib/use-cases';
+import { getFeatures } from '@/lib/features';
+import { deriveState } from './derive-state';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
-import {
-  deriveNodeState,
-  deriveProgress,
-} from '@/components/common/feature-node/derive-feature-state';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
@@ -19,23 +16,26 @@ const lifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Maintain: 'maintain',
 };
 
+/** Map agent graph node names (from agent_run.result) to UI lifecycle phases. */
+const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
+  analyze: 'requirements',
+  requirements: 'requirements',
+  research: 'research',
+  plan: 'implementation',
+  implement: 'implementation',
+};
+
 export default async function HomePage() {
   const features = await getFeatures();
 
-  // Load agent runs for all features in parallel (mirrors CLI feat ls)
-  const agentRuns = await Promise.all(
-    features.map((f) => (f.agentRunId ? getAgentRun(f.agentRunId) : Promise.resolve(null)))
-  );
-
   // Group features by repository path
-  const featuresByRepo: Record<string, { index: number; feature: (typeof features)[number] }[]> =
-    {};
-  features.forEach((f, i) => {
+  const featuresByRepo: Record<string, typeof features> = {};
+  features.forEach((f) => {
     const repoKey = f.repositoryPath;
     if (!featuresByRepo[repoKey]) {
       featuresByRepo[repoKey] = [];
     }
-    featuresByRepo[repoKey].push({ index: i, feature: f });
+    featuresByRepo[repoKey].push(f);
   });
 
   const nodes: CanvasNodeType[] = [];
@@ -51,18 +51,24 @@ export default async function HomePage() {
       data: { name: repoName },
     });
 
-    repoFeatures.forEach(({ index, feature }) => {
-      const run = agentRuns[index];
-      const lifecycle: FeatureLifecyclePhase = lifecycleMap[feature.lifecycle] ?? 'requirements';
+    repoFeatures.forEach((feature) => {
+      const agentNode = feature.agentResult?.startsWith('node:')
+        ? feature.agentResult.slice(5)
+        : undefined;
+      const lifecycle: FeatureLifecyclePhase =
+        feature.agentStatus === 'completed'
+          ? 'maintain'
+          : ((agentNode ? nodeToLifecyclePhase[agentNode] : undefined) ??
+            lifecycleMap[feature.lifecycle] ??
+            'requirements');
 
       const nodeData: FeatureNodeData = {
         name: feature.name,
         description: feature.description ?? feature.slug,
         featureId: feature.id,
         lifecycle,
-        state: deriveNodeState(feature, run),
-        progress: deriveProgress(feature),
-        ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
+        ...deriveState(lifecycle, feature.agentStatus),
+        ...(feature.agentError && { errorMessage: feature.agentError }),
       };
 
       const featureNodeId = `feat-${feature.id}`;

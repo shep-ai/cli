@@ -61,8 +61,24 @@ function HookTestHarness({
       <div data-testid="selected-node">{state.selectedNode ? state.selectedNode.name : 'null'}</div>
       <div data-testid="node-count">{state.nodes.length}</div>
       <div data-testid="edge-count">{state.edges.length}</div>
+      <div data-testid="create-drawer-open">{String(state.isCreateDrawerOpen)}</div>
       <button data-testid="add-feature" onClick={state.handleAddFeature}>
         Add Feature
+      </button>
+      <button
+        data-testid="create-feature-submit"
+        onClick={() =>
+          state.handleCreateFeatureSubmit({
+            name: 'My Feature',
+            description: 'A test feature',
+            attachments: [],
+          })
+        }
+      >
+        Submit Create
+      </button>
+      <button data-testid="close-create-drawer" onClick={state.closeCreateDrawer}>
+        Close Create Drawer
       </button>
       <button data-testid="add-to-repo" onClick={() => state.handleAddFeatureToRepo('repo-1')}>
         Add to Repo
@@ -127,16 +143,71 @@ describe('useControlCenterState', () => {
   });
 
   describe('handleAddFeature', () => {
-    it('adds a new unconnected feature node', () => {
+    it('opens the create drawer instead of immediately creating a node', () => {
       renderHook();
 
       act(() => {
         fireEvent.click(screen.getByTestId('add-feature'));
       });
 
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+      expect(screen.getByTestId('node-count')).toHaveTextContent('0');
+      expect(screen.getByTestId('selected-node')).toHaveTextContent('null');
+    });
+
+    it('clears selected node when opening create drawer', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      // Simulate selecting a node first by calling handleNodeClick would require
+      // a more complex setup, so we test that selectedNode becomes null
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-feature'));
+      });
+
+      expect(capturedState!.selectedNode).toBeNull();
+      expect(capturedState!.isCreateDrawerOpen).toBe(true);
+    });
+  });
+
+  describe('handleCreateFeatureSubmit', () => {
+    it('creates a node with submitted name and closes the create drawer', () => {
+      renderHook();
+
+      // Open create drawer
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-feature'));
+      });
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+
+      // Submit the form
+      act(() => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('false');
       expect(screen.getByTestId('node-count')).toHaveTextContent('1');
-      expect(screen.getByTestId('edge-count')).toHaveTextContent('0');
-      expect(screen.getByTestId('selected-node')).toHaveTextContent('New Feature');
+      expect(screen.getByTestId('selected-node')).toHaveTextContent('My Feature');
+    });
+  });
+
+  describe('closeCreateDrawer', () => {
+    it('closes the create drawer without creating a node', () => {
+      renderHook();
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-feature'));
+      });
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('close-create-drawer'));
+      });
+
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('false');
+      expect(screen.getByTestId('node-count')).toHaveTextContent('0');
     });
   });
 

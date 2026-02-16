@@ -1,6 +1,5 @@
-import { Loader2, AlertTriangle, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
+import { Loader2, CircleAlert, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
 import type { Node } from '@xyflow/react';
-import type { AgentTypeValue } from './agent-type-icons';
 
 export type FeatureNodeState = 'running' | 'action-required' | 'done' | 'blocked' | 'error';
 
@@ -22,16 +21,6 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
   maintain: 'COMPLETED',
 };
 
-/** Present-participle verbs for the running badge, keyed by lifecycle phase. */
-export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
-  requirements: 'Analyzing',
-  research: 'Researching',
-  implementation: 'Implementing',
-  review: 'Reviewing',
-  deploy: 'Deploying',
-  maintain: 'Maintaining',
-};
-
 export interface FeatureNodeData {
   [key: string]: unknown;
   name: string;
@@ -46,8 +35,8 @@ export interface FeatureNodeData {
   blockedBy?: string;
   /** Short error message for error state */
   errorMessage?: string;
-  /** Agent executor type (e.g. "claude-code", "cursor"). */
-  agentType?: AgentTypeValue;
+  /** Agent name shown in the running badge (e.g. "Planner") */
+  agentName?: string;
   onAction?: () => void;
   onSettings?: () => void;
   showHandles?: boolean;
@@ -78,12 +67,12 @@ export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateCo
     showProgressBar: false,
   },
   'action-required': {
-    icon: AlertTriangle,
+    icon: CircleAlert,
     borderClass: 'border-l-amber-500',
     labelClass: 'text-amber-500',
     progressClass: 'bg-amber-500',
-    badgeClass: 'text-amber-800',
-    badgeBgClass: 'bg-amber-50 border border-amber-200',
+    badgeClass: 'text-amber-700',
+    badgeBgClass: 'bg-amber-50',
     label: 'User action required',
     showProgressBar: false,
   },
