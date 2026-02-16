@@ -6,14 +6,14 @@ feature:
   lifecycle: review
   createdAt: '2026-02-15T18:11:21Z'
 status:
-  phase: ready-for-review
+  phase: in-review
   progress:
     completed: 8
     total: 8
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-16T13:15:00.000Z'
-  lastUpdatedBy: shep-kit:implement
+  lastUpdated: '2026-02-16T13:25:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
 prUrl: https://github.com/shep-ai/cli/pull/55
 validation:
   lastRun: '2026-02-16T13:15:00.000Z'
@@ -37,6 +37,9 @@ checkpoints:
   - phase: implementation-complete
     completedAt: '2026-02-16T13:15:00.000Z'
     completedBy: shep-kit:implement
+  - phase: ci-passed
+    completedAt: '2026-02-16T13:25:00.000Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
