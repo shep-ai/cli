@@ -1,9 +1,9 @@
 /**
  * MetadataGenerator
  *
- * Generates feature metadata (slug, name, description) from user input.
- * Primary path: AI call via IAgentExecutorProvider
- * Fallback: Regex-based slug generation when AI fails
+ * Generates feature metadata (slug, name, description) from user input
+ * via AI call through IAgentExecutorProvider.
+ * Errors are propagated to the caller.
  */
 
 import { injectable, inject } from 'tsyringe';
@@ -21,18 +21,18 @@ export class MetadataGenerator {
   ) {}
 
   /**
-   * Generate feature metadata from user input via AI or fallback to regex.
+   * Generate feature metadata from user input via AI.
+   * Errors are propagated to the caller.
    */
   async generateMetadata(userInput: string): Promise<FeatureMetadata> {
-    try {
-      const executor = this.executorProvider.getExecutor();
+    const executor = this.executorProvider.getExecutor();
 
-      const truncated =
-        userInput.length > MAX_INPUT_FOR_AI
-          ? `${userInput.slice(0, MAX_INPUT_FOR_AI)}...`
-          : userInput;
+    const truncated =
+      userInput.length > MAX_INPUT_FOR_AI
+        ? `${userInput.slice(0, MAX_INPUT_FOR_AI)}...`
+        : userInput;
 
-      const prompt = `Analyze this user request and extract the CORE feature intent. Condense to essential concepts.
+    const prompt = `Analyze this user request and extract the CORE feature intent. Condense to essential concepts.
 
 User request:
 "${truncated}"
@@ -46,30 +46,42 @@ Return ONLY a JSON object with these fields:
 
 JSON only, no markdown fences.`;
 
-      const result = await executor.execute(prompt, {
-        maxTurns: 1,
-        allowedTools: [],
-        silent: true,
-      });
+    const result = await executor.execute(prompt, {
+      maxTurns: 1,
+      allowedTools: [],
+      silent: true,
+    });
 
-      const parsed = JSON.parse(result.result);
-      if (!parsed.slug || !parsed.name || !parsed.description) {
-        throw new Error('Missing required fields in AI response');
-      }
-
-      return {
-        slug: this.toSlug(parsed.slug),
-        name: parsed.name,
-        description: parsed.description,
-      };
-    } catch {
-      // Fallback to regex-based slug generation
-      return {
-        slug: this.toSlug(userInput),
-        name: userInput,
-        description: userInput,
-      };
+    const cleaned = this.stripCodeFence(result.result);
+    const parsed = JSON.parse(cleaned);
+    if (!parsed.slug || !parsed.name || !parsed.description) {
+      throw new Error('Missing required fields in AI response');
     }
+
+    return {
+      slug: this.toSlug(parsed.slug),
+      name: parsed.name,
+      description: parsed.description,
+    };
+  }
+
+  /**
+   * Strip markdown code fence wrappers (```lang ... ```) if present at start/end.
+   */
+  private stripCodeFence(text: string): string {
+    const trimmed = text.trim();
+    if (!trimmed.startsWith('```')) {
+      return trimmed;
+    }
+    // Find end of first line (```json or ```anything)
+    const firstNewline = trimmed.indexOf('\n');
+    if (firstNewline === -1) {
+      return trimmed;
+    }
+    if (!trimmed.endsWith('```')) {
+      return trimmed;
+    }
+    return trimmed.slice(firstNewline + 1, trimmed.length - 3).trim();
   }
 
   /**

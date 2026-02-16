@@ -65,34 +65,68 @@ describe('MetadataGenerator', () => {
       expect(callArgs).not.toContain('a'.repeat(600));
     });
 
-    it('should fallback to regex-based slug when AI fails', async () => {
+    it('should propagate error when AI executor fails', async () => {
       (mockExecutor.execute as any).mockRejectedValue(new Error('API error'));
 
-      const result = await generator.generateMetadata('Add GitHub OAuth login');
-
-      expect(result.slug).toBe('add-github-oauth-login');
-      expect(result.name).toBe('Add GitHub OAuth login');
-      expect(result.description).toBe('Add GitHub OAuth login');
+      await expect(generator.generateMetadata('Add GitHub OAuth login')).rejects.toThrow(
+        'API error'
+      );
     });
 
-    it('should fallback when AI returns invalid JSON', async () => {
+    it('should propagate error when AI returns invalid JSON', async () => {
       (mockExecutor.execute as any).mockResolvedValue({
         result: 'not valid json',
       });
 
-      const result = await generator.generateMetadata('Add GitHub OAuth login');
-
-      expect(result.slug).toBe('add-github-oauth-login');
+      await expect(generator.generateMetadata('Add GitHub OAuth login')).rejects.toThrow();
     });
 
-    it('should fallback when AI response missing required fields', async () => {
+    it('should propagate error when AI response missing required fields', async () => {
       (mockExecutor.execute as any).mockResolvedValue({
         result: JSON.stringify({ slug: 'test' }), // missing name and description
       });
 
-      const result = await generator.generateMetadata('Add GitHub OAuth login');
+      await expect(generator.generateMetadata('Add GitHub OAuth login')).rejects.toThrow(
+        'Missing required fields in AI response'
+      );
+    });
+  });
 
-      expect(result.slug).toBe('add-github-oauth-login');
+  describe('stripCodeFence', () => {
+    it('should strip ```json wrapper', () => {
+      const input = '```json\n{"slug": "test"}\n```';
+      const result = generator['stripCodeFence'](input);
+      expect(result).toBe('{"slug": "test"}');
+    });
+
+    it('should strip ```any-language wrapper', () => {
+      const input = '```typescript\n{"slug": "test"}\n```';
+      const result = generator['stripCodeFence'](input);
+      expect(result).toBe('{"slug": "test"}');
+    });
+
+    it('should strip ``` wrapper with no language', () => {
+      const input = '```\n{"slug": "test"}\n```';
+      const result = generator['stripCodeFence'](input);
+      expect(result).toBe('{"slug": "test"}');
+    });
+
+    it('should return raw JSON untouched', () => {
+      const input = '{"slug": "test"}';
+      const result = generator['stripCodeFence'](input);
+      expect(result).toBe('{"slug": "test"}');
+    });
+
+    it('should handle whitespace around fenced block', () => {
+      const input = '  \n```json\n{"slug": "test"}\n```\n  ';
+      const result = generator['stripCodeFence'](input);
+      expect(result).toBe('{"slug": "test"}');
+    });
+
+    it('should not strip if only opening fence', () => {
+      const input = '```json\n{"slug": "test"}';
+      const result = generator['stripCodeFence'](input);
+      expect(result).toBe('```json\n{"slug": "test"}');
     });
   });
 
