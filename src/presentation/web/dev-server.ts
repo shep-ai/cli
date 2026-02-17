@@ -17,12 +17,10 @@ import next from 'next';
 import http from 'node:http';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
-import { ListFeaturesUseCase } from '@/application/use-cases/features/list-features.use-case.js';
-import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
+import { populateUseCasesBridge } from '@/infrastructure/di/use-cases-bridge.js';
 
 const DEFAULT_PORT = 3000;
-const SHEP_USE_CASES_KEY = '__shepUseCases';
 
 async function main() {
   const port = parseInt(process.env.PORT ?? '', 10) || DEFAULT_PORT;
@@ -36,14 +34,7 @@ async function main() {
     const settings = await initSettingsUseCase.execute();
     initializeSettings(settings);
 
-    // Set globalThis bridge for the web layer (same as CLI bootstrap index.ts:74-76)
-    const bridge = {
-      listFeatures: container.resolve(ListFeaturesUseCase),
-      agentRunRepo: container.resolve<IAgentRunRepository>('IAgentRunRepository'),
-    };
-    (globalThis as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
-    (process as unknown as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
-
+    populateUseCasesBridge(container);
     console.log('[dev-server] DI bridge initialized');
   } catch (error) {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);

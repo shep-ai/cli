@@ -10,6 +10,7 @@
  */
 
 import type { Feature, AgentRun } from '@shepai/core/domain/generated';
+import { SHEP_USE_CASES_KEY } from '@shepai/core/infrastructure/di/use-cases-bridge';
 
 /** Filters for listing features. */
 interface FeatureListFilters {
@@ -32,8 +33,6 @@ interface ShepUseCases {
   listFeatures: ListFeaturesUseCase;
   agentRunRepo: AgentRunRepository;
 }
-
-const SHEP_USE_CASES_KEY = '__shepUseCases';
 
 function isShepUseCases(value: unknown): value is ShepUseCases {
   if (!value || typeof value !== 'object') return false;

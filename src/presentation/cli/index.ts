@@ -41,11 +41,8 @@ import { messages } from './ui/index.js';
 // DI container and settings
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
-import { ListFeaturesUseCase } from '@/application/use-cases/features/list-features.use-case.js';
-import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
-
-const SHEP_USE_CASES_KEY = '__shepUseCases';
+import { populateUseCasesBridge } from '@/infrastructure/di/use-cases-bridge.js';
 
 /**
  * Bootstrap function - initializes all dependencies before CLI starts.
@@ -73,15 +70,8 @@ async function bootstrap() {
       throw error;
     }
 
-    // Step 2b: Expose resolved use cases for the web layer via globalThis bridge
-    // The Next.js web server runs in the same process, so globalThis is shared.
-    // Web layer reads from this instead of importing CLI source (Turbopack incompatibility).
-    const bridge = {
-      listFeatures: container.resolve(ListFeaturesUseCase),
-      agentRunRepo: container.resolve<IAgentRunRepository>('IAgentRunRepository'),
-    };
-    (globalThis as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
-    (process as unknown as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
+    // Expose resolved use cases for the web layer via globalThis bridge
+    populateUseCasesBridge(container);
 
     // Step 3: Set up Commander CLI
     const versionService = container.resolve<IVersionService>('IVersionService');
