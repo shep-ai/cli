@@ -36,7 +36,7 @@ const runningData: FeatureNodeData = {
   lifecycle: 'implementation',
   state: 'running',
   progress: 45,
-  agentName: 'Planner',
+  agentType: 'claude-code',
 };
 
 const actionRequiredData: FeatureNodeData = {
@@ -140,7 +140,7 @@ export const AllFields: Story = {
         lifecycle: 'implementation',
         state: 'running',
         progress: 68,
-        agentName: 'Implementer',
+        agentType: 'cursor',
         runtime: '3h 15m',
         blockedBy: 'Database Migration',
         errorMessage: 'Token refresh failed: invalid_grant',
@@ -231,7 +231,7 @@ function AllLifecyclesRender() {
                 lifecycle: phase,
                 state: 'running',
                 progress: 50,
-                agentName: 'Agent',
+                agentType: 'claude-code',
               });
             }}
             className={`rounded-md px-3 py-1.5 text-left text-sm ${
