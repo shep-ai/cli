@@ -6,6 +6,9 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
 
+/** Force request-time rendering so the globalThis DI bridge is available. */
+export const dynamic = 'force-dynamic';
+
 /** Map domain SdlcLifecycle enum values to UI FeatureLifecyclePhase (1:1). */
 const lifecycleMap: Record<string, FeatureLifecyclePhase> = {
   Requirements: 'requirements',
