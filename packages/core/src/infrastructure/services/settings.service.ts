@@ -2,7 +2,9 @@
  * Settings Service
  *
  * Provides global access to application settings within the CLI.
- * Implements singleton pattern for consistent settings access.
+ * Uses globalThis/process storage so the singleton survives Turbopack
+ * module re-evaluations in Next.js API routes (same pattern as the
+ * use-cases bridge in di/use-cases-bridge.ts).
  *
  * Usage:
  * ```typescript
@@ -15,11 +17,25 @@
 
 import type { Settings } from '../../domain/generated/output.js';
 
-/**
- * Singleton settings instance.
- * Set during CLI initialization, accessed throughout application lifecycle.
- */
-let settingsInstance: Settings | null = null;
+/** The globalThis / process key for the settings singleton. */
+const SHEP_SETTINGS_KEY = '__shepSettings';
+
+/** Read the settings instance from globalThis, falling back to process. */
+function readSettings(): Settings | null {
+  const fromGlobal = (globalThis as Record<string, unknown>)[SHEP_SETTINGS_KEY];
+  if (fromGlobal != null) return fromGlobal as Settings;
+
+  const fromProcess = (process as unknown as Record<string, unknown>)[SHEP_SETTINGS_KEY];
+  if (fromProcess != null) return fromProcess as Settings;
+
+  return null;
+}
+
+/** Write the settings instance to both globalThis and process. */
+function writeSettings(value: Settings | null): void {
+  (globalThis as Record<string, unknown>)[SHEP_SETTINGS_KEY] = value;
+  (process as unknown as Record<string, unknown>)[SHEP_SETTINGS_KEY] = value;
+}
 
 /**
  * Initialize the settings service with loaded settings.
@@ -29,11 +45,11 @@ let settingsInstance: Settings | null = null;
  * @throws Error if settings are already initialized
  */
 export function initializeSettings(settings: Settings): void {
-  if (settingsInstance !== null) {
+  if (readSettings() !== null) {
     throw new Error('Settings already initialized. Cannot re-initialize.');
   }
 
-  settingsInstance = settings;
+  writeSettings(settings);
 }
 
 /**
@@ -49,11 +65,12 @@ export function initializeSettings(settings: Settings): void {
  * ```
  */
 export function getSettings(): Settings {
-  if (settingsInstance === null) {
+  const instance = readSettings();
+  if (instance === null) {
     throw new Error('Settings not initialized. Call initializeSettings() during CLI bootstrap.');
   }
 
-  return settingsInstance;
+  return instance;
 }
 
 /**
@@ -62,7 +79,7 @@ export function getSettings(): Settings {
  * @returns True if settings are initialized, false otherwise
  */
 export function hasSettings(): boolean {
-  return settingsInstance !== null;
+  return readSettings() !== null;
 }
 
 /**
@@ -72,5 +89,5 @@ export function hasSettings(): boolean {
  * @internal
  */
 export function resetSettings(): void {
-  settingsInstance = null;
+  writeSettings(null);
 }

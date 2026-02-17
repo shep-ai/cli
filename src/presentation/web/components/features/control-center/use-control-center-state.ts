@@ -109,6 +109,8 @@ export function useControlCenterState(
         lifecycle: 'requirements',
         state: 'running',
         progress: 0,
+        repositoryPath: dataOverride?.repositoryPath ?? '',
+        branch: dataOverride?.branch ?? '',
       };
 
       setNodes((currentNodes) => {

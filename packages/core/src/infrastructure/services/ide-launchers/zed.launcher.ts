@@ -1,6 +1,6 @@
 import { spawn, execFile } from 'node:child_process';
 
-import { EditorType } from '../../../domain/generated/output.js';
+import { EditorType } from '../../../domain/generated/output';
 import type { IdeLauncher } from './ide-launcher.interface';
 
 export class ZedLauncher implements IdeLauncher {

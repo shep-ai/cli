@@ -13,6 +13,11 @@ export {
 export { FeatureDrawer, type FeatureDrawerProps } from './feature-drawer';
 export { FeatureListItem, type FeatureListItemProps } from './feature-list-item';
 export {
+  useFeatureActions,
+  type FeatureActionsInput,
+  type FeatureActionsState,
+} from './feature-drawer/use-feature-actions';
+export {
   FeatureNode,
   featureNodeStateConfig,
   type FeatureNodeState,
