@@ -3,17 +3,17 @@ feature:
   name: control-center-create-feature-2
   number: 21
   branch: feat/021-control-center-create-feature-2
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-17T11:48:29Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 9
     total: 9
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-17T14:31:39.878Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-17T14:35:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -35,6 +35,10 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-17T11:48:29Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-17T14:35:00.000Z'
+    completedBy: shep-kit:commit-pr
+prUrl: https://github.com/shep-ai/cli/pull/64
 errors:
   current: null
   history: []
