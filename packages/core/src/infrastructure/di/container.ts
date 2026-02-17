@@ -46,6 +46,7 @@ import type { IAgentRunRepository } from '../../application/ports/output/agents/
 import type { IPhaseTimingRepository } from '../../application/ports/output/agents/phase-timing-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../application/ports/output/agents/feature-agent-process.interface.js';
 import type { ISpecInitializerService } from '../../application/ports/output/services/spec-initializer.interface.js';
+import type { INotificationService } from '../../application/ports/output/services/notification-service.interface.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
 import { AgentExecutorProvider } from '../services/agents/common/agent-executor-provider.service.js';
 import { MockAgentExecutorFactory } from '../services/agents/common/executors/mock-executor-factory.service.js';
@@ -55,6 +56,13 @@ import { SQLiteAgentRunRepository } from '../repositories/agent-run.repository.j
 import { SQLitePhaseTimingRepository } from '../repositories/sqlite-phase-timing.repository.js';
 import { FeatureAgentProcessService } from '../services/agents/feature-agent/feature-agent-process.service.js';
 import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
+import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
+import { NotificationService } from '../services/notifications/notification.service.js';
+import { NotificationWatcherService } from '../services/notifications/notification-watcher.service.js';
+import {
+  initializeNotificationBus,
+  getNotificationBus,
+} from '../services/notifications/notification-bus.js';
 import { createCheckpointer } from '../services/agents/common/checkpointer.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { spawn } from 'node:child_process';
@@ -198,6 +206,33 @@ export async function initializeContainer(): Promise<typeof container> {
 
   container.register<ISpecInitializerService>('ISpecInitializerService', {
     useFactory: () => new SpecInitializerService(),
+  });
+
+  // Register notification services
+  initializeNotificationBus();
+  const notificationBus = getNotificationBus();
+
+  container.registerInstance('NotificationEventBus', notificationBus);
+
+  container.register('DesktopNotifier', {
+    useFactory: () => new DesktopNotifier(),
+  });
+
+  container.register<INotificationService>('INotificationService', {
+    useFactory: (c) => {
+      const bus = c.resolve('NotificationEventBus') as ReturnType<typeof getNotificationBus>;
+      const desktopNotif = c.resolve('DesktopNotifier') as DesktopNotifier;
+      return new NotificationService(bus, desktopNotif);
+    },
+  });
+
+  container.register('NotificationWatcherService', {
+    useFactory: (c) => {
+      const runRepository = c.resolve<IAgentRunRepository>('IAgentRunRepository');
+      const phaseTimingRepository = c.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
+      const bus = c.resolve('NotificationEventBus') as ReturnType<typeof getNotificationBus>;
+      return new NotificationWatcherService(runRepository, phaseTimingRepository, bus);
+    },
   });
 
   // Register use cases (singletons for performance)

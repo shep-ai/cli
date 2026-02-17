@@ -50,6 +50,18 @@ describe('SQLiteSettingsRepository', () => {
       type: AgentType.ClaudeCode,
       authMethod: AgentAuthMethod.Session,
     },
+    notifications: {
+      inApp: { enabled: false },
+      browser: { enabled: false },
+      desktop: { enabled: false },
+      events: {
+        agentStarted: true,
+        phaseCompleted: true,
+        waitingApproval: true,
+        agentCompleted: true,
+        agentFailed: true,
+      },
+    },
   });
 
   beforeEach(async () => {

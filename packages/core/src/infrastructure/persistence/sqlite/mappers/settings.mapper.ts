@@ -51,6 +51,16 @@ export interface SettingsRow {
   agent_type: string;
   agent_auth_method: string;
   agent_token: string | null;
+
+  // NotificationPreferences (notifications.*)
+  notif_in_app_enabled: number; // Boolean stored as INTEGER
+  notif_browser_enabled: number;
+  notif_desktop_enabled: number;
+  notif_evt_agent_started: number;
+  notif_evt_phase_completed: number;
+  notif_evt_waiting_approval: number;
+  notif_evt_agent_completed: number;
+  notif_evt_agent_failed: number;
 }
 
 /**
@@ -92,6 +102,16 @@ export function toDatabase(settings: Settings): SettingsRow {
     agent_type: settings.agent.type,
     agent_auth_method: settings.agent.authMethod,
     agent_token: settings.agent.token ?? null,
+
+    // NotificationPreferences (boolean → 0/1)
+    notif_in_app_enabled: settings.notifications.inApp.enabled ? 1 : 0,
+    notif_browser_enabled: settings.notifications.browser.enabled ? 1 : 0,
+    notif_desktop_enabled: settings.notifications.desktop.enabled ? 1 : 0,
+    notif_evt_agent_started: settings.notifications.events.agentStarted ? 1 : 0,
+    notif_evt_phase_completed: settings.notifications.events.phaseCompleted ? 1 : 0,
+    notif_evt_waiting_approval: settings.notifications.events.waitingApproval ? 1 : 0,
+    notif_evt_agent_completed: settings.notifications.events.agentCompleted ? 1 : 0,
+    notif_evt_agent_failed: settings.notifications.events.agentFailed ? 1 : 0,
   };
 }
 
@@ -141,6 +161,20 @@ export function fromDatabase(row: SettingsRow): Settings {
       type: row.agent_type as AgentType,
       authMethod: row.agent_auth_method as AgentAuthMethod,
       ...(row.agent_token !== null && { token: row.agent_token }),
+    },
+
+    // NotificationPreferences (INTEGER 0/1 → boolean)
+    notifications: {
+      inApp: { enabled: row.notif_in_app_enabled === 1 },
+      browser: { enabled: row.notif_browser_enabled === 1 },
+      desktop: { enabled: row.notif_desktop_enabled === 1 },
+      events: {
+        agentStarted: row.notif_evt_agent_started === 1,
+        phaseCompleted: row.notif_evt_phase_completed === 1,
+        waitingApproval: row.notif_evt_waiting_approval === 1,
+        agentCompleted: row.notif_evt_agent_completed === 1,
+        agentFailed: row.notif_evt_agent_failed === 1,
+      },
     },
   };
 }

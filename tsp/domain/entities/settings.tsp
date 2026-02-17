@@ -35,6 +35,7 @@
 import "../../common/base.tsp";
 import "../../common/enums/agent-config.tsp";
 import "../../common/enums/editor.tsp";
+import "../../common/enums/notification.tsp";
 
 /**
  * Model Configuration
@@ -243,6 +244,82 @@ model AgentConfig {
 }
 
 /**
+ * Notification Channel Configuration
+ *
+ * Controls whether a specific notification channel is enabled.
+ * Each channel (in-app, browser, desktop) has an independent enable flag.
+ * All channels default to disabled (opt-in) to respect user attention.
+ */
+@doc("Notification channel enable/disable configuration")
+model NotificationChannelConfig {
+  /**
+   * Whether this notification channel is active.
+   * Defaults to false (opt-in). Users must explicitly enable each channel.
+   */
+  @doc("Whether this notification channel is enabled")
+  enabled: boolean = false;
+}
+
+/**
+ * Notification Event Type Filters
+ *
+ * Controls which agent lifecycle events trigger notifications.
+ * All event types default to enabled so that when a user turns on a
+ * channel, they receive all relevant notifications immediately.
+ * Users can then selectively disable event types they find noisy.
+ */
+@doc("Notification event type filters")
+model NotificationEventConfig {
+  @doc("Notify when agent starts running")
+  agentStarted: boolean = true;
+
+  @doc("Notify when agent completes a workflow phase")
+  phaseCompleted: boolean = true;
+
+  @doc("Notify when agent is waiting for human approval")
+  waitingApproval: boolean = true;
+
+  @doc("Notify when agent completes successfully")
+  agentCompleted: boolean = true;
+
+  @doc("Notify when agent execution fails")
+  agentFailed: boolean = true;
+}
+
+/**
+ * Notification Preferences
+ *
+ * Top-level notification configuration nested in Settings.
+ * Contains per-channel enable/disable and event type filters.
+ *
+ * ## Channel Independence
+ *
+ * Each channel can be enabled/disabled independently:
+ * - inApp: Sonner toast notifications in the web UI
+ * - browser: Web Notifications API (works when tab is in background)
+ * - desktop: Native OS notifications via node-notifier (no browser needed)
+ *
+ * ## Event Filtering
+ *
+ * The events config controls which lifecycle transitions trigger
+ * notifications across all enabled channels.
+ */
+@doc("Notification preferences for agent lifecycle events")
+model NotificationPreferences {
+  @doc("In-app toast notification channel (Sonner)")
+  inApp: NotificationChannelConfig;
+
+  @doc("Browser push notification channel (Web Notifications API)")
+  browser: NotificationChannelConfig;
+
+  @doc("Desktop OS notification channel (node-notifier)")
+  desktop: NotificationChannelConfig;
+
+  @doc("Which event types trigger notifications")
+  events: NotificationEventConfig;
+}
+
+/**
  * Settings Entity
  *
  * Global Shep platform settings stored as a singleton. This entity contains
@@ -257,9 +334,10 @@ model AgentConfig {
  * | user        | UserProfile         | Yes      | User profile information             |
  * | environment | EnvironmentConfig   | Yes      | Environment and tooling preferences  |
  * | system      | SystemConfig        | Yes      | System-level parameters              |
- * | agent       | AgentConfig         | Yes      | AI coding agent selection and auth   |
- * | createdAt   | utcDateTime         | Yes      | When created (from BaseEntity)       |
- * | updatedAt   | utcDateTime         | Yes      | When last updated (from BaseEntity)  |
+ * | agent       | AgentConfig              | Yes      | AI coding agent selection and auth   |
+ * | notifications | NotificationPreferences | Yes   | Notification preferences             |
+ * | createdAt   | utcDateTime              | Yes      | When created (from BaseEntity)       |
+ * | updatedAt   | utcDateTime              | Yes      | When last updated (from BaseEntity)  |
  *
  * ## Example
  *
@@ -340,4 +418,13 @@ model Settings extends BaseEntity {
    */
   @doc("AI coding agent selection and authentication")
   agent: AgentConfig;
+
+  /**
+   * Notification preferences for agent lifecycle events.
+   * Controls which channels (in-app, browser, desktop) are enabled
+   * and which event types trigger notifications.
+   * All channels default to disabled (opt-in).
+   */
+  @doc("Notification preferences for agent lifecycle events")
+  notifications: NotificationPreferences;
 }

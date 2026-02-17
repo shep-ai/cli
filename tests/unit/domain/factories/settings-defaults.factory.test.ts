@@ -234,6 +234,57 @@ describe('createDefaultSettings', () => {
     });
   });
 
+  describe('NotificationPreferences defaults', () => {
+    it('should have notifications field defined', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.notifications).toBeDefined();
+    });
+
+    it('should have all notification channels disabled (opt-in)', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.notifications.inApp.enabled).toBe(false);
+      expect(settings.notifications.browser.enabled).toBe(false);
+      expect(settings.notifications.desktop.enabled).toBe(false);
+    });
+
+    it('should have all notification event types enabled', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.notifications.events.agentStarted).toBe(true);
+      expect(settings.notifications.events.phaseCompleted).toBe(true);
+      expect(settings.notifications.events.waitingApproval).toBe(true);
+      expect(settings.notifications.events.agentCompleted).toBe(true);
+      expect(settings.notifications.events.agentFailed).toBe(true);
+    });
+
+    it('should match TypeSpec model defaults', () => {
+      // Act
+      const settings = createDefaultSettings();
+
+      // Assert
+      expect(settings.notifications).toEqual({
+        inApp: { enabled: false },
+        browser: { enabled: false },
+        desktop: { enabled: false },
+        events: {
+          agentStarted: true,
+          phaseCompleted: true,
+          waitingApproval: true,
+          agentCompleted: true,
+          agentFailed: true,
+        },
+      });
+    });
+  });
+
   describe('complete default object', () => {
     it('should return complete Settings object matching all TypeSpec defaults', () => {
       // Act
@@ -258,6 +309,18 @@ describe('createDefaultSettings', () => {
       expect(settings.agent).toEqual({
         type: AgentType.ClaudeCode,
         authMethod: AgentAuthMethod.Session,
+      });
+      expect(settings.notifications).toEqual({
+        inApp: { enabled: false },
+        browser: { enabled: false },
+        desktop: { enabled: false },
+        events: {
+          agentStarted: true,
+          phaseCompleted: true,
+          waitingApproval: true,
+          agentCompleted: true,
+          agentFailed: true,
+        },
       });
     });
   });

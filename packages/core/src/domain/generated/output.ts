@@ -345,6 +345,64 @@ export type AgentConfig = {
 };
 
 /**
+ * Notification channel enable/disable configuration
+ */
+export type NotificationChannelConfig = {
+  /**
+   * Whether this notification channel is enabled
+   */
+  enabled: boolean;
+};
+
+/**
+ * Notification event type filters
+ */
+export type NotificationEventConfig = {
+  /**
+   * Notify when agent starts running
+   */
+  agentStarted: boolean;
+  /**
+   * Notify when agent completes a workflow phase
+   */
+  phaseCompleted: boolean;
+  /**
+   * Notify when agent is waiting for human approval
+   */
+  waitingApproval: boolean;
+  /**
+   * Notify when agent completes successfully
+   */
+  agentCompleted: boolean;
+  /**
+   * Notify when agent execution fails
+   */
+  agentFailed: boolean;
+};
+
+/**
+ * Notification preferences for agent lifecycle events
+ */
+export type NotificationPreferences = {
+  /**
+   * In-app toast notification channel (Sonner)
+   */
+  inApp: NotificationChannelConfig;
+  /**
+   * Browser push notification channel (Web Notifications API)
+   */
+  browser: NotificationChannelConfig;
+  /**
+   * Desktop OS notification channel (node-notifier)
+   */
+  desktop: NotificationChannelConfig;
+  /**
+   * Which event types trigger notifications
+   */
+  events: NotificationEventConfig;
+};
+
+/**
  * Global Shep platform settings (singleton)
  */
 export type Settings = BaseEntity & {
@@ -368,6 +426,10 @@ export type Settings = BaseEntity & {
    * AI coding agent selection and authentication
    */
   agent: AgentConfig;
+  /**
+   * Notification preferences for agent lifecycle events
+   */
+  notifications: NotificationPreferences;
 };
 export enum TaskState {
   Todo = 'Todo',
@@ -884,6 +946,53 @@ export type ToolInstallCommand = {
    * Package manager identifier
    */
   packageManager: string;
+};
+export enum NotificationEventType {
+  AgentStarted = 'agent_started',
+  PhaseCompleted = 'phase_completed',
+  WaitingApproval = 'waiting_approval',
+  AgentCompleted = 'agent_completed',
+  AgentFailed = 'agent_failed',
+}
+export enum NotificationSeverity {
+  Info = 'info',
+  Warning = 'warning',
+  Success = 'success',
+  Error = 'error',
+}
+
+/**
+ * Notification event emitted for agent lifecycle transitions
+ */
+export type NotificationEvent = {
+  /**
+   * Type of lifecycle event
+   */
+  eventType: NotificationEventType;
+  /**
+   * ID of the agent run that triggered this event
+   */
+  agentRunId: string;
+  /**
+   * Human-readable feature name
+   */
+  featureName: string;
+  /**
+   * Phase name (only for phaseCompleted events)
+   */
+  phaseName?: string;
+  /**
+   * Human-readable event description
+   */
+  message: string;
+  /**
+   * Display severity for notification rendering
+   */
+  severity: NotificationSeverity;
+  /**
+   * When the event occurred
+   */
+  timestamp: any;
 };
 export enum AgentStatus {
   Idle = 'Idle',

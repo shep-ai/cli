@@ -1,0 +1,291 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-notifications
+summary: >
+  Implementation plan for cross-platform agent lifecycle notifications. Adds a TypeSpec-first
+  NotificationPreferences model to Settings (migration v9), a polling-based NotificationWatcherService
+  that detects agent status transitions from SQLite, an in-process EventEmitter notification bus
+  for fan-out, a NotificationService that dispatches to desktop (node-notifier) and SSE channels,
+  a Next.js Route Handler SSE endpoint (GET /api/agent-events), and React hooks (useAgentEvents,
+  useNotifications) that bridge SSE events to Sonner toasts and the Web Notifications API.
+  All channels are opt-in by default. 7 phases, 17 tasks, ~17 new files, ~9 modified files.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec (NotificationPreferences + NotificationEvent models)
+  - Next.js 16 Route Handlers (SSE endpoint)
+  - Sonner v2.0.7 (in-app toast, already installed)
+  - Web Notifications API (browser push, native)
+  - node-notifier v10.0.1 (native OS desktop notifications)
+  - Node.js EventEmitter (in-process notification bus)
+  - EventSource API (browser SSE client, native)
+  - better-sqlite3 (migration v9)
+  - tsyringe (DI registration)
+  - Vitest (TDD)
+relatedLinks:
+  - title: node-notifier npm
+    url: https://www.npmjs.com/package/node-notifier
+  - title: Web Notifications API (MDN)
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API
+  - title: Server-Sent Events (MDN)
+    url: https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+  - title: Next.js Route Handlers
+    url: https://nextjs.org/docs/app/building-your-application/routing/route-handlers
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Domain Models & TypeSpec Foundation'
+    description: >
+      Define NotificationEvent type, NotificationEventType and NotificationSeverity enums in
+      TypeSpec. Add NotificationPreferences (channel configs + event filters) to the Settings
+      model. Compile TypeSpec to generate TypeScript types. Update settings defaults factory.
+      This phase comes first because all subsequent layers depend on these types.
+    parallel: false
+    taskIds:
+      - task-1
+      - task-2
+      - task-3
+
+  - id: phase-2
+    name: 'Settings Persistence & Migration'
+    description: >
+      Add SQLite migration v9 for notification preference columns (notif_in_app_enabled,
+      notif_browser_enabled, notif_desktop_enabled, notif_evt_* event filters). Update the
+      settings mapper (toDatabase/fromDatabase) and SettingsRow interface to handle the new
+      columns. This enables notification preferences to be stored and loaded before any
+      services need to read them.
+    parallel: false
+    taskIds:
+      - task-4
+      - task-5
+
+  - id: phase-3
+    name: 'Notification Bus & Port Interface'
+    description: >
+      Create the INotificationService port interface in the application layer. Implement the
+      typed EventEmitter notification bus singleton (getNotificationBus/initializeNotificationBus)
+      following the getSettings() pattern. This provides the event backbone that connects the
+      watcher service, SSE endpoint, and desktop notifier.
+    parallel: false
+    taskIds:
+      - task-6
+      - task-7
+
+  - id: phase-4
+    name: 'Backend Notification Services'
+    description: >
+      Implement the DesktopNotifier (node-notifier wrapper with input sanitization), the
+      NotificationWatcherService (polls agent_runs + phase_timings tables for status transitions),
+      and the NotificationService (receives events from watcher, fans out to bus + desktop).
+      Register all services in the DI container. This is the core backend infrastructure.
+    parallel: false
+    taskIds:
+      - task-8
+      - task-9
+      - task-10
+      - task-11
+
+  - id: phase-5
+    name: 'SSE API Route'
+    description: >
+      Create the first Next.js API route at GET /api/agent-events. Implements SSE streaming
+      via ReadableStream, subscribes to the notification bus, sends heartbeats every 30s,
+      supports optional ?runId filtering, and cleans up on client disconnect. This bridges
+      backend events to the web UI.
+    parallel: false
+    taskIds:
+      - task-12
+
+  - id: phase-6
+    name: 'Web UI Hooks & Toast Integration'
+    description: >
+      Implement useAgentEvents hook (EventSource SSE client with exponential backoff reconnection
+      and connection status), useNotifications hook (dispatches to Sonner toasts and Web
+      Notifications API, manages browser permission). Mount the Toaster component in the root
+      layout. This completes the end-to-end notification pipeline from backend to UI.
+    parallel: false
+    taskIds:
+      - task-13
+      - task-14
+      - task-15
+
+  - id: phase-7
+    name: 'Integration Testing & Wiring Verification'
+    description: >
+      Write integration tests for the SSE endpoint (HTTP client consuming the stream), verify
+      end-to-end wiring with full validate pass, and confirm all notification channels work
+      together. Ensures the complete pipeline functions correctly.
+    parallel: false
+    taskIds:
+      - task-16
+      - task-17
+
+# File change tracking
+filesToCreate:
+  # TypeSpec
+  - tsp/common/enums/notification.tsp
+  - tsp/domain/entities/notification-event.tsp
+  # Application layer
+  - src/application/ports/output/services/notification-service.interface.ts
+  # Infrastructure layer
+  - src/infrastructure/services/notifications/notification-bus.ts
+  - src/infrastructure/services/notifications/desktop-notifier.ts
+  - src/infrastructure/services/notifications/notification-watcher.service.ts
+  - src/infrastructure/services/notifications/notification.service.ts
+  # Presentation layer (web)
+  - src/presentation/web/app/api/agent-events/route.ts
+  - src/presentation/web/hooks/use-agent-events.ts
+  - src/presentation/web/hooks/use-notifications.ts
+  # Tests
+  - tests/unit/infrastructure/services/notifications/notification-bus.test.ts
+  - tests/unit/infrastructure/services/notifications/desktop-notifier.test.ts
+  - tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts
+  - tests/unit/infrastructure/services/notifications/notification.service.test.ts
+  - tests/unit/presentation/web/hooks/use-agent-events.test.ts
+  - tests/unit/presentation/web/hooks/use-notifications.test.ts
+  - tests/integration/api/agent-events-sse.test.ts
+
+filesToModify:
+  # TypeSpec
+  - tsp/domain/entities/settings.tsp
+  # Domain layer (auto-generated)
+  - src/domain/generated/output.ts
+  - src/domain/factories/settings-defaults.factory.ts
+  # Infrastructure layer
+  - src/infrastructure/persistence/sqlite/migrations.ts
+  - src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+  - src/infrastructure/di/container.ts
+  # Presentation layer
+  - src/presentation/web/app/layout.tsx
+  # Port barrel exports
+  - src/application/ports/output/services/index.ts
+  - src/application/ports/output/index.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature adds a notification subsystem that spans all four Clean Architecture layers,
+  following the exact same patterns established by AgentConfig (for Settings persistence) and
+  the streaming infrastructure (for event delivery).
+
+  ```
+  Domain Layer (types only - no behavior)
+  +-- tsp/common/enums/notification.tsp          <- NotificationEventType, NotificationSeverity
+  +-- tsp/domain/entities/notification-event.tsp  <- NotificationEvent model
+  +-- tsp/domain/entities/settings.tsp            <- +NotificationPreferences in Settings
+  +-- src/domain/generated/output.ts              <- Auto-generated types (DO NOT EDIT)
+  +-- src/domain/factories/settings-defaults.factory.ts <- Default NotificationPreferences
+
+  Application Layer (port interface only)
+  +-- src/application/ports/output/services/
+      +-- notification-service.interface.ts       <- INotificationService { notify(event) }
+
+  Infrastructure Layer (all behavior)
+  +-- services/notifications/
+  |   +-- notification-bus.ts                     <- Typed EventEmitter singleton + accessors
+  |   +-- desktop-notifier.ts                     <- node-notifier wrapper with sanitization
+  |   +-- notification-watcher.service.ts         <- Polls DB for status transitions
+  |   +-- notification.service.ts                 <- Fan-out: bus + desktop dispatch
+  +-- persistence/sqlite/
+  |   +-- migrations.ts                           <- Migration v9 (notif columns)
+  |   +-- mappers/settings.mapper.ts              <- Updated toDatabase/fromDatabase
+  +-- di/container.ts                             <- Register notification services
+
+  Presentation Layer (web)
+  +-- app/api/agent-events/route.ts               <- SSE Route Handler (first API route)
+  +-- app/layout.tsx                              <- Mount <Toaster />
+  +-- hooks/use-agent-events.ts                   <- SSE client + reconnection
+  +-- hooks/use-notifications.ts                  <- Toast + browser notification dispatch
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Database Polling Instead of IPC (Research Decision #1)
+
+  The spec originally proposed IPC via `process.send()` for worker-to-parent event communication.
+  However, the worker is spawned with `detached: true` and IPC is immediately disconnected
+  (`child.disconnect()` + `child.unref()` in feature-agent-process.service.ts:80-91). Rather
+  than re-architecting the process lifecycle, a NotificationWatcherService polls the `agent_runs`
+  table every 2-3 seconds. The worker already writes all status transitions to SQLite via
+  `IAgentRunRepository.updateStatus()`. This is simple, reliable, and requires zero changes to
+  the worker process. Polling stops when no active runs exist (zero idle overhead).
+
+  ### 2. Node.js EventEmitter as Notification Bus (Research Decision #2)
+
+  A typed `EventEmitter` singleton provides in-process pub/sub for notification events. The
+  existing `EventChannel<T>` is single-consumer (async iterable), which doesn't support fan-out
+  to multiple SSE clients + desktop notifier. EventEmitter natively supports multiple listeners,
+  cleanup via `removeListener`, and has zero dependencies. Registered as a module-level singleton
+  via `getNotificationBus()` following the `getSettings()` pattern (settings.service.ts).
+
+  ### 3. Next.js Route Handler for SSE (Research Decision #3)
+
+  The SSE endpoint at `GET /api/agent-events` uses Next.js Route Handlers with the Web Streams
+  API (`ReadableStream`). This is the first API route in the web UI, establishing the pattern
+  for future routes. The route subscribes to the notification bus and writes SSE-formatted data
+  frames. On client disconnect (AbortSignal), the listener is removed. 30-second heartbeat
+  comments keep the connection alive. The route accesses the bus via `getNotificationBus()`.
+
+  ### 4. node-notifier for Desktop Notifications (Research Decision #4)
+
+  node-notifier v10.0.1 is the de facto standard for cross-platform OS notifications (8M weekly
+  downloads). Defense in depth: all inputs are sanitized (strip shell metacharacters, truncate
+  lengths) before passing to node-notifier, despite the historical CVE being fixed in v8.0.1.
+  The library is added to the root CLI package (server-side only).
+
+  ### 5. TypeSpec-First Settings Extension (Research Decision #5)
+
+  NotificationPreferences follows the exact AgentConfig pattern: TypeSpec model -> compile ->
+  migration v9 with ALTER TABLE -> mapper update -> defaults factory update. Column prefix
+  convention: `notif_` for channels, `notif_evt_` for event filters. All booleans as INTEGER
+  (0/1). All channel defaults are 0 (disabled/opt-in per SC-8). All event type defaults are 1
+  (enabled by default when a channel is turned on).
+
+  ### 6. Two-Hook Composition for Web UI (Research Decision #6)
+
+  `useAgentEvents` handles SSE transport (EventSource connection, reconnection with exponential
+  backoff 1s->30s max, event parsing, connection status). `useNotifications` handles dispatch
+  (Sonner toasts, Web Notifications API, permission management). This follows the codebase
+  convention of single-responsibility hooks (useTheme, useIsMobile, useDeferredMount).
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency flow: types first (Phase 1), then persistence (Phase 2),
+  then the event backbone (Phase 3), then backend services that produce events (Phase 4), then
+  the SSE bridge (Phase 5), then the web UI that consumes events (Phase 6), and finally
+  integration verification (Phase 7).
+
+  This ordering ensures that each phase has a solid foundation to build on:
+  - Phases 1-2 establish the data model and persistence - everything depends on these types
+  - Phase 3 creates the event bus - both the SSE route and notification service need it
+  - Phase 4 builds the backend services that detect events and dispatch notifications
+  - Phases 5-6 build the delivery path from backend to browser
+  - Phase 7 verifies the full end-to-end pipeline
+
+  Each phase is independently testable via TDD. Phase 4 tasks can be developed somewhat
+  independently (desktop notifier doesn't depend on watcher), but are sequenced to build
+  understanding progressively.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Worker process IPC not available (detached) | Use DB polling instead. Worker already writes status to SQLite. Zero worker changes needed. |
+  | node-notifier vulnerability discovered | Desktop channel can be disabled via Settings. Input sanitization applied as defense in depth. |
+  | SSE connection leaks (memory/listener leaks) | AbortSignal-based cleanup on disconnect. removeListener on bus. Integration test verifies cleanup. |
+  | Polling interval vs latency requirement | 2-3 second interval meets 2-second average latency. Worst case 3s (just missed a transition). |
+  | Next.js Route Handler can't access DI container | Use module-level singleton accessor (getNotificationBus) - same process, shared module scope. |
+  | TypeSpec compilation breaks existing types | Run tsp:compile early (Phase 1) and verify output.ts still compiles with pnpm typecheck. |
+  | Multiple SSE clients fan-out correctness | EventEmitter natively supports multiple listeners. Integration test with concurrent clients. |
+  | Sonner Toaster not mounted (toasts silently fail) | Explicit Phase 6 task to mount Toaster in layout.tsx. Verified by hook tests. |
+
+  ---
+
+  _Plan phase complete - proceed with implementation_

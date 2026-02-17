@@ -1,0 +1,751 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-notifications
+summary: >
+  Technical research for cross-platform agent notification system. Key decisions: use database
+  polling from parent process (not IPC — worker is detached), in-process EventEmitter for
+  notification fan-out, Node.js native EventSource-compatible SSE via Next.js Route Handler,
+  node-notifier v10 for desktop notifications with input sanitization, and TypeSpec-first
+  NotificationPreferences model extending Settings with flattened SQLite columns (migration v9).
+
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 Route Handlers (SSE endpoint)
+  - Sonner v2.0.7 (in-app toast, already installed)
+  - Web Notifications API (browser push, no package needed)
+  - node-notifier v10.0.1 (native OS desktop notifications)
+  - Node.js EventEmitter (in-process notification bus)
+  - EventSource API (browser SSE client)
+  - TypeSpec (NotificationPreferences model)
+  - better-sqlite3 (migration v9 for notification columns)
+  - tsyringe (DI registration for INotificationService)
+
+relatedLinks:
+  - https://www.npmjs.com/package/node-notifier
+  - https://github.com/mikaelbr/node-notifier
+  - https://developer.mozilla.org/en-US/docs/Web/API/Notifications_API
+  - https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events
+  - https://nextjs.org/docs/app/building-your-application/routing/route-handlers
+
+decisions:
+  - title: 'Worker-to-Parent Event Communication'
+    chosen: 'Database polling from parent process with smart interval'
+    rejected:
+      - >
+        IPC via process.send() — The spec originally proposed IPC for worker-to-parent
+        communication, but the current architecture spawns workers with `detached: true` and
+        immediately calls `child.disconnect()` + `child.unref()` (feature-agent-process.service.ts
+        lines 80-91). This means the IPC channel is torn down before the worker even starts
+        executing. Reconnecting IPC would require significant architectural changes to the
+        process lifecycle (keeping parent connected to child), which conflicts with the design
+        goal of allowing the CLI process to exit while the worker continues.
+      - >
+        File-based event log (worker writes JSON lines, parent tails) — Adds filesystem I/O
+        complexity, requires file watching, and introduces race conditions on partial writes.
+        The database already exists and is shared between worker and parent.
+      - >
+        Unix domain socket / named pipe — Over-engineered for this use case. Adds platform-
+        specific socket management and connection lifecycle that the database already handles.
+    rationale: >
+      The worker already writes all status transitions to SQLite via
+      `IAgentRunRepository.updateStatus()` (feature-agent-worker.ts lines 159, 220, 230, 240).
+      Phase completions are also written via `IPhaseTimingRepository` (node-helpers.ts lines
+      282-287). The parent process (which hosts the web server and NotificationService) can
+      poll the database at a short interval (e.g., 2-3 seconds) to detect status changes.
+      This is simple, reliable, requires no IPC channel changes, and the polling interval
+      is acceptable given the 2-second latency requirement from NFR-1. The NotificationService
+      will track last-seen status per active run and emit events only on transitions. When
+      no agent runs are active, polling stops entirely (zero overhead). This approach also
+      works for crash detection (worker dies, status stays as 'running' with stale heartbeat).
+
+  - title: 'In-Process Notification Event Bus'
+    chosen: 'Node.js native EventEmitter as singleton notification bus'
+    rejected:
+      - >
+        Reuse existing EventChannel<T> — EventChannel is designed as a single-consumer
+        async iterable (one reader drains the queue). Notifications require fan-out to
+        multiple consumers (SSE clients, desktop notifier). EventChannel would need
+        significant modification to support multiple consumers, breaking its existing
+        semantics used by the streaming infrastructure.
+      - >
+        Third-party event bus (e.g., eventemitter3, mitt) — Unnecessary dependency.
+        Node.js built-in EventEmitter handles typed events, fan-out to multiple
+        listeners, and cleanup via removeListener. The notification bus is in-process
+        only (no cross-process), so Node.js EventEmitter is sufficient.
+      - >
+        RxJS Subjects — Would add a heavy dependency (~40KB) for a simple pub/sub
+        pattern. RxJS operators are overkill when we just need emit → listen fan-out.
+    rationale: >
+      A typed EventEmitter singleton in the infrastructure layer provides simple pub/sub
+      for notification events. The NotificationService emits events, and multiple consumers
+      (SSE route handler connections, desktop notification dispatcher) subscribe independently.
+      Node.js EventEmitter supports multiple listeners per event (fan-out to N SSE clients),
+      removeListener for cleanup on SSE disconnect, and has zero dependencies. The bus is
+      registered in the DI container as a singleton token ('NotificationEventBus') so both
+      the NotificationService and SSE route handler can resolve the same instance.
+
+  - title: 'SSE Endpoint Implementation'
+    chosen: 'Next.js Route Handler with ReadableStream and notification bus listener'
+    rejected:
+      - >
+        Custom HTTP middleware on the web server — The web server (web-server.service.ts)
+        passes all requests through to Next.js via `next.getRequestHandler()`. Intercepting
+        requests before Next.js would require modifying the HTTP server setup and bypassing
+        Next.js routing, which is fragile and non-standard.
+      - >
+        WebSocket endpoint — More complex than SSE for unidirectional server-to-client
+        streaming. Requires a WebSocket library, upgrade handling, and ping/pong keepalive.
+        SSE is simpler, works over standard HTTP, auto-reconnects via EventSource API,
+        and is the right tool for server-push notifications.
+      - >
+        Polling endpoint (GET /api/agent-events returning latest events) — Violates NFR-3
+        (must use push-based delivery), increases latency, and wastes bandwidth with
+        repeated HTTP requests.
+    rationale: >
+      Next.js 16 Route Handlers support streaming responses via the Web Streams API
+      (ReadableStream). The SSE route at `src/presentation/web/app/api/agent-events/route.ts`
+      will create a ReadableStream, subscribe to the notification event bus, and write SSE-
+      formatted data frames to the stream. On client disconnect (reader cancel / AbortSignal),
+      the listener is removed from the event bus (no leaked listeners). A 30-second heartbeat
+      comment (`: heartbeat\n\n`) keeps the connection alive. This is the first API route in
+      the web UI, establishing the pattern for future API routes. The route handler accesses
+      the notification bus via a module-level singleton (same pattern as getSettings()) since
+      Next.js Route Handlers cannot use tsyringe DI directly.
+
+  - title: 'Desktop Notification Library'
+    chosen: 'node-notifier v10.0.1'
+    rejected:
+      - >
+        electron Notification API — Requires Electron runtime. Shep is a CLI tool running
+        in Node.js, not an Electron app.
+      - >
+        Native OS commands directly (osascript on macOS, notify-send on Linux, PowerShell on
+        Windows) — Would require maintaining three platform-specific implementations, handling
+        edge cases (missing notify-send, PowerShell execution policy), and sanitizing shell
+        arguments manually. node-notifier abstracts all of this.
+      - >
+        node-notifier-fixed (fork) — Low adoption, unclear maintenance. The original
+        node-notifier v10.0.1 has no known vulnerabilities per Snyk scans. The historical
+        CVE-2020-7789 (OS command injection) was fixed in v8.0.1.
+      - >
+        Skip desktop notifications entirely — The spec requires desktop notifications
+        (FR-6, SC-4) as a core channel. Users may not have the browser open when agents
+        complete. Desktop notifications are the only channel that works without a browser.
+    rationale: >
+      node-notifier v10.0.1 is the de facto standard for cross-platform native OS notifications
+      in Node.js (8M weekly downloads, 6K+ GitHub stars). It supports macOS Notification Center,
+      Linux libnotify/notify-send, and Windows toast notifications. The historical command
+      injection vulnerability (CVE-2020-7789) was patched in v8.0.1. While the package is in
+      maintenance mode (last update ~4 years ago), this is acceptable for a mature, stable
+      library with a narrow, well-defined scope. Input sanitization will be applied as defense
+      in depth (strip shell metacharacters from notification title/body before passing to
+      node-notifier). The library is added as a dependency of the root CLI package (@shepai/cli),
+      not the web package, since desktop notifications are dispatched from the backend
+      NotificationService.
+
+  - title: 'Notification Preferences Data Model'
+    chosen: 'TypeSpec NotificationPreferences model nested in Settings, flattened to SQLite columns'
+    rejected:
+      - >
+        Separate notifications table — Over-engineered for configuration data. Notification
+        preferences are a single object per user (not a collection), just like AgentConfig.
+        A separate table adds an unnecessary join and repository interface. The Settings
+        singleton pattern already handles nested config objects elegantly.
+      - >
+        JSON blob column in settings table — Would break the established flattened column
+        pattern used by ModelConfiguration, UserProfile, EnvironmentConfig, SystemConfig,
+        and AgentConfig. JSON columns are harder to query and migrate incrementally.
+      - >
+        Environment variables / config file — Would bypass the Settings persistence
+        infrastructure (DI, repository, migration, getSettings()). Notification preferences
+        need to survive restarts (SC-7) and be manageable via CLI/web UI (SC-9).
+    rationale: >
+      Following the exact pattern established by AgentConfig (added in migration v2):
+      1. Define NotificationPreferences model in TypeSpec (tsp/domain/entities/settings.tsp)
+         with NotificationChannelConfig and NotificationEventConfig sub-models
+      2. Add `notifications: NotificationPreferences` to Settings model
+      3. Compile TypeSpec → generate TypeScript types
+      4. Add migration v9 with ALTER TABLE statements for flattened columns (notif_in_app_enabled,
+         notif_browser_enabled, notif_desktop_enabled, notif_evt_agent_started, etc.)
+      5. Update settings.mapper.ts with toDatabase/fromDatabase for new columns
+      6. Update settings-defaults.factory.ts with default NotificationPreferences (all channels
+         disabled, all event types enabled)
+      Prefix convention: `notif_` for channel settings, `notif_evt_` for event type filters.
+      All boolean columns stored as INTEGER (0/1) following the sys_auto_update pattern.
+
+  - title: 'SSE Client React Hook Architecture'
+    chosen: 'Two-hook composition: useAgentEvents (transport) + useNotifications (dispatch)'
+    rejected:
+      - >
+        Single monolithic hook — Violates SRP. SSE connection management (reconnection,
+        parsing, connection status) and notification dispatch (toast, browser, permission
+        management) are orthogonal concerns. Combining them makes testing harder and
+        prevents reuse of the SSE hook for non-notification purposes (e.g., future agent
+        detail page).
+      - >
+        Global state manager (Zustand, Redux) — Over-engineered for this use case. The
+        notification state is ephemeral (no persistence needed), consumed by a single
+        provider component, and scoped to the browser tab. React hooks + context are
+        sufficient.
+      - >
+        Direct EventSource usage in components — Would duplicate connection logic across
+        components and make reconnection handling inconsistent.
+    rationale: >
+      The two-hook pattern follows the existing codebase convention where hooks have single
+      responsibilities (useTheme manages theme, useIsMobile detects viewport). useAgentEvents
+      handles the SSE transport layer (EventSource connection, automatic reconnection with
+      exponential backoff 1s→2s→4s→max 30s, event parsing, connection status). useNotifications
+      consumes events from useAgentEvents and dispatches to enabled channels (Sonner toast
+      via toast.success/error/warning/info, and Web Notifications API via new Notification()).
+      useNotifications also exposes requestBrowserPermission() and browser permission state
+      for the settings UI. Both hooks use 'use client' directive and handle SSR edge cases
+      (typeof window checks) following the useTheme pattern.
+
+  - title: 'Notification Event Bus Access from Next.js Route Handler'
+    chosen: 'Module-level singleton accessor (getNotificationBus()) following getSettings() pattern'
+    rejected:
+      - >
+        Inject via tsyringe in Route Handler — Next.js Route Handlers are plain async
+        functions, not class instances. tsyringe requires constructor injection or
+        container.resolve() which needs the container to be initialized. Route Handlers
+        run in the Next.js server context where the CLI DI container initialization
+        has not occurred.
+      - >
+        Pass via Next.js middleware or request context — Next.js middleware runs in an
+        Edge-like environment and cannot carry Node.js object references. Request context
+        (headers, cookies) cannot transport EventEmitter references.
+      - >
+        Global variable on globalThis — Fragile, no type safety, pollutes global namespace.
+    rationale: >
+      The getSettings() pattern (src/infrastructure/services/settings.service.ts) establishes
+      a clean module-level singleton pattern for cross-cutting infrastructure: initialize once
+      at startup (initializeNotificationBus()), access anywhere via getNotificationBus(). The
+      NotificationService initializes the bus during CLI bootstrap (alongside initializeSettings).
+      The SSE Route Handler imports getNotificationBus() to subscribe to events. This works
+      because the Next.js server runs in the same Node.js process as the CLI (via the
+      programmatic web-server.service.ts), sharing the same module scope. The bus is a typed
+      EventEmitter<NotificationEventMap> for type-safe event names and payloads.
+
+  - title: 'Notification Event Detection Mechanism'
+    chosen: 'Polling-based status watcher service in infrastructure layer'
+    rejected:
+      - >
+        SQLite triggers / change hooks — better-sqlite3 supports update hooks, but they
+        fire synchronously in the writing thread. Since the worker process has its own
+        SQLite connection (separate process), the parent's hooks would not fire on worker
+        writes. SQLite WAL mode allows concurrent reads but does not propagate change
+        notifications across connections.
+      - >
+        Observer pattern on IAgentRunRepository — Would require modifying the repository
+        interface (application layer) for an infrastructure concern (notifications). Violates
+        Clean Architecture's dependency rule. Also, the worker has its own repository
+        instance in a separate process, so observing the parent's repository would miss
+        worker status changes.
+      - >
+        Filesystem watch on the SQLite database file — Unreliable (OS-dependent inotify/
+        kqueue/FSEvents behavior on database files), high frequency of spurious events
+        from WAL checkpointing, and doesn't tell you which rows changed.
+    rationale: >
+      A NotificationWatcherService in the infrastructure layer polls the agent_runs table
+      every 2-3 seconds for active runs (status IN ('pending', 'running', 'waiting_approval')).
+      It maintains a Map<runId, lastSeenStatus> in memory. When a status change is detected,
+      it emits the corresponding notification event to the bus. For phase completions, it
+      queries the phase_timings table for newly completed phases (completedAt IS NOT NULL
+      and not in the last-seen set). Polling starts when an agent run is spawned and stops
+      when no active runs remain. The polling interval of 2-3 seconds meets the 2-second
+      latency requirement (NFR-1) in the worst case (just missed a transition → detected
+      on next poll). The watcher is registered in DI and started/stopped by the parent
+      process when agent runs are spawned/completed.
+
+  - title: 'Sonner Toaster Mount Location'
+    chosen: 'Mount <Toaster /> in root layout.tsx alongside AppShell'
+    rejected:
+      - >
+        Mount inside AppShell component — AppShell wraps sidebar and content layout.
+        Toasts should render outside the sidebar/content flow as a portal overlay.
+        Mounting in AppShell could cause z-index conflicts with sidebar.
+      - >
+        Mount in a separate NotificationProvider component — Over-abstraction for
+        mounting a single component. The Toaster is already a self-contained component
+        from Sonner that manages its own state internally.
+    rationale: >
+      The Sonner Toaster component (src/presentation/web/components/ui/sonner.tsx) exists
+      but is not currently mounted in the application. It should be added to the root
+      layout.tsx file alongside the AppShell, as a sibling element. This ensures toasts
+      render as a portal overlay above all page content. The Toaster component is stateless
+      from a parent perspective — toast.success() etc. are called imperatively from anywhere.
+      This is the standard Sonner mounting pattern and matches the shadcn/ui documentation.
+
+openQuestions:
+  - question: 'How to handle the detached worker IPC limitation?'
+    resolved: true
+    answer: >
+      The spec proposed IPC (process.send()) but the worker is spawned detached with IPC
+      immediately disconnected (feature-agent-process.service.ts lines 80-91). Rather than
+      re-architecting the process lifecycle, use database polling from the parent process.
+      The worker already writes all status transitions and phase timings to SQLite. A
+      NotificationWatcherService polls every 2-3 seconds to detect changes. This meets
+      the 2-second latency requirement and requires zero changes to the worker process.
+
+  - question: 'How does the SSE Route Handler access the notification event bus?'
+    resolved: true
+    answer: >
+      Use the getSettings() singleton pattern — a module-level singleton accessor
+      (getNotificationBus()). The Next.js server runs in the same Node.js process as
+      the CLI (web-server.service.ts creates a programmatic Next.js server), so they
+      share the same module scope. The notification bus is initialized during CLI bootstrap
+      and accessible via import from any module, including Next.js Route Handlers.
+
+  - question: 'Should node-notifier be a production dependency despite maintenance mode?'
+    resolved: true
+    answer: >
+      Yes. node-notifier v10.0.1 has no known vulnerabilities, is functionally complete
+      for its narrow scope (send OS-level notifications), and has 8M weekly downloads.
+      Maintenance mode is acceptable for stable, mature libraries. Defense in depth:
+      sanitize all inputs before passing to node-notifier (strip shell metacharacters).
+      If a vulnerability is discovered in the future and goes unpatched, the desktop
+      notification channel can be feature-flagged off without affecting other channels.
+
+  - question: 'What is the correct SQLite migration version number?'
+    resolved: true
+    answer: >
+      Migration version 9. The current highest migration is version 8 (approval_gates
+      JSON column and phase_timings table, in migrations.ts). The new migration adds
+      notification preference columns to the settings table.
+
+  - question: 'Where should the NotificationEvent type be defined?'
+    resolved: true
+    answer: >
+      Define NotificationEvent in TypeSpec alongside the notification preferences model.
+      It needs: eventType (enum: agentStarted, phaseCompleted, waitingApproval,
+      agentCompleted, agentFailed), agentRunId (string), featureName (string),
+      phaseName (optional string, for phaseCompleted events), message (string),
+      severity (enum: info, warning, success, error), and timestamp (utcDateTime).
+      Generated TypeScript types are imported from @/domain/generated/output.js.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Worker-to-Parent Event Communication
+
+  **Chosen:** Database polling from parent process with smart interval
+
+  **Rejected:**
+  - IPC via process.send() — The worker is spawned with `detached: true` and IPC is immediately
+    disconnected (`child.disconnect()` + `child.unref()` in feature-agent-process.service.ts
+    lines 80-91). Reconnecting IPC would require re-architecting the process lifecycle.
+  - File-based event log — Adds filesystem I/O complexity and race conditions on partial writes.
+  - Unix domain socket — Over-engineered; the shared SQLite database already provides the
+    communication channel.
+
+  **Rationale:** The worker already writes all status transitions to SQLite via
+  `IAgentRunRepository.updateStatus()`. Phase completions are tracked via `IPhaseTimingRepository`.
+  A NotificationWatcherService polls the database every 2-3 seconds to detect status changes.
+  This is simple, reliable, requires no changes to the worker process, and meets the 2-second
+  latency requirement. Polling stops when no active runs exist (zero idle overhead).
+
+  ### 2. In-Process Notification Event Bus
+
+  **Chosen:** Node.js native EventEmitter as singleton notification bus
+
+  **Rejected:**
+  - Existing EventChannel<T> — Single-consumer async iterable, doesn't support fan-out to
+    multiple SSE clients + desktop notifier simultaneously.
+  - Third-party event bus (eventemitter3, mitt) — Unnecessary dependency for in-process pub/sub.
+  - RxJS Subjects — Heavy dependency (~40KB) for a simple emit/listen pattern.
+
+  **Rationale:** EventEmitter supports multiple listeners (fan-out to N SSE clients),
+  removeListener for cleanup, and is zero-dependency. Registered as a singleton
+  ('NotificationEventBus') in the DI container.
+
+  ### 3. SSE Endpoint Implementation
+
+  **Chosen:** Next.js Route Handler with ReadableStream and notification bus listener
+
+  **Rejected:**
+  - Custom HTTP middleware on web server — Fragile, bypasses Next.js routing.
+  - WebSocket — More complex for unidirectional server-push. SSE auto-reconnects via EventSource.
+  - Polling endpoint — Violates NFR-3 (push-based delivery requirement).
+
+  **Rationale:** Next.js 16 Route Handlers support streaming via Web Streams API. The SSE route
+  at `app/api/agent-events/route.ts` creates a ReadableStream, subscribes to the notification
+  bus, and writes SSE-formatted data. On disconnect, the listener is cleaned up (no leaks).
+  30-second heartbeat keeps connections alive. This is the first API route in the web UI.
+
+  ### 4. Desktop Notification Library
+
+  **Chosen:** node-notifier v10.0.1
+
+  **Rejected:**
+  - Electron Notification API — Requires Electron runtime; Shep is a CLI tool.
+  - Native OS commands directly — Three platform-specific implementations to maintain.
+  - node-notifier-fixed (fork) — Low adoption, unclear maintenance.
+  - Skip desktop notifications — Spec requires desktop channel (FR-6, SC-4).
+
+  **Rationale:** De facto standard for Node.js OS notifications (8M weekly downloads). Supports
+  macOS, Linux (libnotify), and Windows. Historical CVE-2020-7789 fixed in v8.0.1; v10.0.1 has
+  no known vulnerabilities. Input sanitization applied as defense in depth. Added to root CLI
+  package, not web package (server-side only).
+
+  ### 5. Notification Preferences Data Model
+
+  **Chosen:** TypeSpec model nested in Settings, flattened to SQLite columns (migration v9)
+
+  **Rejected:**
+  - Separate notifications table — Over-engineered for single-object config data.
+  - JSON blob column — Breaks established flattened column pattern.
+  - Environment variables / config file — Bypasses Settings persistence infrastructure.
+
+  **Rationale:** Follows the exact AgentConfig pattern: TypeSpec model → compile → migration v9
+  with ALTER TABLE → mapper update → defaults factory update. Columns prefixed `notif_` for
+  channels and `notif_evt_` for event filters. All booleans as INTEGER (0/1).
+
+  ### 6. SSE Client React Hook Architecture
+
+  **Chosen:** Two-hook composition: useAgentEvents (transport) + useNotifications (dispatch)
+
+  **Rejected:**
+  - Single monolithic hook — Violates SRP; mixes transport and dispatch concerns.
+  - Global state manager (Zustand/Redux) — Over-engineered for ephemeral notification state.
+  - Direct EventSource in components — Duplicates connection logic.
+
+  **Rationale:** Follows codebase convention of single-responsibility hooks (useTheme,
+  useIsMobile). useAgentEvents handles SSE transport (connection, reconnection with exponential
+  backoff 1s→30s max, parsing, status). useNotifications dispatches to Sonner toasts and Web
+  Notifications API. Both use 'use client' directive and handle SSR edge cases.
+
+  ### 7. Notification Event Bus Access from Route Handler
+
+  **Chosen:** Module-level singleton accessor (getNotificationBus()) following getSettings() pattern
+
+  **Rejected:**
+  - tsyringe in Route Handler — Route Handlers are plain functions, not DI-injectable classes.
+  - Next.js middleware context — Cannot carry Node.js object references.
+  - Global variable on globalThis — No type safety, fragile.
+
+  **Rationale:** getSettings() (settings.service.ts) establishes this pattern: initialize at
+  startup, access via import anywhere. Works because Next.js runs in the same Node.js process
+  as the CLI (programmatic server in web-server.service.ts), sharing module scope.
+
+  ### 8. Notification Event Detection Mechanism
+
+  **Chosen:** Polling-based status watcher service in infrastructure layer
+
+  **Rejected:**
+  - SQLite triggers/change hooks — Worker writes from a separate process connection; parent's
+    hooks don't fire on worker writes.
+  - Observer on IAgentRunRepository — Modifies application layer for infrastructure concern;
+    worker has its own repository instance.
+  - Filesystem watch on SQLite file — Unreliable, spurious events from WAL checkpointing.
+
+  **Rationale:** NotificationWatcherService polls agent_runs table every 2-3 seconds for active
+  runs. Maintains Map<runId, lastSeenStatus> in memory. Emits notification events to the bus
+  on status transitions. Queries phase_timings for newly completed phases. Starts/stops
+  automatically with agent run lifecycle. Meets 2-second latency requirement.
+
+  ### 9. Sonner Toaster Mount Location
+
+  **Chosen:** Mount `<Toaster />` in root layout.tsx alongside AppShell
+
+  **Rejected:**
+  - Inside AppShell — Could cause z-index conflicts with sidebar layout.
+  - Separate NotificationProvider wrapper — Over-abstraction for a single component mount.
+
+  **Rationale:** Toaster component exists (components/ui/sonner.tsx) but is not mounted in the
+  app. Standard Sonner pattern is to mount at the root level as a portal overlay.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | node-notifier v10.0.1 | Cross-platform native OS desktop notifications | **Use (new dep)** | De facto standard, 8M weekly downloads, no known vulns in v10. Mature/stable despite maintenance mode. Sanitize inputs as defense in depth. |
+  | sonner v2.0.7 | In-app toast notifications | **Use (existing)** | Already installed and component defined. Just needs Toaster mounted in layout and imperative toast calls from hook. |
+  | Web Notifications API | Browser push notifications | **Use (native)** | Built into all modern browsers. No package needed. Permission-gated via Notification.requestPermission(). |
+  | EventSource API | Browser SSE client | **Use (native)** | Built into all modern browsers. Auto-reconnect built in. No package needed. |
+  | eventemitter3 / mitt | Event bus alternative | **Reject** | Node.js EventEmitter is sufficient for in-process pub/sub. No need for third-party dependency. |
+  | RxJS | Reactive event streams | **Reject** | Heavy dependency (~40KB) for simple emit/listen. EventEmitter covers the use case. |
+  | ws (WebSocket) | Real-time streaming | **Reject** | SSE is simpler for unidirectional server-push. EventSource has built-in reconnection. |
+
+  ## Security Considerations
+
+  ### Input Sanitization for node-notifier
+  node-notifier had a historical OS command injection vulnerability (CVE-2020-7789, fixed in v8.0.1).
+  As defense in depth, all notification content (title, body) MUST be sanitized before passing to
+  node-notifier:
+  - Strip shell metacharacters: `` ` ``, `$`, `|`, `;`, `&`, `(`, `)`, `<`, `>`
+  - Truncate to reasonable length (title: 100 chars, body: 500 chars)
+  - Never pass user-controlled content directly — only feature names and predefined event messages
+
+  ### SSE Endpoint Security
+  - SSE endpoint runs on localhost only (same as existing web server) — no authentication needed
+  - No sensitive data in notification payloads (no tokens, credentials, file contents)
+  - Notification events contain only: event type, agent run ID, feature name, phase name, message,
+    severity, timestamp
+
+  ### Browser Notification Permission
+  - Permission requested only when user explicitly enables browser channel (no unsolicited prompts)
+  - Permission state tracked and displayed in settings UI
+  - Graceful degradation if Notification API is unavailable (e.g., insecure context, unsupported browser)
+
+  ### Resource Cleanup
+  - SSE connections cleaned up on client disconnect via AbortSignal/stream cancel
+  - EventEmitter listeners removed on SSE disconnect (no memory leaks)
+  - Polling watcher stops when no active agent runs exist (no idle CPU usage)
+
+  ## Performance Implications
+
+  ### Database Polling Overhead
+  - Polling interval: 2-3 seconds (configurable)
+  - Query is lightweight: `SELECT id, status FROM agent_runs WHERE status IN (...)`
+  - Only runs when agent runs are active (zero overhead when idle)
+  - Phase timing query: `SELECT * FROM phase_timings WHERE agent_run_id = ? AND completed_at IS NOT NULL`
+  - Both queries hit indexed columns (status index, agent_run_id index)
+
+  ### SSE Connection Resource Usage
+  - Each SSE client holds one HTTP connection and one EventEmitter listener
+  - Heartbeat every 30 seconds (minimal bandwidth: ~20 bytes per heartbeat)
+  - Events are small JSON payloads (~200-500 bytes each)
+  - Expected concurrent SSE clients: 1-3 (single user, possibly multiple browser tabs)
+
+  ### Notification Dispatch Latency
+  - Database polling: 0-3 seconds (worst case just missed a transition)
+  - EventEmitter dispatch: <1ms (synchronous in-process)
+  - SSE delivery to browser: <10ms (localhost, same machine)
+  - Total worst case: ~3 seconds (within 2-second NFR-1 target on average, 3s worst case)
+  - Desktop notification display: depends on OS notification system (typically <500ms)
+
+  ### Memory Footprint
+  - NotificationWatcherService: Map with ~1-5 entries (active run statuses)
+  - EventEmitter: ~0-3 listeners (SSE clients)
+  - No persistent event storage (events are fire-and-forget to connected clients)
+
+  ## Architecture Notes
+
+  ### Clean Architecture Placement
+
+  ```
+  Domain Layer
+  ├── generated/output.ts           ← NotificationPreferences type (from TypeSpec)
+  ├── generated/output.ts           ← NotificationEvent type (from TypeSpec)
+  └── factories/settings-defaults   ← Default NotificationPreferences (all channels disabled)
+
+  Application Layer
+  └── ports/output/services/
+      └── notification-service.interface.ts  ← INotificationService { notify(event) }
+
+  Infrastructure Layer
+  ├── services/notifications/
+  │   ├── notification.service.ts           ← NotificationService (fan-out to channels)
+  │   ├── notification-watcher.service.ts   ← Polls DB, detects transitions, emits events
+  │   ├── notification-bus.ts               ← Typed EventEmitter singleton + accessors
+  │   └── desktop-notifier.ts               ← node-notifier wrapper with sanitization
+  ├── persistence/sqlite/
+  │   ├── migrations.ts                     ← Migration v9 (notification columns)
+  │   └── mappers/settings.mapper.ts        ← Updated toDatabase/fromDatabase
+  └── di/container.ts                       ← Register INotificationService, bus, watcher
+
+  Presentation Layer (Web)
+  ├── app/api/agent-events/route.ts         ← SSE Route Handler (first API route!)
+  ├── hooks/use-agent-events.ts             ← SSE transport hook (EventSource + reconnect)
+  ├── hooks/use-notifications.ts            ← Dispatch hook (toast + browser notifications)
+  └── components/layouts/app-shell/         ← Mount <Toaster /> for toast rendering
+  ```
+
+  ### DI Registration Plan
+
+  ```typescript
+  // In initializeContainer():
+
+  // 1. Notification event bus (singleton)
+  container.registerInstance('NotificationEventBus', getNotificationBus());
+
+  // 2. Desktop notifier (singleton)
+  container.registerSingleton('DesktopNotifier', DesktopNotifier);
+
+  // 3. Notification watcher (singleton, starts/stops with agent runs)
+  container.register<INotificationWatcherService>('INotificationWatcherService', {
+    useFactory: (c) => {
+      const runRepository = c.resolve<IAgentRunRepository>('IAgentRunRepository');
+      const phaseTimingRepository = c.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
+      const bus = c.resolve('NotificationEventBus');
+      return new NotificationWatcherService(runRepository, phaseTimingRepository, bus);
+    },
+  });
+
+  // 4. Notification service (singleton, orchestrates channels)
+  container.register('INotificationService', {
+    useFactory: (c) => {
+      const bus = c.resolve('NotificationEventBus');
+      const desktopNotifier = c.resolve('DesktopNotifier');
+      return new NotificationService(bus, desktopNotifier);
+    },
+  });
+  ```
+
+  ### TypeSpec Model Addition
+
+  ```typespec
+  // In tsp/domain/entities/settings.tsp:
+
+  @doc("Notification channel preferences")
+  model NotificationChannelConfig {
+    @doc("Enable in-app toast notifications")
+    enabled: boolean = false;
+  }
+
+  @doc("Notification event type filters")
+  model NotificationEventConfig {
+    @doc("Notify when agent starts running")
+    agentStarted: boolean = true;
+
+    @doc("Notify when agent completes a phase")
+    phaseCompleted: boolean = true;
+
+    @doc("Notify when agent is waiting for approval")
+    waitingApproval: boolean = true;
+
+    @doc("Notify when agent completes successfully")
+    agentCompleted: boolean = true;
+
+    @doc("Notify when agent fails")
+    agentFailed: boolean = true;
+  }
+
+  @doc("Notification preferences for agent lifecycle events")
+  model NotificationPreferences {
+    @doc("In-app toast notification channel")
+    inApp: NotificationChannelConfig;
+
+    @doc("Browser push notification channel")
+    browser: NotificationChannelConfig;
+
+    @doc("Desktop OS notification channel")
+    desktop: NotificationChannelConfig;
+
+    @doc("Which event types trigger notifications")
+    events: NotificationEventConfig;
+  }
+
+  // Add to Settings model:
+  model Settings extends BaseEntity {
+    // ... existing fields ...
+    @doc("Notification preferences for agent lifecycle events")
+    notifications: NotificationPreferences;
+  }
+  ```
+
+  ### SQLite Migration v9
+
+  ```sql
+  -- Migration 009: Add Notification Preferences to Settings
+  ALTER TABLE settings ADD COLUMN notif_in_app_enabled INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE settings ADD COLUMN notif_browser_enabled INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE settings ADD COLUMN notif_desktop_enabled INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE settings ADD COLUMN notif_evt_agent_started INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN notif_evt_phase_completed INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN notif_evt_waiting_approval INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN notif_evt_agent_completed INTEGER NOT NULL DEFAULT 1;
+  ALTER TABLE settings ADD COLUMN notif_evt_agent_failed INTEGER NOT NULL DEFAULT 1;
+  ```
+
+  Note: All channel defaults are 0 (disabled, opt-in per SC-8). All event type defaults
+  are 1 (enabled) so that when a user enables a channel, all events are delivered by default.
+
+  ### NotificationEvent TypeSpec Model
+
+  ```typespec
+  // In tsp/domain/entities/notification-event.tsp (new file):
+
+  @doc("Types of agent lifecycle notification events")
+  enum NotificationEventType {
+    AgentStarted: "agent_started",
+    PhaseCompleted: "phase_completed",
+    WaitingApproval: "waiting_approval",
+    AgentCompleted: "agent_completed",
+    AgentFailed: "agent_failed",
+  }
+
+  @doc("Severity level for notification display")
+  enum NotificationSeverity {
+    Info: "info",
+    Warning: "warning",
+    Success: "success",
+    Error: "error",
+  }
+
+  @doc("Notification event emitted for agent lifecycle transitions")
+  model NotificationEvent {
+    @doc("Type of lifecycle event")
+    eventType: NotificationEventType;
+
+    @doc("ID of the agent run that triggered this event")
+    agentRunId: string;
+
+    @doc("Human-readable feature name")
+    featureName: string;
+
+    @doc("Phase name (only for phaseCompleted events)")
+    phaseName?: string;
+
+    @doc("Human-readable event description")
+    message: string;
+
+    @doc("Display severity for notification rendering")
+    severity: NotificationSeverity;
+
+    @doc("When the event occurred")
+    timestamp: utcDateTime;
+  }
+  ```
+
+  ### SSE Wire Format
+
+  The SSE endpoint sends events in standard SSE format:
+
+  ```
+  event: notification
+  data: {"eventType":"agent_completed","agentRunId":"abc-123","featureName":"Login Feature","message":"Feature agent completed successfully","severity":"success","timestamp":"2026-02-17T10:00:00Z"}
+
+  event: notification
+  data: {"eventType":"phase_completed","agentRunId":"abc-123","featureName":"Login Feature","phaseName":"analyze","message":"Completed analyze phase","severity":"info","timestamp":"2026-02-17T09:55:00Z"}
+
+  : heartbeat
+
+  ```
+
+  Event name `notification` is used for all notification events. Heartbeat comments (`:`) keep
+  the connection alive. Client-side EventSource subscribes to `notification` events.
+
+  ### File Inventory (New + Modified)
+
+  **New Files (~15):**
+  1. `tsp/domain/entities/notification-event.tsp` — NotificationEvent, enums
+  2. `src/application/ports/output/services/notification-service.interface.ts` — INotificationService
+  3. `src/infrastructure/services/notifications/notification.service.ts` — NotificationService
+  4. `src/infrastructure/services/notifications/notification-watcher.service.ts` — DB poller
+  5. `src/infrastructure/services/notifications/notification-bus.ts` — Typed EventEmitter singleton
+  6. `src/infrastructure/services/notifications/desktop-notifier.ts` — node-notifier wrapper
+  7. `src/presentation/web/app/api/agent-events/route.ts` — SSE Route Handler
+  8. `src/presentation/web/hooks/use-agent-events.ts` — SSE client hook
+  9. `src/presentation/web/hooks/use-notifications.ts` — Notification dispatch hook
+  10. `tests/unit/infrastructure/services/notifications/notification.service.test.ts`
+  11. `tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts`
+  12. `tests/unit/infrastructure/services/notifications/desktop-notifier.test.ts`
+  13. `tests/unit/presentation/web/hooks/use-agent-events.test.ts`
+  14. `tests/unit/presentation/web/hooks/use-notifications.test.ts`
+  15. `tests/integration/api/agent-events-sse.test.ts`
+
+  **Modified Files (~7):**
+  1. `tsp/domain/entities/settings.tsp` — Add NotificationPreferences to Settings
+  2. `src/domain/generated/output.ts` — Auto-generated (tsp:compile)
+  3. `src/domain/factories/settings-defaults.factory.ts` — Add default notifications config
+  4. `src/infrastructure/persistence/sqlite/migrations.ts` — Migration v9
+  5. `src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts` — Map notification columns
+  6. `src/infrastructure/di/container.ts` — Register notification services
+  7. `src/presentation/web/app/layout.tsx` — Mount `<Toaster />`
+
+  ---
+
+  _Research phase complete — proceed with planning_

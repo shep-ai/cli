@@ -49,14 +49,20 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         user_name, user_email, user_github_username,
         env_default_editor, env_shell_preference,
         sys_auto_update, sys_log_level,
-        agent_type, agent_auth_method, agent_token
+        agent_type, agent_auth_method, agent_token,
+        notif_in_app_enabled, notif_browser_enabled, notif_desktop_enabled,
+        notif_evt_agent_started, notif_evt_phase_completed, notif_evt_waiting_approval,
+        notif_evt_agent_completed, notif_evt_agent_failed
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement,
         @user_name, @user_email, @user_github_username,
         @env_default_editor, @env_shell_preference,
         @sys_auto_update, @sys_log_level,
-        @agent_type, @agent_auth_method, @agent_token
+        @agent_type, @agent_auth_method, @agent_token,
+        @notif_in_app_enabled, @notif_browser_enabled, @notif_desktop_enabled,
+        @notif_evt_agent_started, @notif_evt_phase_completed, @notif_evt_waiting_approval,
+        @notif_evt_agent_completed, @notif_evt_agent_failed
       )
     `);
 
@@ -119,7 +125,15 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         sys_log_level = @sys_log_level,
         agent_type = @agent_type,
         agent_auth_method = @agent_auth_method,
-        agent_token = @agent_token
+        agent_token = @agent_token,
+        notif_in_app_enabled = @notif_in_app_enabled,
+        notif_browser_enabled = @notif_browser_enabled,
+        notif_desktop_enabled = @notif_desktop_enabled,
+        notif_evt_agent_started = @notif_evt_agent_started,
+        notif_evt_phase_completed = @notif_evt_phase_completed,
+        notif_evt_waiting_approval = @notif_evt_waiting_approval,
+        notif_evt_agent_completed = @notif_evt_agent_completed,
+        notif_evt_agent_failed = @notif_evt_agent_failed
       WHERE id = @id
     `);
 
