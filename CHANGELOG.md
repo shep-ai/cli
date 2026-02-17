@@ -1,3 +1,13 @@
+# [1.24.0](https://github.com/shep-ai/cli/compare/v1.23.2...v1.24.0) (2026-02-17)
+
+### Bug Fixes
+
+- **cli:** route web ui through use-case bridge and stabilize tests ([#62](https://github.com/shep-ai/cli/issues/62)) ([e79643e](https://github.com/shep-ai/cli/commit/e79643e0520077fda690c964e0ef27f64ddd643f))
+
+### Features
+
+- **cli:** add upgrade command ([#59](https://github.com/shep-ai/cli/issues/59)) ([1e2d3c1](https://github.com/shep-ai/cli/commit/1e2d3c13f1a11ef53cf0c0c7a727fa5c768f5bdb))
+
 ## [1.23.2](https://github.com/shep-ai/cli/compare/v1.23.1...v1.23.2) (2026-02-16)
 
 ### Bug Fixes
