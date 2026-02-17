@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { NotificationSeverity } from '@shepai/core/domain/generated/output';
-import { useAgentEvents } from './use-agent-events.js';
+import { useAgentEvents } from './use-agent-events';
 
 export interface UseNotificationsOptions {
   browserEnabled?: boolean;
