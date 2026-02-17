@@ -14,8 +14,8 @@
 import {
   getNotificationBus,
   hasNotificationBus,
-} from '../../../../../infrastructure/services/notifications/notification-bus.js';
-import type { NotificationEvent } from '../../../../../domain/generated/output.js';
+} from '@shepai/core/infrastructure/services/notifications/notification-bus';
+import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
 

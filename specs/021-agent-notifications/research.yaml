@@ -219,7 +219,7 @@ decisions:
       - >
         Global variable on globalThis — Fragile, no type safety, pollutes global namespace.
     rationale: >
-      The getSettings() pattern (src/infrastructure/services/settings.service.ts) establishes
+      The getSettings() pattern (packages/core/src/infrastructure/services/settings.service.ts) establishes
       a clean module-level singleton pattern for cross-cutting infrastructure: initialize once
       at startup (initializeNotificationBus()), access anywhere via getNotificationBus(). The
       NotificationService initializes the bus during CLI bootstrap (alongside initializeSettings).
@@ -722,11 +722,11 @@ content: |
 
   **New Files (~15):**
   1. `tsp/domain/entities/notification-event.tsp` — NotificationEvent, enums
-  2. `src/application/ports/output/services/notification-service.interface.ts` — INotificationService
-  3. `src/infrastructure/services/notifications/notification.service.ts` — NotificationService
-  4. `src/infrastructure/services/notifications/notification-watcher.service.ts` — DB poller
-  5. `src/infrastructure/services/notifications/notification-bus.ts` — Typed EventEmitter singleton
-  6. `src/infrastructure/services/notifications/desktop-notifier.ts` — node-notifier wrapper
+  2. `packages/core/src/application/ports/output/services/notification-service.interface.ts` — INotificationService
+  3. `packages/core/src/infrastructure/services/notifications/notification.service.ts` — NotificationService
+  4. `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` — DB poller
+  5. `packages/core/src/infrastructure/services/notifications/notification-bus.ts` — Typed EventEmitter singleton
+  6. `packages/core/src/infrastructure/services/notifications/desktop-notifier.ts` — node-notifier wrapper
   7. `src/presentation/web/app/api/agent-events/route.ts` — SSE Route Handler
   8. `src/presentation/web/hooks/use-agent-events.ts` — SSE client hook
   9. `src/presentation/web/hooks/use-notifications.ts` — Notification dispatch hook
@@ -739,11 +739,11 @@ content: |
 
   **Modified Files (~7):**
   1. `tsp/domain/entities/settings.tsp` — Add NotificationPreferences to Settings
-  2. `src/domain/generated/output.ts` — Auto-generated (tsp:compile)
-  3. `src/domain/factories/settings-defaults.factory.ts` — Add default notifications config
-  4. `src/infrastructure/persistence/sqlite/migrations.ts` — Migration v9
-  5. `src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts` — Map notification columns
-  6. `src/infrastructure/di/container.ts` — Register notification services
+  2. `packages/core/src/domain/generated/output.ts` — Auto-generated (tsp:compile)
+  3. `packages/core/src/domain/factories/settings-defaults.factory.ts` — Add default notifications config
+  4. `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` — Migration v9
+  5. `packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts` — Map notification columns
+  6. `packages/core/src/infrastructure/di/container.ts` — Register notification services
   7. `src/presentation/web/app/layout.tsx` — Mount `<Toaster />`
 
   ---

@@ -129,12 +129,12 @@ filesToCreate:
   - tsp/common/enums/notification.tsp
   - tsp/domain/entities/notification-event.tsp
   # Application layer
-  - src/application/ports/output/services/notification-service.interface.ts
+  - packages/core/packages/core/src/application/ports/output/services/notification-service.interface.ts
   # Infrastructure layer
-  - src/infrastructure/services/notifications/notification-bus.ts
-  - src/infrastructure/services/notifications/desktop-notifier.ts
-  - src/infrastructure/services/notifications/notification-watcher.service.ts
-  - src/infrastructure/services/notifications/notification.service.ts
+  - packages/core/packages/core/src/infrastructure/services/notifications/notification-bus.ts
+  - packages/core/packages/core/src/infrastructure/services/notifications/desktop-notifier.ts
+  - packages/core/packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts
+  - packages/core/packages/core/src/infrastructure/services/notifications/notification.service.ts
   # Presentation layer (web)
   - src/presentation/web/app/api/agent-events/route.ts
   - src/presentation/web/hooks/use-agent-events.ts
@@ -152,17 +152,17 @@ filesToModify:
   # TypeSpec
   - tsp/domain/entities/settings.tsp
   # Domain layer (auto-generated)
-  - src/domain/generated/output.ts
-  - src/domain/factories/settings-defaults.factory.ts
+  - packages/core/packages/core/src/domain/generated/output.ts
+  - packages/core/packages/core/src/domain/factories/settings-defaults.factory.ts
   # Infrastructure layer
-  - src/infrastructure/persistence/sqlite/migrations.ts
-  - src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
-  - src/infrastructure/di/container.ts
+  - packages/core/packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - packages/core/packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+  - packages/core/packages/core/src/infrastructure/di/container.ts
   # Presentation layer
   - src/presentation/web/app/layout.tsx
   # Port barrel exports
-  - src/application/ports/output/services/index.ts
-  - src/application/ports/output/index.ts
+  - packages/core/packages/core/src/application/ports/output/services/index.ts
+  - packages/core/src/application/ports/output/index.ts
 
 # Open questions (should all be resolved before implementation)
 openQuestions: []
@@ -180,11 +180,11 @@ content: |
   +-- tsp/common/enums/notification.tsp          <- NotificationEventType, NotificationSeverity
   +-- tsp/domain/entities/notification-event.tsp  <- NotificationEvent model
   +-- tsp/domain/entities/settings.tsp            <- +NotificationPreferences in Settings
-  +-- src/domain/generated/output.ts              <- Auto-generated types (DO NOT EDIT)
-  +-- src/domain/factories/settings-defaults.factory.ts <- Default NotificationPreferences
+  +-- packages/core/src/domain/generated/output.ts              <- Auto-generated types (DO NOT EDIT)
+  +-- packages/core/src/domain/factories/settings-defaults.factory.ts <- Default NotificationPreferences
 
   Application Layer (port interface only)
-  +-- src/application/ports/output/services/
+  +-- packages/core/src/application/ports/output/services/
       +-- notification-service.interface.ts       <- INotificationService { notify(event) }
 
   Infrastructure Layer (all behavior)

@@ -73,7 +73,7 @@ tasks:
     phaseId: phase-1
     title: 'Update settings defaults factory with notification preferences (TDD)'
     description: >
-      Update src/domain/factories/settings-defaults.factory.ts to import the new
+      Update packages/core/src/domain/factories/settings-defaults.factory.ts to import the new
       NotificationPreferences type and include default notification preferences in
       createDefaultSettings(). All channels disabled (opt-in), all event types enabled.
     state: Todo
@@ -103,7 +103,7 @@ tasks:
     phaseId: phase-2
     title: 'Add SQLite migration v9 for notification preference columns (TDD)'
     description: >
-      Add migration version 9 to src/infrastructure/persistence/sqlite/migrations.ts with
+      Add migration version 9 to packages/core/src/infrastructure/persistence/sqlite/migrations.ts with
       ALTER TABLE statements adding 8 notification columns to the settings table:
       notif_in_app_enabled (INTEGER DEFAULT 0), notif_browser_enabled (INTEGER DEFAULT 0),
       notif_desktop_enabled (INTEGER DEFAULT 0), notif_evt_agent_started (INTEGER DEFAULT 1),
@@ -133,7 +133,7 @@ tasks:
     phaseId: phase-2
     title: 'Update settings mapper for notification columns (TDD)'
     description: >
-      Update src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts: extend SettingsRow
+      Update packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts: extend SettingsRow
       interface with 8 notification columns (notif_in_app_enabled, notif_browser_enabled, etc.
       as number type). Update toDatabase() to flatten notifications object to columns (boolean
       to 0/1). Update fromDatabase() to reconstruct NotificationPreferences from columns (0/1
@@ -167,7 +167,7 @@ tasks:
     phaseId: phase-3
     title: 'Create INotificationService port interface'
     description: >
-      Create src/application/ports/output/services/notification-service.interface.ts defining
+      Create packages/core/src/application/ports/output/services/notification-service.interface.ts defining
       the INotificationService interface with a single notify(event: NotificationEvent) method.
       Export from the services barrel (index.ts) and the ports barrel (output/index.ts).
     state: Todo
@@ -175,8 +175,8 @@ tasks:
       - task-1
     acceptanceCriteria:
       - 'INotificationService interface with notify(event: NotificationEvent): void method'
-      - 'Exported from src/application/ports/output/services/index.ts'
-      - 'Exported from src/application/ports/output/index.ts'
+      - 'Exported from packages/core/src/application/ports/output/services/index.ts'
+      - 'Exported from packages/core/src/application/ports/output/index.ts'
       - 'pnpm typecheck passes'
     tdd: null # Interface definition only, no runtime logic
     estimatedEffort: '15min'
@@ -185,7 +185,7 @@ tasks:
     phaseId: phase-3
     title: 'Implement typed notification event bus singleton (TDD)'
     description: >
-      Create src/infrastructure/services/notifications/notification-bus.ts implementing a typed
+      Create packages/core/src/infrastructure/services/notifications/notification-bus.ts implementing a typed
       EventEmitter singleton following the getSettings() pattern from settings.service.ts.
       Export initializeNotificationBus(), getNotificationBus(), hasNotificationBus(), and
       resetNotificationBus() (test-only). The bus emits typed 'notification' events with
@@ -236,7 +236,7 @@ tasks:
     phaseId: phase-4
     title: 'Implement DesktopNotifier with input sanitization (TDD)'
     description: >
-      Create src/infrastructure/services/notifications/desktop-notifier.ts wrapping node-notifier.
+      Create packages/core/src/infrastructure/services/notifications/desktop-notifier.ts wrapping node-notifier.
       Sanitize all inputs before passing to node-notifier: strip shell metacharacters
       (backtick, $, |, ;, &, parens, angle brackets), truncate title to 100 chars and body to
       500 chars. Handle node-notifier errors gracefully (log warning, never throw). The class
@@ -268,7 +268,7 @@ tasks:
     phaseId: phase-4
     title: 'Implement NotificationWatcherService (TDD)'
     description: >
-      Create src/infrastructure/services/notifications/notification-watcher.service.ts that polls
+      Create packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts that polls
       the agent_runs and phase_timings tables to detect status transitions. Maintains a
       Map<runId, { status, completedPhases }> tracking last-seen state. On each poll cycle:
       query active runs (status IN pending/running/waiting_approval), compare with last-seen
@@ -311,7 +311,7 @@ tasks:
     phaseId: phase-4
     title: 'Implement NotificationService and register in DI container (TDD)'
     description: >
-      Create src/infrastructure/services/notifications/notification.service.ts implementing
+      Create packages/core/src/infrastructure/services/notifications/notification.service.ts implementing
       INotificationService. The notify(event) method: (1) checks Settings for enabled channels
       and event type filters, (2) emits to the notification bus (for SSE/in-app/browser), and
       (3) dispatches to DesktopNotifier if desktop channel is enabled. Register NotificationService,

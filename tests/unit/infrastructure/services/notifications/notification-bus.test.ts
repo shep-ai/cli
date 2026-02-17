@@ -13,12 +13,9 @@ import {
   getNotificationBus,
   hasNotificationBus,
   resetNotificationBus,
-} from '../../../../../src/infrastructure/services/notifications/notification-bus.js';
-import {
-  NotificationEventType,
-  NotificationSeverity,
-} from '../../../../../src/domain/generated/output.js';
-import type { NotificationEvent } from '../../../../../src/domain/generated/output.js';
+} from '@/infrastructure/services/notifications/notification-bus.js';
+import { NotificationEventType, NotificationSeverity } from '@/domain/generated/output.js';
+import type { NotificationEvent } from '@/domain/generated/output.js';
 
 function createTestEvent(overrides?: Partial<NotificationEvent>): NotificationEvent {
   return {

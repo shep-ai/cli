@@ -8,24 +8,20 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import type {
-  AgentRun,
-  PhaseTiming,
-  NotificationEvent,
-} from '../../../../../src/domain/generated/output.js';
+import type { AgentRun, PhaseTiming, NotificationEvent } from '@/domain/generated/output.js';
 import {
   AgentRunStatus,
   NotificationEventType,
   NotificationSeverity,
-} from '../../../../../src/domain/generated/output.js';
+} from '@/domain/generated/output.js';
 import {
   initializeNotificationBus,
   getNotificationBus,
   resetNotificationBus,
-} from '../../../../../src/infrastructure/services/notifications/notification-bus.js';
-import { NotificationWatcherService } from '../../../../../src/infrastructure/services/notifications/notification-watcher.service.js';
-import type { IAgentRunRepository } from '../../../../../src/application/ports/output/agents/agent-run-repository.interface.js';
-import type { IPhaseTimingRepository } from '../../../../../src/application/ports/output/agents/phase-timing-repository.interface.js';
+} from '@/infrastructure/services/notifications/notification-bus.js';
+import { NotificationWatcherService } from '@/infrastructure/services/notifications/notification-watcher.service.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 
 function createMockAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {

@@ -14,12 +14,9 @@ import {
   initializeNotificationBus,
   getNotificationBus,
   resetNotificationBus,
-} from '../../../src/infrastructure/services/notifications/notification-bus.js';
-import {
-  NotificationEventType,
-  NotificationSeverity,
-} from '../../../src/domain/generated/output.js';
-import type { NotificationEvent } from '../../../src/domain/generated/output.js';
+} from '@/infrastructure/services/notifications/notification-bus.js';
+import { NotificationEventType, NotificationSeverity } from '@/domain/generated/output.js';
+import type { NotificationEvent } from '@/domain/generated/output.js';
 
 function createTestEvent(overrides?: Partial<NotificationEvent>): NotificationEvent {
   return {
@@ -63,13 +60,13 @@ async function readSSEChunks(
 
 describe('SSE API Route: GET /api/agent-events', () => {
   // eslint-disable-next-line @typescript-eslint/consistent-type-imports
-  let routeModule: typeof import('../../../src/presentation/web/app/api/agent-events/route.js');
+  let routeModule: typeof import('@/presentation/web/app/api/agent-events/route.js');
 
   beforeEach(async () => {
     resetNotificationBus();
     initializeNotificationBus();
     // Dynamic import to get a fresh module (route handler uses getNotificationBus)
-    routeModule = await import('../../../src/presentation/web/app/api/agent-events/route.js');
+    routeModule = await import('@/presentation/web/app/api/agent-events/route.js');
   });
 
   afterEach(() => {

@@ -9,26 +9,17 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import type {
-  NotificationEvent,
-  NotificationPreferences,
-} from '../../../../../src/domain/generated/output.js';
-import {
-  NotificationEventType,
-  NotificationSeverity,
-} from '../../../../../src/domain/generated/output.js';
+import type { NotificationEvent, NotificationPreferences } from '@/domain/generated/output.js';
+import { NotificationEventType, NotificationSeverity } from '@/domain/generated/output.js';
 import {
   initializeNotificationBus,
   getNotificationBus,
   resetNotificationBus,
-} from '../../../../../src/infrastructure/services/notifications/notification-bus.js';
-import {
-  initializeSettings,
-  resetSettings,
-} from '../../../../../src/infrastructure/services/settings.service.js';
-import { createDefaultSettings } from '../../../../../src/domain/factories/settings-defaults.factory.js';
-import { NotificationService } from '../../../../../src/infrastructure/services/notifications/notification.service.js';
-import type { DesktopNotifier } from '../../../../../src/infrastructure/services/notifications/desktop-notifier.js';
+} from '@/infrastructure/services/notifications/notification-bus.js';
+import { initializeSettings, resetSettings } from '@/infrastructure/services/settings.service.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
+import { NotificationService } from '@/infrastructure/services/notifications/notification.service.js';
+import type { DesktopNotifier } from '@/infrastructure/services/notifications/desktop-notifier.js';
 
 function createTestEvent(overrides?: Partial<NotificationEvent>): NotificationEvent {
   return {

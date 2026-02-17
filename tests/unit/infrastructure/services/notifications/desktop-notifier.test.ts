@@ -15,7 +15,7 @@ vi.mock('node-notifier', () => ({
 }));
 
 import notifier from 'node-notifier';
-import { DesktopNotifier } from '../../../../../src/infrastructure/services/notifications/desktop-notifier.js';
+import { DesktopNotifier } from '@/infrastructure/services/notifications/desktop-notifier.js';
 
 const mockNotify = vi.mocked(notifier.notify);
 

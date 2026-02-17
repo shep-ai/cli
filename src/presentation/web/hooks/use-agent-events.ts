@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { NotificationEvent } from '../../../domain/generated/output.js';
+import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 
 export type ConnectionStatus = 'connected' | 'connecting' | 'disconnected';
 

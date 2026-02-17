@@ -1,8 +1,8 @@
 feature:
-  id: 019-agent-notifications
+  id: 021-agent-notifications
   name: agent-notifications
-  number: 19
-  branch: feat/019-agent-notifications
+  number: 21
+  branch: feat/agent-notifications
   lifecycle: research
   createdAt: '2026-02-16T12:24:22Z'
 status:

@@ -877,6 +877,53 @@ export type Tool = BaseEntity & {
    */
   installedAt?: any;
 };
+export enum NotificationEventType {
+  AgentStarted = 'agent_started',
+  PhaseCompleted = 'phase_completed',
+  WaitingApproval = 'waiting_approval',
+  AgentCompleted = 'agent_completed',
+  AgentFailed = 'agent_failed',
+}
+export enum NotificationSeverity {
+  Info = 'info',
+  Warning = 'warning',
+  Success = 'success',
+  Error = 'error',
+}
+
+/**
+ * Notification event emitted for agent lifecycle transitions
+ */
+export type NotificationEvent = {
+  /**
+   * Type of lifecycle event
+   */
+  eventType: NotificationEventType;
+  /**
+   * ID of the agent run that triggered this event
+   */
+  agentRunId: string;
+  /**
+   * Human-readable feature name
+   */
+  featureName: string;
+  /**
+   * Phase name (only for phaseCompleted events)
+   */
+  phaseName?: string;
+  /**
+   * Human-readable event description
+   */
+  message: string;
+  /**
+   * Display severity for notification rendering
+   */
+  severity: NotificationSeverity;
+  /**
+   * When the event occurred
+   */
+  timestamp: any;
+};
 
 /**
  * Single installation suggestion for a tool
@@ -946,53 +993,6 @@ export type ToolInstallCommand = {
    * Package manager identifier
    */
   packageManager: string;
-};
-export enum NotificationEventType {
-  AgentStarted = 'agent_started',
-  PhaseCompleted = 'phase_completed',
-  WaitingApproval = 'waiting_approval',
-  AgentCompleted = 'agent_completed',
-  AgentFailed = 'agent_failed',
-}
-export enum NotificationSeverity {
-  Info = 'info',
-  Warning = 'warning',
-  Success = 'success',
-  Error = 'error',
-}
-
-/**
- * Notification event emitted for agent lifecycle transitions
- */
-export type NotificationEvent = {
-  /**
-   * Type of lifecycle event
-   */
-  eventType: NotificationEventType;
-  /**
-   * ID of the agent run that triggered this event
-   */
-  agentRunId: string;
-  /**
-   * Human-readable feature name
-   */
-  featureName: string;
-  /**
-   * Phase name (only for phaseCompleted events)
-   */
-  phaseName?: string;
-  /**
-   * Human-readable event description
-   */
-  message: string;
-  /**
-   * Display severity for notification rendering
-   */
-  severity: NotificationSeverity;
-  /**
-   * When the event occurred
-   */
-  timestamp: any;
 };
 export enum AgentStatus {
   Idle = 'Idle',

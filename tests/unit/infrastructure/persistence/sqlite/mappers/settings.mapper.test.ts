@@ -14,13 +14,9 @@ import {
   toDatabase,
   fromDatabase,
   type SettingsRow,
-} from '../../../../../../src/infrastructure/persistence/sqlite/mappers/settings.mapper.js';
-import type { Settings } from '../../../../../../src/domain/generated/output.js';
-import {
-  AgentType,
-  AgentAuthMethod,
-  EditorType,
-} from '../../../../../../src/domain/generated/output.js';
+} from '@/infrastructure/persistence/sqlite/mappers/settings.mapper.js';
+import type { Settings } from '@/domain/generated/output.js';
+import { AgentType, AgentAuthMethod, EditorType } from '@/domain/generated/output.js';
 
 /**
  * Creates a complete test Settings object with all fields populated,
