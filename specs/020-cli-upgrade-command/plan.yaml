@@ -1,0 +1,113 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cli-upgrade-command
+summary: >
+  Implement `shep upgrade` as a presentation-layer command that checks the latest published
+  version via `npm view`, compares against the current version from IVersionService, and
+  spawns `npm i -g @shepai/cli@latest` with inherited stdio when an update is available.
+  All logic stays in a single command file following existing patterns. Spawn is injected
+  as an optional parameter for testability. Two phases: (1) TDD implementation of the command,
+  (2) CLI registration and integration verification.
+
+relatedFeatures: []
+technologies:
+  - Commander.js
+  - Node.js child_process (spawn)
+  - Vitest
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Command Implementation with TDD'
+    description: >
+      Build the upgrade command file and its unit tests using strict TDD. Write failing
+      tests first for all four paths (success upgrade, already up-to-date, npm failure,
+      version check failure), then implement the command to pass each test. This phase
+      produces the complete, tested command file.
+    parallel: false
+
+  - id: phase-2
+    name: 'CLI Registration & Integration'
+    description: >
+      Wire the command into the CLI bootstrap (index.ts) with import and addCommand call.
+      Verify end-to-end by running the built CLI and confirming the command appears in
+      help output. This phase is intentionally separate to keep the command's unit tests
+      independent of bootstrap concerns.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/cli/commands/upgrade.command.ts
+  - tests/unit/presentation/cli/commands/upgrade.command.test.ts
+
+filesToModify:
+  - src/presentation/cli/index.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The upgrade command is a purely presentation-layer addition. It follows the exact
+  `createXxxCommand(): Command` factory pattern used by version.command.ts, install.command.ts,
+  and all other commands. No new domain entities, use cases, ports, or infrastructure services
+  are needed.
+
+  The command resolves `IVersionService` from the existing DI container to get the current
+  version, spawns `npm view @shepai/cli version` to get the latest published version, and
+  conditionally spawns `npm i -g @shepai/cli@latest` with `stdio: 'inherit'` to stream
+  output directly to the terminal.
+
+  ## Key Design Decisions
+
+  ### 1. Presentation Layer Only (No Use Case)
+
+  Self-upgrading is a CLI-specific concern — spawning npm is not domain or application logic.
+  Creating an application-layer use case would add 3+ files (port interface, use case, potentially
+  an infrastructure service) for a single spawn call. The version command follows this same
+  pattern: presentation-only with DI resolution of IVersionService.
+
+  ### 2. Spawn Injection via Factory Parameter
+
+  `createUpgradeCommand(spawnFn: SpawnFn = spawn): Command` accepts an optional spawn parameter
+  defaulting to the real `child_process.spawn`. Tests pass a mock. This is cleaner than
+  `vi.mock('node:child_process')` (brittle, global) and lighter than DI container registration
+  (overkill for a command-level dependency). The executor services use a similar injection pattern.
+
+  ### 3. stdio: 'inherit' for npm install
+
+  Direct terminal streaming preserves npm's TTY features (progress bars, colors) with zero
+  stream-handling code. The tradeoff — we cannot capture output — is acceptable since we
+  only need the exit code.
+
+  ### 4. Fail-Open Version Check
+
+  If `npm view` fails (network error, npm not found, timeout), the command warns and proceeds
+  with the upgrade. The user explicitly asked to upgrade — we should try. A 10-second timeout
+  on the version check prevents hanging.
+
+  ### 5. Simple String Equality for Version Comparison
+
+  No semver library needed. `npm view` returns the exact latest version string. If it matches
+  our version from package.json, we're up to date. This avoids a new dependency for a
+  trivial comparison.
+
+  ## Implementation Strategy
+
+  Phase 1 comes first because the command must be fully implemented and tested before wiring
+  into the CLI. The TDD cycle within Phase 1 builds up the command incrementally: start with
+  the simplest path (already up-to-date), add the upgrade path, then handle errors. Each
+  test case drives the next piece of implementation.
+
+  Phase 2 is a minimal wiring step — one import and one `addCommand()` call. It's separated
+  so that Phase 1's unit tests remain isolated from bootstrap concerns.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | npm not available on user's system | spawn 'error' event caught, user gets clear error message |
+  | Version check hangs on slow network | 10-second timeout with setTimeout + child.kill() |
+  | Permissions error on npm i -g | npm's own error output streams to terminal; non-zero exit code reported |
+  | Tests flaky due to real spawn calls | Spawn injected as parameter; no real child processes in tests |

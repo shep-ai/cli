@@ -1,0 +1,139 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: cli-upgrade-command
+summary: >
+  4 tasks across 2 phases. Phase 1 implements the upgrade command and its unit tests
+  using strict TDD. Phase 2 wires the command into the CLI bootstrap and verifies
+  integration.
+
+relatedFeatures: []
+technologies:
+  - Commander.js
+  - Node.js child_process (spawn)
+  - Vitest
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Test and implement version check + already-up-to-date path'
+    description: >
+      Create the test file and command file. Start with the simplest behavior: the command
+      checks current vs latest version and exits early when already up to date. This
+      establishes the command skeleton, spawn injection pattern, and mock ChildProcess helper.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'createUpgradeCommand() returns a Commander Command with name "upgrade"'
+      - 'Command description is "Upgrade Shep CLI to the latest version"'
+      - 'When npm view returns same version as current, prints "already up to date" message'
+      - 'Does not spawn npm install when already up to date'
+      - 'Exits with code 0 (process.exitCode not set)'
+    tdd:
+      red:
+        - 'Write test: createUpgradeCommand returns Command with name "upgrade" and correct description'
+        - 'Write test: when latest version equals current version, prints already-up-to-date message and does NOT spawn npm install'
+      green:
+        - 'Create upgrade.command.ts with createUpgradeCommand(spawnFn) factory'
+        - 'Implement getLatestVersion() helper that spawns npm view with piped stdio and 10s timeout'
+        - 'Add version comparison — if equal, call messages.success() with version and return'
+        - 'Create mock spawn helper in test file that returns fake ChildProcess (EventEmitter)'
+      refactor:
+        - 'Extract SpawnFn type alias'
+        - 'Ensure mock helper is reusable for subsequent tests'
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Test and implement successful upgrade path'
+    description: >
+      Add the path where a newer version is available: the command prints current and target
+      versions, spawns npm install with inherited stdio, and reports success on exit code 0.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'When latest version is newer, prints "Upgrading from vX to vY" message'
+      - 'Spawns npm i -g @shepai/cli@latest with stdio inherit'
+      - 'On npm exit code 0, prints success message'
+      - 'process.exitCode remains unset (0)'
+    tdd:
+      red:
+        - 'Write test: when newer version available, spawns npm install and prints upgrade info'
+        - 'Write test: on npm exit code 0, prints success message'
+      green:
+        - 'Implement runNpmInstall() helper that spawns npm i -g with stdio inherit'
+        - 'Add post-install success message with messages.success()'
+      refactor:
+        - 'Review message formatting consistency with other commands'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Test and implement error handling paths'
+    description: >
+      Add two error paths: (1) npm install fails with non-zero exit code — report error
+      and set exitCode=1, (2) version check fails (npm view error/timeout) — warn and
+      proceed with upgrade anyway (fail-open). Also handle spawn error event (npm not found).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'On npm install non-zero exit code, prints error and sets process.exitCode = 1'
+      - 'When version check fails (npm view error), prints warning and proceeds with upgrade'
+      - 'When version check times out, proceeds with upgrade (fail-open)'
+      - 'When spawn itself errors (e.g. npm not found), prints error and sets process.exitCode = 1'
+    tdd:
+      red:
+        - 'Write test: npm install exits non-zero — error message shown, process.exitCode = 1'
+        - 'Write test: npm view fails with error event — warning shown, upgrade proceeds'
+        - 'Write test: spawn error event on npm install — error message shown, process.exitCode = 1'
+      green:
+        - 'Add exit code check in runNpmInstall — non-zero triggers messages.error() + exitCode = 1'
+        - 'Add try/catch around getLatestVersion — on failure, warn and return null'
+        - 'Handle "error" event on install spawn — catch and report'
+      refactor:
+        - 'Ensure all error messages follow install.command.ts patterns'
+        - 'Verify timeout cleanup (clearTimeout) in version check'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Register upgrade command in CLI bootstrap'
+    description: >
+      Add import and addCommand() call in src/presentation/cli/index.ts. Verify the command
+      appears in help output and the full test suite still passes.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'createUpgradeCommand imported in index.ts'
+      - 'program.addCommand(createUpgradeCommand()) called in command registration block'
+      - 'shep --help shows the upgrade command'
+      - 'All existing tests continue to pass'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Run shep --help and verify upgrade command is NOT listed (confirms current state)'
+      green:
+        - 'Add import for createUpgradeCommand in index.ts'
+        - 'Add program.addCommand(createUpgradeCommand()) after existing addCommand calls'
+      refactor:
+        - 'Ensure import ordering follows existing convention (alphabetical by path)'
+        - 'Update JSDoc command list in index.ts header comment'
+    estimatedEffort: '15min'
+
+totalEstimate: '2h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a strict TDD approach across 4 tasks. Phase 1 (tasks 1-3)
+  builds the command incrementally: first the version check and already-up-to-date path
+  (establishing the skeleton and test infrastructure), then the successful upgrade path,
+  and finally error handling. Each task adds tests first, then minimal implementation.
+  Phase 2 (task 4) wires the completed command into the CLI bootstrap and verifies
+  integration. Total estimated effort is 2 hours.
