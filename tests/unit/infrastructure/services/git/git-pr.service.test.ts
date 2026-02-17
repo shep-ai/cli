@@ -1,0 +1,336 @@
+/**
+ * GitPrService Unit Tests
+ *
+ * TDD Phase: RED-GREEN
+ */
+
+import 'reflect-metadata';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { GitPrService } from '@/infrastructure/services/git/git-pr.service';
+import {
+  GitPrError,
+  GitPrErrorCode,
+} from '@/application/ports/output/services/git-pr-service.interface';
+import type { ExecFunction } from '@/infrastructure/services/git/worktree.service';
+
+describe('GitPrService', () => {
+  let mockExec: ExecFunction;
+  let service: GitPrService;
+
+  beforeEach(() => {
+    mockExec = vi.fn();
+    service = new GitPrService(mockExec);
+  });
+
+  describe('hasUncommittedChanges', () => {
+    it('should return true when git status has output', async () => {
+      vi.mocked(mockExec).mockResolvedValue({
+        stdout: ' M src/file.ts\n',
+        stderr: '',
+      });
+
+      const result = await service.hasUncommittedChanges('/repo');
+
+      expect(result).toBe(true);
+      expect(mockExec).toHaveBeenCalledWith('git', ['status', '--porcelain'], { cwd: '/repo' });
+    });
+
+    it('should return false when git status is empty', async () => {
+      vi.mocked(mockExec).mockResolvedValue({
+        stdout: '',
+        stderr: '',
+      });
+
+      const result = await service.hasUncommittedChanges('/repo');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when git status is whitespace only', async () => {
+      vi.mocked(mockExec).mockResolvedValue({
+        stdout: '  \n',
+        stderr: '',
+      });
+
+      const result = await service.hasUncommittedChanges('/repo');
+
+      expect(result).toBe(false);
+    });
+  });
+
+  describe('commitAll', () => {
+    it('should stage all changes, commit, and return SHA', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git add -A
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git commit
+        .mockResolvedValueOnce({ stdout: 'abc123def456\n', stderr: '' }); // git rev-parse HEAD
+
+      const sha = await service.commitAll('/repo', 'feat: add feature');
+
+      expect(sha).toBe('abc123def456');
+      expect(mockExec).toHaveBeenNthCalledWith(1, 'git', ['add', '-A'], { cwd: '/repo' });
+      expect(mockExec).toHaveBeenNthCalledWith(2, 'git', ['commit', '-m', 'feat: add feature'], {
+        cwd: '/repo',
+      });
+      expect(mockExec).toHaveBeenNthCalledWith(3, 'git', ['rev-parse', 'HEAD'], { cwd: '/repo' });
+    });
+
+    it('should throw GitPrError with GIT_ERROR on failure', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('fatal: not a git repository'));
+
+      await expect(service.commitAll('/repo', 'msg')).rejects.toThrow(GitPrError);
+      await expect(service.commitAll('/repo', 'msg')).rejects.toMatchObject({
+        code: GitPrErrorCode.GIT_ERROR,
+      });
+    });
+  });
+
+  describe('push', () => {
+    it('should call git push origin branch', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+
+      await service.push('/repo', 'feat/my-branch');
+
+      expect(mockExec).toHaveBeenCalledWith('git', ['push', 'origin', 'feat/my-branch'], {
+        cwd: '/repo',
+      });
+    });
+
+    it('should add --set-upstream flag when setUpstream is true', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+
+      await service.push('/repo', 'feat/my-branch', true);
+
+      expect(mockExec).toHaveBeenCalledWith(
+        'git',
+        ['push', '--set-upstream', 'origin', 'feat/my-branch'],
+        { cwd: '/repo' }
+      );
+    });
+
+    it('should throw GitPrError with MERGE_CONFLICT when stderr contains rejected', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('error: failed to push some refs rejected'));
+
+      await expect(service.push('/repo', 'feat/x')).rejects.toMatchObject({
+        code: GitPrErrorCode.MERGE_CONFLICT,
+      });
+    });
+
+    it('should throw GitPrError with AUTH_FAILURE on auth errors', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('Authentication failed for repo'));
+
+      await expect(service.push('/repo', 'feat/x')).rejects.toMatchObject({
+        code: GitPrErrorCode.AUTH_FAILURE,
+      });
+    });
+  });
+
+  describe('createPr', () => {
+    it('should call gh pr create with --body-file and return url and number', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: 'https://github.com/org/repo/pull/42\n',
+        stderr: '',
+      });
+
+      const result = await service.createPr('/repo', '/repo/specs/pr.yaml');
+
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        expect.arrayContaining(['pr', 'create', '--body-file', '/repo/specs/pr.yaml']),
+        { cwd: '/repo' }
+      );
+      expect(result.url).toBe('https://github.com/org/repo/pull/42');
+      expect(result.number).toBe(42);
+    });
+
+    it('should throw GitPrError with GH_NOT_FOUND when gh is not found', async () => {
+      const error = new Error('ENOENT gh not found');
+      (error as NodeJS.ErrnoException).code = 'ENOENT';
+      vi.mocked(mockExec).mockRejectedValue(error);
+
+      await expect(service.createPr('/repo', '/repo/pr.yaml')).rejects.toMatchObject({
+        code: GitPrErrorCode.GH_NOT_FOUND,
+      });
+    });
+  });
+
+  describe('mergePr', () => {
+    it('should call gh pr merge with prNumber and default squash strategy', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+
+      await service.mergePr('/repo', 42);
+
+      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--squash'], {
+        cwd: '/repo',
+      });
+    });
+
+    it('should call gh pr merge with specified strategy', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+
+      await service.mergePr('/repo', 42, 'rebase');
+
+      expect(mockExec).toHaveBeenCalledWith('gh', ['pr', 'merge', '42', '--rebase'], {
+        cwd: '/repo',
+      });
+    });
+
+    it('should throw GitPrError with MERGE_FAILED on merge failure', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('merge failed: not mergeable'));
+
+      await expect(service.mergePr('/repo', 42)).rejects.toMatchObject({
+        code: GitPrErrorCode.MERGE_FAILED,
+      });
+    });
+  });
+
+  describe('mergeBranch', () => {
+    it('should checkout target, merge source, and push', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+
+      await service.mergeBranch('/repo', 'feat/my-branch', 'main');
+
+      expect(mockExec).toHaveBeenNthCalledWith(1, 'git', ['checkout', 'main'], { cwd: '/repo' });
+      expect(mockExec).toHaveBeenNthCalledWith(2, 'git', ['merge', 'feat/my-branch'], {
+        cwd: '/repo',
+      });
+      expect(mockExec).toHaveBeenNthCalledWith(3, 'git', ['push'], { cwd: '/repo' });
+    });
+
+    it('should throw GitPrError with MERGE_CONFLICT on conflict', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // checkout
+        .mockRejectedValueOnce(new Error('CONFLICT (content): Merge conflict in file.ts'));
+
+      await expect(service.mergeBranch('/repo', 'feat/x', 'main')).rejects.toMatchObject({
+        code: GitPrErrorCode.MERGE_CONFLICT,
+      });
+    });
+  });
+
+  describe('deleteBranch', () => {
+    it('should delete local branch', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+
+      await service.deleteBranch('/repo', 'feat/old');
+
+      expect(mockExec).toHaveBeenCalledWith('git', ['branch', '-d', 'feat/old'], { cwd: '/repo' });
+      expect(mockExec).toHaveBeenCalledTimes(1);
+    });
+
+    it('should also delete remote when deleteRemote is true', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+
+      await service.deleteBranch('/repo', 'feat/old', true);
+
+      expect(mockExec).toHaveBeenNthCalledWith(1, 'git', ['branch', '-d', 'feat/old'], {
+        cwd: '/repo',
+      });
+      expect(mockExec).toHaveBeenNthCalledWith(
+        2,
+        'git',
+        ['push', 'origin', '--delete', 'feat/old'],
+        {
+          cwd: '/repo',
+        }
+      );
+    });
+  });
+
+  describe('getCiStatus', () => {
+    it('should parse gh run list JSON output', async () => {
+      const ghOutput = JSON.stringify([
+        {
+          conclusion: 'success',
+          url: 'https://github.com/org/repo/actions/runs/123',
+        },
+      ]);
+      vi.mocked(mockExec).mockResolvedValue({ stdout: ghOutput, stderr: '' });
+
+      const result = await service.getCiStatus('/repo', 'feat/branch');
+
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        ['run', 'list', '--branch', 'feat/branch', '--json', 'conclusion,url', '--limit', '1'],
+        { cwd: '/repo' }
+      );
+      expect(result.status).toBe('success');
+      expect(result.runUrl).toBe('https://github.com/org/repo/actions/runs/123');
+    });
+
+    it('should return pending when no runs found', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '[]', stderr: '' });
+
+      const result = await service.getCiStatus('/repo', 'feat/branch');
+
+      expect(result.status).toBe('pending');
+    });
+
+    it('should return pending when conclusion is null', async () => {
+      const ghOutput = JSON.stringify([
+        { conclusion: null, url: 'https://github.com/org/repo/actions/runs/456' },
+      ]);
+      vi.mocked(mockExec).mockResolvedValue({ stdout: ghOutput, stderr: '' });
+
+      const result = await service.getCiStatus('/repo', 'feat/branch');
+
+      expect(result.status).toBe('pending');
+    });
+  });
+
+  describe('watchCi', () => {
+    it('should return success CiStatusResult on pass', async () => {
+      vi.mocked(mockExec).mockResolvedValue({
+        stdout: 'Run completed: success\nhttps://github.com/org/repo/actions/runs/789\n',
+        stderr: '',
+      });
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        expect.arrayContaining(['run', 'watch']),
+        expect.objectContaining({ cwd: '/repo' })
+      );
+      expect(result.status).toBe('success');
+    });
+
+    it('should throw GitPrError with CI_TIMEOUT on timeout', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('timed out waiting for run'));
+
+      await expect(service.watchCi('/repo', 'feat/branch', 5000)).rejects.toMatchObject({
+        code: GitPrErrorCode.CI_TIMEOUT,
+      });
+    });
+  });
+
+  describe('getPrDiffSummary', () => {
+    it('should parse git diff --stat and log correctly', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          // git diff --stat
+          stdout:
+            ' src/a.ts | 10 ++++---\n src/b.ts | 5 ++--\n 2 files changed, 8 insertions(+), 4 deletions(-)\n',
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          // git log --oneline
+          stdout: 'abc1234 feat: add A\ndef5678 feat: add B\nghi9012 fix: tweak\n',
+          stderr: '',
+        });
+
+      const result = await service.getPrDiffSummary('/repo', 'main');
+
+      expect(mockExec).toHaveBeenNthCalledWith(1, 'git', ['diff', '--stat', 'main...HEAD'], {
+        cwd: '/repo',
+      });
+      expect(mockExec).toHaveBeenNthCalledWith(2, 'git', ['log', '--oneline', 'main...HEAD'], {
+        cwd: '/repo',
+      });
+      expect(result.filesChanged).toBe(2);
+      expect(result.additions).toBe(8);
+      expect(result.deletions).toBe(4);
+      expect(result.commitCount).toBe(3);
+    });
+  });
+});

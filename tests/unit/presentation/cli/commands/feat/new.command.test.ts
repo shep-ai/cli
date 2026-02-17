@@ -43,7 +43,26 @@ vi.mock('../../../../../../src/presentation/cli/ui/index.js', () => ({
   spinner: vi.fn((_label: string, fn: () => Promise<unknown>) => fn()),
 }));
 
+const { mockGetSettings, mockHasSettings } = vi.hoisted(() => ({
+  mockGetSettings: vi.fn(),
+  mockHasSettings: vi.fn(),
+}));
+
+vi.mock('../../../../../../src/infrastructure/services/settings.service.js', () => ({
+  getSettings: (...args: unknown[]) => mockGetSettings(...args),
+  hasSettings: (...args: unknown[]) => mockHasSettings(...args),
+}));
+
 import { createNewCommand } from '../../../../../../src/presentation/cli/commands/feat/new.command.js';
+
+function makeSettings(overrides: { openPr?: boolean; autoMerge?: boolean } = {}) {
+  return {
+    workflow: {
+      openPrOnImplementationComplete: overrides.openPr ?? false,
+      autoMergeOnImplementationComplete: overrides.autoMerge ?? false,
+    },
+  };
+}
 
 describe('createNewCommand', () => {
   beforeEach(() => {
@@ -66,6 +85,8 @@ describe('createNewCommand', () => {
         specPath: '/specs/001-test-feature',
       },
     });
+    mockHasSettings.mockReturnValue(true);
+    mockGetSettings.mockReturnValue(makeSettings());
   });
 
   it('should create a command named "new"', () => {
@@ -108,7 +129,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: false, allowPlan: true, allowMerge: false },
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
         })
       );
     });
@@ -124,7 +145,18 @@ describe('createNewCommand', () => {
       );
     });
 
-    it('should set both true with --allow-all (fully autonomous)', async () => {
+    it('should set allowMerge=true with --allow-merge', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--allow-merge'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: expect.objectContaining({ allowMerge: true }),
+        })
+      );
+    });
+
+    it('should set all gates true with --allow-all (fully autonomous)', async () => {
       const cmd = createNewCommand();
       await cmd.parseAsync(['Add feature', '--allow-all'], { from: 'user' });
 
@@ -132,6 +164,117 @@ describe('createNewCommand', () => {
         expect.objectContaining({
           approvalGates: undefined,
         })
+      );
+    });
+  });
+
+  describe('--pr flag', () => {
+    it('should default openPr from settings (false)', async () => {
+      mockGetSettings.mockReturnValue(makeSettings({ openPr: false }));
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ openPr: false }));
+    });
+
+    it('should default openPr from settings (true)', async () => {
+      mockGetSettings.mockReturnValue(makeSettings({ openPr: true }));
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ openPr: true }));
+    });
+
+    it('should set openPr=true with --pr', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--pr'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ openPr: true }));
+    });
+
+    it('should set openPr=false with --no-pr', async () => {
+      mockGetSettings.mockReturnValue(makeSettings({ openPr: true }));
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--no-pr'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ openPr: false }));
+    });
+  });
+
+  describe('--auto-merge flag', () => {
+    it('should default autoMerge from settings (false)', async () => {
+      mockGetSettings.mockReturnValue(makeSettings({ autoMerge: false }));
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ autoMerge: false }));
+    });
+
+    it('should default autoMerge from settings (true)', async () => {
+      mockGetSettings.mockReturnValue(makeSettings({ autoMerge: true }));
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ autoMerge: true }));
+    });
+
+    it('should set autoMerge=true with --auto-merge', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--auto-merge'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ autoMerge: true }));
+    });
+
+    it('should set autoMerge=false with --no-auto-merge', async () => {
+      mockGetSettings.mockReturnValue(makeSettings({ autoMerge: true }));
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--no-auto-merge'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ autoMerge: false }));
+    });
+
+    it('should imply allowMerge=true when --auto-merge is set', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--auto-merge'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          autoMerge: true,
+          approvalGates: expect.objectContaining({ allowMerge: true }),
+        })
+      );
+    });
+
+    it('should imply allowMerge=true when settings autoMerge is true', async () => {
+      mockGetSettings.mockReturnValue(makeSettings({ autoMerge: true }));
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          autoMerge: true,
+          approvalGates: expect.objectContaining({ allowMerge: true }),
+        })
+      );
+    });
+  });
+
+  describe('settings fallback when settings unavailable', () => {
+    it('should default openPr=false and autoMerge=false when settings not available', async () => {
+      mockHasSettings.mockReturnValue(false);
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ openPr: false, autoMerge: false })
       );
     });
   });

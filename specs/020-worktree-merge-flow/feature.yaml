@@ -1,0 +1,41 @@
+feature:
+  id: 020-worktree-merge-flow
+  name: worktree-merge-flow
+  number: 20
+  branch: feat/020-worktree-merge-flow
+  lifecycle: implementation
+  createdAt: '2026-02-16T14:37:18Z'
+status:
+  phase: implementation
+  progress:
+    completed: 0
+    total: 28
+    percentage: 0
+  currentTask: task-1
+  lastUpdated: '2026-02-16T17:56:00Z'
+  lastUpdatedBy: shep-kit:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - planning
+validation:
+  lastRun: '2026-02-16T17:56:00Z'
+  gatesPassed:
+    - completeness
+    - consistency
+  autoFixesApplied: []
+tasks:
+  current: task-1
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-16T14:37:18Z'
+    completedBy: feature-agent
+  - phase: implementation-started
+    completedAt: '2026-02-16T17:56:00Z'
+    completedBy: shep-kit:implement
+errors:
+  current: null
+  history: []

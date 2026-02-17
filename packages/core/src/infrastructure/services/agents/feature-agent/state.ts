@@ -39,6 +39,35 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => [],
   }),
+  // --- Merge and workflow state channels ---
+  prUrl: Annotation<string | null>({
+    reducer: (_prev, next) => (next !== undefined ? next : _prev),
+    default: () => null,
+  }),
+  prNumber: Annotation<number | null>({
+    reducer: (_prev, next) => (next !== undefined ? next : _prev),
+    default: () => null,
+  }),
+  commitHash: Annotation<string | null>({
+    reducer: (_prev, next) => (next !== undefined ? next : _prev),
+    default: () => null,
+  }),
+  ciStatus: Annotation<string | null>({
+    reducer: (_prev, next) => (next !== undefined ? next : _prev),
+    default: () => null,
+  }),
+  openPr: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
+  autoMerge: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
+  allowMerge: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
 });
 
 export type FeatureAgentState = typeof FeatureAgentAnnotation.State;

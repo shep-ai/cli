@@ -1,0 +1,441 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: worktree-merge-flow
+summary: >
+  Technical research for the redesigned SDLC lifecycle and post-implementation merge flow.
+  Key decisions: redesign lifecycle enum (remove DeployAndQA, add Started/Analyze/Planning),
+  use dedicated IGitPrService port with expanded methods (including mergePr, mergeBranch,
+  deleteBranch), generate pr.yaml as PR content source of truth, persist all workflow flags
+  and PR state on Feature entity, extend Settings with workflow section, support configurable
+  PR creation via --pr flag and auto-merge via --auto-merge flag, implement approval gates
+  at 3 lifecycle transitions, cleanup worktree/branches after merge (not after PR creation).
+
+relatedFeatures: []
+
+technologies:
+  - LangGraph (StateGraph, Annotation API, interrupt(), isGraphBubbleUp, Command)
+  - tsyringe (DI container, @injectable, @inject decorators)
+  - TypeSpec (lifecycle.tsp changes, feature.tsp extension, settings.tsp extension)
+  - SQLite (feature persistence, settings persistence, migrations)
+  - execFile (promisified child_process.execFile via 'ExecFunction' DI token)
+  - js-yaml (feature.yaml checkpoint read/write, pr.yaml generation/consumption)
+  - Commander.js (CLI flags --pr, --auto-merge, --allow-prd, --allow-plan, --allow-merge)
+  - GitHub CLI (gh pr create, gh pr merge, gh run watch, gh pr view, gh run view)
+  - Git CLI (git status, git add, git commit, git push, git merge, git branch -d, git diff --stat, git log)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Lifecycle Enum Redesign Strategy'
+    chosen: 'Remove DeployAndQA, add Started/Analyze/Planning, keep Review/Maintain with redefined semantics'
+    rejected:
+      - >
+        Keep DeployAndQA and add new phases alongside — rejected because DeployAndQA has no
+        implementation in the agent and never will. It represents a concept (deployment pipelines)
+        that is out of scope. Keeping dead enum values confuses the codebase and DB state.
+      - >
+        Collapse Research + Planning into one phase — rejected because the spec explicitly
+        separates them. Planning has its own approval gate (--allow-plan) distinct from Research.
+        They represent different stages: Research is technical analysis, Planning is task breakdown.
+    rationale: >
+      The new lifecycle flow is: Started → Analyze → Requirements → Research → Planning →
+      Implementation → Review → Maintain. This maps cleanly to the agent graph nodes and
+      approval gates. TypeSpec enum changes require tsp:compile to regenerate output.ts,
+      plus a DB migration to handle existing features with old lifecycle values. Existing
+      features with DeployAndQA lifecycle should be migrated to Maintain (they were past
+      implementation).
+
+  - title: 'Merge Node Architecture — Orchestrator with Branching Logic'
+    chosen: 'Standalone orchestrator node with conditional PR/merge behavior based on Feature flags'
+    rejected:
+      - >
+        Two separate nodes (pr-node and merge-node) — rejected because the flow is sequential
+        and tightly coupled. Splitting into two nodes adds unnecessary graph complexity and
+        state-passing overhead. A single node with conditional branches is simpler.
+      - >
+        executeNode() helper — rejected because the merge node does NOT primarily call
+        IAgentExecutor. It orchestrates deterministic git/gh CLI operations. Only the CI fix
+        sub-step uses the executor.
+    rationale: >
+      The merge node handles the full post-implementation flow: validate → commit → push →
+      (optionally create PR) → (optionally watch CI) → (optionally merge PR or branch) →
+      update lifecycle → update feature.yaml → generate pr.yaml → cleanup. The branching
+      logic is driven by Feature entity flags (openPr, autoMerge, allowMerge) persisted in DB.
+
+  - title: 'PR Content Strategy — pr.yaml as Source of Truth'
+    chosen: 'Generate pr.yaml in specs directory, PR creation reads from this file'
+    rejected:
+      - >
+        Generate PR content inline during PR creation — rejected because the spec explicitly
+        requires pr.yaml as single source of truth for PR content. Inline generation would
+        make PR content non-reproducible and non-reviewable before submission.
+      - >
+        Store PR content in Feature DB entity — rejected because PR content (title, body,
+        labels) is a document artifact that belongs in the spec directory alongside other
+        artifacts. The DB stores PR STATE (url, number, status), not PR CONTENT.
+    rationale: >
+      pr.yaml is generated ALWAYS after implementation (regardless of --pr flag). It serves
+      as documentation even if no PR is opened. When --pr is set, the createPr method reads
+      pr.yaml to get title, body, labels, baseBranch, etc. This separation of content vs state
+      follows the existing pattern where spec.yaml defines what to build and the DB tracks
+      execution state.
+
+  - title: 'Feature Entity Extension — Workflow Flags + PR State'
+    chosen: 'Add boolean workflow flags and nullable PR tracking fields to Feature TypeSpec model'
+    rejected:
+      - >
+        Separate WorkflowConfig entity — rejected because these flags are intrinsic to the
+        Feature lifecycle, not a separate concern. A separate entity would require join queries
+        and add mapping complexity for no benefit.
+      - >
+        Store flags only in feature.yaml (not DB) — rejected because the agent graph nodes
+        need to read these flags, and they access data via IFeatureRepository (DB), not by
+        reading spec files. The DB is the runtime state store.
+    rationale: >
+      New fields on Feature: openPr (bool), autoMerge (bool), allowPrd (bool), allowPlan (bool),
+      allowMerge (bool), prUrl (string|null), prNumber (int|null), prStatus (enum|null),
+      commitHash (string|null), ciStatus (enum|null). These map to CLI flags and runtime state.
+      Requires TypeSpec changes to feature.tsp, DB migration to add columns, and
+      IFeatureRepository extension for the new fields.
+
+  - title: 'Settings Extension — Workflow Defaults'
+    chosen: 'Add workflow section to Settings with openPrOnImplementationComplete and autoMergeOnImplementationComplete'
+    rejected:
+      - >
+        Use environment variables instead of settings — rejected because settings are the
+        established configuration mechanism. Environment variables would bypass the settings
+        system and be inconsistent with how agent type, model configuration, etc. are configured.
+    rationale: >
+      Settings.workflow provides global defaults. Per-feature flags (--pr, --auto-merge)
+      override these defaults. Resolution order: CLI flag → Feature entity in DB → Settings
+      default. This matches the existing pattern where settings provide defaults and command
+      invocations can override.
+
+  - title: 'Approval Gate System — Feature Flags + shouldInterrupt'
+    chosen: 'Store approval flags on Feature entity, check in shouldInterrupt and merge node'
+    rejected:
+      - >
+        Extend ApprovalGates TypeSpec model with allowMerge — rejected for now because the
+        existing ApprovalGates model lives in the graph state, not on the Feature entity.
+        The new flags (allowPrd, allowPlan, allowMerge) are persisted on Feature and read
+        by graph nodes. A future refactor can unify these, but for now the Feature entity
+        is the source of truth for approval configuration.
+    rationale: >
+      Three approval gates: Requirements→Research (--allow-prd), Planning→Implementation
+      (--allow-plan), Review→Maintain (--allow-merge). Each gate pauses the agent via
+      interrupt() unless the corresponding flag is set. The merge node reads Feature.allowMerge
+      (and Feature.autoMerge which implies allowMerge) to decide whether to pause or proceed.
+      Existing shouldInterrupt is extended to read Feature flags from state.
+
+  - title: 'Auto-Merge Flow — PR Path vs Direct Merge Path'
+    chosen: 'Two code paths within merge node: PR merge (gh pr merge) or direct merge (git merge)'
+    rejected:
+      - >
+        Always create PR for auto-merge — rejected because the spec explicitly supports
+        direct branch merge when --auto-merge is set without --pr. Some users prefer direct
+        merges for small features or when GitHub is not the hosting platform.
+    rationale: >
+      When autoMerge is true AND openPr is true: create PR → watch CI → merge PR via
+      gh pr merge. When autoMerge is true AND openPr is false: merge feature branch into
+      main directly via git merge → push main. Both paths transition to Maintain after
+      successful merge. The merge node checks Feature.openPr to choose the path.
+
+  - title: 'Worktree Cleanup Timing — After Merge, Not After PR'
+    chosen: 'Cleanup worktree and delete branches AFTER merge into main, not after PR creation'
+    rejected:
+      - >
+        Cleanup after PR creation (original spec approach) — rejected by the new spec.
+        The worktree may be needed during Review phase if changes are requested. Cleanup
+        should only happen after the merge step is complete and code is on main.
+    rationale: >
+      Per REQ-8.4: Cleanup happens AFTER merge, NOT after PR creation. This means:
+      (1) If autoMerge, cleanup happens immediately after merge.
+      (2) If not autoMerge, cleanup happens when the user approves merge in Review phase.
+      The cleanup includes both worktree removal (IWorktreeService.remove) and branch
+      deletion (local + remote via IGitPrService.deleteBranch).
+
+  - title: 'IGitPrService Port — Expanded Method Set'
+    chosen: 'Port interface with 10 methods including mergePr, mergeBranch, deleteBranch'
+    rejected:
+      - >
+        Keep original 7 methods and add merge/delete to a separate service — rejected because
+        merge and branch deletion are git/PR operations that logically belong in the same
+        service. SRP is satisfied because the service is about git/PR operations, not about
+        a single git command.
+    rationale: >
+      Expanded from original 7 to 10 methods to support the full merge flow:
+      hasUncommittedChanges, commitAll, push, createPr (reads from pr.yaml),
+      mergePr (gh pr merge), mergeBranch (git merge), getCiStatus, watchCi,
+      deleteBranch (local + remote), getPrDiffSummary. The createPr method takes
+      a prYamlPath parameter and reads content from the file, enforcing pr.yaml as
+      the single source of truth.
+
+  - title: 'Graph State Extension — Expanded Fields'
+    chosen: 'Add PR tracking + workflow flag fields to graph state from Feature entity'
+    rejected:
+      - >
+        Read Feature entity from DB on every check — rejected because graph state should
+        contain the data nodes need. Repeated DB reads in graph nodes add latency and
+        coupling. Load once at graph start, carry in state.
+    rationale: >
+      Graph state extended with: prUrl, prNumber, commitHash, ciStatus (runtime state from
+      merge operations), plus openPr, autoMerge, allowMerge (workflow flags loaded from
+      Feature entity at graph start). The graph entry node or state initialization loads
+      Feature flags into state so downstream nodes can read them without DB access.
+
+  - title: 'DB Migration Strategy'
+    chosen: 'Single migration adding new columns to features table and workflow columns to settings'
+    rejected:
+      - >
+        Multiple incremental migrations — rejected because all changes are part of one
+        feature and should ship together. Incremental migrations add complexity for no
+        benefit when the changes are deployed atomically.
+    rationale: >
+      One migration (next user_version increment) adds: (1) boolean columns to features
+      table: open_pr, auto_merge, allow_prd, allow_plan, allow_merge (default false),
+      (2) nullable columns to features: pr_url, pr_number, pr_status, commit_hash, ci_status,
+      (3) workflow columns to settings: open_pr_on_impl_complete, auto_merge_on_impl_complete
+      (default false), (4) UPDATE existing features with lifecycle='Deploy & QA' to
+      lifecycle='Maintain'. SQLite ALTER TABLE ADD COLUMN supports defaults, so existing
+      rows get false/null automatically.
+
+  - title: 'Error Type Strategy — Expanded GitPrError Codes'
+    chosen: 'GitPrError with expanded error codes including MERGE_FAILED and PR_NOT_FOUND'
+    rejected:
+      - >
+        Reuse original 7 codes — insufficient for the new merge and delete operations.
+        PR merge failures and branch deletion errors need distinct codes.
+    rationale: >
+      Error codes: MERGE_CONFLICT, AUTH_FAILURE, GH_NOT_FOUND, NETWORK_ERROR, CI_TIMEOUT,
+      BRANCH_NOT_FOUND, GIT_ERROR, MERGE_FAILED (for gh pr merge or git merge failures),
+      PR_NOT_FOUND (for operations on non-existent PRs). The merge node catches GitPrError
+      and switches on code for recovery decisions.
+
+  - title: 'Merge Node Dependency Injection — Services Bag'
+    chosen: 'FeatureAgentGraphDeps bag with expanded service set'
+    rejected:
+      - >
+        Resolve from container inside node — hidden global dependency on container state.
+    rationale: >
+      The deps bag expands to: { executor, gitPrService, worktreeService, featureRepository }.
+      The worker resolves all services from DI container and passes through the factory.
+      Same pattern as before but the merge node now also needs access to Feature flags
+      (loaded from DB via featureRepository at graph initialization).
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Lifecycle Enum Redesign
+
+  **Chosen:** Remove DeployAndQA, add Started/Analyze/Planning, redefine Review/Maintain
+
+  **Rejected:**
+  - Keep DeployAndQA alongside new phases — dead code, no implementation planned
+  - Collapse Research + Planning — spec requires separate approval gates
+
+  **Rationale:** New flow: Started → Analyze → Requirements → Research → Planning →
+  Implementation → Review → Maintain. Requires TypeSpec change + tsp:compile + DB migration
+  for existing features.
+
+  ### 2. Merge Node Architecture — Orchestrator with Branching
+
+  **Chosen:** Single orchestrator node with conditional PR/merge paths
+
+  **Rejected:**
+  - Two separate nodes (pr-node + merge-node) — unnecessary complexity
+  - executeNode() helper — merge node is deterministic, not AI-driven
+
+  **Rationale:** The merge node handles: validate → commit → push → (optional PR) →
+  (optional CI watch) → (optional merge) → lifecycle update → pr.yaml generation → cleanup.
+  Branching driven by Feature entity flags (openPr, autoMerge, allowMerge).
+
+  ### 3. PR Content — pr.yaml as Source of Truth
+
+  **Chosen:** Generate pr.yaml always, PR creation reads from it
+
+  **Rejected:**
+  - Inline generation — non-reproducible, non-reviewable
+  - Store in DB — PR content is a document artifact, DB stores PR state
+
+  **Rationale:** pr.yaml generated after implementation regardless of --pr flag. Separation:
+  pr.yaml = PR content (title, body, labels), Feature entity = PR state (url, number, status).
+
+  ### 4. Feature Entity Extension
+
+  **Chosen:** Add workflow flags (openPr, autoMerge, allowPrd, allowPlan, allowMerge) + PR state fields
+
+  **Rejected:**
+  - Separate WorkflowConfig entity — unnecessary join complexity
+  - Store flags in feature.yaml only — graph nodes read from DB, not files
+
+  **Rationale:** Feature entity is the runtime state store. All flags persisted for agent
+  graph consumption. DB migration adds columns with sensible defaults.
+
+  ### 5. Settings Extension — Workflow Section
+
+  **Chosen:** Settings.workflow with openPrOnImplementationComplete and autoMergeOnImplementationComplete
+
+  **Rejected:**
+  - Environment variables — bypasses established settings system
+
+  **Rationale:** Settings = global defaults, CLI flags = per-feature overrides.
+  Resolution: CLI flag → Feature DB → Settings default.
+
+  ### 6. Approval Gate System
+
+  **Chosen:** Feature entity flags + shouldInterrupt extension
+
+  **Rejected:**
+  - Extend ApprovalGates TypeSpec model — lives in graph state, not Feature entity
+
+  **Rationale:** Three gates: Requirements→Research (--allow-prd), Planning→Implementation
+  (--allow-plan), Review→Maintain (--allow-merge). Agent pauses via interrupt() unless
+  flag is set. --auto-merge implies --allow-merge.
+
+  ### 7. Auto-Merge — Dual Path
+
+  **Chosen:** PR merge path (gh pr merge) OR direct merge path (git merge into main)
+
+  **Rejected:**
+  - Always create PR for auto-merge — spec supports direct merge without PR
+
+  **Rationale:** autoMerge + openPr = create PR → watch CI → merge PR. autoMerge + !openPr =
+  git merge into main → push main. Both transition to Maintain.
+
+  ### 8. Worktree Cleanup — After Merge, Not After PR
+
+  **Chosen:** Cleanup after merge into main (not after PR creation)
+
+  **Rejected:**
+  - Cleanup after PR creation — worktree needed during Review for changes
+
+  **Rationale:** Worktree/branch may be needed during Review. Cleanup includes worktree
+  removal + branch deletion (local + remote). Happens after merge step completes.
+
+  ### 9. IGitPrService — Expanded to 10 Methods
+
+  **Chosen:** 10 methods including mergePr, mergeBranch, deleteBranch
+
+  **Rejected:**
+  - Separate service for merge/delete — same domain concern (git/PR operations)
+
+  **Rationale:** Full method set: hasUncommittedChanges, commitAll, push, createPr (from pr.yaml),
+  mergePr, mergeBranch, getCiStatus, watchCi, deleteBranch, getPrDiffSummary.
+
+  ### 10. DB Migration — Single Atomic Migration
+
+  **Chosen:** One migration for all new columns + lifecycle value migration
+
+  **Rejected:**
+  - Multiple incremental migrations — all changes ship atomically
+
+  **Rationale:** Adds feature columns (flags + PR state), settings columns (workflow),
+  migrates DeployAndQA → Maintain for existing features.
+
+  ### 11. Error Types — Expanded Codes
+
+  **Chosen:** GitPrError with 9 error codes (added MERGE_FAILED, PR_NOT_FOUND)
+
+  **Rejected:**
+  - Original 7 codes — insufficient for merge and delete operations
+
+  **Rationale:** New codes for: PR merge failures, branch deletion errors, operations
+  on non-existent PRs.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @langchain/langgraph | Graph, Annotation, interrupt, Command | Use (existing) | Core framework |
+  | tsyringe | DI container | Use (existing) | Standard DI |
+  | js-yaml | feature.yaml + pr.yaml read/write | Use (existing) | Already in use for feature.yaml |
+  | node:child_process | execFile for git/gh | Use (existing) | Via ExecFunction DI token |
+  | commander | CLI flags | Use (existing) | Already used for feat new |
+  | GitHub CLI (gh) | PR creation, merge, CI watch | Use (external) | Runtime dependency |
+  | Git CLI | commit, push, merge, branch ops | Use (external) | Runtime dependency |
+  | @octokit/rest | GitHub API | Reject | gh CLI simpler, already authenticated |
+  | simple-git | Git operations library | Reject | execFile is sufficient |
+
+  ## Security Considerations
+
+  - **No credential storage**: Relies on existing git credential helpers and gh auth state
+  - **execFile over shell**: Prevents shell injection, arguments as array (not interpolated)
+  - **No secret logging**: Do not log git push output (may contain auth tokens in URLs)
+  - **PR body via file**: Pass to gh pr create via --body-file to prevent metacharacter issues
+  - **Branch protection**: Auto-merge respects GitHub branch protection rules
+
+  ## Performance Implications
+
+  - **Lifecycle transition**: Single DB write, negligible
+  - **pr.yaml generation**: File write, negligible
+  - **Git ops**: I/O-bound, seconds each
+  - **CI watch**: Main latency, 10-minute timeout per attempt, max 3 attempts
+  - **Branch cleanup**: git branch -d and git push --delete, seconds each
+  - **Worst case**: 3 CI attempts x 10 min + fix time = 35-40 minutes
+
+  ## Architecture Notes
+
+  ### File Layout
+
+  ```
+  tsp/common/enums/lifecycle.tsp              # MODIFY: redesign lifecycle enum
+  tsp/domain/entities/feature.tsp             # MODIFY: add workflow flags + PR state
+  tsp/domain/entities/settings.tsp            # MODIFY: add workflow section
+
+  src/application/ports/output/services/
+  ├── git-pr-service.interface.ts             # NEW: IGitPrService port + value types
+  ├── worktree-service.interface.ts           # Existing
+  └── index.ts                               # MODIFY: re-export new interface
+
+  src/infrastructure/services/git/
+  ├── git-pr.service.ts                       # NEW: GitPrService implementation
+  └── worktree.service.ts                     # Existing
+
+  src/infrastructure/services/agents/feature-agent/
+  ├── state.ts                                # MODIFY: add merge + workflow fields
+  ├── feature-agent-graph.ts                  # MODIFY: wire merge node, accept deps
+  ├── feature-agent-worker.ts                 # MODIFY: resolve services, pass to factory
+  └── nodes/
+      ├── merge.node.ts                       # NEW: merge node orchestrator
+      ├── node-helpers.ts                     # MODIFY: extend shouldInterrupt
+      └── prompts/
+          └── merge.prompt.ts                 # NEW: CI fix prompt + pr.yaml generator
+
+  src/infrastructure/persistence/migrations/  # MODIFY: add migration for new columns
+  src/infrastructure/di/container.ts          # MODIFY: register GitPrService
+  src/presentation/cli/commands/              # MODIFY: add flags to feat new
+
+  specs/<id>/pr.yaml                          # NEW: generated per feature
+  ```
+
+  ### Merge Node Flow (Pseudocode)
+
+  ```
+  1. Load Feature from DB (get workflow flags)
+  2. Run validation (lint, typecheck, tests) — retry up to 3x with executor fix
+  3. Commit uncommitted changes → store SHA in state.commitHash
+  4. Push branch to origin (--set-upstream for first push)
+  5. Generate pr.yaml with PR content (always, regardless of --pr flag)
+  6. IF openPr:
+     a. Create PR from pr.yaml content → store URL/number in state + DB
+     b. Watch CI with bounded retry (3 attempts with executor fix)
+  7. IF autoMerge:
+     a. IF openPr: merge PR via gh pr merge
+     b. IF !openPr: merge branch into main via git merge, push main
+  8. IF !autoMerge && !allowMerge:
+     a. interrupt() — pause for user approval
+     b. On resume: execute merge (PR or direct based on openPr flag)
+  9. Update Feature.lifecycle → Review (if not auto-merged) or Maintain (if auto-merged)
+  10. Update feature.yaml (phase, prUrl, checkpoint)
+  11. IF merged into main:
+      a. Delete feature branch (local + remote)
+      b. Remove worktree
+  12. Return state with all merge fields + summary messages
+  ```
+
+  ---
+
+  _Research complete — proceed with planning_

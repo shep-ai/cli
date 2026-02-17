@@ -15,15 +15,19 @@ import { homedir } from 'node:os';
 import { Command } from '@langchain/langgraph';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { createFeatureAgentGraph } from './feature-agent-graph.js';
+import type { FeatureAgentGraphDeps } from './feature-agent-graph.js';
 import { createCheckpointer } from '../common/checkpointer.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IAgentExecutorProvider } from '@/application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
 import { setPhaseTimingContext } from './phase-timing-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import { generatePrYaml } from './nodes/pr-yaml-generator.js';
 
 import type { ApprovalGates } from '@/domain/generated/output.js';
 
@@ -37,6 +41,9 @@ export interface WorkerArgs {
   resume?: boolean;
   threadId?: string;
   resumeFromInterrupt?: boolean;
+  openPr?: boolean;
+  autoMerge?: boolean;
+  allowMerge?: boolean;
 }
 
 /**
@@ -69,6 +76,9 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
 
   const resume = args.includes('--resume');
   const resumeFromInterrupt = args.includes('--resume-from-interrupt');
+  const openPr = args.includes('--open-pr');
+  const autoMerge = args.includes('--auto-merge');
+  const allowMerge = args.includes('--allow-merge');
 
   const threadIdx = args.indexOf('--thread-id');
   const threadId =
@@ -84,6 +94,9 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     resume,
     threadId,
     resumeFromInterrupt,
+    openPr,
+    autoMerge,
+    allowMerge,
   };
 }
 
@@ -145,13 +158,26 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   log('Creating executor from configured agent settings...');
   const executor = executorProvider.getExecutor();
 
+  // Resolve merge node dependencies
+  const gitPrService = container.resolve<IGitPrService>('IGitPrService');
+  const featureRepository = container.resolve<IFeatureRepository>('IFeatureRepository');
+
+  const graphDeps: FeatureAgentGraphDeps = {
+    executor,
+    mergeNodeDeps: {
+      gitPrService,
+      generatePrYaml,
+      featureRepository,
+    },
+  };
+
   // Use threadId for checkpoint path so resume runs share the same checkpoint DB.
   // Falls back to runId for backwards compatibility with existing runs.
   const checkpointId = args.threadId ?? args.runId;
   const checkpointPath = join(homedir(), '.shep', 'checkpoints', `${checkpointId}.db`);
   log(`Creating checkpointer at ${checkpointPath} (thread: ${checkpointId})`);
   const checkpointer = createCheckpointer(checkpointPath);
-  const graph = createFeatureAgentGraph(executor, checkpointer);
+  const graph = createFeatureAgentGraph(graphDeps, checkpointer);
 
   // Mark the run as running with our PID
   const now = new Date();
@@ -193,6 +219,9 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           specDir: args.specDir,
           error: undefined, // Clear previous error state
           ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
+          openPr: args.openPr ?? false,
+          autoMerge: args.autoMerge ?? false,
+          allowMerge: args.allowMerge ?? false,
         },
         graphConfig
       );
@@ -205,6 +234,9 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           worktreePath: args.worktreePath ?? args.repo,
           specDir: args.specDir,
           ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
+          openPr: args.openPr ?? false,
+          autoMerge: args.autoMerge ?? false,
+          allowMerge: args.allowMerge ?? false,
         },
         graphConfig
       );

@@ -314,6 +314,20 @@ export type SystemConfig = {
    */
   logLevel: string;
 };
+
+/**
+ * Global workflow configuration defaults
+ */
+export type WorkflowConfig = {
+  /**
+   * Create PR on implementation complete (default: false)
+   */
+  openPrOnImplementationComplete: boolean;
+  /**
+   * Auto-merge on implementation complete (default: false)
+   */
+  autoMergeOnImplementationComplete: boolean;
+};
 export enum AgentType {
   ClaudeCode = 'claude-code',
   GeminiCli = 'gemini-cli',
@@ -430,6 +444,10 @@ export type Settings = BaseEntity & {
    * Notification preferences for agent lifecycle events
    */
   notifications: NotificationPreferences;
+  /**
+   * Global workflow configuration defaults
+   */
+  workflow: WorkflowConfig;
 };
 export enum TaskState {
   Todo = 'Todo',
@@ -569,12 +587,24 @@ export type Plan = BaseEntity & {
   workPlan?: GanttViewData;
 };
 export enum SdlcLifecycle {
+  Started = 'Started',
+  Analyze = 'Analyze',
   Requirements = 'Requirements',
   Research = 'Research',
+  Planning = 'Planning',
   Implementation = 'Implementation',
   Review = 'Review',
-  DeployAndQA = 'Deploy & QA',
   Maintain = 'Maintain',
+}
+export enum PrStatus {
+  Open = 'Open',
+  Merged = 'Merged',
+  Closed = 'Closed',
+}
+export enum CiStatus {
+  Pending = 'Pending',
+  Success = 'Success',
+  Failure = 'Failure',
 }
 
 /**
@@ -625,6 +655,46 @@ export type Feature = BaseEntity & {
    * Absolute path to the feature spec directory inside the worktree
    */
   specPath?: string;
+  /**
+   * Create PR after implementation (default: false)
+   */
+  openPr: boolean;
+  /**
+   * Auto-merge after implementation (default: false)
+   */
+  autoMerge: boolean;
+  /**
+   * Skip Requirements approval gate (default: false)
+   */
+  allowPrd: boolean;
+  /**
+   * Skip Planning approval gate (default: false)
+   */
+  allowPlan: boolean;
+  /**
+   * Skip Review/merge approval gate (default: false)
+   */
+  allowMerge: boolean;
+  /**
+   * GitHub PR URL (null if no PR created)
+   */
+  prUrl?: string;
+  /**
+   * GitHub PR number (null if no PR created)
+   */
+  prNumber?: number;
+  /**
+   * Current PR status (null if no PR created)
+   */
+  prStatus?: PrStatus;
+  /**
+   * Final commit SHA after push (null before push)
+   */
+  commitHash?: string;
+  /**
+   * CI pipeline status (null before CI check)
+   */
+  ciStatus?: CiStatus;
 };
 
 /**

@@ -127,8 +127,8 @@ describe('shouldInterrupt', () => {
     });
   });
 
-  describe('allow-all gates (allowPrd=true, allowPlan=true)', () => {
-    const gates = { allowPrd: true, allowPlan: true, allowMerge: false };
+  describe('allow-all gates (allowPrd=true, allowPlan=true, allowMerge=true)', () => {
+    const gates = { allowPrd: true, allowPlan: true, allowMerge: true };
 
     it('should never interrupt', () => {
       const nodes = ['analyze', 'requirements', 'research', 'plan', 'implement'];

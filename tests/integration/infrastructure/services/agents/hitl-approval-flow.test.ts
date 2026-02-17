@@ -304,9 +304,11 @@ describe('HITL Approval Flow (Graph-level)', () => {
       config
     );
 
-    // Both gates allowed → shouldInterrupt returns false for all nodes
-    // (allowPrd && allowPlan is the "fully autonomous" path)
-    expect(getInterrupts(result)).toHaveLength(0);
+    // allowPrd + allowPlan skips requirements/plan gates, but implement always
+    // interrupts when gates are present and not fully autonomous (allowMerge=false)
+    const interrupts = getInterrupts(result);
+    expect(interrupts).toHaveLength(1);
+    expect(interrupts[0].value.node).toBe('implement');
   });
 
   it('should trigger repair when spec.yaml is invalid, then continue after fix', async () => {
