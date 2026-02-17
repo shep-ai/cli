@@ -9,7 +9,7 @@ summary: >
   for fan-out, a NotificationService that dispatches to desktop (node-notifier) and SSE channels,
   a Next.js Route Handler SSE endpoint (GET /api/agent-events), and React hooks (useAgentEvents,
   useNotifications) that bridge SSE events to Sonner toasts and the Web Notifications API.
-  All channels are opt-in by default. 7 phases, 17 tasks, ~17 new files, ~9 modified files.
+  All channels are opt-out by default (enabled). 7 phases, 17 tasks, ~17 new files, ~9 modified files.
 
 # Relationships
 relatedFeatures: []
@@ -245,7 +245,7 @@ content: |
   NotificationPreferences follows the exact AgentConfig pattern: TypeSpec model -> compile ->
   migration v9 with ALTER TABLE -> mapper update -> defaults factory update. Column prefix
   convention: `notif_` for channels, `notif_evt_` for event filters. All booleans as INTEGER
-  (0/1). All channel defaults are 0 (disabled/opt-in per SC-8). All event type defaults are 1
+  (0/1). All channel defaults are 1 (enabled/opt-out per SC-8). All event type defaults are 1
   (enabled by default when a channel is turned on).
 
   ### 6. Two-Hook Composition for Web UI (Research Decision #6)

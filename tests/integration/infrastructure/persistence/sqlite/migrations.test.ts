@@ -342,7 +342,7 @@ describe('SQLite Migrations', () => {
       });
     });
 
-    it('should default channel columns to 0 (disabled/opt-in)', () => {
+    it('should default channel columns to 1 (enabled/opt-out)', () => {
       // Insert a settings row to check default values
       db.prepare(
         `
@@ -358,9 +358,9 @@ describe('SQLite Migrations', () => {
         )
         .get('test') as Record<string, number>;
 
-      expect(row.notif_in_app_enabled).toBe(0);
-      expect(row.notif_browser_enabled).toBe(0);
-      expect(row.notif_desktop_enabled).toBe(0);
+      expect(row.notif_in_app_enabled).toBe(1);
+      expect(row.notif_browser_enabled).toBe(1);
+      expect(row.notif_desktop_enabled).toBe(1);
     });
 
     it('should default event type columns to 1 (enabled)', () => {
@@ -407,7 +407,7 @@ describe('SQLite Migrations', () => {
         .prepare('SELECT notif_in_app_enabled, notif_evt_agent_started FROM settings WHERE id = ?')
         .get('existing') as Record<string, number>;
 
-      expect(row.notif_in_app_enabled).toBe(0);
+      expect(row.notif_in_app_enabled).toBe(1);
       expect(row.notif_evt_agent_started).toBe(1);
     });
   });

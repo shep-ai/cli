@@ -243,14 +243,14 @@ describe('createDefaultSettings', () => {
       expect(settings.notifications).toBeDefined();
     });
 
-    it('should have all notification channels disabled (opt-in)', () => {
+    it('should have all notification channels enabled (opt-out)', () => {
       // Act
       const settings = createDefaultSettings();
 
       // Assert
-      expect(settings.notifications.inApp.enabled).toBe(false);
-      expect(settings.notifications.browser.enabled).toBe(false);
-      expect(settings.notifications.desktop.enabled).toBe(false);
+      expect(settings.notifications.inApp.enabled).toBe(true);
+      expect(settings.notifications.browser.enabled).toBe(true);
+      expect(settings.notifications.desktop.enabled).toBe(true);
     });
 
     it('should have all notification event types enabled', () => {
@@ -271,9 +271,9 @@ describe('createDefaultSettings', () => {
 
       // Assert
       expect(settings.notifications).toEqual({
-        inApp: { enabled: false },
-        browser: { enabled: false },
-        desktop: { enabled: false },
+        inApp: { enabled: true },
+        browser: { enabled: true },
+        desktop: { enabled: true },
         events: {
           agentStarted: true,
           phaseCompleted: true,
@@ -311,9 +311,9 @@ describe('createDefaultSettings', () => {
         authMethod: AgentAuthMethod.Session,
       });
       expect(settings.notifications).toEqual({
-        inApp: { enabled: false },
-        browser: { enabled: false },
-        desktop: { enabled: false },
+        inApp: { enabled: true },
+        browser: { enabled: true },
+        desktop: { enabled: true },
         events: {
           agentStarted: true,
           phaseCompleted: true,

@@ -51,9 +51,9 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
       authMethod: AgentAuthMethod.Session,
     },
     notifications: {
-      inApp: { enabled: false },
-      browser: { enabled: false },
-      desktop: { enabled: false },
+      inApp: { enabled: true },
+      browser: { enabled: true },
+      desktop: { enabled: true },
       events: {
         agentStarted: true,
         phaseCompleted: true,
@@ -89,9 +89,9 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     agent_type: 'claude-code',
     agent_auth_method: 'session',
     agent_token: null,
-    notif_in_app_enabled: 0,
-    notif_browser_enabled: 0,
-    notif_desktop_enabled: 0,
+    notif_in_app_enabled: 1,
+    notif_browser_enabled: 1,
+    notif_desktop_enabled: 1,
     notif_evt_agent_started: 1,
     notif_evt_phase_completed: 1,
     notif_evt_waiting_approval: 1,
@@ -103,33 +103,12 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
 
 describe('Settings Mapper', () => {
   describe('toDatabase() - notification preferences', () => {
-    it('should map notifications.inApp.enabled=false to notif_in_app_enabled=0', () => {
-      const settings = createTestSettings({
-        notifications: {
-          inApp: { enabled: false },
-          browser: { enabled: false },
-          desktop: { enabled: false },
-          events: {
-            agentStarted: true,
-            phaseCompleted: true,
-            waitingApproval: true,
-            agentCompleted: true,
-            agentFailed: true,
-          },
-        },
-      });
-
-      const row = toDatabase(settings);
-
-      expect(row.notif_in_app_enabled).toBe(0);
-    });
-
     it('should map notifications.inApp.enabled=true to notif_in_app_enabled=1', () => {
       const settings = createTestSettings({
         notifications: {
           inApp: { enabled: true },
-          browser: { enabled: false },
-          desktop: { enabled: false },
+          browser: { enabled: true },
+          desktop: { enabled: true },
           events: {
             agentStarted: true,
             phaseCompleted: true,
@@ -143,6 +122,27 @@ describe('Settings Mapper', () => {
       const row = toDatabase(settings);
 
       expect(row.notif_in_app_enabled).toBe(1);
+    });
+
+    it('should map notifications.inApp.enabled=false to notif_in_app_enabled=0', () => {
+      const settings = createTestSettings({
+        notifications: {
+          inApp: { enabled: false },
+          browser: { enabled: true },
+          desktop: { enabled: true },
+          events: {
+            agentStarted: true,
+            phaseCompleted: true,
+            waitingApproval: true,
+            agentCompleted: true,
+            agentFailed: true,
+          },
+        },
+      });
+
+      const row = toDatabase(settings);
+
+      expect(row.notif_in_app_enabled).toBe(0);
     });
 
     it('should map all three channel enabled flags', () => {
@@ -268,15 +268,15 @@ describe('Settings Mapper', () => {
     });
 
     it('should preserve default notification values through round-trip', () => {
-      const original = createTestSettings(); // Uses default notifications (all channels off, all events on)
+      const original = createTestSettings(); // Uses default notifications (all channels on, all events on)
 
       const row = toDatabase(original);
       const restored = fromDatabase(row);
 
       expect(restored.notifications).toEqual({
-        inApp: { enabled: false },
-        browser: { enabled: false },
-        desktop: { enabled: false },
+        inApp: { enabled: true },
+        browser: { enabled: true },
+        desktop: { enabled: true },
         events: {
           agentStarted: true,
           phaseCompleted: true,

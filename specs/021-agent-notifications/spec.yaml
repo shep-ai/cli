@@ -11,7 +11,7 @@ summary: >
   through three channels: in-app browser toasts (Sonner, already integrated), Web Notifications API
   (browser + mobile browser), and native OS desktop notifications (macOS, Linux, Windows) via
   node-notifier. An SSE API route bridges backend agent events to the web UI in real-time.
-  All notification channels are opt-in by default (disabled until the user explicitly enables them).
+  All notification channels are opt-out by default (enabled until the user explicitly disables them).
 phase: Requirements
 sizeEstimate: M
 
@@ -34,10 +34,10 @@ openQuestions:
   - question: 'Should notifications be opt-in or opt-out by default?'
     resolved: true
     answer: >
-      All notification channels (in-app toasts, browser, and desktop) should be opt-in by default
-      (disabled until the user explicitly enables them). Users should consciously choose which
-      notification channels they want. This respects user attention and avoids any unsolicited
-      alerts. The settings UI provides a clear path to enable each channel independently.
+      All notification channels (in-app toasts, browser, and desktop) should be opt-out by default
+      (enabled until the user explicitly disables them). Notifications provide immediate value by
+      keeping users informed about agent lifecycle events without requiring any setup. Users who
+      find notifications distracting can disable specific channels independently via settings.
   - question: 'Should notification preferences be stored in global Settings or per-repository?'
     resolved: true
     answer: >
@@ -102,7 +102,7 @@ content: |
   or native OS notifications.
 
   Users need cross-platform notifications that work in:
-  - **In-app**: Toast notifications in the web UI dashboard via Sonner (lowest friction, opt-in)
+  - **In-app**: Toast notifications in the web UI dashboard via Sonner (lowest friction, enabled by default)
   - **Browser** (desktop & mobile): Web Notifications API with permission prompt (works when tab is in background)
   - **Desktop OS** (macOS, Linux, Windows): Native notification center via node-notifier (works even without browser)
 
@@ -115,7 +115,7 @@ content: |
   - [ ] SC-5: SSE endpoint (`GET /api/agent-events`) streams real-time agent lifecycle events to connected web UI clients with <500ms latency from event emission to SSE delivery
   - [ ] SC-6: SSE endpoint supports optional `?runId=<id>` filtering for single-agent-run event streams
   - [ ] SC-7: Notification preferences (per-channel enable/disable, event type filters) are persisted in global Settings and survive CLI restarts
-  - [ ] SC-8: All notification channels (in-app, browser, desktop) are disabled by default (opt-in); users must explicitly enable each channel
+  - [ ] SC-8: All notification channels (in-app, browser, desktop) are enabled by default (opt-out); users can explicitly disable each channel
   - [ ] SC-9: Users can enable/disable each notification channel independently via `shep settings` CLI or web UI settings
   - [ ] SC-10: All new web UI components have colocated Storybook stories
   - [ ] SC-11: All new code follows TDD (RED-GREEN-REFACTOR) with unit tests for services, integration tests for SSE endpoint, and component tests for UI
@@ -203,11 +203,11 @@ content: |
   ```
   NotificationPreferences:
     inApp:
-      enabled: boolean (default: false)
+      enabled: boolean (default: true)
     browser:
-      enabled: boolean (default: false)
+      enabled: boolean (default: true)
     desktop:
-      enabled: boolean (default: false)
+      enabled: boolean (default: true)
     events:
       agentStarted: boolean (default: true)
       phaseCompleted: boolean (default: true)
@@ -312,7 +312,7 @@ content: |
 
   | # | Question | AI Recommendation | Rationale |
   | - | -------- | ----------------- | --------- |
-  | 1 | Should notifications be opt-in or opt-out? | All channels (in-app, browser, desktop) disabled by default (opt-in). | Respects user attention — no unsolicited alerts. Users consciously enable channels they want. Settings UI provides clear path to enable each channel independently. |
+  | 1 | Should notifications be opt-in or opt-out? | All channels (in-app, browser, desktop) enabled by default (opt-out). | Notifications provide immediate value by keeping users informed about agent lifecycle events. Users who find notifications distracting can disable channels independently via settings. |
   | 2 | Global or per-repository notification preferences? | Global Settings (single `NotificationPreferences` in Settings model). | Notification behavior is a user-level concern, not project-level. Follows existing `AgentConfig` pattern. Per-repo overrides are YAGNI for now. |
   | 3 | Which events trigger notifications? | Five curated events: started, phase completed, waiting for approval, completed, failed. | Covers all meaningful lifecycle transitions without being noisy. Excludes heartbeats, cancelled (user-initiated), interrupted (internal recovery). Phase completions give progress signal. |
   | 4 | Should CLI dispatch desktop notifications too? | Yes — `NotificationService` dispatches desktop notifications from the backend regardless of web UI state. | Agent worker runs as a forked process. User may not have browser open. node-notifier is server-side, no browser needed. |

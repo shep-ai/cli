@@ -254,10 +254,10 @@ model AgentConfig {
 model NotificationChannelConfig {
   /**
    * Whether this notification channel is active.
-   * Defaults to false (opt-in). Users must explicitly enable each channel.
+   * Defaults to true (opt-out). Users can explicitly disable each channel.
    */
   @doc("Whether this notification channel is enabled")
-  enabled: boolean = false;
+  enabled: boolean = true;
 }
 
 /**

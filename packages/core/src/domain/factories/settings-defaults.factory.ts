@@ -109,9 +109,9 @@ export function createDefaultSettings(): Settings {
   };
 
   const notifications: NotificationPreferences = {
-    inApp: { enabled: false },
-    browser: { enabled: false },
-    desktop: { enabled: false },
+    inApp: { enabled: true },
+    browser: { enabled: true },
+    desktop: { enabled: true },
     events: {
       agentStarted: true,
       phaseCompleted: true,

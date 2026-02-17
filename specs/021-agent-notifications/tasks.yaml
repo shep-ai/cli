@@ -60,7 +60,7 @@ tasks:
     dependencies:
       - task-1
     acceptanceCriteria:
-      - 'NotificationChannelConfig model with enabled: boolean = false'
+      - 'NotificationChannelConfig model with enabled: boolean = true'
       - 'NotificationEventConfig model with 5 boolean fields defaulting to true'
       - 'NotificationPreferences model with inApp, browser, desktop, events fields'
       - 'Settings model has notifications: NotificationPreferences field'
@@ -75,20 +75,20 @@ tasks:
     description: >
       Update packages/core/src/domain/factories/settings-defaults.factory.ts to import the new
       NotificationPreferences type and include default notification preferences in
-      createDefaultSettings(). All channels disabled (opt-in), all event types enabled.
+      createDefaultSettings(). All channels enabled (opt-out), all event types enabled.
     state: Todo
     dependencies:
       - task-2
     acceptanceCriteria:
       - 'createDefaultSettings() returns Settings with notifications field'
-      - 'notifications.inApp.enabled is false'
-      - 'notifications.browser.enabled is false'
-      - 'notifications.desktop.enabled is false'
+      - 'notifications.inApp.enabled is true'
+      - 'notifications.browser.enabled is true'
+      - 'notifications.desktop.enabled is true'
       - 'notifications.events.agentStarted is true (all 5 events true)'
       - 'Existing settings defaults tests still pass'
     tdd:
       red:
-        - 'Write test asserting createDefaultSettings().notifications has all channels disabled'
+        - 'Write test asserting createDefaultSettings().notifications has all channels enabled'
         - 'Write test asserting createDefaultSettings().notifications.events has all 5 events enabled'
       green:
         - 'Import NotificationPreferences type from generated output'
@@ -105,8 +105,8 @@ tasks:
     description: >
       Add migration version 9 to packages/core/src/infrastructure/persistence/sqlite/migrations.ts with
       ALTER TABLE statements adding 8 notification columns to the settings table:
-      notif_in_app_enabled (INTEGER DEFAULT 0), notif_browser_enabled (INTEGER DEFAULT 0),
-      notif_desktop_enabled (INTEGER DEFAULT 0), notif_evt_agent_started (INTEGER DEFAULT 1),
+      notif_in_app_enabled (INTEGER DEFAULT 1), notif_browser_enabled (INTEGER DEFAULT 1),
+      notif_desktop_enabled (INTEGER DEFAULT 1), notif_evt_agent_started (INTEGER DEFAULT 1),
       notif_evt_phase_completed (INTEGER DEFAULT 1), notif_evt_waiting_approval (INTEGER DEFAULT 1),
       notif_evt_agent_completed (INTEGER DEFAULT 1), notif_evt_agent_failed (INTEGER DEFAULT 1).
     state: Todo
@@ -115,7 +115,7 @@ tasks:
     acceptanceCriteria:
       - 'Migration version 9 added to MIGRATIONS array'
       - '8 ALTER TABLE ADD COLUMN statements with correct defaults'
-      - 'Channel columns default to 0 (disabled/opt-in)'
+      - 'Channel columns default to 1 (enabled/opt-out)'
       - 'Event type columns default to 1 (enabled)'
       - 'All columns are INTEGER NOT NULL'
       - 'Migration runs successfully on a fresh database and on an existing v8 database'
@@ -571,7 +571,7 @@ content: |
   First, the domain foundation is established: TypeSpec models define NotificationEvent,
   notification enums (event types, severities), and NotificationPreferences as a new Settings
   sub-model. TypeSpec compilation generates TypeScript types, and the settings defaults factory
-  is updated to include notification preferences with all channels disabled (opt-in).
+  is updated to include notification preferences with all channels enabled (opt-out).
 
   Next, the persistence layer is extended with SQLite migration v9 (8 notification columns in
   the settings table) and the settings mapper is updated to flatten/reconstruct the new
