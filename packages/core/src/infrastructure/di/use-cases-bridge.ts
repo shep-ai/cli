@@ -1,11 +1,19 @@
 /**
  * Use Cases Bridge — Reader
  *
- * Lightweight reader for the globalThis DI bridge. Safe to import from
- * the Next.js web layer (no native modules, no tsyringe, no decorators).
+ * Why does this exist?
+ * Use cases (e.g. ListFeaturesUseCase) are DI-managed classes that depend on
+ * injected repositories, which in turn need a live SQLite connection. The web
+ * layer (Next.js / Turbopack) cannot run the DI container because it would
+ * pull in tsyringe, reflect-metadata, and better-sqlite3 (native C++ addon) —
+ * none of which Turbopack can bundle.
  *
- * The writer (populate-use-cases-bridge.ts) populates globalThis after
- * DI initialization; this module reads those instances back.
+ * How it works:
+ * 1. CLI bootstrap runs initializeContainer() and resolves fully-wired use cases.
+ * 2. The writer (populate-use-cases-bridge.ts) places those instances on globalThis.
+ * 3. This reader retrieves them — no DI, no native modules, no decorators.
+ *
+ * This file is safe to import from the Next.js web layer.
  */
 
 import type { Feature, AgentRun } from '../../domain/generated/output.js';

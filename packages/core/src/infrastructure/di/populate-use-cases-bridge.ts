@@ -1,11 +1,15 @@
 /**
  * Use Cases Bridge — Writer
  *
- * Populates globalThis with resolved use case instances from the DI container.
- * Called by CLI bootstrap and dev-server after container initialization.
+ * Resolves use cases from the DI container and places them on globalThis
+ * so the Next.js web layer can access them without importing DI infrastructure.
+ * Called by CLI bootstrap and dev-server after initializeContainer() completes.
  *
- * Heavy imports (tsyringe, use case classes) — only import from Node.js
- * entry points, never from the Next.js web layer.
+ * This file imports tsyringe and decorated use case classes — only import it
+ * from Node.js entry points, never from the Next.js web layer (Turbopack
+ * cannot bundle native addons or decorator metadata).
+ *
+ * @see use-cases-bridge.ts for the reader side (web-safe).
  */
 
 import type { DependencyContainer } from 'tsyringe';
