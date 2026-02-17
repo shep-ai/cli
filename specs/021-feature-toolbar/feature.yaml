@@ -3,17 +3,17 @@ feature:
   name: feature-toolbar
   number: 21
   branch: feat/021-feature-toolbar
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-17T11:58:11Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 12
     total: 12
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-17T13:03:23.338Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-17T17:40:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -32,10 +32,14 @@ tasks:
   current: null
   blocked: []
   failed: []
+prUrl: 'https://github.com/shep-ai/cli/pull/66'
 checkpoints:
   - phase: feature-created
     completedAt: '2026-02-17T11:58:11Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-17T17:40:00.000Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
