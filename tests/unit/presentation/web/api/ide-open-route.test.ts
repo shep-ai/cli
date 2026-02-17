@@ -8,25 +8,10 @@ vi.mock('@shepai/core/infrastructure/services/settings.service', () => ({
   getSettings: mockGetSettings,
 }));
 
-// Mock createLauncherRegistry
-const mockCheckAvailable = vi.fn<() => Promise<boolean>>();
-const mockLaunch = vi.fn<(path: string) => Promise<void>>();
-const mockLauncher = {
-  name: 'VS Code',
-  editorId: 'vscode',
-  binary: 'code',
-  checkAvailable: mockCheckAvailable,
-  launch: mockLaunch,
-};
-const mockRegistry = new Map([['vscode', mockLauncher]]);
-vi.mock('@shepai/core/infrastructure/services/ide-launchers/ide-launcher.registry', () => ({
-  createLauncherRegistry: () => mockRegistry,
-}));
-
-// Mock computeWorktreePath
-vi.mock('@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path', () => ({
-  computeWorktreePath: (_repoPath: string, _branch: string) =>
-    `/mock/.shep/repos/abc123/wt/feat-test`,
+// Mock launchIde
+const mockLaunchIde = vi.fn();
+vi.mock('@shepai/core/infrastructure/services/ide-launchers/launch-ide', () => ({
+  launchIde: mockLaunchIde,
 }));
 
 // Import after mocks
@@ -46,8 +31,11 @@ describe('POST /api/ide/open', () => {
     mockGetSettings.mockReturnValue({
       environment: { defaultEditor: 'vscode' },
     });
-    mockCheckAvailable.mockResolvedValue(true);
-    mockLaunch.mockResolvedValue(undefined);
+    mockLaunchIde.mockResolvedValue({
+      ok: true,
+      editorName: 'VS Code',
+      worktreePath: '/mock/.shep/repos/abc123/wt/feat-test',
+    });
   });
 
   it('returns 400 for missing repositoryPath', async () => {
@@ -80,9 +68,29 @@ describe('POST /api/ide/open', () => {
     expect(body.error).toContain('absolute');
   });
 
-  it('returns 404 when launcher is not found for editor type', async () => {
+  it('calls launchIde with checkAvailability true', async () => {
+    const request = createRequest({
+      repositoryPath: '/home/user/project',
+      branch: 'main',
+    });
+    await POST(request);
+
+    expect(mockLaunchIde).toHaveBeenCalledWith({
+      editorId: 'vscode',
+      repositoryPath: '/home/user/project',
+      branch: 'main',
+      checkAvailability: true,
+    });
+  });
+
+  it('returns 404 when launchIde returns unknown_editor', async () => {
     mockGetSettings.mockReturnValue({
       environment: { defaultEditor: 'unknown-editor' },
+    });
+    mockLaunchIde.mockResolvedValue({
+      ok: false,
+      code: 'unknown_editor',
+      message: 'No launcher found for editor: unknown-editor',
     });
 
     const request = createRequest({
@@ -96,8 +104,12 @@ describe('POST /api/ide/open', () => {
     expect(body.error).toContain('unknown-editor');
   });
 
-  it('returns 404 when launcher.checkAvailable() returns false', async () => {
-    mockCheckAvailable.mockResolvedValue(false);
+  it('returns 404 when launchIde returns editor_unavailable', async () => {
+    mockLaunchIde.mockResolvedValue({
+      ok: false,
+      code: 'editor_unavailable',
+      message: 'VS Code is not available — ensure "code" is installed and on your PATH',
+    });
 
     const request = createRequest({
       repositoryPath: '/home/user/project',
@@ -124,11 +136,14 @@ describe('POST /api/ide/open', () => {
       editor: 'VS Code',
       path: '/mock/.shep/repos/abc123/wt/feat-test',
     });
-    expect(mockLaunch).toHaveBeenCalledWith('/mock/.shep/repos/abc123/wt/feat-test');
   });
 
-  it('returns 500 when launcher.launch() throws', async () => {
-    mockLaunch.mockRejectedValue(new Error('Failed to spawn process'));
+  it('returns 500 when launchIde returns launch_failed', async () => {
+    mockLaunchIde.mockResolvedValue({
+      ok: false,
+      code: 'launch_failed',
+      message: 'Failed to spawn process',
+    });
 
     const request = createRequest({
       repositoryPath: '/home/user/project',
@@ -139,19 +154,5 @@ describe('POST /api/ide/open', () => {
 
     expect(response.status).toBe(500);
     expect(body.error).toBe('Failed to spawn process');
-  });
-
-  it('returns 500 with generic message for non-Error throws', async () => {
-    mockLaunch.mockRejectedValue('unexpected');
-
-    const request = createRequest({
-      repositoryPath: '/home/user/project',
-      branch: 'main',
-    });
-    const response = await POST(request);
-    const body = await response.json();
-
-    expect(response.status).toBe(500);
-    expect(body.error).toBe('Failed to open IDE');
   });
 });
