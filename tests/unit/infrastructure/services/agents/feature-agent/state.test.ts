@@ -1,9 +1,6 @@
 import 'reflect-metadata';
 import { describe, it, expect } from 'vitest';
-import {
-  FeatureAgentAnnotation,
-  type FeatureAgentState,
-} from '@/infrastructure/services/agents/feature-agent/state.js';
+import { FeatureAgentAnnotation } from '@/infrastructure/services/agents/feature-agent/state.js';
 
 describe('FeatureAgentAnnotation', () => {
   describe('merge state channels exist on type', () => {

@@ -48,7 +48,7 @@ const { mockGetSettings, mockHasSettings } = vi.hoisted(() => ({
   mockHasSettings: vi.fn(),
 }));
 
-vi.mock('../../../../../../src/infrastructure/services/settings.service.js', () => ({
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: (...args: unknown[]) => mockGetSettings(...args),
   hasSettings: (...args: unknown[]) => mockHasSettings(...args),
 }));

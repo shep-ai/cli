@@ -19,7 +19,7 @@ vi.mock('node:fs', async (importOriginal) => {
   };
 });
 
-import { generatePrYaml } from '../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/pr-yaml-generator.js';
+import { generatePrYaml } from '@/infrastructure/services/agents/feature-agent/nodes/pr-yaml-generator.js';
 
 describe('generatePrYaml', () => {
   const specDir = '/tmp/specs/020-my-feature';

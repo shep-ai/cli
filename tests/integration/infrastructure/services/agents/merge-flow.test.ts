@@ -20,11 +20,11 @@ import { Command } from '@langchain/langgraph';
 import {
   createFeatureAgentGraph,
   type FeatureAgentGraphDeps,
-} from '../../../../../src/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
-import { createCheckpointer } from '../../../../../src/infrastructure/services/agents/common/checkpointer.js';
-import type { IAgentExecutor } from '../../../../../src/application/ports/output/agents/agent-executor.interface.js';
-import type { IGitPrService } from '../../../../../src/application/ports/output/services/git-pr-service.interface.js';
-import type { MergeNodeDeps } from '../../../../../src/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
+} from '@/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
+import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {

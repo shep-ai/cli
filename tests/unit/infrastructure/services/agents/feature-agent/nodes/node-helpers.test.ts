@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import type { ApprovalGates } from '../../../../../../../src/domain/generated/output.js';
-import { shouldInterrupt } from '../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import type { ApprovalGates } from '@/domain/generated/output.js';
+import { shouldInterrupt } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 
 /**
  * Helper to create ApprovalGates with defaults (all false).

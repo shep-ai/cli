@@ -28,32 +28,26 @@ vi.mock('@langchain/langgraph', () => ({
 }));
 
 // Mock node-helpers
-vi.mock(
-  '../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/node-helpers.js',
-  () => ({
-    createNodeLogger: () => ({
-      info: vi.fn(),
-      error: vi.fn(),
-    }),
-    readSpecFile: vi.fn().mockReturnValue('name: Test Feature\ndescription: A test\n'),
-    shouldInterrupt: mockShouldInterrupt,
-  })
-);
+vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
+  createNodeLogger: () => ({
+    info: vi.fn(),
+    error: vi.fn(),
+  }),
+  readSpecFile: vi.fn().mockReturnValue('name: Test Feature\ndescription: A test\n'),
+  shouldInterrupt: mockShouldInterrupt,
+}));
 
 // Mock heartbeat
-vi.mock(
-  '../../../../../../../src/infrastructure/services/agents/feature-agent/heartbeat.js',
-  () => ({
-    reportNodeStart: vi.fn(),
-  })
-);
+vi.mock('@/infrastructure/services/agents/feature-agent/heartbeat.js', () => ({
+  reportNodeStart: vi.fn(),
+}));
 
 import {
   createMergeNode,
   type MergeNodeDeps,
-} from '../../../../../../../src/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
-import type { FeatureAgentState } from '../../../../../../../src/infrastructure/services/agents/feature-agent/state.js';
-import type { IGitPrService } from '../../../../../../../src/application/ports/output/services/git-pr-service.interface.js';
+} from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
+import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 
 function createMockGitPrService(): IGitPrService {
   return {
