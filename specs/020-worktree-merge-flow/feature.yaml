@@ -3,22 +3,24 @@ feature:
   name: worktree-merge-flow
   number: 20
   branch: feat/020-worktree-merge-flow
-  lifecycle: implementation
+  lifecycle: review
   createdAt: '2026-02-16T14:37:18Z'
 status:
-  phase: implementation
+  phase: in-review
   progress:
-    completed: 0
+    completed: 28
     total: 28
-    percentage: 0
-  currentTask: task-1
-  lastUpdated: '2026-02-16T17:56:00Z'
-  lastUpdatedBy: shep-kit:implement
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-17T10:35:00Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
     - research
     - planning
+    - implementation
+prUrl: https://github.com/shep-ai/cli/pull/63
 validation:
   lastRun: '2026-02-16T17:56:00Z'
   gatesPassed:
@@ -26,7 +28,7 @@ validation:
     - consistency
   autoFixesApplied: []
 tasks:
-  current: task-1
+  current: null
   blocked: []
   failed: []
 checkpoints:
@@ -36,6 +38,12 @@ checkpoints:
   - phase: implementation-started
     completedAt: '2026-02-16T17:56:00Z'
     completedBy: shep-kit:implement
+  - phase: implementation-completed
+    completedAt: '2026-02-17T10:34:00Z'
+    completedBy: shep-kit:commit-pr
+  - phase: pr-created
+    completedAt: '2026-02-17T10:35:00Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
