@@ -52,7 +52,7 @@ JSON only, no markdown fences.`;
       silent: true,
     });
 
-    const cleaned = this.stripCodeFence(result.result);
+    const cleaned = this.extractJson(result.result);
     if (!cleaned) {
       throw new Error('AI returned empty response for metadata generation');
     }
@@ -69,22 +69,44 @@ JSON only, no markdown fences.`;
   }
 
   /**
-   * Strip markdown code fence wrappers (```lang ... ```) if present at start/end.
+   * Extract JSON from an AI response that may include markdown fences or surrounding prose.
+   * Finds the first `{` and its matching closing `}`, ignoring text outside.
    */
-  private stripCodeFence(text: string): string {
-    const trimmed = text.trim();
-    if (!trimmed.startsWith('```')) {
-      return trimmed;
+  private extractJson(text: string): string {
+    const start = text.indexOf('{');
+    if (start === -1) return text.trim();
+
+    let depth = 0;
+    let inString = false;
+    let escape = false;
+
+    for (let i = start; i < text.length; i++) {
+      const ch = text[i];
+      if (escape) {
+        escape = false;
+        continue;
+      }
+      if (ch === '\\' && inString) {
+        escape = true;
+        continue;
+      }
+      if (ch === '"') {
+        inString = !inString;
+        continue;
+      }
+      if (inString) continue;
+
+      if (ch === '{') depth++;
+      else if (ch === '}') {
+        depth--;
+        if (depth === 0) {
+          return text.slice(start, i + 1);
+        }
+      }
     }
-    // Find end of first line (```json or ```anything)
-    const firstNewline = trimmed.indexOf('\n');
-    if (firstNewline === -1) {
-      return trimmed;
-    }
-    if (!trimmed.endsWith('```')) {
-      return trimmed;
-    }
-    return trimmed.slice(firstNewline + 1, trimmed.length - 3).trim();
+
+    // Fallback: return from first brace to end, trimmed
+    return text.slice(start).trim();
   }
 
   /**
