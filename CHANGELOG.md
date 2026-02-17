@@ -1,3 +1,9 @@
+# [1.25.0](https://github.com/shep-ai/cli/compare/v1.24.0...v1.25.0) (2026-02-17)
+
+### Features
+
+- **web:** wire control center create feature to API with async submit flow ([#64](https://github.com/shep-ai/cli/issues/64)) ([d9f7ed1](https://github.com/shep-ai/cli/commit/d9f7ed1564ba050400fc67a0ebe17668667ec1de))
+
 # [1.24.0](https://github.com/shep-ai/cli/compare/v1.23.2...v1.24.0) (2026-02-17)
 
 ### Bug Fixes
