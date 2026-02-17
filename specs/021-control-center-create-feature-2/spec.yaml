@@ -1,0 +1,252 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: control-center-create-feature-2
+number: 021
+branch: feat/021-control-center-create-feature-2
+oneLiner: Wire FeatureCreateDrawer to CreateFeatureUseCase via use-cases bridge and API route
+summary: >
+  The FeatureCreateDrawer UI component and CreateFeatureUseCase backend already exist but are not
+  connected. The drawer currently creates a local-only canvas node with no persistence. This feature
+  bridges the gap by exposing CreateFeatureUseCase through the use-cases bridge, adding a Next.js API
+  route, and wiring the drawer's onSubmit to call the real use case so features are persisted, worktrees
+  are created, and the agent process is spawned.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js App Router (API routes)
+  - React (client components, hooks)
+  - tsyringe (DI container)
+  - use-cases bridge (globalThis pattern)
+  - React Flow (@xyflow/react)
+  - Vitest (unit tests)
+  - Storybook
+  - sonner (toast notifications)
+
+relatedLinks: []
+
+# Open questions — all resolved with AI-recommended defaults
+openQuestions:
+  - question: How should the repositoryPath be determined when creating a feature from the UI?
+    context: >
+      CreateFeatureUseCase requires a repositoryPath. The drawer only collects name, description,
+      and attachments. Options: (a) require a repository node to be selected/connected first,
+      (b) use the currently active repository from sidebar context, (c) add a repository picker
+      to the drawer form, (d) prompt for repository selection after submit if ambiguous.
+    resolved: true
+    answer: >
+      Recommend (a): derive repositoryPath from the parent repository node. The canvas already
+      groups features under repository nodes via edges, and `handleAddFeatureToRepo(repoNodeId)`
+      is called when adding a feature from a specific repo. The repoNodeId encodes the path as
+      `repo-${repoPath}`. Extract the repositoryPath from the repo node's data when the drawer
+      opens, and pass it through to the API call. For standalone feature creation (no repo context),
+      fall back to showing a validation error requiring the user to create the feature from a
+      repository node's "+" action. This is the simplest approach that avoids adding new UI
+      elements to the drawer. Alternative: (c) add a repo picker dropdown if multi-repo creation
+      from a global "Create" button is needed in the future.
+
+  - question: Should the UI wait for the full use case to complete (metadata generation, worktree, agent spawn) or optimistically update?
+    context: >
+      CreateFeatureUseCase calls AI for metadata generation and creates git worktrees, which can
+      take several seconds. Options: (a) show loading state in drawer until complete then refresh,
+      (b) optimistically add a node and update it when the API responds, (c) close drawer immediately
+      and poll/SSE for the new feature to appear.
+    resolved: true
+    answer: >
+      Recommend (a): keep drawer open with isSubmitting=true until the API responds, then close
+      and call router.refresh() to re-render the server component with real data. This is the
+      simplest approach that provides clear feedback. The drawer already supports isSubmitting
+      (disables submit button, shows loading state). After success, close drawer + show success
+      toast + router.refresh(). After error, keep drawer open with error toast so the user can
+      retry. This avoids complexity of optimistic updates and node reconciliation. The latency
+      (a few seconds for AI metadata + worktree) is acceptable for a creation action. Alternative:
+      (b) optimistic updates would be better if creation latency exceeds 5-10 seconds, but that
+      would require node state reconciliation logic.
+
+  - question: How should attachments from the drawer be passed to CreateFeatureUseCase?
+    context: >
+      The drawer collects FileAttachment[] (path, name, size) but CreateFeatureInput only accepts
+      userInput (string) and repositoryPath. Attachments may need to be concatenated into userInput,
+      passed as a new field, or handled separately.
+    resolved: true
+    answer: >
+      Recommend concatenating attachment file paths into the userInput string. The use case's
+      MetadataGenerator uses AI to extract slug/name/description from userInput, and knowing
+      which files are attached provides useful context. Format: append a section like
+      "\n\nAttached files:\n- /path/to/file1.ts\n- /path/to/file2.ts" to the description text
+      before sending as userInput. This requires zero changes to CreateFeatureInput or the use
+      case — only the API route or client-side code needs to format the string. Alternative:
+      extend CreateFeatureInput with an optional attachments field, but that's scope creep for
+      this integration task and can be done in a follow-up.
+
+  - question: How should the userInput field be composed from the drawer's name and description?
+    context: >
+      CreateFeatureInput takes a single `userInput` string, but the drawer collects separate
+      `name` and `description` fields. The MetadataGenerator AI extracts slug/name/description
+      from userInput, so the composition affects metadata quality.
+    resolved: true
+    answer: >
+      Recommend composing userInput as "Feature: {name}\n\n{description}" (with attachments
+      appended if present). This gives the MetadataGenerator clear structure to extract the name
+      directly and use the description for the feature description. The name field maps naturally
+      to the feature name, and the description provides the context. This is a presentation-layer
+      concern handled in the API route or client hook — no use case changes needed.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The web UI's FeatureCreateDrawer component and the core CreateFeatureUseCase exist independently
+  but are not connected. When a user fills out the create feature form and clicks "Create Feature",
+  the handler (`handleCreateFeatureSubmit` in `use-control-center-state.ts`) only creates a
+  local-only React Flow canvas node with placeholder data — no feature is persisted to the database,
+  no git worktree is created, no spec files are scaffolded, and no agent process is spawned.
+
+  The core use case (`packages/core/src/application/use-cases/features/create/create-feature.use-case.ts`)
+  handles the full lifecycle: AI metadata generation, slug resolution, worktree creation, spec
+  scaffolding, feature persistence, agent run creation, and agent process spawning. However, it is
+  not exposed through the use-cases bridge (`packages/core/src/infrastructure/di/use-cases-bridge.ts`)
+  and has no corresponding API route in the Next.js app.
+
+  This feature connects the two sides end-to-end.
+
+  ## Success Criteria
+
+  - [ ] CreateFeatureUseCase is exposed through the use-cases bridge (both reader and writer sides)
+  - [ ] New API route `POST /api/features/create` accepts `{ name, description, repositoryPath, attachments? }` and calls the use case via bridge
+  - [ ] API route returns the created Feature entity (or structured error) as JSON
+  - [ ] `handleCreateFeatureSubmit` calls the API route instead of creating a local-only node
+  - [ ] Repository path is derived from the parent repository node and passed to the API call
+  - [ ] Drawer shows loading state (isSubmitting=true) while the API call is in progress
+  - [ ] On success: drawer closes, success toast appears, canvas refreshes with the real persisted feature via router.refresh()
+  - [ ] On error: drawer stays open, error toast appears with message, user can retry
+  - [ ] Creating a feature without a repository context shows a user-facing error (not a silent failure)
+  - [ ] Unit tests cover: API route handler, bridge extension (reader + writer), and updated state hook logic
+  - [ ] Existing Storybook stories remain functional (no breaking changes to drawer component API)
+
+  ## Functional Requirements
+
+  ### Bridge Layer
+
+  - **FR-1**: Add `createFeature` function to the `ShepUseCases` bridge interface in `use-cases-bridge.ts`. The function must accept `{ userInput: string; repositoryPath: string }` and return `Promise<CreateFeatureResult>`.
+  - **FR-2**: Register `CreateFeatureUseCase` on the bridge in `populate-use-cases-bridge.ts` by resolving it from the DI container and assigning its `execute` method (or the use case instance itself) to the `createFeature` bridge slot.
+  - **FR-3**: Export a web-safe `createFeature(input)` reader function from `use-cases-bridge.ts` that reads from the globalThis bridge and calls the registered use case.
+
+  ### API Route
+
+  - **FR-4**: Create a `POST /api/features/create` route in `src/presentation/web/app/api/features/create/route.ts`. The route must parse the JSON request body for `name` (required string), `description` (optional string), `repositoryPath` (required string), and `attachments` (optional array of `{ path, name }`).
+  - **FR-5**: The API route must compose the `userInput` string from name, description, and attachment paths before calling the bridge's `createFeature` function. Format: `"Feature: {name}\n\n{description}\n\nAttached files:\n- {path1}\n- {path2}"` (attachment section omitted if empty).
+  - **FR-6**: On success, the API route must return `200 OK` with `{ feature: Feature, warning?: string }`.
+  - **FR-7**: On error, the API route must return an appropriate HTTP status (`400` for validation errors, `500` for internal errors) with `{ error: string }`.
+  - **FR-8**: The API route must validate that `name` is a non-empty string and `repositoryPath` is a non-empty string before calling the use case.
+
+  ### Client-Side Integration
+
+  - **FR-9**: `handleCreateFeatureSubmit` in `useControlCenterState` must be updated to make a `fetch('POST', '/api/features/create')` call with the form data and repositoryPath, replacing the current local-only node creation.
+  - **FR-10**: The hook must track an `isSubmitting` boolean state that is `true` from when the API call starts until it completes (success or error).
+  - **FR-11**: The `isSubmitting` state must be passed through `ControlCenterInner` to the `FeatureCreateDrawer` component's existing `isSubmitting` prop.
+  - **FR-12**: The repositoryPath must be derived from the parent repository node when the drawer is opened via a repo node's add-feature action. The repo node ID follows the pattern `repo-${repositoryPath}`, so the path can be extracted by stripping the `repo-` prefix.
+  - **FR-13**: On successful API response, the hook must: (1) close the drawer, (2) show a success toast via sonner (`toast.success`), and (3) call `router.refresh()` to re-render the server component with the new feature from the database.
+  - **FR-14**: On API error, the hook must: (1) keep the drawer open, (2) show an error toast via sonner (`toast.error`) with the error message from the response.
+  - **FR-15**: If no repositoryPath context is available (standalone creation without a repo node), the hook must show an error toast informing the user to create the feature from a repository node, and not call the API.
+
+  ### Canvas Refresh
+
+  - **FR-16**: After `router.refresh()`, the server component (`page.tsx`) re-executes, calling `getFeatures()` from the bridge. The new feature must appear as a real `featureNode` on the canvas, replacing any need for the old local-only node creation path. No changes to `page.tsx` are required.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 (Latency)**: The full create-feature round trip (API call → use case execution → response → canvas refresh) should complete within 15 seconds under normal conditions. The drawer must show a loading indicator throughout.
+  - **NFR-2 (Error Resilience)**: Network failures, server errors, and use-case exceptions must never result in an unhandled promise rejection or a blank/broken UI. All errors must surface as user-facing toast messages.
+  - **NFR-3 (No Breaking Changes)**: The FeatureCreateDrawer component's public API (props interface) must not change. The `isSubmitting` prop is already defined and optional — this feature only starts passing it.
+  - **NFR-4 (Architecture Compliance)**: All changes must follow the established Clean Architecture layering: bridge extension in infrastructure, API route in presentation/web, state management in the hook. No direct imports of tsyringe, reflect-metadata, or better-sqlite3 from web-layer code.
+  - **NFR-5 (Test Coverage)**: New code must have unit tests. Minimum coverage targets: API route handler (success + error paths), bridge reader function, and state hook's submit flow (success + error + missing repo path).
+  - **NFR-6 (Security)**: The API route must validate and sanitize input. repositoryPath must not be used to access paths outside the user's filesystem context. No user-supplied data should be passed unsanitized to shell commands (the use case already handles this internally).
+  - **NFR-7 (Storybook)**: No new Storybook stories are required since the drawer component API is unchanged. Existing stories must continue to render without errors.
+  - **NFR-8 (Idempotency Awareness)**: The API route does not need to be idempotent (feature creation is inherently non-idempotent), but double-submit must be prevented by the `isSubmitting` guard in the UI.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should repositoryPath be determined? | Derive from parent repo node ID (`repo-${path}` → extract path) | Canvas already groups features under repo nodes; no new UI needed. Fail with error toast if no repo context. |
+  | 2 | Wait for full use case or optimistic update? | Wait with isSubmitting=true, then router.refresh() | Simplest approach; drawer already supports isSubmitting; avoids node reconciliation complexity. Few-second latency is acceptable for creation. |
+  | 3 | How to pass attachments to use case? | Concatenate file paths into userInput string | Zero changes to CreateFeatureInput; MetadataGenerator gets useful context. Extend input type in a follow-up if richer attachment handling is needed. |
+  | 4 | How to compose userInput from name + description? | Format as "Feature: {name}\n\n{description}" | Gives MetadataGenerator clear structure; name maps to feature name, description to feature description. |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The relevant code spans three layers of the Clean Architecture:
+
+  - **Application layer** (`packages/core/src/application/use-cases/features/create/`):
+    - `create-feature.use-case.ts` — orchestrates 9-step creation flow (metadata generation, slug resolution, worktree creation, spec scaffolding, persistence, agent run, agent spawn)
+    - `types.ts` — `CreateFeatureInput { userInput, repositoryPath, approvalGates? }`, `CreateFeatureResult { feature, warning? }`, `FeatureMetadata { slug, name, description }`
+    - `metadata-generator.ts` — AI-powered slug/name/description extraction
+    - `slug-resolver.ts` — unique slug/branch collision avoidance
+
+  - **Infrastructure layer** (`packages/core/src/infrastructure/di/`):
+    - `container.ts` — DI registration (CreateFeatureUseCase already registered as singleton)
+    - `use-cases-bridge.ts` — reader side (currently exposes `listFeatures` and `agentRunRepo`)
+    - `populate-use-cases-bridge.ts` — writer side (resolves from container to globalThis)
+
+  - **Presentation layer** (`src/presentation/web/`):
+    - `app/page.tsx` — server component, reads features via bridge, builds canvas nodes
+    - `app/api/` — existing API routes (`dialog/pick-folder`, `dialog/pick-files`)
+    - `components/common/feature-create-drawer/` — the form UI (fully built, supports `isSubmitting` prop)
+    - `components/features/control-center/` — orchestration, state hook, inner component
+    - `components/ui/sonner.tsx` — toast notification component (sonner library, already in layout)
+
+  ### Architecture Patterns
+
+  1. **Use-Cases Bridge**: Turbopack cannot bundle tsyringe/reflect-metadata/better-sqlite3, so the web layer uses a globalThis bridge. Writer (`populate-use-cases-bridge.ts`) resolves from DI; reader (`use-cases-bridge.ts`) is web-safe. New use cases must be added to both sides.
+
+  2. **API Route Pattern**: Existing routes (`/api/dialog/pick-folder`) instantiate services directly. For DI-managed use cases, the bridge pattern is used instead. The new `/api/features/create` route reads from the bridge.
+
+  3. **Client-Server Data Flow**: Server component (`page.tsx`) fetches features via bridge and passes `initialNodes` to client. After creation, `router.refresh()` triggers server re-render with fresh data.
+
+  4. **State Hook Pattern**: `useControlCenterState` manages React Flow state. `handleCreateFeatureSubmit` currently creates a local-only node. It needs to call the API, handle async lifecycle, and trigger refresh.
+
+  5. **Toast Pattern**: sonner library already configured via `components/ui/sonner.tsx`. Import `toast` from `sonner` to show success/error notifications.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/di/use-cases-bridge.ts` | High | Must add `createFeature` to the bridge interface and type guard |
+  | `packages/core/src/infrastructure/di/populate-use-cases-bridge.ts` | High | Must resolve and register CreateFeatureUseCase on the bridge |
+  | `src/presentation/web/app/api/features/create/route.ts` | High | New API route — calls use case via bridge, returns created feature |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | `handleCreateFeatureSubmit` must call API, handle loading/error, refresh canvas |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Medium | Must pass `isSubmitting` to FeatureCreateDrawer |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | Low | Already supports `isSubmitting` prop — no changes expected |
+  | `src/presentation/web/app/page.tsx` | Low | No changes needed — already reads all features from bridge on each request |
+  | `tests/unit/` | High | New tests for API route, bridge extension, and updated hook logic |
+
+  ## Dependencies
+
+  - **CreateFeatureUseCase** (already implemented and DI-registered) — the core orchestrator
+  - **Use-cases bridge pattern** (already established) — the mechanism for web-to-core communication
+  - **Next.js API routes** (pattern exists at `/api/dialog/`) — the transport layer
+  - **FeatureCreateDrawer** (already built with `isSubmitting` support) — the UI form
+  - **`useControlCenterState` hook** (already wired to drawer) — the state management layer
+  - **sonner toast library** (already configured in layout) — user-facing feedback
+  - **Next.js `useRouter`** (framework built-in) — `router.refresh()` for server component re-render
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized integration task. All major components already exist (use case,
+  drawer UI, bridge pattern, DI registration, toast infrastructure). The work is primarily wiring:
+  1. Extend the bridge (both reader and writer) — small, well-defined changes (~20 lines each)
+  2. Add one API route — follows established pattern (~40 lines)
+  3. Update the state hook to call the API — moderate complexity (async, error handling, refresh, ~50 lines)
+  4. Thread isSubmitting through ControlCenterInner — trivial prop pass-through (~3 lines)
+  5. Write tests for each layer — follows existing patterns (~150 lines total)
+
+  No new domain models, no new UI components, no architectural changes. The complexity is in
+  correctly threading the data through all layers and handling the async lifecycle (loading states,
+  error handling, canvas refresh after creation).

@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import '@xyflow/react/dist/base.css';
 import './globals.css';
 import { AppShell } from '@/components/layouts/app-shell';
+import { Toaster } from '@/components/ui/sonner';
 
 export const metadata: Metadata = {
   title: 'Shep AI',
@@ -35,6 +36,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen antialiased">
         <AppShell>{children}</AppShell>
+        <Toaster />
       </body>
     </html>
   );

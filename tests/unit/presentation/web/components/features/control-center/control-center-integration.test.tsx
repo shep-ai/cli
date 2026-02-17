@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
+
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+}));
+
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
 import type { FeaturesCanvasProps } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';

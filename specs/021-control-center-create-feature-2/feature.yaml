@@ -1,0 +1,40 @@
+feature:
+  id: 021-control-center-create-feature-2
+  name: control-center-create-feature-2
+  number: 21
+  branch: feat/021-control-center-create-feature-2
+  lifecycle: research
+  createdAt: '2026-02-17T11:48:29Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 9
+    total: 9
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-17T12:38:11.832Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-17T11:48:29Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

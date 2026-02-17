@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -13,6 +15,7 @@ export interface ControlCenterState {
   edges: Edge[];
   selectedNode: FeatureNodeData | null;
   isCreateDrawerOpen: boolean;
+  isSubmitting: boolean;
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
   clearSelection: () => void;
@@ -32,10 +35,13 @@ export function useControlCenterState(
   initialNodes: CanvasNodeType[],
   initialEdges: Edge[]
 ): ControlCenterState {
+  const router = useRouter();
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
@@ -211,26 +217,55 @@ export function useControlCenterState(
   }, []);
 
   const handleCreateFeatureSubmit = useCallback(
-    (data: CreateFeatureFormData) => {
-      setIsCreateDrawerOpen(false);
-      createFeatureNode(null, {
-        name: data.name,
-        description: data.description || undefined,
-      });
+    async (data: CreateFeatureFormData) => {
+      if (!pendingRepoNodeId) {
+        toast.error('Please create the feature from a repository node.');
+        return;
+      }
+
+      const repositoryPath = pendingRepoNodeId.replace(/^repo-/, '');
+
+      setIsSubmitting(true);
+      try {
+        const response = await fetch('/api/features/create', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: data.name,
+            description: data.description || '',
+            repositoryPath,
+            attachments: data.attachments,
+          }),
+        });
+
+        if (!response.ok) {
+          const body = await response.json();
+          toast.error(body.error ?? 'Failed to create feature');
+          return;
+        }
+
+        setIsCreateDrawerOpen(false);
+        setPendingRepoNodeId(null);
+        toast.success('Feature created successfully');
+        router.refresh();
+      } catch {
+        toast.error('Failed to create feature');
+      } finally {
+        setIsSubmitting(false);
+      }
     },
-    [createFeatureNode]
+    [pendingRepoNodeId, router]
   );
 
   const closeCreateDrawer = useCallback(() => {
     setIsCreateDrawerOpen(false);
   }, []);
 
-  const handleAddFeatureToRepo = useCallback(
-    (repoNodeId: string) => {
-      createFeatureNode(repoNodeId);
-    },
-    [createFeatureNode]
-  );
+  const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
+    setSelectedNode(null);
+    setPendingRepoNodeId(repoNodeId);
+    setIsCreateDrawerOpen(true);
+  }, []);
 
   const handleAddFeatureToFeature = useCallback(
     (featureNodeId: string) => {
@@ -293,6 +328,7 @@ export function useControlCenterState(
     edges,
     selectedNode,
     isCreateDrawerOpen,
+    isSubmitting,
     onNodesChange,
     handleConnect,
     clearSelection,

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act, fireEvent } from '@testing-library/react';
 import type { Edge } from '@xyflow/react';
 import { useControlCenterState } from '@/components/features/control-center/use-control-center-state';
@@ -7,6 +7,22 @@ import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
+
+// --- Mocks ---
+
+const mockRefresh = vi.fn();
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: mockRefresh }),
+}));
+
+const mockToastSuccess = vi.fn();
+const mockToastError = vi.fn();
+vi.mock('sonner', () => ({
+  toast: Object.assign(vi.fn(), {
+    success: (...args: unknown[]) => mockToastSuccess(...args),
+    error: (...args: unknown[]) => mockToastError(...args),
+  }),
+}));
 
 const mockFeatureNode: FeatureNodeType = {
   id: 'feat-1',
@@ -62,6 +78,7 @@ function HookTestHarness({
       <div data-testid="node-count">{state.nodes.length}</div>
       <div data-testid="edge-count">{state.edges.length}</div>
       <div data-testid="create-drawer-open">{String(state.isCreateDrawerOpen)}</div>
+      <div data-testid="is-submitting">{String(state.isSubmitting)}</div>
       <button data-testid="add-feature" onClick={state.handleAddFeature}>
         Add Feature
       </button>
@@ -85,6 +102,12 @@ function HookTestHarness({
       </button>
       <button data-testid="add-to-repo-2" onClick={() => state.handleAddFeatureToRepo('repo-2')}>
         Add to Repo 2
+      </button>
+      <button
+        data-testid="add-to-repo-server"
+        onClick={() => state.handleAddFeatureToRepo('repo-/Users/foo/bar')}
+      >
+        Add to Server Repo
       </button>
       <button
         data-testid="add-to-feature"
@@ -117,6 +140,11 @@ function renderHook(
 }
 
 describe('useControlCenterState', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.restoreAllMocks();
+  });
+
   it('returns null selectedNode initially', () => {
     renderHook();
     expect(screen.getByTestId('selected-node')).toHaveTextContent('null');
@@ -173,23 +201,37 @@ describe('useControlCenterState', () => {
   });
 
   describe('handleCreateFeatureSubmit', () => {
-    it('creates a node with submitted name and closes the create drawer', () => {
+    it('shows error toast when submitting without repo context (via sidebar add)', () => {
       renderHook();
 
-      // Open create drawer
+      // Open create drawer via sidebar (no repo context)
       act(() => {
         fireEvent.click(screen.getByTestId('add-feature'));
       });
       expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
 
-      // Submit the form
+      // Submit — should show error since there is no repo context
       act(() => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('false');
-      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
-      expect(screen.getByTestId('selected-node')).toHaveTextContent('My Feature');
+      expect(mockToastError).toHaveBeenCalled();
+      // Drawer stays open
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+    });
+
+    it('does not call fetch when submitting without repo context', () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      renderHook();
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-feature'));
+      });
+      act(() => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -212,16 +254,17 @@ describe('useControlCenterState', () => {
   });
 
   describe('handleAddFeatureToRepo', () => {
-    it('adds a connected feature node with edge', () => {
+    it('opens the create drawer with repo context instead of immediately creating a node', () => {
       renderHook([mockRepoNode] as CanvasNodeType[]);
 
       act(() => {
         fireEvent.click(screen.getByTestId('add-to-repo'));
       });
 
-      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
-      expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
-      expect(screen.getByTestId('selected-node')).toHaveTextContent('New Feature');
+      // Drawer should open instead of creating a node
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+      // No new node should be created yet
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
     });
   });
 
@@ -285,239 +328,68 @@ describe('useControlCenterState', () => {
     });
   });
 
-  describe('createFeatureNode positioning', () => {
-    // Simulate a dagre-laid-out canvas with two repos, each having features
-    const repo1: RepositoryNodeType = {
-      id: 'repo-1',
-      type: 'repositoryNode',
-      position: { x: 0, y: 70 },
-      data: { name: 'org/repo-a' },
-    };
-    const feat1: FeatureNodeType = {
+  describe('createFeatureNode positioning (via handleAddFeatureToFeature)', () => {
+    // These tests verify positioning logic using handleAddFeatureToFeature,
+    // which still creates local nodes directly via createFeatureNode.
+    const parentFeature: FeatureNodeType = {
       id: 'feat-1',
       type: 'featureNode',
-      position: { x: 340, y: 0 },
+      position: { x: 100, y: 100 },
       data: {
-        name: 'Feature A',
-        featureId: '#a',
+        name: 'Parent Feature',
+        featureId: '#p',
         lifecycle: 'implementation',
-        state: 'done',
-        progress: 100,
-      },
-    };
-    const feat2: FeatureNodeType = {
-      id: 'feat-2',
-      type: 'featureNode',
-      position: { x: 340, y: 160 },
-      data: {
-        name: 'Feature B',
-        featureId: '#b',
-        lifecycle: 'requirements',
-        state: 'done',
-        progress: 100,
-      },
-    };
-
-    const repo2: RepositoryNodeType = {
-      id: 'repo-2',
-      type: 'repositoryNode',
-      position: { x: 0, y: 400 },
-      data: { name: 'org/repo-b' },
-    };
-    const feat3: FeatureNodeType = {
-      id: 'feat-3',
-      type: 'featureNode',
-      position: { x: 340, y: 400 },
-      data: {
-        name: 'Feature C',
-        featureId: '#c',
-        lifecycle: 'research',
         state: 'running',
-        progress: 30,
+        progress: 50,
       },
     };
 
-    const twoGroupNodes = [repo1, feat1, feat2, repo2, feat3] as CanvasNodeType[];
-    const twoGroupEdges: Edge[] = [
-      { id: 'e-r1-f1', source: 'repo-1', target: 'feat-1' },
-      { id: 'e-r1-f2', source: 'repo-1', target: 'feat-2' },
-      { id: 'e-r2-f3', source: 'repo-2', target: 'feat-3' },
-    ];
-
-    it('places new feature below existing siblings in the same group', () => {
+    it('places new child feature to the right of the parent', () => {
       let capturedState: ControlCenterState | null = null;
-      renderHook(twoGroupNodes, twoGroupEdges, (state) => {
+      renderHook([parentFeature] as CanvasNodeType[], [], (state) => {
         capturedState = state;
       });
 
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo'));
+        fireEvent.click(screen.getByTestId('add-to-feature'));
       });
 
-      const newNode = capturedState!.nodes.find(
-        (n) =>
-          n.type === 'featureNode' && n.id !== 'feat-1' && n.id !== 'feat-2' && n.id !== 'feat-3'
+      const childNode = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && n.id !== 'feat-1'
       );
-      const existingFeat1 = capturedState!.nodes.find((n) => n.id === 'feat-1')!;
-      const existingFeat2 = capturedState!.nodes.find((n) => n.id === 'feat-2')!;
 
-      expect(newNode).toBeDefined();
-      // New node must be below both existing siblings
-      expect(newNode!.position.y).toBeGreaterThan(existingFeat1.position.y);
-      expect(newNode!.position.y).toBeGreaterThan(existingFeat2.position.y);
+      expect(childNode).toBeDefined();
+      expect(childNode!.position.x).toBeGreaterThan(parentFeature.position.x);
     });
 
-    it('places second new feature below the first new feature', () => {
+    it('places second child below the first child', () => {
       let capturedState: ControlCenterState | null = null;
-      renderHook(twoGroupNodes, twoGroupEdges, (state) => {
+      renderHook([parentFeature] as CanvasNodeType[], [], (state) => {
         capturedState = state;
       });
 
-      // Add first feature
+      // Add first child
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo'));
+        fireEvent.click(screen.getByTestId('add-to-feature'));
       });
-      const firstNewId = capturedState!.nodes.find(
-        (n) => n.type === 'featureNode' && !['feat-1', 'feat-2', 'feat-3'].includes(n.id)
+      const firstChildId = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && n.id !== 'feat-1'
       )!.id;
 
-      // Add second feature
+      // Add second child
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo'));
+        fireEvent.click(screen.getByTestId('add-to-feature'));
       });
 
-      const allNewNodes = capturedState!.nodes.filter(
-        (n) => n.type === 'featureNode' && !['feat-1', 'feat-2', 'feat-3'].includes(n.id)
+      const allChildren = capturedState!.nodes.filter(
+        (n) => n.type === 'featureNode' && n.id !== 'feat-1'
       );
-      expect(allNewNodes).toHaveLength(2);
+      expect(allChildren).toHaveLength(2);
 
-      const firstNew = allNewNodes.find((n) => n.id === firstNewId)!;
-      const secondNew = allNewNodes.find((n) => n.id !== firstNewId)!;
+      const firstChild = allChildren.find((n) => n.id === firstChildId)!;
+      const secondChild = allChildren.find((n) => n.id !== firstChildId)!;
 
-      // Second must be below first
-      expect(secondNew.position.y).toBeGreaterThan(firstNew.position.y);
-      // Both must be below existing siblings
-      const existingFeat2 = capturedState!.nodes.find((n) => n.id === 'feat-2')!;
-      expect(firstNew.position.y).toBeGreaterThan(existingFeat2.position.y);
-    });
-
-    it('shifts groups below down to avoid overlap', () => {
-      let capturedState: ControlCenterState | null = null;
-      renderHook(twoGroupNodes, twoGroupEdges, (state) => {
-        capturedState = state;
-      });
-
-      // Capture repo-2 group positions before
-      const repo2Before = capturedState!.nodes.find((n) => n.id === 'repo-2')!;
-      const feat3Before = capturedState!.nodes.find((n) => n.id === 'feat-3')!;
-      const repo2YBefore = repo2Before.position.y;
-      const feat3YBefore = feat3Before.position.y;
-
-      // Add feature to repo-1 — this extends the group downward
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo'));
-      });
-
-      const repo2After = capturedState!.nodes.find((n) => n.id === 'repo-2')!;
-      const feat3After = capturedState!.nodes.find((n) => n.id === 'feat-3')!;
-      const newNode = capturedState!.nodes.find(
-        (n) => n.type === 'featureNode' && !['feat-1', 'feat-2', 'feat-3'].includes(n.id)
-      )!;
-
-      // Groups below must shift down
-      expect(repo2After.position.y).toBeGreaterThan(repo2YBefore);
-      expect(feat3After.position.y).toBeGreaterThan(feat3YBefore);
-
-      // The new node must NOT overlap with the repo-2 group
-      // featureNode height = 140
-      expect(newNode.position.y + 140).toBeLessThanOrEqual(repo2After.position.y);
-
-      // X positions should not change
-      expect(repo2After.position.x).toBe(repo2Before.position.x);
-      expect(feat3After.position.x).toBe(feat3Before.position.x);
-    });
-
-    it('does not shift groups above when adding to a lower group', () => {
-      let capturedState: ControlCenterState | null = null;
-      renderHook(twoGroupNodes, twoGroupEdges, (state) => {
-        capturedState = state;
-      });
-
-      // Capture repo-1 group positions before
-      const repo1Before = capturedState!.nodes.find((n) => n.id === 'repo-1')!;
-      const feat1Before = capturedState!.nodes.find((n) => n.id === 'feat-1')!;
-      const feat2Before = capturedState!.nodes.find((n) => n.id === 'feat-2')!;
-      const repo1PosBefore = { ...repo1Before.position };
-      const feat1PosBefore = { ...feat1Before.position };
-      const feat2PosBefore = { ...feat2Before.position };
-
-      // Add feature to repo-2 (the lower group)
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo-2'));
-      });
-
-      const repo1After = capturedState!.nodes.find((n) => n.id === 'repo-1')!;
-      const feat1After = capturedState!.nodes.find((n) => n.id === 'feat-1')!;
-      const feat2After = capturedState!.nodes.find((n) => n.id === 'feat-2')!;
-
-      // Groups above must NOT move
-      expect(repo1After.position).toEqual(repo1PosBefore);
-      expect(feat1After.position).toEqual(feat1PosBefore);
-      expect(feat2After.position).toEqual(feat2PosBefore);
-    });
-
-    it('keeps repo node vertically centered to its feature group', () => {
-      let capturedState: ControlCenterState | null = null;
-      renderHook(twoGroupNodes, twoGroupEdges, (state) => {
-        capturedState = state;
-      });
-
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo'));
-      });
-
-      const repo1 = capturedState!.nodes.find((n) => n.id === 'repo-1')!;
-      const childNodes = capturedState!.nodes.filter(
-        (n) =>
-          n.type === 'featureNode' &&
-          capturedState!.edges.some((e) => e.source === 'repo-1' && e.target === n.id)
-      );
-
-      // repo center = children group center
-      // children group center = (minY + maxY + featureHeight) / 2
-      const childYs = childNodes.map((n) => n.position.y);
-      const groupCenter = (Math.min(...childYs) + Math.max(...childYs) + 140) / 2;
-      const repoCenter = repo1.position.y + 50 / 2; // repoNode height = 50
-
-      expect(repoCenter).toBe(groupCenter);
-    });
-
-    it('keeps repo node centered after adding multiple features', () => {
-      let capturedState: ControlCenterState | null = null;
-      renderHook(twoGroupNodes, twoGroupEdges, (state) => {
-        capturedState = state;
-      });
-
-      // Add two features
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo'));
-      });
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo'));
-      });
-
-      const repo1 = capturedState!.nodes.find((n) => n.id === 'repo-1')!;
-      const childNodes = capturedState!.nodes.filter(
-        (n) =>
-          n.type === 'featureNode' &&
-          capturedState!.edges.some((e) => e.source === 'repo-1' && e.target === n.id)
-      );
-
-      const childYs = childNodes.map((n) => n.position.y);
-      const groupCenter = (Math.min(...childYs) + Math.max(...childYs) + 140) / 2;
-      const repoCenter = repo1.position.y + 50 / 2;
-
-      expect(repoCenter).toBe(groupCenter);
+      expect(secondChild.position.y).toBeGreaterThan(firstChild.position.y);
     });
   });
 
@@ -559,6 +431,228 @@ describe('useControlCenterState', () => {
       const repoNode = capturedState!.nodes.find((n) => n.type === 'repositoryNode');
       expect(repoNode).toBeDefined();
       expect((repoNode!.data as { name: string }).name).toBe('repo');
+    });
+  });
+
+  describe('async submit flow', () => {
+    const serverRepoNode: RepositoryNodeType = {
+      id: 'repo-/Users/foo/bar',
+      type: 'repositoryNode',
+      position: { x: 0, y: 0 },
+      data: { name: 'bar' },
+    };
+
+    function mockFetchSuccess(feature = { id: '1', name: 'My Feature', slug: 'my-feature' }) {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ feature }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    }
+
+    function mockFetchError(message = 'Something went wrong') {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ error: message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    }
+
+    it('calls fetch with correct URL and body when submitting from repo context', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ feature: { id: '1' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      // Open drawer via repo node "+"
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+
+      // Submit the form
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(fetchSpy).toHaveBeenCalledWith('/api/features/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'My Feature',
+          description: 'A test feature',
+          repositoryPath: '/Users/foo/bar',
+          attachments: [],
+        }),
+      });
+    });
+
+    it('closes drawer and calls router.refresh() on successful submit', async () => {
+      mockFetchSuccess();
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      // Open drawer from repo
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      // Submit
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('false');
+      expect(mockRefresh).toHaveBeenCalled();
+      expect(mockToastSuccess).toHaveBeenCalled();
+    });
+
+    it('keeps drawer open on API error', async () => {
+      mockFetchError('Worktree creation failed');
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      // Open drawer from repo
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      // Submit
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+      expect(mockToastError).toHaveBeenCalledWith('Worktree creation failed');
+      expect(mockRefresh).not.toHaveBeenCalled();
+    });
+
+    it('shows error toast with message from API error response', async () => {
+      mockFetchError('Slug collision detected');
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Slug collision detected');
+    });
+
+    it('isSubmitting is false initially', () => {
+      renderHook();
+      expect(screen.getByTestId('is-submitting')).toHaveTextContent('false');
+    });
+
+    it('isSubmitting is true while fetch is pending', async () => {
+      let resolvePromise: (v: Response) => void;
+      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        })
+      );
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      // Open drawer from repo
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      // Start submit (don't await — fetch is still pending)
+      act(() => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // isSubmitting should be true while fetch is pending
+      expect(screen.getByTestId('is-submitting')).toHaveTextContent('true');
+
+      // Resolve the fetch
+      await act(async () => {
+        resolvePromise!(
+          new Response(JSON.stringify({ feature: { id: '1' } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+      });
+
+      // isSubmitting should be false after fetch completes
+      expect(screen.getByTestId('is-submitting')).toHaveTextContent('false');
+    });
+
+    it('isSubmitting is false after API error', async () => {
+      mockFetchError();
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(screen.getByTestId('is-submitting')).toHaveTextContent('false');
+    });
+
+    it('does not call fetch when submitting without repo context', () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch');
+      renderHook();
+
+      // Open drawer via sidebar (no repo context)
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-feature'));
+      });
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(fetchSpy).not.toHaveBeenCalled();
+      expect(mockToastError).toHaveBeenCalled();
+      // Drawer stays open
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+    });
+
+    it('resets pendingRepoNodeId after successful submit', async () => {
+      mockFetchSuccess();
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      // Open drawer from repo, submit
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // Now open drawer via sidebar (no repo context) and try to submit
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-feature'));
+      });
+
+      vi.clearAllMocks();
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // Should show error because pendingRepoNodeId was reset
+      expect(mockToastError).toHaveBeenCalled();
+      expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
     });
   });
 });
