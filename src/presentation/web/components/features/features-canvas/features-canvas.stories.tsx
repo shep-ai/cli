@@ -37,6 +37,8 @@ const singleNode: FeatureNodeType = {
     lifecycle: 'requirements',
     state: 'running',
     progress: 45,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/auth-module',
   },
 };
 
@@ -52,6 +54,8 @@ const multipleNodes: FeatureNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -65,6 +69,8 @@ const multipleNodes: FeatureNodeType[] = [
       lifecycle: 'research',
       state: 'action-required',
       progress: 20,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/user-dashboard',
     },
   },
   {
@@ -78,6 +84,8 @@ const multipleNodes: FeatureNodeType[] = [
       lifecycle: 'deploy',
       state: 'done',
       progress: 100,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/api-gateway',
     },
   },
   {
@@ -91,6 +99,8 @@ const multipleNodes: FeatureNodeType[] = [
       lifecycle: 'review',
       state: 'blocked',
       progress: 40,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/payment-integration',
     },
   },
   {
@@ -104,6 +114,8 @@ const multipleNodes: FeatureNodeType[] = [
       lifecycle: 'implementation',
       state: 'error',
       progress: 30,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/email-service',
     },
   },
 ];
@@ -120,6 +132,8 @@ const connectedNodes: FeatureNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -134,6 +148,8 @@ const connectedNodes: FeatureNodeType[] = [
       state: 'blocked',
       progress: 10,
       blockedBy: 'Auth Module',
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/user-dashboard',
     },
   },
   {
@@ -147,6 +163,8 @@ const connectedNodes: FeatureNodeType[] = [
       lifecycle: 'requirements',
       state: 'action-required',
       progress: 5,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/api-gateway',
     },
   },
   {
@@ -161,6 +179,8 @@ const connectedNodes: FeatureNodeType[] = [
       state: 'blocked',
       progress: 0,
       blockedBy: 'User Dashboard',
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/admin-panel',
     },
   },
 ];
@@ -244,6 +264,8 @@ const repoFeatureNodes: CanvasNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -257,6 +279,8 @@ const repoFeatureNodes: CanvasNodeType[] = [
       lifecycle: 'requirements',
       state: 'action-required',
       progress: 20,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/feature-flow-canvas',
     },
   },
 ];
@@ -303,6 +327,8 @@ const singleRepoSingleFeatureNodes: CanvasNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
 ];
@@ -344,6 +370,8 @@ const singleRepoMultiFeatNodes: CanvasNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 40,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/sso-integration',
     },
   },
   {
@@ -357,6 +385,8 @@ const singleRepoMultiFeatNodes: CanvasNodeType[] = [
       lifecycle: 'requirements',
       state: 'action-required',
       progress: 10,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -370,6 +400,8 @@ const singleRepoMultiFeatNodes: CanvasNodeType[] = [
       lifecycle: 'research',
       state: 'running',
       progress: 25,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/api-gateway',
     },
   },
 ];
@@ -419,6 +451,8 @@ const multiRepoNodes: CanvasNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -432,6 +466,8 @@ const multiRepoNodes: CanvasNodeType[] = [
       lifecycle: 'requirements',
       state: 'action-required',
       progress: 15,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/dashboard-ui',
     },
   },
 ];
@@ -486,6 +522,8 @@ const mixedRepoFeatureNodesRaw: CanvasNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -499,6 +537,8 @@ const mixedRepoFeatureNodesRaw: CanvasNodeType[] = [
       lifecycle: 'research',
       state: 'action-required',
       progress: 20,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/sso-integration',
     },
   },
   {
@@ -512,6 +552,8 @@ const mixedRepoFeatureNodesRaw: CanvasNodeType[] = [
       lifecycle: 'requirements',
       state: 'running',
       progress: 10,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/api-gateway',
     },
   },
   {
@@ -525,6 +567,8 @@ const mixedRepoFeatureNodesRaw: CanvasNodeType[] = [
       lifecycle: 'deploy',
       state: 'done',
       progress: 100,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/admin-panel',
     },
   },
 ];

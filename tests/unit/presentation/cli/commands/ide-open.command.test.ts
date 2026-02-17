@@ -4,21 +4,13 @@
  * IDE Open Command Unit Tests
  *
  * Tests for the `shep ide <feat-id>` command.
- *
- * TDD Phase: RED → GREEN
  */
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
-import { EditorType } from '@/domain/generated/output.js';
 
-// --- Mocks (no top-level variables in factories since vi.mock is hoisted) ---
-
-vi.mock('node:child_process', async (importOriginal) => {
-  const actual = (await importOriginal()) as Record<string, unknown>;
-  return { ...actual, spawn: vi.fn(), execFile: vi.fn() };
-});
+// --- Mocks ---
 
 vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
@@ -36,12 +28,8 @@ vi.mock('@/infrastructure/services/settings.service.js', () => ({
   })),
 }));
 
-vi.mock('@/infrastructure/services/ide-launchers/ide-launcher.registry.js', () => ({
-  createLauncherRegistry: vi.fn(() => new Map()),
-}));
-
-vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => ({
-  SHEP_HOME_DIR: '/mock/.shep',
+vi.mock('@/infrastructure/services/ide-launchers/launch-ide.js', () => ({
+  launchIde: vi.fn(),
 }));
 
 vi.mock('../../../../../src/presentation/cli/ui/index.js', () => ({
@@ -60,34 +48,8 @@ vi.mock('../../../../../src/presentation/cli/ui/index.js', () => ({
 import { createIdeOpenCommand } from '../../../../../src/presentation/cli/commands/ide-open.command.js';
 import { container } from '@/infrastructure/di/container.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
-import { createLauncherRegistry } from '@/infrastructure/services/ide-launchers/ide-launcher.registry.js';
+import { launchIde } from '@/infrastructure/services/ide-launchers/launch-ide.js';
 import { messages } from '../../../../../src/presentation/cli/ui/index.js';
-
-// Helper to build a mock launcher
-function makeLauncher(name: string, editorId: EditorType) {
-  return {
-    name,
-    editorId,
-    binary: editorId as string,
-    launch: vi.fn().mockResolvedValue(undefined),
-    checkAvailable: vi.fn().mockResolvedValue(true),
-  };
-}
-
-function setupRegistry() {
-  const launchers = {
-    vscode: makeLauncher('VS Code', EditorType.VsCode),
-    cursor: makeLauncher('Cursor', EditorType.Cursor),
-    windsurf: makeLauncher('Windsurf', EditorType.Windsurf),
-    zed: makeLauncher('Zed', EditorType.Zed),
-    antigravity: makeLauncher('Antigravity', EditorType.Antigravity),
-  };
-  const registry = new Map<EditorType, (typeof launchers)[keyof typeof launchers]>(
-    Object.entries(launchers) as any
-  );
-  vi.mocked(createLauncherRegistry).mockReturnValue(registry as any);
-  return launchers;
-}
 
 describe('IDE Open Command', () => {
   let mockExecute: ReturnType<typeof vi.fn>;
@@ -95,12 +57,10 @@ describe('IDE Open Command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    // Default settings
     vi.mocked(getSettings).mockReturnValue({
       environment: { defaultEditor: 'vscode' },
     } as any);
 
-    // Default feature resolution
     mockExecute = vi.fn().mockResolvedValue({
       id: 'feat-123-abc',
       name: 'test-feature',
@@ -109,8 +69,11 @@ describe('IDE Open Command', () => {
     });
     vi.mocked(container.resolve).mockReturnValue({ execute: mockExecute });
 
-    // Setup registry
-    setupRegistry();
+    vi.mocked(launchIde).mockResolvedValue({
+      ok: true,
+      editorName: 'VS Code',
+      worktreePath: '/mock/.shep/repos/abc123/wt/feat-test-feature',
+    });
   });
 
   describe('command structure', () => {
@@ -168,12 +131,11 @@ describe('IDE Open Command', () => {
       vi.mocked(getSettings).mockReturnValue({
         environment: { defaultEditor: 'vscode' },
       } as any);
-      const launchers = setupRegistry();
 
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123']);
 
-      expect(launchers.vscode.launch).toHaveBeenCalled();
+      expect(launchIde).toHaveBeenCalledWith(expect.objectContaining({ editorId: 'vscode' }));
       expect(messages.success).toHaveBeenCalledWith(expect.stringContaining('VS Code'));
     });
 
@@ -181,12 +143,16 @@ describe('IDE Open Command', () => {
       vi.mocked(getSettings).mockReturnValue({
         environment: { defaultEditor: 'vscode' },
       } as any);
-      const launchers = setupRegistry();
+      vi.mocked(launchIde).mockResolvedValue({
+        ok: true,
+        editorName: 'Cursor',
+        worktreePath: '/mock/.shep/repos/abc123/wt/feat-test-feature',
+      });
 
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123', '--cursor']);
 
-      expect(launchers.cursor.launch).toHaveBeenCalled();
+      expect(launchIde).toHaveBeenCalledWith(expect.objectContaining({ editorId: 'cursor' }));
       expect(messages.success).toHaveBeenCalledWith(expect.stringContaining('Cursor'));
     });
 
@@ -194,12 +160,16 @@ describe('IDE Open Command', () => {
       vi.mocked(getSettings).mockReturnValue({
         environment: { defaultEditor: 'vscode' },
       } as any);
-      const launchers = setupRegistry();
+      vi.mocked(launchIde).mockResolvedValue({
+        ok: true,
+        editorName: 'Antigravity',
+        worktreePath: '/mock/.shep/repos/abc123/wt/feat-test-feature',
+      });
 
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123', '--antigravity']);
 
-      expect(launchers.antigravity.launch).toHaveBeenCalled();
+      expect(launchIde).toHaveBeenCalledWith(expect.objectContaining({ editorId: 'antigravity' }));
       expect(messages.success).toHaveBeenCalledWith(expect.stringContaining('Antigravity'));
     });
   });
@@ -210,6 +180,18 @@ describe('IDE Open Command', () => {
       await cmd.parseAsync(['node', 'test', 'feat-123']);
 
       expect(mockExecute).toHaveBeenCalledWith('feat-123');
+    });
+
+    it('should pass feature repositoryPath and branch to launchIde', async () => {
+      const cmd = createIdeOpenCommand();
+      await cmd.parseAsync(['node', 'test', 'feat-123']);
+
+      expect(launchIde).toHaveBeenCalledWith(
+        expect.objectContaining({
+          repositoryPath: '/home/user/project',
+          branch: 'feat/test-feature',
+        })
+      );
     });
   });
 
@@ -232,10 +214,12 @@ describe('IDE Open Command', () => {
       expect(messages.error).toHaveBeenCalled();
     });
 
-    it('should handle unknown editor in settings', async () => {
-      vi.mocked(getSettings).mockReturnValue({
-        environment: { defaultEditor: 'notepad' },
-      } as any);
+    it('should handle launchIde failure result', async () => {
+      vi.mocked(launchIde).mockResolvedValue({
+        ok: false,
+        code: 'unknown_editor',
+        message: 'No launcher found for editor: notepad',
+      });
 
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123']);

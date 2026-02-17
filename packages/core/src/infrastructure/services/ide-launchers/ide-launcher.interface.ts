@@ -6,7 +6,7 @@
  * spawning a detached editor process and checking binary availability.
  */
 
-import type { EditorType } from '../../../domain/generated/output.js';
+import type { EditorType } from '../../../domain/generated/output';
 
 export interface IdeLauncher {
   /** Display name shown to the user (e.g., "VS Code"). */

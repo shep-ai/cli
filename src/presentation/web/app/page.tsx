@@ -77,6 +77,8 @@ export default async function HomePage() {
         description: feature.description ?? feature.slug,
         featureId: feature.id,
         lifecycle,
+        repositoryPath: feature.repositoryPath,
+        branch: feature.branch,
         state: deriveNodeState(feature, run),
         progress: deriveProgress(feature),
         ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),

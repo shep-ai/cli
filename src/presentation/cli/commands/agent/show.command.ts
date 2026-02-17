@@ -9,20 +9,12 @@
  */
 
 import { Command } from 'commander';
-import { createHash } from 'node:crypto';
-import { join } from 'node:path';
 import { colors, messages, symbols, renderDetailView } from '../../ui/index.js';
 import type { AgentRun } from '@/domain/generated/output.js';
 import { resolveAgentRun } from './resolve-run.js';
 import { container } from '@/infrastructure/di/container.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
-import { SHEP_HOME_DIR } from '@/infrastructure/services/filesystem/shep-directory.service.js';
-
-function computeWorktreePath(repoPath: string, branch: string): string {
-  const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
-  const slug = branch.replace(/\//g, '-');
-  return join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', slug);
-}
+import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
 function isProcessAlive(pid: number): boolean {
   try {

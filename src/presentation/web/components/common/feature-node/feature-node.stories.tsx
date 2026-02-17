@@ -74,6 +74,8 @@ const allStatesData: FeatureNodeData[] = [
     state: 'running',
     progress: 45,
     agentName: 'Planner',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/auth-module',
   },
   {
     name: 'API Rate Limiting',
@@ -82,6 +84,8 @@ const allStatesData: FeatureNodeData[] = [
     lifecycle: 'requirements' as FeatureLifecyclePhase,
     state: 'action-required',
     progress: 22,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/api-rate-limiting',
   },
   {
     name: 'Payment Gateway',
@@ -91,6 +95,8 @@ const allStatesData: FeatureNodeData[] = [
     state: 'done',
     progress: 100,
     runtime: '1h 42m',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/payment-gateway',
   },
   {
     name: 'Search Index',
@@ -100,6 +106,8 @@ const allStatesData: FeatureNodeData[] = [
     state: 'blocked',
     progress: 20,
     blockedBy: 'Auth Module',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/search-index',
   },
   {
     name: 'Email Service',
@@ -109,6 +117,8 @@ const allStatesData: FeatureNodeData[] = [
     state: 'error',
     progress: 30,
     errorMessage: 'Build failed: type mismatch',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/email-service',
   },
 ];
 
@@ -146,6 +156,8 @@ export const AllLifecycles: Story = {
             state: 'running' as FeatureNodeState,
             progress: [10, 25, 50, 70, 90, 100][i],
             agentName: 'Researcher',
+            repositoryPath: '/home/user/my-repo',
+            branch: 'feat/feature-name',
           }}
         />
       ))}
@@ -223,6 +235,8 @@ const interactiveInitialNodes: FeatureNodeType[] = [
       state: 'running' as FeatureNodeState,
       progress: 45,
       agentName: 'Planner',
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -238,6 +252,8 @@ const interactiveInitialNodes: FeatureNodeType[] = [
       state: 'done' as FeatureNodeState,
       progress: 100,
       runtime: '1h 42m',
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/payment-gateway',
     },
   },
   {
@@ -253,6 +269,8 @@ const interactiveInitialNodes: FeatureNodeType[] = [
       state: 'error' as FeatureNodeState,
       progress: 30,
       errorMessage: 'Build failed: type mismatch',
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/email-service',
     },
   },
 ];

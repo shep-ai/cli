@@ -13,6 +13,8 @@ const defaultData: FeatureNodeData = {
   lifecycle: 'requirements',
   state: 'running',
   progress: 45,
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/auth-module',
 };
 
 function renderFeatureNode(

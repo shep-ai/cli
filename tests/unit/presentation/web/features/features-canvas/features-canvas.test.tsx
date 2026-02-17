@@ -15,6 +15,8 @@ const mockNode: FeatureNodeType = {
     lifecycle: 'requirements',
     state: 'running',
     progress: 50,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/test-feature',
   },
 };
 
