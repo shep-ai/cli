@@ -91,6 +91,10 @@ export class NotificationWatcherService {
     this.pollIntervalMs = pollIntervalMs;
   }
 
+  isRunning(): boolean {
+    return this.intervalId !== null;
+  }
+
   start(): void {
     if (this.intervalId !== null) return;
 
@@ -218,4 +222,68 @@ export class NotificationWatcherService {
     }
     return `Agent ${run.id}`;
   }
+}
+
+// --- Singleton accessors (follows getNotificationBus() pattern) ---
+
+let watcherInstance: NotificationWatcherService | null = null;
+
+/**
+ * Initialize the notification watcher singleton.
+ * Must be called once during web server startup.
+ *
+ * @throws Error if the watcher is already initialized
+ */
+export function initializeNotificationWatcher(
+  runRepository: IAgentRunRepository,
+  phaseTimingRepository: IPhaseTimingRepository,
+  bus: NotificationBus,
+  pollIntervalMs?: number
+): void {
+  if (watcherInstance !== null) {
+    throw new Error('Notification watcher already initialized. Cannot re-initialize.');
+  }
+
+  watcherInstance = new NotificationWatcherService(
+    runRepository,
+    phaseTimingRepository,
+    bus,
+    pollIntervalMs
+  );
+}
+
+/**
+ * Get the notification watcher singleton.
+ *
+ * @returns The notification watcher service
+ * @throws Error if the watcher hasn't been initialized yet
+ */
+export function getNotificationWatcher(): NotificationWatcherService {
+  if (watcherInstance === null) {
+    throw new Error(
+      'Notification watcher not initialized. Call initializeNotificationWatcher() during web server startup.'
+    );
+  }
+
+  return watcherInstance;
+}
+
+/**
+ * Check if the notification watcher has been initialized.
+ */
+export function hasNotificationWatcher(): boolean {
+  return watcherInstance !== null;
+}
+
+/**
+ * Reset the notification watcher singleton (for testing purposes only).
+ * Stops the watcher if running before resetting.
+ *
+ * @internal
+ */
+export function resetNotificationWatcher(): void {
+  if (watcherInstance !== null) {
+    watcherInstance.stop();
+  }
+  watcherInstance = null;
 }

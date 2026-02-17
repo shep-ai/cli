@@ -58,7 +58,6 @@ import { FeatureAgentProcessService } from '../services/agents/feature-agent/fea
 import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
 import { NotificationService } from '../services/notifications/notification.service.js';
-import { NotificationWatcherService } from '../services/notifications/notification-watcher.service.js';
 import {
   initializeNotificationBus,
   getNotificationBus,
@@ -223,15 +222,6 @@ export async function initializeContainer(): Promise<typeof container> {
       const bus = c.resolve('NotificationEventBus') as ReturnType<typeof getNotificationBus>;
       const desktopNotif = c.resolve('DesktopNotifier') as DesktopNotifier;
       return new NotificationService(bus, desktopNotif);
-    },
-  });
-
-  container.register('NotificationWatcherService', {
-    useFactory: (c) => {
-      const runRepository = c.resolve<IAgentRunRepository>('IAgentRunRepository');
-      const phaseTimingRepository = c.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
-      const bus = c.resolve('NotificationEventBus') as ReturnType<typeof getNotificationBus>;
-      return new NotificationWatcherService(runRepository, phaseTimingRepository, bus);
     },
   });
 
