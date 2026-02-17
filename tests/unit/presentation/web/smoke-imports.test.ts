@@ -50,6 +50,7 @@ describe('smoke: web component imports', () => {
     const mod = await import('@shepai/core/infrastructure/di/use-cases-bridge');
     expect(typeof mod.getFeatures).toBe('function');
     expect(typeof mod.getAgentRun).toBe('function');
+    expect(typeof mod.createFeature).toBe('function');
   });
 });
 

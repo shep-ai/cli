@@ -19,6 +19,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     edges,
     selectedNode,
     isCreateDrawerOpen,
+    isSubmitting,
     onNodesChange,
     handleConnect,
     handleAddFeature,
@@ -58,6 +59,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         open={isCreateDrawerOpen}
         onClose={closeCreateDrawer}
         onSubmit={handleCreateFeatureSubmit}
+        isSubmitting={isSubmitting}
       />
     </>
   );

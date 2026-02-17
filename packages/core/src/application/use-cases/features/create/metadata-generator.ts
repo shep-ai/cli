@@ -53,6 +53,9 @@ JSON only, no markdown fences.`;
     });
 
     const cleaned = this.stripCodeFence(result.result);
+    if (!cleaned) {
+      throw new Error('AI returned empty response for metadata generation');
+    }
     const parsed = JSON.parse(cleaned);
     if (!parsed.slug || !parsed.name || !parsed.description) {
       throw new Error('Missing required fields in AI response');

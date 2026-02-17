@@ -14,6 +14,7 @@
 
 import type { DependencyContainer } from 'tsyringe';
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
+import { CreateFeatureUseCase } from '../../application/use-cases/features/create/create-feature.use-case.js';
 import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
 import { SHEP_USE_CASES_KEY } from './use-cases-bridge.js';
 
@@ -25,6 +26,7 @@ export function populateUseCasesBridge(c: DependencyContainer): void {
   const bridge = {
     listFeatures: c.resolve(ListFeaturesUseCase),
     agentRunRepo: c.resolve<IAgentRunRepository>('IAgentRunRepository'),
+    createFeature: c.resolve(CreateFeatureUseCase),
   };
   (globalThis as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
   (process as unknown as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;

@@ -49,6 +49,11 @@ async function main() {
     handle(req!, res!);
   });
 
+  // Forward WebSocket upgrades to Next.js for HMR/Fast Refresh
+  server.on('upgrade', (req, socket, head) => {
+    app.getUpgradeHandler()(req, socket, head);
+  });
+
   await new Promise<void>((resolve, reject) => {
     server.on('error', reject);
     server.listen(port, 'localhost', resolve);
@@ -56,15 +61,23 @@ async function main() {
 
   console.log(`[dev-server] Ready at http://localhost:${port}`);
 
-  // Graceful shutdown
+  // Graceful shutdown with timeout to avoid hanging on open connections
   let isShuttingDown = false;
   const shutdown = async () => {
     if (isShuttingDown) return;
     isShuttingDown = true;
     console.log('\n[dev-server] Shutting down...');
-    await new Promise<void>((resolve) => server.close(() => resolve()));
-    await app.close();
-    process.exit(0);
+    const forceExit = setTimeout(() => process.exit(0), 2000);
+    try {
+      server.closeAllConnections();
+      await Promise.all([
+        new Promise<void>((resolve) => server.close(() => resolve())),
+        app.close(),
+      ]);
+    } finally {
+      clearTimeout(forceExit);
+      process.exit(0);
+    }
   };
 
   process.on('SIGINT', shutdown);

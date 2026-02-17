@@ -18,8 +18,12 @@
 
 import type { Feature, AgentRun } from '../../domain/generated/output.js';
 import type { FeatureListFilters } from '../../application/ports/output/repositories/feature-repository.interface.js';
+import type {
+  CreateFeatureInput,
+  CreateFeatureResult,
+} from '../../application/use-cases/features/create/types.js';
 
-export type { FeatureListFilters };
+export type { FeatureListFilters, CreateFeatureInput, CreateFeatureResult };
 
 /** The globalThis key shared between writer and reader. */
 export const SHEP_USE_CASES_KEY = '__shepUseCases';
@@ -28,6 +32,7 @@ export const SHEP_USE_CASES_KEY = '__shepUseCases';
 interface ShepUseCases {
   listFeatures: { execute(filters?: FeatureListFilters): Promise<Feature[]> };
   agentRunRepo: { findById(id: string): Promise<AgentRun | null> };
+  createFeature: { execute(input: CreateFeatureInput): Promise<CreateFeatureResult> };
 }
 
 function isShepUseCases(value: unknown): value is ShepUseCases {
@@ -36,12 +41,15 @@ function isShepUseCases(value: unknown): value is ShepUseCases {
   const maybe = value as Record<string, unknown>;
   const listFeatures = maybe.listFeatures as Record<string, unknown> | undefined;
   const agentRunRepo = maybe.agentRunRepo as Record<string, unknown> | undefined;
+  const createFeature = maybe.createFeature as Record<string, unknown> | undefined;
 
   return (
     !!listFeatures &&
     typeof listFeatures.execute === 'function' &&
     !!agentRunRepo &&
-    typeof agentRunRepo.findById === 'function'
+    typeof agentRunRepo.findById === 'function' &&
+    !!createFeature &&
+    typeof createFeature.execute === 'function'
   );
 }
 
@@ -86,4 +94,19 @@ export async function getAgentRun(id: string): Promise<AgentRun | null> {
   } catch {
     return null;
   }
+}
+
+/**
+ * Create a new feature via the DI-managed use case.
+ * Unlike getFeatures/getAgentRun, this function propagates errors so callers
+ * (API routes) can return proper HTTP error responses and surface messages to the user.
+ * Throws if the bridge is not initialized or the use case fails.
+ */
+export async function createFeature(input: CreateFeatureInput): Promise<CreateFeatureResult> {
+  const useCases = getUseCases();
+  if (!useCases?.createFeature) {
+    throw new Error('Use-cases bridge is not initialized. Ensure the CLI process is running.');
+  }
+
+  return useCases.createFeature.execute(input);
 }

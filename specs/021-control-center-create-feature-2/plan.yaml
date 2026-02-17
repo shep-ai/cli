@@ -1,0 +1,186 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: control-center-create-feature-2
+summary: >
+  Wire FeatureCreateDrawer to CreateFeatureUseCase by extending the globalThis use-cases bridge
+  (reader + writer), adding a POST /api/features/create API route, mounting the Toaster component,
+  and converting the state hook's handleCreateFeatureSubmit from synchronous local-node creation to
+  an async API call with isSubmitting tracking, error toasts, and router.refresh() for canvas refresh.
+  All major building blocks exist — this is a wiring and integration task across four architectural layers.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js App Router (API routes)
+  - React (client components, hooks)
+  - tsyringe (DI container — writer side only)
+  - globalThis use-cases bridge
+  - React Flow (@xyflow/react)
+  - Vitest (unit tests)
+  - sonner (toast notifications)
+  - NextResponse (API response helper)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Bridge Extension'
+    description: >
+      Extend the use-cases bridge to expose CreateFeatureUseCase. This is the foundational layer
+      that all downstream code depends on — the API route calls the bridge reader, and the bridge
+      reader depends on the writer having populated the slot. Both reader (use-cases-bridge.ts) and
+      writer (populate-use-cases-bridge.ts) must be updated in lockstep. Includes smoke test for
+      import resolution.
+    parallel: false
+
+  - id: phase-2
+    name: 'API Route & Toast Infrastructure'
+    description: >
+      Create the POST /api/features/create API route and mount the Toaster component in layout.tsx.
+      The API route is the translation layer between the drawer's form-shaped data and the use case's
+      CreateFeatureInput contract. The Toaster must be rendered before the client-side hook can
+      display success/error toasts. These two changes are independent of each other but both are
+      prerequisites for the client-side integration in phase 3.
+    parallel: false
+
+  - id: phase-3
+    name: 'Client-Side Integration'
+    description: >
+      Convert the state hook's handleCreateFeatureSubmit from synchronous local-node creation to an
+      async fetch call to the API route. Add isSubmitting and pendingRepoNodeId state. Change
+      handleAddFeatureToRepo to open the drawer with repo context instead of immediately creating a
+      local node. Thread isSubmitting through ControlCenterInner to the drawer. Handle success
+      (close + toast + refresh) and error (keep open + error toast) flows. This is the most complex
+      phase due to async lifecycle management and multiple state transitions.
+    parallel: false
+
+  - id: phase-4
+    name: 'Verification & Cleanup'
+    description: >
+      Run the full test suite (unit, lint, typecheck), verify Storybook stories still render, and
+      ensure no regressions in existing functionality. Validate the end-to-end data flow works
+      conceptually (bridge → API route → hook → drawer → toast → canvas refresh).
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/web/app/api/features/create/route.ts
+  - tests/unit/presentation/web/api/features/create/route.test.ts
+
+filesToModify:
+  - packages/core/src/infrastructure/di/use-cases-bridge.ts
+  - packages/core/src/infrastructure/di/populate-use-cases-bridge.ts
+  - src/presentation/web/app/layout.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - tests/unit/presentation/web/smoke-imports.test.ts
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+
+# Open questions (all resolved)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-17
+
+  ## Architecture Overview
+
+  This feature connects the existing FeatureCreateDrawer UI component to the existing
+  CreateFeatureUseCase through the established use-cases bridge pattern. The architecture
+  follows four layers, each with a single responsibility:
+
+  ```
+  FeatureCreateDrawer (presentation/web)
+    → useControlCenterState hook (state management, fetch call)
+      → POST /api/features/create (API route, input translation)
+        → createFeature() bridge reader (web-safe accessor)
+          → CreateFeatureUseCase.execute() (DI-managed, on globalThis)
+  ```
+
+  The bridge pattern exists specifically because Turbopack cannot bundle tsyringe,
+  reflect-metadata, or better-sqlite3. The writer side (populate-use-cases-bridge.ts)
+  resolves use cases from the DI container and places them on globalThis during CLI
+  bootstrap. The reader side (use-cases-bridge.ts) provides web-safe functions that
+  retrieve them — no DI imports, no native modules.
+
+  Currently the bridge exposes `listFeatures` and `agentRunRepo`. Adding `createFeature`
+  follows the identical pattern: one new interface slot, one writer resolve, one reader
+  function, and an updated type guard.
+
+  ## Key Design Decisions
+
+  ### 1. Bridge Error Propagation (differs from existing pattern)
+
+  Existing bridge readers (getFeatures, getAgentRun) swallow errors and return sensible
+  defaults (empty array, null). For createFeature, errors must propagate — the API route
+  needs to distinguish success from failure to return proper HTTP status codes, and the
+  client needs error messages for toast notifications. The createFeature bridge reader
+  will throw on failure rather than returning a default.
+
+  ### 2. userInput Composition in API Route
+
+  The API route translates between the drawer's form data (name, description, attachments)
+  and the use case's CreateFeatureInput (userInput, repositoryPath). The composition format
+  `"Feature: {name}\n\n{description}\n\nAttached files:\n- {paths}"` gives the
+  MetadataGenerator AI clear structure. This is a presentation-layer concern — the use case
+  contract stays unchanged.
+
+  ### 3. Repository Path from Node ID
+
+  Server-rendered repo nodes use the ID format `repo-${repoPath}` (page.tsx:59). The hook
+  stores a `pendingRepoNodeId` when the drawer opens from a repo node's "+" button, then
+  extracts the repositoryPath by stripping the `repo-` prefix at submit time. Client-created
+  repo nodes (timestamp-based IDs) won't yield valid paths — handled by error toast.
+
+  ### 4. handleAddFeatureToRepo Behavior Change
+
+  Currently calls createFeatureNode() immediately (local-only node). Must change to store
+  the repoNodeId and open the drawer, converging with handleAddFeature. The old
+  createFeatureNode-based instant-creation is replaced by the drawer + API flow.
+  handleAddFeatureToFeature (sub-feature creation) keeps its current behavior.
+
+  ### 5. Canvas Refresh via router.refresh()
+
+  After successful creation, router.refresh() re-executes the server component (page.tsx),
+  which fetches all features from the bridge and builds fresh nodes/edges. This is the
+  standard Next.js App Router pattern — no client-side node reconciliation needed.
+
+  ### 6. Toast Infrastructure Prerequisite
+
+  The sonner library is installed and the Toaster component is defined at
+  `components/ui/sonner.tsx`, but it is NOT rendered in layout.tsx. Adding `<Toaster />`
+  to the root layout is a prerequisite for any toast notifications to display. This is
+  a one-line change.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency: bridge first (foundation), then API route + toast
+  infrastructure (transport + UI prerequisite), then client-side integration (consumer),
+  finally verification.
+
+  Phase 1 (bridge) is pure infrastructure with no UI impact — safe to land first. Phase 2
+  creates the API endpoint and mounts the Toaster — both are inert until the client calls
+  them. Phase 3 is the integration phase that connects everything. Phase 4 validates the
+  complete chain.
+
+  Each phase follows TDD: write failing tests first, implement minimally, then refactor.
+  The bridge gets a smoke import test. The API route gets dedicated handler tests. The hook
+  gets async submit flow tests. All follow existing test patterns in the codebase.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Bridge reader imports break Turbopack | Smoke import test catches missing exports. Bridge reader must never import tsyringe or DI modules. |
+  | router.refresh() doesn't update canvas nodes | useState(initialNodes) captures initial value only, but server component remount passes fresh props. Verify during phase 4. If needed, add useEffect sync as fallback. |
+  | CreateFeatureUseCase latency exceeds user tolerance | isSubmitting prop already disables the form and shows "Creating..." text. NFR-1 sets 15s tolerance. The use case's AI metadata generation is the bottleneck — no mitigation needed at the UI layer. |
+  | Double-submit race condition | isSubmitting guard in the hook prevents multiple concurrent fetch calls. The submit button is disabled while isSubmitting=true. |
+  | Client-created repo nodes have invalid paths | Validate repositoryPath is not a timestamp-based ID before calling the API. Show error toast if invalid. |
+  | Toaster not rendering (toasts invisible) | Phase 2 adds Toaster to layout.tsx as a prerequisite before any code calls toast(). |
+  | handleAddFeatureToRepo behavior change breaks existing flows | The old behavior (immediate local node creation) is replaced by drawer + API flow, which is strictly better (persisted features). No backward compatibility needed — the old behavior was a placeholder. |

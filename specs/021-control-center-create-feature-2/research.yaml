@@ -1,0 +1,409 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: control-center-create-feature-2
+summary: >
+  Technical research for wiring FeatureCreateDrawer to CreateFeatureUseCase. Key decisions: extend
+  the existing globalThis use-cases bridge pattern (not direct DI), add a single POST API route at
+  /api/features/create following the established NextResponse pattern, update the state hook to make
+  async fetch calls with isSubmitting tracking, and derive repositoryPath from server-rendered repo
+  node IDs (repo-${path} format). No new libraries needed — all infrastructure already exists.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js App Router (API routes)
+  - React (client components, hooks)
+  - tsyringe (DI container — writer side only)
+  - globalThis use-cases bridge
+  - React Flow (@xyflow/react)
+  - Vitest (unit tests)
+  - sonner (toast notifications)
+  - NextResponse (API response helper)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Bridge Extension Strategy'
+    chosen: 'Extend existing globalThis use-cases bridge with createFeature slot'
+    rejected:
+      - 'Direct DI container resolution in API route — rejected because Turbopack cannot bundle tsyringe, reflect-metadata, or better-sqlite3 native addons. The bridge pattern exists specifically to solve this. Direct resolution would crash the web layer.'
+      - 'Create a separate bridge/service module — rejected because the existing bridge (use-cases-bridge.ts reader + populate-use-cases-bridge.ts writer) is well-established, tested, and already handles the globalThis/process redundancy pattern. A separate module would fragment the architecture.'
+    rationale: >
+      The codebase has an established bridge pattern: the writer (populate-use-cases-bridge.ts)
+      resolves DI-managed use cases and places them on globalThis; the reader (use-cases-bridge.ts)
+      provides web-safe functions that retrieve them. Currently exposes listFeatures and agentRunRepo.
+      Adding createFeature follows the identical pattern — one new slot on the ShepUseCases interface,
+      one new resolve call in the writer, one new reader function. The type guard (isShepUseCases)
+      must be updated to check for the new slot. The bridge already handles graceful degradation
+      (returns sensible defaults when not initialized).
+
+  - title: 'Bridge Function Signature Design'
+    chosen: 'Expose a createFeature(input: {userInput, repositoryPath}) function that returns Promise<CreateFeatureResult>'
+    rejected:
+      - "Expose the full CreateFeatureUseCase instance with execute() method — rejected because the existing pattern (getFeatures, getAgentRun) wraps use case calls in standalone functions with error handling. Exposing raw instances leaks the use case abstraction to the web layer and bypasses the bridge's error-handling wrapper."
+      - "Accept name/description/attachments at the bridge level — rejected because the bridge should mirror the use case's contract (userInput + repositoryPath). String composition from form fields is a presentation concern that belongs in the API route, not the bridge."
+    rationale: >
+      The bridge reader functions follow a pattern: each is a standalone async function that
+      retrieves the bridge, calls the underlying use case, and handles errors gracefully. The
+      existing getFeatures() returns [] on failure; getAgentRun() returns null. For createFeature,
+      we should let errors propagate (throw) since creation failures must be surfaced to the user
+      as error toasts, not silently swallowed. The function accepts CreateFeatureInput (minus
+      approvalGates, which is not needed from the web UI) and returns CreateFeatureResult.
+
+  - title: 'API Route Structure'
+    chosen: 'Single POST /api/features/create route with JSON body parsing and bridge call'
+    rejected:
+      - 'RESTful POST /api/features (plural resource endpoint) — rejected because the existing API routes use action-oriented paths (/api/dialog/pick-folder, /api/dialog/pick-files). Following the established convention keeps the codebase consistent. A RESTful pattern could be adopted later when there are full CRUD endpoints.'
+      - 'Server Action instead of API route — rejected because the codebase does not use Server Actions anywhere. The existing pattern is explicit API routes called via fetch(). Server Actions would introduce a new pattern inconsistently and have different error handling semantics.'
+    rationale: >
+      The existing API routes (pick-folder, pick-files) establish the pattern: export an async
+      POST function, parse input, call the service/bridge, return NextResponse.json() with
+      appropriate status codes. The new route follows this exactly. It parses { name, description,
+      repositoryPath, attachments? } from the request body, composes the userInput string,
+      calls the bridge''s createFeature(), and returns { feature, warning? } on success or
+      { error } on failure. Input validation (non-empty name and repositoryPath) returns 400;
+      bridge/use-case errors return 500.
+
+  - title: 'userInput Composition Strategy'
+    chosen: 'Compose in the API route as "Feature: {name}\n\n{description}\n\nAttached files:\n- {paths}"'
+    rejected:
+      - "Compose on the client side before sending — rejected because it would require the client to know about the use case's internal input format. The API route is the natural boundary between the form's data shape and the use case's contract. If the format changes, only the route changes."
+      - 'Extend CreateFeatureInput with structured fields (name, description, attachments) — rejected because this is scope creep. The MetadataGenerator AI already parses freeform text effectively. Adding structured fields to the domain input requires changes to the use case, types, and metadata generator — all unnecessary for this integration task.'
+    rationale: >
+      The API route is the translation layer between the drawer''s form data (name, description,
+      attachments) and the use case''s CreateFeatureInput (userInput, repositoryPath). Composing
+      userInput in the route keeps the use case unchanged and gives the MetadataGenerator clear
+      structure: "Feature: {name}" maps directly to the feature name, and the description +
+      attachment paths provide context. This is a presentation-layer concern.
+
+  - title: 'Repository Path Derivation'
+    chosen: 'Extract from server-rendered repo node ID by stripping "repo-" prefix; require repo context for creation'
+    rejected:
+      - "Add a repository picker dropdown to the drawer — rejected because the spec explicitly chooses option (a): derive from parent repo node. Adding a picker is UI scope creep and the drawer's API must not change (NFR-3). Can be added in a follow-up if needed."
+      - 'Store repositoryPath in RepositoryNodeData — rejected because it would require changing the RepositoryNodeData type, updating page.tsx node construction, and modifying the RepositoryNode component. The path is already encoded in the node ID for server-rendered nodes (repo-${repoPath} in page.tsx line 59).'
+    rationale: >
+      Server-rendered repo nodes use the ID format repo-${repoPath} (page.tsx:59), where
+      repoPath is the actual filesystem path (e.g., "repo-/Users/foo/bar"). Stripping the
+      "repo-" prefix yields the repositoryPath for the use case. Client-created repo nodes
+      (handleAddRepository) use repo-${Date.now()} which won''t contain a valid path — but this
+      is acceptable because client-created repos don''t have persisted features yet. The drawer
+      should only be opened from server-rendered repo nodes'' "+" button or must require a repo
+      context. When opened via the sidebar''s global "New feature" button (no repo context),
+      show an error toast instructing the user to create from a repository node. A new
+      pendingRepoNodeId state variable tracks which repo node triggered the drawer.
+
+  - title: 'Async Submit Flow and Loading State'
+    chosen: 'Keep drawer open with isSubmitting=true until API responds, then close + toast + router.refresh()'
+    rejected:
+      - 'Optimistic UI update — rejected because it requires creating a temporary local node, then reconciling with the real persisted feature after API response. This adds significant complexity (node ID mapping, error rollback, visual flickering on reconciliation) for minimal UX gain. The spec explicitly recommends approach (a).'
+      - 'Close drawer immediately and poll for new feature — rejected because polling adds complexity (interval management, cleanup, race conditions) and the user loses context about whether creation succeeded. The isSubmitting pattern provides clear, immediate feedback.'
+    rationale: >
+      The drawer already supports an isSubmitting prop (disables submit button). The hook adds
+      an isSubmitting state that is true during the fetch call. On success: close drawer, show
+      success toast (toast.success from sonner), call router.refresh() to re-render the server
+      component. On error: keep drawer open, show error toast (toast.error). The latency (a few
+      seconds for AI metadata + worktree creation) is acceptable for a creation action. The
+      isSubmitting guard also prevents double-submit.
+
+  - title: 'Canvas Refresh Strategy'
+    chosen: 'router.refresh() to trigger server component re-render with fresh data from bridge'
+    rejected:
+      - 'Manual node insertion + later reconciliation — rejected because the server component (page.tsx) already handles the full feature-to-node transformation (lifecycle mapping, agent run fetching, dagre layout). Duplicating this logic in the client would be error-prone and violate DRY.'
+      - 'Full page reload (window.location.reload()) — rejected because it loses React state, scroll position, and is a poor UX. router.refresh() is the Next.js-idiomatic approach that re-runs the server component without a full page reload.'
+    rationale: >
+      Next.js router.refresh() re-executes the server component (page.tsx), which calls
+      getFeatures() from the bridge, fetches all agent runs, builds nodes and edges, applies
+      dagre layout, and passes fresh initialNodes/initialEdges to the client. This is the
+      simplest and most correct approach — the server component is the single source of truth
+      for feature data. The only nuance: useControlCenterState initializes from initialNodes
+      via useState, which won''t re-initialize on prop changes. Need to verify if this requires
+      a useEffect sync or a key-based remount. The current code uses useState(initialNodes)
+      which only captures the initial value — router.refresh() will remount the component tree
+      since the server component returns new data, which causes ControlCenterInner to receive
+      new props and re-render from scratch.
+
+  - title: 'Toast Notification Infrastructure'
+    chosen: 'Add Toaster component to root layout and use toast.success/toast.error from sonner'
+    rejected:
+      - 'Use window.alert() for errors — rejected for obvious UX reasons. The project already has sonner installed and a Toaster component defined.'
+      - 'Build custom notification system — rejected because sonner is already a dependency, the Toaster component is already defined in components/ui/sonner.tsx, and Storybook stories exist for it. Zero additional dependencies needed.'
+    rationale: >
+      The sonner library is installed (src/presentation/web/package.json), the Toaster wrapper
+      component exists (components/ui/sonner.tsx), and Storybook stories are defined. However,
+      the Toaster is NOT currently rendered in the app layout (layout.tsx) or AppShell. It must
+      be added to layout.tsx (after AppShell) for toasts to display. This is a prerequisite
+      for this feature. Once mounted, import { toast } from ''sonner'' in the state hook to
+      call toast.success() and toast.error().
+
+  - title: 'State Hook Modification Approach'
+    chosen: 'Add isSubmitting state, pendingRepoNodeId state, and convert handleCreateFeatureSubmit to async API call'
+    rejected:
+      - 'Create a separate useCreateFeature hook — rejected because the creation flow is tightly coupled with the drawer open/close state, selected node state, and canvas refresh. Splitting it would require complex state synchronization between hooks. The existing hook already owns handleCreateFeatureSubmit.'
+      - "Use React Query/SWR for the mutation — rejected because neither library is a project dependency. Adding a data-fetching library for a single mutation is over-engineering. A simple fetch + useState is sufficient and follows the project's existing patterns (pickFiles, pickFolder use bare fetch)."
+    rationale: >
+      The state hook (useControlCenterState) already owns handleCreateFeatureSubmit and the
+      drawer open/close state. The modification is minimal: (1) add isSubmitting useState,
+      (2) add pendingRepoNodeId state to track which repo node triggered the drawer,
+      (3) convert handleCreateFeatureSubmit from sync local-node-creation to async fetch call,
+      (4) handle success/error with toast + drawer state. The existing test harness
+      (HookTestHarness) can be extended to test the new async behavior with mocked fetch.
+      useRouter().refresh() needs to be imported from next/navigation. The hook needs to
+      track which repo node opened the drawer so it can extract the repositoryPath at submit
+      time.
+
+  - title: 'Test Strategy'
+    chosen: 'Unit tests for API route (mocked bridge), bridge extension (smoke test), and state hook (mocked fetch + router)'
+    rejected:
+      - 'Integration tests with real database — rejected because this is a wiring feature. The CreateFeatureUseCase is already tested independently. Testing the wiring layers (route, bridge, hook) in isolation with mocks is sufficient and faster.'
+      - 'E2E Playwright tests — rejected for this task because the feature depends on a running DI container with SQLite, AI agent executor, and git worktree infrastructure. E2E tests can be added in a follow-up once the infrastructure supports it.'
+    rationale: >
+      Three test files needed: (1) API route test — mock the bridge''s createFeature function,
+      test success response (200 + feature JSON), validation error (400), and internal error
+      (500). (2) Smoke import test — extend existing smoke-imports.test.ts to verify the new
+      createFeature function resolves from the bridge module. (3) State hook test — extend
+      existing use-control-center-state.test.tsx with async tests: mock global fetch, mock
+      useRouter, test success flow (drawer closes, fetch called with correct body), error flow
+      (drawer stays open), and missing-repo-path flow (toast.error, no fetch). All tests use
+      Vitest and follow existing patterns.
+
+# Open questions (all resolved)
+openQuestions:
+  - question: 'Does the Toaster component need to be added to the layout?'
+    resolved: true
+    answer: >
+      Yes. The Toaster component (components/ui/sonner.tsx) exists but is NOT rendered in
+      layout.tsx or AppShell. It must be added to layout.tsx (e.g., after <AppShell>) for
+      toast notifications to display. This is a prerequisite for this feature.
+
+  - question: 'Will router.refresh() correctly update the canvas nodes?'
+    resolved: true
+    answer: >
+      Yes. router.refresh() re-executes the server component (page.tsx), which calls
+      getFeatures() and builds fresh nodes/edges. Since ControlCenterInner receives new
+      initialNodes/initialEdges props, React will re-render the component. The useState
+      initialization with initialNodes only captures the initial value, but since the server
+      component returns entirely new JSX, React unmounts/remounts the client component tree
+      with fresh props. This is the standard Next.js App Router pattern for server-driven
+      data refresh.
+
+  - question: 'How does the "+" button on repo nodes trigger the drawer with repo context?'
+    resolved: true
+    answer: >
+      Currently, clicking "+" on a repo node calls onRepositoryAdd(node.id) which maps to
+      handleAddFeatureToRepo(repoNodeId), which calls createFeatureNode(repoNodeId) — directly
+      creating a local-only node without opening the drawer. This must be changed: instead of
+      immediately creating a node, handleAddFeatureToRepo should store the repoNodeId in state
+      (pendingRepoNodeId) and open the drawer. When the drawer submits, the hook extracts the
+      repositoryPath from pendingRepoNodeId. The existing handleAddFeature (sidebar button)
+      opens the drawer without repo context. Both paths converge on handleCreateFeatureSubmit.
+
+  - question: 'Can client-created repo nodes (repo-${Date.now()}) support feature creation?'
+    resolved: true
+    answer: >
+      No, and they should not. Client-created repo nodes use timestamp-based IDs (repo-${Date.now()}
+      in handleAddRepository) which don''t encode the filesystem path. Only server-rendered repo
+      nodes (repo-${repoPath} from page.tsx:59) encode the actual path. For client-created repo
+      nodes, the repo node ID won''t yield a valid repositoryPath, and the API call would fail
+      with a validation error. This is acceptable — client-created repos are placeholder UI nodes;
+      real feature creation requires a persisted repository context. The error handling (toast.error
+      with "create feature from a repository" message) covers this case gracefully.
+
+  - question: 'Should approvalGates be exposed through the API route?'
+    resolved: true
+    answer: >
+      No. The CreateFeatureInput type has an optional approvalGates field, but this is an
+      advanced feature for CLI-driven workflows (e.g., requiring human approval before AI
+      proceeds). The web UI does not surface approval gate configuration. The API route omits
+      this field, and the use case defaults to no gates when it is undefined.
+
+  - question: 'How should the handleAddFeatureToRepo behavior change?'
+    resolved: true
+    answer: >
+      Currently handleAddFeatureToRepo immediately creates a local-only feature node via
+      createFeatureNode(repoNodeId). It must be changed to: (1) store the repoNodeId in a new
+      pendingRepoNodeId state, (2) open the create drawer (same as handleAddFeature but with
+      repo context), (3) on submit, extract repositoryPath from pendingRepoNodeId. The old
+      createFeatureNode-based instant-creation behavior is replaced by the drawer + API flow.
+      handleAddFeatureToFeature (sub-feature creation) keeps its current behavior for now since
+      it''s a different use case (creating child features under a parent feature, not persisted).
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-17
+
+  ## Technology Decisions
+
+  ### 1. Bridge Extension Strategy
+
+  **Chosen:** Extend existing globalThis use-cases bridge with createFeature slot
+
+  **Rejected:**
+  - Direct DI container resolution in API route — Turbopack cannot bundle tsyringe/reflect-metadata/better-sqlite3
+  - Separate bridge module — fragments the architecture; existing bridge pattern is well-tested
+
+  **Rationale:** The established bridge pattern (writer resolves from DI → globalThis → reader provides web-safe functions) already handles listFeatures and agentRunRepo. Adding createFeature follows the identical pattern: one interface slot, one writer resolve, one reader function, updated type guard.
+
+  ### 2. Bridge Function Signature
+
+  **Chosen:** `createFeature(input: {userInput, repositoryPath}) → Promise<CreateFeatureResult>`
+
+  **Rejected:**
+  - Expose raw use case instance — leaks abstraction, bypasses error handling wrapper
+  - Accept form fields (name/desc/attachments) at bridge level — string composition is a presentation concern
+
+  **Rationale:** Bridge functions are standalone async wrappers. Unlike getFeatures (which swallows errors), createFeature should propagate errors so the API route can return proper HTTP error responses.
+
+  ### 3. API Route Structure
+
+  **Chosen:** `POST /api/features/create` with JSON body
+
+  **Rejected:**
+  - RESTful `POST /api/features` — existing routes use action-oriented paths (dialog/pick-folder)
+  - Server Actions — not used anywhere in the codebase
+
+  **Rationale:** Follows established pattern: async POST export, JSON parsing, service call, NextResponse.json(). Accepts { name, description, repositoryPath, attachments? }, composes userInput, returns { feature, warning? } or { error }.
+
+  ### 4. userInput Composition
+
+  **Chosen:** Compose in API route as `"Feature: {name}\n\n{description}\n\nAttached files:\n- {paths}"`
+
+  **Rejected:**
+  - Client-side composition — couples client to use case's internal format
+  - Extend CreateFeatureInput — scope creep, requires domain changes
+
+  **Rationale:** The API route is the translation layer between form data and use case contract. The MetadataGenerator AI parses freeform text effectively; structured format gives it clear signals.
+
+  ### 5. Repository Path Derivation
+
+  **Chosen:** Extract from server-rendered repo node ID by stripping `repo-` prefix
+
+  **Rejected:**
+  - Add repo picker to drawer — UI scope creep, violates NFR-3 (no drawer API changes)
+  - Store path in RepositoryNodeData — requires type changes, page.tsx changes, component changes
+
+  **Rationale:** Server-rendered repo nodes use `repo-${repoPath}` (page.tsx:59). Stripping the prefix yields the filesystem path. A new `pendingRepoNodeId` state tracks which repo opened the drawer. Client-created repos (timestamp IDs) won't have valid paths — handled by error toast.
+
+  ### 6. Async Submit Flow
+
+  **Chosen:** Keep drawer open with isSubmitting=true → close + toast + router.refresh() on success
+
+  **Rejected:**
+  - Optimistic UI — requires node reconciliation logic, error rollback
+  - Close + poll — adds polling complexity, loses feedback context
+
+  **Rationale:** Drawer already supports isSubmitting prop. Simple fetch + useState pattern. Success: close, toast.success, router.refresh(). Error: keep open, toast.error. Prevents double-submit via isSubmitting guard.
+
+  ### 7. Canvas Refresh
+
+  **Chosen:** `router.refresh()` to trigger server component re-render
+
+  **Rejected:**
+  - Manual node insertion — duplicates page.tsx transformation logic
+  - Full page reload — loses React state
+
+  **Rationale:** Next.js router.refresh() re-runs the server component, fetching fresh features from the bridge. The component tree remounts with new initialNodes/initialEdges.
+
+  ### 8. Toast Infrastructure
+
+  **Chosen:** Add Toaster to layout.tsx, use `toast.success`/`toast.error` from sonner
+
+  **Rejected:**
+  - window.alert() — poor UX
+  - Custom notification system — sonner already installed and configured
+
+  **Rationale:** sonner is installed, Toaster component exists but is NOT rendered in layout.tsx. Must add `<Toaster />` to layout.tsx as a prerequisite.
+
+  ### 9. Test Strategy
+
+  **Chosen:** Unit tests for API route (mocked bridge), smoke import test, state hook tests (mocked fetch/router)
+
+  **Rejected:**
+  - Integration tests with real DB — over-testing for a wiring feature
+  - E2E Playwright — depends on full infrastructure (AI, git, SQLite)
+
+  **Rationale:** Three test areas: API route (success/validation/error paths), bridge smoke import, state hook (success/error/missing-repo flows).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | sonner | Toast notifications | Use (already installed) | Already in package.json, Toaster component defined, Storybook stories exist. Only need to render Toaster in layout. |
+  | next/navigation (useRouter) | Canvas refresh after creation | Use (framework built-in) | router.refresh() is the standard Next.js pattern for server data refresh without full reload. |
+  | @xyflow/react | Canvas node management | Use (already installed) | No changes needed to React Flow integration. Canvas updates via router.refresh() re-render. |
+  | React Query / SWR | Data fetching/mutations | Reject | Not a project dependency. Single mutation doesn't justify adding a library. Bare fetch + useState suffices. |
+  | zod | API input validation | Reject | The route only validates two non-empty strings. Manual checks are simpler than adding a schema library. Can add zod later if routes grow complex. |
+
+  ## Security Considerations
+
+  1. **Input Validation**: The API route validates name (non-empty string) and repositoryPath (non-empty string) before passing to the use case. The use case itself handles filesystem operations safely.
+
+  2. **Path Traversal**: repositoryPath comes from the repo node ID, which is originally set by page.tsx from feature.repositoryPath (a database-stored value). The use case validates the path and creates worktrees in controlled locations (~/.shep/repos/). No user-supplied paths are passed directly to shell commands.
+
+  3. **No Authentication Required**: The web UI runs locally (localhost), served by the CLI process. There's no multi-user authentication concern. The API routes are only accessible from the local machine.
+
+  4. **XSS Prevention**: All data is handled as JSON (no HTML rendering of user input in the API layer). React's JSX escaping handles display-side concerns.
+
+  5. **Double Submit Prevention**: The isSubmitting state prevents multiple concurrent API calls. The use case itself handles slug collision via the SlugResolver.
+
+  ## Performance Implications
+
+  1. **Latency**: CreateFeatureUseCase involves AI metadata generation (1-3s), slug resolution (database queries), worktree creation (git operations, <1s), and spec scaffolding. Total: 2-10 seconds. Acceptable for a creation action with loading indicator.
+
+  2. **No Caching**: Feature creation is inherently non-cacheable. No caching strategy needed.
+
+  3. **Canvas Refresh**: router.refresh() re-fetches ALL features from the database, not just the new one. For small feature counts (<100), this is negligible. For large counts, pagination would be needed — but that's a separate concern.
+
+  4. **Server Component**: page.tsx fetches agent runs in parallel (Promise.all), limiting the impact of multiple DB queries.
+
+  ## Architecture Notes
+
+  ### Data Flow (End-to-End)
+
+  ```
+  User clicks "+" on repo node
+    → handleAddFeatureToRepo(repoNodeId)
+    → stores pendingRepoNodeId, opens drawer
+    → user fills name/description/attachments
+    → handleCreateFeatureSubmit(formData)
+    → fetch POST /api/features/create { name, description, repositoryPath, attachments }
+    → API route composes userInput string
+    → calls bridge createFeature({ userInput, repositoryPath })
+    → bridge reads globalThis.__shepUseCases.createFeature
+    → CreateFeatureUseCase.execute() runs full 9-step flow
+    → returns { feature, warning? }
+    → API returns 200 { feature, warning? }
+    → hook: close drawer, toast.success, router.refresh()
+    → page.tsx re-executes, fetches all features
+    → ControlCenterInner receives new initialNodes/initialEdges
+    → Canvas renders with new feature node
+  ```
+
+  ### Files to Modify
+
+  | File | Change |
+  | ---- | ------ |
+  | `packages/core/src/infrastructure/di/use-cases-bridge.ts` | Add createFeature to ShepUseCases interface, type guard, and reader function |
+  | `packages/core/src/infrastructure/di/populate-use-cases-bridge.ts` | Import CreateFeatureUseCase, resolve from container, add to bridge |
+  | `src/presentation/web/app/api/features/create/route.ts` | **NEW** — POST handler, input validation, userInput composition, bridge call |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Add isSubmitting + pendingRepoNodeId state, convert submit to async, add router/toast |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Pass isSubmitting prop to FeatureCreateDrawer |
+  | `src/presentation/web/app/layout.tsx` | Add Toaster component from sonner |
+  | `tests/unit/presentation/web/smoke-imports.test.ts` | Add createFeature to bridge resolution smoke test |
+  | `tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx` | Add async submit tests (success, error, missing repo) |
+  | `tests/unit/presentation/web/api/features/create/route.test.ts` | **NEW** — API route handler tests |
+
+  ### Key Implementation Constraints
+
+  1. **Bridge reader must NOT import from tsyringe or DI modules** — use-cases-bridge.ts is imported by Next.js Turbopack
+  2. **Bridge writer CAN import from tsyringe** — only runs in Node.js entry points
+  3. **API route calls bridge reader, never bridge writer** — route runs in Next.js server context
+  4. **State hook uses bare fetch()** — follows existing patterns (pick-files, pick-folder)
+  5. **No changes to FeatureCreateDrawer component API** — isSubmitting prop already defined, just start passing it
+  6. **No changes to CreateFeatureUseCase or its types** — use case contract is stable
+  7. **No changes to page.tsx** — server component already fetches all features on each request

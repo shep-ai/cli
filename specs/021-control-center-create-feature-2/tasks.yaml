@@ -1,0 +1,343 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: control-center-create-feature-2
+summary: >
+  9 tasks across 4 phases. Extends the use-cases bridge with createFeature, adds a POST API route,
+  mounts the Toaster component, and rewires the state hook from local-only node creation to a
+  persisted API call with loading/error/success lifecycle management.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js App Router (API routes)
+  - React (client components, hooks)
+  - tsyringe (DI container — writer side only)
+  - globalThis use-cases bridge
+  - Vitest (unit tests)
+  - sonner (toast notifications)
+  - NextResponse (API response helper)
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ── Phase 1: Bridge Extension ──────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend use-cases bridge reader with createFeature'
+    description: >
+      Add createFeature to the ShepUseCases interface, update the isShepUseCases type guard to
+      check for the new slot, and add a createFeature() reader function. Unlike getFeatures/getAgentRun
+      which swallow errors, createFeature must propagate errors so the API route can return proper
+      HTTP error responses. Import CreateFeatureInput and CreateFeatureResult types from the use case
+      types module (these are plain interfaces with no DI dependency — safe for Turbopack).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'ShepUseCases interface includes createFeature slot with execute(input) signature'
+      - 'isShepUseCases type guard checks for createFeature.execute function'
+      - 'createFeature() reader function retrieves bridge and calls execute()'
+      - 'createFeature() throws on error (does not swallow like getFeatures)'
+      - 'createFeature() throws descriptive error if bridge is not initialized'
+      - 'No tsyringe, reflect-metadata, or better-sqlite3 imports in this file'
+    tdd:
+      red:
+        - 'Add assertion in smoke-imports.test.ts that createFeature resolves from bridge module (import(@shepai/core/infrastructure/di/use-cases-bridge) has createFeature as function)'
+      green:
+        - 'Add createFeature to ShepUseCases interface with execute(input: CreateFeatureInput): Promise<CreateFeatureResult>'
+        - 'Update isShepUseCases to check typeof maybe.createFeature?.execute === "function"'
+        - 'Add async createFeature(input) reader function that gets bridge, validates, calls execute, and propagates errors'
+        - 'Export createFeature and the input/result types'
+      refactor:
+        - 'Ensure consistent code style with existing getFeatures/getAgentRun reader functions'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Extend use-cases bridge writer with CreateFeatureUseCase'
+    description: >
+      Import CreateFeatureUseCase in populate-use-cases-bridge.ts, resolve it from the DI
+      container, and add it to the bridge object on globalThis. The use case is already
+      registered as a singleton in container.ts — no DI changes needed.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'CreateFeatureUseCase is imported from application/use-cases/features/create/'
+      - 'Bridge object includes createFeature slot resolved via c.resolve(CreateFeatureUseCase)'
+      - 'Bridge is placed on both globalThis and process (matching existing pattern)'
+    tdd:
+      red:
+        - 'The smoke import test from task-1 should now fail if the writer does not populate the slot (but since smoke tests only check the reader module resolution, the "red" for the writer is the type mismatch — the reader interface now requires createFeature but the writer does not provide it, so TypeScript compilation fails)'
+      green:
+        - 'Import CreateFeatureUseCase in populate-use-cases-bridge.ts'
+        - 'Add createFeature: c.resolve(CreateFeatureUseCase) to the bridge object literal'
+      refactor:
+        - 'Verify import paths use .js extension (this file runs in Node.js, not Turbopack)'
+    estimatedEffort: '15min'
+
+  # ── Phase 2: API Route & Toast Infrastructure ──────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Create POST /api/features/create route tests'
+    description: >
+      Write the API route test file before implementing the route. Mock the bridge's createFeature
+      function. Test success (200 + feature JSON), validation errors (400 for missing name or
+      repositoryPath), and internal errors (500 for use-case exceptions). Follow the existing
+      pick-files-route.test.ts pattern: mock before import, dynamic import of route module.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test file at tests/unit/presentation/web/api/features/create/route.test.ts'
+      - 'Tests mock @shepai/core/infrastructure/di/use-cases-bridge createFeature function'
+      - 'Tests cover: success with feature + warning, success without warning, 400 on missing name, 400 on missing repositoryPath, 500 on use-case error, 500 generic message for non-Error throws'
+      - 'Tests verify correct userInput composition (name + description + attachments)'
+      - 'All tests fail initially (route does not exist yet)'
+    tdd:
+      red:
+        - 'Write test: POST with valid body returns 200 with { feature, warning? } — should fail (no route)'
+        - 'Write test: POST with valid body composes userInput as "Feature: {name}\n\n{description}" — should fail'
+        - 'Write test: POST with attachments appends file paths to userInput — should fail'
+        - 'Write test: POST without name returns 400 { error } — should fail'
+        - 'Write test: POST without repositoryPath returns 400 { error } — should fail'
+        - 'Write test: POST when bridge throws returns 500 { error } — should fail'
+        - 'Write test: POST when bridge throws non-Error returns 500 with generic message — should fail'
+      green:
+        - 'Tests are written and failing — implementation happens in task-4'
+      refactor:
+        - 'N/A — tests only in this task'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement POST /api/features/create route'
+    description: >
+      Create the API route handler at src/presentation/web/app/api/features/create/route.ts.
+      Parse JSON body for name, description, repositoryPath, and optional attachments. Validate
+      required fields. Compose userInput string from name + description + attachment paths.
+      Call bridge's createFeature() with { userInput, repositoryPath }. Return 200 with
+      { feature, warning? } on success, 400 for validation errors, 500 for internal errors.
+      Follow the existing pick-folder/pick-files route pattern (NextResponse.json).
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'Route file at src/presentation/web/app/api/features/create/route.ts'
+      - 'Exports async POST function'
+      - 'Parses JSON body with name, description, repositoryPath, attachments'
+      - 'Returns 400 if name is missing or empty'
+      - 'Returns 400 if repositoryPath is missing or empty'
+      - 'Composes userInput: "Feature: {name}\n\n{description}" with optional attachments section'
+      - 'Calls createFeature({ userInput, repositoryPath }) from bridge reader'
+      - 'Returns 200 { feature, warning? } on success'
+      - 'Returns 500 { error: message } on use-case failure'
+      - 'All route tests from task-3 pass'
+    tdd:
+      red:
+        - 'Tests from task-3 are already failing'
+      green:
+        - 'Create route.ts with POST handler'
+        - 'Parse request body, validate inputs, compose userInput, call bridge, return response'
+        - 'Run tests — all should pass'
+      refactor:
+        - 'Extract userInput composition into a local function if it improves readability'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Mount Toaster component in root layout'
+    description: >
+      Add the Toaster component (from components/ui/sonner.tsx) to layout.tsx so toast
+      notifications display. The Toaster must be rendered inside the body, after AppShell.
+      This is a prerequisite for the client-side toast.success/toast.error calls in phase 3.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Toaster component is imported from @/components/ui/sonner'
+      - 'Toaster is rendered in layout.tsx body, after AppShell'
+      - 'Existing layout behavior (theme script, AppShell wrapper) is unchanged'
+    tdd:
+      red:
+        - 'N/A — this is a one-line template change that is verified visually and by existing integration tests not breaking'
+      green:
+        - 'Import Toaster from @/components/ui/sonner in layout.tsx'
+        - 'Add <Toaster /> after <AppShell>{children}</AppShell> inside the body element'
+      refactor:
+        - 'N/A — trivial change'
+    estimatedEffort: '5min'
+
+  # ── Phase 3: Client-Side Integration ───────────────────────────────────
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Write state hook async submit tests'
+    description: >
+      Extend the existing use-control-center-state.test.tsx with new tests for the async submit
+      flow. Tests need to mock global fetch and useRouter. Test three scenarios: (1) successful
+      submit from repo context (fetch called, drawer closes, router.refresh called), (2) API
+      error (drawer stays open, error toast), (3) submit without repo context (error toast, no
+      fetch). Follow the existing HookTestHarness pattern.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Tests mock global fetch with vi.fn()'
+      - 'Tests mock next/navigation useRouter with vi.fn() returning { refresh: vi.fn() }'
+      - 'Tests mock sonner toast with vi.fn()'
+      - 'Test: submit from repo node context calls fetch with correct URL and body'
+      - 'Test: successful submit closes drawer and calls router.refresh()'
+      - 'Test: API error keeps drawer open'
+      - 'Test: submit without repo context shows error, does not call fetch'
+      - 'Test: isSubmitting is true during fetch and false after'
+      - 'All new tests fail initially (hook not yet updated)'
+    tdd:
+      red:
+        - 'Write test: handleAddFeatureToRepo stores pendingRepoNodeId and opens drawer — should fail (no pendingRepoNodeId state)'
+        - 'Write test: handleCreateFeatureSubmit with repo context calls fetch("/api/features/create") with { name, description, repositoryPath } — should fail (still sync)'
+        - 'Write test: after successful fetch, isCreateDrawerOpen is false and router.refresh() was called — should fail'
+        - 'Write test: after failed fetch, isCreateDrawerOpen remains true — should fail'
+        - 'Write test: handleCreateFeatureSubmit without pendingRepoNodeId does not call fetch — should fail'
+        - 'Write test: isSubmitting is true while fetch is pending — should fail'
+      green:
+        - 'Tests are written and failing — implementation happens in task-7'
+      refactor:
+        - 'N/A — tests only in this task'
+    estimatedEffort: '45min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Update useControlCenterState hook for async API submit'
+    description: >
+      Convert handleCreateFeatureSubmit from synchronous local-node creation to async fetch call.
+      Add isSubmitting state (boolean, initially false). Add pendingRepoNodeId state (string | null).
+      Update handleAddFeatureToRepo to store the repoNodeId and open the drawer (instead of calling
+      createFeatureNode). Import useRouter from next/navigation for router.refresh(). Import toast
+      from sonner for success/error notifications. On submit: validate repo context, set isSubmitting
+      true, fetch POST /api/features/create, handle success (close + toast.success + refresh) and
+      error (toast.error, keep open). Update ControlCenterState interface to include isSubmitting.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'isSubmitting state tracks API call lifecycle (true during fetch, false after)'
+      - 'pendingRepoNodeId state tracks which repo node opened the drawer'
+      - 'handleAddFeatureToRepo stores repoNodeId and opens drawer (no more createFeatureNode)'
+      - 'handleCreateFeatureSubmit is async: validates repo context, calls fetch, handles response'
+      - 'On success: closes drawer, calls toast.success(), calls router.refresh(), resets pendingRepoNodeId'
+      - 'On error: keeps drawer open, calls toast.error() with message from response'
+      - 'Missing repo context: calls toast.error() with instruction message, does not call fetch'
+      - 'ControlCenterState interface includes isSubmitting: boolean'
+      - 'handleAddFeature (sidebar button) opens drawer without repo context (behavior unchanged except submit now validates repo)'
+      - 'All tests from task-6 pass'
+    tdd:
+      red:
+        - 'Tests from task-6 are already failing'
+      green:
+        - 'Add isSubmitting and pendingRepoNodeId state'
+        - 'Import useRouter from next/navigation and toast from sonner'
+        - 'Convert handleAddFeatureToRepo to store repoNodeId + open drawer'
+        - 'Convert handleCreateFeatureSubmit to async fetch flow'
+        - 'Add isSubmitting to the returned state object'
+        - 'Run tests — all should pass'
+      refactor:
+        - 'Extract repositoryPath derivation (stripping repo- prefix) into a local helper if it improves clarity'
+        - 'Ensure handleCreateFeatureSubmit cleanup (reset isSubmitting, pendingRepoNodeId) runs in finally block'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Thread isSubmitting through ControlCenterInner to drawer'
+    description: >
+      Destructure isSubmitting from useControlCenterState in ControlCenterInner and pass it
+      as a prop to FeatureCreateDrawer. The drawer already accepts isSubmitting as an optional
+      prop (defaults to false) — this task just starts passing it. No changes to the drawer
+      component itself.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'ControlCenterInner destructures isSubmitting from useControlCenterState'
+      - 'isSubmitting is passed as prop to FeatureCreateDrawer'
+      - 'No changes to FeatureCreateDrawer component or its props interface'
+      - 'Existing control-center-integration tests still pass'
+    tdd:
+      red:
+        - 'Verify existing integration test (control-center-integration.test.tsx) still passes — it should, since isSubmitting is an optional prop defaulting to false'
+      green:
+        - 'Destructure isSubmitting from the state hook in ControlCenterInner'
+        - 'Pass isSubmitting={isSubmitting} to FeatureCreateDrawer'
+      refactor:
+        - 'N/A — trivial prop threading'
+    estimatedEffort: '10min'
+
+  # ── Phase 4: Verification & Cleanup ────────────────────────────────────
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Run full validation suite'
+    description: >
+      Run pnpm validate (lint, format, typecheck, tsp), pnpm test (all unit tests), and verify
+      Storybook builds without errors. Fix any issues discovered. This is the final gate before
+      the feature is ready for commit.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'pnpm lint passes with no errors'
+      - 'pnpm typecheck passes with no errors'
+      - 'pnpm typecheck:web passes with no errors'
+      - 'pnpm test passes (all unit tests green)'
+      - 'pnpm build:storybook passes (no broken stories)'
+      - 'Existing smoke-imports test passes with the new createFeature assertion'
+      - 'No regressions in existing control-center tests'
+    tdd:
+      red:
+        - 'N/A — this is a verification task, not an implementation task'
+      green:
+        - 'Run pnpm validate and fix any lint/format/type issues'
+        - 'Run pnpm test and fix any test failures'
+        - 'Run pnpm build:storybook and verify no broken stories'
+      refactor:
+        - 'Address any code quality issues surfaced by lint or typecheck'
+    estimatedEffort: '30min'
+
+# Total effort estimate
+totalEstimate: '4h 15min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  This feature is implemented in 9 tasks across 4 phases, totaling approximately 4 hours.
+
+  The work begins by extending the use-cases bridge — the foundational communication layer
+  between the DI-managed backend and the Turbopack-bundled web frontend. Both the reader
+  (web-safe) and writer (Node.js-only) sides are updated to include a createFeature slot
+  that wraps CreateFeatureUseCase.
+
+  Next, the API route and toast infrastructure are set up. The POST /api/features/create
+  route acts as the translation layer between the drawer's form data and the use case's
+  input contract, composing the userInput string from name, description, and attachment
+  paths. The Toaster component is mounted in the root layout to enable toast notifications.
+
+  The client-side integration phase is the most substantial: the state hook's
+  handleCreateFeatureSubmit is converted from synchronous local-node creation to an async
+  fetch call with isSubmitting tracking. handleAddFeatureToRepo is changed from immediate
+  node creation to opening the drawer with repo context. Success and error flows are
+  handled with toast notifications and router.refresh() for canvas data refresh.
+
+  Finally, the full validation suite is run to ensure no regressions, all tests pass,
+  and Storybook stories remain functional.
+
+  Each implementation task follows TDD: tests are written first (RED), then minimal
+  implementation passes them (GREEN), then code is cleaned up (REFACTOR).
