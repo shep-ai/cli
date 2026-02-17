@@ -1,0 +1,214 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-toolbar
+summary: >
+  Implementation plan for the feature toolbar — a contextual ReactFlow Panel (top-center)
+  that appears when a feature node is selected on the Control Center canvas, providing
+  "Open in IDE" and "Open in Shell" quick actions. The plan follows a bottom-up approach:
+  extract the shared computeWorktreePath utility first (eliminating 3 duplicated copies),
+  build the two API routes next (/api/ide/open, /api/shell/open), then implement the
+  client-side hook and toolbar component, and finally integrate into the canvas and drawer.
+  All phases follow strict TDD with RED-GREEN-REFACTOR cycles.
+
+relatedFeatures:
+  - number: 18
+    name: feat-ide-open
+    relationship: depends-on
+    notes: >
+      Reuses IdeLauncher interface, launcher registry, and computeWorktreePath logic.
+
+technologies:
+  - '@xyflow/react (Panel component for toolbar positioning)'
+  - 'React 19 (client components, hooks)'
+  - 'shadcn/ui (Button, Tooltip, Separator)'
+  - 'lucide-react (Code2, Terminal, Loader2, AlertCircle)'
+  - 'Next.js 16+ App Router (POST API routes)'
+  - 'node:child_process (spawn for shell launch)'
+  - 'node:crypto (SHA256 hash in computeWorktreePath)'
+  - 'Tailwind CSS v4 (styling, transitions)'
+  - 'Storybook (colocated stories)'
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Shared Utility Extraction'
+    description: >
+      Extract computeWorktreePath from the 3 CLI commands into a shared module in
+      packages/core. This is the foundation — both the new API routes and the existing
+      CLI commands will import from this single location. Eliminates duplication before
+      adding a 4th consumer.
+    parallel: false
+
+  - id: phase-2
+    name: 'API Routes & Input Validation'
+    description: >
+      Build the two POST API routes (/api/ide/open and /api/shell/open) with input
+      validation, following the existing /api/dialog/* pattern. These are the server-side
+      backbone that the client-side toolbar and drawer will call. The IDE route bridges
+      to the launcher registry; the shell route spawns an OS-appropriate terminal.
+    parallel: false
+
+  - id: phase-3
+    name: 'Data Pipeline Extension'
+    description: >
+      Extend FeatureNodeData with repositoryPath and branch fields, and populate them
+      in page.tsx from the Feature aggregate. This ensures the toolbar and drawer have
+      the data they need without an extra API round-trip.
+    parallel: false
+
+  - id: phase-4
+    name: 'Client Hook & Toolbar Component'
+    description: >
+      Build the useFeatureActions custom hook (encapsulating fetch, loading, error state)
+      and the FeatureToolbar component (ReactFlow Panel with icon buttons, tooltips,
+      loading spinners, inline error feedback). Includes Storybook stories for all states.
+    parallel: false
+
+  - id: phase-5
+    name: 'Integration & Drawer Update'
+    description: >
+      Wire the toolbar into ControlCenterInner via the existing FeaturesCanvas toolbar
+      prop. Add action buttons to FeatureDrawer using the same useFeatureActions hook.
+      Update drawer stories. Final end-to-end validation.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/infrastructure/services/ide-launchers/compute-worktree-path.ts
+  - src/presentation/web/app/api/ide/open/route.ts
+  - src/presentation/web/app/api/shell/open/route.ts
+  - src/presentation/web/components/common/feature-toolbar/feature-toolbar.tsx
+  - src/presentation/web/components/common/feature-toolbar/use-feature-actions.ts
+  - src/presentation/web/components/common/feature-toolbar/feature-toolbar.stories.tsx
+  - src/presentation/web/components/common/feature-toolbar/index.ts
+
+filesToModify:
+  - src/presentation/cli/commands/ide-open.command.ts
+  - src/presentation/cli/commands/feat/show.command.ts
+  - src/presentation/cli/commands/agent/show.command.ts
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/app/page.tsx
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+  - src/presentation/web/components/common/index.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds a presentation-layer toolbar to the Control Center canvas, backed by
+  two thin API routes that bridge to existing infrastructure in packages/core. The
+  architecture follows the established patterns:
+
+  ```
+  page.tsx (server component)
+    └── Populates FeatureNodeData with repositoryPath + branch from Feature aggregate
+        └── ControlCenter → ControlCenterInner
+            ├── FeaturesCanvas (toolbar={<FeatureToolbar>} via existing prop)
+            │   └── <Panel position="top-center">
+            │       └── FeatureToolbar (consumes useFeatureActions hook)
+            │           ├── POST /api/ide/open → createLauncherRegistry → launcher.launch
+            │           └── POST /api/shell/open → spawn terminal at worktree path
+            └── FeatureDrawer (also consumes useFeatureActions hook)
+                ├── Same POST /api/ide/open
+                └── Same POST /api/shell/open
+  ```
+
+  **Clean Architecture compliance**: API routes instantiate infrastructure services directly
+  (matching /api/dialog/* pattern). No tsyringe, no DI container. Domain logic
+  (computeWorktreePath) stays in packages/core. The toolbar component is a Tier 1 common
+  component with colocated hook, stories, and barrel export.
+
+  **Data flow**: Feature.repositoryPath and Feature.branch flow from the server component
+  through FeatureNodeData → useControlCenterState → selectedNode → toolbar/drawer. The
+  useFeatureActions hook consumes these values and manages fetch lifecycle (loading, error,
+  5-second auto-clear).
+
+  ## Key Design Decisions
+
+  ### 1. ReactFlow Panel for Toolbar Positioning
+
+  The toolbar uses `<Panel position="top-center">` — ReactFlow's built-in fixed overlay API.
+  This avoids node-relative coordinate math, pan/zoom tracking, and z-index conflicts. The
+  existing FeaturesCanvas already renders `<Controls />` and `{toolbar}` inside `<ReactFlow>`
+  (lines 138-139 of features-canvas.tsx), so the Panel slots in naturally.
+
+  ### 2. Direct FeatureNodeData Extension
+
+  Adding `repositoryPath` and `branch` directly to FeatureNodeData eliminates API round-trips.
+  page.tsx already has the full Feature object at nodeData construction time (line 77). The
+  interface's `[key: string]: unknown` index signature ensures backward compatibility, but
+  explicit typed fields are added for type safety.
+
+  ### 3. Shared computeWorktreePath Extraction
+
+  The pure function (SHA256 hash + path join) is currently duplicated in 3 CLI commands:
+  ide-open.command.ts:20, feat/show.command.ts:21, agent/show.command.ts:21. Extracting to
+  `packages/core/src/infrastructure/services/ide-launchers/compute-worktree-path.ts`
+  co-locates it with the launcher registry. Importable via the `@shepai/core/infrastructure/*`
+  wildcard export in packages/core/package.json. Both CLI and web consumers import from this
+  single source.
+
+  ### 4. Direct Service Instantiation in API Routes
+
+  Following the /api/dialog/pick-folder pattern: import from @shepai/core, instantiate
+  directly, try/catch, NextResponse.json(). No tsyringe (bundling issues with native modules),
+  no use-cases bridge (no existing use cases for IDE/shell launch). getSettings() works because
+  the Next.js server runs in the same Node process where the CLI initialized the singleton.
+
+  ### 5. OS-Specific Shell Spawn
+
+  macOS: `open -a Terminal <path>`. Linux: `x-terminal-emulator --working-directory=<path>`.
+  Uses child_process.spawn with `{ detached: true, stdio: 'ignore' }` + `child.unref()` —
+  the same fire-and-forget pattern as the IDE launchers. Returns 501 for unsupported platforms.
+
+  ### 6. Inline Error Feedback
+
+  Icon changes to AlertCircle with destructive styling on the errored button, with error
+  message in tooltip. No sonner toast (Toaster not mounted in AppShell). Auto-clears after
+  5 seconds or on next successful action. Managed per-button in the useFeatureActions hook.
+
+  ### 7. useFeatureActions Custom Hook
+
+  Encapsulates all action logic: fetch calls, loading state (per-button), error state
+  (per-button with 5-second auto-clear), and disabled-during-loading logic. Returns
+  `{ openInIde, openInShell, ideLoading, shellLoading, ideError, shellError }`. Consumed
+  by both FeatureToolbar and FeatureDrawer — no duplication.
+
+  ## Implementation Strategy
+
+  The phases follow a bottom-up dependency order:
+
+  1. **Shared Utility Extraction** comes first because both API routes depend on
+     computeWorktreePath. Extracting it also cleans up existing CLI duplication.
+
+  2. **API Routes** come second because they are the server-side backbone. Building and
+     testing them in isolation (with mocked services) ensures the endpoints are solid
+     before the client consumes them.
+
+  3. **Data Pipeline Extension** is a small but critical change — adding 2 fields to
+     FeatureNodeData and populating them in page.tsx. This must happen before the toolbar
+     component can use repositoryPath and branch.
+
+  4. **Client Hook & Toolbar Component** is the main UI work. The hook is built and
+     unit-tested first (via fetch mock), then the component wraps it with ReactFlow Panel,
+     shadcn/ui buttons, and Storybook stories.
+
+  5. **Integration & Drawer Update** is the final wiring: passing the toolbar into
+     FeaturesCanvas, adding action buttons to FeatureDrawer, updating stories, and
+     running full validation.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | packages/core import fails in Next.js API routes | The /api/dialog/* routes already import from @shepai/core successfully. computeWorktreePath, getSettings, and createLauncherRegistry are pure functions with no tsyringe/native module deps. Verified by existing pick-folder/route.ts pattern. |
+  | getSettings() not initialized when API route runs | The CLI bootstrap initializes the singleton before starting Next.js (WebServerService). Verified by existing use-cases-bridge pattern in page.tsx line 2. |
+  | Shell spawn fails on different Linux distros | Fallback from x-terminal-emulator to xdg-terminal-emulator. Return clear 500 error with spawn failure details. 501 for unsupported platforms (NFR-8). |
+  | computeWorktreePath extraction breaks existing CLI commands | The function is pure and identical across all 3 copies. Replace each copy with an import, run existing tests to verify no regression. |
+  | FeatureNodeData extension breaks existing consumers | The interface already has `[key: string]: unknown` index signature. Adding explicit typed fields is purely additive. All existing code continues to work unchanged. |
+  | elementsSelectable={false} on FeaturesCanvas prevents node selection | The existing handleNodeClick in useControlCenterState uses the onNodeClick callback (not ReactFlow selection state). It sets selectedNode programmatically via setState. The toolbar reacts to selectedNode, not ReactFlow's internal selection. |
+  | Toolbar visible when node has no repositoryPath/branch | useFeatureActions returns disabled state when repositoryPath or branch are missing. Buttons render as disabled with explanatory tooltip. |

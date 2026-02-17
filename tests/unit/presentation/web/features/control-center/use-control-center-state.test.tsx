@@ -34,6 +34,8 @@ const mockFeatureNode: FeatureNodeType = {
     lifecycle: 'implementation',
     state: 'running',
     progress: 45,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/auth-module',
   },
 };
 
@@ -341,6 +343,43 @@ describe('useControlCenterState', () => {
         lifecycle: 'implementation',
         state: 'running',
         progress: 50,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/feature-a',
+      },
+    };
+    const feat2: FeatureNodeType = {
+      id: 'feat-2',
+      type: 'featureNode',
+      position: { x: 340, y: 160 },
+      data: {
+        name: 'Feature B',
+        featureId: '#b',
+        lifecycle: 'requirements',
+        state: 'done',
+        progress: 100,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/feature-b',
+      },
+    };
+
+    const repo2: RepositoryNodeType = {
+      id: 'repo-2',
+      type: 'repositoryNode',
+      position: { x: 0, y: 400 },
+      data: { name: 'org/repo-b' },
+    };
+    const feat3: FeatureNodeType = {
+      id: 'feat-3',
+      type: 'featureNode',
+      position: { x: 340, y: 400 },
+      data: {
+        name: 'Feature C',
+        featureId: '#c',
+        lifecycle: 'research',
+        state: 'running',
+        progress: 30,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/feature-c',
       },
     };
 

@@ -1,0 +1,41 @@
+feature:
+  id: 021-feature-toolbar
+  name: feature-toolbar
+  number: 21
+  branch: feat/021-feature-toolbar
+  lifecycle: research
+  createdAt: '2026-02-17T11:58:11Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 12
+    total: 12
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-17T13:03:23.338Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-17T11:58:11Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

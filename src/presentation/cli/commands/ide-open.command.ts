@@ -7,21 +7,13 @@
  */
 
 import { Command } from 'commander';
-import { createHash } from 'node:crypto';
-import { join } from 'node:path';
 import { EditorType } from '@/domain/generated/output.js';
 import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
 import { createLauncherRegistry } from '@/infrastructure/services/ide-launchers/ide-launcher.registry.js';
-import { SHEP_HOME_DIR } from '@/infrastructure/services/filesystem/shep-directory.service.js';
+import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 import { messages } from '../ui/index.js';
-
-function computeWorktreePath(repoPath: string, branch: string): string {
-  const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
-  const slug = branch.replace(/\//g, '-');
-  return join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', slug);
-}
 
 /** IDE flag names mapped to their EditorType values. */
 const IDE_FLAG_MAP: Record<string, EditorType> = {

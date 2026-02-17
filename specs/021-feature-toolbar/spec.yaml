@@ -4,14 +4,13 @@
 name: feature-toolbar
 number: 021
 branch: feat/021-feature-toolbar
-oneLiner: Feature toolkit toolbar with actions to open feature in IDE & Shell
+oneLiner: Feature action buttons in FeatureDrawer to open feature in IDE & Shell
 summary: >
-  Add a contextual toolbar to the Control Center canvas that appears when a
-  feature node is selected. The toolbar provides quick actions — "Open in IDE"
-  and "Open in Shell" — that launch the feature's worktree directory in the
-  user's configured editor or shell via new Next.js API routes
-  backed by the existing IDE launcher infrastructure from spec 018. Actions are
-  also surfaced in the FeatureDrawer for discoverability.
+  Add "Open in IDE" and "Open in Shell" action buttons exclusively inside the
+  FeatureDrawer (right-side detail panel) that launch the feature's worktree
+  directory in the user's configured editor or shell via new Next.js API routes
+  backed by the existing IDE launcher infrastructure from spec 018. There is no
+  canvas-level floating toolbar — all actions live in the drawer.
 phase: Requirements
 sizeEstimate: M
 
@@ -26,8 +25,7 @@ relatedFeatures:
 
 technologies:
   - React (client components with hooks)
-  - "@xyflow/react (ReactFlow canvas panels/controls)"
-  - shadcn/ui (Button, Tooltip, Separator primitives)
+  - shadcn/ui (Button, Separator primitives)
   - Next.js App Router API routes
   - lucide-react (icons)
   - Storybook (mandatory colocated stories)
@@ -39,17 +37,15 @@ relatedLinks: []
 # Open questions — all resolved with AI-recommended defaults
 openQuestions:
   - question: >
-      Should the toolbar be a floating panel attached to the selected node, or a
-      fixed bar at the top/bottom of the canvas (ReactFlow Panel)?
+      Should the toolbar be a floating panel on the canvas or live inside the
+      FeatureDrawer?
     resolved: true
     answer: >
-      Recommend fixed ReactFlow Panel at position="top-center" that shows/hides
-      based on selected feature node. Rationale: (1) simpler implementation —
-      no need to compute node-relative coordinates or track pan/zoom transforms,
-      (2) consistent with the existing Controls component already in the canvas,
-      (3) avoids z-index and overlap issues with adjacent nodes, (4) ReactFlow's
-      <Panel> API is purpose-built for this. Alternative: node-attached toolbar
-      if user feedback indicates proximity to the node is more intuitive.
+      Drawer-only. The action buttons live exclusively inside the FeatureDrawer
+      header area. No canvas-level floating panel. Rationale: (1) the drawer is
+      already the primary detail view opened on node click, (2) fewer moving parts
+      — no ReactFlow Panel, no conditional canvas overlay, (3) keeps the canvas
+      clean and focused on the node graph, (4) avoids z-index and overlap concerns.
 
   - question: >
       Should "Open in Shell" launch the OS default terminal or a configurable
@@ -70,12 +66,9 @@ openQuestions:
       detail panel) for consistency?
     resolved: true
     answer: >
-      Recommend yes — add "Open in IDE" and "Open in Shell" buttons to the
-      FeatureDrawer header area. Rationale: (1) the drawer is the primary detail
-      view and users may intuitively look there for actions, (2) provides
-      redundant but discoverable access points, (3) minimal implementation cost
-      since the same action handler/hook can be reused. The canvas toolbar
-      remains the primary quick-action UX; drawer buttons are secondary.
+      The FeatureDrawer is the sole location for "Open in IDE" and "Open in Shell"
+      buttons. There is no separate canvas toolbar. The drawer header area is the
+      single, discoverable action surface.
 
   - question: >
       Should the toolbar display the feature name or other context, or only
@@ -144,72 +137,62 @@ content: |
   shell must switch to the CLI and run `shep ide <feat-id>` manually. This
   context-switching breaks flow and undercuts the value of the visual canvas.
 
-  The `FeaturesCanvas` component already accepts a `toolbar?: React.ReactNode` prop
-  (currently unused) — a clear extension point designed for this purpose. The IDE
-  launcher infrastructure (spec 018: IdeLauncher interface, launcher registry,
+  The IDE launcher infrastructure (spec 018: IdeLauncher interface, launcher registry,
   worktree path computation) is fully implemented in `packages/core` but has no
   web-facing integration.
 
-  This feature bridges the gap by adding a contextual feature toolbar to the canvas
-  with "Open in IDE" and "Open in Shell" actions, backed by new API routes that
-  reuse the existing IDE launcher infrastructure and the user's shellPreference.
+  This feature bridges the gap by adding "Open in IDE" and "Open in Shell" action
+  buttons inside the FeatureDrawer, backed by new API routes that reuse the
+  existing IDE launcher infrastructure and the user's shellPreference.
 
   ## Success Criteria
 
-  - [ ] Toolbar renders as a ReactFlow Panel (top-center) when a feature node is selected
-  - [ ] Toolbar hides when no feature node is selected (pane click, Escape, or node deselection)
-  - [ ] Toolbar shows/hides with a smooth transition (fade or slide, ≤200ms)
+  - [ ] FeatureDrawer header includes "Open in IDE" and "Open in Shell" action buttons
+  - [ ] Buttons only render when selectedNode has valid repositoryPath and branch
   - [ ] "Open in IDE" button calls POST /api/ide/open and launches the configured editor at the feature worktree
   - [ ] "Open in Shell" button calls POST /api/shell/open and opens the user's configured shell at the feature worktree
   - [ ] Both buttons show a loading spinner while the API call is in flight
-  - [ ] Both buttons display a toast or inline error on failure (e.g., IDE not installed, path not found)
+  - [ ] Both buttons display inline error on failure (e.g., IDE not installed, path not found)
   - [ ] API route /api/ide/open validates inputs, computes worktree path, and launches via IdeLauncher registry
   - [ ] API route /api/shell/open validates inputs, computes worktree path, and spawns shell process
   - [ ] API routes return appropriate error responses (400 for bad input, 404 for missing launcher, 500 for spawn failure)
   - [ ] FeatureNodeData includes repositoryPath and branch, populated from Feature aggregate in page.tsx
-  - [ ] FeatureDrawer header includes "Open in IDE" and "Open in Shell" action buttons
   - [ ] computeWorktreePath is extracted to a shared utility in packages/core (no duplication)
-  - [ ] Toolbar component has Storybook stories covering: default (with selection), loading state, error state, no selection (hidden)
   - [ ] FeatureDrawer updated stories reflect new action buttons
-  - [ ] All new components and API routes have unit tests
+  - [ ] All new API routes and the useFeatureActions hook have unit tests
   - [ ] All buttons have accessible labels (aria-label or tooltip text)
+  - [ ] No canvas-level floating toolbar — actions exist only in the drawer
 
   ## Functional Requirements
 
-  ### Toolbar Component
+  ### FeatureDrawer Action Buttons
 
-  - **FR-1: Conditional rendering** — The FeatureToolbar component MUST render inside
-    the ReactFlow canvas (via the existing `toolbar` prop on FeaturesCanvas) only when
-    `selectedNode` is non-null. When no node is selected, the toolbar MUST be hidden.
+  - **FR-1: Drawer-only placement** — The "Open in IDE" and "Open in Shell" action
+    buttons MUST exist exclusively inside the FeatureDrawer header area (below the
+    title, above the status section). There is no canvas-level floating toolbar.
 
-  - **FR-2: Panel positioning** — The toolbar MUST use ReactFlow's `<Panel position="top-center">`
-    for fixed positioning within the canvas viewport. It must not move when the canvas
-    is panned or zoomed.
+  - **FR-2: Conditional rendering** — The action buttons MUST only render when the
+    selected node has valid (non-empty) `repositoryPath` and `branch` values.
 
-  - **FR-3: Open in IDE action** — The toolbar MUST include an "Open in IDE" icon button
-    (lucide-react `Code2` icon) that, when clicked, sends a POST request to `/api/ide/open`
-    with `{ repositoryPath, branch }` from the selected node's data. The button MUST use
-    the user's configured `defaultEditor` from settings (resolved server-side by the API
-    route via `getSettings().environment.defaultEditor`).
+  - **FR-3: Open in IDE action** — The drawer MUST include an "Open in IDE" button
+    (lucide-react `Code2` icon + label) that, when clicked, sends a POST request to
+    `/api/ide/open` with `{ repositoryPath, branch }` from the selected node's data.
 
-  - **FR-4: Open in Shell action** — The toolbar MUST include an "Open in Shell"
-    icon button (lucide-react `Terminal` icon) that, when clicked, sends a POST request
-    to `/api/shell/open` with `{ repositoryPath, branch }` from the selected node's data.
-    The API route reads `getSettings().environment.shellPreference` to determine the shell.
+  - **FR-4: Open in Shell action** — The drawer MUST include an "Open in Shell"
+    button (lucide-react `Terminal` icon + label) that, when clicked, sends a POST
+    request to `/api/shell/open` with `{ repositoryPath, branch }` from the selected
+    node's data.
 
   - **FR-5: Loading state** — Each action button MUST show a loading spinner (replacing
     the icon) while its API call is in flight. Buttons MUST be disabled during loading
     to prevent duplicate invocations.
 
-  - **FR-6: Error feedback** — If an API call fails, the toolbar MUST display an error
-    indicator. The error message from the API response MUST be shown via tooltip on the
-    errored button (change icon to AlertCircle with destructive styling). Error state
-    clears on next successful action or after 5 seconds.
+  - **FR-6: Error feedback** — If an API call fails, the button MUST display an error
+    indicator (AlertCircle icon with destructive styling). Error state clears on next
+    successful action or after 5 seconds.
 
-  - **FR-7: Toolbar styling** — The toolbar MUST use shadcn/ui Button (variant="ghost",
-    size="sm") with Tooltip wrappers for icon labels. Buttons are separated by a
-    shadcn/ui Separator. The toolbar container has a semi-transparent background with
-    backdrop blur and rounded corners consistent with the existing Controls component.
+  - **FR-7: Button styling** — Buttons MUST use shadcn/ui Button (variant="outline",
+    size="sm") with icon + text label. All buttons have `aria-label` attributes.
 
   ### Data Pipeline
 
@@ -257,23 +240,12 @@ content: |
     (or similar location under packages/core). Both the CLI command and the new API routes
     MUST import from this shared location. The existing duplicated copies MUST be replaced.
 
-  ### FeatureDrawer Integration
-
-  - **FR-14: Drawer action buttons** — The FeatureDrawer MUST include "Open in IDE" and
-    "Open in Shell" buttons in its header area (below the title, above the detail
-    sections). These buttons invoke the same API endpoints as the toolbar buttons and
-    share the same loading/error behavior. Buttons MUST only render when the selected
-    node has valid `repositoryPath` and `branch` values.
-
   ### Storybook
 
-  - **FR-15: Toolbar stories** — The FeatureToolbar MUST have colocated Storybook stories
-    covering: (a) default state with a selected feature, (b) loading state (one or both
-    buttons loading), (c) error state (API failure displayed), (d) hidden state (no
-    selection — story shows empty canvas). Stories MUST use mocked API responses.
-
-  - **FR-16: Drawer stories update** — The FeatureDrawer stories MUST be updated to
-    include the new action buttons in all existing story variants.
+  - **FR-14: Drawer stories update** — The FeatureDrawer stories MUST be updated to
+    include the new action buttons in all existing story variants. Stories should cover
+    action buttons in idle, loading, and error states, plus a variant without
+    repositoryPath (buttons hidden).
 
   ## Non-Functional Requirements
 
@@ -281,68 +253,60 @@ content: |
     normal conditions. The launcher spawn is fire-and-forget (detached process); the
     route does not wait for the editor/shell to fully open.
 
-  - **NFR-2: Accessibility** — All toolbar and drawer action buttons MUST have
-    `aria-label` attributes describing their action (e.g., "Open feature in VS Code",
-    "Open feature in shell"). Tooltips MUST be keyboard-accessible (visible on focus).
+  - **NFR-2: Accessibility** — All drawer action buttons MUST have `aria-label`
+    attributes describing their action (e.g., "Open in IDE", "Open in Shell").
 
   - **NFR-3: Security** — API routes MUST validate inputs to prevent path traversal.
     Routes run on localhost only (Next.js dev server) so authentication is not required,
     but input sanitization is mandatory. The `repositoryPath` must be validated as an
     absolute path. The `branch` must not contain `..` or null bytes.
 
-  - **NFR-4: Error resilience** — The toolbar MUST NOT crash or become unresponsive if
-    an API call fails. All errors MUST be caught and displayed gracefully. Network errors
-    (fetch failure) MUST be handled alongside API error responses.
+  - **NFR-4: Error resilience** — The drawer action buttons MUST NOT crash or become
+    unresponsive if an API call fails. All errors MUST be caught and displayed gracefully.
+    Network errors (fetch failure) MUST be handled alongside API error responses.
 
-  - **NFR-5: Component architecture** — The toolbar MUST follow the project's Tier 1
-    (common/) component pattern: domain-aware, reusable, with colocated stories and
-    tests. File organization: `src/presentation/web/components/common/feature-toolbar/`.
+  - **NFR-5: Component architecture** — The useFeatureActions hook is colocated with the
+    FeatureDrawer component in `src/presentation/web/components/common/feature-drawer/`.
 
   - **NFR-6: Clean Architecture compliance** — API routes MUST instantiate infrastructure
     services directly (matching the existing /api/dialog/* pattern). They MUST NOT import
     from the DI container or use tsyringe. Domain logic (worktree path computation) stays
     in packages/core.
 
-  - **NFR-7: Bundle impact** — The toolbar component adds minimal bundle weight. No new
-    npm dependencies are required — all UI primitives (Button, Tooltip, Separator, Panel)
-    and icons (lucide-react) are already in the dependency tree.
+  - **NFR-7: Bundle impact** — Minimal bundle weight. No new npm dependencies — all UI
+    primitives (Button, Separator) and icons (lucide-react) are already available.
 
   - **NFR-8: Cross-platform shell launch** — The shell open API route MUST support
     macOS and Linux. Windows support is out of scope for v1 (consistent with the rest of
     the Shep platform). If the platform is unsupported, the route returns a 501 error
     with a clear message.
 
-  - **NFR-9: Testability** — All toolbar action logic MUST be extracted into a custom
-    hook (e.g., `useFeatureActions`) that can be unit-tested independently of the
-    component rendering. API routes MUST be testable with mocked services.
+  - **NFR-9: Testability** — All action logic MUST be extracted into a custom hook
+    (`useFeatureActions`) colocated with the FeatureDrawer that can be unit-tested
+    independently. API routes MUST be testable with mocked services.
 
   ## Product Questions & AI Recommendations
 
-  | # | Question | AI Recommendation | Rationale |
-  | - | -------- | ----------------- | --------- |
-  | 1 | Fixed Panel vs. node-attached toolbar? | Fixed ReactFlow Panel (top-center) | Simpler, no coordinate math, consistent with Controls, avoids overlap issues |
+  | # | Question | Decision | Rationale |
+  | - | -------- | -------- | --------- |
+  | 1 | Canvas toolbar vs. drawer-only? | Drawer-only | Simpler, fewer components, drawer is already the detail view, keeps canvas clean |
   | 2 | OS-default shell vs. configurable? | OS-default shell using shellPreference for v1 | Uses existing shellPreference setting; configurable terminal app is a clean follow-up |
-  | 3 | Toolbar actions in FeatureDrawer too? | Yes — add to drawer header | Redundant but discoverable; minimal cost since same hook is reused |
-  | 4 | Show feature name in toolbar? | No — icon buttons only with tooltips | Compact, unobtrusive; name is visible on node and in drawer |
-  | 5 | Data pipeline: extend FeatureNodeData or resolve via API? | Extend FeatureNodeData with repositoryPath + branch | Avoids round-trip; page.tsx already has the data; 2 short strings |
-  | 6 | API input: repositoryPath+branch vs. featureId? | repositoryPath + branch directly | Simpler routes, no feature lookup coupling, client already has the values |
-  | 7 | Extract computeWorktreePath or duplicate? | Extract to packages/core shared utility | Already duplicated twice; a third copy is unacceptable; pure function, easy to extract |
+  | 3 | Data pipeline: extend FeatureNodeData or resolve via API? | Extend FeatureNodeData with repositoryPath + branch | Avoids round-trip; page.tsx already has the data; 2 short strings |
+  | 4 | API input: repositoryPath+branch vs. featureId? | repositoryPath + branch directly | Simpler routes, no feature lookup coupling, client already has the values |
+  | 5 | Extract computeWorktreePath or duplicate? | Extract to packages/core shared utility | Already duplicated twice; a third copy is unacceptable; pure function, easy to extract |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/common/feature-toolbar/` | High | New component — toolbar with action buttons, hook, stories, tests |
-  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Medium | Wire toolbar into FeaturesCanvas, pass selectedNode |
-  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | Low | Already has `toolbar` prop — no changes expected |
+  | `src/presentation/web/components/common/feature-drawer/feature-drawer.tsx` | High | Action buttons + useFeatureActions hook colocated here |
   | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Low | Add `repositoryPath` and `branch` to FeatureNodeData |
   | `src/presentation/web/app/page.tsx` | Low | Pass repositoryPath + branch into FeatureNodeData |
   | `src/presentation/web/app/api/ide/open/route.ts` | High | New API route — bridges web → IDE launcher |
   | `src/presentation/web/app/api/shell/open/route.ts` | High | New API route — bridges web → shell launch |
-  | `src/presentation/web/components/common/feature-drawer/feature-drawer.tsx` | Medium | Add IDE/Shell action buttons to drawer header |
   | `packages/core/src/infrastructure/services/ide-launchers/` | Low | Extract computeWorktreePath; existing launchers consumed as-is |
   | `src/presentation/cli/commands/ide-open.command.ts` | Low | Replace inline computeWorktreePath with shared import |
-  | Storybook stories | Medium | New toolbar stories + updated drawer stories |
+  | Storybook stories | Medium | Updated drawer stories |
 
   ## Dependencies
 
@@ -355,26 +319,23 @@ content: |
 
   **Existing Web Patterns**:
   - Next.js API route pattern (`/api/dialog/pick-folder`) for OS-level operations
-  - `FeaturesCanvas` toolbar prop (already plumbed, unused)
   - `FeatureNodeData` interface (needs `repositoryPath` + `branch` fields)
-  - `useControlCenterState` hook (provides `selectedNode`)
+  - `FeatureDrawer` component (receives `selectedNode`)
 
   **Libraries Already Available**:
-  - @xyflow/react Panel component
-  - shadcn/ui Button, Tooltip, Separator
-  - lucide-react icons (Code2, Terminal, Loader2, AlertCircle)
+  - shadcn/ui Button, Separator
+  - lucide-react icons (Code2, Terminal, Loader2, CircleAlert)
   - child_process (Node.js built-in, for shell spawn)
 
   ## Size Estimate
 
-  **M (days)** — The core UI component (toolbar) is straightforward React with existing
-  shadcn/ui primitives. The main complexity lies in:
+  **M (days)** — The drawer action buttons and hook are straightforward React with
+  existing shadcn/ui primitives. The main complexity lies in:
   1. Two new API routes bridging web → IDE/shell launchers
   2. Extracting `computeWorktreePath` to a shared utility in packages/core
   3. Threading `repositoryPath` + `branch` through the FeatureNodeData pipeline
   4. Custom hook (`useFeatureActions`) encapsulating action logic with loading/error state
-  5. Storybook stories for all component states
-  6. TDD test coverage for API routes, toolbar component, hook, and updated drawer
+  5. TDD test coverage for API routes, hook, and updated drawer
 
   The IDE launcher infrastructure is fully built (spec 018) and shellPreference is
   already available in Settings. This is primarily a presentation-layer feature with

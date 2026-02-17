@@ -79,6 +79,8 @@ export default async function HomePage() {
         description: feature.description ?? feature.slug,
         featureId: feature.id,
         lifecycle,
+        repositoryPath: feature.repositoryPath,
+        branch: feature.branch,
         ...deriveState(lifecycle, agentStatus),
         ...(agentError && { errorMessage: agentError }),
       };
