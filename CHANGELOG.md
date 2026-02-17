@@ -1,3 +1,9 @@
+# [1.26.0](https://github.com/shep-ai/cli/compare/v1.25.0...v1.26.0) (2026-02-17)
+
+### Features
+
+- **web:** add feature actions (ide/shell) to drawer with api routes ([#66](https://github.com/shep-ai/cli/issues/66)) ([f6fc838](https://github.com/shep-ai/cli/commit/f6fc838e03c90bf9d3e87a6fdf59f1c07f46aa6e))
+
 # [1.25.0](https://github.com/shep-ai/cli/compare/v1.24.0...v1.25.0) (2026-02-17)
 
 ### Features
