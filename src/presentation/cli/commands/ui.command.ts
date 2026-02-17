@@ -22,9 +22,9 @@ import type { IVersionService } from '@/application/ports/output/services/versio
 import type { IWebServerService } from '@/application/ports/output/services/web-server-service.interface.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 import { setVersionEnvVars } from '@/infrastructure/services/version.service.js';
 import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
-import { getNotificationBus } from '@/infrastructure/services/notifications/notification-bus.js';
 import {
   initializeNotificationWatcher,
   getNotificationWatcher,
@@ -74,8 +74,8 @@ Examples:
         // Start notification watcher to detect agent status transitions
         const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
         const phaseTimingRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
-        const notificationBus = getNotificationBus();
-        initializeNotificationWatcher(runRepo, phaseTimingRepo, notificationBus);
+        const notificationService = container.resolve<INotificationService>('INotificationService');
+        initializeNotificationWatcher(runRepo, phaseTimingRepo, notificationService);
         getNotificationWatcher().start();
 
         messages.success(`Server ready at ${fmt.code(`http://localhost:${port}`)}`);

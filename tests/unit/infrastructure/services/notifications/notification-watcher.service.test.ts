@@ -2,8 +2,8 @@
  * NotificationWatcherService Unit Tests
  *
  * Tests for the polling-based service that detects agent status
- * transitions and phase completions from the database, emitting
- * notification events to the notification bus.
+ * transitions and phase completions from the database, dispatching
+ * notification events via INotificationService.
  */
 
 import 'reflect-metadata';
@@ -14,14 +14,10 @@ import {
   NotificationEventType,
   NotificationSeverity,
 } from '@/domain/generated/output.js';
-import {
-  initializeNotificationBus,
-  getNotificationBus,
-  resetNotificationBus,
-} from '@/infrastructure/services/notifications/notification-bus.js';
 import { NotificationWatcherService } from '@/infrastructure/services/notifications/notification-watcher.service.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 
 function createMockAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
@@ -71,30 +67,36 @@ function createMockPhaseTimingRepository(timings: PhaseTiming[] = []): IPhaseTim
   };
 }
 
+function createMockNotificationService(): INotificationService & {
+  receivedEvents: NotificationEvent[];
+} {
+  const receivedEvents: NotificationEvent[] = [];
+  return {
+    receivedEvents,
+    notify: vi.fn((event: NotificationEvent) => {
+      receivedEvents.push(event);
+    }),
+  };
+}
+
 describe('NotificationWatcherService', () => {
   let runRepo: IAgentRunRepository;
   let phaseRepo: IPhaseTimingRepository;
+  let notificationService: ReturnType<typeof createMockNotificationService>;
   let watcher: NotificationWatcherService;
-  let receivedEvents: NotificationEvent[];
 
   beforeEach(() => {
     vi.useFakeTimers();
-    resetNotificationBus();
-    initializeNotificationBus();
-    receivedEvents = [];
-
-    const bus = getNotificationBus();
-    bus.on('notification', (event) => receivedEvents.push(event));
 
     runRepo = createMockRunRepository();
     phaseRepo = createMockPhaseTimingRepository();
-    watcher = new NotificationWatcherService(runRepo, phaseRepo, bus);
+    notificationService = createMockNotificationService();
+    watcher = new NotificationWatcherService(runRepo, phaseRepo, notificationService);
   });
 
   afterEach(() => {
     watcher.stop();
     vi.useRealTimers();
-    resetNotificationBus();
   });
 
   describe('start/stop lifecycle', () => {
@@ -142,10 +144,12 @@ describe('NotificationWatcherService', () => {
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(receivedEvents).toHaveLength(1);
-      expect(receivedEvents[0]!.eventType).toBe(NotificationEventType.AgentStarted);
-      expect(receivedEvents[0]!.severity).toBe(NotificationSeverity.Info);
-      expect(receivedEvents[0]!.agentRunId).toBe('run-1');
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.eventType).toBe(
+        NotificationEventType.AgentStarted
+      );
+      expect(notificationService.receivedEvents[0]!.severity).toBe(NotificationSeverity.Info);
+      expect(notificationService.receivedEvents[0]!.agentRunId).toBe('run-1');
     });
 
     it('should emit agentCompleted event when run transitions to completed', async () => {
@@ -159,13 +163,15 @@ describe('NotificationWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      receivedEvents = [];
+      notificationService.receivedEvents.length = 0;
 
       await vi.advanceTimersByTimeAsync(3000);
 
-      expect(receivedEvents).toHaveLength(1);
-      expect(receivedEvents[0]!.eventType).toBe(NotificationEventType.AgentCompleted);
-      expect(receivedEvents[0]!.severity).toBe(NotificationSeverity.Success);
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.eventType).toBe(
+        NotificationEventType.AgentCompleted
+      );
+      expect(notificationService.receivedEvents[0]!.severity).toBe(NotificationSeverity.Success);
     });
 
     it('should emit agentFailed event when run transitions to failed', async () => {
@@ -179,13 +185,15 @@ describe('NotificationWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      receivedEvents = [];
+      notificationService.receivedEvents.length = 0;
 
       await vi.advanceTimersByTimeAsync(3000);
 
-      expect(receivedEvents).toHaveLength(1);
-      expect(receivedEvents[0]!.eventType).toBe(NotificationEventType.AgentFailed);
-      expect(receivedEvents[0]!.severity).toBe(NotificationSeverity.Error);
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.eventType).toBe(
+        NotificationEventType.AgentFailed
+      );
+      expect(notificationService.receivedEvents[0]!.severity).toBe(NotificationSeverity.Error);
     });
 
     it('should emit waitingApproval event when run transitions to waiting_approval', async () => {
@@ -202,13 +210,15 @@ describe('NotificationWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      receivedEvents = [];
+      notificationService.receivedEvents.length = 0;
 
       await vi.advanceTimersByTimeAsync(3000);
 
-      expect(receivedEvents).toHaveLength(1);
-      expect(receivedEvents[0]!.eventType).toBe(NotificationEventType.WaitingApproval);
-      expect(receivedEvents[0]!.severity).toBe(NotificationSeverity.Warning);
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.eventType).toBe(
+        NotificationEventType.WaitingApproval
+      );
+      expect(notificationService.receivedEvents[0]!.severity).toBe(NotificationSeverity.Warning);
     });
 
     it('should not emit duplicate event for already-seen status', async () => {
@@ -219,10 +229,10 @@ describe('NotificationWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      expect(receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents).toHaveLength(1);
 
       await vi.advanceTimersByTimeAsync(3000);
-      expect(receivedEvents).toHaveLength(1); // no duplicate
+      expect(notificationService.receivedEvents).toHaveLength(1); // no duplicate
     });
   });
 
@@ -242,11 +252,11 @@ describe('NotificationWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      receivedEvents = []; // clear the agentStarted event
+      notificationService.receivedEvents.length = 0; // clear the agentStarted event
 
       await vi.advanceTimersByTimeAsync(3000);
 
-      const phaseEvents = receivedEvents.filter(
+      const phaseEvents = notificationService.receivedEvents.filter(
         (e) => e.eventType === NotificationEventType.PhaseCompleted
       );
       expect(phaseEvents).toHaveLength(1);
@@ -267,15 +277,15 @@ describe('NotificationWatcherService', () => {
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
-      const initialPhaseEvents = receivedEvents.filter(
+      const initialPhaseEvents = notificationService.receivedEvents.filter(
         (e) => e.eventType === NotificationEventType.PhaseCompleted
       );
       expect(initialPhaseEvents).toHaveLength(1);
 
-      receivedEvents = [];
+      notificationService.receivedEvents.length = 0;
       await vi.advanceTimersByTimeAsync(3000);
 
-      const secondPhaseEvents = receivedEvents.filter(
+      const secondPhaseEvents = notificationService.receivedEvents.filter(
         (e) => e.eventType === NotificationEventType.PhaseCompleted
       );
       expect(secondPhaseEvents).toHaveLength(0);
@@ -296,8 +306,8 @@ describe('NotificationWatcherService', () => {
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(receivedEvents).toHaveLength(1);
-      expect(receivedEvents[0]!.featureName).toBe('Agent run-1');
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.featureName).toBe('Agent run-1');
     });
   });
 
@@ -315,10 +325,10 @@ describe('NotificationWatcherService', () => {
       watcher.start();
       await vi.advanceTimersByTimeAsync(0); // agentStarted
       await vi.advanceTimersByTimeAsync(3000); // agentCompleted
-      receivedEvents = [];
+      notificationService.receivedEvents.length = 0;
 
       await vi.advanceTimersByTimeAsync(3000); // should not re-emit anything
-      expect(receivedEvents).toHaveLength(0);
+      expect(notificationService.receivedEvents).toHaveLength(0);
     });
   });
 
@@ -332,7 +342,7 @@ describe('NotificationWatcherService', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(consoleSpy).toHaveBeenCalled();
-      expect(receivedEvents).toHaveLength(0);
+      expect(notificationService.receivedEvents).toHaveLength(0);
 
       // Should continue polling
       vi.mocked(runRepo.list).mockResolvedValue([]);

@@ -2,7 +2,8 @@
  * Notification Watcher Service
  *
  * Polls the agent_runs and phase_timings tables to detect status
- * transitions, emitting NotificationEvents to the notification bus.
+ * transitions, dispatching NotificationEvents via the NotificationService
+ * (which handles settings filters, bus fan-out, and desktop dispatch).
  *
  * Maintains in-memory tracking of last-seen status per run to avoid
  * duplicate notifications. Polling starts/stops with start()/stop()
@@ -20,7 +21,7 @@ import {
 } from '../../../domain/generated/output.js';
 import type { IAgentRunRepository } from '../../../application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '../../../application/ports/output/agents/phase-timing-repository.interface.js';
-import type { NotificationBus } from './notification-bus.js';
+import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
 
 const DEFAULT_POLL_INTERVAL_MS = 3000;
 
@@ -74,7 +75,7 @@ const EVENT_MESSAGES: Partial<Record<NotificationEventType, string>> = {
 export class NotificationWatcherService {
   private readonly runRepository: IAgentRunRepository;
   private readonly phaseTimingRepository: IPhaseTimingRepository;
-  private readonly bus: NotificationBus;
+  private readonly notificationService: INotificationService;
   private readonly pollIntervalMs: number;
   private readonly trackedRuns = new Map<string, WatcherState>();
   private intervalId: ReturnType<typeof setInterval> | null = null;
@@ -82,12 +83,12 @@ export class NotificationWatcherService {
   constructor(
     runRepository: IAgentRunRepository,
     phaseTimingRepository: IPhaseTimingRepository,
-    bus: NotificationBus,
+    notificationService: INotificationService,
     pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS
   ) {
     this.runRepository = runRepository;
     this.phaseTimingRepository = phaseTimingRepository;
-    this.bus = bus;
+    this.notificationService = notificationService;
     this.pollIntervalMs = pollIntervalMs;
   }
 
@@ -188,7 +189,7 @@ export class NotificationWatcherService {
       timestamp: new Date().toISOString(),
     };
 
-    this.bus.emit('notification', event);
+    this.notificationService.notify(event);
   }
 
   private async checkPhaseCompletions(runId: string, state: WatcherState): Promise<void> {
@@ -208,7 +209,7 @@ export class NotificationWatcherService {
           timestamp: new Date().toISOString(),
         };
 
-        this.bus.emit('notification', event);
+        this.notificationService.notify(event);
       }
     }
   }
@@ -237,7 +238,7 @@ let watcherInstance: NotificationWatcherService | null = null;
 export function initializeNotificationWatcher(
   runRepository: IAgentRunRepository,
   phaseTimingRepository: IPhaseTimingRepository,
-  bus: NotificationBus,
+  notificationService: INotificationService,
   pollIntervalMs?: number
 ): void {
   if (watcherInstance !== null) {
@@ -247,7 +248,7 @@ export function initializeNotificationWatcher(
   watcherInstance = new NotificationWatcherService(
     runRepository,
     phaseTimingRepository,
-    bus,
+    notificationService,
     pollIntervalMs
   );
 }
