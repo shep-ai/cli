@@ -2,6 +2,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { EventEmitter } from 'node:events';
+import { platform as getPlatform } from 'node:os';
 
 const mockSpawn = vi.hoisted(() => vi.fn());
 const mockExecFile = vi.hoisted(() => vi.fn());
@@ -88,13 +89,14 @@ describe('ToolInstallerServiceImpl - Integration Tests', () => {
   });
 
   describe('getInstallCommand for all tools on Linux', () => {
+    const currentPlatform = getPlatform();
     SUPPORTED_TOOLS.forEach((toolName) => {
-      it(`should return correct command for ${toolName} on linux`, () => {
+      it(`should return correct command for ${toolName} on current platform`, () => {
         const command = service.getInstallCommand(toolName);
 
         expect(command).not.toBeNull();
         expect(command!.toolName).toBe(toolName);
-        expect(command!.platform).toBe('linux');
+        expect(command!.platform).toBe(currentPlatform);
         expect(typeof command!.command).toBe('string');
         expect(command!.command.length).toBeGreaterThan(0);
         expect(command!.timeout).toBeGreaterThan(0);

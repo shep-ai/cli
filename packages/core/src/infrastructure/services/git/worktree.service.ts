@@ -44,7 +44,7 @@ export class WorktreeService implements IWorktreeService {
 
     // Get info about the created worktree
     const worktrees = await this.list(repoPath);
-    const created = worktrees.find((w) => w.path === worktreePath);
+    const created = worktrees.find((w) => this.arePathsEquivalent(w.path, worktreePath));
     if (!created) {
       throw new WorktreeError(
         'Worktree created but not found in list',
@@ -137,5 +137,20 @@ export class WorktreeService implements IWorktreeService {
       WorktreeErrorCode.GIT_ERROR,
       error instanceof Error ? error : undefined
     );
+  }
+
+  private arePathsEquivalent(a: string, b: string): boolean {
+    return this.normalizeWorktreePath(a) === this.normalizeWorktreePath(b);
+  }
+
+  private normalizeWorktreePath(input: string): string {
+    const normalized = path.normalize(input).replace(/\/+$/, '');
+
+    // On macOS, git can report /private/var/... while callers use /var/...
+    if (process.platform === 'darwin' && normalized.startsWith('/private/var/')) {
+      return normalized.slice('/private'.length);
+    }
+
+    return normalized;
   }
 }
