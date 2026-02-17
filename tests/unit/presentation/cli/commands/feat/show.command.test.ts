@@ -160,6 +160,30 @@ describe('createShowCommand - phase timing & approval', () => {
       expect(output).toMatch(/awaiting|review|waiting/i);
     });
 
+    it('should show running indicator with elapsed time for in-progress phase', async () => {
+      const feature = makeFeature();
+      const run = makeRun({ status: AgentRunStatus.running });
+      const timings: PhaseTiming[] = [
+        makeTiming({ phase: 'analyze', durationMs: BigInt(3000), completedAt: new Date() }),
+        makeTiming({
+          phase: 'implement',
+          durationMs: undefined,
+          completedAt: undefined,
+          startedAt: new Date(Date.now() - 5000), // Started 5 seconds ago
+        }),
+      ];
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByRunId.mockResolvedValue(timings);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).toMatch(/running/i);
+      expect(output).toMatch(/\d+\.\d+s/); // Should show elapsed time like "5.0s"
+    });
+
     it('should not show timing section when no timings exist', async () => {
       const feature = makeFeature();
       const run = makeRun({ status: AgentRunStatus.running });

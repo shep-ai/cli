@@ -25,6 +25,7 @@ function createMockDeps() {
   const mockServer = {
     listen: vi.fn(),
     close: vi.fn(),
+    closeAllConnections: vi.fn(),
     on: vi.fn().mockReturnThis(),
   };
 
