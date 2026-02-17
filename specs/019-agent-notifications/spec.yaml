@@ -1,0 +1,374 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-notifications
+number: 019
+branch: feat/019-agent-notifications
+oneLiner: Cross-platform notifications (browser, desktop, mobile) for feature agent lifecycle events
+summary: >
+  Add a notification subsystem that delivers real-time alerts when feature agents change state
+  (started, phase completed, waiting for approval, completed, failed). Notifications are delivered
+  through three channels: in-app browser toasts (Sonner, already integrated), Web Notifications API
+  (browser + mobile browser), and native OS desktop notifications (macOS, Linux, Windows) via
+  node-notifier. An SSE API route bridges backend agent events to the web UI in real-time.
+  All notification channels are opt-in by default (disabled until the user explicitly enables them).
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 API Routes (SSE endpoint)
+  - Sonner (in-app toast notifications, already in project)
+  - Web Notifications API (browser/mobile push)
+  - node-notifier (cross-platform native OS desktop notifications)
+  - EventChannel (existing async streaming infrastructure)
+  - Server-Sent Events (SSE)
+  - TypeSpec (NotificationPreferences model addition to Settings)
+
+relatedLinks: []
+
+# Open questions (all resolved with AI-recommended defaults)
+openQuestions:
+  - question: 'Should notifications be opt-in or opt-out by default?'
+    resolved: true
+    answer: >
+      All notification channels (in-app toasts, browser, and desktop) should be opt-in by default
+      (disabled until the user explicitly enables them). Users should consciously choose which
+      notification channels they want. This respects user attention and avoids any unsolicited
+      alerts. The settings UI provides a clear path to enable each channel independently.
+  - question: 'Should notification preferences be stored in global Settings or per-repository?'
+    resolved: true
+    answer: >
+      Global Settings. Notification channel preferences (which channels are enabled, which event
+      types trigger notifications) are a user-level concern, not a project-level concern. A developer
+      wants consistent notification behavior across all repositories. The Settings singleton already
+      has nested config objects (AgentConfig, UserProfile, etc.) and the infrastructure for DB
+      persistence, migration, and DI resolution is well-established. Adding a NotificationConfig
+      nested model follows the exact same pattern as AgentConfig. Per-repo overrides can be added
+      later if demand arises, but YAGNI applies here.
+  - question: 'Which agent events should trigger notifications (all state changes, or only terminal states)?'
+    resolved: true
+    answer: >
+      Notify on a curated set of meaningful lifecycle transitions, not every internal state change.
+      The notification-worthy events are: (1) agent started (status → running), (2) phase completed
+      (PhaseTiming.completedAt set, indicating progress through analyze → requirements → research →
+      plan → implement), (3) waiting for approval (status → waitingApproval, requires human action),
+      (4) completed successfully (status → completed), (5) failed (status → failed). Exclude
+      intermediate heartbeats, pending → running on first start (covered by "started"), cancelled
+      (user-initiated so they already know), and interrupted (internal recovery state). Phase
+      completions provide a progress heartbeat without being noisy. The waitingApproval event is
+      critical because it requires human action and is time-sensitive.
+  - question: 'Should CLI also show desktop notifications when running in background mode, or only the web UI?'
+    resolved: true
+    answer: >
+      Yes, desktop notifications should fire from the backend NotificationService regardless of
+      whether the web UI is open. The feature agent runs as a forked child process — the user may
+      have closed the browser tab or never opened the web UI. Desktop notifications via node-notifier
+      are triggered server-side (backend) and do not require a browser. The NotificationService in
+      the infrastructure layer dispatches desktop notifications directly when it receives agent
+      lifecycle events, independent of any SSE connection. In-app toasts and browser notifications
+      are web-UI-only (they require a browser to render).
+  - question: 'Should the SSE endpoint stream all agent events or only for a specific agent run?'
+    resolved: true
+    answer: >
+      The SSE endpoint should support both modes: (1) stream all active agent events (default, for
+      the dashboard/notification bell) and (2) filter by a specific agentRunId query parameter (for
+      a detail view of a single agent run). The default "all events" mode is essential for the
+      notification system since the user needs to know about any agent completing or failing. The
+      filtered mode is useful for a future agent detail page. Implementation: GET /api/agent-events
+      with optional ?runId=<id> query parameter.
+  - question: 'Should there be a notification history/center UI, or just real-time toasts?'
+    resolved: true
+    answer: >
+      For this initial feature, implement only real-time notifications (toasts + browser + desktop)
+      with no persistent notification history or notification center UI. A notification bell icon
+      with unread count and history panel is a separate feature that can be built on top of this
+      foundation. Keeping scope to real-time delivery keeps the feature at M size. The SSE
+      infrastructure and event types established here will support a future notification center.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Feature agents run as background worker processes (Node.js `fork()`) and can take significant
+  time to complete their SDLC lifecycle (analyze → requirements → research → plan → implement).
+  Currently, users must actively poll for status via `shep agent show` or `shep agent logs`.
+  There is no proactive notification when an agent completes, fails, or requires human approval.
+
+  The web UI has a Sonner toast component available and mounted in the app shell, but there are no
+  SSE/API routes to receive real-time events and no integration with the browser Notifications API
+  or native OS notifications.
+
+  Users need cross-platform notifications that work in:
+  - **In-app**: Toast notifications in the web UI dashboard via Sonner (lowest friction, opt-in)
+  - **Browser** (desktop & mobile): Web Notifications API with permission prompt (works when tab is in background)
+  - **Desktop OS** (macOS, Linux, Windows): Native notification center via node-notifier (works even without browser)
+
+  ## Success Criteria
+
+  - [ ] SC-1: When a feature agent transitions to `running`, `waitingApproval`, `completed`, or `failed`, a notification is dispatched within 2 seconds of the status change
+  - [ ] SC-2: In-app toast notifications (Sonner) appear in the web UI for all notification-worthy events with appropriate severity (success for completed, error for failed, warning for waitingApproval, info for started/phase changes)
+  - [ ] SC-3: Browser notifications (Web Notifications API) fire when the web UI tab is in the background, after the user has granted permission
+  - [ ] SC-4: Desktop notifications appear on macOS, Linux, and Windows via node-notifier when the desktop channel is enabled in settings, regardless of whether the web UI is open
+  - [ ] SC-5: SSE endpoint (`GET /api/agent-events`) streams real-time agent lifecycle events to connected web UI clients with <500ms latency from event emission to SSE delivery
+  - [ ] SC-6: SSE endpoint supports optional `?runId=<id>` filtering for single-agent-run event streams
+  - [ ] SC-7: Notification preferences (per-channel enable/disable, event type filters) are persisted in global Settings and survive CLI restarts
+  - [ ] SC-8: All notification channels (in-app, browser, desktop) are disabled by default (opt-in); users must explicitly enable each channel
+  - [ ] SC-9: Users can enable/disable each notification channel independently via `shep settings` CLI or web UI settings
+  - [ ] SC-10: All new web UI components have colocated Storybook stories
+  - [ ] SC-11: All new code follows TDD (RED-GREEN-REFACTOR) with unit tests for services, integration tests for SSE endpoint, and component tests for UI
+  - [ ] SC-12: SSE connections are properly cleaned up on client disconnect (no leaked event listeners or DB polling)
+  - [ ] SC-13: Multiple simultaneous SSE clients receive the same events (fan-out)
+
+  ## Functional Requirements
+
+  ### FR-1: Notification Event Detection
+
+  The system MUST detect the following agent lifecycle transitions and emit notification events:
+
+  | Event | Trigger | Severity |
+  | ----- | ------- | -------- |
+  | Agent Started | `AgentRun.status` changes to `running` | info |
+  | Phase Completed | `PhaseTiming.completedAt` is set (analyze, requirements, research, plan, implement) | info |
+  | Waiting for Approval | `AgentRun.status` changes to `waitingApproval` | warning |
+  | Agent Completed | `AgentRun.status` changes to `completed` | success |
+  | Agent Failed | `AgentRun.status` changes to `failed` | error |
+
+  Detection MUST happen in the backend (infrastructure layer) by observing status changes in the
+  feature agent worker process, not by polling the database.
+
+  ### FR-2: Notification Dispatch Service
+
+  The system MUST provide an `INotificationService` port interface with a `notify(event)` method
+  that dispatches notification events to all enabled channels. The infrastructure implementation
+  (`NotificationService`) MUST:
+
+  - Accept a `NotificationEvent` containing: event type, agent run ID, feature name, message,
+    severity, and timestamp
+  - Fan out to enabled channels: in-app (via SSE to web clients), desktop (via node-notifier),
+    and browser (via SSE → client-side Web Notifications API)
+  - Respect per-channel enabled/disabled settings from `Settings.notifications`
+  - Be registered in the DI container following existing patterns (token-based, singleton)
+
+  ### FR-3: SSE API Route
+
+  The system MUST expose a `GET /api/agent-events` Next.js Route Handler that:
+
+  - Returns a `text/event-stream` response with proper SSE headers (`Cache-Control: no-cache`,
+    `Connection: keep-alive`)
+  - Streams `NotificationEvent` objects as JSON-encoded SSE `data:` lines
+  - Supports optional `?runId=<id>` query parameter to filter events for a specific agent run
+  - Sends a heartbeat comment (`:\n\n`) every 30 seconds to keep the connection alive
+  - Cleans up resources (event listeners, intervals) when the client disconnects
+  - Supports multiple concurrent SSE clients with independent event streams
+
+  ### FR-4: In-App Toast Notifications
+
+  The web UI MUST display Sonner toast notifications for each notification event:
+
+  - `toast.success()` for agent completed
+  - `toast.error()` for agent failed
+  - `toast.warning()` for waiting for approval (with action button to navigate to approval)
+  - `toast.info()` for agent started and phase completed
+  - Toast content MUST include: feature name, event description, and timestamp
+  - Toasts MUST appear without page refresh (real-time via SSE subscription)
+
+  ### FR-5: Browser Notifications (Web Notifications API)
+
+  The web UI MUST support browser notifications that:
+
+  - Request `Notification.requestPermission()` only when the user explicitly enables the browser
+    channel in settings (no unsolicited permission prompts)
+  - Display notifications with title (feature name), body (event description), and icon (app icon)
+  - Work when the web UI tab is in the background or minimized
+  - Are gated behind both: (a) browser channel enabled in Settings AND (b) browser permission granted
+  - Fall back gracefully if the browser does not support the Notifications API (no errors, just skip)
+
+  ### FR-6: Desktop Notifications (node-notifier)
+
+  The backend MUST send native OS desktop notifications via node-notifier that:
+
+  - Display the feature name as the notification title and event description as the body
+  - Work on macOS (Notification Center), Linux (libnotify/notify-send), and Windows (toast notifications)
+  - Are dispatched from the `NotificationService` in the infrastructure layer (server-side, no browser required)
+  - Are gated behind the desktop channel being enabled in Settings
+  - Handle node-notifier errors gracefully (log warning, do not crash the agent process)
+
+  ### FR-7: Notification Preferences in Settings
+
+  The system MUST add a `notifications` field to the global `Settings` model:
+
+  ```
+  NotificationPreferences:
+    inApp:
+      enabled: boolean (default: false)
+    browser:
+      enabled: boolean (default: false)
+    desktop:
+      enabled: boolean (default: false)
+    events:
+      agentStarted: boolean (default: true)
+      phaseCompleted: boolean (default: true)
+      waitingApproval: boolean (default: true)
+      agentCompleted: boolean (default: true)
+      agentFailed: boolean (default: true)
+  ```
+
+  - MUST be defined in TypeSpec (`tsp/domain/entities/settings.tsp`) and generated to TypeScript
+  - MUST be persisted in SQLite via the existing Settings repository (flattened column pattern)
+  - MUST be accessible via `getSettings().notifications`
+  - MUST have a database migration to add the new columns with default values
+
+  ### FR-8: SSE Client Hook
+
+  The web UI MUST provide a `useAgentEvents()` React hook that:
+
+  - Connects to `GET /api/agent-events` via the browser `EventSource` API
+  - Automatically reconnects on connection loss with exponential backoff (1s, 2s, 4s, max 30s)
+  - Parses incoming SSE events into typed `NotificationEvent` objects
+  - Exposes connection status (connected, connecting, disconnected) to consuming components
+  - Cleans up the `EventSource` connection on component unmount
+
+  ### FR-9: Notification Bridge Hook
+
+  The web UI MUST provide a `useNotifications()` React hook that:
+
+  - Consumes events from `useAgentEvents()`
+  - Dispatches to Sonner toasts (always, when in-app channel enabled)
+  - Dispatches to Web Notifications API (when browser channel enabled AND permission granted)
+  - Provides a `requestBrowserPermission()` function for the settings UI to call
+  - Exposes current browser notification permission state (`granted`, `denied`, `default`)
+
+  ### FR-10: Event Emission from Feature Agent Worker
+
+  The feature agent worker process MUST emit notification-worthy events at the following points:
+
+  - After `updateStatus(runId, 'running')` — emit agent started event
+  - After each graph node completes (phase transition) — emit phase completed event with phase name
+  - After `updateStatus(runId, 'waitingApproval')` — emit waiting for approval event
+  - After `updateStatus(runId, 'completed')` — emit agent completed event
+  - After `updateStatus(runId, 'failed')` — emit agent failed event
+
+  Events MUST be communicated from the forked worker process to the parent process via the existing
+  IPC channel (Node.js `process.send()`), since the worker runs in a separate process and cannot
+  directly access the parent's NotificationService or SSE connections.
+
+  ## Non-Functional Requirements
+
+  ### NFR-1: Latency
+
+  Notification delivery MUST occur within 2 seconds of the triggering status change for all
+  channels. SSE event delivery to connected clients MUST occur within 500ms. Desktop notification
+  display time depends on the OS notification system and is not within our control.
+
+  ### NFR-2: Reliability
+
+  - SSE connections MUST survive temporary network interruptions via automatic reconnection
+  - Desktop notification failures (node-notifier errors) MUST NOT crash the agent process or
+    block the agent lifecycle
+  - If no SSE clients are connected, notification events for in-app/browser channels are dropped
+    (no queuing for offline clients)
+
+  ### NFR-3: Resource Efficiency
+
+  - SSE endpoint MUST NOT poll the database; it MUST use push-based event delivery from the
+    notification service
+  - SSE heartbeat interval: 30 seconds (matching existing agent heartbeat cadence)
+  - EventSource reconnection backoff: exponential from 1s to 30s max
+  - No memory leaks from disconnected SSE clients (proper cleanup of event listeners)
+
+  ### NFR-4: Security
+
+  - SSE endpoint is served on localhost only (same as the existing web server) — no auth required
+  - No sensitive data (tokens, credentials) in notification payloads
+  - node-notifier MUST be invoked with sanitized inputs (no shell injection via notification content)
+
+  ### NFR-5: Cross-Platform Compatibility
+
+  - Desktop notifications: macOS 10.14+, Ubuntu 18.04+ (with libnotify), Windows 10+
+  - Browser notifications: Chrome 80+, Firefox 78+, Safari 16+, Edge 80+
+  - Mobile browser notifications: Chrome Android 80+, Safari iOS 16.4+ (limited support noted)
+  - Graceful degradation: if a platform does not support a channel, skip silently
+
+  ### NFR-6: Maintainability
+
+  - Follow Clean Architecture: port interface in `application/ports/`, implementation in
+    `infrastructure/services/`
+  - Follow existing DI patterns (tsyringe, token-based registration, singleton lifecycle)
+  - Follow existing TypeSpec-first pattern for domain model changes
+  - New React hooks follow existing patterns (`useTheme`, `useIsMobile`)
+  - All components follow the project's four-tier component hierarchy
+
+  ### NFR-7: Testability
+
+  - NotificationService MUST be testable with mocked channels (no real node-notifier calls in tests)
+  - SSE endpoint MUST be testable via integration tests (HTTP client consuming the stream)
+  - React hooks MUST be testable with mocked EventSource
+  - Notification event emission from worker MUST be testable with mocked IPC
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should notifications be opt-in or opt-out? | All channels (in-app, browser, desktop) disabled by default (opt-in). | Respects user attention — no unsolicited alerts. Users consciously enable channels they want. Settings UI provides clear path to enable each channel independently. |
+  | 2 | Global or per-repository notification preferences? | Global Settings (single `NotificationPreferences` in Settings model). | Notification behavior is a user-level concern, not project-level. Follows existing `AgentConfig` pattern. Per-repo overrides are YAGNI for now. |
+  | 3 | Which events trigger notifications? | Five curated events: started, phase completed, waiting for approval, completed, failed. | Covers all meaningful lifecycle transitions without being noisy. Excludes heartbeats, cancelled (user-initiated), interrupted (internal recovery). Phase completions give progress signal. |
+  | 4 | Should CLI dispatch desktop notifications too? | Yes — `NotificationService` dispatches desktop notifications from the backend regardless of web UI state. | Agent worker runs as a forked process. User may not have browser open. node-notifier is server-side, no browser needed. |
+  | 5 | All events or filtered SSE endpoint? | Both: default streams all active agent events, optional `?runId=<id>` for filtering. | Dashboard needs all events for notification bell. Detail view needs single-run filter. One endpoint, one query param. |
+  | 6 | Notification history/center UI? | Not in this feature. Real-time delivery only (toasts + browser + desktop). | Keeps scope at M size. SSE infra established here supports a future notification center feature. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/settings.tsp` | Medium | Add `NotificationPreferences` model with channel and event type settings |
+  | `src/domain/generated/output.ts` | Low | Auto-generated from TypeSpec — new types for `NotificationPreferences`, `NotificationEvent` |
+  | `src/application/ports/output/services/` | Low | New `INotificationService` port interface |
+  | `src/infrastructure/services/notifications/` | High | New `NotificationService` implementation with channel fan-out (Sonner SSE bridge, node-notifier, event bus) |
+  | `src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` | Medium | Emit notification-worthy events via IPC (`process.send()`) at status transition points |
+  | `src/infrastructure/services/agents/feature-agent/` | Medium | Parent process handler to receive IPC events and dispatch to NotificationService |
+  | `src/infrastructure/di/container.ts` | Low | Register `INotificationService` → `NotificationService` |
+  | `src/infrastructure/repositories/sqlite-settings.repository.ts` | Medium | Migration + mapper updates for notification preference columns |
+  | `src/presentation/web/app/api/agent-events/route.ts` | High | New SSE Route Handler — first API route in the web UI |
+  | `src/presentation/web/hooks/use-agent-events.ts` | Medium | New hook: SSE client with reconnection, event parsing, connection status |
+  | `src/presentation/web/hooks/use-notifications.ts` | Medium | New hook: event → toast/browser notification bridge with permission management |
+  | `src/presentation/web/components/` | Medium | Notification permission prompt component, toast integration |
+  | `src/infrastructure/services/agents/common/agent-runner.service.ts` | Low | May need minor updates to bridge events to NotificationService for non-worker agent runs |
+
+  ## Dependencies
+
+  **Existing (already in project):**
+  - `sonner` v2.0.7 — In-app toast notifications
+  - `next` v16+ — SSE via Route Handlers
+  - `EventChannel` — Async event streaming infrastructure
+  - `AgentRunRepository` — Agent status persistence and queries
+  - `PhaseTiming` model — Phase transition tracking
+
+  **New (to be added):**
+  - `node-notifier` — Cross-platform native OS desktop notifications (macOS Notification Center, Linux libnotify/notify-send, Windows toast notifications). ~2.5MB, no native deps, mature (10+ years, 6k+ GitHub stars).
+
+  **Browser APIs (no npm packages needed):**
+  - `Notification` API — Browser/mobile push notifications (requires permission)
+  - `EventSource` API — SSE client for real-time event streaming
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized feature. The core streaming infrastructure already exists (EventChannel,
+  StreamingExecutorProxy, AsyncIterable patterns). The main work involves:
+
+  1. TypeSpec model update + migration for `NotificationPreferences` (~2 files)
+  2. `INotificationService` port + `NotificationService` implementation with channel fan-out (~3 files)
+  3. SSE API route (`/api/agent-events`) — first API route in web UI (~1 file)
+  4. IPC event emission from feature agent worker + parent handler (~2 files modified)
+  5. React hooks: `useAgentEvents` (SSE client) + `useNotifications` (bridge) (~2 files)
+  6. Web UI components: notification permission prompt (~1-2 files with stories)
+  7. Tests for each layer following TDD (~6-8 test files)
+
+  Estimated ~15-20 files total across all layers. The architecture is well-established and the
+  patterns are clear from existing code. No architectural unknowns.
+
+  ---
+
+  _Requirements phase complete — proceed with research_
