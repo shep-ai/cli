@@ -111,7 +111,6 @@ describe('POST /api/shell/open', () => {
       branch: 'feat/test',
     });
     const response = await POST(request);
-    const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(mockSpawn).toHaveBeenCalledWith('open', ['-a', 'Terminal', MOCK_WORKTREE_PATH], {
@@ -129,7 +128,6 @@ describe('POST /api/shell/open', () => {
       branch: 'feat/test',
     });
     const response = await POST(request);
-    const body = await response.json();
 
     expect(response.status).toBe(200);
     expect(mockSpawn).toHaveBeenCalledWith(

@@ -25,7 +25,7 @@ vi.mock('@shepai/core/infrastructure/services/ide-launchers/ide-launcher.registr
 
 // Mock computeWorktreePath
 vi.mock('@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path', () => ({
-  computeWorktreePath: (repoPath: string, _branch: string) =>
+  computeWorktreePath: (_repoPath: string, _branch: string) =>
     `/mock/.shep/repos/abc123/wt/feat-test`,
 }));
 

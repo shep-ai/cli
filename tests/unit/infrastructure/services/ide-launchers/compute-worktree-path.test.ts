@@ -13,8 +13,8 @@ import { describe, it, expect, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
 
-vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => ({
-  SHEP_HOME_DIR: '/mock/.shep',
+vi.mock('node:os', () => ({
+  homedir: () => '/mock',
 }));
 
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';

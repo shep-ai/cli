@@ -8,8 +8,10 @@
  */
 
 import { createHash } from 'node:crypto';
+import { homedir } from 'node:os';
 import { join } from 'node:path';
-import { SHEP_HOME_DIR } from '../filesystem/shep-directory.service.js';
+
+const SHEP_HOME_DIR = join(homedir(), '.shep');
 
 /**
  * Compute the worktree path for a given repository and branch.
