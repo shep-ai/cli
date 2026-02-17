@@ -1,30 +1,81 @@
 /**
- * Use Cases Bridge — globalThis DI Bridge for the Web Layer
+ * Use Cases Bridge — Reader
  *
- * Populates globalThis with resolved use case instances so the Next.js
- * web layer can access them without importing CLI source files directly
- * (Turbopack cannot resolve Node.js ESM .js imports).
+ * Lightweight reader for the globalThis DI bridge. Safe to import from
+ * the Next.js web layer (no native modules, no tsyringe, no decorators).
  *
- * Writer: called by CLI bootstrap and dev-server after DI initialization.
- * Reader: called by web server components via use-cases.ts.
+ * The writer (populate-use-cases-bridge.ts) populates globalThis after
+ * DI initialization; this module reads those instances back.
  */
 
-import type { DependencyContainer } from 'tsyringe';
-import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
-import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
+import type { Feature, AgentRun } from '../../domain/generated/output.js';
+import type { FeatureListFilters } from '../../application/ports/output/repositories/feature-repository.interface.js';
+
+export type { FeatureListFilters };
 
 /** The globalThis key shared between writer and reader. */
 export const SHEP_USE_CASES_KEY = '__shepUseCases';
 
+/** Shape of the bridge object on globalThis. */
+interface ShepUseCases {
+  listFeatures: { execute(filters?: FeatureListFilters): Promise<Feature[]> };
+  agentRunRepo: { findById(id: string): Promise<AgentRun | null> };
+}
+
+function isShepUseCases(value: unknown): value is ShepUseCases {
+  if (!value || typeof value !== 'object') return false;
+
+  const maybe = value as Record<string, unknown>;
+  const listFeatures = maybe.listFeatures as Record<string, unknown> | undefined;
+  const agentRunRepo = maybe.agentRunRepo as Record<string, unknown> | undefined;
+
+  return (
+    !!listFeatures &&
+    typeof listFeatures.execute === 'function' &&
+    !!agentRunRepo &&
+    typeof agentRunRepo.findById === 'function'
+  );
+}
+
+function getUseCases(): ShepUseCases | undefined {
+  const globalBridge = (globalThis as Record<string, unknown>)[SHEP_USE_CASES_KEY];
+  if (isShepUseCases(globalBridge)) return globalBridge;
+
+  const processBridge = (process as unknown as Record<string, unknown>)[SHEP_USE_CASES_KEY];
+  if (isShepUseCases(processBridge)) return processBridge;
+
+  return undefined;
+}
+
 /**
- * Populate the globalThis bridge with resolved use cases from the DI container.
- * Must be called after `initializeContainer()` completes.
+ * List all features for the control center.
+ * Returns an empty array if the DI bridge is not initialized
+ * (e.g. during static builds or when running outside the CLI process).
  */
-export function populateUseCasesBridge(c: DependencyContainer): void {
-  const bridge = {
-    listFeatures: c.resolve(ListFeaturesUseCase),
-    agentRunRepo: c.resolve<IAgentRunRepository>('IAgentRunRepository'),
-  };
-  (globalThis as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
-  (process as unknown as Record<string, unknown>)[SHEP_USE_CASES_KEY] = bridge;
+export async function getFeatures(filters?: FeatureListFilters): Promise<Feature[]> {
+  const useCases = getUseCases();
+  if (!useCases?.listFeatures) return [];
+
+  try {
+    return await useCases.listFeatures.execute(filters);
+  } catch (error) {
+    // eslint-disable-next-line no-console
+    console.error('Failed to load features:', error);
+    return [];
+  }
+}
+
+/**
+ * Find an agent run by ID.
+ * Returns null if the DI bridge is not initialized or the run is not found.
+ */
+export async function getAgentRun(id: string): Promise<AgentRun | null> {
+  const useCases = getUseCases();
+  if (!useCases?.agentRunRepo) return null;
+
+  try {
+    return await useCases.agentRunRepo.findById(id);
+  } catch {
+    return null;
+  }
 }

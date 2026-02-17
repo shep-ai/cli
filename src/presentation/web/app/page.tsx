@@ -1,5 +1,5 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getAgentRun, getFeatures } from '@/lib/use-cases';
+import { getAgentRun, getFeatures } from '@shepai/core/infrastructure/di/use-cases-bridge';
 import { deriveState } from './derive-state';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import type { CanvasNodeType } from '@/components/features/features-canvas';

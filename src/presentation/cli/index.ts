@@ -42,7 +42,7 @@ import { messages } from './ui/index.js';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
-import { populateUseCasesBridge } from '@/infrastructure/di/use-cases-bridge.js';
+import { populateUseCasesBridge } from '@/infrastructure/di/populate-use-cases-bridge.js';
 
 /**
  * Bootstrap function - initializes all dependencies before CLI starts.
@@ -70,7 +70,10 @@ async function bootstrap() {
       throw error;
     }
 
-    // Expose resolved use cases for the web layer via globalThis bridge
+    // Expose resolved use cases on globalThis for the web layer.
+    // The Next.js web UI (Turbopack) cannot import @shepai/core at runtime
+    // (ESM .js extensions, native C++ addons, tsyringe decorators), so the
+    // CLI places live instances on globalThis and the web reads them back.
     populateUseCasesBridge(container);
 
     // Step 3: Set up Commander CLI

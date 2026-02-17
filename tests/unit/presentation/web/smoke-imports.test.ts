@@ -46,9 +46,10 @@ describe('smoke: web component imports', () => {
     expect(typeof mod.deriveProgress).toBe('function');
   });
 
-  it('resolves use-cases module', async () => {
-    const mod = await import('@/lib/use-cases');
+  it('resolves use-cases bridge module', async () => {
+    const mod = await import('@shepai/core/infrastructure/di/use-cases-bridge');
     expect(typeof mod.getFeatures).toBe('function');
+    expect(typeof mod.getAgentRun).toBe('function');
   });
 });
 

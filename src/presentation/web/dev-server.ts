@@ -18,7 +18,7 @@ import http from 'node:http';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
-import { populateUseCasesBridge } from '@/infrastructure/di/use-cases-bridge.js';
+import { populateUseCasesBridge } from '@/infrastructure/di/populate-use-cases-bridge.js';
 
 const DEFAULT_PORT = 3000;
 
