@@ -38,7 +38,9 @@ const featureNodeA: CanvasNodeType = {
     lifecycle: 'implementation',
     state: 'running',
     progress: 45,
-    agentName: 'Planner',
+    agentType: 'claude-code',
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/auth-module',
   } as FeatureNodeData,
 };
 
@@ -53,6 +55,8 @@ const featureNodeB: CanvasNodeType = {
     lifecycle: 'review',
     state: 'action-required',
     progress: 80,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/payment-gateway',
   } as FeatureNodeData,
 };
 

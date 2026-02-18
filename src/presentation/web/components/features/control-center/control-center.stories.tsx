@@ -38,6 +38,8 @@ const featureNodes: FeatureNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -51,6 +53,8 @@ const featureNodes: FeatureNodeType[] = [
       lifecycle: 'research',
       state: 'action-required',
       progress: 20,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/user-dashboard',
     },
   },
   {
@@ -64,6 +68,8 @@ const featureNodes: FeatureNodeType[] = [
       lifecycle: 'deploy',
       state: 'done',
       progress: 100,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/api-gateway',
     },
   },
 ];
@@ -172,6 +178,8 @@ const dagreFeatureNodes: FeatureNodeType[] = [
       lifecycle: 'implementation',
       state: 'running',
       progress: 65,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/auth-module',
     },
   },
   {
@@ -185,6 +193,8 @@ const dagreFeatureNodes: FeatureNodeType[] = [
       lifecycle: 'research',
       state: 'action-required',
       progress: 20,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/sso-integration',
     },
   },
   {
@@ -198,6 +208,8 @@ const dagreFeatureNodes: FeatureNodeType[] = [
       lifecycle: 'requirements',
       state: 'running',
       progress: 10,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/user-dashboard',
     },
   },
   {
@@ -211,6 +223,8 @@ const dagreFeatureNodes: FeatureNodeType[] = [
       lifecycle: 'deploy',
       state: 'done',
       progress: 100,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/api-gateway',
     },
   },
   {
@@ -225,6 +239,8 @@ const dagreFeatureNodes: FeatureNodeType[] = [
       state: 'blocked',
       progress: 40,
       blockedBy: 'API Gateway',
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/admin-panel',
     },
   },
 ];

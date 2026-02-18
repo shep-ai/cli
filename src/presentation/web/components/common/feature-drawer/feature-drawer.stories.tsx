@@ -27,6 +27,8 @@ const baseData: FeatureNodeData = {
   lifecycle: 'implementation',
   state: 'running',
   progress: 45,
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/auth-module',
 };
 
 const runningData: FeatureNodeData = {
@@ -36,7 +38,9 @@ const runningData: FeatureNodeData = {
   lifecycle: 'implementation',
   state: 'running',
   progress: 45,
-  agentName: 'Planner',
+  agentType: 'claude-code',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/auth-module',
 };
 
 const actionRequiredData: FeatureNodeData = {
@@ -46,6 +50,8 @@ const actionRequiredData: FeatureNodeData = {
   lifecycle: 'requirements',
   state: 'action-required',
   progress: 22,
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/api-rate-limiting',
 };
 
 const doneData: FeatureNodeData = {
@@ -56,6 +62,8 @@ const doneData: FeatureNodeData = {
   state: 'done',
   progress: 100,
   runtime: '1h 42m',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/payment-gateway',
 };
 
 const blockedData: FeatureNodeData = {
@@ -66,6 +74,8 @@ const blockedData: FeatureNodeData = {
   state: 'blocked',
   progress: 20,
   blockedBy: 'Auth Module',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/search-index',
 };
 
 const errorData: FeatureNodeData = {
@@ -76,6 +86,8 @@ const errorData: FeatureNodeData = {
   state: 'error',
   progress: 30,
   errorMessage: 'Build failed: type mismatch',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/email-service',
 };
 
 /* ---------------------------------------------------------------------------
@@ -140,10 +152,12 @@ export const AllFields: Story = {
         lifecycle: 'implementation',
         state: 'running',
         progress: 68,
-        agentName: 'Implementer',
+        agentType: 'cursor',
         runtime: '3h 15m',
         blockedBy: 'Database Migration',
         errorMessage: 'Token refresh failed: invalid_grant',
+        repositoryPath: '/home/user/enterprise-app',
+        branch: 'feat/enterprise-auth',
       }}
       label="Open All Fields"
     />
@@ -231,7 +245,9 @@ function AllLifecyclesRender() {
                 lifecycle: phase,
                 state: 'running',
                 progress: 50,
-                agentName: 'Agent',
+                agentType: 'claude-code',
+                repositoryPath: '/home/user/my-repo',
+                branch: 'feat/feature-name',
               });
             }}
             className={`rounded-md px-3 py-1.5 text-left text-sm ${
@@ -252,6 +268,29 @@ function AllLifecyclesRender() {
 /** Cycle through all 6 lifecycle phases via buttons. */
 export const AllLifecycles: Story = {
   render: () => <AllLifecyclesRender />,
+};
+
+/* ---------------------------------------------------------------------------
+ * Action button stories
+ * ------------------------------------------------------------------------- */
+
+/** No repositoryPath — action buttons are hidden. */
+export const NoRepositoryPath: Story = {
+  render: () => (
+    <DrawerTrigger
+      data={{ ...baseData, repositoryPath: '', branch: '' }}
+      label="Open Without Repo Path"
+    />
+  ),
+};
+
+/**
+ * Action buttons visible — click "Open in IDE" or "Open in Shell" to see
+ * loading spinner (while API call is in flight) followed by error state
+ * (API routes are not available in Storybook).
+ */
+export const WithActionButtons: Story = {
+  render: () => <DrawerTrigger data={runningData} label="Open With Actions" />,
 };
 
 /* ---------------------------------------------------------------------------

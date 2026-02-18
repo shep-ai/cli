@@ -1,9 +1,25 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { FeatureDrawer } from '@/components/common/feature-drawer';
 import type { FeatureDrawerProps } from '@/components/common/feature-drawer';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
+
+// Mock useFeatureActions hook
+const mockOpenInIde = vi.fn();
+const mockOpenInShell = vi.fn();
+let mockHookReturn = {
+  openInIde: mockOpenInIde,
+  openInShell: mockOpenInShell,
+  ideLoading: false,
+  shellLoading: false,
+  ideError: null as string | null,
+  shellError: null as string | null,
+};
+
+vi.mock('@/components/common/feature-drawer/use-feature-actions', () => ({
+  useFeatureActions: () => mockHookReturn,
+}));
 
 const defaultData: FeatureNodeData = {
   name: 'Auth Module',
@@ -12,7 +28,9 @@ const defaultData: FeatureNodeData = {
   lifecycle: 'implementation',
   state: 'running',
   progress: 45,
-  agentName: 'Planner',
+  agentType: 'claude-code',
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/auth-module',
 };
 
 function renderDrawer(
@@ -24,6 +42,19 @@ function renderDrawer(
 }
 
 describe('FeatureDrawer', () => {
+  beforeEach(() => {
+    mockHookReturn = {
+      openInIde: mockOpenInIde,
+      openInShell: mockOpenInShell,
+      ideLoading: false,
+      shellLoading: false,
+      ideError: null,
+      shellError: null,
+    };
+    mockOpenInIde.mockReset();
+    mockOpenInShell.mockReset();
+  });
+
   describe('closed state', () => {
     it('renders nothing when selectedNode is null', () => {
       const { container } = renderDrawer(null);
@@ -114,13 +145,13 @@ describe('FeatureDrawer', () => {
       expect(screen.queryByText('Description')).not.toBeInTheDocument();
     });
 
-    it('shows agentName when provided', () => {
-      renderDrawer({ ...defaultData, agentName: 'Researcher' });
-      expect(screen.getByText('Researcher')).toBeInTheDocument();
+    it('shows agentType when provided', () => {
+      renderDrawer({ ...defaultData, agentType: 'cursor' });
+      expect(screen.getByText('cursor')).toBeInTheDocument();
     });
 
-    it('hides agent info when agentName is undefined', () => {
-      renderDrawer({ ...defaultData, agentName: undefined });
+    it('hides agent info when agentType is undefined', () => {
+      renderDrawer({ ...defaultData, agentType: undefined });
       expect(screen.queryByText('Agent')).not.toBeInTheDocument();
     });
 
@@ -159,7 +190,7 @@ describe('FeatureDrawer', () => {
         state: 'error',
         errorMessage: undefined,
         description: undefined,
-        agentName: undefined,
+        agentType: undefined,
         runtime: undefined,
         blockedBy: undefined,
       });
@@ -174,6 +205,72 @@ describe('FeatureDrawer', () => {
       const closeButton = screen.getByRole('button', { name: /close/i });
       closeButton.click();
       expect(onClose).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('action buttons', () => {
+    it('renders Open in IDE button when repositoryPath and branch are present', () => {
+      renderDrawer(defaultData);
+      expect(screen.getByRole('button', { name: /open in ide/i })).toBeInTheDocument();
+    });
+
+    it('renders Open in Shell button when repositoryPath and branch are present', () => {
+      renderDrawer(defaultData);
+      expect(screen.getByRole('button', { name: /open in shell/i })).toBeInTheDocument();
+    });
+
+    it('does not render action buttons when repositoryPath is empty', () => {
+      renderDrawer({ ...defaultData, repositoryPath: '', branch: 'feat/test' });
+      expect(screen.queryByRole('button', { name: /open in ide/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /open in shell/i })).not.toBeInTheDocument();
+    });
+
+    it('does not render action buttons when branch is empty', () => {
+      renderDrawer({ ...defaultData, repositoryPath: '/home/user/repo', branch: '' });
+      expect(screen.queryByRole('button', { name: /open in ide/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /open in shell/i })).not.toBeInTheDocument();
+    });
+
+    it('calls openInIde when IDE button is clicked', () => {
+      renderDrawer(defaultData);
+      screen.getByRole('button', { name: /open in ide/i }).click();
+      expect(mockOpenInIde).toHaveBeenCalledOnce();
+    });
+
+    it('calls openInShell when Shell button is clicked', () => {
+      renderDrawer(defaultData);
+      screen.getByRole('button', { name: /open in shell/i }).click();
+      expect(mockOpenInShell).toHaveBeenCalledOnce();
+    });
+
+    it('shows loading spinner on IDE button when ideLoading is true', () => {
+      mockHookReturn = { ...mockHookReturn, ideLoading: true };
+      renderDrawer(defaultData);
+      const button = screen.getByRole('button', { name: /open in ide/i });
+      expect(button).toBeDisabled();
+      expect(button.querySelector('.animate-spin')).toBeInTheDocument();
+    });
+
+    it('shows loading spinner on Shell button when shellLoading is true', () => {
+      mockHookReturn = { ...mockHookReturn, shellLoading: true };
+      renderDrawer(defaultData);
+      const button = screen.getByRole('button', { name: /open in shell/i });
+      expect(button).toBeDisabled();
+      expect(button.querySelector('.animate-spin')).toBeInTheDocument();
+    });
+
+    it('shows error styling on IDE button when ideError is set', () => {
+      mockHookReturn = { ...mockHookReturn, ideError: 'IDE not found' };
+      renderDrawer(defaultData);
+      const button = screen.getByRole('button', { name: /open in ide/i });
+      expect(button).toHaveClass('text-destructive');
+    });
+
+    it('shows error styling on Shell button when shellError is set', () => {
+      mockHookReturn = { ...mockHookReturn, shellError: 'Shell not available' };
+      renderDrawer(defaultData);
+      const button = screen.getByRole('button', { name: /open in shell/i });
+      expect(button).toHaveClass('text-destructive');
     });
   });
 

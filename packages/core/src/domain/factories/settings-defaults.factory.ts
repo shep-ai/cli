@@ -20,6 +20,7 @@ import type {
   EnvironmentConfig,
   SystemConfig,
   AgentConfig,
+  NotificationPreferences,
 } from '../generated/output';
 import { AgentType, AgentAuthMethod, EditorType } from '../generated/output';
 
@@ -107,6 +108,19 @@ export function createDefaultSettings(): Settings {
     authMethod: DEFAULT_AUTH_METHOD,
   };
 
+  const notifications: NotificationPreferences = {
+    inApp: { enabled: true },
+    browser: { enabled: true },
+    desktop: { enabled: true },
+    events: {
+      agentStarted: true,
+      phaseCompleted: true,
+      waitingApproval: true,
+      agentCompleted: true,
+      agentFailed: true,
+    },
+  };
+
   return {
     id: randomUUID(),
     models,
@@ -114,6 +128,7 @@ export function createDefaultSettings(): Settings {
     environment,
     system,
     agent,
+    notifications,
     createdAt: now,
     updatedAt: now,
   };

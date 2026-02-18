@@ -289,9 +289,126 @@ describe('SQLite Migrations', () => {
       expect(specPath?.notnull).toBe(0); // nullable
     });
 
-    it('should set schema version to 8', () => {
+    it('should set schema version to at least 7', () => {
       const version = getSchemaVersion(db);
-      expect(version).toBe(8);
+      expect(version).toBeGreaterThanOrEqual(7);
+    });
+  });
+
+  describe('migration v9: notification preferences', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add notification channel columns to settings table', () => {
+      const schema = getTableSchema(db, 'settings');
+      const columnNames = schema.map((col) => col.name);
+
+      expect(columnNames).toContain('notif_in_app_enabled');
+      expect(columnNames).toContain('notif_browser_enabled');
+      expect(columnNames).toContain('notif_desktop_enabled');
+    });
+
+    it('should add notification event type columns to settings table', () => {
+      const schema = getTableSchema(db, 'settings');
+      const columnNames = schema.map((col) => col.name);
+
+      expect(columnNames).toContain('notif_evt_agent_started');
+      expect(columnNames).toContain('notif_evt_phase_completed');
+      expect(columnNames).toContain('notif_evt_waiting_approval');
+      expect(columnNames).toContain('notif_evt_agent_completed');
+      expect(columnNames).toContain('notif_evt_agent_failed');
+    });
+
+    it('should have all notification columns as INTEGER NOT NULL', () => {
+      const schema = getTableSchema(db, 'settings');
+
+      const notifColumns = [
+        'notif_in_app_enabled',
+        'notif_browser_enabled',
+        'notif_desktop_enabled',
+        'notif_evt_agent_started',
+        'notif_evt_phase_completed',
+        'notif_evt_waiting_approval',
+        'notif_evt_agent_completed',
+        'notif_evt_agent_failed',
+      ];
+
+      notifColumns.forEach((colName) => {
+        const col = schema.find((c) => c.name === colName);
+        expect(col, `column ${colName} should exist`).toBeDefined();
+        expect(col?.type, `column ${colName} should be INTEGER`).toBe('INTEGER');
+        expect(col?.notnull, `column ${colName} should be NOT NULL`).toBe(1);
+      });
+    });
+
+    it('should default channel columns to 1 (enabled/opt-out)', () => {
+      // Insert a settings row to check default values
+      db.prepare(
+        `
+        INSERT INTO settings (id, created_at, updated_at, model_analyze, model_requirements, model_plan, model_implement,
+          env_default_editor, env_shell_preference, sys_auto_update, sys_log_level, agent_type, agent_auth_method)
+        VALUES ('test', '2025-01-01', '2025-01-01', 'm', 'm', 'm', 'm', 'vscode', 'bash', 1, 'info', 'claude-code', 'session')
+      `
+      ).run();
+
+      const row = db
+        .prepare(
+          'SELECT notif_in_app_enabled, notif_browser_enabled, notif_desktop_enabled FROM settings WHERE id = ?'
+        )
+        .get('test') as Record<string, number>;
+
+      expect(row.notif_in_app_enabled).toBe(1);
+      expect(row.notif_browser_enabled).toBe(1);
+      expect(row.notif_desktop_enabled).toBe(1);
+    });
+
+    it('should default event type columns to 1 (enabled)', () => {
+      db.prepare(
+        `
+        INSERT INTO settings (id, created_at, updated_at, model_analyze, model_requirements, model_plan, model_implement,
+          env_default_editor, env_shell_preference, sys_auto_update, sys_log_level, agent_type, agent_auth_method)
+        VALUES ('test', '2025-01-01', '2025-01-01', 'm', 'm', 'm', 'm', 'vscode', 'bash', 1, 'info', 'claude-code', 'session')
+      `
+      ).run();
+
+      const row = db
+        .prepare(
+          `SELECT notif_evt_agent_started, notif_evt_phase_completed, notif_evt_waiting_approval,
+                  notif_evt_agent_completed, notif_evt_agent_failed FROM settings WHERE id = ?`
+        )
+        .get('test') as Record<string, number>;
+
+      expect(row.notif_evt_agent_started).toBe(1);
+      expect(row.notif_evt_phase_completed).toBe(1);
+      expect(row.notif_evt_waiting_approval).toBe(1);
+      expect(row.notif_evt_agent_completed).toBe(1);
+      expect(row.notif_evt_agent_failed).toBe(1);
+    });
+
+    it('should set schema version to 9', () => {
+      const version = getSchemaVersion(db);
+      expect(version).toBe(9);
+    });
+
+    it('should run successfully on a v8 database with existing settings row', () => {
+      // Verify that the migration doesn't fail when settings rows already exist
+      // and that existing rows get correct default values for new columns
+      db.prepare(
+        `
+        INSERT INTO settings (id, created_at, updated_at, model_analyze, model_requirements, model_plan, model_implement,
+          env_default_editor, env_shell_preference, sys_auto_update, sys_log_level, agent_type, agent_auth_method)
+        VALUES ('existing', '2025-01-01', '2025-01-01', 'm', 'm', 'm', 'm', 'vscode', 'bash', 1, 'info', 'claude-code', 'session')
+      `
+      ).run();
+
+      // The existing row should have default notification values
+      const row = db
+        .prepare('SELECT notif_in_app_enabled, notif_evt_agent_started FROM settings WHERE id = ?')
+        .get('existing') as Record<string, number>;
+
+      expect(row.notif_in_app_enabled).toBe(1);
+      expect(row.notif_evt_agent_started).toBe(1);
     });
   });
 

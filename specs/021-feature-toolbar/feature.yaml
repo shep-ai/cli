@@ -1,0 +1,48 @@
+feature:
+  id: 021-feature-toolbar
+  name: feature-toolbar
+  number: 21
+  branch: feat/021-feature-toolbar
+  lifecycle: review
+  createdAt: '2026-02-17T11:58:11Z'
+status:
+  phase: in-review
+  progress:
+    completed: 12
+    total: 12
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-17T19:58:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+prUrl: 'https://github.com/shep-ai/cli/pull/66'
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-17T11:58:11Z'
+    completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-17T17:40:00.000Z'
+    completedBy: shep-kit:commit-pr
+  - phase: ci-passed
+    completedAt: '2026-02-17T19:58:00.000Z'
+    completedBy: shep-kit:commit-pr
+errors:
+  current: null
+  history: []

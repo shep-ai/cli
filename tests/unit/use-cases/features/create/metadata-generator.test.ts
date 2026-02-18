@@ -73,6 +73,35 @@ describe('MetadataGenerator', () => {
       );
     });
 
+    it('should handle AI response with trailing text after JSON', async () => {
+      (mockExecutor.execute as any).mockResolvedValue({
+        result:
+          'Here is the metadata:\n{"slug":"random-joke","name":"Random Joke","description":"Generate random jokes"}\nLet me know if you need changes.',
+      });
+
+      const result = await generator.generateMetadata('random joke');
+
+      expect(result).toEqual({
+        slug: 'random-joke',
+        name: 'Random Joke',
+        description: 'Generate random jokes',
+      });
+    });
+
+    it('should handle AI response wrapped in code fences', async () => {
+      (mockExecutor.execute as any).mockResolvedValue({
+        result: '```json\n{"slug":"test","name":"Test","description":"A test"}\n```',
+      });
+
+      const result = await generator.generateMetadata('test');
+
+      expect(result).toEqual({
+        slug: 'test',
+        name: 'Test',
+        description: 'A test',
+      });
+    });
+
     it('should propagate error when AI returns invalid JSON', async () => {
       (mockExecutor.execute as any).mockResolvedValue({
         result: 'not valid json',
@@ -92,41 +121,41 @@ describe('MetadataGenerator', () => {
     });
   });
 
-  describe('stripCodeFence', () => {
-    it('should strip ```json wrapper', () => {
-      const input = '```json\n{"slug": "test"}\n```';
-      const result = generator['stripCodeFence'](input);
-      expect(result).toBe('{"slug": "test"}');
-    });
-
-    it('should strip ```any-language wrapper', () => {
-      const input = '```typescript\n{"slug": "test"}\n```';
-      const result = generator['stripCodeFence'](input);
-      expect(result).toBe('{"slug": "test"}');
-    });
-
-    it('should strip ``` wrapper with no language', () => {
-      const input = '```\n{"slug": "test"}\n```';
-      const result = generator['stripCodeFence'](input);
-      expect(result).toBe('{"slug": "test"}');
-    });
-
-    it('should return raw JSON untouched', () => {
+  describe('extractJson', () => {
+    it('should extract raw JSON object', () => {
       const input = '{"slug": "test"}';
-      const result = generator['stripCodeFence'](input);
+      const result = generator['extractJson'](input);
       expect(result).toBe('{"slug": "test"}');
     });
 
-    it('should handle whitespace around fenced block', () => {
-      const input = '  \n```json\n{"slug": "test"}\n```\n  ';
-      const result = generator['stripCodeFence'](input);
+    it('should extract JSON from markdown code fence', () => {
+      const input = '```json\n{"slug": "test"}\n```';
+      const result = generator['extractJson'](input);
       expect(result).toBe('{"slug": "test"}');
     });
 
-    it('should not strip if only opening fence', () => {
-      const input = '```json\n{"slug": "test"}';
-      const result = generator['stripCodeFence'](input);
-      expect(result).toBe('```json\n{"slug": "test"}');
+    it('should extract JSON from surrounding prose', () => {
+      const input = 'Here is the JSON:\n{"slug": "test", "name": "Test"}\nHope that helps!';
+      const result = generator['extractJson'](input);
+      expect(result).toBe('{"slug": "test", "name": "Test"}');
+    });
+
+    it('should handle nested braces in values', () => {
+      const input = '{"slug": "test", "desc": "use {braces} here"}';
+      const result = generator['extractJson'](input);
+      expect(result).toBe('{"slug": "test", "desc": "use {braces} here"}');
+    });
+
+    it('should handle escaped quotes in strings', () => {
+      const input = '{"slug": "test\\"value"}';
+      const result = generator['extractJson'](input);
+      expect(result).toBe('{"slug": "test\\"value"}');
+    });
+
+    it('should return trimmed text when no brace found', () => {
+      const input = '  no json here  ';
+      const result = generator['extractJson'](input);
+      expect(result).toBe('no json here');
     });
   });
 

@@ -1,0 +1,112 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-trivy-vulnerabilities
+summary: >
+  3 tasks across 2 phases. Add CVE-2026-26960 to .trivyignore, then add trivyignores
+  configuration to both filesystem scan steps in ci.yml.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Trivy
+  - GitHub Actions
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add CVE-2026-26960 to .trivyignore'
+    description: >
+      Append CVE-2026-26960 to the existing node-tar comment block in .trivyignore,
+      after CVE-2026-24842 (line 18). No additional comment needed — the existing block
+      header at line 15 covers this CVE. This directly fixes the failing Trivy container
+      scan in CI.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'CVE-2026-26960 appears on its own line after CVE-2026-24842 in the node-tar block'
+      - 'No additional per-CVE comment is added (matches existing pattern)'
+      - 'The blank line separator before the npm CLI block is preserved'
+      - 'File ends with a trailing newline'
+    tdd:
+      red:
+        - 'Verify current .trivyignore does NOT contain CVE-2026-26960 (confirming the gap)'
+        - 'Verify the node-tar block currently has exactly 3 CVE entries'
+      green:
+        - 'Add CVE-2026-26960 on a new line after CVE-2026-24842'
+      refactor:
+        - 'Verify file structure: comment headers, blank line separators, trailing newline all intact'
+    estimatedEffort: '5min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add trivyignores to Trivy filesystem table scan step'
+    description: >
+      Add `trivyignores: '.trivyignore'` to the Trivy filesystem scan step (table-format)
+      in ci.yml, inside the `with:` block alongside scan-type, scan-ref, severity, exit-code,
+      format, and output. This matches the container scan step configuration at line 273.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "trivyignores: '.trivyignore' is present in the security-trivy job's table-format scan step"
+      - 'Indentation matches sibling entries in the with: block (10 spaces)'
+      - 'The step continues to use exit-code: 1 for pipeline gating'
+    tdd:
+      red:
+        - 'Verify the filesystem table scan step does NOT currently have a trivyignores entry'
+        - 'Verify the container scan step DOES have trivyignores (confirming the inconsistency)'
+      green:
+        - "Add trivyignores: '.trivyignore' to the filesystem table scan with: block"
+      refactor:
+        - 'Verify YAML validity and consistent indentation across the step'
+    estimatedEffort: '5min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add trivyignores to Trivy filesystem SARIF scan step'
+    description: >
+      Add `trivyignores: '.trivyignore'` to the Trivy filesystem SARIF scan step in ci.yml,
+      inside the `with:` block. This prevents suppressed CVEs from appearing as findings in
+      GitHub Security tab uploads. The step retains its existing if: always() and
+      continue-on-error: true settings.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "trivyignores: '.trivyignore' is present in the security-trivy job's SARIF scan step"
+      - 'Indentation matches sibling entries in the with: block (10 spaces)'
+      - 'The step retains if: always() and continue-on-error: true'
+      - 'Both filesystem scan steps (table + SARIF) now match the container scan pattern'
+    tdd:
+      red:
+        - 'Verify the filesystem SARIF scan step does NOT currently have a trivyignores entry'
+      green:
+        - "Add trivyignores: '.trivyignore' to the filesystem SARIF scan with: block"
+      refactor:
+        - 'Verify all three Trivy scan steps (fs table, fs SARIF, container) now consistently use trivyignores'
+        - 'Verify overall ci.yml YAML validity'
+    estimatedEffort: '5min'
+
+# Total effort estimate
+totalEstimate: '15min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  This feature requires 3 tasks across 2 phases. First, CVE-2026-26960 is added to the
+  existing node-tar block in .trivyignore to fix the failing CI pipeline (Phase 1). Then,
+  both Trivy filesystem scan steps in ci.yml are updated with trivyignores configuration
+  to match the container scan step and ensure consistent CVE suppression across all scan
+  types (Phase 2). Tasks 2 and 3 are independent of each other but both depend on Task 1
+  being complete first, since the .trivyignore file must contain the CVE before the
+  filesystem scans reference it.
+
+  No application source code, tests, Dockerfile, or domain models are modified. The total
+  change is 3 lines added across 2 files.

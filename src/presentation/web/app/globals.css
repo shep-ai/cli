@@ -70,6 +70,7 @@
   --animate-accordion-down: accordion-down 0.2s ease-out;
   --animate-accordion-up: accordion-up 0.2s ease-out;
   --animate-spinner: spinner 0.8s linear infinite;
+  --animate-indeterminate-progress: indeterminate-progress 1.5s ease-in-out infinite;
 }
 
 /* Dark Mode Theme Overrides */
@@ -125,6 +126,18 @@
 @keyframes spinner {
   to {
     transform: rotate(1turn);
+  }
+}
+
+@keyframes indeterminate-progress {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(200%);
+  }
+  100% {
+    transform: translateX(400%);
   }
 }
 

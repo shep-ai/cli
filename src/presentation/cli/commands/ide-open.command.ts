@@ -7,21 +7,12 @@
  */
 
 import { Command } from 'commander';
-import { createHash } from 'node:crypto';
-import { join } from 'node:path';
 import { EditorType } from '@/domain/generated/output.js';
 import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
-import { createLauncherRegistry } from '@/infrastructure/services/ide-launchers/ide-launcher.registry.js';
-import { SHEP_HOME_DIR } from '@/infrastructure/services/filesystem/shep-directory.service.js';
+import { launchIde } from '@/infrastructure/services/ide-launchers/launch-ide.js';
 import { messages } from '../ui/index.js';
-
-function computeWorktreePath(repoPath: string, branch: string): string {
-  const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
-  const slug = branch.replace(/\//g, '-');
-  return join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', slug);
-}
 
 /** IDE flag names mapped to their EditorType values. */
 const IDE_FLAG_MAP: Record<string, EditorType> = {
@@ -64,29 +55,23 @@ export function createIdeOpenCommand(): Command {
     .option('--antigravity', 'Open in Antigravity')
     .action(async (featId: string, options: IdeOpenOptions) => {
       try {
-        // Resolve the editor
         const editorId = resolveEditorId(options);
-        const registry = createLauncherRegistry();
-        const launcher = registry.get(editorId);
+        const useCase = container.resolve(ShowFeatureUseCase);
+        const feature = await useCase.execute(featId);
 
-        if (!launcher) {
-          messages.error(
-            `Unknown editor "${editorId}". Supported: ${[...registry.keys()].join(', ')}`,
-            new Error(`Unknown editor: ${editorId}`)
-          );
+        const result = await launchIde({
+          editorId,
+          repositoryPath: feature.repositoryPath,
+          branch: feature.branch,
+        });
+
+        if (!result.ok) {
+          messages.error(result.message, new Error(result.message));
           process.exitCode = 1;
           return;
         }
 
-        // Resolve the feature
-        const useCase = container.resolve(ShowFeatureUseCase);
-        const feature = await useCase.execute(featId);
-
-        // Compute worktree path and launch
-        const worktreePath = computeWorktreePath(feature.repositoryPath, feature.branch);
-        await launcher.launch(worktreePath);
-
-        messages.success(`Opened ${launcher.name} at ${worktreePath}`);
+        messages.success(`Opened ${result.editorName} at ${result.worktreePath}`);
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         messages.error('Failed to open IDE', err);

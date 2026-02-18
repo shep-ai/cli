@@ -1,0 +1,144 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-trivy-vulnerabilities
+number: 022
+branch: feat/022-fix-trivy-vulnerabilities
+oneLiner: Fix Trivy container scan CI failure by addressing CVE-2026-26960 (node-tar)
+summary: >
+  The Trivy container scan job in CI is failing on main due to CVE-2026-26960, a HIGH severity
+  vulnerability in npm's bundled `tar` package (versions 6.2.1 and 7.4.3) within the node:22-alpine
+  base image. Since tar is not a direct application dependency but rather bundled with npm in the
+  Node.js base image, the fix is to add this CVE to the .trivyignore file with proper justification,
+  consistent with the existing pattern for similar npm-bundled vulnerabilities. Additionally, the
+  Trivy filesystem scan job will be updated to use .trivyignore for consistency with the container
+  scan job.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Docker (node:22-alpine base image)
+  - Trivy (vulnerability scanner)
+  - GitHub Actions CI/CD
+  - pnpm (package manager)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should CVE-2026-26960 be grouped with the existing node-tar CVE comment block or given its own separate comment section?'
+    resolved: true
+    answer: >
+      Recommend grouping under the existing "node-tar arbitrary file overwrite vulnerabilities"
+      comment block. The existing .trivyignore already has CVE-2026-23745, CVE-2026-23950, and
+      CVE-2026-24842 under this header. CVE-2026-26960 is the same package (node-tar) and same
+      root cause category (hardlink/symlink escape). Grouping keeps the file organized by
+      vulnerability category. Alternative: create a separate block if the vulnerability mechanism
+      is considered distinct enough to warrant separate tracking.
+
+  - question: 'Should the trivyignores configuration also be added to the SARIF-format filesystem scan step, or only the primary table-format scan step?'
+    resolved: true
+    answer: >
+      Recommend adding trivyignores to both the table-format scan step (line 197) and the
+      SARIF-format scan step (line 226) in the security-trivy job. The SARIF step currently
+      runs unconditionally (if: always()) and uploads results to GitHub Security. Without
+      trivyignores, suppressed CVEs would appear in the SARIF upload as findings, creating
+      noise in GitHub Security tab. Both steps should use the same suppression list for
+      consistency. Alternative: only add to the primary table-format step if SARIF noise
+      is acceptable.
+
+  - question: 'Should the comment for CVE-2026-26960 include specific version details (tar@6.2.1, tar@7.4.3) and the fixed version (7.5.8)?'
+    resolved: true
+    answer: >
+      Recommend including a descriptive comment with the CVE title but NOT specific version
+      numbers. The existing pattern in .trivyignore uses short descriptions (e.g., "node-tar
+      arbitrary file overwrite vulnerabilities") without version pinning. Version details change
+      over time and would become stale. The CVE ID itself is the canonical reference for version
+      details. Alternative: include version details if the team prefers more verbose tracking.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The CI/CD pipeline on the `main` branch is currently failing because the Trivy container scan
+  (`security-trivy-container` job) detects 3 HIGH severity findings for **CVE-2026-26960** in the
+  `tar` package (node-tar). This vulnerability affects two versions of `tar` bundled with npm inside
+  the `node:22-alpine` Docker base image:
+
+  - `tar@6.2.1` — bundled with npm in the base image
+  - `tar@7.4.3` — bundled with npm in the base image
+  - Fixed version: `7.5.8`
+
+  **CVE-2026-26960**: Arbitrary File Read/Write via Hardlink Target Escape Through Symlink Chain in
+  node-tar. Severity: HIGH.
+
+  The `tar` package is **not** a direct or transitive dependency of the application (it does not
+  appear in `pnpm-lock.yaml`). It is bundled internally within npm, which is part of the Node.js
+  base image. Since the application uses `node` directly (not `npm`) at runtime, this vulnerability
+  does not affect the application.
+
+  The `.trivyignore` file already contains 5 suppressed CVEs for the same category of issue
+  (npm-bundled dependencies in node:22-alpine), but CVE-2026-26960 is a new vulnerability that
+  was not yet added.
+
+  Additionally, the Trivy filesystem scan (`security-trivy` job) does not use the `.trivyignore`
+  file — it lacks the `trivyignores: '.trivyignore'` configuration. This is currently not causing
+  failures but is an inconsistency that should be fixed for robustness.
+
+  ### Current CI Status (main branch, run #22131250792)
+
+  - Trivy (deps): PASS
+  - Trivy (container): **FAIL** (exit code 1)
+  - All other jobs: PASS
+
+  ## Success Criteria
+
+  - [ ] CVE-2026-26960 is added to `.trivyignore` with a descriptive comment following the existing pattern
+  - [ ] Trivy container scan (`security-trivy-container`) passes in CI with no HIGH/CRITICAL findings
+  - [ ] Trivy filesystem scan (`security-trivy`) is configured with `trivyignores: '.trivyignore'` on both the table-format and SARIF-format scan steps
+  - [ ] All other CI jobs (lint, typecheck, tests, docker, gitleaks, semgrep, hadolint) continue to pass
+  - [ ] No application source code is modified (changes limited to `.trivyignore` and `.github/workflows/ci.yml`)
+
+  ## Functional Requirements
+
+  - **FR-1**: Add `CVE-2026-26960` to the `.trivyignore` file so that Trivy suppresses this finding during both container and filesystem scans.
+  - **FR-2**: Include a descriptive comment for the new CVE entry that identifies it as a node-tar hardlink/symlink escape vulnerability, grouped with the existing node-tar CVE block (CVE-2026-23745, CVE-2026-23950, CVE-2026-24842).
+  - **FR-3**: Add `trivyignores: '.trivyignore'` to the Trivy filesystem scan step (table-format, line ~197 in `ci.yml`) so that the deps scan applies the same suppression rules as the container scan.
+  - **FR-4**: Add `trivyignores: '.trivyignore'` to the Trivy filesystem SARIF scan step (line ~226 in `ci.yml`) so that suppressed CVEs do not appear as findings in GitHub Security uploads.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The `.trivyignore` file must maintain the existing documentation pattern — each CVE must have a preceding comment explaining the vulnerability category and why suppression is acceptable.
+  - **NFR-2**: The CI pipeline execution time must not increase measurably (suppression is a filter operation, not an additional scan).
+  - **NFR-3**: The `.trivyignore` file must remain a single source of truth for both Trivy scan jobs — no CVE suppressions should be hardcoded in the CI workflow file itself.
+  - **NFR-4**: The fix must be forward-compatible — when Node.js releases a base image with tar >= 7.5.8, the `.trivyignore` entry becomes a no-op (no breakage) and can be cleaned up in a future housekeeping pass.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Group CVE-2026-26960 with existing node-tar block or separate section? | Group with existing block | Same package, same vulnerability category. Keeps file organized. |
+  | 2 | Add trivyignores to SARIF step too? | Yes, add to both steps | Prevents suppressed CVEs from appearing as noise in GitHub Security tab. |
+  | 3 | Include version details in comment? | No, use descriptive title only | Matches existing pattern. Version details become stale; CVE ID is the canonical reference. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `.trivyignore` | High | Add CVE-2026-26960 with justification comment to existing node-tar block |
+  | `.github/workflows/ci.yml` | Low | Add `trivyignores: '.trivyignore'` to both filesystem scan steps (table + SARIF) |
+
+  ## Dependencies
+
+  - No code dependencies — this is purely a CI/configuration change
+  - The fix depends on the existing `.trivyignore` pattern established for npm-bundled CVEs
+  - The vulnerability will be fully resolved upstream when Node.js releases a base image with
+    npm bundling tar >= 7.5.8
+
+  ## Size Estimate
+
+  **S** — Two files changed, 4 lines added across both. No source code changes, no test changes,
+  no build changes required. Estimated implementation time is minimal.

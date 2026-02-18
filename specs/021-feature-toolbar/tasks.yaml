@@ -1,0 +1,467 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-toolbar
+summary: >
+  12 tasks across 5 phases implementing the feature toolbar. Starts with shared utility
+  extraction (1 task), then API routes with validation (3 tasks), data pipeline extension
+  (1 task), client hook and toolbar component with stories (4 tasks), and finally
+  integration with canvas and drawer (3 tasks).
+
+relatedFeatures:
+  - number: 18
+    name: feat-ide-open
+    relationship: depends-on
+
+technologies:
+  - '@xyflow/react'
+  - 'React 19'
+  - 'shadcn/ui'
+  - 'lucide-react'
+  - 'Next.js 16+ App Router'
+  - 'node:child_process'
+  - 'Storybook'
+
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Shared Utility Extraction ──────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extract computeWorktreePath to packages/core shared module'
+    description: >
+      Create packages/core/src/infrastructure/services/ide-launchers/compute-worktree-path.ts
+      with the pure computeWorktreePath function. Replace the 3 duplicated copies in
+      ide-open.command.ts, feat/show.command.ts, and agent/show.command.ts with imports
+      from the shared module. The function takes (repoPath, branch) and returns the
+      worktree path under ~/.shep/repos/<hash>/wt/<slug>.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'compute-worktree-path.ts exports computeWorktreePath(repoPath: string, branch: string): string'
+      - 'Function uses SHEP_HOME_DIR from shep-directory.service and createHash from node:crypto'
+      - 'ide-open.command.ts imports computeWorktreePath from @shepai/core and removes local copy'
+      - 'feat/show.command.ts imports computeWorktreePath from @shepai/core and removes local copy'
+      - 'agent/show.command.ts imports computeWorktreePath from @shepai/core and removes local copy'
+      - 'All existing CLI tests pass without modification'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Write unit test for computeWorktreePath: given repoPath "/home/user/project" and branch "feat/my-feature", assert it returns join(SHEP_HOME_DIR, "repos", sha256("/home/user/project").slice(0,16), "wt", "feat-my-feature")'
+        - 'Test that branch slashes are replaced with hyphens'
+        - 'Test with edge cases: branch with multiple slashes, single-segment branch'
+      green:
+        - 'Create compute-worktree-path.ts with the function (copy from existing, make it the export)'
+        - 'Import SHEP_HOME_DIR and node:crypto dependencies'
+      refactor:
+        - 'Replace 3 CLI command copies with imports from the new shared module'
+        - 'Remove unused node:crypto and node:path imports from the 3 CLI files'
+        - 'Verify pnpm typecheck and existing tests pass'
+    estimatedEffort: '45min'
+
+  # ── Phase 2: API Routes & Input Validation ──────────────────────────────
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Create shared input validation helper for API routes'
+    description: >
+      Create a validateToolbarInput helper that both API routes will use. Validates
+      that repositoryPath is a non-empty absolute path and branch is a non-empty string
+      without path traversal sequences (..) or null bytes. Returns either the validated
+      inputs or an error response.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'validateToolbarInput accepts a parsed JSON body and returns { repositoryPath, branch } or { error, status }'
+      - 'Rejects empty repositoryPath with 400 and descriptive message'
+      - 'Rejects non-absolute repositoryPath (not starting with /) with 400'
+      - 'Rejects empty branch with 400 and descriptive message'
+      - 'Rejects branch containing ".." with 400 and path traversal error'
+      - 'Rejects branch containing null bytes with 400'
+      - 'Returns validated { repositoryPath, branch } on valid input'
+    tdd:
+      red:
+        - 'Test validateToolbarInput with empty repositoryPath → returns error 400'
+        - 'Test with relative repositoryPath "relative/path" → returns error 400'
+        - 'Test with empty branch → returns error 400'
+        - 'Test with branch "feat/../etc/passwd" → returns error 400'
+        - 'Test with branch containing \0 → returns error 400'
+        - 'Test with valid inputs → returns { repositoryPath, branch }'
+      green:
+        - 'Implement validateToolbarInput with early-return guards for each validation'
+      refactor:
+        - 'Ensure error messages are descriptive and consistent'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Create POST /api/ide/open API route'
+    description: >
+      Create the IDE open API route that accepts { repositoryPath, branch }, reads the
+      user's defaultEditor from getSettings(), computes the worktree path, resolves the
+      launcher from createLauncherRegistry(), checks availability, and launches. Follows
+      the /api/dialog/pick-folder pattern: direct service instantiation, try/catch,
+      NextResponse.json().
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'POST /api/ide/open accepts JSON { repositoryPath: string, branch: string }'
+      - 'Returns 400 with error message for invalid inputs (delegates to validateToolbarInput)'
+      - 'Reads defaultEditor from getSettings().environment.defaultEditor'
+      - 'Computes worktree path via shared computeWorktreePath'
+      - 'Resolves launcher from createLauncherRegistry() using editor type'
+      - 'Returns 404 with message if launcher not found or checkAvailable() returns false'
+      - 'Returns 200 with { success: true, editor: string, path: string } on successful launch'
+      - 'Returns 500 with { error: string } on spawn failure'
+    tdd:
+      red:
+        - 'Test returns 400 for missing repositoryPath'
+        - 'Test returns 400 for missing branch'
+        - 'Test returns 404 when launcher.checkAvailable() returns false'
+        - 'Test returns 200 with correct payload when launch succeeds (mock getSettings, createLauncherRegistry, computeWorktreePath)'
+        - 'Test returns 500 when launcher.launch() throws'
+      green:
+        - 'Create src/presentation/web/app/api/ide/open/route.ts'
+        - 'Import getSettings, createLauncherRegistry from @shepai/core, computeWorktreePath from shared module'
+        - 'Implement POST handler: parse body → validate → getSettings → computeWorktreePath → resolve launcher → checkAvailable → launch → respond'
+      refactor:
+        - 'Ensure error messages include editor name and path for debugging'
+        - 'Verify response shapes match spec (FR-10)'
+    estimatedEffort: '1h'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create POST /api/shell/open API route'
+    description: >
+      Create the shell open API route that accepts { repositoryPath, branch }, reads
+      shellPreference from settings, computes and verifies the worktree path exists,
+      and spawns an OS-appropriate terminal process (macOS: open -a Terminal, Linux:
+      x-terminal-emulator). Fire-and-forget spawn with detached + unref.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'POST /api/shell/open accepts JSON { repositoryPath: string, branch: string }'
+      - 'Returns 400 for invalid inputs'
+      - 'Reads shellPreference from getSettings().environment.shellPreference'
+      - 'Computes worktree path via shared computeWorktreePath'
+      - 'Returns 404 if computed worktree path does not exist on disk (existsSync check)'
+      - 'Spawns macOS terminal via spawn("open", ["-a", "Terminal", path]) on darwin'
+      - 'Spawns Linux terminal via spawn("x-terminal-emulator", ["--working-directory=<path>"]) on linux'
+      - 'Returns 501 with clear message for unsupported platforms'
+      - 'Returns 200 with { success: true, path: string, shell: string } on success'
+      - 'Returns 500 with { error: string } on spawn failure'
+      - 'Spawned process is detached and unreffed (fire-and-forget)'
+    tdd:
+      red:
+        - 'Test returns 400 for invalid inputs'
+        - 'Test returns 404 when worktree path does not exist (mock existsSync → false)'
+        - 'Test returns 501 on unsupported platform (mock process.platform → "win32")'
+        - 'Test spawns correct command on darwin (mock spawn, verify args)'
+        - 'Test spawns correct command on linux (mock spawn, verify args)'
+        - 'Test returns 200 with correct payload on success'
+        - 'Test returns 500 when spawn errors'
+      green:
+        - 'Create src/presentation/web/app/api/shell/open/route.ts'
+        - 'Import getSettings, computeWorktreePath, spawn, existsSync'
+        - 'Implement POST handler: parse body → validate → computeWorktreePath → existsSync → platform switch → spawn → respond'
+      refactor:
+        - 'Extract platform-specific spawn logic into a helper function within the route file'
+        - 'Ensure spawn options include { detached: true, stdio: "ignore" } and child.unref()'
+    estimatedEffort: '1h'
+
+  # ── Phase 3: Data Pipeline Extension ────────────────────────────────────
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Extend FeatureNodeData with repositoryPath and branch'
+    description: >
+      Add repositoryPath and branch fields to the FeatureNodeData interface in
+      feature-node-state-config.ts. Populate these fields in page.tsx from the Feature
+      aggregate (feature.repositoryPath, feature.branch). This ensures the data flows
+      through the existing state management to selectedNode in the toolbar and drawer.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureNodeData interface has repositoryPath: string and branch: string fields'
+      - 'page.tsx populates repositoryPath and branch in nodeData from feature.repositoryPath and feature.branch'
+      - 'pnpm typecheck passes (both CLI and web packages)'
+      - 'Existing tests still pass'
+    tdd:
+      red:
+        - 'Write type-level test (or assertion in existing test) that FeatureNodeData requires repositoryPath and branch'
+        - 'Verify page.tsx construction of nodeData includes the new fields (static analysis / type check)'
+      green:
+        - 'Add repositoryPath: string and branch: string to FeatureNodeData interface'
+        - 'Add repositoryPath: feature.repositoryPath and branch: feature.branch to nodeData in page.tsx (line 84)'
+      refactor:
+        - 'Verify no existing consumers break (interface is additive thanks to index signature)'
+        - 'Run pnpm typecheck and pnpm typecheck:web'
+    estimatedEffort: '20min'
+
+  # ── Phase 4: Client Hook & Toolbar Component ───────────────────────────
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Create useFeatureActions custom hook'
+    description: >
+      Build the useFeatureActions hook that encapsulates all toolbar action logic:
+      POST fetch to /api/ide/open and /api/shell/open, per-button loading state,
+      per-button error state with 5-second auto-clear, and disabled-during-loading
+      logic. Returns { openInIde, openInShell, ideLoading, shellLoading, ideError,
+      shellError }. Both the toolbar and drawer will consume this hook.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Hook accepts { repositoryPath: string; branch: string } | null'
+      - 'openInIde() sends POST /api/ide/open with { repositoryPath, branch }'
+      - 'openInShell() sends POST /api/shell/open with { repositoryPath, branch }'
+      - 'ideLoading is true while IDE fetch is in flight, false otherwise'
+      - 'shellLoading is true while shell fetch is in flight, false otherwise'
+      - 'ideError contains error message string on IDE fetch failure, null on success'
+      - 'shellError contains error message string on shell fetch failure, null on success'
+      - 'Error state auto-clears after 5 seconds'
+      - 'Error state clears on next successful action'
+      - 'Actions are no-ops when input is null (no repositoryPath/branch)'
+      - 'Actions are no-ops while their respective loading state is true (prevent double-click)'
+    tdd:
+      red:
+        - 'Test openInIde calls fetch with correct URL and body'
+        - 'Test ideLoading becomes true during fetch and false after'
+        - 'Test ideError is set when fetch returns non-ok response'
+        - 'Test ideError auto-clears after 5 seconds (use fake timers)'
+        - 'Test ideError clears on next successful openInIde call'
+        - 'Test openInIde is no-op when input is null'
+        - 'Test openInIde is no-op while ideLoading is true'
+        - 'Same suite of tests for openInShell / shellLoading / shellError'
+        - 'Test network error (fetch throws) is caught and sets error state'
+      green:
+        - 'Create use-feature-actions.ts in components/common/feature-toolbar/'
+        - 'Implement with useState for loading/error, useCallback for actions, useEffect for auto-clear timers'
+      refactor:
+        - 'Extract shared fetch-with-state logic to reduce duplication between IDE and shell actions'
+        - 'Ensure cleanup of auto-clear timers on unmount (useEffect cleanup)'
+    estimatedEffort: '1h'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Create FeatureToolbar component'
+    description: >
+      Build the FeatureToolbar component that renders inside a ReactFlow Panel
+      (top-center). Contains two icon buttons (Code2 for IDE, Terminal for shell)
+      with shadcn/ui Button (ghost, sm), Tooltip wrappers, and a Separator between
+      them. Shows Loader2 spinner during loading, AlertCircle with destructive styling
+      on error. Semi-transparent background with backdrop blur. CSS transition for
+      show/hide (opacity + transform, duration-200).
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Renders inside <Panel position="top-center"> from @xyflow/react'
+      - 'Shows "Open in IDE" button with Code2 icon and tooltip'
+      - 'Shows "Open in Shell" button with Terminal icon and tooltip'
+      - 'Buttons use shadcn/ui Button variant="ghost" size="sm"'
+      - 'Buttons separated by shadcn/ui Separator (orientation="vertical")'
+      - 'Toolbar has semi-transparent background with backdrop-blur and rounded corners'
+      - 'Loading state: button icon replaced with Loader2 animate-spin, button disabled'
+      - 'Error state: button icon replaced with AlertCircle, destructive text color, error in tooltip'
+      - 'All buttons have aria-label attributes'
+      - 'CSS transition (transition-all duration-200) for smooth appearance'
+    tdd:
+      red:
+        - 'Test toolbar renders Panel with position="top-center"'
+        - 'Test renders Code2 icon button with correct aria-label'
+        - 'Test renders Terminal icon button with correct aria-label'
+        - 'Test renders Separator between buttons'
+        - 'Test loading state shows Loader2 spinner and disables button'
+        - 'Test error state shows AlertCircle icon with destructive styling'
+        - 'Test clicking IDE button calls openInIde from hook'
+        - 'Test clicking Shell button calls openInShell from hook'
+      green:
+        - 'Create feature-toolbar.tsx with the component'
+        - 'Import Panel from @xyflow/react, Button/Tooltip/Separator from shadcn/ui, icons from lucide-react'
+        - 'Use useFeatureActions hook for action handlers and state'
+      refactor:
+        - 'Extract individual action button rendering into a small helper if code is repetitive'
+        - 'Ensure consistent styling with existing Controls component'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Create FeatureToolbar Storybook stories'
+    description: >
+      Create colocated stories for the FeatureToolbar covering all states: default
+      (with selected feature), loading state (one or both buttons), error state (API
+      failure), and no selection (hidden). Stories must use mocked API responses and
+      be wrapped in ReactFlowProvider for Panel rendering.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'Stories file at components/common/feature-toolbar/feature-toolbar.stories.tsx'
+      - 'Default story: toolbar visible with both buttons in idle state'
+      - 'Loading story: one or both buttons showing loading spinner'
+      - 'Error story: one button showing AlertCircle with error tooltip'
+      - 'Hidden story: no toolbar rendered (null input)'
+      - 'All stories wrapped in ReactFlowProvider for Panel to render correctly'
+      - 'Stories use mock data matching FeatureNodeData with repositoryPath and branch'
+      - 'pnpm dev:storybook renders all stories without errors'
+    tdd:
+      red:
+        - 'Verify each story renders without console errors in Storybook'
+        - 'Verify loading story shows spinner icon'
+        - 'Verify error story shows AlertCircle icon'
+      green:
+        - 'Create feature-toolbar.stories.tsx with all 4 story variants'
+        - 'Create decorator that wraps stories in ReactFlowProvider + ReactFlow for Panel context'
+      refactor:
+        - 'Extract shared story fixtures (mock FeatureNodeData) for reuse'
+    estimatedEffort: '45min'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Create FeatureToolbar barrel export and register in common index'
+    description: >
+      Create the index.ts barrel export for the feature-toolbar directory and add
+      FeatureToolbar to the common/index.ts barrel export file.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'feature-toolbar/index.ts exports FeatureToolbar component and useFeatureActions hook'
+      - 'common/index.ts includes FeatureToolbar export line'
+      - 'pnpm typecheck:web passes'
+    tdd: null
+    estimatedEffort: '10min'
+
+  # ── Phase 5: Integration & Drawer Update ────────────────────────────────
+
+  - id: task-10
+    phaseId: phase-5
+    title: 'Wire FeatureToolbar into ControlCenterInner'
+    description: >
+      Pass the FeatureToolbar as the toolbar prop to FeaturesCanvas in
+      ControlCenterInner. The toolbar renders conditionally when selectedNode is
+      non-null, passing repositoryPath and branch from selectedNode to the toolbar.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-9
+    acceptanceCriteria:
+      - 'ControlCenterInner passes toolbar prop to FeaturesCanvas'
+      - 'Toolbar renders when selectedNode is not null'
+      - 'Toolbar receives repositoryPath and branch from selectedNode'
+      - 'Toolbar does not render when selectedNode is null'
+      - 'Toolbar hides when clearSelection is called (pane click, drawer close)'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Test ControlCenterInner renders FeaturesCanvas with toolbar prop when selectedNode is set'
+        - 'Test toolbar prop is undefined when no node is selected'
+      green:
+        - 'Import FeatureToolbar in control-center-inner.tsx'
+        - 'Pass toolbar={selectedNode ? <FeatureToolbar repositoryPath={selectedNode.repositoryPath} branch={selectedNode.branch} /> : undefined} to FeaturesCanvas'
+      refactor:
+        - 'Verify toolbar appears and disappears correctly with node click and pane click'
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'Add action buttons to FeatureDrawer'
+    description: >
+      Add "Open in IDE" and "Open in Shell" buttons to the FeatureDrawer header area,
+      below the title and above the status section. Use the same useFeatureActions hook
+      as the toolbar. Buttons only render when selectedNode has valid repositoryPath
+      and branch values. Same loading/error behavior as toolbar buttons.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-9
+    acceptanceCriteria:
+      - 'FeatureDrawer renders "Open in IDE" and "Open in Shell" buttons in header area'
+      - 'Buttons use useFeatureActions hook with selectedNode repositoryPath and branch'
+      - 'Buttons have text labels (not just icons) since drawer has more space'
+      - 'Buttons show loading spinner during API call'
+      - 'Buttons show error state on failure'
+      - 'Buttons do not render if repositoryPath or branch are missing/empty'
+      - 'All buttons have aria-label attributes'
+      - 'pnpm typecheck:web passes'
+    tdd:
+      red:
+        - 'Test FeatureDrawer renders IDE and Shell buttons when selectedNode has repositoryPath and branch'
+        - 'Test buttons do not render when repositoryPath is missing'
+        - 'Test clicking IDE button calls openInIde'
+        - 'Test loading state shows spinner on button'
+      green:
+        - 'Import useFeatureActions in feature-drawer.tsx'
+        - 'Add action buttons section between DrawerHeader and first Separator'
+        - 'Conditionally render based on presence of repositoryPath and branch'
+      refactor:
+        - 'Ensure consistent styling with rest of drawer (padding, spacing, font size)'
+    estimatedEffort: '45min'
+
+  - id: task-12
+    phaseId: phase-5
+    title: 'Update FeatureDrawer Storybook stories'
+    description: >
+      Update all existing FeatureDrawer stories to include repositoryPath and branch
+      in the baseData fixture. Add story variants showing the new action buttons in
+      idle, loading, and error states. Ensure all existing story variants still render
+      correctly with the new fields.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'baseData fixture includes repositoryPath and branch fields'
+      - 'All existing story variants render with action buttons visible'
+      - 'New story variant showing loading state on action buttons'
+      - 'New story variant showing error state on action buttons'
+      - 'Story variant showing drawer without repositoryPath (buttons hidden)'
+      - 'pnpm dev:storybook renders all drawer stories without errors'
+    tdd:
+      red:
+        - 'Verify updated stories render action buttons in Storybook'
+        - 'Verify existing story variants are not broken'
+      green:
+        - 'Add repositoryPath and branch to baseData in feature-drawer.stories.tsx'
+        - 'Add new story variants for loading and error states'
+        - 'Add story variant with missing repositoryPath to show hidden buttons'
+      refactor:
+        - 'Consolidate any duplicated mock data with toolbar story fixtures if appropriate'
+    estimatedEffort: '30min'
+
+totalEstimate: '8h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 12 tasks across 5 phases, following a bottom-up
+  dependency order. The work begins with extracting the shared computeWorktreePath
+  utility to eliminate existing code duplication and establish the foundation for the
+  API routes. Next, the two API routes are built with shared input validation, following
+  the established /api/dialog/* pattern. The data pipeline is then extended to carry
+  repositoryPath and branch through FeatureNodeData. With the backend and data flow in
+  place, the client-side useFeatureActions hook and FeatureToolbar component are built
+  with full Storybook coverage. Finally, the toolbar is wired into the canvas and the
+  FeatureDrawer is updated with matching action buttons.
+
+  Each code task follows strict TDD: tests are written first to define the expected
+  behavior (RED), minimal implementation makes them pass (GREEN), and cleanup follows
+  while keeping tests green (REFACTOR). The total estimated effort is ~8 hours.
+
+  Tasks 3 and 4 (IDE and shell API routes) can be worked in parallel since they share
+  only the validation helper (task 2) and computeWorktreePath (task 1) as dependencies.
+  Similarly, tasks 8 and 9 (stories and barrel export) can be worked in parallel after
+  the toolbar component (task 7) is complete. Tasks 10 and 11 (canvas integration and
+  drawer update) can also proceed in parallel since they independently consume the
+  toolbar component and hook.

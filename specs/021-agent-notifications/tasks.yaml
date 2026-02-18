@@ -1,0 +1,602 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-notifications
+summary: >
+  17 tasks across 7 phases implementing cross-platform agent lifecycle notifications.
+  Phases flow from domain types through persistence, event bus, backend services, SSE
+  endpoint, web UI hooks, and integration verification. All code tasks follow TDD.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec
+  - Next.js 16 Route Handlers
+  - Sonner v2.0.7
+  - Web Notifications API
+  - node-notifier v10.0.1
+  - Node.js EventEmitter
+  - EventSource API
+  - better-sqlite3
+  - tsyringe
+  - Vitest
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # --- Phase 1: Domain Models & TypeSpec Foundation ---
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Define notification TypeSpec enums and NotificationEvent model'
+    description: >
+      Create tsp/common/enums/notification.tsp with NotificationEventType enum (agent_started,
+      phase_completed, waiting_approval, agent_completed, agent_failed) and NotificationSeverity
+      enum (info, warning, success, error). Create tsp/domain/entities/notification-event.tsp
+      with the NotificationEvent model containing eventType, agentRunId, featureName, phaseName?,
+      message, severity, and timestamp fields. Follow existing enum patterns from agent-config.tsp.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'NotificationEventType enum with 5 string values in tsp/common/enums/notification.tsp'
+      - 'NotificationSeverity enum with 4 string values in same file'
+      - 'NotificationEvent model with all 7 fields in tsp/domain/entities/notification-event.tsp'
+      - 'phaseName field is optional (? suffix)'
+      - 'pnpm tsp:compile succeeds without errors'
+    tdd: null # TypeSpec model definition, no runtime logic
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add NotificationPreferences to Settings TypeSpec model'
+    description: >
+      In tsp/domain/entities/settings.tsp, add NotificationChannelConfig model (enabled: boolean
+      default false), NotificationEventConfig model (agentStarted, phaseCompleted, waitingApproval,
+      agentCompleted, agentFailed - all boolean default true), and NotificationPreferences model
+      (inApp, browser, desktop channels + events config). Add notifications: NotificationPreferences
+      to the Settings model. Import the notification enum file. Run tsp:compile to regenerate
+      output.ts.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'NotificationChannelConfig model with enabled: boolean = true'
+      - 'NotificationEventConfig model with 5 boolean fields defaulting to true'
+      - 'NotificationPreferences model with inApp, browser, desktop, events fields'
+      - 'Settings model has notifications: NotificationPreferences field'
+      - 'pnpm tsp:compile succeeds and output.ts contains new types'
+      - 'pnpm typecheck passes'
+    tdd: null # TypeSpec model definition, no runtime logic
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Update settings defaults factory with notification preferences (TDD)'
+    description: >
+      Update packages/core/src/domain/factories/settings-defaults.factory.ts to import the new
+      NotificationPreferences type and include default notification preferences in
+      createDefaultSettings(). All channels enabled (opt-out), all event types enabled.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'createDefaultSettings() returns Settings with notifications field'
+      - 'notifications.inApp.enabled is true'
+      - 'notifications.browser.enabled is true'
+      - 'notifications.desktop.enabled is true'
+      - 'notifications.events.agentStarted is true (all 5 events true)'
+      - 'Existing settings defaults tests still pass'
+    tdd:
+      red:
+        - 'Write test asserting createDefaultSettings().notifications has all channels enabled'
+        - 'Write test asserting createDefaultSettings().notifications.events has all 5 events enabled'
+      green:
+        - 'Import NotificationPreferences type from generated output'
+        - 'Add notifications config object to createDefaultSettings() return value'
+      refactor:
+        - 'Extract DEFAULT_NOTIFICATION_PREFS constant if it improves readability'
+    estimatedEffort: '30min'
+
+  # --- Phase 2: Settings Persistence & Migration ---
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add SQLite migration v9 for notification preference columns (TDD)'
+    description: >
+      Add migration version 9 to packages/core/src/infrastructure/persistence/sqlite/migrations.ts with
+      ALTER TABLE statements adding 8 notification columns to the settings table:
+      notif_in_app_enabled (INTEGER DEFAULT 1), notif_browser_enabled (INTEGER DEFAULT 1),
+      notif_desktop_enabled (INTEGER DEFAULT 1), notif_evt_agent_started (INTEGER DEFAULT 1),
+      notif_evt_phase_completed (INTEGER DEFAULT 1), notif_evt_waiting_approval (INTEGER DEFAULT 1),
+      notif_evt_agent_completed (INTEGER DEFAULT 1), notif_evt_agent_failed (INTEGER DEFAULT 1).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Migration version 9 added to MIGRATIONS array'
+      - '8 ALTER TABLE ADD COLUMN statements with correct defaults'
+      - 'Channel columns default to 1 (enabled/opt-out)'
+      - 'Event type columns default to 1 (enabled)'
+      - 'All columns are INTEGER NOT NULL'
+      - 'Migration runs successfully on a fresh database and on an existing v8 database'
+    tdd:
+      red:
+        - 'Write test that runs migrations on a v8 database and asserts notification columns exist'
+        - 'Write test that verifies default values (0 for channels, 1 for events)'
+      green:
+        - 'Add migration entry { version: 9, sql: `ALTER TABLE settings ADD COLUMN ...` }'
+      refactor:
+        - 'Verify column naming consistency with notif_ and notif_evt_ prefixes'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Update settings mapper for notification columns (TDD)'
+    description: >
+      Update packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts: extend SettingsRow
+      interface with 8 notification columns (notif_in_app_enabled, notif_browser_enabled, etc.
+      as number type). Update toDatabase() to flatten notifications object to columns (boolean
+      to 0/1). Update fromDatabase() to reconstruct NotificationPreferences from columns (0/1
+      to boolean).
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'SettingsRow interface has all 8 notif_* columns as number type'
+      - 'toDatabase() maps notifications.inApp.enabled to notif_in_app_enabled (1/0)'
+      - 'toDatabase() maps all 3 channel enabled flags and all 5 event type flags'
+      - 'fromDatabase() reconstructs full NotificationPreferences object from columns'
+      - 'Round-trip: toDatabase(fromDatabase(row)) preserves all notification values'
+      - 'Existing mapper tests still pass'
+    tdd:
+      red:
+        - 'Write test: toDatabase() with notifications enabled maps to notif_in_app_enabled=1'
+        - 'Write test: fromDatabase() with notif_desktop_enabled=1 returns desktop.enabled=true'
+        - 'Write test: round-trip preserves all 8 notification preference values'
+      green:
+        - 'Add 8 fields to SettingsRow interface'
+        - 'Add notification mapping to toDatabase() following sys_auto_update pattern'
+        - 'Add notification reconstruction to fromDatabase() following system.autoUpdate pattern'
+      refactor:
+        - 'Ensure consistent ordering of notification fields in both functions'
+    estimatedEffort: '45min'
+
+  # --- Phase 3: Notification Bus & Port Interface ---
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Create INotificationService port interface'
+    description: >
+      Create packages/core/src/application/ports/output/services/notification-service.interface.ts defining
+      the INotificationService interface with a single notify(event: NotificationEvent) method.
+      Export from the services barrel (index.ts) and the ports barrel (output/index.ts).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'INotificationService interface with notify(event: NotificationEvent): void method'
+      - 'Exported from packages/core/src/application/ports/output/services/index.ts'
+      - 'Exported from packages/core/src/application/ports/output/index.ts'
+      - 'pnpm typecheck passes'
+    tdd: null # Interface definition only, no runtime logic
+    estimatedEffort: '15min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Implement typed notification event bus singleton (TDD)'
+    description: >
+      Create packages/core/src/infrastructure/services/notifications/notification-bus.ts implementing a typed
+      EventEmitter singleton following the getSettings() pattern from settings.service.ts.
+      Export initializeNotificationBus(), getNotificationBus(), hasNotificationBus(), and
+      resetNotificationBus() (test-only). The bus emits typed 'notification' events with
+      NotificationEvent payloads. Use a typed interface extending EventEmitter for type safety.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'initializeNotificationBus() creates the singleton (throws if already initialized)'
+      - 'getNotificationBus() returns the singleton (throws if not initialized)'
+      - 'hasNotificationBus() returns boolean without throwing'
+      - 'resetNotificationBus() clears for test cleanup'
+      - 'Bus emits typed notification events that listeners receive correctly'
+      - 'Multiple listeners receive the same event (fan-out)'
+    tdd:
+      red:
+        - 'Write test: getNotificationBus() throws when not initialized'
+        - 'Write test: initializeNotificationBus() then getNotificationBus() returns bus'
+        - 'Write test: initializeNotificationBus() twice throws error'
+        - 'Write test: emit notification event, listener receives correct payload'
+        - 'Write test: multiple listeners each receive the same event'
+      green:
+        - 'Implement module-level singleton with init/get/has/reset accessors'
+        - 'Create typed EventEmitter with NotificationEventMap interface'
+      refactor:
+        - 'Ensure type safety via interface for event names and payload types'
+    estimatedEffort: '45min'
+
+  # --- Phase 4: Backend Notification Services ---
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Install node-notifier dependency'
+    description: >
+      Add node-notifier v10.0.1 as a production dependency of the root CLI package (@shepai/cli).
+      Install via pnpm add node-notifier and pnpm add -D @types/node-notifier for type definitions.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'node-notifier in package.json dependencies'
+      - '@types/node-notifier in package.json devDependencies'
+      - 'pnpm install succeeds'
+      - 'Import { notify } from node-notifier compiles without errors'
+    tdd: null # Dependency installation, no code logic
+    estimatedEffort: '10min'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Implement DesktopNotifier with input sanitization (TDD)'
+    description: >
+      Create packages/core/src/infrastructure/services/notifications/desktop-notifier.ts wrapping node-notifier.
+      Sanitize all inputs before passing to node-notifier: strip shell metacharacters
+      (backtick, $, |, ;, &, parens, angle brackets), truncate title to 100 chars and body to
+      500 chars. Handle node-notifier errors gracefully (log warning, never throw). The class
+      has a send(title, body) method and a private sanitize(input, maxLength) helper.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'DesktopNotifier class with send(title: string, body: string): void method'
+      - 'Input sanitization strips shell metacharacters from title and body'
+      - 'Title truncated to 100 chars, body to 500 chars'
+      - 'node-notifier errors are caught and logged as warnings (not thrown)'
+      - 'node-notifier is called with sanitized title and message fields'
+    tdd:
+      red:
+        - 'Write test: send() calls node-notifier.notify with title and message'
+        - 'Write test: shell metacharacters are stripped from title and body'
+        - 'Write test: long title is truncated to 100 chars'
+        - 'Write test: long body is truncated to 500 chars'
+        - 'Write test: node-notifier error is caught and logged, not thrown'
+      green:
+        - 'Implement DesktopNotifier class with mocked node-notifier in tests'
+        - 'Add sanitize() helper with regex for metacharacters and length truncation'
+      refactor:
+        - 'Extract SANITIZE_REGEX and MAX_TITLE_LENGTH/MAX_BODY_LENGTH as constants'
+    estimatedEffort: '45min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Implement NotificationWatcherService (TDD)'
+    description: >
+      Create packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts that polls
+      the agent_runs and phase_timings tables to detect status transitions. Maintains a
+      Map<runId, { status, completedPhases }> tracking last-seen state. On each poll cycle:
+      query active runs (status IN pending/running/waiting_approval), compare with last-seen
+      state, emit NotificationEvent to the bus for any transitions. Also detects newly completed
+      phases via phase_timings. Has start()/stop() lifecycle methods and a configurable poll
+      interval (default 3 seconds). Stops polling when no active runs exist.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-6
+    acceptanceCriteria:
+      - 'start() begins polling at configured interval'
+      - 'stop() clears the polling interval'
+      - 'Detects status transitions (running -> completed, running -> failed, etc.)'
+      - 'Detects new phase completions (newly set completedAt in phase_timings)'
+      - 'Emits correct NotificationEvent with eventType, severity, featureName, message'
+      - 'Does not emit duplicate events for already-seen states'
+      - 'Stops polling when no active runs remain'
+      - 'Resumes polling when start() called again'
+    tdd:
+      red:
+        - 'Write test: start() polls repository and detects status change from running to completed'
+        - 'Write test: emits agentCompleted event with severity success on completed transition'
+        - 'Write test: emits agentFailed event with severity error on failed transition'
+        - 'Write test: emits waitingApproval event with severity warning'
+        - 'Write test: emits phaseCompleted event when new phase timing has completedAt'
+        - 'Write test: does not emit duplicate event for already-seen status'
+        - 'Write test: stop() clears interval and prevents further polls'
+      green:
+        - 'Implement with setInterval-based polling'
+        - 'Inject IAgentRunRepository and IPhaseTimingRepository via constructor'
+        - 'Maintain Map<string, WatcherState> for last-seen tracking'
+        - 'Build NotificationEvent with correct eventType/severity mapping'
+      refactor:
+        - 'Extract event creation logic into a private buildEvent() helper'
+        - 'Extract status-to-event-type mapping into a lookup table'
+    estimatedEffort: '1.5h'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Implement NotificationService and register in DI container (TDD)'
+    description: >
+      Create packages/core/src/infrastructure/services/notifications/notification.service.ts implementing
+      INotificationService. The notify(event) method: (1) checks Settings for enabled channels
+      and event type filters, (2) emits to the notification bus (for SSE/in-app/browser), and
+      (3) dispatches to DesktopNotifier if desktop channel is enabled. Register NotificationService,
+      NotificationWatcherService, DesktopNotifier, and the notification bus in the DI container
+      (container.ts). Wire the watcher to call notify() on the service when it detects transitions.
+    state: Todo
+    dependencies:
+      - task-9
+      - task-10
+      - task-5
+    acceptanceCriteria:
+      - 'NotificationService implements INotificationService'
+      - 'notify() checks getSettings().notifications for channel/event enabled state'
+      - 'notify() emits to notification bus when in-app or browser channel enabled'
+      - 'notify() calls DesktopNotifier.send() when desktop channel enabled'
+      - 'notify() skips channels that are disabled in settings'
+      - 'notify() skips events that are filtered out in settings (e.g., agentStarted=false)'
+      - 'DI container registers INotificationService, watcher, desktop notifier, and bus'
+      - 'Watcher calls NotificationService.notify() on detected transitions'
+    tdd:
+      red:
+        - 'Write test: notify() emits to bus when inApp channel enabled'
+        - 'Write test: notify() calls DesktopNotifier.send() when desktop channel enabled'
+        - 'Write test: notify() skips desktop when desktop channel disabled'
+        - 'Write test: notify() skips bus emission when both inApp and browser disabled'
+        - 'Write test: notify() skips event when event type filter is false'
+        - 'Write test: DI container resolves INotificationService successfully'
+      green:
+        - 'Implement NotificationService with injected bus and DesktopNotifier'
+        - 'Read notification preferences from getSettings().notifications'
+        - 'Add registrations to initializeContainer() in container.ts'
+      refactor:
+        - 'Extract channel-enabled check into a private isChannelEnabled() helper'
+        - 'Extract event-type check into a private isEventEnabled() helper'
+    estimatedEffort: '1.5h'
+
+  # --- Phase 5: SSE API Route ---
+
+  - id: task-12
+    phaseId: phase-5
+    title: 'Implement SSE API route (GET /api/agent-events) (TDD)'
+    description: >
+      Create src/presentation/web/app/api/agent-events/route.ts as a Next.js Route Handler.
+      Returns a streaming Response with text/event-stream content type, Cache-Control: no-cache,
+      and Connection: keep-alive headers. Creates a ReadableStream that subscribes to the
+      notification bus via getNotificationBus(). Writes SSE-formatted data frames
+      (event: notification\ndata: JSON\n\n). Sends heartbeat comments (: heartbeat\n\n) every
+      30 seconds. Supports optional ?runId query parameter to filter events for a specific
+      agent run. Cleans up listeners and intervals on client disconnect via request.signal
+      (AbortSignal).
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'GET handler exported from route.ts'
+      - 'Response has text/event-stream content type'
+      - 'Response has Cache-Control: no-cache and Connection: keep-alive headers'
+      - 'Events written as SSE format: event: notification\ndata: {json}\n\n'
+      - 'Heartbeat comment sent every 30 seconds'
+      - 'Optional ?runId query param filters events by agentRunId'
+      - 'Without ?runId, all events are streamed'
+      - 'Listener removed from bus on client disconnect (AbortSignal)'
+      - 'Heartbeat interval cleared on disconnect'
+      - 'Multiple concurrent clients each receive events independently'
+    tdd:
+      red:
+        - 'Write test: GET returns response with text/event-stream content type'
+        - 'Write test: emitted notification event appears in SSE stream as formatted data'
+        - 'Write test: ?runId filters events to matching agentRunId only'
+        - 'Write test: events without matching runId are excluded when filter is set'
+        - 'Write test: listener is cleaned up when request is aborted'
+      green:
+        - 'Implement Route Handler with ReadableStream'
+        - 'Subscribe to getNotificationBus() in stream start() callback'
+        - 'Format events as SSE data frames with JSON.stringify'
+        - 'Set up 30s heartbeat interval'
+        - 'Add AbortSignal listener for cleanup'
+      refactor:
+        - 'Extract SSE formatting into a helper function (formatSSEEvent)'
+        - 'Extract header constants'
+    estimatedEffort: '1.5h'
+
+  # --- Phase 6: Web UI Hooks & Toast Integration ---
+
+  - id: task-13
+    phaseId: phase-6
+    title: 'Implement useAgentEvents SSE client hook (TDD)'
+    description: >
+      Create src/presentation/web/hooks/use-agent-events.ts providing the useAgentEvents() hook.
+      Connects to GET /api/agent-events via the browser EventSource API. Features: automatic
+      reconnection with exponential backoff (1s, 2s, 4s, ... max 30s), event parsing into typed
+      NotificationEvent objects, connection status state (connected/connecting/disconnected),
+      cleanup on unmount. Uses 'use client' directive. Handles SSR edge case (typeof window).
+      Optional runId parameter for filtered streams.
+    state: Todo
+    dependencies:
+      - task-12
+      - task-1
+    acceptanceCriteria:
+      - 'useAgentEvents() returns { events, connectionStatus, lastEvent }'
+      - 'connectionStatus is connected | connecting | disconnected'
+      - 'Events are typed as NotificationEvent[]'
+      - 'EventSource connects to /api/agent-events'
+      - 'Optional runId parameter adds ?runId=<id> to URL'
+      - 'Automatic reconnection with exponential backoff (1s to 30s max)'
+      - 'Backoff resets on successful connection'
+      - 'EventSource closed on component unmount (cleanup)'
+      - 'SSR-safe: no EventSource created during server-side rendering'
+    tdd:
+      red:
+        - 'Write test: hook creates EventSource connection to /api/agent-events'
+        - 'Write test: connectionStatus transitions from connecting to connected on open'
+        - 'Write test: received SSE event is parsed into typed NotificationEvent'
+        - 'Write test: EventSource is closed on unmount'
+        - 'Write test: reconnection attempted with increasing delay after error'
+        - 'Write test: runId parameter adds query string to EventSource URL'
+      green:
+        - 'Implement hook with useState for events and connectionStatus'
+        - 'Use useEffect to manage EventSource lifecycle'
+        - 'Parse SSE event.data via JSON.parse into NotificationEvent'
+        - 'Implement reconnection with useRef for backoff state'
+      refactor:
+        - 'Extract backoff logic into a utility if complex'
+    estimatedEffort: '1h'
+
+  - id: task-14
+    phaseId: phase-6
+    title: 'Implement useNotifications dispatch hook (TDD)'
+    description: >
+      Create src/presentation/web/hooks/use-notifications.ts providing the useNotifications()
+      hook. Consumes events from useAgentEvents(). Dispatches to Sonner toasts (toast.success
+      for completed, toast.error for failed, toast.warning for waitingApproval, toast.info for
+      started/phase). Dispatches to Web Notifications API when browser channel enabled AND
+      permission granted. Exposes requestBrowserPermission() async function and
+      browserPermissionState (granted/denied/default). Uses 'use client' directive.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'useNotifications() returns { requestBrowserPermission, browserPermissionState }'
+      - 'Dispatches Sonner toast.success() for agentCompleted events'
+      - 'Dispatches toast.error() for agentFailed events'
+      - 'Dispatches toast.warning() for waitingApproval events'
+      - 'Dispatches toast.info() for agentStarted and phaseCompleted events'
+      - 'Toast includes feature name and event message'
+      - 'Dispatches browser Notification when permission granted and channel enabled'
+      - 'requestBrowserPermission() calls Notification.requestPermission()'
+      - 'browserPermissionState tracks current permission (granted/denied/default)'
+      - 'Graceful fallback if Notification API unavailable (no errors)'
+    tdd:
+      red:
+        - 'Write test: agentCompleted event triggers toast.success with feature name'
+        - 'Write test: agentFailed event triggers toast.error'
+        - 'Write test: waitingApproval event triggers toast.warning'
+        - 'Write test: agentStarted event triggers toast.info'
+        - 'Write test: browser Notification created when permission granted'
+        - 'Write test: no browser Notification when permission not granted'
+        - 'Write test: requestBrowserPermission calls Notification.requestPermission'
+      green:
+        - 'Implement hook consuming useAgentEvents events via useEffect'
+        - 'Map severity to toast method (success/error/warning/info)'
+        - 'Create new Notification() for browser channel when permitted'
+        - 'Track permission state via useState, initialize from Notification.permission'
+      refactor:
+        - 'Extract severity-to-toast-method mapping as a constant lookup'
+    estimatedEffort: '1h'
+
+  - id: task-15
+    phaseId: phase-6
+    title: 'Mount Toaster in root layout'
+    description: >
+      Add the Sonner <Toaster /> component to src/presentation/web/app/layout.tsx alongside
+      the AppShell. Import from @/components/ui/sonner. Place as a sibling of AppShell inside
+      the body element so toasts render as a portal overlay above all page content.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Toaster component imported from @/components/ui/sonner'
+      - 'Toaster rendered in the body element of layout.tsx'
+      - 'Toaster is a sibling of AppShell (not nested inside)'
+      - 'pnpm typecheck:web passes'
+      - 'No visual regression (Toaster is invisible until a toast is triggered)'
+    tdd: null # Simple JSX addition, no logic to test
+    estimatedEffort: '10min'
+
+  # --- Phase 7: Integration Testing & Wiring Verification ---
+
+  - id: task-16
+    phaseId: phase-7
+    title: 'Write SSE endpoint integration tests'
+    description: >
+      Create tests/integration/api/agent-events-sse.test.ts with integration tests for the
+      SSE endpoint. Tests use an HTTP client to connect to the SSE route, emit events on the
+      notification bus, and verify they arrive correctly formatted in the SSE stream. Test
+      multiple concurrent clients receiving the same events. Test ?runId filtering. Test that
+      disconnecting a client cleans up listeners (no leaked event listeners on the bus).
+    state: Todo
+    dependencies:
+      - task-12
+      - task-11
+    acceptanceCriteria:
+      - 'Test: SSE client receives notification events as JSON data frames'
+      - 'Test: multiple concurrent clients each receive the same event'
+      - 'Test: ?runId filtering delivers only matching events'
+      - 'Test: client disconnect removes listener from notification bus'
+      - 'Test: heartbeat comments are received within 30-second window'
+      - 'All integration tests pass'
+    tdd:
+      red:
+        - 'Write integration test connecting HTTP client to SSE endpoint'
+        - 'Write test emitting event on bus and asserting client receives it'
+        - 'Write test with two clients verifying fan-out delivery'
+        - 'Write test with ?runId verifying filtered delivery'
+        - 'Write test verifying listener cleanup after client disconnect'
+      green:
+        - 'Initialize notification bus in test setup'
+        - 'Use fetch() or undici to consume SSE stream'
+        - 'Parse SSE formatted output to verify event data'
+      refactor:
+        - 'Extract SSE test helpers (connectSSE, readNextEvent) for reuse'
+    estimatedEffort: '1.5h'
+
+  - id: task-17
+    phaseId: phase-7
+    title: 'Full validation pass and wiring verification'
+    description: >
+      Run the full validation suite (pnpm validate) to verify lint, format, typecheck, and
+      TypeSpec compilation all pass with the new code. Run pnpm test to verify all unit and
+      integration tests pass. Verify DI container initializes correctly with new notification
+      services registered. Fix any issues found.
+    state: Todo
+    dependencies:
+      - task-16
+      - task-15
+      - task-14
+    acceptanceCriteria:
+      - 'pnpm validate passes (lint + format + typecheck + tsp:compile)'
+      - 'pnpm test passes (all unit + integration tests)'
+      - 'pnpm typecheck:web passes'
+      - 'No new lint warnings or errors'
+      - 'DI container resolves INotificationService without errors'
+    tdd: null # Validation/verification task, not code logic
+    estimatedEffort: '30min'
+
+# Total effort estimate
+totalEstimate: '12h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation follows a bottom-up dependency flow across 7 phases with 17 tasks.
+
+  First, the domain foundation is established: TypeSpec models define NotificationEvent,
+  notification enums (event types, severities), and NotificationPreferences as a new Settings
+  sub-model. TypeSpec compilation generates TypeScript types, and the settings defaults factory
+  is updated to include notification preferences with all channels enabled (opt-out).
+
+  Next, the persistence layer is extended with SQLite migration v9 (8 notification columns in
+  the settings table) and the settings mapper is updated to flatten/reconstruct the new
+  NotificationPreferences fields using the established pattern (boolean -> INTEGER 0/1).
+
+  The event infrastructure comes third: a typed EventEmitter notification bus singleton provides
+  in-process pub/sub, and the INotificationService port interface is defined in the application
+  layer. These form the backbone connecting producers to consumers.
+
+  Backend notification services form the core: DesktopNotifier wraps node-notifier with input
+  sanitization, NotificationWatcherService polls the database for agent status transitions and
+  phase completions, and NotificationService orchestrates the fan-out (bus for SSE/in-app/browser,
+  DesktopNotifier for OS notifications). All services are registered in the DI container.
+
+  The SSE API route (GET /api/agent-events) bridges backend events to the web UI as the first
+  Next.js Route Handler in the project. It uses ReadableStream, subscribes to the notification
+  bus, supports ?runId filtering, and implements proper cleanup on disconnect.
+
+  Web UI hooks complete the pipeline: useAgentEvents handles SSE transport with exponential
+  backoff reconnection, useNotifications dispatches to Sonner toasts and the Web Notifications
+  API with permission management. The Sonner Toaster component is mounted in the root layout.
+
+  Finally, integration tests verify the SSE endpoint end-to-end (fan-out, filtering, cleanup),
+  and a full validation pass ensures all code quality gates are met.
+
+  ---
+
+  _Task breakdown complete - ready for implementation_

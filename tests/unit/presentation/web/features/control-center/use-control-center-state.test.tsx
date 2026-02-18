@@ -34,6 +34,8 @@ const mockFeatureNode: FeatureNodeType = {
     lifecycle: 'implementation',
     state: 'running',
     progress: 45,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/auth-module',
   },
 };
 
@@ -345,9 +347,10 @@ describe('useControlCenterState', () => {
         lifecycle: 'implementation',
         state: 'running',
         progress: 50,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/feature-a',
       },
     };
-
     it('places new child feature to the right of the parent', () => {
       let capturedState: ControlCenterState | null = null;
       renderHook([parentFeature] as CanvasNodeType[], [], (state) => {
@@ -671,6 +674,8 @@ describe('useControlCenterState', () => {
         lifecycle: 'implementation',
         state: 'running',
         progress: 45,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/auth-module',
       },
     };
 
@@ -684,6 +689,8 @@ describe('useControlCenterState', () => {
         lifecycle: 'requirements',
         state: 'done',
         progress: 0,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/dashboard',
       },
     };
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { XIcon, Loader2, Trash2 } from 'lucide-react';
+import { XIcon, Code2, Terminal, Loader2, CircleAlert, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Drawer,
@@ -9,9 +9,9 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { CometSpinner } from '@/components/ui/comet-spinner';
-import { Button } from '@/components/ui/button';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -25,6 +25,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import { useFeatureActions } from './use-feature-actions';
 
 export interface FeatureDrawerProps {
   selectedNode: FeatureNodeData | null;
@@ -66,6 +67,14 @@ export function FeatureDrawer({
               <DrawerTitle>{selectedNode.name}</DrawerTitle>
               <DrawerDescription>{selectedNode.featureId}</DrawerDescription>
             </DrawerHeader>
+
+            {/* Action buttons */}
+            {selectedNode.repositoryPath && selectedNode.branch ? (
+              <DrawerActions
+                repositoryPath={selectedNode.repositoryPath}
+                branch={selectedNode.branch}
+              />
+            ) : null}
 
             <Separator />
 
@@ -177,14 +186,14 @@ function StateBadge({ data }: { data: FeatureNodeData }) {
 
 function DetailsSection({ data }: { data: FeatureNodeData }) {
   const hasAnyDetail =
-    data.description ?? data.agentName ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
+    data.description ?? data.agentType ?? data.runtime ?? data.blockedBy ?? data.errorMessage;
 
   if (!hasAnyDetail) return null;
 
   return (
     <div data-testid="feature-drawer-details" className="flex flex-col gap-3 p-4">
       {data.description ? <DetailRow label="Description" value={data.description} /> : null}
-      {data.agentName ? <DetailRow label="Agent" value={data.agentName} /> : null}
+      {data.agentType ? <DetailRow label="Agent" value={data.agentType} /> : null}
       {data.runtime ? <DetailRow label="Runtime" value={data.runtime} /> : null}
       {data.blockedBy ? <DetailRow label="Blocked by" value={data.blockedBy} /> : null}
       {data.errorMessage ? <DetailRow label="Error" value={data.errorMessage} /> : null}
@@ -198,5 +207,63 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="text-muted-foreground text-xs font-medium">{label}</span>
       <span className="text-sm">{value}</span>
     </div>
+  );
+}
+
+function DrawerActions({ repositoryPath, branch }: { repositoryPath: string; branch: string }) {
+  const { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError } =
+    useFeatureActions({ repositoryPath, branch });
+
+  return (
+    <div className="flex gap-2 px-4 pb-3">
+      <DrawerActionButton
+        label="Open in IDE"
+        onClick={openInIde}
+        loading={ideLoading}
+        error={!!ideError}
+        icon={Code2}
+      />
+      <DrawerActionButton
+        label="Open in Shell"
+        onClick={openInShell}
+        loading={shellLoading}
+        error={!!shellError}
+        icon={Terminal}
+      />
+    </div>
+  );
+}
+
+function DrawerActionButton({
+  label,
+  onClick,
+  loading,
+  error,
+  icon: Icon,
+}: {
+  label: string;
+  onClick: () => void;
+  loading: boolean;
+  error: boolean;
+  icon: typeof Code2;
+}) {
+  return (
+    <Button
+      variant="outline"
+      size="sm"
+      aria-label={label}
+      disabled={loading}
+      onClick={onClick}
+      className={cn('gap-1.5', error && 'text-destructive hover:text-destructive')}
+    >
+      {loading ? (
+        <Loader2 className="size-4 animate-spin" />
+      ) : error ? (
+        <CircleAlert className="size-4" />
+      ) : (
+        <Icon className="size-4" />
+      )}
+      {label}
+    </Button>
   );
 }

@@ -36,6 +36,7 @@ export type {
 export type {
   IExternalIssueFetcher,
   ExternalIssue,
+  INotificationService,
   ISpecInitializerService,
   SpecInitializerResult,
   IVersionService,
