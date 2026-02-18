@@ -44,7 +44,6 @@ import { messages } from './ui/index.js';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
-import { populateUseCasesBridge } from '@/infrastructure/di/populate-use-cases-bridge.js';
 
 /**
  * Bootstrap function - initializes all dependencies before CLI starts.
@@ -55,6 +54,8 @@ async function bootstrap() {
     // Step 1: Initialize DI container (database + migrations)
     try {
       await initializeContainer();
+      // Expose the DI container on globalThis for the web UI's server-side code
+      (globalThis as Record<string, unknown>).__shepContainer = container;
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
       messages.error('Failed to initialize database', err);
@@ -71,12 +72,6 @@ async function bootstrap() {
       messages.error('Failed to initialize settings', err);
       throw error;
     }
-
-    // Expose resolved use cases on globalThis for the web layer.
-    // The Next.js web UI (Turbopack) cannot import @shepai/core at runtime
-    // (ESM .js extensions, native C++ addons, tsyringe decorators), so the
-    // CLI places live instances on globalThis and the web reads them back.
-    populateUseCasesBridge(container);
 
     // Step 3: Set up Commander CLI
     const versionService = container.resolve<IVersionService>('IVersionService');

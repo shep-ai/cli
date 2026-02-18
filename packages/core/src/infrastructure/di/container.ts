@@ -93,13 +93,20 @@ import { InstallToolUseCase } from '../../application/use-cases/tools/install-to
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
 import { runSQLiteMigrations } from '../persistence/sqlite/migrations.js';
 
+let _initialized = false;
+
 /**
  * Initialize the DI container with all dependencies.
  * Must be called before resolving any dependencies.
+ * Safe to call multiple times — returns existing container if already initialized.
  *
  * @returns Configured container instance
  */
 export async function initializeContainer(): Promise<typeof container> {
+  if (_initialized) {
+    return container;
+  }
+
   // Get database connection
   const db = await getSQLiteConnection();
 
@@ -248,7 +255,16 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
 
+  _initialized = true;
   return container;
+}
+
+/**
+ * Check whether the DI container has been initialized.
+ * Useful for diagnostics and conditional initialization in instrumentation.ts.
+ */
+export function isContainerInitialized(): boolean {
+  return _initialized;
 }
 
 /**

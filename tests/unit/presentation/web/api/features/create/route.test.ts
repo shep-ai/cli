@@ -1,9 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-// Mock the use-cases bridge before importing the route
-const mockCreateFeature = vi.fn();
-vi.mock('@shepai/core/infrastructure/di/use-cases-bridge', () => ({
-  createFeature: mockCreateFeature,
+// Mock the server container resolve() before importing the route.
+// The route calls resolve(CreateFeatureUseCase) which returns an object with execute().
+const mockExecute = vi.fn();
+vi.mock('../../../../../../../src/presentation/web/lib/server-container.js', () => ({
+  resolve: () => ({ execute: mockExecute }),
+}));
+
+// Mock @shepai/core use case import so tsyringe doesn't load
+vi.mock('@shepai/core/application/use-cases/features/create/create-feature.use-case', () => ({
+  CreateFeatureUseCase: class CreateFeatureUseCase {},
 }));
 
 // Must import after mock setup
@@ -29,7 +35,7 @@ describe('POST /api/features/create', () => {
 
   it('returns 200 with feature and warning on success', async () => {
     const feature = { id: '1', name: 'My Feature', slug: 'my-feature' };
-    mockCreateFeature.mockResolvedValue({ feature, warning: 'slug was adjusted' });
+    mockExecute.mockResolvedValue({ feature, warning: 'slug was adjusted' });
 
     const response = await POST(
       makeRequest({ name: 'My Feature', description: 'A description', repositoryPath: '/repo' })
@@ -42,7 +48,7 @@ describe('POST /api/features/create', () => {
 
   it('returns 200 with feature and no warning when warning is absent', async () => {
     const feature = { id: '2', name: 'Another', slug: 'another' };
-    mockCreateFeature.mockResolvedValue({ feature });
+    mockExecute.mockResolvedValue({ feature });
 
     const response = await POST(
       makeRequest({ name: 'Another', description: '', repositoryPath: '/repo' })
@@ -57,7 +63,7 @@ describe('POST /api/features/create', () => {
 
   it('composes userInput from name and description', async () => {
     const feature = { id: '3', name: 'Test', slug: 'test' };
-    mockCreateFeature.mockResolvedValue({ feature });
+    mockExecute.mockResolvedValue({ feature });
 
     await POST(
       makeRequest({
@@ -67,7 +73,7 @@ describe('POST /api/features/create', () => {
       })
     );
 
-    expect(mockCreateFeature).toHaveBeenCalledWith({
+    expect(mockExecute).toHaveBeenCalledWith({
       userInput: 'Feature: Auth System\n\nAdd login and signup',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
@@ -76,11 +82,11 @@ describe('POST /api/features/create', () => {
 
   it('composes userInput with only name when description is empty', async () => {
     const feature = { id: '4', name: 'Test', slug: 'test' };
-    mockCreateFeature.mockResolvedValue({ feature });
+    mockExecute.mockResolvedValue({ feature });
 
     await POST(makeRequest({ name: 'Quick Fix', description: '', repositoryPath: '/repo' }));
 
-    expect(mockCreateFeature).toHaveBeenCalledWith({
+    expect(mockExecute).toHaveBeenCalledWith({
       userInput: 'Feature: Quick Fix',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
@@ -89,11 +95,11 @@ describe('POST /api/features/create', () => {
 
   it('composes userInput with only name when description is omitted', async () => {
     const feature = { id: '5', name: 'Test', slug: 'test' };
-    mockCreateFeature.mockResolvedValue({ feature });
+    mockExecute.mockResolvedValue({ feature });
 
     await POST(makeRequest({ name: 'No Desc', repositoryPath: '/repo' }));
 
-    expect(mockCreateFeature).toHaveBeenCalledWith({
+    expect(mockExecute).toHaveBeenCalledWith({
       userInput: 'Feature: No Desc',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
@@ -102,7 +108,7 @@ describe('POST /api/features/create', () => {
 
   it('appends attachment file paths to userInput', async () => {
     const feature = { id: '6', name: 'Test', slug: 'test' };
-    mockCreateFeature.mockResolvedValue({ feature });
+    mockExecute.mockResolvedValue({ feature });
 
     await POST(
       makeRequest({
@@ -116,7 +122,7 @@ describe('POST /api/features/create', () => {
       })
     );
 
-    expect(mockCreateFeature).toHaveBeenCalledWith({
+    expect(mockExecute).toHaveBeenCalledWith({
       userInput:
         'Feature: With Files\n\nSee attached\n\nAttached files:\n- /src/index.ts\n- /src/utils.ts',
       repositoryPath: '/repo',
@@ -126,7 +132,7 @@ describe('POST /api/features/create', () => {
 
   it('appends attachments even when description is empty', async () => {
     const feature = { id: '7', name: 'Test', slug: 'test' };
-    mockCreateFeature.mockResolvedValue({ feature });
+    mockExecute.mockResolvedValue({ feature });
 
     await POST(
       makeRequest({
@@ -136,7 +142,7 @@ describe('POST /api/features/create', () => {
       })
     );
 
-    expect(mockCreateFeature).toHaveBeenCalledWith({
+    expect(mockExecute).toHaveBeenCalledWith({
       userInput: 'Feature: Files Only\n\nAttached files:\n- /readme.md',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
@@ -151,7 +157,7 @@ describe('POST /api/features/create', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: expect.stringContaining('name') });
-    expect(mockCreateFeature).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('returns 400 when name is empty string', async () => {
@@ -162,7 +168,7 @@ describe('POST /api/features/create', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: expect.stringContaining('name') });
-    expect(mockCreateFeature).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('returns 400 when name is whitespace-only', async () => {
@@ -173,7 +179,7 @@ describe('POST /api/features/create', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: expect.stringContaining('name') });
-    expect(mockCreateFeature).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('returns 400 when repositoryPath is missing', async () => {
@@ -182,7 +188,7 @@ describe('POST /api/features/create', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: expect.stringContaining('repositoryPath') });
-    expect(mockCreateFeature).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   it('returns 400 when repositoryPath is empty string', async () => {
@@ -191,13 +197,13 @@ describe('POST /api/features/create', () => {
 
     expect(response.status).toBe(400);
     expect(body).toEqual({ error: expect.stringContaining('repositoryPath') });
-    expect(mockCreateFeature).not.toHaveBeenCalled();
+    expect(mockExecute).not.toHaveBeenCalled();
   });
 
   // --- Internal errors (500) ---
 
-  it('returns 500 with error message when bridge throws Error', async () => {
-    mockCreateFeature.mockRejectedValue(new Error('Worktree creation failed'));
+  it('returns 500 with error message when createFeature throws Error', async () => {
+    mockExecute.mockRejectedValue(new Error('Worktree creation failed'));
 
     const response = await POST(makeRequest({ name: 'Broken', repositoryPath: '/repo' }));
     const body = await response.json();
@@ -206,8 +212,8 @@ describe('POST /api/features/create', () => {
     expect(body).toEqual({ error: 'Worktree creation failed' });
   });
 
-  it('returns 500 with generic message when bridge throws non-Error', async () => {
-    mockCreateFeature.mockRejectedValue('something unexpected');
+  it('returns 500 with generic message when createFeature throws non-Error', async () => {
+    mockExecute.mockRejectedValue('something unexpected');
 
     const response = await POST(makeRequest({ name: 'Broken', repositoryPath: '/repo' }));
     const body = await response.json();

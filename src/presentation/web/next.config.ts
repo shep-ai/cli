@@ -31,6 +31,9 @@ function loadDevFallbacks(): Record<string, string> {
 }
 
 const nextConfig: NextConfig = {
+  // Exclude native/DI packages from Next.js bundling
+  serverExternalPackages: ['@shepai/core', 'tsyringe', 'reflect-metadata', 'better-sqlite3'],
+
   // Enable typed routes (moved from experimental in Next.js 16)
   typedRoutes: true,
 
