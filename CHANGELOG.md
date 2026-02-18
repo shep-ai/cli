@@ -1,3 +1,9 @@
+# [1.31.0](https://github.com/shep-ai/cli/compare/v1.30.0...v1.31.0) (2026-02-18)
+
+### Features
+
+- **agents:** add post-implementation merge flow with PR and approval gates ([#63](https://github.com/shep-ai/cli/issues/63)) ([b5131f9](https://github.com/shep-ai/cli/commit/b5131f9a5696ddcb897c6e44dbedfb073fb29b2a))
+
 # [1.30.0](https://github.com/shep-ai/cli/compare/v1.29.1...v1.30.0) (2026-02-18)
 
 ### Features
