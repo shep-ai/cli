@@ -1,0 +1,316 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: display-prd-spec
+summary: >
+  8 tasks across 3 phases. Phase 1 sets up the DI alias and API route (2 tasks).
+  Phase 2 adds PRD display to CLI show and review commands (3 tasks).
+  Phase 3 wires the Web UI drawer with spec fetching and stories (3 tasks).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Commander.js
+  - Next.js App Router
+  - React / shadcn-ui
+  - js-yaml
+  - Vitest
+  - Storybook
+relatedLinks: []
+
+tasks:
+  # ============================================================
+  # Phase 1: DI Container & API Route Foundation
+  # ============================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add ShowFeatureUseCase string-token alias in DI container'
+    description: >
+      Register a string-token alias for ShowFeatureUseCase in the DI container, following the
+      exact pattern used by CreateFeatureUseCase, ListFeaturesUseCase, and DeleteFeatureUseCase
+      at container.ts lines 263-271. This enables web API routes to resolve the use case via
+      string token (required because Turbopack can't resolve cross-package class imports).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'container.register("ShowFeatureUseCase", ...) added after existing aliases at line 271'
+      - 'ShowFeatureUseCase is resolvable via string token "ShowFeatureUseCase"'
+      - 'Existing singleton registration at line 255 is unchanged'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'No separate test needed -- this is a 1-line DI registration. Validated by the API route tests in task-2.'
+      green:
+        - 'Add container.register("ShowFeatureUseCase", { useFactory: (c) => c.resolve(ShowFeatureUseCase) }) after line 271 in container.ts'
+      refactor:
+        - 'Ensure alphabetical or logical ordering consistency with the other 3 aliases'
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create GET /api/features/[id]/spec API route with tests'
+    description: >
+      Create a new Next.js API route at src/presentation/web/app/api/features/[id]/spec/route.ts
+      that resolves ShowFeatureUseCase, loads the feature, reads spec.yaml from feature.specPath,
+      parses it with js-yaml, and returns the FeatureSpec as JSON. Returns 404 if specPath is
+      missing or file doesn't exist, 500 on unexpected errors. Tests follow the existing
+      delete route test pattern (tests/unit/presentation/web/api/features/delete/route.test.ts).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'GET handler returns 200 with parsed FeatureSpec JSON when spec.yaml exists'
+      - 'Returns 404 with { error: "Spec not found" } when feature has no specPath'
+      - 'Returns 404 when spec.yaml file does not exist on disk'
+      - 'Returns 400 when id parameter is empty'
+      - 'Returns 500 with error message on unexpected errors'
+      - 'No filesystem paths leaked in error responses'
+      - 'Uses resolve<ShowFeatureUseCase>("ShowFeatureUseCase") pattern from server-container'
+      - 'Unit tests cover all 5 response paths (200, 400, 404-no-specPath, 404-no-file, 500)'
+    tdd:
+      red:
+        - 'Create tests/unit/presentation/web/api/features/spec/route.test.ts'
+        - 'Write test: returns 200 with parsed spec JSON when feature has specPath and file exists'
+        - 'Write test: returns 404 when feature has no specPath'
+        - 'Write test: returns 404 when spec.yaml file does not exist (readFileSync throws)'
+        - 'Write test: returns 400 when id is empty'
+        - 'Write test: returns 500 when use case throws unexpected error'
+        - 'Mock server-container resolve, fs.readFileSync, and js-yaml load'
+      green:
+        - 'Create src/presentation/web/app/api/features/[id]/spec/route.ts'
+        - 'Export async GET handler following the DELETE route pattern'
+        - 'Resolve ShowFeatureUseCase, load feature, check specPath'
+        - 'readFileSync(join(specPath, "spec.yaml"), "utf-8") + yaml.load + return JSON'
+        - 'try/catch around file read to return 404 when file missing'
+      refactor:
+        - 'Ensure consistent error message format with existing routes'
+        - 'Verify imports are minimal (no unused imports)'
+    estimatedEffort: '45min'
+
+  # ============================================================
+  # Phase 2: CLI Commands — PRD Display
+  # ============================================================
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add PRD Spec textBlock to feat show command with tests'
+    description: >
+      Add a conditional "PRD Spec" textBlock to the show command's textBlocks array. When
+      feature.specPath exists AND run.status === "waiting_approval" AND run.result === "node:requirements",
+      read spec.yaml, parse it, and format a multi-line string with: (a) summary paragraph,
+      (b) open questions with [RESOLVED]/[OPEN] prefixes, (c) first 50 lines of content with
+      truncation notice. Follows the existing textBlocks pattern (show.command.ts lines 93-179).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - '"PRD Spec" textBlock appears in show output when all 3 conditions are met'
+      - 'Shows spec summary text'
+      - 'Shows each open question with [RESOLVED] or [OPEN] prefix and answer text if resolved'
+      - 'Shows first 50 lines of content field'
+      - 'Shows truncation notice with specPath when content exceeds 50 lines'
+      - 'PRD section is absent when specPath is undefined'
+      - 'PRD section is absent when run is not waiting_approval'
+      - 'PRD section is absent when run.result is not node:requirements (e.g., node:plan)'
+      - 'No crash when spec.yaml file is missing or malformed (silently omits section)'
+    tdd:
+      red:
+        - 'Create tests/unit/presentation/cli/commands/feat/show-prd.test.ts'
+        - 'Write test: shows PRD section when specPath + waiting_approval + node:requirements'
+        - 'Write test: PRD section includes summary text'
+        - 'Write test: PRD section includes open questions with RESOLVED/OPEN prefixes'
+        - 'Write test: content truncated at 50 lines with truncation notice'
+        - 'Write test: no PRD section when specPath is undefined'
+        - 'Write test: no PRD section when run.result is node:plan (not requirements)'
+        - 'Write test: no crash when spec.yaml does not exist (mock readFileSync to throw)'
+        - 'Mock fs.readFileSync to return test YAML content'
+      green:
+        - 'Import readFileSync from fs and yaml from js-yaml in show.command.ts'
+        - 'After the "Awaiting Approval" textBlock (line 179), add conditional PRD block'
+        - 'Check specPath + waiting_approval + node:requirements conditions'
+        - 'try { readFileSync(join(specPath, "spec.yaml"), "utf-8") + yaml.load as FeatureSpec } catch { skip }'
+        - 'Format summary, open questions, and truncated content into textBlock content string'
+        - 'Push to textBlocks array'
+      refactor:
+        - 'Extract content formatting into a helper function if the code exceeds 25 lines'
+        - 'Ensure consistent color usage with existing textBlocks'
+    estimatedEffort: '1h'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add PRD display to feat review command with tests'
+    description: >
+      Add inline PRD content display to the review command using its existing console.log pattern.
+      When feature.specPath exists AND run.result === "node:requirements", read spec.yaml and
+      display summary, open questions, and truncated content before the approve/reject hints.
+      Uses colors.muted for labels and colors.accent for values, matching review.command.ts lines 39-44.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'PRD summary displayed when specPath exists and run.result is node:requirements'
+      - 'Open questions displayed with resolved/unresolved indicators'
+      - 'Content preview shown (first 50 lines) with truncation notice'
+      - 'PRD content appears BEFORE the approve/reject hints (before line 46)'
+      - 'No PRD section when specPath is undefined'
+      - 'No PRD section when run.result is not node:requirements'
+      - 'No crash when spec.yaml is missing or malformed'
+      - 'Uses console.log with colors.muted/accent (not renderDetailView)'
+    tdd:
+      red:
+        - 'Create tests/unit/presentation/cli/commands/feat/review-prd.test.ts'
+        - 'Write test: shows PRD summary when specPath + node:requirements'
+        - 'Write test: shows open questions with status indicators'
+        - 'Write test: content truncated at 50 lines'
+        - 'Write test: no PRD output when specPath is undefined'
+        - 'Write test: no PRD output when run.result is node:plan'
+        - 'Write test: no crash when spec.yaml missing'
+        - 'Mock resolveWaitingFeature, fs.readFileSync'
+      green:
+        - 'Import readFileSync from fs, yaml from js-yaml, join from path in review.command.ts'
+        - 'After line 44 (specPath log) and before line 45 (newline), add PRD display block'
+        - 'Check specPath + run.result === "node:requirements" conditions'
+        - 'try/catch readFileSync + yaml.load, format and console.log summary, questions, content'
+      refactor:
+        - 'Ensure formatting aligns with the existing 2-space indented label: value style'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Verify CLI integration — typecheck and existing tests pass'
+    description: >
+      Run typecheck and existing test suite to verify the CLI changes don't break anything.
+      Run pnpm typecheck and pnpm test:unit to ensure no regressions from the new imports
+      and conditional logic added to show.command.ts and review.command.ts.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'pnpm typecheck passes with no errors'
+      - 'pnpm test:unit passes with all existing + new tests green'
+      - 'No lint errors (pnpm lint)'
+    tdd: null
+    estimatedEffort: '15min'
+
+  # ============================================================
+  # Phase 3: Web UI Drawer — PRD Section & Stories
+  # ============================================================
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add PRD Spec section to FeatureDrawer with fetch logic'
+    description: >
+      Add a conditional PRD section to the FeatureDrawer component. When selectedNode.state
+      is "action-required" AND lifecycle is "requirements", fetch spec content from
+      /api/features/{featureId}/spec. Display: summary paragraph, open questions with
+      Badge components (green=resolved, amber=unresolved), and full content in ScrollArea
+      with max-height 400px. Show loading state during fetch. Omit section on fetch error.
+      Place between Status section (line 106) and Details section (line 111) with Separators.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'PRD section renders when state=action-required and lifecycle=requirements'
+      - 'PRD section is absent for other states/lifecycles'
+      - 'Fetch fires only when drawer opens with correct conditions'
+      - 'Loading state shown during fetch (spinner or skeleton)'
+      - 'Summary paragraph displayed'
+      - 'Open questions displayed with Badge (green variant for resolved, amber for unresolved)'
+      - 'Content displayed in ScrollArea with max-h-[400px]'
+      - 'No section shown on fetch error (graceful degradation)'
+      - 'Separators above and below PRD section match drawer pattern'
+      - 'data-testid="feature-drawer-prd" on the section root'
+    tdd:
+      red:
+        - 'No separate unit test file for the drawer component -- validation is through Storybook stories and manual verification'
+        - 'The fetch mock and rendering will be verified via the stories in task-7'
+      green:
+        - 'Import ScrollArea from @/components/ui/scroll-area and Badge from @/components/ui/badge'
+        - 'Add useState for specData (FeatureSpec | null) and loading (boolean)'
+        - 'Add useEffect that fetches /api/features/{featureId}/spec when conditions met'
+        - 'Add PrdSection inline component rendering summary, questions, and content'
+        - 'Insert between Separator (line 108) and DetailsSection (line 111)'
+      refactor:
+        - 'Ensure the fetch useEffect cleans up properly (abort controller if needed)'
+        - 'Verify no unnecessary re-renders'
+    estimatedEffort: '1h'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add Storybook stories for PRD drawer states'
+    description: >
+      Add new story variants to feature-drawer.stories.tsx covering all PRD-related states:
+      feature with PRD content (action-required + requirements), feature without PRD (different
+      state), feature with long PRD content (scrollable), feature with mixed open questions
+      (resolved + unresolved). Stories mock the fetch call to /api/features/[id]/spec
+      to provide fixture data.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Story: ActionRequiredWithPrd -- shows drawer with summary, questions, scrollable content'
+      - 'Story: ActionRequiredNoPrd -- shows drawer without PRD section (fetch returns 404)'
+      - 'Story: ActionRequiredLongContent -- shows PRD with long content demonstrating scroll'
+      - 'Story: ActionRequiredMixedQuestions -- shows both resolved and unresolved questions'
+      - 'All stories render without errors in Storybook'
+      - 'Stories use MSW or fetchMock to mock API responses'
+    tdd:
+      red:
+        - 'Stories serve as visual tests -- write them before verifying render correctness'
+      green:
+        - 'Create FeatureSpec fixture data with realistic summary, questions, and content'
+        - 'Add fetch mock (MSW handler or simple fetchMock) to intercept /api/features/*/spec'
+        - 'Create story variants using existing DrawerTrigger pattern'
+        - 'Verify all 4 stories render correctly in Storybook'
+      refactor:
+        - 'Extract shared spec fixture data if duplicated across stories'
+        - 'Ensure fixture data is realistic but concise'
+    estimatedEffort: '45min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Final validation — typecheck, lint, all tests, Storybook build'
+    description: >
+      Run the full validation suite to ensure everything works together. Typecheck CLI and
+      web packages, run lint, run all unit tests, and verify Storybook builds successfully.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-7
+    acceptanceCriteria:
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm lint passes'
+      - 'pnpm test:unit passes (all existing + new tests)'
+      - 'pnpm build:storybook passes'
+    tdd: null
+    estimatedEffort: '15min'
+
+totalEstimate: '4h 35min'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a 3-phase approach across 8 tasks.
+
+  First, we establish the API foundation by adding the ShowFeatureUseCase string-token alias
+  to the DI container (1 line) and creating the GET /api/features/[id]/spec API route with
+  comprehensive tests. This unblocks the Web UI work in Phase 3.
+
+  Second, we add PRD display to both CLI commands. The feat show command gets a new "PRD Spec"
+  textBlock following the existing pattern (Plan, Messages, Phase Timing blocks). The feat review
+  command gets inline console.log PRD display following its existing minimal style. Both commands
+  share the same conditional logic: specPath exists + waiting_approval + node:requirements.
+  Content is truncated at 50 lines with a path reference for the full spec. A verification
+  task ensures no regressions from the CLI changes.
+
+  Third, we wire the Web UI drawer to fetch and display spec content from the API route.
+  The PRD section uses ScrollArea for scrollable content, Badge for open question status,
+  and manages its own fetch lifecycle (loading, error, data). Storybook stories cover all
+  PRD-related states. A final validation task runs the complete quality suite.
+
+  Tasks 3 and 4 (CLI show and review) have no cross-dependencies and could be worked in
+  parallel. Task 6 (Web UI drawer) depends on task 2 (API route). The validation tasks
+  (5 and 8) depend on their respective phase tasks completing first.

@@ -1,0 +1,308 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: display-prd-spec
+summary: >
+  Research for displaying PRD spec content in feature detail views. Key decisions: use direct
+  readFileSync + js-yaml in each call site (no shared utility), add a new GET /api/features/[id]/spec
+  route with a new ShowFeatureUseCase string-token alias, use ScrollArea for Web UI content display,
+  and keep CLI review command's inline console.log pattern. No new dependencies needed — js-yaml,
+  Badge, and ScrollArea are all already available.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - js-yaml (YAML parsing — already a dependency)
+  - Commander.js (CLI commands — existing)
+  - Next.js App Router (API route — existing)
+  - React / shadcn-ui (Badge, ScrollArea — existing)
+  - tsyringe (DI container — existing)
+  - Storybook (component stories — existing)
+
+relatedLinks: []
+
+decisions:
+  - title: 'YAML Parsing Strategy'
+    chosen: 'Direct readFileSync + yaml.load inline at each call site (CLI show, CLI review, API route)'
+    rejected:
+      - 'Import safeYamlLoad from node-helpers.ts — located deep in infrastructure/services/agents/feature-agent/nodes/, importing from there into presentation layer violates Clean Architecture dependency rule and couples CLI/web to agent internals'
+      - 'Create a shared utility/service for spec reading — the pattern is 3 lines (readFileSync + yaml.load + try/catch), creating an abstraction for 3 call sites is premature; spec says NFR-9 explicitly prohibits this'
+    rationale: >
+      The spec.yaml files are written by our own agent system and are well-formed YAML.
+      The sanitization logic in safeYamlLoad (handling AI-generated brace issues) is not
+      needed here since spec.yaml files are structured artifacts, not raw AI output.
+      A simple readFileSync + yaml.load with try/catch is sufficient and follows NFR-9.
+      Each call site is in the presentation layer where file I/O is acceptable
+      (CLI commands already use readFileSync patterns, API routes are server-side).
+
+  - title: 'Web UI Spec Content Loading Strategy'
+    chosen: 'New GET /api/features/[id]/spec API route, fetched on-demand from the drawer'
+    rejected:
+      - 'Load spec content in page.tsx and pass through FeatureNodeData — bloats every feature node with potentially large spec content on every page load, even for features not in requirements/waiting state; violates the lean FeatureNodeData principle'
+      - 'Add specPath to FeatureNodeData and let the client read directly — exposes filesystem paths to the browser client (NFR-4 violation); no client-side file reading capability in Next.js browser context anyway'
+    rationale: >
+      A dedicated API route follows the existing pattern (features/[id]/route.ts for DELETE).
+      Loading on-demand when the drawer opens for an action-required/requirements feature avoids
+      unnecessary data transfer. The route resolves ShowFeatureUseCase to get the feature (and
+      its specPath), then reads the file server-side. This keeps FeatureNodeData lean and avoids
+      exposing filesystem paths to the browser. Requires adding a 'ShowFeatureUseCase' string-token
+      alias in the DI container (currently only registered as a class singleton, not as a string
+      token for Turbopack web route resolution).
+
+  - title: 'DI Container Registration for API Route'
+    chosen: 'Add ShowFeatureUseCase string-token alias in container.ts alongside existing aliases'
+    rejected:
+      - 'Resolve IFeatureRepository directly in the API route — bypasses the use case layer, violates Clean Architecture (presentation should not directly access repository interfaces)'
+      - 'Import ShowFeatureUseCase class directly in the route — Turbopack cannot resolve .js→.ts imports inside @shepai/core packages, which is why all other web routes use string tokens'
+    rationale: >
+      The existing pattern at container.ts lines 261-271 registers string-token aliases
+      specifically for web routes because Turbopack bundling cannot handle cross-package
+      class imports. ShowFeatureUseCase is already registered as a singleton (line 255)
+      but lacks the string-token alias that CreateFeatureUseCase, ListFeaturesUseCase, and
+      DeleteFeatureUseCase all have. Adding one follows the established pattern exactly.
+
+  - title: 'Web UI PRD Content Display Component'
+    chosen: 'Structured display using ScrollArea for content, Badge for open question status, inline in FeatureDrawer'
+    rejected:
+      - 'Render markdown content as HTML using react-markdown — not currently a dependency, adds bundle size and complexity (sanitization, styling) for minimal benefit in a side drawer; spec explicitly recommends against adding it'
+      - 'Create a separate PrdSection component in its own file — the section is ~40-50 lines of JSX, well within the drawer file size budget; extracting adds unnecessary indirection for a single-use section'
+      - 'Use a simple <pre> block instead of ScrollArea — ScrollArea is already available as a shadcn component and provides styled, accessible scrolling with proper overflow handling'
+    rationale: >
+      The drawer already uses a section pattern (Status section, Details section) with conditional
+      rendering. Adding a PRD section follows the same pattern. ScrollArea (already installed at
+      components/ui/scroll-area.tsx) provides proper overflow scrolling with a max-height constraint.
+      Badge (already installed at components/ui/badge.tsx) has variant support for resolved/unresolved
+      styling. Raw content in a <pre> block within ScrollArea is sufficient — users wanting full
+      rendered markdown can open the spec.yaml directly.
+
+  - title: 'CLI feat show PRD Display'
+    chosen: 'Add a "PRD Spec" textBlock to the existing textBlocks array in show.command.ts'
+    rejected:
+      - 'Add PRD content as additional fields in the sections array — field/value pairs are not suited for multi-line content like summaries and question lists; textBlocks support multi-line content natively'
+      - 'Create a separate renderPrdBlock utility — the textBlock format already handles multi-line content; the PRD content just needs to be formatted as a string before being pushed to textBlocks'
+    rationale: >
+      The show command already uses textBlocks for Plan, Messages, Phase Timing, and Awaiting
+      Approval sections (lines 93-179). Adding a "PRD Spec" textBlock follows this exact pattern.
+      The textBlock is conditionally added only when: (1) feature.specPath exists, (2) run status
+      is waiting_approval, (3) run result is node:requirements. Content is formatted as a multi-line
+      string with summary, open questions (with [RESOLVED]/[OPEN] prefixes), and the first 50 lines
+      of the content field.
+
+  - title: 'CLI feat review PRD Display'
+    chosen: 'Add inline console.log statements in review.command.ts using existing color/formatting patterns'
+    rejected:
+      - 'Refactor review command to use renderDetailView — spec explicitly says NO (open question #5); review command is intentionally minimal and action-oriented with direct console.log calls'
+      - 'Show full PRD content in review — review is for quick approval decisions; full content belongs in show command. Review shows summary + open questions + truncated content preview'
+    rationale: >
+      The review command (review.command.ts) uses direct console.log with colors.muted for labels
+      and colors.accent/warning for values (lines 39-47). Adding PRD content follows this same
+      pattern: console.log with muted labels, summary text, open question list, and truncated
+      content. Inserted after the existing feature info (line 44) and before the approve/reject
+      hints (line 46).
+
+  - title: 'Content Truncation Strategy'
+    chosen: 'Split content by newlines, take first 50 lines, append truncation notice with spec path'
+    rejected:
+      - 'Character-based truncation (first N characters) — produces ugly cuts mid-line; line-based truncation preserves readability and structure'
+      - 'No truncation with a pager (like less) — adds complexity, not suitable for non-interactive contexts, breaks piping output'
+    rationale: >
+      50-line truncation is specified in SC-6 and FR-1/FR-2. Line-based splitting is simple:
+      content.split('\n').slice(0, 50). If truncated, append a notice like
+      "[truncated — see full spec at <specPath>/spec.yaml]". This gives enough context for
+      approval decisions while keeping CLI output manageable. The Web UI shows full content
+      in a scrollable container, so no truncation needed there.
+
+  - title: 'Conditional Display Logic'
+    chosen: 'Check three conditions: feature.specPath exists, run.status === waiting_approval, run.result === node:requirements'
+    rejected:
+      - 'Only check specPath existence — would show PRD content even when not in approval state, cluttering the display when it is not actionable'
+      - 'Check lifecycle === Requirements instead of run.result — lifecycle may not be updated in sync with run result; run.result is the authoritative source for which graph node triggered the approval wait'
+    rationale: >
+      The spec (open question #1) explicitly states: display ONLY when feature is in Requirements
+      stage AND agent run status is waiting_approval with result "node:requirements". This matches
+      the existing pattern in show.command.ts where NODE_TO_APPROVE maps node names to approval
+      labels (line 29-35). The three-condition check ensures PRD is shown only when it is
+      actionable. For the Web UI, the equivalent check is: selectedNode.state === 'action-required'
+      AND selectedNode.lifecycle === 'requirements' (the state derivation in derive-feature-state.ts
+      already maps waiting_approval to 'action-required').
+
+openQuestions:
+  - question: 'Does ShowFeatureUseCase need a string-token alias for web route resolution?'
+    resolved: true
+    answer: >
+      Yes. ShowFeatureUseCase is registered as a class singleton (container.ts line 255) but does NOT
+      have a string-token alias. All other use cases used by web routes (Create, List, Delete) have
+      string-token aliases at lines 261-271. A 'ShowFeatureUseCase' string-token alias must be added
+      following the same pattern: container.register('ShowFeatureUseCase', { useFactory: (c) => c.resolve(ShowFeatureUseCase) }).
+
+  - question: 'Is react-markdown available as a dependency for rendering PRD content in the Web UI?'
+    resolved: true
+    answer: >
+      No. react-markdown is NOT in the web package.json. The spec recommends NOT adding it just for
+      this feature. Use structured display (summary paragraph, open questions list, raw content in
+      ScrollArea with a <pre> block) instead. ScrollArea and Badge are already available as shadcn components.
+
+  - question: 'How does the Web UI drawer know a feature is in action-required/requirements state?'
+    resolved: true
+    answer: >
+      The FeatureNodeData type has state (FeatureNodeState) and lifecycle (FeatureLifecyclePhase) fields.
+      derive-feature-state.ts maps AgentRun.status === 'waiting_approval' to state 'action-required'.
+      The page.tsx maps run.result 'node:requirements' to lifecycle 'requirements'. So the condition
+      in the drawer is: selectedNode.state === 'action-required' && selectedNode.lifecycle === 'requirements'.
+
+  - question: 'Where should the PRD section be placed in the FeatureDrawer component?'
+    resolved: true
+    answer: >
+      Between the Status section (line 106) and the Details section (line 111) in feature-drawer.tsx.
+      This places it prominently after the state badge (which shows "Action Required") and before
+      secondary details like description, agent type, etc. A Separator should precede and follow it,
+      matching the existing section pattern.
+
+  - question: 'Should the API route read spec.yaml synchronously or asynchronously?'
+    resolved: true
+    answer: >
+      Synchronous readFileSync is acceptable and consistent with the codebase pattern. Spec files
+      are typically <10KB (NFR-2). The existing node-helpers.ts uses readFileSync for all spec file
+      reads. Next.js API routes run server-side in Node.js where sync I/O for small files is fine.
+      The async wrapper is the API route handler itself (async function GET), but the file read
+      within it can be synchronous.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. YAML Parsing Strategy
+
+  **Chosen:** Direct `readFileSync` + `yaml.load` inline at each call site
+
+  **Rejected:**
+  - Import `safeYamlLoad` from `node-helpers.ts` — violates Clean Architecture (presentation importing from deep infrastructure/agents path)
+  - Create a shared utility — premature abstraction for 3 call sites; spec NFR-9 explicitly prohibits this
+
+  **Rationale:** The spec.yaml files are structured artifacts written by our agent system, not raw AI output. The sanitization logic in `safeYamlLoad` is unnecessary. A 3-line pattern (readFileSync + yaml.load + try/catch) is simple, readable, and keeps each call site self-contained.
+
+  ### 2. Web UI Spec Content Loading
+
+  **Chosen:** New GET `/api/features/[id]/spec` API route, fetched on-demand from the drawer
+
+  **Rejected:**
+  - Load in page.tsx through FeatureNodeData — bloats all nodes with potentially large content
+  - Add specPath to FeatureNodeData — exposes filesystem paths to browser (NFR-4 violation)
+
+  **Rationale:** Follows existing API route pattern (features/[id]/route.ts). On-demand loading when drawer opens for action-required/requirements features. Keeps FeatureNodeData lean.
+
+  ### 3. DI Container Registration
+
+  **Chosen:** Add `'ShowFeatureUseCase'` string-token alias in `container.ts`
+
+  **Rejected:**
+  - Resolve `IFeatureRepository` directly — bypasses use case layer
+  - Import class directly — Turbopack cannot resolve cross-package class imports
+
+  **Rationale:** ShowFeatureUseCase is registered as singleton (line 255) but lacks a string-token alias. All other web-route use cases have one (lines 261-271). Adding one follows the established pattern.
+
+  ### 4. Web UI PRD Content Display
+
+  **Chosen:** Structured display with ScrollArea + Badge, inline in FeatureDrawer
+
+  **Rejected:**
+  - react-markdown for HTML rendering — not installed, adds complexity and bundle size
+  - Separate PrdSection component file — ~40 lines of JSX, not complex enough to warrant extraction
+  - Plain `<pre>` without ScrollArea — ScrollArea already available, provides proper overflow
+
+  **Rationale:** Reuse existing shadcn components (ScrollArea at `components/ui/scroll-area.tsx`, Badge at `components/ui/badge.tsx`). Structured display: summary paragraph, open questions with Badge status, content in ScrollArea with max-height 400px.
+
+  ### 5. CLI feat show PRD Display
+
+  **Chosen:** Add "PRD Spec" textBlock to existing `textBlocks` array
+
+  **Rejected:**
+  - Additional fields in sections array — not suited for multi-line content
+  - Separate renderPrdBlock utility — textBlocks already handle multi-line content natively
+
+  **Rationale:** Follows existing pattern (Plan, Messages, Phase Timing, Awaiting Approval all use textBlocks). Conditionally added when specPath exists + waiting_approval + node:requirements.
+
+  ### 6. CLI feat review PRD Display
+
+  **Chosen:** Inline console.log statements using existing color patterns
+
+  **Rejected:**
+  - Refactor to renderDetailView — spec explicitly says no (open question #5)
+  - Show full PRD content — review is for quick approval; full content in show command
+
+  **Rationale:** Review command uses direct console.log (lines 39-47). PRD display follows same pattern. Inserted after feature info, before approve/reject hints.
+
+  ### 7. Content Truncation
+
+  **Chosen:** Line-based truncation at 50 lines with path reference
+
+  **Rejected:**
+  - Character-based truncation — produces ugly mid-line cuts
+  - No truncation with pager — adds complexity, breaks piping
+
+  **Rationale:** `content.split('\n').slice(0, 50)` with truncation notice. Simple, readable, specified in SC-6.
+
+  ### 8. Conditional Display Logic
+
+  **Chosen:** Three-condition check: specPath exists + waiting_approval + node:requirements
+
+  **Rejected:**
+  - Only specPath check — shows PRD when not actionable
+  - Lifecycle check instead of run.result — lifecycle may not sync with run result
+
+  **Rationale:** Matches existing NODE_TO_APPROVE pattern in show.command.ts. Web UI equivalent: `state === 'action-required' && lifecycle === 'requirements'`.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | js-yaml | Parse spec.yaml from disk | Use (existing) | Already a dependency (^4.1.1), used throughout codebase in node-helpers.ts. Direct yaml.load is sufficient. |
+  | react-markdown | Render markdown as HTML in drawer | Reject | Not installed. Spec recommends against adding it. Raw content in ScrollArea is sufficient for a side drawer. |
+  | ScrollArea (shadcn) | Scrollable container for long PRD content | Use (existing) | Already installed at components/ui/scroll-area.tsx. Provides styled overflow scrolling. |
+  | Badge (shadcn) | Open question resolved/unresolved status | Use (existing) | Already installed at components/ui/badge.tsx. Supports variant styling for different states. |
+  | Commander.js | CLI command framework | Use (existing) | Already used for all feat commands. No changes to Commander usage needed. |
+
+  ## Security Considerations
+
+  - **No filesystem path exposure** (NFR-4): The API route accepts only `featureId` and resolves `specPath` server-side via `ShowFeatureUseCase`. The browser never sees raw filesystem paths.
+  - **Path traversal prevention**: The specPath comes from the Feature entity in the database (set by the agent system), not from user input. The API route reads only `spec.yaml` from the stored specPath — no user-controlled path segments.
+  - **Error information leakage**: The API route returns generic `{ error: "Spec not found" }` for 404 and `{ error: message }` for 500. No filesystem paths are leaked in error responses.
+  - **No new authentication concerns**: The web UI runs locally (localhost) with no remote access. The API route follows the same unauthenticated pattern as existing routes (features/create, features/[id] DELETE).
+
+  ## Performance Implications
+
+  - **CLI** (NFR-2): `readFileSync` for a <10KB spec.yaml adds negligible latency. This is consistent with existing sync file reads in the codebase (node-helpers.ts readSpecFile).
+  - **Web UI** (NFR-3): The API route responds within milliseconds for typical spec files. The drawer fetches only when opened for an action-required/requirements feature — no prefetching for all features. The fetch is fire-and-forget with a loading state.
+  - **No caching needed**: Spec files change infrequently (only during agent runs). The drawer re-fetches each time it opens, which is fine for local file reads.
+  - **Bundle size**: No new dependencies. All components (ScrollArea, Badge) are already tree-shaken into the bundle.
+
+  ## Architecture Notes
+
+  ### Files to Modify
+
+  1. **`packages/core/src/infrastructure/di/container.ts`** — Add `'ShowFeatureUseCase'` string-token alias (1 line, follows existing pattern at lines 263-271)
+
+  2. **`src/presentation/cli/commands/feat/show.command.ts`** — Add conditional "PRD Spec" textBlock (~25 lines): read spec.yaml when specPath exists + waiting_approval + node:requirements, format summary + open questions + truncated content
+
+  3. **`src/presentation/cli/commands/feat/review.command.ts`** — Add inline PRD display (~20 lines): same conditions as show, console.log with summary + open questions + truncated content, placed before approve/reject hints
+
+  4. **`src/presentation/web/app/api/features/[id]/spec/route.ts`** — New file (~30 lines): GET handler that resolves ShowFeatureUseCase, reads spec.yaml, returns parsed JSON or 404/500
+
+  5. **`src/presentation/web/components/common/feature-drawer/feature-drawer.tsx`** — Add conditional PRD section (~50 lines): fetch from API when action-required + requirements, display summary + Badge-styled open questions + ScrollArea content
+
+  6. **`src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx`** — Add story variants (~40 lines): with PRD content, without PRD, long content, open questions mix
+
+  ### Integration Points
+
+  - **ShowFeatureUseCase** returns `Feature` with `specPath?: string` — already available, just needs string-token alias for web route
+  - **spec.yaml** read from `feature.specPath + '/spec.yaml'` path — specPath is the spec directory, not the file
+  - **FeatureNodeData** already has `state` and `lifecycle` fields — sufficient for conditional display without modification
+  - **The PRD section in the drawer** needs to manage its own fetch state (loading, error, data) — a simple useState + useEffect pattern or inline fetch
+
+  ### Conditional Display Summary
+
+  | Surface | Condition | Data Source |
+  | ------- | --------- | ----------- |
+  | CLI show | `feature.specPath && run?.status === 'waiting_approval' && run?.result === 'node:requirements'` | Direct readFileSync from specPath |
+  | CLI review | `feature.specPath` (run is already guaranteed waiting_approval by resolveWaitingFeature) + `run.result === 'node:requirements'` | Direct readFileSync from specPath |
+  | Web drawer | `selectedNode.state === 'action-required' && selectedNode.lifecycle === 'requirements'` | Fetch from /api/features/[id]/spec |

@@ -1,0 +1,36 @@
+feature:
+  id: 031-display-prd-spec
+  name: display-prd-spec
+  number: 31
+  branch: feat/031-display-prd-spec
+  lifecycle: research
+  createdAt: '2026-02-18T17:49:12Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-18T17:49:12Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-18T17:49:12Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

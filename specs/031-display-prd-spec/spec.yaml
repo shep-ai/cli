@@ -1,0 +1,190 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: display-prd-spec
+number: 031
+branch: feat/031-display-prd-spec
+oneLiner: Display PRD spec content in feature detail views when awaiting approval in Requirements stage
+summary: >
+  When a feature is in the Requirements lifecycle stage and the agent run is waiting for PRD approval,
+  load and display the spec.yaml content (the PRD) in both the CLI `feat show`/`feat review` commands
+  and the Web UI feature drawer. This uses the existing `specPath` field on the Feature entity to read
+  the spec.yaml from disk, parse it using `js-yaml` (already a dependency), and render the structured
+  FeatureSpec content (summary, open questions, and markdown body) so users can review before approving.
+  Must reuse existing TypeSpec-generated types (FeatureSpec, SpecArtifactBase, OpenQuestion) — no new interfaces.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Commander.js (CLI commands)
+  - Next.js App Router (Web UI)
+  - React / shadcn-ui (Web UI components)
+  - js-yaml (YAML parsing - already used in node-helpers.ts)
+  - TypeSpec generated types (FeatureSpec, SpecArtifactBase, OpenQuestion)
+  - tsyringe (DI container)
+  - Storybook (component stories for new/modified web components)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should PRD content display be restricted to only the waiting_approval state, or also show when the feature has moved past Requirements?'
+    resolved: true
+    answer: >
+      Recommend displaying ONLY when the feature is in Requirements stage AND the agent run
+      status is waiting_approval (result: "node:requirements"). Once the user approves or rejects,
+      the PRD display is no longer the primary concern — the feature moves forward. Users who need
+      to re-read the PRD can always open the spec.yaml directly via the displayed specPath.
+      This keeps the UI focused on the current actionable state.
+  - question: 'How should the Web UI load spec content — server-side in page.tsx or via a client-side API call?'
+    resolved: true
+    answer: >
+      Recommend a new GET API route at /api/features/[id]/spec that reads spec.yaml server-side
+      and returns parsed JSON. The drawer fetches this on-demand when expanded for a feature
+      in action-required/requirements state. Rationale: (1) Avoids bloating FeatureNodeData with
+      potentially large spec content for ALL features on every page load, (2) keeps page.tsx fast
+      since it only loads metadata, (3) follows the existing API route pattern (features/[id]/route.ts
+      already exists for DELETE). Alternative: pass content through FeatureNodeData in page.tsx if
+      latency of the extra fetch is unacceptable, but this is unlikely for a single YAML file read.
+  - question: 'How much of the PRD markdown content should be shown in the CLI?'
+    resolved: true
+    answer: >
+      Recommend showing the full summary, all open questions with resolved/unresolved status,
+      and the first 50 lines of the markdown content body with a "[truncated — see full spec at <path>]"
+      note if longer. This gives enough context for an approval decision without overwhelming the
+      terminal. The full path is already shown in the "Spec Dir" field for users who want the
+      complete document.
+  - question: 'Should the Web UI drawer show the full markdown content rendered as HTML, or a structured summary?'
+    resolved: true
+    answer: >
+      Recommend a structured display: summary paragraph, open questions list (with resolved/unresolved
+      badges), and the raw markdown content in a scrollable pre/code block or rendered via a lightweight
+      markdown component. Full HTML rendering adds complexity (sanitization, styling) for minimal benefit
+      in a side drawer. A scrollable section with max-height keeps the drawer usable.
+      Alternative: use react-markdown if already a dependency, but do not add it just for this feature.
+  - question: 'Should the review command be refactored to use renderDetailView instead of raw console.log?'
+    resolved: true
+    answer: >
+      Recommend NO — keep review.command.ts using its current inline console.log pattern and simply
+      add the PRD content display in the same style. The review command is intentionally minimal and
+      action-oriented (it resolves a waiting feature and shows approve/reject hints). Refactoring it
+      to use renderDetailView is out of scope and would change its UX character. Keep changes minimal.
+  - question: 'Should specPath be added to FeatureNodeData for the web drawer to use?'
+    resolved: true
+    answer: >
+      Recommend NOT adding specPath to FeatureNodeData. Instead, the drawer should fetch spec content
+      via the new /api/features/[id]/spec API route using the featureId that is already available.
+      This avoids exposing filesystem paths to the client (minor security consideration) and keeps
+      FeatureNodeData lean. The featureId is sufficient to resolve the spec server-side.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When a feature is in the Requirements stage and the PRD (spec.yaml) is ready for review,
+  users currently have no way to see the PRD content directly from the CLI or Web UI.
+  The `feat show` command displays the spec directory path but not the actual spec content.
+  The `feat review` command similarly shows metadata but not the PRD itself.
+  The Web UI feature drawer shows basic feature info but no spec/PRD content.
+
+  Users must manually navigate to the spec directory and open spec.yaml to review the PRD,
+  which breaks the review workflow. The spec content should be displayed inline when the
+  feature is awaiting PRD approval, enabling users to make informed approve/reject decisions
+  without leaving their current context.
+
+  ## Success Criteria
+
+  - [ ] SC-1: `shep feat show <id>` displays a "PRD Spec" text block with summary, open questions, and content preview when the feature is awaiting PRD approval (run status=waiting_approval, result=node:requirements)
+  - [ ] SC-2: `shep feat review [id]` displays PRD summary, open questions, and content preview inline before the approve/reject command hints
+  - [ ] SC-3: Web UI feature drawer shows a "PRD Spec" section with summary, open questions (with resolved/unresolved badges), and scrollable content when the feature state is action-required at requirements lifecycle stage
+  - [ ] SC-4: All PRD display uses existing TypeSpec-generated types (FeatureSpec, OpenQuestion) — no new domain interfaces created
+  - [ ] SC-5: When specPath is missing or spec.yaml cannot be read, the display gracefully degrades (no crash, shows "Spec not available" message)
+  - [ ] SC-6: CLI content preview is truncated to 50 lines with a "[truncated]" indicator and path reference for long PRDs
+  - [ ] SC-7: Web UI PRD content section has a max-height with scroll for long content
+  - [ ] SC-8: New GET /api/features/[id]/spec API route returns parsed spec.yaml content as JSON
+  - [ ] SC-9: Unit tests cover: spec loading success, spec loading failure (missing file), content truncation, conditional display logic
+  - [ ] SC-10: Storybook stories cover the updated feature drawer with PRD content in various states (with spec, without spec, long content, open questions)
+
+  ## Functional Requirements
+
+  - **FR-1: CLI `feat show` PRD display** — When displaying a feature where `feature.specPath` exists AND the associated agent run has `status === 'waiting_approval'` and `result === 'node:requirements'`, read `spec.yaml` from the specPath directory, parse it as YAML, cast to `FeatureSpec`, and render a "PRD Spec" text block via `renderDetailView` containing: (a) the spec summary, (b) open questions with resolved/unresolved indicators, (c) the first 50 lines of the content field with truncation notice if longer.
+
+  - **FR-2: CLI `feat review` PRD display** — When the review command resolves a waiting feature with `feature.specPath`, read and parse spec.yaml and display inline (using the command's existing console.log pattern): (a) a "PRD Spec" header, (b) the spec summary, (c) open questions list, (d) content preview (first 50 lines, truncated with path reference). Display this BEFORE the approve/reject command hints so users have full context.
+
+  - **FR-3: Web UI spec API route** — Create a GET endpoint at `/api/features/[id]/spec` that: (a) resolves `ShowFeatureUseCase` from the DI container, (b) loads the feature by ID, (c) reads `spec.yaml` from `feature.specPath` using `readFileSync` + `js-yaml`, (d) returns the parsed `FeatureSpec` as JSON with a 200 status, (e) returns 404 if the feature has no specPath or the file doesn't exist, (f) returns 500 on unexpected errors.
+
+  - **FR-4: Web UI feature drawer PRD section** — In the `FeatureDrawer` component, when `selectedNode.state === 'action-required'` AND `selectedNode.lifecycle === 'requirements'`, fetch the spec content from `/api/features/{featureId}/spec` and display a new "PRD Spec" section (after the Status section, before Details) containing: (a) the spec summary paragraph, (b) open questions as a list with resolved/unresolved Badge components, (c) the full markdown content in a scrollable container with max-height.
+
+  - **FR-5: Open questions display** — In both CLI and Web UI, each open question must show: the question text, its resolved/unresolved status, and the answer text if resolved. CLI uses text formatting (e.g., "[RESOLVED]" / "[OPEN]" prefix). Web UI uses shadcn Badge components (green for resolved, yellow/amber for unresolved).
+
+  - **FR-6: Graceful degradation on missing spec** — If `feature.specPath` is undefined, the spec.yaml file doesn't exist, or YAML parsing fails: CLI commands silently omit the PRD section (no error shown to user). Web UI drawer omits the PRD section. API route returns 404 with `{ error: "Spec not found" }`. No crashes or unhandled exceptions in any case.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: No new domain types** — All spec display logic must use the existing TypeSpec-generated types (`FeatureSpec`, `SpecArtifactBase`, `OpenQuestion`) from `@shepai/core/domain/generated/output` or `@/domain/generated/output.js`. No new interfaces, types, or domain models may be introduced.
+
+  - **NFR-2: Performance — CLI** — Reading and parsing spec.yaml must add no perceptible delay to `feat show` or `feat review` commands. Spec files are typically <10KB; a single synchronous `readFileSync` + `yaml.load` is acceptable and consistent with existing patterns in the codebase.
+
+  - **NFR-3: Performance — Web UI** — The API route must respond within 200ms for typical spec files. The drawer must show a loading state while fetching and not block the UI. Fetch only when the drawer is open AND the feature is in the relevant state (no prefetching for all features).
+
+  - **NFR-4: Security — No raw path exposure** — The Web UI must not expose `specPath` filesystem paths to the browser client. The API route accepts only `featureId` and resolves the path server-side. The API route must validate that the feature exists before attempting file reads.
+
+  - **NFR-5: UX — CLI readability** — PRD content in the CLI must be formatted using existing `renderDetailView` patterns (for show) and inline console.log patterns (for review). Open questions should be visually distinct. Content truncation at 50 lines keeps output manageable. Full spec path is shown for users who want to read the complete document.
+
+  - **NFR-6: UX — Web drawer scrollability** — The PRD content section in the drawer must have a max-height (recommend 400px) with vertical scroll overflow, preventing long specs from making the drawer unusable. The section should be collapsible or use an accordion pattern if it pushes other content too far down.
+
+  - **NFR-7: Consistency** — The PRD display condition must be identical across CLI show, CLI review, and Web UI: feature must have a specPath, agent run status must be `waiting_approval`, and run result must indicate the requirements node. All three surfaces show the same data (summary, open questions, content).
+
+  - **NFR-8: Test coverage** — All new logic must have unit tests following TDD (Red-Green-Refactor). Test categories: (a) spec YAML reading and parsing, (b) content truncation logic, (c) conditional display logic (when to show/hide PRD section), (d) API route response codes, (e) Storybook stories for all new/modified web components.
+
+  - **NFR-9: Maintainability — No duplication of YAML parsing** — Use `readFileSync` + `js-yaml` directly in the presentation layer (both CLI and API route) rather than importing from deep infrastructure (`node-helpers.ts`). This is a simple 3-line pattern; abstracting it into a shared utility is not warranted for 2-3 call sites. Keep it simple.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Display only during waiting_approval or also after approval? | Only during waiting_approval at requirements node | Keeps UI focused on the actionable state; post-approval, the spec path is available for manual review |
+  | 2 | Server-side page.tsx or client-side API fetch for Web UI? | Client-side fetch via new GET /api/features/[id]/spec | Avoids bloating all FeatureNodeData; follows existing API pattern; loads on-demand only when drawer opens |
+  | 3 | How much CLI content to show? | Summary + all open questions + first 50 lines of content body | Enough for approval decisions; full doc available via specPath |
+  | 4 | Web UI: rendered markdown or raw/structured display? | Structured display (summary, question list, scrollable raw content) | Avoids adding markdown rendering dependency; keeps drawer simple |
+  | 5 | Refactor review command to use renderDetailView? | No — keep existing console.log pattern | Out of scope; maintains review command's minimal, action-oriented UX |
+  | 6 | Add specPath to FeatureNodeData? | No — use featureId with API route instead | Avoids exposing filesystem paths to browser; keeps FeatureNodeData lean |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/feat/show.command.ts` | Medium | Add "PRD Spec" text block with parsed spec.yaml content (summary, open questions, content preview) when feature is awaiting PRD approval |
+  | `src/presentation/cli/commands/feat/review.command.ts` | Medium | Display PRD content inline (summary, open questions, content preview) before approve/reject hints |
+  | `src/presentation/web/app/api/features/[id]/spec/route.ts` | New file | New GET API route that reads spec.yaml from feature.specPath and returns parsed FeatureSpec JSON |
+  | `src/presentation/web/components/common/feature-drawer/feature-drawer.tsx` | Medium | Add conditional PRD section (fetch from API, display summary/questions/content) when action-required at requirements stage |
+  | `src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx` | Medium | Add stories for drawer with PRD content (various states: with spec, without, long content, open questions) |
+  | Tests (unit) | Medium | Tests for CLI display logic, API route, content truncation, conditional rendering |
+
+  ## Dependencies
+
+  - `Feature.specPath` field (already exists on the domain model — `output.ts`)
+  - `FeatureSpec` / `SpecArtifactBase` / `OpenQuestion` TypeSpec types (already generated — `output.ts`)
+  - `js-yaml` package (already a project dependency)
+  - `renderDetailView` CLI utility (already exists — `detail-view.ts`)
+  - `AgentRun.status` and `AgentRun.result` fields (already queried in show/review commands)
+  - `FeatureDrawer` component (already exists with sections pattern)
+  - `ShowFeatureUseCase` (already exists — resolves feature by ID including specPath)
+  - `IAgentRunRepository` (already injected in show command for run status)
+  - shadcn/ui `Badge` component (already available in the web UI component library)
+
+  ## Size Estimate
+
+  **S** — This is a presentation-layer-only change. No new domain models, repositories, or use cases
+  are needed. The data (Feature.specPath + spec.yaml on disk) and parsing infrastructure (js-yaml)
+  already exist. The work breaks down to:
+  - CLI show command: add 1 text block (~30 lines)
+  - CLI review command: add inline PRD display (~20 lines)
+  - Web API route: new file (~30 lines)
+  - Web drawer: add conditional section (~50 lines)
+  - Stories: new story variants (~40 lines)
+  - Tests: unit tests for each area (~100 lines)
+  Total: ~270 lines of new code across 6 files. Estimated at a few hours of implementation.
