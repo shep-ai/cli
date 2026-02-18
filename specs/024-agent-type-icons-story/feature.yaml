@@ -3,17 +3,18 @@ feature:
   name: agent-type-icons-story
   number: 23
   branch: feat/agent-type-icons-story
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-18T11:41:27Z'
+  prUrl: 'https://github.com/shep-ai/cli/pull/71'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 4
     total: 4
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-18T11:55:16.444Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-18T12:08:00Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -34,6 +35,12 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-18T11:41:27Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-18T12:08:00Z'
+    completedBy: shep-kit:commit-pr
+  - phase: ci-passed
+    completedAt: '2026-02-18T12:09:00Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
