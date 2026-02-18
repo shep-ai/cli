@@ -3,17 +3,17 @@ feature:
   name: fix-trivy-vulnerabilities
   number: 22
   branch: feat/022-fix-trivy-vulnerabilities
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-18T08:00:35Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 3
     total: 3
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-18T08:13:02.385Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-18T09:00:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -33,6 +33,10 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-18T08:00:35Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-18T09:00:00.000Z'
+    completedBy: shep-kit:commit-pr
+prUrl: 'https://github.com/shep-ai/cli/pull/67'
 errors:
   current: null
   history: []
