@@ -365,9 +365,9 @@ describe('Merge Flow (Graph-level)', () => {
       expect(getInterrupts(result)).toHaveLength(0);
       expect(result.error).toBeNull();
 
-      // Commit + push happened
+      // Commit happened, but push skipped (push=false, openPr=false)
       expect(gitPrService.commitAll).toHaveBeenCalled();
-      expect(gitPrService.push).toHaveBeenCalled();
+      expect(gitPrService.push).not.toHaveBeenCalled();
 
       // No PR, no merge
       expect(gitPrService.createPr).not.toHaveBeenCalled();
