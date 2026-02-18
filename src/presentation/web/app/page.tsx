@@ -64,7 +64,7 @@ export default async function HomePage() {
       id: repoNodeId,
       type: 'repositoryNode',
       position: { x: 0, y: 0 },
-      data: { name: repoName },
+      data: { name: repoName, repositoryPath: repoPath },
     });
 
     repoFeatures.forEach(({ feature, run }) => {

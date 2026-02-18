@@ -18,25 +18,22 @@ export async function POST(request: Request) {
   try {
     const settings = getSettings();
     const shell = settings.environment.shellPreference;
-    const worktreePath = computeWorktreePath(repositoryPath, branch);
+    const targetPath = branch ? computeWorktreePath(repositoryPath, branch) : repositoryPath;
 
-    if (!existsSync(worktreePath)) {
-      return NextResponse.json(
-        { error: `Worktree path does not exist: ${worktreePath}` },
-        { status: 404 }
-      );
+    if (!existsSync(targetPath)) {
+      return NextResponse.json({ error: `Path does not exist: ${targetPath}` }, { status: 404 });
     }
 
     const platform = process.platform;
 
     if (platform === 'darwin') {
-      const child = spawn('open', ['-a', 'Terminal', worktreePath], {
+      const child = spawn('open', ['-a', 'Terminal', targetPath], {
         detached: true,
         stdio: 'ignore',
       });
       child.unref();
     } else if (platform === 'linux') {
-      const child = spawn('x-terminal-emulator', [`--working-directory=${worktreePath}`], {
+      const child = spawn('x-terminal-emulator', [`--working-directory=${targetPath}`], {
         detached: true,
         stdio: 'ignore',
       });
@@ -52,7 +49,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       success: true,
-      path: worktreePath,
+      path: targetPath,
       shell,
     });
   } catch (error: unknown) {

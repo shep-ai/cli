@@ -192,4 +192,32 @@ describe('POST /api/shell/open', () => {
     expect(response.status).toBe(500);
     expect(body.error).toBe('Failed to open shell');
   });
+
+  it('uses repositoryPath directly when branch is not provided', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' });
+
+    const request = createRequest({ repositoryPath: '/home/user/project' });
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(200);
+    expect(mockSpawn).toHaveBeenCalledWith('open', ['-a', 'Terminal', '/home/user/project'], {
+      detached: true,
+      stdio: 'ignore',
+    });
+    expect(body.success).toBe(true);
+    expect(body.path).toBe('/home/user/project');
+  });
+
+  it('returns 404 when repositoryPath does not exist and no branch provided', async () => {
+    Object.defineProperty(process, 'platform', { value: 'darwin' });
+    mockExistsSync.mockReturnValue(false);
+
+    const request = createRequest({ repositoryPath: '/nonexistent' });
+    const response = await POST(request);
+    const body = await response.json();
+
+    expect(response.status).toBe(404);
+    expect(body.error).toContain('does not exist');
+  });
 });

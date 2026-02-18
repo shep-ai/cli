@@ -121,4 +121,29 @@ describe('launchIde', () => {
       message: 'Failed to launch IDE',
     });
   });
+
+  it('uses repositoryPath directly when branch is undefined', async () => {
+    const result = await launchIde({
+      editorId: EditorType.VsCode,
+      repositoryPath: '/home/user/project',
+      checkAvailability: false,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      editorName: 'VS Code',
+      worktreePath: '/home/user/project',
+    });
+    expect(mockLaunch).toHaveBeenCalledWith('/home/user/project');
+  });
+
+  it('does not call computeWorktreePath when branch is undefined', async () => {
+    await launchIde({
+      editorId: EditorType.VsCode,
+      repositoryPath: '/home/user/project',
+    });
+
+    // Since branch is undefined, repositoryPath should be used directly
+    expect(mockLaunch).toHaveBeenCalledWith('/home/user/project');
+  });
 });

@@ -1,0 +1,207 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repo-node-actions
+summary: >
+  Add "Open in IDE" and "Open in Shell" action buttons to the repository node in the React Flow
+  canvas. The implementation follows a bottom-up strategy: first make the API layer branch-optional
+  (validateToolbarInput, launchIde, shell route), then extract the shared ActionButton component
+  from the feature drawer, create a useRepositoryActions hook, wire repositoryPath through from
+  the server component, and finally render always-visible icon-only action buttons on the
+  repository node. All changes are additive and backward-compatible — existing tests remain
+  untouched.
+
+relatedFeatures:
+  - '018-feat-ide-open'
+  - '021-feature-toolbar'
+
+technologies:
+  - '@xyflow/react (React Flow v12+)'
+  - 'Next.js 16+ (App Router, server components)'
+  - "shadcn/ui (Button variant='ghost' size='icon-xs', Tooltip)"
+  - 'lucide-react (Code2, Terminal, Loader2, CircleAlert)'
+  - 'Tailwind CSS v4'
+  - 'Vitest + React Testing Library'
+  - 'Storybook'
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Branch-Optional API Layer'
+    description: >
+      Make the branch parameter optional throughout the API chain: validateToolbarInput,
+      launchIde (core package), shell route, and IDE route. This is the foundation that
+      enables repo-level actions without a branch. Each layer change is additive — existing
+      callers that provide branch see no behavioral change. This phase comes first because
+      the UI hook (phase 3) needs to call these routes without a branch field.
+    parallel: false
+
+  - id: phase-2
+    name: 'Shared Action Button Extraction'
+    description: >
+      Extract DrawerActionButton from feature-drawer.tsx into a shared component at
+      components/common/action-button/. Add an iconOnly prop (default false) for the
+      repo node's compact rendering. Update feature-drawer to import from the shared
+      location. This phase is independent of phase 1 but must complete before phase 4
+      (repository node rendering) which consumes the shared component.
+    parallel: false
+
+  - id: phase-3
+    name: 'Repository Actions Hook & Data Wiring'
+    description: >
+      Create useRepositoryActions hook colocated with repository-node, extend
+      RepositoryNodeData with repositoryPath, and pass repositoryPath from the
+      server component (page.tsx). This phase depends on phase 1 (API routes accept
+      branch-optional requests) and provides the data and behavior that phase 4 consumes.
+    parallel: false
+
+  - id: phase-4
+    name: 'Repository Node UI Integration'
+    description: >
+      Render action buttons on the repository node using the shared ActionButton (phase 2)
+      and useRepositoryActions hook (phase 3). Add tooltips, handle click propagation,
+      adjust node width from w-56 to w-72, and add comprehensive Storybook stories.
+      This final phase assembles all prior work into the user-facing feature.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/components/common/action-button/action-button.tsx
+  - src/presentation/web/components/common/action-button/action-button.stories.tsx
+  - src/presentation/web/components/common/action-button/index.ts
+  - src/presentation/web/components/common/repository-node/use-repository-actions.ts
+
+filesToModify:
+  - packages/core/src/infrastructure/services/ide-launchers/launch-ide.ts
+  - src/presentation/web/app/api/validate-toolbar-input.ts
+  - src/presentation/web/app/api/shell/open/route.ts
+  - src/presentation/web/app/api/ide/open/route.ts
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/repository-node/repository-node-config.ts
+  - src/presentation/web/components/common/repository-node/repository-node.tsx
+  - src/presentation/web/components/common/repository-node/repository-node.stories.tsx
+  - src/presentation/web/app/page.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds IDE and Shell action buttons to the repository node on the React Flow canvas.
+  The existing codebase already implements this exact pattern for feature nodes via the feature
+  drawer (DrawerActionButton + useFeatureActions + /api/ide/open + /api/shell/open). The
+  implementation extends this pattern to repository nodes by:
+
+  1. Making the `branch` parameter optional at every API layer (it was required because features
+     always have a branch; repositories don't)
+  2. Extracting the action button UI into a shared component
+  3. Creating a parallel hook for repository-level actions
+  4. Rendering always-visible icon-only buttons on the repository node pill
+
+  The architecture follows Clean Architecture: the core package change (launchIde) is in
+  infrastructure, the API routes are in the presentation web layer, and the React components
+  follow the existing four-tier hierarchy (ui → common → layouts → features).
+
+  ### Data Flow (New — Repository Actions)
+
+  ```
+  page.tsx (server)
+    → passes { name, repositoryPath } in repository node data
+      → ControlCenter → FeaturesCanvas → RepositoryNode (client)
+        → useRepositoryActions({ repositoryPath })
+          → POST /api/ide/open { repositoryPath }     (no branch field)
+          → POST /api/shell/open { repositoryPath }    (no branch field)
+            → validateToolbarInput: skips branch validation
+            → launchIde: uses repositoryPath directly (skips computeWorktreePath)
+            → shell route: uses repositoryPath directly with existsSync check
+  ```
+
+  ### Data Flow (Existing — Unchanged)
+
+  ```
+  FeatureDrawer → useFeatureActions({ repositoryPath, branch })
+    → POST /api/ide/open { repositoryPath, branch }
+    → POST /api/shell/open { repositoryPath, branch }
+      → validateToolbarInput: validates both fields
+      → launchIde: calls computeWorktreePath(repositoryPath, branch)
+      → shell route: calls computeWorktreePath(repositoryPath, branch)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Branch-Optional at Every Layer (Not Route-Level Bypass)
+
+  The API chain is: `validateToolbarInput → route → launchIde → computeWorktreePath`. Rather than
+  duplicating "if no branch, use repositoryPath directly" in each route, the branch-optional
+  logic is centralized: `validateToolbarInput` skips branch checks when absent, `launchIde` uses
+  `repositoryPath` directly when branch is undefined, and the shell route applies the same
+  conditional. This keeps each layer responsible for its own concern.
+
+  **Concrete changes:**
+  - `ValidInput.branch` becomes `string | undefined`
+  - `LaunchIdeInput.branch` becomes `branch?: string`
+  - When branch is undefined, `launchIde` uses `repositoryPath` directly (conditional at line 61)
+  - When branch is undefined, shell route uses `repositoryPath` directly (conditional at line 21)
+  - `LaunchIdeSuccess.worktreePath` keeps its name (contains repositoryPath when no branch)
+
+  ### 2. New useRepositoryActions Hook (Not Rename or Shared Base)
+
+  The existing `useFeatureActions` hook (96 lines) has a clean contract: `{ repositoryPath, branch }`.
+  Rather than making branch optional (complicates type contract) or extracting a shared base
+  hook (premature abstraction for ~40 lines), a parallel `useRepositoryActions` hook follows the
+  same internal pattern but omits branch from the POST body. The two hooks are independently
+  testable and each has clear intent from its name.
+
+  ### 3. Shared ActionButton with iconOnly Prop (Not Duplication)
+
+  `DrawerActionButton` (feature-drawer.tsx:237-269) implements the exact loading/error/icon state
+  machine needed by both consumers. The only difference is labeled (feature-drawer) vs icon-only
+  (repository-node). Extracting to `components/common/action-button/` with an `iconOnly` boolean
+  prop (default false) enables both use cases. The component also accepts optional `variant` and
+  `size` props for flexibility: feature-drawer uses `variant='outline' size='sm'`, repo-node uses
+  `variant='ghost' size='icon-xs'`.
+
+  ### 4. Always-Visible Inline Icon Buttons (Not Hover-Reveal or Popover)
+
+  With only two actions (IDE + Shell), a popover adds unnecessary clicks. Always-visible buttons
+  maximize discoverability. The existing "+" add button uses hover-reveal (`group-hover:opacity-100`),
+  creating a natural visual hierarchy: primary actions (IDE/Shell) always shown, secondary action
+  (Add) on hover. Icon-only buttons with `size='icon-xs'` (24px) fit within the pill at w-72.
+
+  ### 5. Repository Node Width Increase (w-56 → w-72)
+
+  The current w-56 (224px) pill accommodates Github icon + name + add button. Adding two icon-xs
+  buttons (~24px each + gap) requires ~48-56px more space. Increasing to w-72 (288px) provides
+  enough room without truncation issues. The dagre layout algorithm automatically adjusts spacing.
+
+  ## Implementation Strategy
+
+  The four phases follow a bottom-up dependency chain:
+
+  **Phase 1 (API Layer)** comes first because the UI hook needs to call routes without a branch.
+  Each API layer change (validateToolbarInput → launchIde → shell route → IDE route) is tested
+  independently. All existing tests continue to pass because changes are additive (branch was
+  required, now optional).
+
+  **Phase 2 (Shared Component)** extracts DrawerActionButton. This is logically independent from
+  phase 1 but ordered second to keep a clean flow. The feature-drawer is updated to import from
+  the shared location, verifying backward compatibility.
+
+  **Phase 3 (Hook & Data)** creates useRepositoryActions and wires repositoryPath from page.tsx
+  through to the repository node. This depends on phase 1 (API routes accept branch-optional).
+
+  **Phase 4 (UI Integration)** assembles everything: renders ActionButton with
+  useRepositoryActions on the repository node, adds tooltips, handles click propagation, and
+  adds comprehensive stories. This depends on phases 2 and 3.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking existing feature-drawer actions | All changes are additive (branch becomes optional, not removed). Existing tests serve as regression guard. Run full test suite after each phase. |
+  | Existing validateToolbarInput tests fail | Tests always provide branch — they exercise the "branch present" path which is unchanged. New tests cover the "branch absent" path. |
+  | TypeScript compile errors from ValidInput change | `branch: string | undefined` means existing destructuring still works. TypeScript flags any place that assumes branch is always defined, which is the desired behavior. |
+  | Click propagation issues on React Flow canvas | Follow the established pattern (`e.stopPropagation()` + `nodrag` CSS class) already used by the repository node's onClick (line 23) and onAdd (line 38) handlers. |
+  | Tooltip rendering without TooltipProvider | Check app layout for existing TooltipProvider. If absent, wrap action buttons in a local TooltipProvider (lightweight React context, no perf concern). |
+  | Repository node width increase breaks canvas layout | dagre layout auto-adjusts. Verify visually in Storybook stories. The Multiple stories already demonstrate multi-node layout. |
+  | Shell route spawns process at non-existent path | The existsSync check already guards this for worktree paths. The same check applies when using repositoryPath directly. |

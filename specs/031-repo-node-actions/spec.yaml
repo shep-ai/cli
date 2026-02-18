@@ -1,0 +1,276 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repo-node-actions
+number: 031
+branch: feat/031-repo-node-actions
+oneLiner: Add shell and IDE action buttons to the repository node in the React Flow canvas
+summary: >
+  Add "Open in IDE" and "Open in Shell" action buttons to the repository node component, mirroring
+  the existing feature-drawer action pattern. This requires extending the RepositoryNodeData interface
+  with repositoryPath, passing that data from the server component, making the branch parameter
+  optional in the actions hook and API routes for repo-level (no-branch) actions, extracting the
+  reusable DrawerActionButton as a shared component, and rendering action buttons directly on the
+  repository node. The existing API routes (/api/ide/open, /api/shell/open) and useFeatureActions
+  hook will be adapted to handle repo-root targeting when no branch is provided.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  - '018-feat-ide-open'
+  - '021-feature-toolbar'
+
+technologies:
+  - '@xyflow/react (React Flow v12+)'
+  - 'Next.js 16+ (App Router, server components)'
+  - 'shadcn/ui (Button, Tooltip)'
+  - 'lucide-react (Code2, Terminal, Loader2, CircleAlert icons)'
+  - 'Tailwind CSS v4'
+  - 'Vitest + React Testing Library'
+  - 'Storybook'
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the action buttons be always visible on the repository node or appear on hover?'
+    resolved: true
+    answer: >
+      Recommend always visible. The repository node is a primary navigation element and there are
+      only two action buttons (IDE + Shell), so they don't crowd the UI. This is more discoverable
+      than hover-reveal, especially for first-time users. The existing "+" add button already uses
+      hover-reveal (group-hover:opacity-100), and mixing always-visible actions with hover-reveal
+      add would create a natural visual hierarchy: primary actions (IDE/Shell) always shown,
+      secondary action (Add) on hover. Alternative: hover-reveal if visual density becomes a concern
+      during implementation.
+
+  - question: 'Should the action buttons open a popover menu or be rendered inline on the node?'
+    resolved: true
+    answer: >
+      Recommend inline buttons directly on the node. With only two actions (IDE and Shell),
+      a popover adds an unnecessary extra click. Inline icon buttons (no labels) are compact enough
+      to fit on the repository node without impacting its current size significantly. The feature
+      drawer uses labeled buttons because it has more screen space — the compact node should use
+      icon-only buttons with tooltips. Alternative: popover if more repo-level actions are planned
+      in the near future.
+
+  - question: 'Should DrawerActionButton be extracted to a shared location or should the repo node create its own action button component?'
+    resolved: true
+    answer: >
+      Recommend extracting the action button to a shared component at components/common/action-button/
+      (or similar). The DrawerActionButton in feature-drawer.tsx handles loading, error, and icon
+      states — this exact pattern is needed on the repo node. Extracting avoids duplication and
+      ensures visual consistency. The feature-drawer would then import from the shared location.
+      Alternative: duplicate a simpler version in the repo node if the visual treatment differs
+      significantly (e.g., icon-only vs labeled).
+
+  - question: 'Should launchIde (packages/core) be modified to accept optional branch, or should the API route bypass it for repo-level actions?'
+    resolved: true
+    answer: >
+      Recommend making branch optional in LaunchIdeInput and launchIde. When branch is undefined,
+      launchIde should use repositoryPath directly instead of calling computeWorktreePath. This
+      keeps the logic centralized in the core package rather than scattering conditional paths across
+      API routes. The same approach applies to the shell route — when branch is omitted, use
+      repositoryPath directly. Alternative: handle the conditional in each API route without
+      touching the core package, but this duplicates the branching logic.
+
+  - question: 'Should the hook be renamed from useFeatureActions to a more general name since it will serve both feature and repository contexts?'
+    resolved: true
+    answer: >
+      Recommend keeping the existing useFeatureActions hook name and interface intact, and creating
+      a new useRepositoryActions hook (or a more general useNodeActions hook) that wraps the same
+      performAction logic with branch optional. This avoids a rename that would touch all existing
+      feature-drawer consumers. The shared core logic (fetch + loading + error state) can be
+      extracted into a private helper if needed, but the public hook API stays stable. Alternative:
+      rename to useNodeActions and update all consumers — viable but higher churn for no user-facing
+      benefit.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The repository node in the React Flow canvas currently only displays the repository name and a
+  "+" button to add features. Users cannot open a repository in their IDE or terminal directly from
+  the canvas — they must first click into a feature node's drawer to access those actions. Since
+  shell and IDE actions are fundamentally repository-level operations, they should be accessible
+  directly from the repository node itself.
+
+  ### Current Limitations
+
+  1. **RepositoryNodeData** (`repository-node-config.ts`) only has `name`, `onClick`, `onAdd`, and
+     `showHandles` — no `repositoryPath` field.
+  2. **page.tsx** (server component) builds repository node data with only `{ name: repoName }`,
+     discarding the full `repoPath` that is available in the loop.
+  3. The **useFeatureActions** hook in `feature-drawer/use-feature-actions.ts` requires both
+     `repositoryPath` and `branch`, but repository nodes don't have a specific feature branch.
+  4. The API routes (`/api/ide/open`, `/api/shell/open`), `validateToolbarInput`, and `launchIde`
+     all require a `branch` parameter — repo-level actions need a way to target the repo root directly.
+
+  ## Success Criteria
+
+  - [ ] Repository node renders two icon-only action buttons: "Open in IDE" (Code2 icon) and "Open in Shell" (Terminal icon)
+  - [ ] Action buttons are always visible on the repository node (not hover-gated)
+  - [ ] Clicking "Open in IDE" launches the configured editor at the repository root path
+  - [ ] Clicking "Open in Shell" launches a terminal at the repository root path
+  - [ ] Action buttons display a loading spinner (Loader2) while the action is in progress
+  - [ ] Action buttons display an error icon (CircleAlert) with auto-clear after 5 seconds on failure
+  - [ ] Tooltips show "Open in IDE" and "Open in Shell" labels on button hover
+  - [ ] API routes `/api/ide/open` and `/api/shell/open` accept requests without a `branch` field
+  - [ ] When `branch` is omitted, API routes use `repositoryPath` directly (no worktree computation)
+  - [ ] When `branch` is provided, existing worktree-based behavior is preserved (backward compatible)
+  - [ ] `validateToolbarInput` accepts `branch` as optional
+  - [ ] `launchIde` in `packages/core` accepts optional `branch` in `LaunchIdeInput`
+  - [ ] Action button component is extracted as a shared component reusable by both feature-drawer and repo node
+  - [ ] Feature-drawer IDE/shell actions continue to work unchanged after refactoring
+  - [ ] Unit tests cover: button rendering, click handlers, loading states, error states, error auto-clear
+  - [ ] Storybook stories cover: default state, loading state, error state, both buttons together
+  - [ ] All existing tests pass without modification (backward compatibility)
+
+  ## Functional Requirements
+
+  - **FR-1: RepositoryNodeData interface extension** — Add `repositoryPath: string` field to
+    `RepositoryNodeData` in `repository-node-config.ts`. This is required for the actions hook
+    to know which path to open.
+
+  - **FR-2: Server component data pass-through** — `page.tsx` must include
+    `repositoryPath: repoPath` in the repository node data object. The `repoPath` variable is
+    already available in the `Object.entries(featuresByRepo).forEach(...)` loop.
+
+  - **FR-3: Branch-optional API validation** — `validateToolbarInput` must accept `branch` as
+    optional. When `branch` is present, all existing validations apply (non-empty, no `..`, no
+    null bytes). When absent, skip branch validation and return `{ repositoryPath, branch: undefined }`.
+
+  - **FR-4: Branch-optional launchIde** — `LaunchIdeInput.branch` becomes optional (`branch?: string`).
+    When `branch` is undefined, `launchIde` uses `repositoryPath` directly as the target path
+    instead of calling `computeWorktreePath`. The returned `worktreePath` field in `LaunchIdeSuccess`
+    becomes `path` (or retains the name but contains the repo root path).
+
+  - **FR-5: Branch-optional shell route** — `/api/shell/open` route: when `branch` is absent,
+    use `repositoryPath` directly as `targetPath` instead of `computeWorktreePath(repositoryPath, branch)`.
+    Verify the path exists with `existsSync` before spawning.
+
+  - **FR-6: Branch-optional IDE route** — `/api/ide/open` route: pass `branch` (possibly undefined)
+    through to `launchIde`, which handles the conditional internally.
+
+  - **FR-7: Repository actions hook** — Create a `useRepositoryActions` hook (or adapt the shared
+    action logic) that accepts `{ repositoryPath: string }` (no branch) and calls the API routes
+    without a `branch` field in the POST body. Must provide the same state interface: loading
+    booleans, error strings with auto-clear, and action callbacks.
+
+  - **FR-8: Shared action button component** — Extract `DrawerActionButton` from
+    `feature-drawer.tsx` into a shared component (e.g., `components/common/action-button/`).
+    The component accepts: `label`, `onClick`, `loading`, `error`, `icon`, and optionally
+    `iconOnly` for compact rendering. Feature-drawer imports from the new shared location.
+
+  - **FR-9: Repository node action buttons** — Render two icon-only action buttons on the
+    repository node using the shared action button component. Buttons use Code2 (IDE) and
+    Terminal (Shell) icons. Buttons are always visible (not hover-gated). Click handlers call
+    the repository actions hook.
+
+  - **FR-10: Tooltip labels** — Each icon-only button must have a tooltip (using shadcn Tooltip)
+    showing "Open in IDE" or "Open in Shell" to ensure accessibility and discoverability.
+
+  - **FR-11: Click propagation isolation** — Action button clicks must call `e.stopPropagation()`
+    to prevent triggering the repository node's `onClick` handler or React Flow drag/select
+    behavior, consistent with the existing `onAdd` button pattern.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Backward compatibility** — All changes to shared code (validateToolbarInput,
+    launchIde, useFeatureActions, DrawerActionButton) must maintain full backward compatibility.
+    Existing feature-drawer behavior must not change. No existing test should require modification.
+
+  - **NFR-2: Visual consistency** — Action buttons on the repository node must use the same icon
+    set (lucide-react), color scheme, loading animation (Loader2 spin), and error styling
+    (text-destructive) as the existing DrawerActionButton in the feature drawer.
+
+  - **NFR-3: Responsive button sizing** — Icon-only buttons should use compact sizing appropriate
+    for the repository node pill shape (approximately 24-28px touch targets) while meeting
+    minimum accessibility tap target guidelines.
+
+  - **NFR-4: Error auto-clear** — Error state must auto-clear after 5 seconds, matching the
+    existing ERROR_CLEAR_DELAY constant in use-feature-actions.ts. Timers must be cleaned up
+    on component unmount to prevent memory leaks.
+
+  - **NFR-5: No layout shift** — Adding action buttons must not cause the repository node to
+    jump or reflow in a way that disrupts the canvas layout. The node width should accommodate
+    the buttons naturally.
+
+  - **NFR-6: Path security** — The `repositoryPath` passed to API routes must continue to be
+    validated as an absolute path (starts with `/`). The branch-optional path must not introduce
+    any path traversal vulnerabilities.
+
+  - **NFR-7: Test coverage** — Unit tests must cover all new behavior: button rendering,
+    click handlers triggering API calls, loading state display, error state display, error
+    auto-clear timing, tooltip rendering, and click propagation isolation.
+
+  - **NFR-8: Storybook documentation** — Stories must demonstrate all visual states of the
+    repository node with action buttons: default, IDE loading, shell loading, IDE error,
+    shell error, both loading, and combination states.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should action buttons be always visible or hover-revealed? | Always visible | Only 2 compact icon buttons; maximizes discoverability; "+" add button stays hover-revealed for natural visual hierarchy |
+  | 2 | Should actions be inline buttons or behind a popover menu? | Inline icon-only buttons with tooltips | Only 2 actions — popover adds unnecessary click; icon-only is compact enough for the node pill shape |
+  | 3 | Should DrawerActionButton be extracted or duplicated? | Extract to shared component | Same visual pattern needed in two places; avoids duplication; ensures consistency; feature-drawer re-imports from shared location |
+  | 4 | Should launchIde core function be modified or bypassed? | Modify launchIde to accept optional branch | Centralizes the conditional logic in one place; avoids scattering branch-check logic across API routes |
+  | 5 | Should useFeatureActions be renamed to a generic name? | Keep existing name; create new useRepositoryActions | Avoids churn on existing consumers; each hook has clear intent from its name |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `components/common/repository-node/repository-node-config.ts` | High | Must add `repositoryPath` field to `RepositoryNodeData` interface |
+  | `components/common/repository-node/repository-node.tsx` | High | Must render IDE and shell action buttons on the node |
+  | `components/common/repository-node/repository-node.stories.tsx` | High | Must add stories for new action button states (default, loading, error) |
+  | `components/common/action-button/` (new) | High | Shared action button component extracted from DrawerActionButton |
+  | `app/page.tsx` | Medium | Must pass `repositoryPath: repoPath` in repository node data |
+  | `components/common/feature-drawer/use-feature-actions.ts` | Low | May share internal logic; public API unchanged |
+  | `components/common/feature-drawer/feature-drawer.tsx` | Medium | DrawerActionButton extracted to shared location; imports updated |
+  | `components/features/features-canvas/features-canvas.tsx` | Low | No changes expected — repositoryPath flows through node data, not canvas callbacks |
+  | `tests/unit/presentation/web/common/repository-node/repository-node.test.tsx` | High | Must add tests for action buttons, loading states, error states |
+  | `app/api/shell/open/route.ts` | Medium | Must handle branch-optional case: use repositoryPath directly when no branch |
+  | `app/api/ide/open/route.ts` | Medium | Must handle branch-optional case via updated launchIde |
+  | `app/api/validate-toolbar-input.ts` | Medium | Must make `branch` optional |
+  | `packages/core/.../launch-ide.ts` | Medium | Must make `branch` optional in LaunchIdeInput; skip computeWorktreePath when absent |
+
+  ## Dependencies
+
+  ### Existing Code (Reusable)
+  - **`useFeatureActions` hook** — Core fetch + loading + error pattern. The new `useRepositoryActions` hook will follow the same pattern with `branch` omitted from the POST body.
+  - **`DrawerActionButton` component** — Renders action buttons with loading/error states. Will be extracted to a shared location.
+  - **API routes** (`/api/ide/open`, `/api/shell/open`) — Already functional, need adaptation for branch-optional requests.
+  - **`validateToolbarInput`** — Validates repositoryPath and branch. Branch must become optional.
+  - **`launchIde`** — Core IDE launch function. `branch` must become optional in `LaunchIdeInput`.
+  - **`computeWorktreePath`** — Unchanged. Only called when `branch` is provided.
+
+  ### Design Decision: Branch Handling for Repo-Level Actions
+
+  The existing API chain requires a `branch` parameter at every level:
+  `validateToolbarInput` → API route → `launchIde` → `computeWorktreePath`
+
+  For repository-level actions, `branch` is made optional throughout:
+
+  - **`validateToolbarInput`**: If `branch` is absent, skip branch validation, return `{ repositoryPath, branch: undefined }`.
+  - **`launchIde`**: If `branch` is undefined, use `repositoryPath` directly as the target path.
+  - **Shell route**: If `branch` is undefined, use `repositoryPath` directly (verify exists with `existsSync`).
+  - **IDE route**: Pass through to updated `launchIde`.
+
+  This preserves all existing behavior when `branch` is provided and cleanly handles the repo-root case.
+
+  ## Size Estimate
+
+  **S** — This feature is primarily a UI change with well-established patterns to follow:
+  - Extend one interface (add `repositoryPath` field)
+  - Pass one additional field from server component
+  - Extract shared action button component from existing DrawerActionButton
+  - Create new `useRepositoryActions` hook following existing pattern
+  - Make `branch` optional in `validateToolbarInput`, `launchIde`, and API routes
+  - Render two icon buttons on repository node
+  - Add tests and stories
+
+  All building blocks exist. The main work is wiring them together, extracting the shared
+  component, and handling the repo-level (no-branch) case in the API/core layer.
