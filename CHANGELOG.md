@@ -1,3 +1,9 @@
+# [1.28.0](https://github.com/shep-ai/cli/compare/v1.27.0...v1.28.0) (2026-02-18)
+
+### Features
+
+- **web:** add approval flags to feature create drawer and api route ([#69](https://github.com/shep-ai/cli/issues/69)) ([beee790](https://github.com/shep-ai/cli/commit/beee790f089b6190428f0d77cdb899bf3dcb1226))
+
 # [1.27.0](https://github.com/shep-ai/cli/compare/v1.26.0...v1.27.0) (2026-02-18)
 
 ### Bug Fixes
