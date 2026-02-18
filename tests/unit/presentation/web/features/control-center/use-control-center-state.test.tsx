@@ -79,6 +79,7 @@ function HookTestHarness({
       <div data-testid="edge-count">{state.edges.length}</div>
       <div data-testid="create-drawer-open">{String(state.isCreateDrawerOpen)}</div>
       <div data-testid="is-submitting">{String(state.isSubmitting)}</div>
+      <div data-testid="is-deleting">{String(state.isDeleting)}</div>
       <button data-testid="add-feature" onClick={state.handleAddFeature}>
         Add Feature
       </button>
@@ -120,6 +121,9 @@ function HookTestHarness({
       </button>
       <button data-testid="clear-selection" onClick={state.clearSelection}>
         Clear
+      </button>
+      <button data-testid="delete-feature" onClick={() => state.handleDeleteFeature('feat-1')}>
+        Delete Feature
       </button>
     </>
   );
@@ -653,6 +657,286 @@ describe('useControlCenterState', () => {
       // Should show error because pendingRepoNodeId was reset
       expect(mockToastError).toHaveBeenCalled();
       expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('handleDeleteFeature', () => {
+    const featureNode: FeatureNodeType = {
+      id: 'feat-1',
+      type: 'featureNode',
+      position: { x: 100, y: 100 },
+      data: {
+        name: 'Auth Module',
+        featureId: '#f1',
+        lifecycle: 'implementation',
+        state: 'running',
+        progress: 45,
+      },
+    };
+
+    const featureNode2: FeatureNodeType = {
+      id: 'feat-2',
+      type: 'featureNode',
+      position: { x: 400, y: 100 },
+      data: {
+        name: 'Dashboard',
+        featureId: '#f2',
+        lifecycle: 'requirements',
+        state: 'done',
+        progress: 0,
+      },
+    };
+
+    const repoNode: RepositoryNodeType = {
+      id: 'repo-1',
+      type: 'repositoryNode',
+      position: { x: 0, y: 0 },
+      data: { name: 'shep-ai/cli' },
+    };
+
+    const edgeRepoToFeat1: Edge = {
+      id: 'edge-repo-1-feat-1',
+      source: 'repo-1',
+      target: 'feat-1',
+    };
+
+    const edgeFeat1ToFeat2: Edge = {
+      id: 'edge-feat-1-feat-2',
+      source: 'feat-1',
+      target: 'feat-2',
+    };
+
+    function mockDeleteFetchSuccess(feature = { id: 'f1', name: 'Auth Module' }) {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ feature }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    }
+
+    function mockDeleteFetchError(message = 'Delete failed') {
+      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ error: message }), {
+          status: 500,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+    }
+
+    it('isDeleting is false initially', () => {
+      renderHook();
+      expect(screen.getByTestId('is-deleting')).toHaveTextContent('false');
+    });
+
+    it('calls fetch with DELETE method and correct URL', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ feature: { id: 'f1' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+
+      renderHook([featureNode, repoNode] as CanvasNodeType[], [edgeRepoToFeat1]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(fetchSpy).toHaveBeenCalledWith('/api/features/feat-1', {
+        method: 'DELETE',
+      });
+    });
+
+    it('removes deleted node from nodes on success', async () => {
+      mockDeleteFetchSuccess();
+
+      renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
+        edgeRepoToFeat1,
+        edgeFeat1ToFeat2,
+      ]);
+
+      expect(screen.getByTestId('node-count')).toHaveTextContent('3');
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      // feat-1 removed, feat-2 and repo-1 remain
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+    });
+
+    it('removes all edges connected to deleted node on success', async () => {
+      mockDeleteFetchSuccess();
+
+      renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
+        edgeRepoToFeat1,
+        edgeFeat1ToFeat2,
+      ]);
+
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('2');
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      // Both edges (repo→feat-1 and feat-1→feat-2) should be removed
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('0');
+    });
+
+    it('clears selectedNode on success', async () => {
+      mockDeleteFetchSuccess();
+
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[featureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Simulate selecting the node first via handleNodeClick
+      act(() => {
+        capturedState!.handleNodeClick({} as React.MouseEvent, featureNode as CanvasNodeType);
+      });
+      expect(screen.getByTestId('selected-node')).toHaveTextContent('Auth Module');
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(screen.getByTestId('selected-node')).toHaveTextContent('null');
+    });
+
+    it('shows success toast on successful deletion', async () => {
+      mockDeleteFetchSuccess();
+
+      renderHook([featureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(mockToastSuccess).toHaveBeenCalled();
+    });
+
+    it('calls router.refresh() on successful deletion', async () => {
+      mockDeleteFetchSuccess();
+
+      renderHook([featureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(mockRefresh).toHaveBeenCalled();
+    });
+
+    it('shows error toast with API message on API error', async () => {
+      mockDeleteFetchError('Feature has active processes');
+
+      renderHook([featureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Feature has active processes');
+    });
+
+    it('preserves nodes and edges on API error', async () => {
+      mockDeleteFetchError();
+
+      renderHook([featureNode, repoNode] as CanvasNodeType[], [edgeRepoToFeat1]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
+    });
+
+    it('shows generic error toast on network failure', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+
+      renderHook([featureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Failed to delete feature');
+    });
+
+    it('preserves state on network failure', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+
+      renderHook([featureNode, repoNode] as CanvasNodeType[], [edgeRepoToFeat1]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
+    });
+
+    it('isDeleting is true during fetch and false after completion', async () => {
+      let resolvePromise: (v: Response) => void;
+      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        })
+      );
+
+      renderHook([featureNode] as CanvasNodeType[]);
+
+      // Start delete (don't await — fetch is still pending)
+      act(() => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(screen.getByTestId('is-deleting')).toHaveTextContent('true');
+
+      // Resolve the fetch
+      await act(async () => {
+        resolvePromise!(
+          new Response(JSON.stringify({ feature: { id: 'f1' } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+      });
+
+      expect(screen.getByTestId('is-deleting')).toHaveTextContent('false');
+    });
+
+    it('isDeleting is false after API error', async () => {
+      mockDeleteFetchError();
+
+      renderHook([featureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(screen.getByTestId('is-deleting')).toHaveTextContent('false');
+    });
+
+    it('does not call router.refresh() on error', async () => {
+      mockDeleteFetchError();
+
+      renderHook([featureNode] as CanvasNodeType[]);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-feature'));
+      });
+
+      expect(mockRefresh).not.toHaveBeenCalled();
     });
   });
 });

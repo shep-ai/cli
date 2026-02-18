@@ -20,6 +20,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     selectedNode,
     isCreateDrawerOpen,
     isSubmitting,
+    isDeleting,
     onNodesChange,
     handleConnect,
     handleAddFeature,
@@ -29,6 +30,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleNodeClick,
     clearSelection,
     handleCreateFeatureSubmit,
+    handleDeleteFeature,
     closeCreateDrawer,
   } = useControlCenterState(initialNodes, initialEdges);
 
@@ -54,7 +56,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onRepositorySelect={handleAddRepository}
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />
-      <FeatureDrawer selectedNode={selectedNode} onClose={clearSelection} />
+      <FeatureDrawer
+        selectedNode={selectedNode}
+        onClose={clearSelection}
+        onDelete={handleDeleteFeature}
+        isDeleting={isDeleting}
+      />
       <FeatureCreateDrawer
         open={isCreateDrawerOpen}
         onClose={closeCreateDrawer}

@@ -253,3 +253,52 @@ function AllLifecyclesRender() {
 export const AllLifecycles: Story = {
   render: () => <AllLifecyclesRender />,
 };
+
+/* ---------------------------------------------------------------------------
+ * Delete stories
+ * ------------------------------------------------------------------------- */
+
+function noop() {
+  // intentional no-op for stories
+}
+
+function DrawerTriggerWithDelete({
+  data,
+  label,
+  isDeleting = false,
+}: {
+  data: FeatureNodeData;
+  label: string;
+  isDeleting?: boolean;
+}) {
+  const [selected, setSelected] = useState<FeatureNodeData | null>(null);
+
+  return (
+    <div className="flex h-screen items-start p-4">
+      <Button variant="outline" onClick={() => setSelected(data)}>
+        {label}
+      </Button>
+      <FeatureDrawer
+        selectedNode={selected}
+        onClose={() => setSelected(null)}
+        onDelete={noop}
+        isDeleting={isDeleting}
+      />
+    </div>
+  );
+}
+
+/** FeatureDrawer with a delete button in the footer. */
+export const WithDeleteButton: Story = {
+  render: () => <DrawerTriggerWithDelete data={doneData} label="Open With Delete" />,
+};
+
+/** FeatureDrawer showing the delete button in loading/disabled state. */
+export const DeletingState: Story = {
+  render: () => <DrawerTriggerWithDelete data={doneData} label="Open Deleting State" isDeleting />,
+};
+
+/** FeatureDrawer with a running agent showing the running-agent warning in the AlertDialog. */
+export const DeleteRunningAgent: Story = {
+  render: () => <DrawerTriggerWithDelete data={runningData} label="Open Running Agent Delete" />,
+};
