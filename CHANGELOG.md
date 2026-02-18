@@ -1,3 +1,9 @@
+## [1.32.1](https://github.com/shep-ai/cli/compare/v1.32.0...v1.32.1) (2026-02-18)
+
+### Bug Fixes
+
+- **build:** include public/ directory in web production build ([a63668a](https://github.com/shep-ai/cli/commit/a63668af84aa64d33faa5d80a8ea6215b3255674))
+
 # [1.32.0](https://github.com/shep-ai/cli/compare/v1.31.0...v1.32.0) (2026-02-18)
 
 ### Features
