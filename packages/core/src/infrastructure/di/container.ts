@@ -36,6 +36,8 @@ import type { IWorktreeService } from '../../application/ports/output/services/w
 import { WorktreeService } from '../services/git/worktree.service.js';
 import type { IToolInstallerService } from '../../application/ports/output/services/tool-installer.service.js';
 import { ToolInstallerServiceImpl } from '../services/tool-installer/tool-installer.service.js';
+import type { IGitPrService } from '../../application/ports/output/services/git-pr-service.interface.js';
+import { GitPrService } from '../services/git/git-pr.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -146,6 +148,7 @@ export async function initializeContainer(): Promise<typeof container> {
     'IToolInstallerService',
     ToolInstallerServiceImpl
   );
+  container.registerSingleton<IGitPrService>('IGitPrService', GitPrService);
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {

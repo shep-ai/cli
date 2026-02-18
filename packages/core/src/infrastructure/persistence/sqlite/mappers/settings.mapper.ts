@@ -61,6 +61,10 @@ export interface SettingsRow {
   notif_evt_waiting_approval: number;
   notif_evt_agent_completed: number;
   notif_evt_agent_failed: number;
+
+  // WorkflowConfig (workflow.*)
+  workflow_open_pr_on_impl_complete: number;
+  workflow_auto_merge_on_impl_complete: number;
 }
 
 /**
@@ -112,6 +116,12 @@ export function toDatabase(settings: Settings): SettingsRow {
     notif_evt_waiting_approval: settings.notifications.events.waitingApproval ? 1 : 0,
     notif_evt_agent_completed: settings.notifications.events.agentCompleted ? 1 : 0,
     notif_evt_agent_failed: settings.notifications.events.agentFailed ? 1 : 0,
+
+    // WorkflowConfig (boolean → INTEGER)
+    workflow_open_pr_on_impl_complete: settings.workflow.openPrOnImplementationComplete ? 1 : 0,
+    workflow_auto_merge_on_impl_complete: settings.workflow.autoMergeOnImplementationComplete
+      ? 1
+      : 0,
   };
 }
 
@@ -175,6 +185,12 @@ export function fromDatabase(row: SettingsRow): Settings {
         agentCompleted: row.notif_evt_agent_completed === 1,
         agentFailed: row.notif_evt_agent_failed === 1,
       },
+    },
+
+    // WorkflowConfig (INTEGER → boolean)
+    workflow: {
+      openPrOnImplementationComplete: row.workflow_open_pr_on_impl_complete === 1,
+      autoMergeOnImplementationComplete: row.workflow_auto_merge_on_impl_complete === 1,
     },
   };
 }

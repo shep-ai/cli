@@ -62,6 +62,10 @@ describe('SQLiteSettingsRepository', () => {
         agentFailed: true,
       },
     },
+    workflow: {
+      openPrOnImplementationComplete: false,
+      autoMergeOnImplementationComplete: false,
+    },
   });
 
   beforeEach(async () => {

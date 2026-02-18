@@ -398,7 +398,7 @@ describe('createFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-test',
-          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
         },
         config
       );

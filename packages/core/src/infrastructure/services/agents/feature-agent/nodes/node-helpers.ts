@@ -95,16 +95,27 @@ export function safeYamlLoad(content: string): unknown {
  * Gates control which phases auto-approve:
  * - allowPrd: when true, skip interrupt after requirements phase
  * - allowPlan: when true, skip interrupt after plan phase
+ * - allowMerge: when true, skip interrupt after merge phase
  *
  * Nodes not covered by a gate (analyze, research) never interrupt.
  * The implement node always interrupts when gates are present
- * (unless both gates are true, meaning fully autonomous).
+ * (unless all three gates are true, meaning fully autonomous).
+ *
+ * @param autoMerge - When true, overrides allowMerge to treat merge as approved.
  */
-export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefined): boolean {
+export function shouldInterrupt(
+  nodeName: string,
+  gates: ApprovalGates | undefined,
+  autoMerge?: boolean
+): boolean {
   if (!gates) return false;
-  if (gates.allowPrd && gates.allowPlan) return false;
+
+  const effectiveAllowMerge = autoMerge ?? gates.allowMerge;
+
+  if (gates.allowPrd && gates.allowPlan && effectiveAllowMerge) return false;
   if (nodeName === 'requirements') return !gates.allowPrd;
   if (nodeName === 'plan') return !gates.allowPlan;
+  if (nodeName === 'merge') return !effectiveAllowMerge;
   if (nodeName === 'implement') return true;
   return false;
 }

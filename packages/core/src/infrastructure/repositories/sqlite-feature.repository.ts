@@ -33,11 +33,17 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
       INSERT INTO features (
         id, name, slug, description, repository_path, branch,
         lifecycle, messages, plan, related_artifacts,
-        agent_run_id, spec_path, created_at, updated_at
+        agent_run_id, spec_path,
+        open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
+        pr_url, pr_number, pr_status, commit_hash, ci_status,
+        created_at, updated_at
       ) VALUES (
         @id, @name, @slug, @description, @repository_path, @branch,
         @lifecycle, @messages, @plan, @related_artifacts,
-        @agent_run_id, @spec_path, @created_at, @updated_at
+        @agent_run_id, @spec_path,
+        @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
+        @pr_url, @pr_number, @pr_status, @commit_hash, @ci_status,
+        @created_at, @updated_at
       )
     `);
 
@@ -117,6 +123,16 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         related_artifacts = @related_artifacts,
         agent_run_id = @agent_run_id,
         spec_path = @spec_path,
+        open_pr = @open_pr,
+        auto_merge = @auto_merge,
+        allow_prd = @allow_prd,
+        allow_plan = @allow_plan,
+        allow_merge = @allow_merge,
+        pr_url = @pr_url,
+        pr_number = @pr_number,
+        pr_status = @pr_status,
+        commit_hash = @commit_hash,
+        ci_status = @ci_status,
         updated_at = @updated_at
       WHERE id = @id
     `);

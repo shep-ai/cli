@@ -120,6 +120,10 @@ describe('parseWorkerArgs', () => {
       resume: false,
       threadId: undefined,
       resumeFromInterrupt: false,
+      push: false,
+      openPr: false,
+      autoMerge: false,
+      allowMerge: false,
     });
   });
 
@@ -380,6 +384,10 @@ describe('runWorker', () => {
         repositoryPath: '/repo',
         worktreePath: '/wt/path',
         specDir: '/specs',
+        push: false,
+        openPr: false,
+        autoMerge: false,
+        allowMerge: false,
       },
       { configurable: { thread_id: 'thread-abc' } }
     );
