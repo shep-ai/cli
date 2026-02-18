@@ -1,3 +1,9 @@
+# [1.32.0](https://github.com/shep-ai/cli/compare/v1.31.0...v1.32.0) (2026-02-18)
+
+### Features
+
+- **web:** add optimistic feature creation with instant feedback ([#72](https://github.com/shep-ai/cli/issues/72)) ([edd81d8](https://github.com/shep-ai/cli/commit/edd81d8ae41976eed60f19f4149c4d370bb317b5))
+
 # [1.31.0](https://github.com/shep-ai/cli/compare/v1.30.0...v1.31.0) (2026-02-18)
 
 ### Features
