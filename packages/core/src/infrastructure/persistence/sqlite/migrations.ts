@@ -162,6 +162,20 @@ CREATE TABLE phase_timings (
 CREATE INDEX idx_phase_timings_run ON phase_timings(agent_run_id);
 `,
   },
+  {
+    version: 9,
+    sql: `
+-- Migration 009: Add Notification Preferences to Settings
+ALTER TABLE settings ADD COLUMN notif_in_app_enabled INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_browser_enabled INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_desktop_enabled INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_evt_agent_started INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_evt_phase_completed INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_evt_waiting_approval INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_evt_agent_completed INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_evt_agent_failed INTEGER NOT NULL DEFAULT 1;
+`,
+  },
 ];
 
 /**

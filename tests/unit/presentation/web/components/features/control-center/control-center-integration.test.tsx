@@ -38,7 +38,7 @@ const featureNodeA: CanvasNodeType = {
     lifecycle: 'implementation',
     state: 'running',
     progress: 45,
-    agentName: 'Planner',
+    agentType: 'claude-code',
     repositoryPath: '/home/user/my-repo',
     branch: 'feat/auth-module',
   } as FeatureNodeData,

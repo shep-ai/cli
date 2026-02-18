@@ -48,26 +48,26 @@ describe('FeatureNode', () => {
     expect(screen.getByText('Implement authentication flow')).toBeInTheDocument();
   });
 
-  it('renders featureId', () => {
-    renderFeatureNode({ featureId: '#f1' });
+  it('renders featureId in non-running state', () => {
+    renderFeatureNode({ featureId: '#f1', state: 'done' });
     expect(screen.getByText('#f1')).toBeInTheDocument();
   });
 
   describe('running state', () => {
-    it('shows badge instead of progress bar', () => {
+    it('shows indeterminate progress bar instead of badge', () => {
       renderFeatureNode({ state: 'running', progress: 45 });
-      expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
-      expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
+      expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
+      expect(screen.queryByTestId('feature-node-badge')).not.toBeInTheDocument();
     });
 
-    it('shows agent name and featureId in badge text', () => {
-      renderFeatureNode({ state: 'running', progress: 45, agentName: 'Planner' });
-      expect(screen.getByText('Planner #f1 running')).toBeInTheDocument();
+    it('shows lifecycle-specific running verb', () => {
+      renderFeatureNode({ state: 'running', lifecycle: 'requirements' });
+      expect(screen.getByText('Analyzing')).toBeInTheDocument();
     });
 
-    it('defaults to "Agent" when agentName not provided', () => {
-      renderFeatureNode({ state: 'running', progress: 45 });
-      expect(screen.getByText('Agent #f1 running')).toBeInTheDocument();
+    it('shows implementing verb for implementation phase', () => {
+      renderFeatureNode({ state: 'running', lifecycle: 'implementation' });
+      expect(screen.getByText('Implementing')).toBeInTheDocument();
     });
   });
 

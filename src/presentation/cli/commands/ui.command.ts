@@ -20,8 +20,15 @@ import { findAvailablePort, DEFAULT_PORT } from '@/infrastructure/services/port.
 import { container } from '@/infrastructure/di/container.js';
 import type { IVersionService } from '@/application/ports/output/services/version-service.interface.js';
 import type { IWebServerService } from '@/application/ports/output/services/web-server-service.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 import { setVersionEnvVars } from '@/infrastructure/services/version.service.js';
 import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
+import {
+  initializeNotificationWatcher,
+  getNotificationWatcher,
+} from '@/infrastructure/services/notifications/notification-watcher.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
 
 function parsePort(value: string): number {
@@ -64,6 +71,13 @@ Examples:
         const service = container.resolve<IWebServerService>('IWebServerService');
         await service.start(port, dir, dev);
 
+        // Start notification watcher to detect agent status transitions
+        const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
+        const phaseTimingRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
+        const notificationService = container.resolve<INotificationService>('INotificationService');
+        initializeNotificationWatcher(runRepo, phaseTimingRepo, notificationService);
+        getNotificationWatcher().start();
+
         messages.success(`Server ready at ${fmt.code(`http://localhost:${port}`)}`);
         messages.info('Press Ctrl+C to stop');
         messages.newline();
@@ -81,6 +95,7 @@ Examples:
           const forceExit = setTimeout(() => process.exit(0), 5000);
           forceExit.unref();
 
+          getNotificationWatcher().stop();
           await service.stop();
           process.exit(0);
         };

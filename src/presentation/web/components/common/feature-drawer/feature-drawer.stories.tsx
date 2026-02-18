@@ -38,7 +38,7 @@ const runningData: FeatureNodeData = {
   lifecycle: 'implementation',
   state: 'running',
   progress: 45,
-  agentName: 'Planner',
+  agentType: 'claude-code',
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/auth-module',
 };
@@ -152,7 +152,7 @@ export const AllFields: Story = {
         lifecycle: 'implementation',
         state: 'running',
         progress: 68,
-        agentName: 'Implementer',
+        agentType: 'cursor',
         runtime: '3h 15m',
         blockedBy: 'Database Migration',
         errorMessage: 'Token refresh failed: invalid_grant',
@@ -245,7 +245,7 @@ function AllLifecyclesRender() {
                 lifecycle: phase,
                 state: 'running',
                 progress: 50,
-                agentName: 'Agent',
+                agentType: 'claude-code',
                 repositoryPath: '/home/user/my-repo',
                 branch: 'feat/feature-name',
               });

@@ -1,5 +1,6 @@
 import { Loader2, CircleAlert, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
 import type { Node } from '@xyflow/react';
+import type { AgentTypeValue } from './agent-type-icons';
 
 export type FeatureNodeState = 'running' | 'action-required' | 'done' | 'blocked' | 'error';
 
@@ -21,6 +22,16 @@ export const lifecycleDisplayLabels: Record<FeatureLifecyclePhase, string> = {
   maintain: 'COMPLETED',
 };
 
+/** Present-participle verbs for the running badge, keyed by lifecycle phase. */
+export const lifecycleRunningVerbs: Record<FeatureLifecyclePhase, string> = {
+  requirements: 'Analyzing',
+  research: 'Researching',
+  implementation: 'Implementing',
+  review: 'Reviewing',
+  deploy: 'Deploying',
+  maintain: 'Maintaining',
+};
+
 export interface FeatureNodeData {
   [key: string]: unknown;
   name: string;
@@ -39,8 +50,8 @@ export interface FeatureNodeData {
   blockedBy?: string;
   /** Short error message for error state */
   errorMessage?: string;
-  /** Agent name shown in the running badge (e.g. "Planner") */
-  agentName?: string;
+  /** Agent executor type (e.g. "claude-code", "cursor"). */
+  agentType?: AgentTypeValue;
   onAction?: () => void;
   onSettings?: () => void;
   showHandles?: boolean;

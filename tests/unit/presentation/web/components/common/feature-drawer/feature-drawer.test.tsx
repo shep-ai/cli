@@ -27,7 +27,7 @@ const defaultData: FeatureNodeData = {
   lifecycle: 'implementation',
   state: 'running',
   progress: 45,
-  agentName: 'Planner',
+  agentType: 'claude-code',
   repositoryPath: '/home/user/my-repo',
   branch: 'feat/auth-module',
 };
@@ -140,13 +140,13 @@ describe('FeatureDrawer', () => {
       expect(screen.queryByText('Description')).not.toBeInTheDocument();
     });
 
-    it('shows agentName when provided', () => {
-      renderDrawer({ ...defaultData, agentName: 'Researcher' });
-      expect(screen.getByText('Researcher')).toBeInTheDocument();
+    it('shows agentType when provided', () => {
+      renderDrawer({ ...defaultData, agentType: 'cursor' });
+      expect(screen.getByText('cursor')).toBeInTheDocument();
     });
 
-    it('hides agent info when agentName is undefined', () => {
-      renderDrawer({ ...defaultData, agentName: undefined });
+    it('hides agent info when agentType is undefined', () => {
+      renderDrawer({ ...defaultData, agentType: undefined });
       expect(screen.queryByText('Agent')).not.toBeInTheDocument();
     });
 
@@ -185,7 +185,7 @@ describe('FeatureDrawer', () => {
         state: 'error',
         errorMessage: undefined,
         description: undefined,
-        agentName: undefined,
+        agentType: undefined,
         runtime: undefined,
         blockedBy: undefined,
       });

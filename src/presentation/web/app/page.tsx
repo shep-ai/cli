@@ -1,6 +1,9 @@
 import { ControlCenter } from '@/components/features/control-center';
 import { getAgentRun, getFeatures } from '@shepai/core/infrastructure/di/use-cases-bridge';
-import { deriveState } from './derive-state';
+import {
+  deriveNodeState,
+  deriveProgress,
+} from '@/components/common/feature-node/derive-feature-state';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
@@ -33,12 +36,7 @@ export default async function HomePage() {
   const featuresWithRuns = await Promise.all(
     features.map(async (feature) => {
       const run = feature.agentRunId ? await getAgentRun(feature.agentRunId) : null;
-      return {
-        feature,
-        agentStatus: run?.status,
-        agentError: run?.error,
-        agentResult: run?.result,
-      };
+      return { feature, run };
     })
   );
 
@@ -65,10 +63,10 @@ export default async function HomePage() {
       data: { name: repoName },
     });
 
-    repoFeatures.forEach(({ feature, agentStatus, agentError, agentResult }) => {
-      const agentNode = agentResult?.startsWith('node:') ? agentResult.slice(5) : undefined;
+    repoFeatures.forEach(({ feature, run }) => {
+      const agentNode = run?.result?.startsWith('node:') ? run.result.slice(5) : undefined;
       const lifecycle: FeatureLifecyclePhase =
-        agentStatus === 'completed'
+        run?.status === 'completed'
           ? 'maintain'
           : ((agentNode ? nodeToLifecyclePhase[agentNode] : undefined) ??
             lifecycleMap[feature.lifecycle] ??
@@ -81,8 +79,10 @@ export default async function HomePage() {
         lifecycle,
         repositoryPath: feature.repositoryPath,
         branch: feature.branch,
-        ...deriveState(lifecycle, agentStatus),
-        ...(agentError && { errorMessage: agentError }),
+        state: deriveNodeState(feature, run),
+        progress: deriveProgress(feature),
+        ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
+        ...(run?.error && { errorMessage: run.error }),
       };
 
       const featureNodeId = `feat-${feature.id}`;
