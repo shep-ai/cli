@@ -1,3 +1,9 @@
+# [1.30.0](https://github.com/shep-ai/cli/compare/v1.29.1...v1.30.0) (2026-02-18)
+
+### Features
+
+- **web:** add AllAgentTypes story for FeatureNode agent type icons ([#71](https://github.com/shep-ai/cli/issues/71)) ([563667c](https://github.com/shep-ai/cli/commit/563667c0200dfa0d17a185cd34ba84de03217560))
+
 ## [1.29.1](https://github.com/shep-ai/cli/compare/v1.29.0...v1.29.1) (2026-02-18)
 
 # [1.29.0](https://github.com/shep-ai/cli/compare/v1.28.0...v1.29.0) (2026-02-18)
