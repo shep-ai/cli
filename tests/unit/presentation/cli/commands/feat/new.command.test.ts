@@ -128,7 +128,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+          approvalGates: { allowPrd: false, allowPlan: true, allowMerge: false },
         })
       );
     });
@@ -161,7 +161,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: undefined,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
         })
       );
     });
@@ -253,7 +253,7 @@ describe('createNewCommand', () => {
     const logCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls
       .map((args) => args.join(' '))
       .join('\n');
-    expect(logCalls).toMatch(/auto-approve through requirements/);
+    expect(logCalls).toMatch(/auto-approve: PRD/);
   });
 
   it('should set exitCode 1 on error', async () => {
