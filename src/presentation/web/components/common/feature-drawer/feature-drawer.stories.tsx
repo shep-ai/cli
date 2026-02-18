@@ -168,7 +168,19 @@ export const AllFields: Story = {
  * Matrix stories — interactive state/lifecycle switcher
  * ------------------------------------------------------------------------- */
 
+const creatingData: FeatureNodeData = {
+  name: 'User Onboarding',
+  description: 'Implement guided onboarding wizard',
+  featureId: '',
+  lifecycle: 'requirements',
+  state: 'creating',
+  progress: 0,
+  repositoryPath: '/home/user/my-repo',
+  branch: '',
+};
+
 const stateFixtures: Record<FeatureNodeState, FeatureNodeData> = {
+  creating: creatingData,
   running: runningData,
   'action-required': actionRequiredData,
   done: doneData,

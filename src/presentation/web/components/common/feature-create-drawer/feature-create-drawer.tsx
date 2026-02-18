@@ -28,10 +28,21 @@ import { CheckboxGroup } from '@/components/ui/checkbox-group';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
-import type { CreateFeatureInput } from '@shepai/core/application/use-cases/features/create/types';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+
+export interface FeatureCreatePayload {
+  name: string;
+  description?: string;
+  attachments: FileAttachment[];
+  repositoryPath: string;
+  approvalGates: {
+    allowPrd: boolean;
+    allowPlan: boolean;
+    allowMerge: boolean;
+  };
+}
 
 const AUTO_APPROVE_OPTIONS = [
   { id: 'allowPrd', label: 'PRD', description: 'Auto-approve requirements move to planning.' },
@@ -45,29 +56,10 @@ const EMPTY_GATES: Record<string, boolean> = {
   allowMerge: false,
 };
 
-function composeUserInput(
-  name: string,
-  description: string | undefined,
-  attachments: FileAttachment[]
-): string {
-  let userInput = `Feature: ${name}`;
-
-  if (description) {
-    userInput += `\n\n${description}`;
-  }
-
-  if (attachments.length > 0) {
-    const paths = attachments.map((a) => `- ${a.path}`).join('\n');
-    userInput += `\n\nAttached files:\n${paths}`;
-  }
-
-  return userInput;
-}
-
 export interface FeatureCreateDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateFeatureInput) => void;
+  onSubmit: (data: FeatureCreatePayload) => void;
   repositoryPath: string;
   isSubmitting?: boolean;
 }
@@ -105,9 +97,11 @@ export function FeatureCreateDrawer({
     (e: React.FormEvent) => {
       e.preventDefault();
       if (!name.trim()) return;
-      const userInput = composeUserInput(name.trim(), description.trim() || undefined, attachments);
+      const trimmedDescription = description.trim() || undefined;
       onSubmit({
-        userInput,
+        name: name.trim(),
+        description: trimmedDescription,
+        attachments,
         repositoryPath,
         approvalGates: {
           allowPrd: approvalGates.allowPrd ?? false,

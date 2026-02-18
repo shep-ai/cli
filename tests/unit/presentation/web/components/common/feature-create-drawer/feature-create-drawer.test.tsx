@@ -134,7 +134,7 @@ describe('FeatureCreateDrawer', () => {
   });
 
   describe('submission', () => {
-    it('calls onSubmit with CreateFeatureInput containing composed userInput and repositoryPath', async () => {
+    it('calls onSubmit with structured payload containing separate name and description fields', async () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
@@ -148,13 +148,15 @@ describe('FeatureCreateDrawer', () => {
 
       expect(onSubmit).toHaveBeenCalledOnce();
       expect(onSubmit).toHaveBeenCalledWith({
-        userInput: 'Feature: Auth Module\n\nOAuth2 flow',
+        name: 'Auth Module',
+        description: 'OAuth2 flow',
+        attachments: [],
         repositoryPath: '/Users/dev/my-repo',
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       });
     });
 
-    it('includes attachment paths in composed userInput', async () => {
+    it('includes attachments array with file objects', async () => {
       mockPickFiles.mockResolvedValue([mockPdf]);
       const onSubmit = vi.fn();
       const user = userEvent.setup();
@@ -167,10 +169,22 @@ describe('FeatureCreateDrawer', () => {
 
       expect(onSubmit).toHaveBeenCalledOnce();
       const submittedData = onSubmit.mock.calls[0][0];
-      expect(submittedData.userInput).toContain('Feature: Feature');
-      expect(submittedData.userInput).toContain('Attached files:');
-      expect(submittedData.userInput).toContain('- /Users/dev/docs/requirements.pdf');
+      expect(submittedData.name).toBe('Feature');
+      expect(submittedData.attachments).toEqual([mockPdf]);
       expect(submittedData.repositoryPath).toBe('/Users/dev/my-repo');
+    });
+
+    it('omits description when field is empty', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledOnce();
+      const submittedData = onSubmit.mock.calls[0][0];
+      expect(submittedData.description).toBeUndefined();
     });
 
     it('sends approvalGates with only PRD checked', async () => {

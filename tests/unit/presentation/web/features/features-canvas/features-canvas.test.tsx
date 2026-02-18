@@ -93,4 +93,47 @@ describe('FeaturesCanvas', () => {
     );
     expect(screen.getByTestId('custom-toolbar')).toBeInTheDocument();
   });
+
+  describe('non-interactive guard for creating state', () => {
+    const creatingNode: FeatureNodeType = {
+      id: 'creating-1',
+      type: 'featureNode',
+      position: { x: 0, y: 0 },
+      data: {
+        name: 'Optimistic Feature',
+        featureId: '#c1',
+        lifecycle: 'requirements',
+        state: 'creating',
+        progress: 0,
+        repositoryPath: '/home/user/repo',
+        branch: '',
+      },
+    };
+
+    it('does not inject onAction for feature nodes with state "creating"', () => {
+      const onNodeAction = vi.fn();
+      render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} onNodeAction={onNodeAction} />);
+      // The action button should not be rendered because onAction is not injected
+      expect(screen.queryByTestId('feature-node-action-button')).not.toBeInTheDocument();
+    });
+
+    it('does not inject onSettings for feature nodes with state "creating"', () => {
+      const onNodeSettings = vi.fn();
+      render(<FeaturesCanvas nodes={[creatingNode]} edges={[]} onNodeSettings={onNodeSettings} />);
+      // The settings button should not be rendered because onSettings is not injected
+      expect(screen.queryByTestId('feature-node-settings-button')).not.toBeInTheDocument();
+    });
+
+    it('still injects onAction for feature nodes with state "running"', () => {
+      const onNodeAction = vi.fn();
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeAction={onNodeAction} />);
+      expect(screen.getByTestId('feature-node-action-button')).toBeInTheDocument();
+    });
+
+    it('still injects onSettings for feature nodes with state "running"', () => {
+      const onNodeSettings = vi.fn();
+      render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeSettings={onNodeSettings} />);
+      expect(screen.getByTestId('feature-node-settings-button')).toBeInTheDocument();
+    });
+  });
 });

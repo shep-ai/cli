@@ -67,6 +67,16 @@ export const Default: Story = {
 
 const allStatesData: FeatureNodeData[] = [
   {
+    name: 'User Onboarding',
+    description: 'Implement guided onboarding wizard',
+    featureId: '',
+    lifecycle: 'requirements' as FeatureLifecyclePhase,
+    state: 'creating',
+    progress: 0,
+    repositoryPath: '/home/user/my-repo',
+    branch: '',
+  },
+  {
     name: 'Auth Module',
     description: 'Implement OAuth2 authentication flow',
     featureId: '#f1',
@@ -280,6 +290,18 @@ export const BlockedByFeature: Story = {
     state: 'blocked',
     progress: 20,
     blockedBy: 'Auth Module',
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const Creating: Story = {
+  args: {
+    name: 'User Onboarding',
+    description: 'Implement guided onboarding wizard',
+    featureId: '',
+    lifecycle: 'requirements',
+    state: 'creating',
+    progress: 0,
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
