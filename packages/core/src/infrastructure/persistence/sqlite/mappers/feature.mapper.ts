@@ -9,10 +9,13 @@
  * - Optional fields stored as NULL when missing
  * - Arrays/objects stored as JSON TEXT
  * - SdlcLifecycle stored as string value
+ * - ApprovalGates flattened to allow_prd, allow_plan, allow_merge columns
+ * - PullRequest flattened to pr_url, pr_number, pr_status, commit_hash, ci_status columns
+ * - allowMerge also written to auto_merge for backward compatibility
  */
 
 import type { Feature } from '../../../../domain/generated/output.js';
-import type { SdlcLifecycle } from '../../../../domain/generated/output.js';
+import type { SdlcLifecycle, PrStatus, CiStatus } from '../../../../domain/generated/output.js';
 
 /**
  * Database row type matching the features table schema.
@@ -31,12 +34,19 @@ export interface FeatureRow {
   related_artifacts: string;
   agent_run_id: string | null;
   spec_path: string | null;
-  // Workflow configuration
+  // Workflow configuration (flat columns)
   open_pr: number;
-  approval_gates: string;
+  auto_merge: number;
+  allow_prd: number;
+  allow_plan: number;
+  allow_merge: number;
   worktree_path: string | null;
-  // PR tracking (JSON blob or null)
-  pr: string | null;
+  // PR tracking (flat columns)
+  pr_url: string | null;
+  pr_number: number | null;
+  pr_status: string | null;
+  commit_hash: string | null;
+  ci_status: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -62,12 +72,19 @@ export function toDatabase(feature: Feature): FeatureRow {
     related_artifacts: JSON.stringify(feature.relatedArtifacts),
     agent_run_id: feature.agentRunId ?? null,
     spec_path: feature.specPath ?? null,
-    // Workflow configuration
+    // Flatten approvalGates to individual columns
     open_pr: feature.openPr ? 1 : 0,
-    approval_gates: JSON.stringify(feature.approvalGates),
+    auto_merge: feature.approvalGates?.allowMerge ? 1 : 0,
+    allow_prd: feature.approvalGates?.allowPrd ? 1 : 0,
+    allow_plan: feature.approvalGates?.allowPlan ? 1 : 0,
+    allow_merge: feature.approvalGates?.allowMerge ? 1 : 0,
     worktree_path: feature.worktreePath ?? null,
-    // PR tracking (JSON blob or null)
-    pr: feature.pr !== undefined ? JSON.stringify(feature.pr) : null,
+    // Flatten pr to individual columns
+    pr_url: feature.pr?.url ?? null,
+    pr_number: feature.pr?.number ?? null,
+    pr_status: feature.pr?.status ?? null,
+    commit_hash: feature.pr?.commitHash ?? null,
+    ci_status: feature.pr?.ciStatus ?? null,
     created_at: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
     updated_at: feature.updatedAt instanceof Date ? feature.updatedAt.getTime() : feature.updatedAt,
   };
@@ -96,11 +113,23 @@ export function fromDatabase(row: FeatureRow): Feature {
     ...(row.plan !== null && { plan: JSON.parse(row.plan) }),
     ...(row.agent_run_id !== null && { agentRunId: row.agent_run_id }),
     ...(row.spec_path !== null && { specPath: row.spec_path }),
-    // Workflow configuration
+    // Assemble approvalGates from flat columns
     openPr: row.open_pr === 1,
-    approvalGates: JSON.parse(row.approval_gates),
+    approvalGates: {
+      allowPrd: row.allow_prd === 1,
+      allowPlan: row.allow_plan === 1,
+      allowMerge: row.allow_merge === 1,
+    },
     ...(row.worktree_path !== null && { worktreePath: row.worktree_path }),
-    // PR tracking (NULL → undefined)
-    ...(row.pr !== null && { pr: JSON.parse(row.pr) }),
+    // Assemble pr from flat columns (only when pr_url exists)
+    ...(row.pr_url !== null && {
+      pr: {
+        url: row.pr_url,
+        number: row.pr_number!,
+        status: row.pr_status as PrStatus,
+        ...(row.commit_hash !== null && { commitHash: row.commit_hash }),
+        ...(row.ci_status !== null && { ciStatus: row.ci_status as CiStatus }),
+      },
+    }),
   };
 }
