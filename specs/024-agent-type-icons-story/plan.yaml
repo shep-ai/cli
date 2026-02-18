@@ -1,0 +1,116 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-type-icons-story
+summary: >
+  Single-file change to feature-node.stories.tsx that adds an AllAgentTypes grid story
+  and removes the unused agentName field. The implementation follows existing story
+  conventions (const data array, FeatureNodeCanvas wrapper, flex grid layout) and requires
+  no changes to components, types, or Storybook configuration.
+
+relatedFeatures: []
+technologies:
+  - Storybook 8 (@storybook/react)
+  - React 19
+  - '@xyflow/react (React Flow v12+)'
+  - Tailwind CSS v4
+  - TypeScript (strict mode)
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Cleanup: Remove unused agentName field'
+    description: >
+      Remove the no-op agentName field from all 4 locations in existing story data.
+      This comes first because it is purely subtractive, carries zero risk of behavioral
+      change, and establishes a clean baseline before adding new story data. Running
+      typecheck after this phase confirms no regressions.
+    parallel: false
+  - id: phase-2
+    name: 'Feature: Add AllAgentTypes story'
+    description: >
+      Add the AgentTypeValue import, define the allAgentTypesData const array with 6
+      entries (5 agent types + 1 fallback), and export the AllAgentTypes grid story.
+      This phase builds on the clean baseline from phase 1 and follows the established
+      AllStates/AllLifecycles grid pattern.
+    parallel: false
+  - id: phase-3
+    name: 'Verification: Build validation'
+    description: >
+      Run typecheck:web and build:storybook to verify the changes compile and build
+      correctly. Confirms all 6 agent type icons render and existing stories are
+      unaffected.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This change is entirely contained within the Storybook presentation layer. The
+  `feature-node.stories.tsx` file is a development-only artifact that renders
+  `FeatureNode` components using React Flow's `FeatureNodeCanvas` wrapper.
+
+  The existing architecture already supports everything needed:
+  - `FeatureNodeData.agentType?: AgentTypeValue` is defined in `feature-node-state-config.ts` (line 54)
+  - `getAgentTypeIcon()` resolves agent types to brand icons in `agent-type-icons.tsx` (line 38)
+  - `FeatureNode` renders `<AgentIcon>` when `state === 'running'` (feature-node.tsx)
+  - Icon assets exist in `public/icons/agents/`
+  - `FeatureNodeCanvas` wraps nodes in ReactFlowProvider for story rendering (lines 16-42)
+
+  No component, type, configuration, or infrastructure changes are needed.
+
+  ## Key Design Decisions
+
+  ### 1. Const data array pattern (from research)
+  The `allAgentTypesData` array is defined as a top-level const, matching
+  `allStatesData` (line 68) and `allLifecycles` (line 135). This keeps the render
+  function concise and the data self-documenting.
+
+  ### 2. Type-safe agent type values (NFR-5)
+  Import `AgentTypeValue` from `./agent-type-icons` and use it to type the data
+  entries. This provides compile-time verification of agent type strings and matches
+  the import pattern in `agent-type-icons.stories.tsx` (line 2).
+
+  ### 3. Uniform lifecycle phase
+  All 6 nodes use `implementation` as the lifecycle phase. The story's purpose is
+  comparing agent type icons — varying lifecycle would conflate two visual dimensions.
+  The `AllLifecycles` story already covers lifecycle variation.
+
+  ### 4. Grid layout matching existing stories
+  Reuse `FeatureNodeCanvas` at `{ width: 500, height: 350 }` inside a
+  `flex flex-wrap gap-6` container, exactly matching `AllStates` (lines 125-133).
+
+  ### 5. agentName removal scope
+  Remove from all 4 locations (lines 57, 76, 158, 237). The field is not part of
+  `FeatureNodeData` — it's silently absorbed by the `[key: string]: unknown` index
+  signature and has no visible effect. Complete removal prevents confusion.
+
+  ## Implementation Strategy
+
+  The work is sequenced in two functional phases plus a verification phase:
+
+  **Phase 1 (Cleanup)** comes first because removing `agentName` is purely subtractive
+  and establishes a clean baseline. Any regression from this removal would be immediately
+  detectable via typecheck, confirming the field truly has no effect.
+
+  **Phase 2 (Feature)** adds the new story on top of the clean baseline. It follows the
+  established pattern precisely: import type, define const data array, export grid story
+  using FeatureNodeCanvas.
+
+  **Phase 3 (Verification)** runs typecheck:web and build:storybook as the final gate,
+  matching CI requirements (NFR-1, NFR-3).
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Removing agentName breaks existing stories | Field is not on FeatureNodeData interface; only absorbed by index signature with no read path. Typecheck after removal confirms safety. |
+  | Agent icon assets missing in Storybook | Assets already verified present in public/icons/agents/ and served via Storybook static dirs config. |
+  | AllAgentTypes grid layout inconsistent with other grids | Exact same FeatureNodeCanvas wrapper, dimensions, and flex layout as AllStates. |
+  | AgentTypeValue import causes circular dependency | agent-type-icons.tsx has no imports from feature-node-state-config.ts; dependency is one-directional. |
