@@ -44,14 +44,14 @@ export function createNewCommand(): Command {
 
         // Build approval gates from flags (default: pause after every phase)
         let approvalGates: ApprovalGates | undefined = {
-          allowPrd: false,
-          allowPlan: false,
+          allowPrd: !!options.allowPrd,
+          allowPlan: !!options.allowPlan,
           allowMerge: false,
         };
-        if (options.allowPrd) approvalGates = { ...approvalGates, allowPrd: true };
-        if (options.allowPlan)
-          approvalGates = { allowPrd: true, allowPlan: true, allowMerge: false };
-        if (options.allowAll) approvalGates = undefined; // no gates = fully autonomous
+
+        if (options.allowAll) {
+          approvalGates = undefined; // no gates = fully autonomous
+        }
 
         const result = await spinner('Thinking', () =>
           useCase.execute({

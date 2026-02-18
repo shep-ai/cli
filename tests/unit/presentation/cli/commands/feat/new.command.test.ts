@@ -108,7 +108,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+          approvalGates: { allowPrd: false, allowPlan: true, allowMerge: false },
         })
       );
     });
