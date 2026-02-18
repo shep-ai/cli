@@ -1,3 +1,13 @@
+# [1.27.0](https://github.com/shep-ai/cli/compare/v1.26.0...v1.27.0) (2026-02-18)
+
+### Bug Fixes
+
+- **ci:** suppress CVE-2026-26960 and add trivyignores to filesystem scans ([#67](https://github.com/shep-ai/cli/issues/67)) ([45232d3](https://github.com/shep-ai/cli/commit/45232d325ee8737911ae7d47520cfce1740c579f))
+
+### Features
+
+- **domain:** add agent notification system with SSE streaming ([#65](https://github.com/shep-ai/cli/issues/65)) ([ee3d7d4](https://github.com/shep-ai/cli/commit/ee3d7d40169a5981c3df287af297005adeaa9931))
+
 # [1.26.0](https://github.com/shep-ai/cli/compare/v1.25.0...v1.26.0) (2026-02-17)
 
 ### Features
