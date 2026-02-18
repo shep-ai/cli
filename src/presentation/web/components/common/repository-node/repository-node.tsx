@@ -49,7 +49,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
         <div
           className={cn(
             'flex shrink-0 items-center gap-1',
-            (data.repositoryPath || data.onAdd) && 'ml-auto'
+            (data.repositoryPath ?? data.onAdd) && 'ml-auto'
           )}
           onClick={(e) => e.stopPropagation()}
         >
