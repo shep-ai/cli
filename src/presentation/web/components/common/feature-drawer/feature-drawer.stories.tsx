@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { FeatureDrawer } from './feature-drawer';
 import type { FeatureNodeData } from '@/components/common/feature-node';
@@ -352,4 +352,157 @@ export const DeletingState: Story = {
 /** FeatureDrawer with a running agent showing the running-agent warning in the AlertDialog. */
 export const DeleteRunningAgent: Story = {
   render: () => <DrawerTriggerWithDelete data={runningData} label="Open Running Agent Delete" />,
+};
+
+/* ---------------------------------------------------------------------------
+ * PRD Spec stories — fetch mock + action-required/requirements fixtures
+ * ------------------------------------------------------------------------- */
+
+const prdSpecFixture = {
+  name: 'api-rate-limiting',
+  summary:
+    'Implement sliding window rate limiting for all public API endpoints to prevent abuse and ensure fair usage across tenants.',
+  content:
+    '## Problem Statement\n\nPublic API endpoints are currently unprotected against abuse.\nHigh-volume consumers can overwhelm the service, degrading performance for all users.\n\n## Success Criteria\n\n- [ ] SC-1: Rate limit headers present on all public responses\n- [ ] SC-2: 429 status returned when limit exceeded\n- [ ] SC-3: Sliding window algorithm with per-tenant configuration\n\n## Functional Requirements\n\n- FR-1: Implement sliding window counter using Redis sorted sets\n- FR-2: Configure per-endpoint and per-tenant limits via YAML\n- FR-3: Return Retry-After header with 429 responses',
+  openQuestions: [
+    {
+      question: 'Should rate limits be configurable per-tenant or global only?',
+      resolved: true,
+      answer: 'Per-tenant with a global fallback default. Store in tenant settings.',
+    },
+    {
+      question: 'Which Redis data structure for the sliding window?',
+      resolved: true,
+      answer: 'Sorted sets with ZRANGEBYSCORE for window queries.',
+    },
+    {
+      question: 'Should we add rate limit headers to internal endpoints too?',
+      resolved: false,
+    },
+  ],
+  technologies: ['Redis', 'Express middleware', 'TypeScript'],
+  relatedFeatures: [],
+  relatedLinks: [],
+  phase: 'Requirements',
+  sizeEstimate: 'M',
+};
+
+const longContentFixture = {
+  ...prdSpecFixture,
+  content: Array.from(
+    { length: 80 },
+    (_, i) =>
+      `Line ${i + 1}: This is a long PRD content line for testing scroll behavior in the drawer component.`
+  ).join('\n'),
+};
+
+const mixedQuestionsFixture = {
+  ...prdSpecFixture,
+  openQuestions: [
+    {
+      question: 'Should rate limits be configurable per-tenant or global only?',
+      resolved: true,
+      answer: 'Per-tenant with a global fallback default.',
+    },
+    { question: 'Which Redis data structure for the sliding window?', resolved: false },
+    {
+      question: 'How should we handle rate limit bypass for internal services?',
+      resolved: true,
+      answer:
+        'Use a shared secret header that bypasses rate limiting for service-to-service calls.',
+    },
+    { question: 'Should we expose rate limit metrics via Prometheus?', resolved: false },
+  ],
+};
+
+/**
+ * Wrapper that mocks fetch for /api/features/.../spec to return fixture data.
+ * Restores original fetch on unmount.
+ */
+function DrawerTriggerWithSpecMock({
+  data,
+  label,
+  specResponse,
+  specStatus = 200,
+}: {
+  data: FeatureNodeData;
+  label: string;
+  specResponse?: object;
+  specStatus?: number;
+}) {
+  const [selected, setSelected] = useState<FeatureNodeData | null>(null);
+
+  useEffect(() => {
+    const originalFetch = window.fetch;
+
+    window.fetch = (async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes('/api/features/') && url.endsWith('/spec')) {
+        // Simulate a small network delay
+        await new Promise((r) => setTimeout(r, 300));
+        return new Response(JSON.stringify(specResponse ?? { error: 'Not found' }), {
+          status: specStatus,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      return originalFetch(input, init);
+    }) as typeof window.fetch;
+
+    return () => {
+      window.fetch = originalFetch;
+    };
+  }, [specResponse, specStatus]);
+
+  return (
+    <div className="flex h-screen items-start p-4">
+      <Button variant="outline" onClick={() => setSelected(data)}>
+        {label}
+      </Button>
+      <FeatureDrawer selectedNode={selected} onClose={() => setSelected(null)} />
+    </div>
+  );
+}
+
+/** Action-required + requirements with a full PRD spec (summary, questions, content). */
+export const ActionRequiredWithPrd: Story = {
+  render: () => (
+    <DrawerTriggerWithSpecMock
+      data={actionRequiredData}
+      label="Open With PRD"
+      specResponse={prdSpecFixture}
+    />
+  ),
+};
+
+/** Action-required + requirements but spec API returns 404 — no PRD section shown. */
+export const ActionRequiredNoPrd: Story = {
+  render: () => (
+    <DrawerTriggerWithSpecMock
+      data={actionRequiredData}
+      label="Open Without PRD"
+      specStatus={404}
+    />
+  ),
+};
+
+/** Long PRD content that demonstrates ScrollArea scrolling at max-height 400px. */
+export const ActionRequiredLongContent: Story = {
+  render: () => (
+    <DrawerTriggerWithSpecMock
+      data={actionRequiredData}
+      label="Open Long Content PRD"
+      specResponse={longContentFixture}
+    />
+  ),
+};
+
+/** Mixed resolved/unresolved open questions with Badge variants. */
+export const ActionRequiredMixedQuestions: Story = {
+  render: () => (
+    <DrawerTriggerWithSpecMock
+      data={actionRequiredData}
+      label="Open Mixed Questions PRD"
+      specResponse={mixedQuestionsFixture}
+    />
+  ),
 };

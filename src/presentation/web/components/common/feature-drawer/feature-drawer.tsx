@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { XIcon, Code2, Terminal, Loader2, CircleAlert, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -12,6 +13,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { CometSpinner } from '@/components/ui/comet-spinner';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,6 +29,17 @@ import {
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import { useFeatureActions } from './use-feature-actions';
+
+/** Lightweight shape of the spec data returned by /api/features/[id]/spec */
+interface SpecData {
+  summary?: string;
+  content?: string;
+  openQuestions?: {
+    question: string;
+    resolved: boolean;
+    answer?: string;
+  }[];
+}
 
 export interface FeatureDrawerProps {
   selectedNode: FeatureNodeData | null;
@@ -106,6 +120,9 @@ export function FeatureDrawer({
             </div>
 
             <Separator />
+
+            {/* PRD Spec (only when action-required + requirements) */}
+            <PrdSection featureId={selectedNode.featureId} selectedNode={selectedNode} />
 
             {/* Details */}
             <DetailsSection data={selectedNode} />
@@ -207,6 +224,122 @@ function DetailRow({ label, value }: { label: string; value: string }) {
       <span className="text-muted-foreground text-xs font-medium">{label}</span>
       <span className="text-sm">{value}</span>
     </div>
+  );
+}
+
+function PrdSection({
+  featureId,
+  selectedNode,
+}: {
+  featureId: string;
+  selectedNode: FeatureNodeData;
+}) {
+  const [specData, setSpecData] = useState<SpecData | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const shouldShow =
+    selectedNode.state === 'action-required' && selectedNode.lifecycle === 'requirements';
+
+  useEffect(() => {
+    if (!shouldShow || !featureId) {
+      setSpecData(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    setLoading(true);
+
+    fetch(`/api/features/${encodeURIComponent(featureId)}/spec`, {
+      signal: controller.signal,
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Not found');
+        return res.json();
+      })
+      .then((data: SpecData) => {
+        if (!controller.signal.aborted) {
+          setSpecData(data);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setSpecData(null);
+        }
+      })
+      .finally(() => {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      controller.abort();
+    };
+  }, [shouldShow, featureId]);
+
+  if (!shouldShow) return null;
+
+  if (loading) {
+    return (
+      <>
+        <div data-testid="feature-drawer-prd" className="flex items-center justify-center p-4">
+          <Loader2 className="text-muted-foreground h-5 w-5 animate-spin" />
+        </div>
+        <Separator />
+      </>
+    );
+  }
+
+  if (!specData) return null;
+
+  return (
+    <>
+      <div data-testid="feature-drawer-prd" className="flex flex-col gap-3 p-4">
+        <span className="text-muted-foreground text-xs font-semibold tracking-wider">PRD Spec</span>
+
+        {specData.summary ? <p className="text-sm">{specData.summary}</p> : null}
+
+        {specData.openQuestions && specData.openQuestions.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            <span className="text-muted-foreground text-xs font-medium">Open Questions</span>
+            <ul className="flex flex-col gap-1.5">
+              {specData.openQuestions.map((q) => (
+                <li key={q.question} className="flex flex-col gap-1">
+                  <div className="flex items-start gap-2">
+                    <Badge
+                      className={cn(
+                        'mt-0.5 shrink-0',
+                        q.resolved
+                          ? 'border-transparent bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                          : 'border-transparent bg-amber-100 text-amber-800 dark:bg-amber-900 dark:text-amber-200'
+                      )}
+                    >
+                      {q.resolved ? 'Resolved' : 'Open'}
+                    </Badge>
+                    <span className="text-sm">{q.question}</span>
+                  </div>
+                  {q.resolved && q.answer ? (
+                    <span className="text-muted-foreground ml-[4.5rem] text-xs">{q.answer}</span>
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {specData.content ? (
+          <div className="flex flex-col gap-1">
+            <span className="text-muted-foreground text-xs font-medium">Content</span>
+            <ScrollArea className="max-h-[400px]">
+              <pre className="text-muted-foreground text-xs leading-relaxed whitespace-pre-wrap">
+                {specData.content}
+              </pre>
+            </ScrollArea>
+          </div>
+        ) : null}
+      </div>
+      <Separator />
+    </>
   );
 }
 

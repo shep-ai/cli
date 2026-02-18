@@ -7,12 +7,15 @@
  * Usage: shep feat show <id>
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Command } from 'commander';
+import yaml from 'js-yaml';
 import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
-import type { Feature, AgentRun, PhaseTiming } from '@/domain/generated/output.js';
+import type { Feature, AgentRun, PhaseTiming, FeatureSpec } from '@/domain/generated/output.js';
 import { colors, symbols, messages, renderDetailView } from '../../ui/index.js';
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
@@ -176,6 +179,55 @@ export function createShowCommand(): Command {
               `  ${colors.accent('shep feat reject')}   Cancel with feedback`,
             ].join('\n'),
           });
+        }
+
+        // PRD Spec display: show when awaiting PRD approval at requirements node
+        if (
+          feature.specPath &&
+          run?.status === 'waiting_approval' &&
+          run?.result === 'node:requirements'
+        ) {
+          try {
+            const raw = readFileSync(join(feature.specPath, 'spec.yaml'), 'utf-8');
+            const spec = yaml.load(raw) as FeatureSpec;
+
+            const lines: string[] = [];
+
+            if (spec.summary) {
+              lines.push(spec.summary.trim());
+              lines.push('');
+            }
+
+            if (spec.openQuestions?.length) {
+              lines.push('Open Questions:');
+              for (const q of spec.openQuestions) {
+                const prefix = q.resolved ? '[RESOLVED]' : '[OPEN]';
+                lines.push(`  ${prefix} ${q.question}`);
+                if (q.resolved && q.answer) {
+                  lines.push(`    ${colors.muted(q.answer.trim())}`);
+                }
+              }
+              lines.push('');
+            }
+
+            if (spec.content) {
+              const contentLines = spec.content.split('\n');
+              const MAX_LINES = 50;
+              const truncated = contentLines.length > MAX_LINES;
+              lines.push(...contentLines.slice(0, MAX_LINES));
+              if (truncated) {
+                lines.push(
+                  `\n${colors.muted(`[truncated — see full spec at ${feature.specPath}/spec.yaml]`)}`
+                );
+              }
+            }
+
+            if (lines.length > 0) {
+              textBlocks.push({ title: 'PRD Spec', content: lines.join('\n') });
+            }
+          } catch {
+            // Silently omit PRD section if spec.yaml cannot be read or parsed
+          }
         }
 
         renderDetailView({

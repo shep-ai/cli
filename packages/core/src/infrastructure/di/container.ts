@@ -269,6 +269,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('DeleteFeatureUseCase', {
     useFactory: (c) => c.resolve(DeleteFeatureUseCase),
   });
+  container.register('ShowFeatureUseCase', {
+    useFactory: (c) => c.resolve(ShowFeatureUseCase),
+  });
 
   _initialized = true;
   return container;

@@ -3,24 +3,24 @@
 
 name: display-prd-spec
 summary: >
-  Presentation-layer-only feature that reads and displays PRD spec.yaml content in the CLI
-  feat show/review commands and Web UI feature drawer when a feature is awaiting PRD approval.
-  Uses direct readFileSync + js-yaml at each call site (no shared utility), a new GET
-  /api/features/[id]/spec API route with ShowFeatureUseCase string-token alias, and
-  ScrollArea + Badge shadcn components for the drawer. All data types already exist in
-  TypeSpec-generated output (FeatureSpec, OpenQuestion). No new domain models, repositories,
-  or use cases needed. Implementation follows 3 phases with 8 tasks across ~4 hours.
+  Feature implementation that reads and displays PRD spec.yaml content in the CLI feat show/review
+  commands and Web UI feature drawer when a feature is awaiting PRD approval. Creates GetFeaturePrdUseCase
+  in the application layer that receives a Feature and returns an Artifact (PRD category) with parsed
+  FeatureSpec content. Reuses existing TypeSpec domain models (Artifact, FeatureSpec, OpenQuestion).
+  Web UI calls use case server-side via server actions/components. CLI commands inject and call
+  directly. Uses ScrollArea + Badge shadcn components. Implementation follows 3 phases with TDD
+  Red-Green-Refactor cycles.
 
 # Relationships
 relatedFeatures: []
 
 technologies:
   - Commander.js (CLI commands)
-  - Next.js App Router (API route)
+  - Next.js Server Components / Server Actions (Web UI server-side calls)
   - React / shadcn-ui (Badge, ScrollArea)
   - js-yaml (YAML parsing - existing dependency)
   - TypeSpec generated types (FeatureSpec, OpenQuestion)
-  - tsyringe (DI container - string-token alias)
+  - tsyringe (DI container)
   - Storybook (component stories)
   - Vitest (unit tests)
 
@@ -28,37 +28,42 @@ relatedLinks: []
 
 phases:
   - id: phase-1
-    name: 'DI Container & API Route Foundation'
+    name: 'GetFeaturePrdUseCase — Application Layer (Feature → Artifact)'
     description: >
-      Add the ShowFeatureUseCase string-token alias in the DI container and create the
-      GET /api/features/[id]/spec API route. This must come first because the Web UI
-      drawer depends on this API route to fetch spec content. The DI alias follows the
-      exact pattern already used for CreateFeatureUseCase, ListFeaturesUseCase, and
-      DeleteFeatureUseCase (container.ts lines 263-271).
+      Create a new GetFeaturePrdUseCase in the application layer that receives a Feature,
+      reads spec.yaml from feature.specPath, parses it with js-yaml to FeatureSpec, and
+      returns an Artifact object (PRD category) with parsed content, summary, and openQuestions.
+      Reuses all existing domain models (Artifact, FeatureSpec, OpenQuestion) from TypeSpec-
+      generated output. Register in DI container. This is the foundation that both CLI and
+      Web UI depend on. Includes comprehensive unit tests following TDD (RED: failing tests
+      for parsing, error handling; GREEN: minimal implementation; REFACTOR: clean up).
     parallel: false
 
   - id: phase-2
-    name: 'CLI Commands — PRD Display'
+    name: 'CLI Commands — feat show and feat review PRD Display'
     description: >
       Add PRD spec content display to both feat show and feat review commands. Show command
       adds a "PRD Spec" textBlock (following existing Plan/Messages/Awaiting Approval pattern).
       Review command adds inline console.log statements (following its existing color pattern).
       Both conditionally display when specPath exists + waiting_approval + node:requirements.
-      Phase 2 is independent of Phase 1 (no API route dependency for CLI).
+      Each CLI command calls GetFeaturePrdUseCase directly. Includes unit tests for content
+      truncation, conditional display logic, and error handling.
     parallel: false
 
   - id: phase-3
-    name: 'Web UI Drawer — PRD Section & Stories'
+    name: 'Web UI Drawer — Server-Side PRD Section & Stories'
     description: >
-      Add the conditional PRD section to the FeatureDrawer component that fetches spec
-      content from the Phase 1 API route and displays it with summary, open questions
-      (Badge components), and scrollable content (ScrollArea). Add comprehensive Storybook
-      stories covering all states. Depends on Phase 1 for the API route.
+      Add the conditional PRD section to the FeatureDrawer component. The drawer calls
+      GetFeaturePrdUseCase server-side (via server action or server component) to fetch
+      spec content, then displays it with summary, open questions (Badge components), and
+      scrollable content (ScrollArea). Add comprehensive Storybook stories covering all
+      states (with/without spec, long content, open questions). Depends on Phase 1 for
+      the use case.
     parallel: false
 
 filesToCreate:
-  - src/presentation/web/app/api/features/[id]/spec/route.ts
-  - tests/unit/presentation/web/api/features/spec/route.test.ts
+  - packages/core/src/application/use-cases/feature/get-feature-prd.use-case.ts
+  - tests/unit/application/use-cases/feature/get-feature-prd.use-case.test.ts
   - tests/unit/presentation/cli/commands/feat/show-prd.test.ts
   - tests/unit/presentation/cli/commands/feat/review-prd.test.ts
 
@@ -68,18 +73,32 @@ filesToModify:
   - src/presentation/cli/commands/feat/review.command.ts
   - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
   - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+  - src/presentation/web/app/(internal)/features/[featureId]/page.tsx (or server action file if needed)
 
 openQuestions: []
 
 content: |
   ## Architecture Overview
 
-  This feature is a pure presentation-layer change that reads an existing disk artifact
-  (spec.yaml) and displays it in three surfaces: CLI show, CLI review, and Web UI drawer.
+  This feature introduces a new **GetFeaturePrdUseCase** in the application layer that encapsulates
+  all spec.yaml reading and parsing logic. Both CLI and Web UI call this use case to fetch and
+  display PRD content. This follows Clean Architecture: the use case is domain/infrastructure-agnostic,
+  and presentation layers (CLI and Web) depend on it.
 
   **Data flow:**
-  - CLI: `show.command.ts` / `review.command.ts` -> `readFileSync(specPath + '/spec.yaml')` -> `yaml.load()` -> cast to `FeatureSpec` -> format and display
-  - Web: `feature-drawer.tsx` -> `fetch('/api/features/{id}/spec')` -> `route.ts` -> `resolve('ShowFeatureUseCase')` -> `feature.specPath` -> `readFileSync` + `yaml.load` -> JSON response -> drawer renders
+  - CLI: `show.command.ts` / `review.command.ts` -> load Feature -> inject `GetFeaturePrdUseCase` -> `useCase.execute(feature)` -> returns `Artifact` (PRD category) with parsed FeatureSpec content -> format and display
+  - Web: `feature-drawer.tsx` (or server action) -> server-side call to `GetFeaturePrdUseCase` -> `useCase.execute(feature)` -> returns `Artifact` (PRD category) with parsed FeatureSpec content -> drawer renders
+
+  **GetFeaturePrdUseCase responsibilities:**
+  1. Receive a `Feature` as input parameter
+  2. Validate that the Feature has `specPath` defined
+  3. Read `spec.yaml` from disk using `readFileSync(path.join(specPath, 'spec.yaml'))`
+  4. Parse YAML with `js-yaml.load()` and cast to `FeatureSpec`
+  5. Construct and return an `Artifact` object (from domain/generated/output):
+     - Use the parsed FeatureSpec properties to populate: summary, content, openQuestions
+     - Set category to `'PRD'`, format to `'Yaml'`, state to `'Done'`
+     - Use specPath as the artifact path
+  6. Handle errors gracefully (missing file, parse errors) - return Artifact with error state or undefined content
 
   **Conditional display logic (identical across all surfaces):**
   - CLI show: `feature.specPath && run?.status === 'waiting_approval' && run?.result === 'node:requirements'`
@@ -87,71 +106,95 @@ content: |
   - Web drawer: `selectedNode.state === 'action-required' && selectedNode.lifecycle === 'requirements'` (derive-feature-state.ts already maps waiting_approval to action-required)
 
   **Integration points:**
-  - `ShowFeatureUseCase` (packages/core) returns Feature with `specPath?: string`
-  - `spec.yaml` at `feature.specPath + '/spec.yaml'` -- specPath is the directory
+  - New `GetFeaturePrdUseCase` (packages/core/src/application/use-cases/feature/)
+  - `Artifact` model from TypeSpec domain/generated/output (PRD category)
   - `FeatureSpec` type from `@/domain/generated/output.js` for type casting
-  - `renderDetailView` textBlocks array for CLI show (detail-view.ts lines 74-83)
-  - Direct console.log with `colors.muted`/`colors.accent` for CLI review (review.command.ts lines 39-44)
-  - `Drawer` sections pattern with `Separator` for Web drawer (feature-drawer.tsx lines 79-111)
+  - `OpenQuestion` type from TypeSpec-generated output
+  - `renderDetailView` textBlocks array for CLI show (detail-view.ts)
+  - Direct console.log with `colors.muted`/`colors.accent` for CLI review
+  - `Drawer` sections pattern with `Separator` for Web drawer
+  - Server-side call (server action or server component) from `feature-drawer.tsx`
 
   ## Key Design Decisions
 
-  ### 1. Direct YAML Reading at Each Call Site (NFR-9)
-  Each of the 3 call sites (CLI show, CLI review, API route) performs its own
-  `readFileSync` + `yaml.load` + try/catch. This is a deliberate 3-line pattern -- creating
-  a shared utility is premature for 3 call sites and the spec explicitly prohibits it.
-  The spec.yaml files are structured artifacts (not raw AI output) so the sanitization
-  logic in `safeYamlLoad` from node-helpers.ts is unnecessary.
+  ### 1. Dedicated GetFeaturePrdUseCase (Application Layer)
+  Create a new use case encapsulating all spec.yaml reading and parsing logic. This follows
+  Clean Architecture by centralizing the business logic in the application layer. The use case
+  receives a Feature, reads spec.yaml from the feature's specPath, and returns an Artifact
+  object with PRD category and parsed FeatureSpec content. Reuses all existing domain models
+  (Artifact, FeatureSpec, OpenQuestion) from TypeSpec-generated output. Registered in DI
+  container and injected into CLI commands and Web UI server components/actions.
 
-  ### 2. ShowFeatureUseCase String-Token Alias
-  The DI container registers ShowFeatureUseCase as a class singleton (line 255) but lacks
-  a string-token alias. All other web-route use cases (Create, List, Delete) have one
-  (lines 263-271). Adding `container.register('ShowFeatureUseCase', ...)` follows this
-  exact pattern. Required because Turbopack cannot resolve .js-to-.ts imports inside
-  @shepai/core packages.
+  ### 2. Artifact as Return Type (Reusing Existing Schema)
+  Instead of creating a custom FeaturePrdData type, GetFeaturePrdUseCase returns an Artifact
+  domain model with:
+  - category: 'PRD'
+  - format: 'Yaml'
+  - state: 'Done' (or 'Todo' if parsing fails)
+  - summary: From parsed FeatureSpec.summary
+  - content: Full FeatureSpec markdown content
+  - openQuestions: From parsed FeatureSpec.openQuestions
+  This leverages existing TypeSpec-generated schemas and eliminates custom types.
 
-  ### 3. On-Demand API Fetch for Web UI
-  The drawer fetches spec content from `/api/features/[id]/spec` only when opened for a
-  feature in action-required/requirements state. This avoids bloating FeatureNodeData with
-  large content for all features on every page load. The API route returns 404 when specPath
-  is missing or spec.yaml doesn't exist.
+  ### 3. Server-Side Calls in Web UI (No API Route)
+  The Web UI calls GetFeaturePrdUseCase directly server-side (via server action or server
+  component) rather than through an API route. This avoids the extra network hop, keeps
+  the server-side context simple, and follows Next.js 16 best practices. The drawer can
+  call the use case from a server action when it needs to load spec content.
 
-  ### 4. ScrollArea + Badge for Web UI Display
-  Uses existing shadcn components: ScrollArea (components/ui/scroll-area.tsx) with max-height
-  400px for long content, Badge (components/ui/badge.tsx) with variant styling for
-  resolved/unresolved open questions. No react-markdown dependency added.
-
-  ### 5. CLI Content Truncation at 50 Lines
+  ### 4. CLI Content Truncation at 50 Lines
   `content.split('\n').slice(0, 50)` with a `[truncated]` notice and path reference.
   Keeps terminal output manageable while providing enough context for approval decisions.
   Web UI shows full content in ScrollArea (no truncation).
 
+  ### 5. ScrollArea + Badge for Web UI Display
+  Uses existing shadcn components: ScrollArea (components/ui/scroll-area.tsx) with max-height
+  400px for long content, Badge (components/ui/badge.tsx) with variant styling for
+  resolved/unresolved open questions. No react-markdown dependency added.
+
   ### 6. Separate Test Files for PRD Logic
   New test files `show-prd.test.ts` and `review-prd.test.ts` keep PRD-specific tests
-  isolated from existing show/review tests, following the pattern where existing tests
-  already cover phase timing and approval context.
+  isolated from existing show/review tests. Unit tests for GetFeaturePrdUseCase test
+  YAML parsing, error handling, and type casting independently.
 
   ## Implementation Strategy
 
-  Phase 1 (Foundation) is quick -- one line in container.ts plus a ~30-line API route with
-  tests. This unblocks Phase 3 (Web UI) which depends on the API.
+  **Phase 1: GetFeaturePrdUseCase (Foundation)**
+  - Create the use case in `packages/core/src/application/use-cases/feature/`
+  - Signature: `execute(feature: Feature): Artifact` (or throws on invalid input)
+  - Read spec.yaml from feature.specPath, parse with js-yaml, construct Artifact with PRD category
+  - Map FeatureSpec properties (summary, content, openQuestions) to Artifact fields
+  - Register in DI container
+  - Write comprehensive unit tests (SUCCESS path with real YAML, missing specPath, parse errors)
+  - TDD cycle: RED (failing tests), GREEN (minimal implementation), REFACTOR (error handling)
 
-  Phase 2 (CLI) is independent of Phase 1 and could theoretically run in parallel, but
-  sequencing it second allows test patterns established in Phase 1 to inform Phase 2 tests.
+  **Phase 2: CLI Commands (Independent)**
+  - Inject GetFeaturePrdUseCase in `show.command.ts` and `review.command.ts`
+  - Call use case with the loaded Feature when specPath exists + waiting_approval + requirements node
+  - Format and display Artifact summary, openQuestions, and truncated content (first 50 lines)
+  - Unit tests for conditional display and content truncation
+  - TDD cycle: RED (failing tests for CLI output), GREEN (minimal display logic), REFACTOR (formatting)
 
-  Phase 3 (Web UI) depends on Phase 1's API route. It modifies the existing drawer component
-  and adds stories for all PRD-related states.
+  **Phase 3: Web UI Drawer (Depends on Phase 1)**
+  - Update `feature-drawer.tsx` to conditionally call GetFeaturePrdUseCase server-side
+  - Use server action if needed for calling the use case from a client component
+  - Display Artifact as PRD section with summary, openQuestions (Badges), scrollable content (ScrollArea)
+  - Add Storybook stories for all PRD states
+  - Unit and component tests
+  - TDD cycle: RED (failing snapshot tests), GREEN (minimal drawer section), REFACTOR (styling, animations)
 
-  Each phase follows strict TDD: write failing tests first (RED), implement minimal code
+  All phases follow strict TDD: write failing tests first (RED), implement minimal code
   to pass (GREEN), then clean up (REFACTOR).
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | spec.yaml missing or malformed | Every call site wraps readFileSync + yaml.load in try/catch. CLI silently omits PRD section. API route returns 404. No crashes. |
-  | FeatureSpec type mismatch | Cast with `as FeatureSpec` after yaml.load. YAML structure matches TypeSpec-generated type. Tests verify with real YAML structures. |
-  | API route fails without string token | Task 1 adds the DI token first. Phase 3 tests mock resolve. |
-  | Drawer duplicate fetches on re-render | useEffect with proper dependency array (featureId + state conditions). Loading state prevents UI flash. |
-  | Long spec overwhelms CLI | 50-line truncation with path reference. Tested explicitly. |
+  | spec.yaml missing or malformed | GetFeaturePrdUseCase validates feature.specPath before reading. If invalid, throw or return Artifact with error state. CLI/Web UI check for error state and gracefully omit PRD section. No crashes. |
+  | FeatureSpec type mismatch | Cast with `as FeatureSpec` after yaml.load. YAML structure matches TypeSpec-generated type. Unit tests verify with real YAML structures. |
+  | Artifact category/format mismatch | Use case explicitly sets category='PRD', format='Yaml'. TypeSpec validation ensures consistency. |
+  | Use case injection fails | Phase 1 registers use case in DI container first. Phase 2/3 tests mock the use case or verify container registration. |
+  | Web UI server action timeout | Server action calls use case synchronously (fast file read). Timeout unlikely for typical spec files (<10KB). Add timeout handling if needed. |
+  | Long spec overwhelms CLI | 50-line truncation (artifact.content.split('\n').slice(0,50)) with path reference. Tested explicitly. |
   | ScrollArea sizing on different screens | Fixed max-h-[400px] with overflow-auto works consistently. |
+  | Duplicate use case calls in Web UI | Call use case once when drawer opens/state changes. Server action or useEffect dependency array prevents re-fetching. |
