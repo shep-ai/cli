@@ -43,8 +43,6 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
       resumeFromInterrupt?: boolean;
       push?: boolean;
       openPr?: boolean;
-      autoMerge?: boolean;
-      allowMerge?: boolean;
     }
   ): number {
     const workerPath = join(__dirname, 'feature-agent-worker.js');
@@ -80,13 +78,6 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     if (options?.openPr) {
       args.push('--open-pr');
     }
-    if (options?.autoMerge) {
-      args.push('--auto-merge');
-    }
-    if (options?.allowMerge) {
-      args.push('--allow-merge');
-    }
-
     // Create log file for worker output (for debugging)
     const logsDir = join(homedir(), '.shep', 'logs');
     mkdirSync(logsDir, { recursive: true });

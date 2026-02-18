@@ -13,11 +13,9 @@ describe('FeatureAgentAnnotation', () => {
       expect(spec).toHaveProperty('ciStatus');
     });
 
-    it('should include openPr, autoMerge, allowMerge boolean flags', () => {
+    it('should include openPr boolean flag', () => {
       const spec = FeatureAgentAnnotation.spec;
       expect(spec).toHaveProperty('openPr');
-      expect(spec).toHaveProperty('autoMerge');
-      expect(spec).toHaveProperty('allowMerge');
     });
   });
 
@@ -27,20 +25,20 @@ describe('FeatureAgentAnnotation', () => {
       expect(FeatureAgentAnnotation.spec).toBeDefined();
     });
 
-    it('should have all 19 channels', () => {
+    it('should have all 17 channels', () => {
       const channelNames = Object.keys(FeatureAgentAnnotation.spec);
       // Original: featureId, repositoryPath, specDir, worktreePath, currentNode, error,
       //           approvalGates, messages, validationRetries, lastValidationTarget, lastValidationErrors
-      // New:      prUrl, prNumber, commitHash, ciStatus, push, openPr, autoMerge, allowMerge
+      // New:      prUrl, prNumber, commitHash, ciStatus, push, openPr
       expect(channelNames).toContain('prUrl');
       expect(channelNames).toContain('prNumber');
       expect(channelNames).toContain('commitHash');
       expect(channelNames).toContain('ciStatus');
       expect(channelNames).toContain('push');
       expect(channelNames).toContain('openPr');
-      expect(channelNames).toContain('autoMerge');
-      expect(channelNames).toContain('allowMerge');
-      expect(channelNames.length).toBe(19);
+      expect(channelNames).not.toContain('autoMerge');
+      expect(channelNames).not.toContain('allowMerge');
+      expect(channelNames.length).toBe(17);
     });
   });
 });

@@ -81,11 +81,6 @@ describe('shouldInterrupt', () => {
       const gates = makeGates({ allowMerge: true });
       expect(shouldInterrupt('merge', gates)).toBe(false);
     });
-
-    it('does not interrupt when autoMerge is true (overrides allowMerge)', () => {
-      const gates = makeGates({ allowMerge: false });
-      expect(shouldInterrupt('merge', gates, true)).toBe(false);
-    });
   });
 
   describe('unknown nodes', () => {

@@ -122,8 +122,6 @@ describe('parseWorkerArgs', () => {
       resumeFromInterrupt: false,
       push: false,
       openPr: false,
-      autoMerge: false,
-      allowMerge: false,
     });
   });
 

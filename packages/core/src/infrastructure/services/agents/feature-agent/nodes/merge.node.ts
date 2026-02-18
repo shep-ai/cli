@@ -93,7 +93,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
         messages.push(`[merge] PR created: ${prUrl}`);
 
         // Watch CI if we're going to auto-merge
-        if (state.autoMerge) {
+        if (state.approvalGates?.allowMerge) {
           log.info('Watching CI...');
           const ciResult = await gitPrService.watchCi(cwd, branch);
           ciStatus = ciResult.status;
@@ -102,7 +102,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       }
 
       // --- Step 4: Merge approval gate ---
-      if (shouldInterrupt('merge', state.approvalGates, state.autoMerge)) {
+      if (shouldInterrupt('merge', state.approvalGates)) {
         log.info('Interrupting for merge approval');
         const diffSummary = await gitPrService.getPrDiffSummary(cwd, baseBranch);
         interrupt({
@@ -116,7 +116,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
 
       // --- Step 5: Auto-merge (if enabled) ---
       let merged = false;
-      if (state.autoMerge) {
+      if (state.approvalGates?.allowMerge) {
         if (state.openPr && prNumber) {
           log.info(`Auto-merging PR #${prNumber}...`);
           await gitPrService.mergePr(cwd, prNumber, 'squash');

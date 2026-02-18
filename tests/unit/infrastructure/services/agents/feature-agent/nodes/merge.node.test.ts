@@ -111,8 +111,6 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
     ciStatus: null,
     push: false,
     openPr: false,
-    autoMerge: false,
-    allowMerge: false,
     ...overrides,
   } as FeatureAgentState;
 }
@@ -162,9 +160,9 @@ describe('createMergeNode', () => {
       );
     });
 
-    it('should skip push when push=false and no openPr/autoMerge', async () => {
+    it('should skip push when push=false and no openPr', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({ push: false, openPr: false, autoMerge: false });
+      const state = baseState({ push: false, openPr: false });
       await node(state);
 
       expect(deps.gitPrService.push).not.toHaveBeenCalled();
@@ -178,9 +176,13 @@ describe('createMergeNode', () => {
       expect(deps.gitPrService.push).toHaveBeenCalled();
     });
 
-    it('should NOT push when only autoMerge=true (local merge does not require push)', async () => {
+    it('should NOT push when only allowMerge=true (local merge does not require push)', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({ push: false, autoMerge: true, openPr: false });
+      const state = baseState({
+        push: false,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+        openPr: false,
+      });
       await node(state);
 
       expect(deps.gitPrService.push).not.toHaveBeenCalled();
@@ -226,9 +228,12 @@ describe('createMergeNode', () => {
       expect(deps.gitPrService.createPr).not.toHaveBeenCalled();
     });
 
-    it('should watch CI after PR creation when openPr=true', async () => {
+    it('should watch CI after PR creation when openPr=true and allowMerge=true', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({ openPr: true, autoMerge: true });
+      const state = baseState({
+        openPr: true,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
       await node(state);
 
       expect(deps.gitPrService.watchCi).toHaveBeenCalled();
@@ -245,20 +250,26 @@ describe('createMergeNode', () => {
 
   // --- Task 19: Merge step with approval gate ---
   describe('merge step', () => {
-    it('should merge PR when autoMerge=true and openPr=true', async () => {
+    it('should merge PR when allowMerge=true and openPr=true', async () => {
       (deps.gitPrService.watchCi as ReturnType<typeof vi.fn>).mockResolvedValue({
         status: 'success',
       });
       const node = createMergeNode(deps);
-      const state = baseState({ openPr: true, autoMerge: true });
+      const state = baseState({
+        openPr: true,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
       await node(state);
 
       expect(deps.gitPrService.mergePr).toHaveBeenCalled();
     });
 
-    it('should merge branch directly when autoMerge=true and openPr=false', async () => {
+    it('should merge branch directly when allowMerge=true and openPr=false', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({ openPr: false, autoMerge: true });
+      const state = baseState({
+        openPr: false,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
       await node(state);
 
       expect(deps.gitPrService.mergeBranch).toHaveBeenCalledWith(
@@ -268,20 +279,26 @@ describe('createMergeNode', () => {
       );
     });
 
-    it('should NOT merge when autoMerge=false', async () => {
+    it('should NOT merge when allowMerge=false', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({ openPr: true, autoMerge: false });
+      const state = baseState({
+        openPr: true,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      });
       await node(state);
 
       expect(deps.gitPrService.mergePr).not.toHaveBeenCalled();
       expect(deps.gitPrService.mergeBranch).not.toHaveBeenCalled();
     });
 
-    it('should include diff summary in interrupt payload when !allowMerge and !autoMerge', async () => {
+    it('should include diff summary in interrupt payload when allowMerge=false', async () => {
       mockShouldInterrupt.mockReturnValueOnce(true);
 
       const node = createMergeNode(deps);
-      const state = baseState({ openPr: false, autoMerge: false, allowMerge: false });
+      const state = baseState({
+        openPr: false,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      });
       await node(state);
 
       expect(mockInterrupt).toHaveBeenCalledWith(
@@ -297,9 +314,9 @@ describe('createMergeNode', () => {
 
   // --- Task 20: Lifecycle transition and cleanup ---
   describe('lifecycle transition and cleanup', () => {
-    it('should update feature to Review lifecycle when not auto-merged', async () => {
+    it('should update feature to Review lifecycle when not merged (no allowMerge)', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({ autoMerge: false });
+      const state = baseState();
       await node(state);
 
       expect(deps.featureRepository.update).toHaveBeenCalledWith(
@@ -309,9 +326,11 @@ describe('createMergeNode', () => {
       );
     });
 
-    it('should update feature to Maintain lifecycle when auto-merged', async () => {
+    it('should update feature to Maintain lifecycle when allowMerge=true', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({ autoMerge: true });
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
       await node(state);
 
       expect(deps.featureRepository.update).toHaveBeenCalledWith(

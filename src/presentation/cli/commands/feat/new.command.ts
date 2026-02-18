@@ -23,7 +23,6 @@ import { getSettings, hasSettings } from '@/infrastructure/services/settings.ser
 interface NewOptions {
   repo?: string;
   pr?: boolean;
-  autoMerge?: boolean;
   allowPrd?: boolean;
   allowPlan?: boolean;
   allowMerge?: boolean;
@@ -33,14 +32,13 @@ interface NewOptions {
 /**
  * Read workflow defaults from settings, falling back to false if settings unavailable.
  */
-function getWorkflowDefaults(): { openPr: boolean; autoMerge: boolean } {
+function getWorkflowDefaults(): { openPr: boolean } {
   if (!hasSettings()) {
-    return { openPr: false, autoMerge: false };
+    return { openPr: false };
   }
   const settings = getSettings();
   return {
     openPr: settings.workflow.openPrOnImplementationComplete,
-    autoMerge: settings.workflow.autoMergeOnImplementationComplete,
   };
 }
 
@@ -54,8 +52,6 @@ export function createNewCommand(): Command {
     .option('-r, --repo <path>', 'Repository path (defaults to current directory)')
     .option('--pr', 'Open PR on implementation complete')
     .option('--no-pr', 'Do not open PR on implementation complete')
-    .option('--auto-merge', 'Auto-merge on implementation complete')
-    .option('--no-auto-merge', 'Do not auto-merge on implementation complete')
     .option('--allow-prd', 'Auto-approve through requirements, pause after')
     .option('--allow-plan', 'Auto-approve through planning, pause at implementation')
     .option('--allow-merge', 'Auto-approve merge phase')
@@ -65,10 +61,9 @@ export function createNewCommand(): Command {
         const useCase = container.resolve(CreateFeatureUseCase);
         const repoPath = options.repo ?? process.cwd();
 
-        // Resolve openPr and autoMerge from CLI flags or settings defaults
+        // Resolve openPr from CLI flags or settings defaults
         const defaults = getWorkflowDefaults();
         const openPr = options.pr ?? defaults.openPr;
-        const autoMerge = options.autoMerge ?? defaults.autoMerge;
 
         // Build approval gates from flags (default: pause after every phase)
         let approvalGates: ApprovalGates | undefined = {
@@ -79,9 +74,6 @@ export function createNewCommand(): Command {
         if (options.allowPlan)
           approvalGates = { allowPrd: true, allowPlan: true, allowMerge: approvalGates.allowMerge };
         if (options.allowMerge) approvalGates = { ...approvalGates, allowMerge: true };
-
-        // --auto-merge implies --allow-merge
-        if (autoMerge) approvalGates = { ...approvalGates, allowMerge: true };
 
         if (options.allowAll) approvalGates = undefined; // no gates = fully autonomous
 

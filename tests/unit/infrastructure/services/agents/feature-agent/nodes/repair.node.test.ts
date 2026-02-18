@@ -51,8 +51,6 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     ciStatus: null,
     push: false,
     openPr: false,
-    autoMerge: false,
-    allowMerge: false,
   } as FeatureAgentState;
 }
 
