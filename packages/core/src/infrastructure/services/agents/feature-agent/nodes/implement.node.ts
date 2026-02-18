@@ -24,6 +24,7 @@ import {
   markPhaseComplete,
 } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
+import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
 import {
   buildImplementPhasePrompt,
   type PlanPhase,
@@ -150,6 +151,8 @@ export function createImplementNode(executor: IAgentExecutor) {
 
         const options = buildExecutorOptions(state);
         const promptContext = { isLastPhase, phaseIndex: i, totalPhases };
+        const phaseStartTime = Date.now();
+        const phaseTimingId = await recordPhaseStart(`implement:${phase.id}`);
 
         if (phase.parallel && phaseTasks.length > 1) {
           // Parallel: one executor call per task
@@ -184,6 +187,9 @@ export function createImplementNode(executor: IAgentExecutor) {
           const result = await retryExecute(executor, prompt, options, retryOpts);
           log.info(`Phase complete (${result.result.length} chars)`);
         }
+
+        const phaseDurationMs = Date.now() - phaseStartTime;
+        await recordPhaseEnd(phaseTimingId, phaseDurationMs);
 
         completedTasks += phaseTasks.length;
         markPhaseComplete(state.specDir, phase.id, log);
