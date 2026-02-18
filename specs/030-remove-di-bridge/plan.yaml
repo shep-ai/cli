@@ -2,42 +2,65 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: remove-di-bridge
-summary: Implementation plan for 030-remove-di-bridge
+summary: Replace globalThis DI bridge with direct container injection via serverExternalPackages
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '016-control-center'
+  - '021-control-center-create-feature-2'
+technologies:
+  - Next.js 16.1 serverExternalPackages
+  - Next.js instrumentation.ts
+  - tsyringe
+  - Turbopack
+relatedLinks:
+  - https://nextjs.org/docs/app/api-reference/config/next-config-js/serverExternalPackages
+  - https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation
 
 # Structured implementation phases
 phases:
   - id: phase-1
-    name: 'Foundation'
+    name: 'Early Validation & Foundation'
     parallel: false
     taskIds:
       - task-1
       - task-2
   - id: phase-2
-    name: 'Core Implementation'
+    name: 'Core Migration'
     parallel: false
     taskIds:
       - task-3
       - task-4
+      - task-5
+  - id: phase-3
+    name: 'Cleanup & Verification'
+    parallel: false
+    taskIds:
+      - task-6
+      - task-7
 
 # File change tracking
 filesToCreate:
-  - src/domain/entities/{{ENTITY_NAME}}.ts
-  - tests/unit/domain/entities/{{ENTITY_NAME}}.test.ts
+  - src/presentation/web/instrumentation.ts
 
 filesToModify:
-  - src/infrastructure/di/container.ts
-  - package.json
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/web/next.config.ts
+  - src/presentation/web/app/page.tsx
+  - src/presentation/web/app/api/features/create/route.ts
+  - src/presentation/cli/index.ts
+  - src/presentation/web/dev-server.ts
+  - tests/unit/presentation/web/smoke-imports.test.ts
+  - tests/unit/presentation/web/api/features/create/route.test.ts
+
+filesToDelete:
+  - packages/core/src/infrastructure/di/use-cases-bridge.ts
+  - packages/core/src/infrastructure/di/populate-use-cases-bridge.ts
 
 # Open questions (should all be resolved before implementation)
 openQuestions: []
 
 # Markdown content — architecture, strategy, and risks only.
-# Task-level detail lives in tasks.yaml (no duplication).
 content: |
   ## Status
 
@@ -46,17 +69,39 @@ content: |
 
   ## Architecture Overview
 
+  ### Before (current bridge pattern)
   ```
-  {{ARCHITECTURE_DIAGRAM}}
+  CLI bootstrap → initializeContainer() → populateUseCasesBridge(globalThis)
+                                                    ↓
+  Next.js server component → import use-cases-bridge → read globalThis → wrapper function → use case
   ```
+
+  ### After (direct DI)
+  ```
+  CLI bootstrap → initializeContainer() → start Next.js
+                                                ↓
+  Next.js server component → import container → container.resolve(UseCase) → use case
+  ```
+
+  Key changes:
+  - `serverExternalPackages` tells Turbopack to skip bundling tsyringe/reflect-metadata/better-sqlite3
+  - `instrumentation.ts` ensures reflect-metadata + container are initialized on Next.js startup
+  - `initializeContainer()` gets an idempotency guard for safe double-calling
 
   ## Implementation Strategy
 
   **MANDATORY TDD**: All phases with executable code follow RED-GREEN-REFACTOR cycles.
 
-  High-level walkthrough of how the phases connect and why they are ordered
-  this way. Focus on architectural decisions and data flow — not individual
-  task descriptions (see tasks.yaml for the detailed breakdown).
+  **Phase 1 (Early Validation):** Add serverExternalPackages to next.config.ts and verify
+  `pnpm build:web` still succeeds. This is the highest-risk step — if Turbopack can't handle
+  the externalized packages, we know immediately. Then add idempotency guard to container.
+
+  **Phase 2 (Core Migration):** Create instrumentation.ts, then migrate each bridge consumer
+  (page.tsx, API route) to use container.resolve() directly. Each migration is independent
+  and can be validated in isolation.
+
+  **Phase 3 (Cleanup):** Remove bridge files, remove bridge calls from CLI/dev-server bootstrap,
+  update tests, and run full validation suite.
 
   ## Files to Create/Modify
 
@@ -64,32 +109,50 @@ content: |
 
   | File | Purpose |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{PURPOSE}} |
+  | `src/presentation/web/instrumentation.ts` | Import reflect-metadata + init container on server startup |
 
   ### Modified Files
 
   | File | Changes |
   | ---- | ------- |
-  | {{FILE_PATH}} | {{CHANGES}} |
+  | `packages/core/src/infrastructure/di/container.ts` | Add idempotency guard to initializeContainer() |
+  | `src/presentation/web/next.config.ts` | Add serverExternalPackages config |
+  | `src/presentation/web/app/page.tsx` | Replace bridge imports with container.resolve() |
+  | `src/presentation/web/app/api/features/create/route.ts` | Replace bridge import with container.resolve() |
+  | `src/presentation/cli/index.ts` | Remove populateUseCasesBridge import + call |
+  | `src/presentation/web/dev-server.ts` | Remove populateUseCasesBridge import + call |
+
+  ### Deleted Files
+
+  | File | Reason |
+  | ---- | ------ |
+  | `packages/core/src/infrastructure/di/use-cases-bridge.ts` | Bridge reader — replaced by direct container imports |
+  | `packages/core/src/infrastructure/di/populate-use-cases-bridge.ts` | Bridge writer — no longer needed |
 
   ## Testing Strategy (TDD: Tests FIRST)
 
   **CRITICAL:** Tests are written FIRST in each TDD cycle.
 
-  ### Unit Tests (RED -> GREEN -> REFACTOR)
+  ### Unit Tests
 
-  - {{TEST_AREA_1}}
-  - {{TEST_AREA_2}}
+  - Container idempotency: verify double-call returns same container
+  - API route: mock container.resolve instead of bridge wrapper
+  - Smoke test: verify container module resolves from web layer
 
   ### Integration Tests
 
-  - {{INTEGRATION_TEST_1}}
+  - `pnpm build:web` succeeds with serverExternalPackages
+  - `pnpm dev:web` starts and serves pages correctly
+  - Full `pnpm test` suite passes
 
   ## Risk Mitigation
 
   | Risk | Mitigation |
   | ---- | ---------- |
-  | {{RISK}} | {{MITIGATION}} |
+  | pnpm can't resolve externalized transitive deps | Fixed in 16.1; fallback: add as devDeps of web package |
+  | next build fails on native modules | Test early in Phase 1; serverExternalPackages skips bundling |
+  | Double container initialization | Idempotency guard in initializeContainer() |
+  | Regression in web UI | Manual smoke test of features list + create feature after migration |
 
   ---
 

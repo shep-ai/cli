@@ -3,18 +3,18 @@ feature:
   name: 'remove-di-bridge'
   number: 30
   branch: 'feat/030-remove-di-bridge'
-  lifecycle: 'research'
+  lifecycle: 'implementation'
   createdAt: '2026-02-18T10:59:36Z'
 
 status:
-  phase: 'research'
+  phase: 'planning-complete'
   progress:
     completed: 0
-    total: 0
+    total: 7
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-18T10:59:36Z'
-  lastUpdatedBy: 'shep-kit:new-feature'
+  lastUpdated: '2026-02-18T11:10:00Z'
+  lastUpdatedBy: 'shep-kit:plan'
 
 validation:
   lastRun: null
@@ -30,6 +30,12 @@ checkpoints:
   - phase: 'feature-created'
     completedAt: '2026-02-18T10:59:36Z'
     completedBy: 'shep-kit:new-feature'
+  - phase: 'research-complete'
+    completedAt: '2026-02-18T11:05:00Z'
+    completedBy: 'shep-kit:research'
+  - phase: 'planning-complete'
+    completedAt: '2026-02-18T11:10:00Z'
+    completedBy: 'shep-kit:plan'
 
 errors:
   current: null

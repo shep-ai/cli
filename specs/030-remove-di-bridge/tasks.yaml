@@ -5,54 +5,190 @@ name: remove-di-bridge
 summary: Task breakdown for 030-remove-di-bridge
 
 # Relationships
-relatedFeatures: []
-technologies: []
+relatedFeatures:
+  - '016-control-center'
+  - '021-control-center-create-feature-2'
+technologies:
+  - Next.js 16.1 serverExternalPackages
+  - tsyringe
+  - Turbopack
 relatedLinks: []
 
-# Structured task list — this is the single source of truth for tasks.
-# The content field below is a summary only; it does NOT duplicate task details.
+# Structured task list
 tasks:
   - id: task-1
-    title: { { TASK_1_TITLE } }
-    description: { { TASK_1_DESCRIPTION } }
+    title: Add serverExternalPackages to next.config.ts and validate build
+    description: >
+      Add serverExternalPackages: ['tsyringe', 'reflect-metadata', 'better-sqlite3'] to
+      next.config.ts. Run pnpm build:web to verify Turbopack handles the externalization
+      correctly. This is the highest-risk step and must pass before proceeding.
     state: Todo
     dependencies: []
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
+      - serverExternalPackages added to next.config.ts
+      - pnpm build:web succeeds without errors
+      - pnpm dev:web starts without bundling errors
     tdd:
       red:
-        - Write tests for {{FEATURE_1}}
+        - No test needed — this is config validation via build commands
       green:
-        - Implement {{FEATURE_1}} to pass tests
+        - Add serverExternalPackages to next.config.ts
+        - Run pnpm build:web and pnpm dev:web to validate
       refactor:
-        - Extract helpers, improve naming
-    estimatedEffort: { { EFFORT_1 } }
+        - N/A
+    estimatedEffort: XS
 
   - id: task-2
-    title: { { TASK_2_TITLE } }
-    description: { { TASK_2_DESCRIPTION } }
+    title: Add idempotency guard to initializeContainer()
+    description: >
+      Add a module-level initialized flag to container.ts so that calling
+      initializeContainer() multiple times is safe (returns existing container).
+      This is needed because both CLI bootstrap and instrumentation.ts may call it.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - initializeContainer() returns existing container on second call
+      - Existing container tests still pass
+      - Export isContainerInitialized() helper for diagnostics
+    tdd:
+      red:
+        - Write test that calls initializeContainer() twice and verifies same container returned
+        - Write test that isContainerInitialized() returns false before init, true after
+      green:
+        - Add let _initialized = false guard at module level
+        - Early return container if already initialized
+        - Add isContainerInitialized() export
+      refactor:
+        - Clean up any redundant initialization logic
+    estimatedEffort: S
+
+  - id: task-3
+    title: Create instrumentation.ts for Next.js server bootstrap
+    description: >
+      Create src/presentation/web/instrumentation.ts with a register() function that
+      imports reflect-metadata and calls initializeContainer() when running in Node.js
+      runtime. Uses dynamic imports to avoid side effects.
     state: Todo
     dependencies:
       - task-1
+      - task-2
     acceptanceCriteria:
-      - { { CRITERION_1 } }
-      - { { CRITERION_2 } }
-    tdd: null # No TDD for foundational/doc tasks
-    estimatedEffort: { { EFFORT_2 } }
+      - instrumentation.ts exists at src/presentation/web/instrumentation.ts
+      - register() guards on NEXT_RUNTIME === 'nodejs'
+      - Uses dynamic imports for reflect-metadata and container
+      - Initializes settings via InitializeSettingsUseCase
+      - pnpm dev:web starts successfully with instrumentation.ts
+    tdd:
+      red:
+        - Write test for register() function that verifies it calls initializeContainer
+        - Write test that register() is a no-op when NEXT_RUNTIME !== 'nodejs'
+      green:
+        - Create instrumentation.ts with register() function
+        - Dynamic import reflect-metadata, then container, then settings init
+      refactor:
+        - Ensure error handling is clean
+    estimatedEffort: S
+
+  - id: task-4
+    title: Migrate page.tsx from bridge to direct container.resolve()
+    description: >
+      Replace getFeatures/getAgentRun bridge imports in src/presentation/web/app/page.tsx
+      with direct container.resolve(ListFeaturesUseCase) and container.resolve('IAgentRunRepository').
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - No imports from use-cases-bridge in page.tsx
+      - Uses container.resolve(ListFeaturesUseCase) for features
+      - Uses container.resolve('IAgentRunRepository') for agent runs
+      - Page renders correctly with shep ui
+    tdd:
+      red:
+        - Update smoke test to verify container import resolves (replace bridge test)
+      green:
+        - Replace bridge imports with container imports in page.tsx
+        - Use container.resolve() for ListFeaturesUseCase and IAgentRunRepository
+      refactor:
+        - Clean up any unnecessary try/catch wrapping (container.resolve throws naturally)
+    estimatedEffort: S
+
+  - id: task-5
+    title: Migrate API route from bridge to direct container.resolve()
+    description: >
+      Replace createFeature bridge import in src/presentation/web/app/api/features/create/route.ts
+      with direct container.resolve(CreateFeatureUseCase).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - No imports from use-cases-bridge in route.ts
+      - Uses container.resolve(CreateFeatureUseCase)
+      - API route test updated to mock container instead of bridge
+      - Existing error handling preserved
+    tdd:
+      red:
+        - Update route test to mock container.resolve instead of bridge createFeature function
+        - Verify test fails with old bridge mock
+      green:
+        - Replace bridge import with container import in route.ts
+        - Use container.resolve(CreateFeatureUseCase).execute()
+      refactor:
+        - Simplify error handling if bridge wrapper was adding unnecessary indirection
+    estimatedEffort: S
+
+  - id: task-6
+    title: Delete bridge files and remove bridge calls
+    description: >
+      Delete use-cases-bridge.ts and populate-use-cases-bridge.ts. Remove
+      populateUseCasesBridge() calls from CLI bootstrap (index.ts) and dev-server.ts.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - use-cases-bridge.ts deleted
+      - populate-use-cases-bridge.ts deleted
+      - No populateUseCasesBridge imports or calls remain in codebase
+      - No references to SHEP_USE_CASES_KEY remain
+      - pnpm typecheck passes
+    tdd:
+      red:
+        - N/A — this is deletion, verified by typecheck and grep
+      green:
+        - Delete both bridge files
+        - Remove import + call from src/presentation/cli/index.ts
+        - Remove import + call from src/presentation/web/dev-server.ts
+      refactor:
+        - Clean up any orphaned comments referencing the bridge
+    estimatedEffort: XS
+
+  - id: task-7
+    title: Full validation and test suite
+    description: >
+      Run the complete validation suite: pnpm validate, pnpm test, pnpm build:web.
+      Verify no references to bridge pattern remain. Manual smoke test of web UI.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - pnpm validate passes (lint, format, typecheck, tsp)
+      - pnpm test passes (all unit + integration tests)
+      - pnpm build:web succeeds
+      - No grep hits for use-cases-bridge, populateUseCasesBridge, or SHEP_USE_CASES_KEY
+    tdd: null
+    estimatedEffort: XS
 
 # Total effort estimate
-totalEstimate: { { TOTAL_EFFORT } }
+totalEstimate: S (mostly deletions and import swaps, one new small file)
 
 # Open questions
 openQuestions: []
 
-# Markdown content — summary and acceptance checklist only.
-# Individual task details live in the tasks[] array above (no duplication).
+# Markdown content
 content: |
   ## Summary
 
-  {{BRIEF_DESCRIPTION_OF_SCOPE}} — {{TASK_COUNT}} tasks across {{PHASE_COUNT}} phases.
+  Remove the DI bridge hack and replace with proper Next.js server-side DI — 7 tasks across 3 phases.
 
   ## Acceptance Checklist
 
@@ -62,7 +198,8 @@ content: |
   - [ ] Tests passing (`pnpm test`)
   - [ ] Linting clean (`pnpm lint`)
   - [ ] Types valid (`pnpm typecheck`)
-  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
+  - [ ] Build succeeds (`pnpm build:web`)
+  - [ ] No bridge references remain in codebase
   - [ ] PR created and reviewed
 
   ---

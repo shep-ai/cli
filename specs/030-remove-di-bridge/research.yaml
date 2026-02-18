@@ -2,28 +2,75 @@
 # This is the source of truth. Markdown is auto-generated from this file.
 
 name: remove-di-bridge
-summary: Technical analysis for 030-remove-di-bridge
+summary: Technical analysis for replacing globalThis DI bridge with serverExternalPackages + instrumentation.ts
 
 # Relationships
-relatedFeatures: []
-technologies: []
-relatedLinks: []
+relatedFeatures:
+  - '016-control-center'
+  - '021-control-center-create-feature-2'
+technologies:
+  - Next.js 16.1 serverExternalPackages
+  - Next.js instrumentation.ts
+  - tsyringe DI container
+  - Turbopack (dev + prod bundler)
+relatedLinks:
+  - https://nextjs.org/docs/app/api-reference/config/next-config-js/serverExternalPackages
+  - https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation
+  - https://nextjs.org/blog/next-16-1
+  - https://github.com/vercel/next.js/issues/68805
 
 # Structured technology decisions
 decisions:
-  - title: { { DECISION_TITLE } }
-    chosen: { { CHOSEN_OPTION } }
+  - title: Externalization strategy
+    chosen: Externalize leaf packages only (tsyringe, reflect-metadata, better-sqlite3)
     rejected:
-      - { { OPTION_1 } }
-      - { { OPTION_2 } }
-    rationale: { { RATIONALE } }
+      - Externalize entire @shepai/core package
+      - Keep the globalThis bridge pattern
+      - Custom Express server to bypass bundling
+    rationale: >
+      Externalizing only the problematic leaf packages keeps domain types and pure TS code
+      bundleable/tree-shakeable while solving the native module and decorator metadata issues.
+      Externalizing all of @shepai/core would break client components importing domain types.
+
+  - title: Container initialization for Next.js
+    chosen: instrumentation.ts with idempotent initializeContainer()
+    rejected:
+      - globalThis bridge (current approach)
+      - Module-level side-effect import
+      - Lazy initialization on first request
+    rationale: >
+      instrumentation.ts runs once on server startup before any request handling, guaranteeing
+      the container is ready. Combined with an idempotency guard in initializeContainer(), it
+      works safely alongside dev-server.ts and shep ui CLI bootstrap which also initialize the
+      container before starting Next.js.
+
+  - title: SWC decorator handling
+    chosen: No action needed — externalized packages bypass SWC entirely
+    rejected:
+      - Fall back to Babel for decorator support
+      - Add SWC decorator plugin
+    rationale: >
+      serverExternalPackages means tsyringe code is loaded via Node.js require() at runtime,
+      using tsc-compiled output. SWC never touches the decorator code. The web tsconfig already
+      has experimentalDecorators and emitDecoratorMetadata as a safety net.
 
 # Open questions (should be resolved by end of research)
 openQuestions:
-  []
-  # - question: "Which library should we use?"
-  #   resolved: true
-  #   answer: "Library X because of Y"
+  - question: 'Will pnpm strict resolution prevent Turbopack from finding externalized transitive deps?'
+    resolved: true
+    answer: >
+      Fixed in Next.js 16.1 (project is on 16.1.6+). Turbopack now correctly resolves and
+      externalizes transitive dependencies. Fallback: add packages as devDependencies of web package.
+  - question: 'Will next build fail on better-sqlite3 native module resolution?'
+    resolved: true
+    answer: >
+      With serverExternalPackages, next build skips bundling entirely. The native module is only
+      needed at runtime. Test early in implementation to validate.
+  - question: 'Will instrumentation.ts double-initialize the container when dev-server.ts also initializes?'
+    resolved: true
+    answer: >
+      Add an idempotency guard (let initialized = false) to initializeContainer(). When dev-server.ts
+      or CLI bootstrap initializes first, instrumentation.ts becomes a no-op.
 
 # Markdown content (the full research document)
 content: |
@@ -34,35 +81,92 @@ content: |
 
   ## Technology Decisions
 
-  ### {{DECISION_TITLE}}
+  ### Externalization Strategy
 
   **Options considered:**
 
-  1. {{OPTION_1}}
-  2. {{OPTION_2}}
-  3. {{OPTION_3}}
+  1. **Externalize leaf packages only** — add `tsyringe`, `reflect-metadata`, `better-sqlite3` to `serverExternalPackages`
+  2. **Externalize entire @shepai/core** — simpler but prevents bundling/tree-shaking of domain types
+  3. **Keep the globalThis bridge** — current approach, works but is a maintenance burden
+  4. **Custom Express server** — bypass bundling entirely, but loses Turbopack dev speed
 
-  **Decision:** {{CHOSEN_OPTION}}
+  **Decision:** Externalize leaf packages only
 
-  **Rationale:** {{RATIONALE}}
+  **Rationale:** Only the problematic native/decorator packages are excluded from bundling. Pure TypeScript code from @shepai/core is still bundled normally, keeping domain type imports working for both server and client components.
 
-  ## Library Analysis
+  ### Container Initialization
 
-  | Library     | Version     | Purpose     | Pros     | Cons     |
-  | ----------- | ----------- | ----------- | -------- | -------- |
-  | {{LIBRARY}} | {{VERSION}} | {{PURPOSE}} | {{PROS}} | {{CONS}} |
+  **Options considered:**
 
-  ## Security Considerations
+  1. **instrumentation.ts with idempotent guard** — runs once on Next.js startup, guaranteed before requests
+  2. **globalThis bridge** — current hack, requires manual wiring per use case
+  3. **Lazy init on first request** — adds latency to first request, race conditions
+  4. **Module-level side effect** — fragile execution order, no async support
 
-  No security implications identified.
+  **Decision:** instrumentation.ts with idempotent initializeContainer()
 
-  ## Performance Implications
+  **Rationale:** `register()` in instrumentation.ts runs once before any request handling. Adding an idempotency guard to `initializeContainer()` makes it safe when both dev-server.ts/CLI bootstrap AND instrumentation.ts call it.
 
-  No performance implications identified.
+  ### SWC Decorator Handling
 
-  ## Open Questions
+  **Decision:** No action needed
 
-  All questions resolved.
+  **Rationale:** Externalized packages bypass SWC entirely — they're loaded via Node.js `require()` using tsc-compiled output. The web tsconfig already has `experimentalDecorators: true` and `emitDecoratorMetadata: true` as a safety net for any code that does pass through SWC.
+
+  ## Codebase Impact Analysis
+
+  ### Files to Delete (2)
+
+  | File | Purpose |
+  | --- | --- |
+  | `packages/core/src/infrastructure/di/use-cases-bridge.ts` | Bridge reader (globalThis wrapper functions) |
+  | `packages/core/src/infrastructure/di/populate-use-cases-bridge.ts` | Bridge writer (puts resolved use cases on globalThis) |
+
+  ### Files to Modify (7)
+
+  | File | Change |
+  | --- | --- |
+  | `packages/core/src/infrastructure/di/container.ts` | Add idempotency guard to `initializeContainer()` |
+  | `src/presentation/web/next.config.ts` | Add `serverExternalPackages` |
+  | `src/presentation/web/app/page.tsx` | Replace bridge imports with `container.resolve()` |
+  | `src/presentation/web/app/api/features/create/route.ts` | Replace bridge import with `container.resolve()` |
+  | `src/presentation/cli/index.ts` | Remove `populateUseCasesBridge()` import + call |
+  | `src/presentation/web/dev-server.ts` | Remove `populateUseCasesBridge()` import + call |
+  | `tests/unit/presentation/web/api/features/create/route.test.ts` | Update mock from bridge to container |
+
+  ### Files to Create (1)
+
+  | File | Purpose |
+  | --- | --- |
+  | `src/presentation/web/instrumentation.ts` | Import reflect-metadata + init container on server startup |
+
+  ### Files to Update Tests (2)
+
+  | File | Change |
+  | --- | --- |
+  | `tests/unit/presentation/web/smoke-imports.test.ts` | Remove bridge smoke test, add container import test |
+  | `tests/unit/presentation/web/api/features/create/route.test.ts` | Mock container.resolve instead of bridge function |
+
+  ## Risk Assessment
+
+  | Risk | Level | Mitigation |
+  | --- | --- | --- |
+  | pnpm + serverExternalPackages transitive deps | Low | Fixed in Next.js 16.1; fallback: add as devDeps of web package |
+  | next build with native modules | Medium | Test early; serverExternalPackages skips bundling |
+  | Double container initialization | Low | Idempotency guard in initializeContainer() |
+  | SWC decorator compilation | Low | Irrelevant — externalized packages bypass SWC |
+  | Client components importing @shepai/core types | Low | Only leaf packages externalized, domain types still bundleable |
+
+  ## Existing Patterns to Preserve
+
+  `getSettings()` and `getNotificationBus()` already use module-level singletons (not the bridge). These patterns are correct and do not need changing. The migration only affects the 3 use cases currently going through the bridge.
+
+  ## Early Validation Step
+
+  Before full implementation, validate the approach:
+  1. Add `serverExternalPackages` to next.config.ts
+  2. Run `pnpm build:web` — if it succeeds, the approach works
+  3. If it fails, fall back to adding packages as devDependencies of web package
 
   ---
 
