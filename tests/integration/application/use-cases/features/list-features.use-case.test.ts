@@ -40,6 +40,7 @@ describe('ListFeaturesUseCase (integration)', () => {
     lifecycle: SdlcLifecycle.Requirements,
     messages: [],
     relatedArtifacts: [],
+    push: false,
     openPr: false,
     approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date('2026-02-01T00:00:00Z'),

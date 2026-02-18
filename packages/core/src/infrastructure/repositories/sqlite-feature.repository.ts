@@ -34,14 +34,14 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         id, name, slug, description, repository_path, branch,
         lifecycle, messages, plan, related_artifacts,
         agent_run_id, spec_path,
-        open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
+        push, open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
         pr_url, pr_number, pr_status, commit_hash, ci_status,
         created_at, updated_at
       ) VALUES (
         @id, @name, @slug, @description, @repository_path, @branch,
         @lifecycle, @messages, @plan, @related_artifacts,
         @agent_run_id, @spec_path,
-        @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
+        @push, @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
         @pr_url, @pr_number, @pr_status, @commit_hash, @ci_status,
         @created_at, @updated_at
       )
@@ -123,6 +123,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         related_artifacts = @related_artifacts,
         agent_run_id = @agent_run_id,
         spec_path = @spec_path,
+        push = @push,
         open_pr = @open_pr,
         auto_merge = @auto_merge,
         allow_prd = @allow_prd,

@@ -363,6 +363,9 @@ model Feature extends BaseEntity {
 
   // ── Workflow Configuration ──────────────────────────────────
 
+  @doc("Push branch to remote after implementation (default: false)")
+  push: boolean = false;
+
   @doc("Create PR after implementation (default: false)")
   openPr: boolean = false;
 

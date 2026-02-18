@@ -700,6 +700,10 @@ export type Feature = BaseEntity & {
    */
   specPath?: string;
   /**
+   * Push branch to remote after implementation (default: false)
+   */
+  push: boolean;
+  /**
    * Create PR after implementation (default: false)
    */
   openPr: boolean;

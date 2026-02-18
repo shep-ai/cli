@@ -206,6 +206,10 @@ export function createShowCommand(): Command {
               title: 'Workflow',
               fields: [
                 {
+                  label: 'Push',
+                  value: feature.push ? colors.success('Yes') : colors.muted('No'),
+                },
+                {
                   label: 'Open PR',
                   value: feature.openPr ? colors.success('Yes') : colors.muted('No'),
                 },

@@ -62,6 +62,8 @@ export class ApproveAgentRunUseCase {
         approvalGates: run.approvalGates,
         threadId: run.threadId,
         resumeFromInterrupt: true,
+        push: feature?.push ?? false,
+        openPr: feature?.openPr ?? false,
       }
     );
 

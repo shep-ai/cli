@@ -22,6 +22,7 @@ import { getSettings, hasSettings } from '@/infrastructure/services/settings.ser
 
 interface NewOptions {
   repo?: string;
+  push?: boolean;
   pr?: boolean;
   allowPrd?: boolean;
   allowPlan?: boolean;
@@ -50,7 +51,8 @@ export function createNewCommand(): Command {
     .description('Create a new feature')
     .argument('<description>', 'Feature description')
     .option('-r, --repo <path>', 'Repository path (defaults to current directory)')
-    .option('--pr', 'Open PR on implementation complete')
+    .option('--push', 'Push branch to remote after implementation')
+    .option('--pr', 'Open PR on implementation complete (implies --push)')
     .option('--no-pr', 'Do not open PR on implementation complete')
     .option('--allow-prd', 'Auto-approve through requirements, pause after')
     .option('--allow-plan', 'Auto-approve through planning, pause at implementation')
@@ -74,11 +76,14 @@ export function createNewCommand(): Command {
               allowMerge: !!options.allowMerge,
             };
 
+        const push = !!options.push;
+
         const result = await spinner('Thinking', () =>
           useCase.execute({
             userInput: description,
             repositoryPath: repoPath,
             approvalGates,
+            push,
             openPr,
           })
         );
@@ -105,6 +110,10 @@ export function createNewCommand(): Command {
           console.log(
             `  ${colors.muted('Agent:')}    ${colors.success('spawned')} (run ${feature.agentRunId.slice(0, 8)})`
           );
+        }
+        if (push || openPr) {
+          const pushHint = openPr ? 'push + PR' : 'push only';
+          console.log(`  ${colors.muted('Push:')}     ${pushHint}`);
         }
         const approved = [
           approvalGates.allowPrd && 'PRD',
