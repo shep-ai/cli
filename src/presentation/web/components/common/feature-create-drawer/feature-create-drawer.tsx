@@ -28,7 +28,7 @@ import { CheckboxGroup } from '@/components/ui/checkbox-group';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
-import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
+import type { CreateFeatureInput } from '@shepai/core/application/use-cases/features/create/types';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';

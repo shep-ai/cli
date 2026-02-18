@@ -1,3 +1,11 @@
+## [1.29.1](https://github.com/shep-ai/cli/compare/v1.29.0...v1.29.1) (2026-02-18)
+
+# [1.29.0](https://github.com/shep-ai/cli/compare/v1.28.0...v1.29.0) (2026-02-18)
+
+### Features
+
+- **web:** add delete feature node with confirmation dialog ([#68](https://github.com/shep-ai/cli/issues/68)) ([481b1e5](https://github.com/shep-ai/cli/commit/481b1e5a5f6a66d0dc324be02ff360b011dddc28))
+
 # [1.28.0](https://github.com/shep-ai/cli/compare/v1.27.0...v1.28.0) (2026-02-18)
 
 ### Features

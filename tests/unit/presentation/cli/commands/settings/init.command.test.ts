@@ -23,6 +23,16 @@ vi.mock('@/domain/factories/settings-defaults.factory.js', () => ({
   createDefaultSettings: vi.fn().mockReturnValue({ id: 'test-id', models: {} }),
 }));
 
+// Mock the DI container
+vi.mock('@/infrastructure/di/container.js', () => ({
+  container: {
+    resolve: vi.fn().mockReturnValue({
+      load: vi.fn().mockResolvedValue({ id: 'existing-id', createdAt: '2026-01-01T00:00:00Z' }),
+      update: vi.fn().mockResolvedValue(undefined),
+    }),
+  },
+}));
+
 import { resetSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { createInitCommand } from '../../../../../../src/presentation/cli/commands/settings/init.command.js';
 

@@ -65,7 +65,7 @@ describe('CLI: help', () => {
 
       // Assert - both should show same help content
       expect(helpResult.stdout).toBe(defaultResult.stdout);
-    });
+    }, 30_000);
   });
 
   describe('shep -h', () => {

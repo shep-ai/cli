@@ -17,7 +17,7 @@ import {
   WorktreeError,
   WorktreeErrorCode,
 } from '../../../application/ports/output/services/worktree-service.interface.js';
-import { SHEP_HOME_DIR } from '../filesystem/shep-directory.service.js';
+import { getShepHomeDir } from '../filesystem/shep-directory.service.js';
 
 /**
  * Type for the command executor dependency.
@@ -77,7 +77,7 @@ export class WorktreeService implements IWorktreeService {
   getWorktreePath(repoPath: string, branch: string): string {
     const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
     const slug = branch.replace(/\//g, '-');
-    return path.join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', slug);
+    return path.join(getShepHomeDir(), 'repos', repoHash, 'wt', slug);
   }
 
   private parseWorktreeOutput(output: string): WorktreeInfo[] {

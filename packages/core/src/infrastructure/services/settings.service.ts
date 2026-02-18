@@ -3,8 +3,7 @@
  *
  * Provides global access to application settings within the CLI.
  * Uses globalThis/process storage so the singleton survives Turbopack
- * module re-evaluations in Next.js API routes (same pattern as the
- * use-cases bridge in di/use-cases-bridge.ts).
+ * module re-evaluations in Next.js API routes.
  *
  * Usage:
  * ```typescript

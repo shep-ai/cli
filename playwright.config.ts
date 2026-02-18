@@ -30,7 +30,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'pnpm --filter @shepai/web dev:e2e',
+    command: 'PORT=3001 pnpm dev:web',
     url: 'http://localhost:3001',
     reuseExistingServer: !process.env.CI,
     timeout: 120 * 1000,

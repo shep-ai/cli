@@ -1,0 +1,230 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: delete-feature-node
+summary: >
+  Wire the existing DeleteFeatureUseCase through the use-cases bridge and a
+  DELETE /api/features/[id] route, then add a delete button with AlertDialog
+  confirmation to the FeatureDrawer. All backend logic exists; work spans
+  four layers — bridge, API route, state hook, UI components — following the
+  established createFeature pattern. Pessimistic deletion with loading state,
+  auto-close drawer on success, success/error toasts. Four phases: bridge/API
+  foundation, primitives/state management, UI integration/wiring, stories/validation.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js 16+ App Router)
+  - React Flow (@xyflow/react)
+  - shadcn/ui AlertDialog (Radix UI primitive)
+  - shadcn/ui Button (destructive variant)
+  - Sonner (toast notifications)
+  - tsyringe (DI container)
+  - Vitest + @testing-library/react
+  - Storybook
+  - Playwright (E2E tests)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Bridge & API Route Layer'
+    description: >
+      Wire DeleteFeatureUseCase into the use-cases bridge (reader + writer)
+      and create the DELETE /api/features/[id] route. This is the foundation
+      that all UI work depends on. Follows the exact createFeature bridge
+      pattern — add to ShepUseCases interface, type guard, reader function,
+      populate function, then create the dynamic route segment. Includes full
+      TDD coverage for both the API route and the bridge wiring. Comes first
+      because the UI layers cannot be meaningfully tested without a working
+      API endpoint.
+    parallel: false
+
+  - id: phase-2
+    name: 'UI Primitives & State Management'
+    description: >
+      Install the shadcn/ui AlertDialog component and add the
+      handleDeleteFeature handler + isDeleting state to useControlCenterState.
+      AlertDialog is a prerequisite for the FeatureDrawer delete UI. The state
+      hook handler follows the handleCreateFeatureSubmit pattern exactly —
+      set loading flag, fetch DELETE endpoint, handle success (clear selection,
+      remove node/edges, toast, router.refresh) and error (toast, preserve state),
+      clear loading in finally.
+    parallel: false
+
+  - id: phase-3
+    name: 'UI Integration & Wiring'
+    description: >
+      Add the delete button and AlertDialog confirmation flow to FeatureDrawer,
+      wire the delete handler and isDeleting state through ControlCenterInner.
+      The drawer gets a destructive-styled button in a footer section that
+      triggers an AlertDialog showing feature name, branch, and running-agent
+      warning. Confirm calls onDelete prop, which ControlCenterInner maps to
+      handleDeleteFeature from the hook. Component tests verify the full
+      interaction flow.
+    parallel: false
+
+  - id: phase-4
+    name: 'Storybook Stories & Final Validation'
+    description: >
+      Create AlertDialog Storybook stories (Primitives/AlertDialog) and update
+      FeatureDrawer stories (Composed/FeatureDrawer) with delete button and
+      confirmation dialog variants. Run full validation suite (lint, format,
+      typecheck, tests) to ensure nothing is broken. Stories are last because
+      they depend on the final component APIs being stable.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/web/app/api/features/[id]/route.ts
+  - src/presentation/web/components/ui/alert-dialog.tsx
+  - src/presentation/web/components/ui/alert-dialog.stories.tsx
+  - tests/unit/presentation/web/api/features/delete/route.test.ts
+
+filesToModify:
+  - packages/core/src/infrastructure/di/use-cases-bridge.ts
+  - packages/core/src/infrastructure/di/populate-use-cases-bridge.ts
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+  - tests/unit/presentation/web/components/common/feature-drawer/feature-drawer.test.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The delete feature follows the exact same layered architecture established
+  by the create feature flow. The DeleteFeatureUseCase already exists in the
+  application layer with full DI registration (container.ts line 221). The
+  work adds four thin layers on top:
+
+  ```
+  FeatureDrawer (Presentation/Component)
+    └─ AlertDialog confirm → calls onDelete(featureId) prop
+
+  ControlCenterInner (Presentation/Wiring)
+    └─ Passes handleDeleteFeature + isDeleting from hook to FeatureDrawer
+
+  useControlCenterState (Presentation/State)
+    └─ handleDeleteFeature: fetch DELETE → update nodes/edges/selection → toast
+
+  DELETE /api/features/[id]/route.ts (Presentation/API)
+    └─ Validates id → calls deleteFeature bridge → returns JSON
+
+  use-cases-bridge.ts (Infrastructure/Bridge Reader)
+    └─ deleteFeature() reads from globalThis.__shepUseCases
+
+  populate-use-cases-bridge.ts (Infrastructure/Bridge Writer)
+    └─ Resolves DeleteFeatureUseCase from DI container
+  ```
+
+  Dependencies point strictly inward. No domain or application layer changes
+  are needed. The bridge pattern maintains the Turbopack/Node.js decoupling
+  that prevents the web layer from importing tsyringe or better-sqlite3.
+
+  ## Key Design Decisions
+
+  ### 1. Bridge Pattern (not direct DI resolution)
+
+  The web layer (Next.js with Turbopack) cannot bundle tsyringe,
+  reflect-metadata, or better-sqlite3. The existing bridge pattern — a
+  globalThis-based interface populated by the CLI bootstrap and read by API
+  routes — is the only supported mechanism. deleteFeature follows createFeature
+  exactly: the reader throws on errors (allowing API routes to return 500),
+  and the writer resolves from the DI container.
+
+  **Template:** createFeature in use-cases-bridge.ts (lines 105-112) for the
+  reader; populate-use-cases-bridge.ts (lines 25-33) for the writer.
+
+  ### 2. DELETE /api/features/[id] dynamic route segment
+
+  REST semantics (DELETE on a resource URI) are more correct than POST with
+  body for a deletion operation. This is the first dynamic route segment in
+  the codebase, but Next.js App Router natively supports [paramName]
+  directories. The route handler receives params as a Promise (Next.js 15+
+  convention) that must be awaited.
+
+  **Alternative rejected:** POST /api/features/delete with body — DELETE is
+  semantically correct for resource removal.
+
+  ### 3. shadcn/ui AlertDialog (not Dialog or window.confirm)
+
+  AlertDialog from Radix provides the ARIA alertdialog role, prevents
+  outside-click dismissal, and traps focus — all critical for destructive
+  confirmations. Dialog allows outside-click dismissal, which is
+  inappropriate for delete confirmation. The shadcn CLI installs the
+  component with no new runtime dependencies since Radix is already in the
+  dependency tree.
+
+  **Alternative rejected:** Reuse existing Dialog component — lacks
+  alertdialog ARIA role and allows outside-click dismissal.
+
+  ### 4. Pessimistic deletion (not optimistic)
+
+  Matches the existing createFeature pessimistic pattern in
+  useControlCenterState (lines 219-258): set isDeleting=true, await fetch,
+  update UI on success, show toast, set isDeleting=false in finally.
+  Optimistic deletion would require complex rollback logic (re-inserting
+  nodes/edges with positions) for a destructive operation with backend side
+  effects (agent cancellation, worktree removal).
+
+  **Alternative rejected:** Optimistic with rollback — inconsistent with
+  codebase pattern, complex, risky for destructive operations.
+
+  ### 5. Drawer-only delete button (not on node)
+
+  The FeatureNode canvas element is compact with existing onAction and
+  onSettings handlers. Adding a delete button introduces accidental-deletion
+  risk. The drawer provides full context (name, branch, lifecycle) for
+  confirming the correct target. Can be revisited in a future iteration.
+
+  **Alternative rejected:** Trash icon on FeatureNode hover — accidental
+  click risk on compact canvas element.
+
+  ### 6. Auto-close drawer after deletion
+
+  The FeatureDrawer is controlled by `selectedNode !== null`. Clearing
+  selectedNode naturally closes it. The deleted node no longer exists on
+  the canvas, so the drawer would reference a nonexistent entity. A Sonner
+  toast provides non-intrusive confirmation.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Bridge & API)** comes first because it establishes the backend
+  contract that all UI work depends on. The bridge wiring is ~20 lines across
+  two files, and the API route is ~25 lines. Tests follow the established
+  vi.mock() pattern from the create route test.
+
+  **Phase 2 (Primitives & State)** installs AlertDialog via shadcn CLI (zero
+  manual coding for the generated component) and adds the handleDeleteFeature
+  handler to the state hook. The handler follows handleCreateFeatureSubmit
+  line-for-line: different fetch URL/method, and success actions (clear
+  selection + filter nodes/edges instead of close create drawer).
+
+  **Phase 3 (UI Integration)** adds the delete button and AlertDialog to
+  FeatureDrawer and wires props through ControlCenterInner. The drawer gets
+  two new props (onDelete, isDeleting) and a footer section with the
+  destructive button + AlertDialog. The AlertDialog shows feature name,
+  branch, and a running-agent warning when state is "running".
+
+  **Phase 4 (Stories & Validation)** adds Storybook coverage and runs the
+  full validation suite. Stories depend on final component APIs, so they
+  come last.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Dynamic route segment [id] is new pattern in codebase | Next.js App Router natively supports it; test with makeRequest helper pattern from create route tests |
+  | AlertDialog install via shadcn CLI may change file structure | CLI generates to ui/ directory matching existing components; verify output before proceeding |
+  | Node/edge removal may cause React Flow rendering issues | Use established setNodes/setEdges filter pattern; test with multiple connected nodes in hook test |
+  | Running agent deletion may timeout | DeleteFeatureUseCase already handles this gracefully; UI shows isDeleting loading state; NFR-1 allows 2s |
+  | FeatureDrawer props change may break existing stories | Update stories immediately after component changes; run Storybook build to verify |
+  | Next.js 15+ params is a Promise (must be awaited) | Research confirmed this pattern; API route test validates correct param extraction |

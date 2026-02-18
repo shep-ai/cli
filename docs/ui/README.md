@@ -4,11 +4,11 @@ Documentation for the Shep AI web interface built with Next.js 16, React 19, and
 
 ## Quick Links
 
-| Document                            | Description                                            |
-| ----------------------------------- | ------------------------------------------------------ |
-| [Architecture](./architecture.md)   | Component patterns, folder structure, state management |
-| [Design System](./design-system.md) | Design tokens, theming, color palette                  |
-| [Components](./components.md)       | Component catalog and usage examples                   |
+| Document                            | Description                                                            |
+| ----------------------------------- | ---------------------------------------------------------------------- |
+| [Architecture](./architecture.md)   | Component patterns, folder structure, DI integration, state management |
+| [Design System](./design-system.md) | Design tokens, theming, color palette                                  |
+| [Components](./components.md)       | Component catalog and usage examples                                   |
 
 ## Tech Stack
 
@@ -45,7 +45,7 @@ src/presentation/web/
 │   └── features/     # Tier 3: Domain-specific UI bound to routes
 ├── docs/             # Design system MDX documentation
 ├── hooks/            # Custom React hooks
-├── lib/              # Utilities (cn, etc.)
+├── lib/              # Utilities (cn, server-container, etc.)
 └── types/            # TypeScript definitions
 ```
 

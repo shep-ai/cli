@@ -12,6 +12,8 @@ import { Command } from 'commander';
 import { createInterface } from 'node:readline';
 import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 import { resetSettings, initializeSettings } from '@/infrastructure/services/settings.service.js';
+import { container } from '@/infrastructure/di/container.js';
+import type { ISettingsRepository } from '@/application/ports/output/repositories/settings.repository.interface.js';
 import { messages } from '../../ui/index.js';
 
 /**
@@ -69,7 +71,21 @@ Examples:
           }
         }
 
+        const repo = container.resolve<ISettingsRepository>('ISettingsRepository');
+        const existing = await repo.load();
         const newSettings = createDefaultSettings();
+
+        if (existing) {
+          // Preserve the existing record's identity, reset everything else
+          const resetSettings_db = {
+            ...newSettings,
+            id: existing.id,
+            createdAt: existing.createdAt,
+          };
+          await repo.update(resetSettings_db);
+        }
+
+        // Update in-memory singleton
         resetSettings();
         initializeSettings(newSettings);
 

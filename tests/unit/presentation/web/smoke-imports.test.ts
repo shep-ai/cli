@@ -46,11 +46,9 @@ describe('smoke: web component imports', () => {
     expect(typeof mod.deriveProgress).toBe('function');
   });
 
-  it('resolves use-cases bridge module', async () => {
-    const mod = await import('@shepai/core/infrastructure/di/use-cases-bridge');
-    expect(typeof mod.getFeatures).toBe('function');
-    expect(typeof mod.getAgentRun).toBe('function');
-    expect(typeof mod.createFeature).toBe('function');
+  it('resolves server-container module', async () => {
+    const mod = await import('@/lib/server-container');
+    expect(typeof mod.resolve).toBe('function');
   });
 });
 

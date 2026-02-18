@@ -8,20 +8,30 @@
  * - All tests should FAIL initially (command doesn't exist yet)
  */
 
-import { describe, it, expect } from 'vitest';
-import { runCli } from '../../helpers/cli/index.js';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createIsolatedCliRunner, type IsolatedCliRunner } from '../../helpers/cli/index.js';
 
 describe('CLI: settings init', () => {
+  let isolated: IsolatedCliRunner;
+
+  beforeEach(() => {
+    isolated = createIsolatedCliRunner();
+  });
+
+  afterEach(() => {
+    isolated.cleanup();
+  });
+
   describe('shep settings init --force', () => {
     it('should reinitialize settings without prompting', () => {
-      const result = runCli('settings init --force');
+      const result = isolated.runner.run('settings init --force');
 
       expect(result.exitCode).toBe(0);
       expect(result.success).toBe(true);
     });
 
     it('should display success message', () => {
-      const result = runCli('settings init --force');
+      const result = isolated.runner.run('settings init --force');
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Settings initialized');
@@ -29,15 +39,15 @@ describe('CLI: settings init', () => {
 
     it('should reset settings to defaults after init', () => {
       // First, verify settings exist via show
-      const showResult = runCli('settings show --output json');
+      const showResult = isolated.runner.run('settings show --output json');
       expect(showResult.exitCode).toBe(0);
 
       // Run init --force
-      const initResult = runCli('settings init --force');
+      const initResult = isolated.runner.run('settings init --force');
       expect(initResult.exitCode).toBe(0);
 
       // Verify settings are reset to defaults
-      const afterResult = runCli('settings show --output json');
+      const afterResult = isolated.runner.run('settings show --output json');
       expect(afterResult.exitCode).toBe(0);
 
       const settings = JSON.parse(afterResult.stdout);
@@ -51,7 +61,7 @@ describe('CLI: settings init', () => {
     it('should not silently modify settings without confirmation', () => {
       // Without --force and without stdin input, the command should
       // either prompt and timeout/fail, or require explicit confirmation
-      const result = runCli('settings init');
+      const result = isolated.runner.run('settings init');
 
       // Should either prompt (and fail due to no stdin) or show a message
       // The key assertion: settings should NOT be silently reset
@@ -61,7 +71,7 @@ describe('CLI: settings init', () => {
 
   describe('shep settings init -f (short flag)', () => {
     it('should work with -f short flag', () => {
-      const result = runCli('settings init -f');
+      const result = isolated.runner.run('settings init -f');
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Settings initialized');
@@ -70,7 +80,7 @@ describe('CLI: settings init', () => {
 
   describe('shep settings init --help', () => {
     it('should display help for init command', () => {
-      const result = runCli('settings init --help');
+      const result = isolated.runner.run('settings init --help');
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('init');

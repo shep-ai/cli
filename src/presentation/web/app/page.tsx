@@ -1,5 +1,7 @@
 import { ControlCenter } from '@/components/features/control-center';
-import { getAgentRun, getFeatures } from '@shepai/core/infrastructure/di/use-cases-bridge';
+import { resolve } from '@/lib/server-container';
+import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
+import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
 import {
   deriveNodeState,
   deriveProgress,
@@ -9,7 +11,7 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
 
-/** Force request-time rendering so the globalThis DI bridge is available. */
+/** Force request-time rendering so the DI container is available. */
 export const dynamic = 'force-dynamic';
 
 /** Map domain SdlcLifecycle enum values to UI FeatureLifecyclePhase (1:1). */
@@ -32,10 +34,12 @@ const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
 };
 
 export default async function HomePage() {
-  const features = await getFeatures();
+  const listFeatures = resolve<ListFeaturesUseCase>('ListFeaturesUseCase');
+  const agentRunRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
+  const features = await listFeatures.execute();
   const featuresWithRuns = await Promise.all(
     features.map(async (feature) => {
-      const run = feature.agentRunId ? await getAgentRun(feature.agentRunId) : null;
+      const run = feature.agentRunId ? await agentRunRepo.findById(feature.agentRunId) : null;
       return { feature, run };
     })
   );

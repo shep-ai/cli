@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
-import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
+import type { CreateFeatureInput } from '@shepai/core/application/use-cases/features/create/types';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 
@@ -28,6 +28,8 @@ export interface ControlCenterState {
   handleLayout: (direction: LayoutDirection) => void;
   handleCreateFeatureSubmit: (data: CreateFeatureInput) => void;
   closeCreateDrawer: () => void;
+  handleDeleteFeature: (featureId: string) => Promise<void>;
+  isDeleting: boolean;
 }
 
 let nextFeatureId = 0;
@@ -42,6 +44,7 @@ export function useControlCenterState(
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
@@ -252,6 +255,34 @@ export function useControlCenterState(
     setIsCreateDrawerOpen(false);
   }, []);
 
+  const handleDeleteFeature = useCallback(
+    async (featureId: string) => {
+      setIsDeleting(true);
+      try {
+        const response = await fetch(`/api/features/${featureId}`, {
+          method: 'DELETE',
+        });
+
+        if (!response.ok) {
+          const body = await response.json();
+          toast.error(body.error ?? 'Failed to delete feature');
+          return;
+        }
+
+        setSelectedNode(null);
+        setNodes((prev) => prev.filter((n) => n.id !== featureId));
+        setEdges((prev) => prev.filter((e) => e.source !== featureId && e.target !== featureId));
+        toast.success('Feature deleted successfully');
+        router.refresh();
+      } catch {
+        toast.error('Failed to delete feature');
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [router]
+  );
+
   const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
     setSelectedNode(null);
     setPendingRepoNodeId(repoNodeId);
@@ -334,5 +365,7 @@ export function useControlCenterState(
     handleLayout,
     handleCreateFeatureSubmit,
     closeCreateDrawer,
+    handleDeleteFeature,
+    isDeleting,
   };
 }

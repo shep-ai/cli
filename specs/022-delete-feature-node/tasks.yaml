@@ -1,0 +1,380 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: delete-feature-node
+summary: >
+  11 tasks across 4 phases. Phase 1 wires the bridge and API route with tests.
+  Phase 2 installs AlertDialog and adds the delete handler to the state hook
+  with tests. Phase 3 integrates the delete UI into FeatureDrawer and wires
+  it through ControlCenterInner with component tests. Phase 4 adds Storybook
+  stories and runs final validation.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React (Next.js 16+ App Router)
+  - React Flow (@xyflow/react)
+  - shadcn/ui AlertDialog
+  - shadcn/ui Button (destructive)
+  - Sonner (toast)
+  - tsyringe (DI)
+  - Vitest
+  - Storybook
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ── Phase 1: Bridge & API Route Layer ──────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add deleteFeature to use-cases bridge'
+    description: >
+      Extend the ShepUseCases interface with a deleteFeature slot, update the
+      isShepUseCases type guard, add a deleteFeature reader function that
+      throws on errors (matching createFeature pattern), and resolve
+      DeleteFeatureUseCase in populateUseCasesBridge. This is the foundational
+      wiring that the API route depends on.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'ShepUseCases interface has deleteFeature: { execute(featureId: string): Promise<Feature> }'
+      - 'isShepUseCases type guard validates the deleteFeature property exists'
+      - 'deleteFeature reader function throws if bridge is not initialized'
+      - 'deleteFeature reader function calls bridge.deleteFeature.execute(featureId) and returns result'
+      - 'deleteFeature reader function propagates errors (does not swallow them)'
+      - 'populateUseCasesBridge resolves DeleteFeatureUseCase from container and adds to bridge object'
+      - 'TypeScript compiles cleanly (pnpm typecheck)'
+    tdd:
+      red:
+        - 'Write test that mocks globalThis bridge with deleteFeature and verifies the reader calls execute with the correct featureId'
+        - 'Write test that verifies the reader throws when bridge is not initialized'
+        - 'Write test that verifies errors from execute propagate to caller'
+      green:
+        - 'Add deleteFeature to ShepUseCases interface in use-cases-bridge.ts'
+        - 'Update isShepUseCases type guard to check for deleteFeature property'
+        - 'Add deleteFeature async reader function following createFeature pattern (lines 105-112)'
+        - 'Import DeleteFeatureUseCase in populate-use-cases-bridge.ts'
+        - 'Add c.resolve(DeleteFeatureUseCase) to bridge object in populateUseCasesBridge'
+      refactor:
+        - 'Verify export consistency — deleteFeature should be a named export like createFeature'
+        - 'Ensure import paths follow codebase conventions (relative within package)'
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create DELETE /api/features/[id] route with tests'
+    description: >
+      Create the dynamic route segment at app/api/features/[id]/route.ts with
+      a DELETE handler. Extract id from params (awaited Promise in Next.js 15+),
+      validate non-empty, call deleteFeature bridge function, return JSON.
+      Write comprehensive tests following the create route test pattern.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Route file exists at src/presentation/web/app/api/features/[id]/route.ts'
+      - 'Exports async DELETE handler with (request, { params }) signature'
+      - 'Awaits params Promise to extract id (Next.js 15+ pattern)'
+      - 'Returns 400 with { error } for missing or empty id'
+      - 'Calls deleteFeature(id) bridge function on valid input'
+      - 'Returns 200 with { feature } on successful deletion'
+      - 'Returns 500 with { error: message } when bridge throws Error'
+      - 'Returns 500 with generic message when bridge throws non-Error'
+      - 'Test file covers success, 400 validation, 500 Error, and 500 non-Error cases'
+    tdd:
+      red:
+        - 'Create test file at tests/unit/presentation/web/api/features/delete/route.test.ts'
+        - 'Mock deleteFeature bridge with vi.mock() before importing route (same pattern as create route test)'
+        - 'Write test: DELETE with valid id returns 200 and { feature } from bridge'
+        - 'Write test: DELETE with missing id returns 400 and { error }'
+        - 'Write test: DELETE with empty string id returns 400 and { error }'
+        - 'Write test: DELETE when bridge throws Error returns 500 with error.message'
+        - 'Write test: DELETE when bridge throws non-Error returns 500 with generic message'
+      green:
+        - 'Create src/presentation/web/app/api/features/[id]/route.ts'
+        - 'Implement DELETE handler: await params, validate id, call deleteFeature, try/catch with proper status codes'
+        - 'Use NextResponse.json for all responses (matching create route pattern)'
+      refactor:
+        - 'Ensure error message extraction matches create route pattern (error instanceof Error check)'
+        - 'Verify response shape consistency with create route ({ feature } on success, { error } on failure)'
+    estimatedEffort: '1h'
+
+  # ── Phase 2: UI Primitives & State Management ─────────────────────────
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Install shadcn/ui AlertDialog component'
+    description: >
+      Install the AlertDialog primitive via shadcn CLI. This generates
+      alert-dialog.tsx in the ui/ directory with all Radix subcomponents
+      pre-styled to match the design system. No new runtime dependencies
+      since @radix-ui packages are already in the tree.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'alert-dialog.tsx exists at src/presentation/web/components/ui/alert-dialog.tsx'
+      - 'Exports AlertDialog, AlertDialogTrigger, AlertDialogContent, AlertDialogHeader, AlertDialogTitle, AlertDialogDescription, AlertDialogFooter, AlertDialogCancel, AlertDialogAction'
+      - 'No new top-level package dependencies added (Radix already in tree)'
+      - 'TypeScript compiles cleanly (pnpm typecheck:web)'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Add handleDeleteFeature and isDeleting to useControlCenterState'
+    description: >
+      Extend the ControlCenterState interface with handleDeleteFeature and
+      isDeleting. Implement the handler following handleCreateFeatureSubmit
+      pattern: set isDeleting=true, fetch DELETE /api/features/{id}, on
+      success clear selectedNode + filter nodes/edges + toast + router.refresh,
+      on error toast error, finally set isDeleting=false.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'ControlCenterState interface has handleDeleteFeature(featureId: string): Promise<void>'
+      - 'ControlCenterState interface has isDeleting: boolean'
+      - 'isDeleting state initialized to false'
+      - 'handleDeleteFeature sets isDeleting=true at start'
+      - 'handleDeleteFeature calls fetch with DELETE method to /api/features/{featureId}'
+      - 'On success: calls clearSelection (sets selectedNode to null)'
+      - 'On success: removes deleted node from nodes array via setNodes filter'
+      - 'On success: removes all edges connected to deleted node (source or target match) via setEdges filter'
+      - 'On success: shows toast.success with deletion message'
+      - 'On success: calls router.refresh()'
+      - 'On !response.ok: extracts error from response body and shows toast.error'
+      - 'On fetch exception: shows toast.error with generic message'
+      - 'isDeleting set to false in finally block'
+      - 'handleDeleteFeature memoized with useCallback'
+    tdd:
+      red:
+        - 'Extend HookTestHarness in existing test file with delete button (data-testid="delete-feature") that calls handleDeleteFeature with a test featureId'
+        - 'Add isDeleting display element (data-testid="is-deleting") to HookTestHarness'
+        - 'Write test: handleDeleteFeature success — mock fetch returning ok, verify node removed from nodes, edges connected to node removed, selectedNode cleared, toast.success called, router.refresh called'
+        - 'Write test: handleDeleteFeature API error — mock fetch returning !ok with error body, verify toast.error called with API message, nodes/edges/selectedNode unchanged'
+        - 'Write test: handleDeleteFeature network error — mock fetch throwing, verify toast.error called with generic message, state preserved'
+        - 'Write test: isDeleting is true during fetch and false after completion'
+      green:
+        - 'Add isDeleting state via useState(false) in useControlCenterState'
+        - 'Implement handleDeleteFeature with useCallback following handleCreateFeatureSubmit pattern'
+        - 'Add handleDeleteFeature and isDeleting to returned ControlCenterState object'
+        - 'Update ControlCenterState interface with new properties'
+      refactor:
+        - 'Extract node ID format logic if needed (node IDs may have prefix like feature- that differs from feature.id)'
+        - 'Verify edge filtering covers both source and target directions'
+        - 'Ensure useCallback dependency array includes all referenced values'
+    estimatedEffort: '1.5h'
+
+  # ── Phase 3: UI Integration & Wiring ──────────────────────────────────
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Add delete button and AlertDialog to FeatureDrawer'
+    description: >
+      Add onDelete and isDeleting props to FeatureDrawerProps. Add a footer
+      section with a destructive-styled Button that triggers an AlertDialog.
+      The AlertDialog shows feature name, branch, and warns about running
+      agents when state is "running". Cancel closes dialog, Confirm calls
+      onDelete. The confirm button shows loading state when isDeleting is true.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'FeatureDrawerProps includes onDelete?: (featureId: string) => void'
+      - 'FeatureDrawerProps includes isDeleting?: boolean'
+      - 'Delete button renders with variant="destructive" in a footer/action area'
+      - 'Delete button is wrapped in AlertDialogTrigger'
+      - 'AlertDialog title says "Delete feature?" or similar destructive language'
+      - 'AlertDialog description includes feature name and branch'
+      - 'AlertDialog description includes running-agent warning when selectedNode.state === "running"'
+      - 'AlertDialog has Cancel button that closes dialog without side effects'
+      - 'AlertDialog has destructive-styled Confirm button'
+      - 'Confirm button calls onDelete(selectedNode.featureId) when clicked'
+      - 'Confirm button is disabled and shows loading indicator when isDeleting is true'
+      - 'Delete button and AlertDialog only render when onDelete prop is provided'
+    tdd:
+      red:
+        - 'Write test: FeatureDrawer renders delete button when onDelete prop is provided'
+        - 'Write test: FeatureDrawer does not render delete button when onDelete is undefined'
+        - 'Write test: clicking delete button opens AlertDialog with feature name and branch'
+        - 'Write test: AlertDialog shows running-agent warning when state is "running"'
+        - 'Write test: AlertDialog does not show running-agent warning when state is not "running"'
+        - 'Write test: clicking Cancel closes dialog, onDelete not called'
+        - 'Write test: clicking Confirm calls onDelete with featureId'
+        - 'Write test: Confirm button is disabled when isDeleting is true'
+      green:
+        - 'Add onDelete and isDeleting to FeatureDrawerProps interface'
+        - 'Import AlertDialog subcomponents from ui/alert-dialog'
+        - 'Add footer section after details with destructive Button wrapped in AlertDialogTrigger'
+        - 'Implement AlertDialogContent with title, description (name + branch + conditional agent warning), cancel, and confirm'
+        - 'Wire confirm action to call onDelete(selectedNode.featureId)'
+        - 'Add disabled + loading state to confirm button when isDeleting'
+        - 'Conditionally render delete section only when onDelete prop exists'
+      refactor:
+        - 'Ensure visual separation between details section and delete footer (Separator)'
+        - 'Verify AlertDialog is accessible (keyboard navigation, focus trapping from Radix)'
+        - 'Check that loading spinner/indicator matches existing patterns in codebase'
+    estimatedEffort: '1.5h'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Wire delete handler through ControlCenterInner'
+    description: >
+      Destructure handleDeleteFeature and isDeleting from useControlCenterState
+      in ControlCenterInner and pass them as props to FeatureDrawer. This is
+      the glue layer connecting state management to the UI component.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'ControlCenterInner destructures handleDeleteFeature and isDeleting from useControlCenterState'
+      - 'FeatureDrawer receives onDelete={handleDeleteFeature} prop'
+      - 'FeatureDrawer receives isDeleting={isDeleting} prop'
+      - 'TypeScript compiles cleanly (pnpm typecheck:web)'
+    tdd:
+      red:
+        - 'Write test or verify existing ControlCenterInner test renders FeatureDrawer with onDelete and isDeleting props (if integration test exists)'
+      green:
+        - 'Add handleDeleteFeature and isDeleting to destructured values from useControlCenterState'
+        - 'Pass onDelete={handleDeleteFeature} and isDeleting={isDeleting} to FeatureDrawer JSX'
+      refactor:
+        - 'Verify no unnecessary re-renders by checking handleDeleteFeature is stable (memoized in hook)'
+    estimatedEffort: '15min'
+
+  # ── Phase 4: Storybook Stories & Final Validation ─────────────────────
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Create AlertDialog Storybook stories'
+    description: >
+      Add alert-dialog.stories.tsx following the Primitives/ naming convention
+      (matching dialog.stories.tsx and alert.stories.tsx patterns). Include
+      Default, Destructive Action, and With Description variants.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Story file exists at src/presentation/web/components/ui/alert-dialog.stories.tsx'
+      - 'Meta title is "Primitives/AlertDialog"'
+      - 'Has Default story with basic AlertDialog trigger/content'
+      - 'Has DestructiveAction story showing delete-style confirmation'
+      - 'Tags include autodocs'
+      - 'Stories render without errors in Storybook'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Update FeatureDrawer Storybook stories with delete variants'
+    description: >
+      Add story variants to feature-drawer.stories.tsx showing the delete
+      button and the confirmation dialog in open state. Follow the existing
+      DrawerTrigger wrapper pattern for interactive stories.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'New story variant "WithDeleteButton" shows FeatureDrawer with onDelete and isDeleting props'
+      - 'New story variant "DeleteConfirmation" shows the AlertDialog in open state'
+      - 'New story variant "DeletingState" shows the delete button in loading/disabled state'
+      - 'Stories with running agent state show the running-agent warning in AlertDialog'
+      - 'Existing stories continue to work (onDelete is optional, so no breaking change)'
+      - 'Stories render without errors in Storybook'
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Run full test suite and fix any failures'
+    description: >
+      Execute pnpm test to run all unit, integration, and existing tests.
+      Verify all new tests pass and no existing tests are broken by the
+      changes. Fix any regressions.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm test passes with all tests green'
+      - 'No existing tests broken by the changes'
+      - 'All new test files execute successfully'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Run typecheck and lint validation'
+    description: >
+      Execute pnpm typecheck, pnpm typecheck:web, pnpm lint, and pnpm
+      format:check to ensure all code quality gates pass. Fix any issues.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'pnpm typecheck passes (CLI package)'
+      - 'pnpm typecheck:web passes (web package)'
+      - 'pnpm lint passes (no lint errors)'
+      - 'pnpm format:check passes (formatting consistent)'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Run pnpm validate for full CI gate check'
+    description: >
+      Execute pnpm validate which runs lint + format + typecheck + tsp:compile
+      as the final verification that all CI quality gates will pass.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'pnpm validate passes with zero errors'
+      - 'All quality gates green — ready for PR'
+    tdd: null
+    estimatedEffort: '10min'
+
+# Total effort estimate
+totalEstimate: '6.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  11 tasks across 4 phases implement the delete feature capability for the
+  web UI control center.
+
+  The work begins with **Phase 1 (Bridge & API)** which establishes the
+  backend contract: wiring DeleteFeatureUseCase into the use-cases bridge
+  reader and writer, then creating the DELETE /api/features/[id] dynamic
+  route — all with comprehensive TDD test coverage following the existing
+  create feature patterns.
+
+  **Phase 2 (Primitives & State)** installs the shadcn/ui AlertDialog
+  component (a zero-code-effort CLI install) and extends useControlCenterState
+  with the handleDeleteFeature handler and isDeleting state, following the
+  handleCreateFeatureSubmit pattern line-for-line. Hook tests exercise both
+  success and error paths including node/edge removal verification.
+
+  **Phase 3 (UI Integration)** adds the delete button and AlertDialog
+  confirmation to FeatureDrawer with props for onDelete and isDeleting, then
+  wires everything through ControlCenterInner. Component tests cover the
+  full interaction flow: button renders, dialog opens, confirmation calls
+  handler, loading state disables button.
+
+  **Phase 4 (Stories & Validation)** adds Storybook stories for AlertDialog
+  (Primitives/) and updated FeatureDrawer stories (Composed/) with delete
+  variants, then runs the full test suite and validation gates to ensure
+  CI readiness.
+
+  Each code task follows TDD: tests are written first (RED), minimal
+  implementation passes them (GREEN), then cleanup ensures code quality
+  (REFACTOR). Non-code tasks (CLI installs, story creation, validation
+  runs) skip TDD as appropriate.
