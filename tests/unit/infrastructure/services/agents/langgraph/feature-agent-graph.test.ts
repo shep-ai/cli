@@ -141,12 +141,12 @@ describe('FeatureAgentAnnotation - approvalGates', () => {
         repositoryPath: '/test/repo',
         worktreePath: '/test/repo',
         specDir: '/test/specs/001-test',
-        approvalGates: { allowPrd: false, allowPlan: false },
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       },
       { configurable: { thread_id: 'approval-thread' } }
     );
 
-    expect(result.approvalGates).toEqual({ allowPrd: false, allowPlan: false });
+    expect(result.approvalGates).toEqual({ allowPrd: false, allowPlan: false, allowMerge: false });
   });
 
   it('should default approvalGates to undefined when not provided', async () => {
@@ -321,7 +321,7 @@ describe('createFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-test',
-          approvalGates: { allowPrd: false, allowPlan: false },
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         },
         config
       );
@@ -347,7 +347,7 @@ describe('createFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-test',
-          approvalGates: { allowPrd: false, allowPlan: false },
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         },
         config
       );
@@ -398,7 +398,7 @@ describe('createFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-test',
-          approvalGates: { allowPrd: true, allowPlan: true },
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
         },
         config
       );
@@ -418,7 +418,7 @@ describe('createFeatureAgentGraph', () => {
           repositoryPath: '/test/repo',
           worktreePath: '/test/repo',
           specDir: '/test/specs/001-test',
-          approvalGates: { allowPrd: true, allowPlan: false },
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
         },
         config
       );

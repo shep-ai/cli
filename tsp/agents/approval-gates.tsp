@@ -12,4 +12,7 @@ model ApprovalGates {
 
   @doc("Skip human review after plan phase")
   allowPlan: boolean;
+
+  @doc("Skip human review after merge phase")
+  allowMerge: boolean;
 }

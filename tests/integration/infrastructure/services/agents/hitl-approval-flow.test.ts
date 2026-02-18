@@ -135,7 +135,7 @@ describe('HITL Approval Flow (Graph-level)', () => {
       repositoryPath: tempDir,
       worktreePath: tempDir,
       specDir,
-      approvalGates: { allowPrd: false, allowPlan: false },
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     };
 
     // Step 1: Initial invoke → analyze runs, then requirements interrupts
@@ -191,7 +191,7 @@ describe('HITL Approval Flow (Graph-level)', () => {
         repositoryPath: tempDir,
         worktreePath: tempDir,
         specDir,
-        approvalGates: { allowPrd: false, allowPlan: false },
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       },
       config
     );
@@ -216,7 +216,7 @@ describe('HITL Approval Flow (Graph-level)', () => {
         repositoryPath: tempDir,
         worktreePath: tempDir,
         specDir,
-        approvalGates: { allowPrd: false, allowPlan: false },
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       },
       { configurable: { thread_id: 'thread-A' } }
     );
@@ -276,7 +276,7 @@ describe('HITL Approval Flow (Graph-level)', () => {
         repositoryPath: tempDir,
         worktreePath: tempDir,
         specDir,
-        approvalGates: { allowPrd: true, allowPlan: false },
+        approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
       },
       config
     );
@@ -299,7 +299,7 @@ describe('HITL Approval Flow (Graph-level)', () => {
         repositoryPath: tempDir,
         worktreePath: tempDir,
         specDir,
-        approvalGates: { allowPrd: true, allowPlan: true },
+        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
       },
       config
     );
@@ -349,7 +349,7 @@ describe('HITL Approval Flow (Graph-level)', () => {
         repositoryPath: tempDir,
         worktreePath: tempDir,
         specDir,
-        approvalGates: { allowPrd: false, allowPlan: false },
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       },
       config
     );

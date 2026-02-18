@@ -21,6 +21,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     isCreateDrawerOpen,
     isSubmitting,
     isDeleting,
+    pendingRepositoryPath,
     onNodesChange,
     handleConnect,
     handleAddFeature,
@@ -66,6 +67,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         open={isCreateDrawerOpen}
         onClose={closeCreateDrawer}
         onSubmit={handleCreateFeatureSubmit}
+        repositoryPath={pendingRepositoryPath}
         isSubmitting={isSubmitting}
       />
     </>

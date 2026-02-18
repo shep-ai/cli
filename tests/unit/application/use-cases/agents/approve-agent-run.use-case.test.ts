@@ -62,7 +62,7 @@ function createWaitingRun(overrides?: Partial<AgentRun>): AgentRun {
     threadId: 'thread-001',
     featureId: 'feat-001',
     repositoryPath: '/test/repo',
-    approvalGates: { allowPrd: false, allowPlan: false },
+    approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
     updatedAt: new Date(),
     ...overrides,
@@ -122,7 +122,7 @@ describe('ApproveAgentRunUseCase', () => {
         resume: true,
         threadId: 'thread-001',
         resumeFromInterrupt: true,
-        approvalGates: { allowPrd: false, allowPlan: false },
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       })
     );
   });

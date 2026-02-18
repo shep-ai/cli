@@ -62,6 +62,10 @@ export default meta;
 type Story = StoryObj<FeatureNodeData>;
 
 export const Default: Story = {
+  args: {
+    agentName: 'claude-code',
+  },
+
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 

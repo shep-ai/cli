@@ -70,6 +70,7 @@ describe('POST /api/features/create', () => {
     expect(mockCreateFeature).toHaveBeenCalledWith({
       userInput: 'Feature: Auth System\n\nAdd login and signup',
       repositoryPath: '/repo',
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -82,6 +83,7 @@ describe('POST /api/features/create', () => {
     expect(mockCreateFeature).toHaveBeenCalledWith({
       userInput: 'Feature: Quick Fix',
       repositoryPath: '/repo',
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -94,6 +96,7 @@ describe('POST /api/features/create', () => {
     expect(mockCreateFeature).toHaveBeenCalledWith({
       userInput: 'Feature: No Desc',
       repositoryPath: '/repo',
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -117,6 +120,7 @@ describe('POST /api/features/create', () => {
       userInput:
         'Feature: With Files\n\nSee attached\n\nAttached files:\n- /src/index.ts\n- /src/utils.ts',
       repositoryPath: '/repo',
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -135,6 +139,7 @@ describe('POST /api/features/create', () => {
     expect(mockCreateFeature).toHaveBeenCalledWith({
       userInput: 'Feature: Files Only\n\nAttached files:\n- /readme.md',
       repositoryPath: '/repo',
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -209,5 +214,218 @@ describe('POST /api/features/create', () => {
 
     expect(response.status).toBe(500);
     expect(body).toEqual({ error: 'Failed to create feature' });
+  });
+
+  // --- approvalGates forwarding ---
+
+  describe('approvalGates', () => {
+    it('forwards { allowPrd: true, allowPlan: false } to createFeature when provided', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+
+      await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: false },
+        })
+      );
+
+      expect(mockCreateFeature).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
+        })
+      );
+    });
+
+    it('forwards { allowPrd: true, allowPlan: true } to createFeature when provided', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+
+      await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: true },
+        })
+      );
+
+      expect(mockCreateFeature).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+        })
+      );
+    });
+
+    it('forwards { allowPrd: true, allowPlan: true, allowMerge: true } to createFeature when provided', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+
+      await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        })
+      );
+
+      expect(mockCreateFeature).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        })
+      );
+    });
+
+    it('defaults allowMerge to false when not provided in approvalGates', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+
+      await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: false },
+        })
+      );
+
+      expect(mockCreateFeature).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
+        })
+      );
+    });
+
+    it('defaults to { allowPrd: false, allowPlan: false } when approvalGates is omitted', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+
+      await POST(makeRequest({ name: 'Test', repositoryPath: '/repo' }));
+
+      expect(mockCreateFeature).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        })
+      );
+    });
+
+    it('returns 400 when approvalGates is not an object', async () => {
+      const response = await POST(
+        makeRequest({ name: 'Test', repositoryPath: '/repo', approvalGates: 'invalid' })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when approvalGates is an array', async () => {
+      const response = await POST(
+        makeRequest({ name: 'Test', repositoryPath: '/repo', approvalGates: [true, false] })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when approvalGates is a number', async () => {
+      const response = await POST(
+        makeRequest({ name: 'Test', repositoryPath: '/repo', approvalGates: 42 })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when approvalGates.allowPrd is not a boolean', async () => {
+      const response = await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: 'yes', allowPlan: false },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when approvalGates.allowPlan is not a boolean', async () => {
+      const response = await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: 1 },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when approvalGates is missing allowPrd', async () => {
+      const response = await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPlan: false },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when approvalGates is missing allowPlan', async () => {
+      const response = await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when approvalGates.allowMerge is not a boolean', async () => {
+      const response = await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: 'yes' },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
+    it('passes undefined approvalGates for "allow-all" mode (no gates in body)', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+
+      // When the client sends approvalGates: undefined, JSON.stringify omits it
+      // which is the same as not sending it at all — so the route defaults.
+      // But for "allow-all", the client should explicitly send no approvalGates field.
+      // The route defaults to { allowPrd: false, allowPlan: false } when absent.
+      // The "allow-all" → undefined mapping happens in the client's submission handler.
+      await POST(makeRequest({ name: 'Test', repositoryPath: '/repo' }));
+
+      expect(mockCreateFeature).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        })
+      );
+    });
   });
 });

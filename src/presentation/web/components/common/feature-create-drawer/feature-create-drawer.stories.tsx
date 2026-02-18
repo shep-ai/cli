@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { within, userEvent, fn } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
-import type { CreateFeatureFormData } from './feature-create-drawer';
+import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
 import { Button } from '@/components/ui/button';
 
 /* ---------------------------------------------------------------------------
@@ -16,6 +16,8 @@ import { Button } from '@/components/ui/button';
  * ### Form sections
  * - **Feature Name** (required) — text input, submit is disabled when empty
  * - **Description** (optional) — multi-line textarea
+ * - **Auto Approve** — Tri-state parent checkbox with 3 child checkboxes (PRD, Plan, Merge).
+ *   Parent shows indeterminate when some children are selected, checks/unchecks all on click.
  * - **Attachments** (optional) — native OS file picker with extension-based icon system:
  *   image → blue, PDF → red, code/text → emerald, generic → gray.
  *   Each attachment card shows the **full absolute file path**.
@@ -25,12 +27,14 @@ import { Button } from '@/components/ui/button';
  * |------|------|-------------|
  * | `open` | `boolean` | Controls drawer visibility |
  * | `onClose` | `() => void` | Called on dismiss (close button, cancel, or backdrop) |
- * | `onSubmit` | `(data: CreateFeatureFormData) => void` | Called with `{ name, description, attachments }` |
+ * | `onSubmit` | `(data: CreateFeatureInput) => void` | Called with `{ userInput, repositoryPath, approvalGates }` |
+ * | `repositoryPath` | `string` | Repository path (mandatory) included in the submitted data |
  * | `isSubmitting` | `boolean` | Disables all fields and shows "Creating..." on submit button |
  *
  * ### Behavior
- * - Form resets (name, description, attachments cleared) when the drawer closes
+ * - Form resets (name, description, attachments, checkboxes) when the drawer closes
  * - Submit button is disabled when name is empty OR `isSubmitting` is true
+ * - `approvalGates` always included: `{ allowPrd, allowPlan, allowMerge }` (all false by default)
  * - Non-modal (`modal={false}`) — canvas stays interactive behind the drawer
  * - Fixed width: 384px (`w-96`)
  * - Attachments use native OS file picker via `pickFiles()` — returns `FileAttachment[]`
@@ -54,7 +58,11 @@ const meta: Meta<typeof FeatureCreateDrawer> = {
     },
     onSubmit: {
       description:
-        'Callback fired with `CreateFeatureFormData` when the form is submitted. Receives `{ name, description, attachments }`.',
+        'Callback fired with `CreateFeatureInput` when the form is submitted. Receives `{ userInput, repositoryPath, approvalGates }`.',
+    },
+    repositoryPath: {
+      control: 'text',
+      description: 'Repository path (mandatory) included in the submitted data.',
     },
     isSubmitting: {
       control: 'boolean',
@@ -103,6 +111,7 @@ function CreateDrawerTrigger({
           logSubmit(data);
           setOpen(false);
         }}
+        repositoryPath="/Users/dev/my-repo"
         isSubmitting={isSubmitting}
       />
     </div>
@@ -171,15 +180,79 @@ export const PreOpened: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Auto-approve checkbox stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * All checkboxes unchecked (default) — drawer opens with no auto-approve gates enabled.
+ * This is the safest default: every phase requires manual review.
+ */
+export const AllUnchecked: Story = {
+  render: () => <CreateDrawerTrigger label="Open (All Unchecked)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (All Unchecked)' }));
+  },
+};
+
+/**
+ * All checkboxes checked via parent "Auto Approve" — fully autonomous mode.
+ * Clicking the parent checkbox selects all children at once.
+ */
+export const AllChecked: Story = {
+  render: () => <CreateDrawerTrigger label="Open (All Checked)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (All Checked)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const parent = await body.findByLabelText('Auto approve all');
+    await userEvent.click(parent);
+  },
+};
+
+/**
+ * Only PRD checkbox checked — parent shows **indeterminate** (dash) state,
+ * indicating partial selection at a glance.
+ */
+export const PrdOnly: Story = {
+  render: () => <CreateDrawerTrigger label="Open (PRD Only)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (PRD Only)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const prd = await body.findByLabelText('PRD');
+    await userEvent.click(prd);
+  },
+};
+
+/**
+ * Only Merge checkbox checked — parent shows **indeterminate** (dash) state.
+ * Manual review for requirements and planning, auto-approve merge to Done.
+ */
+export const MergeOnly: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Merge Only)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Merge Only)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const merge = await body.findByLabelText('Merge');
+    await userEvent.click(merge);
+  },
+};
+
+/* ---------------------------------------------------------------------------
  * Interactive story — full paths shown in submitted data panel
  * ------------------------------------------------------------------------- */
 
 /**
- * Fully interactive story — open the drawer, fill the form, and click
- * "Add Files" to attach files via the native OS file picker.
+ * Fully interactive story — open the drawer, fill the form, toggle checkboxes,
+ * and click "Add Files" to attach files via the native OS file picker.
  *
- * **Submitted data** is displayed in a styled panel showing `FileAttachment[]`
- * with **full absolute file paths**, filenames, and sizes.
+ * **Submitted data** is displayed in a styled panel showing `CreateFeatureInput`
+ * with `approvalGates: { allowPrd, allowPlan, allowMerge }`.
  *
  * In Storybook, the native picker won't work (no backend), but submitted data
  * would show the paths if files were attached programmatically.
@@ -187,7 +260,7 @@ export const PreOpened: Story = {
 export const Interactive: Story = {
   render: function InteractiveRender() {
     const [open, setOpen] = useState(false);
-    const [submitted, setSubmitted] = useState<CreateFeatureFormData | null>(null);
+    const [submitted, setSubmitted] = useState<CreateFeatureInput | null>(null);
 
     return (
       <div className="flex h-screen items-start gap-4 p-4">
@@ -201,19 +274,7 @@ export const Interactive: Story = {
                 Last submitted
               </span>
               <pre className="mt-1 text-xs whitespace-pre-wrap">
-                {JSON.stringify(
-                  {
-                    name: submitted.name,
-                    description: submitted.description,
-                    attachments: submitted.attachments.map((f) => ({
-                      path: f.path,
-                      name: f.name,
-                      size: f.size,
-                    })),
-                  },
-                  null,
-                  2
-                )}
+                {JSON.stringify(submitted, null, 2)}
               </pre>
             </div>
           ) : null}
@@ -229,6 +290,7 @@ export const Interactive: Story = {
             setSubmitted(data);
             setOpen(false);
           }}
+          repositoryPath="/Users/dev/my-repo"
         />
       </div>
     );
