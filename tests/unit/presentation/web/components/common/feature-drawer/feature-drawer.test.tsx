@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { FeatureDrawer } from '@/components/common/feature-drawer';
+import type { FeatureDrawerProps } from '@/components/common/feature-drawer';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
 
@@ -32,8 +33,12 @@ const defaultData: FeatureNodeData = {
   branch: 'feat/auth-module',
 };
 
-function renderDrawer(selectedNode: FeatureNodeData | null = defaultData, onClose = vi.fn()) {
-  return render(<FeatureDrawer selectedNode={selectedNode} onClose={onClose} />);
+function renderDrawer(
+  selectedNode: FeatureNodeData | null = defaultData,
+  onClose = vi.fn(),
+  props?: Partial<Pick<FeatureDrawerProps, 'onDelete' | 'isDeleting'>>
+) {
+  return render(<FeatureDrawer selectedNode={selectedNode} onClose={onClose} {...props} />);
 }
 
 describe('FeatureDrawer', () => {
@@ -266,6 +271,81 @@ describe('FeatureDrawer', () => {
       renderDrawer(defaultData);
       const button = screen.getByRole('button', { name: /open in shell/i });
       expect(button).toHaveClass('text-destructive');
+    });
+  });
+
+  describe('delete button', () => {
+    it('renders delete button when onDelete prop is provided', () => {
+      renderDrawer(defaultData, vi.fn(), { onDelete: vi.fn() });
+      expect(screen.getByTestId('feature-drawer-delete')).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /delete feature/i })).toBeInTheDocument();
+    });
+
+    it('does not render delete button when onDelete is undefined', () => {
+      renderDrawer(defaultData);
+      expect(screen.queryByTestId('feature-drawer-delete')).not.toBeInTheDocument();
+    });
+
+    it('clicking delete button opens AlertDialog with feature name and featureId', () => {
+      renderDrawer(defaultData, vi.fn(), { onDelete: vi.fn() });
+
+      fireEvent.click(screen.getByRole('button', { name: /delete feature/i }));
+
+      expect(screen.getByText('Delete feature?')).toBeInTheDocument();
+      // The dialog description should contain the feature name in a <strong> tag
+      const description = screen.getByText(/This will permanently delete/);
+      expect(description).toBeInTheDocument();
+      expect(description.querySelector('strong')).toHaveTextContent('Auth Module');
+      expect(description).toHaveTextContent('#f1');
+    });
+
+    it('AlertDialog shows running-agent warning when state is "running"', () => {
+      renderDrawer({ ...defaultData, state: 'running' }, vi.fn(), { onDelete: vi.fn() });
+
+      fireEvent.click(screen.getByRole('button', { name: /delete feature/i }));
+
+      expect(
+        screen.getByText(/This feature has a running agent that will be stopped/)
+      ).toBeInTheDocument();
+    });
+
+    it('AlertDialog does not show running-agent warning when state is not "running"', () => {
+      renderDrawer({ ...defaultData, state: 'done', progress: 100 }, vi.fn(), {
+        onDelete: vi.fn(),
+      });
+
+      fireEvent.click(screen.getByRole('button', { name: /delete feature/i }));
+
+      expect(
+        screen.queryByText(/This feature has a running agent that will be stopped/)
+      ).not.toBeInTheDocument();
+    });
+
+    it('clicking Cancel closes dialog without calling onDelete', () => {
+      const onDelete = vi.fn();
+      renderDrawer(defaultData, vi.fn(), { onDelete });
+
+      fireEvent.click(screen.getByRole('button', { name: /delete feature/i }));
+      fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+
+      expect(onDelete).not.toHaveBeenCalled();
+    });
+
+    it('clicking Confirm calls onDelete with featureId', () => {
+      const onDelete = vi.fn();
+      renderDrawer({ ...defaultData, featureId: '#abc' }, vi.fn(), { onDelete });
+
+      fireEvent.click(screen.getByRole('button', { name: /delete feature/i }));
+      fireEvent.click(screen.getByRole('button', { name: /^delete$/i }));
+
+      expect(onDelete).toHaveBeenCalledWith('#abc');
+    });
+
+    it('delete trigger button is disabled when isDeleting is true', () => {
+      renderDrawer(defaultData, vi.fn(), { onDelete: vi.fn(), isDeleting: true });
+
+      const triggerButton = screen.getByRole('button', { name: /delete feature/i });
+      expect(triggerButton).toBeDisabled();
     });
   });
 });

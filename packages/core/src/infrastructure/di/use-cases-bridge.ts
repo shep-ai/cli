@@ -33,6 +33,7 @@ interface ShepUseCases {
   listFeatures: { execute(filters?: FeatureListFilters): Promise<Feature[]> };
   agentRunRepo: { findById(id: string): Promise<AgentRun | null> };
   createFeature: { execute(input: CreateFeatureInput): Promise<CreateFeatureResult> };
+  deleteFeature: { execute(featureId: string): Promise<Feature> };
 }
 
 function isShepUseCases(value: unknown): value is ShepUseCases {
@@ -42,6 +43,7 @@ function isShepUseCases(value: unknown): value is ShepUseCases {
   const listFeatures = maybe.listFeatures as Record<string, unknown> | undefined;
   const agentRunRepo = maybe.agentRunRepo as Record<string, unknown> | undefined;
   const createFeature = maybe.createFeature as Record<string, unknown> | undefined;
+  const deleteFeature = maybe.deleteFeature as Record<string, unknown> | undefined;
 
   return (
     !!listFeatures &&
@@ -49,7 +51,9 @@ function isShepUseCases(value: unknown): value is ShepUseCases {
     !!agentRunRepo &&
     typeof agentRunRepo.findById === 'function' &&
     !!createFeature &&
-    typeof createFeature.execute === 'function'
+    typeof createFeature.execute === 'function' &&
+    !!deleteFeature &&
+    typeof deleteFeature.execute === 'function'
   );
 }
 
@@ -109,4 +113,19 @@ export async function createFeature(input: CreateFeatureInput): Promise<CreateFe
   }
 
   return useCases.createFeature.execute(input);
+}
+
+/**
+ * Delete a feature via the DI-managed use case.
+ * Like createFeature, this propagates errors so callers (API routes) can
+ * return proper HTTP error responses.
+ * Throws if the bridge is not initialized or the use case fails.
+ */
+export async function deleteFeature(featureId: string): Promise<Feature> {
+  const useCases = getUseCases();
+  if (!useCases?.deleteFeature) {
+    throw new Error('Use-cases bridge is not initialized. Ensure the CLI process is running.');
+  }
+
+  return useCases.deleteFeature.execute(featureId);
 }

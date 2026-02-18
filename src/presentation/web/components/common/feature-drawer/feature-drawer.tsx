@@ -1,6 +1,6 @@
 'use client';
 
-import { XIcon, Code2, Terminal, Loader2, CircleAlert } from 'lucide-react';
+import { XIcon, Code2, Terminal, Loader2, CircleAlert, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   Drawer,
@@ -12,6 +12,17 @@ import {
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { CometSpinner } from '@/components/ui/comet-spinner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import { useFeatureActions } from './use-feature-actions';
@@ -19,9 +30,16 @@ import { useFeatureActions } from './use-feature-actions';
 export interface FeatureDrawerProps {
   selectedNode: FeatureNodeData | null;
   onClose: () => void;
+  onDelete?: (featureId: string) => void;
+  isDeleting?: boolean;
 }
 
-export function FeatureDrawer({ selectedNode, onClose }: FeatureDrawerProps) {
+export function FeatureDrawer({
+  selectedNode,
+  onClose,
+  onDelete,
+  isDeleting = false,
+}: FeatureDrawerProps) {
   return (
     <Drawer
       direction="right"
@@ -91,6 +109,52 @@ export function FeatureDrawer({ selectedNode, onClose }: FeatureDrawerProps) {
 
             {/* Details */}
             <DetailsSection data={selectedNode} />
+
+            {/* Delete action */}
+            {onDelete ? (
+              <>
+                <Separator />
+                <div data-testid="feature-drawer-delete" className="p-4">
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" className="w-full" disabled={isDeleting}>
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete feature
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will permanently delete <strong>{selectedNode.name}</strong> (
+                          {selectedNode.featureId}). This action cannot be undone.
+                          {selectedNode.state === 'running' ? (
+                            <> This feature has a running agent that will be stopped.</>
+                          ) : null}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          variant="destructive"
+                          disabled={isDeleting}
+                          onClick={() => onDelete(selectedNode.featureId)}
+                        >
+                          {isDeleting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Deleting…
+                            </>
+                          ) : (
+                            'Delete'
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </>
+            ) : null}
           </>
         ) : null}
       </DrawerContent>

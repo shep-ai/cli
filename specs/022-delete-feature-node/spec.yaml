@@ -1,0 +1,246 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: delete-feature-node
+number: 022
+branch: feat/022-delete-feature-node
+oneLiner: Add delete capability to feature nodes in the web UI control center
+summary: >
+  Wire the existing DeleteFeatureUseCase through the use-cases bridge and a new
+  API route so the web UI control center can delete features. Add a delete button
+  to the FeatureDrawer with a confirmation dialog, and handle optimistic node/edge
+  removal in the control center state hook.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js 16+ App Router)
+  - React Flow (@xyflow/react)
+  - shadcn/ui (Radix primitives + Tailwind CSS v4)
+  - tsyringe (DI container)
+  - Sonner (toast notifications)
+  - Vitest (unit/integration tests)
+  - Storybook
+  - Playwright (E2E tests)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the API route use REST-style DELETE /api/features/[id] or POST /api/features/delete with a body?'
+    resolved: true
+    answer: >
+      Recommend DELETE /api/features/[id]/route.ts using a dynamic route segment.
+      This follows REST conventions and is more semantically correct. The existing
+      POST /api/features/create route was appropriate for creation (body payload),
+      but deletion by ID maps cleanly to a dynamic segment. Next.js App Router
+      natively supports [id] segments and DELETE handlers. Alternative: POST with
+      body if the team prefers consistency with the create route, but REST semantics
+      are stronger here.
+
+  - question: 'Should the delete button live only in the FeatureDrawer, or also directly on the FeatureNode component?'
+    resolved: true
+    answer: >
+      Recommend drawer-only for this iteration. The FeatureNode currently has
+      onAction (add child feature) and onSettings callbacks, but adding a delete
+      button directly on the node introduces accidental-deletion risk on a compact
+      canvas element. The drawer provides context (feature name, status) that helps
+      users confirm the right target. This also keeps the node visually clean.
+      Alternative: Add onDelete to FeatureNodeData and a small trash icon on hover
+      in a future iteration if users request faster access.
+
+  - question: 'Should deletion be optimistic (remove node immediately, rollback on error) or pessimistic (wait for API response)?'
+    resolved: true
+    answer: >
+      Recommend pessimistic deletion. The existing createFeature flow uses
+      pessimistic updates (waits for API, then calls router.refresh()). Deletion
+      is destructive and involves backend side effects (canceling agents, removing
+      worktrees), so waiting for confirmation is safer and more consistent with the
+      codebase. Show an isDeleting loading state on the button to provide feedback.
+      Alternative: Optimistic with rollback would feel snappier but adds complexity
+      and risk of showing stale state if the backend partially fails.
+
+  - question: 'Should the confirmation dialog show feature details (name, branch, lifecycle) or just the feature name?'
+    resolved: true
+    answer: >
+      Recommend showing feature name and branch in the confirmation dialog. The CLI
+      del command shows feature details after deletion, and the drawer already
+      displays all details. Including name and branch in the AlertDialog helps users
+      confirm they are deleting the correct feature, especially when multiple features
+      exist. Alternative: Name-only keeps the dialog minimal, but branch info is
+      cheap to include and reduces accidental deletion.
+
+  - question: 'Should the drawer close automatically after successful deletion, or stay open with a success state?'
+    resolved: true
+    answer: >
+      Recommend auto-closing the drawer after successful deletion. The node will be
+      removed from the canvas, so the drawer would have no context to display. Close
+      the drawer, clear selectedNode, and show a success toast. This matches the
+      mental model of "the thing I was looking at is gone." Alternative: Briefly
+      show a success state before closing, but this adds complexity for minimal UX
+      benefit since the toast already provides confirmation.
+
+  - question: 'Should features with running agents be deletable from the web UI, or should it be blocked?'
+    resolved: true
+    answer: >
+      Recommend allowing deletion of features with running agents, matching the CLI
+      behavior. The DeleteFeatureUseCase already handles canceling running agents
+      and killing OS processes gracefully. The confirmation dialog should warn the
+      user with additional text like "This feature has a running agent that will be
+      stopped." Blocking deletion would diverge from CLI parity and force users to
+      manually stop agents first. Alternative: Block with a "stop agent first"
+      message if the team wants extra safety, but this creates a worse UX.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The web UI control center allows users to create features and view them as
+  nodes on a React Flow canvas, but provides no way to delete a feature. The
+  CLI already supports `shep feat del <id>` backed by a fully-implemented
+  `DeleteFeatureUseCase`, but the web layer has no API route, no bridge
+  function, and no UI affordance for deletion.
+
+  Users who create features from the control center have no way to remove
+  them without switching to the CLI. This is a basic CRUD gap that blocks
+  self-contained web UI workflows.
+
+  ## Success Criteria
+
+  - [ ] `deleteFeature` function exposed on the use-cases bridge (`use-cases-bridge.ts`)
+  - [ ] `DeleteFeatureUseCase` resolved and registered in `populateUseCasesBridge()`
+  - [ ] `DELETE /api/features/[id]` route exists and returns deleted feature or error JSON
+  - [ ] API route returns 400 for missing/invalid ID and 500 for backend failures
+  - [ ] FeatureDrawer displays a destructive-styled delete button when a feature is selected
+  - [ ] Clicking delete opens a shadcn/ui AlertDialog with feature name and branch
+  - [ ] AlertDialog cancel button closes dialog without side effects
+  - [ ] AlertDialog confirm button calls the delete API and shows loading state
+  - [ ] On successful deletion: drawer closes, node and connected edges are removed from canvas, success toast shown
+  - [ ] On failed deletion: error toast shown, drawer remains open, canvas state unchanged
+  - [ ] `useControlCenterState` exposes `handleDeleteFeature(featureId: string)` and `isDeleting: boolean`
+  - [ ] AlertDialog primitive installed via shadcn/ui CLI and has Storybook stories
+  - [ ] FeatureDrawer stories updated to include delete button variant
+  - [ ] Unit tests cover: bridge function, API route (success, 400, 500), state hook delete handler
+  - [ ] All existing tests continue to pass (`pnpm test`)
+  - [ ] TypeScript compiles cleanly (`pnpm typecheck && pnpm typecheck:web`)
+  - [ ] Lint and format pass (`pnpm validate`)
+
+  ## Functional Requirements
+
+  ### Bridge Layer
+
+  - **FR-1**: Add `deleteFeature` entry to the `ShepUseCases` interface in `use-cases-bridge.ts` with signature `{ execute(featureId: string): Promise<Feature> }`
+  - **FR-2**: Add `deleteFeature` async accessor function in `use-cases-bridge.ts` that throws if the bridge is not initialized (matching `createFeature` pattern)
+  - **FR-3**: Resolve `DeleteFeatureUseCase` in `populateUseCasesBridge()` and add it to the bridge object
+  - **FR-4**: Update `isShepUseCases()` type guard to validate the `deleteFeature` property
+
+  ### API Route
+
+  - **FR-5**: Create `DELETE /api/features/[id]/route.ts` with a dynamic route segment for the feature ID
+  - **FR-6**: API route must extract `id` from route params, validate it is a non-empty string, and return 400 if invalid
+  - **FR-7**: API route must call the `deleteFeature` bridge function and return the deleted feature as JSON on success (200)
+  - **FR-8**: API route must catch errors and return `{ error: string }` with status 500
+
+  ### UI: AlertDialog Component
+
+  - **FR-9**: Install shadcn/ui AlertDialog primitive component (`npx shadcn@latest add alert-dialog`)
+  - **FR-10**: AlertDialog must be placed at `src/presentation/web/components/ui/alert-dialog.tsx` following existing ui/ conventions
+
+  ### UI: Delete Button in FeatureDrawer
+
+  - **FR-11**: Add a delete button to the FeatureDrawer component, styled with `variant="destructive"` (shadcn/ui Button)
+  - **FR-12**: Delete button must accept `onDelete` and `isDeleting` props from the parent
+  - **FR-13**: Delete button must be disabled while `isDeleting` is true and show a loading indicator
+  - **FR-14**: Delete button placement must be in the drawer footer or header action area, visually separated from informational content
+
+  ### UI: Confirmation Dialog
+
+  - **FR-15**: Clicking the delete button must open an AlertDialog (not execute deletion immediately)
+  - **FR-16**: AlertDialog must display the feature name and branch to help the user confirm the correct target
+  - **FR-17**: AlertDialog title must use destructive language (e.g., "Delete feature?") and description must warn the action is irreversible
+  - **FR-18**: AlertDialog must have a Cancel button that closes the dialog and a destructive-styled Confirm button
+  - **FR-19**: Confirm button must call the delete handler, show loading state, and be disabled during deletion
+
+  ### State Management
+
+  - **FR-20**: Add `handleDeleteFeature(featureId: string): Promise<void>` to `useControlCenterState`
+  - **FR-21**: Add `isDeleting: boolean` state to `ControlCenterState` interface
+  - **FR-22**: `handleDeleteFeature` must call `DELETE /api/features/{id}`, handle response, and update UI state
+  - **FR-23**: On success: clear `selectedNode`, remove the deleted node from `nodes`, remove all edges connected to the deleted node from `edges`, show success toast
+  - **FR-24**: On failure: show error toast with message from API response, preserve all existing state
+  - **FR-25**: `handleDeleteFeature` must set `isDeleting` to true at start and false on completion (finally block)
+
+  ### Wiring
+
+  - **FR-26**: `ControlCenterInner` must pass `handleDeleteFeature` and `isDeleting` from the state hook to `FeatureDrawer`
+  - **FR-27**: `FeatureDrawer` must wire the delete button's onDelete to call `handleDeleteFeature(selectedNode.featureId)` via the AlertDialog confirm action
+
+  ### Storybook
+
+  - **FR-28**: AlertDialog component must have a Storybook stories file with at least: Default, Destructive Action variants
+  - **FR-29**: FeatureDrawer stories must be updated to include a variant showing the delete button and a variant showing the delete confirmation dialog open
+
+  ### Testing
+
+  - **FR-30**: Unit test for `deleteFeature` bridge function: verifies it calls use case execute and propagates errors
+  - **FR-31**: Unit test for API route: success case returns 200 with feature, missing ID returns 400, bridge error returns 500
+  - **FR-32**: Unit test for `handleDeleteFeature` in state hook: success path (node/edge removal, toast, drawer close) and error path (toast, state preserved)
+  - **FR-33**: FeatureDrawer component test: delete button renders, clicking opens AlertDialog, confirming calls onDelete
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Delete API response time must be under 2 seconds for typical features (no running agents). The `DeleteFeatureUseCase` performs I/O (worktree removal, DB delete), so the web UI must show a loading state to cover latency.
+  - **NFR-2**: No data loss on error — if the API call fails mid-operation, the canvas must not remove the node. Pessimistic update strategy ensures UI reflects confirmed backend state.
+  - **NFR-3**: Confirmation dialog must prevent accidental deletion — require an explicit confirm action (AlertDialog), not a single-click delete.
+  - **NFR-4**: Keyboard accessibility — AlertDialog must support Escape to cancel and Enter/Space to confirm, provided by Radix UI primitives out of the box.
+  - **NFR-5**: Delete button and confirmation dialog must be consistent with shadcn/ui design system (destructive variant colors, spacing, typography).
+  - **NFR-6**: No new runtime dependencies — AlertDialog is a shadcn/ui primitive (Radix) already in the dependency tree. No new packages should be added.
+  - **NFR-7**: Feature parity with CLI — web delete must handle all the same scenarios as `shep feat del` (features with running agents, features with worktrees, plain features).
+  - **NFR-8**: All new code must pass existing lint, format, and typecheck gates (`pnpm validate`).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | REST DELETE vs POST route? | `DELETE /api/features/[id]` | Semantically correct, uses Next.js dynamic segments, cleaner URL. |
+  | 2 | Delete on node vs drawer only? | Drawer only (this iteration) | Reduces accidental deletion risk, provides context, keeps node clean. |
+  | 3 | Optimistic vs pessimistic update? | Pessimistic (wait for API) | Matches existing create pattern, safer for destructive+side-effect operation. |
+  | 4 | Confirmation detail level? | Show feature name + branch | Helps users confirm correct target, cheap to include, matches CLI output. |
+  | 5 | Drawer behavior after deletion? | Auto-close + success toast | Node is gone so drawer has no context; toast confirms the action. |
+  | 6 | Allow deleting features with running agents? | Yes, with warning text in dialog | Matches CLI behavior, use case handles cancellation gracefully. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/di/use-cases-bridge.ts` | High | Add `deleteFeature` bridge function (reader) |
+  | `packages/core/src/infrastructure/di/populate-use-cases-bridge.ts` | High | Resolve and register `DeleteFeatureUseCase` (writer) |
+  | `src/presentation/web/app/api/features/[id]/route.ts` | High | New DELETE API route |
+  | `src/presentation/web/components/common/feature-drawer/feature-drawer.tsx` | High | Add delete button and AlertDialog confirmation |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Add `handleDeleteFeature` handler and `isDeleting` state |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Medium | Wire delete handler and isDeleting to FeatureDrawer |
+  | `src/presentation/web/components/ui/alert-dialog.tsx` | Medium | New shadcn/ui AlertDialog component (install) |
+  | Tests (`tests/unit/`) | Medium | New unit tests for bridge, API route, state hook, drawer |
+  | Storybook stories | Low | New AlertDialog stories, updated FeatureDrawer stories |
+
+  ## Dependencies
+
+  - **DeleteFeatureUseCase** (exists): Core business logic — find, cancel agents, remove worktree, delete record
+  - **IFeatureRepository.delete()** (exists): SQLite delete implementation
+  - **DI container registration** (exists): `DeleteFeatureUseCase` already registered as singleton
+  - **shadcn/ui AlertDialog** (to install): `npx shadcn@latest add alert-dialog` — Radix dependency already in tree
+  - **Use-cases bridge pattern** (exists): `createFeature` bridge function is the direct template
+  - **Sonner toast** (exists): Already used for success/error notifications in create flow
+  - **React Flow state management** (exists): `setNodes`/`setEdges` pattern established in hook
+
+  ## Size Estimate
+
+  **M (days)** — The backend use case, repository, and DI registration are fully
+  implemented. The work is entirely in the bridge/API/UI layer: bridge function
+  (~20 lines), API route (~30 lines), AlertDialog install, delete button + confirmation
+  in the drawer, state management in the hook (~40 lines), wiring in ControlCenterInner
+  (~5 lines), and corresponding tests and stories. Moderate scope with well-established
+  patterns to follow for every layer.
