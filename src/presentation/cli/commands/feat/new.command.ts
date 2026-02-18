@@ -91,7 +91,6 @@ export function createNewCommand(): Command {
             repositoryPath: repoPath,
             approvalGates,
             openPr,
-            autoMerge,
           })
         );
 

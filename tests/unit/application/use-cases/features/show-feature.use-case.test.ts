@@ -26,10 +26,7 @@ function createMockFeature(id: string): Feature {
     messages: [],
     relatedArtifacts: [],
     openPr: false,
-    autoMerge: false,
-    allowPrd: false,
-    allowPlan: false,
-    allowMerge: false,
+    approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
     updatedAt: new Date(),
   };

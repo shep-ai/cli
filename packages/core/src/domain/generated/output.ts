@@ -596,6 +596,24 @@ export enum SdlcLifecycle {
   Review = 'Review',
   Maintain = 'Maintain',
 }
+
+/**
+ * Configuration for human-in-the-loop approval gates
+ */
+export type ApprovalGates = {
+  /**
+   * Skip human review after requirements phase
+   */
+  allowPrd: boolean;
+  /**
+   * Skip human review after plan phase
+   */
+  allowPlan: boolean;
+  /**
+   * Skip human review after merge phase
+   */
+  allowMerge: boolean;
+};
 export enum PrStatus {
   Open = 'Open',
   Merged = 'Merged',
@@ -606,6 +624,32 @@ export enum CiStatus {
   Success = 'Success',
   Failure = 'Failure',
 }
+
+/**
+ * Pull request tracking data for a feature
+ */
+export type PullRequest = {
+  /**
+   * GitHub PR URL
+   */
+  url: string;
+  /**
+   * GitHub PR number
+   */
+  number: number;
+  /**
+   * Current PR status
+   */
+  status: PrStatus;
+  /**
+   * Final commit SHA after push
+   */
+  commitHash?: string;
+  /**
+   * CI pipeline status
+   */
+  ciStatus?: CiStatus;
+};
 
 /**
  * Central entity tracking a piece of work through the SDLC lifecycle (Aggregate Root)
@@ -660,41 +704,17 @@ export type Feature = BaseEntity & {
    */
   openPr: boolean;
   /**
-   * Auto-merge after implementation (default: false)
+   * Approval gates configuration (embedded value object)
    */
-  autoMerge: boolean;
+  approvalGates: ApprovalGates;
   /**
-   * Skip Requirements approval gate (default: false)
+   * Absolute path to the git worktree for this feature
    */
-  allowPrd: boolean;
+  worktreePath?: string;
   /**
-   * Skip Planning approval gate (default: false)
+   * Pull request data (null until PR created)
    */
-  allowPlan: boolean;
-  /**
-   * Skip Review/merge approval gate (default: false)
-   */
-  allowMerge: boolean;
-  /**
-   * GitHub PR URL (null if no PR created)
-   */
-  prUrl?: string;
-  /**
-   * GitHub PR number (null if no PR created)
-   */
-  prNumber?: number;
-  /**
-   * Current PR status (null if no PR created)
-   */
-  prStatus?: PrStatus;
-  /**
-   * Final commit SHA after push (null before push)
-   */
-  commitHash?: string;
-  /**
-   * CI pipeline status (null before CI check)
-   */
-  ciStatus?: CiStatus;
+  pr?: PullRequest;
 };
 
 /**
@@ -1285,24 +1305,6 @@ export enum AgentRunStatus {
   cancelled = 'cancelled',
   waitingApproval = 'waiting_approval',
 }
-
-/**
- * Configuration for human-in-the-loop approval gates
- */
-export type ApprovalGates = {
-  /**
-   * Skip human review after requirements phase
-   */
-  allowPrd: boolean;
-  /**
-   * Skip human review after plan phase
-   */
-  allowPlan: boolean;
-  /**
-   * Skip human review after merge phase
-   */
-  allowMerge: boolean;
-};
 
 /**
  * Agent execution run record

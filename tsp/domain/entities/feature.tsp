@@ -117,6 +117,8 @@ import "../../common/enums/workflow.tsp";
 import "./message.tsp";
 import "./plan.tsp";
 import "./artifact.tsp";
+import "../../agents/approval-gates.tsp";
+import "../value-objects/pull-request.tsp";
 
 /**
  * Feature Entity (Aggregate Root)
@@ -359,47 +361,19 @@ model Feature extends BaseEntity {
   @doc("Absolute path to the feature spec directory inside the worktree")
   specPath?: string;
 
-  // ── Workflow Configuration Flags ──────────────────────────────────
+  // ── Workflow Configuration ──────────────────────────────────
 
-  /** Whether to create a PR on implementation complete. */
   @doc("Create PR after implementation (default: false)")
   openPr: boolean = false;
 
-  /** Whether to auto-merge after implementation (implies allowMerge). */
-  @doc("Auto-merge after implementation (default: false)")
-  autoMerge: boolean = false;
+  @doc("Approval gates configuration (embedded value object)")
+  approvalGates: ApprovalGates;
 
-  /** Skip Requirements approval gate. */
-  @doc("Skip Requirements approval gate (default: false)")
-  allowPrd: boolean = false;
+  @doc("Absolute path to the git worktree for this feature")
+  worktreePath?: string;
 
-  /** Skip Planning approval gate. */
-  @doc("Skip Planning approval gate (default: false)")
-  allowPlan: boolean = false;
+  // ── Pull Request Tracking ──────────────────────────────────
 
-  /** Skip Review/merge approval gate. */
-  @doc("Skip Review/merge approval gate (default: false)")
-  allowMerge: boolean = false;
-
-  // ── PR Tracking State ────────────────────────────────────────────
-
-  /** GitHub PR URL, set after PR creation. */
-  @doc("GitHub PR URL (null if no PR created)")
-  prUrl?: string;
-
-  /** GitHub PR number, set after PR creation. */
-  @doc("GitHub PR number (null if no PR created)")
-  prNumber?: int32;
-
-  /** Current PR status. */
-  @doc("Current PR status (null if no PR created)")
-  prStatus?: PrStatus;
-
-  /** Final commit SHA after push. */
-  @doc("Final commit SHA after push (null before push)")
-  commitHash?: string;
-
-  /** CI pipeline status for the feature branch. */
-  @doc("CI pipeline status (null before CI check)")
-  ciStatus?: CiStatus;
+  @doc("Pull request data (null until PR created)")
+  pr?: PullRequest;
 }

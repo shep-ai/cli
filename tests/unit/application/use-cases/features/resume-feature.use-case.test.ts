@@ -66,10 +66,7 @@ function createTestFeature(overrides?: Partial<Feature>): Feature {
     messages: [],
     relatedArtifacts: [],
     openPr: false,
-    autoMerge: false,
-    allowPrd: false,
-    allowPlan: false,
-    allowMerge: false,
+    approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     agentRunId: 'run-001',
     createdAt: new Date(),
     updatedAt: new Date(),
@@ -223,9 +220,7 @@ describe('ResumeFeatureUseCase', () => {
   });
 
   it('should pass workflow flags from feature entity to spawn', async () => {
-    featureRepo.findById.mockResolvedValue(
-      createTestFeature({ openPr: true, autoMerge: true, allowMerge: true })
-    );
+    featureRepo.findById.mockResolvedValue(createTestFeature({ openPr: true }));
     runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.failed }));
 
     await useCase.execute('feat-001');
@@ -238,8 +233,6 @@ describe('ResumeFeatureUseCase', () => {
       expect.any(String),
       expect.objectContaining({
         openPr: true,
-        autoMerge: true,
-        allowMerge: true,
       })
     );
   });

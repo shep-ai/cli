@@ -5,7 +5,6 @@ export interface CreateFeatureInput {
   repositoryPath: string;
   approvalGates?: ApprovalGates;
   openPr?: boolean;
-  autoMerge?: boolean;
 }
 
 export interface CreateFeatureResult {

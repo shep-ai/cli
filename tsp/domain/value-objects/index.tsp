@@ -33,3 +33,4 @@ import "./gantt.tsp";
 import "./spec-metadata.tsp";
 import "./tool-installation-status.tsp";
 import "./tool-install-command.tsp";
+import "./pull-request.tsp";
