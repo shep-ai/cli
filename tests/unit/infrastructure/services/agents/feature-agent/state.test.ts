@@ -27,19 +27,20 @@ describe('FeatureAgentAnnotation', () => {
       expect(FeatureAgentAnnotation.spec).toBeDefined();
     });
 
-    it('should have all 18 channels', () => {
+    it('should have all 19 channels', () => {
       const channelNames = Object.keys(FeatureAgentAnnotation.spec);
       // Original: featureId, repositoryPath, specDir, worktreePath, currentNode, error,
       //           approvalGates, messages, validationRetries, lastValidationTarget, lastValidationErrors
-      // New:      prUrl, prNumber, commitHash, ciStatus, openPr, autoMerge, allowMerge
+      // New:      prUrl, prNumber, commitHash, ciStatus, push, openPr, autoMerge, allowMerge
       expect(channelNames).toContain('prUrl');
       expect(channelNames).toContain('prNumber');
       expect(channelNames).toContain('commitHash');
       expect(channelNames).toContain('ciStatus');
+      expect(channelNames).toContain('push');
       expect(channelNames).toContain('openPr');
       expect(channelNames).toContain('autoMerge');
       expect(channelNames).toContain('allowMerge');
-      expect(channelNames.length).toBe(18);
+      expect(channelNames.length).toBe(19);
     });
   });
 });

@@ -106,8 +106,8 @@ content: |
 
   - **REQ-2.1**: Run validation (lint, typecheck, tests) on the implemented code before committing
   - **REQ-2.2**: Commit any uncommitted changes with conventional commit message format
-  - **REQ-2.3**: Push the branch to origin (with --set-upstream for first push)
-  - **REQ-2.4**: The Validate/Commit/Push cycle is MANDATORY — it always runs after implementation regardless of PR configuration
+  - **REQ-2.3**: Push the branch to origin (with --set-upstream for first push) ONLY if --push flag is set or global setting push is true. By default, push is DISABLED to support repos without remotes
+  - **REQ-2.4**: The Validate/Commit cycle is MANDATORY — it always runs after implementation regardless of PR configuration. Push is optional and controlled by --push flag
   - **REQ-2.5**: If validation fails, attempt bounded retry (max 3 attempts) to fix issues before committing
 
   ### REQ-3: PR Description in specs/pr.yaml
@@ -181,16 +181,19 @@ content: |
   ### REQ-9: CLI Flag Support on `feat new`
 
   - **REQ-9.1**: Add `--pr` flag to `feat new` command — enables PR creation at end of implementation
+  - **REQ-9.1.1**: Add `--push` flag to `feat new` command — enables pushing to remote after commit. Default: false. Required for --pr and --auto-merge to work (implies push)
   - **REQ-9.2**: Add `--auto-merge` flag to `feat new` command — enables automatic merge after implementation
   - **REQ-9.3**: Add `--allow-prd` flag to `feat new` command — skips Requirements approval gate
   - **REQ-9.4**: Add `--allow-plan` flag to `feat new` command — skips Planning approval gate
   - **REQ-9.5**: Add `--allow-merge` flag to `feat new` command — skips Review/merge approval gate
   - **REQ-9.6**: All flag values must be persisted on the Feature entity so the agent graph can read them at each node
   - **REQ-9.7**: --auto-merge implies --allow-merge (if --auto-merge is set, --allow-merge is automatically true)
+  - **REQ-9.8**: --pr implies --push (if --pr is set, --push is automatically true). --auto-merge implies --push
 
   ### REQ-10: Feature Entity Persistence
 
   - **REQ-10.1**: Extend Feature entity (TypeSpec and DB schema) with new fields:
+    - `push`: boolean — whether to push to remote after commit (default: false)
     - `openPr`: boolean — whether to create PR on implementation complete
     - `autoMerge`: boolean — whether to auto-merge after implementation
     - `allowPrd`: boolean — skip Requirements approval gate

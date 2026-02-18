@@ -109,6 +109,7 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
     prNumber: null,
     commitHash: null,
     ciStatus: null,
+    push: false,
     openPr: false,
     autoMerge: false,
     allowMerge: false,
@@ -149,9 +150,9 @@ describe('createMergeNode', () => {
       expect(deps.gitPrService.commitAll).not.toHaveBeenCalled();
     });
 
-    it('should push with --set-upstream', async () => {
+    it('should push with --set-upstream when push=true', async () => {
       const node = createMergeNode(deps);
-      const state = baseState();
+      const state = baseState({ push: true });
       await node(state);
 
       expect(deps.gitPrService.push).toHaveBeenCalledWith(
@@ -159,6 +160,30 @@ describe('createMergeNode', () => {
         expect.any(String),
         true
       );
+    });
+
+    it('should skip push when push=false and no openPr/autoMerge', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({ push: false, openPr: false, autoMerge: false });
+      await node(state);
+
+      expect(deps.gitPrService.push).not.toHaveBeenCalled();
+    });
+
+    it('should push when openPr=true even if push=false (implied)', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({ push: false, openPr: true });
+      await node(state);
+
+      expect(deps.gitPrService.push).toHaveBeenCalled();
+    });
+
+    it('should NOT push when only autoMerge=true (local merge does not require push)', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({ push: false, autoMerge: true, openPr: false });
+      await node(state);
+
+      expect(deps.gitPrService.push).not.toHaveBeenCalled();
     });
 
     it('should return commitHash in state', async () => {
@@ -308,27 +333,27 @@ describe('createMergeNode', () => {
   });
 
   // --- Error handling ---
+  // Errors are re-thrown (not caught) so LangGraph can checkpoint properly
+  // and `feat resume` retries from the merge node instead of restarting.
   describe('error handling', () => {
-    it('should return error state when push fails', async () => {
+    it('should throw when push fails (allows LangGraph resume)', async () => {
       (deps.gitPrService.push as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('Push rejected')
       );
       const node = createMergeNode(deps);
-      const state = baseState();
-      const result = await node(state);
+      const state = baseState({ push: true });
 
-      expect(result.error).toContain('Push rejected');
+      await expect(node(state)).rejects.toThrow('Push rejected');
     });
 
-    it('should return error when PR creation fails', async () => {
+    it('should throw when PR creation fails (allows LangGraph resume)', async () => {
       (deps.gitPrService.createPr as ReturnType<typeof vi.fn>).mockRejectedValue(
         new Error('gh not found')
       );
       const node = createMergeNode(deps);
       const state = baseState({ openPr: true });
-      const result = await node(state);
 
-      expect(result.error).toContain('gh not found');
+      await expect(node(state)).rejects.toThrow('gh not found');
     });
   });
 });

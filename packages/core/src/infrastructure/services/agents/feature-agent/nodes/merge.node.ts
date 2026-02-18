@@ -64,9 +64,16 @@ export function createMergeNode(deps: MergeNodeDeps) {
         messages.push('[merge] No uncommitted changes to commit');
       }
 
-      log.info('Pushing to remote...');
-      await gitPrService.push(cwd, branch, true);
-      messages.push(`[merge] Pushed branch ${branch}`);
+      // Push is controlled by the push flag (--push, or implied by --pr)
+      const shouldPush = state.push || state.openPr;
+      if (shouldPush) {
+        log.info('Pushing to remote...');
+        await gitPrService.push(cwd, branch, true);
+        messages.push(`[merge] Pushed branch ${branch}`);
+      } else {
+        log.info('Push skipped (--push not set)');
+        messages.push('[merge] Push skipped (use --push to push to remote)');
+      }
 
       // --- Step 2: Generate pr.yaml (always) ---
       log.info('Generating pr.yaml...');
@@ -149,18 +156,17 @@ export function createMergeNode(deps: MergeNodeDeps) {
         ciStatus,
       };
     } catch (err: unknown) {
-      // Re-throw LangGraph control-flow exceptions
+      // Re-throw LangGraph control-flow exceptions (interrupt, etc.)
       if (isGraphBubbleUp(err)) throw err;
 
       const message = err instanceof Error ? err.message : String(err);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.error(`Merge failed: ${message} (${elapsed}s)`);
 
-      return {
-        currentNode: 'merge',
-        error: message,
-        messages: [`[merge] Error: ${message} (${elapsed}s)`],
-      };
+      // Re-throw so LangGraph does NOT checkpoint this node as completed.
+      // This allows `feat resume` to retry the merge node instead of
+      // restarting the entire graph from scratch.
+      throw err;
     }
   };
 }

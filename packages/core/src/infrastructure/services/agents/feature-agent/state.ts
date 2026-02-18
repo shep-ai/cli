@@ -56,6 +56,10 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (_prev, next) => (next !== undefined ? next : _prev),
     default: () => null,
   }),
+  push: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
   openPr: Annotation<boolean>({
     reducer: (_prev, next) => next,
     default: () => false,

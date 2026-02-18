@@ -49,6 +49,7 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     prNumber: null,
     commitHash: null,
     ciStatus: null,
+    push: false,
     openPr: false,
     autoMerge: false,
     allowMerge: false,

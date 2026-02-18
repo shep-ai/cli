@@ -62,6 +62,10 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         agentFailed: true,
       },
     },
+    workflow: {
+      openPrOnImplementationComplete: false,
+      autoMergeOnImplementationComplete: false,
+    },
     ...overrides,
   };
 }
@@ -97,6 +101,8 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     notif_evt_waiting_approval: 1,
     notif_evt_agent_completed: 1,
     notif_evt_agent_failed: 1,
+    workflow_open_pr_on_impl_complete: 0,
+    workflow_auto_merge_on_impl_complete: 0,
     ...overrides,
   };
 }
