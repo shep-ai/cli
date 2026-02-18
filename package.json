@@ -166,6 +166,7 @@
     "@langchain/langgraph": "^1.1.4",
     "@langchain/langgraph-checkpoint-sqlite": "^1.0.1",
     "@typespec-tools/emitter-typescript": "^0.3.0",
+    "ajv": "8.18.0",
     "better-sqlite3": "^12.6.2",
     "class-variance-authority": "^0.7.1",
     "cli-table3": "^0.6.5",
