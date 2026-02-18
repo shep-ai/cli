@@ -3,17 +3,17 @@ feature:
   name: delete-feature-node
   number: 22
   branch: feat/022-delete-feature-node
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-18T07:58:42Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 11
     total: 11
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-18T08:35:39.685Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-18T09:00:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -31,10 +31,14 @@ tasks:
   current: null
   blocked: []
   failed: []
+prUrl: https://github.com/shep-ai/cli/pull/68
 checkpoints:
   - phase: feature-created
     completedAt: '2026-02-18T07:58:42Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-18T09:00:00.000Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
