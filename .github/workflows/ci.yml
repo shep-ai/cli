@@ -202,6 +202,7 @@ jobs:
           exit-code: '1'
           format: 'table'
           output: 'trivy-fs-results.txt'
+          trivyignores: '.trivyignore'
 
       - name: Upload Trivy results to GitHub Security
         uses: github/codeql-action/upload-sarif@v3
@@ -232,6 +233,7 @@ jobs:
           severity: 'HIGH,CRITICAL'
           format: 'sarif'
           output: 'trivy-fs-results.sarif'
+          trivyignores: '.trivyignore'
         continue-on-error: true
 
   # ===========================================================================

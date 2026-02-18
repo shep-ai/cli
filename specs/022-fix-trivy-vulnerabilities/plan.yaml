@@ -1,0 +1,116 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-trivy-vulnerabilities
+summary: >
+  Fix the failing Trivy container scan by adding CVE-2026-26960 to the existing node-tar block
+  in .trivyignore, and improve consistency by adding trivyignores configuration to both Trivy
+  filesystem scan steps in ci.yml. This is a pure CI/configuration change — no source code,
+  tests, or Dockerfile modifications. Two files changed, three lines added.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Trivy (aquasecurity/trivy-action@master)
+  - GitHub Actions CI/CD
+  - Docker (node:22-alpine base image)
+  - .trivyignore (Trivy suppression format)
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'CVE Suppression'
+    description: >
+      Add CVE-2026-26960 to .trivyignore under the existing node-tar comment block.
+      This is the critical fix that unblocks the failing CI pipeline on main.
+    parallel: false
+
+  - id: phase-2
+    name: 'Filesystem Scan Consistency'
+    description: >
+      Add trivyignores configuration to both Trivy filesystem scan steps (table-format
+      and SARIF) in ci.yml, matching the container scan step which already uses .trivyignore.
+      This prevents future inconsistencies where a suppressed CVE passes the container scan
+      but fails the filesystem scan.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - .trivyignore
+  - .github/workflows/ci.yml
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This change operates entirely at the CI/configuration layer. It does not touch any
+  Clean Architecture layers (domain, application, infrastructure, presentation), dependency
+  injection, domain models, TypeSpec definitions, or application source code.
+
+  The two files involved are:
+  - **`.trivyignore`** — Trivy's CVE suppression list, already established with 5 entries
+    organized by vulnerability category with comment headers
+  - **`.github/workflows/ci.yml`** — The CI/CD pipeline, which has two Trivy scan jobs:
+    `security-trivy` (filesystem) and `security-trivy-container` (container image)
+
+  ## Key Design Decisions
+
+  ### 1. CVE Placement: Append to Existing Block
+
+  CVE-2026-26960 will be appended after CVE-2026-24842 (line 18) in the existing
+  "node-tar arbitrary file overwrite vulnerabilities" block. All four CVEs are the same
+  package (node-tar) and same vulnerability class (hardlink/symlink escape). Grouping
+  maintains the file's category-based organization.
+
+  **Rejected:** Creating a separate comment block or appending at end of file — both
+  would fragment related suppressions.
+
+  ### 2. Comment Format: No Per-CVE Comment
+
+  The existing three node-tar CVEs share a single block header with no individual comments.
+  CVE-2026-26960 will follow the same pattern — just the CVE ID on its own line.
+
+  **Rejected:** Per-CVE inline comments with version details — inconsistent with existing
+  pattern, and version details become stale.
+
+  ### 3. Trivyignores on Both Filesystem Scan Steps
+
+  The `trivyignores: '.trivyignore'` parameter will be added to both the table-format scan
+  (line 197) and the SARIF scan (line 226). The container scan already uses this parameter
+  (line 273). Without it on the SARIF step, suppressed CVEs would appear as findings in
+  GitHub Security uploads.
+
+  **Rejected:** Only adding to table-format step — SARIF uploads would show noise.
+  **Rejected:** Separate trivyignore file for filesystem — violates single source of truth.
+
+  ### 4. No Source Code or Dockerfile Changes
+
+  The vulnerability is in npm's internally bundled tar, which is not used at runtime.
+  There is no upstream fix available (tar >= 7.5.8 not yet bundled in node:22-alpine).
+  Suppression via .trivyignore is the established pattern for this project.
+
+  ## Implementation Strategy
+
+  Phase 1 is the critical path — adding the CVE to .trivyignore directly fixes the CI
+  failure. Phase 2 is a consistency improvement that prevents future issues. Both phases
+  are small (1 line each in phase 1, 2 lines in phase 2) and can be implemented quickly,
+  but are logically distinct concerns.
+
+  Since this is a configuration-only change with no application code, TDD applies at the
+  validation level: verify the file contents are correct and consistent before and after
+  changes.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | CVE ID typo causes suppression to not work | Verify exact CVE ID matches the Trivy scan output (CVE-2026-26960) |
+  | trivyignores parameter breaks filesystem scan | The container scan already uses this parameter successfully; same action version |
+  | YAML indentation error in ci.yml | Verify indentation matches existing `with:` block entries (10 spaces) |
+  | Future CVEs require same treatment | The .trivyignore pattern is established; new CVEs follow the same process |
