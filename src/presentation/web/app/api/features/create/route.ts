@@ -9,16 +9,27 @@ interface Attachment {
 interface ApprovalGates {
   allowPrd: boolean;
   allowPlan: boolean;
+  allowMerge: boolean;
 }
 
-function isValidApprovalGates(value: unknown): value is ApprovalGates {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    typeof (value as Record<string, unknown>).allowPrd === 'boolean' &&
-    typeof (value as Record<string, unknown>).allowPlan === 'boolean'
-  );
+function isValidApprovalGates(
+  value: unknown
+): value is ApprovalGates | Omit<ApprovalGates, 'allowMerge'> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.allowPrd !== 'boolean' || typeof obj.allowPlan !== 'boolean') return false;
+  if ('allowMerge' in obj && typeof obj.allowMerge !== 'boolean') return false;
+  return true;
+}
+
+function normalizeApprovalGates(
+  gates: ApprovalGates | Omit<ApprovalGates, 'allowMerge'>
+): ApprovalGates {
+  return {
+    allowPrd: gates.allowPrd,
+    allowPlan: gates.allowPlan,
+    allowMerge: 'allowMerge' in gates ? (gates as ApprovalGates).allowMerge : false,
+  };
 }
 
 function composeUserInput(
@@ -60,13 +71,19 @@ export async function POST(request: Request) {
 
   if (approvalGates !== undefined && !isValidApprovalGates(approvalGates)) {
     return NextResponse.json(
-      { error: 'approvalGates must be an object with boolean allowPrd and allowPlan' },
+      {
+        error:
+          'approvalGates must be an object with boolean allowPrd, allowPlan, and optional boolean allowMerge',
+      },
       { status: 400 }
     );
   }
 
   const userInput = composeUserInput(name, description, attachments);
-  const gates: ApprovalGates = approvalGates ?? { allowPrd: false, allowPlan: false };
+  const defaultGates: ApprovalGates = { allowPrd: false, allowPlan: false, allowMerge: false };
+  const gates: ApprovalGates = isValidApprovalGates(approvalGates)
+    ? normalizeApprovalGates(approvalGates)
+    : defaultGates;
 
   try {
     const result = await createFeature({ userInput, repositoryPath, approvalGates: gates });

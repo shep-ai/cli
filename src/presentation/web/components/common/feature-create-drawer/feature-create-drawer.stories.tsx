@@ -16,7 +16,8 @@ import { Button } from '@/components/ui/button';
  * ### Form sections
  * - **Feature Name** (required) — text input, submit is disabled when empty
  * - **Description** (optional) — multi-line textarea
- * - **Approval Mode** — RadioGroup with 4 options controlling human-in-the-loop gates
+ * - **Auto Approve** — Tri-state parent checkbox with 3 child checkboxes (PRD, Plan, Merge).
+ *   Parent shows indeterminate when some children are selected, checks/unchecks all on click.
  * - **Attachments** (optional) — native OS file picker with extension-based icon system:
  *   image → blue, PDF → red, code/text → emerald, generic → gray.
  *   Each attachment card shows the **full absolute file path**.
@@ -26,13 +27,14 @@ import { Button } from '@/components/ui/button';
  * |------|------|-------------|
  * | `open` | `boolean` | Controls drawer visibility |
  * | `onClose` | `() => void` | Called on dismiss (close button, cancel, or backdrop) |
- * | `onSubmit` | `(data: CreateFeatureInput) => void` | Called with `{ userInput, repositoryPath, approvalGates? }` |
+ * | `onSubmit` | `(data: CreateFeatureInput) => void` | Called with `{ userInput, repositoryPath, approvalGates }` |
  * | `repositoryPath` | `string` | Repository path (mandatory) included in the submitted data |
  * | `isSubmitting` | `boolean` | Disables all fields and shows "Creating..." on submit button |
  *
  * ### Behavior
- * - Form resets (name, description, attachments, approvalMode) when the drawer closes
+ * - Form resets (name, description, attachments, checkboxes) when the drawer closes
  * - Submit button is disabled when name is empty OR `isSubmitting` is true
+ * - `approvalGates` always included: `{ allowPrd, allowPlan, allowMerge }` (all false by default)
  * - Non-modal (`modal={false}`) — canvas stays interactive behind the drawer
  * - Fixed width: 384px (`w-96`)
  * - Attachments use native OS file picker via `pickFiles()` — returns `FileAttachment[]`
@@ -56,7 +58,7 @@ const meta: Meta<typeof FeatureCreateDrawer> = {
     },
     onSubmit: {
       description:
-        'Callback fired with `CreateFeatureInput` when the form is submitted. Receives `{ userInput, repositoryPath, approvalGates? }`.',
+        'Callback fired with `CreateFeatureInput` when the form is submitted. Receives `{ userInput, repositoryPath, approvalGates }`.',
     },
     repositoryPath: {
       control: 'text',
@@ -178,66 +180,66 @@ export const PreOpened: Story = {
 };
 
 /* ---------------------------------------------------------------------------
- * Approval mode stories — one per mode, opened via play function
+ * Auto-approve checkbox stories
  * ------------------------------------------------------------------------- */
 
 /**
- * Default approval mode — drawer opens with "Step-by-step" already selected.
- * This is the default radio option (no user interaction needed).
+ * All checkboxes unchecked (default) — drawer opens with no auto-approve gates enabled.
+ * This is the safest default: every phase requires manual review.
  */
-export const ApprovalModeDefault: Story = {
-  render: () => <CreateDrawerTrigger label="Open (Step-by-step)" />,
+export const AllUnchecked: Story = {
+  render: () => <CreateDrawerTrigger label="Open (All Unchecked)" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Open (Step-by-step)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (All Unchecked)' }));
   },
 };
 
 /**
- * Auto-approve PRD mode — opens drawer and selects "Auto-approve PRD".
- * This mode auto-approves requirements, pausing after planning.
+ * All checkboxes checked via parent "Auto Approve" — fully autonomous mode.
+ * Clicking the parent checkbox selects all children at once.
  */
-export const ApprovalModePrd: Story = {
-  render: () => <CreateDrawerTrigger label="Open (PRD Mode)" />,
+export const AllChecked: Story = {
+  render: () => <CreateDrawerTrigger label="Open (All Checked)" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Open (PRD Mode)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (All Checked)' }));
 
     const body = within(canvasElement.ownerDocument.body);
-    const prdRadio = await body.findByRole('radio', { name: 'Auto-approve PRD' });
-    await userEvent.click(prdRadio);
+    const parent = await body.findByLabelText('Auto approve all');
+    await userEvent.click(parent);
   },
 };
 
 /**
- * Auto-approve through plan mode — opens drawer and selects "Auto-approve through plan".
- * This mode auto-approves requirements and planning, pausing at implementation.
+ * Only PRD checkbox checked — parent shows **indeterminate** (dash) state,
+ * indicating partial selection at a glance.
  */
-export const ApprovalModePlan: Story = {
-  render: () => <CreateDrawerTrigger label="Open (Plan Mode)" />,
+export const PrdOnly: Story = {
+  render: () => <CreateDrawerTrigger label="Open (PRD Only)" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Open (Plan Mode)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (PRD Only)' }));
 
     const body = within(canvasElement.ownerDocument.body);
-    const planRadio = await body.findByRole('radio', { name: 'Auto-approve through plan' });
-    await userEvent.click(planRadio);
+    const prd = await body.findByLabelText('PRD');
+    await userEvent.click(prd);
   },
 };
 
 /**
- * Fully autonomous mode — opens drawer and selects "Fully autonomous".
- * This mode runs without any approval pauses.
+ * Only Merge checkbox checked — parent shows **indeterminate** (dash) state.
+ * Manual review for requirements and planning, auto-approve merge to Done.
  */
-export const ApprovalModeAutonomous: Story = {
-  render: () => <CreateDrawerTrigger label="Open (Autonomous)" />,
+export const MergeOnly: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Merge Only)" />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole('button', { name: 'Open (Autonomous)' }));
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Merge Only)' }));
 
     const body = within(canvasElement.ownerDocument.body);
-    const autoRadio = await body.findByRole('radio', { name: 'Fully autonomous' });
-    await userEvent.click(autoRadio);
+    const merge = await body.findByLabelText('Merge');
+    await userEvent.click(merge);
   },
 };
 
@@ -246,11 +248,11 @@ export const ApprovalModeAutonomous: Story = {
  * ------------------------------------------------------------------------- */
 
 /**
- * Fully interactive story — open the drawer, fill the form, and click
- * "Add Files" to attach files via the native OS file picker.
+ * Fully interactive story — open the drawer, fill the form, toggle checkboxes,
+ * and click "Add Files" to attach files via the native OS file picker.
  *
- * **Submitted data** is displayed in a styled panel showing `FileAttachment[]`
- * with **full absolute file paths**, filenames, and sizes.
+ * **Submitted data** is displayed in a styled panel showing `CreateFeatureInput`
+ * with `approvalGates: { allowPrd, allowPlan, allowMerge }`.
  *
  * In Storybook, the native picker won't work (no backend), but submitted data
  * would show the paths if files were attached programmatically.

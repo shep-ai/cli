@@ -70,7 +70,7 @@ describe('POST /api/features/create', () => {
     expect(mockCreateFeature).toHaveBeenCalledWith({
       userInput: 'Feature: Auth System\n\nAdd login and signup',
       repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false },
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -83,7 +83,7 @@ describe('POST /api/features/create', () => {
     expect(mockCreateFeature).toHaveBeenCalledWith({
       userInput: 'Feature: Quick Fix',
       repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false },
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -96,7 +96,7 @@ describe('POST /api/features/create', () => {
     expect(mockCreateFeature).toHaveBeenCalledWith({
       userInput: 'Feature: No Desc',
       repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false },
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -120,7 +120,7 @@ describe('POST /api/features/create', () => {
       userInput:
         'Feature: With Files\n\nSee attached\n\nAttached files:\n- /src/index.ts\n- /src/utils.ts',
       repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false },
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -139,7 +139,7 @@ describe('POST /api/features/create', () => {
     expect(mockCreateFeature).toHaveBeenCalledWith({
       userInput: 'Feature: Files Only\n\nAttached files:\n- /readme.md',
       repositoryPath: '/repo',
-      approvalGates: { allowPrd: false, allowPlan: false },
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     });
   });
 
@@ -232,7 +232,7 @@ describe('POST /api/features/create', () => {
 
       expect(mockCreateFeature).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: true, allowPlan: false },
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
         })
       );
     });
@@ -250,7 +250,43 @@ describe('POST /api/features/create', () => {
 
       expect(mockCreateFeature).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: true, allowPlan: true },
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+        })
+      );
+    });
+
+    it('forwards { allowPrd: true, allowPlan: true, allowMerge: true } to createFeature when provided', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+
+      await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        })
+      );
+
+      expect(mockCreateFeature).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        })
+      );
+    });
+
+    it('defaults allowMerge to false when not provided in approvalGates', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+
+      await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: false },
+        })
+      );
+
+      expect(mockCreateFeature).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
         })
       );
     });
@@ -262,7 +298,7 @@ describe('POST /api/features/create', () => {
 
       expect(mockCreateFeature).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: false, allowPlan: false },
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         })
       );
     });
@@ -360,6 +396,21 @@ describe('POST /api/features/create', () => {
       expect(mockCreateFeature).not.toHaveBeenCalled();
     });
 
+    it('returns 400 when approvalGates.allowMerge is not a boolean', async () => {
+      const response = await POST(
+        makeRequest({
+          name: 'Test',
+          repositoryPath: '/repo',
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: 'yes' },
+        })
+      );
+      const body = await response.json();
+
+      expect(response.status).toBe(400);
+      expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
+      expect(mockCreateFeature).not.toHaveBeenCalled();
+    });
+
     it('passes undefined approvalGates for "allow-all" mode (no gates in body)', async () => {
       mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
 
@@ -372,7 +423,7 @@ describe('POST /api/features/create', () => {
 
       expect(mockCreateFeature).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: false, allowPlan: false },
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         })
       );
     });

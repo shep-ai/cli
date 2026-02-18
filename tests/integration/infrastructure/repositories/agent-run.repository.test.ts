@@ -311,7 +311,7 @@ describe('SQLiteAgentRunRepository', () => {
   describe('approval gates fields', () => {
     it('should store approvalGates as JSON when creating agent run', async () => {
       const agentRun = createTestAgentRun({
-        approvalGates: { allowPrd: false, allowPlan: false },
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       });
 
       await repository.create(agentRun);
@@ -320,7 +320,7 @@ describe('SQLiteAgentRunRepository', () => {
         string,
         unknown
       >;
-      expect(row.approval_gates).toBe('{"allowPrd":false,"allowPlan":false}');
+      expect(row.approval_gates).toBe('{"allowPrd":false,"allowPlan":false,"allowMerge":false}');
     });
 
     it('should store approval_gates as NULL when not provided', async () => {
@@ -337,13 +337,13 @@ describe('SQLiteAgentRunRepository', () => {
 
     it('should return approvalGates object via findById', async () => {
       const agentRun = createTestAgentRun({
-        approvalGates: { allowPrd: true, allowPlan: false },
+        approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
       });
       await repository.create(agentRun);
 
       const found = await repository.findById('run-001');
 
-      expect(found?.approvalGates).toEqual({ allowPrd: true, allowPlan: false });
+      expect(found?.approvalGates).toEqual({ allowPrd: true, allowPlan: false, allowMerge: false });
     });
 
     it('should not include approvalGates when it is NULL', async () => {
@@ -360,17 +360,17 @@ describe('SQLiteAgentRunRepository', () => {
       await repository.create(agentRun);
 
       await repository.updateStatus('run-001', AgentRunStatus.running, {
-        approvalGates: { allowPrd: true, allowPlan: true },
+        approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
       });
 
       const found = await repository.findById('run-001');
-      expect(found?.approvalGates).toEqual({ allowPrd: true, allowPlan: true });
+      expect(found?.approvalGates).toEqual({ allowPrd: true, allowPlan: true, allowMerge: false });
     });
 
     it('should update status to waiting_approval with approval gates', async () => {
       const agentRun = createTestAgentRun({
         status: AgentRunStatus.running,
-        approvalGates: { allowPrd: false, allowPlan: false },
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       });
       await repository.create(agentRun);
 
@@ -378,7 +378,11 @@ describe('SQLiteAgentRunRepository', () => {
 
       const found = await repository.findById('run-001');
       expect(found?.status).toBe(AgentRunStatus.waitingApproval);
-      expect(found?.approvalGates).toEqual({ allowPrd: false, allowPlan: false });
+      expect(found?.approvalGates).toEqual({
+        allowPrd: false,
+        allowPlan: false,
+        allowMerge: false,
+      });
     });
   });
 

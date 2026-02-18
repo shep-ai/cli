@@ -24,53 +24,26 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { CheckboxGroup } from '@/components/ui/checkbox-group';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
-import type { ApprovalGates } from '@shepai/core/domain/generated/output';
 import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 
-export type ApprovalMode = 'step-by-step' | 'allow-prd' | 'allow-plan' | 'allow-all';
-
-const APPROVAL_MODES: { value: ApprovalMode; label: string; description: string }[] = [
-  {
-    value: 'step-by-step',
-    label: 'Step-by-step',
-    description: 'Pause for review after each phase',
-  },
-  {
-    value: 'allow-prd',
-    label: 'Auto-approve PRD',
-    description: 'Auto-approve requirements, pause after planning',
-  },
-  {
-    value: 'allow-plan',
-    label: 'Auto-approve through plan',
-    description: 'Auto-approve requirements and planning, pause at implementation',
-  },
-  {
-    value: 'allow-all',
-    label: 'Fully autonomous',
-    description: 'Run without any approval pauses',
-  },
+const AUTO_APPROVE_OPTIONS = [
+  { id: 'allowPrd', label: 'PRD', description: 'Auto-approve requirements move to planning.' },
+  { id: 'allowPlan', label: 'Plan', description: 'Auto-approve planning move to implementation.' },
+  { id: 'allowMerge', label: 'Merge', description: 'Auto-approve merge move to Done.' },
 ];
 
-function mapApprovalMode(mode: ApprovalMode): ApprovalGates | undefined {
-  switch (mode) {
-    case 'step-by-step':
-      return { allowPrd: false, allowPlan: false };
-    case 'allow-prd':
-      return { allowPrd: true, allowPlan: false };
-    case 'allow-plan':
-      return { allowPrd: true, allowPlan: true };
-    case 'allow-all':
-      return undefined;
-  }
-}
+const EMPTY_GATES: Record<string, boolean> = {
+  allowPrd: false,
+  allowPlan: false,
+  allowMerge: false,
+};
 
 function composeUserInput(
   name: string,
@@ -109,13 +82,13 @@ export function FeatureCreateDrawer({
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
-  const [approvalMode, setApprovalMode] = useState<ApprovalMode>('step-by-step');
+  const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...EMPTY_GATES });
 
   const resetForm = useCallback(() => {
     setName('');
     setDescription('');
     setAttachments([]);
-    setApprovalMode('step-by-step');
+    setApprovalGates({ ...EMPTY_GATES });
   }, []);
 
   const handleOpenChange = useCallback(
@@ -133,14 +106,17 @@ export function FeatureCreateDrawer({
       e.preventDefault();
       if (!name.trim()) return;
       const userInput = composeUserInput(name.trim(), description.trim() || undefined, attachments);
-      const approvalGates = mapApprovalMode(approvalMode);
       onSubmit({
         userInput,
         repositoryPath,
-        ...(approvalGates !== undefined && { approvalGates }),
+        approvalGates: {
+          allowPrd: approvalGates.allowPrd ?? false,
+          allowPlan: approvalGates.allowPlan ?? false,
+          allowMerge: approvalGates.allowMerge ?? false,
+        },
       });
     },
-    [name, description, attachments, approvalMode, repositoryPath, onSubmit]
+    [name, description, attachments, approvalGates, repositoryPath, onSubmit]
   );
 
   const handleAddFiles = useCallback(async () => {
@@ -225,28 +201,20 @@ export function FeatureCreateDrawer({
               />
             </div>
 
-            {/* Approval mode */}
-            <div className="flex flex-col gap-2">
+            {/* Auto-approve checkboxes */}
+            <div className="flex flex-col gap-1.5">
               <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
-                APPROVAL MODE
+                APPROVE
               </Label>
-              <RadioGroup
-                value={approvalMode}
-                onValueChange={(v) => setApprovalMode(v as ApprovalMode)}
+              <CheckboxGroup
+                label="Autonomous Mode"
+                description="YOLO!"
+                parentAriaLabel="Auto approve all"
+                options={AUTO_APPROVE_OPTIONS}
+                value={approvalGates}
+                onValueChange={setApprovalGates}
                 disabled={isSubmitting}
-              >
-                {APPROVAL_MODES.map((mode) => (
-                  <div key={mode.value} className="flex items-start gap-2">
-                    <RadioGroupItem value={mode.value} id={`approval-${mode.value}`} />
-                    <div className="flex flex-col gap-0.5">
-                      <Label htmlFor={`approval-${mode.value}`} className="text-sm font-medium">
-                        {mode.label}
-                      </Label>
-                      <p className="text-muted-foreground text-xs">{mode.description}</p>
-                    </div>
-                  </div>
-                ))}
-              </RadioGroup>
+              />
             </div>
 
             {/* Attachments */}

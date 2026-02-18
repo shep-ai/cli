@@ -150,7 +150,7 @@ describe('FeatureCreateDrawer', () => {
       expect(onSubmit).toHaveBeenCalledWith({
         userInput: 'Feature: Auth Module\n\nOAuth2 flow',
         repositoryPath: '/Users/dev/my-repo',
-        approvalGates: { allowPrd: false, allowPlan: false },
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       });
     });
 
@@ -173,36 +173,58 @@ describe('FeatureCreateDrawer', () => {
       expect(submittedData.repositoryPath).toBe('/Users/dev/my-repo');
     });
 
-    it('omits approvalGates when Fully autonomous is selected', async () => {
+    it('sends approvalGates with only PRD checked', async () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
 
       await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
-      await user.click(screen.getByLabelText('Fully autonomous'));
-      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
-
-      const submittedData = onSubmit.mock.calls[0][0];
-      expect(submittedData.approvalGates).toBeUndefined();
-    });
-
-    it('sends approvalGates { allowPrd: true, allowPlan: true } for Auto-approve through plan', async () => {
-      const onSubmit = vi.fn();
-      const user = userEvent.setup();
-      renderDrawer({ onSubmit });
-
-      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
-      await user.click(screen.getByLabelText('Auto-approve through plan'));
+      await user.click(screen.getByLabelText('PRD'));
       await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
 
       expect(onSubmit).toHaveBeenCalledWith(
-        expect.objectContaining({ approvalGates: { allowPrd: true, allowPlan: true } })
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
+        })
+      );
+    });
+
+    it('sends all-true approvalGates when all checkboxes are checked', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.click(screen.getByLabelText('PRD'));
+      await user.click(screen.getByLabelText('Plan'));
+      await user.click(screen.getByLabelText('Merge'));
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        })
+      );
+    });
+
+    it('sends all-false approvalGates when no checkboxes are checked', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        })
       );
     });
   });
 
-  describe('approval mode reset on close', () => {
-    it('resets approval mode to "step-by-step" after close and reopen', async () => {
+  describe('checkbox reset on close', () => {
+    it('resets all checkboxes to unchecked after close and reopen', async () => {
       const onClose = vi.fn();
       const onSubmit = vi.fn();
       const user = userEvent.setup();
@@ -215,9 +237,11 @@ describe('FeatureCreateDrawer', () => {
         />
       );
 
-      // Select a non-default mode
-      await user.click(screen.getByLabelText('Fully autonomous'));
-      expect(screen.getByLabelText('Fully autonomous')).toBeChecked();
+      // Check some boxes
+      await user.click(screen.getByLabelText('PRD'));
+      await user.click(screen.getByLabelText('Merge'));
+      expect(screen.getByLabelText('PRD')).toBeChecked();
+      expect(screen.getByLabelText('Merge')).toBeChecked();
 
       // Close and reopen (unmount/remount simulates close + reopen)
       rerender(<div />);
@@ -230,8 +254,11 @@ describe('FeatureCreateDrawer', () => {
         />
       );
 
-      // Default should be restored
-      expect(screen.getByLabelText('Step-by-step')).toBeChecked();
+      // Default should be restored - all unchecked including parent
+      expect(screen.getByLabelText('Auto approve all')).not.toBeChecked();
+      expect(screen.getByLabelText('PRD')).not.toBeChecked();
+      expect(screen.getByLabelText('Plan')).not.toBeChecked();
+      expect(screen.getByLabelText('Merge')).not.toBeChecked();
     });
   });
 
@@ -262,44 +289,162 @@ describe('FeatureCreateDrawer', () => {
     });
   });
 
-  describe('approval mode', () => {
-    it('renders "APPROVAL MODE" label', () => {
+  describe('auto-approve checkboxes', () => {
+    it('renders "AUTO APPROVE" parent label', () => {
       renderDrawer();
-      expect(screen.getByText('APPROVAL MODE')).toBeInTheDocument();
+      expect(screen.getByText('AUTO APPROVE')).toBeInTheDocument();
     });
 
-    it('renders 4 radio options with correct labels', () => {
+    it('renders parent checkbox and 3 child checkboxes', () => {
       renderDrawer();
-      expect(screen.getByLabelText('Step-by-step')).toBeInTheDocument();
-      expect(screen.getByLabelText('Auto-approve PRD')).toBeInTheDocument();
-      expect(screen.getByLabelText('Auto-approve through plan')).toBeInTheDocument();
-      expect(screen.getByLabelText('Fully autonomous')).toBeInTheDocument();
+      expect(screen.getByLabelText('Auto approve all')).toBeInTheDocument();
+      expect(screen.getByLabelText('PRD')).toBeInTheDocument();
+      expect(screen.getByLabelText('Plan')).toBeInTheDocument();
+      expect(screen.getByLabelText('Merge')).toBeInTheDocument();
     });
 
-    it('each radio option has a description', () => {
+    it('each child checkbox has a description', () => {
       renderDrawer();
-      expect(screen.getByText('Pause for review after each phase')).toBeInTheDocument();
-      expect(
-        screen.getByText('Auto-approve requirements, pause after planning')
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText('Auto-approve requirements and planning, pause at implementation')
-      ).toBeInTheDocument();
-      expect(screen.getByText('Run without any approval pauses')).toBeInTheDocument();
+      expect(screen.getByText('Auto-approve requirements move to planning.')).toBeInTheDocument();
+      expect(screen.getByText('Auto-approve planning move to implementation.')).toBeInTheDocument();
+      expect(screen.getByText('Auto-approve merge move to Done.')).toBeInTheDocument();
     });
 
-    it('"Step-by-step" is selected by default', () => {
+    it('all checkboxes are unchecked by default', () => {
       renderDrawer();
-      const stepByStep = screen.getByLabelText('Step-by-step');
-      expect(stepByStep).toBeChecked();
+      expect(screen.getByLabelText('Auto approve all')).not.toBeChecked();
+      expect(screen.getByLabelText('PRD')).not.toBeChecked();
+      expect(screen.getByLabelText('Plan')).not.toBeChecked();
+      expect(screen.getByLabelText('Merge')).not.toBeChecked();
     });
 
-    it('all radio options are disabled when isSubmitting=true', () => {
+    it('all checkboxes are disabled when isSubmitting=true', () => {
       renderDrawer({ isSubmitting: true });
-      expect(screen.getByLabelText('Step-by-step')).toBeDisabled();
-      expect(screen.getByLabelText('Auto-approve PRD')).toBeDisabled();
-      expect(screen.getByLabelText('Auto-approve through plan')).toBeDisabled();
-      expect(screen.getByLabelText('Fully autonomous')).toBeDisabled();
+      expect(screen.getByLabelText('Auto approve all')).toBeDisabled();
+      expect(screen.getByLabelText('PRD')).toBeDisabled();
+      expect(screen.getByLabelText('Plan')).toBeDisabled();
+      expect(screen.getByLabelText('Merge')).toBeDisabled();
+    });
+
+    it('clicking PRD checkbox toggles it on', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      const prdCheckbox = screen.getByLabelText('PRD');
+      expect(prdCheckbox).not.toBeChecked();
+      await user.click(prdCheckbox);
+      expect(prdCheckbox).toBeChecked();
+    });
+  });
+
+  describe('auto-approve parent checkbox (tri-state)', () => {
+    it('parent is unchecked when no children are selected', () => {
+      renderDrawer();
+      const parent = screen.getByLabelText('Auto approve all');
+      expect(parent).not.toBeChecked();
+      expect(parent).toHaveAttribute('data-state', 'unchecked');
+    });
+
+    it('parent becomes indeterminate when some children are selected', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      await user.click(screen.getByLabelText('PRD'));
+
+      const parent = screen.getByLabelText('Auto approve all');
+      expect(parent).toHaveAttribute('data-state', 'indeterminate');
+    });
+
+    it('parent becomes checked when all children are selected', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      await user.click(screen.getByLabelText('PRD'));
+      await user.click(screen.getByLabelText('Plan'));
+      await user.click(screen.getByLabelText('Merge'));
+
+      const parent = screen.getByLabelText('Auto approve all');
+      expect(parent).toHaveAttribute('data-state', 'checked');
+    });
+
+    it('clicking parent selects all children when none are selected', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      await user.click(screen.getByLabelText('Auto approve all'));
+
+      expect(screen.getByLabelText('PRD')).toBeChecked();
+      expect(screen.getByLabelText('Plan')).toBeChecked();
+      expect(screen.getByLabelText('Merge')).toBeChecked();
+    });
+
+    it('clicking parent selects all children when some are selected (indeterminate)', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      // Select only PRD → parent becomes indeterminate
+      await user.click(screen.getByLabelText('PRD'));
+      expect(screen.getByLabelText('Auto approve all')).toHaveAttribute(
+        'data-state',
+        'indeterminate'
+      );
+
+      // Click parent → all should become checked
+      await user.click(screen.getByLabelText('Auto approve all'));
+
+      expect(screen.getByLabelText('PRD')).toBeChecked();
+      expect(screen.getByLabelText('Plan')).toBeChecked();
+      expect(screen.getByLabelText('Merge')).toBeChecked();
+      expect(screen.getByLabelText('Auto approve all')).toHaveAttribute('data-state', 'checked');
+    });
+
+    it('clicking parent deselects all children when all are selected', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      // Select all
+      await user.click(screen.getByLabelText('Auto approve all'));
+      expect(screen.getByLabelText('Auto approve all')).toHaveAttribute('data-state', 'checked');
+
+      // Click parent again → all should be deselected
+      await user.click(screen.getByLabelText('Auto approve all'));
+
+      expect(screen.getByLabelText('PRD')).not.toBeChecked();
+      expect(screen.getByLabelText('Plan')).not.toBeChecked();
+      expect(screen.getByLabelText('Merge')).not.toBeChecked();
+      expect(screen.getByLabelText('Auto approve all')).toHaveAttribute('data-state', 'unchecked');
+    });
+
+    it('unchecking last child transitions parent from indeterminate to unchecked', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+
+      // Check one child
+      await user.click(screen.getByLabelText('Plan'));
+      expect(screen.getByLabelText('Auto approve all')).toHaveAttribute(
+        'data-state',
+        'indeterminate'
+      );
+
+      // Uncheck it
+      await user.click(screen.getByLabelText('Plan'));
+      expect(screen.getByLabelText('Auto approve all')).toHaveAttribute('data-state', 'unchecked');
+    });
+
+    it('submits correct approvalGates after parent select-all', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.click(screen.getByLabelText('Auto approve all'));
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        })
+      );
     });
   });
 

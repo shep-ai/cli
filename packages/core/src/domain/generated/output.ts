@@ -1228,6 +1228,10 @@ export type ApprovalGates = {
    * Skip human review after plan phase
    */
   allowPlan: boolean;
+  /**
+   * Skip human review after merge phase
+   */
+  allowMerge: boolean;
 };
 
 /**

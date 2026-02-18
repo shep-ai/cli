@@ -91,7 +91,7 @@ function HookTestHarness({
           state.handleCreateFeatureSubmit({
             userInput: 'Feature: My Feature\n\nA test feature',
             repositoryPath: '/Users/foo/bar',
-            approvalGates: { allowPrd: false, allowPlan: false },
+            approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
           })
         }
       >
@@ -223,7 +223,7 @@ describe('useControlCenterState', () => {
         body: JSON.stringify({
           userInput: 'Feature: My Feature\n\nA test feature',
           repositoryPath: '/Users/foo/bar',
-          approvalGates: { allowPrd: false, allowPlan: false },
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         }),
       });
     });
