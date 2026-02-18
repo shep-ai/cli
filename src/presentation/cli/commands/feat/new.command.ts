@@ -17,7 +17,7 @@ import { container } from '@/infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '@/application/use-cases/features/create/create-feature.use-case.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
 import { colors, messages, spinner } from '../../ui/index.js';
-import { SHEP_HOME_DIR } from '@/infrastructure/services/filesystem/shep-directory.service.js';
+import { getShepHomeDir } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 
 interface NewOptions {
   repo?: string;
@@ -64,7 +64,7 @@ export function createNewCommand(): Command {
         const { feature, warning } = result;
         const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
         const wtSlug = feature.branch.replace(/\//g, '-');
-        const worktreePath = join(SHEP_HOME_DIR, 'repos', repoHash, 'wt', wtSlug);
+        const worktreePath = join(getShepHomeDir(), 'repos', repoHash, 'wt', wtSlug);
 
         messages.newline();
         if (warning) {

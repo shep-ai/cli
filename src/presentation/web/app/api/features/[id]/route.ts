@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { deleteFeature } from '@shepai/core/infrastructure/di/use-cases-bridge';
+import { resolve } from '@/lib/server-container';
+import type { DeleteFeatureUseCase } from '@shepai/core/application/use-cases/features/delete-feature.use-case';
 
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -9,7 +10,8 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   }
 
   try {
-    const feature = await deleteFeature(id);
+    const deleteFeature = resolve<DeleteFeatureUseCase>('DeleteFeatureUseCase');
+    const feature = await deleteFeature.execute(id);
     return NextResponse.json({ feature });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to delete feature';

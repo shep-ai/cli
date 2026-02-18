@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
-import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
+import type { CreateFeatureInput } from '@shepai/core/application/use-cases/features/create/types';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 

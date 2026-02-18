@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { resolve } from '@/lib/server-container';
-import { CreateFeatureUseCase } from '@shepai/core/application/use-cases/features/create/create-feature.use-case';
+import type { CreateFeatureUseCase } from '@shepai/core/application/use-cases/features/create/create-feature.use-case';
 
 interface Attachment {
   path: string;
@@ -87,8 +87,8 @@ export async function POST(request: Request) {
     : defaultGates;
 
   try {
-    const createFeatureUseCase = resolve(CreateFeatureUseCase);
-    const result = await createFeatureUseCase.execute({ userInput, repositoryPath, approvalGates: gates });
+    const createFeature = resolve<CreateFeatureUseCase>('CreateFeatureUseCase');
+    const result = await createFeature.execute({ userInput, repositoryPath, approvalGates: gates });
     return NextResponse.json(result);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create feature';

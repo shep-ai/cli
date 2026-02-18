@@ -23,7 +23,7 @@ vi.mock('@/application/use-cases/features/create-feature.use-case.js', () => ({
 }));
 
 vi.mock('@/infrastructure/services/filesystem/shep-directory.service.js', () => ({
-  SHEP_HOME_DIR: '/home/test/.shep',
+  getShepHomeDir: () => '/home/test/.shep',
 }));
 
 vi.mock('../../../../../../src/presentation/cli/ui/index.js', () => ({

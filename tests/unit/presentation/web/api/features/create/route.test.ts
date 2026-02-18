@@ -226,7 +226,7 @@ describe('POST /api/features/create', () => {
 
   describe('approvalGates', () => {
     it('forwards { allowPrd: true, allowPlan: false } to createFeature when provided', async () => {
-      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
 
       await POST(
         makeRequest({
@@ -236,7 +236,7 @@ describe('POST /api/features/create', () => {
         })
       );
 
-      expect(mockCreateFeature).toHaveBeenCalledWith(
+      expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
         })
@@ -244,7 +244,7 @@ describe('POST /api/features/create', () => {
     });
 
     it('forwards { allowPrd: true, allowPlan: true } to createFeature when provided', async () => {
-      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
 
       await POST(
         makeRequest({
@@ -254,7 +254,7 @@ describe('POST /api/features/create', () => {
         })
       );
 
-      expect(mockCreateFeature).toHaveBeenCalledWith(
+      expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
         })
@@ -262,7 +262,7 @@ describe('POST /api/features/create', () => {
     });
 
     it('forwards { allowPrd: true, allowPlan: true, allowMerge: true } to createFeature when provided', async () => {
-      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
 
       await POST(
         makeRequest({
@@ -272,7 +272,7 @@ describe('POST /api/features/create', () => {
         })
       );
 
-      expect(mockCreateFeature).toHaveBeenCalledWith(
+      expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
         })
@@ -280,7 +280,7 @@ describe('POST /api/features/create', () => {
     });
 
     it('defaults allowMerge to false when not provided in approvalGates', async () => {
-      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
 
       await POST(
         makeRequest({
@@ -290,7 +290,7 @@ describe('POST /api/features/create', () => {
         })
       );
 
-      expect(mockCreateFeature).toHaveBeenCalledWith(
+      expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
         })
@@ -298,11 +298,11 @@ describe('POST /api/features/create', () => {
     });
 
     it('defaults to { allowPrd: false, allowPlan: false } when approvalGates is omitted', async () => {
-      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
 
       await POST(makeRequest({ name: 'Test', repositoryPath: '/repo' }));
 
-      expect(mockCreateFeature).toHaveBeenCalledWith(
+      expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         })
@@ -317,7 +317,7 @@ describe('POST /api/features/create', () => {
 
       expect(response.status).toBe(400);
       expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
-      expect(mockCreateFeature).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it('returns 400 when approvalGates is an array', async () => {
@@ -328,7 +328,7 @@ describe('POST /api/features/create', () => {
 
       expect(response.status).toBe(400);
       expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
-      expect(mockCreateFeature).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it('returns 400 when approvalGates is a number', async () => {
@@ -339,7 +339,7 @@ describe('POST /api/features/create', () => {
 
       expect(response.status).toBe(400);
       expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
-      expect(mockCreateFeature).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it('returns 400 when approvalGates.allowPrd is not a boolean', async () => {
@@ -354,7 +354,7 @@ describe('POST /api/features/create', () => {
 
       expect(response.status).toBe(400);
       expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
-      expect(mockCreateFeature).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it('returns 400 when approvalGates.allowPlan is not a boolean', async () => {
@@ -369,7 +369,7 @@ describe('POST /api/features/create', () => {
 
       expect(response.status).toBe(400);
       expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
-      expect(mockCreateFeature).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it('returns 400 when approvalGates is missing allowPrd', async () => {
@@ -384,7 +384,7 @@ describe('POST /api/features/create', () => {
 
       expect(response.status).toBe(400);
       expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
-      expect(mockCreateFeature).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it('returns 400 when approvalGates is missing allowPlan', async () => {
@@ -399,7 +399,7 @@ describe('POST /api/features/create', () => {
 
       expect(response.status).toBe(400);
       expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
-      expect(mockCreateFeature).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it('returns 400 when approvalGates.allowMerge is not a boolean', async () => {
@@ -414,11 +414,11 @@ describe('POST /api/features/create', () => {
 
       expect(response.status).toBe(400);
       expect(body).toEqual({ error: expect.stringContaining('approvalGates') });
-      expect(mockCreateFeature).not.toHaveBeenCalled();
+      expect(mockExecute).not.toHaveBeenCalled();
     });
 
     it('passes undefined approvalGates for "allow-all" mode (no gates in body)', async () => {
-      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
 
       // When the client sends approvalGates: undefined, JSON.stringify omits it
       // which is the same as not sending it at all — so the route defaults.
@@ -427,7 +427,7 @@ describe('POST /api/features/create', () => {
       // The "allow-all" → undefined mapping happens in the client's submission handler.
       await POST(makeRequest({ name: 'Test', repositoryPath: '/repo' }));
 
-      expect(mockCreateFeature).toHaveBeenCalledWith(
+      expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         })

@@ -1,6 +1,6 @@
 import { ControlCenter } from '@/components/features/control-center';
 import { resolve } from '@/lib/server-container';
-import { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
+import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
 import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
 import {
   deriveNodeState,
@@ -34,7 +34,7 @@ const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
 };
 
 export default async function HomePage() {
-  const listFeatures = resolve(ListFeaturesUseCase);
+  const listFeatures = resolve<ListFeaturesUseCase>('ListFeaturesUseCase');
   const agentRunRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
   const features = await listFeatures.execute();
   const featuresWithRuns = await Promise.all(

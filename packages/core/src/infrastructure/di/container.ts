@@ -255,6 +255,18 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
 
+  // String-token aliases for web routes (Turbopack can't resolve .js→.ts
+  // imports inside @shepai/core, so routes use string tokens instead of class refs)
+  container.register('CreateFeatureUseCase', {
+    useFactory: (c) => c.resolve(CreateFeatureUseCase),
+  });
+  container.register('ListFeaturesUseCase', {
+    useFactory: (c) => c.resolve(ListFeaturesUseCase),
+  });
+  container.register('DeleteFeatureUseCase', {
+    useFactory: (c) => c.resolve(DeleteFeatureUseCase),
+  });
+
   _initialized = true;
   return container;
 }
