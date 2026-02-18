@@ -290,9 +290,10 @@ describe('FeatureCreateDrawer', () => {
   });
 
   describe('auto-approve checkboxes', () => {
-    it('renders "AUTO APPROVE" parent label', () => {
+    it('renders "APPROVE" section title and "Autonomous Mode" parent label', () => {
       renderDrawer();
-      expect(screen.getByText('AUTO APPROVE')).toBeInTheDocument();
+      expect(screen.getByText('APPROVE')).toBeInTheDocument();
+      expect(screen.getByText('Autonomous Mode')).toBeInTheDocument();
     });
 
     it('renders parent checkbox and 3 child checkboxes', () => {
