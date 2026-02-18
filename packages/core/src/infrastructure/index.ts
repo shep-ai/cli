@@ -5,7 +5,7 @@
  */
 
 // DI container
-export { initializeContainer, container } from './di/container.js';
+export { initializeContainer, isContainerInitialized, container } from './di/container.js';
 
 // Settings service
 export { getSettings, initializeSettings } from './services/settings.service.js';

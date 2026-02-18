@@ -9,9 +9,9 @@
  * These tests are skipped in CI where claude is not available.
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
-import { runCli } from '../../helpers/cli/index.js';
+import { createIsolatedCliRunner, type IsolatedCliRunner } from '../../helpers/cli/index.js';
 
 /**
  * Check if claude binary is available on the system.
@@ -30,9 +30,19 @@ function isClaudeAvailable(): boolean {
 const claudeAvailable = isClaudeAvailable();
 
 describe('CLI: settings agent', () => {
+  let isolated: IsolatedCliRunner;
+
+  beforeEach(() => {
+    isolated = createIsolatedCliRunner();
+  });
+
+  afterEach(() => {
+    isolated.cleanup();
+  });
+
   describe('shep settings agent --help', () => {
     it('should display help for agent command', () => {
-      const result = runCli('settings agent --help');
+      const result = isolated.runner.run('settings agent --help');
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('agent');
@@ -46,7 +56,7 @@ describe('CLI: settings agent', () => {
     'shep settings agent --agent claude-code --auth session',
     () => {
       it('should configure agent non-interactively', () => {
-        const result = runCli('settings agent --agent claude-code --auth session');
+        const result = isolated.runner.run('settings agent --agent claude-code --auth session');
 
         expect(result.exitCode).toBe(0);
         expect(result.stdout).toContain('Agent configured');
@@ -56,11 +66,13 @@ describe('CLI: settings agent', () => {
 
       it('should persist agent config to settings', () => {
         // Configure agent
-        const configResult = runCli('settings agent --agent claude-code --auth session');
+        const configResult = isolated.runner.run(
+          'settings agent --agent claude-code --auth session'
+        );
         expect(configResult.exitCode).toBe(0);
 
         // Verify in settings show
-        const showResult = runCli('settings show --output json');
+        const showResult = isolated.runner.run('settings show --output json');
         expect(showResult.exitCode).toBe(0);
 
         const settings = JSON.parse(showResult.stdout);
@@ -75,7 +87,7 @@ describe('CLI: settings agent', () => {
     'shep settings agent --agent claude-code --auth token --token sk-test',
     () => {
       it('should configure token-based auth', () => {
-        const result = runCli(
+        const result = isolated.runner.run(
           'settings agent --agent claude-code --auth token --token sk-test-key'
         );
 
@@ -84,9 +96,9 @@ describe('CLI: settings agent', () => {
       });
 
       it('should persist token to settings', () => {
-        runCli('settings agent --agent claude-code --auth token --token sk-persisted');
+        isolated.runner.run('settings agent --agent claude-code --auth token --token sk-persisted');
 
-        const showResult = runCli('settings show --output json');
+        const showResult = isolated.runner.run('settings show --output json');
         const settings = JSON.parse(showResult.stdout);
         expect(settings.agent.authMethod).toBe('token');
         expect(settings.agent.token).toBe('sk-persisted');
@@ -96,14 +108,14 @@ describe('CLI: settings agent', () => {
 
   describe('error handling', () => {
     it('should fail when --agent provided without --auth', () => {
-      const result = runCli('settings agent --agent claude-code');
+      const result = isolated.runner.run('settings agent --agent claude-code');
 
       expect(result.success).toBe(false);
       expect(result.stdout + result.stderr).toContain('--auth');
     });
 
     it('should fail for unsupported agent type', () => {
-      const result = runCli('settings agent --agent invalid-agent --auth session');
+      const result = isolated.runner.run('settings agent --agent invalid-agent --auth session');
 
       expect(result.success).toBe(false);
     });

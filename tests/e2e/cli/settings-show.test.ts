@@ -8,23 +8,10 @@
  * - All tests should FAIL initially (command doesn't exist yet)
  */
 
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { runCli } from '../../helpers/cli/index.js';
-import { promises as fs } from 'node:fs';
-import { resolve } from 'node:path';
 
 describe('CLI: settings show', () => {
-  const testDataPath = resolve(process.env.HOME ?? '/tmp', '.shep-test', 'data');
-
-  beforeEach(async () => {
-    // Clean up test database before each test
-    try {
-      await fs.rm(testDataPath, { recursive: true, force: true });
-    } catch {
-      // Ignore if doesn't exist
-    }
-  });
-
   describe('shep settings show (table format - default)', () => {
     it('should display settings as a formatted table', () => {
       // This test will FAIL because the command doesn't exist yet (RED phase)
@@ -43,7 +30,7 @@ describe('CLI: settings show', () => {
 
       expect(result.exitCode).toBe(0);
       expect(result.stdout).toContain('Database');
-      expect(result.stdout).toContain('.shep/data');
+      expect(result.stdout).toContain('/data');
     });
   });
 

@@ -20,7 +20,7 @@
     "paths": {
       "@shepai/core": ["../../../packages/core/src/index.ts"],
       "@shepai/core/*": ["../../../packages/core/src/*"],
-      "@/*": ["./*"],
+      "@/*": ["./*", "../../../packages/core/src/*"],
       "@cli/*": ["../../*"]
     },
     "plugins": [

@@ -548,12 +548,17 @@ export function useTheme() {
 
 ### Server State
 
-For data fetching, use Next.js Server Components where possible:
+For data fetching, use Next.js Server Components with the DI `resolve()` helper (see [DI Integration](#di-integration-server-side) below):
 
 ```typescript
 // app/features/page.tsx (Server Component)
+import { resolve } from '@/lib/server-container';
+import { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
+
+export const dynamic = 'force-dynamic';
+
 export default async function FeaturesPage() {
-  const features = await getFeatures();
+  const features = await resolve(ListFeaturesUseCase).execute();
   return <FeatureList features={features} />;
 }
 ```
@@ -572,6 +577,99 @@ export default async function FeaturesPage() {
 - Add `'use client'` at top of file
 - Required for: hooks, event handlers, browser APIs
 - Keep as small as possible
+
+## DI Integration (Server-Side)
+
+Server components and API routes access the CLI's dependency injection container through a lightweight `resolve()` helper. The CLI bootstrap (or dev-server) initializes the tsyringe DI container and places it on `globalThis.__shepContainer`. The web layer reads it back through the helper at `lib/server-container.ts`.
+
+### How It Works
+
+1. **CLI bootstrap** (`shep ui`) or **dev-server** (`pnpm dev:web`) calls `initializeContainer()` and sets `globalThis.__shepContainer = container`
+2. **Server components / API routes** import `resolve()` from `@/lib/server-container`
+3. `resolve(token)` reads the container from `globalThis` and calls `container.resolve(token)`
+
+### Usage: Class Tokens (Use Cases)
+
+When resolving a concrete class (typical for use cases), pass the class directly:
+
+```typescript
+import { resolve } from '@/lib/server-container';
+import { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
+
+// In a server component or API route handler:
+const features = await resolve(ListFeaturesUseCase).execute();
+```
+
+### Usage: String Tokens (Interfaces)
+
+When resolving an interface-based dependency registered with a string token:
+
+```typescript
+import { resolve } from '@/lib/server-container';
+import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
+
+const repo = resolve<IAgentRunRepository>('IAgentRunRepository');
+const run = await repo.findById(runId);
+```
+
+### `serverExternalPackages` in `next.config.ts`
+
+The following packages are excluded from Turbopack bundling via `serverExternalPackages`:
+
+```typescript
+serverExternalPackages: ['@shepai/core', 'tsyringe', 'reflect-metadata', 'better-sqlite3'];
+```
+
+This is required because:
+
+- **`@shepai/core`** -- Turbopack does not perform `.js` to `.ts` extension mapping the way Node.js/tsx does, so `@shepai/core` imports would fail if bundled. Marking it external lets Node.js resolve it at runtime.
+- **`tsyringe` / `reflect-metadata`** -- DI metadata relies on runtime reflection that Turbopack cannot bundle correctly.
+- **`better-sqlite3`** -- Native Node.js addon (C++ binding) that cannot be bundled.
+
+### Force Dynamic Rendering
+
+Server components that call `resolve()` must opt out of static rendering so the DI container is available at request time:
+
+```typescript
+/** Force request-time rendering so the DI container is available. */
+export const dynamic = 'force-dynamic';
+```
+
+### Stale `.next` Cache Gotcha
+
+If changes to `next.config.ts` (especially `serverExternalPackages`) are not picked up, delete the Next.js cache directory and restart:
+
+```bash
+rm -rf src/presentation/web/.next/
+pnpm dev:web
+```
+
+Turbopack caches aggressively and stale entries can cause confusing module resolution failures even after config changes.
+
+### Architecture Diagram
+
+```
+CLI bootstrap / dev-server
+  │
+  ├─ initializeContainer()      # Opens SQLite, runs migrations, registers deps
+  └─ globalThis.__shepContainer = container
+        │
+        ▼
+  Next.js Server Runtime
+  │
+  ├─ lib/server-container.ts    # resolve<T>(token) → container.resolve(token)
+  │
+  ├─ app/page.tsx               # Server Component: resolve(ListFeaturesUseCase)
+  ├─ app/api/.../route.ts       # API Route: resolve(CreateFeatureUseCase)
+  └─ ...
+```
+
+### Rules
+
+1. **Never import tsyringe directly** in web layer code -- always use `resolve()` from `@/lib/server-container`.
+2. **Never resolve dependencies in client components** -- `resolve()` only works server-side. Pass data down as props from server components.
+3. **Always add `export const dynamic = 'force-dynamic'`** to server component pages that call `resolve()`.
+4. **Keep `serverExternalPackages` up to date** -- if a new `@shepai/core` dependency with native bindings is added, include it in the list.
 
 ## File Naming Conventions
 

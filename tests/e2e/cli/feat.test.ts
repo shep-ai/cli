@@ -4,14 +4,14 @@
  * Tests for the `shep feat` command group (new, ls, show).
  * Verifies feature creation with git worktrees, listing, and detail display.
  *
- * Each test uses an isolated HOME directory (for settings/database)
+ * Each test uses an isolated SHEP_HOME directory (for settings/database)
  * and a temporary git repository (for worktree creation).
  *
  * Uses SHEP_MOCK_EXECUTOR=1 (set in CLI runner defaults) for deterministic
  * AI responses — slugs, names, and branches are predictable.
  *
  * NOTE: Uses execSync intentionally for git setup in tests. All inputs are
- * controlled by test code, not user input, so command injection is not a risk.
+ * controlled by test code (hardcoded constants), not user input.
  */
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
@@ -23,12 +23,12 @@ import { execSync } from 'node:child_process';
 import { createCliRunner } from '../../helpers/cli/index.js';
 
 describe('CLI: feat', () => {
-  let tempHome: string;
+  let shepHome: string;
   let tempRepo: string;
 
   beforeEach(() => {
-    // Create isolated HOME directory for settings/database
-    tempHome = mkdtempSync(join(tmpdir(), 'shep-feat-test-home-'));
+    // Create isolated SHEP_HOME directory for settings/database
+    shepHome = mkdtempSync(join(tmpdir(), 'shep-feat-test-home-'));
 
     // Create temporary git repository with an initial commit
     // (git worktree requires at least one commit)
@@ -41,11 +41,11 @@ describe('CLI: feat', () => {
   });
 
   afterEach(() => {
-    // Kill any spawned agent worker processes that reference our temp HOME
+    // Kill any spawned agent worker processes that reference our temp SHEP_HOME
     // (feat new forks a detached background worker that holds file handles)
+    // Security: shepHome is a controlled mkdtempSync path, not user input
     try {
-      // Security: tempHome is a controlled mkdtempSync path, not user input
-      execSync(`pkill -9 -f "${tempHome}"`, { stdio: 'pipe' });
+      execSync(`pkill -9 -f "${shepHome}"`, { stdio: 'pipe' });
     } catch {
       // No matching processes — expected when no agent was spawned
     }
@@ -56,8 +56,8 @@ describe('CLI: feat', () => {
     // Clean up temporary directories (wrapped in try/catch so test
     // results aren't masked by cleanup failures)
     try {
-      if (existsSync(tempHome)) {
-        rmSync(tempHome, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
+      if (existsSync(shepHome)) {
+        rmSync(shepHome, { recursive: true, force: true, maxRetries: 3, retryDelay: 200 });
       }
     } catch {
       // OS will clean /tmp eventually
@@ -86,7 +86,7 @@ describe('CLI: feat', () => {
   describe('shep feat new', () => {
     it('should create a feature and display its details', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
@@ -100,28 +100,28 @@ describe('CLI: feat', () => {
 
     it('should create a git worktree for the feature branch', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
       runner.runOrThrow(`feat new "Worktree check" --repo ${tempRepo}`);
 
-      // Worktrees are stored at ~/.shep/repos/REPO_HASH/wt/FEATURE-SLUG
+      // Worktrees are stored at $SHEP_HOME/repos/REPO_HASH/wt/FEATURE-SLUG
       const repoHash = createHash('sha256').update(tempRepo).digest('hex').slice(0, 16);
-      const worktreePath = join(tempHome, '.shep', 'repos', repoHash, 'wt', 'feat-worktree-check');
+      const worktreePath = join(shepHome, 'repos', repoHash, 'wt', 'feat-worktree-check');
       expect(existsSync(worktreePath)).toBe(true);
     }, 60_000);
 
     it('should initialize spec directory with YAML files inside the worktree', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
       runner.runOrThrow(`feat new "Spec init check" --repo ${tempRepo}`);
 
       const repoHash = createHash('sha256').update(tempRepo).digest('hex').slice(0, 16);
-      const worktreePath = join(tempHome, '.shep', 'repos', repoHash, 'wt', 'feat-spec-init-check');
+      const worktreePath = join(shepHome, 'repos', repoHash, 'wt', 'feat-spec-init-check');
       const specDir = join(worktreePath, 'specs', '001-spec-init-check');
 
       expect(existsSync(specDir)).toBe(true);
@@ -136,7 +136,7 @@ describe('CLI: feat', () => {
 
     it('should auto-resolve duplicate feature slugs with suffix', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
@@ -152,7 +152,7 @@ describe('CLI: feat', () => {
 
     it('should show error when no description is provided', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
@@ -165,7 +165,7 @@ describe('CLI: feat', () => {
   describe('shep feat ls', () => {
     it('should show message when no features exist', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
@@ -177,7 +177,7 @@ describe('CLI: feat', () => {
 
     it('should list created features', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
@@ -192,7 +192,7 @@ describe('CLI: feat', () => {
 
     it('should filter features by repository path', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
@@ -208,7 +208,7 @@ describe('CLI: feat', () => {
   describe('shep feat show', () => {
     it('should display feature details', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 
@@ -226,7 +226,7 @@ describe('CLI: feat', () => {
 
     it('should show error for nonexistent feature ID', () => {
       const runner = createCliRunner({
-        env: { HOME: tempHome },
+        env: { SHEP_HOME: shepHome },
         timeout: 30000,
       });
 

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { within, userEvent, fn } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
-import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
+import type { CreateFeatureInput } from '@shepai/core/application/use-cases/features/create/types';
 import { Button } from '@/components/ui/button';
 
 /* ---------------------------------------------------------------------------

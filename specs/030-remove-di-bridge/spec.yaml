@@ -1,0 +1,102 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: remove-di-bridge
+number: 030
+branch: feat/030-remove-di-bridge
+oneLiner: Replace globalThis DI bridge hack with proper tsyringe injection in Next.js server-side
+summary: >
+  Remove the use-cases-bridge pattern (globalThis hack) that shuttles DI-resolved instances to the
+  Next.js web layer. Instead, use Next.js serverExternalPackages to exclude tsyringe/reflect-metadata/
+  better-sqlite3 from Turbopack bundling, and an instrumentation.ts file to ensure reflect-metadata
+  is imported before any DI code runs. Server components and API routes will import the container
+  directly and resolve use cases via standard DI.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  - '016-control-center'
+  - '021-control-center-create-feature-2'
+
+technologies:
+  - Next.js 16.1 (serverExternalPackages, instrumentation.ts)
+  - tsyringe (DI container)
+  - Turbopack
+
+relatedLinks:
+  - https://nextjs.org/docs/app/api-reference/config/next-config-js/serverExternalPackages
+  - https://nextjs.org/docs/app/api-reference/file-conventions/instrumentation
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should pnpm dev:web standalone mode also use instrumentation.ts, or keep the explicit bootstrap in dev-server.ts?'
+    resolved: true
+    answer: 'Keep dev-server.ts explicit bootstrap — it already works and instrumentation.ts is called by Next.js automatically when dev-server starts Next.'
+  - question: 'Do we need to handle the case where container is not yet initialized (e.g., during next build for static pages)?'
+    resolved: true
+    answer: 'Yes — server components already use force-dynamic, and API routes only run at request time. During next build, no server components call DI. Add a guard in the container import for safety.'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The Next.js web layer currently cannot import the tsyringe DI container directly because Turbopack
+  would attempt to bundle tsyringe, reflect-metadata, and better-sqlite3 (native C++ addon). To work
+  around this, we use a "DI bridge" pattern:
+
+  1. CLI bootstrap resolves use cases from the DI container
+  2. `populateUseCasesBridge()` places instances on `globalThis.__shepUseCases`
+  3. The web layer reads from `globalThis` via wrapper functions with manual type guards
+
+  This is an ugly hack that:
+  - Requires manually adding every new use case to the bridge (writer + reader + type guard)
+  - Loses type safety (manual interface mirroring instead of real types)
+  - Adds indirection — wrapper functions hide what's actually happening
+  - Makes the web layer feel like a second-class citizen
+  - Duplicates the concept of "which use cases exist" across bridge files
+
+  Next.js 16.1+ provides `serverExternalPackages` which tells Turbopack to skip bundling specific
+  packages for server-side code, and `instrumentation.ts` which runs once on server startup. Together
+  these let us use proper DI injection server-side.
+
+  ## Success Criteria
+
+  - [ ] Remove `use-cases-bridge.ts` (reader) and `populate-use-cases-bridge.ts` (writer)
+  - [ ] Remove `populateUseCasesBridge()` calls from CLI bootstrap and dev-server
+  - [ ] API routes and server components import container directly and resolve use cases
+  - [ ] Add `serverExternalPackages` to next.config.ts for tsyringe + reflect-metadata
+  - [ ] Create instrumentation.ts to ensure reflect-metadata loads before DI code
+  - [ ] `shep ui` command works correctly (dev + production modes)
+  - [ ] `pnpm dev:web` standalone mode works correctly
+  - [ ] `pnpm build:web` succeeds without bundling errors
+  - [ ] All existing tests pass, updated tests cover new pattern
+  - [ ] No regression in web UI functionality (features list, create feature, agent events)
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | --- | --- | --- |
+  | `packages/core/src/infrastructure/di/` | High | Remove bridge files, possibly add container guard |
+  | `src/presentation/web/next.config.ts` | Medium | Add serverExternalPackages config |
+  | `src/presentation/web/instrumentation.ts` | Medium | New file for reflect-metadata bootstrap |
+  | `src/presentation/web/app/page.tsx` | Medium | Replace bridge imports with direct container usage |
+  | `src/presentation/web/app/api/` routes | Medium | Replace bridge imports with direct container usage |
+  | `src/presentation/cli/index.ts` | Low | Remove populateUseCasesBridge call |
+  | `src/presentation/web/dev-server.ts` | Low | Remove populateUseCasesBridge call |
+  | `tests/` | Medium | Update tests that mock/test bridge pattern |
+
+  ## Dependencies
+
+  - Next.js 16.1+ (already on 16.1.6) — `serverExternalPackages` and `instrumentation.ts` support
+  - No new dependencies required
+
+  ## Size Estimate
+
+  **S** — Mostly deleting code and replacing imports. The bridge files are removed, next.config gets
+  a small addition, one new instrumentation.ts file, and ~5 consumer files swap their imports from
+  bridge wrappers to direct container.resolve() calls.
+
+  ---
+
+  _Generated by `/shep-kit:new-feature` — proceed with `/shep-kit:research`_
