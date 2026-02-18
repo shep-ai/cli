@@ -1,0 +1,312 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-approval-flags
+summary: >
+  10 tasks across 5 phases. Phase 1 extends the domain model with allowMerge and updates the CLI.
+  Phase 2 installs the Checkbox UI primitive and removes RadioGroup. Phase 3 replaces the RadioGroup
+  in the drawer with 3 independent checkboxes (TDD). Phase 4 wires the API route and submission
+  handler (TDD). Phase 5 updates Storybook stories and runs final validation.
+
+relatedFeatures: []
+
+technologies:
+  - shadcn/ui Checkbox
+  - TypeSpec
+  - React (useState)
+  - Next.js App Router
+  - Commander.js
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend ApprovalGates TypeSpec model with allowMerge'
+    description: >
+      Add `allowMerge: boolean` field to the ApprovalGates model in `tsp/agents/approval-gates.tsp`.
+      Run `pnpm tsp:compile` to regenerate TypeScript types in `src/domain/generated/output.ts`.
+      Verify the generated ApprovalGates type includes the new field.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'approval-gates.tsp contains allowMerge: boolean with @doc annotation'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Generated output.ts includes allowMerge in ApprovalGates interface'
+    tdd:
+      red:
+        - 'Write test: ApprovalGates type includes allowMerge field (type-level test or runtime shape check)'
+      green:
+        - 'Add allowMerge: boolean to tsp/agents/approval-gates.tsp'
+        - 'Run pnpm tsp:compile to regenerate types'
+      refactor:
+        - 'Ensure @doc annotation matches existing style'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add --allow-merge CLI flag and update --allow-all'
+    description: >
+      Add `--allow-merge` option to the `shep feat new` command in `new.command.ts`. Update the
+      `--allow-all` flag logic to set all 3 gates (allowPrd, allowPlan, allowMerge) to true.
+      Update the approval gates construction to include allowMerge from the new flag.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'CLI --allow-merge flag exists and sets allowMerge: true in ApprovalGates'
+      - 'CLI --allow-all flag sets allowPrd: true, allowPlan: true, allowMerge: true'
+      - 'Default behavior (no flags) sets all 3 to false'
+      - 'Existing --allow-prd and --allow-plan flags work unchanged'
+    tdd:
+      red:
+        - 'Write test: --allow-merge sets approvalGates.allowMerge to true'
+        - 'Write test: --allow-all sets all 3 gates to true'
+      green:
+        - 'Add .option("--allow-merge", "Auto-approve merge move to Done") to command'
+        - 'Update approval gates construction to include allowMerge'
+        - 'Update --allow-all logic to set all 3 fields'
+      refactor:
+        - 'Ensure flag documentation is clear and consistent with existing flags'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Update shouldInterrupt() for allowMerge gate'
+    description: >
+      Update the shouldInterrupt() logic in the backend to handle the new allowMerge gate.
+      When the agent reaches the merge/done phase, check if allowMerge is true to skip the
+      interrupt. Write tests for the new gate.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'shouldInterrupt() checks allowMerge for the merge/done phase'
+      - 'allowMerge: true skips interrupt at merge phase'
+      - 'allowMerge: false (or undefined/missing) pauses at merge phase'
+      - 'Existing allowPrd and allowPlan behavior unchanged'
+    tdd:
+      red:
+        - 'Write test: shouldInterrupt returns false at merge phase when allowMerge is true'
+        - 'Write test: shouldInterrupt returns true at merge phase when allowMerge is false'
+        - 'Write test: shouldInterrupt handles missing allowMerge (backward compat)'
+      green:
+        - 'Add merge phase check to shouldInterrupt() logic'
+        - 'Default allowMerge to false when not present in gates object'
+      refactor:
+        - 'Ensure consistent pattern with existing allowPrd/allowPlan checks'
+    estimatedEffort: '25min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Install shadcn/ui Checkbox component'
+    description: >
+      Run `npx shadcn@latest add checkbox` from the web package directory to generate
+      `src/presentation/web/components/ui/checkbox.tsx`. Verify the generated file uses
+      `import { Checkbox as CheckboxPrimitive } from "radix-ui"` (matching existing patterns).
+      If the CLI generates `@radix-ui/react-checkbox` imports, fix them manually.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'checkbox.tsx exists at src/presentation/web/components/ui/checkbox.tsx'
+      - 'Component exports Checkbox'
+      - 'Imports use bundled "radix-ui" package, not @radix-ui/react-checkbox'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create Checkbox Storybook stories and remove RadioGroup'
+    description: >
+      Create a colocated checkbox.stories.tsx file with stories: Default, Checked, Disabled,
+      WithLabel (checkbox + label + description). Also remove the RadioGroup component
+      (radio-group.tsx and radio-group.stories.tsx) since it is no longer used after the
+      design change from RadioGroup to Checkboxes.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'checkbox.stories.tsx exists with Default, Checked, Disabled, WithLabel stories'
+      - 'radio-group.tsx and radio-group.stories.tsx are removed'
+      - 'No remaining imports of RadioGroup in the codebase'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'TDD: Replace RadioGroup with 3 Checkboxes in drawer'
+    description: >
+      Write failing tests (RED) for the auto-approve checkbox section: (1) renders "AUTO APPROVE"
+      label, (2) renders 3 checkboxes with labels "PRD", "Plan", "Merge", (3) each has a
+      description, (4) all unchecked by default, (5) all disabled when isSubmitting. Then
+      implement (GREEN): replace RadioGroup section with 3 Checkbox components, update form
+      state from approvalMode string to autoApprove: { prd, plan, merge } booleans, update
+      CreateFeatureFormData interface.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Tests assert "AUTO APPROVE" section label is rendered'
+      - 'Tests assert 3 checkboxes with labels PRD, Plan, Merge'
+      - 'Tests assert each checkbox has a description'
+      - 'Tests assert all checkboxes unchecked by default'
+      - 'Tests assert all checkboxes disabled when isSubmitting=true'
+      - 'RadioGroup JSX completely removed from component'
+      - 'All new and existing tests pass'
+    tdd:
+      red:
+        - 'Write test: renders "AUTO APPROVE" section label'
+        - 'Write test: renders 3 checkboxes with correct labels'
+        - 'Write test: each checkbox has a description subtitle'
+        - 'Write test: all checkboxes unchecked by default'
+        - 'Write test: all checkboxes disabled when isSubmitting=true'
+      green:
+        - 'Remove RadioGroup import, add Checkbox import'
+        - 'Replace ApprovalMode type with autoApprove object type'
+        - 'Replace approvalMode useState with 3 boolean useStates or single object useState'
+        - 'Replace RadioGroup JSX with 3 Checkbox + Label + description JSX'
+        - 'Update CreateFeatureFormData: remove approvalMode, add autoApprove'
+      refactor:
+        - 'Extract AUTO_APPROVE_OPTIONS constant array with id, label, description, field'
+        - 'Ensure consistent spacing and visual layout'
+    estimatedEffort: '45min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'TDD: Checkbox toggling, form submission, and reset'
+    description: >
+      Write failing tests (RED) for: (1) toggling individual checkboxes updates form state,
+      (2) onSubmit receives correct autoApprove values, (3) submitting with mixed selections
+      works correctly, (4) all checkboxes reset to unchecked on drawer close/reopen.
+      Then implement (GREEN): wire checkbox onCheckedChange handlers, include autoApprove
+      in handleSubmit, add reset logic for all 3 booleans.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Tests assert toggling PRD checkbox updates prd state'
+      - 'Tests assert onSubmit receives autoApprove: { prd: true, plan: false, merge: false } when only PRD checked'
+      - 'Tests assert onSubmit receives autoApprove: { prd: true, plan: true, merge: true } when all checked'
+      - 'Tests assert checkboxes reset to unchecked on drawer close/reopen'
+      - 'All existing submission tests updated for new autoApprove field'
+    tdd:
+      red:
+        - 'Write test: clicking PRD checkbox toggles it on'
+        - 'Write test: submitting with only PRD checked sends { prd: true, plan: false, merge: false }'
+        - 'Write test: submitting with all checked sends { prd: true, plan: true, merge: true }'
+        - 'Write test: checkboxes reset to unchecked after close and reopen'
+      green:
+        - 'Wire onCheckedChange for each Checkbox to update state'
+        - 'Include autoApprove in handleSubmit callback'
+        - 'Add state resets for all 3 booleans in resetForm'
+      refactor:
+        - 'Update existing submission tests to use autoApprove instead of approvalMode'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'TDD: API route accepts and validates 3-field approvalGates'
+    description: >
+      Write failing tests (RED) for: (1) approvalGates with all 3 fields forwarded to createFeature,
+      (2) default all-false when absent, (3) backward compat: missing allowMerge defaults to false,
+      (4) 400 for malformed values. Then implement (GREEN): update route to extract, validate,
+      and forward 3-field approvalGates.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Test: valid 3-field approvalGates forwarded to createFeature'
+      - 'Test: absent approvalGates defaults to all false'
+      - 'Test: missing allowMerge defaults to false (backward compat)'
+      - 'Test: malformed approvalGates returns 400'
+      - 'All existing route tests pass'
+    tdd:
+      red:
+        - 'Write test: forwards { allowPrd: true, allowPlan: true, allowMerge: true } to createFeature'
+        - 'Write test: omitting approvalGates defaults to all false'
+        - 'Write test: sending only { allowPrd: true, allowPlan: false } defaults allowMerge to false'
+        - 'Write test: returns 400 when approvalGates is not an object'
+        - 'Write test: returns 400 when allowPrd is not a boolean'
+      green:
+        - 'Extract approvalGates from body'
+        - 'Validate shape: allowPrd (boolean), allowPlan (boolean), allowMerge (boolean, default false)'
+        - 'Default missing fields appropriately'
+        - 'Pass to createFeature'
+      refactor:
+        - 'Ensure validation error messages are descriptive'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'TDD: Submission handler maps autoApprove to ApprovalGates'
+    description: >
+      Write failing tests (RED) for the mapping from form autoApprove booleans to ApprovalGates
+      domain type in use-control-center-state.ts. Then implement (GREEN): map { prd, plan, merge }
+      to { allowPrd, allowPlan, allowMerge } and include in fetch body.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+    acceptanceCriteria:
+      - 'autoApprove { prd: true, plan: false, merge: false } maps to { allowPrd: true, allowPlan: false, allowMerge: false }'
+      - 'autoApprove all true maps to all true in ApprovalGates'
+      - 'autoApprove all false maps to all false in ApprovalGates'
+      - 'fetch body includes approvalGates field'
+    tdd:
+      red:
+        - 'Write test: submitting with prd=true sends { allowPrd: true, allowPlan: false, allowMerge: false }'
+        - 'Write test: submitting with all true sends { allowPrd: true, allowPlan: true, allowMerge: true }'
+        - 'Write test: submitting with all false sends { allowPrd: false, allowPlan: false, allowMerge: false }'
+      green:
+        - 'Add mapping function: { prd, plan, merge } → { allowPrd, allowPlan, allowMerge }'
+        - 'Include mapped ApprovalGates in fetch body'
+      refactor:
+        - 'Ensure mapping function is pure and testable'
+    estimatedEffort: '25min'
+
+  - id: task-10
+    phaseId: phase-5
+    title: 'Update Storybook stories and run final validation'
+    description: >
+      Update FeatureCreateDrawer stories to demonstrate checkbox variants: AllUnchecked (default),
+      AllChecked, PrdOnly, MergeOnly, Interactive. Run pnpm test, lint, typecheck, typecheck:web,
+      and build:storybook to ensure nothing is broken.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Stories exist for: AllUnchecked, AllChecked, PrdOnly, MergeOnly, Interactive'
+      - 'pnpm test passes'
+      - 'pnpm lint passes'
+      - 'pnpm typecheck and pnpm typecheck:web pass'
+      - 'pnpm build:storybook succeeds'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '4.5h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  10 tasks across 5 phases. Phase 1 (domain foundation) extends ApprovalGates with allowMerge,
+  updates the CLI, and updates backend interrupt logic. Phase 2 (UI foundation) installs Checkbox
+  and removes RadioGroup. Phase 3 (core UI) replaces the RadioGroup in the drawer with 3
+  independent checkboxes using TDD. Phase 4 (integration) wires the API route and submission
+  handler. Phase 5 (polish) updates Storybook stories and runs validation.
+
+  The key design change from the previous iteration: RadioGroup (4 mutually exclusive modes) →
+  Checkboxes (3 independent booleans). This better models the domain where each gate is an
+  independent decision. The new Merge gate requires domain model extension, which is why Phase 1
+  now includes TypeSpec and CLI work.
+
+  Task dependencies:
+  - Tasks 1-3 (domain + CLI + backend) are foundational — no UI dependency
+  - Tasks 4-5 (Checkbox install) have no domain dependency, can parallel with Phase 1
+  - Task 6 (drawer checkboxes) depends on task 4 (Checkbox component exists)
+  - Task 7 (toggling + submission) depends on task 6
+  - Task 8 (API route) has no dependency on UI work
+  - Task 9 (submission handler) depends on tasks 7 + 8
+  - Task 10 (stories + validation) depends on task 9

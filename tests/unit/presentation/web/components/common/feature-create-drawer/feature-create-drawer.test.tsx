@@ -34,6 +34,7 @@ const defaultProps = {
   open: true,
   onClose: vi.fn(),
   onSubmit: vi.fn(),
+  repositoryPath: '/Users/dev/my-repo',
   isSubmitting: false,
 };
 
@@ -133,7 +134,7 @@ describe('FeatureCreateDrawer', () => {
   });
 
   describe('submission', () => {
-    it('calls onSubmit with trimmed form data', async () => {
+    it('calls onSubmit with CreateFeatureInput containing composed userInput and repositoryPath', async () => {
       const onSubmit = vi.fn();
       const user = userEvent.setup();
       renderDrawer({ onSubmit });
@@ -147,13 +148,13 @@ describe('FeatureCreateDrawer', () => {
 
       expect(onSubmit).toHaveBeenCalledOnce();
       expect(onSubmit).toHaveBeenCalledWith({
-        name: 'Auth Module',
-        description: 'OAuth2 flow',
-        attachments: [],
+        userInput: 'Feature: Auth Module\n\nOAuth2 flow',
+        repositoryPath: '/Users/dev/my-repo',
+        approvalGates: { allowPrd: false, allowPlan: false },
       });
     });
 
-    it('includes FileAttachment[] in submission payload', async () => {
+    it('includes attachment paths in composed userInput', async () => {
       mockPickFiles.mockResolvedValue([mockPdf]);
       const onSubmit = vi.fn();
       const user = userEvent.setup();
@@ -166,8 +167,71 @@ describe('FeatureCreateDrawer', () => {
 
       expect(onSubmit).toHaveBeenCalledOnce();
       const submittedData = onSubmit.mock.calls[0][0];
-      expect(submittedData.attachments).toHaveLength(1);
-      expect(submittedData.attachments[0]).toEqual(mockPdf);
+      expect(submittedData.userInput).toContain('Feature: Feature');
+      expect(submittedData.userInput).toContain('Attached files:');
+      expect(submittedData.userInput).toContain('- /Users/dev/docs/requirements.pdf');
+      expect(submittedData.repositoryPath).toBe('/Users/dev/my-repo');
+    });
+
+    it('omits approvalGates when Fully autonomous is selected', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.click(screen.getByLabelText('Fully autonomous'));
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      const submittedData = onSubmit.mock.calls[0][0];
+      expect(submittedData.approvalGates).toBeUndefined();
+    });
+
+    it('sends approvalGates { allowPrd: true, allowPlan: true } for Auto-approve through plan', async () => {
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      renderDrawer({ onSubmit });
+
+      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'Feature');
+      await user.click(screen.getByLabelText('Auto-approve through plan'));
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+
+      expect(onSubmit).toHaveBeenCalledWith(
+        expect.objectContaining({ approvalGates: { allowPrd: true, allowPlan: true } })
+      );
+    });
+  });
+
+  describe('approval mode reset on close', () => {
+    it('resets approval mode to "step-by-step" after close and reopen', async () => {
+      const onClose = vi.fn();
+      const onSubmit = vi.fn();
+      const user = userEvent.setup();
+      const { rerender } = render(
+        <FeatureCreateDrawer
+          open={true}
+          onClose={onClose}
+          onSubmit={onSubmit}
+          repositoryPath="/repo"
+        />
+      );
+
+      // Select a non-default mode
+      await user.click(screen.getByLabelText('Fully autonomous'));
+      expect(screen.getByLabelText('Fully autonomous')).toBeChecked();
+
+      // Close and reopen (unmount/remount simulates close + reopen)
+      rerender(<div />);
+      rerender(
+        <FeatureCreateDrawer
+          open={true}
+          onClose={onClose}
+          onSubmit={onSubmit}
+          repositoryPath="/repo"
+        />
+      );
+
+      // Default should be restored
+      expect(screen.getByLabelText('Step-by-step')).toBeChecked();
     });
   });
 
@@ -198,6 +262,47 @@ describe('FeatureCreateDrawer', () => {
     });
   });
 
+  describe('approval mode', () => {
+    it('renders "APPROVAL MODE" label', () => {
+      renderDrawer();
+      expect(screen.getByText('APPROVAL MODE')).toBeInTheDocument();
+    });
+
+    it('renders 4 radio options with correct labels', () => {
+      renderDrawer();
+      expect(screen.getByLabelText('Step-by-step')).toBeInTheDocument();
+      expect(screen.getByLabelText('Auto-approve PRD')).toBeInTheDocument();
+      expect(screen.getByLabelText('Auto-approve through plan')).toBeInTheDocument();
+      expect(screen.getByLabelText('Fully autonomous')).toBeInTheDocument();
+    });
+
+    it('each radio option has a description', () => {
+      renderDrawer();
+      expect(screen.getByText('Pause for review after each phase')).toBeInTheDocument();
+      expect(
+        screen.getByText('Auto-approve requirements, pause after planning')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByText('Auto-approve requirements and planning, pause at implementation')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Run without any approval pauses')).toBeInTheDocument();
+    });
+
+    it('"Step-by-step" is selected by default', () => {
+      renderDrawer();
+      const stepByStep = screen.getByLabelText('Step-by-step');
+      expect(stepByStep).toBeChecked();
+    });
+
+    it('all radio options are disabled when isSubmitting=true', () => {
+      renderDrawer({ isSubmitting: true });
+      expect(screen.getByLabelText('Step-by-step')).toBeDisabled();
+      expect(screen.getByLabelText('Auto-approve PRD')).toBeDisabled();
+      expect(screen.getByLabelText('Auto-approve through plan')).toBeDisabled();
+      expect(screen.getByLabelText('Fully autonomous')).toBeDisabled();
+    });
+  });
+
   describe('close behavior', () => {
     it('calls onClose when cancel button is clicked', async () => {
       const onClose = vi.fn();
@@ -222,7 +327,12 @@ describe('FeatureCreateDrawer', () => {
       const onClose = vi.fn();
       const user = userEvent.setup();
       const { rerender } = render(
-        <FeatureCreateDrawer open={true} onClose={onClose} onSubmit={onSubmit} />
+        <FeatureCreateDrawer
+          open={true}
+          onClose={onClose}
+          onSubmit={onSubmit}
+          repositoryPath="/repo"
+        />
       );
 
       // Fill form and submit
@@ -232,7 +342,14 @@ describe('FeatureCreateDrawer', () => {
 
       // Unmount and remount to simulate close + reopen
       rerender(<div />);
-      rerender(<FeatureCreateDrawer open={true} onClose={onClose} onSubmit={onSubmit} />);
+      rerender(
+        <FeatureCreateDrawer
+          open={true}
+          onClose={onClose}
+          onSubmit={onSubmit}
+          repositoryPath="/repo"
+        />
+      );
 
       expect(screen.getByPlaceholderText('e.g. GitHub OAuth Login')).toHaveValue('');
       expect(screen.getByPlaceholderText('Describe what this feature does...')).toHaveValue('');

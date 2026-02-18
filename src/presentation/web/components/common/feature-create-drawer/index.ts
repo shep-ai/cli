@@ -1,6 +1,6 @@
 export {
   FeatureCreateDrawer,
   type FeatureCreateDrawerProps,
-  type CreateFeatureFormData,
+  type ApprovalMode,
   type FileAttachment,
 } from './feature-create-drawer';

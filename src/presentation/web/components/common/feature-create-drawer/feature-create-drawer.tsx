@@ -24,23 +24,78 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+import type { ApprovalGates } from '@shepai/core/domain/generated/output';
+import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 
-export interface CreateFeatureFormData {
-  name: string;
-  description: string;
-  attachments: FileAttachment[];
+export type ApprovalMode = 'step-by-step' | 'allow-prd' | 'allow-plan' | 'allow-all';
+
+const APPROVAL_MODES: { value: ApprovalMode; label: string; description: string }[] = [
+  {
+    value: 'step-by-step',
+    label: 'Step-by-step',
+    description: 'Pause for review after each phase',
+  },
+  {
+    value: 'allow-prd',
+    label: 'Auto-approve PRD',
+    description: 'Auto-approve requirements, pause after planning',
+  },
+  {
+    value: 'allow-plan',
+    label: 'Auto-approve through plan',
+    description: 'Auto-approve requirements and planning, pause at implementation',
+  },
+  {
+    value: 'allow-all',
+    label: 'Fully autonomous',
+    description: 'Run without any approval pauses',
+  },
+];
+
+function mapApprovalMode(mode: ApprovalMode): ApprovalGates | undefined {
+  switch (mode) {
+    case 'step-by-step':
+      return { allowPrd: false, allowPlan: false };
+    case 'allow-prd':
+      return { allowPrd: true, allowPlan: false };
+    case 'allow-plan':
+      return { allowPrd: true, allowPlan: true };
+    case 'allow-all':
+      return undefined;
+  }
+}
+
+function composeUserInput(
+  name: string,
+  description: string | undefined,
+  attachments: FileAttachment[]
+): string {
+  let userInput = `Feature: ${name}`;
+
+  if (description) {
+    userInput += `\n\n${description}`;
+  }
+
+  if (attachments.length > 0) {
+    const paths = attachments.map((a) => `- ${a.path}`).join('\n');
+    userInput += `\n\nAttached files:\n${paths}`;
+  }
+
+  return userInput;
 }
 
 export interface FeatureCreateDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateFeatureFormData) => void;
+  onSubmit: (data: CreateFeatureInput) => void;
+  repositoryPath: string;
   isSubmitting?: boolean;
 }
 
@@ -48,16 +103,19 @@ export function FeatureCreateDrawer({
   open,
   onClose,
   onSubmit,
+  repositoryPath,
   isSubmitting = false,
 }: FeatureCreateDrawerProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [approvalMode, setApprovalMode] = useState<ApprovalMode>('step-by-step');
 
   const resetForm = useCallback(() => {
     setName('');
     setDescription('');
     setAttachments([]);
+    setApprovalMode('step-by-step');
   }, []);
 
   const handleOpenChange = useCallback(
@@ -74,9 +132,15 @@ export function FeatureCreateDrawer({
     (e: React.FormEvent) => {
       e.preventDefault();
       if (!name.trim()) return;
-      onSubmit({ name: name.trim(), description: description.trim(), attachments });
+      const userInput = composeUserInput(name.trim(), description.trim() || undefined, attachments);
+      const approvalGates = mapApprovalMode(approvalMode);
+      onSubmit({
+        userInput,
+        repositoryPath,
+        ...(approvalGates !== undefined && { approvalGates }),
+      });
     },
-    [name, description, attachments, onSubmit]
+    [name, description, attachments, approvalMode, repositoryPath, onSubmit]
   );
 
   const handleAddFiles = useCallback(async () => {
@@ -159,6 +223,30 @@ export function FeatureCreateDrawer({
                 rows={4}
                 disabled={isSubmitting}
               />
+            </div>
+
+            {/* Approval mode */}
+            <div className="flex flex-col gap-2">
+              <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+                APPROVAL MODE
+              </Label>
+              <RadioGroup
+                value={approvalMode}
+                onValueChange={(v) => setApprovalMode(v as ApprovalMode)}
+                disabled={isSubmitting}
+              >
+                {APPROVAL_MODES.map((mode) => (
+                  <div key={mode.value} className="flex items-start gap-2">
+                    <RadioGroupItem value={mode.value} id={`approval-${mode.value}`} />
+                    <div className="flex flex-col gap-0.5">
+                      <Label htmlFor={`approval-${mode.value}`} className="text-sm font-medium">
+                        {mode.label}
+                      </Label>
+                      <p className="text-muted-foreground text-xs">{mode.description}</p>
+                    </div>
+                  </div>
+                ))}
+              </RadioGroup>
             </div>
 
             {/* Attachments */}

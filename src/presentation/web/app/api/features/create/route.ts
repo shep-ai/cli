@@ -6,6 +6,21 @@ interface Attachment {
   name: string;
 }
 
+interface ApprovalGates {
+  allowPrd: boolean;
+  allowPlan: boolean;
+}
+
+function isValidApprovalGates(value: unknown): value is ApprovalGates {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    typeof (value as Record<string, unknown>).allowPrd === 'boolean' &&
+    typeof (value as Record<string, unknown>).allowPlan === 'boolean'
+  );
+}
+
 function composeUserInput(
   name: string,
   description: string | undefined,
@@ -27,11 +42,12 @@ function composeUserInput(
 
 export async function POST(request: Request) {
   const body = await request.json();
-  const { name, description, repositoryPath, attachments } = body as {
+  const { name, description, repositoryPath, attachments, approvalGates } = body as {
     name?: string;
     description?: string;
     repositoryPath?: string;
     attachments?: Attachment[];
+    approvalGates?: unknown;
   };
 
   if (!name?.trim()) {
@@ -42,10 +58,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'repositoryPath is required' }, { status: 400 });
   }
 
+  if (approvalGates !== undefined && !isValidApprovalGates(approvalGates)) {
+    return NextResponse.json(
+      { error: 'approvalGates must be an object with boolean allowPrd and allowPlan' },
+      { status: 400 }
+    );
+  }
+
   const userInput = composeUserInput(name, description, attachments);
+  const gates: ApprovalGates = approvalGates ?? { allowPrd: false, allowPlan: false };
 
   try {
-    const result = await createFeature({ userInput, repositoryPath });
+    const result = await createFeature({ userInput, repositoryPath, approvalGates: gates });
     return NextResponse.json(result);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to create feature';

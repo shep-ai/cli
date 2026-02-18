@@ -1,0 +1,40 @@
+feature:
+  id: 023-feature-approval-flags
+  name: feature-approval-flags
+  number: 23
+  branch: feat/feature-approval-flags
+  lifecycle: research
+  createdAt: '2026-02-18T10:49:49Z'
+status:
+  phase: plan
+  progress:
+    completed: 0
+    total: 10
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-18T12:00:00Z'
+  lastUpdatedBy: spec-iteration
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-18T10:49:49Z'
+    completedBy: feature-agent
+  - phase: spec-iteration
+    completedAt: '2026-02-18T12:00:00Z'
+    completedBy: manual
+    note: 'Design changed from RadioGroup to Checkbox-based auto-approve with 3 independent gates (PRD, Plan, Merge)'
+errors:
+  current: null
+  history: []

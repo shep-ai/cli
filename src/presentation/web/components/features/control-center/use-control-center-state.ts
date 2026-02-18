@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
-import type { CreateFeatureFormData } from '@/components/common/feature-create-drawer';
+import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 
@@ -16,6 +16,7 @@ export interface ControlCenterState {
   selectedNode: FeatureNodeData | null;
   isCreateDrawerOpen: boolean;
   isSubmitting: boolean;
+  pendingRepositoryPath: string;
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
   clearSelection: () => void;
@@ -25,7 +26,7 @@ export interface ControlCenterState {
   handleAddFeatureToFeature: (featureNodeId: string) => void;
   handleAddRepository: (path: string) => void;
   handleLayout: (direction: LayoutDirection) => void;
-  handleCreateFeatureSubmit: (data: CreateFeatureFormData) => void;
+  handleCreateFeatureSubmit: (data: CreateFeatureInput) => void;
   closeCreateDrawer: () => void;
 }
 
@@ -219,25 +220,13 @@ export function useControlCenterState(
   }, []);
 
   const handleCreateFeatureSubmit = useCallback(
-    async (data: CreateFeatureFormData) => {
-      if (!pendingRepoNodeId) {
-        toast.error('Please create the feature from a repository node.');
-        return;
-      }
-
-      const repositoryPath = pendingRepoNodeId.replace(/^repo-/, '');
-
+    async (data: CreateFeatureInput) => {
       setIsSubmitting(true);
       try {
         const response = await fetch('/api/features/create', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            name: data.name,
-            description: data.description || '',
-            repositoryPath,
-            attachments: data.attachments,
-          }),
+          body: JSON.stringify(data),
         });
 
         if (!response.ok) {
@@ -256,7 +245,7 @@ export function useControlCenterState(
         setIsSubmitting(false);
       }
     },
-    [pendingRepoNodeId, router]
+    [router]
   );
 
   const closeCreateDrawer = useCallback(() => {
@@ -325,12 +314,15 @@ export function useControlCenterState(
     });
   }, []);
 
+  const pendingRepositoryPath = pendingRepoNodeId?.replace(/^repo-/, '') ?? '';
+
   return {
     nodes,
     edges,
     selectedNode,
     isCreateDrawerOpen,
     isSubmitting,
+    pendingRepositoryPath,
     onNodesChange,
     handleConnect,
     clearSelection,

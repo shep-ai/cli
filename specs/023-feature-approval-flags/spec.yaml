@@ -1,0 +1,184 @@
+name: feature-approval-flags
+number: 023
+branch: feat/feature-approval-flags
+oneLiner: Add auto-approve checkbox gates to the Web UI feature creation drawer and extend the domain with allowMerge
+summary: >
+  The CLI already supports --allow-prd, --allow-plan, and --allow-all flags on `shep feat new`,
+  but the Web UI feature creation drawer has no way to select approval gates. This feature replaces
+  the previous RadioGroup design with an "AUTO APPROVE" checkbox section containing 3 independent
+  checkboxes (PRD, Plan, Merge). It also extends the ApprovalGates domain type with a new
+  `allowMerge` flag, adds the corresponding --allow-merge CLI flag, updates the API route, and
+  ensures parity between CLI and Web UI feature creation flows.
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - Next.js (App Router API routes)
+  - React (shadcn/ui components — Checkbox)
+  - TypeSpec (ApprovalGates domain type — adding allowMerge)
+  - Commander.js (CLI flags — adding --allow-merge)
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'Should the auto-approve UI use checkboxes, a RadioGroup, or a Select dropdown?'
+    resolved: true
+    answer: >
+      Checkboxes. The 3 approval gates (PRD, Plan, Merge) are independent boolean flags, not
+      mutually exclusive modes. Checkboxes allow any combination — e.g., auto-approve PRD and
+      Merge but manually approve Plan. This is more flexible than the previous RadioGroup design
+      which forced progressive levels. The UX follows the standard checkbox pattern with a section
+      heading and individual items with descriptions.
+  - question: 'What should the default state when the drawer opens?'
+    resolved: true
+    answer: >
+      All checkboxes unchecked (allowPrd: false, allowPlan: false, allowMerge: false). This matches
+      the current CLI default behavior (no flags = pause after every phase) and is the safest
+      option for users unfamiliar with autonomous modes. Backward-compatible with existing behavior.
+  - question: 'Should each checkbox include a description?'
+    resolved: true
+    answer: >
+      Yes — each checkbox should have a label and a one-line description. The descriptions explain
+      the transition each gate controls, making the UI self-explanatory for users unfamiliar with
+      SDLC phases.
+  - question: 'Where in the drawer form should the auto-approve section be placed?'
+    resolved: true
+    answer: >
+      After the Description field and before the Attachments section. Groups "what to build"
+      (name/desc) separately from "how to build it" (auto-approve) and "context" (attachments).
+  - question: 'Should the section be collapsible?'
+    resolved: true
+    answer: >
+      No, always visible. The section is small (3 checkboxes) and always relevant. Collapsing
+      it adds complexity and hides an important setting.
+
+content: |
+  ## Problem Statement
+
+  The `shep feat new` CLI command supports human-in-the-loop approval gate flags:
+  - `--allow-prd` — Auto-approve through requirements, pause after planning
+  - `--allow-plan` — Auto-approve through planning, pause at implementation
+  - `--allow-all` — Run fully autonomous (no approval pauses)
+
+  These flags flow through `CreateFeatureUseCase` → `AgentRun.approvalGates` → worker args → graph state → `shouldInterrupt()`. The backend pipeline for PRD and Plan gates is fully implemented.
+
+  **The gaps**:
+  1. The Web UI's feature creation flow does not expose approval gates at all
+  2. There is no "merge" approval gate — the pipeline lacks a gate for auto-approving the merge-to-done transition
+  3. The previous RadioGroup design (4 mutually exclusive modes) has been replaced by an independent checkbox model for better flexibility
+
+  Users who prefer the Web UI have no way to control how autonomous the agent is, and no user (CLI or Web) can control the merge approval gate.
+
+  ## Success Criteria
+
+  - [ ] `ApprovalGates` TypeSpec model extended with `allowMerge: boolean`
+  - [ ] CLI adds `--allow-merge` flag to `shep feat new`
+  - [ ] FeatureCreateDrawer renders an "AUTO APPROVE" section with 3 checkboxes: PRD, Plan, Merge
+  - [ ] All checkboxes are unchecked by default (matching CLI default behavior)
+  - [ ] Each checkbox displays a label and a one-line description explaining what it auto-approves
+  - [ ] The auto-approve section is placed between Description and Attachments in the form
+  - [ ] `CreateFeatureFormData` includes an `autoApprove` field with `{ prd: boolean, plan: boolean, merge: boolean }`
+  - [ ] The selected checkboxes are mapped to `ApprovalGates` and included in the API request body
+  - [ ] The API route `POST /api/features/create` accepts `approvalGates` (now with 3 fields) from the request body
+  - [ ] When `approvalGates` is omitted from the API request, the default behavior is preserved (all false)
+  - [ ] Storybook stories demonstrate checkbox combinations
+  - [ ] Unit tests cover: checkbox toggling, form submission with each combination, default state, reset on drawer close
+  - [ ] API route unit tests cover: forwarding approval gates, omitting approval gates, invalid approval gates
+  - [ ] Existing CLI flags (--allow-prd, --allow-plan, --allow-all) continue to work unchanged
+  - [ ] All existing tests pass (with updates for new `allowMerge` field where needed)
+
+  ## Functional Requirements
+
+  - **FR-1**: The `FeatureCreateDrawer` component SHALL render an "AUTO APPROVE" section containing 3 checkboxes:
+    - "PRD" → controls `allowPrd` — "Auto-approve requirements move to planning."
+    - "Plan" → controls `allowPlan` — "Auto-approve planning move to implementation."
+    - "Merge" → controls `allowMerge` — "Auto-approve merge move to Done."
+
+  - **FR-2**: Each checkbox SHALL display a label (the gate name) and a description subtitle:
+    - PRD: "Auto-approve requirements move to planning."
+    - Plan: "Auto-approve planning move to implementation."
+    - Merge: "Auto-approve merge move to Done."
+
+  - **FR-3**: All checkboxes SHALL be unchecked by default when the drawer opens, matching the CLI default (no flags = pause after every phase).
+
+  - **FR-4**: The `CreateFeatureFormData` interface SHALL include an `autoApprove` field of type `{ prd: boolean; plan: boolean; merge: boolean }`.
+
+  - **FR-5**: When the drawer form is submitted, the `onSubmit` callback SHALL receive the `autoApprove` values as part of the form data.
+
+  - **FR-6**: The page or container that handles form submission SHALL map the `autoApprove` booleans to the `ApprovalGates` domain type `{ allowPrd, allowPlan, allowMerge }` before sending to the API.
+
+  - **FR-7**: The API route `POST /api/features/create` SHALL accept an optional `approvalGates` field in the JSON request body with shape `{ allowPrd: boolean, allowPlan: boolean, allowMerge: boolean }`.
+
+  - **FR-8**: The API route SHALL forward the `approvalGates` value to `createFeature()` when present. When `approvalGates` is absent, the route SHALL pass `{ allowPrd: false, allowPlan: false, allowMerge: false }` as the default.
+
+  - **FR-9**: The API route SHALL validate that `approvalGates`, if provided, contains `allowPrd` (boolean), `allowPlan` (boolean), and `allowMerge` (boolean). Malformed values SHALL result in a 400 response.
+
+  - **FR-10**: When the drawer is closed and reopened, all checkboxes SHALL reset to unchecked, consistent with how name and description fields are already reset.
+
+  - **FR-11**: The `ApprovalGates` TypeSpec model SHALL be extended with `allowMerge: boolean`.
+
+  - **FR-12**: The CLI `shep feat new` command SHALL add a `--allow-merge` flag. The existing `--allow-all` flag SHALL set all three flags (allowPrd, allowPlan, allowMerge) to true.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 (Consistency)**: The checkbox-to-ApprovalGates mapping SHALL produce gate values consistent with the CLI flags. Each checkbox maps directly to its corresponding boolean field. The `--allow-all` CLI flag sets all three to true.
+
+  - **NFR-2 (Accessibility)**: Each checkbox SHALL use proper ARIA attributes via the shadcn/ui Checkbox component. Checkboxes SHALL be keyboard-navigable (Space to toggle) and screen-reader-friendly with associated label and description text.
+
+  - **NFR-3 (Storybook coverage)**: Storybook stories SHALL demonstrate: all unchecked (default), all checked, individual checkbox selections, and an interactive story. Stories SHALL be colocated with the component per project conventions.
+
+  - **NFR-4 (Test coverage)**: Unit tests SHALL cover individual checkbox toggling, all checkbox combinations in form submission, the API route with and without `approvalGates`, and the new `allowMerge` field throughout the pipeline.
+
+  - **NFR-5 (Backward compatibility)**: The API route change SHALL be backward-compatible. Existing API consumers that do not send `approvalGates` SHALL get default behavior (all gates false). The `allowMerge` field SHALL default to `false` when not provided, so existing consumers sending only `allowPrd` and `allowPlan` continue to work.
+
+  - **NFR-6 (Visual consistency)**: The auto-approve section SHALL follow the existing drawer's visual style — uppercase section label ("AUTO APPROVE"), consistent spacing, checkbox + label + description layout matching standard UX patterns.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | UI component for approval gates? | Checkboxes (3 independent) | Gates are independent booleans, not mutually exclusive. Checkboxes allow any combination. |
+  | 2 | Default state? | All unchecked | Matches CLI default. Safest for new users. Backward-compatible. |
+  | 3 | Include descriptions? | Yes, one-line per checkbox | Phase transitions aren't self-explanatory. Descriptions aid discoverability. |
+  | 4 | Placement in the form? | After Description, before Attachments | Groups "what" (name/desc) separately from "how" (auto-approve) and "context" (attachments). |
+  | 5 | Collapsible section? | No, always visible | Only 3 compact checkboxes. Collapsing hides an important setting for no space benefit. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/agents/approval-gates.tsp` | Medium | Add `allowMerge: boolean` to ApprovalGates model |
+  | `src/domain/generated/output.ts` | Medium | Regenerated from TypeSpec (adds allowMerge) |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Low | Add --allow-merge flag, update --allow-all to set all 3 |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | High | Replace RadioGroup with 3 Checkboxes, update form state and interface |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | High | Update stories for checkbox variants |
+  | `src/presentation/web/app/api/features/create/route.ts` | Medium | Accept `approvalGates` with 3 fields, validate, and forward |
+  | `tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx` | Medium | Test checkbox toggling, default, reset, and form submission |
+  | `tests/unit/presentation/web/api/features/create/route.test.ts` | Medium | Test approval gates forwarding, defaults, validation |
+
+  ## Dependencies
+
+  Backend infrastructure partially in place:
+  - `ApprovalGates` type exists but needs `allowMerge` field added (TypeSpec + regenerate)
+  - `CreateFeatureUseCase` already accepts `approvalGates` in its input
+  - `shouldInterrupt()` logic needs to handle `allowMerge` gate
+  - shadcn/ui `Checkbox` component (verify if installed; install if not)
+
+  New work needed beyond presentation layer:
+  - TypeSpec model update + type regeneration
+  - CLI flag addition (--allow-merge)
+  - Backend interrupt logic update for merge gate
+
+  ## Size Estimate
+
+  **M** — While the core UI change is small, adding the `allowMerge` gate requires domain model changes, CLI updates, and backend interrupt logic updates:
+  1. TypeSpec model update + regeneration (~5 lines)
+  2. CLI --allow-merge flag addition (~5 lines)
+  3. Backend shouldInterrupt() update for merge gate (~10 lines)
+  4. Replace RadioGroup with 3 Checkboxes in drawer (~30 lines of JSX)
+  5. Update `CreateFeatureFormData` and form state (~10 lines)
+  6. Update the API route to accept 3-field `approvalGates` (~10 lines)
+  7. Add/update Storybook stories (~40-50 lines)
+  8. Add/update unit tests (~100+ lines across component, API, and backend tests)

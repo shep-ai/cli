@@ -81,6 +81,7 @@ function HookTestHarness({
       <div data-testid="edge-count">{state.edges.length}</div>
       <div data-testid="create-drawer-open">{String(state.isCreateDrawerOpen)}</div>
       <div data-testid="is-submitting">{String(state.isSubmitting)}</div>
+      <div data-testid="pending-repo-path">{state.pendingRepositoryPath}</div>
       <button data-testid="add-feature" onClick={state.handleAddFeature}>
         Add Feature
       </button>
@@ -88,9 +89,9 @@ function HookTestHarness({
         data-testid="create-feature-submit"
         onClick={() =>
           state.handleCreateFeatureSubmit({
-            name: 'My Feature',
-            description: 'A test feature',
-            attachments: [],
+            userInput: 'Feature: My Feature\n\nA test feature',
+            repositoryPath: '/Users/foo/bar',
+            approvalGates: { allowPrd: false, allowPlan: false },
           })
         }
       >
@@ -203,37 +204,28 @@ describe('useControlCenterState', () => {
   });
 
   describe('handleCreateFeatureSubmit', () => {
-    it('shows error toast when submitting without repo context (via sidebar add)', () => {
+    it('calls fetch and forwards CreateFeatureInput as JSON body', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ feature: { id: '1' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
       renderHook();
 
-      // Open create drawer via sidebar (no repo context)
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-feature'));
-      });
-      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
-
-      // Submit — should show error since there is no repo context
-      act(() => {
+      await act(async () => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      expect(mockToastError).toHaveBeenCalled();
-      // Drawer stays open
-      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
-    });
-
-    it('does not call fetch when submitting without repo context', () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch');
-      renderHook();
-
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-feature'));
+      expect(fetchSpy).toHaveBeenCalledWith('/api/features/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userInput: 'Feature: My Feature\n\nA test feature',
+          repositoryPath: '/Users/foo/bar',
+          approvalGates: { allowPrd: false, allowPlan: false },
+        }),
       });
-      act(() => {
-        fireEvent.click(screen.getByTestId('create-feature-submit'));
-      });
-
-      expect(fetchSpy).not.toHaveBeenCalled();
     });
   });
 
@@ -267,6 +259,22 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
       // No new node should be created yet
       expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+    });
+
+    it('exposes pendingRepositoryPath derived from repo node id', () => {
+      const serverRepoNode: RepositoryNodeType = {
+        id: 'repo-/Users/foo/bar',
+        type: 'repositoryNode',
+        position: { x: 0, y: 0 },
+        data: { name: 'bar' },
+      };
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      expect(screen.getByTestId('pending-repo-path')).toHaveTextContent('/Users/foo/bar');
     });
   });
 
@@ -463,39 +471,6 @@ describe('useControlCenterState', () => {
       );
     }
 
-    it('calls fetch with correct URL and body when submitting from repo context', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response(JSON.stringify({ feature: { id: '1' } }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
-
-      renderHook([serverRepoNode] as CanvasNodeType[]);
-
-      // Open drawer via repo node "+"
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo-server'));
-      });
-      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
-
-      // Submit the form
-      await act(async () => {
-        fireEvent.click(screen.getByTestId('create-feature-submit'));
-      });
-
-      expect(fetchSpy).toHaveBeenCalledWith('/api/features/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'My Feature',
-          description: 'A test feature',
-          repositoryPath: '/Users/foo/bar',
-          attachments: [],
-        }),
-      });
-    });
-
     it('closes drawer and calls router.refresh() on successful submit', async () => {
       mockFetchSuccess();
 
@@ -610,26 +585,7 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('is-submitting')).toHaveTextContent('false');
     });
 
-    it('does not call fetch when submitting without repo context', () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch');
-      renderHook();
-
-      // Open drawer via sidebar (no repo context)
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-feature'));
-      });
-
-      act(() => {
-        fireEvent.click(screen.getByTestId('create-feature-submit'));
-      });
-
-      expect(fetchSpy).not.toHaveBeenCalled();
-      expect(mockToastError).toHaveBeenCalled();
-      // Drawer stays open
-      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
-    });
-
-    it('resets pendingRepoNodeId after successful submit', async () => {
+    it('resets pendingRepositoryPath after successful submit', async () => {
       mockFetchSuccess();
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
@@ -638,24 +594,14 @@ describe('useControlCenterState', () => {
       act(() => {
         fireEvent.click(screen.getByTestId('add-to-repo-server'));
       });
+      expect(screen.getByTestId('pending-repo-path')).toHaveTextContent('/Users/foo/bar');
+
       await act(async () => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      // Now open drawer via sidebar (no repo context) and try to submit
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-feature'));
-      });
-
-      vi.clearAllMocks();
-
-      act(() => {
-        fireEvent.click(screen.getByTestId('create-feature-submit'));
-      });
-
-      // Should show error because pendingRepoNodeId was reset
-      expect(mockToastError).toHaveBeenCalled();
-      expect(vi.mocked(globalThis.fetch)).not.toHaveBeenCalled();
+      // pendingRepositoryPath should be reset after successful submit
+      expect(screen.getByTestId('pending-repo-path')).toHaveTextContent('');
     });
   });
 });

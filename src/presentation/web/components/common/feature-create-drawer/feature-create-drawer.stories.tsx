@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { within, userEvent, fn } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
-import type { CreateFeatureFormData } from './feature-create-drawer';
+import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
 import { Button } from '@/components/ui/button';
 
 /* ---------------------------------------------------------------------------
@@ -16,6 +16,7 @@ import { Button } from '@/components/ui/button';
  * ### Form sections
  * - **Feature Name** (required) — text input, submit is disabled when empty
  * - **Description** (optional) — multi-line textarea
+ * - **Approval Mode** — RadioGroup with 4 options controlling human-in-the-loop gates
  * - **Attachments** (optional) — native OS file picker with extension-based icon system:
  *   image → blue, PDF → red, code/text → emerald, generic → gray.
  *   Each attachment card shows the **full absolute file path**.
@@ -25,11 +26,12 @@ import { Button } from '@/components/ui/button';
  * |------|------|-------------|
  * | `open` | `boolean` | Controls drawer visibility |
  * | `onClose` | `() => void` | Called on dismiss (close button, cancel, or backdrop) |
- * | `onSubmit` | `(data: CreateFeatureFormData) => void` | Called with `{ name, description, attachments }` |
+ * | `onSubmit` | `(data: CreateFeatureInput) => void` | Called with `{ userInput, repositoryPath, approvalGates? }` |
+ * | `repositoryPath` | `string` | Repository path (mandatory) included in the submitted data |
  * | `isSubmitting` | `boolean` | Disables all fields and shows "Creating..." on submit button |
  *
  * ### Behavior
- * - Form resets (name, description, attachments cleared) when the drawer closes
+ * - Form resets (name, description, attachments, approvalMode) when the drawer closes
  * - Submit button is disabled when name is empty OR `isSubmitting` is true
  * - Non-modal (`modal={false}`) — canvas stays interactive behind the drawer
  * - Fixed width: 384px (`w-96`)
@@ -54,7 +56,11 @@ const meta: Meta<typeof FeatureCreateDrawer> = {
     },
     onSubmit: {
       description:
-        'Callback fired with `CreateFeatureFormData` when the form is submitted. Receives `{ name, description, attachments }`.',
+        'Callback fired with `CreateFeatureInput` when the form is submitted. Receives `{ userInput, repositoryPath, approvalGates? }`.',
+    },
+    repositoryPath: {
+      control: 'text',
+      description: 'Repository path (mandatory) included in the submitted data.',
     },
     isSubmitting: {
       control: 'boolean',
@@ -103,6 +109,7 @@ function CreateDrawerTrigger({
           logSubmit(data);
           setOpen(false);
         }}
+        repositoryPath="/Users/dev/my-repo"
         isSubmitting={isSubmitting}
       />
     </div>
@@ -171,6 +178,70 @@ export const PreOpened: Story = {
 };
 
 /* ---------------------------------------------------------------------------
+ * Approval mode stories — one per mode, opened via play function
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Default approval mode — drawer opens with "Step-by-step" already selected.
+ * This is the default radio option (no user interaction needed).
+ */
+export const ApprovalModeDefault: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Step-by-step)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Step-by-step)' }));
+  },
+};
+
+/**
+ * Auto-approve PRD mode — opens drawer and selects "Auto-approve PRD".
+ * This mode auto-approves requirements, pausing after planning.
+ */
+export const ApprovalModePrd: Story = {
+  render: () => <CreateDrawerTrigger label="Open (PRD Mode)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (PRD Mode)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const prdRadio = await body.findByRole('radio', { name: 'Auto-approve PRD' });
+    await userEvent.click(prdRadio);
+  },
+};
+
+/**
+ * Auto-approve through plan mode — opens drawer and selects "Auto-approve through plan".
+ * This mode auto-approves requirements and planning, pausing at implementation.
+ */
+export const ApprovalModePlan: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Plan Mode)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Plan Mode)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const planRadio = await body.findByRole('radio', { name: 'Auto-approve through plan' });
+    await userEvent.click(planRadio);
+  },
+};
+
+/**
+ * Fully autonomous mode — opens drawer and selects "Fully autonomous".
+ * This mode runs without any approval pauses.
+ */
+export const ApprovalModeAutonomous: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Autonomous)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Autonomous)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const autoRadio = await body.findByRole('radio', { name: 'Fully autonomous' });
+    await userEvent.click(autoRadio);
+  },
+};
+
+/* ---------------------------------------------------------------------------
  * Interactive story — full paths shown in submitted data panel
  * ------------------------------------------------------------------------- */
 
@@ -187,7 +258,7 @@ export const PreOpened: Story = {
 export const Interactive: Story = {
   render: function InteractiveRender() {
     const [open, setOpen] = useState(false);
-    const [submitted, setSubmitted] = useState<CreateFeatureFormData | null>(null);
+    const [submitted, setSubmitted] = useState<CreateFeatureInput | null>(null);
 
     return (
       <div className="flex h-screen items-start gap-4 p-4">
@@ -201,19 +272,7 @@ export const Interactive: Story = {
                 Last submitted
               </span>
               <pre className="mt-1 text-xs whitespace-pre-wrap">
-                {JSON.stringify(
-                  {
-                    name: submitted.name,
-                    description: submitted.description,
-                    attachments: submitted.attachments.map((f) => ({
-                      path: f.path,
-                      name: f.name,
-                      size: f.size,
-                    })),
-                  },
-                  null,
-                  2
-                )}
+                {JSON.stringify(submitted, null, 2)}
               </pre>
             </div>
           ) : null}
@@ -229,6 +288,7 @@ export const Interactive: Story = {
             setSubmitted(data);
             setOpen(false);
           }}
+          repositoryPath="/Users/dev/my-repo"
         />
       </div>
     );
