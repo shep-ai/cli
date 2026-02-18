@@ -166,7 +166,7 @@ describe('parseWorkerArgs', () => {
   });
 
   it('should parse optional approval-gates argument as JSON', () => {
-    const gates = { allowPrd: true, allowPlan: false };
+    const gates = { allowPrd: true, allowPlan: false, allowMerge: false };
     const args = [
       '--feature-id',
       'feat-123',
@@ -439,7 +439,7 @@ describe('runWorker', () => {
   });
 
   it('should pass approvalGates in graph invoke state', async () => {
-    const gates = { allowPrd: false, allowPlan: false };
+    const gates = { allowPrd: false, allowPlan: false, allowMerge: false };
     await runWorker({
       featureId: 'feat-1',
       runId: 'run-1',
@@ -474,7 +474,7 @@ describe('runWorker', () => {
       runId: 'run-1',
       repo: '/repo',
       specDir: '/specs',
-      approvalGates: { allowPrd: false, allowPlan: false },
+      approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       resume: false,
     });
 

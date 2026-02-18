@@ -43,10 +43,15 @@ export function createNewCommand(): Command {
         const repoPath = options.repo ?? process.cwd();
 
         // Build approval gates from flags (default: pause after every phase)
-        let approvalGates: ApprovalGates | undefined = { allowPrd: false, allowPlan: false };
-        if (options.allowPrd) approvalGates = { ...approvalGates, allowPrd: true };
-        if (options.allowPlan) approvalGates = { allowPrd: true, allowPlan: true };
-        if (options.allowAll) approvalGates = undefined; // no gates = fully autonomous
+        let approvalGates: ApprovalGates | undefined = {
+          allowPrd: !!options.allowPrd,
+          allowPlan: !!options.allowPlan,
+          allowMerge: false,
+        };
+
+        if (options.allowAll) {
+          approvalGates = undefined; // no gates = fully autonomous
+        }
 
         const result = await spinner('Thinking', () =>
           useCase.execute({

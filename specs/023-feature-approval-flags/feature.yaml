@@ -1,0 +1,55 @@
+feature:
+  id: 023-feature-approval-flags
+  name: feature-approval-flags
+  number: 23
+  branch: feat/feature-approval-flags
+  lifecycle: research
+  createdAt: '2026-02-18T10:49:49Z'
+status:
+  phase: ready-for-review
+  progress:
+    completed: 7
+    total: 7
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-18T13:20:00Z'
+  lastUpdatedBy: shep-kit:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - implementation
+validation:
+  lastRun: '2026-02-18T13:20:00Z'
+  gatesPassed:
+    - unit-tests
+    - integration-tests
+    - typecheck
+    - typecheck-web
+    - lint
+    - storybook-build
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-18T10:49:49Z'
+    completedBy: feature-agent
+  - phase: spec-iteration-v1
+    completedAt: '2026-02-18T12:00:00Z'
+    completedBy: manual
+    note: 'Changed from RadioGroup to Checkbox-based auto-approve'
+  - phase: spec-iteration-v2
+    completedAt: '2026-02-18T12:30:00Z'
+    completedBy: manual
+    note: 'Removed CLI flags and backend interrupt logic from scope. Presentation-layer + TypeSpec model only.'
+  - phase: implementation-complete
+    completedAt: '2026-02-18T13:20:00Z'
+    completedBy: shep-kit:implement
+    note: '7/7 tasks completed. All tests pass. Ready for code review.'
+errors:
+  current: null
+  history: []

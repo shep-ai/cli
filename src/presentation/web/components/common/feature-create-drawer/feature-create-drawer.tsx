@@ -24,23 +24,51 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { CheckboxGroup } from '@/components/ui/checkbox-group';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+import type { CreateFeatureInput } from '@shepai/core/infrastructure/di/use-cases-bridge';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
 
-export interface CreateFeatureFormData {
-  name: string;
-  description: string;
-  attachments: FileAttachment[];
+const AUTO_APPROVE_OPTIONS = [
+  { id: 'allowPrd', label: 'PRD', description: 'Auto-approve requirements move to planning.' },
+  { id: 'allowPlan', label: 'Plan', description: 'Auto-approve planning move to implementation.' },
+  { id: 'allowMerge', label: 'Merge', description: 'Auto-approve merge move to Done.' },
+];
+
+const EMPTY_GATES: Record<string, boolean> = {
+  allowPrd: false,
+  allowPlan: false,
+  allowMerge: false,
+};
+
+function composeUserInput(
+  name: string,
+  description: string | undefined,
+  attachments: FileAttachment[]
+): string {
+  let userInput = `Feature: ${name}`;
+
+  if (description) {
+    userInput += `\n\n${description}`;
+  }
+
+  if (attachments.length > 0) {
+    const paths = attachments.map((a) => `- ${a.path}`).join('\n');
+    userInput += `\n\nAttached files:\n${paths}`;
+  }
+
+  return userInput;
 }
 
 export interface FeatureCreateDrawerProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: CreateFeatureFormData) => void;
+  onSubmit: (data: CreateFeatureInput) => void;
+  repositoryPath: string;
   isSubmitting?: boolean;
 }
 
@@ -48,16 +76,19 @@ export function FeatureCreateDrawer({
   open,
   onClose,
   onSubmit,
+  repositoryPath,
   isSubmitting = false,
 }: FeatureCreateDrawerProps) {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...EMPTY_GATES });
 
   const resetForm = useCallback(() => {
     setName('');
     setDescription('');
     setAttachments([]);
+    setApprovalGates({ ...EMPTY_GATES });
   }, []);
 
   const handleOpenChange = useCallback(
@@ -74,9 +105,18 @@ export function FeatureCreateDrawer({
     (e: React.FormEvent) => {
       e.preventDefault();
       if (!name.trim()) return;
-      onSubmit({ name: name.trim(), description: description.trim(), attachments });
+      const userInput = composeUserInput(name.trim(), description.trim() || undefined, attachments);
+      onSubmit({
+        userInput,
+        repositoryPath,
+        approvalGates: {
+          allowPrd: approvalGates.allowPrd ?? false,
+          allowPlan: approvalGates.allowPlan ?? false,
+          allowMerge: approvalGates.allowMerge ?? false,
+        },
+      });
     },
-    [name, description, attachments, onSubmit]
+    [name, description, attachments, approvalGates, repositoryPath, onSubmit]
   );
 
   const handleAddFiles = useCallback(async () => {
@@ -157,6 +197,22 @@ export function FeatureCreateDrawer({
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
                 rows={4}
+                disabled={isSubmitting}
+              />
+            </div>
+
+            {/* Auto-approve checkboxes */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+                APPROVE
+              </Label>
+              <CheckboxGroup
+                label="Autonomous Mode"
+                description="YOLO!"
+                parentAriaLabel="Auto approve all"
+                options={AUTO_APPROVE_OPTIONS}
+                value={approvalGates}
+                onValueChange={setApprovalGates}
                 disabled={isSubmitting}
               />
             </div>

@@ -1,0 +1,135 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-approval-flags
+summary: >
+  4 phases replacing the RadioGroup approval mode selector with 3 independent auto-approve
+  checkboxes. Phase 1 extends the ApprovalGates TypeSpec model with allowMerge and installs the
+  Checkbox component. Phase 2 replaces the RadioGroup with checkboxes in the drawer (TDD).
+  Phase 3 updates the API route to accept allowMerge (TDD). Phase 4 updates Storybook stories
+  and runs final validation. CLI and backend interrupt logic are out of scope.
+
+relatedFeatures: []
+
+technologies:
+  - shadcn/ui Checkbox
+  - React (useState)
+  - Next.js App Router
+  - TypeSpec (ApprovalGates model)
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Foundation: TypeSpec Model + Checkbox Component'
+    description: >
+      Add allowMerge: boolean to the ApprovalGates TypeSpec model and regenerate types. Install
+      the shadcn/ui Checkbox component via CLI. Create Checkbox Storybook stories. Remove the
+      RadioGroup component (no longer needed). This phase provides the type and component
+      foundation for all subsequent phases.
+    parallel: false
+
+  - id: phase-2
+    name: 'Replace RadioGroup with Checkboxes in Drawer'
+    description: >
+      Replace the RadioGroup "APPROVAL MODE" section with an "AUTO APPROVE" section containing
+      3 independent checkboxes (PRD, Plan, Merge). Remove the ApprovalMode type, APPROVAL_MODES
+      constant, and mapApprovalMode() function. Replace with 3 boolean states that map directly
+      to ApprovalGates fields. Update handleSubmit to construct approvalGates from checkbox states.
+      Update resetForm. TDD drives all changes.
+    parallel: false
+
+  - id: phase-3
+    name: 'API Route: Accept allowMerge'
+    description: >
+      Update the API route's isValidApprovalGates() to accept allowMerge as an optional boolean.
+      Default allowMerge to false when absent for backward compatibility. TDD drives the changes.
+    parallel: false
+
+  - id: phase-4
+    name: 'Storybook Stories & Final Validation'
+    description: >
+      Update FeatureCreateDrawer stories to demonstrate checkbox variants instead of RadioGroup
+      modes. Run full validation suite (tests, lint, typecheck, Storybook build).
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/components/ui/checkbox.tsx
+  - src/presentation/web/components/ui/checkbox.stories.tsx
+
+filesToModify:
+  - tsp/agents/approval-gates.tsp
+  - src/domain/generated/output.ts
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
+  - src/presentation/web/app/api/features/create/route.ts
+  - tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx
+  - tests/unit/presentation/web/api/features/create/route.test.ts
+
+filesToRemove:
+  - src/presentation/web/components/ui/radio-group.tsx
+  - src/presentation/web/components/ui/radio-group.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature is primarily a **presentation-layer** change with a minimal domain model extension
+  (adding allowMerge to ApprovalGates). CLI and backend interrupt logic are out of scope.
+
+  ### Current State (From Previous Iteration)
+
+  The drawer already:
+  - Uses `CreateFeatureInput` directly (not a separate form data type)
+  - Has `composeUserInput()` and `mapApprovalMode()` built in
+  - Takes `repositoryPath` as a prop
+  - Submits `{ userInput, repositoryPath, approvalGates? }` via onSubmit
+  - Uses RadioGroup with 4 mutually exclusive modes
+
+  The API route already:
+  - Validates `approvalGates` with `isValidApprovalGates()`
+  - Defaults to `{ allowPrd: false, allowPlan: false }` when absent
+
+  ### What Changes
+
+  **Drawer:** RadioGroup → 3 Checkboxes. The `ApprovalMode` type, `APPROVAL_MODES` constant,
+  and `mapApprovalMode()` function are all removed. Replaced with 3 boolean states that map
+  directly to `{ allowPrd, allowPlan, allowMerge }`. This is simpler than before.
+
+  **API route:** `isValidApprovalGates()` accepts optional `allowMerge`. Default expands to
+  `{ allowPrd: false, allowPlan: false, allowMerge: false }`.
+
+  **Domain:** `ApprovalGates` TypeSpec model gains `allowMerge: boolean`.
+
+  ## Key Design Decisions
+
+  ### 1. Direct Boolean State (No Mapping Function)
+
+  The RadioGroup approach needed `mapApprovalMode()` to convert a string to an object.
+  With checkboxes, each state maps 1:1 to an ApprovalGates field:
+  ```
+  approvalGates: { allowPrd: prd, allowPlan: plan, allowMerge: merge }
+  ```
+  No mapping function needed. Simpler code.
+
+  ### 2. Always Send approvalGates (No Conditional Omission)
+
+  The RadioGroup approach conditionally omitted `approvalGates` for "Fully autonomous" mode.
+  With checkboxes, we always send the object — all unchecked = all false, all checked = all true.
+  No `undefined` case. Simpler and more explicit.
+
+  ### 3. Backward-Compatible API
+
+  `allowMerge` is optional in the API request. Existing consumers sending only `allowPrd` +
+  `allowPlan` continue to work — `allowMerge` defaults to `false`.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec allowMerge breaks existing code | TypeScript compiler will flag missing fields. Only drawer and API route need updates. |
+  | shadcn CLI generates wrong Checkbox imports | Verify imports use bundled `radix-ui`, fix if needed. |
+  | Existing tests break from type change | Update tests to include allowMerge. Run full test suite. |

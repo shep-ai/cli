@@ -80,7 +80,7 @@ describe('shouldInterrupt', () => {
   });
 
   describe('interactive gates (allowPrd=false, allowPlan=false)', () => {
-    const gates = { allowPrd: false, allowPlan: false };
+    const gates = { allowPrd: false, allowPlan: false, allowMerge: false };
 
     it('should NOT interrupt on analyze node', () => {
       expect(shouldInterrupt('analyze', gates)).toBe(false);
@@ -104,7 +104,7 @@ describe('shouldInterrupt', () => {
   });
 
   describe('allow-prd gates (allowPrd=true, allowPlan=false)', () => {
-    const gates = { allowPrd: true, allowPlan: false };
+    const gates = { allowPrd: true, allowPlan: false, allowMerge: false };
 
     it('should NOT interrupt on analyze node', () => {
       expect(shouldInterrupt('analyze', gates)).toBe(false);
@@ -128,7 +128,7 @@ describe('shouldInterrupt', () => {
   });
 
   describe('allow-all gates (allowPrd=true, allowPlan=true)', () => {
-    const gates = { allowPrd: true, allowPlan: true };
+    const gates = { allowPrd: true, allowPlan: true, allowMerge: false };
 
     it('should never interrupt', () => {
       const nodes = ['analyze', 'requirements', 'research', 'plan', 'implement'];

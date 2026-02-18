@@ -1,0 +1,229 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-approval-flags
+summary: >
+  7 tasks across 4 phases. Phase 1 extends the TypeSpec model with allowMerge, installs the
+  Checkbox component, and removes the RadioGroup. Phase 2 replaces the RadioGroup in the drawer
+  with 3 checkboxes (TDD). Phase 3 updates the API route for allowMerge (TDD). Phase 4 updates
+  Storybook stories and runs final validation.
+
+relatedFeatures: []
+
+technologies:
+  - shadcn/ui Checkbox
+  - TypeSpec
+  - React (useState)
+  - Next.js App Router
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend ApprovalGates TypeSpec model with allowMerge'
+    description: >
+      Add `allowMerge: boolean` field to the ApprovalGates model in `tsp/agents/approval-gates.tsp`.
+      Run `pnpm tsp:compile` to regenerate TypeScript types. Verify the generated ApprovalGates
+      type includes the new field. Fix any TypeScript compilation errors caused by the new required
+      field (e.g., in the CLI's approval gates construction and API route defaults).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'approval-gates.tsp contains allowMerge: boolean with @doc annotation'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Generated output.ts includes allowMerge in ApprovalGates interface'
+      - 'pnpm typecheck passes (all existing code updated for new field)'
+    tdd:
+      red:
+        - 'Verify TypeScript fails to compile after adding allowMerge (existing code missing the field)'
+      green:
+        - 'Add allowMerge: boolean to tsp/agents/approval-gates.tsp'
+        - 'Run pnpm tsp:compile to regenerate types'
+        - 'Add allowMerge: false to all existing ApprovalGates object literals (CLI defaults, API route defaults)'
+      refactor:
+        - 'Ensure @doc annotation matches existing style'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Install Checkbox component and remove RadioGroup'
+    description: >
+      Run `npx shadcn@latest add checkbox` from the web package directory. Verify imports use
+      bundled "radix-ui" package. Create checkbox.stories.tsx with basic stories. Remove
+      radio-group.tsx and radio-group.stories.tsx (no longer needed after the design change).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'checkbox.tsx exists with correct imports'
+      - 'checkbox.stories.tsx exists with Default, Checked, Disabled, WithLabel stories'
+      - 'radio-group.tsx and radio-group.stories.tsx removed'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'TDD: Replace RadioGroup with 3 Checkboxes in drawer'
+    description: >
+      Write failing tests (RED) for the auto-approve checkbox section: (1) renders "AUTO APPROVE"
+      label, (2) renders 3 checkboxes with labels "PRD", "Plan", "Merge", (3) each has a
+      description, (4) all unchecked by default, (5) all disabled when isSubmitting. Then
+      implement (GREEN): remove RadioGroup imports/types/constants/mapApprovalMode, add Checkbox
+      import, replace with 3 checkboxes and 3 boolean states.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'Tests assert "AUTO APPROVE" section label is rendered'
+      - 'Tests assert 3 checkboxes with labels PRD, Plan, Merge'
+      - 'Tests assert each checkbox has a description'
+      - 'Tests assert all checkboxes unchecked by default'
+      - 'Tests assert all checkboxes disabled when isSubmitting=true'
+      - 'RadioGroup code completely removed from drawer'
+      - 'All new and existing tests pass'
+    tdd:
+      red:
+        - 'Write test: renders "AUTO APPROVE" section label'
+        - 'Write test: renders 3 checkboxes with correct labels'
+        - 'Write test: each checkbox has a description subtitle'
+        - 'Write test: all checkboxes unchecked by default'
+        - 'Write test: all checkboxes disabled when isSubmitting=true'
+      green:
+        - 'Remove ApprovalMode type, APPROVAL_MODES constant, mapApprovalMode function'
+        - 'Remove RadioGroup import, add Checkbox import'
+        - 'Add 3 boolean useStates: allowPrd, allowPlan, allowMerge (all default false)'
+        - 'Add "AUTO APPROVE" section with 3 Checkbox + Label + description'
+      refactor:
+        - 'Extract AUTO_APPROVE_OPTIONS constant array with id, label, description, field'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'TDD: Checkbox toggling, form submission, and reset'
+    description: >
+      Write failing tests (RED) for: (1) toggling individual checkboxes, (2) onSubmit receives
+      CreateFeatureInput with correct approvalGates, (3) mixed checkbox combinations work,
+      (4) all checkboxes reset to unchecked on drawer close/reopen. Implement (GREEN):
+      wire onCheckedChange handlers, construct approvalGates in handleSubmit, reset states.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Tests assert toggling PRD checkbox updates state'
+      - 'Tests assert onSubmit receives approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false } when only PRD checked'
+      - 'Tests assert onSubmit receives all-true approvalGates when all checked'
+      - 'Tests assert onSubmit receives all-false approvalGates when none checked'
+      - 'Tests assert checkboxes reset to unchecked on drawer close/reopen'
+    tdd:
+      red:
+        - 'Write test: clicking PRD checkbox toggles it on'
+        - 'Write test: submitting with only PRD checked sends correct approvalGates'
+        - 'Write test: submitting with all checked sends all-true approvalGates'
+        - 'Write test: submitting with none checked sends all-false approvalGates'
+        - 'Write test: checkboxes reset after close and reopen'
+      green:
+        - 'Wire onCheckedChange for each Checkbox'
+        - 'Build approvalGates from boolean states in handleSubmit'
+        - 'Always include approvalGates in CreateFeatureInput (no conditional omission)'
+        - 'Reset all 3 booleans to false in resetForm'
+      refactor:
+        - 'Update existing tests to expect new approvalGates shape'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'TDD: API route accepts allowMerge'
+    description: >
+      Write failing tests (RED) for: (1) approvalGates with 3 fields forwarded correctly,
+      (2) missing allowMerge defaults to false, (3) invalid allowMerge returns 400. Then
+      implement (GREEN): update isValidApprovalGates() and default construction.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test: valid 3-field approvalGates forwarded to createFeature'
+      - 'Test: approvalGates with only allowPrd + allowPlan defaults allowMerge to false'
+      - 'Test: absent approvalGates defaults to all false (including allowMerge)'
+      - 'Test: non-boolean allowMerge returns 400'
+      - 'All existing route tests pass'
+    tdd:
+      red:
+        - 'Write test: forwards { allowPrd: true, allowPlan: true, allowMerge: true }'
+        - 'Write test: { allowPrd: true, allowPlan: false } defaults allowMerge to false'
+        - 'Write test: omitting approvalGates defaults to all false'
+        - 'Write test: returns 400 when allowMerge is not a boolean'
+      green:
+        - 'Update isValidApprovalGates() to accept optional allowMerge boolean'
+        - 'Default allowMerge to false in gate construction'
+        - 'Update default gates to { allowPrd: false, allowPlan: false, allowMerge: false }'
+      refactor:
+        - 'Ensure error message mentions allowMerge'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Update Storybook stories for checkbox variants'
+    description: >
+      Replace the RadioGroup-based approval mode stories with checkbox-based stories:
+      AllUnchecked (default), AllChecked, PrdOnly, MergeOnly, Interactive (shows submitted data).
+      Update story descriptions and JSDoc comments.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Stories: AllUnchecked, AllChecked, PrdOnly, MergeOnly exist'
+      - 'Interactive story shows submitted data with approvalGates'
+      - 'Old RadioGroup stories removed'
+      - 'All stories render without errors'
+    tdd: null
+    estimatedEffort: '25min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Final validation: run all tests, lint, typecheck, and Storybook build'
+    description: >
+      Run pnpm test, pnpm lint, pnpm typecheck, pnpm typecheck:web, and pnpm build:storybook.
+      Fix any issues discovered.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm test passes'
+      - 'pnpm lint passes'
+      - 'pnpm typecheck and pnpm typecheck:web pass'
+      - 'pnpm build:storybook succeeds'
+    tdd: null
+    estimatedEffort: '15min'
+
+totalEstimate: '2.5h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  7 tasks across 4 phases. Reduced from 10 tasks by removing CLI flag and backend interrupt
+  logic (out of scope).
+
+  Phase 1 (foundation) handles the TypeSpec model update and Checkbox component installation
+  in parallel — both are prerequisites but independent of each other.
+
+  Phase 2 (core work) replaces the RadioGroup with 3 checkboxes using TDD. Task 3 handles
+  rendering and structure, Task 4 handles interaction and submission.
+
+  Phase 3 (API) updates the route to accept allowMerge — independent of the UI work, only
+  depends on the TypeSpec model from Task 1.
+
+  Phase 4 (polish) updates stories and runs validation.
+
+  Task dependency graph:
+  - Task 1 (TypeSpec) ← Task 3, Task 5
+  - Task 2 (Checkbox install) ← Task 3
+  - Task 3 (drawer rendering) ← Task 4
+  - Task 4 (drawer interaction) ← Task 6
+  - Task 5 (API route) ← Task 7
+  - Task 6 (stories) ← Task 7

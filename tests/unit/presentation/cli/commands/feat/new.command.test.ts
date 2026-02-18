@@ -80,13 +80,13 @@ describe('createNewCommand', () => {
   });
 
   describe('approval gates from flags', () => {
-    it('should default to { allowPrd: false, allowPlan: false } when no flags', async () => {
+    it('should default to { allowPrd: false, allowPlan: false, allowMerge: false } when no flags', async () => {
       const cmd = createNewCommand();
       await cmd.parseAsync(['Add feature'], { from: 'user' });
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: false, allowPlan: false },
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         })
       );
     });
@@ -97,7 +97,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: true, allowPlan: false },
+          approvalGates: { allowPrd: true, allowPlan: false, allowMerge: false },
         })
       );
     });
@@ -108,7 +108,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: true, allowPlan: true },
+          approvalGates: { allowPrd: false, allowPlan: true, allowMerge: false },
         })
       );
     });
@@ -119,7 +119,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: true, allowPlan: true },
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
         })
       );
     });
