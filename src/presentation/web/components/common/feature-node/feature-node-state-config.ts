@@ -2,7 +2,13 @@ import { Loader2, CircleAlert, CircleCheck, Ban, CircleX, type LucideIcon } from
 import type { Node } from '@xyflow/react';
 import type { AgentTypeValue } from './agent-type-icons';
 
-export type FeatureNodeState = 'running' | 'action-required' | 'done' | 'blocked' | 'error';
+export type FeatureNodeState =
+  | 'creating'
+  | 'running'
+  | 'action-required'
+  | 'done'
+  | 'blocked'
+  | 'error';
 
 export type FeatureLifecyclePhase =
   | 'requirements'
@@ -71,6 +77,16 @@ export interface FeatureNodeStateConfig {
 }
 
 export const featureNodeStateConfig: Record<FeatureNodeState, FeatureNodeStateConfig> = {
+  creating: {
+    icon: Loader2,
+    borderClass: 'border-l-blue-500',
+    labelClass: 'text-blue-500',
+    progressClass: 'bg-blue-500',
+    badgeClass: 'text-blue-700',
+    badgeBgClass: 'bg-blue-50',
+    label: 'Creating...',
+    showProgressBar: false,
+  },
   running: {
     icon: Loader2,
     borderClass: 'border-l-blue-500',

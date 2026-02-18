@@ -1,0 +1,200 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-feature-creation
+summary: >
+  Implement optimistic feature creation by: (1) fixing the client→server payload mismatch as a prerequisite,
+  (2) adding a new 'creating' FeatureNodeState with dedicated visual treatment, (3) rewriting
+  handleCreateFeatureSubmit to insert an optimistic node instantly and fire the API call in the background,
+  (4) adding a useEffect to sync server prop changes into local React Flow state for reconciliation,
+  and (5) guarding non-interactivity for optimistic nodes in FeaturesCanvas. The implementation builds
+  entirely on existing patterns (state config record, createFeatureNode positioning, setNodes/setEdges,
+  toast, router.refresh) with no new dependencies.
+
+relatedFeatures: []
+
+technologies:
+  - React (useState, useCallback, useEffect)
+  - Next.js App Router (router.refresh for server reconciliation)
+  - React Flow (@xyflow/react — setNodes, setEdges, node types)
+  - shadcn/ui (Drawer, Toast via sonner)
+  - Dagre (@dagrejs/dagre for graph layout)
+  - TypeScript
+  - Vitest (unit testing)
+  - Storybook (component stories)
+  - Tailwind CSS v4 (motion-reduce, aria-busy)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Payload Fix & Type Contract'
+    description: >
+      Fix the blocking client→server API payload mismatch. Define a new FeatureCreatePayload type
+      for the drawer→API contract, refactor the drawer to send structured {name, description, attachments,
+      repositoryPath, approvalGates} instead of composing a userInput blob, and update the onSubmit
+      type signature across all consumers (control-center-inner, stories, tests). This is a prerequisite
+      because the optimistic node needs structured name/description fields for display, and the current
+      flow would 400 on submission.
+    parallel: false
+
+  - id: phase-2
+    name: 'Creating State & Node Rendering'
+    description: >
+      Add the 'creating' FeatureNodeState to the state config record and implement its visual rendering
+      in the FeatureNode component. This includes the Loader2 icon, blue border, "Creating..." badge text,
+      indeterminate progress bar, no agent icon, aria-busy attribute, and motion-reduce accessibility.
+      Add Storybook stories for the new state. This phase is independent of the optimistic flow logic
+      and establishes the visual foundation.
+    parallel: false
+
+  - id: phase-3
+    name: 'Optimistic Insert, Reconciliation & Rollback'
+    description: >
+      The core of the feature. Modify createFeatureNode to accept state override and return the generated
+      node ID. Rewrite handleCreateFeatureSubmit to: insert optimistic node → close drawer → fire background
+      API call → on success call router.refresh() → on failure remove node/edge and show error toast. Add
+      a useEffect that syncs initialNodes/initialEdges prop changes into local state so router.refresh()
+      reconciliation works. Guard handleNodeClick to skip 'creating' nodes. This is the highest-risk phase.
+    parallel: false
+
+  - id: phase-4
+    name: 'Non-Interactive Guard & Integration'
+    description: >
+      Guard optimistic nodes from user interaction by filtering out onAction/onSettings callbacks in
+      FeaturesCanvas enrichedNodes for nodes with state === 'creating'. Remove the isSubmitting prop
+      from FeatureCreateDrawer usage since the drawer now closes immediately. Verify end-to-end flow
+      and update all remaining stories and tests for the new behavior.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+  - tests/unit/presentation/web/common/feature-node/feature-node.test.tsx
+  - tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature modifies the web presentation layer only — no changes to core domain, application use cases,
+  or infrastructure. The implementation follows the existing Clean Architecture boundary: the web API route
+  (`app/api/features/create/route.ts`) already expects structured `{name, description, repositoryPath,
+  attachments, approvalGates}` and translates to the core `CreateFeatureInput` format via its server-side
+  `composeUserInput()` function. No changes are needed to the API route or core packages.
+
+  The optimistic pattern fits naturally into the existing `useControlCenterState` hook, which already manages
+  canvas nodes/edges via React Flow's `setNodes`/`setEdges`, handles async API calls with `fetch`, shows
+  toasts via `sonner`, and triggers reconciliation via `router.refresh()`. The `createFeatureNode()` function
+  already implements sibling-aware positioning, edge creation, and temporary ID generation — the optimistic
+  node reuses this logic with a `{state: 'creating'}` data override.
+
+  The feature node's visual state system is config-driven via `featureNodeStateConfig` record
+  (`feature-node-state-config.ts:73-124`). Adding a new `'creating'` state follows the established pattern:
+  one new union member in `FeatureNodeState`, one new entry in the config record. The `FeatureNode` component
+  already branches on `data.state` for rendering, so the `'creating'` branch slots in alongside `'running'`.
+
+  ### Component Modification Flow
+
+  ```
+  FeatureCreateDrawer (payload fix)
+    → useControlCenterState (optimistic insert + reconciliation)
+      → createFeatureNode (state override + return ID)
+      → handleCreateFeatureSubmit (async background pattern)
+      → useEffect (initialNodes sync)
+    → FeaturesCanvas (non-interactive guard)
+    → FeatureNode (creating state rendering)
+    → feature-node-state-config (new state definition)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Structured Payload over userInput Blob
+
+  The drawer currently composes a `userInput` string from name + description + attachments, but the API
+  route expects structured fields. Rather than parsing the blob server-side (fragile) or changing the API
+  route (it's already correct), the fix sends structured data from the drawer. This also provides the
+  optimistic node with `name` and `description` directly, avoiding the need to parse a composed string.
+
+  A new `FeatureCreatePayload` type is defined in the web layer for the drawer→API contract, keeping the
+  core `CreateFeatureInput` unchanged. This follows the existing architectural pattern where the web layer
+  maintains its own types distinct from core domain types (e.g., `FeatureNodeData`, `CanvasNodeType`).
+
+  ### 2. Inline Optimistic Logic in useControlCenterState
+
+  The optimistic insert/rollback logic lives directly in `handleCreateFeatureSubmit` rather than being
+  extracted to a separate hook. The logic is ~30 lines, tightly coupled to existing state
+  (`pendingRepoNodeId`, `createFeatureNode`, `setNodes`, `setEdges`, drawer state), and testable via the
+  existing `HookTestHarness` pattern in `use-control-center-state.test.tsx`. Extracting it would require
+  passing 5+ state setters for a single-use abstraction.
+
+  Alternatives rejected: React 19 `useOptimistic` (designed for server state/form actions, not React Flow
+  client state), zustand/jotai (premature for one feature), custom `useOptimisticNodes` hook (over-abstraction).
+
+  ### 3. useEffect for initialNodes Sync
+
+  `useState(initialNodes)` only uses its argument on mount — when `router.refresh()` delivers new server data,
+  the hook ignores the updated `initialNodes` prop. A `useEffect` keyed on a stable serialization of
+  `initialNodes` (e.g., JSON.stringify of node IDs + count) calls `setNodes(initialNodes)` /
+  `setEdges(initialEdges)` to re-sync. This is the standard Next.js pattern for syncing server props into
+  client state and also fixes a latent bug where server-side changes don't reflect until navigation.
+
+  ### 4. Non-Interactivity via Callback Filtering
+
+  Optimistic nodes are made non-interactive by not injecting `onAction`/`onSettings` callbacks in
+  `FeaturesCanvas.enrichedNodes` for nodes with `data.state === 'creating'`. Since the action button only
+  renders when `onAction` exists (`feature-node.tsx:162`), this naturally hides it. The settings button
+  similarly only renders when `onSettings` exists (`feature-node.tsx:72`). Click-to-select is guarded in
+  `handleNodeClick` by checking the node's data state.
+
+  ### 5. Reconciliation via Full State Replacement
+
+  On API success, `router.refresh()` causes `page.tsx` to re-fetch all features and rebuild nodes from
+  scratch via Dagre layout. The `useEffect` detects the prop change and replaces local state entirely.
+  The brief gap between the optimistic node and the server-rendered replacement is imperceptible (<100ms).
+  Position jumps from Dagre re-layout are accepted for V1 — the delta is small since `createFeatureNode()`
+  mimics Dagre-like placement.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency and risk:
+
+  **Phase 1 (Payload Fix)** must come first because it's a blocking bug — the current drawer submission
+  would 400. It also establishes the structured data contract that the optimistic node depends on for
+  displaying name/description. This is the lowest-risk phase (type changes + form refactor).
+
+  **Phase 2 (Creating State)** is independent of the optimistic flow logic and establishes the visual
+  foundation. It can be fully tested in isolation via Storybook and unit tests before the state is wired
+  into the optimistic flow. Low risk — follows the established state config pattern exactly.
+
+  **Phase 3 (Optimistic Flow)** is the core and highest-risk phase. It modifies `createFeatureNode` (return
+  ID, accept state override), rewrites `handleCreateFeatureSubmit` (async background pattern), and adds the
+  `useEffect` for prop sync. Each modification has its own TDD cycle. The existing test harness and mock
+  infrastructure (fetch, router, toast) support comprehensive testing.
+
+  **Phase 4 (Non-Interactive Guard)** is a small integration phase that wires the creating state into
+  FeaturesCanvas callback filtering and cleans up the isSubmitting prop. Low risk — minimal code changes
+  with clear test assertions.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | useEffect initialNodes sync causes infinite re-render loop | Key the effect on a stable derived value (sorted node ID string or count), not the full object reference. Test explicitly for render stability. |
+  | Optimistic node persists after router.refresh() if sync fails | The useEffect compares a serialization of initialNodes; if it fires, it replaces state entirely. Add a test that verifies the optimistic node is gone after simulated prop update. |
+  | createFeatureNode return value change breaks existing callers | Currently returns void; no callers check the return value. handleAddFeatureToFeature calls it but ignores the result. Non-breaking change. |
+  | Multiple concurrent optimistic nodes cause edge/ID collisions | createFeatureNode already uses Date.now() + incrementing counter for unique IDs. Each edge ID includes the node ID. Test concurrent creation explicitly. |
+  | Stale closure in async fetch callback references old setNodes | setNodes with functional updater (`prev => prev.filter(...)`) avoids stale closure — the filter always operates on current state. Standard React pattern. |
+  | API payload type change breaks drawer stories/tests | Phase 1 explicitly updates all stories and tests for the new payload shape before any other changes. |
+  | User navigates away during in-flight optimistic creation | React 18+ ignores state updates on unmounted components. The API call completes server-side; the feature appears on next navigation. No cleanup needed. |
+  | Accessibility: animation disorienting for vestibular disorders | Use Tailwind motion-safe:/motion-reduce: variants on the progress bar animation. Add aria-busy="true" to the node card in creating state. |

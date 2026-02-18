@@ -5,7 +5,11 @@ export {
 } from './add-repository-node';
 export { ElapsedTime, formatElapsed } from './elapsed-time';
 export { EmptyState, type EmptyStateProps } from './empty-state';
-export { FeatureCreateDrawer, type FeatureCreateDrawerProps } from './feature-create-drawer';
+export {
+  FeatureCreateDrawer,
+  type FeatureCreateDrawerProps,
+  type FeatureCreatePayload,
+} from './feature-create-drawer';
 export { FeatureDrawer, type FeatureDrawerProps } from './feature-drawer';
 export { FeatureListItem, type FeatureListItemProps } from './feature-list-item';
 export {

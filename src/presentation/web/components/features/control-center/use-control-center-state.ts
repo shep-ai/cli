@@ -6,7 +6,7 @@ import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import type { FeatureNodeData } from '@/components/common/feature-node';
-import type { CreateFeatureInput } from '@shepai/core/application/use-cases/features/create/types';
+import type { FeatureCreatePayload } from '@/components/common/feature-create-drawer';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 
@@ -15,7 +15,6 @@ export interface ControlCenterState {
   edges: Edge[];
   selectedNode: FeatureNodeData | null;
   isCreateDrawerOpen: boolean;
-  isSubmitting: boolean;
   pendingRepositoryPath: string;
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
@@ -26,10 +25,14 @@ export interface ControlCenterState {
   handleAddFeatureToFeature: (featureNodeId: string) => void;
   handleAddRepository: (path: string) => void;
   handleLayout: (direction: LayoutDirection) => void;
-  handleCreateFeatureSubmit: (data: CreateFeatureInput) => void;
+  handleCreateFeatureSubmit: (data: FeatureCreatePayload) => void;
   closeCreateDrawer: () => void;
   handleDeleteFeature: (featureId: string) => Promise<void>;
   isDeleting: boolean;
+  createFeatureNode: (
+    sourceNodeId: string | null,
+    dataOverride?: Partial<FeatureNodeData>
+  ) => string;
 }
 
 let nextFeatureId = 0;
@@ -43,9 +46,56 @@ export function useControlCenterState(
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
+
+  // Sync server props into local state when router.refresh() delivers new data
+  const initialNodeKey = initialNodes
+    .map((n) => n.id)
+    .sort()
+    .join(',');
+  const initialEdgeKey = initialEdges
+    .map((e) => e.id)
+    .sort()
+    .join(',');
+
+  useEffect(() => {
+    setNodes((currentNodes) => {
+      // Build a lookup of current node positions by ID
+      const currentById = new Map(currentNodes.map((n) => [n.id, n]));
+
+      // Identify optimistic "creating" nodes (they have temp IDs not in server data)
+      const serverIds = new Set(initialNodes.map((n) => n.id));
+      const creatingNodes = currentNodes.filter(
+        (n) =>
+          n.type === 'featureNode' &&
+          (n.data as FeatureNodeData).state === 'creating' &&
+          !serverIds.has(n.id)
+      );
+
+      // Merge server nodes with client positions
+      return initialNodes.map((serverNode) => {
+        // Node already exists on canvas — keep its position, update data
+        const existing = currentById.get(serverNode.id);
+        if (existing) {
+          return { ...serverNode, position: existing.position };
+        }
+
+        // New server node — inherit position from an optimistic creating node if available
+        if (serverNode.type === 'featureNode' && creatingNodes.length > 0) {
+          const donor = creatingNodes.shift()!;
+          return { ...serverNode, position: donor.position };
+        }
+
+        // Truly new node with no optimistic counterpart — use server position
+        return serverNode;
+      });
+    });
+  }, [initialNodeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    setEdges(initialEdges);
+  }, [initialEdgeKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
@@ -57,8 +107,10 @@ export function useControlCenterState(
 
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: CanvasNodeType) => {
     if (node.type === 'featureNode') {
+      const data = node.data as FeatureNodeData;
+      if (data.state === 'creating') return;
       setIsCreateDrawerOpen(false);
-      setSelectedNode(node.data as FeatureNodeData);
+      setSelectedNode(data);
     }
   }, []);
 
@@ -104,14 +156,14 @@ export function useControlCenterState(
   }, []);
 
   const createFeatureNode = useCallback(
-    (sourceNodeId: string | null, dataOverride?: Partial<FeatureNodeData>) => {
+    (sourceNodeId: string | null, dataOverride?: Partial<FeatureNodeData>): string => {
       const id = `feature-${Date.now()}-${nextFeatureId++}`;
       const newFeatureData: FeatureNodeData = {
         name: dataOverride?.name ?? 'New Feature',
         description: dataOverride?.description ?? 'Describe what this feature does',
         featureId: `#${id.slice(-4)}`,
         lifecycle: 'requirements',
-        state: 'running',
+        state: dataOverride?.state ?? 'running',
         progress: 0,
         repositoryPath: dataOverride?.repositoryPath ?? '',
         branch: dataOverride?.branch ?? '',
@@ -212,7 +264,11 @@ export function useControlCenterState(
         ]);
       }
 
-      setSelectedNode(newFeatureData);
+      if (newFeatureData.state !== 'creating') {
+        setSelectedNode(newFeatureData);
+      }
+
+      return id;
     },
     [edges]
   );
@@ -223,32 +279,45 @@ export function useControlCenterState(
   }, []);
 
   const handleCreateFeatureSubmit = useCallback(
-    async (data: CreateFeatureInput) => {
-      setIsSubmitting(true);
-      try {
-        const response = await fetch('/api/features/create', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(data),
+    (data: FeatureCreatePayload) => {
+      // 1. Insert optimistic node instantly
+      const tempId = createFeatureNode(pendingRepoNodeId, {
+        state: 'creating',
+        name: data.name,
+        description: data.description,
+        repositoryPath: data.repositoryPath,
+      });
+
+      // 2. Close drawer and clear pending state immediately
+      setIsCreateDrawerOpen(false);
+      setPendingRepoNodeId(null);
+
+      // 3. Fire API call in the background
+      fetch('/api/features/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      })
+        .then(async (response) => {
+          if (!response.ok) {
+            const body = await response.json();
+            // Rollback: remove optimistic node and edge
+            setNodes((prev) => prev.filter((n) => n.id !== tempId));
+            setEdges((prev) => prev.filter((e) => e.target !== tempId));
+            toast.error(body.error ?? 'Failed to create feature');
+            return;
+          }
+
+          router.refresh();
+        })
+        .catch(() => {
+          // Rollback: remove optimistic node and edge
+          setNodes((prev) => prev.filter((n) => n.id !== tempId));
+          setEdges((prev) => prev.filter((e) => e.target !== tempId));
+          toast.error('Failed to create feature');
         });
-
-        if (!response.ok) {
-          const body = await response.json();
-          toast.error(body.error ?? 'Failed to create feature');
-          return;
-        }
-
-        setIsCreateDrawerOpen(false);
-        setPendingRepoNodeId(null);
-        toast.success('Feature created successfully');
-        router.refresh();
-      } catch {
-        toast.error('Failed to create feature');
-      } finally {
-        setIsSubmitting(false);
-      }
     },
-    [router]
+    [router, createFeatureNode, pendingRepoNodeId]
   );
 
   const closeCreateDrawer = useCallback(() => {
@@ -352,7 +421,6 @@ export function useControlCenterState(
     edges,
     selectedNode,
     isCreateDrawerOpen,
-    isSubmitting,
     pendingRepositoryPath,
     onNodesChange,
     handleConnect,
@@ -367,5 +435,6 @@ export function useControlCenterState(
     closeCreateDrawer,
     handleDeleteFeature,
     isDeleting,
+    createFeatureNode,
   };
 }
