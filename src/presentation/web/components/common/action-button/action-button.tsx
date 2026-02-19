@@ -42,7 +42,7 @@ export function ActionButton({
         !error &&
           iconOnly &&
           variant === 'ghost' &&
-          'text-muted-foreground rounded-full transition-colors hover:text-blue-500'
+          'text-muted-foreground cursor-pointer rounded-full transition-colors hover:text-blue-500'
       )}
     >
       {loading ? (
