@@ -228,7 +228,7 @@ describe('createMergeNode', () => {
       expect(deps.gitPrService.createPr).not.toHaveBeenCalled();
     });
 
-    it('should watch CI after PR creation when openPr=true and allowMerge=true', async () => {
+    it('should skip CI watch after PR creation', async () => {
       const node = createMergeNode(deps);
       const state = baseState({
         openPr: true,
@@ -236,7 +236,7 @@ describe('createMergeNode', () => {
       });
       await node(state);
 
-      expect(deps.gitPrService.watchCi).toHaveBeenCalled();
+      expect(deps.gitPrService.watchCi).not.toHaveBeenCalled();
     });
 
     it('should skip PR creation if prUrl already exists (idempotent)', async () => {

@@ -17,6 +17,8 @@ import {
   GitPrError,
   GitPrErrorCode,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
+import { readFileSync } from 'node:fs';
+import yaml from 'js-yaml';
 import type { ExecFunction } from './worktree.service.js';
 
 @injectable()
@@ -53,11 +55,35 @@ export class GitPrService implements IGitPrService {
 
   async createPr(cwd: string, prYamlPath: string): Promise<PrCreateResult> {
     try {
-      const { stdout } = await this.execFile(
-        'gh',
-        ['pr', 'create', '--title', prYamlPath, '--body-file', prYamlPath],
-        { cwd }
-      );
+      // Parse pr.yaml to extract PR metadata
+      const prYamlContent = readFileSync(prYamlPath, 'utf-8');
+      const prData = yaml.load(prYamlContent) as {
+        title?: string;
+        body?: string;
+        baseBranch?: string;
+        headBranch?: string;
+        labels?: string[];
+        draft?: boolean;
+      };
+
+      const title = prData.title ?? 'Untitled PR';
+      const body = prData.body ?? '';
+      const args = ['pr', 'create', '--title', title, '--body', body];
+
+      if (prData.baseBranch) {
+        args.push('--base', prData.baseBranch);
+      }
+      if (prData.headBranch) {
+        args.push('--head', prData.headBranch);
+      }
+      if (prData.labels?.length) {
+        args.push('--label', prData.labels.join(','));
+      }
+      if (prData.draft) {
+        args.push('--draft');
+      }
+
+      const { stdout } = await this.execFile('gh', args, { cwd });
       const url = stdout.trim();
       const number = this.parsePrNumberFromUrl(url);
       return { url, number };
