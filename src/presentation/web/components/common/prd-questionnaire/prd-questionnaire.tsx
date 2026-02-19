@@ -9,16 +9,14 @@ import { Badge } from '@/components/ui/badge';
 import type { PrdQuestionnaireProps } from './prd-questionnaire-config';
 
 export function PrdQuestionnaire({
-  question,
-  context,
-  questions,
+  data,
   selections,
-  finalAction,
   onSelect,
   onRefine,
   onApprove,
   isProcessing = false,
 }: PrdQuestionnaireProps) {
+  const { question, context, questions, finalAction } = data;
   const [chatInput, setChatInput] = useState('');
 
   const progress = useMemo(

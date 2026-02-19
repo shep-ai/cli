@@ -41,18 +41,20 @@ function makeQuestion(
 }
 
 const defaultProps: PrdQuestionnaireProps = {
-  question: 'Review Requirements',
-  context: 'Please review and refine the generated requirements.',
-  questions: [
-    makeQuestion({ id: 'q-1', question: 'What problem does this solve?' }),
-    makeQuestion({ id: 'q-2', question: 'What is the priority?' }),
-  ],
-  selections: {},
-  finalAction: {
-    id: 'approve',
-    label: 'Approve Requirements',
-    description: 'Finalize the requirements',
+  data: {
+    question: 'Review Requirements',
+    context: 'Please review and refine the generated requirements.',
+    questions: [
+      makeQuestion({ id: 'q-1', question: 'What problem does this solve?' }),
+      makeQuestion({ id: 'q-2', question: 'What is the priority?' }),
+    ],
+    finalAction: {
+      id: 'approve',
+      label: 'Approve Requirements',
+      description: 'Finalize the requirements',
+    },
   },
+  selections: {},
   onSelect: vi.fn(),
   onRefine: vi.fn(),
   onApprove: vi.fn(),

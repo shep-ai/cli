@@ -7,7 +7,9 @@ import type {
 
 export type { PrdOption, PrdQuestion, PrdFinalAction, PrdQuestionnaireData };
 
-export interface PrdQuestionnaireProps extends PrdQuestionnaireData {
+export interface PrdQuestionnaireProps {
+  /** Questionnaire data from the domain (questions, context, finalAction) */
+  data: PrdQuestionnaireData;
   /** Map of questionId to selected optionId (controlled state) */
   selections: Record<string, string>;
   /** Selection change callback */

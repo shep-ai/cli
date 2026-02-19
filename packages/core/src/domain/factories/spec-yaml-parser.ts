@@ -6,6 +6,7 @@
  * to the TypeScript types — no manual field-by-field extraction needed.
  */
 
+// @ts-expect-error -- ajv/dist/2020.js has no type declarations
 import Ajv2020 from 'ajv/dist/2020.js';
 import yaml from 'js-yaml';
 import { readdirSync, readFileSync } from 'node:fs';
@@ -57,7 +58,9 @@ function validateSchema<T>(schemaId: string, data: unknown): T {
     throw new Error(`Schema not found: ${schemaId}`);
   }
   if (!validate(data)) {
-    const errors = validate.errors?.map((e) => `${e.instancePath} ${e.message}`).join('; ');
+    const errors = validate.errors
+      ?.map((e: { instancePath: string; message?: string }) => `${e.instancePath} ${e.message}`)
+      .join('; ');
     throw new Error(`Validation failed for ${schemaId}: ${errors}`);
   }
   return data as T;

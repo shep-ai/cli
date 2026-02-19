@@ -20,9 +20,9 @@ export function PrdQuestionnaireDrawer({
   lifecycleLabel,
   ...questionnaireProps
 }: PrdQuestionnaireDrawerProps) {
-  const { questions, selections } = questionnaireProps;
+  const { selections, data } = questionnaireProps;
   const answered = Object.keys(selections).length;
-  const total = questions.length;
+  const total = data.questions.length;
   const progress = total > 0 ? (answered / total) * 100 : 0;
 
   return (

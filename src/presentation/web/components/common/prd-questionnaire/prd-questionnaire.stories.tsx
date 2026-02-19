@@ -3,9 +3,9 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { fn } from '@storybook/test';
 import { PrdQuestionnaire } from './prd-questionnaire';
 import { PrdQuestionnaireDrawer } from './prd-questionnaire-drawer';
-import type { PrdQuestionnaireProps } from './prd-questionnaire-config';
+import type { PrdQuestionnaireData } from './prd-questionnaire-config';
 
-const mockQuestions: PrdQuestionnaireProps['questions'] = [
+const mockQuestions: PrdQuestionnaireData['questions'] = [
   {
     id: 'problem',
     question: 'What specific problem does this feature solve?',
@@ -170,12 +170,14 @@ type Story = StoryObj<typeof PrdQuestionnaire>;
 /** Default state with all questions, no selections, not processing. */
 export const Default: Story = {
   args: {
-    question: 'Review Feature Requirements',
-    context:
-      'Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them.',
-    questions: mockQuestions,
+    data: {
+      question: 'Review Feature Requirements',
+      context:
+        'Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them.',
+      questions: mockQuestions,
+      finalAction: mockFinalAction,
+    },
     selections: {},
-    finalAction: mockFinalAction,
     isProcessing: false,
   },
 };
@@ -222,21 +224,28 @@ export const Refining: Story = {
 /** Minimal data — single question with 2 options. */
 export const MinimalData: Story = {
   args: {
-    question: 'Quick Check',
-    context: 'A simple yes/no decision.',
-    questions: [
-      {
-        id: 'confirm',
-        question: 'Should we proceed?',
-        type: 'select' as const,
-        options: [
-          { id: 'yes', label: 'Yes', rationale: 'Proceed with implementation', recommended: true },
-          { id: 'no', label: 'No', rationale: 'Go back and reconsider' },
-        ],
-      },
-    ],
+    data: {
+      question: 'Quick Check',
+      context: 'A simple yes/no decision.',
+      questions: [
+        {
+          id: 'confirm',
+          question: 'Should we proceed?',
+          type: 'select' as const,
+          options: [
+            {
+              id: 'yes',
+              label: 'Yes',
+              rationale: 'Proceed with implementation',
+              recommended: true,
+            },
+            { id: 'no', label: 'No', rationale: 'Go back and reconsider' },
+          ],
+        },
+      ],
+      finalAction: { id: 'confirm-action', label: 'Confirm', description: 'Confirm the decision' },
+    },
     selections: {},
-    finalAction: { id: 'confirm-action', label: 'Confirm', description: 'Confirm the decision' },
     isProcessing: false,
   },
 };
@@ -286,6 +295,14 @@ function DrawerTemplate({
   );
 }
 
+const mockData: PrdQuestionnaireData = {
+  question: 'Review Feature Requirements',
+  context:
+    'Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them.',
+  questions: mockQuestions,
+  finalAction: mockFinalAction,
+};
+
 /** Drawer with all questions, empty selections. */
 export const InDrawer: DrawerStory = {
   ...drawerMeta,
@@ -294,10 +311,7 @@ export const InDrawer: DrawerStory = {
       featureName="User Authentication Flow"
       featureId="FEAT-042"
       lifecycleLabel="Requirements"
-      question="Review Feature Requirements"
-      context="Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them."
-      questions={mockQuestions}
-      finalAction={mockFinalAction}
+      data={mockData}
     />
   ),
 };
@@ -310,15 +324,12 @@ export const InDrawerWithSelections: DrawerStory = {
       featureName="User Authentication Flow"
       featureId="FEAT-042"
       lifecycleLabel="Requirements"
-      question="Review Feature Requirements"
-      context="Please review the AI-generated requirements below."
-      questions={mockQuestions}
+      data={mockData}
       selections={{
         problem: 'user_pain',
         priority: 'p1',
         success: 'adoption',
       }}
-      finalAction={mockFinalAction}
     />
   ),
 };
