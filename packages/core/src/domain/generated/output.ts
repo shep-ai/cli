@@ -1120,13 +1120,19 @@ export type ToolInstallCommand = {
 };
 
 /**
- * Feature Specification artifact (spec.yaml)
+ * Base for all spec-driven artifacts (spec, research, plan, tasks, feature)
  */
-export type SpecArtifact = Artifact & {
+export type BaseSpecArtifact = Artifact & {
   /**
-   * Feature number referenced in the spec (e.g., 031)
+   * Feature number this artifact is associated with (e.g., 031)
    */
   featureNumber: number;
+};
+
+/**
+ * Feature Specification artifact (spec.yaml)
+ */
+export type SpecArtifact = BaseSpecArtifact & {
   /**
    * Git branch associated with this feature spec
    */
@@ -1148,11 +1154,7 @@ export type SpecArtifact = Artifact & {
 /**
  * Research Analysis artifact (research.yaml)
  */
-export type ResearchArtifact = Artifact & {
-  /**
-   * Feature number this research is associated with
-   */
-  featureNumber: number;
+export type ResearchArtifact = BaseSpecArtifact & {
   /**
    * Number of technology decisions documented
    */
@@ -1170,11 +1172,7 @@ export type ResearchArtifact = Artifact & {
 /**
  * Implementation Plan artifact (plan.yaml)
  */
-export type PlanArtifact = Artifact & {
-  /**
-   * Feature number this plan is for
-   */
-  featureNumber: number;
+export type PlanArtifact = BaseSpecArtifact & {
   /**
    * Number of implementation phases
    */
@@ -1196,11 +1194,7 @@ export type PlanArtifact = Artifact & {
 /**
  * Task Breakdown artifact (tasks.yaml)
  */
-export type TasksArtifact = Artifact & {
-  /**
-   * Feature number this task breakdown is for
-   */
-  featureNumber: number;
+export type TasksArtifact = BaseSpecArtifact & {
   /**
    * Total number of tasks in this breakdown
    */
@@ -1222,11 +1216,7 @@ export type TasksArtifact = Artifact & {
 /**
  * Feature Status artifact (feature.yaml)
  */
-export type FeatureArtifact = Artifact & {
-  /**
-   * Feature number being tracked
-   */
-  featureNumber: number;
+export type FeatureArtifact = BaseSpecArtifact & {
   /**
    * URL-friendly slug for the feature
    */

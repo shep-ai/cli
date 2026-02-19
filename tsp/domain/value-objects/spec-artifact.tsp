@@ -4,22 +4,19 @@
  * Defines the SpecArtifact model representing a Feature Specification artifact.
  * This maps to the stored artifact corresponding to `spec.yaml` in the YAML-first spec system.
  *
+ * @see ./base-spec-artifact.tsp - BaseSpecArtifact (common base)
  * @see ../entities/artifact.tsp - Base Artifact model
- * @see ../entities/feature-spec.tsp - FeatureSpec model (content source)
  */
-import "../entities/artifact.tsp";
+import "./base-spec-artifact.tsp";
 
 /**
  * Feature Specification artifact (spec.yaml stored as Artifact).
  *
- * Extends Artifact with spec-specific metadata. Category is always PRD,
+ * Extends BaseSpecArtifact with spec-specific metadata. Category is always PRD,
  * format is typically YAML.
  */
 @doc("Feature Specification artifact (spec.yaml)")
-model SpecArtifact extends Artifact {
-  @doc("Feature number referenced in the spec (e.g., 031)")
-  featureNumber: int32;
-
+model SpecArtifact extends BaseSpecArtifact {
   @doc("Git branch associated with this feature spec")
   branch: string;
 

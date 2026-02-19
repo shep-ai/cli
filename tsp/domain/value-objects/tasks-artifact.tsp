@@ -4,21 +4,18 @@
  * Defines the TasksArtifact model representing a Task Breakdown artifact.
  * This maps to the stored artifact corresponding to `tasks.yaml` in the YAML-first spec system.
  *
+ * @see ./base-spec-artifact.tsp - BaseSpecArtifact (common base)
  * @see ../entities/artifact.tsp - Base Artifact model
- * @see ../entities/tasks-spec.tsp - TasksSpec model (content source)
  */
-import "../entities/artifact.tsp";
+import "./base-spec-artifact.tsp";
 
 /**
  * Task Breakdown artifact (tasks.yaml stored as Artifact).
  *
- * Extends Artifact with task-specific summary metadata.
+ * Extends BaseSpecArtifact with task-specific summary metadata.
  */
 @doc("Task Breakdown artifact (tasks.yaml)")
-model TasksArtifact extends Artifact {
-  @doc("Feature number this task breakdown is for")
-  featureNumber: int32;
-
+model TasksArtifact extends BaseSpecArtifact {
   @doc("Total number of tasks in this breakdown")
   taskCount: int32;
 

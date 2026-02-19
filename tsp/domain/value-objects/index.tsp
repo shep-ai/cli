@@ -19,6 +19,7 @@
  *
  * ## Included Artifact Models
  *
+ * - **BaseSpecArtifact**: Common base for all spec-driven artifacts
  * - **SpecArtifact**: Feature Specification artifact (spec.yaml)
  * - **ResearchArtifact**: Research Analysis artifact (research.yaml)
  * - **PlanArtifact**: Implementation Plan artifact (plan.yaml)
@@ -42,6 +43,7 @@ import "./spec-metadata.tsp";
 import "./tool-installation-status.tsp";
 import "./tool-install-command.tsp";
 import "./pull-request.tsp";
+import "./base-spec-artifact.tsp";
 import "./spec-artifact.tsp";
 import "./research-artifact.tsp";
 import "./plan-artifact.tsp";

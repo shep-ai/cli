@@ -4,21 +4,18 @@
  * Defines the PlanArtifact model representing an Implementation Plan artifact.
  * This maps to the stored artifact corresponding to `plan.yaml` in the YAML-first spec system.
  *
+ * @see ./base-spec-artifact.tsp - BaseSpecArtifact (common base)
  * @see ../entities/artifact.tsp - Base Artifact model
- * @see ../entities/plan-spec.tsp - PlanSpec model (content source)
  */
-import "../entities/artifact.tsp";
+import "./base-spec-artifact.tsp";
 
 /**
  * Implementation Plan artifact (plan.yaml stored as Artifact).
  *
- * Extends Artifact with plan-specific summary metadata.
+ * Extends BaseSpecArtifact with plan-specific summary metadata.
  */
 @doc("Implementation Plan artifact (plan.yaml)")
-model PlanArtifact extends Artifact {
-  @doc("Feature number this plan is for")
-  featureNumber: int32;
-
+model PlanArtifact extends BaseSpecArtifact {
   @doc("Number of implementation phases")
   phaseCount: int32;
 

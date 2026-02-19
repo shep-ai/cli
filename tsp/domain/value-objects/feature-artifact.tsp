@@ -4,21 +4,18 @@
  * Defines the FeatureArtifact model representing a Feature Status artifact.
  * This maps to the stored artifact corresponding to `feature.yaml` in the YAML-first spec system.
  *
+ * @see ./base-spec-artifact.tsp - BaseSpecArtifact (common base)
  * @see ../entities/artifact.tsp - Base Artifact model
- * @see ../entities/feature.tsp - Feature entity (owner)
  */
-import "../entities/artifact.tsp";
+import "./base-spec-artifact.tsp";
 
 /**
  * Feature Status artifact (feature.yaml stored as Artifact).
  *
- * Extends Artifact with execution tracking metadata for the SDLC.
+ * Extends BaseSpecArtifact with execution tracking metadata for the SDLC.
  */
 @doc("Feature Status artifact (feature.yaml)")
-model FeatureArtifact extends Artifact {
-  @doc("Feature number being tracked")
-  featureNumber: int32;
-
+model FeatureArtifact extends BaseSpecArtifact {
   @doc("URL-friendly slug for the feature")
   featureSlug: string;
 
