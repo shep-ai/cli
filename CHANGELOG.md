@@ -1,3 +1,9 @@
+# [1.35.0](https://github.com/shep-ai/cli/compare/v1.34.0...v1.35.0) (2026-02-19)
+
+### Features
+
+- **cli:** add `shep feat logs` command ([#78](https://github.com/shep-ai/cli/issues/78)) ([27c62e8](https://github.com/shep-ai/cli/commit/27c62e8872bee0a15618b94b9e7eb45cbae4a3d9))
+
 # [1.34.0](https://github.com/shep-ai/cli/compare/v1.33.1...v1.34.0) (2026-02-19)
 
 ### Features
