@@ -90,6 +90,7 @@ import { ListFeaturesUseCase } from '../../application/use-cases/features/list-f
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
+import { GetFeatureArtifactUseCase } from '../../application/use-cases/features/get-feature-artifact.use-case.js';
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
 
@@ -264,6 +265,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ShowFeatureUseCase);
   container.registerSingleton(DeleteFeatureUseCase);
   container.registerSingleton(ResumeFeatureUseCase);
+  container.registerSingleton(GetFeatureArtifactUseCase);
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
 
