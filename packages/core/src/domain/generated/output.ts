@@ -1032,6 +1032,10 @@ export type FeatureStatusInfo = {
    */
   phase: string;
   /**
+   * Phases that have been completed
+   */
+  completedPhases?: string[];
+  /**
    * Task completion progress
    */
   progress: FeatureStatusProgress;

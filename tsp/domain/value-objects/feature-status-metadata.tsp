@@ -74,6 +74,9 @@ model FeatureStatusInfo {
   @doc("Current SDLC phase")
   phase: string;
 
+  @doc("Phases that have been completed")
+  completedPhases?: string[];
+
   @doc("Task completion progress")
   progress: FeatureStatusProgress;
 

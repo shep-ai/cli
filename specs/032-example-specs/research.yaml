@@ -1,0 +1,440 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repo-node-actions
+summary: >
+  Technical research for adding IDE and Shell action buttons to the repository node. Key decisions:
+  extract DrawerActionButton to a shared action-button component, create a new useRepositoryActions
+  hook (not rename existing), make branch optional in validateToolbarInput/launchIde/shell-route
+  with conditional worktree-vs-direct-path logic, and render always-visible icon-only buttons with
+  tooltips on the repository node pill.
+
+relatedFeatures:
+  - '018-feat-ide-open'
+  - '021-feature-toolbar'
+
+technologies:
+  - '@xyflow/react (React Flow v12+) — existing, node rendering'
+  - 'Next.js 16+ (App Router) — existing, server component + API routes'
+  - "shadcn/ui Button — existing, variant='ghost' size='icon-xs' for compact buttons"
+  - 'shadcn/ui Tooltip — existing, radix-ui based tooltip for icon-only buttons'
+  - 'lucide-react — existing, Code2/Terminal/Loader2/CircleAlert icons'
+  - 'Tailwind CSS v4 — existing, styling'
+  - 'Vitest + React Testing Library — existing, unit tests'
+  - 'Storybook — existing, component stories'
+
+relatedLinks: []
+
+decisions:
+  - title: 'Shared Action Button Extraction Strategy'
+    chosen: >
+      Extract DrawerActionButton from feature-drawer.tsx into a new shared component at
+      components/common/action-button/action-button.tsx. The component accepts label, onClick,
+      loading, error, icon, and a new iconOnly boolean prop. When iconOnly is true, the label
+      is omitted from the button content (but still used as aria-label). Feature-drawer imports
+      from the shared location. The component uses shadcn Button with configurable variant and size.
+    rejected:
+      - >
+        Duplicate a simpler icon-only button in the repository node — Rejected because the
+        DrawerActionButton already handles loading spinner (Loader2 animate-spin), error icon
+        (CircleAlert text-destructive), and disabled state. Duplicating this logic creates
+        maintenance burden and visual inconsistency risk. The existing component is only 20 lines,
+        and adding an iconOnly flag is trivial.
+      - >
+        Create a generic ActionButton with full composition API (render props, slots) — Rejected
+        as over-engineering. We have exactly two consumers (feature-drawer labeled, repo-node
+        icon-only) with the same loading/error/icon pattern. A simple iconOnly boolean covers
+        both use cases without additional abstraction.
+    rationale: >
+      The existing DrawerActionButton (feature-drawer.tsx:237-269) already implements the exact
+      loading/error/icon state machine needed: normal → loading (Loader2 spin) → error (CircleAlert
+      destructive) → auto-clear back to normal. The only difference between feature-drawer and
+      repo-node usage is whether a text label is shown. Adding an iconOnly prop (defaulting to
+      false for backward compatibility) is a minimal change that enables both use cases from one
+      component. The shared location at components/common/action-button/ follows the existing
+      component organization pattern (each common component gets its own directory with component,
+      stories, and index files).
+
+  - title: 'Repository Actions Hook Design'
+    chosen: >
+      Create a new useRepositoryActions hook in components/common/repository-node/use-repository-actions.ts
+      that accepts { repositoryPath: string } (no branch). Internally, it uses the same
+      performAction pattern as useFeatureActions — fetch with loading/error state, auto-clear
+      timers, cleanup on unmount — but omits branch from the POST body. The two hooks remain
+      independent with no shared extraction of the internal performAction helper.
+    rejected:
+      - >
+        Rename useFeatureActions to useNodeActions and make branch optional — Rejected because
+        it touches all feature-drawer consumers, changes the public API semantics, and adds
+        complexity to a hook that currently has a clean, specific interface. The rename provides
+        no user-facing benefit and increases churn.
+      - >
+        Extract a shared useActionState base hook and compose both hooks from it — Rejected as
+        premature abstraction. The performAction pattern is ~40 lines of straightforward
+        useState/useCallback/useRef code. Extracting it into a reusable hook for just two
+        consumers adds indirection without meaningful DRY benefit. The two hooks can be
+        independently understood and tested. If a third consumer emerges, extraction becomes
+        worthwhile then.
+    rationale: >
+      The useFeatureActions hook (use-feature-actions.ts:21-95) has a clean input contract:
+      { repositoryPath: string, branch: string }. The repository node needs { repositoryPath: string }
+      with no branch. Rather than making branch optional in the existing hook (which complicates
+      its type contract and testing) or extracting a base hook (premature abstraction), a parallel
+      hook with the same internal pattern is the simplest approach. The hook is ~40 lines with
+      well-understood behavior. Colocating it with the repository-node component follows the
+      pattern of use-feature-actions.ts being colocated with feature-drawer. The POST body simply
+      omits the branch field, and the API routes handle the rest.
+
+  - title: 'Branch-Optional API Layer Approach'
+    chosen: >
+      Make branch optional at each layer of the API chain: (1) validateToolbarInput returns
+      { repositoryPath, branch?: string } — when branch is absent, skip branch validation.
+      (2) launchIde accepts branch?: string — when undefined, use repositoryPath directly as
+      target path instead of computeWorktreePath. (3) Shell route — when branch is undefined,
+      use repositoryPath directly (verify exists with existsSync). (4) IDE route — pass branch
+      (possibly undefined) through to updated launchIde.
+    rejected:
+      - >
+        Handle branch-optional logic only in API routes without touching core package — Rejected
+        because both the IDE and shell routes would need identical "if no branch, use repositoryPath;
+        else computeWorktreePath" conditional logic, duplicating the branching decision. Centralizing
+        in launchIde and validateToolbarInput keeps the logic in one place per concern.
+      - >
+        Create separate /api/repo/ide/open and /api/repo/shell/open routes — Rejected because the
+        existing routes can cleanly handle both cases with a simple optional parameter. Adding
+        parallel routes doubles the API surface area, doubles the test surface, and creates
+        confusion about which endpoint to use. The operations are semantically identical — open
+        IDE/shell at a path — the only difference is how the target path is resolved.
+    rationale: >
+      The current API chain is: validateToolbarInput → API route → launchIde → computeWorktreePath.
+      Making branch optional at each layer is the minimal change that preserves all existing
+      behavior (when branch is provided, nothing changes) while cleanly handling repo-root
+      targeting. The validateToolbarInput change (validate-toolbar-input.ts:17-41) is trivial:
+      skip the branch checks (lines 28-38) when branch is absent and return
+      { repositoryPath, branch: undefined }. The launchIde change (launch-ide.ts:37-71) adds
+      one conditional: if branch is undefined, use repositoryPath directly instead of
+      computeWorktreePath. The shell route change (shell/open/route.ts:21) adds the same
+      conditional. Both routes already destructure { repositoryPath, branch } from validation,
+      so the undefined case flows naturally.
+
+  - title: 'ValidInput Type Change for Branch-Optional'
+    chosen: >
+      Update the ValidInput interface to { repositoryPath: string; branch: string | undefined }
+      and use discriminated return type. Callers destructure branch and handle undefined by
+      using repositoryPath directly. The LaunchIdeInput.branch becomes branch?: string.
+    rejected:
+      - >
+        Use a union type ValidInputWithBranch | ValidInputWithoutBranch — Rejected as overcomplication.
+        The callers (IDE route, shell route) already need to check if branch is defined to decide
+        on worktree vs direct path. A simple optional field achieves the same with less ceremony.
+      - >
+        Keep ValidInput unchanged and create a separate validateRepoInput function — Rejected
+        because it duplicates the repositoryPath validation logic (non-empty, absolute path check)
+        and creates two validation entry points for routes that need to support both cases.
+    rationale: >
+      The existing ValidInput interface (validate-toolbar-input.ts:8-11) has { repositoryPath: string,
+      branch: string }. Changing branch to string | undefined is the minimal type change. The
+      validation function already has a clear structure: repositoryPath checks (lines 20-26),
+      then branch checks (lines 28-38). When body.branch is undefined or not present, we skip
+      the branch validation block entirely and return { repositoryPath, branch: undefined }.
+      Existing callers that always provide branch see no change — TypeScript ensures they handle
+      the undefined case at the point they use branch.
+
+  - title: 'Button Placement and Sizing on Repository Node'
+    chosen: >
+      Render two icon-only action buttons inside the repository node's main button element,
+      positioned between the repo name and the existing "+" add button using flex layout.
+      Use shadcn Button with variant='ghost' and size='icon-xs' (existing in the button
+      component's CVA config) for compact 24px touch targets. Wrap each in a Tooltip.
+    rejected:
+      - >
+        Render action buttons outside the main pill in an absolute-positioned overlay — Rejected
+        because it breaks the natural flow of the pill layout and complicates click propagation
+        isolation. The existing pattern (add button inside the pill using flex ml-auto) works well
+        and keeps actions contained.
+      - >
+        Use standard size='sm' labeled buttons — Rejected because labeled buttons would
+        significantly widen the repository node pill (currently w-56 / 224px). Icon-only buttons
+        with tooltips are compact enough to fit alongside the name and add button without
+        increasing the node width. The feature-drawer uses labeled buttons because it has more
+        screen space.
+    rationale: >
+      The repository node (repository-node.tsx:19-46) uses a flex layout inside a w-56 rounded-full
+      pill. The Github icon (h-5 w-5) and name span take the left portion, while the "+" add button
+      (h-6 w-6) sits at the right with ml-auto. Action buttons fit naturally between the name and
+      the add button. Using shadcn Button's existing icon-xs size (defined in button.tsx CVA config)
+      gives 24px touch targets — compact enough for the pill while meeting accessibility guidelines.
+      Ghost variant provides no background in default state, keeping the visual density low, with
+      hover feedback. The TooltipProvider is likely already present at the app level (common in
+      shadcn setups); if not, it needs to be added at the layout level. Each tooltip shows
+      "Open in IDE" or "Open in Shell" for discoverability.
+
+  - title: 'Click Propagation Handling'
+    chosen: >
+      Call e.stopPropagation() on action button click handlers before invoking the action.
+      The action buttons use the nodrag CSS class (already on the parent button element)
+      to prevent React Flow drag behavior. Each action button wraps its onClick to stop
+      propagation, consistent with the existing onAdd pattern (repository-node.tsx:37-39).
+    rejected:
+      - >
+        Use e.preventDefault() instead of e.stopPropagation() — Rejected because preventDefault
+        stops default browser behavior (like form submission), not event bubbling. The issue here
+        is event bubbling to the parent onClick handler and React Flow's drag/select system.
+        stopPropagation is the correct mechanism, and it's already the established pattern.
+    rationale: >
+      The existing repository node uses e.stopPropagation() in two places: the main button's
+      onClick (line 23) and the add button's onClick (line 38). Action buttons need the same
+      treatment to prevent: (1) triggering the parent button's onClick (which calls
+      data.onClick, typically opening a repository drawer or selecting), and (2) triggering
+      React Flow's pan/drag behavior. The nodrag CSS class on the parent button already prevents
+      drag, but stopPropagation is still needed for click event isolation.
+
+  - title: 'LaunchIdeSuccess.worktreePath Field Naming'
+    chosen: >
+      Keep the field name as worktreePath in LaunchIdeSuccess, even when it contains the
+      repository root path (no worktree). The semantic meaning is "the path that was opened
+      in the IDE" and the field is only used in response messages. Changing it would break
+      existing consumers (CLI ide-open.command.ts, web IDE route) for no functional benefit.
+    rejected:
+      - >
+        Rename to targetPath or path — Rejected because it's a breaking change to the return type
+        of a shared core function used by both CLI (ide-open.command.ts) and web (ide/open/route.ts).
+        The name worktreePath is slightly misleading when no worktree is involved, but the consumers
+        just use it as a display string. The cost of updating all consumers and tests outweighs
+        the naming improvement.
+    rationale: >
+      LaunchIdeSuccess (launch-ide.ts:23-27) is consumed by the CLI ide-open command and the web
+      IDE route. Both use worktreePath only in user-facing messages ("Opened X at {worktreePath}").
+      Renaming the field requires updating the CLI command, the web route, and all their tests.
+      This is pure churn with no functional impact. The field name is an internal implementation
+      detail, not a user-facing API. When branch is undefined, worktreePath will contain the
+      repositoryPath value, which is perfectly functional.
+
+openQuestions:
+  - question: 'Should TooltipProvider be added at the app layout level or locally in the repository node?'
+    resolved: true
+    answer: >
+      Check if TooltipProvider is already present in the app layout. If it is (common in shadcn/ui
+      setups), no change needed. If not, wrap the repository node's action buttons in a local
+      TooltipProvider. The provider is lightweight (just a React context) and can be instantiated
+      per-node without performance concern. Prefer checking the layout first to avoid duplicate
+      providers.
+
+  - question: 'Should the shared action-button component accept variant and size props or hardcode them?'
+    resolved: true
+    answer: >
+      Accept variant and size as optional props with defaults. Feature-drawer uses variant='outline'
+      size='sm' (current DrawerActionButton), while repo-node uses variant='ghost' size='icon-xs'.
+      Providing defaults (variant='outline', size='sm') ensures backward compatibility when the
+      feature-drawer switches to importing from the shared location. The iconOnly prop determines
+      whether label text is rendered. This gives the shared component enough flexibility for both
+      consumers without over-engineering.
+
+  - question: 'How should the repository node width accommodate the new action buttons?'
+    resolved: true
+    answer: >
+      The current repository node uses w-56 (224px). With two icon-xs buttons (~24px each) plus
+      gap spacing, the pill needs approximately 48-56px more space. Options: (1) increase to w-72
+      (288px), (2) use w-fit with min-w-56, or (3) keep w-56 and let flex truncate the name more
+      aggressively. Recommend option (1) — increase to w-72 — as it provides enough room for
+      name + 2 action buttons + add button without truncation issues. The node width is a single
+      Tailwind class change and dagre layout will automatically adjust spacing.
+
+  - question: 'Do existing tests for validateToolbarInput, launchIde, and API routes need modification?'
+    resolved: true
+    answer: >
+      Existing tests should NOT need modification because all changes are backward-compatible
+      additions (branch becomes optional, but existing tests always provide it). New tests should
+      be ADDED to cover the branch-undefined paths: validateToolbarInput accepting missing branch,
+      launchIde using repositoryPath directly when branch is undefined, shell route using
+      repositoryPath directly, IDE route passing undefined branch through. The spec's NFR-1
+      explicitly requires "no existing test should require modification."
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Shared Action Button Extraction Strategy
+
+  **Chosen:** Extract DrawerActionButton from feature-drawer.tsx into components/common/action-button/action-button.tsx with an iconOnly prop.
+
+  **Rejected:**
+  - Duplicate a simpler icon-only button in the repo node — Same loading/error state machine needed; duplication creates maintenance burden.
+  - Full composition API with render props/slots — Over-engineering for two consumers with identical patterns.
+
+  **Rationale:** DrawerActionButton (feature-drawer.tsx:237-269) already implements the loading/error/icon state machine. The only difference between consumers is labeled vs icon-only rendering. An iconOnly boolean prop (default false) enables both use cases from one component. Feature-drawer imports from the shared location with no behavioral change.
+
+  ### 2. Repository Actions Hook Design
+
+  **Chosen:** New useRepositoryActions hook in components/common/repository-node/use-repository-actions.ts accepting { repositoryPath: string }.
+
+  **Rejected:**
+  - Rename useFeatureActions to useNodeActions with optional branch — Touches all consumers, changes API semantics.
+  - Extract shared useActionState base hook — Premature abstraction for ~40 lines of straightforward state management.
+
+  **Rationale:** The useFeatureActions hook (use-feature-actions.ts) has a clean { repositoryPath, branch } contract. Creating a parallel hook with the same internal pattern (useState, useCallback, useRef timers) but without branch is simpler than modifying the existing hook. The POST body omits branch, and the API routes handle it. Colocating with repository-node follows the existing pattern.
+
+  ### 3. Branch-Optional API Layer Approach
+
+  **Chosen:** Make branch optional at each layer: validateToolbarInput, launchIde, shell route, IDE route.
+
+  **Rejected:**
+  - Handle in routes only without touching core — Duplicates conditional logic in both routes.
+  - Create separate /api/repo/ide/open and /api/repo/shell/open routes — Doubles API surface for the same operation.
+
+  **Rationale:** The chain is validateToolbarInput → route → launchIde → computeWorktreePath. Making branch optional at each layer preserves existing behavior when branch is provided and cleanly handles the repo-root case. validateToolbarInput skips branch checks when absent. launchIde uses repositoryPath directly when branch is undefined. Shell route does the same. Minimal change, maximum backward compatibility.
+
+  ### 4. ValidInput Type Change
+
+  **Chosen:** Update ValidInput to { repositoryPath: string; branch: string | undefined }.
+
+  **Rejected:**
+  - Union type ValidInputWithBranch | ValidInputWithoutBranch — Overcomplication for a simple optional field.
+  - Separate validateRepoInput function — Duplicates repositoryPath validation logic.
+
+  **Rationale:** Simple optional field. Callers destructure and handle undefined naturally. TypeScript enforces handling at usage sites.
+
+  ### 5. Button Placement and Sizing
+
+  **Chosen:** Icon-only buttons inside the pill using flex layout, shadcn Button variant='ghost' size='icon-xs', wrapped in Tooltips.
+
+  **Rejected:**
+  - Absolute-positioned overlay outside pill — Breaks flex flow, complicates click isolation.
+  - Labeled buttons with size='sm' — Would widen the 224px pill too much.
+
+  **Rationale:** The pill uses flex layout. Icon-xs gives 24px touch targets. Ghost variant keeps visual density low. Tooltips provide discoverability for icon-only buttons.
+
+  ### 6. Click Propagation Handling
+
+  **Chosen:** e.stopPropagation() on action button clicks, consistent with existing onAdd pattern.
+
+  **Rejected:**
+  - e.preventDefault() — Wrong mechanism; doesn't stop event bubbling.
+
+  **Rationale:** Repository node already uses stopPropagation in two places (main button onClick, add button onClick). Action buttons need the same treatment.
+
+  ### 7. LaunchIdeSuccess.worktreePath Field Naming
+
+  **Chosen:** Keep worktreePath name unchanged, even when it contains repository root path.
+
+  **Rejected:**
+  - Rename to targetPath or path — Breaking change to CLI and web consumers for pure naming improvement.
+
+  **Rationale:** The field is used only in display messages. Renaming requires updating CLI command, web route, and all tests. When branch is undefined, worktreePath contains repositoryPath — functional, just slightly misleading naming. Cost of rename outweighs benefit.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @xyflow/react v12+ | Node rendering, Handle connections | Use (existing) | Already in use for canvas. RepositoryNode is a registered node type. |
+  | shadcn/ui Button | Action button rendering | Use (existing) | Already in use. Has icon-xs size variant needed for compact buttons. |
+  | shadcn/ui Tooltip | Accessible labels for icon-only buttons | Use (existing) | Already available in components/ui/tooltip.tsx. Radix-based with portal. |
+  | lucide-react | Code2, Terminal, Loader2, CircleAlert icons | Use (existing) | Already used throughout. Same icons as feature-drawer action buttons. |
+  | react-tooltip or floating-ui | Alternative tooltip library | Reject | shadcn/ui Tooltip (radix-based) already available and used in the project. Adding another tooltip library would be redundant. |
+  | @radix-ui/react-tooltip | Direct Radix tooltip import | Reject | shadcn/ui wraps Radix already in components/ui/tooltip.tsx. Use the shadcn wrapper for consistency. |
+
+  No new libraries are needed. All required functionality is available through existing dependencies.
+
+  ## Security Considerations
+
+  ### Path Validation (NFR-6)
+
+  The existing validateToolbarInput (validate-toolbar-input.ts) validates:
+  - repositoryPath: non-empty, absolute path (starts with /)
+  - branch: non-empty, no path traversal (..), no null bytes (\0)
+
+  Making branch optional does NOT weaken security:
+  - When branch is absent, no branch-based path computation occurs — repositoryPath is used directly
+  - repositoryPath validation (absolute path requirement) still applies
+  - The existsSync check in the shell route verifies the path exists before spawning
+  - No new path traversal vector is introduced because branch was the component with traversal risk, and when absent, no path concatenation occurs
+
+  ### Spawn Security
+
+  Shell route uses spawn() with explicit argument arrays (not shell strings), which prevents command injection. The worktreePath/repositoryPath is always validated as an absolute path before being passed to spawn. This pattern is unchanged.
+
+  ### Repository Path Trust
+
+  The repositoryPath originates from the server component (page.tsx) which reads it from the database via ListFeaturesUseCase. It flows through the client as node data, then back to the API. The API re-validates it. This round-trip validation is maintained.
+
+  ## Performance Implications
+
+  ### Minimal Impact
+
+  - **No new API calls at render time**: Action buttons only trigger API calls on user click, not on mount
+  - **No new data fetching**: repositoryPath is passed through existing node data, already available in page.tsx
+  - **Hook instantiation**: useRepositoryActions creates 4 useState + 2 useRef + 2 useCallback per repository node — negligible for typical repository counts (1-10 repos)
+  - **Timer cleanup**: Auto-clear timers cleaned up on unmount, no memory leak risk
+  - **Tooltip portals**: Radix tooltip uses portal rendering, only mounts when hovered — no impact on initial render
+
+  ### Node Width Change
+
+  Increasing repository node width from w-56 to w-72 may slightly affect dagre layout spacing. The layoutWithDagre function (used in page.tsx) will automatically adjust node positions. No manual layout tuning expected.
+
+  ## Architecture Notes
+
+  ### Component Hierarchy
+
+  ```
+  components/common/
+  ├── action-button/              # NEW — shared action button
+  │   ├── action-button.tsx       # Extracted from DrawerActionButton
+  │   ├── action-button.stories.tsx
+  │   └── index.ts
+  ├── repository-node/
+  │   ├── repository-node.tsx     # MODIFIED — render action buttons
+  │   ├── repository-node-config.ts  # MODIFIED — add repositoryPath field
+  │   ├── repository-node.stories.tsx # MODIFIED — add action button states
+  │   ├── use-repository-actions.ts  # NEW — hook for repo-level actions
+  │   └── index.ts
+  └── feature-drawer/
+      ├── feature-drawer.tsx      # MODIFIED — import from shared action-button
+      ├── use-feature-actions.ts  # UNCHANGED
+      └── index.ts
+  ```
+
+  ### Data Flow
+
+  ```
+  page.tsx (server) → { name, repositoryPath } in node data
+    → ControlCenter → FeaturesCanvas → RepositoryNode (client)
+      → useRepositoryActions({ repositoryPath })
+        → POST /api/ide/open { repositoryPath } (no branch)
+          → validateToolbarInput → launchIde({ repositoryPath, branch: undefined })
+            → uses repositoryPath directly (skips computeWorktreePath)
+        → POST /api/shell/open { repositoryPath } (no branch)
+          → validateToolbarInput → uses repositoryPath directly with existsSync
+  ```
+
+  ### Backward Compatibility Chain
+
+  Every change is additive:
+  - RepositoryNodeData: adds optional repositoryPath field (existing nodes without it still work)
+  - ValidInput: branch becomes optional (existing callers providing branch see no change)
+  - LaunchIdeInput: branch becomes optional (existing callers providing branch see no change)
+  - Shell route: adds conditional (existing flow with branch unchanged)
+  - DrawerActionButton → ActionButton: extracted with same props interface, iconOnly defaults to false
+  - useFeatureActions: completely unchanged
+  - Existing tests: should require no modification per NFR-1
+
+  ### Files Changed Summary
+
+  | File | Change Type | Description |
+  | ---- | ----------- | ----------- |
+  | components/common/action-button/action-button.tsx | NEW | Shared action button extracted from DrawerActionButton |
+  | components/common/action-button/action-button.stories.tsx | NEW | Stories for all button states |
+  | components/common/action-button/index.ts | NEW | Barrel export |
+  | components/common/repository-node/repository-node-config.ts | MODIFIED | Add repositoryPath to RepositoryNodeData |
+  | components/common/repository-node/repository-node.tsx | MODIFIED | Render action buttons with tooltips |
+  | components/common/repository-node/use-repository-actions.ts | NEW | Hook for repo-level IDE/shell actions |
+  | components/common/repository-node/repository-node.stories.tsx | MODIFIED | Add action button state stories |
+  | components/common/feature-drawer/feature-drawer.tsx | MODIFIED | Import ActionButton from shared location |
+  | app/page.tsx | MODIFIED | Pass repositoryPath in repo node data |
+  | app/api/validate-toolbar-input.ts | MODIFIED | Make branch optional |
+  | app/api/ide/open/route.ts | MODIFIED | Pass optional branch to launchIde |
+  | app/api/shell/open/route.ts | MODIFIED | Handle branch-undefined with direct repositoryPath |
+  | packages/core/.../launch-ide.ts | MODIFIED | Make branch optional in LaunchIdeInput, conditional path |
+  | tests/unit/.../repository-node.test.tsx | MODIFIED | Add action button tests |
+  | tests/unit/.../validate-toolbar-input.test.ts | MODIFIED | Add branch-optional test cases |
+  | tests/unit/.../launch-ide.test.ts | MODIFIED | Add branch-undefined test cases |
+  | tests/unit/.../shell-open-route.test.ts | MODIFIED | Add branch-undefined test cases |
+  | tests/unit/.../ide-open-route.test.ts | MODIFIED | Add branch-undefined test cases |
