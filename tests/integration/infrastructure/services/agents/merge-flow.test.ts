@@ -200,8 +200,8 @@ describe('Merge Flow (Graph-level)', () => {
       // Verify PR created
       expect(gitPrService.createPr).toHaveBeenCalled();
 
-      // Verify CI watched before merge
-      expect(gitPrService.watchCi).toHaveBeenCalled();
+      // CI watch disabled — skipped
+      expect(gitPrService.watchCi).not.toHaveBeenCalled();
 
       // Verify PR merged (not branch merge)
       expect(gitPrService.mergePr).toHaveBeenCalled();
@@ -212,7 +212,8 @@ describe('Merge Flow (Graph-level)', () => {
         expect.objectContaining({ lifecycle: 'Maintain' })
       );
 
-      expect(result.ciStatus).toBe('success');
+      // CI watch disabled — ciStatus remains unset
+      expect(result.ciStatus).toBeFalsy();
     });
   });
 
@@ -417,12 +418,10 @@ describe('Merge Flow (Graph-level)', () => {
         config
       );
 
-      // CI watched
-      expect(gitPrService.watchCi).toHaveBeenCalled();
-      expect(result.ciStatus).toBe('failure');
+      // CI watch disabled — skipped
+      expect(gitPrService.watchCi).not.toHaveBeenCalled();
 
-      // Merge still attempted (merge node doesn't gate on CI status currently)
-      // The merge node proceeds with merge regardless — CI gating is a future enhancement
+      // Merge still attempted
       expect(gitPrService.mergePr).toHaveBeenCalled();
     });
   });
