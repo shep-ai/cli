@@ -333,3 +333,32 @@ export const InDrawerWithSelections: DrawerStory = {
     />
   ),
 };
+
+/** Drawer with delete button visible. */
+export const WithDeleteButton: DrawerStory = {
+  ...drawerMeta,
+  render: () => (
+    <DrawerTemplate
+      featureName="User Authentication Flow"
+      featureId="FEAT-042"
+      lifecycleLabel="Requirements"
+      data={mockData}
+      onDelete={fn().mockName('onDelete')}
+    />
+  ),
+};
+
+/** Drawer with delete in progress (button disabled). */
+export const DeletingState: DrawerStory = {
+  ...drawerMeta,
+  render: () => (
+    <DrawerTemplate
+      featureName="User Authentication Flow"
+      featureId="FEAT-042"
+      lifecycleLabel="Requirements"
+      data={mockData}
+      onDelete={fn().mockName('onDelete')}
+      isDeleting
+    />
+  ),
+};

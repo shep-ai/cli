@@ -151,6 +151,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onSelect={handlePrdSelect}
           onRefine={handlePrdRefine}
           onApprove={handlePrdApprove}
+          onDelete={handleDeleteFeature}
+          isDeleting={isDeleting}
           isProcessing={isPrdProcessing || isLoadingQuestionnaire}
         />
       ) : null}

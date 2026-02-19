@@ -1,6 +1,6 @@
 'use client';
 
-import { XIcon } from 'lucide-react';
+import { Loader2, Trash2, XIcon } from 'lucide-react';
 import {
   Drawer,
   DrawerContent,
@@ -8,7 +8,19 @@ import {
   DrawerTitle,
   DrawerDescription,
 } from '@/components/ui/drawer';
+import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { PrdQuestionnaire } from './prd-questionnaire';
 import type { PrdQuestionnaireDrawerProps } from './prd-questionnaire-config';
 
@@ -18,6 +30,8 @@ export function PrdQuestionnaireDrawer({
   featureName,
   featureId,
   lifecycleLabel,
+  onDelete,
+  isDeleting,
   ...questionnaireProps
 }: PrdQuestionnaireDrawerProps) {
   const { selections, data } = questionnaireProps;
@@ -80,6 +94,49 @@ export function PrdQuestionnaireDrawer({
         <div className="flex min-h-0 flex-1 flex-col">
           <PrdQuestionnaire {...questionnaireProps} />
         </div>
+
+        {/* Delete action */}
+        {onDelete && featureId ? (
+          <>
+            <Separator />
+            <div data-testid="prd-drawer-delete" className="p-4">
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" className="w-full" disabled={isDeleting}>
+                    <Trash2 className="mr-2 h-4 w-4" />
+                    Delete feature
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This will permanently delete <strong>{featureName}</strong> ({featureId}).
+                      This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      variant="destructive"
+                      disabled={isDeleting}
+                      onClick={() => onDelete(featureId)}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Deleting…
+                        </>
+                      ) : (
+                        'Delete'
+                      )}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          </>
+        ) : null}
       </DrawerContent>
     </Drawer>
   );
