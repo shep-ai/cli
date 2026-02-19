@@ -1,3 +1,9 @@
+## [1.35.3](https://github.com/shep-ai/cli/compare/v1.35.2...v1.35.3) (2026-02-19)
+
+### Bug Fixes
+
+- **agents:** record phase timing on failure and update lifecycle per node ([#81](https://github.com/shep-ai/cli/issues/81)) ([a59c949](https://github.com/shep-ai/cli/commit/a59c949cc18b020014b778b263d7200bd2b8e661))
+
 ## [1.35.2](https://github.com/shep-ai/cli/compare/v1.35.1...v1.35.2) (2026-02-19)
 
 ### Bug Fixes
