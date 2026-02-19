@@ -11,10 +11,12 @@ phase: Planning
 sizeEstimate: M
 
 # Relationships
-relatedFeatures: []
+relatedFeatures:
+  []
   # - "008-agent-configuration"
 
-technologies: []
+technologies:
+  []
   # - TypeScript
   # - React
 
@@ -23,7 +25,8 @@ relatedLinks:
   - https://github.com/shep-ai/cli/blob/main/CLAUDE.md#clean-architecture
 
 # Open questions (must be resolved before implementation)
-openQuestions: []
+openQuestions:
+  []
   # - question: "Should we use approach A or B?"
   #   resolved: false
   #   answer: null

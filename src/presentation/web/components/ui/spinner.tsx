@@ -23,7 +23,8 @@ const BORDER_WIDTH: Record<string, string> = {
 };
 
 export interface SpinnerProps
-  extends React.HTMLAttributes<HTMLDivElement>, VariantProps<typeof spinnerVariants> {}
+  extends React.HTMLAttributes<HTMLDivElement>,
+    VariantProps<typeof spinnerVariants> {}
 
 function Spinner({ className, size = 'md', ...props }: SpinnerProps) {
   const b = BORDER_WIDTH[size ?? 'md'];
