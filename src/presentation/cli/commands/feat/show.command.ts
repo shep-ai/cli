@@ -69,6 +69,18 @@ function formatLifecycle(lifecycle: string): string {
   return colors.info(lifecycle);
 }
 
+function formatDuration(ms: number): string {
+  const secs = ms / 1000;
+  const totalSecs = Math.round(secs);
+  const mins = Math.floor(totalSecs / 60);
+  const remSecs = totalSecs % 60;
+  const secsStr = secs.toFixed(1);
+  if (mins > 0) {
+    return `${secsStr}s (${mins}m ${remSecs}s)`;
+  }
+  return `${secsStr}s`;
+}
+
 function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -128,7 +140,8 @@ export function createShowCommand(): Command {
           );
           const MAX_BAR = 20;
 
-          const lines = timings.map((t, idx) => {
+          const lines: string[] = [];
+          for (const [idx, t] of timings.entries()) {
             const isLast = idx === timings.length - 1;
             const isSubPhase = t.phase.includes(':');
             const label = isSubPhase
@@ -142,24 +155,60 @@ export function createShowCommand(): Command {
               const barLen =
                 maxDurationMs > 0 ? Math.max(1, Math.round((ms / maxDurationMs) * MAX_BAR)) : 1;
               const bar = `${colors.success('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(MAX_BAR - barLen))}`;
-              return `${label} ${bar} ${secs}s`;
+              lines.push(`${label} ${bar} ${secs}s`);
             }
-
             // Waiting for approval - only the LAST timing
-            if (isLast && isWaiting) {
-              return `${label} ${colors.warning('awaiting review')}`;
+            else if (isLast && isWaiting) {
+              lines.push(`${label} ${colors.warning('awaiting review')}`);
+            }
+            // Running phase - blue bar with elapsed time
+            else {
+              const elapsedMs = Math.max(0, Date.now() - new Date(t.startedAt).getTime());
+              const secs = (elapsedMs / 1000).toFixed(1);
+              const barLen =
+                maxDurationMs > 0
+                  ? Math.min(
+                      MAX_BAR,
+                      Math.max(1, Math.round((elapsedMs / maxDurationMs) * MAX_BAR))
+                    )
+                  : 1;
+              const bar = `${colors.info('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(MAX_BAR - barLen))}`;
+              lines.push(`${label} ${bar} ${secs}s (running)`);
             }
 
-            // Running phase - blue bar with elapsed time
-            const elapsedMs = Math.max(0, Date.now() - new Date(t.startedAt).getTime());
-            const secs = (elapsedMs / 1000).toFixed(1);
-            const barLen =
-              maxDurationMs > 0
-                ? Math.min(MAX_BAR, Math.max(1, Math.round((elapsedMs / maxDurationMs) * MAX_BAR)))
-                : 1;
-            const bar = `${colors.info('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(MAX_BAR - barLen))}`;
-            return `${label} ${bar} ${secs}s (running)`;
-          });
+            // Show approval wait time under gated phases
+            if (t.approvalWaitMs != null && Number(t.approvalWaitMs) > 0) {
+              const waitMs = Number(t.approvalWaitMs);
+              const waitSecs = (waitMs / 1000).toFixed(1);
+              const waitLabel = '  \u21b3 approval'.padEnd(16);
+              const waitBarLen =
+                maxDurationMs > 0 ? Math.max(1, Math.round((waitMs / maxDurationMs) * MAX_BAR)) : 1;
+              const waitBar = `${colors.warning('\u2588'.repeat(waitBarLen))}${colors.muted('\u2591'.repeat(MAX_BAR - waitBarLen))}`;
+              lines.push(`${waitLabel} ${waitBar} ${waitSecs}s`);
+            }
+          }
+
+          // Summary totals
+          const totalExecMs = timings.reduce(
+            (sum, t) => sum + (t.durationMs != null ? Number(t.durationMs) : 0),
+            0
+          );
+          const totalWaitMs = timings.reduce(
+            (sum, t) => sum + (t.approvalWaitMs != null ? Number(t.approvalWaitMs) : 0),
+            0
+          );
+
+          if (totalExecMs > 0) {
+            lines.push('');
+            lines.push(`${'Total execution'.padEnd(16)} ${formatDuration(totalExecMs)}`);
+            if (totalWaitMs > 0) {
+              lines.push(`${'Total wait'.padEnd(16)} ${formatDuration(totalWaitMs)}`);
+              lines.push(
+                `${'Total wall-clock'.padEnd(16)} ${formatDuration(totalExecMs + totalWaitMs)}`
+              );
+            }
+          }
+
           textBlocks.push({ title: 'Phase Timing', content: lines.join('\n') });
         }
 

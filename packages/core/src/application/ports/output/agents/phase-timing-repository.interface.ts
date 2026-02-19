@@ -34,6 +34,17 @@ export interface IPhaseTimingRepository {
   ): Promise<void>;
 
   /**
+   * Update approval wait timing fields on a phase timing record.
+   *
+   * @param id - The phase timing ID
+   * @param updates - Approval wait fields to update
+   */
+  updateApprovalWait(
+    id: string,
+    updates: Partial<Pick<PhaseTiming, 'waitingApprovalAt' | 'approvalWaitMs'>>
+  ): Promise<void>;
+
+  /**
    * Find all phase timings for an agent run.
    *
    * @param agentRunId - The agent run ID

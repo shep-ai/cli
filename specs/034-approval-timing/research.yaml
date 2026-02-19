@@ -1,3 +1,4 @@
+name: approval-timing
 summary: Extend existing PhaseTiming model with approval wait tracking using column addition
 decisions:
   - title: Where to store approval wait time

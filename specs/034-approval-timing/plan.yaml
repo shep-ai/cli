@@ -1,3 +1,6 @@
+name: approval-timing
+summary: Add approval wait timing to PhaseTiming model, record in worker/use-case, display in show command
+
 phases:
   - id: phase-1
     name: Domain Model & Persistence
@@ -65,8 +68,22 @@ content: |
   **Phase 3 (Display)**: Update the show command to render approval timing rows and summary
   totals. Pure presentation layer.
 
-  ## Testing Strategy (TDD: Tests FIRST)
+  ## Clean Architecture Compliance
 
+  All changes follow Clean Architecture dependency rule:
+  - Domain: TypeSpec model extension (PhaseTiming)
+  - Application: IPhaseTimingRepository interface update, ApproveAgentRunUseCase enhancement
+  - Infrastructure: SQLite repository, phase-timing-context, worker wiring
+  - Presentation: show.command.ts display changes
+
+  ## Testing Strategy (TDD: RED-GREEN-REFACTOR)
+
+  Every task follows strict TDD discipline:
+  - **RED**: Write failing tests first for each component
+  - **GREEN**: Minimal implementation to pass tests
+  - **REFACTOR**: Clean up while keeping tests green
+
+  Test layers:
   - Unit tests for repository column handling (save/update with new fields)
   - Unit tests for recordApprovalWaitStart function
   - Unit tests for ApproveAgentRunUseCase approval wait computation

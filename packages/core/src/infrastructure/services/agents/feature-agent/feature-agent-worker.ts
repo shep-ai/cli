@@ -25,7 +25,11 @@ import { AgentRunStatus } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
-import { setPhaseTimingContext } from './phase-timing-context.js';
+import {
+  setPhaseTimingContext,
+  recordApprovalWaitStart,
+  getLastTimingId,
+} from './phase-timing-context.js';
 import { setLifecycleContext } from './lifecycle-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import { generatePrYaml } from './nodes/pr-yaml-generator.js';
@@ -246,6 +250,9 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
     // Check if graph was interrupted (human-in-the-loop approval needed)
     const interruptPayload = result.__interrupt__ as { value: unknown }[] | undefined;
     if (interruptPayload && interruptPayload.length > 0) {
+      // Record approval wait start on the last phase timing
+      await recordApprovalWaitStart(getLastTimingId());
+
       const now = new Date();
       await runRepository.updateStatus(args.runId, AgentRunStatus.waitingApproval, {
         updatedAt: now,

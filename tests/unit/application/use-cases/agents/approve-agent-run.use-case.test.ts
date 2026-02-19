@@ -52,6 +52,16 @@ function createMockWorktreeService() {
   };
 }
 
+function createMockTimingRepository() {
+  return {
+    save: vi.fn(),
+    update: vi.fn(),
+    updateApprovalWait: vi.fn(),
+    findByRunId: vi.fn().mockResolvedValue([]),
+    findByFeatureId: vi.fn(),
+  };
+}
+
 function createWaitingRun(overrides?: Partial<AgentRun>): AgentRun {
   return {
     id: 'run-001',
@@ -75,12 +85,14 @@ describe('ApproveAgentRunUseCase', () => {
   let mockProcessService: ReturnType<typeof createMockProcessService>;
   let mockFeatureRepo: ReturnType<typeof createMockFeatureRepository>;
   let mockWorktreeService: ReturnType<typeof createMockWorktreeService>;
+  let mockTimingRepo: ReturnType<typeof createMockTimingRepository>;
 
   beforeEach(() => {
     mockRunRepo = createMockRunRepository();
     mockProcessService = createMockProcessService();
     mockFeatureRepo = createMockFeatureRepository();
     mockWorktreeService = createMockWorktreeService();
+    mockTimingRepo = createMockTimingRepository();
     mockFeatureRepo.findById.mockResolvedValue({
       id: 'feat-001',
       branch: 'feat/test-feature',
@@ -90,7 +102,8 @@ describe('ApproveAgentRunUseCase', () => {
       mockRunRepo as any,
       mockProcessService as any,
       mockFeatureRepo as any,
-      mockWorktreeService as any
+      mockWorktreeService as any,
+      mockTimingRepo as any
     );
   });
 
@@ -143,5 +156,51 @@ describe('ApproveAgentRunUseCase', () => {
 
     expect(result.approved).toBe(false);
     expect(result.reason).toContain('not waiting');
+  });
+
+  it('should compute and record approval wait duration', async () => {
+    const waitStart = new Date(Date.now() - 60000); // 60s ago
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun());
+    mockTimingRepo.findByRunId.mockResolvedValue([
+      {
+        id: 'timing-001',
+        agentRunId: 'run-001',
+        phase: 'requirements',
+        startedAt: new Date(),
+        waitingApprovalAt: waitStart,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+    ]);
+
+    await useCase.execute('run-001');
+
+    expect(mockTimingRepo.findByRunId).toHaveBeenCalledWith('run-001');
+    expect(mockTimingRepo.updateApprovalWait).toHaveBeenCalledWith('timing-001', {
+      approvalWaitMs: expect.any(BigInt),
+    });
+    // Verify the wait duration is approximately 60 seconds
+    const callArgs = mockTimingRepo.updateApprovalWait.mock.calls[0][1];
+    expect(Number(callArgs.approvalWaitMs)).toBeGreaterThanOrEqual(59000);
+    expect(Number(callArgs.approvalWaitMs)).toBeLessThan(62000);
+  });
+
+  it('should skip approval wait recording when no waiting timing exists', async () => {
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun());
+    mockTimingRepo.findByRunId.mockResolvedValue([]);
+
+    await useCase.execute('run-001');
+
+    expect(mockTimingRepo.updateApprovalWait).not.toHaveBeenCalled();
+  });
+
+  it('should not block approval when timing repo fails', async () => {
+    mockRunRepo.findById.mockResolvedValue(createWaitingRun());
+    mockTimingRepo.findByRunId.mockRejectedValue(new Error('DB error'));
+
+    const result = await useCase.execute('run-001');
+
+    expect(result.approved).toBe(true);
+    expect(mockProcessService.spawn).toHaveBeenCalled();
   });
 });

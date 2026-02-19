@@ -3,22 +3,22 @@ feature:
   name: approval-timing
   number: 34
   branch: 'feat/034-approval-timing'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-19T22:00:00Z'
 
 status:
-  phase: 'ready-to-implement'
+  phase: 'ready-for-review'
   progress:
-    completed: 0
+    completed: 9
     total: 9
-    percentage: 0
+    percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-19T22:00:00Z'
-  lastUpdatedBy: 'shep-kit:new-feature-fast'
+  lastUpdated: '2026-02-19T22:35:00Z'
+  lastUpdatedBy: 'shep-kit:implement'
 
 validation:
-  lastRun: null
-  gatesPassed: []
+  lastRun: '2026-02-19T22:30:00Z'
+  gatesPassed: [completeness, architecture, consistency]
   autoFixesApplied: []
 
 tasks:
@@ -36,6 +36,9 @@ checkpoints:
   - phase: 'plan-complete'
     completedAt: '2026-02-19T22:00:00Z'
     completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'implementation-complete'
+    completedAt: '2026-02-19T22:35:00Z'
+    completedBy: 'shep-kit:implement'
 
 errors:
   current: null

@@ -13,6 +13,8 @@ import {
   clearPhaseTimingContext,
   recordPhaseStart,
   recordPhaseEnd,
+  recordApprovalWaitStart,
+  getLastTimingId,
 } from '@/infrastructure/services/agents/feature-agent/phase-timing-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 
@@ -20,6 +22,7 @@ function createMockTimingRepo(): IPhaseTimingRepository {
   return {
     save: vi.fn().mockResolvedValue(undefined),
     update: vi.fn().mockResolvedValue(undefined),
+    updateApprovalWait: vi.fn().mockResolvedValue(undefined),
     findByRunId: vi.fn().mockResolvedValue([]),
     findByFeatureId: vi.fn().mockResolvedValue([]),
   };
@@ -103,6 +106,75 @@ describe('PhaseTimingContext', () => {
 
       await recordPhaseEnd(null, 1000);
       expect(repo.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('recordApprovalWaitStart', () => {
+    it('should call updateApprovalWait with waitingApprovalAt timestamp', async () => {
+      const repo = createMockTimingRepo();
+      setPhaseTimingContext('run-1', repo);
+
+      await recordApprovalWaitStart('timing-1');
+
+      expect(repo.updateApprovalWait).toHaveBeenCalledWith('timing-1', {
+        waitingApprovalAt: expect.any(Date),
+      });
+    });
+
+    it('should be a no-op when timingId is null', async () => {
+      const repo = createMockTimingRepo();
+      setPhaseTimingContext('run-1', repo);
+
+      await recordApprovalWaitStart(null);
+      expect(repo.updateApprovalWait).not.toHaveBeenCalled();
+    });
+
+    it('should be a no-op when context is not set', async () => {
+      await recordApprovalWaitStart('timing-1');
+      // No throw expected
+    });
+
+    it('should not throw when updateApprovalWait fails', async () => {
+      const repo = createMockTimingRepo();
+      (repo.updateApprovalWait as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('DB error')
+      );
+      setPhaseTimingContext('run-1', repo);
+
+      await recordApprovalWaitStart('timing-1');
+      // No throw expected
+    });
+  });
+
+  describe('getLastTimingId', () => {
+    it('should return null before any phase starts', () => {
+      expect(getLastTimingId()).toBeNull();
+    });
+
+    it('should return the timing ID after recordPhaseStart', async () => {
+      const repo = createMockTimingRepo();
+      setPhaseTimingContext('run-1', repo);
+
+      const timingId = await recordPhaseStart('analyze');
+      expect(getLastTimingId()).toBe(timingId);
+    });
+
+    it('should return null after clearPhaseTimingContext', async () => {
+      const repo = createMockTimingRepo();
+      setPhaseTimingContext('run-1', repo);
+      await recordPhaseStart('analyze');
+
+      clearPhaseTimingContext();
+      expect(getLastTimingId()).toBeNull();
+    });
+
+    it('should return null when recordPhaseStart fails', async () => {
+      const repo = createMockTimingRepo();
+      (repo.save as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB error'));
+      setPhaseTimingContext('run-1', repo);
+
+      await recordPhaseStart('analyze');
+      expect(getLastTimingId()).toBeNull();
     });
   });
 });

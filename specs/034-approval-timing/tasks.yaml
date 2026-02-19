@@ -1,3 +1,6 @@
+name: approval-timing
+summary: 9 tasks across 3 phases implementing approval wait timing tracking and display
+
 tasks:
   - id: task-1
     title: Extend PhaseTiming TypeSpec model
