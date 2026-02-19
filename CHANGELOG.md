@@ -1,3 +1,10 @@
+# [1.33.0](https://github.com/shep-ai/cli/compare/v1.32.1...v1.33.0) (2026-02-19)
+
+### Features
+
+- **dx:** add /shep-kit:new-feature-fast skill ([04feb3c](https://github.com/shep-ai/cli/commit/04feb3c98387ba242eeb5b9c77eff4c09a246db3))
+- **web:** add repository node actions with action buttons ([#74](https://github.com/shep-ai/cli/issues/74)) ([af410d1](https://github.com/shep-ai/cli/commit/af410d17c58a4b0a779d477e1ac81929e1d3a0d5))
+
 ## [1.32.1](https://github.com/shep-ai/cli/compare/v1.32.0...v1.32.1) (2026-02-18)
 
 ### Bug Fixes
