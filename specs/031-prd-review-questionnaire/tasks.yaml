@@ -1,0 +1,643 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-review-questionnaire
+summary: >
+  17 tasks across 5 phases implementing the Open Folder API route with RepositoryNode button
+  and PrdQuestionnaire controlled component. Phases 2 and 3 can run in parallel after the
+  TypeSpec foundation is established.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec
+  - Next.js 16+ App Router
+  - React 19
+  - React Flow / @xyflow/react
+  - Tailwind CSS v4
+  - Storybook
+  - Node.js child_process spawn
+  - Vitest
+  - Playwright
+  - sonner
+  - lucide-react
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 1: TypeSpec Foundation
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create tsp/ui/ module with PrdQuestionnaire value object models'
+    description: >
+      Create the tsp/ui/ directory with index.tsp barrel and prd-questionnaire.tsp defining
+      four value object models: PrdOption, PrdQuestion, PrdFinalAction, PrdQuestionnaireData.
+      These are presentation-layer types (no extends BaseEntity). Wire the module into
+      tsp/main.tsp via import "./ui/index.tsp" following the existing pattern.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'tsp/ui/index.tsp exists with import for prd-questionnaire.tsp'
+      - 'tsp/ui/prd-questionnaire.tsp defines PrdOption, PrdQuestion, PrdFinalAction, PrdQuestionnaireData'
+      - 'PrdOption has id, label, rationale (string), recommended? (boolean), isNew? (boolean)'
+      - 'PrdQuestion has id, question (string), type literal "select", options (PrdOption[])'
+      - 'PrdFinalAction has id, label, description (string)'
+      - 'PrdQuestionnaireData has question, context (string), questions (PrdQuestion[]), finalAction (PrdFinalAction)'
+      - 'tsp/main.tsp has import "./ui/index.tsp" added'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Generated types appear in src/domain/generated/output.ts'
+    tdd:
+      red:
+        - 'Run pnpm tsp:compile — should succeed (baseline)'
+        - 'Verify generated output.ts does NOT contain PrdOption/PrdQuestion types yet'
+      green:
+        - 'Create tsp/ui/index.tsp barrel importing prd-questionnaire.tsp'
+        - 'Create tsp/ui/prd-questionnaire.tsp with all 4 value object models'
+        - 'Add import "./ui/index.tsp" to tsp/main.tsp'
+        - 'Run pnpm tsp:compile — verify it succeeds'
+        - 'Verify generated output.ts now contains PrdOption, PrdQuestion, PrdFinalAction, PrdQuestionnaireData interfaces'
+      refactor:
+        - 'Ensure TypeSpec follows formatting conventions (pnpm tsp:format)'
+        - 'Verify model field ordering matches spec (id first, then content fields, then optional flags)'
+    estimatedEffort: '30min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 2: Open Folder API & Validation
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Create validateFolderInput utility with TDD'
+    description: >
+      Create a dedicated validateFolderInput function at app/api/validate-folder-input.ts
+      following the validateToolbarInput discriminated union pattern. Validates repositoryPath:
+      non-empty string, absolute path, no path traversal (..), no null bytes (\0). Returns
+      ValidFolderInput | ValidationError. Write comprehensive unit tests first covering all
+      validation branches.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'validate-folder-input.ts exports validateFolderInput function'
+      - 'Exports ValidFolderInput and ValidationError types'
+      - 'Returns { repositoryPath } for valid absolute paths'
+      - 'Returns { error: string } for empty/missing repositoryPath'
+      - 'Returns { error: string } for relative paths (not starting with /)'
+      - 'Returns { error: string } for paths containing ..'
+      - 'Returns { error: string } for paths containing null bytes'
+      - 'Unit tests cover all 5 branches (valid + 4 error cases)'
+    tdd:
+      red:
+        - 'Create test file for validateFolderInput'
+        - 'Write test: valid absolute path returns { repositoryPath }'
+        - 'Write test: empty string returns error'
+        - 'Write test: non-string returns error'
+        - 'Write test: relative path (no leading /) returns error'
+        - 'Write test: path with .. returns error'
+        - 'Write test: path with \0 returns error'
+        - 'All tests fail (function does not exist)'
+      green:
+        - 'Create validate-folder-input.ts with ValidFolderInput and ValidationError types'
+        - 'Implement validateFolderInput with 4 sequential checks'
+        - 'Return discriminated union: valid input or error object'
+        - 'All tests pass'
+      refactor:
+        - 'Ensure error messages match the spec exactly'
+        - 'Verify type exports are consistent with validateToolbarInput pattern'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Create /api/folder/open POST route with TDD'
+    description: >
+      Create the POST route at app/api/folder/open/route.ts following the shell/open pattern.
+      Validates input with validateFolderInput, checks directory existence with existsSync,
+      detects platform (macOS: open, Linux: xdg-open), spawns detached process with
+      stdio: ignore, and returns JSON responses. Write unit tests first covering all response
+      codes (200, 400, 404, 501, 500).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'route.ts exports a POST handler'
+      - 'Returns 400 with error for invalid input (delegates to validateFolderInput)'
+      - 'Returns 404 with { error: "Directory not found" } when existsSync returns false'
+      - 'Returns 501 for unsupported platforms (not darwin/linux)'
+      - 'Spawns "open" on darwin with [repositoryPath]'
+      - 'Spawns "xdg-open" on linux with [repositoryPath]'
+      - 'spawn called with { detached: true, stdio: "ignore" } — no shell: true'
+      - 'child.unref() called after spawn'
+      - 'Returns { success: true, path } on successful spawn'
+      - 'Returns 500 with error message on spawn failure'
+    tdd:
+      red:
+        - 'Create test file for folder/open route'
+        - 'Write test: returns 400 for invalid input (mock validateFolderInput returning error)'
+        - 'Write test: returns 404 when existsSync returns false'
+        - 'Write test: returns 501 for unsupported platform'
+        - 'Write test: spawns "open" on darwin with correct args and options'
+        - 'Write test: spawns "xdg-open" on linux with correct args and options'
+        - 'Write test: calls child.unref() after spawn'
+        - 'Write test: returns { success: true, path } on success'
+        - 'Write test: returns 500 when spawn throws'
+        - 'All tests fail (route does not exist)'
+      green:
+        - 'Create app/api/folder/open/route.ts'
+        - 'Import NextResponse, existsSync, spawn, validateFolderInput'
+        - 'Implement POST handler: parse body → validate → existsSync → platform switch → spawn → return'
+        - 'Handle all error cases with appropriate status codes'
+        - 'All tests pass'
+      refactor:
+        - 'Ensure error messages match the API contract in research.yaml'
+        - 'Verify spawn options match shell/open pattern exactly'
+        - 'Check that no shell: true is used anywhere (NFR-1 security)'
+    estimatedEffort: '1h'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 3: PrdQuestionnaire Component
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Create PrdQuestionnaire config types'
+    description: >
+      Create prd-questionnaire-config.ts at components/common/prd-questionnaire/ with the
+      component prop interface. Re-export generated TypeSpec types (PrdOption, PrdQuestion,
+      PrdFinalAction, PrdQuestionnaireData) and define PrdQuestionnaireProps composing data
+      types with React callback props (onSelect, onRefine, onApprove, isProcessing).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'prd-questionnaire-config.ts exists at components/common/prd-questionnaire/'
+      - 'Re-exports PrdOption, PrdQuestion, PrdFinalAction, PrdQuestionnaireData from generated output'
+      - 'Defines PrdQuestionnaireProps with all required props from FR-12'
+      - 'Props include: question, context, questions, selections, onSelect, onRefine, onApprove, finalAction, isProcessing?'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Write a type-level test (or simple import test) that imports PrdQuestionnaireProps and asserts it has the expected shape'
+        - 'Test fails because the file does not exist'
+      green:
+        - 'Create prd-questionnaire-config.ts'
+        - 'Import and re-export generated types from @/domain/generated/output'
+        - 'Define PrdQuestionnaireProps interface with all props'
+        - 'Type test passes'
+      refactor:
+        - 'Ensure prop ordering follows convention: data props first, then callbacks, then optional flags'
+        - 'Add JSDoc comments to callback props for IDE documentation'
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Create PrdQuestionnaire barrel export'
+    description: >
+      Create index.ts barrel file at components/common/prd-questionnaire/ that re-exports
+      the component and all types. Follows the same pattern as repository-node/index.ts.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'index.ts re-exports PrdQuestionnaire component'
+      - 'index.ts re-exports PrdQuestionnaireProps and data types'
+      - 'Consumers can import { PrdQuestionnaire, type PrdQuestionnaireProps } from the barrel'
+    tdd:
+      red:
+        - 'Import from the barrel path — fails because file does not exist'
+      green:
+        - 'Create index.ts with re-exports from config and component files'
+      refactor:
+        - 'Verify export list matches repository-node/index.ts pattern'
+    estimatedEffort: '5min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add option-highlight CSS animation to globals.css'
+    description: >
+      Add @keyframes option-highlight animation to the web package globals.css for visual
+      emphasis on newly added options (isNew: true). The animation is a background-color
+      pulse from emerald-50 to transparent over ~1.5s. Follows the existing pattern of
+      custom keyframes (indeterminate-progress, spinner) in the same file.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - '@keyframes option-highlight defined in globals.css'
+      - 'Animation pulses background from emerald-50 to transparent'
+      - 'Duration ~1.5s, runs once (not infinite)'
+      - 'Tailwind v4 theme variable --animate-option-highlight defined'
+      - 'Existing animations not affected'
+    tdd:
+      red:
+        - 'Verify globals.css does not contain option-highlight keyframes'
+      green:
+        - 'Add @keyframes option-highlight with background-color pulse'
+        - 'Add --animate-option-highlight theme variable'
+      refactor:
+        - 'Ensure keyframe ordering in globals.css is alphabetical or grouped logically'
+    estimatedEffort: '10min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Implement PrdQuestionnaire component with TDD'
+    description: >
+      Build the PrdQuestionnaire controlled component at prd-questionnaire.tsx matching the
+      POC design exactly. Renders: header with amber dot + title + context, scrollable
+      questions with numbered options (A/B/C/D), AI Recommended and New badges, selected
+      state highlighting, and fixed bottom action bar with progress bar, chat input, send
+      button, and approve button. All state via props, all changes via callbacks. Progress
+      calculated internally via useMemo.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'Component renders header with amber status dot, question title, context text'
+      - 'Questions render with labels at text-[10px] font-bold'
+      - 'Options render as <button> elements with letter prefixes (A, B, C, D) at text-[9px]'
+      - 'AI Recommended badge renders on recommended options (bg-blue-600 text-white text-[8px])'
+      - 'New badge renders on isNew options (bg-emerald-600 text-white text-[8px])'
+      - 'option-highlight animation class applied to isNew options'
+      - 'Selected options highlighted with border-blue-500 bg-blue-50'
+      - 'Only one option per question can be selected (single-select via onSelect callback)'
+      - 'Progress bar width calculated from selections/questions ratio via useMemo'
+      - 'Progress bar visible when progress > 0 or isProcessing'
+      - 'isProcessing disables all options, chat input, send button, and approve button'
+      - 'isProcessing shows animated indeterminate progress bar'
+      - 'Chat input fires onRefine(text) on send button click'
+      - 'Approve button fires onApprove(finalAction.id)'
+      - 'Component is < 200 lines (NFR-9)'
+      - 'All option buttons are <button> elements for accessibility (NFR-11)'
+      - 'Chat input has aria-label (NFR-11)'
+      - 'Rationale text renders at text-[9px] text-slate-500'
+    tdd:
+      red:
+        - 'Write test: renders header with amber dot, question title, context'
+        - 'Write test: renders correct number of questions'
+        - 'Write test: renders options as <button> elements with letter prefixes'
+        - 'Write test: renders AI Recommended badge when recommended=true'
+        - 'Write test: renders New badge when isNew=true'
+        - 'Write test: applies option-highlight class when isNew=true'
+        - 'Write test: highlights selected option with border-blue-500'
+        - 'Write test: calls onSelect(questionId, optionId) when option clicked'
+        - 'Write test: progress bar width reflects selections/questions ratio'
+        - 'Write test: progress bar hidden when no selections and not processing'
+        - 'Write test: progress bar visible when selections exist'
+        - 'Write test: isProcessing=true disables all interactive elements'
+        - 'Write test: isProcessing=true shows animated progress bar'
+        - 'Write test: chat input submit calls onRefine with input text'
+        - 'Write test: approve button calls onApprove with finalAction.id'
+        - 'Write test: chat input has aria-label attribute'
+        - 'All tests fail (component does not exist)'
+      green:
+        - 'Create prd-questionnaire.tsx with "use client" directive'
+        - 'Implement useMemo for progress calculation from selections/questions'
+        - 'Render header block: amber dot, title, context, border separator'
+        - 'Render scrollable questions area with option buttons'
+        - 'Implement letter prefix generation (String.fromCharCode(65 + index))'
+        - 'Implement badge rendering for recommended and isNew flags'
+        - 'Implement selected state highlighting via selections prop comparison'
+        - 'Render fixed action bar: progress bar, chat input, send button, approve button'
+        - 'Wire onSelect, onRefine, onApprove callbacks'
+        - 'Implement isProcessing disabled state for all interactive elements'
+        - 'All tests pass'
+      refactor:
+        - 'Check line count — if > 200 lines, extract QuestionGroup, OptionButton, ActionBar sub-components'
+        - 'Ensure all Tailwind classes exactly match POC (compare line by line)'
+        - 'Verify useMemo dependency arrays are correct and minimal'
+        - 'Remove any unused variables or imports'
+    estimatedEffort: '2.5h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Create PrdQuestionnaire Storybook stories'
+    description: >
+      Create 5 Storybook story variants for PrdQuestionnaire: Default (full data, no
+      selections), WithSelections (2-3 questions answered), AllAnswered (all answered, full
+      progress), Refining (isProcessing=true), MinimalData (1 question, 2 options). Use
+      mock data from POC state.js structure. Stories use Meta<PrdQuestionnaireProps> with
+      argTypes for action callbacks.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'prd-questionnaire.stories.tsx created with 5 story variants'
+      - 'Default story: 4-6 questions, no selections, not processing'
+      - 'WithSelections story: 2-3 questions answered, progress bar partially filled'
+      - 'AllAnswered story: all questions answered, full progress bar'
+      - 'Refining story: isProcessing=true, animated progress, disabled controls'
+      - 'MinimalData story: 1 question, 2 options'
+      - 'Meta title is "Composed/PrdQuestionnaire"'
+      - 'argTypes defined for onSelect, onRefine, onApprove actions'
+      - 'Stories use realistic mock data matching POC state.js structure'
+      - 'Storybook builds without errors'
+    tdd:
+      red:
+        - 'Verify no stories file exists yet for PrdQuestionnaire'
+      green:
+        - 'Create prd-questionnaire.stories.tsx'
+        - 'Define mock data (questions, options with recommended/isNew flags, finalAction)'
+        - 'Define Meta with title "Composed/PrdQuestionnaire" and argTypes'
+        - 'Create Default, WithSelections, AllAnswered, Refining, MinimalData stories'
+        - 'Each story sets appropriate props for its variant'
+      refactor:
+        - 'Extract shared mock data into constants at top of stories file'
+        - 'Ensure mock data variety covers edge cases (long text, many options, single option)'
+    estimatedEffort: '45min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 4: RepositoryNode Extension & Wiring
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Extend RepositoryNodeData with repositoryPath and onOpenFolder'
+    description: >
+      Add repositoryPath (optional string) and onOpenFolder (optional callback) to the
+      RepositoryNodeData interface in repository-node-config.ts. This is a backward-compatible
+      extension — the [key: string]: unknown index signature already allows extra fields,
+      but explicit typing improves developer experience.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'RepositoryNodeData has repositoryPath?: string'
+      - 'RepositoryNodeData has onOpenFolder?: () => void'
+      - 'Existing code using RepositoryNodeData still compiles'
+      - 'Type changes are backward-compatible'
+    tdd:
+      red:
+        - 'Write type test: RepositoryNodeData should accept repositoryPath and onOpenFolder'
+        - 'Test fails because fields are not in the interface'
+      green:
+        - 'Add repositoryPath?: string and onOpenFolder?: () => void to RepositoryNodeData'
+        - 'Type test passes'
+      refactor:
+        - 'Ensure field ordering is consistent (name, repositoryPath, onClick, onAdd, onOpenFolder, showHandles)'
+    estimatedEffort: '10min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Add FolderOpen button to RepositoryNode component with TDD'
+    description: >
+      Add the FolderOpen icon button to repository-node.tsx, positioned between the repo name
+      and the existing add button. Uses group-hover:opacity-100 pattern with muted neutral
+      styling (bg-muted, h-5 w-5, rounded-full). Button is conditional on data.onOpenFolder
+      being defined, matching the existing data.onAdd conditional pattern.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'FolderOpen button renders when data.onOpenFolder is provided'
+      - 'FolderOpen button does NOT render when data.onOpenFolder is undefined'
+      - 'Button appears on hover (group-hover:opacity-100 pattern)'
+      - 'Button styled with bg-muted, h-5 w-5, rounded-full (differentiated from blue add button)'
+      - 'Button positioned between repo name and add button'
+      - 'FolderOpen icon from lucide-react used'
+      - 'Click calls data.onOpenFolder()'
+      - 'Component remains under 150 lines'
+    tdd:
+      red:
+        - 'Write test: FolderOpen button renders when onOpenFolder is provided'
+        - 'Write test: FolderOpen button does not render when onOpenFolder is undefined'
+        - 'Write test: click on FolderOpen button calls onOpenFolder callback'
+        - 'Write test: FolderOpen button has opacity-0 base class (hidden until hover)'
+        - 'All tests fail (button does not exist in component)'
+      green:
+        - 'Import FolderOpen from lucide-react'
+        - 'Add conditional FolderOpen button div after the name span, before the add button'
+        - 'Apply group-hover:opacity-100 pattern with muted styling classes'
+        - 'Wire onClick to data.onOpenFolder'
+        - 'All tests pass'
+      refactor:
+        - 'Verify button styling exactly matches spec (bg-muted h-5 w-5 rounded-full)'
+        - 'Ensure accessible: button element or div with role/tabindex'
+        - 'Verify component line count is still reasonable'
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Add handleOpenFolder handler to useControlCenterState'
+    description: >
+      Add a handleOpenFolder(nodeId: string) handler to useControlCenterState that resolves
+      repositoryPath from node data, makes a POST fetch to /api/folder/open, and displays
+      toast.error on failure. Add to the ControlCenterState interface and return object.
+      Follows the existing handler pattern (useCallback with appropriate deps).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-9
+    acceptanceCriteria:
+      - 'handleOpenFolder added to ControlCenterState interface'
+      - 'handleOpenFolder is a useCallback with [nodes] dependency'
+      - 'Resolves repositoryPath from node data by finding the node'
+      - 'Makes POST fetch to /api/folder/open with { repositoryPath }'
+      - 'Displays toast.error on non-ok response'
+      - 'Displays toast.error on network failure'
+      - 'Returns early if repositoryPath is undefined'
+      - 'Handler included in hook return value'
+    tdd:
+      red:
+        - 'Write test: handleOpenFolder calls fetch with correct URL and body'
+        - 'Write test: handleOpenFolder resolves repositoryPath from node data'
+        - 'Write test: handleOpenFolder shows toast.error on API failure'
+        - 'Write test: handleOpenFolder shows toast.error on network error'
+        - 'Write test: handleOpenFolder does nothing when node has no repositoryPath'
+        - 'All tests fail (handler does not exist)'
+      green:
+        - 'Add handleOpenFolder to ControlCenterState interface'
+        - 'Implement handleOpenFolder as useCallback: find node → get repositoryPath → fetch → handle errors'
+        - 'Add handleOpenFolder to the return object'
+        - 'All tests pass'
+      refactor:
+        - 'Ensure toast.error messages are user-friendly and match existing patterns'
+        - 'Verify useCallback dependency array is minimal and correct'
+    estimatedEffort: '45min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Wire folder open through FeaturesCanvas enrichedNodes'
+    description: >
+      Add onRepositoryOpenFolder prop to FeaturesCanvas and enrich repositoryNode data with
+      onOpenFolder callback in the enrichedNodes useMemo. Follows the existing onRepositoryAdd
+      pattern: the callback wraps onRepositoryOpenFolder(node.id).
+    state: Todo
+    dependencies:
+      - task-10
+      - task-11
+    acceptanceCriteria:
+      - 'FeaturesCanvasProps has onRepositoryOpenFolder?: (repoNodeId: string) => void'
+      - 'enrichedNodes useMemo adds onOpenFolder to repositoryNode data'
+      - 'onOpenFolder calls onRepositoryOpenFolder(node.id) when defined'
+      - 'onRepositoryOpenFolder added to useMemo dependency array'
+      - 'Existing enrichment for onAdd is not affected'
+    tdd:
+      red:
+        - 'Write test: FeaturesCanvas passes onOpenFolder to repositoryNode data when onRepositoryOpenFolder is provided'
+        - 'Write test: onOpenFolder callback calls onRepositoryOpenFolder with correct node id'
+        - 'Test fails (prop does not exist)'
+      green:
+        - 'Add onRepositoryOpenFolder to FeaturesCanvasProps'
+        - 'In enrichedNodes useMemo, add onOpenFolder spread for repositoryNode type'
+        - 'Add onRepositoryOpenFolder to useMemo dependency array'
+        - 'All tests pass'
+      refactor:
+        - 'Verify the enrichment pattern matches the existing onAdd pattern exactly'
+    estimatedEffort: '20min'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Wire folder open through ControlCenterInner'
+    description: >
+      Destructure handleOpenFolder from useControlCenterState in ControlCenterInner and pass
+      it as onRepositoryOpenFolder prop to FeaturesCanvas. One-line destructure addition and
+      one-line prop pass.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-12
+    acceptanceCriteria:
+      - 'handleOpenFolder destructured from useControlCenterState'
+      - 'Passed as onRepositoryOpenFolder={handleOpenFolder} to FeaturesCanvas'
+      - 'Component compiles and renders correctly'
+    tdd:
+      red:
+        - 'Write test: ControlCenterInner passes onRepositoryOpenFolder to FeaturesCanvas'
+        - 'Test fails (prop not passed)'
+      green:
+        - 'Destructure handleOpenFolder from state hook'
+        - 'Add onRepositoryOpenFolder={handleOpenFolder} to FeaturesCanvas JSX'
+        - 'Test passes'
+      refactor:
+        - 'Verify destructure ordering follows existing pattern in the component'
+    estimatedEffort: '10min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Pass repositoryPath in page.tsx server component'
+    description: >
+      In page.tsx, when building repository node data, add repositoryPath: repoPath alongside
+      the existing name: repoName. This makes the full repo path available to RepositoryNode
+      via the data flow chain without relying on string manipulation of the node id.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'Repository node data includes repositoryPath: repoPath'
+      - 'Existing name field is not affected'
+      - 'TypeScript compiles without errors'
+      - 'Page renders correctly with the additional data field'
+    tdd:
+      red:
+        - 'Write test: page builds repository nodes with repositoryPath in data'
+        - 'Test fails (field not present in data)'
+      green:
+        - 'Add repositoryPath: repoPath to the data object in the nodes.push for repository nodes'
+        - 'Test passes'
+      refactor:
+        - 'Verify the data object field ordering is readable'
+    estimatedEffort: '10min'
+
+  - id: task-15
+    phaseId: phase-4
+    title: 'Add RepositoryNode Storybook story variants'
+    description: >
+      Add 2 new story variants to repository-node.stories.tsx: WithFolderButton (shows folder
+      button on hover) and WithFolderAndAddButtons (shows both folder and add buttons on hover).
+      Uses existing RepositoryNodeCanvas wrapper pattern with argTypes for action callbacks.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'WithFolderButton story variant renders with onOpenFolder action'
+      - 'WithFolderAndAddButtons story variant renders with both onOpenFolder and onAdd actions'
+      - 'Stories use existing RepositoryNodeCanvas wrapper'
+      - 'argTypes include onOpenFolder action'
+      - 'Storybook builds without errors'
+    tdd:
+      red:
+        - 'Verify repository-node.stories.tsx does not have WithFolderButton or WithFolderAndAddButtons stories'
+      green:
+        - 'Add WithFolderButton story with onOpenFolder in data'
+        - 'Add WithFolderAndAddButtons story with both onOpenFolder and onAdd in data'
+        - 'Add onOpenFolder to argTypes'
+      refactor:
+        - 'Ensure story names and data are descriptive and consistent with existing variants'
+    estimatedEffort: '15min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 5: Integration & Validation
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-16
+    phaseId: phase-5
+    title: 'Run full validation suite'
+    description: >
+      Run the complete validation pipeline to ensure all code passes quality gates: lint,
+      format, typecheck (both CLI and web), TypeSpec compile, and all test suites (unit,
+      integration). Fix any issues that arise.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-13
+      - task-14
+      - task-15
+    acceptanceCriteria:
+      - 'pnpm lint passes with no errors'
+      - 'pnpm format:check passes'
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm tsp:compile succeeds'
+      - 'pnpm test:unit passes all tests'
+      - 'All new tests pass'
+      - 'No regressions in existing tests'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-17
+    phaseId: phase-5
+    title: 'Verify production build and Storybook build'
+    description: >
+      Run production builds for both the web package and Storybook to ensure all code compiles
+      correctly for deployment. Verify that new components and stories are included in the
+      build output. Fix any build-time issues.
+    state: Todo
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - 'pnpm build:web succeeds without errors'
+      - 'pnpm build:storybook succeeds without errors'
+      - 'PrdQuestionnaire stories visible in Storybook build'
+      - 'RepositoryNode new story variants visible in Storybook build'
+      - 'No runtime errors when loading built application'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '~8h (sequential), ~5.5h with Phase 2/3 parallelization'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  17 tasks across 5 phases deliver both the Open Folder API/button and PrdQuestionnaire
+  component. The work begins with a TypeSpec foundation (Phase 1) that generates the shared
+  types consumed by the PrdQuestionnaire. Then Phase 2 (folder API + validator) and Phase 3
+  (PrdQuestionnaire component) proceed in parallel since they have no interdependencies.
+  Phase 4 wires the folder open feature through the full component hierarchy (page.tsx →
+  ControlCenter → FeaturesCanvas → RepositoryNode) and adds Storybook stories. Phase 5
+  runs the complete validation pipeline and production builds.
+
+  The task ordering within each phase follows TDD discipline: types/config first,
+  then failing tests, then minimal implementation, then stories. Dependencies ensure
+  no task starts before its prerequisites are complete — for example, the API route
+  (task-3) depends on the validator (task-2), and the FeaturesCanvas wiring (task-12)
+  depends on both the RepositoryNode extension (task-10) and the state handler (task-11).
+
+  Estimated total effort is ~8 hours sequential or ~5.5 hours with Phase 2/3 parallelization.

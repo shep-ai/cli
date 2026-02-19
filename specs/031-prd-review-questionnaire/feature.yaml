@@ -1,0 +1,36 @@
+feature:
+  id: 031-prd-review-questionnaire
+  name: prd-review-questionnaire
+  number: 31
+  branch: feat/031-prd-review-questionnaire
+  lifecycle: research
+  createdAt: '2026-02-19T12:51:16Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-19T12:51:16Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-19T12:51:16Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

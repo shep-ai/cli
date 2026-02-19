@@ -1,0 +1,296 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-review-questionnaire
+number: 031
+branch: feat/031-prd-review-questionnaire
+oneLiner: Build a reusable PRD questionnaire component for structured requirements discovery
+summary: >
+  This feature builds a PrdQuestionnaire controlled component (Tier 1, common/) that renders
+  structured requirements discovery questions with numbered A/B/C/D options, AI-recommended
+  badges, a chat refinement input, and animated progress bar — matching the POC design exactly.
+  The feature requires new TypeSpec models in a new tsp/ui/ module, Storybook stories, and
+  full TDD coverage.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (domain model definitions, new tsp/ui/ module)
+  - React 19 (controlled component patterns)
+  - Tailwind CSS v4 (all styling, matching POC design)
+  - Storybook (component stories, 5 variants for questionnaire)
+  - Vitest (TDD unit tests)
+  - Playwright (E2E tests)
+  - sonner (toast notifications for error handling)
+  - lucide-react (Send and Check icons)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the PrdQuestionnaire support single-select only or also multi-select per question?'
+    resolved: true
+    options:
+      - option: 'Multi-select support for all questions'
+        description: 'Allow users to select multiple options per question.'
+        selected: false
+      - option: 'Single-select only for initial implementation'
+        description: 'Support only one selected option per question, matching the POC behavior.'
+        selected: true
+      - option: 'Mixed mode: configurable per question'
+        description: 'Each question can specify its own select mode via a type field.'
+        selected: false
+      - option: 'Multi-select as separate question type'
+        description: 'Keep PrdQuestion as single-select; add MultiSelectQuestion type later.'
+        selected: false
+    selectionRationale: >
+      Option 2 (Single-select only) was selected because the POC uses single-select (selectQuestionOption toggles one option per question).
+      The TypeSpec model defines type as a literal "select" to match the POC. Multi-select can be added later as a new question type if requirements evolve.
+      This keeps the initial implementation simple and faithful to the proven POC design.
+
+  - question: 'Should the PrdQuestionnaire manage its own selection state or be fully controlled by the parent?'
+    resolved: true
+    options:
+      - option: 'Uncontrolled component with internal useState'
+        description: 'Component manages all selection state internally and exposes it via callbacks.'
+        selected: false
+      - option: 'Fully controlled component (selections as prop + callbacks)'
+        description: 'Parent manages all state and passes selections as prop; component fires onSelect callbacks.'
+        selected: true
+      - option: 'Hybrid: local state with optional controlled mode'
+        description: 'Component has internal state but can accept selections prop to override.'
+        selected: false
+      - option: 'Context-based state management'
+        description: 'Use React Context to manage selections globally.'
+        selected: false
+    selectionRationale: >
+      Option 2 (Fully controlled component) was selected to match the project's component architecture mandate.
+      Controlled components allow the parent to manage state via props and callbacks, enabling persistence, sync, and undo.
+      PrdQuestionnaire accepts selections as Record<string, string> (mapping questionId to optionId) and fires onSelect callbacks.
+      This aligns with existing patterns like FeatureNode which receives all state via the data prop.
+
+  - question: 'Should the progress bar in PrdQuestionnaire calculate progress automatically from selections or accept it as a prop?'
+    resolved: true
+    options:
+      - option: 'Pass as explicit prop from parent'
+        description: 'Parent calculates progress and passes it as a number (0-100).'
+        selected: false
+      - option: 'Auto-calculate from selections/questions'
+        description: 'Component derives progress internally as selections.length / questions.length * 100.'
+        selected: true
+      - option: 'Hybrid: accept prop but auto-calculate if not provided'
+        description: 'Use prop if provided; otherwise auto-calculate.'
+        selected: false
+      - option: 'Track progress in a separate service'
+        description: 'Use a custom hook or context to manage progress state globally.'
+        selected: false
+    selectionRationale: >
+      Option 2 (Auto-calculate) was selected because progress is deterministic and forces every parent to duplicate logic if required.
+      The component derives progress internally from selections and questions props via useMemo. The isProcessing boolean prop
+      controls the animated/indeterminate progress bar state during refinement.
+
+  - question: 'Should the chat refinement input trigger an actual API call or just fire a callback?'
+    resolved: true
+    options:
+      - option: 'Direct API call within the component'
+        description: 'Component imports the API client and makes requests directly.'
+        selected: false
+      - option: 'Callback-only (onRefine fires with text, no API call)'
+        description: 'Component fires onRefine(text) callback; parent handles API orchestration.'
+        selected: true
+      - option: 'Server action (Next.js server component pattern)'
+        description: 'Use Next.js Server Actions to handle refinement.'
+        selected: false
+      - option: 'Event emitter pattern'
+        description: 'Emit events that parent components listen to and respond to.'
+        selected: false
+    selectionRationale: >
+      Option 2 (Callback-only) was selected because PrdQuestionnaire is a Tier 1 presentational component with no business logic
+      or side effects. API calls belong in the parent (feature-level or use-case layer). The component fires onRefine when the user
+      submits chat input, and the parent is responsible for API orchestration, loading state management (setting isProcessing=true),
+      and updating the questions data. This follows Clean Architecture separation of concerns.
+
+  - question: 'Should the "Finalize Requirements" (approve) button be part of the PrdQuestionnaire or handled externally?'
+    resolved: true
+    options:
+      - option: 'Rendered externally by parent'
+        description: 'Parent manages the approve button separately outside the questionnaire.'
+        selected: false
+      - option: 'Part of the component, controlled via finalAction prop'
+        description: 'Component renders it in the action bar, delegating via onApprove callback.'
+        selected: true
+      - option: 'Optional based on a prop flag'
+        description: 'showApproveButton prop controls whether it renders.'
+        selected: false
+      - option: 'In a separate action bar component'
+        description: 'Extract action bar logic to a sub-component.'
+        selected: false
+    selectionRationale: >
+      Option 2 (Part of component) was selected because the POC renders the approve button as an integral part of the questionnaire
+      action bar, alongside the chat input. Separating it would break the visual layout and require the parent to recreate the action bar.
+      The component renders the button controlled via finalAction prop ({ id, label, description }) and delegates the action via onApprove callback.
+
+  - question: 'Should TypeSpec UI models live in a new tsp/ui/ module or within tsp/domain/value-objects/?'
+    resolved: true
+    options:
+      - option: 'New tsp/ui/ module with separate barrel'
+        description: 'Create dedicated module for presentation-layer types.'
+        selected: true
+      - option: 'Within tsp/domain/value-objects/'
+        description: 'Place alongside existing value objects in the domain layer.'
+        selected: false
+      - option: 'New tsp/presentation/ module'
+        description: 'Create a broader presentation-layer TypeSpec module.'
+        selected: false
+      - option: 'Inline in component files, skip TypeSpec'
+        description: 'Define types directly in React component TypeScript files.'
+        selected: false
+    selectionRationale: >
+      Option 1 (New tsp/ui/ module) was selected because these models are presentation-layer value objects, not domain entities.
+      Placing them in tsp/domain/ would violate Clean Architecture boundaries by mixing presentation concerns into the domain layer.
+      A dedicated tsp/ui/ module keeps the separation clear and follows the existing pattern of organizing TypeSpec by architectural layer
+      (common, domain, agents, deployment, ui). The module includes an index.tsp barrel and is imported by tsp/main.tsp.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The web UI currently lacks a PRD questionnaire component for the requirements discovery phase.
+
+  During the requirements discovery phase, the AI agent generates structured questions with
+  multiple-choice options and AI recommendations. There is no React component to display these
+  questionnaires. A POC exists in vanilla JS (docs/poc/js/app.js lines 101-166) but needs to be
+  implemented as a proper React component following the project's component architecture.
+
+  ## Success Criteria
+
+  - [ ] TypeSpec models compile without errors (`pnpm tsp:compile`)
+  - [ ] New `tsp/ui/` module created with `prd-questionnaire.tsp` and `index.tsp`
+  - [ ] All new code has passing tests following TDD red-green-refactor
+  - [ ] PrdQuestionnaire renders exactly like POC (docs/poc/js/app.js lines 101-166)
+  - [ ] PrdQuestionnaire is a controlled component: selections via prop, changes via onSelect callback
+  - [ ] Numbered option labels (A, B, C, D) with correct text sizing (`text-[10px]`, `text-[9px]`, `text-[8px]`)
+  - [ ] "AI Recommended" badge renders on recommended options (`bg-blue-600 text-white`)
+  - [ ] "New" badge renders on newly added options (`bg-emerald-600 text-white`)
+  - [ ] Progress bar calculates automatically from selections/total questions ratio
+  - [ ] isProcessing prop controls animated/disabled state (progress bar animation, controls disabled)
+  - [ ] Chat refinement input fires onRefine(text) callback, does not make API calls
+  - [ ] "Finalize Requirements" button fires onApprove(finalActionId) callback
+  - [ ] 5 Storybook story variants: Default, WithSelections, AllAnswered, Refining, MinimalData
+  - [ ] All lint, type, and format checks pass (`pnpm validate`)
+  - [ ] Production build succeeds (`pnpm build:web`)
+
+  ## Functional Requirements
+
+  ### Sub-Feature A: PRD Questionnaire Component
+
+  - **FR-1**: A new Tier 1 component `PrdQuestionnaire` SHALL be created at `components/common/prd-questionnaire/` following the standard directory pattern: barrel `index.ts`, component file, config/types file, and stories file.
+
+  - **FR-2**: The `PrdQuestionnaire` SHALL accept the following props:
+    - `question: string` — Header title text
+    - `context: string` — Header context/description text
+    - `questions: PrdQuestion[]` — Array of question objects, each with `id`, `question`, `type: 'select'`, and `options: PrdOption[]`
+    - `selections: Record<string, string>` — Map of questionId to selected optionId (controlled state)
+    - `onSelect: (questionId: string, optionId: string) => void` — Selection change callback
+    - `onRefine: (text: string) => void` — Chat refinement submit callback
+    - `onApprove: (actionId: string) => void` — Finalize requirements callback
+    - `finalAction: { id: string; label: string; description: string }` — Approve button configuration
+    - `isProcessing?: boolean` — Controls disabled/animated state during refinement
+
+  - **FR-3**: Each `PrdOption` SHALL have the properties: `id: string`, `label: string`, `rationale: string`, `recommended?: boolean`, `isNew?: boolean`.
+
+  - **FR-4**: The component SHALL render a scrollable content area with: (a) a header block showing an amber status dot, the question title, and context text; (b) numbered questions with their options displayed as selectable buttons.
+
+  - **FR-5**: Each option button SHALL display: (a) a letter prefix (A, B, C, D...), (b) the option label, (c) an "AI Recommended" badge if `recommended` is true (`bg-blue-600 text-white text-[8px]`), (d) a "New" badge if `isNew` is true (`bg-emerald-600 text-white text-[8px]`), (e) the rationale text.
+
+  - **FR-6**: Selected options SHALL be visually highlighted with `border-blue-500 bg-blue-50`. Only one option per question can be selected at a time.
+
+  - **FR-7**: The component SHALL render a fixed bottom action bar containing: (a) a progress bar showing `selections count / questions count` ratio, (b) a text input with placeholder "Ask AI to refine requirements...", (c) a send button, (d) the finalize/approve button.
+
+  - **FR-8**: When `isProcessing` is true, the component SHALL: (a) show an animated progress bar, (b) disable all option buttons, (c) disable the chat input and send button, (d) disable the approve button.
+
+  - **FR-9**: The progress bar SHALL be visible (opacity-100) when at least one question is answered or when `isProcessing` is true, and hidden (opacity-0) otherwise.
+
+  - **FR-10**: Options with `isNew: true` SHALL have an `option-highlight` CSS animation class applied for visual emphasis when new options appear after refinement.
+
+  ### Sub-Feature B: TypeSpec Models
+
+  - **FR-11**: A new `tsp/ui/` module SHALL be created with an `index.tsp` barrel file that is imported by `tsp/main.tsp`.
+
+  - **FR-12**: A `tsp/ui/prd-questionnaire.tsp` file SHALL define value object models for `PrdOption`, `PrdQuestion`, `PrdFinalAction`, and `PrdQuestionnaireData` matching the component's type requirements.
+
+  ### Sub-Feature C: Storybook Stories
+
+  - **FR-13**: The PrdQuestionnaire SHALL have 5 Storybook story variants:
+    - **Default**: Full questionnaire with 4-6 questions, no selections, not processing
+    - **WithSelections**: 2-3 questions answered, showing progress bar partially filled
+    - **AllAnswered**: All questions answered, progress bar full, approve button visually prominent
+    - **Refining**: `isProcessing=true`, showing animated progress bar with disabled controls
+    - **MinimalData**: Minimal props (1 question, 2 options) to test edge cases
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 (Performance)**: The PrdQuestionnaire progress bar animation SHALL use CSS `transition-all duration-300` for smooth width changes and `opacity-0/opacity-100` transitions with `duration-200` — no JavaScript animation loops.
+
+  - **NFR-2 (Performance)**: The PrdQuestionnaire SHALL use `useMemo` or equivalent to avoid recomputing derived values (progress percentage) on every render when selections/questions have not changed.
+
+  - **NFR-3 (UX)**: The PrdQuestionnaire text sizing SHALL exactly match the POC: question labels at `text-[10px]`, option letter prefixes at `text-[9px]`, badges at `text-[8px]`, rationale text at `text-[9px]`.
+
+  - **NFR-4 (Maintainability)**: The PrdQuestionnaire component file SHALL not exceed ~200 lines. If it grows beyond that, sub-components (e.g., QuestionGroup, OptionButton, ActionBar) SHALL be extracted into the same directory.
+
+  - **NFR-5 (Maintainability)**: All TypeSpec UI models SHALL be value objects (not extending BaseEntity) since they are presentation-layer types with no persistence identity.
+
+  - **NFR-6 (Accessibility)**: Option buttons SHALL be rendered as `<button>` elements (not `<div>`) for keyboard accessibility. The chat input SHALL have an associated `aria-label`.
+
+  - **NFR-7 (Testing)**: All new code SHALL have unit tests written following TDD (red-green-refactor). The PrdQuestionnaire component SHALL have tests covering all major interactions (selection, refinement, processing state, completion).
+
+  - **NFR-8 (Architecture)**: The PrdQuestionnaire SHALL be a purely presentational controlled component with no internal state management, no API calls, and no side effects. All state changes flow through callbacks to the parent.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Single-select or multi-select per question? | Single-select only | Matches POC behavior. Multi-select can be added later as a new question type. |
+  | 2 | Controlled or uncontrolled PrdQuestionnaire? | Fully controlled (selections prop + onSelect callback) | Aligns with project's component architecture. Enables parent-managed persistence and undo. |
+  | 3 | Progress bar: calculated or prop? | Auto-calculated from selections/questions | Deterministic ratio avoids parent duplication. isProcessing prop for animated state. |
+  | 4 | Chat input: API call or callback? | Callback-only (onRefine) | Tier 1 component = presentational only. API calls belong in parent/feature layer. |
+  | 5 | Approve button: inside or outside component? | Inside, controlled via finalAction prop + onApprove callback | POC renders it as part of the action bar. Separating breaks visual layout. |
+  | 6 | TypeSpec UI models location? | New tsp/ui/ module | Presentation-layer types don't belong in tsp/domain/. Keeps Clean Architecture boundaries clean. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/main.tsp` | Low | Add single import line for new `tsp/ui/` module |
+  | `tsp/ui/` (new) | High | Create entire new module: `prd-questionnaire.tsp`, `index.tsp` |
+  | `src/presentation/web/components/common/prd-questionnaire/` (new) | High | Entire new Tier 1 component: config types, component, 5 stories, barrel export |
+  | `src/domain/generated/output.ts` | Low | Auto-generated — updated by `pnpm tsp:compile` after TypeSpec changes |
+
+  ## Dependencies
+
+  **Existing code dependencies:**
+  - POC design reference: `docs/poc/js/app.js` lines 101-166 (exact Tailwind classes to replicate)
+  - POC data structure reference: `docs/poc/js/state.js` lines 858-1041 (questionnaire data shape)
+
+  **Library dependencies (all already installed):**
+  - `lucide-react` — Icons (Send, Check icons for buttons)
+  - `sonner` — Toast notifications (for error feedback if needed)
+  - `tailwindcss` — All styling
+  - `@storybook/react` — Story definitions
+
+  **No new npm dependencies required.**
+
+  ## Size Estimate
+
+  **S (Small)** — 1-2 days.
+
+  Justification:
+  - Single focused sub-feature (PRD questionnaire component only)
+  - Design is fully specified in the POC with exact Tailwind classes
+  - 4 new files to create (TypeSpec models, component, config, stories)
+  - All technologies are already in use in the codebase — no new learning curve
+  - TypeSpec model additions are straightforward value objects
+  - Storybook stories are well-defined (5 variants with clear mock data)

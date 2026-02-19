@@ -1,0 +1,203 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-review-questionnaire
+summary: >
+  Implementation plan for two integrated web UI capabilities: (1) an "Open Folder" API route
+  and RepositoryNode button following the shell/open pattern, and (2) a PrdQuestionnaire Tier 1
+  controlled component matching the POC design. Both features share a foundational TypeSpec phase,
+  then diverge into parallel implementation streams before converging in integration wiring.
+  All work follows TDD red-green-refactor cycles and stays within the presentation layer.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (new tsp/ui/ module for presentation-layer value objects)
+  - Next.js 16+ App Router (POST API route for folder/open)
+  - React 19 (controlled component with useMemo for derived progress)
+  - React Flow / @xyflow/react (RepositoryNode extension with folder button)
+  - Tailwind CSS v4 (exact POC class reproduction, custom keyframes)
+  - Storybook (7 new story variants across 2 components)
+  - Node.js child_process spawn (OS file manager launch, no shell)
+  - Vitest (TDD unit tests)
+  - Playwright (E2E tests)
+  - sonner (toast.error for folder open failures)
+  - lucide-react (FolderOpen, Send, Check icons)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'TypeSpec Foundation'
+    description: >
+      Create the tsp/ui/ module with PrdQuestionnaire value object models and wire it into
+      tsp/main.tsp. This must come first because both the PrdQuestionnaire component types
+      and the generated TypeScript output depend on it. Validates via pnpm tsp:compile.
+    parallel: false
+
+  - id: phase-2
+    name: 'Open Folder API & Validation'
+    description: >
+      Build the validateFolderInput utility and /api/folder/open POST route following the
+      shell/open pattern. This phase is independent of the PrdQuestionnaire work and can
+      proceed in parallel with Phase 3. Covers security validation, platform detection,
+      and spawn-based file manager launch.
+    parallel: true
+
+  - id: phase-3
+    name: 'PrdQuestionnaire Component'
+    description: >
+      Build the PrdQuestionnaire Tier 1 controlled component at components/common/prd-questionnaire/
+      including config types, component implementation matching the POC design, CSS animation
+      for new options, and 5 Storybook story variants. Depends on Phase 1 for generated types.
+      Can proceed in parallel with Phase 2.
+    parallel: true
+
+  - id: phase-4
+    name: 'RepositoryNode Extension & Wiring'
+    description: >
+      Extend RepositoryNode with the FolderOpen button, wire the data flow through the full
+      chain (page.tsx → ControlCenter → FeaturesCanvas → enrichedNodes → RepositoryNode),
+      add the handleOpenFolder state handler, and create new Storybook story variants.
+      Depends on Phase 2 (API route must exist for the handler to call).
+    parallel: false
+
+  - id: phase-5
+    name: 'Integration & Validation'
+    description: >
+      End-to-end validation: run full test suite, lint, typecheck, format check, build
+      verification. Ensure all success criteria are met and both sub-features work together.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - tsp/ui/index.tsp
+  - tsp/ui/prd-questionnaire.tsp
+  - src/presentation/web/app/api/validate-folder-input.ts
+  - src/presentation/web/app/api/folder/open/route.ts
+  - src/presentation/web/components/common/prd-questionnaire/index.ts
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.tsx
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire-config.ts
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.stories.tsx
+
+filesToModify:
+  - tsp/main.tsp
+  - src/presentation/web/app/globals.css
+  - src/presentation/web/app/page.tsx
+  - src/presentation/web/components/common/repository-node/repository-node-config.ts
+  - src/presentation/web/components/common/repository-node/repository-node.tsx
+  - src/presentation/web/components/common/repository-node/repository-node.stories.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  Both sub-features live entirely within the presentation layer (`src/presentation/web/`),
+  with a shared TypeSpec foundation in `tsp/ui/`. No domain or application layer changes
+  are required.
+
+  **Sub-Feature A (Open Folder)** follows the established API route pattern from
+  `shell/open/route.ts` (62 lines): a dedicated input validator (`validateFolderInput`) with
+  the same discriminated union return type as `validateToolbarInput` (41 lines), a POST route
+  that validates → checks existence → spawns OS file manager → returns JSON, and a wiring
+  chain through the existing component hierarchy (page.tsx → ControlCenterInner →
+  FeaturesCanvas → RepositoryNode).
+
+  **Sub-Feature B (PrdQuestionnaire)** follows the Tier 1 component pattern from
+  `feature-node/`: a config file with types (composing generated TypeSpec types with React
+  callbacks), a fully controlled component with no internal state, and 5 Storybook variants.
+  The component replicates the POC design from `docs/poc/js/app.js` lines 101-166 using
+  exact Tailwind classes.
+
+  **TypeSpec models** live in a new `tsp/ui/` module — presentation-layer value objects kept
+  separate from domain types per Clean Architecture boundaries.
+
+  ## Key Design Decisions
+
+  ### 1. Dedicated validateFolderInput over Reusing validateToolbarInput
+
+  The folder/open route only needs `repositoryPath` (no branch parameter). Reusing
+  `validateToolbarInput` would require either a dummy branch value or conditional logic
+  that couples folder validation to branch concerns. A dedicated ~15-line validator follows
+  the same discriminated union pattern (`ValidFolderInput | ValidationError`) but with only
+  4 checks: non-empty string, absolute path (starts with `/`), no path traversal (`..`),
+  no null bytes (`\0`). Callers check with `if ('error' in validation)` — identical to the
+  existing pattern.
+
+  ### 2. Inline Platform Switch (Not a Registry)
+
+  Only 2 platforms are supported (macOS: `open`, Linux: `xdg-open`). The existing
+  `shell/open/route.ts` uses the same inline `process.platform` switch. A factory or
+  registry for 2 branches would be over-engineering.
+
+  ### 3. Controlled Component with Internal Progress Derivation
+
+  PrdQuestionnaire receives all state via props (`selections`, `questions`, `isProcessing`)
+  and fires all changes via callbacks (`onSelect`, `onRefine`, `onApprove`). Progress is
+  deterministically derived via `useMemo` from `selections` and `questions` props, avoiding
+  every parent having to duplicate the calculation. This matches how the codebase handles
+  derived values (useMemo, not useState+useEffect).
+
+  ### 4. Prop Wiring Chain for Folder Open (Not Direct API Call)
+
+  RepositoryNode is a presentational Tier 1 component — it must not make API calls.
+  Following the established `onRepositoryAdd` wiring chain: page.tsx passes `repositoryPath`
+  in node data, `useControlCenterState` defines `handleOpenFolder` (with fetch + toast.error),
+  `ControlCenterInner` passes it to `FeaturesCanvas`, and `FeaturesCanvas` enriches
+  repository node data with the callback in its `enrichedNodes` useMemo.
+
+  ### 5. New tsp/ui/ Module (Not in tsp/domain/)
+
+  PrdQuestionnaire types are presentation-layer value objects with no persistence identity.
+  Placing them in `tsp/domain/` would mix UI concerns into the domain layer. A dedicated
+  `tsp/ui/` module follows the existing organizational pattern (common, domain, agents,
+  deployment → now also ui). The barrel file `tsp/ui/index.tsp` is imported by `tsp/main.tsp`.
+
+  ### 6. Plain HTML Elements (Not shadcn/ui Primitives)
+
+  The POC uses plain HTML (`button`, `input`, `div`) with specific Tailwind classes.
+  shadcn/ui's Button/Input inject default styling that conflicts with the POC's exact
+  specifications. Plain elements with exact Tailwind classes ensure faithful reproduction.
+  Accessibility is handled via semantic HTML (`<button>` for options, `<input>` with
+  `aria-label` for chat).
+
+  ## Implementation Strategy
+
+  The plan follows a dependency-driven phase ordering:
+
+  1. **Phase 1 (TypeSpec)** runs first because both sub-features consume generated types.
+     Quick setup (~30 min) that unblocks everything else.
+
+  2. **Phases 2 and 3 run in parallel** — folder API/validation work and PrdQuestionnaire
+     component work are completely independent. This parallelization reduces the critical
+     path significantly.
+
+  3. **Phase 4 (RepositoryNode wiring)** depends on Phase 2 (the API route must exist for
+     the handler to call it). It extends RepositoryNode, wires the full data flow chain,
+     and adds Storybook stories.
+
+  4. **Phase 5 (Integration)** is the final validation gate — full test suite, lint,
+     typecheck, build, and all success criteria verification.
+
+  Within each phase, tasks follow strict TDD: write failing tests first (RED), implement
+  minimal code to pass (GREEN), then clean up (REFACTOR).
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compile failure blocks all work | Phase 1 is minimal (2 files, 4 simple value objects). Run `pnpm tsp:compile` immediately after writing to validate. |
+  | PrdQuestionnaire exceeds 200-line NFR | Start as single file; extract sub-components (QuestionGroup, OptionButton, ActionBar) during REFACTOR only if needed. POC analysis suggests ~150-180 lines. |
+  | Generated TypeScript types have unexpected shape | Verify output.ts after tsp:compile before consuming types in config.ts. Adjust TypeSpec models if generated interface differs from expected shape. |
+  | Folder open spawn behavior differs across platforms | Unit tests mock `child_process.spawn`. The spawn pattern is identical to the working shell/open route. Manual testing on actual platform confirms. |
+  | React Flow node data type conflicts | The `[key: string]: unknown` index signature on RepositoryNodeData already supports arbitrary fields. Adding typed fields is backward-compatible. |
+  | CSS animation conflicts with existing styles | The `option-highlight` keyframe uses a unique name in globals.css alongside existing keyframes (indeterminate-progress, spinner). No naming collision risk. |
+  | page.tsx server component changes break layout | The change is a single field addition (`repositoryPath: repoPath`) to the data object. No structural change to the component tree or Dagre layout. |
