@@ -13,5 +13,5 @@
   "documentationUrl": "https://zed.dev/docs/installation",
   "verifyCommand": "zed --version",
   "autoInstall": true,
-  "openDirectory": "zed ."
+  "openDirectory": "zed {dir}"
 }

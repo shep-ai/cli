@@ -13,5 +13,5 @@
   "documentationUrl": "https://docs.windsurf.com/windsurf/getting-started",
   "verifyCommand": "windsurf --version --no-sandbox --user-data-dir=/tmp/windsurf-test",
   "autoInstall": true,
-  "openDirectory": "windsurf ."
+  "openDirectory": "windsurf {dir}"
 }

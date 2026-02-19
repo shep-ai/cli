@@ -16,5 +16,8 @@
   "documentationUrl": "https://codelabs.developers.google.com/getting-started-google-antigravity",
   "verifyCommand": "agy --version",
   "autoInstall": false,
-  "openDirectory": "agy ."
+  "openDirectory": {
+    "linux": "antigravity {dir}",
+    "darwin": "agy {dir}"
+  }
 }

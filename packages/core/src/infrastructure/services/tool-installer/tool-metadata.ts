@@ -46,8 +46,10 @@ export interface ToolMetadata {
   /** Whether the tool supports automated installation (default: true) */
   autoInstall?: boolean;
 
-  /** Command to open a directory in this tool (e.g., "code .") */
-  openDirectory?: string;
+  /** Command to open a directory in this tool.
+   * String format: "code {dir}" — single command for all platforms.
+   * Object format: { "linux": "antigravity {dir}", "darwin": "agy {dir}" } — per-platform commands. */
+  openDirectory?: string | Record<string, string>;
 }
 
 const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [

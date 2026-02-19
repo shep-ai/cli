@@ -13,5 +13,5 @@
   "documentationUrl": "https://cursor.com/download",
   "verifyCommand": "cursor --version",
   "autoInstall": false,
-  "openDirectory": "cursor ."
+  "openDirectory": "cursor {dir}"
 }
