@@ -11,7 +11,7 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { Edge } from '@xyflow/react';
 import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common/feature-node';
 
-/** Force request-time rendering so the DI container is available. */
+/** Skip static pre-rendering since we need runtime DI container and server context. */
 export const dynamic = 'force-dynamic';
 
 /** Map domain SdlcLifecycle enum values to UI FeatureLifecyclePhase (1:1). */
@@ -109,8 +109,8 @@ export default async function HomePage() {
   // Use dagre LR layout for compact, automatic positioning
   const laid = layoutWithDagre(nodes, edges, {
     direction: 'LR',
-    ranksep: 60,
-    nodesep: 20,
+    ranksep: 200,
+    nodesep: 60,
   });
 
   return (

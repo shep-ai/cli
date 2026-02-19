@@ -4,6 +4,9 @@ import './globals.css';
 import { AppShell } from '@/components/layouts/app-shell';
 import { Toaster } from '@/components/ui/sonner';
 
+/** Force dynamic rendering for all pages since they depend on client-side context. */
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'Shep AI',
   description:
