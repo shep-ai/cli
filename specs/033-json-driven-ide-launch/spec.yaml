@@ -1,0 +1,241 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: json-driven-ide-launch
+number: 033
+branch: feat/033-json-driven-ide-launch
+oneLiner: Replace hard-coded IDE launchers with JSON tool definitions and wrap IDE launching in proper use cases
+userQuery: >
+  i want our shep ide command to use tools we got defined in jsons, so we can extend ides open capabilities with json, in json we already have open command, but its like open . with dot,we need some stricter laceholder for dir. ALL Interaction MUST be performed VIA USECASES, not direct services uses, read CLEAN ARCHITECTURE docs
+summary: >
+  Refactor the IDE launch system to derive editor open commands from the existing JSON tool metadata files
+  (packages/core/src/infrastructure/services/tool-installer/tools/*.json) instead of hard-coded launcher classes.
+  Replace the raw "." placeholder in openDirectory with a strict "{dir}" placeholder for parameterized directory
+  substitution. Wrap all IDE launch interactions in use cases to fix Clean Architecture violations where CLI
+  commands and web routes directly call infrastructure services. Fix the existing Antigravity platform-binary
+  bug by properly resolving per-platform binaries from JSON metadata.
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js (CLI framework)
+  - Next.js (Web API routes)
+  - tsyringe (Dependency Injection)
+  - Node.js child_process (spawn/execFile)
+  - Vitest (testing)
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'Should the old hard-coded launcher classes be deleted or deprecated in this PR?'
+    resolved: true
+    answer: >
+      Delete them entirely. The JSON-driven launcher fully replaces them, and keeping dead code
+      adds maintenance burden. The old launcher classes are pure duplication of data already in
+      JSON files. If rollback is needed, git history preserves them.
+
+  - question: 'Should the JSON openDirectory field store the full command string (e.g., "code {dir}") or just the placeholder pattern, with the binary resolved separately?'
+    resolved: true
+    answer: >
+      Keep the full command string with placeholder (e.g., "code {dir}"). This is simpler, matches
+      the existing format, and allows IDEs that need different flags (e.g., "code --new-window {dir}")
+      to express that naturally. The binary field remains separate for availability checking via `which`.
+
+  - question: 'Should the LaunchIdeUseCase also handle the "list available IDEs" concern, or should that be a separate use case?'
+    resolved: true
+    answer: >
+      Keep it as a single LaunchIdeUseCase for now. Listing available IDEs is not a current feature
+      requirement and would be premature. If a "list IDEs" feature is needed later, it can be extracted
+      into a separate use case following SRP. The current scope is strictly about launching.
+
+  - question: "How should the JSON-driven launcher handle Antigravity's per-platform binary field (object vs string)?"
+    resolved: true
+    answer: >
+      The ToolMetadata interface already supports `binary: string | Record<string, string>`. The
+      JSON-driven launcher should resolve the binary by checking `os.platform()` when the binary
+      field is an object, falling back to the string value when it is a plain string. This fixes
+      the existing bug where AntigravityLauncher hardcodes "antigravity" and ignores the Darwin
+      binary "agy". The openDirectory field should similarly support per-platform values for
+      consistency, though currently all IDEs use a single string.
+
+  - question: 'Should the DI token for the IDE launcher service follow the string-token pattern or use an interface symbol?'
+    resolved: true
+    answer: >
+      Use the string-token pattern (e.g., "IIdeLauncherService") consistent with all other service
+      registrations in the existing container.ts (e.g., "IToolInstallerService", "IWorktreeService").
+
+  - question: 'Should computeWorktreePath stay as a free utility function or move into the service?'
+    resolved: true
+    answer: >
+      Keep computeWorktreePath as a free utility function. It is a pure function with no side effects
+      or dependencies, making it appropriate as a standalone utility. Moving it into a service would
+      add unnecessary coupling. The LaunchIdeUseCase can import and use it directly.
+
+content: |
+  ## Problem Statement
+
+  The current IDE launch system has four problems:
+
+  1. **Duplicated hard-coded launchers**: Each IDE (VS Code, Cursor, Windsurf, Zed, Antigravity) has a dedicated
+     launcher class in `packages/core/src/infrastructure/services/ide-launchers/` that hard-codes the binary name
+     and spawn logic. Meanwhile, the same IDEs already have JSON metadata files in
+     `packages/core/src/infrastructure/services/tool-installer/tools/*.json` that include an `openDirectory` field
+     (e.g., `"openDirectory": "code ."`). Adding a new IDE requires creating both a launcher class AND a JSON file.
+
+  2. **Weak directory placeholder**: The `openDirectory` field in JSON uses a literal `.` (dot) for the directory,
+     which is ambiguous and cannot be reliably substituted with an actual path. A strict placeholder like `{dir}`
+     is needed for parameterized substitution.
+
+  3. **Clean Architecture violations**: The CLI command (`src/presentation/cli/commands/ide-open.command.ts`) and
+     the web API route (`src/presentation/web/app/api/ide/open/route.ts`) both directly import and call
+     `launchIde()` from the infrastructure layer, bypassing the application/use-case layer.
+
+  4. **Platform-binary bug**: The `AntigravityLauncher` hardcodes `binary = 'antigravity'` but the JSON metadata
+     defines per-platform binaries (`"linux": "antigravity", "darwin": "agy"`). The hard-coded launcher ignores
+     the macOS binary entirely.
+
+  ## Success Criteria
+
+  - [ ] SC-1: `openDirectory` in all 5 IDE JSON files uses `{dir}` placeholder instead of `.` (e.g., `"code {dir}"`)
+  - [ ] SC-2: A single `JsonDrivenIdeLauncherService` class replaces all 5 hard-coded launcher classes
+  - [ ] SC-3: `IIdeLauncherService` port interface is defined in `application/ports/output/services/`
+  - [ ] SC-4: `LaunchIdeUseCase` exists in `application/use-cases/` and wraps all IDE launch logic
+  - [ ] SC-5: CLI `ide-open.command.ts` resolves `LaunchIdeUseCase` from DI container instead of importing `launchIde()`
+  - [ ] SC-6: Web API `ide/open/route.ts` resolves `LaunchIdeUseCase` from DI container instead of importing `launchIde()`
+  - [ ] SC-7: No presentation-layer file imports from `infrastructure/services/ide-launchers/`
+  - [ ] SC-8: Adding a new IDE requires ONLY adding a JSON file in `tools/` — no TypeScript class changes
+  - [ ] SC-9: Per-platform binary resolution works correctly (Antigravity uses `agy` on macOS, `antigravity` on Linux)
+  - [ ] SC-10: The 5 old hard-coded launcher classes are deleted
+  - [ ] SC-11: `LaunchIdeUseCase` and `JsonDrivenIdeLauncherService` are registered in the DI container
+  - [ ] SC-12: All existing IDE launch behavior is preserved (detached spawn, availability check, worktree path computation)
+  - [ ] SC-13: Unit tests cover the JSON-driven launcher service (placeholder substitution, platform binary resolution, unknown editor, unavailable editor)
+  - [ ] SC-14: Unit tests cover the LaunchIdeUseCase (delegates to service, returns result types)
+  - [ ] SC-15: `pnpm test` passes with no regressions
+  - [ ] SC-16: `pnpm validate` passes (lint, format, typecheck, tsp)
+
+  ## Functional Requirements
+
+  - **FR-1: JSON-driven IDE command resolution** — The system MUST derive the IDE open command (binary + arguments)
+    from the `openDirectory` field in the JSON tool metadata files (`tools/*.json`), replacing the `{dir}` placeholder
+    with the target directory path at runtime. No hard-coded binary-to-editor mapping shall exist outside JSON files.
+
+  - **FR-2: Strict directory placeholder** — All IDE JSON files MUST use `{dir}` as the directory placeholder in
+    `openDirectory` (e.g., `"code {dir}"`). The launcher MUST reject any `openDirectory` value that does not contain
+    `{dir}`, failing with a clear error rather than silently passing `.` or an empty string.
+
+  - **FR-3: Platform-aware binary resolution** — When the `binary` field is an object keyed by platform
+    (`{ "linux": "...", "darwin": "..." }`), the launcher MUST resolve to the correct binary for the current
+    `os.platform()`. When it is a plain string, use it directly. Similarly, the `openDirectory` field MUST
+    support both string and per-platform object formats for future extensibility.
+
+  - **FR-4: IDE launcher port interface** — An `IIdeLauncherService` interface MUST be defined in
+    `application/ports/output/services/` with at minimum: `launch(editorId, directoryPath): Promise<LaunchIdeResult>`
+    and `checkAvailability(editorId): Promise<boolean>`. The interface MUST NOT expose JSON-specific details.
+
+  - **FR-5: LaunchIdeUseCase** — A `LaunchIdeUseCase` class MUST be created in `application/use-cases/` following
+    the existing pattern (`@injectable()`, single `execute()` method, DI-injected port interfaces). It MUST accept
+    input containing `editorId`, `repositoryPath`, optional `branch`, and optional `checkAvailability` flag. It
+    MUST compute the worktree path (via `computeWorktreePath`), optionally check availability, and delegate to
+    `IIdeLauncherService.launch()`.
+
+  - **FR-6: Presentation layer refactor** — Both `ide-open.command.ts` (CLI) and `ide/open/route.ts` (web API)
+    MUST be refactored to resolve `LaunchIdeUseCase` from the DI container and call its `execute()` method.
+    Direct imports from the infrastructure layer MUST be removed.
+
+  - **FR-7: DI container registration** — The DI container (`container.ts`) MUST register:
+    (a) `IIdeLauncherService` token mapped to `JsonDrivenIdeLauncherService` as a singleton,
+    (b) `LaunchIdeUseCase` as a singleton,
+    (c) A string token alias `'LaunchIdeUseCase'` for web route resolution (following existing pattern).
+
+  - **FR-8: Result type preservation** — The `LaunchIdeResult` discriminated union (`LaunchIdeSuccess | LaunchIdeFailed`
+    with error codes `unknown_editor`, `editor_unavailable`, `launch_failed`) MUST be preserved so that existing
+    consumer error-handling logic continues to work unchanged.
+
+  - **FR-9: Detached process spawning** — IDE processes MUST continue to be spawned detached (`{ detached: true, stdio: 'ignore' }`)
+    with `child.unref()` so the CLI process can exit without killing the IDE.
+
+  - **FR-10: IDE metadata filtering** — The JSON-driven launcher MUST filter tool metadata by `category: "ide"` and
+    presence of `openDirectory` field when building the editor registry. Non-IDE tools (e.g., `claude-code.json`
+    with `category: "cli-agent"`) MUST be excluded.
+
+  - **FR-11: Delete old launcher classes** — The 5 hard-coded launcher classes (`vscode.launcher.ts`,
+    `cursor.launcher.ts`, `windsurf.launcher.ts`, `zed.launcher.ts`, `antigravity.launcher.ts`), the
+    `ide-launcher.interface.ts`, and the `ide-launcher.registry.ts` MUST be deleted. The `launch-ide.ts` shared
+    function MUST be replaced by the use case.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Zero-config extensibility** — Adding a new IDE MUST require only a single JSON file addition to
+    `tools/`. No TypeScript code changes, no DI registration updates, no enum additions should be needed for the
+    launcher to pick it up. (Note: the EditorType TypeSpec enum is a separate concern for settings/UI and may
+    still need updating for full integration, but the launcher itself must work with any JSON file.)
+
+  - **NFR-2: Startup performance** — Tool metadata JSON files are already loaded at module init time by
+    `tool-metadata.ts`. The JSON-driven launcher MUST NOT add additional file I/O at launch time. It should
+    read from the already-loaded `TOOL_METADATA` record.
+
+  - **NFR-3: Error clarity** — All error paths MUST produce actionable error messages. "Unknown editor" must name
+    the editor ID and list available editors. "Editor unavailable" must name the binary that was not found.
+    "Placeholder missing" must name the JSON file and the malformed `openDirectory` value.
+
+  - **NFR-4: Test coverage** — Unit tests MUST cover: (a) successful launch with placeholder substitution,
+    (b) per-platform binary resolution, (c) unknown editor ID, (d) missing `{dir}` placeholder validation,
+    (e) editor unavailability, (f) use case delegation to service. All tests MUST use TDD (RED-GREEN-REFACTOR).
+
+  - **NFR-5: Clean Architecture compliance** — No file in `presentation/` may import from `infrastructure/services/ide-launchers/`.
+    The dependency rule (presentation → application → domain, infrastructure implements application ports) MUST hold.
+
+  - **NFR-6: Backward compatibility** — The CLI command's interface (flags, arguments, output messages) and the
+    web API's interface (request/response schema, HTTP status codes) MUST remain unchanged. This is a pure
+    internal refactor with no user-facing API changes.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Delete or deprecate old launcher classes? | Delete entirely | JSON-driven launcher fully replaces them; git history preserves them if rollback needed |
+  | 2 | Full command string vs separate binary+placeholder? | Full command string (`"code {dir}"`) | Simpler, matches existing format, allows IDE-specific flags naturally |
+  | 3 | Single use case or separate list-IDEs use case? | Single LaunchIdeUseCase | Listing is not a current requirement; extract later if needed (YAGNI) |
+  | 4 | Per-platform binary handling? | Resolve via `os.platform()` when binary is an object | Fixes existing Antigravity bug; already supported by ToolMetadata type |
+  | 5 | DI token style? | String tokens (`'IIdeLauncherService'`) | Consistent with all existing service registrations in container.ts |
+  | 6 | Move computeWorktreePath into service? | Keep as free utility | Pure function with no dependencies; moving adds unnecessary coupling |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/ide-launchers/` | High | Delete 5 hard-coded launcher classes, interface, and registry; replace with single JSON-driven service |
+  | `packages/core/src/infrastructure/services/tool-installer/tools/*.json` | Medium | Update `openDirectory` field from `"binary ."` to `"binary {dir}"` in all 5 IDE JSON files |
+  | `packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts` | Low | No code changes needed; ToolMetadata interface already supports openDirectory |
+  | `packages/core/src/application/use-cases/` | High | Create new `LaunchIdeUseCase` to wrap IDE launch logic behind a use case |
+  | `packages/core/src/application/ports/output/services/` | Medium | Create `IIdeLauncherService` port interface for the JSON-driven launcher |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use case and IDE launcher service; remove old launcher imports |
+  | `src/presentation/cli/commands/ide-open.command.ts` | Medium | Refactor to call `LaunchIdeUseCase` instead of `launchIde()` directly |
+  | `src/presentation/web/app/api/ide/open/route.ts` | Medium | Refactor to call `LaunchIdeUseCase` instead of `launchIde()` directly |
+  | `tests/unit/` | High | Delete old launcher tests; add new tests for JSON-driven launcher and use case |
+
+  ## Dependencies
+
+  - **Existing JSON tool metadata**: `packages/core/src/infrastructure/services/tool-installer/tools/*.json` — already contain `openDirectory` fields
+  - **Existing tool metadata loader**: `packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts` — dynamically loads JSON files into `TOOL_METADATA`
+  - **EditorType enum**: `tsp/common/enums/editor.tsp` — maps editor IDs; used by settings and presentation layer
+  - **tsyringe DI container**: For registering the new use case and service
+  - **`computeWorktreePath()`**: Existing utility for deriving worktree paths (keep as-is, import into use case)
+  - **`ShowFeatureUseCase`**: Already used by `ide-open.command.ts` to resolve feature details before launching
+  - **`LaunchIdeResult` type**: Existing discriminated union result type to preserve for consumer compatibility
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized refactor touching ~12 files across 3 layers (application, infrastructure,
+  presentation). The core logic (parse JSON, substitute placeholder, spawn process) is straightforward.
+  The main work is: (1) creating the use case and port interface, (2) building the JSON-driven launcher
+  service with platform-aware binary resolution, (3) updating 5 JSON files with `{dir}` placeholder,
+  (4) refactoring 2 presentation layer consumers, (5) DI registration, (6) deleting old launcher classes,
+  (7) comprehensive TDD tests. No new domain models or database changes needed.
+
+  ---
+
+  _Generated by feature agent — proceed with research_

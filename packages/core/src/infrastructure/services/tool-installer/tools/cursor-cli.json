@@ -2,7 +2,7 @@
   "name": "Cursor CLI",
   "summary": "AI-powered terminal coding agent",
   "description": "Cursor CLI is a terminal-based AI coding agent that brings conversational AI assistance directly to your command line for any IDE or terminal.",
-  "category": "cli-agent",
+  "tags": ["ide", "cli-agent"],
   "binary": "cursor-agent",
   "packageManager": "curl",
   "commands": {
@@ -12,5 +12,11 @@
   "timeout": 300000,
   "documentationUrl": "https://www.codecademy.com/article/getting-started-with-cursor-cli",
   "verifyCommand": "cursor-agent --version",
-  "autoInstall": true
+  "autoInstall": true,
+  "openDirectory": "cd {dir} && exec cursor-agent",
+  "spawnOptions": {
+    "shell": true,
+    "stdio": "inherit",
+    "detached": false
+  }
 }

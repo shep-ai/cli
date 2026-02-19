@@ -1,0 +1,175 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: json-driven-ide-launch
+summary: >
+  Replace 5 hard-coded IDE launcher classes with a single JsonDrivenIdeLauncherService that reads
+  openDirectory commands from existing JSON tool metadata files. Introduce an IIdeLauncherService
+  port interface, a LaunchIdeUseCase to fix Clean Architecture violations, update JSON files to use
+  {dir} placeholder, refactor both CLI and web consumers to use the use case, and register everything
+  in the DI container. Fixes the Antigravity per-platform binary bug as a side effect.
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - tsyringe (Dependency Injection)
+  - Commander.js (CLI framework)
+  - Next.js (Web API routes)
+  - Node.js child_process (spawn)
+  - Vitest (testing)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Port Interface & Result Types'
+    description: >
+      Define the IIdeLauncherService port interface and co-locate the LaunchIdeResult discriminated
+      union types in the application layer. This establishes the contract that both the use case
+      and the infrastructure service will depend on. Must come first because all other code depends
+      on these types.
+    parallel: false
+
+  - id: phase-2
+    name: 'JSON Metadata Updates'
+    description: >
+      Update all 5 IDE JSON files to use {dir} placeholder instead of "." and fix antigravity.json
+      to use per-platform openDirectory. Update the ToolMetadata TypeScript interface to allow
+      openDirectory as string | Record<string, string>. These data changes are prerequisites for
+      the JSON-driven service.
+    parallel: false
+
+  - id: phase-3
+    name: 'JsonDrivenIdeLauncherService'
+    description: >
+      Implement the single service class that replaces all 5 hard-coded launchers. Reads from
+      TOOL_METADATA, filters by category "ide", resolves per-platform binary and openDirectory,
+      substitutes {dir} placeholder, and spawns detached processes. This is the core of the feature.
+    parallel: false
+
+  - id: phase-4
+    name: 'LaunchIdeUseCase'
+    description: >
+      Create the application-layer use case that wraps IDE launch logic. Accepts editor ID,
+      repository path, optional branch, and optional availability check flag. Computes worktree
+      path and delegates to IIdeLauncherService. Bridges the gap between presentation and
+      infrastructure layers.
+    parallel: false
+
+  - id: phase-5
+    name: 'DI Registration & Presentation Refactor'
+    description: >
+      Register the new service and use case in the DI container. Refactor both the CLI command
+      and web API route to resolve LaunchIdeUseCase instead of importing launchIde() directly.
+      Remove all infrastructure imports from presentation layer.
+    parallel: false
+
+  - id: phase-6
+    name: 'Cleanup & Validation'
+    description: >
+      Delete the 5 old launcher classes, the old interface, registry, and launch-ide.ts shared
+      function. Delete old tests. Run full validation suite (lint, format, typecheck, tests)
+      to confirm zero regressions.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/application/ports/output/services/ide-launcher-service.interface.ts
+  - packages/core/src/application/use-cases/ide/launch-ide.use-case.ts
+  - packages/core/src/infrastructure/services/ide-launchers/json-driven-ide-launcher.service.ts
+  - tests/unit/infrastructure/services/ide-launchers/json-driven-ide-launcher.service.test.ts
+  - tests/unit/application/use-cases/ide/launch-ide.use-case.test.ts
+
+filesToModify:
+  - packages/core/src/application/ports/output/services/index.ts
+  - packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts
+  - packages/core/src/infrastructure/services/tool-installer/tools/vscode.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/cursor.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/windsurf.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/zed.json
+  - packages/core/src/infrastructure/services/tool-installer/tools/antigravity.json
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/ide-open.command.ts
+  - src/presentation/web/app/api/ide/open/route.ts
+  - tests/unit/presentation/cli/commands/ide-open.command.test.ts
+  - tests/unit/presentation/web/api/ide-open-route.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This refactoring enforces Clean Architecture by introducing a proper port-interface → use-case →
+  service chain for IDE launching. The current violation has presentation-layer files (CLI command
+  and web route) directly importing `launchIde()` from the infrastructure layer.
+
+  **After refactoring:**
+  ```
+  Presentation (CLI/Web)
+    → resolves LaunchIdeUseCase from DI container
+      → calls execute({ editorId, repositoryPath, branch, checkAvailability })
+        → computes worktree path (pure utility)
+        → delegates to IIdeLauncherService (port interface)
+          → JsonDrivenIdeLauncherService (infrastructure)
+            → reads TOOL_METADATA[editorId]
+            → resolves platform-specific binary and openDirectory
+            → substitutes {dir} → spawns detached process
+  ```
+
+  The JSON tool metadata files become the single source of truth for IDE launch commands,
+  eliminating the 5 structurally-identical launcher classes.
+
+  ## Key Design Decisions
+
+  ### 1. Single Service vs Strategy Pattern
+  A single `JsonDrivenIdeLauncherService` replaces 5 launcher classes. The launchers were
+  structurally identical — only the data varied (binary name, display name, open command).
+  That data already exists in JSON files. A strategy pattern or code generation would add
+  unnecessary complexity for what is a map lookup + string substitution.
+
+  ### 2. Port Interface Location
+  `IIdeLauncherService` and `LaunchIdeResult` types are co-located in
+  `application/ports/output/services/ide-launcher-service.interface.ts`. This follows the
+  established pattern (see `WorktreeError` in `worktree-service.interface.ts`, `GitPrError`
+  in `git-pr-service.interface.ts`). Co-location allows both the use case and the service
+  implementation to share types without violating the dependency rule.
+
+  ### 3. Platform Resolution at Launch Time
+  Binary and openDirectory are resolved via `os.platform()` at launch time, not at service
+  construction. This matches the existing `resolveBinary()` pattern in tool-installer.service.ts
+  and correctly handles the Antigravity macOS binary ("agy" vs "antigravity").
+
+  ### 4. openDirectory Type Extension
+  `ToolMetadata.openDirectory` changes from `string` to `string | Record<string, string>` to
+  support per-platform values (needed for Antigravity). This is consistent with how the `binary`
+  field already works.
+
+  ### 5. DI Token Convention
+  String token `"IIdeLauncherService"` for the service, class-ref + string alias `"LaunchIdeUseCase"`
+  for the use case. Matches all existing registrations in container.ts.
+
+  ### 6. computeWorktreePath Stays as Utility
+  Pure function, no dependencies, no state. The use case imports it directly. No need to inject it.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency: types first (phase 1), then data (phase 2), then the
+  service that uses the data (phase 3), then the use case that wraps the service (phase 4),
+  then the wiring and consumer refactoring (phase 5), and finally cleanup (phase 6).
+
+  Each phase follows TDD: write failing tests first, implement minimally, then refactor.
+  This ensures the new code is correct before old code is deleted.
+
+  The old launcher classes coexist with the new service until phase 6, allowing incremental
+  validation. The old tests are only deleted after new tests provide equivalent coverage.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking existing IDE launch behavior | New tests mirror old test coverage; old code coexists until phase 6; full test suite run before deletion |
+  | Web route DI resolution fails at runtime | Follow exact pattern from features/create/route.ts which is proven; test with mock container |
+  | Per-platform binary resolution edge cases | Test with mocked os.platform() for linux, darwin, and unknown platforms with fallback |
+  | {dir} placeholder missing in JSON | Service validates at launch time and returns clear error; tests cover this case |
+  | Import path changes break consumers | Run `pnpm validate` (lint + typecheck + format + tsp) after every phase |
+  | TOOL_METADATA load order issue | Service reads from already-loaded module-level constant; no timing dependency |

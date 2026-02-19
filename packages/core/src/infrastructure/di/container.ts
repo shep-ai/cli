@@ -38,6 +38,8 @@ import type { IToolInstallerService } from '../../application/ports/output/servi
 import { ToolInstallerServiceImpl } from '../services/tool-installer/tool-installer.service.js';
 import type { IGitPrService } from '../../application/ports/output/services/git-pr-service.interface.js';
 import { GitPrService } from '../services/git/git-pr.service.js';
+import type { IIdeLauncherService } from '../../application/ports/output/services/ide-launcher-service.interface.js';
+import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -92,6 +94,7 @@ import { DeleteFeatureUseCase } from '../../application/use-cases/features/delet
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
+import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use-case.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -151,6 +154,10 @@ export async function initializeContainer(): Promise<typeof container> {
     ToolInstallerServiceImpl
   );
   container.registerSingleton<IGitPrService>('IGitPrService', GitPrService);
+  container.registerSingleton<IIdeLauncherService>(
+    'IIdeLauncherService',
+    JsonDrivenIdeLauncherService
+  );
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {
@@ -266,6 +273,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ResumeFeatureUseCase);
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
+  container.registerSingleton(LaunchIdeUseCase);
 
   // String-token aliases for web routes (Turbopack can't resolve .js→.ts
   // imports inside @shepai/core, so routes use string tokens instead of class refs)
@@ -277,6 +285,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('DeleteFeatureUseCase', {
     useFactory: (c) => c.resolve(DeleteFeatureUseCase),
+  });
+  container.register('LaunchIdeUseCase', {
+    useFactory: (c) => c.resolve(LaunchIdeUseCase),
   });
 
   _initialized = true;

@@ -22,8 +22,8 @@ export interface ToolMetadata {
   /** Detailed description */
   description: string;
 
-  /** Tool category for grouping in listings */
-  category: 'ide' | 'cli-agent';
+  /** Tool tags for grouping in listings. A tool can belong to multiple categories. */
+  tags: ('ide' | 'cli-agent')[];
 
   /** Binary name to check with 'which' command (string or per-platform map) */
   binary: string | Record<string, string>;
@@ -46,15 +46,26 @@ export interface ToolMetadata {
   /** Whether the tool supports automated installation (default: true) */
   autoInstall?: boolean;
 
-  /** Command to open a directory in this tool (e.g., "code .") */
-  openDirectory?: string;
+  /** Command to open a directory in this tool.
+   * String format: "code {dir}" — single command for all platforms.
+   * Object format: { "linux": "antigravity {dir}", "darwin": "agy {dir}" } — per-platform commands. */
+  openDirectory?: string | Record<string, string>;
+
+  /** Override default spawn options for the launch process.
+   * Defaults: { detached: true, stdio: "ignore" } (GUI IDEs).
+   * CLI agents should use { shell: true, stdio: "inherit" } to run in the current terminal. */
+  spawnOptions?: {
+    shell?: boolean;
+    stdio?: 'ignore' | 'inherit' | 'pipe';
+    detached?: boolean;
+  };
 }
 
 const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [
   'name',
   'summary',
   'description',
-  'category',
+  'tags',
   'binary',
   'packageManager',
   'commands',
@@ -95,3 +106,12 @@ function loadToolMetadata(): Record<string, ToolMetadata> {
 }
 
 export const TOOL_METADATA: Record<string, ToolMetadata> = loadToolMetadata();
+
+/**
+ * Returns entries from TOOL_METADATA that can open a directory as an IDE.
+ * A tool qualifies if it has an `openDirectory` field, regardless of category.
+ * Each entry is [toolId, metadata].
+ */
+export function getIdeEntries(): [string, ToolMetadata][] {
+  return Object.entries(TOOL_METADATA).filter(([, meta]) => meta.openDirectory != null);
+}
