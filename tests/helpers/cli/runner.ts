@@ -104,6 +104,12 @@ const CLI_PATH_DEV = resolve(PROJECT_ROOT, 'src/presentation/cli/index.ts');
 const CLI_PATH_DIST = resolve(PROJECT_ROOT, 'dist/src/presentation/cli/index.js');
 
 /**
+ * Whether to use compiled dist/ by default (set via SHEP_E2E_USE_DIST=1).
+ * Running against dist/ is ~3.5x faster per spawn since it skips tsx compilation.
+ */
+const USE_DIST_BY_DEFAULT = !!process.env.SHEP_E2E_USE_DIST;
+
+/**
  * Default runner options
  */
 const DEFAULT_OPTIONS: Required<CliRunnerOptions> = {
@@ -141,7 +147,7 @@ function getModuleShepHome(): string {
 function executeCommand(
   args: string,
   options: Required<CliRunnerOptions>,
-  useDist = false
+  useDist = USE_DIST_BY_DEFAULT
 ): CliResult {
   const cliPath = useDist ? CLI_PATH_DIST : CLI_PATH_DEV;
   const runner = useDist ? 'node' : 'npx tsx';
@@ -193,7 +199,10 @@ function executeCommand(
  * @param useDist - Use compiled dist instead of tsx (for production testing)
  * @returns CLI runner instance
  */
-export function createCliRunner(options: CliRunnerOptions = {}, useDist = false): CliRunner {
+export function createCliRunner(
+  options: CliRunnerOptions = {},
+  useDist = USE_DIST_BY_DEFAULT
+): CliRunner {
   // Auto-isolate: set SHEP_HOME to a module-level temp dir unless caller provides one or HOME override.
   // Uses a shared dir per test file (vitest worker) so the database is initialized once per file.
   const needsIsolation = !options.env?.SHEP_HOME && !options.env?.HOME;
@@ -284,8 +293,9 @@ export function runCli(args: string): CliResult {
  */
 export async function runCliAsync(args: string): Promise<CliResult> {
   const shepHome = getModuleShepHome();
-  const cliPath = CLI_PATH_DEV;
-  const command = `npx tsx ${cliPath} ${args}`;
+  const cliPath = USE_DIST_BY_DEFAULT ? CLI_PATH_DIST : CLI_PATH_DEV;
+  const runner = USE_DIST_BY_DEFAULT ? 'node' : 'npx tsx';
+  const command = `${runner} ${cliPath} ${args}`;
 
   const execOptions = {
     cwd: DEFAULT_OPTIONS.cwd,
