@@ -1,0 +1,65 @@
+# Research Artifact (YAML) — ResearchArtifact schema
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: artifact-schemas
+summary: >
+  Technical research for creating TypeSpec artifact schemas. Key decisions: rename FeatureSpec
+  to FeatureArtifact, PlanSpec to TechnicalPlanArtifact to clarify intent, keep SpecArtifactBase
+  as shared base, make PlanPhase.taskIds optional, and use js-yaml for parsing validation tests.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec
+  - Vitest
+  - js-yaml
+
+relatedLinks: []
+
+decisions:
+  - title: 'Schema Naming Convention'
+    chosen: >
+      Use *Artifact suffix for all spec schemas: FeatureArtifact, ResearchArtifact,
+      TechnicalPlanArtifact, TasksArtifact. This distinguishes spec artifact types from
+      domain entities (Feature, Task, etc.) and makes the purpose clear.
+    rejected:
+      - >
+        Keep *Spec suffix (FeatureSpec, ResearchSpec, etc.) — Rejected because "Spec" is
+        ambiguous and doesn't clearly indicate these are artifact schemas for the YAML files.
+    rationale: >
+      The *Artifact suffix aligns with the concept of spec artifacts in the YAML-first system.
+      FeatureArtifact clearly indicates this is the schema for the feature specification artifact
+      (PRD), not the Feature domain entity. TechnicalPlanArtifact distinguishes from PlanSpec
+      by explicitly naming it as a technical implementation plan.
+
+  - title: 'PlanPhase.taskIds Optionality'
+    chosen: >
+      Make PlanPhase.taskIds an optional field. Plan phases in plan.yaml do not reference task
+      IDs because the task breakdown lives in a separate tasks.yaml file. The parser returns
+      undefined when the field is absent.
+    rejected:
+      - >
+        Keep taskIds as required and default to empty array — Rejected because this forces a
+        field that has no semantic meaning in plan.yaml. Optional better represents the actual
+        data shape.
+    rationale: >
+      The plan.yaml phases describe implementation strategy at a high level. Task-level details
+      are in tasks.yaml. Requiring taskIds in PlanPhase would create a misleading schema that
+      doesn't match the YAML source of truth.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Schema Naming Convention
+
+  **Chosen:** Use *Artifact suffix (FeatureArtifact, ResearchArtifact, TechnicalPlanArtifact, TasksArtifact).
+
+  **Rationale:** Distinguishes spec artifact schemas from domain entities and aligns with the YAML-first spec system naming.
+
+  ### 2. PlanPhase.taskIds Optionality
+
+  **Chosen:** Make taskIds optional in PlanPhase.
+
+  **Rationale:** plan.yaml phases don't reference task IDs. Task breakdown lives in tasks.yaml.

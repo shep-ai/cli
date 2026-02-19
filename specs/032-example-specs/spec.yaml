@@ -1,0 +1,57 @@
+# Feature Specification (YAML) — FeatureArtifact schema
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: artifact-schemas
+number: 032
+branch: feat/artifacts-schemas
+oneLiner: Create TypeSpec artifact schemas for spec YAML files with 1:1 field mapping
+summary: >
+  Define four TypeSpec artifact schemas (FeatureArtifact, ResearchArtifact, TechnicalPlanArtifact,
+  TasksArtifact) that map 1:1 to the spec YAML files (spec.yaml, research.yaml, plan.yaml,
+  tasks.yaml). All schemas extend SpecArtifactBase for shared metadata fields. Includes YAML
+  parsing tests that validate real spec files against the generated TypeScript types.
+phase: Implementation
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec
+  - Vitest
+  - js-yaml
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should PlanPhase.taskIds be required or optional?'
+    resolved: true
+    options:
+      - option: Required (always present)
+        description: Every phase must list its task IDs explicitly.
+        selected: false
+      - option: Optional (not always present)
+        description: Phases in plan.yaml may not reference tasks since tasks live in tasks.yaml.
+        selected: true
+    selectionRationale: >
+      plan.yaml phases describe implementation strategy without explicit task IDs. Task
+      breakdown lives in tasks.yaml. Making taskIds optional avoids forcing a field that is
+      not naturally part of the plan artifact.
+
+content: |
+  ## Problem Statement
+
+  The spec YAML files (spec.yaml, research.yaml, plan.yaml, tasks.yaml) need TypeSpec schemas
+  that define their structure with a 1:1 field mapping. This ensures type-safe parsing and
+  validation of spec artifacts.
+
+  ## Success Criteria
+
+  - [ ] FeatureArtifact schema maps to spec.yaml fields
+  - [ ] ResearchArtifact schema maps to research.yaml fields
+  - [ ] TechnicalPlanArtifact schema maps to plan.yaml fields
+  - [ ] TasksArtifact schema maps to tasks.yaml fields
+  - [ ] All schemas extend SpecArtifactBase
+  - [ ] 4 unit tests parse real YAML files without errors
+  - [ ] PlanPhase.taskIds is optional to match YAML reality

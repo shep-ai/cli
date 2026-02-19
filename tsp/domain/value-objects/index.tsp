@@ -16,6 +16,13 @@
  * - **PlanPhase**: Implementation phase grouping tasks
  * - **TddCycle**: Test-Driven Development cycle phases
  * - **SpecTask**: Task definition within spec's task breakdown
+ * - **FeatureIdentity**: Feature identity metadata in feature.yaml
+ * - **FeatureStatusProgress**: Task completion progress counters
+ * - **FeatureStatusInfo**: Feature execution status
+ * - **FeatureValidation**: Validation gate results
+ * - **FeatureTaskTracking**: Task execution tracking state
+ * - **FeatureCheckpoint**: Milestone checkpoint for phase completion
+ * - **FeatureErrors**: Error tracking state
  *
  * ## Usage
  *
@@ -34,3 +41,4 @@ import "./spec-metadata.tsp";
 import "./tool-installation-status.tsp";
 import "./tool-install-command.tsp";
 import "./pull-request.tsp";
+import "./feature-status-metadata.tsp";
