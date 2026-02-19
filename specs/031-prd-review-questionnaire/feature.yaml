@@ -5,15 +5,16 @@ feature:
   branch: feat/031-prd-review-questionnaire
   lifecycle: review
   createdAt: '2026-02-19T12:51:16Z'
+prUrl: 'https://github.com/shep-ai/cli/pull/79'
 status:
-  phase: ready-for-review
+  phase: in-review
   progress:
     completed: 17
     total: 17
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-19T19:22:00Z'
-  lastUpdatedBy: shep-kit:implement
+  lastUpdated: '2026-02-19T19:25:00Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -38,6 +39,9 @@ checkpoints:
   - phase: implementation-complete
     completedAt: '2026-02-19T19:22:00Z'
     completedBy: shep-kit:implement
+  - phase: pr-created
+    completedAt: '2026-02-19T19:25:00Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
