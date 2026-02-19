@@ -91,11 +91,11 @@ export function useControlCenterState(
         return serverNode;
       });
     });
-  }, [initialNodeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialNodeKey]);
 
   useEffect(() => {
     setEdges(initialEdges);
-  }, [initialEdgeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialEdgeKey]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));

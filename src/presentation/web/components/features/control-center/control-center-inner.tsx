@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import { toast } from 'sonner';
+import { approveFeature } from '@/app/actions/approve-feature';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
@@ -202,23 +203,16 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       const featureId = selectedNode?.featureId;
       if (!featureId) return;
 
-      try {
-        const response = await fetch(`/api/features/${featureId}/approve`, {
-          method: 'POST',
-        });
+      const result = await approveFeature(featureId);
 
-        if (!response.ok) {
-          const body = await response.json();
-          toast.error(body.error ?? 'Failed to approve requirements');
-          return;
-        }
-
-        toast.success('Requirements approved — agent resuming');
-        clearSelection();
-        setPrdSelections({});
-      } catch {
-        toast.error('Failed to approve requirements');
+      if (!result.approved) {
+        toast.error(result.error ?? 'Failed to approve requirements');
+        return;
       }
+
+      toast.success('Requirements approved — agent resuming');
+      clearSelection();
+      setPrdSelections({});
     },
     [selectedNode?.featureId, clearSelection]
   );
