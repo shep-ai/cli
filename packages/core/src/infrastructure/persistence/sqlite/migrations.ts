@@ -227,6 +227,12 @@ ALTER TABLE features ADD COLUMN user_query TEXT NOT NULL DEFAULT '';
 ];
 
 /**
+ * The latest schema version (highest migration version number).
+ * Exported for test assertions so they don't hardcode version numbers.
+ */
+export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
+
+/**
  * Runs all pending database migrations.
  * Safe to call multiple times (idempotent).
  *
