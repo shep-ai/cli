@@ -88,6 +88,7 @@ import { ShowFeatureUseCase } from '../../application/use-cases/features/show-fe
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
 import { GetFeatureArtifactUseCase } from '../../application/use-cases/features/get-feature-artifact.use-case.js';
+import { GetResearchArtifactUseCase } from '../../application/use-cases/features/get-research-artifact.use-case.js';
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
 
@@ -262,6 +263,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(DeleteFeatureUseCase);
   container.registerSingleton(ResumeFeatureUseCase);
   container.registerSingleton(GetFeatureArtifactUseCase);
+  container.registerSingleton(GetResearchArtifactUseCase);
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
 
@@ -281,6 +283,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetFeatureArtifactUseCase', {
     useFactory: (c) => c.resolve(GetFeatureArtifactUseCase),
+  });
+  container.register('GetResearchArtifactUseCase', {
+    useFactory: (c) => c.resolve(GetResearchArtifactUseCase),
   });
 
   _initialized = true;

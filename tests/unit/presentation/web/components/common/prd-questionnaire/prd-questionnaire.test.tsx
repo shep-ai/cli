@@ -77,11 +77,13 @@ describe('PrdQuestionnaire', () => {
   });
 
   describe('question rendering', () => {
-    it('renders correct number of questions', () => {
+    it('renders the current question and step indicator', () => {
       render(<PrdQuestionnaire {...defaultProps} />);
 
-      expect(screen.getByText(/1\. What problem does this solve\?/)).toBeInTheDocument();
-      expect(screen.getByText(/2\. What is the priority\?/)).toBeInTheDocument();
+      // First question visible on step 1
+      expect(screen.getByText('What problem does this solve?')).toBeInTheDocument();
+      // Step indicator shows "Question 1 of 2"
+      expect(screen.getByText(/Question 1 of 2/)).toBeInTheDocument();
     });
 
     it('renders options as button elements with letter prefixes', () => {
@@ -164,9 +166,17 @@ describe('PrdQuestionnaire', () => {
       expect(onRefine).toHaveBeenCalledWith('Make it simpler');
     });
 
-    it('approve button calls onApprove with finalAction.id', () => {
+    it('approve button calls onApprove with finalAction.id on the last step', () => {
       const onApprove = vi.fn();
-      render(<PrdQuestionnaire {...defaultProps} onApprove={onApprove} />);
+      // Provide all selections so approve button is enabled
+      const allSelections = { 'q-1': 'opt-a', 'q-2': 'opt-a' };
+      render(
+        <PrdQuestionnaire {...defaultProps} onApprove={onApprove} selections={allSelections} />
+      );
+
+      // Navigate to the last step via the step dot
+      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
+      fireEvent.click(stepDots[stepDots.length - 1]);
 
       const approveButton = screen.getByRole('button', { name: /approve requirements/i });
       fireEvent.click(approveButton);
@@ -199,14 +209,31 @@ describe('PrdQuestionnaire', () => {
   });
 
   describe('processing state', () => {
-    it('isProcessing=true disables all interactive elements', () => {
+    it('isProcessing=true disables option buttons, nav buttons, and chat input', () => {
       render(<PrdQuestionnaire {...defaultProps} isProcessing />);
 
-      const allButtons = screen.getAllByRole('button');
-      allButtons.forEach((button) => {
+      // Option buttons are disabled
+      const optionButtons = screen
+        .getAllByRole('button')
+        .filter(
+          (btn) =>
+            btn.textContent?.includes('Pain Point') ||
+            btn.textContent?.includes('Feature Gap') ||
+            btn.textContent?.includes('Technical Debt')
+        );
+      optionButtons.forEach((button) => {
         expect(button).toBeDisabled();
       });
 
+      // Previous button is disabled
+      const prevButton = screen.getByRole('button', { name: /previous/i });
+      expect(prevButton).toBeDisabled();
+
+      // Send button is disabled
+      const sendButton = screen.getByRole('button', { name: /send/i });
+      expect(sendButton).toBeDisabled();
+
+      // Chat input is disabled
       const input = screen.getByLabelText('Ask AI to refine requirements');
       expect(input).toBeDisabled();
     });

@@ -5,11 +5,14 @@ import type { Edge } from '@xyflow/react';
 import { toast } from 'sonner';
 import { approveFeature } from '@/app/actions/approve-feature';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
+import { getResearchArtifact } from '@/app/actions/get-research-artifact';
+import type { TechDecisionsReviewData } from '@/components/common/tech-decisions-review';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
 import { PrdQuestionnaireDrawer } from '@/components/common/prd-questionnaire';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
+import { TechDecisionsDrawer } from '@/components/common/tech-decisions-review';
 import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
@@ -46,8 +49,15 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const [questionnaireData, setQuestionnaireData] = useState<PrdQuestionnaireData | null>(null);
   const [isLoadingQuestionnaire, setIsLoadingQuestionnaire] = useState(false);
 
+  // Tech decisions drawer state
+  const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
+  const [isLoadingTechDecisions, setIsLoadingTechDecisions] = useState(false);
+
   const showPrdDrawer =
     selectedNode?.lifecycle === 'requirements' && selectedNode?.state === 'action-required';
+
+  const showTechDecisionsDrawer =
+    selectedNode?.lifecycle === 'research' && selectedNode?.state === 'action-required';
 
   const handlePrdSelect = useCallback((questionId: string, optionId: string) => {
     setPrdSelections((prev) => ({ ...prev, [questionId]: optionId }));
@@ -79,6 +89,21 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     },
     [selectedNode?.featureId, clearSelection]
   );
+
+  const handleTechDecisionsApprove = useCallback(async () => {
+    const featureId = selectedNode?.featureId;
+    if (!featureId) return;
+
+    const result = await approveFeature(featureId);
+
+    if (!result.approved) {
+      toast.error(result.error ?? 'Failed to approve plan');
+      return;
+    }
+
+    toast.success('Plan approved — agent resuming');
+    clearSelection();
+  }, [selectedNode?.featureId, clearSelection]);
 
   // Fetch questionnaire data and reset selections when a different feature is selected
   const prdFeatureId = showPrdDrawer ? selectedNode?.featureId : null;
@@ -113,6 +138,38 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     };
   }, [prdFeatureId]);
 
+  // Fetch tech decisions data when a feature is in research + action-required
+  const techDecisionsFeatureId = showTechDecisionsDrawer ? selectedNode?.featureId : null;
+  useEffect(() => {
+    setTechDecisionsData(null);
+
+    if (!techDecisionsFeatureId) return;
+
+    let cancelled = false;
+    setIsLoadingTechDecisions(true);
+    getResearchArtifact(techDecisionsFeatureId)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        if (result.techDecisions) {
+          setTechDecisionsData(result.techDecisions);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Failed to load tech decisions');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingTechDecisions(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [techDecisionsFeatureId]);
+
   // Listen for global "open create drawer" events from the sidebar
   useEffect(() => {
     const handler = () => handleAddFeature();
@@ -137,7 +194,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />
       <FeatureDrawer
-        selectedNode={showPrdDrawer ? null : selectedNode}
+        selectedNode={showPrdDrawer || showTechDecisionsDrawer ? null : selectedNode}
         onClose={clearSelection}
         onDelete={handleDeleteFeature}
         isDeleting={isDeleting}
@@ -159,6 +216,22 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
           isProcessing={isPrdProcessing || isLoadingQuestionnaire}
+        />
+      ) : null}
+      {techDecisionsData ? (
+        <TechDecisionsDrawer
+          open={showTechDecisionsDrawer}
+          onClose={clearSelection}
+          featureName={selectedNode?.name ?? ''}
+          featureId={selectedNode?.featureId}
+          repositoryPath={selectedNode?.repositoryPath}
+          branch={selectedNode?.branch}
+          specPath={selectedNode?.specPath}
+          data={techDecisionsData}
+          onApprove={handleTechDecisionsApprove}
+          onDelete={handleDeleteFeature}
+          isDeleting={isDeleting}
+          isProcessing={isLoadingTechDecisions}
         />
       ) : null}
       <FeatureCreateDrawer
