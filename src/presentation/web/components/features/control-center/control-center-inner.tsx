@@ -10,6 +10,7 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
 import { PrdQuestionnaireDrawer } from '@/components/common/prd-questionnaire';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
+import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -121,6 +122,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   return (
     <>
+      <NotificationPermissionBanner />
       <FeaturesCanvas
         nodes={nodes}
         edges={edges}

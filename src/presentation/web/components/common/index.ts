@@ -29,6 +29,7 @@ export {
 export { FeatureStatusBadges, type FeatureStatusBadgesProps } from './feature-status-badges';
 export { FeatureStatusGroup, type FeatureStatusGroupProps } from './feature-status-group';
 export { LoadingSkeleton } from './loading-skeleton';
+export { NotificationPermissionBanner } from './notification-permission-banner';
 export {
   RepositoryNode,
   type RepositoryNodeData,

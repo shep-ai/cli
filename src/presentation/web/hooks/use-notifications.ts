@@ -7,7 +7,6 @@ import { NotificationSeverity } from '@shepai/core/domain/generated/output';
 import { useAgentEvents } from './use-agent-events';
 
 export interface UseNotificationsOptions {
-  browserEnabled?: boolean;
   runId?: string;
 }
 
@@ -36,7 +35,6 @@ function dispatchBrowserNotification(event: NotificationEvent): void {
 }
 
 export function useNotifications(options?: UseNotificationsOptions): UseNotificationsResult {
-  const browserEnabled = options?.browserEnabled ?? false;
   const { lastEvent } = useAgentEvents({ runId: options?.runId });
 
   const [browserPermissionState, setBrowserPermissionState] = useState<NotificationPermission>(
@@ -57,14 +55,9 @@ export function useNotifications(options?: UseNotificationsOptions): UseNotifica
     if (processedRef.current.has(key)) return;
     processedRef.current.add(key);
 
-    // Always dispatch toast
     dispatchToast(lastEvent);
-
-    // Dispatch browser notification if enabled and permitted
-    if (browserEnabled) {
-      dispatchBrowserNotification(lastEvent);
-    }
-  }, [lastEvent, browserEnabled]);
+    dispatchBrowserNotification(lastEvent);
+  }, [lastEvent]);
 
   const requestBrowserPermission = useCallback(async () => {
     if (typeof globalThis.Notification === 'undefined') return;
