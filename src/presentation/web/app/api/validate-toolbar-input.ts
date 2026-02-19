@@ -1,13 +1,14 @@
 /**
- * Shared input validation for feature toolbar API routes.
+ * Shared input validation for toolbar API routes.
  *
- * Validates that repositoryPath is a non-empty absolute path and branch is a
- * non-empty string without path traversal sequences or null bytes.
+ * Validates that repositoryPath is a non-empty absolute path. When branch is
+ * provided, validates it as a non-empty string without path traversal sequences
+ * or null bytes. When branch is omitted, returns { repositoryPath, branch: undefined }.
  */
 
 interface ValidInput {
   repositoryPath: string;
-  branch: string;
+  branch: string | undefined;
 }
 interface ValidationError {
   error: string;
@@ -23,6 +24,10 @@ export function validateToolbarInput(body: Record<string, unknown>): ValidInput 
 
   if (!repositoryPath.startsWith('/')) {
     return { error: 'repositoryPath must be an absolute path (starting with /)', status: 400 };
+  }
+
+  if (typeof branch === 'undefined') {
+    return { repositoryPath, branch: undefined };
   }
 
   if (typeof branch !== 'string' || branch.length === 0) {

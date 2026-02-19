@@ -28,33 +28,28 @@ diagramType
 **Choose the right diagram type:**
 
 1. **Class Diagrams** - Domain modeling, OOP design, entity relationships
-
    - Domain-driven design documentation
    - Object-oriented class structures
    - Entity relationships and dependencies
 
 2. **Sequence Diagrams** - Temporal interactions, message flows
-
    - API request/response flows
    - User authentication flows
    - System component interactions
    - Method call sequences
 
 3. **Flowcharts** - Processes, algorithms, decision trees
-
    - User journeys and workflows
    - Business processes
    - Algorithm logic
    - Deployment pipelines
 
 4. **Entity Relationship Diagrams (ERD)** - Database schemas
-
    - Table relationships
    - Data modeling
    - Schema design
 
 5. **C4 Diagrams** - Software architecture at multiple levels
-
    - System Context (systems and users)
    - Container (applications, databases, services)
    - Component (internal structure)

@@ -17,8 +17,7 @@ const cometSpinnerVariants = cva('inline-block shrink-0', {
 });
 
 export interface CometSpinnerProps
-  extends React.SVGAttributes<SVGSVGElement>,
-    VariantProps<typeof cometSpinnerVariants> {
+  extends React.SVGAttributes<SVGSVGElement>, VariantProps<typeof cometSpinnerVariants> {
   /** Duration in seconds for the outer rotation. */
   duration?: number;
 }

@@ -1,7 +1,8 @@
 'use client';
 
-import { XIcon, Code2, Terminal, Loader2, CircleAlert, Trash2 } from 'lucide-react';
+import { XIcon, Code2, Terminal, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ActionButton } from '@/components/common/action-button';
 import {
   Drawer,
   DrawerContent,
@@ -216,14 +217,14 @@ function DrawerActions({ repositoryPath, branch }: { repositoryPath: string; bra
 
   return (
     <div className="flex gap-2 px-4 pb-3">
-      <DrawerActionButton
+      <ActionButton
         label="Open in IDE"
         onClick={openInIde}
         loading={ideLoading}
         error={!!ideError}
         icon={Code2}
       />
-      <DrawerActionButton
+      <ActionButton
         label="Open in Shell"
         onClick={openInShell}
         loading={shellLoading}
@@ -231,39 +232,5 @@ function DrawerActions({ repositoryPath, branch }: { repositoryPath: string; bra
         icon={Terminal}
       />
     </div>
-  );
-}
-
-function DrawerActionButton({
-  label,
-  onClick,
-  loading,
-  error,
-  icon: Icon,
-}: {
-  label: string;
-  onClick: () => void;
-  loading: boolean;
-  error: boolean;
-  icon: typeof Code2;
-}) {
-  return (
-    <Button
-      variant="outline"
-      size="sm"
-      aria-label={label}
-      disabled={loading}
-      onClick={onClick}
-      className={cn('gap-1.5', error && 'text-destructive hover:text-destructive')}
-    >
-      {loading ? (
-        <Loader2 className="size-4 animate-spin" />
-      ) : error ? (
-        <CircleAlert className="size-4" />
-      ) : (
-        <Icon className="size-4" />
-      )}
-      {label}
-    </Button>
   );
 }

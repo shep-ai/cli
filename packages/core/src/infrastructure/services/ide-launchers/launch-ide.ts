@@ -14,8 +14,8 @@ export interface LaunchIdeInput {
   editorId: EditorType;
   /** Absolute path to the repository root. */
   repositoryPath: string;
-  /** Git branch name. */
-  branch: string;
+  /** Git branch name. When omitted, repositoryPath is used directly. */
+  branch?: string;
   /** Whether to verify binary availability before launching. Default: false. */
   checkAvailability?: boolean;
 }
@@ -58,7 +58,9 @@ export async function launchIde(input: LaunchIdeInput): Promise<LaunchIdeResult>
   }
 
   try {
-    const worktreePath = computeWorktreePath(input.repositoryPath, input.branch);
+    const worktreePath = input.branch
+      ? computeWorktreePath(input.repositoryPath, input.branch)
+      : input.repositoryPath;
     await launcher.launch(worktreePath);
     return { ok: true, editorName: launcher.name, worktreePath };
   } catch (error) {

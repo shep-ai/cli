@@ -47,13 +47,29 @@ describe('POST /api/ide/open', () => {
     expect(body.error).toContain('repositoryPath');
   });
 
-  it('returns 400 for missing branch', async () => {
+  it('calls launchIde without branch when branch is not provided', async () => {
+    const request = createRequest({ repositoryPath: '/home/user/project' });
+    await POST(request);
+
+    expect(mockLaunchIde).toHaveBeenCalledWith({
+      editorId: 'vscode',
+      repositoryPath: '/home/user/project',
+      branch: undefined,
+      checkAvailability: true,
+    });
+  });
+
+  it('returns 200 with success when branch is not provided', async () => {
     const request = createRequest({ repositoryPath: '/home/user/project' });
     const response = await POST(request);
     const body = await response.json();
 
-    expect(response.status).toBe(400);
-    expect(body.error).toContain('branch');
+    expect(response.status).toBe(200);
+    expect(body).toEqual({
+      success: true,
+      editor: 'VS Code',
+      path: '/mock/.shep/repos/abc123/wt/feat-test',
+    });
   });
 
   it('returns 400 for relative repositoryPath', async () => {

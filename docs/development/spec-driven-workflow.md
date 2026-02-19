@@ -167,7 +167,6 @@ specs/                              # Root-level spec directory
 **What happens:**
 
 1. **Pre-Implementation Validation Gate** (automatic):
-
    - Runs `pnpm spec:validate` against the YAML spec files
    - Completeness check (all YAML files present, required keys populated, `openQuestions` resolved)
    - Architecture validation (Clean Architecture, TypeSpec-first, TDD phases defined in `plan.yaml`)
@@ -176,14 +175,12 @@ specs/                              # Root-level spec directory
    - **Blocks if critical issues found** (must be fixed in the YAML source files)
 
 2. **Smart Session Resumption**:
-
    - Reads `feature.yaml` to determine current state
    - Shows progress summary (7/12 tasks complete, etc.)
    - Validates previous work (tests pass, build succeeds)
    - Automatically continues from last task
 
 3. **Autonomous Task Execution**:
-
    - Executes tasks from `tasks.yaml` sequentially
    - **Follows TDD discipline strictly** (RED→GREEN→REFACTOR)
    - Runs verification after each task (tests, build, typecheck, lint)
@@ -191,7 +188,6 @@ specs/                              # Root-level spec directory
    - Self-corrects errors with bounded retry (max 3 attempts)
 
 4. **Error Handling**:
-
    - Captures error details
    - Runs systematic debugging
    - Attempts fix (up to 3 times)

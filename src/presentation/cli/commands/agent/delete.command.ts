@@ -29,9 +29,8 @@ export function createDeleteCommand(): Command {
 
         if (opts.force && resolved.run.status === 'running') {
           // Force delete: stop first, then delete
-          const { StopAgentRunUseCase } = await import(
-            '@/application/use-cases/agents/stop-agent-run.use-case.js'
-          );
+          const { StopAgentRunUseCase } =
+            await import('@/application/use-cases/agents/stop-agent-run.use-case.js');
           const stopUseCase = container.resolve(StopAgentRunUseCase);
           await stopUseCase.execute(resolved.run.id);
         }

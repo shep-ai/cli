@@ -8,7 +8,6 @@
 ### Phase 1: SKILL.md Review Watch Extension
 
 - [ ] **Task 1:** Add Step 6 header and review detection phase to SKILL.md
-
   - Add Step 6 after existing Step 5
   - Document two-phase detection (check wait + API fetch)
   - Provide `gh api` commands for all three review endpoints
@@ -23,7 +22,6 @@
 ### Phase 2: SKILL.md Review Fix Loop Extension
 
 - [ ] **Task 3:** Add Step 7 review fix loop to SKILL.md
-
   - Document fix application strategy (suggestions, AI-interpreted)
   - Define commit message format (`fix(review): ...`)
   - Document loop control (max 5 iterations, convergence detection)
@@ -38,7 +36,6 @@
 ### Phase 3: Documentation Updates [P]
 
 - [ ] **Task 5:** Update feature-yaml-protocol.md with review loop extensions
-
   - Add review-watching and review-fixing phases
   - Document review loop checkpoints
   - Document `reviewLoop` field schema

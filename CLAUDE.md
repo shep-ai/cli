@@ -38,7 +38,6 @@ Feature specifications live in `specs/NNN-feature-name/`:
 **What it does:**
 
 1. **Pre-Implementation Validation Gate**:
-
    - Checks spec completeness (no open questions)
    - Validates architecture compliance (Clean Architecture, TypeSpec-first, TDD phases)
    - Verifies cross-document consistency
@@ -46,7 +45,6 @@ Feature specifications live in `specs/NNN-feature-name/`:
    - **Blocks on critical problems**
 
 2. **Autonomous Execution**:
-
    - Reads `feature.yaml` for current state
    - Resumes from last task automatically
    - Executes tasks from `tasks.md` following TDD

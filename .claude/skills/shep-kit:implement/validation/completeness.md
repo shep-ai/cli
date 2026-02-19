@@ -187,11 +187,9 @@ openQuestions:
 ### Can Be Fixed Automatically
 
 1. **Missing openQuestions key:**
-
    - Add `openQuestions: []` to YAML
 
 2. **Missing tasks.yaml but plan.yaml exists:**
-
    - Create tasks.yaml from template
 
 3. **Regenerate stale Markdown:**
@@ -216,13 +214,11 @@ Review changes? (y/n)
 ### Cannot Be Fixed Automatically
 
 1. **Missing critical content:**
-
    - Empty problemStatement
    - No successCriteria entries
    - Missing acceptanceCriteria in tasks
 
 2. **Unresolved open questions with content:**
-
    - Require design decisions
    - Need research or user input
 

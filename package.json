@@ -39,7 +39,7 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx --tsconfig tsconfig.json src/presentation/web/dev-server.ts",
     "dev:cli": "tsx src/presentation/cli/index.ts",
     "dev:web": "tsx --tsconfig tsconfig.json src/presentation/web/dev-server.ts",
     "dev:storybook": "storybook dev -p 6006",
@@ -156,7 +156,10 @@
       "better-sqlite3",
       "esbuild",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "minimatch": "^7.x"
+    }
   },
   "packageManager": "pnpm@10.30.0",
   "dependencies": {
@@ -173,6 +176,7 @@
     "commander": "^14.0.3",
     "js-yaml": "^4.1.1",
     "lucide-react": "^0.563.0",
+    "minimatch": "^7.4.6",
     "next": "^16.1.6",
     "node-notifier": "^10.0.1",
     "picocolors": "^1.1.1",

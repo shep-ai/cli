@@ -67,12 +67,24 @@ describe('validateToolbarInput', () => {
     });
   });
 
-  it('returns error 400 for missing branch', () => {
+  it('returns valid input when branch is omitted', () => {
     const result = validateToolbarInput({ repositoryPath: '/home/user/project' });
 
     expect(result).toEqual({
-      error: 'branch is required and must be a non-empty string',
-      status: 400,
+      repositoryPath: '/home/user/project',
+      branch: undefined,
+    });
+  });
+
+  it('returns valid input when branch is undefined', () => {
+    const result = validateToolbarInput({
+      repositoryPath: '/home/user/project',
+      branch: undefined,
+    });
+
+    expect(result).toEqual({
+      repositoryPath: '/home/user/project',
+      branch: undefined,
     });
   });
 
