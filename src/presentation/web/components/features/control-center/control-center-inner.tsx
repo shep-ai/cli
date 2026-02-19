@@ -45,7 +45,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const [questionnaireData, setQuestionnaireData] = useState<PrdQuestionnaireData | null>(null);
   const [isLoadingQuestionnaire, setIsLoadingQuestionnaire] = useState(false);
 
-  const showPrdDrawer = selectedNode?.lifecycle === 'requirements';
+  const showPrdDrawer =
+    selectedNode?.lifecycle === 'requirements' && selectedNode?.state === 'action-required';
 
   const handlePrdSelect = useCallback((questionId: string, optionId: string) => {
     setPrdSelections((prev) => ({ ...prev, [questionId]: optionId }));
