@@ -4,17 +4,14 @@
  * Streams agent lifecycle notification events to connected web UI clients
  * via Server-Sent Events (SSE). This is the first API route in the web UI.
  *
- * - Subscribes to the notification event bus (shared in-process singleton)
+ * - Subscribes to the notification event bus (lazy-initialized singleton)
  * - Formats events as SSE data frames (event: notification\ndata: JSON\n\n)
  * - Sends heartbeat comments every 30 seconds to keep connection alive
  * - Supports optional ?runId query parameter to filter events
  * - Cleans up listeners and intervals on client disconnect
  */
 
-import {
-  getNotificationBus,
-  hasNotificationBus,
-} from '@shepai/core/infrastructure/services/notifications/notification-bus';
+import { getNotificationBus } from '@shepai/core/infrastructure/services/notifications/notification-bus';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -34,29 +31,23 @@ export function GET(request: Request): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const encoder = new TextEncoder();
+      const bus = getNotificationBus();
 
-      let onNotification: ((event: NotificationEvent) => void) | null = null;
+      const onNotification = (event: NotificationEvent) => {
+        if (runIdFilter && event.agentRunId !== runIdFilter) {
+          return;
+        }
 
-      // Subscribe to notification bus if available
-      if (hasNotificationBus()) {
-        const bus = getNotificationBus();
+        try {
+          controller.enqueue(encoder.encode(formatSSEEvent(event)));
+        } catch {
+          // Stream may be closed — ignore enqueue errors
+        }
+      };
 
-        onNotification = (event: NotificationEvent) => {
-          if (runIdFilter && event.agentRunId !== runIdFilter) {
-            return;
-          }
+      bus.on('notification', onNotification);
 
-          try {
-            controller.enqueue(encoder.encode(formatSSEEvent(event)));
-          } catch {
-            // Stream may be closed — ignore enqueue errors
-          }
-        };
-
-        bus.on('notification', onNotification);
-      }
-
-      // Heartbeat to keep connection alive (even without bus, prevents client reconnect loop)
+      // Heartbeat to keep connection alive
       const heartbeatInterval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(formatHeartbeat()));
@@ -67,9 +58,7 @@ export function GET(request: Request): Response {
 
       // Cleanup on client disconnect
       const cleanup = () => {
-        if (onNotification && hasNotificationBus()) {
-          getNotificationBus().removeListener('notification', onNotification);
-        }
+        bus.removeListener('notification', onNotification);
         clearInterval(heartbeatInterval);
         try {
           controller.close();

@@ -62,10 +62,7 @@ import { FeatureAgentProcessService } from '../services/agents/feature-agent/fea
 import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
 import { NotificationService } from '../services/notifications/notification.service.js';
-import {
-  initializeNotificationBus,
-  getNotificationBus,
-} from '../services/notifications/notification-bus.js';
+import { getNotificationBus } from '../services/notifications/notification-bus.js';
 import { createCheckpointer } from '../services/agents/common/checkpointer.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { spawn } from 'node:child_process';
@@ -228,7 +225,6 @@ export async function initializeContainer(): Promise<typeof container> {
   });
 
   // Register notification services
-  initializeNotificationBus();
   const notificationBus = getNotificationBus();
 
   container.registerInstance('NotificationEventBus', notificationBus);

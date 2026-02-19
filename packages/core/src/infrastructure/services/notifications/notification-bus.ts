@@ -2,7 +2,7 @@
  * Notification Event Bus
  *
  * Typed EventEmitter singleton for in-process pub/sub of notification events.
- * Follows the getSettings() singleton pattern from settings.service.ts.
+ * Lazily initialized on first access — works in any context (CLI, web dev server, tests).
  *
  * Multiple listeners can subscribe to the 'notification' event for fan-out
  * delivery (SSE clients, desktop notifier, etc.).
@@ -29,42 +29,15 @@ export type NotificationBus = EventEmitter<NotificationEventMap>;
 let busInstance: NotificationBus | null = null;
 
 /**
- * Initialize the notification event bus singleton.
- * Must be called once during CLI bootstrap.
- *
- * @throws Error if the bus is already initialized
- */
-export function initializeNotificationBus(): void {
-  if (busInstance !== null) {
-    throw new Error('Notification bus already initialized. Cannot re-initialize.');
-  }
-
-  busInstance = new EventEmitter<NotificationEventMap>();
-}
-
-/**
  * Get the notification event bus singleton.
- *
- * @returns The notification event bus
- * @throws Error if the bus hasn't been initialized yet
+ * Lazily creates the bus on first access.
  */
 export function getNotificationBus(): NotificationBus {
   if (busInstance === null) {
-    throw new Error(
-      'Notification bus not initialized. Call initializeNotificationBus() during CLI bootstrap.'
-    );
+    busInstance = new EventEmitter<NotificationEventMap>();
   }
 
   return busInstance;
-}
-
-/**
- * Check if the notification bus has been initialized.
- *
- * @returns True if the bus is initialized, false otherwise
- */
-export function hasNotificationBus(): boolean {
-  return busInstance !== null;
 }
 
 /**
