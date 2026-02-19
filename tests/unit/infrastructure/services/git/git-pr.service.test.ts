@@ -13,6 +13,13 @@ import {
 } from '@/application/ports/output/services/git-pr-service.interface';
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service';
 
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return { ...actual, readFileSync: vi.fn() };
+});
+
+import { readFileSync } from 'node:fs';
+
 describe('GitPrService', () => {
   let mockExec: ExecFunction;
   let service: GitPrService;
@@ -126,7 +133,18 @@ describe('GitPrService', () => {
   });
 
   describe('createPr', () => {
-    it('should call gh pr create with --body-file and return url and number', async () => {
+    const prYaml = [
+      'title: "feat: awesome feature"',
+      'body: "## Summary\\n\\nDoes awesome things"',
+      'baseBranch: main',
+      'headBranch: feat/awesome',
+      'labels:',
+      '  - feature',
+      'draft: false',
+    ].join('\n');
+
+    it('should parse pr.yaml and pass title/body to gh pr create', async () => {
+      vi.mocked(readFileSync).mockReturnValue(prYaml);
       vi.mocked(mockExec).mockResolvedValueOnce({
         stdout: 'https://github.com/org/repo/pull/42\n',
         stderr: '',
@@ -134,9 +152,23 @@ describe('GitPrService', () => {
 
       const result = await service.createPr('/repo', '/repo/specs/pr.yaml');
 
+      expect(readFileSync).toHaveBeenCalledWith('/repo/specs/pr.yaml', 'utf-8');
       expect(mockExec).toHaveBeenCalledWith(
         'gh',
-        expect.arrayContaining(['pr', 'create', '--body-file', '/repo/specs/pr.yaml']),
+        expect.arrayContaining([
+          'pr',
+          'create',
+          '--title',
+          'feat: awesome feature',
+          '--body',
+          expect.any(String),
+          '--base',
+          'main',
+          '--head',
+          'feat/awesome',
+          '--label',
+          'feature',
+        ]),
         { cwd: '/repo' }
       );
       expect(result.url).toBe('https://github.com/org/repo/pull/42');
@@ -144,6 +176,7 @@ describe('GitPrService', () => {
     });
 
     it('should throw GitPrError with GH_NOT_FOUND when gh is not found', async () => {
+      vi.mocked(readFileSync).mockReturnValue(prYaml);
       const error = new Error('ENOENT gh not found');
       (error as NodeJS.ErrnoException).code = 'ENOENT';
       vi.mocked(mockExec).mockRejectedValue(error);
