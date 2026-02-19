@@ -2,58 +2,74 @@ import { defineConfig } from 'vitest/config';
 import { resolve } from 'path';
 import react from '@vitejs/plugin-react';
 
+const sharedExclude = [
+  'node_modules',
+  'dist',
+  'tests/e2e/**/*.spec.ts',
+  'tests/e2e/**/*.spec.tsx',
+  'tests/manual/**/*.manual.test.ts',
+  'tests/manual/**/*.manual.test.tsx',
+];
+
+const sharedResolve = {
+  alias: [
+    { find: '@shepai/core', replacement: resolve(__dirname, './packages/core/src') },
+    { find: '@/application', replacement: resolve(__dirname, './packages/core/src/application') },
+    {
+      find: '@/infrastructure',
+      replacement: resolve(__dirname, './packages/core/src/infrastructure'),
+    },
+    { find: '@/domain', replacement: resolve(__dirname, './packages/core/src/domain') },
+    { find: '@/components', replacement: resolve(__dirname, './src/presentation/web/components') },
+    { find: '@/lib', replacement: resolve(__dirname, './src/presentation/web/lib') },
+    { find: '@/hooks', replacement: resolve(__dirname, './src/presentation/web/hooks') },
+    { find: '@/app', replacement: resolve(__dirname, './src/presentation/web/app') },
+    { find: '@/types', replacement: resolve(__dirname, './src/presentation/web/types') },
+    { find: '@cli', replacement: resolve(__dirname, './src') },
+    { find: '@', replacement: resolve(__dirname, './src') },
+    { find: '@tests', replacement: resolve(__dirname, './tests') },
+  ],
+};
+
 export default defineConfig({
   plugins: [react()],
   test: {
     globals: false,
-    include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
-    // Exclude Playwright specs (*.spec.ts) and manual tests (*.manual.test.ts) - they use @playwright/test and manual runner
-    exclude: [
-      'node_modules',
-      'dist',
-      'tests/e2e/**/*.spec.ts',
-      'tests/e2e/**/*.spec.tsx',
-      'tests/manual/**/*.manual.test.ts',
-      'tests/manual/**/*.manual.test.tsx',
-    ],
+    testTimeout: 10000,
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules', 'dist', 'tests', '**/*.d.ts', '**/*.config.*'],
     },
-    testTimeout: 10000,
-    // Use jsdom for all tests - component tests need it, node tests are fine with it
-    environment: 'jsdom',
-    setupFiles: ['tests/unit/presentation/web/setup.ts'],
-  },
-  resolve: {
-    alias: [
-      // @shepai/core workspace package
-      { find: '@shepai/core', replacement: resolve(__dirname, './packages/core/src') },
-      // Core layer redirects — resolve @/application, @/infrastructure, @/domain to core
+    // Two projects: web tests get jsdom + setup, everything else runs in fast node env
+    projects: [
       {
-        find: '@/application',
-        replacement: resolve(__dirname, './packages/core/src/application'),
+        test: {
+          name: 'web',
+          include: [
+            'tests/unit/presentation/web/**/*.test.ts',
+            'tests/unit/presentation/web/**/*.test.tsx',
+          ],
+          exclude: sharedExclude,
+          environment: 'jsdom',
+          setupFiles: ['tests/unit/presentation/web/setup.ts'],
+        },
+        resolve: sharedResolve,
       },
       {
-        find: '@/infrastructure',
-        replacement: resolve(__dirname, './packages/core/src/infrastructure'),
+        test: {
+          name: 'node',
+          include: ['tests/**/*.test.ts', 'tests/**/*.test.tsx'],
+          exclude: [
+            ...sharedExclude,
+            'tests/unit/presentation/web/**/*.test.ts',
+            'tests/unit/presentation/web/**/*.test.tsx',
+          ],
+          environment: 'node',
+        },
+        resolve: sharedResolve,
       },
-      { find: '@/domain', replacement: resolve(__dirname, './packages/core/src/domain') },
-      // More specific aliases first
-      {
-        find: '@/components',
-        replacement: resolve(__dirname, './src/presentation/web/components'),
-      },
-      { find: '@/lib', replacement: resolve(__dirname, './src/presentation/web/lib') },
-      { find: '@/hooks', replacement: resolve(__dirname, './src/presentation/web/hooks') },
-      { find: '@/app', replacement: resolve(__dirname, './src/presentation/web/app') },
-      { find: '@/types', replacement: resolve(__dirname, './src/presentation/web/types') },
-      // @cli alias matches web tsconfig: @cli/* → src/* (root package)
-      { find: '@cli', replacement: resolve(__dirname, './src') },
-      // General alias last
-      { find: '@', replacement: resolve(__dirname, './src') },
-      { find: '@tests', replacement: resolve(__dirname, './tests') },
     ],
   },
+  resolve: sharedResolve,
 });
