@@ -1654,6 +1654,14 @@ export type PhaseTiming = BaseEntity & {
    * Duration in milliseconds (computed on completion)
    */
   durationMs?: bigint;
+  /**
+   * When the phase started waiting for user approval (null if no approval needed)
+   */
+  waitingApprovalAt?: any;
+  /**
+   * Duration in milliseconds the phase waited for user approval (null if no approval needed)
+   */
+  approvalWaitMs?: bigint;
 };
 export enum AgentFeature {
   sessionResume = 'session-resume',

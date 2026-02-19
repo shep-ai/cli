@@ -224,6 +224,14 @@ ALTER TABLE features ADD COLUMN push INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE features ADD COLUMN user_query TEXT NOT NULL DEFAULT '';
 `,
   },
+  {
+    version: 14,
+    sql: `
+-- Migration 014: Add approval wait timing columns to phase_timings
+ALTER TABLE phase_timings ADD COLUMN waiting_approval_at INTEGER;
+ALTER TABLE phase_timings ADD COLUMN approval_wait_ms INTEGER;
+`,
+  },
 ];
 
 /**

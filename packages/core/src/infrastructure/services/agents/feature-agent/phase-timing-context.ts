@@ -14,6 +14,14 @@ import type { IPhaseTimingRepository } from '@/application/ports/output/agents/p
 
 let contextRunId: string | undefined;
 let contextRepository: IPhaseTimingRepository | undefined;
+let lastTimingId: string | null = null;
+
+/**
+ * Get the last phase timing ID. Used by the worker to record approval wait start.
+ */
+export function getLastTimingId(): string | null {
+  return lastTimingId;
+}
 
 /**
  * Set the phase timing context. Called once by the worker after DI init.
@@ -29,6 +37,7 @@ export function setPhaseTimingContext(runId: string, repository: IPhaseTimingRep
 export function clearPhaseTimingContext(): void {
   contextRunId = undefined;
   contextRepository = undefined;
+  lastTimingId = null;
 }
 
 /**
@@ -50,8 +59,10 @@ export async function recordPhaseStart(phase: string): Promise<string | null> {
       createdAt: now,
       updatedAt: now,
     });
+    lastTimingId = id;
     return id;
   } catch {
+    lastTimingId = null;
     return null;
   }
 }
@@ -70,5 +81,21 @@ export async function recordPhaseEnd(timingId: string | null, durationMs: number
     });
   } catch {
     // Swallow — timing update failure is non-fatal
+  }
+}
+
+/**
+ * Record the start of an approval wait. Sets waitingApprovalAt on the timing record.
+ * No-op if timingId is null or context is not set.
+ */
+export async function recordApprovalWaitStart(timingId: string | null): Promise<void> {
+  if (!timingId || !contextRepository) return;
+
+  try {
+    await contextRepository.updateApprovalWait(timingId, {
+      waitingApprovalAt: new Date(),
+    });
+  } catch {
+    // Swallow — approval wait timing failure is non-fatal
   }
 }
