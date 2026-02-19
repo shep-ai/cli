@@ -21,3 +21,12 @@ export type { IWorktreeService, WorktreeInfo } from './worktree-service.interfac
 export { WorktreeError, WorktreeErrorCode } from './worktree-service.interface.js';
 export type { IToolInstallerService } from './tool-installer.service.js';
 export type { INotificationService } from './notification-service.interface.js';
+export type {
+  IGitPrService,
+  CiStatus,
+  CiStatusResult,
+  DiffSummary,
+  MergeStrategy,
+  PrCreateResult,
+} from './git-pr-service.interface.js';
+export { GitPrError, GitPrErrorCode } from './git-pr-service.interface.js';

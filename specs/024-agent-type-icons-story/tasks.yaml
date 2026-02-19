@@ -1,0 +1,129 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-type-icons-story
+summary: >
+  4 tasks across 3 phases. Phase 1 removes the unused agentName field from 4 locations
+  in existing story data. Phase 2 adds the AgentTypeValue import and the AllAgentTypes
+  grid story with 6 nodes. Phase 3 verifies typecheck and storybook build pass.
+
+relatedFeatures: []
+technologies:
+  - Storybook 8 (@storybook/react)
+  - React 19
+  - '@xyflow/react (React Flow v12+)'
+  - Tailwind CSS v4
+  - TypeScript (strict mode)
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Remove unused agentName field from existing story data'
+    description: >
+      Remove the agentName field from all 4 locations in feature-node.stories.tsx where
+      it appears: meta.args (line 57), allStatesData[0] (line 76), AllLifecycles inline
+      data (line 158), and interactiveInitialNodes[0].data (line 237). The field is not
+      part of the FeatureNodeData interface and has no visible effect.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'The string "agentName" does not appear anywhere in feature-node.stories.tsx'
+      - 'All existing stories render identically (no visual changes)'
+      - 'TypeScript compilation passes (pnpm typecheck:web)'
+    tdd:
+      red:
+        - 'No automated test needed for this subtractive change — agentName was never tested because it has no effect. Verification is via grep confirming absence and typecheck passing.'
+      green:
+        - 'Remove the agentName property from all 4 locations: meta.args (line 57), allStatesData[0] (line 76), AllLifecycles inline data (line 158), interactiveInitialNodes[0].data (line 237)'
+      refactor:
+        - 'No refactoring needed — this is a clean deletion of 4 lines'
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add AgentTypeValue import from agent-type-icons module'
+    description: >
+      Add AgentTypeValue to the imports in feature-node.stories.tsx. Import it from the
+      colocated ./agent-type-icons module (not from feature-node-state-config) to match
+      the pattern in agent-type-icons.stories.tsx and satisfy NFR-5.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'AgentTypeValue is imported from ./agent-type-icons in feature-node.stories.tsx'
+      - 'TypeScript compilation passes with the new import (pnpm typecheck:web)'
+    tdd:
+      red:
+        - 'No test needed for an import statement — verification is via typecheck confirming the import resolves correctly'
+      green:
+        - "Add import line: import type { AgentTypeValue } from './agent-type-icons' after the existing imports"
+      refactor:
+        - 'No refactoring needed — single import line addition'
+    estimatedEffort: '5min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add allAgentTypesData array and AllAgentTypes story export'
+    description: >
+      Define a const allAgentTypesData array with 6 FeatureNodeData entries: one per
+      AgentTypeValue (claude-code, cursor, gemini-cli, aider, continue) plus one with
+      agentType omitted for the fallback case. All nodes use state: running, lifecycle:
+      implementation, and descriptive names. Export an AllAgentTypes story that renders
+      the grid using FeatureNodeCanvas at 500x350 in a flex flex-wrap gap-6 layout.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'allAgentTypesData is defined as a top-level const array with exactly 6 FeatureNodeData entries'
+      - 'Entries cover all 5 AgentTypeValue values plus one entry with agentType omitted'
+      - 'All 6 entries have state: running and lifecycle: implementation'
+      - 'Each entry has a descriptive name including the agent type label (e.g., "Claude Code Agent")'
+      - 'The fallback entry (no agentType) is named "Default (No Agent)" or similar'
+      - 'AllAgentTypes story is exported and renders a flex flex-wrap gap-6 grid'
+      - 'Each grid cell uses FeatureNodeCanvas with style={{ width: 500, height: 350 }}'
+      - 'TypeScript compilation passes (pnpm typecheck:web)'
+    tdd:
+      red:
+        - 'Since this is a visual Storybook story, the primary verification is typecheck + build:storybook passing. Optionally add a play function that asserts 6 .react-flow__node elements are present in the canvas.'
+      green:
+        - 'Define allAgentTypesData array after the existing allStatesData block with 6 entries following the same data shape'
+        - 'Export AllAgentTypes story using the same render pattern as AllStates: map over data array, wrap each in FeatureNodeCanvas at 500x350'
+      refactor:
+        - 'Verify data array ordering is logical (alphabetical by agent type, fallback last)'
+        - 'Ensure consistent formatting with existing data arrays in the file'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Verify typecheck and storybook build'
+    description: >
+      Run pnpm typecheck:web and pnpm build:storybook to confirm all changes compile
+      and build successfully. This satisfies NFR-1 (strict-mode typecheck) and NFR-3
+      (storybook production build exits 0).
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'pnpm typecheck:web exits with code 0'
+      - 'pnpm build:storybook exits with code 0'
+      - 'No TypeScript errors or warnings related to feature-node.stories.tsx'
+    tdd: null
+    estimatedEffort: '5min'
+
+totalEstimate: '40min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation starts with a cleanup phase that removes the unused `agentName`
+  field from 4 locations in existing story data, establishing a clean baseline. Next,
+  the `AgentTypeValue` type import is added, followed by the `allAgentTypesData` const
+  array and the `AllAgentTypes` grid story export — both following the established
+  patterns from `AllStates` and `AllLifecycles`. Finally, typecheck and storybook build
+  are run to verify everything compiles and builds correctly.
+
+  The entire change is confined to a single file (`feature-node.stories.tsx`) and
+  requires no modifications to components, types, icons, or Storybook configuration.
+  All infrastructure is already in place.

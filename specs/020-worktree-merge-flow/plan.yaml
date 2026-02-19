@@ -1,0 +1,227 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: worktree-merge-flow
+summary: >
+  Implementation plan for the redesigned SDLC lifecycle and post-implementation merge flow.
+  Nine phases covering: TypeSpec model changes (lifecycle, feature, settings), type generation,
+  DB migration, IGitPrService port and implementation, pr.yaml generation, graph state extension,
+  approval gate system, merge node orchestrator with conditional PR/merge paths, graph wiring,
+  CLI flags, and integration testing. Each phase follows TDD red-green-refactor cycles.
+  Estimated total effort: 30-40 hours.
+
+relatedFeatures: []
+technologies:
+  - LangGraph (StateGraph, Annotation, interrupt, isGraphBubbleUp, Command)
+  - tsyringe (DI container, @injectable, @inject)
+  - TypeSpec (lifecycle.tsp, feature.tsp, settings.tsp)
+  - SQLite (migrations, feature persistence, settings persistence)
+  - ExecFunction DI token (promisified child_process.execFile)
+  - js-yaml (feature.yaml + pr.yaml read/write)
+  - Commander.js (CLI flags)
+  - GitHub CLI (gh pr create, gh pr merge, gh run watch)
+  - Git CLI (git status, add, commit, push, merge, branch -d, diff --stat, log)
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'TypeSpec Model Changes & Type Generation'
+    description: >
+      Redesign the SdlcLifecycle enum in lifecycle.tsp (remove DeployAndQA, add
+      Started/Analyze/Planning). Extend feature.tsp with workflow flags (openPr,
+      autoMerge, allowPrd, allowPlan, allowMerge) and PR tracking fields (prUrl,
+      prNumber, prStatus, commitHash, ciStatus). Extend settings.tsp with workflow
+      section (openPrOnImplementationComplete, autoMergeOnImplementationComplete).
+      Run tsp:compile to regenerate output.ts.
+    parallel: false
+
+  - id: phase-2
+    name: 'DB Migration'
+    description: >
+      Create a single SQLite migration that adds new columns to features table
+      (workflow flags + PR state), adds workflow columns to settings table, and
+      migrates existing features with DeployAndQA lifecycle to Maintain. Update
+      repository mappers for new fields.
+    parallel: false
+
+  - id: phase-3
+    name: 'IGitPrService Port Interface & Error Types'
+    description: >
+      Define the port interface with 10 methods, value types (CiStatusResult,
+      DiffSummary), and typed error class (GitPrError + GitPrErrorCode with 9 codes)
+      in the application layer. Pure contracts, no infrastructure code.
+    parallel: false
+
+  - id: phase-4
+    name: 'GitPrService Implementation'
+    description: >
+      Implement the concrete GitPrService in infrastructure/services/git/ using the
+      ExecFunction injection pattern established by WorktreeService. All 10 methods
+      wrapping git/gh CLI commands with typed error parsing. Register the service as
+      singleton in DI container.
+    parallel: false
+
+  - id: phase-5
+    name: 'pr.yaml Generation'
+    description: >
+      Create a pr.yaml generator that produces PR content (title, body, baseBranch,
+      headBranch, labels, reviewers, draft) from spec.yaml and tasks.yaml data.
+      This runs after implementation regardless of --pr flag. The createPr service
+      method reads from this file.
+    parallel: false
+
+  - id: phase-6
+    name: 'Graph State Extension & Approval Gates'
+    description: >
+      Extend FeatureAgentAnnotation with merge-related state fields (prUrl, prNumber,
+      commitHash, ciStatus) and workflow flags (openPr, autoMerge, allowMerge) loaded
+      from Feature entity. Update shouldInterrupt to handle approval gates at
+      Requirements, Planning, and Review transitions using Feature flags.
+    parallel: false
+
+  - id: phase-7
+    name: 'Merge Node Orchestrator'
+    description: >
+      Create the merge node with the full post-implementation flow: validate, commit,
+      push, generate pr.yaml, optional PR creation, optional CI watch with retry,
+      optional merge via PR or direct git, lifecycle transition, feature.yaml update,
+      optional worktree/branch cleanup. Conditional logic driven by Feature flags
+      (openPr, autoMerge, allowMerge). Includes CI fix prompt builder.
+    parallel: false
+
+  - id: phase-8
+    name: 'Graph Wiring, Worker Integration & CLI Flags'
+    description: >
+      Refactor graph factory to accept FeatureAgentGraphDeps. Wire merge node after
+      implement. Update worker to resolve and pass services. Add --pr, --auto-merge,
+      --allow-prd, --allow-plan, --allow-merge flags to feat new command. Persist
+      flags on Feature entity creation.
+    parallel: false
+
+  - id: phase-9
+    name: 'Integration Tests & Polish'
+    description: >
+      Integration tests for the full graph flow including merge node with mocked services.
+      Test all conditional paths: PR creation, auto-merge (PR path + direct path), Review
+      approval gate, worktree cleanup. Verify idempotency on re-run. Full test suite
+      regression check.
+    parallel: false
+
+filesToCreate:
+  - src/application/ports/output/services/git-pr-service.interface.ts
+  - src/infrastructure/services/git/git-pr.service.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/merge.node.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/prompts/merge.prompt.ts
+  - tests/unit/infrastructure/services/git/git-pr.service.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.test.ts
+  - tests/integration/infrastructure/services/agents/feature-agent/feature-agent-merge.test.ts
+
+filesToModify:
+  - tsp/common/enums/lifecycle.tsp
+  - tsp/domain/entities/feature.tsp
+  - tsp/domain/entities/settings.tsp
+  - src/domain/generated/output.ts
+  - src/infrastructure/persistence/migrations/
+  - src/infrastructure/repositories/
+  - src/application/ports/output/services/index.ts
+  - src/infrastructure/di/container.ts
+  - src/infrastructure/services/agents/feature-agent/state.ts
+  - src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
+  - src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts
+  - src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
+  - src/presentation/cli/commands/
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This implementation significantly expands the original merge node scope to encompass
+  a full lifecycle redesign, configurable PR creation, auto-merge support, and approval
+  gate system.
+
+  ### Key Architectural Elements
+
+  1. **TypeSpec Model Layer** (Phase 1): SdlcLifecycle enum redesign, Feature entity
+     extension with 10 new fields, Settings workflow section. These are the foundation
+     — all downstream code depends on the generated types.
+
+  2. **Persistence Layer** (Phase 2): Single DB migration adds columns to features and
+     settings tables. Repository mappers updated to handle new fields. Existing DeployAndQA
+     features migrated to Maintain.
+
+  3. **Port Interface** (Phase 3): IGitPrService with 10 methods covering the full git/PR
+     lifecycle. GitPrError with 9 typed error codes. CiStatusResult and DiffSummary value types.
+
+  4. **Service Implementation** (Phase 4): GitPrService using ExecFunction DI token.
+     Each method wraps git/gh CLI commands. Error parsing classifies failures into typed codes.
+
+  5. **PR Content Generation** (Phase 5): pr.yaml generated from spec data after implementation.
+     Single source of truth for PR content. createPr reads from this file.
+
+  6. **Graph State & Approval Gates** (Phase 6): State extended with merge fields + workflow
+     flags. shouldInterrupt reads Feature flags for 3 approval gates.
+
+  7. **Merge Node** (Phase 7): Core orchestrator with conditional branching based on Feature
+     flags. Handles validate/commit/push, optional PR, optional CI watch, optional merge,
+     lifecycle transition, cleanup.
+
+  8. **Integration** (Phase 8): Graph wiring, worker DI resolution, CLI flags on feat new.
+     All flags persisted on Feature entity creation.
+
+  9. **Testing** (Phase 9): Integration tests for all conditional paths. Idempotency
+     verification. Full regression check.
+
+  ## Key Design Decisions
+
+  ### Lifecycle Redesign Before Everything
+  TypeSpec changes come first because ALL downstream code depends on the generated types.
+  The new lifecycle values (Started, Analyze, Planning) and Feature fields must exist in
+  output.ts before the graph state, merge node, or CLI can reference them. Running tsp:compile
+  immediately after editing .tsp files ensures type safety throughout implementation.
+
+  ### Feature Entity as Workflow Config Store
+  Rather than a separate config entity, workflow flags live directly on Feature. This
+  avoids join queries and keeps the repository interface simple. The tradeoff is a larger
+  Feature entity, but the fields are intrinsic to the feature lifecycle.
+
+  ### pr.yaml Separation from PR State
+  PR CONTENT (title, body, labels) lives in specs/pr.yaml as a document artifact.
+  PR STATE (url, number, status) lives in the Feature DB entity. This mirrors the
+  existing separation: spec.yaml defines what to build, DB tracks running state.
+
+  ### Merge Node Conditional Branching
+  Rather than separate nodes for PR creation and merging, a single merge node handles
+  all paths based on Feature flags. This keeps the graph topology simple (implement to
+  merge to END) while the merge node internally handles: no PR, PR without merge,
+  PR with auto-merge, and direct branch merge.
+
+  ### Approval Gates via Feature Flags (not ApprovalGates TypeSpec)
+  The existing ApprovalGates model lives in graph state and controls per-node interrupts.
+  The new approval flags (allowPrd, allowPlan, allowMerge) are persisted on Feature and
+  provide a higher-level lifecycle gate system. Rather than unify these now, we extend
+  shouldInterrupt to read Feature flags from state. A future refactor can consolidate.
+
+  ## Implementation Strategy
+
+  Phases are ordered by dependency:
+  - **Phase 1-2** (TypeSpec + DB) — foundational, everything depends on these types/schema
+  - **Phase 3-4** (port + service) — can be tested in isolation
+  - **Phase 5** (pr.yaml) — depends on port types for integration
+  - **Phase 6** (state + gates) — small, targeted changes needed by merge node
+  - **Phase 7** (merge node) — core, depends on all above
+  - **Phase 8** (wiring + CLI) — integration, depends on merge node
+  - **Phase 9** (tests) — validates full flow end-to-end
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec changes break existing code | Run tsp:compile immediately, fix type errors before proceeding |
+  | DB migration on existing data | Migration includes UPDATE for DeployAndQA to Maintain; new columns have safe defaults |
+  | Graph factory signature change | Worker is the only caller; update is contained |
+  | gh CLI not installed | Graceful degradation: commit/push works, PR/merge fails with actionable error |
+  | CI watch hangs | 10-minute timeout per attempt, 3 max attempts |
+  | Merge node too complex (>200 lines) | Extract helpers: CI retry loop, pr.yaml generation, cleanup logic |
+  | Auto-merge conflicts | Detect and fail with actionable error, do not auto-resolve |
+  | Backward compat with old lifecycle values | DB migration handles; code uses new enum values only |

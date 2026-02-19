@@ -212,6 +212,45 @@ describe('FeatureNode', () => {
     });
   });
 
+  describe('creating state', () => {
+    it('renders without throwing when state is creating', () => {
+      renderFeatureNode({ state: 'creating' });
+      expect(screen.getByTestId('feature-node-card')).toBeInTheDocument();
+    });
+
+    it('shows "Creating..." badge text', () => {
+      renderFeatureNode({ state: 'creating' });
+      expect(screen.getByText('Creating...')).toBeInTheDocument();
+    });
+
+    it('renders the feature name', () => {
+      renderFeatureNode({ state: 'creating', name: 'New Feature' });
+      expect(screen.getByText('New Feature')).toBeInTheDocument();
+    });
+
+    it('shows indeterminate progress bar', () => {
+      renderFeatureNode({ state: 'creating' });
+      expect(screen.getByTestId('feature-node-progress-bar')).toBeInTheDocument();
+      expect(screen.queryByTestId('feature-node-badge')).not.toBeInTheDocument();
+    });
+
+    it('does not render agent icon element', () => {
+      renderFeatureNode({ state: 'creating', agentType: 'claude-code' });
+      // In 'running' state, the agent icon renders with a specific icon component.
+      // In 'creating' state, there should be no agent icon — only "Creating..." text.
+      const creatingText = screen.getByText('Creating...');
+      expect(creatingText).toBeInTheDocument();
+      // The running state renders AgentIcon; creating state should not
+      expect(screen.queryByText('Analyzing')).not.toBeInTheDocument();
+    });
+
+    it('has aria-busy="true" on the card element', () => {
+      renderFeatureNode({ state: 'creating' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card).toHaveAttribute('aria-busy', 'true');
+    });
+  });
+
   describe('selected highlight', () => {
     it('applies ring classes when selected is true', () => {
       renderFeatureNode(undefined, { selected: true });

@@ -4,6 +4,8 @@ export interface CreateFeatureInput {
   userInput: string;
   repositoryPath: string;
   approvalGates?: ApprovalGates;
+  openPr?: boolean;
+  autoMerge?: boolean;
 }
 
 export interface CreateFeatureResult {

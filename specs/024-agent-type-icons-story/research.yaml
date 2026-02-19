@@ -1,0 +1,256 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-type-icons-story
+summary: >
+  Research confirms this is a single-file story addition to feature-node.stories.tsx.
+  No new libraries, APIs, or model changes are needed — all infrastructure (AgentTypeValue type,
+  getAgentTypeIcon function, icon assets, FeatureNodeCanvas wrapper) is already in place.
+  Key decisions cover story data structure, agentName cleanup scope, and import strategy.
+
+relatedFeatures: []
+
+technologies:
+  - Storybook 8 (@storybook/react)
+  - React 19
+  - '@xyflow/react (React Flow v12+)'
+  - Tailwind CSS v4
+  - TypeScript (strict mode)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Story data structure: const array vs inline data'
+    chosen: 'Define a const allAgentTypesData array outside the render function'
+    rejected:
+      - >
+        Inline data inside the render function — rejected because the AllStates and AllLifecycles
+        stories in the same file establish a clear pattern of extracting data arrays to top-level
+        constants (e.g., allStatesData at line 68, allLifecycles at line 135). Inline data would
+        break this convention, reduce readability, and make the data harder to reference or reuse.
+    rationale: >
+      The existing file consistently defines grid story data as top-level const arrays
+      (allStatesData for AllStates, allLifecycles for AllLifecycles). Following this established
+      pattern ensures consistency, keeps the render function concise, and makes the data
+      self-documenting. The array will contain 6 FeatureNodeData entries — one per AgentTypeValue
+      plus one with agentType omitted for the fallback case.
+
+  - title: 'Agent type enumeration: import type vs hardcoded strings'
+    chosen: 'Import AgentTypeValue from ./agent-type-icons and use typed values'
+    rejected:
+      - >
+        Hardcode agent type strings as plain string literals — rejected because the file already
+        imports from feature-node-state-config which re-exports AgentTypeValue via FeatureNodeData.
+        However, importing AgentTypeValue directly from agent-type-icons provides explicit type
+        safety for the data array annotations. Hardcoded strings would not catch typos at compile
+        time and would drift if AgentTypeValue changes. The agent-type-icons.stories.tsx file at
+        line 2 already demonstrates importing AgentTypeValue for exactly this purpose.
+    rationale: >
+      Importing AgentTypeValue from the colocated agent-type-icons module ensures type safety
+      and compile-time verification of agent type strings. This matches the pattern in
+      agent-type-icons.stories.tsx (line 2) which imports the same type. The spec explicitly
+      requires this in NFR-5. Since FeatureNodeData.agentType is already typed as
+      AgentTypeValue | undefined (via the import in feature-node-state-config.ts line 3),
+      using the type ensures consistency.
+
+  - title: 'Grid layout and canvas sizing'
+    chosen: 'Use FeatureNodeCanvas wrapper with { width: 500, height: 350 } per node in flex flex-wrap gap-6'
+    rejected:
+      - >
+        Custom canvas wrapper or different dimensions — rejected because AllStates (line 129)
+        already uses exactly { width: 500, height: 350 } with the FeatureNodeCanvas wrapper
+        in a flex flex-wrap gap-6 container. Deviating would create visual inconsistency
+        between grid stories in the same file.
+    rationale: >
+      The AllStates story at line 125-133 establishes the grid pattern: flex flex-wrap gap-6
+      container with FeatureNodeCanvas at 500x350 per node. The AllAgentTypes story should
+      replicate this exactly for visual consistency. The FeatureNodeCanvas component already
+      handles ReactFlowProvider setup, node creation, and fitView — no custom wrapper needed.
+
+  - title: 'agentName cleanup: scope of removal'
+    chosen: 'Remove agentName from all 4 locations in the stories file where it appears'
+    rejected:
+      - >
+        Remove agentName only from the new story data — rejected because leaving the field
+        in existing stories perpetuates the confusion. The field does not exist on
+        FeatureNodeData (it is silently absorbed by the [key: string]: unknown index signature
+        at line 36 of feature-node-state-config.ts) and has no visible effect. Partial cleanup
+        would be incomplete.
+      - >
+        Leave agentName everywhere and skip cleanup — rejected because the spec explicitly
+        requires removal (FR-7), the field is misleading, and the change is purely subtractive
+        with zero risk of behavioral change since the field is never read.
+    rationale: >
+      The agentName field appears in 4 locations: meta.args (line 57), allStatesData[0] (line 76),
+      AllLifecycles inline data (line 158), and interactiveInitialNodes[0].data (line 237).
+      All 4 instances should be removed in the same change. The FeatureNodeData interface has
+      no agentName property — the index signature [key: string]: unknown silently accepts it,
+      but nothing in FeatureNode reads it. Removing it is safe, reduces confusion, and is
+      explicitly required by the spec.
+
+  - title: 'Lifecycle phase for AllAgentTypes nodes'
+    chosen: 'Use implementation as the uniform lifecycle phase for all 6 nodes'
+    rejected:
+      - >
+        Vary lifecycle phases across nodes — rejected because the purpose of this story is to
+        compare agent type icons, not lifecycle phases. The AllLifecycles story already covers
+        lifecycle variation. Mixing dimensions would conflate the visual comparison.
+      - >
+        Use requirements as the lifecycle phase — rejected because implementation is the most
+        natural phase when an agent is actively running. The running verb for implementation
+        is "Implementing" which pairs well with agent-specific names like "Claude Code Agent".
+    rationale: >
+      The spec resolves this question explicitly: use implementation for all nodes. This keeps
+      the visual comparison focused on the single variable (agent type icon) while the lifecycle
+      verb "Implementing" provides natural context for an actively running agent. The AllStates
+      story similarly uses implementation for its running node (line 73).
+
+  - title: 'Node naming convention for agent type labels'
+    chosen: 'Use descriptive names like "Claude Code Agent", "Cursor Agent", etc.'
+    rejected:
+      - >
+        Use agent type values as names (e.g., "claude-code", "cursor") — rejected because
+        these are machine identifiers, not human-readable labels. The spec requires descriptive
+        names (FR-4) for visual correlation.
+      - >
+        Use generic names with agent type in description — rejected because the name field is
+        more prominent in the card (bold text, line 89 of feature-node.tsx) and provides
+        immediate visual identification. The last node (no agentType) should be named
+        "Default Fallback" or similar to clearly indicate the undefined case.
+    rationale: >
+      Each node needs a human-readable name that correlates the brand icon to the agent type.
+      The name field renders as bold h3 text (feature-node.tsx line 89) making it the most
+      visible label. Using "Claude Code Agent", "Cursor Agent", etc. provides immediate
+      identification. The fallback node (no agentType) should use "Default (No Agent)" or
+      similar to make the undefined case explicit.
+
+openQuestions:
+  - question: 'Does the current stories file import AgentTypeValue?'
+    resolved: true
+    answer: >
+      No — feature-node.stories.tsx currently imports FeatureNodeData, FeatureNodeType,
+      FeatureNodeState, and FeatureLifecyclePhase from ./feature-node-state-config but does
+      NOT import AgentTypeValue from ./agent-type-icons. A new import line must be added to
+      bring in AgentTypeValue for the allAgentTypesData array type annotations.
+
+  - question: 'Are all agent icon assets already in place?'
+    resolved: true
+    answer: >
+      Yes — the agent-type-icons.tsx file (lines 29-35) maps all 5 AgentTypeValue strings to
+      icon assets in /icons/agents/: claude-ai-icon.svg, cursor.jpeg, gemini-cli.jpeg,
+      aider.png, continue.jpeg. The DefaultAgentIcon (lines 20-27) provides the fallback SVG.
+      No new assets or icon components are needed.
+
+  - question: 'Where exactly does agentName appear in the current stories?'
+    resolved: true
+    answer: >
+      agentName appears in exactly 4 locations in feature-node.stories.tsx:
+      (1) meta.args at line 57 — agentName: "Planner"
+      (2) allStatesData[0] at line 76 — agentName: "Planner"
+      (3) AllLifecycles inline data at line 158 — agentName: "Researcher"
+      (4) interactiveInitialNodes[0].data at line 237 — agentName: "Planner"
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Story Data Structure: Const Array vs Inline Data
+
+  **Chosen:** Define a `const allAgentTypesData` array outside the render function
+
+  **Rejected:**
+  - Inline data inside the render function — breaks the convention established by `allStatesData` (line 68) and `allLifecycles` (line 135); reduces readability
+
+  **Rationale:** The file consistently uses top-level const arrays for grid story data. Following this pattern keeps the render function concise and the data self-documenting. The array will contain 6 `FeatureNodeData` entries (5 agent types + 1 fallback).
+
+  ### 2. Agent Type Enumeration: Import Type vs Hardcoded Strings
+
+  **Chosen:** Import `AgentTypeValue` from `./agent-type-icons` and use typed values
+
+  **Rejected:**
+  - Hardcode agent type strings — no compile-time safety, would drift if `AgentTypeValue` changes
+
+  **Rationale:** The spec requires this (NFR-5). The pattern is already demonstrated in `agent-type-icons.stories.tsx` line 2. Type safety ensures all 5 agent types are correctly spelled.
+
+  ### 3. Grid Layout and Canvas Sizing
+
+  **Chosen:** Reuse `FeatureNodeCanvas` with `{ width: 500, height: 350 }` in `flex flex-wrap gap-6`
+
+  **Rejected:**
+  - Custom canvas wrapper or different dimensions — visual inconsistency with `AllStates` (line 129)
+
+  **Rationale:** Matches existing grid stories exactly. No custom wrapper needed.
+
+  ### 4. agentName Cleanup Scope
+
+  **Chosen:** Remove `agentName` from all 4 locations in the stories file
+
+  **Rejected:**
+  - Partial removal — incomplete cleanup, perpetuates confusion
+  - No removal — explicitly required by spec (FR-7), field is a no-op
+
+  **Rationale:** The field appears at lines 57, 76, 158, 237. It's not part of `FeatureNodeData` (silently absorbed by index signature). Removal is purely subtractive with zero behavioral impact.
+
+  ### 5. Lifecycle Phase for AllAgentTypes Nodes
+
+  **Chosen:** Uniform `implementation` phase for all 6 nodes
+
+  **Rejected:**
+  - Varied lifecycle phases — conflates two visual dimensions
+  - `requirements` phase — `implementation`/`Implementing` pairs more naturally with running agents
+
+  **Rationale:** Spec explicitly resolves this. Single variable (icon) comparison is the goal.
+
+  ### 6. Node Naming Convention
+
+  **Chosen:** Descriptive names: "Claude Code Agent", "Cursor Agent", "Gemini CLI Agent", "Aider Agent", "Continue Agent", "Default (No Agent)"
+
+  **Rejected:**
+  - Machine identifiers (e.g., "claude-code") — not human-readable
+  - Generic names with type in description — name field is more visually prominent (bold h3)
+
+  **Rationale:** FR-4 requires descriptive names for visual correlation. Name renders prominently at the top of each card.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `@storybook/react` | Story framework | Use (existing) | Already configured, no changes needed |
+  | `@xyflow/react` | React Flow rendering | Use (existing) | FeatureNodeCanvas already wraps it |
+  | `agent-type-icons.tsx` | AgentTypeValue type + icon resolver | Use (existing) | Need to add import of `AgentTypeValue` |
+  | No new libraries | — | N/A | All dependencies already in place |
+
+  ## Security Considerations
+
+  No security implications. This change is purely additive Storybook story data in a
+  development-only file. No runtime code, API endpoints, authentication, or user input
+  handling is involved. Story files are excluded from production builds.
+
+  ## Performance Implications
+
+  No performance implications. Storybook stories are development-only artifacts. The
+  6-node grid renders the same `FeatureNodeCanvas` component used by existing grid stories.
+  The icon assets are already bundled and served from the Storybook static directory.
+
+  ## Architecture Notes
+
+  This change is confined to a single Storybook story file and aligns perfectly with
+  existing architecture:
+
+  - **No component changes**: `FeatureNode`, `AgentIcon`, and `getAgentTypeIcon` are unchanged
+  - **No type changes**: `FeatureNodeData` and `AgentTypeValue` are unchanged
+  - **No config changes**: Storybook config and static asset directories are unchanged
+  - **Single file modified**: `feature-node.stories.tsx` only
+  - **Pattern compliance**: Follows established `All[Dimension]` naming, const data arrays,
+    `FeatureNodeCanvas` wrapper, and `flex flex-wrap gap-6` grid layout
+
+  ### Implementation Approach
+
+  1. Add `AgentTypeValue` import from `./agent-type-icons` (new import line)
+  2. Remove `agentName` from 4 locations (lines 57, 76, 158, 237)
+  3. Define `allAgentTypesData: FeatureNodeData[]` const array with 6 entries
+  4. Add `AllAgentTypes` story export using the standard grid render pattern
+  5. Verify with `pnpm typecheck:web` and `pnpm build:storybook`
+
+  ---
+
+  _Research complete — proceed with planning_

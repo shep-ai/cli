@@ -52,7 +52,8 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         agent_type, agent_auth_method, agent_token,
         notif_in_app_enabled, notif_browser_enabled, notif_desktop_enabled,
         notif_evt_agent_started, notif_evt_phase_completed, notif_evt_waiting_approval,
-        notif_evt_agent_completed, notif_evt_agent_failed
+        notif_evt_agent_completed, notif_evt_agent_failed,
+        workflow_open_pr_on_impl_complete, workflow_auto_merge_on_impl_complete
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement,
@@ -62,7 +63,8 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @agent_type, @agent_auth_method, @agent_token,
         @notif_in_app_enabled, @notif_browser_enabled, @notif_desktop_enabled,
         @notif_evt_agent_started, @notif_evt_phase_completed, @notif_evt_waiting_approval,
-        @notif_evt_agent_completed, @notif_evt_agent_failed
+        @notif_evt_agent_completed, @notif_evt_agent_failed,
+        @workflow_open_pr_on_impl_complete, @workflow_auto_merge_on_impl_complete
       )
     `);
 
@@ -133,7 +135,9 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         notif_evt_phase_completed = @notif_evt_phase_completed,
         notif_evt_waiting_approval = @notif_evt_waiting_approval,
         notif_evt_agent_completed = @notif_evt_agent_completed,
-        notif_evt_agent_failed = @notif_evt_agent_failed
+        notif_evt_agent_failed = @notif_evt_agent_failed,
+        workflow_open_pr_on_impl_complete = @workflow_open_pr_on_impl_complete,
+        workflow_auto_merge_on_impl_complete = @workflow_auto_merge_on_impl_complete
       WHERE id = @id
     `);
 

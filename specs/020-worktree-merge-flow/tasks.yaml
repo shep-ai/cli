@@ -1,0 +1,915 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: worktree-merge-flow
+summary: >
+  28 tasks across 9 phases. Covers TypeSpec model changes, DB migration, IGitPrService
+  port and implementation, pr.yaml generation, graph state extension, approval gates,
+  merge node orchestrator with conditional PR/merge/auto-merge paths, graph wiring,
+  CLI flags, and integration testing. Each code task follows TDD red-green-refactor cycles.
+
+relatedFeatures: []
+technologies:
+  - LangGraph
+  - tsyringe
+  - TypeSpec
+  - SQLite
+  - ExecFunction DI token
+  - js-yaml
+  - Commander.js
+  - GitHub CLI
+  - Git CLI
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: TypeSpec Model Changes & Type Generation ──
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Redesign SdlcLifecycle enum in lifecycle.tsp'
+    description: >
+      Remove DeployAndQA value. Add Started (initial state), Analyze (codebase analysis),
+      and Planning (plan creation, separate from Research). Keep Requirements, Research,
+      Implementation, Review, Maintain with updated docs. Review means implementation done,
+      awaiting merge approval. Maintain means terminal, agent inactive.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'DeployAndQA value removed from SdlcLifecycle enum'
+      - 'Started value added — initial state when feature is created'
+      - 'Analyze value added — codebase analysis phase'
+      - 'Planning value added — plan creation phase (distinct from Research)'
+      - 'Review doc updated to reflect implementation done, awaiting merge approval'
+      - 'Maintain doc updated to reflect terminal state, agent inactive permanently'
+      - 'Enum order matches lifecycle flow: Started, Analyze, Requirements, Research, Planning, Implementation, Review, Maintain'
+    tdd:
+      red:
+        - 'Write test asserting SdlcLifecycle enum has exactly 8 values after tsp:compile'
+        - 'Write test asserting DeployAndQA is NOT in the enum'
+        - 'Write test asserting Started, Analyze, Planning are in the enum'
+      green:
+        - 'Edit lifecycle.tsp with new enum values'
+        - 'Run tsp:compile to regenerate output.ts'
+      refactor:
+        - 'Update JSDoc comments for Review and Maintain to match new semantics'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Extend Feature entity in feature.tsp with workflow flags and PR state'
+    description: >
+      Add workflow configuration flags: openPr (boolean), autoMerge (boolean),
+      allowPrd (boolean), allowPlan (boolean), allowMerge (boolean). Add PR tracking
+      fields: prUrl (string or null), prNumber (integer or null), prStatus (enum of
+      open/merged/closed or null), commitHash (string or null), ciStatus (enum of
+      pending/success/failure or null).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Feature model has 5 boolean workflow flags with default false'
+      - 'Feature model has 5 nullable PR tracking fields'
+      - 'PrStatus enum defined (Open, Merged, Closed)'
+      - 'CiStatus enum defined (Pending, Success, Failure)'
+      - 'tsp:compile succeeds and output.ts includes new fields'
+    tdd:
+      red:
+        - 'Write test asserting Feature type has openPr, autoMerge, allowPrd, allowPlan, allowMerge boolean fields'
+        - 'Write test asserting Feature type has prUrl, prNumber, prStatus, commitHash, ciStatus nullable fields'
+      green:
+        - 'Edit feature.tsp with new fields and enums'
+        - 'Run tsp:compile to regenerate output.ts'
+      refactor:
+        - 'Group fields logically: workflow config section, PR state section'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Extend Settings in settings.tsp with workflow section'
+    description: >
+      Add workflow model/section to Settings with: openPrOnImplementationComplete (boolean,
+      default false) and autoMergeOnImplementationComplete (boolean, default false).
+      These are global defaults overridden by per-feature flags.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Settings model has workflow section with 2 boolean fields'
+      - 'Both default to false'
+      - 'tsp:compile succeeds and output.ts includes WorkflowConfig type'
+    tdd:
+      red:
+        - 'Write test asserting Settings type has workflow property with expected fields'
+      green:
+        - 'Edit settings.tsp with workflow section'
+        - 'Run tsp:compile to regenerate output.ts'
+      refactor:
+        - 'Ensure workflow section is adjacent to other config sections in settings.tsp'
+    estimatedEffort: '30min'
+
+  # ── Phase 2: DB Migration ──
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create DB migration for Feature and Settings schema changes'
+    description: >
+      Single migration (next user_version increment) that: (1) Adds boolean columns to
+      features table: open_pr, auto_merge, allow_prd, allow_plan, allow_merge (default 0),
+      (2) Adds nullable columns to features: pr_url, pr_number, pr_status, commit_hash,
+      ci_status, (3) Adds workflow columns to settings: open_pr_on_impl_complete,
+      auto_merge_on_impl_complete (default 0), (4) Migrates existing features with
+      lifecycle equal to Deploy and QA to Maintain.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'Migration adds all 10 new columns to features table'
+      - 'Migration adds 2 new columns to settings table'
+      - 'Existing features with DeployAndQA lifecycle migrated to Maintain'
+      - 'New boolean columns default to 0 (false)'
+      - 'New nullable columns default to NULL'
+      - 'Migration is idempotent (handles already-migrated DBs)'
+    tdd:
+      red:
+        - 'Write test: migration adds open_pr column to features table'
+        - 'Write test: migration adds workflow columns to settings table'
+        - 'Write test: features with Deploy and QA lifecycle become Maintain after migration'
+        - 'Write test: existing features with other lifecycle values unchanged'
+      green:
+        - 'Create migration SQL with ALTER TABLE ADD COLUMN statements'
+        - 'Add UPDATE statement for lifecycle migration'
+        - 'Register migration in migration runner'
+      refactor:
+        - 'Verify migration order and user_version increment'
+    estimatedEffort: '1.5h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Update repository mappers for new Feature and Settings fields'
+    description: >
+      Update SQLiteFeatureRepository to map new columns (workflow flags + PR state) to/from
+      Feature entity. Update SQLiteSettingsRepository to map workflow section. Ensure
+      factory defaults for new fields when creating features.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Feature mapper reads/writes all 10 new columns'
+      - 'Settings mapper reads/writes workflow section'
+      - 'New Feature creation defaults: all workflow flags false, all PR fields null'
+      - 'Boolean columns mapped correctly (SQLite INTEGER 0/1 to TypeScript boolean)'
+    tdd:
+      red:
+        - 'Write test: Feature mapper serializes workflow flags to DB columns'
+        - 'Write test: Feature mapper deserializes PR state from DB columns'
+        - 'Write test: Settings mapper handles workflow section round-trip'
+        - 'Write test: new Feature has default values for all new fields'
+      green:
+        - 'Update Feature row-to-entity and entity-to-row mapping'
+        - 'Update Settings row-to-entity and entity-to-row mapping'
+        - 'Update Feature creation to include default values'
+      refactor:
+        - 'Ensure mapping code stays organized and readable'
+    estimatedEffort: '1.5h'
+
+  # ── Phase 3: IGitPrService Port Interface & Error Types ──
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Define GitPrErrorCode enum and GitPrError class'
+    description: >
+      Create typed error class following WorktreeError + WorktreeErrorCode pattern.
+      Error codes: MERGE_CONFLICT, AUTH_FAILURE, GH_NOT_FOUND, NETWORK_ERROR, CI_TIMEOUT,
+      BRANCH_NOT_FOUND, GIT_ERROR, MERGE_FAILED, PR_NOT_FOUND. Defined alongside the
+      port interface.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'GitPrErrorCode enum exported with 9 error codes'
+      - 'GitPrError class extends Error with code property and optional cause'
+      - 'GitPrError.name is GitPrError'
+    tdd:
+      red:
+        - 'Write test asserting GitPrError can be constructed with message, code, and optional cause'
+        - 'Write test asserting GitPrError.name is GitPrError'
+        - 'Write test asserting all 9 error codes exist on the enum'
+      green:
+        - 'Implement GitPrErrorCode enum with all 9 codes'
+        - 'Implement GitPrError class extending Error'
+      refactor:
+        - 'Verify naming consistency with WorktreeError pattern'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Define CiStatusResult and DiffSummary value types'
+    description: >
+      TypeScript interfaces for service return values. CiStatusResult: status (success or
+      failure or pending), runUrl (optional), logExcerpt (optional). DiffSummary:
+      filesChanged, additions, deletions, commitCount (all numbers).
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'CiStatusResult interface exported with correct field types'
+      - 'DiffSummary interface exported with 4 number fields'
+    tdd:
+      red:
+        - 'Write type-level test asserting CiStatusResult accepts valid shapes'
+        - 'Write type-level test asserting DiffSummary requires all 4 number fields'
+      green:
+        - 'Define both interfaces in git-pr-service.interface.ts'
+      refactor:
+        - 'Ensure JSDoc comments match spec descriptions'
+    estimatedEffort: '20min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Define IGitPrService interface with 10 methods'
+    description: >
+      Port interface in application/ports/output/services/git-pr-service.interface.ts with
+      methods: hasUncommittedChanges, commitAll, push, createPr (from pr.yaml), mergePr
+      (gh pr merge), mergeBranch (git merge), getCiStatus, watchCi, deleteBranch
+      (local + remote), getPrDiffSummary.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'IGitPrService interface exported with all 10 methods'
+      - 'createPr takes prYamlPath parameter and returns url and number'
+      - 'mergePr takes prNumber and optional strategy'
+      - 'mergeBranch takes sourceBranch and targetBranch'
+      - 'deleteBranch takes branch and optional deleteRemote flag'
+      - 'Re-exported from services/index.ts'
+    tdd:
+      red:
+        - 'Write mock implementation test asserting all 10 methods exist'
+        - 'Write compile-check that a class implementing IGitPrService must provide all methods'
+      green:
+        - 'Define IGitPrService interface'
+        - 'Add re-exports to services/index.ts'
+      refactor:
+        - 'Verify parameter naming consistency (cwd for working directory context)'
+    estimatedEffort: '30min'
+
+  # ── Phase 4: GitPrService Implementation ──
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Implement GitPrService.hasUncommittedChanges and commitAll'
+    description: >
+      First methods of GitPrService. hasUncommittedChanges runs git status --porcelain
+      and returns true if output is non-empty. commitAll runs git add -A then git commit -m
+      and returns the commit SHA from git rev-parse HEAD.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'GitPrService is @injectable with ExecFunction constructor injection'
+      - 'hasUncommittedChanges returns true when git status has output, false when empty'
+      - 'commitAll stages all changes and commits, returns SHA from git rev-parse HEAD'
+      - 'commitAll throws GitPrError(GIT_ERROR) on failure'
+    tdd:
+      red:
+        - 'Write test: hasUncommittedChanges returns true when mock returns non-empty stdout'
+        - 'Write test: hasUncommittedChanges returns false when mock returns empty stdout'
+        - 'Write test: commitAll calls git add -A then git commit then git rev-parse HEAD'
+        - 'Write test: commitAll throws GitPrError on failure'
+      green:
+        - 'Create GitPrService class with ExecFunction injection'
+        - 'Implement hasUncommittedChanges using git status --porcelain'
+        - 'Implement commitAll using git add -A, git commit -m, git rev-parse HEAD'
+      refactor:
+        - 'Extract parseGitError helper method'
+    estimatedEffort: '1h'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Implement GitPrService.push, createPr, and mergePr'
+    description: >
+      push runs git push (with --set-upstream). createPr reads pr.yaml and runs
+      gh pr create with --title --body-file, returns url and number. mergePr runs
+      gh pr merge with optional strategy (squash/merge/rebase).
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'push calls git push with correct args, --set-upstream when flag is true'
+      - 'push throws GitPrError(MERGE_CONFLICT) when stderr contains rejected'
+      - 'push throws GitPrError(AUTH_FAILURE) on auth errors'
+      - 'createPr reads pr.yaml, calls gh pr create, returns url and number'
+      - 'createPr throws GitPrError(GH_NOT_FOUND) on ENOENT'
+      - 'mergePr calls gh pr merge with prNumber and strategy'
+      - 'mergePr throws GitPrError(MERGE_FAILED) on merge failure'
+    tdd:
+      red:
+        - 'Write test: push calls git push origin branch'
+        - 'Write test: push with setUpstream adds --set-upstream flag'
+        - 'Write test: push classifies rejected as MERGE_CONFLICT'
+        - 'Write test: createPr reads pr.yaml and passes content to gh pr create'
+        - 'Write test: createPr returns url and number from gh stdout'
+        - 'Write test: mergePr calls gh pr merge with correct args'
+        - 'Write test: mergePr throws MERGE_FAILED on failure'
+      green:
+        - 'Implement push with error classification'
+        - 'Implement createPr reading from pr.yaml via --body-file'
+        - 'Implement mergePr using gh pr merge'
+      refactor:
+        - 'Consolidate error parsing into shared helpers'
+    estimatedEffort: '2h'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Implement GitPrService.mergeBranch, deleteBranch, getCiStatus, watchCi, getPrDiffSummary'
+    description: >
+      mergeBranch runs git checkout targetBranch, git merge sourceBranch, git push.
+      deleteBranch runs git branch -d plus optionally git push --delete. getCiStatus uses
+      gh run list. watchCi uses gh run watch with timeout. getPrDiffSummary uses
+      git diff --stat and git log --oneline.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'mergeBranch checks out target, merges source, pushes target'
+      - 'mergeBranch throws GitPrError(MERGE_CONFLICT) on conflict'
+      - 'deleteBranch deletes local branch, optionally deletes remote'
+      - 'getCiStatus returns CiStatusResult from gh run list output'
+      - 'watchCi returns CiStatusResult after gh run watch completes'
+      - 'watchCi throws GitPrError(CI_TIMEOUT) on timeout'
+      - 'getPrDiffSummary returns DiffSummary with all 4 fields'
+    tdd:
+      red:
+        - 'Write test: mergeBranch checks out target, merges source, pushes'
+        - 'Write test: mergeBranch throws MERGE_CONFLICT on conflict stderr'
+        - 'Write test: deleteBranch deletes local branch'
+        - 'Write test: deleteBranch with deleteRemote also pushes --delete'
+        - 'Write test: getCiStatus parses gh run list JSON output'
+        - 'Write test: watchCi returns success CiStatusResult on pass'
+        - 'Write test: watchCi throws CI_TIMEOUT on timeout'
+        - 'Write test: getPrDiffSummary parses git diff --stat correctly'
+      green:
+        - 'Implement all 5 methods with error classification'
+      refactor:
+        - 'Extract stdout parsing helpers for gh JSON output'
+    estimatedEffort: '2h'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Register GitPrService in DI container'
+    description: >
+      Add singleton registration for IGitPrService to GitPrService in the DI container.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'container.registerSingleton called for IGitPrService token'
+      - 'GitPrService resolves correctly from container'
+    tdd:
+      red:
+        - 'Write test: container resolves IGitPrService token to GitPrService instance'
+      green:
+        - 'Add import and registerSingleton call in container.ts'
+      refactor:
+        - 'Verify registration is adjacent to IWorktreeService'
+    estimatedEffort: '15min'
+
+  # ── Phase 5: pr.yaml Generation ──
+
+  - id: task-13
+    phaseId: phase-5
+    title: 'Create pr.yaml generator function'
+    description: >
+      Function that generates pr.yaml content from spec.yaml data. Takes feature spec
+      summary, task completion stats, success criteria, branch info. Produces YAML with:
+      title (conventional commit format), body (summary + changes + tests + criteria),
+      baseBranch, headBranch, labels, reviewers, draft. Written to
+      specs/feature-number-feature-name/pr.yaml.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'generatePrYaml function exported, takes spec data and returns pr.yaml content object'
+      - 'Title follows conventional commit format: feat(scope) description'
+      - 'Body includes summary, changes list, test coverage, success criteria checklist'
+      - 'All required fields present: title, body, baseBranch, headBranch, labels, draft'
+      - 'Function writes pr.yaml to correct specs directory path'
+      - 'pr.yaml generated regardless of --pr flag setting'
+    tdd:
+      red:
+        - 'Write test: generatePrYaml produces title in conventional commit format'
+        - 'Write test: generatePrYaml body includes spec summary'
+        - 'Write test: generatePrYaml includes baseBranch and headBranch'
+        - 'Write test: generatePrYaml writes file to correct path'
+      green:
+        - 'Implement generatePrYaml in merge.prompt.ts or dedicated pr-yaml.generator.ts'
+        - 'Use js-yaml to serialize output'
+      refactor:
+        - 'Ensure body template is well-formatted for GitHub rendering'
+    estimatedEffort: '1.5h'
+
+  # ── Phase 6: Graph State Extension & Approval Gates ──
+
+  - id: task-14
+    phaseId: phase-6
+    title: 'Extend FeatureAgentAnnotation with merge and workflow fields'
+    description: >
+      Add replace-reducer channels: prUrl (string or null), prNumber (number or null),
+      commitHash (string or null), ciStatus (string or null) for merge runtime state.
+      Add openPr (boolean), autoMerge (boolean), allowMerge (boolean) loaded from
+      Feature entity at graph initialization.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'prUrl, prNumber, commitHash, ciStatus channels: nullable, replace reducer, default null'
+      - 'openPr, autoMerge, allowMerge channels: boolean, replace reducer, default false'
+      - 'FeatureAgentState type includes all 7 new fields'
+    tdd:
+      red:
+        - 'Write test: state defaults include all new fields with correct defaults'
+        - 'Write test: reduce with prUrl set updates prUrl but preserves other fields'
+        - 'Write test: workflow flag channels accept boolean values'
+      green:
+        - 'Add 7 channels to FeatureAgentAnnotation in state.ts'
+      refactor:
+        - 'Group new channels: merge state section, workflow flags section'
+    estimatedEffort: '30min'
+
+  - id: task-15
+    phaseId: phase-6
+    title: 'Update shouldInterrupt for 3 approval gates'
+    description: >
+      Extend shouldInterrupt to handle approval gates at Requirements (check allowPrd),
+      Planning (check allowPlan), and merge/Review (check allowMerge). The merge node
+      reads allowMerge and autoMerge from state. autoMerge implies allowMerge.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'shouldInterrupt for requirements node checks state.allowPrd flag'
+      - 'shouldInterrupt for plan node checks state.allowPlan flag'
+      - 'shouldInterrupt for merge node checks state.allowMerge flag'
+      - 'autoMerge=true bypasses merge interrupt (implies allowMerge)'
+      - 'Existing interrupt behavior for other nodes unchanged'
+    tdd:
+      red:
+        - 'Write test: shouldInterrupt merge with allowMerge=false returns true'
+        - 'Write test: shouldInterrupt merge with allowMerge=true returns false'
+        - 'Write test: shouldInterrupt merge with autoMerge=true returns false'
+        - 'Write test: shouldInterrupt requirements with allowPrd=false returns true'
+        - 'Write test: shouldInterrupt plan with allowPlan=false returns true'
+        - 'Write test: existing shouldInterrupt tests still pass (regression)'
+      green:
+        - 'Add approval gate checks to shouldInterrupt based on node name and state flags'
+      refactor:
+        - 'Extract gate logic into clean switch/if structure'
+    estimatedEffort: '45min'
+
+  # ── Phase 7: Merge Node Orchestrator ──
+
+  - id: task-16
+    phaseId: phase-7
+    title: 'Create CI fix prompt builder'
+    description: >
+      Build a constrained prompt for the AI agent when CI fails. Takes CI log excerpt,
+      feature spec summary, and attempt number. Instructs the agent to fix the specific
+      CI failure within bounded scope.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'buildCiFixPrompt function exported with parameters: logExcerpt, specSummary, attempt'
+      - 'Prompt includes CI failure logs and fix instructions'
+      - 'Prompt length is bounded (under 5000 chars for typical inputs)'
+    tdd:
+      red:
+        - 'Write test: buildCiFixPrompt returns string containing the log excerpt'
+        - 'Write test: buildCiFixPrompt includes attempt number'
+        - 'Write test: buildCiFixPrompt result length bounded'
+      green:
+        - 'Implement buildCiFixPrompt in merge.prompt.ts'
+      refactor:
+        - 'Ensure prompt follows conventions from other prompt builders'
+    estimatedEffort: '30min'
+
+  - id: task-17
+    phaseId: phase-7
+    title: 'Create merge node — validation, commit, and push steps'
+    description: >
+      First part of merge node orchestrator. Handles: run validation (lint, typecheck, tests)
+      with bounded retry, commit uncommitted changes, push branch. Includes idempotency
+      checks. Uses createNodeLogger, reportNodeStart, isGraphBubbleUp patterns.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-14
+      - task-15
+    acceptanceCriteria:
+      - 'createMergeNode exported, accepts deps bag'
+      - 'Returns async function matching LangGraph node signature'
+      - 'Sets currentNode to merge in return state'
+      - 'Runs validation (lint, typecheck, tests) before committing'
+      - 'On validation failure, uses agent to fix with bounded retry (max 3)'
+      - 'Commits uncommitted changes, stores SHA in state.commitHash'
+      - 'Skips commit if no uncommitted changes'
+      - 'Pushes branch with setUpstream=true'
+      - 'On MERGE_CONFLICT, throws with actionable error'
+      - 'On AUTH_FAILURE, throws immediately'
+      - 'Appends progress messages to state.messages'
+    tdd:
+      red:
+        - 'Write test: merge node runs validation before commit'
+        - 'Write test: merge node retries validation fix up to 3 times'
+        - 'Write test: merge node commits when hasUncommittedChanges returns true'
+        - 'Write test: merge node skips commit when hasUncommittedChanges returns false'
+        - 'Write test: merge node pushes branch with setUpstream=true'
+        - 'Write test: merge node throws on MERGE_CONFLICT'
+        - 'Write test: merge node throws on AUTH_FAILURE'
+        - 'Write test: merge node sets currentNode to merge'
+      green:
+        - 'Create merge.node.ts with createMergeNode factory function'
+        - 'Implement validation step with retry'
+        - 'Implement commit step with idempotency check'
+        - 'Implement push step with error classification'
+      refactor:
+        - 'Ensure merge node file stays under 200 lines at this point'
+    estimatedEffort: '2.5h'
+
+  - id: task-18
+    phaseId: phase-7
+    title: 'Add pr.yaml generation and optional PR creation to merge node'
+    description: >
+      After push, generate pr.yaml (always). If state.openPr is true, create PR from
+      pr.yaml via IGitPrService.createPr. Store PR URL/number in state and update
+      Feature entity in DB. Watch CI with bounded retry (max 3 attempts with agent fix).
+    state: Todo
+    dependencies:
+      - task-13
+      - task-16
+      - task-17
+    acceptanceCriteria:
+      - 'pr.yaml generated after push regardless of openPr flag'
+      - 'If openPr=true: creates PR from pr.yaml, stores URL/number in state'
+      - 'If openPr=false: skips PR creation, pr.yaml still generated'
+      - 'Skips PR creation if PR already exists (idempotency)'
+      - 'Updates Feature entity with PR data (url, number, status) via repository'
+      - 'Watches CI via watchCi if PR was created'
+      - 'On CI failure, reads logs and calls agent with constrained fix prompt'
+      - 'Commits and pushes CI fix, watches CI again'
+      - 'After 3 failed CI fix attempts, sets ciStatus to failure and continues'
+      - 'On CI success, sets ciStatus to success'
+    tdd:
+      red:
+        - 'Write test: merge node generates pr.yaml regardless of openPr flag'
+        - 'Write test: merge node creates PR when openPr=true'
+        - 'Write test: merge node skips PR when openPr=false'
+        - 'Write test: merge node skips PR creation when PR already exists'
+        - 'Write test: merge node updates Feature entity with PR data'
+        - 'Write test: merge node watches CI and sets ciStatus=success on pass'
+        - 'Write test: merge node retries CI fix up to 3 times'
+        - 'Write test: merge node sets ciStatus=failure after 3 failed attempts'
+      green:
+        - 'Add pr.yaml generation call after push'
+        - 'Add conditional PR creation based on state.openPr'
+        - 'Add Feature entity update with PR data'
+        - 'Add CI watch loop with bounded retry'
+      refactor:
+        - 'Extract CI retry loop into helper function to keep node under 200 lines'
+    estimatedEffort: '3h'
+
+  - id: task-19
+    phaseId: phase-7
+    title: 'Add merge step (PR merge or direct git merge) with approval gate'
+    description: >
+      After PR creation / CI watch: if autoMerge is true, run merge (PR path or direct
+      path based on openPr). If autoMerge is false and allowMerge is false, call
+      interrupt() to pause for user approval. On resume, run merge. PR path: gh pr merge.
+      Direct path: git merge into main, push main.
+    state: Todo
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - 'If autoMerge=true AND openPr=true: merges PR via mergePr'
+      - 'If autoMerge=true AND openPr=false: merges branch into main via mergeBranch'
+      - 'If autoMerge=false AND allowMerge=false: calls interrupt() for user approval'
+      - 'If autoMerge=false AND allowMerge=true: proceeds with merge automatically'
+      - 'interrupt() payload includes diff summary for informed decision'
+      - 'On merge failure (MERGE_CONFLICT, MERGE_FAILED), throws with actionable error'
+    tdd:
+      red:
+        - 'Write test: autoMerge + openPr calls mergePr'
+        - 'Write test: autoMerge + not openPr calls mergeBranch to main'
+        - 'Write test: not autoMerge + not allowMerge calls interrupt()'
+        - 'Write test: not autoMerge + allowMerge proceeds with merge'
+        - 'Write test: merge failure throws with MERGE_FAILED error'
+        - 'Write test: interrupt payload contains diff summary'
+      green:
+        - 'Add conditional merge logic based on autoMerge and openPr flags'
+        - 'Add approval gate check based on allowMerge flag'
+        - 'Implement both PR merge and direct merge paths'
+      refactor:
+        - 'Extract merge logic into helper to keep node clean'
+    estimatedEffort: '2.5h'
+
+  - id: task-20
+    phaseId: phase-7
+    title: 'Add lifecycle transition, feature.yaml update, and cleanup to merge node'
+    description: >
+      Final steps: update Feature.lifecycle (to Review if not merged, to Maintain if merged).
+      Update feature.yaml with phase/prUrl/checkpoint. If merge happened (code on main),
+      delete feature branch (local + remote) and remove worktree. Report Successfully Deployed
+      status. Return final state.
+    state: Todo
+    dependencies:
+      - task-19
+    acceptanceCriteria:
+      - 'If merged: Feature.lifecycle set to Maintain via repository'
+      - 'If not merged (PR created, awaiting review): Feature.lifecycle set to Review'
+      - 'feature.yaml updated: phase, prUrl, checkpoint'
+      - 'If merged: feature branch deleted (local + remote) via deleteBranch'
+      - 'If merged: worktree removed via worktreeService.remove()'
+      - 'Cleanup failure logged as warning, not thrown'
+      - 'If merged: agent reports Successfully Deployed in final messages'
+      - 'AgentRun status set to completed when entering Maintain'
+      - 'Returns state with all merge fields and summary messages'
+    tdd:
+      red:
+        - 'Write test: merged path sets Feature.lifecycle to Maintain'
+        - 'Write test: non-merged path sets Feature.lifecycle to Review'
+        - 'Write test: feature.yaml updated with prUrl and checkpoint'
+        - 'Write test: merged path calls deleteBranch and worktreeService.remove'
+        - 'Write test: cleanup failure does not throw'
+        - 'Write test: merged path includes Successfully Deployed message'
+        - 'Write test: final state includes all merge fields'
+      green:
+        - 'Add lifecycle transition (Maintain or Review based on merge status)'
+        - 'Add feature.yaml update'
+        - 'Add conditional cleanup (only if merged into main)'
+        - 'Add agent completion status'
+        - 'Return complete state'
+      refactor:
+        - 'Extract feature.yaml update into reusable helper'
+        - 'Final review: ensure merge.node.ts stays under 200 lines via helper extraction'
+    estimatedEffort: '2h'
+
+  # ── Phase 8: Graph Wiring, Worker Integration & CLI Flags ──
+
+  - id: task-21
+    phaseId: phase-8
+    title: 'Refactor graph factory to accept FeatureAgentGraphDeps and wire merge node'
+    description: >
+      Define FeatureAgentGraphDeps interface. Change createFeatureAgentGraph signature
+      to accept deps bag. Wire merge node: implement to merge to END. Pass deps to
+      existing node factories unchanged.
+    state: Todo
+    dependencies:
+      - task-20
+    acceptanceCriteria:
+      - 'FeatureAgentGraphDeps interface exported'
+      - 'createFeatureAgentGraph accepts (deps, checkpointer)'
+      - 'Merge node added via .addNode(merge, createMergeNode(deps))'
+      - 'Graph edges: implement to merge to END'
+      - 'Existing node factories receive deps.executor unchanged'
+    tdd:
+      red:
+        - 'Write test: graph has merge node'
+        - 'Write test: graph edges include implement to merge to END'
+        - 'Write test: existing nodes still receive correct dependencies'
+      green:
+        - 'Define FeatureAgentGraphDeps interface'
+        - 'Update factory signature and node wiring'
+      refactor:
+        - 'Verify no other files use old factory signature'
+    estimatedEffort: '1h'
+
+  - id: task-22
+    phaseId: phase-8
+    title: 'Update worker to resolve and pass new dependencies'
+    description: >
+      Update worker to resolve IGitPrService, IWorktreeService, IFeatureRepository
+      from DI container. Construct FeatureAgentGraphDeps bag. Also load Feature entity
+      and populate graph initial state with workflow flags (openPr, autoMerge, allowMerge).
+    state: Todo
+    dependencies:
+      - task-12
+      - task-21
+    acceptanceCriteria:
+      - 'Worker resolves IGitPrService, IWorktreeService, IFeatureRepository from container'
+      - 'Worker constructs FeatureAgentGraphDeps and passes to graph factory'
+      - 'Worker loads Feature entity and populates initial state with workflow flags'
+      - 'Worker compiles and runs without errors'
+    tdd:
+      red:
+        - 'Write test: worker resolves all required DI tokens'
+        - 'Write test: graph factory called with complete deps bag'
+        - 'Write test: initial graph state includes workflow flags from Feature entity'
+      green:
+        - 'Add container.resolve calls for new services'
+        - 'Load Feature entity and extract workflow flags'
+        - 'Construct deps bag and pass to factory'
+      refactor:
+        - 'Group service resolution into clear block'
+    estimatedEffort: '1h'
+
+  - id: task-23
+    phaseId: phase-8
+    title: 'Add CLI flags to feat new command'
+    description: >
+      Add --pr, --auto-merge, --allow-prd, --allow-plan, --allow-merge flags to the
+      feat new command (Commander.js). When creating a new Feature entity, persist flag
+      values. --auto-merge implies --allow-merge. Flags override global Settings defaults.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - '--pr flag added to feat new command (boolean, default false)'
+      - '--auto-merge flag added (boolean, default false)'
+      - '--allow-prd flag added (boolean, default false)'
+      - '--allow-plan flag added (boolean, default false)'
+      - '--allow-merge flag added (boolean, default false)'
+      - 'Flag values persisted on Feature entity during creation'
+      - '--auto-merge sets allowMerge=true automatically'
+      - 'Flags override global Settings workflow defaults'
+    tdd:
+      red:
+        - 'Write test: feat new --pr creates Feature with openPr=true'
+        - 'Write test: feat new --auto-merge creates Feature with autoMerge=true and allowMerge=true'
+        - 'Write test: feat new without flags creates Feature with all flags false'
+        - 'Write test: flags override global settings defaults'
+      green:
+        - 'Add .option() calls for all 5 flags in feat new command'
+        - 'Pass flag values to Feature creation use case'
+        - 'Apply --auto-merge to allowMerge implication'
+        - 'Merge with global settings defaults'
+      refactor:
+        - 'Group flags logically in help output'
+    estimatedEffort: '1.5h'
+
+  # ── Phase 9: Integration Tests & Polish ──
+
+  - id: task-24
+    phaseId: phase-9
+    title: 'Integration test: PR creation flow (openPr=true, autoMerge=false)'
+    description: >
+      End-to-end test with mocked services. Feature has openPr=true, autoMerge=false.
+      Verify: validate, commit, push, pr.yaml generated, PR created, CI watched,
+      lifecycle=Review, no merge, no cleanup.
+    state: Todo
+    dependencies:
+      - task-22
+    acceptanceCriteria:
+      - 'Graph reaches merge node and returns with prUrl set'
+      - 'pr.yaml generation called'
+      - 'PR created via gitPrService.createPr'
+      - 'CI watched via gitPrService.watchCi'
+      - 'Feature.lifecycle updated to Review'
+      - 'No mergePr or mergeBranch called'
+      - 'No worktree cleanup (not merged yet)'
+    tdd:
+      red:
+        - 'Write integration test for PR creation flow'
+      green:
+        - 'Set up mocked services, invoke graph with openPr=true state'
+        - 'Assert final state and service call patterns'
+      refactor:
+        - 'Extract mock service factories into test helpers'
+    estimatedEffort: '1.5h'
+
+  - id: task-25
+    phaseId: phase-9
+    title: 'Integration test: auto-merge via PR flow (openPr=true, autoMerge=true)'
+    description: >
+      Test with openPr=true, autoMerge=true. Verify: validate, commit, push,
+      pr.yaml, PR created, CI watched, PR merged, lifecycle=Maintain,
+      branch deleted, worktree cleaned.
+    state: Todo
+    dependencies:
+      - task-24
+    acceptanceCriteria:
+      - 'PR merged via gitPrService.mergePr'
+      - 'Feature.lifecycle updated to Maintain'
+      - 'Branch deleted via gitPrService.deleteBranch'
+      - 'Worktree removed via worktreeService.remove'
+      - 'Successfully Deployed in final messages'
+    tdd:
+      red:
+        - 'Write integration test for auto-merge via PR flow'
+      green:
+        - 'Set up mocked services, invoke graph with autoMerge=true + openPr=true'
+        - 'Assert merge, cleanup, and lifecycle'
+      refactor:
+        - 'Reuse mock factories from task-24'
+    estimatedEffort: '1h'
+
+  - id: task-26
+    phaseId: phase-9
+    title: 'Integration test: auto-merge direct flow (openPr=false, autoMerge=true)'
+    description: >
+      Test with openPr=false, autoMerge=true. Verify: validate, commit, push,
+      pr.yaml (generated but no PR), branch merged into main directly, lifecycle=Maintain,
+      branch deleted, worktree cleaned.
+    state: Todo
+    dependencies:
+      - task-25
+    acceptanceCriteria:
+      - 'No PR created (createPr not called)'
+      - 'pr.yaml still generated'
+      - 'Branch merged via gitPrService.mergeBranch'
+      - 'Feature.lifecycle updated to Maintain'
+      - 'Branch deleted and worktree cleaned'
+    tdd:
+      red:
+        - 'Write integration test for direct merge flow'
+      green:
+        - 'Set up mocked services, invoke graph with autoMerge=true + openPr=false'
+        - 'Assert mergeBranch called, no createPr, cleanup happens'
+      refactor:
+        - 'Reuse mock factories'
+    estimatedEffort: '1h'
+
+  - id: task-27
+    phaseId: phase-9
+    title: 'Integration test: Review approval gate (allowMerge=false)'
+    description: >
+      Test with openPr=true, autoMerge=false, allowMerge=false. Verify: merge node
+      creates PR, watches CI, then calls interrupt() for user approval. On resume,
+      runs merge.
+    state: Todo
+    dependencies:
+      - task-26
+    acceptanceCriteria:
+      - 'Merge node creates PR and watches CI'
+      - 'interrupt() called with diff summary payload'
+      - 'On graph resume: merge done, lifecycle=Maintain, cleanup done'
+    tdd:
+      red:
+        - 'Write integration test for approval gate with interrupt and resume'
+      green:
+        - 'Set up mocked services, invoke graph, verify interrupt'
+        - 'Resume graph, verify merge and cleanup'
+      refactor:
+        - 'Verify interrupt payload structure'
+    estimatedEffort: '1.5h'
+
+  - id: task-28
+    phaseId: phase-9
+    title: 'Idempotency test and full regression suite'
+    description: >
+      Test merge node re-run on state with existing PR (should skip creation).
+      Test re-run on already-merged state (should skip everything).
+      Run full test suite (pnpm test) to verify no regressions.
+    state: Todo
+    dependencies:
+      - task-27
+    acceptanceCriteria:
+      - 'Re-run with existing PR skips PR creation, reads existing URL'
+      - 'Re-run on already-merged state is a no-op'
+      - 'pnpm test passes with no regressions'
+      - 'pnpm typecheck passes'
+      - 'pnpm lint passes'
+    tdd:
+      red:
+        - 'Write idempotency test: merge node skips already-completed steps on re-run'
+        - 'Write idempotency test: no-op on already-merged state'
+      green:
+        - 'Set up state with existing PR data, invoke merge node'
+        - 'Verify skipped service calls'
+      refactor:
+        - 'Run full test suite and fix any regressions'
+    estimatedEffort: '2h'
+
+totalEstimate: '30h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is structured in 9 phases with 28 tasks totaling approximately
+  30 hours of effort.
+
+  **Phase 1** (TypeSpec, 3 tasks): Redesign lifecycle enum, extend Feature and Settings
+  models, regenerate types. This is foundational — all downstream code depends on these types.
+
+  **Phase 2** (DB Migration, 2 tasks): Single migration for new columns + lifecycle value
+  migration. Update repository mappers for new fields.
+
+  **Phase 3** (Port Interface, 3 tasks): IGitPrService with 10 methods, GitPrError with
+  9 codes, CiStatusResult and DiffSummary value types. Pure application-layer contracts.
+
+  **Phase 4** (Service Implementation, 4 tasks): GitPrService wrapping all git/gh CLI
+  commands. ExecFunction injection pattern. DI container registration.
+
+  **Phase 5** (pr.yaml, 1 task): Generator function producing PR content from spec data.
+  Always runs after implementation. Source of truth for PR content.
+
+  **Phase 6** (Graph State + Gates, 2 tasks): State extension with 7 new channels.
+  shouldInterrupt updated for 3 approval gates (Requirements, Planning, Review).
+
+  **Phase 7** (Merge Node, 5 tasks): Core orchestrator split into focused tasks:
+  validation/commit/push, pr.yaml + PR creation + CI watch, merge step with approval gate,
+  lifecycle transition + cleanup. Conditional logic driven by Feature flags.
+
+  **Phase 8** (Integration, 3 tasks): Graph wiring with deps bag, worker DI resolution,
+  CLI flags on feat new command with persistence.
+
+  **Phase 9** (Testing, 5 tasks): Integration tests for all 4 conditional paths (PR creation,
+  auto-merge via PR, auto-merge direct, Review approval gate) plus idempotency and regression.

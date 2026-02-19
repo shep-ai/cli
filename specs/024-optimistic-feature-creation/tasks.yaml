@@ -1,0 +1,413 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-feature-creation
+summary: >
+  12 tasks across 4 phases. Phase 1 fixes the blocking payload mismatch (3 tasks). Phase 2 adds the
+  'creating' state visual foundation (3 tasks). Phase 3 implements the core optimistic insert/reconciliation/rollback
+  flow (4 tasks). Phase 4 adds the non-interactive guard and cleans up integration (2 tasks).
+
+relatedFeatures: []
+technologies:
+  - React (useState, useCallback, useEffect)
+  - Next.js App Router (router.refresh)
+  - React Flow (@xyflow/react)
+  - shadcn/ui (Drawer, Toast via sonner)
+  - TypeScript
+  - Vitest
+  - Storybook
+  - Tailwind CSS v4
+
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Payload Fix & Type Contract ──────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Define FeatureCreatePayload type and refactor drawer onSubmit'
+    description: >
+      Define a FeatureCreatePayload interface in the web layer with structured fields {name, description,
+      attachments, repositoryPath, approvalGates}. Remove the client-side composeUserInput() function from
+      feature-create-drawer.tsx. Update handleSubmit to pass structured data via onSubmit. Update
+      FeatureCreateDrawerProps.onSubmit type signature from CreateFeatureInput to FeatureCreatePayload.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureCreatePayload interface is defined with {name: string, description?: string, attachments: FileAttachment[], repositoryPath: string, approvalGates: ApprovalGates}'
+      - 'Client-side composeUserInput() function is removed from feature-create-drawer.tsx'
+      - 'FeatureCreateDrawerProps.onSubmit type is (data: FeatureCreatePayload) => void'
+      - 'handleSubmit passes {name, description, attachments, repositoryPath, approvalGates} directly'
+      - 'No import of CreateFeatureInput in feature-create-drawer.tsx'
+    tdd:
+      red:
+        - 'Update feature-create-drawer.test.tsx: change the assertion on onSubmit call to expect structured {name, description, attachments, repositoryPath, approvalGates} instead of {userInput, repositoryPath, approvalGates}'
+        - 'Add test: submitted data has separate name and description fields (not composed userInput)'
+        - 'Add test: submitted data includes attachments array with file paths'
+      green:
+        - 'Define FeatureCreatePayload interface in feature-create-drawer.tsx (co-located with props)'
+        - 'Remove composeUserInput() function'
+        - 'Update handleSubmit to pass structured fields'
+        - 'Update FeatureCreateDrawerProps.onSubmit type'
+      refactor:
+        - 'Export FeatureCreatePayload type for consumers'
+        - 'Remove unused CreateFeatureInput import'
+    estimatedEffort: '1.5h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Update handleCreateFeatureSubmit to accept FeatureCreatePayload'
+    description: >
+      Update the handleCreateFeatureSubmit callback in useControlCenterState to accept FeatureCreatePayload
+      instead of CreateFeatureInput. Update the fetch body to send the structured payload directly (the API
+      route already expects {name, description, repositoryPath, attachments, approvalGates}). Update the
+      ControlCenterState interface type for handleCreateFeatureSubmit.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'handleCreateFeatureSubmit accepts FeatureCreatePayload parameter'
+      - 'fetch body sends structured {name, description, repositoryPath, attachments, approvalGates}'
+      - 'ControlCenterState.handleCreateFeatureSubmit type matches new signature'
+      - 'Existing test for successful creation still passes (with updated mock data)'
+      - 'Existing test for creation failure still passes'
+    tdd:
+      red:
+        - 'Update use-control-center-state.test.tsx: change mock submit data from {userInput, repositoryPath, approvalGates} to {name, description, attachments, repositoryPath, approvalGates}'
+        - 'Verify existing submit success/failure tests fail due to type mismatch'
+      green:
+        - 'Change handleCreateFeatureSubmit parameter type to FeatureCreatePayload'
+        - 'Update JSON.stringify(data) in fetch body (already structured, just passes through)'
+        - 'Update ControlCenterState interface'
+        - 'Update import to use FeatureCreatePayload from feature-create-drawer'
+      refactor:
+        - 'Remove unused CreateFeatureInput import from use-control-center-state.ts'
+    estimatedEffort: '1h'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Update drawer stories for new payload shape'
+    description: >
+      Update feature-create-drawer.stories.tsx to reflect the new FeatureCreatePayload type. The Interactive
+      story displays submitted data in a JSON panel — update it to show structured fields. Update any story
+      args that reference the old CreateFeatureInput type.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'All feature-create-drawer stories render without errors'
+      - 'Interactive story displays structured {name, description, attachments, repositoryPath, approvalGates}'
+      - 'No references to CreateFeatureInput or userInput in stories'
+    tdd: null
+    estimatedEffort: '30min'
+
+  # ── Phase 2: Creating State & Node Rendering ─────────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: "Add 'creating' FeatureNodeState to state config"
+    description: >
+      Add 'creating' to the FeatureNodeState union type in feature-node-state-config.ts. Add a new entry
+      in the featureNodeStateConfig record with: Loader2 icon, blue border (border-l-blue-500), blue badge
+      classes, label "Creating...", showProgressBar false. This follows the exact pattern of the existing
+      5 states.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - "'creating' is a valid FeatureNodeState value"
+      - 'featureNodeStateConfig.creating has icon: Loader2, borderClass: border-l-blue-500, label: "Creating..."'
+      - 'TypeScript compiles without errors'
+      - 'Existing state config entries are unchanged'
+    tdd:
+      red:
+        - "Add test in feature-node.test.tsx: render a node with state 'creating' — assert it does not throw and the card renders"
+        - "Add test: node with state 'creating' shows 'Creating...' badge text"
+      green:
+        - "Add 'creating' to FeatureNodeState union type"
+        - 'Add creating entry to featureNodeStateConfig record'
+      refactor:
+        - 'Verify alphabetical or logical ordering of config entries is consistent'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: "Implement 'creating' state rendering in FeatureNode component"
+    description: >
+      Update feature-node.tsx to handle the 'creating' state in the bottom section. When state === 'creating':
+      show "Creating..." text with Loader2 icon (no AgentIcon), show indeterminate progress bar with
+      motion-safe animation, add aria-busy="true" to the card, do NOT show lifecycle running verb. The
+      rendering is similar to 'running' but without the agent icon and with static "Creating..." text.
+      Also update getBadgeText to return "Creating..." for the creating state.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "Node with state 'creating' shows 'Creating...' text (not a lifecycle verb)"
+      - "Node with state 'creating' shows indeterminate progress bar"
+      - "Node with state 'creating' does NOT show AgentIcon"
+      - "Node with state 'creating' has aria-busy='true' on the card element"
+      - 'Progress bar animation uses motion-safe: variant for accessibility'
+      - 'Node displays the feature name from data'
+    tdd:
+      red:
+        - "Add test: state 'creating' renders 'Creating...' text"
+        - "Add test: state 'creating' does not render agent icon element"
+        - "Add test: state 'creating' renders indeterminate progress bar"
+        - "Add test: state 'creating' has aria-busy='true' on the card"
+        - "Add test: state 'creating' renders the feature name"
+      green:
+        - "Add 'creating' branch in the bottom section alongside 'running' (both show indeterminate bar)"
+        - 'Add aria-busy attribute conditional on state === creating'
+        - "Update getBadgeText to handle 'creating' state"
+        - 'Use motion-safe: variant on progress bar animation class'
+      refactor:
+        - "Consider extracting the indeterminate progress bar into a shared fragment since 'running' and 'creating' both use it"
+    estimatedEffort: '1.5h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: "Add Storybook story for 'creating' state"
+    description: >
+      Add a 'Creating' story variant to feature-node.stories.tsx following the existing pattern. The story
+      should show a node with state 'creating', a sample feature name, no agent icon, indeterminate progress
+      bar with pulsing animation. Also add the creating state to the AllStates story grid.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - "A 'Creating' story exists in feature-node.stories.tsx"
+      - "The AllStates story includes the 'creating' state"
+      - 'Story renders without errors in Storybook'
+      - "Story visually demonstrates: 'Creating...' badge, indeterminate progress, no agent icon"
+    tdd: null
+    estimatedEffort: '30min'
+
+  # ── Phase 3: Optimistic Insert, Reconciliation & Rollback ────────────────
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Modify createFeatureNode to support state override and return node ID'
+    description: >
+      Modify createFeatureNode in use-control-center-state.ts to: (1) spread dataOverride over the default
+      state so callers can pass {state: 'creating'} to override the default 'running', (2) return the
+      generated node ID string so callers can track it for rollback, (3) skip calling setSelectedNode for
+      nodes in 'creating' state (optimistic nodes should not be auto-selected). The function currently
+      hardcodes state: 'running' at line 114 and does not return the ID.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'createFeatureNode returns the generated node ID string'
+      - "createFeatureNode({state: 'creating'}) produces a node with state 'creating' (not 'running')"
+      - "createFeatureNode with default args still produces state 'running' (backward compatible)"
+      - "createFeatureNode does not call setSelectedNode when state is 'creating'"
+      - 'Existing handleAddFeatureToFeature still works (ignores return value)'
+    tdd:
+      red:
+        - 'Add test: createFeatureNode with dataOverride {state: creating} produces a node in creating state'
+        - 'Add test: createFeatureNode returns a string matching the feature-{timestamp}-{counter} pattern'
+        - "Add test: node with state 'creating' is not set as selectedNode"
+        - 'Verify existing test for handleAddFeatureToFeature still passes'
+      green:
+        - 'Spread dataOverride.state over default state in newFeatureData (line 114: state: dataOverride?.state ?? running)'
+        - 'Return the generated id string from createFeatureNode'
+        - "Add conditional: if (newFeatureData.state !== 'creating') setSelectedNode(newFeatureData)"
+      refactor:
+        - 'Ensure the return type annotation is explicit (string)'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add useEffect for initialNodes/initialEdges prop sync'
+    description: >
+      Add a useEffect in useControlCenterState that detects when initialNodes or initialEdges props change
+      (from router.refresh() triggering a server component re-render) and syncs them to local state via
+      setNodes(initialNodes) / setEdges(initialEdges). Use a stable derived key (e.g., sorted node IDs
+      joined as a string, or node count + IDs hash) to avoid infinite re-render loops. This is required
+      for the optimistic node to be replaced by real server data after router.refresh().
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'When initialNodes prop changes (different node IDs), local nodes state is updated to match'
+      - 'When initialEdges prop changes, local edges state is updated to match'
+      - 'The effect does NOT fire on every render (stable comparison key prevents loops)'
+      - 'Viewport position/zoom is not affected by the sync'
+      - 'Existing tests continue to pass'
+    tdd:
+      red:
+        - 'Add test: when HookTestHarness re-renders with new initialNodes, the hook state reflects the new nodes'
+        - 'Add test: when initialNodes are identical (same IDs), no state update occurs (verify setNodes not called unnecessarily)'
+        - 'Add test: optimistic node is replaced when initialNodes changes to include the real feature'
+      green:
+        - 'Compute a stable key from initialNodes (e.g., initialNodes.map(n => n.id).sort().join(","))'
+        - 'Add useEffect with the key as dependency that calls setNodes(initialNodes) and setEdges(initialEdges)'
+      refactor:
+        - 'Extract the key computation to a named constant for clarity'
+        - 'Consider whether useMemo for the key is needed (likely not — string concatenation is cheap)'
+    estimatedEffort: '1.5h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Rewrite handleCreateFeatureSubmit for optimistic pattern'
+    description: >
+      Rewrite handleCreateFeatureSubmit to implement the optimistic creation flow: (1) call createFeatureNode
+      with pendingRepoNodeId and {state: 'creating', name, description, repositoryPath} to insert the
+      optimistic node instantly, (2) capture the returned temp node ID, (3) close the drawer and clear
+      pendingRepoNodeId immediately, (4) fire the fetch POST in the background (no await blocking the UI),
+      (5) on success call router.refresh() for reconciliation, (6) on failure remove the optimistic node
+      and its edge via setNodes/setEdges filters and show toast.error(). Remove the isSubmitting state
+      since the drawer closes immediately.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+      - task-7
+      - task-8
+    acceptanceCriteria:
+      - 'Optimistic node appears in nodes state immediately (before API response)'
+      - 'Optimistic node has state creating, correct name and description'
+      - 'Optimistic node has edge connecting to pendingRepoNodeId'
+      - 'Drawer closes immediately (isCreateDrawerOpen becomes false before API resolves)'
+      - 'pendingRepoNodeId is cleared immediately'
+      - 'On API success: router.refresh() is called'
+      - 'On API failure: optimistic node is removed from nodes state'
+      - 'On API failure: optimistic edge is removed from edges state'
+      - 'On API failure: toast.error() shows the error message'
+      - 'isSubmitting state variable is removed (no longer needed)'
+    tdd:
+      red:
+        - 'Add test: on submit, a node with state creating appears in nodes before fetch resolves'
+        - 'Add test: on submit, drawer closes immediately (isCreateDrawerOpen false before fetch resolves)'
+        - 'Add test: on fetch success, router.refresh() is called'
+        - 'Add test: on fetch failure, the optimistic node is removed from nodes'
+        - 'Add test: on fetch failure, the optimistic edge is removed from edges'
+        - 'Add test: on fetch failure, toast.error() is called with error message'
+        - 'Add test: concurrent creations produce multiple optimistic nodes with unique IDs'
+      green:
+        - 'Rewrite handleCreateFeatureSubmit: insert node → close drawer → background fetch → reconcile/rollback'
+        - 'Remove isSubmitting state and setIsSubmitting calls'
+        - 'Update ControlCenterState interface to remove isSubmitting'
+      refactor:
+        - 'Verify all existing submit-related tests are updated or replaced'
+        - 'Ensure error handling covers both fetch network errors and non-ok responses'
+    estimatedEffort: '3h'
+
+  - id: task-10
+    phaseId: phase-3
+    title: "Guard handleNodeClick for 'creating' state nodes"
+    description: >
+      Update handleNodeClick in useControlCenterState to skip setting selectedNode for nodes with
+      data.state === 'creating'. An optimistic node has no server data to display in the detail panel,
+      so clicking it should be a no-op.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "Clicking a node with state 'creating' does not set selectedNode"
+      - "Clicking a node with state 'running' still sets selectedNode (existing behavior)"
+      - 'Clicking a node with any other state still sets selectedNode (existing behavior)'
+    tdd:
+      red:
+        - "Add test: clicking a feature node with state 'creating' does not update selectedNode"
+        - "Add test: clicking a feature node with state 'running' still updates selectedNode"
+      green:
+        - "Add guard in handleNodeClick: check node.data.state !== 'creating' before setSelectedNode"
+      refactor:
+        - 'Consider whether the guard should also close the create drawer (likely no — drawer is already closed in optimistic flow)'
+    estimatedEffort: '30min'
+
+  # ── Phase 4: Non-Interactive Guard & Integration ─────────────────────────
+
+  - id: task-11
+    phaseId: phase-4
+    title: "Filter onAction/onSettings callbacks for 'creating' nodes in FeaturesCanvas"
+    description: >
+      Update the enrichedNodes useMemo in features-canvas.tsx to conditionally inject onAction and onSettings
+      callbacks only for feature nodes whose data.state is NOT 'creating'. This prevents the + action button
+      and settings gear from appearing on optimistic nodes. The guard is minimal: add
+      && (node.data as FeatureNodeData).state !== 'creating' to the existing conditional spread.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "Feature nodes with state 'creating' do not receive onAction callback in enriched data"
+      - "Feature nodes with state 'creating' do not receive onSettings callback in enriched data"
+      - 'Feature nodes with other states still receive onAction/onSettings callbacks'
+      - 'Repository nodes and addRepository nodes are unaffected'
+    tdd:
+      red:
+        - "Add test: enrichedNodes for a feature node with state 'creating' has onAction undefined"
+        - "Add test: enrichedNodes for a feature node with state 'creating' has onSettings undefined"
+        - "Add test: enrichedNodes for a feature node with state 'running' still has onAction defined"
+      green:
+        - "Add state check to the featureNode spread in enrichedNodes: only inject callbacks when state !== 'creating'"
+      refactor:
+        - 'Import FeatureNodeData type if not already imported for the type assertion'
+    estimatedEffort: '1h'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Remove isSubmitting prop usage and update control-center-inner'
+    description: >
+      Remove the isSubmitting prop from the FeatureCreateDrawer usage in control-center-inner.tsx since the
+      drawer now closes immediately on submit (no loading state needed). Update FeatureCreateDrawerProps to
+      make isSubmitting optional or remove it entirely if no other consumers use it. Update drawer stories
+      that showcase the Submitting state. Clean up the ControlCenterState interface if isSubmitting was
+      removed in task-9.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'control-center-inner.tsx does not pass isSubmitting to FeatureCreateDrawer'
+      - 'isSubmitting is removed from ControlCenterState interface'
+      - 'FeatureCreateDrawer still accepts optional isSubmitting prop (backward compat for stories) OR prop is removed'
+      - 'Drawer stories for Submitting state are updated or removed'
+      - 'All existing tests pass'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Verify that removing isSubmitting from useControlCenterState return causes a type error in control-center-inner (confirming the dependency exists)'
+      green:
+        - 'Remove isSubmitting from useControlCenterState return value and ControlCenterState interface'
+        - 'Remove isSubmitting prop from FeatureCreateDrawer in control-center-inner.tsx'
+        - 'Update or remove Submitting story in feature-create-drawer.stories.tsx'
+      refactor:
+        - 'Clean up any remaining references to isSubmitting in test files'
+        - 'Verify no other components depend on isSubmitting from ControlCenterState'
+    estimatedEffort: '1h'
+
+totalEstimate: '12h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 12 tasks across 4 phases, totaling approximately 12 hours of work
+  following strict TDD (Red-Green-Refactor) cycles.
+
+  **Phase 1 (Payload Fix, ~3h)** establishes the correct data contract between the drawer and API. The
+  drawer stops composing a userInput blob and instead sends structured {name, description, attachments,
+  repositoryPath, approvalGates}. This unblocks the feature creation flow (currently broken with a 400
+  error) and provides the structured data the optimistic node needs for display. All consumers —
+  useControlCenterState, stories, and tests — are updated to the new type.
+
+  **Phase 2 (Creating State, ~2.5h)** builds the visual foundation: a new 'creating' FeatureNodeState
+  in the config record, its rendering logic in the FeatureNode component (indeterminate progress bar,
+  "Creating..." text, no agent icon, aria-busy), and Storybook coverage. This can be developed and
+  verified independently of the optimistic flow.
+
+  **Phase 3 (Optimistic Flow, ~6h)** is the core implementation. It modifies createFeatureNode to return
+  the node ID and accept state overrides, adds a useEffect for syncing server props into local state
+  (enabling router.refresh() reconciliation), rewrites handleCreateFeatureSubmit for the
+  insert→close→background-fetch→reconcile/rollback pattern, and guards handleNodeClick for creating nodes.
+  Each piece has comprehensive TDD coverage using the existing test harness and mock infrastructure.
+
+  **Phase 4 (Integration, ~2h)** wires the non-interactive guard into FeaturesCanvas callback filtering
+  and removes the now-unnecessary isSubmitting prop from the drawer integration. This is a cleanup and
+  integration phase that ties everything together.
+
+  Tasks within each phase are ordered by dependency. Phase 1 must complete before Phase 3 (the optimistic
+  flow depends on the structured payload). Phase 2 tasks can technically run in parallel with Phase 1
+  since they modify different files, but are sequenced for simplicity. Phase 4 depends on Phase 3
+  completion.

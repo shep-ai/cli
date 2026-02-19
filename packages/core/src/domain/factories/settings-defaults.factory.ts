@@ -21,6 +21,7 @@ import type {
   SystemConfig,
   AgentConfig,
   NotificationPreferences,
+  WorkflowConfig,
 } from '../generated/output';
 import { AgentType, AgentAuthMethod, EditorType } from '../generated/output';
 
@@ -121,6 +122,11 @@ export function createDefaultSettings(): Settings {
     },
   };
 
+  const workflow: WorkflowConfig = {
+    openPrOnImplementationComplete: false,
+    autoMergeOnImplementationComplete: false,
+  };
+
   return {
     id: randomUUID(),
     models,
@@ -129,6 +135,7 @@ export function createDefaultSettings(): Settings {
     system,
     agent,
     notifications,
+    workflow,
     createdAt: now,
     updatedAt: now,
   };

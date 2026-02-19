@@ -1,0 +1,186 @@
+/**
+ * Git PR Service Interface
+ *
+ * Output port for git PR and merge operations.
+ * Implementations manage PR creation, merging, and CI status checks.
+ */
+
+/**
+ * Error codes for git PR operations.
+ */
+export enum GitPrErrorCode {
+  MERGE_CONFLICT = 'MERGE_CONFLICT',
+  AUTH_FAILURE = 'AUTH_FAILURE',
+  GH_NOT_FOUND = 'GH_NOT_FOUND',
+  NETWORK_ERROR = 'NETWORK_ERROR',
+  CI_TIMEOUT = 'CI_TIMEOUT',
+  BRANCH_NOT_FOUND = 'BRANCH_NOT_FOUND',
+  GIT_ERROR = 'GIT_ERROR',
+  MERGE_FAILED = 'MERGE_FAILED',
+  PR_NOT_FOUND = 'PR_NOT_FOUND',
+}
+
+/**
+ * Typed error for git PR operations.
+ */
+export class GitPrError extends Error {
+  constructor(
+    message: string,
+    public readonly code: GitPrErrorCode,
+    public readonly cause?: Error
+  ) {
+    super(message);
+    this.name = 'GitPrError';
+  }
+}
+
+/**
+ * CI check status values.
+ */
+export type CiStatus = 'success' | 'failure' | 'pending';
+
+/**
+ * Result of a CI status check.
+ */
+export interface CiStatusResult {
+  /** Overall CI status */
+  status: CiStatus;
+  /** URL to the CI run (e.g., GitHub Actions run URL) */
+  runUrl?: string;
+  /** Excerpt from CI logs (e.g., failure output) */
+  logExcerpt?: string;
+}
+
+/**
+ * Summary of diff statistics between branches or commits.
+ */
+export interface DiffSummary {
+  /** Number of files changed */
+  filesChanged: number;
+  /** Number of lines added */
+  additions: number;
+  /** Number of lines deleted */
+  deletions: number;
+  /** Number of commits in the diff */
+  commitCount: number;
+}
+
+/**
+ * Result of creating a pull request.
+ */
+export interface PrCreateResult {
+  /** URL of the created PR */
+  url: string;
+  /** PR number */
+  number: number;
+}
+
+/**
+ * Merge strategy for pull requests.
+ */
+export type MergeStrategy = 'squash' | 'merge' | 'rebase';
+
+/**
+ * Service interface for git PR and merge operations.
+ */
+export interface IGitPrService {
+  /**
+   * Check if the working directory has uncommitted changes.
+   *
+   * @param cwd - Working directory path
+   * @returns True if there are uncommitted changes
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  hasUncommittedChanges(cwd: string): Promise<boolean>;
+
+  /**
+   * Stage all changes and create a commit.
+   *
+   * @param cwd - Working directory path
+   * @param message - Commit message
+   * @returns The commit SHA
+   * @throws GitPrError with GIT_ERROR code on failure
+   */
+  commitAll(cwd: string, message: string): Promise<string>;
+
+  /**
+   * Push the current branch to the remote.
+   *
+   * @param cwd - Working directory path
+   * @param branch - Branch name to push
+   * @param setUpstream - Whether to set upstream tracking
+   * @throws GitPrError with MERGE_CONFLICT or AUTH_FAILURE code
+   */
+  push(cwd: string, branch: string, setUpstream?: boolean): Promise<void>;
+
+  /**
+   * Create a pull request from a pr.yaml file.
+   *
+   * @param cwd - Working directory path
+   * @param prYamlPath - Path to the pr.yaml file
+   * @returns URL and number of the created PR
+   * @throws GitPrError with GH_NOT_FOUND or AUTH_FAILURE code
+   */
+  createPr(cwd: string, prYamlPath: string): Promise<PrCreateResult>;
+
+  /**
+   * Merge a pull request.
+   *
+   * @param cwd - Working directory path
+   * @param prNumber - PR number to merge
+   * @param strategy - Merge strategy (squash, merge, rebase)
+   * @throws GitPrError with MERGE_FAILED code
+   */
+  mergePr(cwd: string, prNumber: number, strategy?: MergeStrategy): Promise<void>;
+
+  /**
+   * Merge a source branch into a target branch using git merge.
+   *
+   * @param cwd - Working directory path
+   * @param sourceBranch - Branch to merge from
+   * @param targetBranch - Branch to merge into
+   * @throws GitPrError with MERGE_CONFLICT code
+   */
+  mergeBranch(cwd: string, sourceBranch: string, targetBranch: string): Promise<void>;
+
+  /**
+   * Get the current CI status for the branch.
+   *
+   * @param cwd - Working directory path
+   * @param branch - Branch to check CI for
+   * @returns CI status result
+   * @throws GitPrError with GH_NOT_FOUND or NETWORK_ERROR code
+   */
+  getCiStatus(cwd: string, branch: string): Promise<CiStatusResult>;
+
+  /**
+   * Watch CI until it completes or times out.
+   *
+   * @param cwd - Working directory path
+   * @param branch - Branch to watch CI for
+   * @param timeoutMs - Maximum time to wait in milliseconds
+   * @returns CI status result when complete
+   * @throws GitPrError with CI_TIMEOUT code on timeout
+   */
+  watchCi(cwd: string, branch: string, timeoutMs?: number): Promise<CiStatusResult>;
+
+  /**
+   * Delete a branch locally and optionally on the remote.
+   *
+   * @param cwd - Working directory path
+   * @param branch - Branch to delete
+   * @param deleteRemote - Whether to also delete the remote branch
+   * @throws GitPrError with BRANCH_NOT_FOUND or GIT_ERROR code
+   */
+  deleteBranch(cwd: string, branch: string, deleteRemote?: boolean): Promise<void>;
+
+  /**
+   * Get diff summary statistics between the current branch and a base branch.
+   *
+   * @param cwd - Working directory path
+   * @param baseBranch - Base branch to compare against
+   * @returns Diff summary with file count, additions, deletions, and commit count
+   * @throws GitPrError with GIT_ERROR code
+   */
+  getPrDiffSummary(cwd: string, baseBranch: string): Promise<DiffSummary>;
+}

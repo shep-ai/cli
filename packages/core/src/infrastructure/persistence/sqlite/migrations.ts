@@ -176,6 +176,33 @@ ALTER TABLE settings ADD COLUMN notif_evt_agent_completed INTEGER NOT NULL DEFAU
 ALTER TABLE settings ADD COLUMN notif_evt_agent_failed INTEGER NOT NULL DEFAULT 1;
 `,
   },
+  {
+    version: 10,
+    sql: `
+-- Migration 010: Add workflow flags, PR tracking to features; workflow config to settings; lifecycle migration
+
+-- Workflow configuration flags on features
+ALTER TABLE features ADD COLUMN open_pr INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE features ADD COLUMN auto_merge INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE features ADD COLUMN allow_prd INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE features ADD COLUMN allow_plan INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE features ADD COLUMN allow_merge INTEGER NOT NULL DEFAULT 0;
+
+-- PR tracking state on features
+ALTER TABLE features ADD COLUMN pr_url TEXT;
+ALTER TABLE features ADD COLUMN pr_number INTEGER;
+ALTER TABLE features ADD COLUMN pr_status TEXT;
+ALTER TABLE features ADD COLUMN commit_hash TEXT;
+ALTER TABLE features ADD COLUMN ci_status TEXT;
+
+-- Workflow defaults on settings
+ALTER TABLE settings ADD COLUMN workflow_open_pr_on_impl_complete INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN workflow_auto_merge_on_impl_complete INTEGER NOT NULL DEFAULT 0;
+
+-- Migrate existing features with DeployAndQA lifecycle to Maintain
+UPDATE features SET lifecycle = 'Maintain' WHERE lifecycle = 'Deploy & QA';
+`,
+  },
 ];
 
 /**

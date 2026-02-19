@@ -6,6 +6,7 @@ import { createRequirementsNode } from './nodes/requirements.node.js';
 import { createResearchNode } from './nodes/research.node.js';
 import { createPlanNode } from './nodes/plan.node.js';
 import { createImplementNode } from './nodes/implement.node.js';
+import { createMergeNode, type MergeNodeDeps } from './nodes/merge.node.js';
 import { createValidateNode } from './nodes/validate.node.js';
 import { createRepairNode } from './nodes/repair.node.js';
 import { validateSpecAnalyze, validateSpecRequirements } from './nodes/schemas/spec.schema.js';
@@ -15,6 +16,15 @@ import { readSpecFile, safeYamlLoad, createNodeLogger } from './nodes/node-helpe
 
 // Re-export state types for consumers
 export { FeatureAgentAnnotation, type FeatureAgentState } from './state.js';
+
+/**
+ * Dependencies needed to build the feature agent graph.
+ * Injected by the worker so the graph factory stays testable.
+ */
+export interface FeatureAgentGraphDeps {
+  executor: IAgentExecutor;
+  mergeNodeDeps: MergeNodeDeps;
+}
 
 /**
  * Factory that creates a conditional edge function for validation routing.
@@ -121,19 +131,26 @@ function createPlanTasksValidator(): (
  * Factory function that creates and compiles the feature-agent LangGraph.
  *
  * The graph defines a linear SDLC workflow with validation gates:
- *   analyze → validate → requirements → validate → research → validate → plan → validate → implement
+ *   analyze → validate → requirements → validate → research → validate → plan → validate → implement → merge
  *
  * Each YAML-producing node is followed by a validate/repair loop that ensures
  * the output YAML conforms to its schema before proceeding.
  *
- * @param executor - The agent executor to delegate prompt execution to
+ * @param depsOrExecutor - Graph dependencies or a legacy executor
  * @param checkpointer - Optional checkpoint saver for state persistence
  * @returns A compiled LangGraph ready to be invoked
  */
 export function createFeatureAgentGraph(
-  executor: IAgentExecutor,
+  depsOrExecutor: FeatureAgentGraphDeps | IAgentExecutor,
   checkpointer?: BaseCheckpointSaver
 ) {
+  // Support legacy signature: createFeatureAgentGraph(executor, checkpointer)
+  const deps: FeatureAgentGraphDeps =
+    'execute' in depsOrExecutor
+      ? { executor: depsOrExecutor, mergeNodeDeps: undefined as unknown as MergeNodeDeps }
+      : depsOrExecutor;
+  const { executor } = deps;
+
   const graph = new StateGraph(FeatureAgentAnnotation)
     // --- Producer nodes ---
     .addNode('analyze', createAnalyzeNode(executor))
@@ -179,9 +196,17 @@ export function createFeatureAgentGraph(
 
     .addEdge('plan', 'validate_plan_tasks')
     .addConditionalEdges('validate_plan_tasks', routeValidation('implement', 'repair_plan_tasks'))
-    .addEdge('repair_plan_tasks', 'validate_plan_tasks')
+    .addEdge('repair_plan_tasks', 'validate_plan_tasks');
 
-    .addEdge('implement', END);
+  // --- Merge node: wired when deps are provided ---
+  if (deps.mergeNodeDeps) {
+    graph
+      .addNode('merge', createMergeNode(deps.mergeNodeDeps))
+      .addEdge('implement', 'merge')
+      .addEdge('merge', END);
+  } else {
+    graph.addEdge('implement', END);
+  }
 
   return graph.compile({ checkpointer });
 }
