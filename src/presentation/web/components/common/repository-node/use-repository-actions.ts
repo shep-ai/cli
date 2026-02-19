@@ -9,10 +9,13 @@ export interface RepositoryActionsInput {
 export interface RepositoryActionsState {
   openInIde: () => Promise<void>;
   openInShell: () => Promise<void>;
+  openFolder: () => Promise<void>;
   ideLoading: boolean;
   shellLoading: boolean;
+  folderLoading: boolean;
   ideError: string | null;
   shellError: string | null;
+  folderError: string | null;
 }
 
 const ERROR_CLEAR_DELAY = 5000;
@@ -20,19 +23,24 @@ const ERROR_CLEAR_DELAY = 5000;
 export function useRepositoryActions(input: RepositoryActionsInput | null): RepositoryActionsState {
   const [ideLoading, setIdeLoading] = useState(false);
   const [shellLoading, setShellLoading] = useState(false);
+  const [folderLoading, setFolderLoading] = useState(false);
   const [ideError, setIdeError] = useState<string | null>(null);
   const [shellError, setShellError] = useState<string | null>(null);
+  const [folderError, setFolderError] = useState<string | null>(null);
 
   const ideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shellTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const folderTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Clear timers on unmount
   useEffect(() => {
     const ideTimer = ideTimerRef.current;
     const shellTimer = shellTimerRef.current;
+    const folderTimer = folderTimerRef.current;
     return () => {
       if (ideTimer) clearTimeout(ideTimer);
       if (shellTimer) clearTimeout(shellTimer);
+      if (folderTimer) clearTimeout(folderTimer);
     };
   }, []);
 
@@ -89,5 +97,27 @@ export function useRepositoryActions(input: RepositoryActionsInput | null): Repo
     [performAction, shellLoading]
   );
 
-  return { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError };
+  const openFolder = useCallback(
+    () =>
+      performAction(
+        '/api/folder/open',
+        setFolderLoading,
+        setFolderError,
+        folderTimerRef,
+        folderLoading
+      ),
+    [performAction, folderLoading]
+  );
+
+  return {
+    openInIde,
+    openInShell,
+    openFolder,
+    ideLoading,
+    shellLoading,
+    folderLoading,
+    ideError,
+    shellError,
+    folderError,
+  };
 }

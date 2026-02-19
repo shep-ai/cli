@@ -1433,6 +1433,94 @@ export type PhaseTiming = BaseEntity & {
    */
   durationMs?: bigint;
 };
+
+/**
+ * A selectable option within a PRD questionnaire question
+ */
+export type PrdOption = {
+  /**
+   * Unique identifier for this option
+   */
+  id: string;
+  /**
+   * Display label for this option
+   */
+  label: string;
+  /**
+   * Explanation of why this option is relevant
+   */
+  rationale: string;
+  /**
+   * Whether this option is recommended by AI analysis
+   */
+  recommended?: boolean;
+  /**
+   * Whether this option was newly added after refinement
+   */
+  isNew?: boolean;
+};
+
+/**
+ * A single question in the PRD questionnaire with selectable options
+ */
+export type PrdQuestion = {
+  /**
+   * Unique identifier for this question
+   */
+  id: string;
+  /**
+   * The question text displayed to the user
+   */
+  question: string;
+  /**
+   * Question interaction type (currently only single-select)
+   */
+  type: 'select';
+  /**
+   * Available options for this question
+   */
+  options: PrdOption[];
+};
+
+/**
+ * Configuration for the final action button in the questionnaire
+ */
+export type PrdFinalAction = {
+  /**
+   * Unique identifier for this action
+   */
+  id: string;
+  /**
+   * Button label text
+   */
+  label: string;
+  /**
+   * Description of what this action does
+   */
+  description: string;
+};
+
+/**
+ * Complete data for rendering a PRD questionnaire
+ */
+export type PrdQuestionnaireData = {
+  /**
+   * Header title text for the questionnaire
+   */
+  question: string;
+  /**
+   * Header context/description text
+   */
+  context: string;
+  /**
+   * Array of questions to display
+   */
+  questions: PrdQuestion[];
+  /**
+   * Configuration for the finalize/approve action button
+   */
+  finalAction: PrdFinalAction;
+};
 export enum AgentFeature {
   sessionResume = 'session-resume',
   streaming = 'streaming',
