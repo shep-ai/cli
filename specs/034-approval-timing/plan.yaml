@@ -1,0 +1,81 @@
+phases:
+  - id: phase-1
+    name: Domain Model & Persistence
+    parallel: false
+    taskIds: [task-1, task-2, task-3, task-4]
+  - id: phase-2
+    name: Recording Logic
+    parallel: false
+    taskIds: [task-5, task-6, task-7]
+  - id: phase-3
+    name: Display & Summary
+    parallel: false
+    taskIds: [task-8, task-9]
+
+filesToCreate: []
+
+filesToModify:
+  - path: tsp/agents/phase-timing.tsp
+    reason: Add waitingApprovalAt and approvalWaitMs fields
+  - path: packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+    reason: Migration 14 to add new columns
+  - path: packages/core/src/application/ports/output/agents/phase-timing-repository.interface.ts
+    reason: Add updateApprovalWait method
+  - path: packages/core/src/infrastructure/repositories/phase-timing.repository.ts
+    reason: Implement new column handling
+  - path: packages/core/src/infrastructure/services/agents/feature-agent/phase-timing-context.ts
+    reason: Add recordApprovalWaitStart function
+  - path: packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
+    reason: Call recordApprovalWaitStart on interrupt detection
+  - path: packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts
+    reason: Compute and store approval wait duration
+  - path: src/presentation/cli/commands/feat/show.command.ts
+    reason: Display approval timing rows and summary totals
+
+openQuestions: []
+content: |
+  ## Architecture Overview
+
+  ```
+  Worker (interrupt detected)
+    → phase-timing-context.recordApprovalWaitStart(timingId)
+      → IPhaseTimingRepository.updateApprovalWait(id, { waitingApprovalAt })
+
+  User: shep feat approve
+    → ApproveAgentRunUseCase.execute()
+      → IPhaseTimingRepository.findByRunId(runId) → find last timing with waitingApprovalAt
+      → compute approvalWaitMs = now - waitingApprovalAt
+      → IPhaseTimingRepository.updateApprovalWait(id, { approvalWaitMs })
+      → spawn resume worker
+
+  User: shep feat show
+    → timingRepo.findByRunId() → includes approvalWaitMs
+    → render approval rows under gated phases
+    → render summary totals
+  ```
+
+  ## Implementation Strategy
+
+  **Phase 1 (Domain & Persistence)**: Extend TypeSpec model, generate types, add DB migration,
+  update repository interface and implementation. Foundation for all other work.
+
+  **Phase 2 (Recording Logic)**: Wire up approval wait recording in the worker (start) and
+  approve use case (end). This is the core behavioral change.
+
+  **Phase 3 (Display)**: Update the show command to render approval timing rows and summary
+  totals. Pure presentation layer.
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  - Unit tests for repository column handling (save/update with new fields)
+  - Unit tests for recordApprovalWaitStart function
+  - Unit tests for ApproveAgentRunUseCase approval wait computation
+  - Unit tests for show command rendering with approval timing data
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  |------|------------|
+  | Migration breaks existing data | Nullable columns with defaults, no data loss |
+  | Timing context not set | Existing swallow-error pattern, approval wait is non-fatal |
+  | Interrupted run with no timing record | Guard with null checks, skip gracefully |

@@ -1,0 +1,81 @@
+summary: Extend existing PhaseTiming model with approval wait tracking using column addition
+decisions:
+  - title: Where to store approval wait time
+    chosen: Add approvalWaitMs column to existing phase_timings table
+    rejected:
+      - Separate approval_timings table (over-engineered for a single field)
+      - Store on agent_runs table (wrong granularity - need per-phase data)
+    rationale: |
+      Approval waits are inherently tied to a phase timing record. The phase that triggers
+      the interrupt is the same phase whose timing record should carry the wait duration.
+      Adding a nullable column is the simplest and most query-efficient approach.
+
+  - title: How to capture wait start time
+    chosen: Record waitingApprovalAt timestamp on the phase timing record when interrupt occurs
+    rejected:
+      - Use agent_run updatedAt (imprecise - updatedAt changes on heartbeats)
+      - Add a separate event table (over-engineered)
+    rationale: |
+      The worker already has the timing ID from recordPhaseStart. When it detects an interrupt,
+      it can call a new recordApprovalWaitStart() to stamp the waiting_approval_at time on that
+      same record. This keeps all timing data co-located.
+
+  - title: How to capture wait end time
+    chosen: Compute approval wait duration in ApproveAgentRunUseCase from stored timestamp
+    rejected:
+      - Compute in the resumed worker (would need to look up the timing record)
+    rationale: |
+      The ApproveAgentRunUseCase already transitions the run from waiting_approval to running.
+      It can query the last phase timing for the run, read waitingApprovalAt, compute the
+      delta, and update approvalWaitMs in one operation.
+
+  - title: Display format for approval timing
+    chosen: Indented line under gated phase with yellow/warning color, plus summary totals
+    rejected:
+      - Separate section (breaks visual flow of timeline)
+      - Inline with phase bar (too cluttered)
+    rationale: |
+      Consistent with existing sub-phase display pattern (↳ phase-1, ↳ phase-2).
+      Using a different prefix (⏳ or ↳ approval) distinguishes it from execution sub-phases.
+
+technologies:
+  - SQLite (migration 14 - add columns to phase_timings)
+  - TypeSpec (PhaseTiming model update)
+openQuestions: []
+content: |
+  ## Technology Decisions
+
+  ### Storage: Column Addition to phase_timings
+  The existing `phase_timings` table gets two new nullable columns:
+  - `waiting_approval_at INTEGER` - epoch ms when approval wait started
+  - `approval_wait_ms INTEGER` - computed duration of the wait
+
+  This avoids a new table while keeping timing data co-located.
+
+  ### Capture Flow
+  1. **Worker detects interrupt** → calls `recordApprovalWaitStart(timingId)` to set `waiting_approval_at`
+  2. **User runs `shep feat approve`** → `ApproveAgentRunUseCase` finds the timing record,
+     computes `approval_wait_ms = now - waiting_approval_at`, updates the record
+  3. **Display** → `show.command.ts` reads `approvalWaitMs` from timing records and renders
+
+  ### Display Format
+  ```
+  Phase Timing
+  Analyzing        ██████████░░░░░░░░░░ 209.1s
+  Requirements     ███████████░░░░░░░░░ 233.8s
+    ↳ approval     ⏳░░░░░░░░░░░░░░░░░░ 45.2s
+  Researching      ████████████████████ 430.4s
+  Planning         ███████████████░░░░░ 333.1s
+    ↳ approval     ⏳░░░░░░░░░░░░░░░░░░ 120.5s
+    ↳ phase-1      ████████████████████ 435.1s
+
+  Total execution  1206.3s (20m 6s)
+  Total wait       165.7s (2m 46s)
+  Total wall-clock 1372.0s (22m 52s)
+  ```
+
+  ## Security Considerations
+  No security implications - timing data is local-only and non-sensitive.
+
+  ## Performance Implications
+  No performance implications - one additional column read/write per approval event.

@@ -1,0 +1,194 @@
+tasks:
+  - id: task-1
+    title: Extend PhaseTiming TypeSpec model
+    description: Add waitingApprovalAt and approvalWaitMs fields to PhaseTiming in tsp/agents/phase-timing.tsp, then regenerate types
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - PhaseTiming model has waitingApprovalAt optional utcDateTime field
+      - PhaseTiming model has approvalWaitMs optional int64 field
+      - pnpm tsp:compile succeeds
+      - Generated output.ts includes new fields
+    tdd:
+      red:
+        - Verify generated types don't yet have waitingApprovalAt/approvalWaitMs fields
+      green:
+        - Add fields to tsp/agents/phase-timing.tsp
+        - Run pnpm tsp:compile to regenerate
+      refactor: []
+    estimatedEffort: S
+
+  - id: task-2
+    title: Add database migration for approval timing columns
+    description: Create migration 14 adding waiting_approval_at and approval_wait_ms nullable integer columns to phase_timings table
+    state: Todo
+    dependencies: [task-1]
+    acceptanceCriteria:
+      - Migration adds waiting_approval_at INTEGER column (nullable)
+      - Migration adds approval_wait_ms INTEGER column (nullable)
+      - Migration version is correct (next sequential)
+      - Existing data is unaffected
+    tdd:
+      red:
+        - Write integration test that runs migrations and verifies new columns exist
+      green:
+        - Add migration entry to migrations array
+      refactor: []
+    estimatedEffort: S
+
+  - id: task-3
+    title: Update IPhaseTimingRepository interface
+    description: Add updateApprovalWait method to the repository interface for setting waitingApprovalAt and approvalWaitMs
+    state: Todo
+    dependencies: [task-1]
+    acceptanceCriteria:
+      - Interface has updateApprovalWait(id, updates) method
+      - Updates type includes waitingApprovalAt and approvalWaitMs
+    tdd:
+      red:
+        - Write test expecting updateApprovalWait method on mocked repository
+      green:
+        - Add method signature to interface
+      refactor: []
+    estimatedEffort: S
+
+  - id: task-4
+    title: Implement approval timing columns in SQLite repository
+    description: Update SQLitePhaseTimingRepository to handle new columns in save, update, updateApprovalWait, and findByRunId
+    state: Todo
+    dependencies: [task-2, task-3]
+    acceptanceCriteria:
+      - save() includes waiting_approval_at and approval_wait_ms columns
+      - updateApprovalWait() updates the specified fields
+      - findByRunId() maps new columns to PhaseTiming fields
+      - Null values handled correctly for backwards compatibility
+    tdd:
+      red:
+        - Write integration test saving timing with waitingApprovalAt, reading it back
+        - Write integration test for updateApprovalWait setting both fields
+      green:
+        - Update SQL statements in repository implementation
+        - Add column mapping in row-to-entity conversion
+      refactor: []
+    estimatedEffort: M
+
+  - id: task-5
+    title: Add recordApprovalWaitStart to phase-timing-context
+    description: Create a new exported function that sets waitingApprovalAt on a timing record when approval wait begins
+    state: Todo
+    dependencies: [task-3]
+    acceptanceCriteria:
+      - recordApprovalWaitStart(timingId) calls repository.updateApprovalWait with current timestamp
+      - Returns silently if timingId is null or context not set
+      - Errors are swallowed (non-fatal, consistent with existing pattern)
+    tdd:
+      red:
+        - Write unit test verifying updateApprovalWait called with correct timestamp
+        - Write unit test verifying null timingId is a no-op
+        - Write unit test verifying errors are swallowed
+      green:
+        - Implement recordApprovalWaitStart function
+      refactor: []
+    estimatedEffort: S
+
+  - id: task-6
+    title: Record approval wait start in worker on interrupt
+    description: When the worker detects an interrupt, call recordApprovalWaitStart with the last timing ID before setting status to waiting_approval
+    state: Todo
+    dependencies: [task-5]
+    acceptanceCriteria:
+      - Worker calls recordApprovalWaitStart after detecting interrupt
+      - Timing ID is tracked from the last executeNode call
+      - Does not break existing interrupt/approval flow
+    tdd:
+      red:
+        - Write unit test for worker interrupt handling that verifies recordApprovalWaitStart is called
+      green:
+        - Store last timing ID in worker state or pass through graph state
+        - Call recordApprovalWaitStart in interrupt detection block
+      refactor: []
+    estimatedEffort: M
+
+  - id: task-7
+    title: Compute approval wait duration in ApproveAgentRunUseCase
+    description: When approving a run, find the timing record with waitingApprovalAt, compute the wait duration, and persist it
+    state: Todo
+    dependencies: [task-4, task-5]
+    acceptanceCriteria:
+      - Use case queries phase timings for the run
+      - Finds the timing record with waitingApprovalAt set but approvalWaitMs null
+      - Computes approvalWaitMs as now minus waitingApprovalAt
+      - Calls repository.updateApprovalWait to persist the duration
+      - Gracefully handles missing timing data (no timing record found)
+    tdd:
+      red:
+        - Write unit test with mock repository returning timing with waitingApprovalAt
+        - Verify updateApprovalWait called with correct duration
+        - Write unit test with no waiting timing record (graceful skip)
+      green:
+        - Add timing repository injection to ApproveAgentRunUseCase
+        - Implement approval wait computation logic
+      refactor: []
+    estimatedEffort: M
+
+  - id: task-8
+    title: Display approval timing in show command
+    description: Render approval wait time as indented rows under gated phases in the Phase Timing section
+    state: Todo
+    dependencies: [task-4]
+    acceptanceCriteria:
+      - Phases with approvalWaitMs > 0 show an indented approval row
+      - Approval row uses warning color and ⏳ indicator
+      - Format matches existing sub-phase indentation pattern
+      - Phases without approval wait don't show extra rows
+      - Currently waiting phases show "awaiting review" (existing behavior preserved)
+    tdd:
+      red:
+        - Write unit test with timing data containing approvalWaitMs
+        - Verify output includes approval timing line with correct format
+      green:
+        - Add approval row rendering after each phase with approvalWaitMs
+      refactor: []
+    estimatedEffort: M
+
+  - id: task-9
+    title: Display timing summary totals
+    description: Add summary lines showing total execution time, total wait time, and total wall-clock time
+    state: Todo
+    dependencies: [task-8]
+    acceptanceCriteria:
+      - Total execution time sums all durationMs values
+      - Total wait time sums all approvalWaitMs values
+      - Total wall-clock time is execution + wait
+      - Times shown in seconds with human-readable format (e.g., "1206.3s (20m 6s)")
+      - Summary only shown when there are completed timings
+      - Wait line only shown when total wait > 0
+    tdd:
+      red:
+        - Write unit test verifying summary lines with mixed timing data
+        - Write unit test verifying wait line omitted when all waits are zero
+      green:
+        - Compute and render summary lines after timing bars
+      refactor: []
+    estimatedEffort: S
+
+totalEstimate: M (9 tasks, mostly S/M effort)
+openQuestions: []
+content: |
+  ## Task Summary
+
+  9 tasks across 3 phases:
+  - Phase 1 (Domain & Persistence): 4 tasks - TypeSpec, migration, interface, repository
+  - Phase 2 (Recording Logic): 3 tasks - context function, worker wiring, use case computation
+  - Phase 3 (Display): 2 tasks - approval rows, summary totals
+
+  ## Acceptance Checklist
+  - [ ] TypeSpec model extended and types regenerated
+  - [ ] Database migration adds new columns
+  - [ ] Repository handles new fields
+  - [ ] Approval wait start recorded on interrupt
+  - [ ] Approval wait duration computed on approve
+  - [ ] Show command displays approval timing rows
+  - [ ] Show command displays timing summary totals
+  - [ ] All existing tests still pass
+  - [ ] New tests cover all new functionality
