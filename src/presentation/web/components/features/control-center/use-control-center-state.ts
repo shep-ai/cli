@@ -63,7 +63,6 @@ export function useControlCenterState(
 
   // Sync server props into local state — keyed by derived strings (initialNodeKey/initialEdgeKey)
   // to avoid infinite re-renders from unstable array references.
-  /* eslint-disable react-hooks/exhaustive-deps */
   useEffect(() => {
     setNodes((currentNodes) => {
       // Build a lookup of current node positions by ID
@@ -101,7 +100,6 @@ export function useControlCenterState(
   useEffect(() => {
     setEdges(initialEdges);
   }, [initialEdgeKey]);
-  /* eslint-enable react-hooks/exhaustive-deps */
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));

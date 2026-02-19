@@ -17,7 +17,7 @@ interface GetFeatureArtifactResult {
  */
 function toQuestionnaireData(artifact: FeatureArtifact): PrdQuestionnaireData {
   return {
-    question: 'Review Feature Requirements',
+    question: 'Goal',
     context: artifact.oneLiner,
     questions: artifact.openQuestions.map((oq, idx) => ({
       id: `q-${idx}`,

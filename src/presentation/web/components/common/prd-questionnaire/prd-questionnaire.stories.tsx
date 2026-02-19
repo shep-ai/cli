@@ -141,6 +141,28 @@ const mockFinalAction = {
   description: 'Finalize and lock the requirements for implementation',
 };
 
+/* ─── Interactive wrapper for stories ─── */
+
+function InteractiveQuestionnaire({
+  selections: initialSelections = {},
+  ...props
+}: Omit<
+  React.ComponentProps<typeof PrdQuestionnaire>,
+  'onSelect' | 'onRefine' | 'onApprove' | 'selections'
+> & { selections?: Record<string, string> }) {
+  const [selections, setSelections] = useState<Record<string, string>>(initialSelections);
+
+  return (
+    <PrdQuestionnaire
+      {...props}
+      selections={selections}
+      onSelect={(qId, optId) => setSelections((prev) => ({ ...prev, [qId]: optId }))}
+      onRefine={fn().mockName('onRefine')}
+      onApprove={fn().mockName('onApprove')}
+    />
+  );
+}
+
 /* ─── Standalone PrdQuestionnaire ─── */
 
 const meta: Meta<typeof PrdQuestionnaire> = {
@@ -167,52 +189,54 @@ const meta: Meta<typeof PrdQuestionnaire> = {
 export default meta;
 type Story = StoryObj<typeof PrdQuestionnaire>;
 
-/** Default state with all questions, no selections, not processing. */
+const mockData: PrdQuestionnaireData = {
+  question: 'Review Feature Requirements',
+  context:
+    'Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them.',
+  questions: mockQuestions,
+  finalAction: mockFinalAction,
+};
+
+/** Default state — first step shown, no selections. Click options to auto-advance. */
 export const Default: Story = {
-  args: {
-    data: {
-      question: 'Review Feature Requirements',
-      context:
-        'Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them.',
-      questions: mockQuestions,
-      finalAction: mockFinalAction,
-    },
-    selections: {},
-    isProcessing: false,
-  },
+  render: () => <InteractiveQuestionnaire data={mockData} />,
 };
 
-/** Partial selections — 3 of 6 questions answered. */
+/** Starting with partial selections — step dots reflect answered state. */
 export const WithSelections: Story = {
-  args: {
-    ...Default.args,
-    selections: {
-      problem: 'user_pain',
-      priority: 'p1',
-      success: 'adoption',
-    },
-  },
+  render: () => (
+    <InteractiveQuestionnaire
+      data={mockData}
+      selections={{
+        problem: 'user_pain',
+        priority: 'p1',
+        success: 'adoption',
+      }}
+    />
+  ),
 };
 
-/** All 6 questions answered — full progress bar. */
+/** All questions answered — last step shows Approve button enabled. */
 export const AllAnswered: Story = {
-  args: {
-    ...Default.args,
-    selections: {
-      problem: 'user_pain',
-      priority: 'p1',
-      success: 'adoption',
-      timeline: 'sprint',
-      scope: 'mvp',
-      stakeholders: 'end_users',
-    },
-  },
+  render: () => (
+    <InteractiveQuestionnaire
+      data={mockData}
+      selections={{
+        problem: 'user_pain',
+        priority: 'p1',
+        success: 'adoption',
+        timeline: 'sprint',
+        scope: 'mvp',
+        stakeholders: 'end_users',
+      }}
+    />
+  ),
 };
 
 /** Processing state — all inputs disabled, indeterminate progress bar. */
 export const Refining: Story = {
   args: {
-    ...Default.args,
+    data: mockData,
     selections: {
       problem: 'user_pain',
       priority: 'p1',
@@ -221,33 +245,37 @@ export const Refining: Story = {
   },
 };
 
-/** Minimal data — single question with 2 options. */
+/** Single question — minimal stepper with one step. */
 export const MinimalData: Story = {
-  args: {
-    data: {
-      question: 'Quick Check',
-      context: 'A simple yes/no decision.',
-      questions: [
-        {
-          id: 'confirm',
-          question: 'Should we proceed?',
-          type: 'select' as const,
-          options: [
-            {
-              id: 'yes',
-              label: 'Yes',
-              rationale: 'Proceed with implementation',
-              recommended: true,
-            },
-            { id: 'no', label: 'No', rationale: 'Go back and reconsider' },
-          ],
+  render: () => (
+    <InteractiveQuestionnaire
+      data={{
+        question: 'Quick Check',
+        context: 'A simple yes/no decision.',
+        questions: [
+          {
+            id: 'confirm',
+            question: 'Should we proceed?',
+            type: 'select' as const,
+            options: [
+              {
+                id: 'yes',
+                label: 'Yes',
+                rationale: 'Proceed with implementation',
+                recommended: true,
+              },
+              { id: 'no', label: 'No', rationale: 'Go back and reconsider' },
+            ],
+          },
+        ],
+        finalAction: {
+          id: 'confirm-action',
+          label: 'Confirm',
+          description: 'Confirm the decision',
         },
-      ],
-      finalAction: { id: 'confirm-action', label: 'Confirm', description: 'Confirm the decision' },
-    },
-    selections: {},
-    isProcessing: false,
-  },
+      }}
+    />
+  ),
 };
 
 /* ─── Drawer Variant ─── */
@@ -295,15 +323,7 @@ function DrawerTemplate({
   );
 }
 
-const mockData: PrdQuestionnaireData = {
-  question: 'Review Feature Requirements',
-  context:
-    'Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them.',
-  questions: mockQuestions,
-  finalAction: mockFinalAction,
-};
-
-/** Drawer with all questions, empty selections. */
+/** Drawer with stepper — navigate questions one at a time. */
 export const InDrawer: DrawerStory = {
   ...drawerMeta,
   render: () => (
@@ -316,7 +336,7 @@ export const InDrawer: DrawerStory = {
   ),
 };
 
-/** Drawer with partial selections showing progress. */
+/** Drawer with partial selections showing progress dots. */
 export const InDrawerWithSelections: DrawerStory = {
   ...drawerMeta,
   render: () => (

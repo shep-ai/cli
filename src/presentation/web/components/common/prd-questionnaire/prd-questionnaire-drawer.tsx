@@ -37,11 +37,6 @@ export function PrdQuestionnaireDrawer({
   isDeleting,
   ...questionnaireProps
 }: PrdQuestionnaireDrawerProps) {
-  const { selections, data } = questionnaireProps;
-  const answered = Object.keys(selections).length;
-  const total = data.questions.length;
-  const progress = total > 0 ? (answered / total) * 100 : 0;
-
   const actionsInput = repositoryPath && branch ? { repositoryPath, branch } : null;
   const { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError } =
     useFeatureActions(actionsInput);
@@ -94,24 +89,6 @@ export function PrdQuestionnaireDrawer({
             />
           </div>
         ) : null}
-
-        {/* Status section */}
-        <div className="flex flex-col gap-3 px-4 pb-3">
-          <div className="flex flex-col gap-1">
-            <div className="text-muted-foreground flex items-center justify-between text-xs">
-              <span>Questions answered</span>
-              <span>
-                {answered}/{total}
-              </span>
-            </div>
-            <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-              <div
-                className="bg-primary h-full rounded-full transition-all duration-300"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-          </div>
-        </div>
 
         <Separator />
 
