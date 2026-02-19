@@ -85,7 +85,7 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'pnpm'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run generate
+      - run: pnpm run tsp:compile
       - run: pnpm run test:unit --passWithNoTests
       - run: pnpm run test:int --passWithNoTests
 
