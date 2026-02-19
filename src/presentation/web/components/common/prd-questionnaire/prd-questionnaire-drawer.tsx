@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Trash2, XIcon } from 'lucide-react';
+import { Code2, Loader2, Terminal, Trash2, XIcon } from 'lucide-react';
 import {
   Drawer,
   DrawerContent,
@@ -21,6 +21,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { ActionButton } from '@/components/common/action-button';
+import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
 import { PrdQuestionnaire } from './prd-questionnaire';
 import type { PrdQuestionnaireDrawerProps } from './prd-questionnaire-config';
 
@@ -29,7 +31,8 @@ export function PrdQuestionnaireDrawer({
   onClose,
   featureName,
   featureId,
-  lifecycleLabel,
+  repositoryPath,
+  branch,
   onDelete,
   isDeleting,
   ...questionnaireProps
@@ -39,16 +42,21 @@ export function PrdQuestionnaireDrawer({
   const total = data.questions.length;
   const progress = total > 0 ? (answered / total) * 100 : 0;
 
+  const actionsInput = repositoryPath && branch ? { repositoryPath, branch } : null;
+  const { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError } =
+    useFeatureActions(actionsInput);
+
   return (
     <Drawer
       direction="right"
       modal={false}
+      handleOnly
       open={open}
       onOpenChange={(isOpen) => {
         if (!isOpen) onClose();
       }}
     >
-      <DrawerContent direction="right" className="w-96" showCloseButton={false}>
+      <DrawerContent direction="right" className="w-xl" showCloseButton={false}>
         {/* Close button */}
         <button
           type="button"
@@ -62,16 +70,33 @@ export function PrdQuestionnaireDrawer({
         {/* Header */}
         <DrawerHeader>
           <DrawerTitle>{featureName}</DrawerTitle>
-          {featureId ? <DrawerDescription>{featureId}</DrawerDescription> : null}
+          {featureId ? (
+            <DrawerDescription className="sr-only">{featureId}</DrawerDescription>
+          ) : null}
         </DrawerHeader>
+
+        {/* Action buttons */}
+        {actionsInput ? (
+          <div className="flex gap-2 px-4 pb-3">
+            <ActionButton
+              label="Open in IDE"
+              onClick={openInIde}
+              loading={ideLoading}
+              error={!!ideError}
+              icon={Code2}
+            />
+            <ActionButton
+              label="Open in Shell"
+              onClick={openInShell}
+              loading={shellLoading}
+              error={!!shellError}
+              icon={Terminal}
+            />
+          </div>
+        ) : null}
 
         {/* Status section */}
         <div className="flex flex-col gap-3 px-4 pb-3">
-          {lifecycleLabel ? (
-            <div className="text-muted-foreground text-xs font-semibold tracking-wider">
-              {lifecycleLabel}
-            </div>
-          ) : null}
           <div className="flex flex-col gap-1">
             <div className="text-muted-foreground flex items-center justify-between text-xs">
               <span>Questions answered</span>

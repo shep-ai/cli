@@ -146,7 +146,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
           featureId={selectedNode?.featureId}
-          lifecycleLabel="REQUIREMENTS"
+          repositoryPath={selectedNode?.repositoryPath}
+          branch={selectedNode?.branch}
           data={questionnaireData}
           selections={prdSelections}
           onSelect={handlePrdSelect}

@@ -33,6 +33,10 @@ export interface PrdQuestionnaireDrawerProps extends PrdQuestionnaireProps {
   featureId?: string;
   /** Current lifecycle stage label */
   lifecycleLabel?: string;
+  /** Absolute path to the repository on disk */
+  repositoryPath?: string;
+  /** Git branch name for this feature */
+  branch?: string;
   /** Callback to delete the feature — shows delete button when provided */
   onDelete?: (featureId: string) => void;
   /** Whether a delete operation is in progress */

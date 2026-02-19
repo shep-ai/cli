@@ -45,6 +45,7 @@ export function FeatureDrawer({
     <Drawer
       direction="right"
       modal={false}
+      handleOnly
       open={selectedNode !== null}
       onOpenChange={(open) => {
         if (!open) onClose();

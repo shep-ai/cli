@@ -26,7 +26,7 @@ export function PrdQuestionnaire({
 
   const progressVisible = progress > 0 || isProcessing;
 
-  function handleSubmit(e: React.FormEvent) {
+  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const text = chatInput.trim();
     if (!text) return;
@@ -49,7 +49,7 @@ export function PrdQuestionnaire({
         {/* Questions */}
         {questions.map((q, idx) => (
           <div key={q.id} className="space-y-2">
-            <label className="text-muted-foreground block text-xs font-semibold">
+            <label className="text-foreground block text-sm font-semibold">
               {idx + 1}. {q.question}
             </label>
             <div className="space-y-1.5">
