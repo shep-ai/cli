@@ -159,13 +159,11 @@ status:
 **CRITICAL: Follow TDD discipline EXACTLY as defined in plan:**
 
 1. **RED Phase:**
-
    - Write failing tests FIRST (as specified in plan)
    - Ensure tests fail (expected behavior)
    - Commit failing tests
 
 2. **GREEN Phase:**
-
    - Write minimal implementation to pass tests
    - Run tests until green
    - Do NOT add extra features

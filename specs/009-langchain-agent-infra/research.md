@@ -439,7 +439,6 @@ To add support for a new agent type, implement the `IAgentExecutor` interface an
 **Step-by-step:**
 
 1. **Add AgentType enum value** (if not already in TypeSpec)
-
    - `tsp/common/enums/agent-type.tsp` — add the new enum value
    - `pnpm tsp:compile` to regenerate `output.ts`
 
@@ -503,7 +502,6 @@ To add a new agent workflow (a new graph the user can trigger with `shep run <na
    ```
 
 2. **Create node functions** in `src/infrastructure/services/agents/langgraph/nodes/`
-
    - Each node receives `IAgentExecutor` via closure/injection
    - Craft prompts, call `executor.execute()`, return state updates
 

@@ -34,19 +34,16 @@ docs/                 # Architecture documentation
 Answer these questions:
 
 1. **Which layer does this belong in?**
-
    - Pure business logic → domain
    - Orchestration/workflows → application use cases
    - External integrations → infrastructure
    - User-facing → presentation
 
 2. **What interfaces are needed?**
-
    - New repository? Define port in `application/ports/output/`
    - New use case? Define port in `application/ports/input/`
 
 3. **Does it follow existing patterns?**
-
    - Use cases have `execute()` method
    - Repositories implement port interfaces
    - Entities extend TypeSpec base types

@@ -13,9 +13,8 @@ vi.mock('@shepai/core/application/use-cases/features/create/create-feature.use-c
 }));
 
 // Must import after mock setup
-const { POST } = await import(
-  '../../../../../../../src/presentation/web/app/api/features/create/route.js'
-);
+const { POST } =
+  await import('../../../../../../../src/presentation/web/app/api/features/create/route.js');
 
 /** Helper to build a Request with JSON body. */
 function makeRequest(body: unknown): Request {

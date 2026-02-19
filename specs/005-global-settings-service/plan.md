@@ -162,7 +162,6 @@ Build Pipeline Flow:
 **TDD Workflow:**
 
 1. **RED**: Write failing tests first
-
    - Create tests/unit/domain/factories/settings-defaults.factory.test.ts
    - Test: factory returns object with all required fields
    - Test: default values match TypeSpec model defaults
@@ -171,7 +170,6 @@ Build Pipeline Flow:
    - **All tests FAIL** (factory doesn't exist yet)
 
 2. **GREEN**: Write minimal code to pass tests
-
    - Create src/domain/factories/settings-defaults.factory.ts
    - Implement factory function using generated types
    - Return Settings object with defaults matching TypeSpec
@@ -198,7 +196,6 @@ Build Pipeline Flow:
 **TDD Workflow:**
 
 1. **RED**: Write failing tests first
-
    - Create tests/helpers/mock-repository.helper.ts (mock ISettingsRepository)
    - Create tests/unit/application/use-cases/initialize-settings.use-case.test.ts
      - Test: initializes settings when none exist
@@ -212,7 +209,6 @@ Build Pipeline Flow:
    - **All tests FAIL** (use cases don't exist yet)
 
 2. **GREEN**: Write minimal code to pass tests
-
    - Create src/application/ports/output/settings.repository.interface.ts
    - Define ISettingsRepository (initialize, load, update methods)
    - Create src/application/ports/output/index.ts barrel export
@@ -248,7 +244,6 @@ Build Pipeline Flow:
 **TDD Workflow:**
 
 1. **RED**: Write failing tests first
-
    - Create tests/integration/infrastructure/persistence/sqlite/migrations.test.ts
      - Test: migration creates settings table
      - Test: migration is idempotent (safe to run twice)
@@ -258,7 +253,6 @@ Build Pipeline Flow:
    - **All tests FAIL** (persistence layer doesn't exist yet)
 
 2. **GREEN**: Write minimal code to pass tests
-
    - Create src/infrastructure/services/filesystem/shep-directory.service.ts
    - Implement ensureShepDirectory() with 700 permissions
    - Create src/infrastructure/persistence/sqlite/connection.ts
@@ -292,7 +286,6 @@ Build Pipeline Flow:
 **TDD Workflow:**
 
 1. **RED**: Write failing tests first
-
    - Create tests/integration/infrastructure/repositories/sqlite/settings.repository.test.ts
      - Test: initialize() creates settings in database
      - Test: load() retrieves settings correctly
@@ -304,7 +297,6 @@ Build Pipeline Flow:
    - **All tests FAIL** (repository doesn't exist yet)
 
 2. **GREEN**: Write minimal code to pass tests
-
    - Create src/infrastructure/repositories/sqlite/settings.repository.ts
    - Implement SQLiteSettingsRepository with @injectable decorator
    - Implement ISettingsRepository interface (initialize, load, update)
@@ -336,7 +328,6 @@ Build Pipeline Flow:
 **TDD Workflow:**
 
 1. **RED**: Write failing tests first
-
    - Create tests/e2e/cli/settings-initialization.test.ts
      - Test: first run creates ~/.shep/ directory
      - Test: first run creates database file
@@ -347,7 +338,6 @@ Build Pipeline Flow:
    - **All tests FAIL** (CLI integration doesn't exist yet)
 
 2. **GREEN**: Write minimal code to pass tests
-
    - Update src/presentation/cli/index.ts
    - Import reflect-metadata at top
    - Import DI container and use cases
@@ -377,7 +367,6 @@ Build Pipeline Flow:
 **Steps:**
 
 1. Update CLAUDE.md
-
    - Document Settings service architecture
    - Document TypeSpec-first approach
    - Document build flow (generate → build → test)
@@ -385,17 +374,14 @@ Build Pipeline Flow:
    - Add Settings to Data Storage section
 
 2. Update docs/development/ directory
-
    - Update docs/development/cicd.md (document pnpm generate step)
    - Update docs/development/tdd-guide.md (TypeSpec-generated code testing)
    - Create docs/development/typespec-guide.md (TypeSpec modeling guide)
 
 3. Create docs/architecture/ documentation
-
    - Create docs/architecture/settings-service.md (complete architecture docs)
 
 4. Update spec files
-
    - Mark all success criteria as completed in spec.md
    - Update Phase to "Complete" in all spec files
 

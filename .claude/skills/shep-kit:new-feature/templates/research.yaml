@@ -19,8 +19,7 @@ decisions:
     rationale: { { RATIONALE } }
 
 # Open questions (should be resolved by end of research)
-openQuestions:
-  []
+openQuestions: []
   # - question: "Which library should we use?"
   #   resolved: true
   #   answer: "Library X because of Y"
