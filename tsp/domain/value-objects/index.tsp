@@ -17,6 +17,14 @@
  * - **TddCycle**: Test-Driven Development cycle phases
  * - **SpecTask**: Task definition within spec's task breakdown
  *
+ * ## Included Artifact Models
+ *
+ * - **SpecArtifact**: Feature Specification artifact (spec.yaml)
+ * - **ResearchArtifact**: Research Analysis artifact (research.yaml)
+ * - **PlanArtifact**: Implementation Plan artifact (plan.yaml)
+ * - **TasksArtifact**: Task Breakdown artifact (tasks.yaml)
+ * - **FeatureArtifact**: Feature Status artifact (feature.yaml)
+ *
  * ## Usage
  *
  * Import this index to access all domain value objects:
@@ -34,3 +42,8 @@ import "./spec-metadata.tsp";
 import "./tool-installation-status.tsp";
 import "./tool-install-command.tsp";
 import "./pull-request.tsp";
+import "./spec-artifact.tsp";
+import "./research-artifact.tsp";
+import "./plan-artifact.tsp";
+import "./tasks-artifact.tsp";
+import "./feature-artifact.tsp";
