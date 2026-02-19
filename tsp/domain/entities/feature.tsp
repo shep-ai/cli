@@ -233,6 +233,9 @@ model Feature extends BaseEntity {
   @doc("Human-readable name identifying this feature")
   name: string;
 
+  @doc("The exact user input that initiated this feature, preserved verbatim")
+  userQuery: string;
+
   /**
    * URL-friendly slug derived from the name.
    *

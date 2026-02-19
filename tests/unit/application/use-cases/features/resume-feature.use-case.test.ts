@@ -60,6 +60,7 @@ function createTestFeature(overrides?: Partial<Feature>): Feature {
     name: 'Test feature',
     slug: 'test-feature',
     description: 'Test',
+    userQuery: 'test user query',
     repositoryPath: '/test/repo',
     branch: 'feat/test-feature',
     lifecycle: SdlcLifecycle.Implementation,

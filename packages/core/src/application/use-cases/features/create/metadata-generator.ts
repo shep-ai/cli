@@ -2,22 +2,38 @@
  * MetadataGenerator
  *
  * Generates feature metadata (slug, name, description) from user input
- * via AI call through IAgentExecutorProvider.
+ * via AI call through IStructuredAgentCaller.
  * Errors are propagated to the caller.
  */
 
 import { injectable, inject } from 'tsyringe';
-import type { IAgentExecutorProvider } from '../../../ports/output/agents/agent-executor-provider.interface.js';
-import type { FeatureMetadata } from './types.js';
+import type { IStructuredAgentCaller } from '../../../ports/output/agents/structured-agent-caller.interface.js';
+
+interface FeatureMetadata {
+  slug: string;
+  name: string;
+  description: string;
+}
 
 /** Maximum characters of user input sent to the AI for metadata generation. */
 const MAX_INPUT_FOR_AI = 500;
 
+const METADATA_SCHEMA = {
+  type: 'object',
+  properties: {
+    slug: { type: 'string', description: 'kebab-case identifier, 2-4 words' },
+    name: { type: 'string', description: 'polished, professional title' },
+    description: { type: 'string', description: 'refined 1-2 sentence description' },
+  },
+  required: ['slug', 'name', 'description'],
+  additionalProperties: false,
+} as const;
+
 @injectable()
 export class MetadataGenerator {
   constructor(
-    @inject('IAgentExecutorProvider')
-    private readonly executorProvider: IAgentExecutorProvider
+    @inject('IStructuredAgentCaller')
+    private readonly structuredCaller: IStructuredAgentCaller
   ) {}
 
   /**
@@ -25,8 +41,6 @@ export class MetadataGenerator {
    * Errors are propagated to the caller.
    */
   async generateMetadata(userInput: string): Promise<FeatureMetadata> {
-    const executor = this.executorProvider.getExecutor();
-
     const truncated =
       userInput.length > MAX_INPUT_FOR_AI
         ? `${userInput.slice(0, MAX_INPUT_FOR_AI)}...`
@@ -39,24 +53,17 @@ User request:
 
 IMPORTANT: Don't use the request as-is. Extract the key feature being requested and improve the wording.
 
-Return ONLY a JSON object with these fields:
+Return a JSON object with these fields:
 - slug: kebab-case identifier, 2-4 words MAX. Extract the core feature name (e.g., "github-oauth-login" from "add github oauth")
 - name: polished, professional title (improve upon user's wording)
-- description: refined 1-2 sentence description that captures the feature essence (not the request verbatim)
+- description: refined 1-2 sentence description that captures the feature essence (not the request verbatim)`;
 
-JSON only, no markdown fences.`;
-
-    const result = await executor.execute(prompt, {
-      maxTurns: 1,
+    const parsed = await this.structuredCaller.call<FeatureMetadata>(prompt, METADATA_SCHEMA, {
+      maxTurns: 10,
       allowedTools: [],
       silent: true,
     });
 
-    const cleaned = this.extractJson(result.result);
-    if (!cleaned) {
-      throw new Error('AI returned empty response for metadata generation');
-    }
-    const parsed = JSON.parse(cleaned);
     if (!parsed.slug || !parsed.name || !parsed.description) {
       throw new Error('Missing required fields in AI response');
     }
@@ -66,47 +73,6 @@ JSON only, no markdown fences.`;
       name: parsed.name,
       description: parsed.description,
     };
-  }
-
-  /**
-   * Extract JSON from an AI response that may include markdown fences or surrounding prose.
-   * Finds the first `{` and its matching closing `}`, ignoring text outside.
-   */
-  private extractJson(text: string): string {
-    const start = text.indexOf('{');
-    if (start === -1) return text.trim();
-
-    let depth = 0;
-    let inString = false;
-    let escape = false;
-
-    for (let i = start; i < text.length; i++) {
-      const ch = text[i];
-      if (escape) {
-        escape = false;
-        continue;
-      }
-      if (ch === '\\' && inString) {
-        escape = true;
-        continue;
-      }
-      if (ch === '"') {
-        inString = !inString;
-        continue;
-      }
-      if (inString) continue;
-
-      if (ch === '{') depth++;
-      else if (ch === '}') {
-        depth--;
-        if (depth === 0) {
-          return text.slice(start, i + 1);
-        }
-      }
-    }
-
-    // Fallback: return from first brace to end, trimmed
-    return text.slice(start).trim();
   }
 
   /**

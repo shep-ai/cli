@@ -217,7 +217,20 @@ ALTER TABLE features ADD COLUMN worktree_path TEXT;
 ALTER TABLE features ADD COLUMN push INTEGER NOT NULL DEFAULT 0;
 `,
   },
+  {
+    version: 13,
+    sql: `
+-- Migration 013: Add user_query to features for preserving verbatim user input
+ALTER TABLE features ADD COLUMN user_query TEXT NOT NULL DEFAULT '';
+`,
+  },
 ];
+
+/**
+ * The latest schema version (highest migration version number).
+ * Exported for test assertions so they don't hardcode version numbers.
+ */
+export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
 
 /**
  * Runs all pending database migrations.

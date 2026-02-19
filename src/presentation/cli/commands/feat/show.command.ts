@@ -186,6 +186,7 @@ export function createShowCommand(): Command {
                 { label: 'ID', value: feature.id },
                 { label: 'Slug', value: feature.slug },
                 { label: 'Description', value: feature.description },
+                { label: 'User Query', value: feature.userQuery },
                 { label: 'Repository', value: feature.repositoryPath },
                 { label: 'Branch', value: colors.accent(feature.branch) },
                 { label: 'Status', value: formatStatus(feature, run) },

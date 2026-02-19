@@ -12,6 +12,7 @@ function createMinimalFeature(overrides: Partial<Feature> = {}): Feature {
     name: 'Test Feature',
     slug: 'test-feature',
     description: 'A test feature',
+    userQuery: 'test user query',
     repositoryPath: '/test/repo',
     branch: 'feat/test',
     lifecycle: SdlcLifecycle.Implementation,
