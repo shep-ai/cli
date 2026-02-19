@@ -83,6 +83,7 @@ export default async function HomePage() {
         lifecycle,
         repositoryPath: feature.repositoryPath,
         branch: feature.branch,
+        specPath: feature.specPath,
         state: deriveNodeState(feature, run),
         progress: deriveProgress(feature),
         ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),

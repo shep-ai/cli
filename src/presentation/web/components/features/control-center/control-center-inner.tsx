@@ -150,6 +150,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           featureId={selectedNode?.featureId}
           repositoryPath={selectedNode?.repositoryPath}
           branch={selectedNode?.branch}
+          specPath={selectedNode?.specPath}
           data={questionnaireData}
           selections={prdSelections}
           onSelect={handlePrdSelect}

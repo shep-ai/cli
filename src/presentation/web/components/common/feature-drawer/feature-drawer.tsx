@@ -1,6 +1,6 @@
 'use client';
 
-import { XIcon, Code2, Terminal, Loader2, Trash2 } from 'lucide-react';
+import { XIcon, Code2, Terminal, FolderOpen, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import {
@@ -75,6 +75,7 @@ export function FeatureDrawer({
               <DrawerActions
                 repositoryPath={selectedNode.repositoryPath}
                 branch={selectedNode.branch}
+                specPath={selectedNode.specPath}
               />
             ) : null}
 
@@ -212,9 +213,26 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DrawerActions({ repositoryPath, branch }: { repositoryPath: string; branch: string }) {
-  const { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError } =
-    useFeatureActions({ repositoryPath, branch });
+function DrawerActions({
+  repositoryPath,
+  branch,
+  specPath,
+}: {
+  repositoryPath: string;
+  branch: string;
+  specPath?: string;
+}) {
+  const {
+    openInIde,
+    openInShell,
+    openSpecsFolder,
+    ideLoading,
+    shellLoading,
+    specsLoading,
+    ideError,
+    shellError,
+    specsError,
+  } = useFeatureActions({ repositoryPath, branch, specPath });
 
   return (
     <div className="flex gap-2 px-4 pb-3">
@@ -232,6 +250,15 @@ function DrawerActions({ repositoryPath, branch }: { repositoryPath: string; bra
         error={!!shellError}
         icon={Terminal}
       />
+      {specPath ? (
+        <ActionButton
+          label="Open Specs"
+          onClick={openSpecsFolder}
+          loading={specsLoading}
+          error={!!specsError}
+          icon={FolderOpen}
+        />
+      ) : null}
     </div>
   );
 }

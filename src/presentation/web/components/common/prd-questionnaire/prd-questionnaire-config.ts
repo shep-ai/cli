@@ -37,6 +37,8 @@ export interface PrdQuestionnaireDrawerProps extends PrdQuestionnaireProps {
   repositoryPath?: string;
   /** Git branch name for this feature */
   branch?: string;
+  /** Absolute path to the specs folder on disk */
+  specPath?: string;
   /** Callback to delete the feature — shows delete button when provided */
   onDelete?: (featureId: string) => void;
   /** Whether a delete operation is in progress */

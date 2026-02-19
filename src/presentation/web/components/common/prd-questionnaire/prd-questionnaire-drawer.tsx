@@ -1,6 +1,6 @@
 'use client';
 
-import { Code2, Loader2, Terminal, Trash2, XIcon } from 'lucide-react';
+import { Code2, FolderOpen, Loader2, Terminal, Trash2, XIcon } from 'lucide-react';
 import {
   Drawer,
   DrawerContent,
@@ -33,13 +33,23 @@ export function PrdQuestionnaireDrawer({
   featureId,
   repositoryPath,
   branch,
+  specPath,
   onDelete,
   isDeleting,
   ...questionnaireProps
 }: PrdQuestionnaireDrawerProps) {
-  const actionsInput = repositoryPath && branch ? { repositoryPath, branch } : null;
-  const { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError } =
-    useFeatureActions(actionsInput);
+  const actionsInput = repositoryPath && branch ? { repositoryPath, branch, specPath } : null;
+  const {
+    openInIde,
+    openInShell,
+    openSpecsFolder,
+    ideLoading,
+    shellLoading,
+    specsLoading,
+    ideError,
+    shellError,
+    specsError,
+  } = useFeatureActions(actionsInput);
 
   return (
     <Drawer
@@ -87,6 +97,15 @@ export function PrdQuestionnaireDrawer({
               error={!!shellError}
               icon={Terminal}
             />
+            {specPath ? (
+              <ActionButton
+                label="Open Specs"
+                onClick={openSpecsFolder}
+                loading={specsLoading}
+                error={!!specsError}
+                icon={FolderOpen}
+              />
+            ) : null}
           </div>
         ) : null}
 
