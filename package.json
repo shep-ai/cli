@@ -156,7 +156,10 @@
       "better-sqlite3",
       "esbuild",
       "sharp"
-    ]
+    ],
+    "overrides": {
+      "minimatch": "^10.2.1"
+    }
   },
   "packageManager": "pnpm@10.30.0",
   "dependencies": {
