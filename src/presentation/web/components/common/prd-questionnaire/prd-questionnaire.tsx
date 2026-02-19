@@ -86,7 +86,7 @@ export function PrdQuestionnaire({
         {/* Current question */}
         <div className="space-y-3">
           <label className="text-foreground block text-sm font-semibold">
-            {currentStep + 1}. {currentQuestion.question}
+            {currentQuestion.question}
           </label>
           <div className="space-y-2">
             {currentQuestion.options.map((opt, optIdx) => {
