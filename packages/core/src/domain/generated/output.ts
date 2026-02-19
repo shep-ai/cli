@@ -660,6 +660,10 @@ export type Feature = BaseEntity & {
    */
   name: string;
   /**
+   * The exact user input that initiated this feature, preserved verbatim
+   */
+  userQuery: string;
+  /**
    * URL-friendly identifier derived from name (unique within repository)
    */
   slug: string;

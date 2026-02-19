@@ -26,6 +26,7 @@ export interface FeatureRow {
   name: string;
   slug: string;
   description: string;
+  user_query: string;
   repository_path: string;
   branch: string;
   lifecycle: string;
@@ -65,6 +66,7 @@ export function toDatabase(feature: Feature): FeatureRow {
     name: feature.name,
     slug: feature.slug,
     description: feature.description,
+    user_query: feature.userQuery,
     repository_path: feature.repositoryPath,
     branch: feature.branch,
     lifecycle: feature.lifecycle,
@@ -105,6 +107,7 @@ export function fromDatabase(row: FeatureRow): Feature {
     name: row.name,
     slug: row.slug,
     description: row.description,
+    userQuery: row.user_query,
     repositoryPath: row.repository_path,
     branch: row.branch,
     lifecycle: row.lifecycle as SdlcLifecycle,

@@ -85,6 +85,7 @@ export class CreateFeatureUseCase {
       name: metadata.name,
       slug,
       description: metadata.description,
+      userQuery: input.userInput,
       repositoryPath: input.repositoryPath,
       branch,
       lifecycle: SdlcLifecycle.Requirements,

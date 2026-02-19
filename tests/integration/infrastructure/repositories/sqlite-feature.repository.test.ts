@@ -27,6 +27,7 @@ describe('SQLiteFeatureRepository', () => {
     name: 'Test Feature',
     slug: 'test-feature',
     description: 'A test feature',
+    userQuery: 'test user query',
     repositoryPath: '/home/user/project',
     branch: 'feat/test-feature',
     lifecycle: SdlcLifecycle.Requirements,
