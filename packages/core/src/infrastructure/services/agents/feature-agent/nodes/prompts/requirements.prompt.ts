@@ -64,7 +64,7 @@ Write the COMPLETE file. Preserve name/number/branch/technologies from analysis 
   relatedLinks: (keep)
 
   openQuestions:
-    - question: 'Should X use approach A or B?'
+    - question: 'Should X use approach A, B, or C?'
       resolved: true
       options:
         - option: Approach A
@@ -73,20 +73,26 @@ Write the COMPLETE file. Preserve name/number/branch/technologies from analysis 
         - option: Approach B
           description: (What approach B means and its trade-offs)
           selected: false
+        - option: Approach C
+          description: (What approach C means and its trade-offs)
+          selected: false
       selectionRationale: >
         (Detailed reasoning for why approach A is recommended.
         Reference codebase patterns where relevant.)
     - question: 'What level of Y is needed?'
       resolved: true
       options:
+        - option: Level X
+          description: (What level X means and its trade-offs)
+          selected: true
+        - option: Level Y
+          description: (What level Y means and its trade-offs)
+          selected: false
         - option: Level Z
           description: (What level Z means and its trade-offs)
-          selected: true
-        - option: Level W
-          description: (What level W means and its trade-offs)
           selected: false
       selectionRationale: >
-        (Detailed reasoning for why level Z is recommended.)
+        (Detailed reasoning for why level X is recommended.)
 
   content: |
     ## Problem Statement
@@ -131,6 +137,7 @@ Write the COMPLETE file. Preserve name/number/branch/technologies from analysis 
 
 - Write ONLY to ${state.specDir}/spec.yaml
 - Every open question MUST have an AI-recommended default answer (resolved: true)
+- Every open question MUST have exactly 3 options to choose from
 - Requirements must be specific and testable, not vague
 - Do NOT create any other files
 - Do NOT modify any source code`;
