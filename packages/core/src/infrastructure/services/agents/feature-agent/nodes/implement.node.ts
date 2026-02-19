@@ -24,7 +24,11 @@ import {
   markPhaseComplete,
 } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
-import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
+import {
+  recordPhaseStart,
+  recordPhaseEnd,
+  recordApprovalWaitStart,
+} from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
 import {
   buildImplementPhasePrompt,
@@ -232,6 +236,7 @@ export function createImplementNode(executor: IAgentExecutor) {
 
       if (shouldInterrupt('implement', state.approvalGates)) {
         log.info('Interrupting for human approval');
+        await recordApprovalWaitStart(implementTimingId);
         interrupt({
           node: 'implement',
           message: `Implementation complete: ${totalTasks} tasks across ${totalPhases} phases. Approve to finish.`,

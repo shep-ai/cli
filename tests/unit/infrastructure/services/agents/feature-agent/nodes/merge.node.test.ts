@@ -16,14 +16,19 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-const { mockInterrupt, mockShouldInterrupt, mockRecordPhaseStart, mockRecordPhaseEnd } = vi.hoisted(
-  () => ({
-    mockInterrupt: vi.fn(),
-    mockShouldInterrupt: vi.fn().mockReturnValue(false),
-    mockRecordPhaseStart: vi.fn().mockResolvedValue('timing-123'),
-    mockRecordPhaseEnd: vi.fn().mockResolvedValue(undefined),
-  })
-);
+const {
+  mockInterrupt,
+  mockShouldInterrupt,
+  mockRecordPhaseStart,
+  mockRecordPhaseEnd,
+  mockRecordApprovalWaitStart,
+} = vi.hoisted(() => ({
+  mockInterrupt: vi.fn(),
+  mockShouldInterrupt: vi.fn().mockReturnValue(false),
+  mockRecordPhaseStart: vi.fn().mockResolvedValue('timing-123'),
+  mockRecordPhaseEnd: vi.fn().mockResolvedValue(undefined),
+  mockRecordApprovalWaitStart: vi.fn().mockResolvedValue(undefined),
+}));
 
 // Mock LangGraph interrupt
 vi.mock('@langchain/langgraph', () => ({
@@ -50,6 +55,7 @@ vi.mock('@/infrastructure/services/agents/feature-agent/heartbeat.js', () => ({
 vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js', () => ({
   recordPhaseStart: mockRecordPhaseStart,
   recordPhaseEnd: mockRecordPhaseEnd,
+  recordApprovalWaitStart: mockRecordApprovalWaitStart,
 }));
 
 // Mock lifecycle context

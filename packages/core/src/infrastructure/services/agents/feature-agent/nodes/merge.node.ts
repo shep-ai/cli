@@ -17,7 +17,11 @@ import type { IFeatureRepository } from '@/application/ports/output/repositories
 import { SdlcLifecycle, PrStatus, type CiStatus } from '@/domain/generated/output.js';
 import { createNodeLogger, shouldInterrupt } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
-import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
+import {
+  recordPhaseStart,
+  recordPhaseEnd,
+  recordApprovalWaitStart,
+} from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
 
 export interface MergeNodeDeps {
@@ -106,6 +110,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
       // --- Step 4: Merge approval gate ---
       if (shouldInterrupt('merge', state.approvalGates)) {
         log.info('Interrupting for merge approval');
+        // Close timing before interrupt so the pre-approval work has a duration
+        await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
+        await recordApprovalWaitStart(mergeTimingId);
         const diffSummary = await gitPrService.getPrDiffSummary(cwd, baseBranch);
         interrupt({
           node: 'merge',

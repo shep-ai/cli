@@ -153,7 +153,9 @@ export function createShowCommand(): Command {
               const ms = Number(t.durationMs);
               const secs = (ms / 1000).toFixed(1);
               const barLen =
-                maxDurationMs > 0 ? Math.max(1, Math.round((ms / maxDurationMs) * MAX_BAR)) : 1;
+                maxDurationMs > 0
+                  ? Math.min(MAX_BAR, Math.max(1, Math.round((ms / maxDurationMs) * MAX_BAR)))
+                  : 1;
               const bar = `${colors.success('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(MAX_BAR - barLen))}`;
               lines.push(`${label} ${bar} ${secs}s`);
             }
@@ -178,13 +180,34 @@ export function createShowCommand(): Command {
 
             // Show approval wait time under gated phases
             if (t.approvalWaitMs != null && Number(t.approvalWaitMs) > 0) {
+              // Completed approval wait - show final duration
               const waitMs = Number(t.approvalWaitMs);
               const waitSecs = (waitMs / 1000).toFixed(1);
               const waitLabel = '  \u21b3 approval'.padEnd(16);
               const waitBarLen =
-                maxDurationMs > 0 ? Math.max(1, Math.round((waitMs / maxDurationMs) * MAX_BAR)) : 1;
+                maxDurationMs > 0
+                  ? Math.min(MAX_BAR, Math.max(1, Math.round((waitMs / maxDurationMs) * MAX_BAR)))
+                  : 1;
               const waitBar = `${colors.warning('\u2588'.repeat(waitBarLen))}${colors.muted('\u2591'.repeat(MAX_BAR - waitBarLen))}`;
               lines.push(`${waitLabel} ${waitBar} ${waitSecs}s`);
+            } else if (isLast && isWaiting && t.waitingApprovalAt) {
+              // Live approval wait - show elapsed time
+              const waitStart =
+                t.waitingApprovalAt instanceof Date
+                  ? t.waitingApprovalAt.getTime()
+                  : Number(t.waitingApprovalAt);
+              const waitElapsedMs = Math.max(0, Date.now() - waitStart);
+              const waitSecs = (waitElapsedMs / 1000).toFixed(1);
+              const waitLabel = '  \u21b3 approval'.padEnd(16);
+              const waitBarLen =
+                maxDurationMs > 0
+                  ? Math.min(
+                      MAX_BAR,
+                      Math.max(1, Math.round((waitElapsedMs / maxDurationMs) * MAX_BAR))
+                    )
+                  : 1;
+              const waitBar = `${colors.warning('\u2588'.repeat(waitBarLen))}${colors.muted('\u2591'.repeat(MAX_BAR - waitBarLen))}`;
+              lines.push(`${waitLabel} ${waitBar} ${waitSecs}s (waiting)`);
             }
           }
 
