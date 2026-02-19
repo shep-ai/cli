@@ -17,7 +17,11 @@ import type {
 import type { ApprovalGates } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
-import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
+import {
+  recordPhaseStart,
+  recordPhaseEnd,
+  recordApprovalWaitStart,
+} from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
 
 /**
@@ -302,6 +306,7 @@ export function executeNode(
       // Human-in-the-loop: interrupt after node execution for review
       if (shouldInterrupt(nodeName, state.approvalGates)) {
         log.info('Interrupting for human approval');
+        await recordApprovalWaitStart(timingId);
         interrupt({
           node: nodeName,
           result: result.result.slice(0, 500),
