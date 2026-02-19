@@ -1,4 +1,5 @@
 import type { ComponentType, SVGProps } from 'react';
+import Image from 'next/image';
 import { cn } from '@/lib/utils';
 
 /** Agent type values mirroring the TypeSpec AgentType enum. */
@@ -9,7 +10,15 @@ type IconProps = SVGProps<SVGSVGElement> & { className?: string };
 /** Create a stable image-based icon component for a brand. */
 function createBrandIcon(src: string, alt: string): ComponentType<IconProps> {
   function BrandIcon({ className }: IconProps) {
-    return <img src={src} alt={alt} className={cn('rounded-sm object-contain', className)} />;
+    return (
+      <Image
+        src={src}
+        alt={alt}
+        width={24}
+        height={24}
+        className={cn('rounded-sm object-contain', className)}
+      />
+    );
   }
   BrandIcon.displayName = `BrandIcon(${alt})`;
   return BrandIcon;

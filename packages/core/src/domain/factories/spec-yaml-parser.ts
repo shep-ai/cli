@@ -6,7 +6,6 @@
  * to the TypeScript types — no manual field-by-field extraction needed.
  */
 
-// @ts-expect-error -- ajv/dist/2020.js has no type declarations
 import Ajv2020 from 'ajv/dist/2020.js';
 import yaml from 'js-yaml';
 import { readdirSync, readFileSync } from 'node:fs';

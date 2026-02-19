@@ -24,6 +24,18 @@ vi.mock('sonner', () => ({
   }),
 }));
 
+// --- Server action mocks ---
+const mockCreateFeature = vi.fn();
+const mockDeleteFeature = vi.fn();
+
+vi.mock('@/app/actions/create-feature', () => ({
+  createFeature: (...args: unknown[]) => mockCreateFeature(...args),
+}));
+
+vi.mock('@/app/actions/delete-feature', () => ({
+  deleteFeature: (...args: unknown[]) => mockDeleteFeature(...args),
+}));
+
 const mockFeatureNode: FeatureNodeType = {
   id: 'feat-1',
   type: 'featureNode',
@@ -273,29 +285,20 @@ describe('useControlCenterState', () => {
   });
 
   describe('handleCreateFeatureSubmit', () => {
-    it('calls fetch and forwards FeatureCreatePayload as JSON body', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response(JSON.stringify({ feature: { id: '1' } }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
+    it('calls createFeature server action with the payload', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
       renderHook();
 
       await act(async () => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/api/features/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'My Feature',
-          description: 'A test feature',
-          attachments: [],
-          repositoryPath: '/Users/foo/bar',
-          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-        }),
+      expect(mockCreateFeature).toHaveBeenCalledWith({
+        name: 'My Feature',
+        description: 'A test feature',
+        attachments: [],
+        repositoryPath: '/Users/foo/bar',
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       });
     });
   });
@@ -599,27 +602,9 @@ describe('useControlCenterState', () => {
       data: { name: 'bar' },
     };
 
-    function mockFetchSuccess(feature = { id: '1', name: 'My Feature', slug: 'my-feature' }) {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response(JSON.stringify({ feature }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
-    }
-
-    function mockFetchError(message = 'Something went wrong') {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response(JSON.stringify({ error: message }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
-    }
-
-    it('inserts an optimistic node with state "creating" before fetch resolves', async () => {
-      let resolvePromise!: (v: Response) => void;
-      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+    it('inserts an optimistic node with state "creating" before server action resolves', async () => {
+      let resolvePromise!: (v: { feature?: { id: string } }) => void;
+      mockCreateFeature.mockReturnValue(
         new Promise((resolve) => {
           resolvePromise = resolve;
         })
@@ -641,12 +626,12 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('add-to-repo-server'));
       });
 
-      // Start submit (don't await — fetch is still pending)
+      // Start submit (don't await — action is still pending)
       act(() => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      // Optimistic node should appear immediately (before fetch resolves)
+      // Optimistic node should appear immediately (before action resolves)
       expect(screen.getByTestId('node-count')).toHaveTextContent('2');
       const optimisticNode = capturedState!.nodes.find(
         (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating'
@@ -656,18 +641,13 @@ describe('useControlCenterState', () => {
 
       // Clean up the pending promise
       await act(async () => {
-        resolvePromise(
-          new Response(JSON.stringify({ feature: { id: '1' } }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        );
+        resolvePromise({ feature: { id: '1' } });
       });
     });
 
-    it('closes drawer immediately on submit (before fetch resolves)', async () => {
-      let resolvePromise!: (v: Response) => void;
-      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+    it('closes drawer immediately on submit (before server action resolves)', async () => {
+      let resolvePromise!: (v: { feature?: { id: string } }) => void;
+      mockCreateFeature.mockReturnValue(
         new Promise((resolve) => {
           resolvePromise = resolve;
         })
@@ -686,23 +666,18 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      // Drawer should be closed immediately (before fetch resolves)
+      // Drawer should be closed immediately (before action resolves)
       expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('false');
 
       // Clean up the pending promise
       await act(async () => {
-        resolvePromise(
-          new Response(JSON.stringify({ feature: { id: '1' } }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        );
+        resolvePromise({ feature: { id: '1' } });
       });
     });
 
     it('creates an edge connecting optimistic node to repo node', async () => {
-      let resolvePromise!: (v: Response) => void;
-      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+      let resolvePromise!: (v: { feature?: { id: string } }) => void;
+      mockCreateFeature.mockReturnValue(
         new Promise((resolve) => {
           resolvePromise = resolve;
         })
@@ -736,17 +711,12 @@ describe('useControlCenterState', () => {
 
       // Clean up the pending promise
       await act(async () => {
-        resolvePromise(
-          new Response(JSON.stringify({ feature: { id: '1' } }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        );
+        resolvePromise({ feature: { id: '1' } });
       });
     });
 
-    it('calls router.refresh() on successful API response', async () => {
-      mockFetchSuccess();
+    it('calls router.refresh() on successful server action response', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1', name: 'My Feature' } });
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
@@ -761,34 +731,25 @@ describe('useControlCenterState', () => {
       expect(mockRefresh).toHaveBeenCalled();
     });
 
-    it('calls fetch and forwards FeatureCreatePayload as JSON body', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response(JSON.stringify({ feature: { id: '1' } }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
+    it('calls createFeature server action with the payload', async () => {
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
       renderHook();
 
       await act(async () => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/api/features/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          name: 'My Feature',
-          description: 'A test feature',
-          attachments: [],
-          repositoryPath: '/Users/foo/bar',
-          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-        }),
+      expect(mockCreateFeature).toHaveBeenCalledWith({
+        name: 'My Feature',
+        description: 'A test feature',
+        attachments: [],
+        repositoryPath: '/Users/foo/bar',
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
       });
     });
 
-    it('removes optimistic node on API error', async () => {
-      mockFetchError('Worktree creation failed');
+    it('removes optimistic node on server action error', async () => {
+      mockCreateFeature.mockResolvedValue({ error: 'Worktree creation failed' });
 
       let capturedState: ControlCenterState | null = null;
       render(
@@ -820,8 +781,8 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('node-count')).toHaveTextContent('1');
     });
 
-    it('removes optimistic edge on API error', async () => {
-      mockFetchError('Worktree creation failed');
+    it('removes optimistic edge on server action error', async () => {
+      mockCreateFeature.mockResolvedValue({ error: 'Worktree creation failed' });
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
@@ -837,8 +798,8 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('edge-count')).toHaveTextContent('0');
     });
 
-    it('shows error toast on API error', async () => {
-      mockFetchError('Worktree creation failed');
+    it('shows error toast on server action error', async () => {
+      mockCreateFeature.mockResolvedValue({ error: 'Worktree creation failed' });
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
@@ -855,7 +816,7 @@ describe('useControlCenterState', () => {
     });
 
     it('shows generic error toast on network failure', async () => {
-      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+      mockCreateFeature.mockRejectedValue(new Error('Network error'));
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
@@ -871,7 +832,7 @@ describe('useControlCenterState', () => {
     });
 
     it('removes optimistic node on network failure', async () => {
-      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+      mockCreateFeature.mockRejectedValue(new Error('Network error'));
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
@@ -889,7 +850,7 @@ describe('useControlCenterState', () => {
     });
 
     it('resets pendingRepositoryPath immediately on submit', async () => {
-      mockFetchSuccess();
+      mockCreateFeature.mockResolvedValue({ feature: { id: '1' } });
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
@@ -906,10 +867,10 @@ describe('useControlCenterState', () => {
     });
 
     it('supports concurrent optimistic creations with unique IDs', async () => {
-      let resolvePromise1!: (v: Response) => void;
-      let resolvePromise2!: (v: Response) => void;
+      let resolvePromise1!: (v: { feature?: { id: string } }) => void;
+      let resolvePromise2!: (v: { feature?: { id: string } }) => void;
       let callCount = 0;
-      vi.spyOn(globalThis, 'fetch').mockImplementation(
+      mockCreateFeature.mockImplementation(
         () =>
           new Promise((resolve) => {
             callCount++;
@@ -957,18 +918,8 @@ describe('useControlCenterState', () => {
 
       // Clean up both pending promises
       await act(async () => {
-        resolvePromise1(
-          new Response(JSON.stringify({ feature: { id: '1' } }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        );
-        resolvePromise2(
-          new Response(JSON.stringify({ feature: { id: '2' } }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        );
+        resolvePromise1({ feature: { id: '1' } });
+        resolvePromise2({ feature: { id: '2' } });
       });
     });
   });
@@ -1160,36 +1111,13 @@ describe('useControlCenterState', () => {
       target: 'feat-2',
     };
 
-    function mockDeleteFetchSuccess(feature = { id: 'f1', name: 'Auth Module' }) {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response(JSON.stringify({ feature }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
-    }
-
-    function mockDeleteFetchError(message = 'Delete failed') {
-      vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response(JSON.stringify({ error: message }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
-    }
-
     it('isDeleting is false initially', () => {
       renderHook();
       expect(screen.getByTestId('is-deleting')).toHaveTextContent('false');
     });
 
-    it('calls fetch with DELETE method and correct URL', async () => {
-      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
-        new Response(JSON.stringify({ feature: { id: 'f1' } }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        })
-      );
+    it('calls deleteFeature server action with correct featureId', async () => {
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode, repoNode] as CanvasNodeType[], [edgeRepoToFeat1]);
 
@@ -1197,13 +1125,11 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
-      expect(fetchSpy).toHaveBeenCalledWith('/api/features/feat-1', {
-        method: 'DELETE',
-      });
+      expect(mockDeleteFeature).toHaveBeenCalledWith('feat-1');
     });
 
     it('removes deleted node from nodes on success', async () => {
-      mockDeleteFetchSuccess();
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
         edgeRepoToFeat1,
@@ -1221,7 +1147,7 @@ describe('useControlCenterState', () => {
     });
 
     it('removes all edges connected to deleted node on success', async () => {
-      mockDeleteFetchSuccess();
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode, featureNode2, repoNode] as CanvasNodeType[], [
         edgeRepoToFeat1,
@@ -1239,7 +1165,7 @@ describe('useControlCenterState', () => {
     });
 
     it('clears selectedNode on success', async () => {
-      mockDeleteFetchSuccess();
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       let capturedState: ControlCenterState | null = null;
       render(
@@ -1266,7 +1192,7 @@ describe('useControlCenterState', () => {
     });
 
     it('shows success toast on successful deletion', async () => {
-      mockDeleteFetchSuccess();
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode] as CanvasNodeType[]);
 
@@ -1278,7 +1204,7 @@ describe('useControlCenterState', () => {
     });
 
     it('calls router.refresh() on successful deletion', async () => {
-      mockDeleteFetchSuccess();
+      mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
 
       renderHook([featureNode] as CanvasNodeType[]);
 
@@ -1289,8 +1215,8 @@ describe('useControlCenterState', () => {
       expect(mockRefresh).toHaveBeenCalled();
     });
 
-    it('shows error toast with API message on API error', async () => {
-      mockDeleteFetchError('Feature has active processes');
+    it('shows error toast with server action error message', async () => {
+      mockDeleteFeature.mockResolvedValue({ error: 'Feature has active processes' });
 
       renderHook([featureNode] as CanvasNodeType[]);
 
@@ -1301,8 +1227,8 @@ describe('useControlCenterState', () => {
       expect(mockToastError).toHaveBeenCalledWith('Feature has active processes');
     });
 
-    it('preserves nodes and edges on API error', async () => {
-      mockDeleteFetchError();
+    it('preserves nodes and edges on server action error', async () => {
+      mockDeleteFeature.mockResolvedValue({ error: 'Delete failed' });
 
       renderHook([featureNode, repoNode] as CanvasNodeType[], [edgeRepoToFeat1]);
 
@@ -1315,7 +1241,7 @@ describe('useControlCenterState', () => {
     });
 
     it('shows generic error toast on network failure', async () => {
-      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+      mockDeleteFeature.mockRejectedValue(new Error('Network error'));
 
       renderHook([featureNode] as CanvasNodeType[]);
 
@@ -1327,7 +1253,7 @@ describe('useControlCenterState', () => {
     });
 
     it('preserves state on network failure', async () => {
-      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+      mockDeleteFeature.mockRejectedValue(new Error('Network error'));
 
       renderHook([featureNode, repoNode] as CanvasNodeType[], [edgeRepoToFeat1]);
 
@@ -1339,9 +1265,9 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
     });
 
-    it('isDeleting is true during fetch and false after completion', async () => {
-      let resolvePromise: (v: Response) => void;
-      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+    it('isDeleting is true during action and false after completion', async () => {
+      let resolvePromise: (v: { feature?: { id: string } }) => void;
+      mockDeleteFeature.mockReturnValue(
         new Promise((resolve) => {
           resolvePromise = resolve;
         })
@@ -1349,28 +1275,23 @@ describe('useControlCenterState', () => {
 
       renderHook([featureNode] as CanvasNodeType[]);
 
-      // Start delete (don't await — fetch is still pending)
+      // Start delete (don't await — action is still pending)
       act(() => {
         fireEvent.click(screen.getByTestId('delete-feature'));
       });
 
       expect(screen.getByTestId('is-deleting')).toHaveTextContent('true');
 
-      // Resolve the fetch
+      // Resolve the action
       await act(async () => {
-        resolvePromise!(
-          new Response(JSON.stringify({ feature: { id: 'f1' } }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          })
-        );
+        resolvePromise!({ feature: { id: 'f1' } });
       });
 
       expect(screen.getByTestId('is-deleting')).toHaveTextContent('false');
     });
 
-    it('isDeleting is false after API error', async () => {
-      mockDeleteFetchError();
+    it('isDeleting is false after server action error', async () => {
+      mockDeleteFeature.mockResolvedValue({ error: 'Delete failed' });
 
       renderHook([featureNode] as CanvasNodeType[]);
 
@@ -1382,7 +1303,7 @@ describe('useControlCenterState', () => {
     });
 
     it('does not call router.refresh() on error', async () => {
-      mockDeleteFetchError();
+      mockDeleteFeature.mockResolvedValue({ error: 'Delete failed' });
 
       renderHook([featureNode] as CanvasNodeType[]);
 
