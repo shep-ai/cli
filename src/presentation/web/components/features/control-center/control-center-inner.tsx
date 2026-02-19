@@ -51,13 +51,16 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   // Tech decisions drawer state
   const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
+  const [techDecisionsSelections, setTechDecisionsSelections] = useState<Record<number, string>>(
+    {}
+  );
   const [isLoadingTechDecisions, setIsLoadingTechDecisions] = useState(false);
 
   const showPrdDrawer =
     selectedNode?.lifecycle === 'requirements' && selectedNode?.state === 'action-required';
 
   const showTechDecisionsDrawer =
-    selectedNode?.lifecycle === 'research' && selectedNode?.state === 'action-required';
+    selectedNode?.lifecycle === 'implementation' && selectedNode?.state === 'action-required';
 
   const handlePrdSelect = useCallback((questionId: string, optionId: string) => {
     setPrdSelections((prev) => ({ ...prev, [questionId]: optionId }));
@@ -90,6 +93,10 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     [selectedNode?.featureId, clearSelection]
   );
 
+  const handleTechDecisionsSelect = useCallback((index: number, value: string) => {
+    setTechDecisionsSelections((prev) => ({ ...prev, [index]: value }));
+  }, []);
+
   const handleTechDecisionsApprove = useCallback(async () => {
     const featureId = selectedNode?.featureId;
     if (!featureId) return;
@@ -103,6 +110,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
     toast.success('Plan approved — agent resuming');
     clearSelection();
+    setTechDecisionsSelections({});
   }, [selectedNode?.featureId, clearSelection]);
 
   // Fetch questionnaire data and reset selections when a different feature is selected
@@ -142,6 +150,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const techDecisionsFeatureId = showTechDecisionsDrawer ? selectedNode?.featureId : null;
   useEffect(() => {
     setTechDecisionsData(null);
+    setTechDecisionsSelections({});
 
     if (!techDecisionsFeatureId) return;
 
@@ -228,6 +237,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           branch={selectedNode?.branch}
           specPath={selectedNode?.specPath}
           data={techDecisionsData}
+          selections={techDecisionsSelections}
+          onSelect={handleTechDecisionsSelect}
           onApprove={handleTechDecisionsApprove}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}

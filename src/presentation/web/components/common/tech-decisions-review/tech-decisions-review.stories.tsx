@@ -42,6 +42,21 @@ const mockData: TechDecisionsReviewData = {
   ],
 };
 
+/* ─── Interactive wrapper for controlled state ─── */
+
+function InteractiveReview(
+  props: Omit<React.ComponentProps<typeof TechDecisionsReview>, 'selections' | 'onSelect'>
+) {
+  const [selections, setSelections] = useState<Record<number, string>>({});
+  return (
+    <TechDecisionsReview
+      {...props}
+      selections={selections}
+      onSelect={(idx, val) => setSelections((prev) => ({ ...prev, [idx]: val }))}
+    />
+  );
+}
+
 /* ─── Standalone TechDecisionsReview ─── */
 
 const meta: Meta<typeof TechDecisionsReview> = {
@@ -63,43 +78,36 @@ const meta: Meta<typeof TechDecisionsReview> = {
 export default meta;
 type Story = StoryObj<typeof TechDecisionsReview>;
 
-/** Default state — scrollable list of tech decision cards with Approve button. */
+/** Default state — stepper with decisions shown one at a time. */
 export const Default: Story = {
-  args: {
-    data: mockData,
-    onApprove: fn().mockName('onApprove'),
-  },
+  render: () => <InteractiveReview data={mockData} onApprove={fn().mockName('onApprove')} />,
 };
 
-/** Processing state — approve button disabled. */
+/** Processing state — options disabled. */
 export const Processing: Story = {
-  args: {
-    data: mockData,
-    onApprove: fn().mockName('onApprove'),
-    isProcessing: true,
-  },
+  render: () => (
+    <InteractiveReview data={mockData} onApprove={fn().mockName('onApprove')} isProcessing />
+  ),
 };
 
-/** Single decision — minimal content. */
+/** Single decision — minimal stepper. */
 export const SingleDecision: Story = {
-  args: {
-    data: {
-      ...mockData,
-      decisions: [mockData.decisions[0]],
-    },
-    onApprove: fn().mockName('onApprove'),
-  },
+  render: () => (
+    <InteractiveReview
+      data={{ ...mockData, decisions: [mockData.decisions[0]] }}
+      onApprove={fn().mockName('onApprove')}
+    />
+  ),
 };
 
 /** No technologies listed. */
 export const NoTechnologies: Story = {
-  args: {
-    data: {
-      ...mockData,
-      technologies: [],
-    },
-    onApprove: fn().mockName('onApprove'),
-  },
+  render: () => (
+    <InteractiveReview
+      data={{ ...mockData, technologies: [] }}
+      onApprove={fn().mockName('onApprove')}
+    />
+  ),
 };
 
 /* ─── Drawer Variant ─── */
@@ -116,9 +124,13 @@ const drawerMeta = {
 };
 
 function DrawerTemplate(
-  props: Omit<React.ComponentProps<typeof TechDecisionsDrawer>, 'open' | 'onClose'>
+  props: Omit<
+    React.ComponentProps<typeof TechDecisionsDrawer>,
+    'open' | 'onClose' | 'selections' | 'onSelect'
+  >
 ) {
   const [open, setOpen] = useState(true);
+  const [selections, setSelections] = useState<Record<number, string>>({});
 
   return (
     <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
@@ -129,12 +141,18 @@ function DrawerTemplate(
       >
         Open Drawer
       </button>
-      <TechDecisionsDrawer {...props} open={open} onClose={() => setOpen(false)} />
+      <TechDecisionsDrawer
+        {...props}
+        open={open}
+        onClose={() => setOpen(false)}
+        selections={selections}
+        onSelect={(idx, val) => setSelections((prev) => ({ ...prev, [idx]: val }))}
+      />
     </div>
   );
 }
 
-/** Drawer with tech decision cards. */
+/** Drawer with tech decision stepper. */
 export const InDrawer: DrawerStory = {
   ...drawerMeta,
   render: () => (
