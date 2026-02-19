@@ -410,7 +410,7 @@ describe('Merge Flow (Graph-level)', () => {
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'ci-failure-thread' } };
 
-      const result = await graph.invoke(
+      await graph.invoke(
         baseInput({
           openPr: true,
           approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
