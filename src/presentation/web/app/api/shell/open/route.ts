@@ -6,8 +6,14 @@ import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-la
 import { validateToolbarInput } from '../../validate-toolbar-input';
 
 export async function POST(request: Request) {
-  const body = await request.json();
-  const validation = validateToolbarInput(body);
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: 'Invalid or missing JSON body' }, { status: 400 });
+  }
+
+  const validation = validateToolbarInput(body as Record<string, unknown>);
 
   if ('error' in validation) {
     return NextResponse.json({ error: validation.error }, { status: validation.status });

@@ -66,8 +66,8 @@ test.describe('Version Page', () => {
     await backButton.click();
 
     await expect(page).toHaveURL('/');
-    const contentMain = page.locator('main:not([data-slot="sidebar-inset"])');
-    await expect(contentMain.locator('h1')).toContainText('Features');
+    // Home page is now the Control Center with React Flow canvas
+    await expect(page.getByRole('application')).toBeVisible();
   });
 
   test('should display license information', async ({ page }) => {
