@@ -1,5 +1,8 @@
+import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
+import { fn } from '@storybook/test';
 import { PrdQuestionnaire } from './prd-questionnaire';
+import { PrdQuestionnaireDrawer } from './prd-questionnaire-drawer';
 import type { PrdQuestionnaireProps } from './prd-questionnaire-config';
 
 const mockQuestions: PrdQuestionnaireProps['questions'] = [
@@ -138,6 +141,8 @@ const mockFinalAction = {
   description: 'Finalize and lock the requirements for implementation',
 };
 
+/* ─── Standalone PrdQuestionnaire ─── */
+
 const meta: Meta<typeof PrdQuestionnaire> = {
   title: 'Composed/PrdQuestionnaire',
   component: PrdQuestionnaire,
@@ -152,7 +157,7 @@ const meta: Meta<typeof PrdQuestionnaire> = {
   },
   decorators: [
     (Story) => (
-      <div style={{ height: '600px', width: '400px', border: '1px solid #e2e8f0' }}>
+      <div style={{ height: '600px', width: '400px', border: '1px solid var(--color-border)' }}>
         <Story />
       </div>
     ),
@@ -234,4 +239,86 @@ export const MinimalData: Story = {
     finalAction: { id: 'confirm-action', label: 'Confirm', description: 'Confirm the decision' },
     isProcessing: false,
   },
+};
+
+/* ─── Drawer Variant ─── */
+
+type DrawerStory = StoryObj<typeof PrdQuestionnaireDrawer>;
+
+const drawerMeta = {
+  title: 'Composed/PrdQuestionnaireDrawer',
+  component: PrdQuestionnaireDrawer,
+  tags: ['autodocs'],
+  parameters: {
+    layout: 'fullscreen',
+  },
+};
+
+function DrawerTemplate({
+  selections: initialSelections = {},
+  ...props
+}: Omit<
+  React.ComponentProps<typeof PrdQuestionnaireDrawer>,
+  'open' | 'onClose' | 'onSelect' | 'onRefine' | 'onApprove' | 'selections'
+> & { selections?: Record<string, string> }) {
+  const [open, setOpen] = useState(true);
+  const [selections, setSelections] = useState<Record<string, string>>(initialSelections);
+
+  return (
+    <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        style={{ padding: '8px 16px', border: '1px solid #ccc', borderRadius: '6px' }}
+      >
+        Open Drawer
+      </button>
+      <PrdQuestionnaireDrawer
+        {...props}
+        open={open}
+        onClose={() => setOpen(false)}
+        selections={selections}
+        onSelect={(qId, optId) => setSelections((prev) => ({ ...prev, [qId]: optId }))}
+        onRefine={fn().mockName('onRefine')}
+        onApprove={fn().mockName('onApprove')}
+      />
+    </div>
+  );
+}
+
+/** Drawer with all questions, empty selections. */
+export const InDrawer: DrawerStory = {
+  ...drawerMeta,
+  render: () => (
+    <DrawerTemplate
+      featureName="User Authentication Flow"
+      featureId="FEAT-042"
+      lifecycleLabel="Requirements"
+      question="Review Feature Requirements"
+      context="Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them."
+      questions={mockQuestions}
+      finalAction={mockFinalAction}
+    />
+  ),
+};
+
+/** Drawer with partial selections showing progress. */
+export const InDrawerWithSelections: DrawerStory = {
+  ...drawerMeta,
+  render: () => (
+    <DrawerTemplate
+      featureName="User Authentication Flow"
+      featureId="FEAT-042"
+      lifecycleLabel="Requirements"
+      question="Review Feature Requirements"
+      context="Please review the AI-generated requirements below."
+      questions={mockQuestions}
+      selections={{
+        problem: 'user_pain',
+        priority: 'p1',
+        success: 'adoption',
+      }}
+      finalAction={mockFinalAction}
+    />
+  ),
 };

@@ -35,6 +35,16 @@ export {
   type RepositoryNodeType,
 } from './repository-node';
 export { PageHeader } from './page-header';
+export {
+  PrdQuestionnaire,
+  PrdQuestionnaireDrawer,
+  type PrdQuestionnaireProps,
+  type PrdQuestionnaireDrawerProps,
+  type PrdQuestion,
+  type PrdFinalAction,
+  type PrdOption,
+  type PrdQuestionnaireData,
+} from './prd-questionnaire';
 export { ShepLogo, type ShepLogoProps } from './shep-logo';
 export { SidebarCollapseToggle, type SidebarCollapseToggleProps } from './sidebar-collapse-toggle';
 export { SidebarNavItem, type SidebarNavItemProps } from './sidebar-nav-item';

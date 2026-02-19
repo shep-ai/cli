@@ -27,3 +27,16 @@ export interface PrdQuestionnaireProps {
   /** Controls disabled/animated state during refinement */
   isProcessing?: boolean;
 }
+
+export interface PrdQuestionnaireDrawerProps extends PrdQuestionnaireProps {
+  /** Whether the drawer is open */
+  open: boolean;
+  /** Callback when drawer should close */
+  onClose: () => void;
+  /** Feature name shown in drawer header */
+  featureName: string;
+  /** Feature ID shown below the name */
+  featureId?: string;
+  /** Current lifecycle stage label */
+  lifecycleLabel?: string;
+}

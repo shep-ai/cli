@@ -123,7 +123,7 @@ describe('PrdQuestionnaire', () => {
   });
 
   describe('selection state', () => {
-    it('highlights selected option with border-blue-500', () => {
+    it('highlights selected option with border-primary', () => {
       render(<PrdQuestionnaire {...defaultProps} selections={{ 'q-1': 'opt-a' }} />);
 
       // Find the button for "Pain Point" in q-1
@@ -131,7 +131,7 @@ describe('PrdQuestionnaire', () => {
         .getAllByRole('button')
         .filter((btn) => btn.textContent?.includes('Pain Point'));
       const selectedButton = buttons[0];
-      expect(selectedButton).toHaveClass('border-blue-500');
+      expect(selectedButton).toHaveClass('border-primary');
     });
   });
 
