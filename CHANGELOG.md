@@ -1,3 +1,5 @@
+## [1.33.1](https://github.com/shep-ai/cli/compare/v1.33.0...v1.33.1) (2026-02-19)
+
 # [1.33.0](https://github.com/shep-ai/cli/compare/v1.32.1...v1.33.0) (2026-02-19)
 
 ### Features
