@@ -1,0 +1,68 @@
+# Implementation Plan (YAML) — TechnicalPlanArtifact schema
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: artifact-schemas
+summary: >
+  Rename 4 TypeSpec spec artifact models to use *Artifact suffix, make PlanPhase.taskIds
+  optional, update parser and tests, rewrite spec YAML files for this task, and write 4
+  unit tests that validate YAML parsing against the generated types.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec
+  - Vitest
+  - js-yaml
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'TypeSpec Schema Renaming'
+    description: >
+      Rename FeatureSpec to FeatureArtifact, ResearchSpec to ResearchArtifact, PlanSpec to
+      TechnicalPlanArtifact, TasksSpec to TasksArtifact. Make PlanPhase.taskIds optional.
+      Compile TypeSpec to regenerate types.
+    parallel: false
+
+  - id: phase-2
+    name: 'Parser and Test Updates'
+    description: >
+      Update the spec-yaml-parser to use new type names. Update existing tests (schema mapping
+      and parser tests) to reference the renamed types. Rewrite spec YAML files for this task.
+    parallel: false
+
+  - id: phase-3
+    name: 'Validation Tests'
+    description: >
+      Write 4 unit tests that parse each spec YAML file and validate the result matches
+      the generated TypeScript types. Run full test suite to verify backward compatibility.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - tsp/domain/entities/index.tsp
+  - tsp/domain/value-objects/spec-metadata.tsp
+  - packages/core/src/domain/factories/spec-yaml-parser.ts
+  - tests/unit/domain/factories/spec-yaml-parser.test.ts
+  - tests/unit/domain/generated/spec-artifact-schema-mapping.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This task renames the 4 spec artifact TypeSpec models to use the *Artifact suffix and ensures
+  1:1 field mapping between YAML files and TypeSpec schemas. The existing SpecArtifactBase
+  remains unchanged as the shared base for all artifact types.
+
+  ### Type Hierarchy
+
+  ```
+  SpecArtifactBase (unchanged)
+  ├── FeatureArtifact (was FeatureSpec) — spec.yaml
+  ├── ResearchArtifact (was ResearchSpec) — research.yaml
+  ├── TechnicalPlanArtifact (was PlanSpec) — plan.yaml
+  └── TasksArtifact (was TasksSpec) — tasks.yaml
+  ```

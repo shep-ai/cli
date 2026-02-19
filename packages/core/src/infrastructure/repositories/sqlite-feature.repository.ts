@@ -31,14 +31,14 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
 
     const stmt = this.db.prepare(`
       INSERT INTO features (
-        id, name, slug, description, repository_path, branch,
+        id, name, slug, description, user_query, repository_path, branch,
         lifecycle, messages, plan, related_artifacts,
         agent_run_id, spec_path,
         push, open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
         pr_url, pr_number, pr_status, commit_hash, ci_status,
         created_at, updated_at
       ) VALUES (
-        @id, @name, @slug, @description, @repository_path, @branch,
+        @id, @name, @slug, @description, @user_query, @repository_path, @branch,
         @lifecycle, @messages, @plan, @related_artifacts,
         @agent_run_id, @spec_path,
         @push, @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
@@ -115,6 +115,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         name = @name,
         slug = @slug,
         description = @description,
+        user_query = @user_query,
         repository_path = @repository_path,
         branch = @branch,
         lifecycle = @lifecycle,

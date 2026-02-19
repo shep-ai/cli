@@ -5,3 +5,10 @@
  */
 
 export { createDefaultSettings } from './settings-defaults.factory';
+export {
+  parseSpecYaml,
+  parseResearchYaml,
+  parsePlanYaml,
+  parseTasksYaml,
+  parseFeatureStatusYaml,
+} from './spec-yaml-parser';

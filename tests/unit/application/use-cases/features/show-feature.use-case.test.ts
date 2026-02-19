@@ -20,6 +20,7 @@ function createMockFeature(id: string): Feature {
     name: 'Test',
     slug: 'test',
     description: 'Test feature',
+    userQuery: 'test user query',
     repositoryPath: '/repo',
     branch: 'feat/test',
     lifecycle: SdlcLifecycle.Requirements,

@@ -85,6 +85,9 @@ export function createImplementNode(executor: IAgentExecutor) {
     const startTime = Date.now();
     const messages: string[] = [];
 
+    // Record top-level implement phase timing (sub-phases are recorded individually below)
+    const implementTimingId = await recordPhaseStart('implement');
+
     try {
       // --- Parse plan & tasks ---
       const planContent = readSpecFile(state.specDir, 'plan.yaml');
@@ -221,6 +224,9 @@ export function createImplementNode(executor: IAgentExecutor) {
       messages.push(
         `[implement] Complete: ${totalTasks} tasks across ${totalPhases} phases (${elapsed}s)`
       );
+
+      // Record top-level implement phase completion
+      await recordPhaseEnd(implementTimingId, Date.now() - startTime);
 
       if (shouldInterrupt('implement', state.approvalGates)) {
         log.info('Interrupting for human approval');

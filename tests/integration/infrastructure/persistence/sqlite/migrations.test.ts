@@ -18,7 +18,10 @@ import {
   getTableSchema,
   getTableIndexes,
 } from '../../../../helpers/database.helper.js';
-import { runSQLiteMigrations } from '@/infrastructure/persistence/sqlite/migrations.js';
+import {
+  runSQLiteMigrations,
+  LATEST_SCHEMA_VERSION,
+} from '@/infrastructure/persistence/sqlite/migrations.js';
 
 describe('SQLite Migrations', () => {
   let db: Database.Database;
@@ -50,7 +53,7 @@ describe('SQLite Migrations', () => {
 
       // Assert
       const finalVersion = getSchemaVersion(db);
-      expect(finalVersion).toBeGreaterThan(0);
+      expect(finalVersion).toBe(LATEST_SCHEMA_VERSION);
     });
 
     it('should be idempotent (safe to run twice)', async () => {
@@ -386,11 +389,6 @@ describe('SQLite Migrations', () => {
       expect(row.notif_evt_agent_failed).toBe(1);
     });
 
-    it('should set schema version to 12', () => {
-      const version = getSchemaVersion(db);
-      expect(version).toBe(12);
-    });
-
     it('should run successfully on a v8 database with existing settings row', () => {
       // Verify that the migration doesn't fail when settings rows already exist
       // and that existing rows get correct default values for new columns
@@ -439,6 +437,22 @@ describe('SQLite Migrations', () => {
       expect(push).toBeDefined();
       expect(push?.type).toBe('INTEGER');
       expect(push?.dflt_value).toBe('0');
+    });
+  });
+
+  describe('migration v13: user_query on features', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add user_query column to features table', () => {
+      const schema = getTableSchema(db, 'features');
+      const userQuery = schema.find((col) => col.name === 'user_query');
+
+      expect(userQuery).toBeDefined();
+      expect(userQuery?.type).toBe('TEXT');
+      expect(userQuery?.notnull).toBe(1);
+      expect(userQuery?.dflt_value).toBe("''");
     });
   });
 

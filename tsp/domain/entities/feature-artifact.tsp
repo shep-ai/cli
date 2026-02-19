@@ -1,36 +1,28 @@
 /**
- * @module Shep.Domain.Entities.FeatureSpec
+ * @module Shep.Domain.Entities.FeatureArtifact
  *
- * Defines the FeatureSpec entity representing a feature specification artifact.
+ * Defines the FeatureArtifact entity representing a feature specification artifact (PRD).
  * This maps to the `spec.yaml` file in the YAML-first spec system.
  *
- * ## Feature Specification
+ * ## Feature Artifact (PRD)
  *
- * FeatureSpec captures the requirements and scope definition for a feature:
+ * FeatureArtifact captures the requirements and scope definition for a feature:
  * - What problem it solves
  * - Success criteria
  * - Affected areas
  * - Size estimate
- *
- * ## Usage
- *
- * ```typespec
- * import "./feature-spec.tsp";
- *
- * // Feature spec is typically read from spec.yaml
- * ```
  */
 import "./spec-artifact-base.tsp";
 import "../../common/enums/index.tsp";
 
 /**
- * Represents a feature specification artifact (spec.yaml).
+ * Represents a feature specification artifact (spec.yaml) — the PRD.
  *
- * FeatureSpec extends SpecArtifactBase with feature-specific metadata
+ * FeatureArtifact extends SpecArtifactBase with feature-specific metadata
  * including the spec number, git branch, lifecycle phase, and size estimate.
  */
-@doc("Feature specification artifact defining requirements and scope")
-model FeatureSpec extends SpecArtifactBase {
+@doc("Feature specification artifact (PRD) defining requirements and scope")
+model FeatureArtifact extends SpecArtifactBase {
   @doc("Spec number (e.g., 11 for spec 011)")
   number: int32;
 

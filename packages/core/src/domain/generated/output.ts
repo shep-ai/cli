@@ -660,6 +660,10 @@ export type Feature = BaseEntity & {
    */
   name: string;
   /**
+   * The exact user input that initiated this feature, preserved verbatim
+   */
+  userQuery: string;
+  /**
    * URL-friendly identifier derived from name (unique within repository)
    */
   slug: string;
@@ -722,7 +726,25 @@ export type Feature = BaseEntity & {
 };
 
 /**
- * Open question that may need resolution before implementation
+ * Option for resolving an open question
+ */
+export type QuestionOption = {
+  /**
+   * The option text describing the potential approach or answer
+   */
+  option: string;
+  /**
+   * Description explaining this option's benefits and approach
+   */
+  description: string;
+  /**
+   * Whether this option was the one ultimately selected
+   */
+  selected: boolean;
+};
+
+/**
+ * Open question with resolution via options or direct answer
  */
 export type OpenQuestion = {
   /**
@@ -734,7 +756,15 @@ export type OpenQuestion = {
    */
   resolved: boolean;
   /**
-   * The answer or resolution to this question (present if resolved)
+   * Structured options for resolving this question (spec.yaml pattern)
+   */
+  options?: QuestionOption[];
+  /**
+   * Rationale explaining which option was selected and why
+   */
+  selectionRationale?: string;
+  /**
+   * Free-text answer or resolution (research.yaml pattern)
    */
   answer?: string;
 };
@@ -808,13 +838,17 @@ export type PlanPhase = {
    */
   name: string;
   /**
+   * Description of what this phase accomplishes and why it's ordered this way
+   */
+  description?: string;
+  /**
    * Whether tasks in this phase can be executed in parallel
    */
   parallel: boolean;
   /**
-   * IDs of SpecTasks that belong to this phase
+   * Task IDs belonging to this phase (e.g., ['task-1', 'task-2']). Optional — not present in plan.yaml phases.
    */
-  taskIds: string[];
+  taskIds?: string[];
 };
 
 /**
@@ -843,6 +877,10 @@ export type SpecTask = {
    * Unique identifier for this task (e.g., 'task-1')
    */
   id: string;
+  /**
+   * ID of the phase this task belongs to (e.g., 'phase-1')
+   */
+  phaseId: string;
   /**
    * Task title or name
    */
@@ -874,9 +912,9 @@ export type SpecTask = {
 };
 
 /**
- * Feature specification artifact defining requirements and scope
+ * Feature specification artifact (PRD) defining requirements and scope
  */
-export type FeatureSpec = SpecArtifactBase & {
+export type FeatureArtifact = SpecArtifactBase & {
   /**
    * Spec number (e.g., 11 for spec 011)
    */
@@ -902,7 +940,7 @@ export type FeatureSpec = SpecArtifactBase & {
 /**
  * Research artifact documenting technical analysis and decisions
  */
-export type ResearchSpec = SpecArtifactBase & {
+export type ResearchArtifact = SpecArtifactBase & {
   /**
    * Structured technology decisions with rationale
    */
@@ -910,11 +948,11 @@ export type ResearchSpec = SpecArtifactBase & {
 };
 
 /**
- * Implementation plan artifact defining strategy and file changes
+ * Technical implementation plan artifact defining strategy and file changes
  */
-export type PlanSpec = SpecArtifactBase & {
+export type TechnicalPlanArtifact = SpecArtifactBase & {
   /**
-   * Structured implementation phases with task groupings
+   * Structured implementation phases
    */
   phases: PlanPhase[];
   /**
@@ -928,9 +966,9 @@ export type PlanSpec = SpecArtifactBase & {
 };
 
 /**
- * Task breakdown artifact defining implementation tasks
+ * Task breakdown artifact defining implementation tasks grouped into phases
  */
-export type TasksSpec = SpecArtifactBase & {
+export type TasksArtifact = SpecArtifactBase & {
   /**
    * Structured task list with acceptance criteria and TDD phases
    */
@@ -939,6 +977,190 @@ export type TasksSpec = SpecArtifactBase & {
    * Overall effort estimate for all tasks combined
    */
   totalEstimate: string;
+};
+
+/**
+ * Feature identity metadata in feature.yaml
+ */
+export type FeatureIdentity = {
+  /**
+   * Feature ID slug (e.g., '012-autonomous-pr-review-loop')
+   */
+  id: string;
+  /**
+   * Human-readable feature name
+   */
+  name: string;
+  /**
+   * Feature number (e.g., 12)
+   */
+  number: number;
+  /**
+   * Git branch for this feature
+   */
+  branch: string;
+  /**
+   * Current lifecycle phase (e.g., 'research', 'implementation', 'complete')
+   */
+  lifecycle: string;
+  /**
+   * When the feature was created
+   */
+  createdAt: string;
+};
+
+/**
+ * Task completion progress counters
+ */
+export type FeatureStatusProgress = {
+  /**
+   * Number of completed tasks
+   */
+  completed: number;
+  /**
+   * Total number of tasks
+   */
+  total: number;
+  /**
+   * Completion percentage (0-100)
+   */
+  percentage: number;
+};
+
+/**
+ * Feature execution status
+ */
+export type FeatureStatusInfo = {
+  /**
+   * Current SDLC phase
+   */
+  phase: string;
+  /**
+   * Phases that have been completed
+   */
+  completedPhases?: string[];
+  /**
+   * Task completion progress
+   */
+  progress: FeatureStatusProgress;
+  /**
+   * ID of the task currently being executed (null if none)
+   */
+  currentTask?: string;
+  /**
+   * ISO timestamp of last status update
+   */
+  lastUpdated: string;
+  /**
+   * Agent or skill that last updated the status
+   */
+  lastUpdatedBy: string;
+};
+
+/**
+ * Validation gate results
+ */
+export type FeatureValidation = {
+  /**
+   * ISO timestamp of last validation run (null if never run)
+   */
+  lastRun?: string;
+  /**
+   * Names of validation gates that passed
+   */
+  gatesPassed: string[];
+  /**
+   * Descriptions of auto-fixes that were applied
+   */
+  autoFixesApplied: string[];
+};
+
+/**
+ * Task execution tracking state
+ */
+export type FeatureTaskTracking = {
+  /**
+   * ID of the task currently being worked on (null if none)
+   */
+  current?: string;
+  /**
+   * IDs of tasks blocked by unmet dependencies
+   */
+  blocked: string[];
+  /**
+   * IDs of tasks that failed execution
+   */
+  failed: string[];
+};
+
+/**
+ * Milestone checkpoint for phase completion
+ */
+export type FeatureCheckpoint = {
+  /**
+   * Phase name (e.g., 'feature-created', 'research-complete')
+   */
+  phase: string;
+  /**
+   * ISO timestamp when this checkpoint was reached
+   */
+  completedAt: string;
+  /**
+   * Agent or skill that completed this phase
+   */
+  completedBy: string;
+};
+
+/**
+ * Error tracking for feature execution
+ */
+export type FeatureErrors = {
+  /**
+   * Current error message (null if no active error)
+   */
+  current?: string;
+  /**
+   * History of past error messages
+   */
+  history: string[];
+};
+
+/**
+ * Feature status tracking artifact (feature.yaml)
+ */
+export type FeatureStatus = BaseEntity & {
+  /**
+   * Feature identity metadata
+   */
+  feature: FeatureIdentity;
+  /**
+   * Current execution status and progress
+   */
+  status: FeatureStatusInfo;
+  /**
+   * PR URL if a pull request has been created
+   */
+  prUrl?: string;
+  /**
+   * ISO timestamp when the feature was merged
+   */
+  mergedAt?: string;
+  /**
+   * Validation gate results
+   */
+  validation: FeatureValidation;
+  /**
+   * Task execution tracking
+   */
+  tasks: FeatureTaskTracking;
+  /**
+   * Milestone checkpoints recording phase completions
+   */
+  checkpoints: FeatureCheckpoint[];
+  /**
+   * Error tracking state
+   */
+  errors: FeatureErrors;
 };
 export enum ToolType {
   VsCode = 'vscode',

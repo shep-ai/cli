@@ -12,9 +12,3 @@ export interface CreateFeatureResult {
   feature: Feature;
   warning?: string;
 }
-
-export interface FeatureMetadata {
-  slug: string;
-  name: string;
-  description: string;
-}

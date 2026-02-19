@@ -42,6 +42,7 @@ import { GitPrService } from '../services/git/git-pr.service.js';
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
 import type { IAgentExecutorProvider } from '../../application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IStructuredAgentCaller } from '../../application/ports/output/agents/structured-agent-caller.interface.js';
 import type { IAgentRegistry } from '../../application/ports/output/agents/agent-registry.interface.js';
 import type { IAgentRunner } from '../../application/ports/output/agents/agent-runner.interface.js';
 import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
@@ -51,6 +52,7 @@ import type { ISpecInitializerService } from '../../application/ports/output/ser
 import type { INotificationService } from '../../application/ports/output/services/notification-service.interface.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
 import { AgentExecutorProvider } from '../services/agents/common/agent-executor-provider.service.js';
+import { StructuredAgentCallerService } from '../services/agents/common/structured-agent-caller.service.js';
 import { MockAgentExecutorFactory } from '../services/agents/common/executors/mock-executor-factory.service.js';
 import { AgentRegistryService } from '../services/agents/common/agent-registry.service.js';
 import { AgentRunnerService } from '../services/agents/common/agent-runner.service.js';
@@ -185,6 +187,13 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: (c) => {
       const factory = c.resolve<IAgentExecutorFactory>('IAgentExecutorFactory');
       return new AgentExecutorProvider(factory);
+    },
+  });
+
+  container.register<IStructuredAgentCaller>('IStructuredAgentCaller', {
+    useFactory: (c) => {
+      const provider = c.resolve<IAgentExecutorProvider>('IAgentExecutorProvider');
+      return new StructuredAgentCallerService(provider);
     },
   });
 

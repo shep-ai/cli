@@ -35,6 +35,7 @@ describe('ListFeaturesUseCase (integration)', () => {
     name: 'Test Feature',
     slug: `test-feature-${randomUUID()}`,
     description: 'Feature persisted in real SQLite',
+    userQuery: 'test user query',
     repositoryPath: testRepoPath,
     branch: 'feat/test-feature',
     lifecycle: SdlcLifecycle.Requirements,

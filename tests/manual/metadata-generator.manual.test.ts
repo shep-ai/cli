@@ -29,7 +29,7 @@ describe('MetadataGenerator (MANUAL - Real Agent Executor)', () => {
     generator = container.resolve(MetadataGenerator);
   });
 
-  it('should generate metadata from real AI executor', async () => {
+  it('should generate metadata from real AI executor', { timeout: 60_000 }, async () => {
     const userInput = 'Add dark mode toggle to the settings page';
 
     const metadata = await generator.generateMetadata(userInput);

@@ -17,6 +17,7 @@ import type { IFeatureRepository } from '@/application/ports/output/repositories
 import { SdlcLifecycle, PrStatus, type CiStatus } from '@/domain/generated/output.js';
 import { createNodeLogger, shouldInterrupt } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
+import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
 
 export interface MergeNodeDeps {
   gitPrService: IGitPrService;
@@ -38,6 +39,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
     reportNodeStart('merge');
     const messages: string[] = [];
     const startTime = Date.now();
+
+    // Record merge phase timing
+    const mergeTimingId = await recordPhaseStart('merge');
 
     try {
       const { gitPrService } = deps;
@@ -83,7 +87,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       // --- Step 3: Create PR (if openPr=true and not already created) ---
       let prUrl = state.prUrl;
       let prNumber = state.prNumber;
-      let ciStatus = state.ciStatus;
+      const ciStatus = state.ciStatus;
 
       if (state.openPr && !state.prUrl) {
         log.info('Creating pull request...');
@@ -92,13 +96,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
         prNumber = prResult.number;
         messages.push(`[merge] PR created: ${prUrl}`);
 
-        // Watch CI if we're going to auto-merge
-        if (state.approvalGates?.allowMerge) {
-          log.info('Watching CI...');
-          const ciResult = await gitPrService.watchCi(cwd, branch);
-          ciStatus = ciResult.status;
-          messages.push(`[merge] CI status: ${ciStatus}`);
-        }
+        // CI watching disabled — let the user check CI status externally
+        log.info('Skipping CI watch (disabled)');
+        messages.push('[merge] CI watch skipped');
       }
 
       // --- Step 4: Merge approval gate ---
@@ -153,6 +153,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       }
 
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
       messages.push(`[merge] Complete (${elapsed}s)`);
       log.info(`Merge flow complete (${elapsed}s)`);
 
