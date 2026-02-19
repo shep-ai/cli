@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { openIde } from '@/app/actions/open-ide';
+import { openShell } from '@/app/actions/open-shell';
+import { openFolder } from '@/app/actions/open-folder';
 
 export interface RepositoryActionsInput {
   repositoryPath: string;
@@ -44,9 +47,12 @@ export function useRepositoryActions(input: RepositoryActionsInput | null): Repo
     };
   }, []);
 
-  const performAction = useCallback(
+  const performToolbarAction = useCallback(
     async (
-      url: string,
+      action: (input: { repositoryPath: string }) => Promise<{
+        success: boolean;
+        error?: string;
+      }>,
       setLoading: (v: boolean) => void,
       setError: (v: string | null) => void,
       timerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
@@ -61,17 +67,10 @@ export function useRepositoryActions(input: RepositoryActionsInput | null): Repo
       setError(null);
 
       try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            repositoryPath: input.repositoryPath,
-          }),
-        });
+        const result = await action({ repositoryPath: input.repositoryPath });
 
-        if (!response.ok) {
-          const data = await response.json();
-          const errorMessage = data.error ?? 'An unexpected error occurred';
+        if (!result.success) {
+          const errorMessage = result.error ?? 'An unexpected error occurred';
           setError(errorMessage);
           timerRef.current = setTimeout(() => setError(null), ERROR_CLEAR_DELAY);
         }
@@ -86,33 +85,67 @@ export function useRepositoryActions(input: RepositoryActionsInput | null): Repo
     [input]
   );
 
-  const openInIde = useCallback(
-    () => performAction('/api/ide/open', setIdeLoading, setIdeError, ideTimerRef, ideLoading),
-    [performAction, ideLoading]
+  const performFolderAction = useCallback(
+    async (
+      action: (repositoryPath: string) => Promise<{ success: boolean; error?: string }>,
+      setLoading: (v: boolean) => void,
+      setError: (v: string | null) => void,
+      timerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
+      isLoading: boolean
+    ) => {
+      if (!input || isLoading) return;
+
+      if (timerRef.current) clearTimeout(timerRef.current);
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const result = await action(input.repositoryPath);
+
+        if (!result.success) {
+          const errorMessage = result.error ?? 'An unexpected error occurred';
+          setError(errorMessage);
+          timerRef.current = setTimeout(() => setError(null), ERROR_CLEAR_DELAY);
+        }
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+        setError(errorMessage);
+        timerRef.current = setTimeout(() => setError(null), ERROR_CLEAR_DELAY);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [input]
   );
 
-  const openInShell = useCallback(
-    () =>
-      performAction('/api/shell/open', setShellLoading, setShellError, shellTimerRef, shellLoading),
-    [performAction, shellLoading]
+  const handleOpenIde = useCallback(
+    () => performToolbarAction(openIde, setIdeLoading, setIdeError, ideTimerRef, ideLoading),
+    [performToolbarAction, ideLoading]
   );
 
-  const openFolder = useCallback(
+  const handleOpenShell = useCallback(
     () =>
-      performAction(
-        '/api/folder/open',
+      performToolbarAction(openShell, setShellLoading, setShellError, shellTimerRef, shellLoading),
+    [performToolbarAction, shellLoading]
+  );
+
+  const handleOpenFolder = useCallback(
+    () =>
+      performFolderAction(
+        openFolder,
         setFolderLoading,
         setFolderError,
         folderTimerRef,
         folderLoading
       ),
-    [performAction, folderLoading]
+    [performFolderAction, folderLoading]
   );
 
   return {
-    openInIde,
-    openInShell,
-    openFolder,
+    openInIde: handleOpenIde,
+    openInShell: handleOpenShell,
+    openFolder: handleOpenFolder,
     ideLoading,
     shellLoading,
     folderLoading,

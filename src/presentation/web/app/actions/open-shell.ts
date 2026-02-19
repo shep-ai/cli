@@ -1,25 +1,23 @@
-import { NextResponse } from 'next/server';
+'use server';
+
 import { existsSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
-import { validateToolbarInput } from '../../validate-toolbar-input';
 
-export async function POST(request: Request) {
-  let body: unknown;
-  try {
-    body = await request.json();
-  } catch {
-    return NextResponse.json({ error: 'Invalid or missing JSON body' }, { status: 400 });
+interface OpenShellInput {
+  repositoryPath: string;
+  branch?: string;
+}
+
+export async function openShell(
+  input: OpenShellInput
+): Promise<{ success: boolean; error?: string; path?: string; shell?: string }> {
+  const { repositoryPath, branch } = input;
+
+  if (!repositoryPath?.startsWith('/')) {
+    return { success: false, error: 'repositoryPath must be an absolute path' };
   }
-
-  const validation = validateToolbarInput(body as Record<string, unknown>);
-
-  if ('error' in validation) {
-    return NextResponse.json({ error: validation.error }, { status: validation.status });
-  }
-
-  const { repositoryPath, branch } = validation;
 
   try {
     const settings = getSettings();
@@ -27,7 +25,7 @@ export async function POST(request: Request) {
     const targetPath = branch ? computeWorktreePath(repositoryPath, branch) : repositoryPath;
 
     if (!existsSync(targetPath)) {
-      return NextResponse.json({ error: `Path does not exist: ${targetPath}` }, { status: 404 });
+      return { success: false, error: `Path does not exist: ${targetPath}` };
     }
 
     const platform = process.platform;
@@ -45,21 +43,15 @@ export async function POST(request: Request) {
       });
       child.unref();
     } else {
-      return NextResponse.json(
-        {
-          error: `Unsupported platform: ${platform}. Shell launch is supported on macOS and Linux only.`,
-        },
-        { status: 501 }
-      );
+      return {
+        success: false,
+        error: `Unsupported platform: ${platform}. Shell launch is supported on macOS and Linux only.`,
+      };
     }
 
-    return NextResponse.json({
-      success: true,
-      path: targetPath,
-      shell,
-    });
+    return { success: true, path: targetPath, shell };
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to open shell';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return { success: false, error: message };
   }
 }

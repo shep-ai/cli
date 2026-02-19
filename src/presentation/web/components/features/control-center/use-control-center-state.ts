@@ -9,6 +9,8 @@ import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { FeatureCreatePayload } from '@/components/common/feature-create-drawer';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
+import { createFeature } from '@/app/actions/create-feature';
+import { deleteFeature } from '@/app/actions/delete-feature';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -292,19 +294,14 @@ export function useControlCenterState(
       setIsCreateDrawerOpen(false);
       setPendingRepoNodeId(null);
 
-      // 3. Fire API call in the background
-      fetch('/api/features/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const body = await response.json();
+      // 3. Fire server action in the background
+      createFeature(data)
+        .then((result) => {
+          if (result.error) {
             // Rollback: remove optimistic node and edge
             setNodes((prev) => prev.filter((n) => n.id !== tempId));
             setEdges((prev) => prev.filter((e) => e.target !== tempId));
-            toast.error(body.error ?? 'Failed to create feature');
+            toast.error(result.error);
             return;
           }
 
@@ -328,13 +325,10 @@ export function useControlCenterState(
     async (featureId: string) => {
       setIsDeleting(true);
       try {
-        const response = await fetch(`/api/features/${featureId}`, {
-          method: 'DELETE',
-        });
+        const result = await deleteFeature(featureId);
 
-        if (!response.ok) {
-          const body = await response.json();
-          toast.error(body.error ?? 'Failed to delete feature');
+        if (result.error) {
+          toast.error(result.error);
           return;
         }
 

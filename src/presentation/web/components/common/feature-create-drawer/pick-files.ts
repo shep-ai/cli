@@ -1,17 +1,16 @@
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+import { pickFiles as pickFilesAction } from '@/app/actions/pick-files';
 
 /**
- * Calls the backend API to open a native OS file picker dialog.
+ * Opens a native OS file picker dialog via server action.
  * Returns the selected files with metadata, or null if the user cancelled.
  */
 export async function pickFiles(): Promise<FileAttachment[] | null> {
-  const response = await fetch('/api/dialog/pick-files', { method: 'POST' });
+  const result = await pickFilesAction();
 
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error ?? 'Failed to open file dialog');
+  if (result.error) {
+    throw new Error(result.error);
   }
 
-  const body: { files: FileAttachment[] | null; cancelled: boolean } = await response.json();
-  return body.files;
+  return result.files;
 }

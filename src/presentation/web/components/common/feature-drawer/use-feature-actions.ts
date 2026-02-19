@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import { openIde } from '@/app/actions/open-ide';
+import { openShell } from '@/app/actions/open-shell';
 
 export interface FeatureActionsInput {
   repositoryPath: string;
@@ -39,7 +41,10 @@ export function useFeatureActions(input: FeatureActionsInput | null): FeatureAct
 
   const performAction = useCallback(
     async (
-      url: string,
+      action: (input: { repositoryPath: string; branch?: string }) => Promise<{
+        success: boolean;
+        error?: string;
+      }>,
       setLoading: (v: boolean) => void,
       setError: (v: string | null) => void,
       timerRef: React.RefObject<ReturnType<typeof setTimeout> | null>,
@@ -54,18 +59,13 @@ export function useFeatureActions(input: FeatureActionsInput | null): FeatureAct
       setError(null);
 
       try {
-        const response = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            repositoryPath: input.repositoryPath,
-            branch: input.branch,
-          }),
+        const result = await action({
+          repositoryPath: input.repositoryPath,
+          branch: input.branch,
         });
 
-        if (!response.ok) {
-          const data = await response.json();
-          const errorMessage = data.error ?? 'An unexpected error occurred';
+        if (!result.success) {
+          const errorMessage = result.error ?? 'An unexpected error occurred';
           setError(errorMessage);
           timerRef.current = setTimeout(() => setError(null), ERROR_CLEAR_DELAY);
         }
@@ -80,16 +80,22 @@ export function useFeatureActions(input: FeatureActionsInput | null): FeatureAct
     [input]
   );
 
-  const openInIde = useCallback(
-    () => performAction('/api/ide/open', setIdeLoading, setIdeError, ideTimerRef, ideLoading),
+  const handleOpenIde = useCallback(
+    () => performAction(openIde, setIdeLoading, setIdeError, ideTimerRef, ideLoading),
     [performAction, ideLoading]
   );
 
-  const openInShell = useCallback(
-    () =>
-      performAction('/api/shell/open', setShellLoading, setShellError, shellTimerRef, shellLoading),
+  const handleOpenShell = useCallback(
+    () => performAction(openShell, setShellLoading, setShellError, shellTimerRef, shellLoading),
     [performAction, shellLoading]
   );
 
-  return { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError };
+  return {
+    openInIde: handleOpenIde,
+    openInShell: handleOpenShell,
+    ideLoading,
+    shellLoading,
+    ideError,
+    shellError,
+  };
 }

@@ -1,15 +1,15 @@
+import { pickFolder as pickFolderAction } from '@/app/actions/pick-folder';
+
 /**
- * Calls the backend API to open a native OS folder picker dialog.
+ * Opens a native OS folder picker dialog via server action.
  * Returns the selected absolute path, or null if the user cancelled.
  */
 export async function pickFolder(): Promise<string | null> {
-  const response = await fetch('/api/dialog/pick-folder', { method: 'POST' });
+  const result = await pickFolderAction();
 
-  if (!response.ok) {
-    const body = await response.json().catch(() => null);
-    throw new Error(body?.error ?? 'Failed to open folder dialog');
+  if (result.error) {
+    throw new Error(result.error);
   }
 
-  const body: { path: string | null; cancelled: boolean } = await response.json();
-  return body.path;
+  return result.path;
 }
