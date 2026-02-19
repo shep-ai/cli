@@ -78,7 +78,16 @@ Use this YAML structure:
   openQuestions:
     - question: '(Any technical question that arose)'
       resolved: true
-      answer: '(Resolution with technical reasoning)'
+      options:
+        - option: (Option A)
+          description: (What option A means and its trade-offs)
+          selected: true
+        - option: (Option B)
+          description: (What option B means and its trade-offs)
+          selected: false
+      selectionRationale: >
+        (Detailed reasoning for why this option was selected.
+        Reference codebase patterns and technical constraints.)
 
   content: |
     ## Technology Decisions

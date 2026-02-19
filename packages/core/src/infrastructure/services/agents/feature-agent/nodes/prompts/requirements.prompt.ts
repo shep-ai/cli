@@ -66,10 +66,27 @@ Write the COMPLETE file. Preserve name/number/branch/technologies from analysis 
   openQuestions:
     - question: 'Should X use approach A or B?'
       resolved: true
-      answer: 'Recommend A because [rationale]. Alternative: B if [condition].'
+      options:
+        - option: Approach A
+          description: (What approach A means and its trade-offs)
+          selected: true
+        - option: Approach B
+          description: (What approach B means and its trade-offs)
+          selected: false
+      selectionRationale: >
+        (Detailed reasoning for why approach A is recommended.
+        Reference codebase patterns where relevant.)
     - question: 'What level of Y is needed?'
       resolved: true
-      answer: 'Recommend Z level because [rationale].'
+      options:
+        - option: Level Z
+          description: (What level Z means and its trade-offs)
+          selected: true
+        - option: Level W
+          description: (What level W means and its trade-offs)
+          selected: false
+      selectionRationale: >
+        (Detailed reasoning for why level Z is recommended.)
 
   content: |
     ## Problem Statement
