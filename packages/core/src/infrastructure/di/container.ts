@@ -283,6 +283,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('ApproveAgentRunUseCase', {
     useFactory: (c) => c.resolve(ApproveAgentRunUseCase),
   });
+  container.register('GetFeatureArtifactUseCase', {
+    useFactory: (c) => c.resolve(GetFeatureArtifactUseCase),
+  });
 
   _initialized = true;
   return container;

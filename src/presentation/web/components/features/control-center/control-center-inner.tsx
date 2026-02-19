@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import { toast } from 'sonner';
 import { approveFeature } from '@/app/actions/approve-feature';
+import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
@@ -11,156 +12,6 @@ import { PrdQuestionnaireDrawer } from '@/components/common/prd-questionnaire';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
-
-// TODO: Replace with API fetch when endpoint is available
-const mockQuestionnaireData: PrdQuestionnaireData = {
-  question: 'Review Feature Requirements',
-  context:
-    'Please review the AI-generated requirements below. Select the best option for each question, or ask the AI to refine them.',
-  questions: [
-    {
-      id: 'problem',
-      question: 'What specific problem does this feature solve?',
-      type: 'select',
-      options: [
-        {
-          id: 'user_pain',
-          label: 'User Pain Point',
-          rationale: 'Addresses a recurring user complaint or friction',
-          recommended: true,
-        },
-        { id: 'market_gap', label: 'Market Gap', rationale: 'Fills a gap vs competitors' },
-        {
-          id: 'tech_debt',
-          label: 'Technical Debt',
-          rationale: 'Reduces accumulated technical debt',
-        },
-        {
-          id: 'compliance',
-          label: 'Compliance',
-          rationale: 'Meets regulatory or policy requirements',
-        },
-      ],
-    },
-    {
-      id: 'priority',
-      question: 'What is the business priority level?',
-      type: 'select',
-      options: [
-        { id: 'p0', label: 'P0 - Critical', rationale: 'Blocking issue, must fix immediately' },
-        {
-          id: 'p1',
-          label: 'P1 - High',
-          rationale: 'Important for next release',
-          recommended: true,
-        },
-        { id: 'p2', label: 'P2 - Medium', rationale: 'Nice to have, schedule when possible' },
-        { id: 'p3', label: 'P3 - Low', rationale: 'Backlog item, no urgency' },
-      ],
-    },
-    {
-      id: 'success',
-      question: 'What metrics define success?',
-      type: 'select',
-      options: [
-        {
-          id: 'adoption',
-          label: 'Adoption Rate',
-          rationale: 'Percentage of users who adopt the feature',
-          recommended: true,
-        },
-        {
-          id: 'performance',
-          label: 'Performance',
-          rationale: 'Latency, throughput, or resource improvements',
-        },
-        {
-          id: 'revenue',
-          label: 'Revenue Impact',
-          rationale: 'Direct or indirect revenue contribution',
-        },
-        {
-          id: 'satisfaction',
-          label: 'User Satisfaction',
-          rationale: 'NPS or CSAT score improvement',
-        },
-      ],
-    },
-    {
-      id: 'timeline',
-      question: 'What is the target timeline?',
-      type: 'select',
-      options: [
-        {
-          id: 'sprint',
-          label: 'This Sprint',
-          rationale: 'Deliverable within the current sprint',
-          recommended: true,
-        },
-        { id: 'quarter', label: 'This Quarter', rationale: 'Target completion within 3 months' },
-        { id: 'half', label: 'This Half', rationale: 'Target completion within 6 months' },
-        { id: 'year', label: 'This Year', rationale: 'Long-term initiative for the year' },
-      ],
-    },
-    {
-      id: 'scope',
-      question: 'What is the feature scope?',
-      type: 'select',
-      options: [
-        {
-          id: 'mvp',
-          label: 'MVP',
-          rationale: 'Minimum viable product — core functionality only',
-          recommended: true,
-        },
-        {
-          id: 'full',
-          label: 'Full Feature',
-          rationale: 'Complete feature with all planned capabilities',
-        },
-        { id: 'experiment', label: 'Experiment', rationale: 'A/B test or limited rollout' },
-        {
-          id: 'platform',
-          label: 'Platform',
-          rationale: 'Foundational work enabling future features',
-        },
-      ],
-    },
-    {
-      id: 'stakeholders',
-      question: 'Who are the primary stakeholders?',
-      type: 'select',
-      options: [
-        {
-          id: 'end_users',
-          label: 'End Users',
-          rationale: 'Direct users of the product',
-          recommended: true,
-        },
-        {
-          id: 'internal',
-          label: 'Internal Teams',
-          rationale: 'Engineering, product, or design teams',
-        },
-        {
-          id: 'enterprise',
-          label: 'Enterprise Clients',
-          rationale: 'B2B customers with specific needs',
-        },
-        {
-          id: 'partners',
-          label: 'Partners',
-          rationale: 'Third-party integrations or ecosystem partners',
-        },
-      ],
-    },
-  ],
-  finalAction: {
-    id: 'approve-reqs',
-    label: 'Approve Requirements',
-    description: 'Finalize and lock the requirements for implementation',
-  },
-};
 
 interface ControlCenterInnerProps {
   initialNodes: CanvasNodeType[];
@@ -191,6 +42,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   // PRD questionnaire drawer state
   const [prdSelections, setPrdSelections] = useState<Record<string, string>>({});
   const [isPrdProcessing, setIsPrdProcessing] = useState(false);
+  const [questionnaireData, setQuestionnaireData] = useState<PrdQuestionnaireData | null>(null);
+  const [isLoadingQuestionnaire, setIsLoadingQuestionnaire] = useState(false);
 
   const showPrdDrawer = selectedNode?.lifecycle === 'requirements';
 
@@ -225,10 +78,37 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     [selectedNode?.featureId, clearSelection]
   );
 
-  // Reset PRD selections when a different feature is selected
+  // Fetch questionnaire data and reset selections when a different feature is selected
   const prdFeatureId = showPrdDrawer ? selectedNode?.featureId : null;
   useEffect(() => {
     setPrdSelections({});
+    setQuestionnaireData(null);
+
+    if (!prdFeatureId) return;
+
+    let cancelled = false;
+    setIsLoadingQuestionnaire(true);
+    getFeatureArtifact(prdFeatureId)
+      .then((result) => {
+        if (cancelled) return;
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        if (result.questionnaire) {
+          setQuestionnaireData(result.questionnaire);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Failed to load questionnaire');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingQuestionnaire(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [prdFeatureId]);
 
   // Listen for global "open create drawer" events from the sidebar
@@ -259,19 +139,21 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onDelete={handleDeleteFeature}
         isDeleting={isDeleting}
       />
-      <PrdQuestionnaireDrawer
-        open={selectedNode !== null && selectedNode.lifecycle === 'requirements'}
-        onClose={clearSelection}
-        featureName={selectedNode?.name ?? ''}
-        featureId={selectedNode?.featureId}
-        lifecycleLabel="REQUIREMENTS"
-        data={mockQuestionnaireData}
-        selections={prdSelections}
-        onSelect={handlePrdSelect}
-        onRefine={handlePrdRefine}
-        onApprove={handlePrdApprove}
-        isProcessing={isPrdProcessing}
-      />
+      {questionnaireData ? (
+        <PrdQuestionnaireDrawer
+          open={showPrdDrawer}
+          onClose={clearSelection}
+          featureName={selectedNode?.name ?? ''}
+          featureId={selectedNode?.featureId}
+          lifecycleLabel="REQUIREMENTS"
+          data={questionnaireData}
+          selections={prdSelections}
+          onSelect={handlePrdSelect}
+          onRefine={handlePrdRefine}
+          onApprove={handlePrdApprove}
+          isProcessing={isPrdProcessing || isLoadingQuestionnaire}
+        />
+      ) : null}
       <FeatureCreateDrawer
         open={isCreateDrawerOpen}
         onClose={closeCreateDrawer}
