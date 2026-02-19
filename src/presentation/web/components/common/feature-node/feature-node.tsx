@@ -19,6 +19,8 @@ function AgentIcon({ agentType, className }: { agentType?: string; className?: s
 function getBadgeText(data: FeatureNodeData): string {
   const config = featureNodeStateConfig[data.state];
   switch (data.state) {
+    case 'creating':
+      return 'Creating...';
     case 'running':
       return lifecycleRunningVerbs[data.lifecycle];
     case 'done':
@@ -56,6 +58,7 @@ export function FeatureNode({
 
       <div
         data-testid="feature-node-card"
+        aria-busy={data.state === 'creating' ? 'true' : undefined}
         className={cn(
           'bg-card flex min-h-35 w-72 flex-col rounded-lg border p-3 shadow-sm',
           selected && 'ring-primary ring-2'
@@ -100,7 +103,23 @@ export function FeatureNode({
 
         {/* Bottom section — pushed to bottom for consistent card height */}
         <div className="mt-auto pt-2">
-          {data.state === 'running' ? (
+          {data.state === 'creating' ? (
+            <>
+              {/* Creating status: loader icon + "Creating..." text */}
+              <div className="mt-1.5 flex items-center gap-1.5 text-xs">
+                <Icon className="h-3.5 w-3.5 shrink-0 animate-spin" />
+                <span className="text-muted-foreground">{getBadgeText(data)}</span>
+              </div>
+
+              {/* Indeterminate progress bar */}
+              <div
+                data-testid="feature-node-progress-bar"
+                className="bg-muted mt-1.5 h-1 w-full overflow-hidden rounded-full"
+              >
+                <div className="motion-safe:animate-indeterminate-progress bg-foreground/30 h-full w-1/3 rounded-full" />
+              </div>
+            </>
+          ) : data.state === 'running' ? (
             <>
               {/* Running status: agent icon + verb */}
               <div className="mt-1.5 flex items-center gap-1.5 text-xs">

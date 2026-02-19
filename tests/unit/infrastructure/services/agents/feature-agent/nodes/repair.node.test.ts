@@ -45,6 +45,14 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     validationRetries: 1,
     lastValidationTarget: 'spec.yaml',
     lastValidationErrors: ["Missing required string field 'name'"],
+    prUrl: null,
+    prNumber: null,
+    commitHash: null,
+    ciStatus: null,
+    push: false,
+    openPr: false,
+    autoMerge: false,
+    allowMerge: false,
   } as FeatureAgentState;
 }
 

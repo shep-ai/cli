@@ -1,0 +1,322 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-feature-creation
+number: 024
+branch: feat/024-optimistic-feature-creation
+oneLiner: Instantly render a placeholder feature node on the canvas when creating a feature, replacing it with real data once the API responds
+summary: >
+  When a user creates a new feature, immediately insert an optimistic feature node on the React Flow canvas
+  in a "creating" state (with a dedicated loading animation), close the drawer, and fire the API call in the background.
+  On success, reconcile the optimistic node with the real feature data via router.refresh(). On failure,
+  remove the optimistic node and show an error toast. Also fix the client→server API payload mismatch
+  (drawer sends userInput blob, route expects structured name/description) as a prerequisite.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (useState, useCallback)
+  - Next.js App Router (router.refresh for server reconciliation)
+  - React Flow (@xyflow/react for canvas nodes and edges)
+  - shadcn/ui (Drawer, Toast via sonner)
+  - Dagre (@dagrejs/dagre for graph layout)
+  - TypeScript
+
+relatedLinks: []
+
+# Open questions — all resolved with AI-recommended defaults
+openQuestions:
+  - question: "Should we add a new FeatureNodeState (e.g. 'creating') or reuse the existing 'running' state for the optimistic node?"
+    context: "The existing 'running' state shows an indeterminate progress bar and agent icon, which is close but not identical to a 'creating/initializing' state. A dedicated state would allow a distinct visual treatment (e.g. pulsing skeleton, 'Creating...' text)."
+    resolved: true
+    answer: >
+      Recommend adding a new 'creating' FeatureNodeState. Rationale: (1) The 'running' state implies an agent is
+      actively working — it shows an agent type icon and lifecycle verb like "Analyzing" or "Implementing". A feature
+      that hasn't been persisted yet is not running; it's being created. (2) A dedicated state enables distinct UX:
+      a pulsing/skeleton animation with "Creating..." text that clearly communicates the node is provisional. (3) It
+      avoids confusing users who might think the agent has already started. (4) The feature-node-state-config pattern
+      makes adding a new state trivial — just one new entry in the config record. Alternative: reuse 'running' if
+      the team wants to minimize the visual surface area, but this sacrifices clarity.
+
+  - question: 'What should happen to the sidebar feature list during optimistic creation — should the new feature also appear there immediately?'
+    context: 'The sidebar (AppSidebar) renders features from the server component data via props. Optimistic updates would only affect the canvas unless the sidebar also participates.'
+    resolved: true
+    answer: >
+      Recommend NOT adding the feature to the sidebar optimistically. Rationale: (1) The sidebar is fed by server
+      component props (FeatureItem[]) passed from page.tsx — injecting optimistic data would require either lifting
+      state up or introducing a client-side overlay, adding complexity disproportionate to the value. (2) The canvas
+      is the user's primary focus during creation; the sidebar is secondary navigation. (3) router.refresh() will
+      populate the sidebar within 1-2 seconds of a successful creation anyway. (4) Keeping the optimistic scope to
+      the canvas minimizes risk and implementation surface. Alternative: add sidebar optimism in a follow-up if user
+      testing reveals it's confusing that the sidebar lags.
+
+  - question: 'Should the API payload mismatch between client (sends userInput) and server (expects name) be fixed as part of this feature or as a separate bug fix?'
+    context: >
+      The FeatureCreateDrawer composes a userInput string ('Feature: name\n\ndescription'), but the API route at
+      /api/features/create destructures { name, description, repositoryPath, attachments, approvalGates } from the
+      body and validates that name is present. The CreateFeatureInput type in core only has { userInput,
+      repositoryPath, approvalGates }. This means the current form submission will always fail validation
+      (name is undefined). This is a confirmed bug.
+    resolved: true
+    answer: >
+      Recommend fixing the mismatch as part of this feature. Rationale: (1) This is a blocking bug — the current
+      flow sends { userInput, repositoryPath, approvalGates } but the route expects { name } and returns 400 when
+      it's missing. The optimistic feature depends on a working create flow. (2) The optimistic node needs the
+      separate name and description fields anyway (to display on the placeholder node), so refactoring the drawer's
+      onSubmit callback to pass structured data is a natural prerequisite. (3) Fixing it separately would mean the
+      optimistic feature can't be tested against a working API. The fix is small: update the drawer to send
+      { name, description, repositoryPath, attachments, approvalGates } and update CreateFeatureInput accordingly,
+      or update the API route to accept userInput directly. Recommend the former (send structured data) since the
+      route's composeUserInput is the proper server-side concern.
+
+  - question: "Should the optimistic node be non-interactive (no hover actions, no click-to-select) while in 'creating' state?"
+    context: >
+      The feature node in normal states supports click-to-select (opens detail panel), hover to show '+' action
+      button, and a settings gear. During optimistic creation, the feature doesn't exist in the database yet, so
+      clicking it would show empty/broken details.
+    resolved: true
+    answer: >
+      Recommend making the optimistic node non-interactive while in 'creating' state. Rationale: (1) There is no
+      server data to display in a detail panel — clicking would show empty or error state. (2) The '+' action button
+      to add child features makes no sense for a feature that doesn't exist yet. (3) Visual cues (reduced opacity
+      or no hover effects) reinforce that this is a provisional placeholder. (4) Once router.refresh() reconciles
+      the node with real data, full interactivity is restored automatically. Implementation: skip injecting onAction,
+      onSettings, and click-to-select callbacks for nodes in 'creating' state in FeaturesCanvas.
+
+  - question: 'Should the user be prevented from creating another feature while one is being optimistically created?'
+    context: >
+      If the user opens the create drawer and submits again while the first optimistic node is still pending
+      its API response, there could be two optimistic nodes on the canvas simultaneously.
+    resolved: true
+    answer: >
+      Recommend allowing multiple concurrent optimistic creations. Rationale: (1) The existing createFeatureNode()
+      function uses Date.now() + counter for unique temp IDs, so multiple optimistic nodes won't collide. (2)
+      Blocking the user from creating feels unnecessarily restrictive — power users may want to queue up several
+      features quickly. (3) Each optimistic creation is independent: its own API call, its own success/failure
+      handling. (4) router.refresh() after each success will reconcile all pending nodes. Alternative: disable the
+      "New Feature" button while isSubmitting is true, but this adds friction for minimal benefit.
+
+  - question: 'How should the optimistic node handle the case where router.refresh() completes but the node position changes due to Dagre re-layout?'
+    context: >
+      The optimistic node is placed using createFeatureNode()'s sibling-aware positioning. When router.refresh()
+      runs, page.tsx re-fetches all features, rebuilds nodes, and runs Dagre layout from scratch. The real node
+      may end up at a different position than the optimistic one, causing a visual jump.
+    resolved: true
+    answer: >
+      Recommend accepting the position jump as-is for V1. Rationale: (1) The jump is brief and only occurs once
+      (at reconciliation). (2) The existing createFeatureNode() positioning logic already mimics Dagre-like placement
+      (sibling-aware, overlap avoidance), so the delta should be small in most cases. (3) Adding animated transitions
+      or position-preserving reconciliation would significantly increase complexity. (4) Users are accustomed to
+      layout shifts when the canvas re-renders (e.g., after delete). Alternative: in a follow-up, add a smooth
+      transition animation on node position changes using React Flow's built-in node animation support.
+
+content: |
+  ## Problem Statement
+
+  When a user creates a new feature via the FeatureCreateDrawer, the current flow is fully synchronous:
+  the form shows "Creating..." on the submit button, waits for the POST /api/features/create response,
+  then calls `router.refresh()` to re-render the entire page from the server. During this time, the
+  canvas shows no visual feedback — no new node appears. This creates a sluggish, unresponsive feel,
+  especially since feature creation involves backend processing that can take several seconds.
+
+  Additionally, there is a confirmed **API payload mismatch bug**: the drawer sends `{ userInput, repositoryPath,
+  approvalGates }` but the API route expects `{ name, description, repositoryPath, attachments, approvalGates }`
+  and validates that `name` is present. This means the current create flow may fail with a 400 error. This must
+  be fixed as a prerequisite.
+
+  The desired behavior is **optimistic rendering**: immediately insert a placeholder feature node on the
+  canvas in a dedicated "creating" state the moment the user clicks "Create Feature", close the drawer,
+  and let the API call complete in the background. Once the API responds successfully, reconcile the
+  optimistic node with the real data. On failure, remove the optimistic node and show an error.
+
+  ## Success Criteria
+
+  - [ ] **SC-1**: When user clicks "Create Feature", a feature node appears on the canvas within 100ms (before API response)
+  - [ ] **SC-2**: The optimistic node displays in a distinct "creating" visual state (pulsing animation, "Creating..." label, no agent icon)
+  - [ ] **SC-3**: The optimistic node shows the feature name entered in the form
+  - [ ] **SC-4**: The optimistic node is connected to the correct repository node via an edge
+  - [ ] **SC-5**: The optimistic node is positioned using existing sibling-aware layout logic (no overlaps)
+  - [ ] **SC-6**: The create drawer closes immediately on submit (does not wait for API response)
+  - [ ] **SC-7**: On API success, `router.refresh()` reconciles the optimistic node with the real feature node seamlessly
+  - [ ] **SC-8**: On API failure, the optimistic node and its edge are removed from the canvas
+  - [ ] **SC-9**: On API failure, an error toast is shown with the error message from the API
+  - [ ] **SC-10**: The optimistic node is non-interactive (no click-to-select, no hover actions) while in "creating" state
+  - [ ] **SC-11**: Multiple concurrent feature creations are supported (each gets its own optimistic node)
+  - [ ] **SC-12**: The client→server API payload mismatch is fixed (drawer sends structured data the route expects)
+  - [ ] **SC-13**: All existing feature creation tests continue to pass
+  - [ ] **SC-14**: New unit tests cover: optimistic node insertion, error rollback, success reconciliation, concurrent creations
+  - [ ] **SC-15**: Storybook stories cover the "creating" state of the feature node
+  - [ ] **SC-16**: The `isSubmitting` prop on the drawer is no longer used to show a blocking "Creating..." state (drawer closes immediately)
+
+  ## Functional Requirements
+
+  ### FR-1: Fix Client→Server API Payload Mismatch (Prerequisite)
+
+  Refactor the `FeatureCreateDrawer` to send structured data matching what the API route expects.
+  The drawer's `onSubmit` callback must provide `{ name, description, repositoryPath, attachments, approvalGates }`
+  as separate fields instead of composing them into a single `userInput` string. The API route already has
+  `composeUserInput()` server-side, so composing should happen there. Update the `CreateFeatureInput` type
+  accordingly, or adjust the API route to accept the current `userInput` format. Either approach is acceptable;
+  the key requirement is that client and server agree on the payload shape.
+
+  ### FR-2: Add 'creating' FeatureNodeState
+
+  Add a new `'creating'` value to the `FeatureNodeState` type union in `feature-node-state-config.ts`.
+  Define its visual configuration:
+  - **Icon**: a pulsing/spinning loader (e.g., `Loader2` with animation, same as 'running')
+  - **Border**: `border-l-blue-500` (same as 'running' — blue indicates in-progress)
+  - **Badge text**: "Creating..."
+  - **Progress bar**: indeterminate (same visual treatment as 'running')
+  - **Key difference from 'running'**: no agent type icon, badge says "Creating..." not lifecycle verb
+
+  ### FR-3: Render 'creating' State in Feature Node Component
+
+  Update `feature-node.tsx` to handle the `'creating'` state. When `state === 'creating'`:
+  - Show the feature name from form data
+  - Show an indeterminate progress bar with pulsing animation
+  - Show "Creating..." badge text
+  - Do NOT show agent type icon (no agent is running yet)
+  - Do NOT show lifecycle running verb (not yet in a lifecycle phase)
+  - Optionally apply a subtle visual indicator that the node is provisional (e.g., slightly reduced opacity or dashed border)
+
+  ### FR-4: Optimistic Node Insertion on Form Submit
+
+  When `handleCreateFeatureSubmit` is called:
+  1. Extract `name` (and optionally `description`) from the submit data
+  2. Determine the target repository node ID (from `pendingRepoNodeId` or default repo)
+  3. Call `createFeatureNode()` (or a similar function) to insert a new node with:
+     - `state: 'creating'`
+     - `lifecycle: 'requirements'`
+     - `name` from form data
+     - `description` from form data (if provided)
+     - `repositoryPath` from the pending repo context
+     - A temporary ID (e.g., `feature-{timestamp}-{counter}`)
+  4. Create an edge connecting the repository node to the new optimistic node
+  5. Close the create drawer immediately
+  6. Clear `pendingRepoNodeId`
+
+  ### FR-5: Background API Call with Reconciliation
+
+  After inserting the optimistic node and closing the drawer:
+  1. Fire `POST /api/features/create` in the background (no await blocking the UI)
+  2. On success: call `router.refresh()` to reconcile the canvas with server data. The server
+     component will re-fetch all features and rebuild the node list, replacing the temporary
+     optimistic node with the real `feat-{feature.id}` node.
+  3. On failure: remove the optimistic node and its edge from local state (`setNodes`, `setEdges`),
+     and show an error toast with the API error message.
+
+  ### FR-6: Non-Interactive Optimistic Nodes
+
+  Nodes in the `'creating'` state must not respond to user interactions:
+  - Click-to-select must be suppressed (do not set `selectedNode`)
+  - The `+` action button (add child feature) must not appear on hover
+  - The settings gear must not appear
+  - This is enforced by not injecting `onAction`, `onSettings`, or click handlers for nodes
+    with `state === 'creating'` in the `FeaturesCanvas` component
+
+  ### FR-7: Concurrent Optimistic Creations
+
+  Support multiple optimistic nodes existing simultaneously. Each optimistic creation must:
+  - Use a unique temporary ID (already handled by `Date.now()` + counter pattern)
+  - Have its own independent API call
+  - Handle its own success/failure independently
+  - Not block subsequent create drawer opens
+
+  ### FR-8: Storybook Story for 'creating' State
+
+  Add a Storybook story for the feature node in 'creating' state, following the existing pattern
+  in `feature-node.stories.tsx`. The story should demonstrate the pulsing animation, "Creating..."
+  badge, and the absence of action buttons.
+
+  ## Non-Functional Requirements
+
+  ### NFR-1: Perceived Performance
+
+  The optimistic node must appear on the canvas within 100ms of the user clicking "Create Feature".
+  The drawer must close within the same 100ms window. The user should perceive the action as instant.
+
+  ### NFR-2: Visual Consistency
+
+  The 'creating' state must be visually consistent with the existing feature node state system.
+  It must use the same card layout, typography, and spacing. The loading animation must feel
+  native to the design system (not jarring or out of place).
+
+  ### NFR-3: Error Recovery UX
+
+  On API failure, the optimistic node removal must feel clean — no flickering, no orphaned edges,
+  no stale state. The error toast must clearly communicate what went wrong. The canvas must return
+  to exactly the state it was in before the creation attempt.
+
+  ### NFR-4: No State Leaks
+
+  Optimistic nodes that fail must be fully cleaned up: removed from `nodes` state, their edges
+  removed from `edges` state, no references in `selectedNode` or other state. Memory and state
+  must not grow unboundedly with repeated create/fail cycles.
+
+  ### NFR-5: Test Coverage
+
+  All new code paths must have unit test coverage:
+  - Optimistic node insertion (node appears in state, edge created, drawer closes)
+  - API success reconciliation (router.refresh called)
+  - API failure rollback (node removed, edge removed, toast shown)
+  - Concurrent creations (multiple optimistic nodes coexist)
+  - 'creating' state rendering in feature node component
+
+  ### NFR-6: Backward Compatibility
+
+  The `FeatureCreateDrawerProps.onSubmit` callback signature change (structured data vs. userInput blob)
+  must be coordinated with all consumers. Existing Storybook stories for the drawer must be updated.
+  No breaking changes to the public component API without updating all call sites.
+
+  ### NFR-7: Accessibility
+
+  The 'creating' state animation must respect `prefers-reduced-motion`. The loading state must be
+  announced to screen readers (e.g., via `aria-busy` or `aria-label` on the node).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | New 'creating' state vs reuse 'running'? | Add new 'creating' state | Distinct semantics: 'running' = agent working, 'creating' = not yet persisted. Trivial to add via state config pattern. Clearer UX. |
+  | 2 | Sidebar optimistic update? | No — canvas only | Sidebar is server-driven; adding client overlay is disproportionate complexity. Canvas is the primary focus. router.refresh() fills sidebar within seconds. |
+  | 3 | Fix API payload mismatch here or separately? | Fix as part of this feature | It's a blocking bug — current flow may 400. The optimistic node needs structured data (name, description) anyway. Small, natural prerequisite. |
+  | 4 | Optimistic node interactive while creating? | Non-interactive | No server data to display. Action buttons don't make sense for un-persisted features. Full interactivity restored after reconciliation. |
+  | 5 | Allow concurrent optimistic creations? | Yes | Temp IDs are already unique. Independent API calls. No reason to block power users. Minimal additional complexity. |
+  | 6 | Handle Dagre re-layout position jump? | Accept for V1, animate later | Jump is brief and small (createFeatureNode mimics Dagre). Animated transitions would add significant complexity. Users are accustomed to layout shifts. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `components/features/control-center/use-control-center-state.ts` | High | Core of the change — `handleCreateFeatureSubmit` rewritten to optimistic pattern: insert node → close drawer → background API → reconcile/rollback |
+  | `components/common/feature-node/feature-node-state-config.ts` | Medium | New `'creating'` state added to `FeatureNodeState` union and `featureNodeStateConfig` record |
+  | `components/common/feature-node/feature-node.tsx` | Medium | Rendering logic for 'creating' state: "Creating..." badge, no agent icon, indeterminate progress bar |
+  | `components/common/feature-create-drawer/feature-create-drawer.tsx` | Medium | Refactor `handleSubmit` to pass structured data `{ name, description, repositoryPath, attachments, approvalGates }` instead of composing `userInput` |
+  | `components/features/features-canvas/features-canvas.tsx` | Low | Skip injecting `onAction`/`onSettings`/click handlers for nodes with `state === 'creating'` |
+  | `app/api/features/create/route.ts` | Low | No changes needed — already expects structured `{ name, description }` payload |
+  | `packages/core/.../create/types.ts` | Low | Update `CreateFeatureInput` to accept `{ name, description, ... }` OR keep `userInput` and update the route. One side must change. |
+  | `tests/unit/.../use-control-center-state.test.tsx` | High | New test cases: optimistic insert, error rollback, success reconciliation, concurrent creations. Existing tests updated for new onSubmit shape. |
+  | `tests/unit/.../feature-node.test.tsx` | Medium | Tests for 'creating' state rendering |
+  | `components/common/feature-node/feature-node.stories.tsx` | Low | New story for 'creating' state |
+  | `components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | Low | Update stories for new onSubmit data shape |
+
+  ## Dependencies
+
+  - **Existing `createFeatureNode()` function** in `use-control-center-state.ts` — provides positioning and edge creation logic; needs minor adaptation to accept 'creating' state
+  - **`FeatureNodeData` type** — must include `'creating'` in its `state` union for the optimistic node data
+  - **`router.refresh()`** — Next.js mechanism for reconciling optimistic canvas state with server truth
+  - **`POST /api/features/create`** — Must return the created feature data (currently returns `{ feature, warning? }`) for potential future reconciliation enhancements
+  - **React Flow `setNodes`/`setEdges`** — For immediate local state manipulation (insert and rollback)
+  - **`toast` from sonner** — For success/error notifications during background processing
+  - **`CreateFeatureInput` type** — Must be updated to match the agreed client→server payload shape
+
+  ## Size Estimate
+
+  **M** — The core implementation has four parts: (1) payload mismatch fix (small, ~1 hour), (2) new 'creating' state
+  in feature node (small, ~2 hours with stories/tests), (3) optimistic pattern in handleCreateFeatureSubmit (medium,
+  ~4 hours with TDD), (4) non-interactive node guard in FeaturesCanvas (small, ~1 hour). The existing
+  `createFeatureNode()` function provides most of the positioning/edge logic. Main complexity is in the async
+  reconciliation/rollback flow and comprehensive test coverage. Total estimate: 2-3 days with TDD.

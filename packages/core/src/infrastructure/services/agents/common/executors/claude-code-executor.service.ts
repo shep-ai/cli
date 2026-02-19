@@ -327,6 +327,14 @@ export class ClaudeCodeExecutorService implements IAgentExecutor {
   private buildSpawnOptions(options?: AgentExecutionOptions): Record<string, unknown> {
     const spawnOpts: Record<string, unknown> = {};
     if (options?.cwd) spawnOpts.cwd = options.cwd;
+
+    // Strip CLAUDECODE env var to prevent "nested session" error when shep
+    // is invoked from within a Claude Code session. The claude CLI checks for
+    // this variable and refuses to start if it's set.
+
+    const { CLAUDECODE: _, ...cleanEnv } = process.env;
+    spawnOpts.env = cleanEnv;
+
     return spawnOpts;
   }
 

@@ -62,10 +62,10 @@
  * Features progress through the following stages:
  *
  * ```
- * Requirements --> Research --> Implementation --> Review --> Deploy & QA --> Maintain
- *      |              |              |              |              |             |
- *      v              v              v              v              v             v
- *   (gather)      (analyze)      (code)       (validate)     (release)     (support)
+ * Started → Analyze → Requirements → Research → Planning → Implementation → Review → Maintain
+ *    |          |           |             |           |            |            |          |
+ *    v          v           v             v           v            v            v          v
+ * (init)    (scan)     (gather)      (analyze)   (plan)       (code)      (merge)   (done)
  * ```
  *
  * ## Repository Structure
@@ -113,6 +113,7 @@
 import "../../common/base.tsp";
 import "../../common/scalars.tsp";
 import "../../common/enums/lifecycle.tsp";
+import "../../common/enums/workflow.tsp";
 import "./message.tsp";
 import "./plan.tsp";
 import "./artifact.tsp";
@@ -291,12 +292,14 @@ model Feature extends BaseEntity {
    * Current stage in the Software Development Lifecycle.
    *
    * Tracks the feature's progression through SDLC phases:
+   * - Started: Initial state when feature is created
+   * - Analyze: Codebase analysis and architecture discovery
    * - Requirements: Gathering and documenting requirements
-   * - Research: Analyzing codebase and researching approaches
+   * - Research: Technical research and feasibility assessment
+   * - Planning: Implementation plan with task breakdown
    * - Implementation: Executing code changes
-   * - Review: Validating implementation quality
-   * - Deploy & QA: Deploying and performing quality assurance
-   * - Maintain: Ongoing support and maintenance
+   * - Review: Implementation complete, awaiting merge approval
+   * - Maintain: Terminal state, agent permanently inactive
    */
   @doc("Current stage in the SDLC lifecycle")
   lifecycle: SdlcLifecycle;
@@ -355,4 +358,48 @@ model Feature extends BaseEntity {
    */
   @doc("Absolute path to the feature spec directory inside the worktree")
   specPath?: string;
+
+  // ── Workflow Configuration Flags ──────────────────────────────────
+
+  /** Whether to create a PR on implementation complete. */
+  @doc("Create PR after implementation (default: false)")
+  openPr: boolean = false;
+
+  /** Whether to auto-merge after implementation (implies allowMerge). */
+  @doc("Auto-merge after implementation (default: false)")
+  autoMerge: boolean = false;
+
+  /** Skip Requirements approval gate. */
+  @doc("Skip Requirements approval gate (default: false)")
+  allowPrd: boolean = false;
+
+  /** Skip Planning approval gate. */
+  @doc("Skip Planning approval gate (default: false)")
+  allowPlan: boolean = false;
+
+  /** Skip Review/merge approval gate. */
+  @doc("Skip Review/merge approval gate (default: false)")
+  allowMerge: boolean = false;
+
+  // ── PR Tracking State ────────────────────────────────────────────
+
+  /** GitHub PR URL, set after PR creation. */
+  @doc("GitHub PR URL (null if no PR created)")
+  prUrl?: string;
+
+  /** GitHub PR number, set after PR creation. */
+  @doc("GitHub PR number (null if no PR created)")
+  prNumber?: int32;
+
+  /** Current PR status. */
+  @doc("Current PR status (null if no PR created)")
+  prStatus?: PrStatus;
+
+  /** Final commit SHA after push. */
+  @doc("Final commit SHA after push (null before push)")
+  commitHash?: string;
+
+  /** CI pipeline status for the feature branch. */
+  @doc("CI pipeline status (null before CI check)")
+  ciStatus?: CiStatus;
 }

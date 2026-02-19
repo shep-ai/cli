@@ -386,9 +386,9 @@ describe('SQLite Migrations', () => {
       expect(row.notif_evt_agent_failed).toBe(1);
     });
 
-    it('should set schema version to 9', () => {
+    it('should set schema version to 10', () => {
       const version = getSchemaVersion(db);
-      expect(version).toBe(9);
+      expect(version).toBe(10);
     });
 
     it('should run successfully on a v8 database with existing settings row', () => {

@@ -3,7 +3,7 @@ import { render, screen, act, fireEvent } from '@testing-library/react';
 import type { Edge } from '@xyflow/react';
 import { useControlCenterState } from '@/components/features/control-center/use-control-center-state';
 import type { ControlCenterState } from '@/components/features/control-center/use-control-center-state';
-import type { FeatureNodeType } from '@/components/common/feature-node';
+import type { FeatureNodeType, FeatureNodeData } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -80,7 +80,6 @@ function HookTestHarness({
       <div data-testid="node-count">{state.nodes.length}</div>
       <div data-testid="edge-count">{state.edges.length}</div>
       <div data-testid="create-drawer-open">{String(state.isCreateDrawerOpen)}</div>
-      <div data-testid="is-submitting">{String(state.isSubmitting)}</div>
       <div data-testid="pending-repo-path">{state.pendingRepositoryPath}</div>
       <div data-testid="is-deleting">{String(state.isDeleting)}</div>
       <button data-testid="add-feature" onClick={state.handleAddFeature}>
@@ -90,7 +89,9 @@ function HookTestHarness({
         data-testid="create-feature-submit"
         onClick={() =>
           state.handleCreateFeatureSubmit({
-            userInput: 'Feature: My Feature\n\nA test feature',
+            name: 'My Feature',
+            description: 'A test feature',
+            attachments: [],
             repositoryPath: '/Users/foo/bar',
             approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
           })
@@ -127,6 +128,14 @@ function HookTestHarness({
       </button>
       <button data-testid="delete-feature" onClick={() => state.handleDeleteFeature('feat-1')}>
         Delete Feature
+      </button>
+      <button
+        data-testid="add-to-feature-creating"
+        onClick={() =>
+          state.createFeatureNode('repo-1', { state: 'creating', name: 'Optimistic Feature' })
+        }
+      >
+        Add Creating Feature
       </button>
     </>
   );
@@ -177,6 +186,62 @@ describe('useControlCenterState', () => {
     expect(screen.getByTestId('selected-node')).toHaveTextContent('null');
   });
 
+  describe('handleNodeClick', () => {
+    it('does not set selectedNode when clicking a node with state "creating"', () => {
+      const creatingNode: FeatureNodeType = {
+        id: 'feat-creating',
+        type: 'featureNode',
+        position: { x: 200, y: 200 },
+        data: {
+          name: 'Creating Feature',
+          featureId: '#c1',
+          lifecycle: 'requirements',
+          state: 'creating',
+          progress: 0,
+          repositoryPath: '/home/user/repo',
+          branch: '',
+        },
+      };
+
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[creatingNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      act(() => {
+        capturedState!.handleNodeClick({} as React.MouseEvent, creatingNode as CanvasNodeType);
+      });
+
+      expect(capturedState!.selectedNode).toBeNull();
+    });
+
+    it('sets selectedNode when clicking a node with state "running"', () => {
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      act(() => {
+        capturedState!.handleNodeClick({} as React.MouseEvent, mockFeatureNode as CanvasNodeType);
+      });
+
+      expect(capturedState!.selectedNode).not.toBeNull();
+      expect(capturedState!.selectedNode!.name).toBe('Auth Module');
+    });
+  });
+
   describe('handleAddFeature', () => {
     it('opens the create drawer instead of immediately creating a node', () => {
       renderHook();
@@ -208,7 +273,7 @@ describe('useControlCenterState', () => {
   });
 
   describe('handleCreateFeatureSubmit', () => {
-    it('calls fetch and forwards CreateFeatureInput as JSON body', async () => {
+    it('calls fetch and forwards FeatureCreatePayload as JSON body', async () => {
       const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
         new Response(JSON.stringify({ feature: { id: '1' } }), {
           status: 200,
@@ -225,7 +290,9 @@ describe('useControlCenterState', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          userInput: 'Feature: My Feature\n\nA test feature',
+          name: 'My Feature',
+          description: 'A test feature',
+          attachments: [],
           repositoryPath: '/Users/foo/bar',
           approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
         }),
@@ -342,6 +409,81 @@ describe('useControlCenterState', () => {
     });
   });
 
+  describe('createFeatureNode state override and return value', () => {
+    it('returns the generated node ID when adding a feature to a feature', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      const nodeCountBefore = capturedState!.nodes.length;
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-feature'));
+      });
+
+      // A new node should have been added
+      expect(capturedState!.nodes.length).toBe(nodeCountBefore + 1);
+      // The new node should have an ID matching the feature-{timestamp}-{counter} pattern
+      const newNode = capturedState!.nodes.find((n) => n.id !== 'feat-1');
+      expect(newNode).toBeDefined();
+      expect(newNode!.id).toMatch(/^feature-\d+-\d+$/);
+    });
+
+    it('creates a node with state "creating" when dataOverride has state creating', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockRepoNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      // Open drawer from repo, then submit to trigger optimistic creation
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo'));
+      });
+
+      // Use handleAddFeatureToFeature as proxy for createFeatureNode (default state)
+      act(() => {
+        // Add feature to repo through direct createFeatureNode via handleAddFeatureToFeature
+        fireEvent.click(screen.getByTestId('add-to-feature-creating'));
+      });
+
+      // The new node should have state 'creating'
+      const newNode = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating'
+      );
+      expect(newNode).toBeDefined();
+    });
+
+    it('does not set selectedNode when node state is creating', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockRepoNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-feature-creating'));
+      });
+
+      // selectedNode should remain null — creating nodes are not auto-selected
+      expect(capturedState!.selectedNode).toBeNull();
+    });
+
+    it('still sets selectedNode for default (running) state nodes', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-feature'));
+      });
+
+      // selectedNode should be set to the new feature (default running state)
+      expect(capturedState!.selectedNode).not.toBeNull();
+      expect(capturedState!.selectedNode!.name).toBe('New Feature');
+    });
+  });
+
   describe('createFeatureNode positioning (via handleAddFeatureToFeature)', () => {
     // These tests verify positioning logic using handleAddFeatureToFeature,
     // which still creates local nodes directly via createFeatureNode.
@@ -449,7 +591,7 @@ describe('useControlCenterState', () => {
     });
   });
 
-  describe('async submit flow', () => {
+  describe('optimistic submit flow', () => {
     const serverRepoNode: RepositoryNodeType = {
       id: 'repo-/Users/foo/bar',
       type: 'repositoryNode',
@@ -475,69 +617,56 @@ describe('useControlCenterState', () => {
       );
     }
 
-    it('closes drawer and calls router.refresh() on successful submit', async () => {
-      mockFetchSuccess();
+    it('inserts an optimistic node with state "creating" before fetch resolves', async () => {
+      let resolvePromise!: (v: Response) => void;
+      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        })
+      );
 
-      renderHook([serverRepoNode] as CanvasNodeType[]);
-
-      // Open drawer from repo
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo-server'));
-      });
-
-      // Submit
-      await act(async () => {
-        fireEvent.click(screen.getByTestId('create-feature-submit'));
-      });
-
-      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('false');
-      expect(mockRefresh).toHaveBeenCalled();
-      expect(mockToastSuccess).toHaveBeenCalled();
-    });
-
-    it('keeps drawer open on API error', async () => {
-      mockFetchError('Worktree creation failed');
-
-      renderHook([serverRepoNode] as CanvasNodeType[]);
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[serverRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
 
       // Open drawer from repo
       act(() => {
         fireEvent.click(screen.getByTestId('add-to-repo-server'));
       });
 
-      // Submit
-      await act(async () => {
-        fireEvent.click(screen.getByTestId('create-feature-submit'));
-      });
-
-      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
-      expect(mockToastError).toHaveBeenCalledWith('Worktree creation failed');
-      expect(mockRefresh).not.toHaveBeenCalled();
-    });
-
-    it('shows error toast with message from API error response', async () => {
-      mockFetchError('Slug collision detected');
-
-      renderHook([serverRepoNode] as CanvasNodeType[]);
-
+      // Start submit (don't await — fetch is still pending)
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo-server'));
-      });
-
-      await act(async () => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      expect(mockToastError).toHaveBeenCalledWith('Slug collision detected');
+      // Optimistic node should appear immediately (before fetch resolves)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+      const optimisticNode = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating'
+      );
+      expect(optimisticNode).toBeDefined();
+      expect((optimisticNode!.data as FeatureNodeData).name).toBe('My Feature');
+
+      // Clean up the pending promise
+      await act(async () => {
+        resolvePromise(
+          new Response(JSON.stringify({ feature: { id: '1' } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+      });
     });
 
-    it('isSubmitting is false initially', () => {
-      renderHook();
-      expect(screen.getByTestId('is-submitting')).toHaveTextContent('false');
-    });
-
-    it('isSubmitting is true while fetch is pending', async () => {
-      let resolvePromise: (v: Response) => void;
+    it('closes drawer immediately on submit (before fetch resolves)', async () => {
+      let resolvePromise!: (v: Response) => void;
       vi.spyOn(globalThis, 'fetch').mockReturnValue(
         new Promise((resolve) => {
           resolvePromise = resolve;
@@ -550,31 +679,74 @@ describe('useControlCenterState', () => {
       act(() => {
         fireEvent.click(screen.getByTestId('add-to-repo-server'));
       });
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
 
-      // Start submit (don't await — fetch is still pending)
+      // Start submit
       act(() => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      // isSubmitting should be true while fetch is pending
-      expect(screen.getByTestId('is-submitting')).toHaveTextContent('true');
+      // Drawer should be closed immediately (before fetch resolves)
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('false');
 
-      // Resolve the fetch
+      // Clean up the pending promise
       await act(async () => {
-        resolvePromise!(
+        resolvePromise(
           new Response(JSON.stringify({ feature: { id: '1' } }), {
             status: 200,
             headers: { 'Content-Type': 'application/json' },
           })
         );
       });
-
-      // isSubmitting should be false after fetch completes
-      expect(screen.getByTestId('is-submitting')).toHaveTextContent('false');
     });
 
-    it('isSubmitting is false after API error', async () => {
-      mockFetchError();
+    it('creates an edge connecting optimistic node to repo node', async () => {
+      let resolvePromise!: (v: Response) => void;
+      vi.spyOn(globalThis, 'fetch').mockReturnValue(
+        new Promise((resolve) => {
+          resolvePromise = resolve;
+        })
+      );
+
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[serverRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Open drawer from repo
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      // Submit
+      act(() => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // Should have an edge from repo to optimistic node
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
+      const edge = capturedState!.edges[0];
+      expect(edge.source).toBe('repo-/Users/foo/bar');
+
+      // Clean up the pending promise
+      await act(async () => {
+        resolvePromise(
+          new Response(JSON.stringify({ feature: { id: '1' } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+      });
+    });
+
+    it('calls router.refresh() on successful API response', async () => {
+      mockFetchSuccess();
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
@@ -586,15 +758,141 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      expect(screen.getByTestId('is-submitting')).toHaveTextContent('false');
+      expect(mockRefresh).toHaveBeenCalled();
     });
 
-    it('resets pendingRepositoryPath after successful submit', async () => {
+    it('calls fetch and forwards FeatureCreatePayload as JSON body', async () => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+        new Response(JSON.stringify({ feature: { id: '1' } }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      );
+      renderHook();
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(fetchSpy).toHaveBeenCalledWith('/api/features/create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'My Feature',
+          description: 'A test feature',
+          attachments: [],
+          repositoryPath: '/Users/foo/bar',
+          approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        }),
+      });
+    });
+
+    it('removes optimistic node on API error', async () => {
+      mockFetchError('Worktree creation failed');
+
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[serverRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Open drawer from repo
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      // Submit
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // Optimistic node should be removed
+      const creatingNode = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating'
+      );
+      expect(creatingNode).toBeUndefined();
+      // Only the repo node should remain
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+    });
+
+    it('removes optimistic edge on API error', async () => {
+      mockFetchError('Worktree creation failed');
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // Edge should be removed along with the optimistic node
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('0');
+    });
+
+    it('shows error toast on API error', async () => {
+      mockFetchError('Worktree creation failed');
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Worktree creation failed');
+      expect(mockRefresh).not.toHaveBeenCalled();
+    });
+
+    it('shows generic error toast on network failure', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      expect(mockToastError).toHaveBeenCalledWith('Failed to create feature');
+    });
+
+    it('removes optimistic node on network failure', async () => {
+      vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('Network error'));
+
+      renderHook([serverRepoNode] as CanvasNodeType[]);
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // Only repo node should remain
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('0');
+    });
+
+    it('resets pendingRepositoryPath immediately on submit', async () => {
       mockFetchSuccess();
 
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
-      // Open drawer from repo, submit
       act(() => {
         fireEvent.click(screen.getByTestId('add-to-repo-server'));
       });
@@ -604,8 +902,211 @@ describe('useControlCenterState', () => {
         fireEvent.click(screen.getByTestId('create-feature-submit'));
       });
 
-      // pendingRepositoryPath should be reset after successful submit
       expect(screen.getByTestId('pending-repo-path')).toHaveTextContent('');
+    });
+
+    it('supports concurrent optimistic creations with unique IDs', async () => {
+      let resolvePromise1!: (v: Response) => void;
+      let resolvePromise2!: (v: Response) => void;
+      let callCount = 0;
+      vi.spyOn(globalThis, 'fetch').mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            callCount++;
+            if (callCount === 1) resolvePromise1 = resolve;
+            else resolvePromise2 = resolve;
+          })
+      );
+
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[serverRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // First creation
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+      act(() => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // Second creation
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-to-repo-server'));
+      });
+      act(() => {
+        fireEvent.click(screen.getByTestId('create-feature-submit'));
+      });
+
+      // Should have 3 nodes: repo + 2 optimistic
+      expect(screen.getByTestId('node-count')).toHaveTextContent('3');
+
+      const creatingNodes = capturedState!.nodes.filter(
+        (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating'
+      );
+      expect(creatingNodes).toHaveLength(2);
+      // IDs should be unique
+      expect(creatingNodes[0].id).not.toBe(creatingNodes[1].id);
+
+      // Clean up both pending promises
+      await act(async () => {
+        resolvePromise1(
+          new Response(JSON.stringify({ feature: { id: '1' } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+        resolvePromise2(
+          new Response(JSON.stringify({ feature: { id: '2' } }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          })
+        );
+      });
+    });
+  });
+
+  describe('initialNodes/initialEdges prop sync', () => {
+    it('syncs local state when initialNodes prop changes (different node IDs)', () => {
+      const { rerender } = render(
+        <HookTestHarness initialNodes={[mockFeatureNode] as CanvasNodeType[]} initialEdges={[]} />
+      );
+
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+
+      const newFeatureNode: FeatureNodeType = {
+        id: 'feat-2',
+        type: 'featureNode',
+        position: { x: 200, y: 200 },
+        data: {
+          name: 'New Server Feature',
+          featureId: '#f2',
+          lifecycle: 'requirements',
+          state: 'running',
+          progress: 0,
+          repositoryPath: '/home/user/repo',
+          branch: 'feat/new',
+        },
+      };
+
+      // Simulate router.refresh() delivering new initialNodes
+      rerender(
+        <HookTestHarness
+          initialNodes={[mockFeatureNode, newFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+        />
+      );
+
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+    });
+
+    it('syncs local edges when initialEdges prop changes', () => {
+      const edge: Edge = { id: 'e1', source: 'repo-1', target: 'feat-1' };
+
+      const { rerender } = render(
+        <HookTestHarness
+          initialNodes={[mockFeatureNode, mockRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+        />
+      );
+
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('0');
+
+      rerender(
+        <HookTestHarness
+          initialNodes={[mockFeatureNode, mockRepoNode] as CanvasNodeType[]}
+          initialEdges={[edge]}
+        />
+      );
+
+      expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
+    });
+
+    it('replaces optimistic node when initialNodes changes to include real feature', () => {
+      let capturedState: ControlCenterState | null = null;
+
+      const { rerender } = render(
+        <HookTestHarness
+          initialNodes={[mockRepoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Add an optimistic node
+      act(() => {
+        capturedState!.createFeatureNode('repo-1', {
+          state: 'creating',
+          name: 'My Optimistic Feature',
+        });
+      });
+
+      // There should now be 2 nodes (repo + optimistic)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+
+      // Simulate server refresh with the real feature (no optimistic node)
+      const realFeature: FeatureNodeType = {
+        id: 'feat-real-123',
+        type: 'featureNode',
+        position: { x: 300, y: 100 },
+        data: {
+          name: 'My Optimistic Feature',
+          featureId: '#r123',
+          lifecycle: 'requirements',
+          state: 'running',
+          progress: 0,
+          repositoryPath: '/home/user/repo',
+          branch: 'feat/optimistic',
+        },
+      };
+      const realEdge: Edge = {
+        id: 'edge-repo-1-feat-real-123',
+        source: 'repo-1',
+        target: 'feat-real-123',
+      };
+
+      rerender(
+        <HookTestHarness
+          initialNodes={[mockRepoNode, realFeature] as CanvasNodeType[]}
+          initialEdges={[realEdge]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // The optimistic node should be gone, replaced by the real feature
+      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
+      const optimisticNode = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating'
+      );
+      expect(optimisticNode).toBeUndefined();
+
+      const realNode = capturedState!.nodes.find((n) => n.id === 'feat-real-123');
+      expect(realNode).toBeDefined();
+    });
+
+    it('does not update when initialNodes have the same IDs (stable comparison)', () => {
+      const { rerender } = render(
+        <HookTestHarness initialNodes={[mockFeatureNode] as CanvasNodeType[]} initialEdges={[]} />
+      );
+
+      // Re-render with identical initialNodes (same IDs)
+      rerender(
+        <HookTestHarness initialNodes={[mockFeatureNode] as CanvasNodeType[]} initialEdges={[]} />
+      );
+
+      // Node count should remain 1 (no extra nodes added, no duplication)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
     });
   });
 

@@ -217,6 +217,32 @@ model SystemConfig {
  * - session: Use the agent's existing auth (e.g., Claude Code OAuth)
  * - token: Provide an API token stored in the Shep settings database
  */
+/**
+ * Workflow Configuration
+ *
+ * Global defaults for the post-implementation workflow.
+ * These settings are DEFAULTS that can be overridden per-feature
+ * using CLI flags (--pr, --auto-merge).
+ *
+ * Resolution order: CLI flag → Feature entity in DB → Settings default.
+ */
+@doc("Global workflow configuration defaults")
+model WorkflowConfig {
+  /**
+   * Whether to automatically create a PR when implementation completes.
+   * Per-feature override: `feat new --pr`
+   */
+  @doc("Create PR on implementation complete (default: false)")
+  openPrOnImplementationComplete: boolean = false;
+
+  /**
+   * Whether to automatically merge after implementation completes.
+   * Per-feature override: `feat new --auto-merge`
+   */
+  @doc("Auto-merge on implementation complete (default: false)")
+  autoMergeOnImplementationComplete: boolean = false;
+}
+
 @doc("AI coding agent configuration")
 model AgentConfig {
   /**
@@ -427,4 +453,12 @@ model Settings extends BaseEntity {
    */
   @doc("Notification preferences for agent lifecycle events")
   notifications: NotificationPreferences;
+
+  /**
+   * Workflow configuration defaults.
+   * Controls global PR creation and auto-merge behavior.
+   * Per-feature flags override these defaults.
+   */
+  @doc("Global workflow configuration defaults")
+  workflow: WorkflowConfig;
 }

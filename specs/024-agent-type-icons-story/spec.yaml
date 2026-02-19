@@ -1,0 +1,198 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-type-icons-story
+number: 024
+branch: feat/agent-type-icons-story
+oneLiner: Add Storybook story showing FeatureNode with all agent type icons visible
+summary: >
+  The existing FeatureNode stories do not pass the `agentType` prop, so agent type icons
+  are never visible in Storybook. This feature adds a dedicated story variant to
+  `feature-node.stories.tsx` that renders FeatureNode in the "running" state with each
+  agent type (claude-code, cursor, gemini-cli, aider, continue) so the brand icons are
+  visible within the node context. It also cleans up the unused `agentName` field from
+  existing story data.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Storybook
+  - React
+  - '@xyflow/react (React Flow)'
+  - Tailwind CSS
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the new story be a single grid showing all agent types side-by-side, or individual story variants per agent type?'
+    resolved: true
+    answer: >
+      Recommend a single grid story (like the existing `AllStates` and `AllLifecycles` patterns)
+      that renders all 6 nodes (5 agent types + 1 fallback) in a `flex flex-wrap gap-6` layout.
+      This is consistent with the existing story conventions in the file, provides a single
+      visual comparison view, and keeps the story count manageable. Individual per-agent stories
+      would add clutter without meaningful benefit since the nodes are visually identical aside
+      from the icon.
+  - question: 'Should the story use a single lifecycle phase for all nodes, or vary lifecycle phases across nodes?'
+    resolved: true
+    answer: >
+      Recommend using the same lifecycle phase (implementation) for all nodes. The purpose of
+      this story is to showcase agent type icon differences, not lifecycle variation. Using a
+      uniform lifecycle keeps the visual comparison focused and avoids conflating two dimensions.
+      The `AllLifecycles` story already covers lifecycle variation.
+  - question: 'Should the unused `agentName` field be removed from existing story data as part of this change?'
+    resolved: true
+    answer: >
+      Recommend removing `agentName` from existing story data in the same PR. It does not exist
+      on the `FeatureNodeData` interface (the index signature silently absorbs it), has no
+      visible effect, and is misleading. Cleaning it up is minimal risk, directly related to
+      agent display concerns, and prevents confusion for future contributors. The change is
+      purely subtractive in existing stories (removing a no-op field).
+  - question: 'Should the story export name be `AllAgentTypes` or `AgentTypeIcons` or something else?'
+    resolved: true
+    answer: >
+      Recommend `AllAgentTypes` to follow the existing naming convention of `AllStates` and
+      `AllLifecycles` in the same file. This creates a consistent pattern:
+      All[Dimension] = grid of all values for that dimension.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The `FeatureNode` component accepts an optional `agentType` prop (`AgentTypeValue`) and
+  renders the corresponding brand icon when the node is in the `running` state. However,
+  none of the existing stories in `feature-node.stories.tsx` set `agentType`, so the agent
+  type icons are never visible within FeatureNode in Storybook.
+
+  While the standalone `agent-type-icons.stories.tsx` shows the icons in a gallery format,
+  there is no story demonstrating how agent type icons appear **in context** within a
+  FeatureNode card — at the actual rendered size, alongside the running verb text and
+  indeterminate progress bar.
+
+  Additionally, the existing stories pass an `agentName` field that does not exist on the
+  `FeatureNodeData` interface (silently absorbed by the index signature), which is misleading
+  and has no visible effect.
+
+  ## Success Criteria
+
+  - [ ] New `AllAgentTypes` story export in `feature-node.stories.tsx` renders 6 FeatureNode instances in a grid
+  - [ ] The grid contains one node for each of the 5 agent types: claude-code, cursor, gemini-cli, aider, continue
+  - [ ] The grid contains one node with no `agentType` set, showing the default fallback icon
+  - [ ] All 6 nodes use `state: 'running'` so the agent icon rendering path is active
+  - [ ] Each node's brand icon is visually distinguishable at the rendered size (h-3.5 w-3.5)
+  - [ ] Each node displays its agent type label in the feature name for easy identification
+  - [ ] The unused `agentName` field is removed from all existing story data in the file
+  - [ ] Storybook builds successfully (`pnpm build:storybook`)
+  - [ ] All existing stories continue to render correctly without visual changes
+  - [ ] TypeScript compilation passes with no errors (`pnpm typecheck:web`)
+
+  ## Functional Requirements
+
+  - **FR-1**: Add a new exported story named `AllAgentTypes` to `feature-node.stories.tsx` that renders a grid of FeatureNode components, one per agent type plus one fallback
+  - **FR-2**: Each node in the `AllAgentTypes` grid MUST have `state: 'running'` so the agent icon is rendered via the `AgentIcon` component path (line 106-108 of `feature-node.tsx`)
+  - **FR-3**: Each node MUST set `agentType` to the corresponding `AgentTypeValue` (claude-code, cursor, gemini-cli, aider, continue), and one node MUST omit `agentType` entirely
+  - **FR-4**: Each node MUST have a descriptive `name` field that includes the agent type label (e.g., "Claude Code Agent", "Cursor Agent") so the icon can be visually correlated to its agent type
+  - **FR-5**: The grid layout MUST use the existing `FeatureNodeCanvas` wrapper and follow the `flex flex-wrap gap-6` pattern established by `AllStates` and `AllLifecycles`
+  - **FR-6**: Define the node data as a `const` array outside the story render function, following the `allStatesData` pattern
+  - **FR-7**: Remove the `agentName` field from all existing story data (`meta.args`, `allStatesData`, `AllLifecycles` inline data, `interactiveInitialNodes`) since it is not part of `FeatureNodeData`
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The story file MUST pass TypeScript strict-mode type checking (`pnpm typecheck:web`) with no errors or type assertions beyond what already exists
+  - **NFR-2**: The story MUST follow existing code conventions in the file: `Meta<FeatureNodeData>` type, `FeatureNodeCanvas` wrapper, consistent canvas sizing
+  - **NFR-3**: Storybook production build MUST complete successfully (`pnpm build:storybook` exits 0)
+  - **NFR-4**: No changes to any file other than `feature-node.stories.tsx` — the component, types, icons, and Storybook config are all unchanged
+  - **NFR-5**: The `AllAgentTypes` story MUST import `AgentTypeValue` from the colocated `agent-type-icons` module (not hardcode string literals for type safety)
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Grid vs individual stories? | Single grid story (`AllAgentTypes`) | Matches `AllStates`/`AllLifecycles` convention; single comparison view is more useful than 5 separate stories |
+  | 2 | Uniform or varied lifecycle? | Uniform (`implementation`) | Story purpose is icon comparison; varying lifecycle would conflate two dimensions |
+  | 3 | Clean up `agentName`? | Yes, remove from all story data | It's a no-op field not on the interface; removal is safe, minimal, and reduces confusion |
+  | 4 | Story export name? | `AllAgentTypes` | Follows `All[Dimension]` naming pattern in the file |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The web UI components live in `src/presentation/web/components/` with a four-tier hierarchy:
+
+  - **Tier 0 (`ui/`)**: shadcn/ui primitives (Button, Card, Badge, etc.)
+  - **Tier 1 (`common/`)**: Composed components including `feature-node/`, `repository-node/`, etc.
+  - **Tier 2 (`layouts/`)**: Dashboard layout, sidebar, header
+  - **Tier 3 (`features/`)**: Full-page feature components
+
+  The `feature-node/` directory contains:
+  - `feature-node.tsx` — Main React Flow node component
+  - `feature-node.stories.tsx` — Existing stories (no `agentType` set)
+  - `feature-node-state-config.ts` — Types and config (`FeatureNodeData`, state configs)
+  - `agent-type-icons.tsx` — Icon resolution: `getAgentTypeIcon(agentType) → React component`
+  - `agent-type-icons.stories.tsx` — Standalone icon gallery stories
+  - `derive-feature-state.ts` — State derivation logic
+
+  ### Architecture Patterns
+
+  **Story conventions observed:**
+  - Stories use `Meta<FeatureNodeData>` with `title: 'Composed/FeatureNode'`
+  - A `FeatureNodeCanvas` wrapper provides `ReactFlowProvider` + `ReactFlow` for rendering nodes
+  - Grid stories (e.g., `AllStates`, `AllLifecycles`) use `flex flex-wrap gap-6` layout
+  - Each canvas renders at a fixed size (e.g., `{ width: 500, height: 350 }`)
+  - Data arrays are defined as `const` outside the story for the grid variants
+
+  **Agent icon rendering path:**
+  1. `FeatureNode` imports `getAgentTypeIcon` from `./agent-type-icons`
+  2. When `data.state === 'running'`, it renders `<AgentIcon agentType={data.agentType} />`
+  3. `getAgentTypeIcon` looks up the type in a map → returns brand image component or fallback SVG
+
+  **Agent types supported (from `AgentTypeValue`):**
+  - `claude-code` → `/icons/agents/claude-ai-icon.svg`
+  - `cursor` → `/icons/agents/cursor.jpeg`
+  - `gemini-cli` → `/icons/agents/gemini-cli.jpeg`
+  - `aider` → `/icons/agents/aider.png`
+  - `continue` → `/icons/agents/continue.jpeg`
+  - `undefined` → `DefaultAgentIcon` (generic circle SVG)
+
+  ### Relevant Technologies
+
+  - **Storybook 8+** with `@storybook/react-vite` framework
+  - **@xyflow/react** (React Flow v12+) for graph visualization
+  - **Tailwind CSS v4** for styling
+  - **TypeScript** with strict mode
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-node/feature-node.stories.tsx` | High | Add new `AllAgentTypes` story; remove `agentName` from existing data |
+  | `.storybook/` | None | No config changes needed; static assets already configured |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | None | No changes needed; already exports everything required |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | None | Already handles `agentType` rendering in running state |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | None | Already has `agentType?: AgentTypeValue` in `FeatureNodeData` |
+
+  ## Dependencies
+
+  - **`agent-type-icons.tsx`**: Already provides `AgentTypeValue` type and `getAgentTypeIcon()` function
+  - **`feature-node-state-config.ts`**: Already has `agentType?: AgentTypeValue` in `FeatureNodeData`
+  - **Icon assets**: Already present in `src/presentation/web/public/icons/agents/`
+  - **Storybook static dirs**: Already configured to serve `src/presentation/web/public`
+
+  All dependencies are already in place. No new packages or assets needed.
+
+  ## Size Estimate
+
+  **S** — This is a single-file change to `feature-node.stories.tsx`. The work consists of:
+  1. Defining a `const` array with 6 `FeatureNodeData` entries (5 agent types + 1 fallback)
+  2. Adding one new `AllAgentTypes` story export using the existing `FeatureNodeCanvas` grid pattern
+  3. Removing the `agentName` field from 4 locations in existing story data
+
+  The component, types, icons, and Storybook infrastructure are all already in place.
+
+  ---
+
+  _Requirements complete — proceed with research_

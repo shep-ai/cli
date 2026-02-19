@@ -6,14 +6,15 @@
  *
  * State Transition Flow:
  * ```
- * Requirements --> Research --> Implementation --> Review --> Deploy & QA --> Maintain
- *      |              |              |              |              |
- *      v              v              v              v              v
- *   (gather)      (analyze)      (code)       (validate)     (release)      (support)
+ * Started → Analyze → Requirements → Research → Planning → Implementation → Review → Maintain
+ *    |          |           |             |           |            |            |          |
+ *    v          v           v             v           v            v            v          v
+ * (init)    (scan)     (gather)      (analyze)   (plan)       (code)      (merge)   (done)
  * ```
  *
- * Features always start in Requirements and progress forward. Backward
- * transitions may occur during Review if issues are found.
+ * Features always start in Started and progress forward. The Review phase
+ * represents implementation complete, awaiting merge approval. Maintain is
+ * the terminal state where the agent becomes permanently inactive.
  */
 /**
  * Represents the stages of the Software Development Lifecycle.
@@ -22,18 +23,40 @@
 @doc("Software Development Lifecycle stages for feature progression")
 enum SdlcLifecycle {
   /**
-   * Initial stage where user requirements are gathered through
-   * conversational interaction with the AI assistant.
+   * Initial state when a feature is first created.
+   * No analysis or work has begun yet.
+   */
+  @doc("Initial state when feature is first created")
+  Started,
+
+  /**
+   * Codebase analysis stage where the repository is scanned,
+   * dependencies are identified, and architecture is discovered.
+   */
+  @doc("Analyzing codebase structure and architecture")
+  Analyze,
+
+  /**
+   * Requirements gathering stage where user requirements are gathered
+   * through conversational interaction with the AI assistant.
    */
   @doc("Gathering and documenting user requirements")
   Requirements,
 
   /**
-   * Analysis stage where the codebase is analyzed, dependencies
-   * are identified, and technical feasibility is assessed.
+   * Technical research stage where the codebase is analyzed,
+   * dependencies are identified, and technical feasibility is assessed.
    */
   @doc("Analyzing codebase and researching implementation approaches")
   Research,
+
+  /**
+   * Planning stage where the implementation plan is created with
+   * task breakdown, dependencies, and TDD cycles. This stage has
+   * its own approval gate (--allow-plan).
+   */
+  @doc("Creating implementation plan with task breakdown")
+  Planning,
 
   /**
    * Active development stage where code changes are being
@@ -43,23 +66,18 @@ enum SdlcLifecycle {
   Implementation,
 
   /**
-   * Validation stage where implemented changes are reviewed
-   * for correctness, quality, and alignment with requirements.
+   * Post-implementation stage where code is pushed, PR may exist,
+   * and the feature is awaiting user merge approval. This is NOT
+   * a code review phase — it's a "ready to merge" approval gate.
    */
-  @doc("Reviewing implemented changes for quality and correctness")
+  @doc("Implementation complete, awaiting merge approval")
   Review,
 
   /**
-   * Release stage where approved changes are deployed to
-   * target environments and quality assurance is performed.
+   * Terminal state. The feature is merged/deployed and the agent
+   * becomes permanently inactive. Features remain in Maintain forever.
+   * No backward transitions are allowed from this state.
    */
-  @doc("Deploying changes and performing quality assurance")
-  DeployAndQA: "Deploy & QA",
-
-  /**
-   * Ongoing support stage where the feature is monitored,
-   * bugs are addressed, and improvements are made.
-   */
-  @doc("Ongoing maintenance and support of deployed features")
+  @doc("Terminal state — feature merged, agent permanently inactive")
   Maintain,
 }

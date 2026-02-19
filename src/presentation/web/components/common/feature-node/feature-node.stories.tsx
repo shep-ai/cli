@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { expect, waitFor } from '@storybook/test';
 import { ReactFlowProvider, ReactFlow, useNodesState } from '@xyflow/react';
 import { FeatureNode } from './feature-node';
+import type { AgentTypeValue } from './agent-type-icons';
 import type {
   FeatureNodeData,
   FeatureNodeType,
@@ -54,7 +55,6 @@ const meta: Meta<FeatureNodeData> = {
     lifecycle: 'requirements',
     state: 'running',
     progress: 45,
-    agentName: 'Planner',
   },
 };
 
@@ -62,14 +62,20 @@ export default meta;
 type Story = StoryObj<FeatureNodeData>;
 
 export const Default: Story = {
-  args: {
-    agentName: 'claude-code',
-  },
-
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
 const allStatesData: FeatureNodeData[] = [
+  {
+    name: 'User Onboarding',
+    description: 'Implement guided onboarding wizard',
+    featureId: '',
+    lifecycle: 'requirements' as FeatureLifecyclePhase,
+    state: 'creating',
+    progress: 0,
+    repositoryPath: '/home/user/my-repo',
+    branch: '',
+  },
   {
     name: 'Auth Module',
     description: 'Implement OAuth2 authentication flow',
@@ -77,7 +83,6 @@ const allStatesData: FeatureNodeData[] = [
     lifecycle: 'implementation' as FeatureLifecyclePhase,
     state: 'running',
     progress: 45,
-    agentName: 'Planner',
     repositoryPath: '/home/user/my-repo',
     branch: 'feat/auth-module',
   },
@@ -159,11 +164,88 @@ export const AllLifecycles: Story = {
             lifecycle,
             state: 'running' as FeatureNodeState,
             progress: [10, 25, 50, 70, 90, 100][i],
-            agentName: 'Researcher',
             repositoryPath: '/home/user/my-repo',
             branch: 'feat/feature-name',
           }}
         />
+      ))}
+    </div>
+  ),
+};
+
+const allAgentTypesData: FeatureNodeData[] = [
+  {
+    name: 'Claude Code Agent',
+    description: 'Running with Claude Code executor',
+    featureId: '#a1',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'running',
+    progress: 50,
+    agentType: 'claude-code' as AgentTypeValue,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/claude-code',
+  },
+  {
+    name: 'Cursor Agent',
+    description: 'Running with Cursor executor',
+    featureId: '#a2',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'running',
+    progress: 50,
+    agentType: 'cursor' as AgentTypeValue,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/cursor',
+  },
+  {
+    name: 'Gemini CLI Agent',
+    description: 'Running with Gemini CLI executor',
+    featureId: '#a3',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'running',
+    progress: 50,
+    agentType: 'gemini-cli' as AgentTypeValue,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/gemini-cli',
+  },
+  {
+    name: 'Aider Agent',
+    description: 'Running with Aider executor',
+    featureId: '#a4',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'running',
+    progress: 50,
+    agentType: 'aider' as AgentTypeValue,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/aider',
+  },
+  {
+    name: 'Continue Agent',
+    description: 'Running with Continue executor',
+    featureId: '#a5',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'running',
+    progress: 50,
+    agentType: 'continue' as AgentTypeValue,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/continue',
+  },
+  {
+    name: 'Default (No Agent)',
+    description: 'Running with no agent type set',
+    featureId: '#a6',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'running',
+    progress: 50,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/default',
+  },
+];
+
+export const AllAgentTypes: Story = {
+  render: () => (
+    <div className="flex flex-wrap gap-6">
+      {allAgentTypesData.map((data) => (
+        <FeatureNodeCanvas key={data.featureId} style={{ width: 500, height: 350 }} data={data} />
       ))}
     </div>
   ),
@@ -212,6 +294,18 @@ export const BlockedByFeature: Story = {
   render: (args) => <FeatureNodeCanvas data={args} />,
 };
 
+export const Creating: Story = {
+  args: {
+    name: 'User Onboarding',
+    description: 'Implement guided onboarding wizard',
+    featureId: '',
+    lifecycle: 'requirements',
+    state: 'creating',
+    progress: 0,
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
 export const ErrorWithMessage: Story = {
   args: {
     name: 'Email Service',
@@ -238,7 +332,6 @@ const interactiveInitialNodes: FeatureNodeType[] = [
       lifecycle: 'implementation' as FeatureLifecyclePhase,
       state: 'running' as FeatureNodeState,
       progress: 45,
-      agentName: 'Planner',
       repositoryPath: '/home/user/my-repo',
       branch: 'feat/auth-module',
     },

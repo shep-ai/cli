@@ -1,3 +1,27 @@
+## [1.32.1](https://github.com/shep-ai/cli/compare/v1.32.0...v1.32.1) (2026-02-18)
+
+### Bug Fixes
+
+- **build:** include public/ directory in web production build ([a63668a](https://github.com/shep-ai/cli/commit/a63668af84aa64d33faa5d80a8ea6215b3255674))
+
+# [1.32.0](https://github.com/shep-ai/cli/compare/v1.31.0...v1.32.0) (2026-02-18)
+
+### Features
+
+- **web:** add optimistic feature creation with instant feedback ([#72](https://github.com/shep-ai/cli/issues/72)) ([edd81d8](https://github.com/shep-ai/cli/commit/edd81d8ae41976eed60f19f4149c4d370bb317b5))
+
+# [1.31.0](https://github.com/shep-ai/cli/compare/v1.30.0...v1.31.0) (2026-02-18)
+
+### Features
+
+- **agents:** add post-implementation merge flow with PR and approval gates ([#63](https://github.com/shep-ai/cli/issues/63)) ([b5131f9](https://github.com/shep-ai/cli/commit/b5131f9a5696ddcb897c6e44dbedfb073fb29b2a))
+
+# [1.30.0](https://github.com/shep-ai/cli/compare/v1.29.1...v1.30.0) (2026-02-18)
+
+### Features
+
+- **web:** add AllAgentTypes story for FeatureNode agent type icons ([#71](https://github.com/shep-ai/cli/issues/71)) ([563667c](https://github.com/shep-ai/cli/commit/563667c0200dfa0d17a185cd34ba84de03217560))
+
 ## [1.29.1](https://github.com/shep-ai/cli/compare/v1.29.0...v1.29.1) (2026-02-18)
 
 # [1.29.0](https://github.com/shep-ai/cli/compare/v1.28.0...v1.29.0) (2026-02-18)

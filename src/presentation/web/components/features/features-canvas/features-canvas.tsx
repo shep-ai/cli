@@ -7,7 +7,7 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { EmptyState } from '@/components/common/empty-state';
 import { FeatureNode } from '@/components/common/feature-node';
-import type { FeatureNodeType } from '@/components/common/feature-node';
+import type { FeatureNodeType, FeatureNodeData } from '@/components/common/feature-node';
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import { AddRepositoryNode } from '@/components/common/add-repository-node';
@@ -78,10 +78,11 @@ export function FeaturesCanvas({
         data: {
           ...node.data,
           showHandles: edges.length > 0,
-          ...(node.type === 'featureNode' && {
-            onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
-            onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
-          }),
+          ...(node.type === 'featureNode' &&
+            (node.data as FeatureNodeData).state !== 'creating' && {
+              onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
+              onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+            }),
           ...(node.type === 'repositoryNode' && {
             onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
           }),

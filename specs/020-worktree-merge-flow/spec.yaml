@@ -1,0 +1,315 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: worktree-merge-flow
+number: 020
+branch: feat/020-worktree-merge-flow
+oneLiner: Redesign SDLC lifecycle with post-implementation merge flow, configurable PR creation, auto-merge support, and proper Review/Maintain phases
+summary: >
+  Overhaul the feature agent lifecycle and post-implementation flow. The current lifecycle
+  (Requirements → Research → Implementation → Review → Deploy & QA → Maintain) is replaced
+  with a streamlined flow: Started → Analyze → Requirements → Research → Planning →
+  Implementation → Review → Maintain. The "Deploy & QA" phase is removed entirely.
+  After implementation completes, a Validate/Commit/Push cycle runs, which OPTIONALLY opens
+  a PR based on global settings or per-feature --pr flag. PR metadata is persisted in
+  specs/pr.yaml and on the Feature entity in DB. The Review phase represents "implementation
+  done, possibly with PR, awaiting user merge approval". A new --auto-merge flag enables
+  automatic PR creation + merge (or direct branch merge into main), transitioning the feature
+  to Maintain where the agent becomes inactive. Approval gates are supported at Requirements
+  (--allow-prd), Planning (--allow-plan), and Review (--allow-merge) phases. Worktree and
+  branch cleanup happens after the Review merge step.
+phase: Requirements
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - LangGraph (agent graph nodes and state)
+  - tsyringe (dependency injection)
+  - TypeSpec (domain model types - lifecycle.tsp changes)
+  - SQLite (feature persistence via better-sqlite3)
+  - execFile (safe child_process variant for git/gh CLI operations)
+  - Zod (validation schemas)
+  - GitHub CLI (gh pr create, gh pr merge, gh run watch, gh pr view)
+  - Commander.js (CLI flags --pr, --auto-merge, --allow-prd, --allow-plan, --allow-merge)
+
+relatedLinks: []
+
+# Open questions
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The current SDLC lifecycle has several issues:
+
+  1. **Lifecycle mismatch**: The lifecycle includes "Deploy & QA" which doesn't match actual
+     agent behavior. Features get stuck at Implementation with no clear transition path.
+  2. **No post-implementation automation**: After implementation, the branch sits unpushed,
+     no PR is created, and the user must manually handle everything.
+  3. **No configurable PR creation**: There's no way to configure whether a PR should be opened
+     automatically or not — it's either all-manual or assumed.
+  4. **No auto-merge capability**: Users who want fully autonomous flow (implement → merge → done)
+     have no path to achieve this.
+  5. **No proper completion state**: Features never reach a stable "done" state where the agent
+     goes inactive.
+  6. **Worktree/branch cleanup is manual**: After merge, worktrees and branches linger.
+
+  ## Lifecycle Redesign
+
+  ### New SDLC Lifecycle Flow
+
+  ```
+  Started → Analyze → Requirements [Approvable] → Research → Planning [Approvable] → Implementation → Review [Approvable] → Maintain
+  ```
+
+  - **Remove**: "Deploy & QA" phase is removed entirely from SdlcLifecycle enum in lifecycle.tsp
+  - **Add**: "Started" phase (initial state before analysis begins)
+  - **Add**: "Analyze" phase (codebase analysis)
+  - **Rename**: "Research" remains as-is
+  - **Rename**: "Planning" (was implicitly part of Research, now explicit)
+  - **Clarify**: "Implementation" — active coding phase
+  - **Redefine**: "Review" — implementation is DONE, PR may exist, awaiting user merge approval
+  - **Redefine**: "Maintain" — terminal state, feature is merged/deployed, agent goes inactive permanently
+
+  ### Approval Gates at Lifecycle Transitions
+
+  Three lifecycle transitions support optional approval gates that pause for user confirmation:
+
+  | Transition | Flag | Behavior |
+  | --- | --- | --- |
+  | Requirements → Research | `--allow-prd` | If NOT set, agent pauses after requirements gathering for user to approve the PRD before proceeding to research |
+  | Planning → Implementation | `--allow-plan` | If NOT set, agent pauses after planning for user to approve the plan before proceeding to implementation |
+  | Review → Maintain | `--allow-merge` | If NOT set, agent pauses after implementation/PR for user to approve the merge before proceeding |
+
+  These flags can be passed to `feat new` command. When the flag IS set, the corresponding
+  approval gate is skipped and the agent proceeds automatically.
+
+  ## Functional Requirements
+
+  ### REQ-1: Lifecycle TypeSpec Changes
+
+  - **REQ-1.1**: Remove `DeployAndQA` from `SdlcLifecycle` enum in `tsp/common/enums/lifecycle.tsp`
+  - **REQ-1.2**: Add `Started` value — initial state when feature is first created
+  - **REQ-1.3**: Add `Analyze` value — codebase analysis phase
+  - **REQ-1.4**: Rename/keep `Requirements` — requirements gathering phase
+  - **REQ-1.5**: Keep `Research` — technical research phase
+  - **REQ-1.6**: Add `Planning` value — plan creation phase (previously implicit in Research)
+  - **REQ-1.7**: Keep `Implementation` — active coding phase
+  - **REQ-1.8**: Redefine `Review` — implementation complete, PR may exist, awaiting user merge approval. This is NOT a code review phase, it's a "ready to merge" approval gate
+  - **REQ-1.9**: Redefine `Maintain` — terminal state. Feature is merged/deployed. Agent becomes inactive permanently. Feature remains in Maintain status forever
+
+  ### REQ-2: Post-Implementation Validate/Commit/Push Cycle
+
+  After the implementation node completes, a new merge node handles the post-implementation flow:
+
+  - **REQ-2.1**: Run validation (lint, typecheck, tests) on the implemented code before committing
+  - **REQ-2.2**: Commit any uncommitted changes with conventional commit message format
+  - **REQ-2.3**: Push the branch to origin (with --set-upstream for first push) ONLY if --push flag is set or global setting push is true. By default, push is DISABLED to support repos without remotes
+  - **REQ-2.4**: The Validate/Commit cycle is MANDATORY — it always runs after implementation regardless of PR configuration. Push is optional and controlled by --push flag
+  - **REQ-2.5**: If validation fails, attempt bounded retry (max 3 attempts) to fix issues before committing
+
+  ### REQ-3: PR Description in specs/pr.yaml
+
+  - **REQ-3.1**: At the END of the implementation step (after validate/commit/push), generate a `specs/<feature-number>-<feature-name>/pr.yaml` file containing all prepared PR information
+  - **REQ-3.2**: pr.yaml must contain:
+    - `title`: PR title following conventional commit format (e.g., `feat(scope): description`)
+    - `body`: Full PR description with summary, changes list, test coverage, and success criteria checklist
+    - `baseBranch`: Target branch for the PR (default: main)
+    - `headBranch`: Source branch (the feature branch)
+    - `labels`: Suggested PR labels (array)
+    - `reviewers`: Suggested reviewers if known (array, optional)
+    - `draft`: Whether to create as draft PR (boolean, default: false)
+  - **REQ-3.3**: pr.yaml is the SINGLE SOURCE OF TRUTH for PR content — the PR creation tool reads from this file, never generates content on the fly
+  - **REQ-3.4**: pr.yaml is generated regardless of whether a PR will actually be opened — it serves as documentation of the implementation even if the user merges manually
+
+  ### REQ-4: Configurable PR Creation
+
+  - **REQ-4.1**: PR creation is OPTIONAL and controlled by configuration
+  - **REQ-4.2**: Global setting in Settings: `settings.workflow.openPrOnImplementationComplete` (boolean, default: false)
+  - **REQ-4.3**: Per-feature override via `feat new --pr` flag — when passed, overrides global setting to true for this feature
+  - **REQ-4.4**: The --pr flag value must be persisted on the Feature entity in the database so the merge node knows whether to open a PR
+  - **REQ-4.5**: When PR creation is enabled: use hardcoded git/gh CLI tool calls (NOT the AI agent executor) to create the PR based on pr.yaml content
+  - **REQ-4.6**: PR creation happens at the END of the implementation step, AFTER validate/commit/push completes successfully
+  - **REQ-4.7**: After PR is opened (or skipped if not configured), transition Feature.lifecycle to Review
+  - **REQ-4.8**: All PR data (URL, number, status) must be persisted on the Feature entity or a related PR object in the database
+
+  ### REQ-5: Auto-Merge Support
+
+  - **REQ-5.1**: `feat new --auto-merge` flag enables fully autonomous merge flow
+  - **REQ-5.2**: When --auto-merge is set AND --pr is set (or global PR setting is true):
+    - Open PR based on pr.yaml
+    - Watch CI with bounded retry (max 3 attempts)
+    - If CI passes, merge the PR via `gh pr merge`
+    - Transition Feature.lifecycle to Maintain
+  - **REQ-5.3**: When --auto-merge is set AND --pr is NOT set:
+    - Merge current feature branch directly into main (git merge)
+    - Push main to origin
+    - Transition Feature.lifecycle to Maintain
+  - **REQ-5.4**: --auto-merge flag value must be persisted on the Feature entity in the database
+  - **REQ-5.5**: After auto-merge completes, agent enters "Successfully Deployed" state awaiting user acknowledgment
+  - **REQ-5.6**: Once user acknowledges deployment, feature moves to Maintain phase permanently and agent goes to inactive mode
+  - **REQ-5.7**: --auto-merge implies --allow-merge (skips the Review approval gate automatically)
+
+  ### REQ-6: Review Phase Behavior
+
+  - **REQ-6.1**: Review phase means "implementation is done, code is pushed, PR may or may not exist"
+  - **REQ-6.2**: If --allow-merge is NOT set and --auto-merge is NOT set: agent pauses in Review phase, waiting for user approval to proceed with merge
+  - **REQ-6.3**: If --allow-merge IS set: agent automatically proceeds with merge without user approval
+  - **REQ-6.4**: The merge action in Review phase:
+    - If PR exists: merge the PR via `gh pr merge`
+    - If no PR: merge feature branch into main directly via git
+  - **REQ-6.5**: After merge completes, transition Feature.lifecycle to Maintain
+
+  ### REQ-7: Maintain Phase and Agent Inactivity
+
+  - **REQ-7.1**: Maintain is the TERMINAL lifecycle state — features remain in Maintain forever
+  - **REQ-7.2**: When feature enters Maintain, the agent process becomes inactive (no more autonomous work)
+  - **REQ-7.3**: Agent should report "Successfully Deployed" status before going inactive
+  - **REQ-7.4**: The AgentRun status should be set to 'completed' when entering Maintain
+  - **REQ-7.5**: No backward transitions from Maintain — it is a permanent end state
+
+  ### REQ-8: Worktree and Branch Cleanup
+
+  - **REQ-8.1**: After the Review merge step completes (merge into main), clean up the worktree
+  - **REQ-8.2**: Delete the feature branch (both local and remote) after successful merge
+  - **REQ-8.3**: Remove the worktree directory via IWorktreeService.remove()
+  - **REQ-8.4**: Cleanup happens AFTER merge, NOT after PR creation — the worktree/branch may be needed during Review if changes are requested
+  - **REQ-8.5**: If cleanup fails, log a warning but do not fail the overall flow — merge success is the critical outcome
+
+  ### REQ-9: CLI Flag Support on `feat new`
+
+  - **REQ-9.1**: Add `--pr` flag to `feat new` command — enables PR creation at end of implementation
+  - **REQ-9.1.1**: Add `--push` flag to `feat new` command — enables pushing to remote after commit. Default: false. Required for --pr and --auto-merge to work (implies push)
+  - **REQ-9.2**: Add `--auto-merge` flag to `feat new` command — enables automatic merge after implementation
+  - **REQ-9.3**: Add `--allow-prd` flag to `feat new` command — skips Requirements approval gate
+  - **REQ-9.4**: Add `--allow-plan` flag to `feat new` command — skips Planning approval gate
+  - **REQ-9.5**: Add `--allow-merge` flag to `feat new` command — skips Review/merge approval gate
+  - **REQ-9.6**: All flag values must be persisted on the Feature entity so the agent graph can read them at each node
+  - **REQ-9.7**: --auto-merge implies --allow-merge (if --auto-merge is set, --allow-merge is automatically true)
+  - **REQ-9.8**: --pr implies --push (if --pr is set, --push is automatically true). --auto-merge implies --push
+
+  ### REQ-10: Feature Entity Persistence
+
+  - **REQ-10.1**: Extend Feature entity (TypeSpec and DB schema) with new fields:
+    - `push`: boolean — whether to push to remote after commit (default: false)
+    - `openPr`: boolean — whether to create PR on implementation complete
+    - `autoMerge`: boolean — whether to auto-merge after implementation
+    - `allowPrd`: boolean — skip Requirements approval gate
+    - `allowPlan`: boolean — skip Planning approval gate
+    - `allowMerge`: boolean — skip Review/merge approval gate
+  - **REQ-10.2**: Extend Feature entity with PR tracking fields:
+    - `prUrl`: string or null — GitHub PR URL
+    - `prNumber`: integer or null — GitHub PR number
+    - `prStatus`: enum (open, merged, closed) or null
+    - `commitHash`: string or null — final commit SHA after push
+    - `ciStatus`: enum (pending, success, failure) or null
+  - **REQ-10.3**: All PR-related data persisted in DB via IFeatureRepository
+  - **REQ-10.4**: pr.yaml in specs directory is the source of truth for PR CONTENT (title, body); Feature entity in DB is the source of truth for PR STATE (url, number, status)
+
+  ### REQ-11: Git/PR Service (IGitPrService)
+
+  - **REQ-11.1**: Create IGitPrService port interface in application/ports/output/services/ with methods:
+    - `hasUncommittedChanges(cwd)` → boolean
+    - `commitAll(cwd, message)` → commit SHA string
+    - `push(cwd, branch, setUpstream?)` → void
+    - `createPr(cwd, prYamlPath)` → { url: string, number: number } — reads PR content from pr.yaml
+    - `mergePr(cwd, prNumber, strategy?)` → void — merges PR via `gh pr merge`
+    - `mergeBranch(cwd, sourceBranch, targetBranch)` → void — direct git merge without PR
+    - `getCiStatus(cwd, branch)` → CiStatusResult
+    - `watchCi(cwd, branch, timeoutMs?)` → CiStatusResult
+    - `deleteBranch(cwd, branch, deleteRemote?)` → void
+    - `getPrDiffSummary(cwd, branch)` → DiffSummary
+  - **REQ-11.2**: Implement GitPrService in infrastructure/services/git/ using execFile (safe child_process)
+  - **REQ-11.3**: All git/gh operations use hardcoded CLI commands — NOT the AI agent executor. The agent executor is for code generation, not deterministic git operations
+  - **REQ-11.4**: Register GitPrService as singleton in DI container
+
+  ### REQ-12: Settings Extension
+
+  - **REQ-12.1**: Add `workflow` section to Settings TypeSpec model and DB schema:
+    - `openPrOnImplementationComplete`: boolean (default: false) — global default for PR creation
+    - `autoMergeOnImplementationComplete`: boolean (default: false) — global default for auto-merge
+  - **REQ-12.2**: Per-feature flags (--pr, --auto-merge) override global settings for that specific feature
+  - **REQ-12.3**: Settings are the DEFAULTS; per-feature flags are the OVERRIDES
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: **Performance** — Post-implementation cycle (validate/commit/push/PR) must complete within 15 minutes excluding CI wait time
+  - **NFR-2**: **Idempotency** — Merge node must be safe to re-run via LangGraph checkpointing. Skip already-completed steps (PR already exists, branch already pushed, etc.)
+  - **NFR-3**: **Observability** — All lifecycle transitions and merge operations must emit structured log messages
+  - **NFR-4**: **Testability** — All external dependencies injected via DI interfaces; no direct process spawning from graph nodes
+  - **NFR-5**: **Security** — No auth tokens logged or stored. Git push uses existing credentials. GitHub CLI uses existing `gh auth` state
+  - **NFR-6**: **Clean Architecture** — Port interfaces in application layer, implementations in infrastructure layer
+  - **NFR-7**: **Graceful Degradation** — If gh CLI is not installed: commit/push still works, PR creation fails with actionable error, feature still transitions to Review
+  - **NFR-8**: **Backward Compatibility** — Existing features in DB with old lifecycle values must be migrated or handled gracefully during the transition
+
+  ## Success Criteria
+
+  - [ ] SdlcLifecycle enum updated: Started, Analyze, Requirements, Research, Planning, Implementation, Review, Maintain (DeployAndQA removed)
+  - [ ] Post-implementation Validate/Commit/Push cycle works end-to-end
+  - [ ] pr.yaml generated in specs directory after implementation with all PR metadata
+  - [ ] PR creation controlled by global setting and per-feature --pr flag
+  - [ ] PR created from pr.yaml content via hardcoded git/gh CLI (not agent executor)
+  - [ ] Feature.lifecycle transitions to Review after implementation + optional PR
+  - [ ] --auto-merge creates PR + merges (or direct git merge) and transitions to Maintain
+  - [ ] Review phase pauses for user approval unless --allow-merge or --auto-merge is set
+  - [ ] Maintain phase is terminal — agent goes inactive, feature stays in Maintain forever
+  - [ ] Worktree and branch cleanup after merge step
+  - [ ] All approval gates work: --allow-prd, --allow-plan, --allow-merge
+  - [ ] All flags persisted on Feature entity in DB
+  - [ ] PR data (url, number, status) persisted on Feature entity in DB
+  - [ ] Settings extended with workflow.openPrOnImplementationComplete and workflow.autoMergeOnImplementationComplete
+  - [ ] New IGitPrService port with full git/gh operations including mergePr and mergeBranch
+  - [ ] Unit tests for merge node, GitPrService, lifecycle transitions
+  - [ ] Integration test for full post-implementation flow
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | tsp/common/enums/lifecycle.tsp | High | Remove DeployAndQA, add Started/Analyze/Planning, redefine Review/Maintain |
+  | tsp/domain/entities/feature.tsp | High | Add PR tracking fields, approval gate flags, workflow config |
+  | tsp/domain/entities/settings.tsp | Medium | Add workflow section with PR/merge defaults |
+  | src/infrastructure/services/agents/feature-agent/nodes/ | High | New merge.node.ts with validate/commit/push/PR/merge logic |
+  | src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts | High | Wire merge node, add lifecycle-based routing |
+  | src/infrastructure/services/agents/feature-agent/state.ts | Medium | Add merge-related state fields |
+  | src/application/ports/output/services/ | Medium | New IGitPrService port interface |
+  | src/infrastructure/services/git/ | Medium | New GitPrService implementation |
+  | src/infrastructure/di/container.ts | Low | Register GitPrService, updated settings |
+  | src/presentation/cli/commands/ | Medium | feat new command: --pr, --auto-merge, --allow-prd, --allow-plan, --allow-merge flags |
+  | src/infrastructure/persistence/migrations/ | Medium | DB migration for new Feature fields and Settings workflow section |
+  | specs/<id>/pr.yaml | New | PR description template generated per feature |
+  | tests/ | High | Unit + integration tests for all new behavior |
+
+  ## Dependencies
+
+  - **IWorktreeService** — existing service for worktree cleanup
+  - **IFeatureRepository** — existing repo for Feature persistence (needs extension)
+  - **IAgentRunRepository** — existing repo for AgentRun status updates
+  - **IAgentExecutor** — for CI fix attempts only (NOT for git/gh operations)
+  - **LangGraph** — graph definition, state annotations, conditional edges, interrupt()
+  - **Git CLI** — git add, commit, push, merge, branch -d, status, diff
+  - **GitHub CLI (gh)** — gh pr create, gh pr merge, gh run watch, gh pr view
+  - **Commander.js** — CLI flag definitions for feat new
+  - **feature.yaml protocol** — checkpoint updates, phase transitions
+  - **Zod** — validation schemas
+
+  ## Size Estimate
+
+  **L (week+)** — Significant scope expansion from original:
+  - TypeSpec lifecycle enum redesign + regeneration
+  - Feature entity extension with many new fields + DB migration
+  - Settings extension with workflow section
+  - New merge node with validate/commit/push/PR/merge logic
+  - New IGitPrService with many methods including mergePr and mergeBranch
+  - pr.yaml generation and consumption
+  - CLI flag additions to feat new command
+  - Approval gate system at 3 lifecycle transitions
+  - Auto-merge flow (PR path + direct merge path)
+  - Worktree/branch cleanup after merge
+  - Comprehensive test coverage for all paths
+
+  ---
+
+  _Requirements complete — proceed with research_

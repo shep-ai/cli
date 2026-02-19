@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { within, userEvent, fn } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
-import type { CreateFeatureInput } from '@shepai/core/application/use-cases/features/create/types';
+import type { FeatureCreatePayload } from './feature-create-drawer';
 import { Button } from '@/components/ui/button';
 
 /* ---------------------------------------------------------------------------
@@ -27,13 +27,12 @@ import { Button } from '@/components/ui/button';
  * |------|------|-------------|
  * | `open` | `boolean` | Controls drawer visibility |
  * | `onClose` | `() => void` | Called on dismiss (close button, cancel, or backdrop) |
- * | `onSubmit` | `(data: CreateFeatureInput) => void` | Called with `{ userInput, repositoryPath, approvalGates }` |
+ * | `onSubmit` | `(data: FeatureCreatePayload) => void` | Called with `{ name, description, attachments, repositoryPath, approvalGates }` |
  * | `repositoryPath` | `string` | Repository path (mandatory) included in the submitted data |
- * | `isSubmitting` | `boolean` | Disables all fields and shows "Creating..." on submit button |
  *
  * ### Behavior
  * - Form resets (name, description, attachments, checkboxes) when the drawer closes
- * - Submit button is disabled when name is empty OR `isSubmitting` is true
+ * - Submit button is disabled when name is empty
  * - `approvalGates` always included: `{ allowPrd, allowPlan, allowMerge }` (all false by default)
  * - Non-modal (`modal={false}`) — canvas stays interactive behind the drawer
  * - Fixed width: 384px (`w-96`)
@@ -58,16 +57,11 @@ const meta: Meta<typeof FeatureCreateDrawer> = {
     },
     onSubmit: {
       description:
-        'Callback fired with `CreateFeatureInput` when the form is submitted. Receives `{ userInput, repositoryPath, approvalGates }`.',
+        'Callback fired with `FeatureCreatePayload` when the form is submitted. Receives `{ name, description, attachments, repositoryPath, approvalGates }`.',
     },
     repositoryPath: {
       control: 'text',
       description: 'Repository path (mandatory) included in the submitted data.',
-    },
-    isSubmitting: {
-      control: 'boolean',
-      description:
-        'When true, all form fields and buttons are disabled, and the submit button shows "Creating...".',
     },
   },
 };
@@ -87,13 +81,7 @@ const logClose = fn().mockName('onClose');
  * ------------------------------------------------------------------------- */
 
 /** Starts closed — click button to open. Actions are logged. */
-function CreateDrawerTrigger({
-  isSubmitting = false,
-  label = 'Open Create Feature',
-}: {
-  isSubmitting?: boolean;
-  label?: string;
-}) {
+function CreateDrawerTrigger({ label = 'Open Create Feature' }: { label?: string }) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -112,7 +100,6 @@ function CreateDrawerTrigger({
           setOpen(false);
         }}
         repositoryPath="/Users/dev/my-repo"
-        isSubmitting={isSubmitting}
       />
     </div>
   );
@@ -148,14 +135,6 @@ export const PreFilled: Story = {
       'Implement OAuth2 authentication with GitHub as the identity provider. Includes login, callback handling, and token refresh.'
     );
   },
-};
-
-/**
- * Submitting/loading state — all form fields are disabled, submit button shows "Creating...".
- * Click the trigger to open and observe the disabled form.
- */
-export const Submitting: Story = {
-  render: () => <CreateDrawerTrigger isSubmitting label="Open (Submitting)" />,
 };
 
 /**
@@ -251,8 +230,8 @@ export const MergeOnly: Story = {
  * Fully interactive story — open the drawer, fill the form, toggle checkboxes,
  * and click "Add Files" to attach files via the native OS file picker.
  *
- * **Submitted data** is displayed in a styled panel showing `CreateFeatureInput`
- * with `approvalGates: { allowPrd, allowPlan, allowMerge }`.
+ * **Submitted data** is displayed in a styled panel showing `FeatureCreatePayload`
+ * with `{ name, description, attachments, repositoryPath, approvalGates }`.
  *
  * In Storybook, the native picker won't work (no backend), but submitted data
  * would show the paths if files were attached programmatically.
@@ -260,7 +239,7 @@ export const MergeOnly: Story = {
 export const Interactive: Story = {
   render: function InteractiveRender() {
     const [open, setOpen] = useState(false);
-    const [submitted, setSubmitted] = useState<CreateFeatureInput | null>(null);
+    const [submitted, setSubmitted] = useState<FeatureCreatePayload | null>(null);
 
     return (
       <div className="flex h-screen items-start gap-4 p-4">
