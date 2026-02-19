@@ -836,11 +836,15 @@ export type PlanPhase = {
   /**
    * Description of what this phase accomplishes and why it's ordered this way
    */
-  description: string;
+  description?: string;
   /**
    * Whether tasks in this phase can be executed in parallel
    */
   parallel: boolean;
+  /**
+   * Task IDs belonging to this phase (e.g., ['task-1', 'task-2'])
+   */
+  taskIds: string[];
 };
 
 /**
@@ -969,6 +973,186 @@ export type TasksSpec = SpecArtifactBase & {
    * Overall effort estimate for all tasks combined
    */
   totalEstimate: string;
+};
+
+/**
+ * Feature identity metadata in feature.yaml
+ */
+export type FeatureIdentity = {
+  /**
+   * Feature ID slug (e.g., '012-autonomous-pr-review-loop')
+   */
+  id: string;
+  /**
+   * Human-readable feature name
+   */
+  name: string;
+  /**
+   * Feature number (e.g., 12)
+   */
+  number: number;
+  /**
+   * Git branch for this feature
+   */
+  branch: string;
+  /**
+   * Current lifecycle phase (e.g., 'research', 'implementation', 'complete')
+   */
+  lifecycle: string;
+  /**
+   * When the feature was created
+   */
+  createdAt: string;
+};
+
+/**
+ * Task completion progress counters
+ */
+export type FeatureStatusProgress = {
+  /**
+   * Number of completed tasks
+   */
+  completed: number;
+  /**
+   * Total number of tasks
+   */
+  total: number;
+  /**
+   * Completion percentage (0-100)
+   */
+  percentage: number;
+};
+
+/**
+ * Feature execution status
+ */
+export type FeatureStatusInfo = {
+  /**
+   * Current SDLC phase
+   */
+  phase: string;
+  /**
+   * Task completion progress
+   */
+  progress: FeatureStatusProgress;
+  /**
+   * ID of the task currently being executed (null if none)
+   */
+  currentTask?: string;
+  /**
+   * ISO timestamp of last status update
+   */
+  lastUpdated: string;
+  /**
+   * Agent or skill that last updated the status
+   */
+  lastUpdatedBy: string;
+};
+
+/**
+ * Validation gate results
+ */
+export type FeatureValidation = {
+  /**
+   * ISO timestamp of last validation run (null if never run)
+   */
+  lastRun?: string;
+  /**
+   * Names of validation gates that passed
+   */
+  gatesPassed: string[];
+  /**
+   * Descriptions of auto-fixes that were applied
+   */
+  autoFixesApplied: string[];
+};
+
+/**
+ * Task execution tracking state
+ */
+export type FeatureTaskTracking = {
+  /**
+   * ID of the task currently being worked on (null if none)
+   */
+  current?: string;
+  /**
+   * IDs of tasks blocked by unmet dependencies
+   */
+  blocked: string[];
+  /**
+   * IDs of tasks that failed execution
+   */
+  failed: string[];
+};
+
+/**
+ * Milestone checkpoint for phase completion
+ */
+export type FeatureCheckpoint = {
+  /**
+   * Phase name (e.g., 'feature-created', 'research-complete')
+   */
+  phase: string;
+  /**
+   * ISO timestamp when this checkpoint was reached
+   */
+  completedAt: string;
+  /**
+   * Agent or skill that completed this phase
+   */
+  completedBy: string;
+};
+
+/**
+ * Error tracking for feature execution
+ */
+export type FeatureErrors = {
+  /**
+   * Current error message (null if no active error)
+   */
+  current?: string;
+  /**
+   * History of past error messages
+   */
+  history: string[];
+};
+
+/**
+ * Feature status tracking artifact (feature.yaml)
+ */
+export type FeatureStatus = BaseEntity & {
+  /**
+   * Feature identity metadata
+   */
+  feature: FeatureIdentity;
+  /**
+   * Current execution status and progress
+   */
+  status: FeatureStatusInfo;
+  /**
+   * PR URL if a pull request has been created
+   */
+  prUrl?: string;
+  /**
+   * ISO timestamp when the feature was merged
+   */
+  mergedAt?: string;
+  /**
+   * Validation gate results
+   */
+  validation: FeatureValidation;
+  /**
+   * Task execution tracking
+   */
+  tasks: FeatureTaskTracking;
+  /**
+   * Milestone checkpoints recording phase completions
+   */
+  checkpoints: FeatureCheckpoint[];
+  /**
+   * Error tracking state
+   */
+  errors: FeatureErrors;
 };
 export enum ToolType {
   VsCode = 'vscode',
@@ -1117,130 +1301,6 @@ export type ToolInstallCommand = {
    * Package manager identifier
    */
   packageManager: string;
-};
-
-/**
- * Base for all spec-driven artifacts (spec, research, plan, tasks, feature)
- */
-export type BaseSpecArtifact = Artifact & {
-  /**
-   * Feature number this artifact is associated with (e.g., 031)
-   */
-  featureNumber: number;
-};
-
-/**
- * Feature Specification artifact (spec.yaml)
- */
-export type SpecArtifact = BaseSpecArtifact & {
-  /**
-   * Git branch associated with this feature spec
-   */
-  branch: string;
-  /**
-   * One-line summary of the feature
-   */
-  oneLiner: string;
-  /**
-   * Current SDLC phase of the feature
-   */
-  phase: string;
-  /**
-   * Size estimate: XS, S, M, L, or XL
-   */
-  sizeEstimate: string;
-};
-
-/**
- * Research Analysis artifact (research.yaml)
- */
-export type ResearchArtifact = BaseSpecArtifact & {
-  /**
-   * Number of technology decisions documented
-   */
-  decisionCount: number;
-  /**
-   * Technologies evaluated or compared in this research
-   */
-  evaluatedTechnologies: string[];
-  /**
-   * Primary technology selected from research
-   */
-  selectedTechnology: string;
-};
-
-/**
- * Implementation Plan artifact (plan.yaml)
- */
-export type PlanArtifact = BaseSpecArtifact & {
-  /**
-   * Number of implementation phases
-   */
-  phaseCount: number;
-  /**
-   * Number of new files to be created
-   */
-  filesToCreateCount: number;
-  /**
-   * Number of existing files to be modified
-   */
-  filesToModifyCount: number;
-  /**
-   * Test-Driven Development strategy outlined in this plan
-   */
-  tddApproach: string;
-};
-
-/**
- * Task Breakdown artifact (tasks.yaml)
- */
-export type TasksArtifact = BaseSpecArtifact & {
-  /**
-   * Total number of tasks in this breakdown
-   */
-  taskCount: number;
-  /**
-   * Combined effort estimate (e.g., '3d', '2w')
-   */
-  totalEffortEstimate: string;
-  /**
-   * Count of tasks by state (Todo, WIP, Done, Review)
-   */
-  taskStates: Record<string, string>;
-  /**
-   * Number of inter-task dependencies
-   */
-  dependencyCount: number;
-};
-
-/**
- * Feature Status artifact (feature.yaml)
- */
-export type FeatureArtifact = BaseSpecArtifact & {
-  /**
-   * URL-friendly slug for the feature
-   */
-  featureSlug: string;
-  /**
-   * Current SDLC phase
-   */
-  currentPhase: string;
-  /**
-   * Number of completed tasks
-   */
-  completedTasks: number;
-  /**
-   * Total number of tasks
-   */
-  totalTasks: number;
-  /**
-   * Last status update timestamp
-   */
-  lastUpdated: any;
-  /**
-   * Current feature branch name
-   */
-  branch: string;
 };
 export enum AgentStatus {
   Idle = 'Idle',
@@ -1614,5 +1674,3 @@ export type LocalDeployAgentOperations = {
   Analyze(repositoryPath: string): DeploySkill;
   Ask(query: string): AskResponse;
 };
-
-export namespace TypeSpec {}

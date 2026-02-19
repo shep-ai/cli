@@ -95,8 +95,7 @@ model TechDecision {
  * Represents an implementation phase within a plan.
  *
  * PlanPhase groups related tasks into a logical implementation phase,
- * with optional parallel execution support. Tasks reference their phase
- * via `phaseId` on SpecTask (not the other way around).
+ * with optional parallel execution support and explicit task references.
  */
 @doc("Implementation phase grouping related tasks")
 model PlanPhase {
@@ -107,10 +106,13 @@ model PlanPhase {
   name: string;
 
   @doc("Description of what this phase accomplishes and why it's ordered this way")
-  description: string;
+  description?: string;
 
   @doc("Whether tasks in this phase can be executed in parallel")
   parallel: boolean;
+
+  @doc("Task IDs belonging to this phase (e.g., ['task-1', 'task-2'])")
+  taskIds: string[];
 }
 
 /**

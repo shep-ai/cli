@@ -22,5 +22,6 @@ import "./feature-spec.tsp";
 import "./research-spec.tsp";
 import "./plan-spec.tsp";
 import "./tasks-spec.tsp";
+import "./feature-status.tsp";
 import "./tool.tsp";
 import "./notification-event.tsp";
