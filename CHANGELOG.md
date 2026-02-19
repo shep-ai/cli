@@ -1,3 +1,9 @@
+# [1.34.0](https://github.com/shep-ai/cli/compare/v1.33.1...v1.34.0) (2026-02-19)
+
+### Features
+
+- **agents:** add structured agent caller for agent-agnostic structured output ([#77](https://github.com/shep-ai/cli/issues/77)) ([b5e527c](https://github.com/shep-ai/cli/commit/b5e527c781cb3049a3f3d4f8fa89972322bd49b3))
+
 ## [1.33.1](https://github.com/shep-ai/cli/compare/v1.33.0...v1.33.1) (2026-02-19)
 
 # [1.33.0](https://github.com/shep-ai/cli/compare/v1.32.1...v1.33.0) (2026-02-19)
