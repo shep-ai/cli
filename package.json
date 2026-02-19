@@ -39,7 +39,7 @@
     "access": "public"
   },
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx --tsconfig tsconfig.json src/presentation/web/dev-server.ts",
     "dev:cli": "tsx src/presentation/cli/index.ts",
     "dev:web": "tsx --tsconfig tsconfig.json src/presentation/web/dev-server.ts",
     "dev:storybook": "storybook dev -p 6006",

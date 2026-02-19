@@ -14,14 +14,43 @@ import 'reflect-metadata';
 
 import next from 'next';
 import http from 'node:http';
+import net from 'node:net';
+import fs from 'node:fs';
+import path from 'node:path';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 
 const DEFAULT_PORT = 3000;
 
+async function isPortAvailable(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: 'localhost', port });
+    socket.on('connect', () => {
+      socket.destroy();
+      resolve(false); // Port is in use
+    });
+    socket.on('error', () => {
+      resolve(true); // Port is available
+    });
+    setTimeout(() => {
+      socket.destroy();
+      resolve(true);
+    }, 100);
+  });
+}
+
+async function findAvailablePort(startPort: number): Promise<number> {
+  let port = startPort;
+  while (!(await isPortAvailable(port))) {
+    port++;
+  }
+  return port;
+}
+
 async function main() {
-  const port = parseInt(process.env.PORT ?? '', 10) || DEFAULT_PORT;
+  const basePort = process.env.PORT !== undefined ? parseInt(process.env.PORT, 10) : DEFAULT_PORT;
+  const port = await findAvailablePort(basePort);
 
   // Step 1: Initialize DI container (database + migrations)
   // Same as CLI bootstrap (src/presentation/cli/index.ts:52-58)
@@ -37,7 +66,15 @@ async function main() {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);
   }
 
-  // Step 2: Start Next.js dev server
+  // Step 2: Clean up lock file to allow multiple dev instances
+  const lockPath = path.join(import.meta.dirname, '.next', 'dev', 'lock');
+  try {
+    fs.rmSync(lockPath, { force: true });
+  } catch {
+    // Lock file doesn't exist or couldn't be removed, continue anyway
+  }
+
+  // Start Next.js dev server
   const app = next({ dev: true, dir: import.meta.dirname, hostname: 'localhost', port });
   const handle = app.getRequestHandler();
   await app.prepare();
@@ -53,10 +90,11 @@ async function main() {
 
   await new Promise<void>((resolve, reject) => {
     server.on('error', reject);
-    server.listen(port, 'localhost', resolve);
+    server.listen(port, 'localhost', () => {
+      console.log(`[dev-server] Ready at http://localhost:${port}`);
+      resolve();
+    });
   });
-
-  console.log(`[dev-server] Ready at http://localhost:${port}`);
 
   // Graceful shutdown with timeout to avoid hanging on open connections
   let isShuttingDown = false;
