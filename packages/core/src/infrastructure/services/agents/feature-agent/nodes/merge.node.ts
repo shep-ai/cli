@@ -18,6 +18,7 @@ import { SdlcLifecycle, PrStatus, type CiStatus } from '@/domain/generated/outpu
 import { createNodeLogger, shouldInterrupt } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
+import { updateNodeLifecycle } from '../lifecycle-context.js';
 
 export interface MergeNodeDeps {
   gitPrService: IGitPrService;
@@ -37,6 +38,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
     log.info('Starting merge flow');
     reportNodeStart('merge');
+    await updateNodeLifecycle('merge');
     const messages: string[] = [];
     const startTime = Date.now();
 
@@ -172,6 +174,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
       const message = err instanceof Error ? err.message : String(err);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.error(`Merge failed: ${message} (${elapsed}s)`);
+
+      // Record phase end even on failure so timing shows duration, not "running"
+      await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
 
       // Re-throw so LangGraph does NOT checkpoint this node as completed.
       // This allows `feat resume` to retry the merge node instead of
