@@ -50,6 +50,16 @@ JSON only, no markdown fences.`;
       maxTurns: 1,
       allowedTools: [],
       silent: true,
+      outputSchema: {
+        type: 'object',
+        properties: {
+          slug: { type: 'string', description: 'kebab-case identifier, 2-4 words' },
+          name: { type: 'string', description: 'polished, professional title' },
+          description: { type: 'string', description: 'refined 1-2 sentence description' },
+        },
+        required: ['slug', 'name', 'description'],
+        additionalProperties: false,
+      },
     });
 
     const cleaned = this.extractJson(result.result);
