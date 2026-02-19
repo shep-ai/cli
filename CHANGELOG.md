@@ -1,3 +1,9 @@
+## [1.35.2](https://github.com/shep-ai/cli/compare/v1.35.1...v1.35.2) (2026-02-19)
+
+### Bug Fixes
+
+- **agents:** add missing phase timing for implement/merge nodes and fix pr creation ([#80](https://github.com/shep-ai/cli/issues/80)) ([1d97df9](https://github.com/shep-ai/cli/commit/1d97df996466bc61991350b2571b082fc85c9f8b))
+
 ## [1.35.1](https://github.com/shep-ai/cli/compare/v1.35.0...v1.35.1) (2026-02-19)
 
 # [1.35.0](https://github.com/shep-ai/cli/compare/v1.34.0...v1.35.0) (2026-02-19)
