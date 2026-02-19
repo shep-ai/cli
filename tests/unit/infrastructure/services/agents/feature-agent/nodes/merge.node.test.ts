@@ -16,10 +16,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
 vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 
-const { mockInterrupt, mockShouldInterrupt } = vi.hoisted(() => ({
-  mockInterrupt: vi.fn(),
-  mockShouldInterrupt: vi.fn().mockReturnValue(false),
-}));
+const { mockInterrupt, mockShouldInterrupt, mockRecordPhaseStart, mockRecordPhaseEnd } = vi.hoisted(
+  () => ({
+    mockInterrupt: vi.fn(),
+    mockShouldInterrupt: vi.fn().mockReturnValue(false),
+    mockRecordPhaseStart: vi.fn().mockResolvedValue('timing-123'),
+    mockRecordPhaseEnd: vi.fn().mockResolvedValue(undefined),
+  })
+);
 
 // Mock LangGraph interrupt
 vi.mock('@langchain/langgraph', () => ({
@@ -40,6 +44,17 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', 
 // Mock heartbeat
 vi.mock('@/infrastructure/services/agents/feature-agent/heartbeat.js', () => ({
   reportNodeStart: vi.fn(),
+}));
+
+// Mock phase timing
+vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js', () => ({
+  recordPhaseStart: mockRecordPhaseStart,
+  recordPhaseEnd: mockRecordPhaseEnd,
+}));
+
+// Mock lifecycle context
+vi.mock('@/infrastructure/services/agents/feature-agent/lifecycle-context.js', () => ({
+  updateNodeLifecycle: vi.fn().mockResolvedValue(undefined),
 }));
 
 import {
@@ -373,6 +388,19 @@ describe('createMergeNode', () => {
       const state = baseState({ openPr: true });
 
       await expect(node(state)).rejects.toThrow('gh not found');
+    });
+
+    it('should record phase timing even when merge fails', async () => {
+      (deps.gitPrService.push as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Push rejected')
+      );
+      const node = createMergeNode(deps);
+      const state = baseState({ push: true });
+
+      await expect(node(state)).rejects.toThrow('Push rejected');
+
+      expect(mockRecordPhaseStart).toHaveBeenCalledWith('merge');
+      expect(mockRecordPhaseEnd).toHaveBeenCalledWith('timing-123', expect.any(Number));
     });
   });
 });

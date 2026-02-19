@@ -18,6 +18,7 @@ import type { ApprovalGates } from '@/domain/generated/output.js';
 import type { FeatureAgentState } from '../state.js';
 import { reportNodeStart } from '../heartbeat.js';
 import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
+import { updateNodeLifecycle } from '../lifecycle-context.js';
 
 /**
  * Create a scoped logger that prefixes messages with the node name.
@@ -254,6 +255,9 @@ export function executeNode(
     log.info('Starting...');
     reportNodeStart(nodeName);
 
+    // Update feature lifecycle to reflect the current phase
+    await updateNodeLifecycle(nodeName);
+
     // On resume from interrupt, LangGraph re-executes the node function from
     // the top. Skip the expensive executor call if this phase already completed
     // (markPhaseComplete is called before interrupt, so completed = done but
@@ -315,7 +319,8 @@ export function executeNode(
       const elapsed = (durationMs / 1000).toFixed(1);
       log.error(`${message} (after ${elapsed}s)`);
 
-      // Leave timingId without completedAt (partial timing for failed nodes)
+      // Record phase end even on failure so timing shows duration, not "running"
+      await recordPhaseEnd(timingId, durationMs);
 
       // Throw so LangGraph does NOT checkpoint this node as "completed".
       // The worker catch block marks the run as failed, and on resume
