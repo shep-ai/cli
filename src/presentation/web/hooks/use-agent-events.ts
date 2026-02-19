@@ -17,6 +17,8 @@ export interface UseAgentEventsResult {
 
 const BASE_BACKOFF_MS = 1000;
 const MAX_BACKOFF_MS = 30_000;
+/** Only reset backoff after connection is stable for this long */
+const STABLE_CONNECTION_MS = 5_000;
 
 export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsResult {
   const [events, setEvents] = useState<NotificationEvent[]>([]);
@@ -25,12 +27,18 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
 
   const backoffRef = useRef(BASE_BACKOFF_MS);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stableTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const esRef = useRef<EventSource | null>(null);
 
   const runId = options?.runId;
 
   const connect = useCallback(() => {
     if (typeof window === 'undefined' || typeof EventSource === 'undefined') {
+      return;
+    }
+
+    // Prevent duplicate connections
+    if (esRef.current) {
       return;
     }
 
@@ -44,13 +52,23 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
 
     es.onopen = () => {
       setConnectionStatus('connected');
-      backoffRef.current = BASE_BACKOFF_MS;
+      // Only reset backoff after connection stays open for a while
+      stableTimerRef.current = setTimeout(() => {
+        stableTimerRef.current = null;
+        backoffRef.current = BASE_BACKOFF_MS;
+      }, STABLE_CONNECTION_MS);
     };
 
     es.onerror = () => {
       es.close();
       esRef.current = null;
       setConnectionStatus('disconnected');
+
+      // Cancel stable timer — connection wasn't stable
+      if (stableTimerRef.current !== null) {
+        clearTimeout(stableTimerRef.current);
+        stableTimerRef.current = null;
+      }
 
       const delay = backoffRef.current;
       backoffRef.current = Math.min(delay * 2, MAX_BACKOFF_MS);
@@ -75,6 +93,10 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
       if (reconnectTimerRef.current !== null) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
+      }
+      if (stableTimerRef.current !== null) {
+        clearTimeout(stableTimerRef.current);
+        stableTimerRef.current = null;
       }
       if (esRef.current) {
         esRef.current.close();

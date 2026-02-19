@@ -35,31 +35,28 @@ export function GET(request: Request): Response {
     start(controller) {
       const encoder = new TextEncoder();
 
-      // Check if bus is available
-      if (!hasNotificationBus()) {
-        controller.close();
-        return;
+      let onNotification: ((event: NotificationEvent) => void) | null = null;
+
+      // Subscribe to notification bus if available
+      if (hasNotificationBus()) {
+        const bus = getNotificationBus();
+
+        onNotification = (event: NotificationEvent) => {
+          if (runIdFilter && event.agentRunId !== runIdFilter) {
+            return;
+          }
+
+          try {
+            controller.enqueue(encoder.encode(formatSSEEvent(event)));
+          } catch {
+            // Stream may be closed — ignore enqueue errors
+          }
+        };
+
+        bus.on('notification', onNotification);
       }
 
-      const bus = getNotificationBus();
-
-      // Notification event listener
-      const onNotification = (event: NotificationEvent) => {
-        // Apply runId filter if set
-        if (runIdFilter && event.agentRunId !== runIdFilter) {
-          return;
-        }
-
-        try {
-          controller.enqueue(encoder.encode(formatSSEEvent(event)));
-        } catch {
-          // Stream may be closed — ignore enqueue errors
-        }
-      };
-
-      bus.on('notification', onNotification);
-
-      // Heartbeat to keep connection alive
+      // Heartbeat to keep connection alive (even without bus, prevents client reconnect loop)
       const heartbeatInterval = setInterval(() => {
         try {
           controller.enqueue(encoder.encode(formatHeartbeat()));
@@ -70,7 +67,9 @@ export function GET(request: Request): Response {
 
       // Cleanup on client disconnect
       const cleanup = () => {
-        bus.removeListener('notification', onNotification);
+        if (onNotification && hasNotificationBus()) {
+          getNotificationBus().removeListener('notification', onNotification);
+        }
         clearInterval(heartbeatInterval);
         try {
           controller.close();

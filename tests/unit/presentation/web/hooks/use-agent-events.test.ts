@@ -214,9 +214,14 @@ describe('useAgentEvents', () => {
     });
     expect(MockEventSource.instances).toHaveLength(2);
 
-    // Second connection opens successfully (resets backoff)
+    // Second connection opens successfully
     act(() => {
       MockEventSource.instances[1].simulateOpen();
+    });
+
+    // Wait for connection to be considered stable (5s)
+    act(() => {
+      vi.advanceTimersByTime(5000);
     });
 
     // Then errors again
@@ -224,12 +229,44 @@ describe('useAgentEvents', () => {
       MockEventSource.instances[1].simulateError();
     });
 
-    // Should reconnect after 1s again (backoff reset)
+    // Should reconnect after 1s again (backoff was reset after stable connection)
     act(() => {
       vi.advanceTimersByTime(1000);
     });
 
     expect(MockEventSource.instances).toHaveLength(3);
+  });
+
+  it('backoff does NOT reset if connection closes quickly', () => {
+    renderHook(() => useAgentEvents());
+
+    // First error → backoff becomes 2s
+    act(() => {
+      MockEventSource.instances[0].simulateError();
+    });
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(MockEventSource.instances).toHaveLength(2);
+
+    // Second connection opens but errors before stable threshold
+    act(() => {
+      MockEventSource.instances[1].simulateOpen();
+    });
+    act(() => {
+      MockEventSource.instances[1].simulateError();
+    });
+
+    // Backoff was NOT reset — should need 2s (not 1s) to reconnect
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(MockEventSource.instances).toHaveLength(2); // no new connection yet
+
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(MockEventSource.instances).toHaveLength(3); // now reconnected after 2s
   });
 
   it('runId parameter adds query string to EventSource URL', () => {
