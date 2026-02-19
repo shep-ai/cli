@@ -3,17 +3,17 @@ feature:
   name: json-driven-ide-launch
   number: 33
   branch: feat/033-json-driven-ide-launch
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-19T18:07:26Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 11
     total: 11
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-19T19:27:48.618Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-19T22:20:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -40,3 +40,4 @@ checkpoints:
 errors:
   current: null
   history: []
+prUrl: https://github.com/shep-ai/cli/pull/83
