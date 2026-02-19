@@ -13,8 +13,8 @@ import {
 } from '@/application/ports/output/services/git-pr-service.interface';
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service';
 
-vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs')>();
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<object>('node:fs');
   return { ...actual, readFileSync: vi.fn() };
 });
 
