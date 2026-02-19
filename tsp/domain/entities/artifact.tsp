@@ -61,6 +61,7 @@ import "../../common/base.tsp";
 import "../../common/scalars.tsp";
 import "../../common/enums/artifact.tsp";
 import "../../common/enums/states.tsp";
+import "../value-objects/spec-metadata.tsp";
 
 /**
  * Artifact Entity
@@ -246,4 +247,14 @@ model Artifact extends BaseEntity {
    */
   @doc("Current state in the artifact generation lifecycle")
   state: ArtifactState;
+
+  /**
+   * Open questions resolved during planning of this artifact.
+   *
+   * Captures design decisions, product questions, and trade-off analyses
+   * that were evaluated before implementation. Each question includes
+   * the available options, which was selected, and the rationale.
+   */
+  @doc("Open questions with options and resolution rationale")
+  openQuestions: OpenQuestion[];
 }

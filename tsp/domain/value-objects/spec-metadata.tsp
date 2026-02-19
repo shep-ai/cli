@@ -27,13 +27,34 @@ import "../../common/scalars.tsp";
 import "../../common/enums/index.tsp";
 
 /**
+ * Represents a single option for resolving an open question.
+ *
+ * QuestionOption captures a potential answer or approach to a question,
+ * including which option was ultimately selected.
+ */
+@doc("Option for resolving an open question")
+model QuestionOption {
+  @doc("The option text describing the potential approach or answer")
+  option: string;
+
+  @doc("Description explaining this option's benefits and approach")
+  description: string;
+
+  @doc("Whether this option was the one ultimately selected")
+  selected: boolean;
+}
+
+/**
  * Represents an open question within a spec document.
  *
  * OpenQuestion captures questions that need resolution before implementation
  * can proceed. The validation gate checks that all open questions are resolved
  * (resolved: true) before allowing implementation to start.
+ *
+ * Questions may have multiple options with one selected, and optionally
+ * a rationale explaining why that option was chosen.
  */
-@doc("Open question that may need resolution before implementation")
+@doc("Open question with options and resolution details")
 model OpenQuestion {
   @doc("The question text that needs to be answered")
   question: string;
@@ -41,8 +62,11 @@ model OpenQuestion {
   @doc("Whether this question has been resolved (false = blocking)")
   resolved: boolean;
 
-  @doc("The answer or resolution to this question (present if resolved)")
-  answer?: string;
+  @doc("Available options for resolving this question")
+  options: QuestionOption[];
+
+  @doc("Rationale explaining which option was selected and why")
+  selectionRationale?: string;
 }
 
 /**
