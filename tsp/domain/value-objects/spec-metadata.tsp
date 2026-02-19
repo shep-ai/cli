@@ -47,14 +47,11 @@ model QuestionOption {
 /**
  * Represents an open question within a spec document.
  *
- * OpenQuestion captures questions that need resolution before implementation
- * can proceed. The validation gate checks that all open questions are resolved
- * (resolved: true) before allowing implementation to start.
- *
- * Questions may have multiple options with one selected, and optionally
- * a rationale explaining why that option was chosen.
+ * Two resolution patterns are supported:
+ * - **Options pattern** (spec.yaml): structured options with selection + rationale
+ * - **Answer pattern** (research.yaml): free-text answer string
  */
-@doc("Open question with options and resolution details")
+@doc("Open question with resolution via options or direct answer")
 model OpenQuestion {
   @doc("The question text that needs to be answered")
   question: string;
@@ -62,11 +59,14 @@ model OpenQuestion {
   @doc("Whether this question has been resolved (false = blocking)")
   resolved: boolean;
 
-  @doc("Available options for resolving this question")
-  options: QuestionOption[];
+  @doc("Structured options for resolving this question (spec.yaml pattern)")
+  options?: QuestionOption[];
 
   @doc("Rationale explaining which option was selected and why")
   selectionRationale?: string;
+
+  @doc("Free-text answer or resolution (research.yaml pattern)")
+  answer?: string;
 }
 
 /**
@@ -95,7 +95,8 @@ model TechDecision {
  * Represents an implementation phase within a plan.
  *
  * PlanPhase groups related tasks into a logical implementation phase,
- * with optional parallel execution support for independent tasks.
+ * with optional parallel execution support. Tasks reference their phase
+ * via `phaseId` on SpecTask (not the other way around).
  */
 @doc("Implementation phase grouping related tasks")
 model PlanPhase {
@@ -105,11 +106,11 @@ model PlanPhase {
   @doc("Display name of the phase")
   name: string;
 
+  @doc("Description of what this phase accomplishes and why it's ordered this way")
+  description: string;
+
   @doc("Whether tasks in this phase can be executed in parallel")
   parallel: boolean;
-
-  @doc("IDs of SpecTasks that belong to this phase")
-  taskIds: string[];
 }
 
 /**
@@ -142,6 +143,9 @@ model TddCycle {
 model SpecTask {
   @doc("Unique identifier for this task (e.g., 'task-1')")
   id: string;
+
+  @doc("ID of the phase this task belongs to (e.g., 'phase-1')")
+  phaseId: string;
 
   @doc("Task title or name")
   title: string;

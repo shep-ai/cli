@@ -124,46 +124,6 @@ export enum ArtifactState {
 }
 
 /**
- * Option for resolving an open question
- */
-export type QuestionOption = {
-  /**
-   * The option text describing the potential approach or answer
-   */
-  option: string;
-  /**
-   * Description explaining this option's benefits and approach
-   */
-  description: string;
-  /**
-   * Whether this option was the one ultimately selected
-   */
-  selected: boolean;
-};
-
-/**
- * Open question with options and resolution details
- */
-export type OpenQuestion = {
-  /**
-   * The question text that needs to be answered
-   */
-  question: string;
-  /**
-   * Whether this question has been resolved (false = blocking)
-   */
-  resolved: boolean;
-  /**
-   * Available options for resolving this question
-   */
-  options: QuestionOption[];
-  /**
-   * Rationale explaining which option was selected and why
-   */
-  selectionRationale?: string;
-};
-
-/**
  * Generated document or file attached to a Feature
  */
 export type Artifact = BaseEntity & {
@@ -195,116 +155,6 @@ export type Artifact = BaseEntity & {
    * Current state in the artifact generation lifecycle
    */
   state: ArtifactState;
-  /**
-   * Open questions with options and resolution rationale
-   */
-  openQuestions: OpenQuestion[];
-};
-
-/**
- * Technology or approach decision with rationale
- */
-export type TechDecision = {
-  /**
-   * Title or name of the decision being made
-   */
-  title: string;
-  /**
-   * The chosen technology, library, or approach
-   */
-  chosen: string;
-  /**
-   * Alternative options that were considered but rejected
-   */
-  rejected: string[];
-  /**
-   * Rationale explaining why the chosen option was selected
-   */
-  rationale: string;
-};
-
-/**
- * Implementation phase grouping related tasks
- */
-export type PlanPhase = {
-  /**
-   * Unique identifier for this phase (e.g., 'phase-1')
-   */
-  id: string;
-  /**
-   * Display name of the phase
-   */
-  name: string;
-  /**
-   * Whether tasks in this phase can be executed in parallel
-   */
-  parallel: boolean;
-  /**
-   * IDs of SpecTasks that belong to this phase
-   */
-  taskIds: string[];
-};
-
-/**
- * Test-Driven Development cycle phases for a task
- */
-export type TddCycle = {
-  /**
-   * RED phase: tests to write FIRST (before implementation)
-   */
-  red: string[];
-  /**
-   * GREEN phase: minimal implementation to pass tests
-   */
-  green: string[];
-  /**
-   * REFACTOR phase: code improvements while keeping tests green
-   */
-  refactor: string[];
-};
-export enum TaskState {
-  Todo = 'Todo',
-  WIP = 'Work in Progress',
-  Done = 'Done',
-  Review = 'Review',
-}
-
-/**
- * Task definition within a spec's task breakdown
- */
-export type SpecTask = {
-  /**
-   * Unique identifier for this task (e.g., 'task-1')
-   */
-  id: string;
-  /**
-   * Task title or name
-   */
-  title: string;
-  /**
-   * Detailed description of what this task accomplishes
-   */
-  description: string;
-  /**
-   * Current state of the task
-   */
-  state: TaskState;
-  /**
-   * IDs of other SpecTasks that must complete before this task starts
-   */
-  dependencies: string[];
-  /**
-   * List of acceptance criteria that define task completion
-   */
-  acceptanceCriteria: string[];
-  /**
-   * TDD cycle definition for this task (if applicable)
-   */
-  tdd?: TddCycle;
-  /**
-   * Estimated effort (e.g., '2 hours', '1 day')
-   */
-  estimatedEffort: string;
 };
 export enum MessageRole {
   Assistant = 'assistant',
@@ -599,6 +449,12 @@ export type Settings = BaseEntity & {
    */
   workflow: WorkflowConfig;
 };
+export enum TaskState {
+  Todo = 'Todo',
+  WIP = 'Work in Progress',
+  Done = 'Done',
+  Review = 'Review',
+}
 
 /**
  * A discrete unit of work within an implementation plan
@@ -866,6 +722,50 @@ export type Feature = BaseEntity & {
 };
 
 /**
+ * Option for resolving an open question
+ */
+export type QuestionOption = {
+  /**
+   * The option text describing the potential approach or answer
+   */
+  option: string;
+  /**
+   * Description explaining this option's benefits and approach
+   */
+  description: string;
+  /**
+   * Whether this option was the one ultimately selected
+   */
+  selected: boolean;
+};
+
+/**
+ * Open question with resolution via options or direct answer
+ */
+export type OpenQuestion = {
+  /**
+   * The question text that needs to be answered
+   */
+  question: string;
+  /**
+   * Whether this question has been resolved (false = blocking)
+   */
+  resolved: boolean;
+  /**
+   * Structured options for resolving this question (spec.yaml pattern)
+   */
+  options?: QuestionOption[];
+  /**
+   * Rationale explaining which option was selected and why
+   */
+  selectionRationale?: string;
+  /**
+   * Free-text answer or resolution (research.yaml pattern)
+   */
+  answer?: string;
+};
+
+/**
  * Base entity for spec artifacts with common metadata fields
  */
 export type SpecArtifactBase = BaseEntity & {
@@ -897,6 +797,110 @@ export type SpecArtifactBase = BaseEntity & {
    * Structured open questions for validation gate checks
    */
   openQuestions: OpenQuestion[];
+};
+
+/**
+ * Technology or approach decision with rationale
+ */
+export type TechDecision = {
+  /**
+   * Title or name of the decision being made
+   */
+  title: string;
+  /**
+   * The chosen technology, library, or approach
+   */
+  chosen: string;
+  /**
+   * Alternative options that were considered but rejected
+   */
+  rejected: string[];
+  /**
+   * Rationale explaining why the chosen option was selected
+   */
+  rationale: string;
+};
+
+/**
+ * Implementation phase grouping related tasks
+ */
+export type PlanPhase = {
+  /**
+   * Unique identifier for this phase (e.g., 'phase-1')
+   */
+  id: string;
+  /**
+   * Display name of the phase
+   */
+  name: string;
+  /**
+   * Description of what this phase accomplishes and why it's ordered this way
+   */
+  description: string;
+  /**
+   * Whether tasks in this phase can be executed in parallel
+   */
+  parallel: boolean;
+};
+
+/**
+ * Test-Driven Development cycle phases for a task
+ */
+export type TddCycle = {
+  /**
+   * RED phase: tests to write FIRST (before implementation)
+   */
+  red: string[];
+  /**
+   * GREEN phase: minimal implementation to pass tests
+   */
+  green: string[];
+  /**
+   * REFACTOR phase: code improvements while keeping tests green
+   */
+  refactor: string[];
+};
+
+/**
+ * Task definition within a spec's task breakdown
+ */
+export type SpecTask = {
+  /**
+   * Unique identifier for this task (e.g., 'task-1')
+   */
+  id: string;
+  /**
+   * ID of the phase this task belongs to (e.g., 'phase-1')
+   */
+  phaseId: string;
+  /**
+   * Task title or name
+   */
+  title: string;
+  /**
+   * Detailed description of what this task accomplishes
+   */
+  description: string;
+  /**
+   * Current state of the task
+   */
+  state: TaskState;
+  /**
+   * IDs of other SpecTasks that must complete before this task starts
+   */
+  dependencies: string[];
+  /**
+   * List of acceptance criteria that define task completion
+   */
+  acceptanceCriteria: string[];
+  /**
+   * TDD cycle definition for this task (if applicable)
+   */
+  tdd?: TddCycle;
+  /**
+   * Estimated effort (e.g., '2 hours', '1 day')
+   */
+  estimatedEffort: string;
 };
 
 /**
@@ -1118,9 +1122,9 @@ export type ToolInstallCommand = {
 /**
  * Feature Specification artifact (spec.yaml)
  */
-export type SpecArtifact = {
+export type SpecArtifact = Artifact & {
   /**
-   * Feature number referenced in the spec (e.g., 011)
+   * Feature number referenced in the spec (e.g., 031)
    */
   featureNumber: number;
   /**
@@ -1144,7 +1148,7 @@ export type SpecArtifact = {
 /**
  * Research Analysis artifact (research.yaml)
  */
-export type ResearchArtifact = {
+export type ResearchArtifact = Artifact & {
   /**
    * Feature number this research is associated with
    */
@@ -1166,7 +1170,7 @@ export type ResearchArtifact = {
 /**
  * Implementation Plan artifact (plan.yaml)
  */
-export type PlanArtifact = {
+export type PlanArtifact = Artifact & {
   /**
    * Feature number this plan is for
    */
@@ -1192,7 +1196,7 @@ export type PlanArtifact = {
 /**
  * Task Breakdown artifact (tasks.yaml)
  */
-export type TasksArtifact = {
+export type TasksArtifact = Artifact & {
   /**
    * Feature number this task breakdown is for
    */
@@ -1218,7 +1222,7 @@ export type TasksArtifact = {
 /**
  * Feature Status artifact (feature.yaml)
  */
-export type FeatureArtifact = {
+export type FeatureArtifact = Artifact & {
   /**
    * Feature number being tracked
    */
