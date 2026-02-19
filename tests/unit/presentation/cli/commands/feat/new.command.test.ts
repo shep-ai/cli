@@ -55,11 +55,10 @@ vi.mock('@/infrastructure/services/settings.service.js', () => ({
 
 import { createNewCommand } from '../../../../../../src/presentation/cli/commands/feat/new.command.js';
 
-function makeSettings(overrides: { openPr?: boolean; autoMerge?: boolean } = {}) {
+function makeSettings(overrides: { openPr?: boolean } = {}) {
   return {
     workflow: {
       openPrOnImplementationComplete: overrides.openPr ?? false,
-      autoMergeOnImplementationComplete: overrides.autoMerge ?? false,
     },
   };
 }
@@ -129,7 +128,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+          approvalGates: { allowPrd: false, allowPlan: true, allowMerge: false },
         })
       );
     });
@@ -162,7 +161,7 @@ describe('createNewCommand', () => {
 
       expect(mockCreateExecute).toHaveBeenCalledWith(
         expect.objectContaining({
-          approvalGates: undefined,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
         })
       );
     });
@@ -204,78 +203,14 @@ describe('createNewCommand', () => {
     });
   });
 
-  describe('--auto-merge flag', () => {
-    it('should default autoMerge from settings (false)', async () => {
-      mockGetSettings.mockReturnValue(makeSettings({ autoMerge: false }));
-
-      const cmd = createNewCommand();
-      await cmd.parseAsync(['Add feature'], { from: 'user' });
-
-      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ autoMerge: false }));
-    });
-
-    it('should default autoMerge from settings (true)', async () => {
-      mockGetSettings.mockReturnValue(makeSettings({ autoMerge: true }));
-
-      const cmd = createNewCommand();
-      await cmd.parseAsync(['Add feature'], { from: 'user' });
-
-      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ autoMerge: true }));
-    });
-
-    it('should set autoMerge=true with --auto-merge', async () => {
-      const cmd = createNewCommand();
-      await cmd.parseAsync(['Add feature', '--auto-merge'], { from: 'user' });
-
-      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ autoMerge: true }));
-    });
-
-    it('should set autoMerge=false with --no-auto-merge', async () => {
-      mockGetSettings.mockReturnValue(makeSettings({ autoMerge: true }));
-
-      const cmd = createNewCommand();
-      await cmd.parseAsync(['Add feature', '--no-auto-merge'], { from: 'user' });
-
-      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ autoMerge: false }));
-    });
-
-    it('should imply allowMerge=true when --auto-merge is set', async () => {
-      const cmd = createNewCommand();
-      await cmd.parseAsync(['Add feature', '--auto-merge'], { from: 'user' });
-
-      expect(mockCreateExecute).toHaveBeenCalledWith(
-        expect.objectContaining({
-          autoMerge: true,
-          approvalGates: expect.objectContaining({ allowMerge: true }),
-        })
-      );
-    });
-
-    it('should imply allowMerge=true when settings autoMerge is true', async () => {
-      mockGetSettings.mockReturnValue(makeSettings({ autoMerge: true }));
-
-      const cmd = createNewCommand();
-      await cmd.parseAsync(['Add feature'], { from: 'user' });
-
-      expect(mockCreateExecute).toHaveBeenCalledWith(
-        expect.objectContaining({
-          autoMerge: true,
-          approvalGates: expect.objectContaining({ allowMerge: true }),
-        })
-      );
-    });
-  });
-
   describe('settings fallback when settings unavailable', () => {
-    it('should default openPr=false and autoMerge=false when settings not available', async () => {
+    it('should default openPr=false when settings not available', async () => {
       mockHasSettings.mockReturnValue(false);
 
       const cmd = createNewCommand();
       await cmd.parseAsync(['Add feature'], { from: 'user' });
 
-      expect(mockCreateExecute).toHaveBeenCalledWith(
-        expect.objectContaining({ openPr: false, autoMerge: false })
-      );
+      expect(mockCreateExecute).toHaveBeenCalledWith(expect.objectContaining({ openPr: false }));
     });
   });
 
@@ -318,7 +253,7 @@ describe('createNewCommand', () => {
     const logCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls
       .map((args) => args.join(' '))
       .join('\n');
-    expect(logCalls).toMatch(/auto-approve through requirements/);
+    expect(logCalls).toMatch(/auto-approve: PRD/);
   });
 
   it('should set exitCode 1 on error', async () => {

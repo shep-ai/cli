@@ -110,9 +110,8 @@ export class ResumeFeatureUseCase {
         approvalGates: lastRun.approvalGates,
         threadId: lastRun.threadId,
         resumeFromInterrupt: lastRun.status === AgentRunStatus.waitingApproval,
+        push: feature.push,
         openPr: feature.openPr,
-        autoMerge: feature.autoMerge,
-        allowMerge: feature.allowMerge,
       }
     );
 

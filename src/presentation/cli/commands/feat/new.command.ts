@@ -22,8 +22,8 @@ import { getSettings, hasSettings } from '@/infrastructure/services/settings.ser
 
 interface NewOptions {
   repo?: string;
+  push?: boolean;
   pr?: boolean;
-  autoMerge?: boolean;
   allowPrd?: boolean;
   allowPlan?: boolean;
   allowMerge?: boolean;
@@ -33,14 +33,13 @@ interface NewOptions {
 /**
  * Read workflow defaults from settings, falling back to false if settings unavailable.
  */
-function getWorkflowDefaults(): { openPr: boolean; autoMerge: boolean } {
+function getWorkflowDefaults(): { openPr: boolean } {
   if (!hasSettings()) {
-    return { openPr: false, autoMerge: false };
+    return { openPr: false };
   }
   const settings = getSettings();
   return {
     openPr: settings.workflow.openPrOnImplementationComplete,
-    autoMerge: settings.workflow.autoMergeOnImplementationComplete,
   };
 }
 
@@ -52,10 +51,9 @@ export function createNewCommand(): Command {
     .description('Create a new feature')
     .argument('<description>', 'Feature description')
     .option('-r, --repo <path>', 'Repository path (defaults to current directory)')
-    .option('--pr', 'Open PR on implementation complete')
+    .option('--push', 'Push branch to remote after implementation')
+    .option('--pr', 'Open PR on implementation complete (implies --push)')
     .option('--no-pr', 'Do not open PR on implementation complete')
-    .option('--auto-merge', 'Auto-merge on implementation complete')
-    .option('--no-auto-merge', 'Do not auto-merge on implementation complete')
     .option('--allow-prd', 'Auto-approve through requirements, pause after')
     .option('--allow-plan', 'Auto-approve through planning, pause at implementation')
     .option('--allow-merge', 'Auto-approve merge phase')
@@ -65,33 +63,28 @@ export function createNewCommand(): Command {
         const useCase = container.resolve(CreateFeatureUseCase);
         const repoPath = options.repo ?? process.cwd();
 
-        // Resolve openPr and autoMerge from CLI flags or settings defaults
+        // Resolve openPr from CLI flags or settings defaults
         const defaults = getWorkflowDefaults();
         const openPr = options.pr ?? defaults.openPr;
-        const autoMerge = options.autoMerge ?? defaults.autoMerge;
 
-        // Build approval gates from flags (default: pause after every phase)
-        let approvalGates: ApprovalGates | undefined = {
-          allowPrd: !!options.allowPrd,
-          allowPlan: !!options.allowPlan,
-          allowMerge: false,
-        };
-        if (options.allowPlan)
-          approvalGates = { allowPrd: true, allowPlan: true, allowMerge: approvalGates.allowMerge };
-        if (options.allowMerge) approvalGates = { ...approvalGates, allowMerge: true };
+        // Build approval gates from flags (each flag controls only its own step)
+        const approvalGates: ApprovalGates = options.allowAll
+          ? { allowPrd: true, allowPlan: true, allowMerge: true }
+          : {
+              allowPrd: !!options.allowPrd,
+              allowPlan: !!options.allowPlan,
+              allowMerge: !!options.allowMerge,
+            };
 
-        // --auto-merge implies --allow-merge
-        if (autoMerge) approvalGates = { ...approvalGates, allowMerge: true };
-
-        if (options.allowAll) approvalGates = undefined; // no gates = fully autonomous
+        const push = !!options.push;
 
         const result = await spinner('Thinking', () =>
           useCase.execute({
             userInput: description,
             repositoryPath: repoPath,
             approvalGates,
+            push,
             openPr,
-            autoMerge,
           })
         );
 
@@ -118,14 +111,22 @@ export function createNewCommand(): Command {
             `  ${colors.muted('Agent:')}    ${colors.success('spawned')} (run ${feature.agentRunId.slice(0, 8)})`
           );
         }
-        if (approvalGates) {
-          const hint = !approvalGates.allowPrd
-            ? 'pause after every phase'
-            : !approvalGates.allowPlan
-              ? 'auto-approve through requirements, pause after'
-              : 'auto-approve through planning, pause at implementation';
-          console.log(`  ${colors.muted('Review:')}   ${hint}`);
+        if (push || openPr) {
+          const pushHint = openPr ? 'push + PR' : 'push only';
+          console.log(`  ${colors.muted('Push:')}     ${pushHint}`);
         }
+        const approved = [
+          approvalGates.allowPrd && 'PRD',
+          approvalGates.allowPlan && 'Plan',
+          approvalGates.allowMerge && 'Merge',
+        ].filter(Boolean);
+        const hint =
+          approved.length === 3
+            ? 'fully autonomous'
+            : approved.length === 0
+              ? 'pause after every phase'
+              : `auto-approve: ${approved.join(', ')}`;
+        console.log(`  ${colors.muted('Review:')}   ${hint}`);
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));

@@ -76,5 +76,14 @@ export default {
         message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
       },
     ],
+
+    // 7. Notify Slack on release
+    [
+      '@timebyping/semantic-release-slack-bot',
+      {
+        notifyOnSuccess: true,
+        notifyOnFail: true,
+      },
+    ],
   ],
 };

@@ -8,37 +8,19 @@ import { describe, it, expect } from 'vitest';
 import { runCli } from '../../helpers/cli/index.js';
 
 describe('CLI: error handling', () => {
-  describe('unknown commands', () => {
-    it('should show error for unexpected arguments', () => {
-      // Act
-      const result = runCli('nonexistent-command');
+  it('should show error and exit non-zero for unknown command', () => {
+    const result = runCli('nonexistent-command');
 
-      // Assert
-      // Commander.js treats unknown arguments as extra args, not subcommands
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('error');
-    });
-
-    it('should exit with non-zero code for invalid input', () => {
-      // Act
-      const result = runCli('foobar');
-
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
-    });
+    expect(result.success).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('error');
   });
 
-  describe('unknown options', () => {
-    it('should show error for unknown option', () => {
-      // Act
-      const result = runCli('--unknown-option');
+  it('should show error for unknown option', () => {
+    const result = runCli('--unknown-option');
 
-      // Assert
-      expect(result.success).toBe(false);
-      expect(result.exitCode).toBe(1);
-      expect(result.stderr).toContain('unknown option');
-    });
+    expect(result.success).toBe(false);
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('unknown option');
   });
 });

@@ -25,11 +25,9 @@ function createMockFeature(id: string): Feature {
     lifecycle: SdlcLifecycle.Requirements,
     messages: [],
     relatedArtifacts: [],
+    push: false,
     openPr: false,
-    autoMerge: false,
-    allowPrd: false,
-    allowPlan: false,
-    allowMerge: false,
+    approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
     createdAt: new Date(),
     updatedAt: new Date(),
   };

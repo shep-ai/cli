@@ -64,14 +64,6 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => false,
   }),
-  autoMerge: Annotation<boolean>({
-    reducer: (_prev, next) => next,
-    default: () => false,
-  }),
-  allowMerge: Annotation<boolean>({
-    reducer: (_prev, next) => next,
-    default: () => false,
-  }),
 });
 
 export type FeatureAgentState = typeof FeatureAgentAnnotation.State;

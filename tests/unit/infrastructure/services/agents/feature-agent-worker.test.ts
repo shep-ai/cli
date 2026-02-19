@@ -122,8 +122,6 @@ describe('parseWorkerArgs', () => {
       resumeFromInterrupt: false,
       push: false,
       openPr: false,
-      autoMerge: false,
-      allowMerge: false,
     });
   });
 
@@ -386,8 +384,6 @@ describe('runWorker', () => {
         specDir: '/specs',
         push: false,
         openPr: false,
-        autoMerge: false,
-        allowMerge: false,
       },
       { configurable: { thread_id: 'thread-abc' } }
     );

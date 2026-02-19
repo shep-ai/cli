@@ -203,6 +203,20 @@ ALTER TABLE settings ADD COLUMN workflow_auto_merge_on_impl_complete INTEGER NOT
 UPDATE features SET lifecycle = 'Maintain' WHERE lifecycle = 'Deploy & QA';
 `,
   },
+  {
+    version: 11,
+    sql: `
+-- Migration 011: Add worktree_path to features
+ALTER TABLE features ADD COLUMN worktree_path TEXT;
+`,
+  },
+  {
+    version: 12,
+    sql: `
+-- Migration 012: Add push column to features
+ALTER TABLE features ADD COLUMN push INTEGER NOT NULL DEFAULT 0;
+`,
+  },
 ];
 
 /**

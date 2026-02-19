@@ -40,7 +40,8 @@ decisions:
       This scales: list/show stay flat (~30 lines), complex ones like create get subdirectories when they have 3+ concerns.
 
 # Open questions (should be resolved by end of research)
-openQuestions: []
+openQuestions:
+  []
   # - question: "Which library should we use?"
   #   resolved: true
   #   answer: "Library X because of Y"

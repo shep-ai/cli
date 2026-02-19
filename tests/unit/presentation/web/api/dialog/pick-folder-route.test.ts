@@ -9,8 +9,9 @@ vi.mock('@shepai/core/infrastructure/services/folder-dialog.service', () => ({
 }));
 
 // Must import after mock setup
-const { POST } =
-  await import('../../../../../../src/presentation/web/app/api/dialog/pick-folder/route.js');
+const { POST } = await import(
+  '../../../../../../src/presentation/web/app/api/dialog/pick-folder/route.js'
+);
 
 describe('POST /api/dialog/pick-folder', () => {
   beforeEach(() => {

@@ -99,11 +99,12 @@ export function getSchemaVersion(db: Database.Database): number {
 export function getTableSchema(
   db: Database.Database,
   tableName: string
-): { name: string; type: string; notnull: number; pk: number }[] {
+): { name: string; type: string; notnull: number; dflt_value: string | null; pk: number }[] {
   return db.prepare(`PRAGMA table_info(${tableName})`).all() as {
     name: string;
     type: string;
     notnull: number;
+    dflt_value: string | null;
     pk: number;
   }[];
 }

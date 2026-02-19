@@ -10,7 +10,7 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? 'github' : 'html',
+  reporter: process.env.CI ? 'github' : [['html', { open: 'never' }]],
 
   use: {
     baseURL: 'http://localhost:3001',
@@ -18,15 +18,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
-  // In CI, only run Chromium to keep builds fast
-  // Locally, all browsers are available for comprehensive testing
-  projects: process.env.CI
-    ? [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }]
-    : [
-        { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
-        { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
-        { name: 'webkit', use: { ...devices['Desktop Safari'] } },
-      ],
+  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
 
   /* Run your local dev server before starting the tests */
   webServer: {

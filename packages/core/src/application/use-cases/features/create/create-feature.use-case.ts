@@ -90,11 +90,13 @@ export class CreateFeatureUseCase {
       lifecycle: SdlcLifecycle.Requirements,
       messages: [],
       relatedArtifacts: [],
+      push: input.push ?? false,
       openPr: input.openPr ?? false,
-      autoMerge: input.autoMerge ?? false,
-      allowPrd: false,
-      allowPlan: false,
-      allowMerge: false,
+      approvalGates: input.approvalGates ?? {
+        allowPrd: false,
+        allowPlan: false,
+        allowMerge: false,
+      },
       agentRunId: runId,
       specPath: specDir,
       createdAt: now,
@@ -123,6 +125,8 @@ export class CreateFeatureUseCase {
     this.agentProcess.spawn(feature.id, runId, input.repositoryPath, specDir, worktreePath, {
       ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
       threadId: agentRun.threadId,
+      push: input.push ?? false,
+      openPr: input.openPr ?? false,
     });
 
     return { feature, warning };

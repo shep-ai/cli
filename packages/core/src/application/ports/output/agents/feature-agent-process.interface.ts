@@ -38,8 +38,6 @@ export interface IFeatureAgentProcessService {
       resumeFromInterrupt?: boolean;
       push?: boolean;
       openPr?: boolean;
-      autoMerge?: boolean;
-      allowMerge?: boolean;
     }
   ): number;
 

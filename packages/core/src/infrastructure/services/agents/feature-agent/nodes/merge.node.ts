@@ -14,7 +14,7 @@ import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type { FeatureAgentState } from '../state.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
-import { SdlcLifecycle } from '@/domain/generated/output.js';
+import { SdlcLifecycle, PrStatus, type CiStatus } from '@/domain/generated/output.js';
 import { createNodeLogger, shouldInterrupt } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 
@@ -93,7 +93,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
         messages.push(`[merge] PR created: ${prUrl}`);
 
         // Watch CI if we're going to auto-merge
-        if (state.autoMerge) {
+        if (state.approvalGates?.allowMerge) {
           log.info('Watching CI...');
           const ciResult = await gitPrService.watchCi(cwd, branch);
           ciStatus = ciResult.status;
@@ -102,7 +102,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       }
 
       // --- Step 4: Merge approval gate ---
-      if (shouldInterrupt('merge', state.approvalGates, state.autoMerge)) {
+      if (shouldInterrupt('merge', state.approvalGates)) {
         log.info('Interrupting for merge approval');
         const diffSummary = await gitPrService.getPrDiffSummary(cwd, baseBranch);
         interrupt({
@@ -116,7 +116,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
 
       // --- Step 5: Auto-merge (if enabled) ---
       let merged = false;
-      if (state.autoMerge) {
+      if (state.approvalGates?.allowMerge) {
         if (state.openPr && prNumber) {
           log.info(`Auto-merging PR #${prNumber}...`);
           await gitPrService.mergePr(cwd, prNumber, 'squash');
@@ -136,8 +136,17 @@ export function createMergeNode(deps: MergeNodeDeps) {
         await deps.featureRepository.update({
           ...feature,
           lifecycle: newLifecycle,
-          prUrl: prUrl ?? undefined,
-          prNumber: prNumber ?? undefined,
+          ...(prUrl && prNumber
+            ? {
+                pr: {
+                  url: prUrl,
+                  number: prNumber,
+                  status: merged ? PrStatus.Merged : PrStatus.Open,
+                  ...(commitHash ? { commitHash } : {}),
+                  ...(ciStatus ? { ciStatus: ciStatus as CiStatus } : {}),
+                },
+              }
+            : {}),
           updatedAt: new Date(),
         });
         messages.push(`[merge] Feature lifecycle → ${newLifecycle}`);

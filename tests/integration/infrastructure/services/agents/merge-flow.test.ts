@@ -5,9 +5,9 @@
  * Uses real graph compilation with mock services (no git/GitHub calls).
  *
  * Covers:
- *   - Task 24: PR creation flow (openPr=true, autoMerge=false)
- *   - Task 25: Auto-merge via PR flow (openPr=true, autoMerge=true)
- *   - Task 26: Auto-merge direct flow (openPr=false, autoMerge=true)
+ *   - Task 24: PR creation flow (openPr=true, allowMerge=false)
+ *   - Task 25: Auto-merge via PR flow (openPr=true, allowMerge=true)
+ *   - Task 26: Auto-merge direct flow (openPr=false, allowMerge=true)
  *   - Task 27: Review approval gate (allowMerge=false)
  *   - Task 28: Idempotency and full regression
  */
@@ -130,15 +130,15 @@ describe('Merge Flow (Graph-level)', () => {
     };
   }
 
-  // --- Task 24: PR creation flow (openPr=true, autoMerge=false) ---
-  describe('PR creation flow (openPr=true, autoMerge=false)', () => {
+  // --- Task 24: PR creation flow (openPr=true, allowMerge=false) ---
+  describe('PR creation flow (openPr=true, allowMerge=false)', () => {
     it('should commit, push, generate pr.yaml, create PR, and set lifecycle to Review', async () => {
       const { deps, gitPrService, featureRepo } = buildGraphDeps();
       const checkpointer = createCheckpointer(':memory:');
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'pr-creation-flow' } };
 
-      const result = await graph.invoke(baseInput({ openPr: true, autoMerge: false }), config);
+      const result = await graph.invoke(baseInput({ openPr: true }), config);
 
       // Graph should complete without interrupts (no approval gates set)
       expect(getInterrupts(result)).toHaveLength(0);
@@ -153,7 +153,7 @@ describe('Merge Flow (Graph-level)', () => {
       expect(result.prUrl).toBe('https://github.com/test/repo/pull/42');
       expect(result.prNumber).toBe(42);
 
-      // Verify CI NOT watched (autoMerge=false, no need to watch)
+      // Verify CI NOT watched (allowMerge not set, no need to watch)
       expect(gitPrService.watchCi).not.toHaveBeenCalled();
 
       // Verify NO merge happened
@@ -172,22 +172,28 @@ describe('Merge Flow (Graph-level)', () => {
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'pr-creation-messages' } };
 
-      const result = await graph.invoke(baseInput({ openPr: true, autoMerge: false }), config);
+      const result = await graph.invoke(baseInput({ openPr: true }), config);
 
       const mergeMessages = result.messages.filter((m: string) => m.startsWith('[merge]'));
       expect(mergeMessages.length).toBeGreaterThanOrEqual(3); // commit, push, pr.yaml, PR created, lifecycle
     });
   });
 
-  // --- Task 25: Auto-merge via PR flow (openPr=true, autoMerge=true) ---
-  describe('auto-merge via PR flow (openPr=true, autoMerge=true)', () => {
+  // --- Task 25: Auto-merge via PR flow (openPr=true, allowMerge=true) ---
+  describe('auto-merge via PR flow (openPr=true, allowMerge=true)', () => {
     it('should create PR, watch CI, merge PR, and set lifecycle to Maintain', async () => {
       const { deps, gitPrService, featureRepo } = buildGraphDeps();
       const checkpointer = createCheckpointer(':memory:');
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'auto-merge-pr-flow' } };
 
-      const result = await graph.invoke(baseInput({ openPr: true, autoMerge: true }), config);
+      const result = await graph.invoke(
+        baseInput({
+          openPr: true,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        }),
+        config
+      );
 
       expect(getInterrupts(result)).toHaveLength(0);
 
@@ -210,15 +216,21 @@ describe('Merge Flow (Graph-level)', () => {
     });
   });
 
-  // --- Task 26: Auto-merge direct flow (openPr=false, autoMerge=true) ---
-  describe('auto-merge direct flow (openPr=false, autoMerge=true)', () => {
+  // --- Task 26: Auto-merge direct flow (openPr=false, allowMerge=true) ---
+  describe('auto-merge direct flow (openPr=false, allowMerge=true)', () => {
     it('should NOT create PR, merge branch directly, and set lifecycle to Maintain', async () => {
       const { deps, gitPrService, featureRepo } = buildGraphDeps();
       const checkpointer = createCheckpointer(':memory:');
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'auto-merge-direct-flow' } };
 
-      const result = await graph.invoke(baseInput({ openPr: false, autoMerge: true }), config);
+      const result = await graph.invoke(
+        baseInput({
+          openPr: false,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        }),
+        config
+      );
 
       expect(getInterrupts(result)).toHaveLength(0);
 
@@ -244,7 +256,13 @@ describe('Merge Flow (Graph-level)', () => {
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'direct-merge-pryaml' } };
 
-      const result = await graph.invoke(baseInput({ openPr: false, autoMerge: true }), config);
+      const result = await graph.invoke(
+        baseInput({
+          openPr: false,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        }),
+        config
+      );
 
       expect(deps.mergeNodeDeps.generatePrYaml).toHaveBeenCalled();
       const mergeMessages = result.messages.filter((m: string) => m.includes('pr.yaml'));
@@ -265,7 +283,6 @@ describe('Merge Flow (Graph-level)', () => {
       const result1 = await graph.invoke(
         baseInput({
           openPr: false,
-          autoMerge: false,
           approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
         }),
         config
@@ -291,7 +308,7 @@ describe('Merge Flow (Graph-level)', () => {
       const result3 = await graph.invoke(new Command({ resume: { approved: true } }), config);
       expect(getInterrupts(result3)).toHaveLength(0);
 
-      // After resume, lifecycle should be updated to Review (autoMerge=false)
+      // After resume, lifecycle should be updated to Review (allowMerge=false, no auto-merge)
       expect(featureRepo.update).toHaveBeenCalledWith(
         expect.objectContaining({ lifecycle: 'Review' })
       );
@@ -307,7 +324,6 @@ describe('Merge Flow (Graph-level)', () => {
       await graph.invoke(
         baseInput({
           openPr: false,
-          autoMerge: false,
           approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
         }),
         config
@@ -339,7 +355,6 @@ describe('Merge Flow (Graph-level)', () => {
       const result = await graph.invoke(
         baseInput({
           openPr: true,
-          autoMerge: false,
           prUrl: 'https://github.com/test/repo/pull/99',
           prNumber: 99,
         }),
@@ -354,13 +369,13 @@ describe('Merge Flow (Graph-level)', () => {
       expect(result.prNumber).toBe(99);
     });
 
-    it('should complete full flow without errors (no approval gates, openPr=false, autoMerge=false)', async () => {
+    it('should complete full flow without errors (no approval gates, openPr=false)', async () => {
       const { deps, gitPrService, featureRepo } = buildGraphDeps();
       const checkpointer = createCheckpointer(':memory:');
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'full-regression-thread' } };
 
-      const result = await graph.invoke(baseInput({ openPr: false, autoMerge: false }), config);
+      const result = await graph.invoke(baseInput({ openPr: false }), config);
 
       expect(getInterrupts(result)).toHaveLength(0);
       expect(result.error).toBeNull();
@@ -394,7 +409,13 @@ describe('Merge Flow (Graph-level)', () => {
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'ci-failure-thread' } };
 
-      const result = await graph.invoke(baseInput({ openPr: true, autoMerge: true }), config);
+      const result = await graph.invoke(
+        baseInput({
+          openPr: true,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        }),
+        config
+      );
 
       // CI watched
       expect(gitPrService.watchCi).toHaveBeenCalled();

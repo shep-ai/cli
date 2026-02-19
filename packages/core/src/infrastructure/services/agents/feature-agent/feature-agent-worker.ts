@@ -43,8 +43,6 @@ export interface WorkerArgs {
   resumeFromInterrupt?: boolean;
   push?: boolean;
   openPr?: boolean;
-  autoMerge?: boolean;
-  allowMerge?: boolean;
 }
 
 /**
@@ -79,9 +77,6 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const resumeFromInterrupt = args.includes('--resume-from-interrupt');
   const push = args.includes('--push');
   const openPr = args.includes('--open-pr');
-  const autoMerge = args.includes('--auto-merge');
-  const allowMerge = args.includes('--allow-merge');
-
   const threadIdx = args.indexOf('--thread-id');
   const threadId =
     threadIdx !== -1 && threadIdx + 1 < args.length ? args[threadIdx + 1] : undefined;
@@ -98,8 +93,6 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     resumeFromInterrupt,
     push,
     openPr,
-    autoMerge,
-    allowMerge,
   };
 }
 
@@ -224,8 +217,6 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
-          autoMerge: args.autoMerge ?? false,
-          allowMerge: args.allowMerge ?? false,
         },
         graphConfig
       );
@@ -240,8 +231,6 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           ...(args.approvalGates ? { approvalGates: args.approvalGates } : {}),
           push: args.push ?? false,
           openPr: args.openPr ?? false,
-          autoMerge: args.autoMerge ?? false,
-          allowMerge: args.allowMerge ?? false,
         },
         graphConfig
       );

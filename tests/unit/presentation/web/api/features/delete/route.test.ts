@@ -7,8 +7,9 @@ vi.mock('@/lib/server-container', () => ({
 }));
 
 // Must import after mock setup
-const { DELETE } =
-  await import('../../../../../../../src/presentation/web/app/api/features/[id]/route.js');
+const { DELETE } = await import(
+  '../../../../../../../src/presentation/web/app/api/features/[id]/route.js'
+);
 
 /** Helper to build a DELETE Request for a given feature ID. */
 function makeRequest(id: string): Request {

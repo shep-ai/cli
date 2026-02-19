@@ -13,16 +13,19 @@ Validates that the feature follows Clean Architecture principles, TypeSpec-first
 **Must be documented in plan.yaml:**
 
 1. **Domain Layer Independence:**
+
    - Domain has NO external dependencies
    - Pure business logic only
    - No framework imports (no Express, no SQLite, no LangGraph)
 
 2. **Application Layer Dependency:**
+
    - Application depends ONLY on Domain
    - Defines port interfaces (input/output)
    - No knowledge of Infrastructure implementations
 
 3. **Infrastructure Layer Implementation:**
+
    - Implements Application port interfaces
    - Depends on Application and Domain
    - Contains all external dependencies

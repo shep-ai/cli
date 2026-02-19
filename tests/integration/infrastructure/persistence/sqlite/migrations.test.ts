@@ -386,9 +386,9 @@ describe('SQLite Migrations', () => {
       expect(row.notif_evt_agent_failed).toBe(1);
     });
 
-    it('should set schema version to 10', () => {
+    it('should set schema version to 12', () => {
       const version = getSchemaVersion(db);
-      expect(version).toBe(10);
+      expect(version).toBe(12);
     });
 
     it('should run successfully on a v8 database with existing settings row', () => {
@@ -409,6 +409,36 @@ describe('SQLite Migrations', () => {
 
       expect(row.notif_in_app_enabled).toBe(1);
       expect(row.notif_evt_agent_started).toBe(1);
+    });
+  });
+
+  describe('migration v11: worktree_path on features', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add worktree_path column to features table', () => {
+      const schema = getTableSchema(db, 'features');
+      const worktreePath = schema.find((col) => col.name === 'worktree_path');
+
+      expect(worktreePath).toBeDefined();
+      expect(worktreePath?.type).toBe('TEXT');
+      expect(worktreePath?.notnull).toBe(0); // nullable
+    });
+  });
+
+  describe('migration v12: push column on features', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add push column to features table', () => {
+      const schema = getTableSchema(db, 'features');
+      const push = schema.find((col) => col.name === 'push');
+
+      expect(push).toBeDefined();
+      expect(push?.type).toBe('INTEGER');
+      expect(push?.dflt_value).toBe('0');
     });
   });
 
