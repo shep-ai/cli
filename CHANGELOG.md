@@ -1,3 +1,9 @@
+# [1.37.0](https://github.com/shep-ai/cli/compare/v1.36.0...v1.37.0) (2026-02-19)
+
+### Features
+
+- **api:** replace per-ide launcher classes with json-driven launcher ([#83](https://github.com/shep-ai/cli/issues/83)) ([a8b73b5](https://github.com/shep-ai/cli/commit/a8b73b5fb8b6ef5352fcbd84ac3d3d33348dee09))
+
 # [1.36.0](https://github.com/shep-ai/cli/compare/v1.35.3...v1.36.0) (2026-02-19)
 
 ### Features
