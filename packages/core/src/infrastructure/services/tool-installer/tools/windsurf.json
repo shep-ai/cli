@@ -2,7 +2,7 @@
   "name": "Windsurf",
   "summary": "AI-powered code editor by Codeium",
   "description": "Windsurf is an AI-powered code editor by Codeium that provides intelligent code assistance and automation features for modern development.",
-  "category": "ide",
+  "tags": ["ide"],
   "binary": "windsurf",
   "packageManager": "apt",
   "commands": {

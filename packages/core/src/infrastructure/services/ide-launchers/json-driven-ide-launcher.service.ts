@@ -14,12 +14,17 @@ import type {
   IIdeLauncherService,
   LaunchIdeResult,
 } from '../../../application/ports/output/services/ide-launcher-service.interface.js';
-import { TOOL_METADATA, type ToolMetadata } from '../tool-installer/tool-metadata.js';
+import { TOOL_METADATA } from '../tool-installer/tool-metadata.js';
 
 interface IdeEntry {
   name: string;
   binary: string | Record<string, string>;
   openDirectory: string | Record<string, string>;
+  spawnOptions?: {
+    shell?: boolean;
+    stdio?: 'ignore' | 'inherit' | 'pipe';
+    detached?: boolean;
+  };
 }
 
 /**
@@ -40,11 +45,12 @@ export class JsonDrivenIdeLauncherService implements IIdeLauncherService {
   constructor() {
     this.editors = new Map();
     for (const [id, meta] of Object.entries(TOOL_METADATA)) {
-      if (meta.category === 'ide' && meta.openDirectory != null) {
+      if (meta.openDirectory != null) {
         this.editors.set(id, {
           name: meta.name,
           binary: meta.binary,
           openDirectory: meta.openDirectory,
+          spawnOptions: meta.spawnOptions,
         });
       }
     }
@@ -71,14 +77,22 @@ export class JsonDrivenIdeLauncherService implements IIdeLauncherService {
     }
 
     const resolved = openCmd.replace('{dir}', directoryPath);
-    const [command, ...args] = resolved.split(/\s+/);
+    const useShell = entry.spawnOptions?.shell === true;
+    const opts = {
+      detached: entry.spawnOptions?.detached ?? !useShell,
+      stdio: (entry.spawnOptions?.stdio ?? 'ignore') as 'ignore' | 'inherit' | 'pipe',
+      shell: useShell,
+    };
 
     try {
-      const child = spawn(command, args, {
-        detached: true,
-        stdio: 'ignore',
-      });
-      child.unref();
+      let child;
+      if (useShell) {
+        child = spawn(resolved, [], opts);
+      } else {
+        const [command, ...args] = resolved.split(/\s+/);
+        child = spawn(command, args, opts);
+      }
+      if (opts.detached) child.unref();
 
       return {
         ok: true,

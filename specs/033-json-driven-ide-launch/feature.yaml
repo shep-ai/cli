@@ -1,0 +1,42 @@
+feature:
+  id: 033-json-driven-ide-launch
+  name: json-driven-ide-launch
+  number: 33
+  branch: feat/033-json-driven-ide-launch
+  lifecycle: research
+  createdAt: '2026-02-19T18:07:26Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 11
+    total: 11
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-19T19:27:48.618Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+    - phase-6
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-19T18:07:26Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

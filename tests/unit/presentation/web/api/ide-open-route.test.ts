@@ -8,14 +8,15 @@ vi.mock('@shepai/core/infrastructure/services/settings.service', () => ({
   getSettings: mockGetSettings,
 }));
 
-// Mock launchIde
-const mockLaunchIde = vi.fn();
-vi.mock('@shepai/core/infrastructure/services/ide-launchers/launch-ide', () => ({
-  launchIde: mockLaunchIde,
+// Mock resolve from server-container
+const mockLaunchIdeExecute = vi.fn();
+vi.mock('../../../../../src/presentation/web/lib/server-container.js', () => ({
+  resolve: vi.fn(() => ({ execute: mockLaunchIdeExecute })),
 }));
 
 // Import after mocks
 const { POST } = await import('../../../../../src/presentation/web/app/api/ide/open/route.js');
+import { resolve } from '../../../../../src/presentation/web/lib/server-container.js';
 
 function createRequest(body: Record<string, unknown>): Request {
   return new Request('http://localhost/api/ide/open', {
@@ -31,7 +32,7 @@ describe('POST /api/ide/open', () => {
     mockGetSettings.mockReturnValue({
       environment: { defaultEditor: 'vscode' },
     });
-    mockLaunchIde.mockResolvedValue({
+    mockLaunchIdeExecute.mockResolvedValue({
       ok: true,
       editorName: 'VS Code',
       worktreePath: '/mock/.shep/repos/abc123/wt/feat-test',
@@ -47,16 +48,23 @@ describe('POST /api/ide/open', () => {
     expect(body.error).toContain('repositoryPath');
   });
 
-  it('calls launchIde without branch when branch is not provided', async () => {
+  it('calls LaunchIdeUseCase.execute without branch when branch is not provided', async () => {
     const request = createRequest({ repositoryPath: '/home/user/project' });
     await POST(request);
 
-    expect(mockLaunchIde).toHaveBeenCalledWith({
+    expect(mockLaunchIdeExecute).toHaveBeenCalledWith({
       editorId: 'vscode',
       repositoryPath: '/home/user/project',
       branch: undefined,
       checkAvailability: true,
     });
+  });
+
+  it('resolves LaunchIdeUseCase via string token', async () => {
+    const request = createRequest({ repositoryPath: '/home/user/project' });
+    await POST(request);
+
+    expect(resolve).toHaveBeenCalledWith('LaunchIdeUseCase');
   });
 
   it('returns 200 with success when branch is not provided', async () => {
@@ -84,14 +92,14 @@ describe('POST /api/ide/open', () => {
     expect(body.error).toContain('absolute');
   });
 
-  it('calls launchIde with checkAvailability true', async () => {
+  it('calls LaunchIdeUseCase.execute with checkAvailability true', async () => {
     const request = createRequest({
       repositoryPath: '/home/user/project',
       branch: 'main',
     });
     await POST(request);
 
-    expect(mockLaunchIde).toHaveBeenCalledWith({
+    expect(mockLaunchIdeExecute).toHaveBeenCalledWith({
       editorId: 'vscode',
       repositoryPath: '/home/user/project',
       branch: 'main',
@@ -99,11 +107,11 @@ describe('POST /api/ide/open', () => {
     });
   });
 
-  it('returns 404 when launchIde returns unknown_editor', async () => {
+  it('returns 404 when use case returns unknown_editor', async () => {
     mockGetSettings.mockReturnValue({
       environment: { defaultEditor: 'unknown-editor' },
     });
-    mockLaunchIde.mockResolvedValue({
+    mockLaunchIdeExecute.mockResolvedValue({
       ok: false,
       code: 'unknown_editor',
       message: 'No launcher found for editor: unknown-editor',
@@ -120,8 +128,8 @@ describe('POST /api/ide/open', () => {
     expect(body.error).toContain('unknown-editor');
   });
 
-  it('returns 404 when launchIde returns editor_unavailable', async () => {
-    mockLaunchIde.mockResolvedValue({
+  it('returns 404 when use case returns editor_unavailable', async () => {
+    mockLaunchIdeExecute.mockResolvedValue({
       ok: false,
       code: 'editor_unavailable',
       message: 'VS Code is not available — ensure "code" is installed and on your PATH',
@@ -154,8 +162,8 @@ describe('POST /api/ide/open', () => {
     });
   });
 
-  it('returns 500 when launchIde returns launch_failed', async () => {
-    mockLaunchIde.mockResolvedValue({
+  it('returns 500 when use case returns launch_failed', async () => {
+    mockLaunchIdeExecute.mockResolvedValue({
       ok: false,
       code: 'launch_failed',
       message: 'Failed to spawn process',

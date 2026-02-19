@@ -7,8 +7,10 @@ import {
 
 describe('ToolMetadata', () => {
   describe('TOOL_METADATA loading', () => {
-    it('loads all 5 IDE tools', () => {
-      const ideTools = Object.entries(TOOL_METADATA).filter(([, meta]) => meta.category === 'ide');
+    it('loads all IDE tools (those with openDirectory)', () => {
+      const ideTools = Object.entries(TOOL_METADATA).filter(
+        ([, meta]) => meta.openDirectory != null
+      );
       expect(ideTools.length).toBeGreaterThanOrEqual(5);
 
       const ideKeys = ideTools.map(([key]) => key);
@@ -47,7 +49,7 @@ describe('ToolMetadata', () => {
 
     it('no IDE tool uses "." as directory placeholder', () => {
       const ideTools = Object.entries(TOOL_METADATA).filter(
-        ([, meta]) => meta.category === 'ide' && meta.openDirectory
+        ([, meta]) => meta.openDirectory != null
       );
 
       for (const [key, meta] of ideTools) {
@@ -70,7 +72,7 @@ describe('ToolMetadata', () => {
         name: 'Test IDE',
         summary: 'test',
         description: 'test',
-        category: 'ide',
+        tags: ['ide'],
         binary: 'test',
         packageManager: 'manual',
         commands: { linux: 'echo test' },
@@ -87,7 +89,7 @@ describe('ToolMetadata', () => {
         name: 'Test IDE',
         summary: 'test',
         description: 'test',
-        category: 'ide',
+        tags: ['ide'],
         binary: 'test',
         packageManager: 'manual',
         commands: { linux: 'echo test' },

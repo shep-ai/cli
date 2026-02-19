@@ -28,31 +28,38 @@ vi.mock('@/infrastructure/services/tool-installer/tool-metadata', () => ({
   TOOL_METADATA: {
     vscode: {
       name: 'Visual Studio Code',
-      category: 'ide',
+      tags: ['ide'],
       binary: 'code',
       openDirectory: 'code {dir}',
     },
     cursor: {
       name: 'Cursor',
-      category: 'ide',
+      tags: ['ide'],
       binary: 'cursor',
       openDirectory: 'cursor {dir}',
     },
     antigravity: {
       name: 'Google Antigravity',
-      category: 'ide',
+      tags: ['ide'],
       binary: { linux: 'antigravity', darwin: 'agy' },
       openDirectory: { linux: 'antigravity {dir}', darwin: 'agy {dir}' },
     },
     'claude-code': {
       name: 'Claude Code',
-      category: 'cli-agent',
+      tags: ['cli-agent'],
       binary: 'claude',
+      openDirectory: 'cd {dir} && exec claude',
+      spawnOptions: { shell: true, stdio: 'inherit', detached: false },
+    },
+    'no-open-dir': {
+      name: 'No Open Dir Tool',
+      tags: ['cli-agent'],
+      binary: 'noop',
       // No openDirectory — should be excluded
     },
     'broken-ide': {
       name: 'Broken IDE',
-      category: 'ide',
+      tags: ['ide'],
       binary: 'broken',
       openDirectory: 'broken --open',
       // Missing {dir} placeholder
@@ -99,9 +106,9 @@ describe('JsonDrivenIdeLauncherService', () => {
   });
 
   describe('editor filtering', () => {
-    it('excludes non-IDE tools from editor map', () => {
-      // claude-code has category "cli-agent", should not be launchable
-      const result = service.launch('claude-code', '/some/path');
+    it('excludes tools without openDirectory from editor map', () => {
+      // no-open-dir mock has no openDirectory — should not be launchable
+      const result = service.launch('no-open-dir', '/some/path');
       return expect(result).resolves.toMatchObject({
         ok: false,
         code: 'unknown_editor',
@@ -141,6 +148,7 @@ describe('JsonDrivenIdeLauncherService', () => {
       expect(mockSpawn).toHaveBeenCalledWith('code', ['/home/user/project'], {
         detached: true,
         stdio: 'ignore',
+        shell: false,
       });
     });
 
@@ -153,6 +161,7 @@ describe('JsonDrivenIdeLauncherService', () => {
       expect(mockSpawn).toHaveBeenCalledWith('cursor', ['/some/path'], {
         detached: true,
         stdio: 'ignore',
+        shell: false,
       });
       expect(mockChild.unref).toHaveBeenCalled();
     });
@@ -221,7 +230,35 @@ describe('JsonDrivenIdeLauncherService', () => {
       expect(mockSpawn).toHaveBeenCalledWith('agy', ['/some/path'], {
         detached: true,
         stdio: 'ignore',
+        shell: false,
       });
+    });
+
+    it('spawns with shell and stdio inherit for cli-agent with spawnOptions', async () => {
+      const mockChild = { unref: vi.fn() };
+      mockSpawn.mockReturnValue(mockChild);
+
+      const result = await service.launch('claude-code', '/home/user/project');
+
+      expect(result).toEqual({
+        ok: true,
+        editorName: 'Claude Code',
+        worktreePath: '/home/user/project',
+      });
+      expect(mockSpawn).toHaveBeenCalledWith('cd /home/user/project && exec claude', [], {
+        shell: true,
+        stdio: 'inherit',
+        detached: false,
+      });
+    });
+
+    it('does not call unref when detached is false', async () => {
+      const mockChild = { unref: vi.fn() };
+      mockSpawn.mockReturnValue(mockChild);
+
+      await service.launch('claude-code', '/some/path');
+
+      expect(mockChild.unref).not.toHaveBeenCalled();
     });
 
     it('resolves per-platform openDirectory for antigravity on linux', async () => {
@@ -236,6 +273,7 @@ describe('JsonDrivenIdeLauncherService', () => {
       expect(mockSpawn).toHaveBeenCalledWith('antigravity', ['/some/path'], {
         detached: true,
         stdio: 'ignore',
+        shell: false,
       });
     });
   });

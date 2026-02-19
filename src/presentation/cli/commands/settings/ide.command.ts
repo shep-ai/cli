@@ -2,6 +2,7 @@
  * IDE Configuration Command
  *
  * Configures the preferred IDE/editor used by Shep.
+ * Valid editors are derived dynamically from JSON tool metadata.
  *
  * Usage:
  *   shep settings ide                    # Interactive selection
@@ -10,7 +11,6 @@
 
 import { Command } from 'commander';
 import { select } from '@inquirer/prompts';
-import { EditorType } from '@/domain/generated/output.js';
 import { container } from '@/infrastructure/di/container.js';
 import { UpdateSettingsUseCase } from '@/application/use-cases/settings/update-settings.use-case.js';
 import { createIdeSelectConfig } from '../../../tui/prompts/ide-select.prompt.js';
@@ -19,11 +19,13 @@ import {
   resetSettings,
   initializeSettings,
 } from '@/infrastructure/services/settings.service.js';
-import { createLauncherRegistry } from '@/infrastructure/services/ide-launchers/ide-launcher.registry.js';
+import type { IIdeLauncherService } from '@/application/ports/output/services/ide-launcher-service.interface.js';
+import type { EditorType } from '@/domain/generated/output.js';
+import { getIdeEntries } from '@/infrastructure/services/tool-installer/tool-metadata.js';
 import { messages } from '../../ui/index.js';
 
-/** Valid EditorType values for input validation. */
-const VALID_EDITORS = new Set<string>(Object.values(EditorType));
+/** Valid IDE tool IDs derived from JSON metadata. */
+const VALID_EDITORS = new Set<string>(getIdeEntries().map(([id]) => id));
 
 /**
  * Create the IDE configuration command.
@@ -31,7 +33,7 @@ const VALID_EDITORS = new Set<string>(Object.values(EditorType));
 export function createIdeCommand(): Command {
   return new Command('ide')
     .description('Configure preferred IDE/editor')
-    .option('--editor <name>', 'IDE/editor name (e.g., vscode, cursor, windsurf, zed, antigravity)')
+    .option('--editor <name>', `IDE/editor name (${[...VALID_EDITORS].join(', ')})`)
     .addHelpText(
       'after',
       `
@@ -42,7 +44,7 @@ Examples:
     )
     .action(async (options: { editor?: string }) => {
       try {
-        let editorValue: EditorType;
+        let editorValue: string;
 
         if (options.editor !== undefined) {
           if (!VALID_EDITORS.has(options.editor)) {
@@ -53,26 +55,23 @@ Examples:
             process.exitCode = 1;
             return;
           }
-          editorValue = options.editor as EditorType;
+          editorValue = options.editor;
         } else {
           editorValue = await select(createIdeSelectConfig());
         }
 
-        // PATH check via launcher registry (non-blocking warning)
-        const registry = createLauncherRegistry();
-        const launcher = registry.get(editorValue);
-        if (launcher) {
-          const available = await launcher.checkAvailable();
-          if (!available) {
-            messages.warning(
-              `'${launcher.binary}' not found in PATH. The editor will still be saved.`
-            );
-          }
+        // PATH check via IDE launcher service (non-blocking warning)
+        const ideLauncher = container.resolve<IIdeLauncherService>('IIdeLauncherService');
+        const available = await ideLauncher.checkAvailability(editorValue);
+        if (!available) {
+          messages.warning(
+            `Editor '${editorValue}' not found in PATH. The editor will still be saved.`
+          );
         }
 
         // Persist settings
         const settings = getSettings();
-        settings.environment.defaultEditor = editorValue;
+        settings.environment.defaultEditor = editorValue as EditorType;
 
         const useCase = container.resolve(UpdateSettingsUseCase);
         const updatedSettings = await useCase.execute(settings);
