@@ -25,6 +25,7 @@ import {
 } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import { recordPhaseStart, recordPhaseEnd } from '../phase-timing-context.js';
+import { updateNodeLifecycle } from '../lifecycle-context.js';
 import {
   buildImplementPhasePrompt,
   type PlanPhase,
@@ -82,6 +83,7 @@ export function createImplementNode(executor: IAgentExecutor) {
   return async (state: FeatureAgentState): Promise<Partial<FeatureAgentState>> => {
     log.info('Starting implementation phase orchestration');
     reportNodeStart('implement');
+    await updateNodeLifecycle('implement');
     const startTime = Date.now();
     const messages: string[] = [];
 
@@ -243,6 +245,9 @@ export function createImplementNode(executor: IAgentExecutor) {
       const message = err instanceof Error ? err.message : String(err);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.error(`${message} (after ${elapsed}s)`);
+
+      // Record phase end even on failure so timing shows duration, not "running"
+      await recordPhaseEnd(implementTimingId, Date.now() - startTime);
 
       // Throw so LangGraph does NOT checkpoint this node as "completed".
       // The worker catch block marks the run as failed, and on resume

@@ -1,0 +1,62 @@
+number: 34
+name: approval-timing
+branch: feat/034-approval-timing
+oneLiner: Record user approval wait times and display them in phase timing output
+summary: |
+  Track how long the agent waits for user approval at each gate (PRD, Plan, Implement, Merge)
+  and display approval wait durations in the `shep feat show` phase timing section. Show both
+  gross time (including waits) and net execution time (excluding waits) in a summary line.
+  When auto-approve gates are enabled, approval time is virtually zero.
+phase: Requirements
+sizeEstimate: M
+relatedFeatures:
+  - number: 8
+    name: approval-gates
+    relationship: extends (adds timing to existing gate mechanism)
+technologies:
+  - SQLite (new migration for approval_timings columns)
+  - TypeSpec (PhaseTiming model extension)
+  - Commander.js (show command display)
+openQuestions: []
+content: |
+  ## Problem Statement
+
+  When a feature agent pauses for human-in-the-loop approval, there is no record of how long
+  the user took to review and approve/reject. The `shep feat show` phase timing section only
+  shows execution durations. Users cannot see:
+  - How long they kept the agent waiting at each gate
+  - The total wall-clock time vs actual execution time
+  - Whether approval bottlenecks are slowing their workflow
+
+  ## Success Criteria
+
+  1. Approval wait start time is recorded when the agent transitions to `waiting_approval`
+  2. Approval wait end time is recorded when the user approves (or rejects)
+  3. Approval wait duration is computed and persisted per phase
+  4. `shep feat show` displays approval wait time after each gated phase (indented under the phase)
+  5. A summary line shows total execution time and total wall-clock time (execution + waits)
+  6. Auto-approved gates show 0.0s or are omitted from display
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  |------|--------|-----------|
+  | PhaseTiming model (TypeSpec) | Medium | Add approvalWaitMs field |
+  | phase_timings DB table | Medium | New migration adding approval_wait_ms column |
+  | IPhaseTimingRepository | Low | Update interface for new field |
+  | SQLitePhaseTimingRepository | Medium | Handle new column in save/update/find |
+  | phase-timing-context.ts | Low | New function to record approval wait |
+  | feature-agent-worker.ts | Low | Record approval wait start on interrupt |
+  | ApproveAgentRunUseCase | Medium | Record approval wait end, compute duration |
+  | show.command.ts | Medium | Display approval timing + summary totals |
+
+  ## Dependencies
+
+  - Existing phase timing infrastructure (spec 008 migration)
+  - Existing approval gates system
+  - LangGraph interrupt/resume mechanism
+
+  ## Size Estimate
+
+  **Medium** - Touches multiple layers (domain model, persistence, use case, presentation) but
+  each change is small and well-contained. No new tables needed, just column additions.

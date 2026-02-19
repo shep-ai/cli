@@ -8,6 +8,7 @@
 import { injectable, inject } from 'tsyringe';
 import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
+import type { IPhaseTimingRepository } from '../../ports/output/agents/phase-timing-repository.interface.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
@@ -22,7 +23,9 @@ export class ApproveAgentRunUseCase {
     @inject('IFeatureRepository')
     private readonly featureRepository: IFeatureRepository,
     @inject('IWorktreeService')
-    private readonly worktreeService: IWorktreeService
+    private readonly worktreeService: IWorktreeService,
+    @inject('IPhaseTimingRepository')
+    private readonly phaseTimingRepository: IPhaseTimingRepository
   ) {}
 
   async execute(id: string): Promise<{ approved: boolean; reason: string }> {
@@ -50,6 +53,24 @@ export class ApproveAgentRunUseCase {
     await this.agentRunRepository.updateStatus(id, AgentRunStatus.running, {
       updatedAt: now,
     });
+
+    // Compute and record approval wait duration
+    try {
+      const timings = await this.phaseTimingRepository.findByRunId(id);
+      const waitingTiming = timings.find((t) => t.waitingApprovalAt && !t.approvalWaitMs);
+      if (waitingTiming) {
+        const waitStart =
+          waitingTiming.waitingApprovalAt instanceof Date
+            ? waitingTiming.waitingApprovalAt.getTime()
+            : Number(waitingTiming.waitingApprovalAt);
+        const approvalWaitMs = BigInt(now.getTime() - waitStart);
+        await this.phaseTimingRepository.updateApprovalWait(waitingTiming.id, {
+          approvalWaitMs,
+        });
+      }
+    } catch {
+      // Non-fatal: approval wait timing failure should not block approval
+    }
 
     this.processService.spawn(
       run.featureId ?? '',

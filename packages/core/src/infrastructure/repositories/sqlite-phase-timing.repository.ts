@@ -20,6 +20,8 @@ interface PhaseTimingRow {
   started_at: number;
   completed_at: number | null;
   duration_ms: number | null;
+  waiting_approval_at: number | null;
+  approval_wait_ms: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -32,6 +34,9 @@ function toDatabase(timing: PhaseTiming): PhaseTimingRow {
     started_at: timing.startedAt instanceof Date ? timing.startedAt.getTime() : timing.startedAt,
     completed_at: timing.completedAt instanceof Date ? timing.completedAt.getTime() : null,
     duration_ms: timing.durationMs != null ? Number(timing.durationMs) : null,
+    waiting_approval_at:
+      timing.waitingApprovalAt instanceof Date ? timing.waitingApprovalAt.getTime() : null,
+    approval_wait_ms: timing.approvalWaitMs != null ? Number(timing.approvalWaitMs) : null,
     created_at: timing.createdAt instanceof Date ? timing.createdAt.getTime() : timing.createdAt,
     updated_at: timing.updatedAt instanceof Date ? timing.updatedAt.getTime() : timing.updatedAt,
   };
@@ -47,6 +52,10 @@ function fromDatabase(row: PhaseTimingRow): PhaseTiming {
     updatedAt: new Date(row.updated_at),
     ...(row.completed_at !== null && { completedAt: new Date(row.completed_at) }),
     ...(row.duration_ms !== null && { durationMs: BigInt(row.duration_ms) }),
+    ...(row.waiting_approval_at !== null && {
+      waitingApprovalAt: new Date(row.waiting_approval_at),
+    }),
+    ...(row.approval_wait_ms !== null && { approvalWaitMs: BigInt(row.approval_wait_ms) }),
   };
 }
 
@@ -63,9 +72,11 @@ export class SQLitePhaseTimingRepository implements IPhaseTimingRepository {
     const stmt = this.db.prepare(`
       INSERT INTO phase_timings (
         id, agent_run_id, phase, started_at, completed_at, duration_ms,
+        waiting_approval_at, approval_wait_ms,
         created_at, updated_at
       ) VALUES (
         @id, @agent_run_id, @phase, @started_at, @completed_at, @duration_ms,
+        @waiting_approval_at, @approval_wait_ms,
         @created_at, @updated_at
       )
     `);
@@ -92,6 +103,36 @@ export class SQLitePhaseTimingRepository implements IPhaseTimingRepository {
     if (updates.durationMs !== undefined) {
       setClauses.push('duration_ms = @duration_ms');
       params.duration_ms = updates.durationMs;
+    }
+
+    const stmt = this.db.prepare(
+      `UPDATE phase_timings SET ${setClauses.join(', ')} WHERE id = @id`
+    );
+
+    stmt.run(params);
+  }
+
+  async updateApprovalWait(
+    id: string,
+    updates: Partial<Pick<PhaseTiming, 'waitingApprovalAt' | 'approvalWaitMs'>>
+  ): Promise<void> {
+    const setClauses: string[] = ['updated_at = @updated_at'];
+    const params: Record<string, unknown> = {
+      id,
+      updated_at: Date.now(),
+    };
+
+    if (updates.waitingApprovalAt !== undefined) {
+      setClauses.push('waiting_approval_at = @waiting_approval_at');
+      params.waiting_approval_at =
+        updates.waitingApprovalAt instanceof Date
+          ? updates.waitingApprovalAt.getTime()
+          : updates.waitingApprovalAt;
+    }
+
+    if (updates.approvalWaitMs !== undefined) {
+      setClauses.push('approval_wait_ms = @approval_wait_ms');
+      params.approval_wait_ms = Number(updates.approvalWaitMs);
     }
 
     const stmt = this.db.prepare(
