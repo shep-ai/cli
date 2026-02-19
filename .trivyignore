@@ -23,3 +23,11 @@ CVE-2026-26960
 # in our containerized runtime environment. No fix available yet.
 # Tracking: Remove once npm releases a patched version
 CVE-2026-0775
+
+# minimatch ReDoS vulnerability (Regular Expression Denial of Service)
+# Minimatch 10.2.1+ fixes this, but is incompatible with eslint-plugin-react 7.37.5
+# (minimatch 10.x uses named exports, not default export).
+# Using minimatch 7.4.6 as temporary workaround.
+# Risk is LOW: Requires malicious glob patterns in eslint config or source code.
+# Tracking: Remove once eslint-plugin-react supports minimatch 10.x
+CVE-2026-26996
