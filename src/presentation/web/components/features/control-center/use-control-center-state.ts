@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
@@ -11,6 +11,7 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 import { createFeature } from '@/app/actions/create-feature';
 import { deleteFeature } from '@/app/actions/delete-feature';
+import { useAgentEvents } from '@/hooks/use-agent-events';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -100,6 +101,18 @@ export function useControlCenterState(
   useEffect(() => {
     setEdges(initialEdges);
   }, [initialEdgeKey]);
+
+  // Refresh server data when SSE agent events arrive (status changes)
+  const { lastEvent } = useAgentEvents();
+  const processedEventRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!lastEvent) return;
+    const key = `${lastEvent.agentRunId}-${lastEvent.eventType}-${lastEvent.timestamp}`;
+    if (processedEventRef.current === key) return;
+    processedEventRef.current = key;
+    router.refresh();
+  }, [lastEvent, router]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
