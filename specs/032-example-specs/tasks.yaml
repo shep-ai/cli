@@ -1,0 +1,172 @@
+# Task Breakdown (YAML) — TasksArtifact schema
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: artifact-schemas
+summary: >
+  6 tasks across 3 phases: rename TypeSpec models, update parser and tests, write validation tests.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec
+  - Vitest
+  - js-yaml
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Rename TypeSpec models to *Artifact suffix'
+    description: >
+      Create new TSP files with renamed models (FeatureArtifact, ResearchArtifact,
+      TechnicalPlanArtifact, TasksArtifact). Delete old files. Update index.tsp imports.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'FeatureArtifact model exists in feature-artifact.tsp'
+      - 'ResearchArtifact model exists in research-artifact.tsp'
+      - 'TechnicalPlanArtifact model exists in technical-plan-artifact.tsp'
+      - 'TasksArtifact model exists in tasks-artifact.tsp'
+      - 'Old *Spec TSP files deleted'
+    tdd:
+      red:
+        - 'Verify old type names no longer exist in generated output'
+      green:
+        - 'Create new TSP files with renamed models'
+        - 'Update index.tsp imports'
+        - 'Delete old TSP files'
+      refactor:
+        - 'Verify clean compilation with tsp:compile'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Make PlanPhase.taskIds optional'
+    description: >
+      Change taskIds from required string[] to optional string[] in spec-metadata.tsp.
+      Update parser to return undefined when field is absent instead of empty array.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'PlanPhase.taskIds is optional in TypeSpec'
+      - 'Generated TypeScript type has taskIds?: string[]'
+      - 'Parser returns undefined for absent taskIds'
+    tdd:
+      red:
+        - 'Verify generated type has optional taskIds'
+      green:
+        - 'Add ? to taskIds in PlanPhase model'
+        - 'Update parsePlanPhase to handle undefined'
+      refactor:
+        - 'Update JSDoc for taskIds'
+    estimatedEffort: '10min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Update parser type imports and return types'
+    description: >
+      Update spec-yaml-parser.ts to import and use new type names (FeatureArtifact,
+      ResearchArtifact, TechnicalPlanArtifact, TasksArtifact) in function signatures.
+    state: Done
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Parser imports new type names'
+      - 'Parser functions return new types'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Verify old type names cause compilation errors'
+      green:
+        - 'Update import statement to new type names'
+        - 'Update function return type annotations'
+      refactor:
+        - 'Update JSDoc comments'
+    estimatedEffort: '10min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Update existing tests for renamed types'
+    description: >
+      Update schema mapping tests and parser tests to reference new type names. Update
+      test descriptions and type annotations.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Schema mapping tests use new type names'
+      - 'Parser tests use new type names'
+      - 'All existing tests pass'
+    tdd:
+      red:
+        - 'Run tests to see compilation failures from old type names'
+      green:
+        - 'Replace old type names with new ones in test imports and annotations'
+      refactor:
+        - 'Update test descriptions to match new naming'
+    estimatedEffort: '15min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Rewrite spec YAMLs for this task'
+    description: >
+      Rewrite spec.yaml, research.yaml, plan.yaml, tasks.yaml in 032-example-specs to
+      describe this artifact schemas task. Ensure all fields match schemas 1:1.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'spec.yaml fields match FeatureArtifact schema'
+      - 'research.yaml fields match ResearchArtifact schema'
+      - 'plan.yaml fields match TechnicalPlanArtifact schema'
+      - 'tasks.yaml fields match TasksArtifact schema'
+    tdd:
+      red:
+        - 'Parse each YAML and verify no parsing errors'
+      green:
+        - 'Write YAML files with all required fields'
+      refactor:
+        - 'Verify content is accurate and consistent'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Write 4 unit tests for YAML parsing validation'
+    description: >
+      Write 4 focused unit tests that parse each spec YAML file (spec.yaml, research.yaml,
+      plan.yaml, tasks.yaml) and validate the result matches the generated TypeScript types.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Test parses spec.yaml into FeatureArtifact without errors'
+      - 'Test parses research.yaml into ResearchArtifact without errors'
+      - 'Test parses plan.yaml into TechnicalPlanArtifact without errors'
+      - 'Test parses tasks.yaml into TasksArtifact without errors'
+      - 'All 4 tests pass'
+    tdd:
+      red:
+        - 'Write 4 tests that call parser functions with real YAML content'
+      green:
+        - 'Tests pass because parsers and YAMLs are already aligned'
+      refactor:
+        - 'Verify tests cover key fields from each schema'
+    estimatedEffort: '15min'
+
+totalEstimate: '1.5h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  6 tasks across 3 phases implementing TypeSpec artifact schema renaming and validation.
+
+  **Phase 1 (TypeSpec Schema Renaming, tasks 1-2)** renames the 4 models and makes
+  PlanPhase.taskIds optional.
+
+  **Phase 2 (Parser and Test Updates, tasks 3-5)** updates the parser, existing tests,
+  and rewrites spec YAML files.
+
+  **Phase 3 (Validation Tests, task 6)** writes 4 focused parsing tests.
