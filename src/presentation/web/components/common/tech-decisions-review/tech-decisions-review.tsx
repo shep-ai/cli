@@ -83,31 +83,29 @@ export function TechDecisionsReview({
         {/* Technologies (collapsed by default) */}
         {technologies.length > 0 ? <TechStackCollapsible technologies={technologies} /> : null}
 
-        {/* Step indicator */}
-        <div className="flex justify-end">
-          <div className="flex gap-1">
-            {decisions.map((decision, idx) => (
-              <button
-                key={decision.title}
-                type="button"
-                aria-label={`Go to decision ${idx + 1}`}
-                className={cn(
-                  'h-1.5 rounded-full transition-all duration-200',
-                  idx === currentStep ? 'bg-primary w-4' : 'w-1.5',
-                  idx !== currentStep && selections[idx] ? 'bg-primary/50' : '',
-                  idx !== currentStep && !selections[idx] ? 'bg-muted-foreground/25' : ''
-                )}
-                onClick={() => setCurrentStep(idx)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Current decision */}
+        {/* Decision title + step indicator */}
         <div className="space-y-3">
-          <label className="text-foreground block text-sm font-semibold">
-            {currentDecision.title}
-          </label>
+          <div className="flex items-start gap-3">
+            <label className="text-foreground min-w-0 flex-1 text-sm font-semibold">
+              {currentDecision.title}
+            </label>
+            <div className="mt-1.5 flex shrink-0 gap-1">
+              {decisions.map((decision, idx) => (
+                <button
+                  key={decision.title}
+                  type="button"
+                  aria-label={`Go to decision ${idx + 1}`}
+                  className={cn(
+                    'h-1.5 rounded-full transition-all duration-200',
+                    idx === currentStep ? 'bg-primary w-4' : 'w-1.5',
+                    idx !== currentStep && selections[idx] ? 'bg-primary/50' : '',
+                    idx !== currentStep && !selections[idx] ? 'bg-muted-foreground/25' : ''
+                  )}
+                  onClick={() => setCurrentStep(idx)}
+                />
+              ))}
+            </div>
+          </div>
           <p className="text-muted-foreground text-xs leading-relaxed">
             {currentDecision.rationale}
           </p>

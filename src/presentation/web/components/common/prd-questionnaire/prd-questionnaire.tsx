@@ -63,31 +63,29 @@ export function PrdQuestionnaire({
           </div>
         ) : null}
 
-        {/* Step indicator */}
-        <div className="flex justify-end">
-          <div className="flex gap-1">
-            {questions.map((q, idx) => (
-              <button
-                key={q.id}
-                type="button"
-                aria-label={`Go to question ${idx + 1}`}
-                className={cn(
-                  'h-1.5 rounded-full transition-all duration-200',
-                  idx === currentStep ? 'bg-primary w-4' : 'w-1.5',
-                  idx !== currentStep && selections[q.id] ? 'bg-primary/50' : '',
-                  idx !== currentStep && !selections[q.id] ? 'bg-muted-foreground/25' : ''
-                )}
-                onClick={() => setCurrentStep(idx)}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Current question */}
+        {/* Question + step indicator */}
         <div className="space-y-3">
-          <label className="text-foreground block text-sm font-semibold">
-            {currentQuestion.question}
-          </label>
+          <div className="flex items-start gap-3">
+            <label className="text-foreground min-w-0 flex-1 text-sm font-semibold">
+              {currentQuestion.question}
+            </label>
+            <div className="mt-1.5 flex shrink-0 gap-1">
+              {questions.map((q, idx) => (
+                <button
+                  key={q.id}
+                  type="button"
+                  aria-label={`Go to question ${idx + 1}`}
+                  className={cn(
+                    'h-1.5 rounded-full transition-all duration-200',
+                    idx === currentStep ? 'bg-primary w-4' : 'w-1.5',
+                    idx !== currentStep && selections[q.id] ? 'bg-primary/50' : '',
+                    idx !== currentStep && !selections[q.id] ? 'bg-muted-foreground/25' : ''
+                  )}
+                  onClick={() => setCurrentStep(idx)}
+                />
+              ))}
+            </div>
+          </div>
           <div className="space-y-2">
             {currentQuestion.options.map((opt, optIdx) => {
               const selected = selections[currentQuestion.id] === opt.id;
