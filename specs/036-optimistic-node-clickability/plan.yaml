@@ -1,0 +1,167 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-node-clickability
+summary: >
+  Fix the unstable callback chain that causes all feature nodes to lose click handlers during
+  optimistic creation. Two targeted changes: (1) eliminate the `edges` closure dependency in
+  `createFeatureNode` by reading edges via `setEdges` functional updater, stabilizing the entire
+  callback cascade (createFeatureNode -> handleAddFeatureToFeature -> onNodeAction -> enrichedNodes),
+  and (2) refactor the short-circuit spread pattern in `enrichedNodes` to an explicit ternary for
+  readability. Plus regression tests for callback stability and mixed-state node rendering.
+
+relatedFeatures: []
+technologies:
+  - React 19 (useCallback, useMemo, functional setState)
+  - '@xyflow/react v12+ (React Flow)'
+  - TypeScript
+  - Vitest
+  - '@testing-library/react'
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'RED — Write failing tests for callback stability and mixed-state enrichment'
+    description: >
+      Write tests that expose the bug before any production code changes. This includes:
+      a callback stability test for createFeatureNode (verifying its identity does not change
+      when edges change), a mixed-state enrichedNodes test (verifying non-creating nodes retain
+      onAction when a creating node coexists), and a handleAddFeatureToFeature stability test.
+      All tests must fail against the current code, confirming they target the real bug.
+    parallel: false
+
+  - id: phase-2
+    name: 'GREEN — Stabilize createFeatureNode and refactor enrichedNodes conditional'
+    description: >
+      Make the failing tests pass with minimal production code changes. In
+      use-control-center-state.ts, replace the `edges` closure read (line 192) with a
+      `setEdges` functional updater that extracts sibling edges into a local variable before
+      the `setNodes` call, then remove `edges` from the useCallback dependency array. In
+      features-canvas.tsx, replace the short-circuit spread with an explicit ternary.
+    parallel: false
+
+  - id: phase-3
+    name: 'REFACTOR — Verify all tests pass, check for regressions, clean up'
+    description: >
+      Run the full test suite to confirm no regressions. Verify that existing tests for
+      optimistic creation, rollback, server sync, node positioning, and deletion still pass.
+      Check that the dependency arrays are minimal and correct. Run lint and typecheck.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+  - tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This fix operates entirely within the web UI presentation layer, touching two files in the
+  component tree and their corresponding test files. No changes to domain, application,
+  infrastructure, server actions, or DI container.
+
+  The component hierarchy is:
+  ```
+  HomePage -> ControlCenter -> ControlCenterInner -> FeaturesCanvas -> FeatureNode
+  ```
+
+  State management lives in `useControlCenterState` hook. Callback injection into nodes
+  happens in the `enrichedNodes` useMemo inside `FeaturesCanvas`. The bug is a reference
+  instability in the callback chain connecting these two layers.
+
+  ### Callback Chain (Before Fix)
+
+  ```
+  createFeatureNode [deps: edges]
+    -> handleAddFeatureToFeature [deps: createFeatureNode]
+      -> passed as onNodeAction prop to FeaturesCanvas
+        -> enrichedNodes useMemo [deps: onNodeAction]
+          -> all nodes re-rendered with new data objects
+  ```
+
+  When optimistic creation calls `setEdges` (adding the new edge), `edges` changes,
+  `createFeatureNode` gets a new identity, which cascades through the entire chain. Every
+  node gets a new `onAction` callback identity, and because enrichedNodes produces new
+  objects, React Flow re-renders all nodes.
+
+  ### Callback Chain (After Fix)
+
+  ```
+  createFeatureNode [deps: []]  <-- STABLE
+    -> handleAddFeatureToFeature [deps: createFeatureNode]  <-- STABLE
+      -> passed as onNodeAction prop to FeaturesCanvas  <-- STABLE
+        -> enrichedNodes useMemo [deps: onNodeAction]  <-- NOT invalidated
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Callback Stabilization via setEdges Functional Updater
+
+  **Chosen:** Read edges via `setEdges((currentEdges) => { ... return currentEdges })` before
+  the `setNodes` call, storing sibling edge data in a local `let` variable.
+
+  **Why:** This is the idiomatic React pattern for reading current state without adding it to
+  a dependency array. The codebase already uses this exact pattern in `handleConnect` (lines
+  148-172) where `setEdges` is called inside `setNodes`. React 19 guarantees that state
+  updaters within the same synchronous scope execute in order, so the `setEdges` updater runs
+  before `setNodes`. The `setEdges` call returns the same reference (no-op), so React skips
+  re-rendering for edges.
+
+  **Rejected alternatives:**
+  - `useRef` to cache edges — Adds ref + sync effect, more moving parts, not idiomatic
+    for reading state inside setState.
+  - `useReducer` consolidation — Disproportionate refactor for a targeted bug fix.
+
+  ### 2. Explicit Ternary for enrichedNodes Callback Injection
+
+  **Chosen:** Replace `...(type && state && { callbacks })` with
+  `...(isClickable ? { callbacks } : {})`.
+
+  **Why:** The triple-AND spread relies on `...false` being a no-op, which is non-obvious
+  and already caused misdiagnosis during analysis. The ternary has the same line count with
+  significantly better readability.
+
+  **Scope limitation:** Only refactoring the featureNode spread (compound condition). The
+  repositoryNode and addRepositoryNode spreads use simple single-condition patterns that
+  are already clear.
+
+  ### 3. handleLayout edges Closure — Documented, Not Fixed
+
+  `handleLayout` (lines 377-391) has the same `edges` closure problem but is triggered by
+  explicit user action, not by optimistic creation. Fixing it would expand scope. Documented
+  for follow-up.
+
+  ## Implementation Strategy
+
+  The fix follows strict TDD (Red-Green-Refactor) across three phases:
+
+  **Phase 1 (RED):** Write failing tests that expose the bug. Two test categories:
+  callback stability (identity preservation across edge changes) and mixed-state node
+  rendering (correct callback injection when creating and non-creating nodes coexist).
+
+  **Phase 2 (GREEN):** Make tests pass with two minimal production code changes:
+  stabilize `createFeatureNode` (eliminate `[edges]` dependency) and refactor the
+  `enrichedNodes` spread pattern (ternary for clarity).
+
+  **Phase 3 (REFACTOR):** Full regression validation — run all tests, lint, typecheck.
+  No further code changes expected since the fixes are already minimal.
+
+  Phase 1 comes first because it validates we're testing the right thing. Phase 2 is
+  ordered with the core fix (task-3) before the cosmetic refactor (task-4) because the
+  callback stabilization is the actual bug fix. Phase 3 is the safety net.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | setEdges updater ordering — if setEdges runs after setNodes, sibling data is stale | React 19 batching guarantees in-order execution of updaters in the same synchronous scope. Verified by existing `handleConnect` pattern in the same file (lines 148-172). |
+  | setEdges no-op triggers re-render | React detects same-reference return from setState updater and skips re-render. This is documented React behavior. |
+  | Existing tests break due to changed callback identity behavior | Phase 3 runs the full test suite. The existing tests test behavior, not identity, so they should pass unchanged. |
+  | enrichedNodes ternary refactor changes behavior | The ternary is semantically identical to the AND chain. Same conditions, same result objects. Verified by existing tests at features-canvas.test.tsx lines 97-138. |
+  | Concurrent optimistic creations break | The existing test at use-control-center-state.test.tsx lines 877-932 covers concurrent creations. The fix does not change creation logic, only how edges are read. |

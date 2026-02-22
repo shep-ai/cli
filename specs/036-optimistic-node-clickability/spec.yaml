@@ -1,0 +1,249 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-node-clickability
+number: 036
+branch: feat/036-optimistic-node-clickability
+oneLiner: Fix other feature nodes becoming unclickable when one node is in optimistic 'creating' state
+
+userQuery: >
+  Feature: issue in optimistic feature creation — when there is a feature in optimistic creation
+  the rest of the feature nodes stop being clickable.
+summary: >
+  When a feature is being created optimistically (state: 'creating'), all other feature nodes on
+  the canvas lose their click handlers (onAction, onSettings) and become unresponsive to selection
+  clicks. The root cause is an unstable callback reference chain: createFeatureNode depends on
+  [edges], and calling it triggers setEdges, which recreates createFeatureNode →
+  handleAddFeatureToFeature → onNodeAction, causing enrichedNodes to recompute with a new
+  onNodeAction identity every render cycle during optimistic creation. The fix stabilizes the
+  callback chain by removing the stale edges closure dependency and may also refactor the
+  fragile short-circuit spread pattern in enrichedNodes for clarity and robustness.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16+ (App Router)
+  - '@xyflow/react (React Flow v12+)'
+  - TypeScript
+  - Tailwind CSS v4
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the fix stabilize createFeatureNode by reading edges from the setEdges callback parameter, or by using a ref to hold the latest edges?'
+    resolved: true
+    options:
+      - option: 'setEdges callback parameter'
+        description: >
+          Move the edge-reading logic inside the setEdges updater function so it reads
+          currentEdges from the callback parameter instead of the closure. This eliminates
+          the [edges] dependency from createFeatureNode entirely, making the entire callback
+          chain stable (createFeatureNode → handleAddFeatureToFeature → onNodeAction).
+          This is the idiomatic React pattern for reading current state inside a setState
+          callback.
+        selected: true
+      - option: 'useRef for edges'
+        description: >
+          Store edges in a ref that is kept in sync via useEffect, then read from
+          edgesRef.current inside createFeatureNode. This also removes the [edges]
+          dependency but introduces an extra ref + sync effect, adding complexity.
+          The ref pattern is more appropriate when state is needed outside of setState.
+        selected: false
+    selectionRationale: >
+      The setEdges callback parameter approach is the idiomatic React pattern for this exact
+      scenario — reading current state inside a setState updater. It eliminates the stale
+      closure without introducing extra refs or sync effects, keeping the code minimal and
+      following React best practices. Since the edges are only needed to compute sibling
+      positions (which is already inside a setNodes updater), nesting the edge read is natural.
+    answer: 'setEdges callback parameter'
+
+  - question: 'Should the enrichedNodes conditional spread pattern be refactored for clarity, or left as-is since the bug is in the callback chain?'
+    resolved: true
+    options:
+      - option: 'Refactor to explicit conditional'
+        description: >
+          Replace the fragile short-circuit spread pattern (node.type === "featureNode" &&
+          state !== "creating" && { callbacks }) with a clear if/ternary that makes intent
+          obvious. This prevents future confusion about how the spread evaluates and makes
+          the callback injection logic easier to read and debug. Small additional change on
+          top of the core fix.
+        selected: true
+      - option: 'Leave as-is'
+        description: >
+          The short-circuit spread works correctly per-node. Since the actual bug is in the
+          callback chain instability, the enrichedNodes pattern does not strictly need to
+          change. Leaving it avoids touching more code than necessary.
+        selected: false
+    selectionRationale: >
+      While the short-circuit pattern technically works, it is a known source of confusion
+      (the original analysis initially misidentified it as the root cause). Refactoring it
+      to an explicit conditional costs very little effort, improves readability, and prevents
+      future misdiagnosis. Since we are already modifying the callback chain that feeds into
+      enrichedNodes, touching this code is within the natural scope of the fix.
+    answer: 'Refactor to explicit conditional'
+
+  - question: 'Should onNodeSettings be wired up from ControlCenterInner to FeaturesCanvas as part of this fix?'
+    resolved: true
+    options:
+      - option: 'No — out of scope'
+        description: >
+          The onNodeSettings prop is not passed from ControlCenterInner today, so the
+          Settings button never renders on feature nodes. This is pre-existing behavior
+          unrelated to the optimistic clickability bug. Fixing it would expand scope beyond
+          the reported issue.
+        selected: true
+      - option: 'Yes — fix while here'
+        description: >
+          Since we are modifying the enrichedNodes callback injection, it would be convenient
+          to also wire up onNodeSettings. However, this adds scope and may require a separate
+          settings handler in useControlCenterState.
+        selected: false
+    selectionRationale: >
+      The missing onNodeSettings wiring is pre-existing and unrelated to the reported bug.
+      Including it would expand scope, require additional handler implementation, and mix
+      a bug fix with a feature addition. It should be tracked as a separate issue.
+    answer: 'No — out of scope'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When a user creates a new feature via the FeatureCreateDrawer, an optimistic node with
+  `state: 'creating'` is inserted into the React Flow canvas immediately (before the server
+  responds). While this optimistic node exists, **all other feature nodes** lose their interactive
+  callbacks (`onAction`, `onSettings`) and cannot be clicked to open the FeatureDrawer.
+
+  This is a UI regression that blocks users from interacting with their existing features
+  while a new feature is being created in the background.
+
+  ## Root Cause Analysis
+
+  The bug stems from an **unstable callback reference chain** triggered by optimistic node creation:
+
+  1. `createFeatureNode` (line 175-291 of `use-control-center-state.ts`) depends on `[edges]`
+  2. When called during optimistic creation, it invokes `setEdges()` internally (line 273)
+  3. The `edges` state change causes `createFeatureNode` to be recreated on next render
+  4. `handleAddFeatureToFeature` depends on `[createFeatureNode]` (line 374) — also recreated
+  5. `handleAddFeatureToFeature` is passed as `onNodeAction` to `FeaturesCanvas` (line 203)
+  6. `enrichedNodes` useMemo depends on `onNodeAction` (line 94) — triggers recomputation
+
+  The core problem is that `createFeatureNode` reads `edges` from its closure (line 192)
+  instead of from a state updater parameter. This creates an unnecessary dependency on the
+  `edges` state reference, causing the entire callback chain to be recreated whenever edges
+  change — including during the optimistic creation flow.
+
+  Additionally, the `enrichedNodes` memoization uses a fragile short-circuit spread pattern:
+
+  ```typescript
+  ...(node.type === 'featureNode' &&
+    (node.data as FeatureNodeData).state !== 'creating' && {
+      onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
+      onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+    }),
+  ```
+
+  While this evaluates correctly per-node, spreading `false` (a no-op) is non-obvious and
+  has already caused misdiagnosis during analysis.
+
+  ## Success Criteria
+
+  - [ ] **SC-1**: All existing feature nodes remain clickable (open drawer on click) while an optimistic 'creating' node is present on the canvas
+  - [ ] **SC-2**: The optimistic 'creating' node itself remains non-clickable (no drawer opens, click is ignored)
+  - [ ] **SC-3**: Action buttons (onAction / "Add" button) on existing nodes work during optimistic creation
+  - [ ] **SC-4**: Node selection via React Flow's onNodeClick works for all non-creating nodes during optimistic creation
+  - [ ] **SC-5**: Optimistic node rollback on server error still removes the temp node and edge correctly
+  - [ ] **SC-6**: Optimistic node replacement on server success (router.refresh) still syncs correctly
+  - [ ] **SC-7**: The createFeatureNode callback has a stable identity (no unnecessary dependency on edges state)
+  - [ ] **SC-8**: Unit tests verify enrichedNodes produces correct callbacks for mixed creating/non-creating node arrays
+  - [ ] **SC-9**: Unit tests verify createFeatureNode does not change identity when edges change
+  - [ ] **SC-10**: No regressions in existing canvas interactions (node click, pane click, connect, layout)
+
+  ## Functional Requirements
+
+  - **FR-1: Stable callback chain during optimistic creation** — `createFeatureNode` MUST NOT depend on the `edges` state reference. It must read current edges from a state updater callback parameter so its identity remains stable across edge changes. This prevents the cascade: createFeatureNode → handleAddFeatureToFeature → onNodeAction → enrichedNodes recomputation with potentially stale or transitional callback references.
+
+  - **FR-2: Per-node callback injection in enrichedNodes** — The `enrichedNodes` memoization MUST inject `onAction` and `onSettings` callbacks into every feature node whose `state !== 'creating'`, regardless of any other node's state. Each node's callback injection must be independent of all other nodes.
+
+  - **FR-3: Creating node click guard** — Feature nodes with `state === 'creating'` MUST NOT receive `onAction` or `onSettings` callbacks in `enrichedNodes`. The `handleNodeClick` handler must continue to early-return for creating nodes (preventing drawer open).
+
+  - **FR-4: Optimistic rollback preservation** — The error/catch paths in `handleCreateFeatureSubmit` MUST continue to remove the temp node (by `tempId`) and its associated edge from state. No changes to rollback logic are required.
+
+  - **FR-5: Server sync preservation** — The `useEffect` that syncs `initialNodes` into local state (lines 67-99) MUST continue to detect optimistic 'creating' nodes by checking `state === 'creating'` and non-membership in `serverIds`. The optimistic-to-server node position handoff must remain intact.
+
+  - **FR-6: Clear conditional pattern in enrichedNodes** — Replace the short-circuit spread pattern `...(condition && { callbacks })` with an explicit conditional (ternary or helper function) that clearly separates the "inject callbacks" vs "no callbacks" paths for feature nodes.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: No performance regression** — The fix must not introduce additional re-renders beyond the current behavior. Stabilizing the callback chain should reduce unnecessary re-renders (fewer enrichedNodes recomputations), not add them.
+
+  - **NFR-2: Minimal change scope** — Changes are limited to `use-control-center-state.ts` (callback stabilization) and `features-canvas.tsx` (conditional refactor). No architectural changes, no new files, no new dependencies.
+
+  - **NFR-3: Test coverage** — Unit tests must cover: (a) enrichedNodes with mixed creating/non-creating nodes, (b) callback stability of createFeatureNode across edge changes, (c) handleNodeClick guard for creating nodes. E2E test recommended but not blocking.
+
+  - **NFR-4: Readability** — The enrichedNodes callback injection logic must be immediately understandable without knowledge of JavaScript's spread-falsy-value behavior.
+
+  - **NFR-5: React best practices** — State reads inside callbacks must use the functional updater pattern (`setState(current => ...)`) rather than closure captures, following React documentation recommendations for avoiding stale closures.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Fix approach: setEdges callback param vs useRef? | setEdges callback parameter | Idiomatic React pattern for reading current state inside setState; no extra refs or sync effects needed |
+  | 2 | Refactor enrichedNodes spread pattern? | Yes — refactor to explicit conditional | Low cost, high readability gain; prevents future misdiagnosis of the short-circuit pattern |
+  | 3 | Wire up missing onNodeSettings? | No — out of scope | Pre-existing gap unrelated to this bug; mixing bug fix with feature addition expands scope |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The relevant code lives in the web UI package at `src/presentation/web/`:
+
+  | Directory | Purpose |
+  | --------- | ------- |
+  | `components/features/control-center/` | State management, orchestration, canvas wiring |
+  | `components/features/features-canvas/` | React Flow canvas wrapper, node enrichment |
+  | `components/common/feature-node/` | Feature node component, state config, icons |
+  | `app/actions/` | Server actions (create-feature, delete-feature, etc.) |
+  | `hooks/` | Shared hooks (agent-events-provider) |
+  | `lib/` | Utilities (layout-with-dagre, utils) |
+
+  ### Architecture Patterns
+
+  - **Component hierarchy**: `HomePage → ControlCenter → ControlCenterInner → FeaturesCanvas → FeatureNode`
+  - **State management**: `useControlCenterState` hook manages all canvas state (nodes, edges, selection, optimistic updates)
+  - **Optimistic updates**: Insert temp node immediately, fire server action async, rollback on failure, `router.refresh()` on success
+  - **Event handling**: React Flow's `onNodeClick` → `handleNodeClick` (selection), plus per-node `onAction`/`onSettings` callbacks injected via `enrichedNodes` memo
+  - **Callback chain**: `createFeatureNode` → `handleAddFeatureToFeature` → `onNodeAction` prop → `enrichedNodes` memo
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Contains `createFeatureNode` with the stale `edges` closure — primary fix location for callback stabilization |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | Medium | Contains `enrichedNodes` memoization — conditional refactor for clarity |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | None | No changes needed — component correctly renders based on data.onAction/data.onSettings presence |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | None | No changes needed — callback wiring is correct |
+  | `tests/` (unit) | Medium | New tests for enrichedNodes callback injection and createFeatureNode stability |
+
+  ## Dependencies
+
+  - `@xyflow/react` — React Flow canvas and event model
+  - `use-control-center-state.ts` — The core state hook managing optimistic creation
+  - `features-canvas.tsx` — The node enrichment and callback injection logic
+
+  ## Size Estimate
+
+  **S** — The fix involves two small, targeted changes: (1) remove the `edges` closure dependency
+  from `createFeatureNode` by reading edges from a state updater parameter (~10 lines changed in
+  `use-control-center-state.ts`), and (2) refactor the short-circuit spread in `enrichedNodes` to
+  an explicit conditional (~5 lines changed in `features-canvas.tsx`). Plus unit tests. No
+  architectural changes, no new files, 2 files modified.
+
+  ---
+
+  _Generated by feature agent — proceed with research_

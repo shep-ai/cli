@@ -1,0 +1,196 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-node-clickability
+summary: >
+  5 tasks across 3 phases (RED-GREEN-REFACTOR). Phase 1 writes failing tests for callback
+  stability and mixed-state node rendering. Phase 2 makes them pass by stabilizing
+  createFeatureNode and refactoring enrichedNodes. Phase 3 runs full regression validation.
+
+relatedFeatures: []
+technologies:
+  - React 19
+  - '@xyflow/react v12+'
+  - TypeScript
+  - Vitest
+  - '@testing-library/react'
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write failing test: createFeatureNode callback stability across edge changes'
+    description: >
+      Add a test in use-control-center-state.test.tsx that captures the
+      `handleAddFeatureToFeature` reference before and after an edge change, then asserts
+      Object.is equality. This test must FAIL against the current code because
+      `createFeatureNode` depends on `[edges]`, causing `handleAddFeatureToFeature` to get
+      a new identity whenever edges change. Use the existing HookTestHarness with onStateChange
+      to capture callback references across renders.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Test captures handleAddFeatureToFeature reference before an edge change'
+      - 'Test triggers an edge change (e.g., via createFeatureNode which calls setEdges)'
+      - 'Test captures handleAddFeatureToFeature reference after the edge change'
+      - 'Test asserts Object.is(before, after) — identity equality'
+      - 'Test FAILS on current codebase (RED phase confirmation)'
+    tdd:
+      red:
+        - 'Write test "handleAddFeatureToFeature maintains stable identity when edges change" in a new describe block "callback stability"'
+        - 'Capture state.handleAddFeatureToFeature reference after initial render via onStateChange'
+        - 'Trigger createFeatureNode("feat-1") in an act() block which adds a node + edge via setEdges'
+        - 'Capture state.handleAddFeatureToFeature reference after re-render'
+        - 'Assert the two references are the same object (expect(after).toBe(before))'
+      green:
+        - 'N/A — this task only writes the failing test'
+      refactor:
+        - 'N/A'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Write regression test: mixed creating/non-creating nodes get correct callbacks'
+    description: >
+      Add a test in features-canvas.test.tsx that renders FeaturesCanvas with both a
+      creating node and a running node in the same array, passing an onNodeAction callback.
+      Assert that the running node has an action button (onAction injected) while the creating
+      node does not. This extends the existing "non-interactive guard" describe block. The test
+      should pass on current code (since per-node callback injection is correct) and serves as
+      a regression guard for the enrichedNodes refactor.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Test renders FeaturesCanvas with [creatingNode, runningNode] and an onNodeAction callback'
+      - 'Test asserts running node has feature-node-action-button in DOM'
+      - 'Test asserts creating node does NOT have an action button'
+      - 'Both nodes coexist in the same render (mixed array, not separate renders)'
+    tdd:
+      red:
+        - 'Write test "injects onAction for running nodes but not creating nodes in mixed array" in the "non-interactive guard" describe block'
+        - 'Render FeaturesCanvas with both mockNode (running) and creatingNode in the same nodes array'
+        - 'Assert screen.getAllByTestId("feature-node-action-button") has length 1 (only the running node)'
+        - 'Verify the action button click calls onNodeAction with the running node ID'
+      green:
+        - 'N/A — this task only writes the test'
+      refactor:
+        - 'N/A'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Stabilize createFeatureNode by eliminating edges closure dependency'
+    description: >
+      In use-control-center-state.ts, modify createFeatureNode to read edges via a setEdges
+      functional updater instead of capturing them from the closure. Declare a `let siblingEdges`
+      variable before the setNodes call. When sourceNodeId is present, call
+      `setEdges((currentEdges) => { siblingEdges = currentEdges.filter(e => e.source ===
+      sourceNodeId); return currentEdges; })` before `setNodes(...)`. Inside the setNodes
+      updater, use `siblingEdges` to compute sibling IDs instead of `edges.filter(...)`.
+      Remove `edges` from the useCallback dependency array (line 290), making it `[]`.
+      This makes createFeatureNode stable, which stabilizes handleAddFeatureToFeature,
+      which stabilizes onNodeAction, which prevents enrichedNodes from recomputing with
+      new callback identities during optimistic creation.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'createFeatureNode useCallback dependency array is [] (no edges dependency)'
+      - 'Sibling edges are read via setEdges functional updater, not from closure'
+      - 'setEdges updater returns currentEdges unchanged (no-op, no extra re-render)'
+      - 'Sibling edge data stored in local let variable before setNodes call'
+      - 'setNodes updater uses the local variable for sibling IDs, not edges closure'
+      - 'Task-1 test (callback stability) NOW PASSES'
+      - 'All existing tests still pass (no regressions)'
+    tdd:
+      red:
+        - 'Task-1 test is already failing (RED)'
+      green:
+        - 'Declare `let siblingEdges: Edge[] = []` at the top of the useCallback body'
+        - 'Before the setNodes call, when sourceNodeId is present, add: setEdges((currentEdges) => { siblingEdges = currentEdges.filter((e) => e.source === sourceNodeId); return currentEdges; })'
+        - 'Inside setNodes updater, replace `edges.filter((e) => e.source === sourceNodeId).map((e) => e.target)` with `siblingEdges.map((e) => e.target)`'
+        - 'Change dependency array from `[edges]` to `[]`'
+      refactor:
+        - 'Add a brief comment above the setEdges call explaining it reads current edges without triggering re-render'
+        - 'Verify the pattern matches the existing handleConnect pattern for consistency'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Refactor enrichedNodes short-circuit spread to explicit ternary'
+    description: >
+      In features-canvas.tsx, replace the short-circuit AND spread pattern for featureNode
+      callback injection (lines 81-85) with an explicit ternary. This is a purely cosmetic
+      change — same semantics, better readability. The repositoryNode and addRepositoryNode
+      spreads are NOT changed (out of scope — they use simple single-condition patterns).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'featureNode callback injection uses ternary pattern: condition ? { callbacks } : {}'
+      - 'No behavioral change — same conditions, same callback objects'
+      - 'Task-2 test (mixed-state rendering) still passes'
+      - 'All existing features-canvas.test.tsx tests still pass'
+      - 'repositoryNode and addRepositoryNode spreads are NOT changed'
+    tdd:
+      red:
+        - 'Task-2 test serves as the regression guard'
+      green:
+        - 'Replace lines 81-85 with: ...(node.type === "featureNode" && (node.data as FeatureNodeData).state !== "creating" ? { onAction: onNodeAction ? () => onNodeAction(node.id) : undefined, onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined } : {})'
+      refactor:
+        - 'Evaluate whether extracting the condition to a named boolean improves clarity without adding unnecessary lines'
+    estimatedEffort: '10min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Full regression validation — tests, lint, typecheck'
+    description: >
+      Run the complete validation suite to confirm no regressions. This includes all unit
+      tests (especially the existing optimistic creation, rollback, server sync, positioning,
+      and deletion tests), lint, format check, and typecheck for both CLI and web packages.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'pnpm test:unit passes with 0 failures'
+      - 'pnpm lint passes'
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes'
+      - 'New tests (callback stability, mixed-state rendering) are green'
+      - 'Existing optimistic submit flow tests still pass'
+      - 'Existing features-canvas tests still pass'
+    tdd:
+      red:
+        - 'N/A — validation task'
+      green:
+        - 'N/A — validation task'
+      refactor:
+        - 'If any test failures are found, fix them before marking complete'
+        - 'If lint or typecheck issues arise from the changes, resolve them'
+    estimatedEffort: '10min'
+
+totalEstimate: '1h 10min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a strict TDD cycle across 5 tasks in 3 phases.
+
+  First, we write tests that expose the bug: a callback stability test verifying
+  that `handleAddFeatureToFeature` keeps the same identity across edge changes (must
+  fail on current code), and a mixed-state regression test verifying that running nodes
+  retain their action buttons when a creating node coexists (regression guard for the
+  enrichedNodes refactor). These two test tasks are independent and can be done in parallel.
+
+  Then, we make the tests pass with two minimal production code changes: stabilizing
+  `createFeatureNode` by replacing the `edges` closure capture with a `setEdges` functional
+  updater (eliminating the `[edges]` dependency), and refactoring the `enrichedNodes`
+  short-circuit spread to an explicit ternary for clarity. The callback stabilization is
+  the core fix; the ternary refactor is cosmetic.
+
+  Finally, we run the full validation suite (tests, lint, typecheck) to confirm zero
+  regressions across all existing canvas interactions including optimistic creation,
+  rollback, server sync, node positioning, deletion, and concurrent creations.

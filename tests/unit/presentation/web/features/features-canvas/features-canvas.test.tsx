@@ -135,5 +135,20 @@ describe('FeaturesCanvas', () => {
       render(<FeaturesCanvas nodes={[mockNode]} edges={[]} onNodeSettings={onNodeSettings} />);
       expect(screen.getByTestId('feature-node-settings-button')).toBeInTheDocument();
     });
+
+    it('injects onAction for running nodes but not creating nodes in mixed array', () => {
+      const onNodeAction = vi.fn();
+      render(
+        <FeaturesCanvas nodes={[creatingNode, mockNode]} edges={[]} onNodeAction={onNodeAction} />
+      );
+
+      // Only the running node (mockNode) should have an action button
+      const actionButtons = screen.getAllByTestId('feature-node-action-button');
+      expect(actionButtons).toHaveLength(1);
+
+      // Click the action button — it should call onNodeAction with the running node ID
+      fireEvent.click(actionButtons[0]);
+      expect(onNodeAction).toHaveBeenCalledWith('node-1');
+    });
   });
 });

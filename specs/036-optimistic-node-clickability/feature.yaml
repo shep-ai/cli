@@ -1,0 +1,39 @@
+feature:
+  id: 036-optimistic-node-clickability
+  name: optimistic-node-clickability
+  number: 36
+  branch: feat/036-optimistic-node-clickability
+  lifecycle: research
+  createdAt: '2026-02-22T17:29:57Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 5
+    total: 5
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-22T17:55:57.106Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-22T17:29:57Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
