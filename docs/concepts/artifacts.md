@@ -7,36 +7,63 @@ Artifacts are documentation files generated during the Plan phase that capture d
 ```typescript
 export class Artifact {
   readonly id: string;
-  readonly featureId: string;
   readonly createdAt: Date;
+  readonly updatedAt: Date;
 
-  type: ArtifactType;
-  title: string;
-  content: string;
-  filePath: string;
+  name: string;
+  type: string;
+  category: ArtifactCategory;
+  format: ArtifactFormat;
+  summary: string;
+  path: string;
+  state: ArtifactState;
 }
 ```
 
 ### Properties
 
-| Property    | Type           | Description                          |
-| ----------- | -------------- | ------------------------------------ |
-| `id`        | `string`       | Unique identifier (UUID)             |
-| `featureId` | `string`       | Parent feature reference             |
-| `type`      | `ArtifactType` | Document type                        |
-| `title`     | `string`       | Document title                       |
-| `content`   | `string`       | Markdown content                     |
-| `filePath`  | `string`       | Relative path in artifacts directory |
+| Property    | Type               | Description                          |
+| ----------- | ------------------ | ------------------------------------ |
+| `id`        | `string`           | Unique identifier (UUID)             |
+| `name`      | `string`           | Artifact name                        |
+| `type`      | `string`           | Free-form document type              |
+| `category`  | `ArtifactCategory` | Category classification              |
+| `format`    | `ArtifactFormat`   | File format                          |
+| `summary`   | `string`           | Summary of the artifact content      |
+| `path`      | `string`           | Relative path in artifacts directory |
+| `state`     | `ArtifactState`    | Current artifact state               |
+| `createdAt` | `Date`             | Creation timestamp                   |
+| `updatedAt` | `Date`             | Last update timestamp                |
 
-## ArtifactType Enum
+## ArtifactCategory Enum
 
 ```typescript
-export enum ArtifactType {
-  PRD = 'prd',
-  RFC = 'rfc',
-  Design = 'design',
-  TechPlan = 'tech_plan',
-  Other = 'other',
+export enum ArtifactCategory {
+  PRD = 'PRD',
+  API = 'API',
+  Design = 'Design',
+  Other = 'Other',
+}
+```
+
+## ArtifactFormat Enum
+
+```typescript
+export enum ArtifactFormat {
+  Markdown = 'md',
+  Text = 'txt',
+  Yaml = 'yaml',
+  Other = 'Other',
+}
+```
+
+## ArtifactState Enum
+
+```typescript
+export enum ArtifactState {
+  Todo = 'Todo',
+  Elaborating = 'Elaborating',
+  Done = 'Done',
 }
 ```
 
@@ -310,7 +337,7 @@ Feature Created
 Requirements Gathered
       │
       ▼
-Transition to Plan Phase
+Transition to Planning Phase
       │
       ▼
 ┌─────────────────────────────────┐
@@ -352,11 +379,13 @@ Users can request additional artifact types:
 
 ```typescript
 const customArtifact = new Artifact({
-  featureId: feature.id,
-  type: ArtifactType.Other,
-  title: 'Security Assessment',
-  content: securityContent,
-  filePath: `artifacts/${feature.id}/security-assessment.md`,
+  name: 'Security Assessment',
+  type: 'security-assessment',
+  category: ArtifactCategory.Other,
+  format: ArtifactFormat.Markdown,
+  summary: 'Security assessment for the feature',
+  path: `artifacts/${feature.id}/security-assessment.md`,
+  state: ArtifactState.Todo,
 });
 ```
 

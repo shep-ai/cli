@@ -119,7 +119,7 @@ pnpm tsp:watch            # Watch mode for TypeSpec compilation
 This project follows **Clean Architecture** with four layers:
 
 ```
-src/
+packages/core/src/
 ├── domain/           # Core business logic (no external dependencies)
 │   ├── factories/    # Factory functions (e.g., settings defaults)
 │   ├── generated/    # TypeSpec-generated TypeScript types (DO NOT EDIT)
@@ -132,6 +132,7 @@ src/
 │   ├── repositories/ # SQLite implementations of repository interfaces
 │   ├── persistence/  # Database connection, migrations
 │   └── services/     # External service integrations (agents/, version, web-server)
+src/
 └── presentation/     # User interfaces
     ├── cli/          # Commander-based CLI commands
     ├── tui/          # Terminal UI wizard
@@ -188,7 +189,7 @@ src/
 
 ## Dependency Injection
 
-Managed by tsyringe with `reflect-metadata`. Container setup in [src/infrastructure/di/container.ts](src/infrastructure/di/container.ts:49-86).
+Managed by tsyringe with `reflect-metadata`. Container setup in [packages/core/src/infrastructure/di/container.ts](packages/core/src/infrastructure/di/container.ts).
 
 **Container Lifecycle:**
 
@@ -218,11 +219,15 @@ const settings = await useCase.execute();
 
 Central entity tracking a piece of work through the SDLC lifecycle.
 
-- `id`, `name`, `slug`, `description`, `repositoryPath`, `branch`
-- `lifecycle: SdlcLifecycle` (Requirements | Research | Implementation | Review | Deploy & QA | Maintain)
+- `id`, `name`, `userQuery`, `slug`, `description`, `repositoryPath`, `branch`
+- `lifecycle: SdlcLifecycle` (Started | Analyze | Requirements | Research | Planning | Implementation | Review | Maintain)
 - `messages: Message[]`
 - `plan?: Plan` (optional, contains requirements, tasks, and artifacts)
 - `relatedArtifacts: Artifact[]`
+- `agentRunId?`, `specPath?`, `worktreePath?`
+- `push: boolean`, `openPr: boolean`
+- `approvalGates: ApprovalGates`
+- `pr?: PullRequest`
 - `createdAt`, `updatedAt`
 
 ### Task
@@ -264,6 +269,22 @@ User requirement attached to a Plan.
 - `researches: Research[]`
 - `createdAt`, `updatedAt`
 
+### Research
+
+Technical research exploration within a Requirement.
+
+- `id`, `topic`, `summary`
+- `state: ResearchState` (NotStarted | Running | Finished)
+- `artifacts: Artifact[]`
+- `createdAt`, `updatedAt`
+
+### Message
+
+Conversation message between user and AI assistant.
+
+- `id`, `role`, `content`
+- `createdAt`, `updatedAt`
+
 ### Settings
 
 Global application configuration (singleton).
@@ -274,16 +295,19 @@ Global application configuration (singleton).
 - `environment: EnvironmentConfig` (defaultEditor, shellPreference)
 - `system: SystemConfig` (autoUpdate, logLevel)
 - `agent: AgentConfig` (type, authMethod, token)
+- `notifications: NotificationPreferences`
+- `workflow: WorkflowConfig`
 - **Location**: `~/.shep/data` (SQLite singleton record)
 - **Access**: Via `getSettings()` singleton service (initialized at CLI bootstrap)
 
 ## Agent System
 
-Located in `infrastructure/services/agents/`, organized into subdirectories:
+Located in `packages/core/src/infrastructure/services/agents/`, organized into subdirectories:
 
 - `common/` — Shared infrastructure (executor factory, registry, runner, validator, checkpointer, shared types)
 - `common/executors/` — Concrete executor implementations (`ClaudeCodeExecutorService`, `CursorExecutorService`)
-- `feature-agent/` — FeatureAgent LangGraph graph with per-node files, background worker, process management
+- `feature-agent/` — FeatureAgent LangGraph graph with validation/repair loops, per-node files, background worker
+- `feature-agent/nodes/schemas/` — YAML validation schemas for spec, research, plan
 - `analyze-repo/` — Repository analysis graph
 - `streaming/` — SSE streaming infrastructure
 
@@ -347,7 +371,7 @@ tsp/
 ```
 1. Edit TypeSpec models (tsp/*.tsp)
 2. Generate TypeScript (pnpm tsp:compile)
-3. Import types from src/domain/generated/output.ts
+3. Import types from packages/core/src/domain/generated/output.ts
 4. Build TypeScript (pnpm build)
 5. Run tests (pnpm test)
 ```
@@ -359,7 +383,7 @@ apis/
 ├── openapi/          # OpenAPI 3.x specs (for API documentation)
 └── json-schema/      # JSON Schema definitions (one per model)
 
-src/domain/generated/
+packages/core/src/domain/generated/
 └── output.ts         # TypeScript types and interfaces (DO NOT EDIT)
 ```
 
@@ -374,6 +398,8 @@ src/domain/generated/
 ```typescript
 import type { Settings, Feature, Task } from '@/domain/generated/output';
 ```
+
+**Note:** `@/domain/generated/output` resolves to `packages/core/src/domain/generated/output.ts` via path aliases in tsconfig.json. Web package uses `@shepai/core/domain/generated/output` instead.
 
 **Validation**: `pnpm validate` runs `tsp:compile` as part of CI checks
 
@@ -448,7 +474,7 @@ See [docs/development/tdd-guide.md](./docs/development/tdd-guide.md) for detaile
 
 ### Web UI
 
-- **Framework**: Next.js 16+ (App Router, Turbopack)
+- **Framework**: Next.js 16+ with React 19 (App Router, Turbopack)
 - **Components**: shadcn/ui (Radix primitives + Tailwind CSS v4)
 - **Architecture**: Four-tier component hierarchy (`ui/` → `common/` → `layouts/` → `features/`)
 - **Design System**: Storybook with all component variants
@@ -472,6 +498,7 @@ This project uses pnpm workspaces for the monorepo structure:
 # pnpm-workspace.yaml
 packages:
   - '.' # Root package (@shepai/cli)
+  - 'packages/core' # Core package (@shepai/core)
   - 'src/presentation/web' # Web UI package (@shepai/web)
 ```
 
@@ -495,10 +522,11 @@ pnpm --filter @shepai/web <script>
 
 ### Package Structure
 
-| Package | Name          | Location                |
-| ------- | ------------- | ----------------------- |
-| CLI     | `@shepai/cli` | Root (`./`)             |
-| Web UI  | `@shepai/web` | `src/presentation/web/` |
+| Package | Name           | Location                |
+| ------- | -------------- | ----------------------- |
+| CLI     | `@shepai/cli`  | Root (`./`)             |
+| Core    | `@shepai/core` | `packages/core/`        |
+| Web UI  | `@shepai/web`  | `src/presentation/web/` |
 
 ## Code Quality & Commits
 

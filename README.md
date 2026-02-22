@@ -407,7 +407,7 @@ Breakpoints are configurable. In `--allow-all` mode, the agent handles everythin
 | TUI Framework   | [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js)                           |
 | Web UI          | Next.js 16 + React 19 + shadcn/ui ([@shepai/web](./src/presentation/web/))              |
 | Design System   | Storybook                                                                               |
-| Build Tool      | tsc + tsc-alias (prod), Vite (dev)                                                      |
+| Build Tool      | tsc + tsc-alias (prod), tsx (CLI dev), Next.js (web dev)                                |
 | Database        | SQLite                                                                                  |
 | Agent System    | [LangGraph](https://www.langchain.com/langgraph) (`@langchain/langgraph`)               |
 | Vector DB       | [LanceDB](https://lancedb.com/) (file-based)                                            |

@@ -1,10 +1,10 @@
 # Agent System Architecture
 
-> **IMPORTANT: Implementation Status**
+> **Implementation Status**
 >
-> This document describes the **planned architecture** for the LangGraph-based multi-agent workflow system. **None of the LangGraph components described below are implemented yet.** The `src/infrastructure/agents/langgraph/` directory does not exist.
+> The **FeatureAgent LangGraph graph** is implemented at `packages/core/src/infrastructure/services/agents/feature-agent/` with background execution support, validation/repair loops, and human-in-the-loop approval. The multi-agent supervisor pattern described later in this document remains **planned architecture**.
 >
-> The current agent system handles configuration and execution of external AI coding tools (Claude Code, Cursor currently available; Gemini CLI, Aider, Continue planned) via `AgentValidatorService`, `AgentExecutorFactory`, `ConfigureAgentUseCase`, and the `shep settings agent` command. See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+> See [AGENTS.md](../../AGENTS.md#current-implementation) for full implementation details including the directory structure, state schema, graph flow, and node descriptions.
 
 ---
 
@@ -16,9 +16,9 @@ See [AGENTS.md — Settings-Driven Agent Resolution](../../AGENTS.md#settings-dr
 
 ---
 
-## Planned Architecture (Not Yet Implemented)
+## Architecture
 
-Multi-stage workflow orchestration using LangGraph StateGraphs with Claude integration.
+Multi-stage workflow orchestration using LangGraph StateGraphs with Claude integration. The FeatureAgent graph is implemented; the multi-agent supervisor pattern is planned.
 
 ## Overview
 
@@ -74,7 +74,7 @@ export const FeatureState = Annotation.Root({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),
-  messages: Annotation<BaseMessage[]>({
+  messages: Annotation<string[]>({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),

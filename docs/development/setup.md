@@ -54,7 +54,7 @@ Edit `.env.development`:
 # Development settings
 NODE_ENV=development
 LOG_LEVEL=debug
-SHEP_PORT=3030
+SHEP_PORT=4050
 
 # Optional: Claude API key for testing
 CLAUDE_API_KEY=your-dev-key
@@ -80,7 +80,7 @@ pnpm dev:storybook
 
 ```
 cli/
-├── src/
+├── packages/core/src/
 │   ├── domain/           # Business logic (no deps)
 │   │   ├── entities/
 │   │   ├── value-objects/
@@ -89,11 +89,12 @@ cli/
 │   │   ├── use-cases/
 │   │   ├── ports/
 │   │   └── services/
-│   ├── infrastructure/   # External implementations
-│   │   ├── repositories/
-│   │   ├── agents/
-│   │   ├── persistence/
-│   │   └── services/
+│   └── infrastructure/   # External implementations
+│       ├── repositories/
+│       ├── agents/
+│       ├── persistence/
+│       └── services/
+├── src/
 │   └── presentation/     # UI layers
 │       ├── cli/          # Commander-based CLI
 │       ├── tui/          # @inquirer/prompts interactive wizards
@@ -206,15 +207,15 @@ pnpm unlink --global @shepai/cli
 
 Development database location: `~/.shep/repos/...`
 
+Database migrations run automatically via the `user_version` pragma when the CLI bootstraps. To inspect the database manually:
+
 ```bash
-# Reset development database
-pnpm db:reset
+# Using sqlite3 CLI
+sqlite3 ~/.shep/repos/<encoded-path>/data
 
-# Run migrations
-pnpm db:migrate
-
-# Open SQLite browser (if installed)
-pnpm db:browse
+# Common queries
+.tables
+SELECT * FROM features;
 ```
 
 ## Working with Tests (TDD)
