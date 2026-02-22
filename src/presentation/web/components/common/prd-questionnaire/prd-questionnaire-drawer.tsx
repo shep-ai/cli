@@ -82,7 +82,7 @@ export function PrdQuestionnaireDrawer({
 
         {/* Action buttons */}
         {actionsInput ? (
-          <div className="flex gap-2 px-4 pb-3">
+          <div className="flex items-center gap-2 px-4 pb-3">
             <ActionButton
               label="Open in IDE"
               onClick={openInIde}
@@ -106,6 +106,55 @@ export function PrdQuestionnaireDrawer({
                 icon={FolderOpen}
               />
             ) : null}
+            {onDelete && featureId ? (
+              <>
+                <div className="bg-border mx-1 h-4 w-px" />
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      aria-label="Delete feature"
+                      disabled={isDeleting}
+                      className="text-muted-foreground hover:text-destructive"
+                      data-testid="prd-drawer-delete"
+                    >
+                      {isDeleting ? (
+                        <Loader2 className="size-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="size-4" />
+                      )}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete feature?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will permanently delete <strong>{featureName}</strong> ({featureId}).
+                        This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        disabled={isDeleting}
+                        onClick={() => onDelete(featureId)}
+                      >
+                        {isDeleting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Deleting…
+                          </>
+                        ) : (
+                          'Delete'
+                        )}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
+            ) : null}
           </div>
         ) : null}
 
@@ -115,49 +164,6 @@ export function PrdQuestionnaireDrawer({
         <div className="flex min-h-0 flex-1 flex-col">
           <PrdQuestionnaire {...questionnaireProps} />
         </div>
-
-        {/* Delete action */}
-        {onDelete && featureId ? (
-          <>
-            <Separator />
-            <div data-testid="prd-drawer-delete" className="p-4">
-              <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button variant="destructive" className="w-full" disabled={isDeleting}>
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete feature
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete feature?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This will permanently delete <strong>{featureName}</strong> ({featureId}).
-                      This action cannot be undone.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      disabled={isDeleting}
-                      onClick={() => onDelete(featureId)}
-                    >
-                      {isDeleting ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Deleting…
-                        </>
-                      ) : (
-                        'Delete'
-                      )}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </div>
-          </>
-        ) : null}
       </DrawerContent>
     </Drawer>
   );
