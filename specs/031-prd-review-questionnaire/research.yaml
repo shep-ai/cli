@@ -1,0 +1,388 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-review-questionnaire
+summary: >
+  Technical research for the PRD Review Questionnaire feature. Builds a `PrdQuestionnaire` multi-step
+  wizard component (Tier 1, `common/`) with TypeSpec UI models, `ReviewDrawerShell` shared drawer,
+  `OpenActionMenu` dropdown, and TechDecisionsReview enhancements (markdown rationale, collapsed
+  alternatives). Uses shadcn/ui components with theme tokens for design system consistency.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (new tsp/ui/ module for presentation-layer value objects)
+  - React 19 (multi-step wizard with controlled selections, internal step/input state)
+  - shadcn/ui (Button, Input, Badge, Drawer, AlertDialog, DropdownMenu, Separator)
+  - Tailwind CSS v4 (theme tokens, custom keyframes for option-highlight)
+  - Storybook (9+ story variants across PrdQuestionnaire and drawer)
+  - Vitest (TDD unit tests, 63+ test cases)
+  - react-markdown (markdown rendering for tech decisions rationale)
+  - lucide-react (Send, Check, ChevronLeft, ChevronRight, XIcon, Trash2, Code2, Terminal, FolderOpen, Copy, Loader2, CircleAlert, ChevronDown, Layers, GitCompareArrows)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'PrdQuestionnaire Component Architecture'
+    chosen: 'Tier 1 multi-step wizard component at `components/common/prd-questionnaire/` with internal step navigation and controlled selections'
+    rejected:
+      - 'All-questions-at-once scrollable layout — rejected during implementation in favor of focused one-question-per-step UX. Multi-step wizard provides better decision-making focus and auto-advance reduces interaction friction.'
+      - 'Fully stateless controlled component — rejected because step navigation (`currentStep`) and chat input text are inherently UI-local concerns. Only selection state is controlled by the parent.'
+    rationale: >
+      Directory structure follows the standard Tier 1 pattern:
+      `prd-questionnaire/index.ts` (barrel), `prd-questionnaire.tsx` (component),
+      `prd-questionnaire-drawer.tsx` (drawer wrapper), `prd-questionnaire-config.ts` (types),
+      `prd-questionnaire.stories.tsx` (9 variants across component and drawer).
+      Selection state is controlled via `selections` prop + `onSelect` callback. Internal state is
+      limited to `currentStep` (useState) for wizard navigation and `chatInput` (useState) for the
+      text field. Auto-advance triggers via `setTimeout` 250ms after selection. Approve button
+      appears only on the last step and is enabled only when all questions are answered.
+
+  - title: 'PrdQuestionnaire Progress Calculation'
+    chosen: 'Internal `useMemo` derivation of `answeredCount` from `selections` prop'
+    rejected:
+      - 'External progress prop — rejected because progress is deterministic and forcing every parent to calculate it duplicates logic.'
+      - '`useEffect` with state — rejected because derived values should use `useMemo`, not `useState`+`useEffect`.'
+    rationale: >
+      `answeredCount = Object.keys(selections).length` computed via `useMemo` with `[selections]`.
+      Progress bar width uses inline `style={{ width: percent }}` with `transition-all duration-300`.
+      Visibility: hidden (`opacity-0`) when no answers or all answered; visible when partially answered
+      or `isProcessing`. When `isProcessing`, shows indeterminate animation (`animate-indeterminate-progress`).
+
+  - title: 'UI Components: shadcn/ui vs Plain HTML'
+    chosen: 'shadcn/ui components (Button, Input, Badge) with theme tokens'
+    rejected:
+      - 'Plain HTML elements with hardcoded Tailwind classes — rejected because shadcn/ui provides design system consistency, theme token support for light/dark modes, and accessible component primitives. Using theme tokens (`border-primary`, `bg-primary/5`, `text-foreground`) instead of hardcoded colors (`border-blue-500`, `bg-blue-50`) ensures the component works with any theme.'
+    rationale: >
+      The implementation uses shadcn `Button` for navigation/approve/send, `Input` for chat field,
+      `Badge` for AI Recommended and New labels. Option buttons are plain `<button>` elements for
+      full styling control. Selected state uses `border-primary bg-primary/5` theme tokens.
+      This enables proper dark mode support and design system alignment.
+
+  - title: 'ReviewDrawerShell — Shared Drawer Container'
+    chosen: 'New reusable `ReviewDrawerShell` component at `components/common/review-drawer-shell/`'
+    rejected:
+      - 'Duplicate drawer chrome in each review component — rejected because PrdQuestionnaireDrawer and TechDecisionsDrawer share identical drawer structure (header, close button, action menu, delete, content slot). Duplication violates DRY.'
+      - 'Extend FeatureDrawer — rejected because FeatureDrawer has feature-specific logic (status badge, progress, details section) that does not apply to review drawers.'
+    rationale: >
+      `ReviewDrawerShell` provides: right-slide Drawer (non-modal, `w-xl`), close button (X icon),
+      header (featureName + featureId sr-only), OpenActionMenu dropdown (when repositoryPath + branch
+      provided), inline delete button with AlertDialog confirmation (when onDelete + featureId provided),
+      separator, and children content slot. Used by both `PrdQuestionnaireDrawer` and `TechDecisionsDrawer`.
+
+  - title: 'OpenActionMenu — Shared Action Dropdown'
+    chosen: 'New reusable `OpenActionMenu` dropdown component at `components/common/open-action-menu/`'
+    rejected:
+      - 'Inline action buttons per drawer — rejected because IDE/Shell/Specs actions were duplicated across FeatureDrawer, and would be duplicated again in review drawers. A shared dropdown component eliminates this.'
+    rationale: >
+      `OpenActionMenu` uses shadcn `DropdownMenu` with items: "IDE" (Code2 icon), "Terminal" (Terminal icon),
+      "Specs Folder" (FolderOpen icon, disabled when no specs), and "Copy path" (Copy icon with 2s feedback).
+      Each item shows Loader2 spinner when loading, CircleAlert on error. Trigger button disabled when any
+      action loading. Consumes `FeatureActionsState` from `useFeatureActions` hook.
+
+  - title: 'TechDecisionsReview Enhancements'
+    chosen: 'Markdown rationale rendering and collapsible rejected alternatives'
+    rejected:
+      - 'Plain text rationale — rejected because research artifacts contain markdown formatting (bold, lists, code). Plain text loses this information.'
+      - 'Always-expanded alternatives — rejected because showing all rejected options by default adds visual noise. Collapsed by default keeps focus on the chosen option.'
+    rationale: >
+      `TechDecisionsReview` now renders `decision.rationale` via `react-markdown` with custom component
+      overrides for consistent typography (xs text, muted foreground, etc.). Each decision card has a
+      collapsible "Other Options Considered (N)" section using local `useState` toggle.
+
+  - title: 'TypeSpec UI Module Organization'
+    chosen: 'New `tsp/ui/` module with `index.tsp` barrel and `prd-questionnaire.tsp` value objects'
+    rejected:
+      - 'Place in `tsp/domain/value-objects/` — rejected because these are presentation-layer types. Mixing presentation concerns into the domain layer violates Clean Architecture boundaries.'
+      - 'Skip TypeSpec, define types only in TypeScript — rejected because the project mandates TypeSpec-first architecture.'
+    rationale: >
+      Creates `tsp/ui/index.tsp` (barrel) and `tsp/ui/prd-questionnaire.tsp` (models). The barrel
+      is imported by `tsp/main.tsp` following the existing pattern (`import "./ui/index.tsp"`).
+      Models are value objects (no `extends BaseEntity`) since they have no persistence identity:
+      `PrdOption { id, label, rationale, recommended?, isNew? }`,
+      `PrdQuestion { id, question, type: "select", options: PrdOption[] }`,
+      `PrdFinalAction { id, label, description }`,
+      `PrdQuestionnaireData { question, context, questions: PrdQuestion[], finalAction: PrdFinalAction }`.
+
+  - title: 'Component Prop Types vs TypeSpec Generated Types'
+    chosen: 'Component `config.ts` defines prop interfaces that compose generated types with React callback props'
+    rejected:
+      - 'Use only generated types directly as component props — rejected because generated types lack callback props and UI flags.'
+      - 'Duplicate types without generated imports — rejected because it violates TypeSpec-first principle.'
+    rationale: >
+      `prd-questionnaire-config.ts` re-exports generated types (`PrdOption`, `PrdQuestion`, `PrdFinalAction`,
+      `PrdQuestionnaireData`) from `@shepai/core/domain/generated/output` and defines `PrdQuestionnaireProps`
+      (adding `onSelect`, `onRefine`, `onApprove`, `isProcessing`, `showHeader`) and `PrdQuestionnaireDrawerProps`
+      (extending with drawer-specific props: `open`, `onClose`, `featureName`, `featureId`, `repositoryPath`,
+      `branch`, `specPath`, `onDelete`, `isDeleting`).
+
+  - title: 'Storybook Story Organization'
+    chosen: 'Interactive wrapper stories with useState for selections and step navigation'
+    rejected:
+      - 'Static stories with args-only — rejected because the multi-step wizard requires interaction to demonstrate navigation and auto-advance. Interactive `InteractiveQuestionnaire` and `DrawerTemplate` wrappers manage local state.'
+    rationale: >
+      PrdQuestionnaire stories (5 variants) use `InteractiveQuestionnaire` wrapper that manages
+      `selections` state via `useState`. PrdQuestionnaireDrawer stories (4 variants) use `DrawerTemplate`
+      wrapper. All stories use `fn().mockName()` for callback props. Meta title: `'Composed/PrdQuestionnaire'`
+      and `'Composed/PrdQuestionnaireDrawer'`.
+
+  - title: 'CSS Animation for New Options'
+    chosen: 'Tailwind `@keyframes` with `animate-option-highlight` in globals.css'
+    rejected:
+      - 'Framer Motion — not installed, excessive for one animation.'
+      - 'React Spring — not installed, overkill.'
+    rationale: >
+      `@keyframes option-highlight` defined in `globals.css` with background-color pulse from
+      `#ecfdf5` (emerald-50) to transparent. Theme variable `--animate-option-highlight: option-highlight 1.5s ease-out`.
+      Applied via `animate-option-highlight` class when `opt.isNew` is true. Follows the pattern
+      of existing `animate-indeterminate-progress` custom animation.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'How should the Send button icon be rendered without Font Awesome (POC uses `fas fa-paper-plane`)?'
+    resolved: true
+    options:
+      - option: 'Import Font Awesome and match POC exactly'
+        description: 'Add Font Awesome dependency to match POC icons precisely.'
+        selected: false
+      - option: 'Use `lucide-react` `Send` icon'
+        description: 'Replace with `lucide-react` equivalent (`Send` icon) for consistency with project standards.'
+        selected: true
+      - option: 'Use a custom SVG icon'
+        description: 'Create a custom SVG icon for the send button.'
+        selected: false
+      - option: 'Text-only button without icon'
+        description: 'Use text label instead of icon.'
+        selected: false
+    selectionRationale: >
+      Option 2 (`lucide-react` `Send` icon) was selected because the project uses `lucide-react` for all icons
+      (`Github`, `Plus`, `FolderOpen`, etc.). The POC uses Font Awesome (`fas fa-paper-plane`, `fas fa-check`) but the
+      React implementation should use equivalent `lucide-react` icons: `Send` for paper plane, `Check` for approve checkmark.
+      This maintains consistency with the project's icon library.
+
+  - question: 'Should the `PrdQuestionnaire` use shadcn/ui primitives or plain HTML elements?'
+    resolved: true
+    options:
+      - option: 'shadcn/ui `Button`, `Input`, `Badge` and other components'
+        description: 'Use shadcn/ui for design system consistency and theme token support.'
+        selected: true
+      - option: 'Plain HTML elements with Tailwind CSS'
+        description: 'Use `<button>`, `<input>`, `<div>` with direct Tailwind classes matching POC.'
+        selected: false
+      - option: 'Headless UI (from shadcn/ui dependencies)'
+        description: 'Use Radix primitives directly without shadcn wrapper.'
+        selected: false
+      - option: 'Custom component library'
+        description: 'Define custom styled components for the questionnaire.'
+        selected: false
+    selectionRationale: >
+      Option 1 (shadcn/ui components) was selected for design system consistency and theme token support.
+      shadcn/ui Button is used for navigation/approve/send, Input for chat, Badge for AI Recommended/New labels.
+      Theme tokens (`border-primary`, `bg-primary/5`, `text-foreground`) enable light/dark mode support.
+      Option buttons remain plain `<button>` elements for full styling control. This approach ensures the
+      component works with the project's design system rather than hardcoding POC-specific color values.
+
+  - question: 'How should the component handle the "selected" visual state given it uses POC recommended styling?'
+    resolved: true
+    options:
+      - option: 'Use same styling for selected and recommended'
+        description: 'Apply `border-blue-500 bg-blue-50` for both states.'
+        selected: false
+      - option: 'Selected and recommended are independent: selected takes precedence'
+        description: 'Once user selects, selection highlighting overrides recommended. Badge shown separately.'
+        selected: true
+      - option: 'Show recommended as visual cue; disable override'
+        description: 'Recommended options are highlighted but cannot be overridden by selection.'
+        selected: false
+      - option: 'Multi-state styling: default, recommended, selected, selected+recommended'
+        description: 'Use four different styles for all combinations.'
+        selected: false
+    selectionRationale: >
+      Option 2 (Selection takes precedence) was selected because selected and recommended are orthogonal concerns.
+      Selected state uses `border-blue-500 bg-blue-50`. The recommended badge (AI Recommended) is always shown
+      regardless of selection state. Non-selected options use `border-slate-200` (default). Per FR-16, selected
+      options are visually highlighted with `border-blue-500 bg-blue-50`.
+
+  - question: 'How does the `option-highlight` CSS animation get included in the Tailwind build?'
+    resolved: true
+    options:
+      - option: 'Define in `globals.css` with `@keyframes`'
+        description: 'Add `@keyframes` and `.option-highlight` class to `globals.css`.'
+        selected: true
+      - option: 'Define in `tailwind.config.ts` animation extension'
+        description: 'Extend Tailwind animation configuration with custom keyframes.'
+        selected: false
+      - option: 'Use Tailwind `@apply` directive in a component stylesheet'
+        description: 'Define animation in component-specific CSS.'
+        selected: false
+      - option: 'Use inline Tailwind animation classes'
+        description: 'Use existing Tailwind animations without custom keyframes.'
+        selected: false
+    selectionRationale: >
+      Option 1 (Define in `globals.css`) was selected because the pattern is established (`animate-indeterminate-progress`
+      custom animation already exists). Add `@keyframes option-highlight` with background-color pulse (`emerald-50` to transparent
+      over ~1.5s) in `src/presentation/web/app/globals.css`. Apply `.option-highlight` class when `opt.isNew` is `true`.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. PrdQuestionnaire: Multi-Step Wizard Architecture
+
+  **Chosen:** Multi-step wizard showing one question at a time with step indicator dots and auto-advance
+
+  **Rejected:**
+  - All-questions-at-once scrollable layout — rejected during implementation in favor of focused one-question-per-step UX. Multi-step wizard provides better decision-making focus and auto-advance reduces interaction friction.
+
+  **Rationale:** The component uses internal `currentStep` state to track the active question. Step indicator dots (clickable buttons) at the top-right allow direct navigation. After selecting an option, auto-advance triggers via `setTimeout` 250ms. Previous/Next/Skip buttons provide explicit navigation. Approve button appears only on the last step and is enabled only when all questions are answered.
+
+  ### 2. UI Components: shadcn/ui with Theme Tokens
+
+  **Chosen:** shadcn/ui components (Button, Input, Badge) with theme tokens
+
+  **Rejected:**
+  - Plain HTML with hardcoded Tailwind classes — rejected because shadcn/ui provides design system consistency, theme token support for light/dark modes, and accessible component primitives.
+
+  **Rationale:** Button for navigation/approve/send, Input for chat, Badge for AI Recommended/New labels. Option buttons remain plain `<button>` elements for full styling control. Selected state uses `border-primary bg-primary/5` theme tokens instead of hardcoded `border-blue-500 bg-blue-50`.
+
+  ### 3. ReviewDrawerShell — Shared Drawer Container
+
+  **Chosen:** Reusable `ReviewDrawerShell` at `components/common/review-drawer-shell/`
+
+  **Rejected:**
+  - Duplicate drawer chrome in each review component — PrdQuestionnaireDrawer and TechDecisionsDrawer share identical structure.
+  - Extend FeatureDrawer — has feature-specific logic not applicable to review drawers.
+
+  **Rationale:** Provides right-slide Drawer (non-modal, `w-xl`), close button, header, OpenActionMenu, inline delete button with AlertDialog confirmation, separator, and children content slot. Consumes `useFeatureActions` hook for IDE/Shell/Specs actions.
+
+  ### 4. OpenActionMenu — Shared Action Dropdown
+
+  **Chosen:** Reusable dropdown at `components/common/open-action-menu/`
+
+  **Rejected:**
+  - Inline action buttons per drawer — duplicated IDE/Shell/Specs actions across components.
+
+  **Rationale:** Uses shadcn DropdownMenu with items: IDE, Terminal, Specs Folder, Copy Path. Each item shows loading/error states. Trigger disabled when any action loading. New shadcn/ui DropdownMenu primitive (`components/ui/dropdown-menu.tsx`) was installed. Used by both ReviewDrawerShell and FeatureDrawer.
+
+  ### 5. TechDecisionsReview Enhancements
+
+  **Chosen:** Markdown rationale rendering and collapsible rejected alternatives
+
+  **Rejected:**
+  - Plain text rationale — loses markdown formatting from research artifacts.
+  - Always-expanded alternatives — adds visual noise.
+
+  **Rationale:** Uses `react-markdown` with custom component overrides for consistent xs-sized typography. Each decision card has a collapsible "Other Options Considered (N)" section. `DecisionCard` sub-component extracted within the same file.
+
+  ### 6. Progress Calculation
+
+  **Chosen:** Internal `useMemo` derivation of `answeredCount` from `selections`
+
+  **Rejected:**
+  - External progress prop — forces parent duplication.
+  - `useEffect` with state — derived values should use `useMemo`.
+
+  **Rationale:** `answeredCount = Object.keys(selections).length` via `useMemo([selections])`. Progress bar visible when partially answered or processing, hidden when no answers or all answered.
+
+  ### 7. TypeSpec UI Module
+
+  **Chosen:** New `tsp/ui/` module with value object models
+
+  **Rejected:**
+  - Place in `tsp/domain/value-objects/` — presentation types in domain violates Clean Architecture.
+  - Skip TypeSpec — violates TypeSpec-first mandate.
+
+  **Rationale:** `tsp/ui/index.tsp` barrel + `tsp/ui/prd-questionnaire.tsp` models. Imported by `tsp/main.tsp`. Value objects: `PrdOption`, `PrdQuestion`, `PrdFinalAction`, `PrdQuestionnaireData`.
+
+  ### 8. Storybook: Interactive Wrapper Stories
+
+  **Chosen:** Interactive wrappers with useState for multi-step wizard demonstration
+
+  **Rejected:**
+  - Static stories with args-only — multi-step wizard requires interaction for navigation and auto-advance.
+
+  **Rationale:** `InteractiveQuestionnaire` wrapper manages `selections` state. `DrawerTemplate` wrapper manages drawer open/close and selections. Both use `fn().mockName()` for callbacks. 5 component + 4 drawer story variants.
+
+  ### 9. CSS Animation for New Options
+
+  **Chosen:** `@keyframes option-highlight` in globals.css
+
+  **Rejected:**
+  - Framer Motion / React Spring — not installed, overkill for one animation.
+
+  **Rationale:** Background-color pulse from `#ecfdf5` to transparent over 1.5s. Theme variable `--animate-option-highlight`. Applied via `animate-option-highlight` class.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `shadcn/ui` | Button, Input, Badge, Drawer, AlertDialog, DropdownMenu | Use (existing + new DropdownMenu) | Design system consistency, theme tokens, accessibility |
+  | `react-markdown` | Markdown rendering for tech decisions rationale | Use (existing) | Already installed. Custom component overrides for consistent styling. |
+  | `lucide-react` | 15+ icons across components | Use (existing) | Project standard for all icons |
+  | `tailwindcss` v4 | Styling with theme tokens | Use (existing) | Custom keyframes in globals.css |
+  | `@storybook/react` | Component stories | Use (existing) | 9+ story variants with interactive wrappers |
+  | `framer-motion` | Animation | Reject | Not installed. CSS keyframes sufficient. |
+
+  ## Performance Implications
+
+  ### PrdQuestionnaire Component
+  - **`useMemo` for answeredCount**: Memoized on `[selections]` to avoid unnecessary recomputation.
+  - **CSS transitions only**: Progress bar uses `transition-all duration-300`, opacity uses `duration-200`.
+  - **`useCallback` for handleSelect**: Wraps `onSelect` + auto-advance to avoid recreating on every render.
+  - **Conditional rendering**: Badges, header, step navigation all use ternary conditionals.
+
+  ### ReviewDrawerShell
+  - **Conditional actions rendering**: OpenActionMenu only rendered when `repositoryPath && branch` provided.
+  - **Delete AlertDialog only rendered**: When `onDelete && featureId` provided.
+
+  ## Architecture Notes
+
+  ### Clean Architecture Compliance
+  - **Presentation layer only**: All changes in `src/presentation/web/`. No domain or application layer changes.
+  - **TypeSpec UI module**: New `tsp/ui/` keeps presentation types separate from domain types.
+  - **Component architecture**: PrdQuestionnaire has controlled selections (parent-managed), internal step/input state (UI-only). No API calls, no domain logic.
+  - **Shared shell pattern**: ReviewDrawerShell eliminates drawer chrome duplication across review types.
+
+  ### File Organization
+  - **New component directories (3)**: `prd-questionnaire/` (5 files), `review-drawer-shell/` (4 files), `open-action-menu/` (4 files)
+  - **Modified component directories (2)**: `tech-decisions-review/` (refactored 4 files), `feature-drawer/` (refactored 2 files)
+  - **New TypeSpec files (2)**: `tsp/ui/index.tsp`, `tsp/ui/prd-questionnaire.tsp`
+  - **New UI primitive (1)**: `components/ui/dropdown-menu.tsx`
+  - **Modified global CSS (1)**: `globals.css` (option-highlight keyframe + theme variable)
+  - **Auto-generated (1)**: `src/domain/generated/output.ts`
+
+  ### TypeSpec Model Design
+
+  ```typespec
+  // tsp/ui/prd-questionnaire.tsp (value objects, no extends BaseEntity)
+
+  model PrdOption {
+    id: string;
+    label: string;
+    rationale: string;
+    recommended?: boolean;
+    isNew?: boolean;
+  }
+
+  model PrdQuestion {
+    id: string;
+    question: string;
+    type: "select";
+    options: PrdOption[];
+  }
+
+  model PrdFinalAction {
+    id: string;
+    label: string;
+    description: string;
+  }
+
+  model PrdQuestionnaireData {
+    question: string;
+    context: string;
+    questions: PrdQuestion[];
+    finalAction: PrdFinalAction;
+  }
+  ```

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { applyNodeChanges } from '@xyflow/react';
@@ -9,6 +9,9 @@ import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { FeatureCreatePayload } from '@/components/common/feature-create-drawer';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
+import { createFeature } from '@/app/actions/create-feature';
+import { deleteFeature } from '@/app/actions/delete-feature';
+import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -59,6 +62,8 @@ export function useControlCenterState(
     .sort()
     .join(',');
 
+  // Sync server props into local state — keyed by derived strings (initialNodeKey/initialEdgeKey)
+  // to avoid infinite re-renders from unstable array references.
   useEffect(() => {
     setNodes((currentNodes) => {
       // Build a lookup of current node positions by ID
@@ -91,11 +96,23 @@ export function useControlCenterState(
         return serverNode;
       });
     });
-  }, [initialNodeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialNodeKey, initialNodes]);
 
   useEffect(() => {
     setEdges(initialEdges);
-  }, [initialEdgeKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialEdgeKey, initialEdges]);
+
+  // Refresh server data when SSE agent events arrive (status changes)
+  const { lastEvent } = useAgentEventsContext();
+  const processedEventRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!lastEvent) return;
+    const key = `${lastEvent.agentRunId}-${lastEvent.eventType}-${lastEvent.timestamp}`;
+    if (processedEventRef.current === key) return;
+    processedEventRef.current = key;
+    router.refresh();
+  }, [lastEvent, router]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
@@ -292,19 +309,14 @@ export function useControlCenterState(
       setIsCreateDrawerOpen(false);
       setPendingRepoNodeId(null);
 
-      // 3. Fire API call in the background
-      fetch('/api/features/create', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
-      })
-        .then(async (response) => {
-          if (!response.ok) {
-            const body = await response.json();
+      // 3. Fire server action in the background
+      createFeature(data)
+        .then((result) => {
+          if (result.error) {
             // Rollback: remove optimistic node and edge
             setNodes((prev) => prev.filter((n) => n.id !== tempId));
             setEdges((prev) => prev.filter((e) => e.target !== tempId));
-            toast.error(body.error ?? 'Failed to create feature');
+            toast.error(result.error);
             return;
           }
 
@@ -328,13 +340,10 @@ export function useControlCenterState(
     async (featureId: string) => {
       setIsDeleting(true);
       try {
-        const response = await fetch(`/api/features/${featureId}`, {
-          method: 'DELETE',
-        });
+        const result = await deleteFeature(featureId);
 
-        if (!response.ok) {
-          const body = await response.json();
-          toast.error(body.error ?? 'Failed to delete feature');
+        if (result.error) {
+          toast.error(result.error);
           return;
         }
 

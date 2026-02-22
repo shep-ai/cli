@@ -1,0 +1,183 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-review-questionnaire
+summary: >
+  Implementation plan for a multi-step PRD questionnaire wizard, shared review drawer shell,
+  action menu dropdown, and tech decisions review enhancements. All work follows TDD
+  red-green-refactor cycles and stays within the presentation layer. The plan has 5 phases:
+  TypeSpec foundation, shared infrastructure (ReviewDrawerShell + OpenActionMenu), PrdQuestionnaire
+  component, review drawer integration + FeatureDrawer refactoring, and final validation.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (new tsp/ui/ module for presentation-layer value objects)
+  - React 19 (multi-step wizard, controlled selections, internal step/input state)
+  - shadcn/ui (Button, Input, Badge, Drawer, AlertDialog, DropdownMenu, Separator)
+  - Tailwind CSS v4 (theme tokens, custom keyframes for option-highlight)
+  - Storybook (9+ story variants across components and drawers)
+  - Vitest (TDD unit tests, 63+ test cases)
+  - react-markdown (markdown rendering for tech decisions rationale)
+  - lucide-react (15+ icons across components)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'TypeSpec Foundation'
+    description: >
+      Create the `tsp/ui/` module with `PrdQuestionnaire` value object models and wire it into
+      `tsp/main.tsp`. This must come first because the `PrdQuestionnaire` component types
+      and the generated TypeScript output depend on it. Validates via `pnpm tsp:compile`.
+    parallel: false
+
+  - id: phase-2
+    name: 'Shared Infrastructure (ReviewDrawerShell + OpenActionMenu)'
+    description: >
+      Build the reusable `ReviewDrawerShell` drawer container and `OpenActionMenu` dropdown
+      component. Install the shadcn/ui DropdownMenu primitive. These are prerequisites for
+      both the PrdQuestionnaireDrawer and the TechDecisionsDrawer/FeatureDrawer refactoring.
+    parallel: false
+
+  - id: phase-3
+    name: 'PrdQuestionnaire Component'
+    description: >
+      Build the `PrdQuestionnaire` multi-step wizard component at `components/common/prd-questionnaire/`
+      including config types, component implementation with step navigation and auto-advance,
+      `PrdQuestionnaireDrawer` wrapper, CSS animation for new options, and 9 Storybook story variants.
+      Depends on Phase 1 for generated types and Phase 2 for ReviewDrawerShell.
+    parallel: false
+
+  - id: phase-4
+    name: 'Review Integration & Refactoring'
+    description: >
+      Refactor `TechDecisionsReview` to use markdown rationale rendering and collapsed alternatives.
+      Refactor `TechDecisionsDrawer` to use `ReviewDrawerShell`. Refactor `FeatureDrawer` to use
+      `OpenActionMenu` via `useFeatureActions` hook. Depends on Phase 2 for shared components.
+    parallel: false
+
+  - id: phase-5
+    name: 'Integration & Validation'
+    description: >
+      End-to-end validation: run full test suite, lint, typecheck, format check, build
+      verification. Ensure all success criteria are met.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - tsp/ui/index.tsp
+  - tsp/ui/prd-questionnaire.tsp
+  - src/presentation/web/components/common/prd-questionnaire/index.ts
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.tsx
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire-drawer.tsx
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire-config.ts
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.stories.tsx
+  - src/presentation/web/components/common/review-drawer-shell/index.ts
+  - src/presentation/web/components/common/review-drawer-shell/review-drawer-shell.tsx
+  - src/presentation/web/components/common/review-drawer-shell/review-drawer-shell-config.ts
+  - src/presentation/web/components/common/review-drawer-shell/review-drawer-shell.stories.tsx
+  - src/presentation/web/components/common/open-action-menu/index.ts
+  - src/presentation/web/components/common/open-action-menu/open-action-menu.tsx
+  - src/presentation/web/components/common/open-action-menu/config.ts
+  - src/presentation/web/components/common/open-action-menu/open-action-menu.stories.tsx
+  - src/presentation/web/components/ui/dropdown-menu.tsx
+
+filesToModify:
+  - tsp/main.tsp
+  - src/presentation/web/app/globals.css
+  - src/presentation/web/components/common/tech-decisions-review/tech-decisions-review.tsx
+  - src/presentation/web/components/common/tech-decisions-review/tech-decisions-drawer.tsx
+  - src/presentation/web/components/common/tech-decisions-review/tech-decisions-review-config.ts
+  - src/presentation/web/components/common/tech-decisions-review/tech-decisions-review.stories.tsx
+  - src/presentation/web/components/common/tech-decisions-review/index.ts
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  All changes live within the presentation layer (`src/presentation/web/`), with a shared
+  TypeSpec foundation in `tsp/ui/`. No domain or application layer changes are required.
+
+  **PrdQuestionnaire** is a multi-step wizard showing one question at a time with step
+  indicator dots, auto-advance on selection, and Previous/Next/Skip/Approve navigation.
+  Uses shadcn/ui components (Button, Input, Badge) with theme tokens for design system
+  consistency.
+
+  **ReviewDrawerShell** provides a reusable right-slide drawer container with header,
+  close button, OpenActionMenu dropdown, and inline delete with AlertDialog confirmation.
+  Used by both `PrdQuestionnaireDrawer` and `TechDecisionsDrawer`.
+
+  **OpenActionMenu** is a shared DropdownMenu for IDE/Shell/Specs/Copy actions, replacing
+  inline action buttons across drawer types. Uses `useFeatureActions` hook for action state.
+
+  **TechDecisionsReview** enhanced with markdown rationale rendering via `react-markdown`
+  and collapsible "Other Options Considered" sections.
+
+  ## Key Design Decisions
+
+  ### 1. Multi-Step Wizard (Not All-at-Once Scrollable)
+
+  Questions are shown one at a time for focused decision-making. Step indicator dots provide
+  overview and direct navigation. Auto-advance (250ms delay) after selection reduces friction.
+  Approve button appears contextually on the last step, enabled only when all questions answered.
+
+  ### 2. shadcn/ui Components with Theme Tokens (Not Plain HTML)
+
+  Uses shadcn Button, Input, Badge for design system consistency and light/dark mode support.
+  Theme tokens (`border-primary`, `bg-primary/5`) instead of hardcoded colors (`border-blue-500`).
+  Option buttons remain plain `<button>` for full styling control.
+
+  ### 3. ReviewDrawerShell for DRY Drawer Chrome
+
+  PrdQuestionnaireDrawer and TechDecisionsDrawer share identical drawer structure. A shared
+  shell eliminates duplication of close button, header, action menu, and delete confirmation.
+
+  ### 4. OpenActionMenu Dropdown (Not Inline Buttons)
+
+  IDE/Shell/Specs actions consolidated into a single dropdown with loading/error states per item.
+  Reused across ReviewDrawerShell and FeatureDrawer.
+
+  ### 5. Controlled Selections + Internal UI State
+
+  Selection state (`selections` prop + `onSelect` callback) is parent-controlled for persistence
+  and sync. Step navigation (`currentStep`) and chat input text are internal UI state since they
+  are transient and not needed by the parent.
+
+  ### 6. New `tsp/ui/` Module
+
+  Presentation-layer value objects in dedicated `tsp/ui/` module, not in `tsp/domain/`.
+
+  ## Implementation Strategy
+
+  1. **Phase 1 (TypeSpec)** — Create `tsp/ui/` module, compile, verify generated types.
+
+  2. **Phase 2 (Shared Infrastructure)** — Build ReviewDrawerShell and OpenActionMenu.
+     Install shadcn/ui DropdownMenu primitive. These are prerequisites for Phase 3 and 4.
+
+  3. **Phase 3 (PrdQuestionnaire)** — Build multi-step wizard component, drawer wrapper,
+     config types, CSS animation, and 9 story variants.
+
+  4. **Phase 4 (Integration & Refactoring)** — Refactor TechDecisionsReview (markdown,
+     collapsed alternatives), refactor TechDecisionsDrawer to use ReviewDrawerShell,
+     refactor FeatureDrawer to use OpenActionMenu.
+
+  5. **Phase 5 (Validation)** — Full test suite, lint, typecheck, build verification.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compile failure blocks all work | Phase 1 is minimal (2 files, 4 simple value objects). Run `pnpm tsp:compile` immediately. |
+  | PrdQuestionnaire exceeds 220-line limit | Component is 217 lines — within bounds. Sub-components can be extracted if it grows. |
+  | ReviewDrawerShell props interface grows unwieldy | Props are well-scoped: drawer chrome + action menu + delete. Content slot via children. |
+  | DropdownMenu primitive conflicts with existing UI | shadcn/ui DropdownMenu is self-contained with no style conflicts. |
+  | CSS animation conflicts with existing styles | `option-highlight` keyframe uses unique name alongside existing `indeterminate-progress`. |
+  | react-markdown bundle size | Already installed in project. Custom components keep rendering consistent. |

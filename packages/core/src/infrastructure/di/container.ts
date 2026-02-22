@@ -64,10 +64,7 @@ import { FeatureAgentProcessService } from '../services/agents/feature-agent/fea
 import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
 import { NotificationService } from '../services/notifications/notification.service.js';
-import {
-  initializeNotificationBus,
-  getNotificationBus,
-} from '../services/notifications/notification-bus.js';
+import { getNotificationBus } from '../services/notifications/notification-bus.js';
 import { createCheckpointer } from '../services/agents/common/checkpointer.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { spawn } from 'node:child_process';
@@ -92,6 +89,8 @@ import { ListFeaturesUseCase } from '../../application/use-cases/features/list-f
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
+import { GetFeatureArtifactUseCase } from '../../application/use-cases/features/get-feature-artifact.use-case.js';
+import { GetResearchArtifactUseCase } from '../../application/use-cases/features/get-research-artifact.use-case.js';
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
 import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use-case.js';
@@ -234,7 +233,6 @@ export async function initializeContainer(): Promise<typeof container> {
   });
 
   // Register notification services
-  initializeNotificationBus();
   const notificationBus = getNotificationBus();
 
   container.registerInstance('NotificationEventBus', notificationBus);
@@ -271,6 +269,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ShowFeatureUseCase);
   container.registerSingleton(DeleteFeatureUseCase);
   container.registerSingleton(ResumeFeatureUseCase);
+  container.registerSingleton(GetFeatureArtifactUseCase);
+  container.registerSingleton(GetResearchArtifactUseCase);
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
   container.registerSingleton(LaunchIdeUseCase);
@@ -285,6 +285,15 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('DeleteFeatureUseCase', {
     useFactory: (c) => c.resolve(DeleteFeatureUseCase),
+  });
+  container.register('ApproveAgentRunUseCase', {
+    useFactory: (c) => c.resolve(ApproveAgentRunUseCase),
+  });
+  container.register('GetFeatureArtifactUseCase', {
+    useFactory: (c) => c.resolve(GetFeatureArtifactUseCase),
+  });
+  container.register('GetResearchArtifactUseCase', {
+    useFactory: (c) => c.resolve(GetResearchArtifactUseCase),
   });
   container.register('LaunchIdeUseCase', {
     useFactory: (c) => c.resolve(LaunchIdeUseCase),

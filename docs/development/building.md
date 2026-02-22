@@ -39,14 +39,6 @@ pnpm typecheck
 pnpm typecheck:watch
 ```
 
-### Full CI Build
-
-```bash
-pnpm build:ci
-```
-
-Runs: typecheck → lint → test → build
-
 ## Build Pipeline
 
 The CLI build command (`pnpm build`) runs:
@@ -274,7 +266,7 @@ jobs:
         with:
           registry-url: 'https://registry.npmjs.org'
       - run: npm ci
-      - run: pnpm build:ci
+      - run: pnpm build
       - run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

@@ -12,7 +12,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { NotificationEvent, NotificationPreferences } from '@/domain/generated/output.js';
 import { NotificationEventType, NotificationSeverity } from '@/domain/generated/output.js';
 import {
-  initializeNotificationBus,
   getNotificationBus,
   resetNotificationBus,
 } from '@/infrastructure/services/notifications/notification-bus.js';
@@ -56,7 +55,6 @@ describe('NotificationService', () => {
   beforeEach(() => {
     resetNotificationBus();
     resetSettings();
-    initializeNotificationBus();
 
     busEvents = [];
     const bus = getNotificationBus();

@@ -15,12 +15,12 @@ vi.mock('sonner', () => ({
   toast: mockToast,
 }));
 
-// --- Mock useAgentEvents ---
+// --- Mock useAgentEventsContext ---
 let mockEvents: NotificationEvent[] = [];
 let mockLastEvent: NotificationEvent | null = null;
 
-vi.mock('../../../../../src/presentation/web/hooks/use-agent-events.js', () => ({
-  useAgentEvents: () => ({
+vi.mock('../../../../../src/presentation/web/hooks/agent-events-provider.js', () => ({
+  useAgentEventsContext: () => ({
     events: mockEvents,
     lastEvent: mockLastEvent,
     connectionStatus: 'connected' as const,
@@ -172,7 +172,7 @@ describe('useNotifications', () => {
     mockLastEvent = event;
     mockEvents = [event];
 
-    renderHook(() => useNotifications({ browserEnabled: true }));
+    renderHook(() => useNotifications());
 
     expect(MockNotification.instances).toHaveLength(1);
     expect(MockNotification.instances[0].title).toBe('Notify Feature');
@@ -186,19 +186,7 @@ describe('useNotifications', () => {
     mockLastEvent = event;
     mockEvents = [event];
 
-    renderHook(() => useNotifications({ browserEnabled: true }));
-
-    expect(MockNotification.instances).toHaveLength(0);
-  });
-
-  it('no browser Notification when browser channel disabled', () => {
-    MockNotification.permission = 'granted';
-
-    const event = createEvent();
-    mockLastEvent = event;
-    mockEvents = [event];
-
-    renderHook(() => useNotifications({ browserEnabled: false }));
+    renderHook(() => useNotifications());
 
     expect(MockNotification.instances).toHaveLength(0);
   });
@@ -246,7 +234,7 @@ describe('useNotifications', () => {
     mockEvents = [event];
 
     // Should not throw
-    const { result } = renderHook(() => useNotifications({ browserEnabled: true }));
+    const { result } = renderHook(() => useNotifications());
 
     expect(result.current.browserPermissionState).toBe('default');
   });

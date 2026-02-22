@@ -11,7 +11,6 @@
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
-  initializeNotificationBus,
   getNotificationBus,
   resetNotificationBus,
 } from '@/infrastructure/services/notifications/notification-bus.js';
@@ -64,7 +63,6 @@ describe('SSE API Route: GET /api/agent-events', () => {
 
   beforeEach(async () => {
     resetNotificationBus();
-    initializeNotificationBus();
     // Dynamic import to get a fresh module (route handler uses getNotificationBus)
     routeModule = await import('@/presentation/web/app/api/agent-events/route.js');
   });

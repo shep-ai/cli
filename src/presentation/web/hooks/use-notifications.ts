@@ -4,12 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { NotificationSeverity } from '@shepai/core/domain/generated/output';
-import { useAgentEvents } from './use-agent-events';
-
-export interface UseNotificationsOptions {
-  browserEnabled?: boolean;
-  runId?: string;
-}
+import { useAgentEventsContext } from './agent-events-provider';
 
 export interface UseNotificationsResult {
   requestBrowserPermission: () => Promise<void>;
@@ -35,9 +30,8 @@ function dispatchBrowserNotification(event: NotificationEvent): void {
   new Notification(event.featureName, { body: event.message });
 }
 
-export function useNotifications(options?: UseNotificationsOptions): UseNotificationsResult {
-  const browserEnabled = options?.browserEnabled ?? false;
-  const { lastEvent } = useAgentEvents({ runId: options?.runId });
+export function useNotifications(): UseNotificationsResult {
+  const { lastEvent } = useAgentEventsContext();
 
   const [browserPermissionState, setBrowserPermissionState] = useState<NotificationPermission>(
     () => {
@@ -57,14 +51,9 @@ export function useNotifications(options?: UseNotificationsOptions): UseNotifica
     if (processedRef.current.has(key)) return;
     processedRef.current.add(key);
 
-    // Always dispatch toast
     dispatchToast(lastEvent);
-
-    // Dispatch browser notification if enabled and permitted
-    if (browserEnabled) {
-      dispatchBrowserNotification(lastEvent);
-    }
-  }, [lastEvent, browserEnabled]);
+    dispatchBrowserNotification(lastEvent);
+  }, [lastEvent]);
 
   const requestBrowserPermission = useCallback(async () => {
     if (typeof globalThis.Notification === 'undefined') return;

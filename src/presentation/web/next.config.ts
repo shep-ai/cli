@@ -31,6 +31,12 @@ function loadDevFallbacks(): Record<string, string> {
 }
 
 const nextConfig: NextConfig = {
+  // Pin turbopack root to the monorepo root so it doesn't infer a wrong
+  // workspace root from unrelated lockfiles higher in the filesystem.
+  turbopack: {
+    root: resolve(import.meta.dirname, '../../..'),
+  },
+
   // Exclude native/DI packages from Next.js bundling
   serverExternalPackages: ['tsyringe', 'reflect-metadata', 'better-sqlite3'],
 

@@ -57,7 +57,9 @@ function validateSchema<T>(schemaId: string, data: unknown): T {
     throw new Error(`Schema not found: ${schemaId}`);
   }
   if (!validate(data)) {
-    const errors = validate.errors?.map((e) => `${e.instancePath} ${e.message}`).join('; ');
+    const errors = validate.errors
+      ?.map((e: { instancePath: string; message?: string }) => `${e.instancePath} ${e.message}`)
+      .join('; ');
     throw new Error(`Validation failed for ${schemaId}: ${errors}`);
   }
   return data as T;

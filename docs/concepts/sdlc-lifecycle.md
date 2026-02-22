@@ -6,16 +6,60 @@ The Software Development Lifecycle (SDLC) in Shep defines the phases a Feature p
 
 ```typescript
 export enum SdlcLifecycle {
-  Requirements = 'requirements',
-  Plan = 'plan',
-  Implementation = 'implementation',
-  Test = 'test',
-  Deploy = 'deploy',
-  Maintenance = 'maintenance',
+  Started = 'Started',
+  Analyze = 'Analyze',
+  Requirements = 'Requirements',
+  Research = 'Research',
+  Planning = 'Planning',
+  Implementation = 'Implementation',
+  Review = 'Review',
+  Maintain = 'Maintain',
 }
 ```
 
 ## Phase Descriptions
+
+### Started
+
+**Purpose:** Initial state when a feature is first created.
+
+**Entry criteria:**
+
+- Feature created with name and description
+
+**Activities:**
+
+- Feature record initialized
+- Repository path and branch recorded
+
+**Exit criteria:**
+
+- Feature metadata complete
+- Ready to begin analysis
+
+**Artifacts produced:** None
+
+### Analyze
+
+**Purpose:** Analyze the repository to understand codebase structure and context.
+
+**Entry criteria:**
+
+- Feature in Started phase
+
+**Activities:**
+
+- AI analyzes repository structure
+- Identifies relevant code patterns
+- Maps existing architecture
+- Generates repository context
+
+**Exit criteria:**
+
+- Repository analysis complete
+- Codebase context available
+
+**Artifacts produced:** Repository analysis docs
 
 ### Requirements
 
@@ -23,7 +67,7 @@ export enum SdlcLifecycle {
 
 **Entry criteria:**
 
-- Feature created with name and description
+- Analyze phase complete
 
 **Activities:**
 
@@ -40,13 +84,35 @@ export enum SdlcLifecycle {
 
 **Artifacts produced:** None (requirements stored in Feature)
 
-### Plan
+### Research
+
+**Purpose:** Investigate technical approaches and make architecture decisions.
+
+**Entry criteria:**
+
+- Requirements phase complete
+
+**Activities:**
+
+- Research technical options
+- Evaluate trade-offs
+- Make architecture decisions
+- Document technical rationale
+
+**Exit criteria:**
+
+- Technical decisions documented
+- Approach selected
+
+**Artifacts produced:** Research document
+
+### Planning
 
 **Purpose:** Break down requirements into executable work items.
 
 **Entry criteria:**
 
-- Requirements phase complete
+- Research phase complete
 - User triggers planning
 
 **Activities:**
@@ -65,7 +131,6 @@ export enum SdlcLifecycle {
 **Artifacts produced:**
 
 - PRD (Product Requirements Document)
-- RFC (Request for Comments)
 - Design Document
 - Technical Plan
 
@@ -75,13 +140,13 @@ export enum SdlcLifecycle {
 
 **Entry criteria:**
 
-- Plan phase complete
+- Planning phase complete
 - User triggers implementation
 
 **Activities:**
 
 - Execute Tasks respecting dependencies
-- Generate/modify code
+- Generate/modify code following TDD
 - Update documentation
 - Track progress
 
@@ -92,9 +157,9 @@ export enum SdlcLifecycle {
 
 **Artifacts produced:** Code, updated docs
 
-### Test
+### Review
 
-**Purpose:** Validate implementation meets requirements.
+**Purpose:** Review implementation for correctness and quality.
 
 **Entry criteria:**
 
@@ -102,46 +167,25 @@ export enum SdlcLifecycle {
 
 **Activities:**
 
-- Run automated tests
+- Code review
 - Validate against requirements
-- Performance testing if applicable
-- Security review if applicable
+- Run automated tests
+- Performance and security review if applicable
 
 **Exit criteria:**
 
-- All tests pass
+- All reviews passed
 - Requirements verified
 
-**Artifacts produced:** Test reports
+**Artifacts produced:** Review reports
 
-### Deploy
-
-**Purpose:** Release changes to target environment.
-
-**Entry criteria:**
-
-- Test phase complete
-
-**Activities:**
-
-- Deploy to staging/production
-- Monitor for issues
-- Rollback if necessary
-
-**Exit criteria:**
-
-- Successfully deployed
-- No critical issues
-
-**Artifacts produced:** Deployment logs, release notes
-
-### Maintenance
+### Maintain
 
 **Purpose:** Ongoing support and iteration.
 
 **Entry criteria:**
 
-- Deploy phase complete
+- Review phase complete
 
 **Activities:**
 
@@ -158,32 +202,42 @@ export enum SdlcLifecycle {
 
 ```
 ┌──────────────┐
-│ Requirements │
+│   Started    │
 └──────┬───────┘
-       │ complete requirements
+       │ begin analysis
        ▼
 ┌──────────────┐
-│     Plan     │
+│   Analyze    │
 └──────┬───────┘
-       │ complete planning
+       │ analysis complete
+       ▼
+┌──────────────┐
+│ Requirements │
+└──────┬───────┘
+       │ requirements gathered
+       ▼
+┌──────────────┐
+│   Research   │
+└──────┬───────┘
+       │ research complete
+       ▼
+┌──────────────┐
+│   Planning   │
+└──────┬───────┘
+       │ plan complete
        ▼
 ┌──────────────┐
 │Implementation│
 └──────┬───────┘
-       │ complete implementation
+       │ implementation complete
        ▼
 ┌──────────────┐
-│     Test     │
+│    Review    │
 └──────┬───────┘
-       │ all tests pass
+       │ review passed
        ▼
 ┌──────────────┐
-│    Deploy    │
-└──────┬───────┘
-       │ successful deployment
-       ▼
-┌──────────────┐
-│ Maintenance  │
+│   Maintain   │
 └──────────────┘
 ```
 
@@ -193,17 +247,19 @@ Valid transitions are forward-only with specific exceptions:
 
 | From           | To             | Allowed | Reason                 |
 | -------------- | -------------- | ------- | ---------------------- |
-| Requirements   | Plan           | Yes     | Normal flow            |
+| Started        | Analyze        | Yes     | Normal flow            |
+| Analyze        | Requirements   | Yes     | Normal flow            |
+| Requirements   | Research       | Yes     | Normal flow            |
 | Requirements   | Implementation | No      | Must plan first        |
-| Plan           | Implementation | Yes     | Normal flow            |
-| Plan           | Requirements   | Yes     | Need more requirements |
-| Implementation | Test           | Yes     | Normal flow            |
-| Implementation | Plan           | Yes     | Re-planning needed     |
-| Test           | Deploy         | Yes     | Normal flow            |
-| Test           | Implementation | Yes     | Fixes needed           |
-| Deploy         | Maintenance    | Yes     | Normal flow            |
-| Deploy         | Implementation | Yes     | Hotfixes               |
-| Maintenance    | Requirements   | Yes     | New feature iteration  |
+| Research       | Planning       | Yes     | Normal flow            |
+| Research       | Requirements   | Yes     | Need more requirements |
+| Planning       | Implementation | Yes     | Normal flow            |
+| Planning       | Research       | Yes     | Re-research needed     |
+| Implementation | Review         | Yes     | Normal flow            |
+| Implementation | Planning       | Yes     | Re-planning needed     |
+| Review         | Maintain       | Yes     | Normal flow            |
+| Review         | Implementation | Yes     | Fixes needed           |
+| Maintain       | Requirements   | Yes     | New feature iteration  |
 
 ## Implementation
 
@@ -213,12 +269,14 @@ Domain service enforces transition rules:
 // src/domain/services/lifecycle-rules.ts
 export class LifecycleRules {
   private static transitions: Map<SdlcLifecycle, SdlcLifecycle[]> = new Map([
-    [SdlcLifecycle.Requirements, [SdlcLifecycle.Plan]],
-    [SdlcLifecycle.Plan, [SdlcLifecycle.Implementation, SdlcLifecycle.Requirements]],
-    [SdlcLifecycle.Implementation, [SdlcLifecycle.Test, SdlcLifecycle.Plan]],
-    [SdlcLifecycle.Test, [SdlcLifecycle.Deploy, SdlcLifecycle.Implementation]],
-    [SdlcLifecycle.Deploy, [SdlcLifecycle.Maintenance, SdlcLifecycle.Implementation]],
-    [SdlcLifecycle.Maintenance, [SdlcLifecycle.Requirements]],
+    [SdlcLifecycle.Started, [SdlcLifecycle.Analyze]],
+    [SdlcLifecycle.Analyze, [SdlcLifecycle.Requirements]],
+    [SdlcLifecycle.Requirements, [SdlcLifecycle.Research]],
+    [SdlcLifecycle.Research, [SdlcLifecycle.Planning, SdlcLifecycle.Requirements]],
+    [SdlcLifecycle.Planning, [SdlcLifecycle.Implementation, SdlcLifecycle.Research]],
+    [SdlcLifecycle.Implementation, [SdlcLifecycle.Review, SdlcLifecycle.Planning]],
+    [SdlcLifecycle.Review, [SdlcLifecycle.Maintain, SdlcLifecycle.Implementation]],
+    [SdlcLifecycle.Maintain, [SdlcLifecycle.Requirements]],
   ]);
 
   static canTransition(from: SdlcLifecycle, to: SdlcLifecycle): boolean {
@@ -237,8 +295,8 @@ export class LifecycleRules {
 In the web UI, lifecycle is shown as a progress indicator:
 
 ```
-[Requirements] → [Plan] → [Implementation] → [Test] → [Deploy] → [Maintenance]
-      ✓            ●           ○              ○          ○            ○
+[Started] → [Analyze] → [Requirements] → [Research] → [Planning] → [Implementation] → [Review] → [Maintain]
+    ✓           ✓              ✓              ●            ○               ○               ○          ○
 
 ✓ = Completed
 ● = Current

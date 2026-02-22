@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from '@xyflow/react';
-import { Github, Plus, Code2, Terminal } from 'lucide-react';
+import { Github, Plus, Code2, Terminal, FolderOpen } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -91,6 +91,25 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>Open in Shell</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center">
+                      <ActionButton
+                        label="Open Folder"
+                        onClick={actions.openFolder}
+                        loading={actions.folderLoading}
+                        error={!!actions.folderError}
+                        icon={FolderOpen}
+                        iconOnly
+                        variant="ghost"
+                        size="icon-xs"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Open Folder</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </>

@@ -97,6 +97,16 @@ const allStatesData: FeatureNodeData[] = [
     branch: 'feat/api-rate-limiting',
   },
   {
+    name: 'Data Pipeline',
+    description: 'ETL pipeline for analytics dashboard',
+    featureId: '#bi2',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'action-required',
+    progress: 40,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/data-pipeline',
+  },
+  {
     name: 'Payment Gateway',
     description: 'Stripe integration for subscriptions',
     featureId: '#f3',

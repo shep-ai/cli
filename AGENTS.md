@@ -40,7 +40,8 @@ src/infrastructure/services/agents/
 │   │   ├── requirements.node.ts
 │   │   ├── research.node.ts
 │   │   ├── plan.node.ts
-│   │   └── implement.node.ts
+│   │   ├── implement.node.ts
+│   │   └── schemas/                     # Validation schemas for nodes
 │   ├── heartbeat.ts                     # Node heartbeat reporting
 │   ├── feature-agent-graph.ts           # Graph factory (wires nodes)
 │   ├── feature-agent-process.service.ts # Background process management
@@ -160,20 +161,31 @@ The FeatureAgent is a LangGraph `StateGraph` implementing a linear SDLC workflow
 FeatureAgentAnnotation = Annotation.Root({
   featureId: Annotation<string>, // UUID of the feature
   repositoryPath: Annotation<string>, // Path to the git repository
-  worktreePath: Annotation<string>, // Path to the git worktree
   specDir: Annotation<string>, // Path to the spec directory
+  worktreePath: Annotation<string>, // Path to the git worktree
   currentNode: Annotation<string>, // Currently executing node name
-  approvalMode: Annotation<string>, // Human-in-the-loop mode
   error: Annotation<string | null>, // Error message (null = no error)
+  approvalGates: Annotation<ApprovalGates | undefined>, // Human-in-the-loop gates
   messages: Annotation<string[]>, // Accumulated log messages (reducer: append)
+  validationRetries: Annotation<number>, // Retry count for validation loops
+  lastValidationTarget: Annotation<string>, // Last file validated
+  lastValidationErrors: Annotation<string[]>, // Errors from last validation
+  prUrl: Annotation<string | null>, // Pull request URL
+  prNumber: Annotation<number | null>, // Pull request number
+  commitHash: Annotation<string | null>, // Latest commit hash
+  ciStatus: Annotation<string | null>, // CI pipeline status
+  push: Annotation<boolean>, // Whether to push after implement
+  openPr: Annotation<boolean>, // Whether to open a PR after push
 });
 ```
 
-The `messages` channel uses a reducer to accumulate messages from all nodes. The `error` channel preserves the previous value when `undefined` is returned. The `approvalMode` channel controls human-in-the-loop interrupt behavior (see [Approval Workflow](#human-in-the-loop-approval-workflow)).
+The `messages` channel uses a reducer to accumulate messages from all nodes. The `error` channel preserves the previous value when `undefined` is returned. The `approvalGates` channel controls human-in-the-loop interrupt behavior (see [Approval Workflow](#human-in-the-loop-approval-workflow)).
 
 #### Graph Nodes
 
-Each node is a separate file in `feature-agent/nodes/`:
+Node files live in `feature-agent/nodes/` with validation schemas in `feature-agent/nodes/schemas/`:
+
+**Producer nodes** (execute SDLC phases):
 
 | Node           | File                   | Purpose                                     | Reads           |
 | -------------- | ---------------------- | ------------------------------------------- | --------------- |
@@ -183,23 +195,47 @@ Each node is a separate file in `feature-agent/nodes/`:
 | `plan`         | `plan.node.ts`         | Checks whether plan.yaml exists             | `plan.yaml`     |
 | `implement`    | `implement.node.ts`    | Checks whether tasks.yaml exists            | `tasks.yaml`    |
 
+**Validate nodes** (check output quality after each producer):
+
+| Node                         | Purpose                                 |
+| ---------------------------- | --------------------------------------- |
+| `validate_spec_analyze`      | Validates spec after analyze phase      |
+| `validate_spec_requirements` | Validates spec after requirements phase |
+| `validate_research`          | Validates research output               |
+| `validate_plan_tasks`        | Validates plan and tasks output         |
+
+**Repair nodes** (fix validation failures, loop back to validate):
+
+| Node                       | Purpose                                      |
+| -------------------------- | -------------------------------------------- |
+| `repair_spec_analyze`      | Repairs spec issues found after analyze      |
+| `repair_spec_requirements` | Repairs spec issues found after requirements |
+| `repair_research`          | Repairs research issues                      |
+| `repair_plan_tasks`        | Repairs plan/tasks issues                    |
+
+**Optional nodes**:
+
+| Node    | Purpose                                             |
+| ------- | --------------------------------------------------- |
+| `merge` | Merges branch, pushes, and opens PR (if configured) |
+
 #### Graph Flow
 
 ```
-START → analyze → requirements → research → plan → implement → END
+START → analyze → validate_spec_analyze ⇄ repair_spec_analyze → requirements → validate_spec_requirements ⇄ repair_spec_requirements → research → validate_research ⇄ repair_research → plan → validate_plan_tasks ⇄ repair_plan_tasks → implement → [merge] → END
 ```
 
-Linear flow — each node executes sequentially. Future iterations may add conditional edges (e.g., looping back from requirements if criteria are missing).
+The graph has **14 nodes** total: 5 producer nodes, 4 validate nodes, 4 repair nodes, and 1 optional merge node. Each producer node is followed by a validate/repair loop — the validate node checks output quality, and if validation fails, the repair node attempts to fix the issues before looping back to validate. The optional `merge` node runs when push/PR creation is configured.
 
 #### Factory Function
 
 **File:** `feature-agent/feature-agent-graph.ts`
 
 ```typescript
-createFeatureAgentGraph(executor: IAgentExecutor, checkpointer?: BaseCheckpointSaver): CompiledStateGraph
+createFeatureAgentGraph(depsOrExecutor: FeatureAgentGraphDeps | IAgentExecutor, checkpointer?: BaseCheckpointSaver): CompiledStateGraph
 ```
 
-Accepts an `IAgentExecutor` (resolved from settings via the factory — see [Settings-Driven Agent Resolution](#settings-driven-agent-resolution-mandatory)) and an optional `BaseCheckpointSaver` for state persistence across invocations. The executor is passed to all graph nodes that need it — **nodes never resolve an executor themselves**. The DI container registers a `:memory:` SQLite checkpointer by default.
+Accepts either a `FeatureAgentGraphDeps` object (containing the executor and other dependencies) or a bare `IAgentExecutor` (resolved from settings via the factory — see [Settings-Driven Agent Resolution](#settings-driven-agent-resolution-mandatory)), plus an optional `BaseCheckpointSaver` for state persistence across invocations. The executor is passed to all graph nodes that need it — **nodes never resolve an executor themselves**. The DI container registers a `:memory:` SQLite checkpointer by default.
 
 #### Background Execution
 
@@ -243,7 +279,7 @@ The feature agent supports four approval modes controlled via CLI flags on `shep
 **Key Technical Details:**
 
 - `interrupt()` throws `GraphInterrupt` (extends `GraphBubbleUp`) — catch blocks must re-throw with `isGraphBubbleUp(err)`
-- The `approvalMode` is stored in both `FeatureAgentState` (for node-level decisions) and `AgentRun` DB record (for resume persistence)
+- The `approvalGates` is stored in both `FeatureAgentState` (for node-level decisions) and `AgentRun` DB record (for resume persistence)
 - State is checkpointed to file-based SQLite DB at `~/.shep/checkpoints/<run-id>.db`
 
 #### Resume Command
@@ -366,13 +402,14 @@ flowchart LR
 
 ## State Schema
 
+> **Note:** The actual implemented state schema is `FeatureAgentAnnotation` in `src/infrastructure/services/agents/feature-agent/state.ts` — see [FeatureAgent Graph](#featureagent-graph) above. The schema below is from the **planned** multi-agent supervisor architecture.
+
 ```typescript
-// src/infrastructure/agents/langgraph/state.ts
+// Planned multi-agent supervisor state (not yet implemented)
 
 import { Annotation } from '@langchain/langgraph';
-import { BaseMessage } from '@langchain/core/messages';
 
-export const FeatureState = Annotation.Root({
+export const SupervisorState = Annotation.Root({
   // Context
   repoPath: Annotation<string>,
   repoAnalysis: Annotation<RepoAnalysis | null>,
@@ -396,8 +433,8 @@ export const FeatureState = Annotation.Root({
     default: () => [],
   }),
 
-  // Conversation history
-  messages: Annotation<BaseMessage[]>({
+  // Log messages
+  messages: Annotation<string[]>({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),

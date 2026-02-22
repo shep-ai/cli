@@ -5,6 +5,14 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
 }));
 
+vi.mock('@/hooks/agent-events-provider', () => ({
+  useAgentEventsContext: () => ({
+    events: [],
+    lastEvent: null,
+    connectionStatus: 'connected' as const,
+  }),
+}));
+
 import { ControlCenter } from '@/components/features/control-center';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 

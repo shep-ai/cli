@@ -1,16 +1,16 @@
 # Working with LangGraph Agents
 
-> **IMPORTANT: Implementation Status**
+> **Implementation Status**
 >
-> This guide describes the **planned LangGraph-based agent system** which is **not yet implemented**. The code examples, graph definitions, and node functions shown below do not exist in the codebase. This document is retained as architectural planning documentation for future implementation.
+> The **FeatureAgent LangGraph graph** is implemented at `packages/core/src/infrastructure/services/agents/feature-agent/`. This guide covers LangGraph concepts and patterns used in the agent system. Some advanced examples (multi-agent supervisor, tool bindings) describe planned extensions.
 >
-> The current agent system handles configuration and execution of external AI coding tools (Claude Code, Cursor currently available; Gemini CLI, Aider, Continue planned). Agent selection is settings-driven — see [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+> See [AGENTS.md](../../AGENTS.md#current-implementation) for the full current implementation details.
 
 ---
 
-## Planned Architecture (Not Yet Implemented)
+## LangGraph Agent System
 
-Guide to understanding and extending Shep's planned LangGraph-based agent system.
+Guide to understanding and extending Shep's LangGraph-based agent system.
 
 ## Overview
 
@@ -27,7 +27,7 @@ Shep will use [LangGraph](https://www.langchain.com/langgraph) for multi-agent o
 ### Running a Workflow
 
 ```typescript
-import { createFeatureGraph } from '@/infrastructure/agents/langgraph/graphs/feature.graph';
+import { createFeatureGraph } from '@/infrastructure/services/agents/feature-agent/graphs/feature.graph';
 
 const workflow = createFeatureGraph();
 
@@ -79,7 +79,7 @@ export const FeatureState = Annotation.Root({
   }),
 
   // Messages for conversation history
-  messages: Annotation<BaseMessage[]>({
+  messages: Annotation<string[]>({
     reducer: (prev, next) => [...prev, ...next],
     default: () => [],
   }),
@@ -323,7 +323,7 @@ graph.addNode('parallel_tasks', async (state) => {
 ```typescript
 // tests/unit/agents/nodes/analyze.node.test.ts
 import { describe, it, expect, vi } from 'vitest';
-import { analyzeNode } from '@/infrastructure/agents/langgraph/nodes/analyze.node';
+import { analyzeNode } from '@/infrastructure/services/agents/feature-agent/nodes/analyze.node';
 
 describe('analyzeNode', () => {
   it('should analyze repository and update state', async () => {
@@ -346,7 +346,7 @@ describe('analyzeNode', () => {
 ```typescript
 // tests/integration/agents/graphs/feature.graph.test.ts
 import { describe, it, expect } from 'vitest';
-import { createFeatureGraph } from '@/infrastructure/agents/langgraph/graphs/feature.graph';
+import { createFeatureGraph } from '@/infrastructure/services/agents/feature-agent/graphs/feature.graph';
 
 describe('FeatureGraph', () => {
   it('should complete full workflow', async () => {

@@ -1,8 +1,8 @@
 'use client';
 
-import { XIcon, Code2, Terminal, Loader2, Trash2 } from 'lucide-react';
+import { XIcon, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ActionButton } from '@/components/common/action-button';
+import { OpenActionMenu } from '@/components/common/open-action-menu';
 import {
   Drawer,
   DrawerContent,
@@ -45,6 +45,7 @@ export function FeatureDrawer({
     <Drawer
       direction="right"
       modal={false}
+      handleOnly
       open={selectedNode !== null}
       onOpenChange={(open) => {
         if (!open) onClose();
@@ -74,6 +75,7 @@ export function FeatureDrawer({
               <DrawerActions
                 repositoryPath={selectedNode.repositoryPath}
                 branch={selectedNode.branch}
+                specPath={selectedNode.specPath}
               />
             ) : null}
 
@@ -211,26 +213,20 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function DrawerActions({ repositoryPath, branch }: { repositoryPath: string; branch: string }) {
-  const { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError } =
-    useFeatureActions({ repositoryPath, branch });
+function DrawerActions({
+  repositoryPath,
+  branch,
+  specPath,
+}: {
+  repositoryPath: string;
+  branch: string;
+  specPath?: string;
+}) {
+  const actions = useFeatureActions({ repositoryPath, branch, specPath });
 
   return (
     <div className="flex gap-2 px-4 pb-3">
-      <ActionButton
-        label="Open in IDE"
-        onClick={openInIde}
-        loading={ideLoading}
-        error={!!ideError}
-        icon={Code2}
-      />
-      <ActionButton
-        label="Open in Shell"
-        onClick={openInShell}
-        loading={shellLoading}
-        error={!!shellError}
-        icon={Terminal}
-      />
+      <OpenActionMenu actions={actions} repositoryPath={repositoryPath} showSpecs={!!specPath} />
     </div>
   );
 }

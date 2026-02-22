@@ -4,17 +4,14 @@
  * Streams agent lifecycle notification events to connected web UI clients
  * via Server-Sent Events (SSE). This is the first API route in the web UI.
  *
- * - Subscribes to the notification event bus (shared in-process singleton)
+ * - Subscribes to the notification event bus (lazy-initialized singleton)
  * - Formats events as SSE data frames (event: notification\ndata: JSON\n\n)
  * - Sends heartbeat comments every 30 seconds to keep connection alive
  * - Supports optional ?runId query parameter to filter events
  * - Cleans up listeners and intervals on client disconnect
  */
 
-import {
-  getNotificationBus,
-  hasNotificationBus,
-} from '@shepai/core/infrastructure/services/notifications/notification-bus';
+import { getNotificationBus } from '@shepai/core/infrastructure/services/notifications/notification-bus';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 
 const HEARTBEAT_INTERVAL_MS = 30_000;
@@ -34,18 +31,9 @@ export function GET(request: Request): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const encoder = new TextEncoder();
-
-      // Check if bus is available
-      if (!hasNotificationBus()) {
-        controller.close();
-        return;
-      }
-
       const bus = getNotificationBus();
 
-      // Notification event listener
       const onNotification = (event: NotificationEvent) => {
-        // Apply runId filter if set
         if (runIdFilter && event.agentRunId !== runIdFilter) {
           return;
         }

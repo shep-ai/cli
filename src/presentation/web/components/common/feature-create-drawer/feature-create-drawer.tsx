@@ -129,7 +129,7 @@ export function FeatureCreateDrawer({
   }, []);
 
   return (
-    <Drawer direction="right" modal={false} open={open} onOpenChange={handleOpenChange}>
+    <Drawer direction="right" modal={false} handleOnly open={open} onOpenChange={handleOpenChange}>
       <DrawerContent direction="right" className="w-96" showCloseButton={false}>
         {/* Close button */}
         <button

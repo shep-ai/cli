@@ -71,6 +71,7 @@
   --animate-accordion-up: accordion-up 0.2s ease-out;
   --animate-spinner: spinner 0.8s linear infinite;
   --animate-indeterminate-progress: indeterminate-progress 1.5s ease-in-out infinite;
+  --animate-option-highlight: option-highlight 1.5s ease-out;
 }
 
 /* Dark Mode Theme Overrides */
@@ -138,6 +139,15 @@
   }
   100% {
     transform: translateX(400%);
+  }
+}
+
+@keyframes option-highlight {
+  0% {
+    background-color: #ecfdf5;
+  }
+  100% {
+    background-color: transparent;
   }
 }
 

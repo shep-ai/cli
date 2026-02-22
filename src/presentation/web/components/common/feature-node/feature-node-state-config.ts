@@ -50,6 +50,8 @@ export interface FeatureNodeData {
   repositoryPath: string;
   /** Git branch name for this feature */
   branch: string;
+  /** Absolute path to the specs folder on disk */
+  specPath?: string;
   /** Human-readable runtime for done state (e.g. "2h 15m") */
   runtime?: string;
   /** Feature name this node is blocked by */

@@ -117,7 +117,7 @@ model Settings extends BaseEntity {
   system: SystemConfig;
 }
 
-// Generated: src/domain/generated/output.ts
+// Generated: packages/core/src/domain/generated/output.ts
 export interface Settings {
   id: string;
   createdAt: Date;
@@ -149,7 +149,7 @@ export interface Settings {
 **Implementation:**
 
 ```typescript
-// src/infrastructure/services/settings.service.ts
+// packages/core/src/infrastructure/services/settings.service.ts
 let settingsInstance: Settings | null = null;
 
 export function initializeSettings(settings: Settings): void {
@@ -215,7 +215,7 @@ CREATE TABLE IF NOT EXISTS settings (
 **Implementation:**
 
 ```typescript
-// src/infrastructure/repositories/sqlite-settings.repository.ts
+// packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts
 @injectable()
 export class SQLiteSettingsRepository implements ISettingsRepository {
   constructor(private readonly db: Database.Database) {}
@@ -258,7 +258,7 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
 **Implementation:**
 
 ```typescript
-// src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+// packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
 
 export interface SettingsRow {
   id: string;
@@ -318,7 +318,7 @@ export function fromDatabase(row: SettingsRow): Settings {
 **Implementation:**
 
 ```typescript
-// src/infrastructure/di/container.ts
+// packages/core/src/infrastructure/di/container.ts
 import 'reflect-metadata';
 import { container } from 'tsyringe';
 
@@ -506,7 +506,7 @@ bootstrap();
 ## File Structure
 
 ```
-src/
+packages/core/src/
 ├── domain/
 │   └── generated/
 │       └── output.ts              # TypeSpec-generated types (Settings interface)
@@ -521,23 +521,23 @@ src/
 │           ├── load-settings.use-case.ts         # Load existing
 │           └── update-settings.use-case.ts       # Update existing
 │
-├── infrastructure/
-│   ├── di/
-│   │   └── container.ts           # tsyringe DI container setup
-│   ├── persistence/
-│   │   └── sqlite/
-│   │       ├── connection.ts      # Database connection (~/.shep/data)
-│   │       ├── migrations.ts      # Schema migrations (user_version)
-│   │       └── mappers/
-│   │           └── settings.mapper.ts  # TS ↔ SQL conversion
-│   ├── repositories/
-│   │   └── sqlite-settings.repository.ts  # SQLiteSettingsRepository impl
-│   └── services/
-│       └── settings.service.ts    # Singleton service (getSettings, initializeSettings)
-│
-└── presentation/
-    └── cli/
-        └── index.ts               # CLI entry point (bootstrap function)
+└── infrastructure/
+    ├── di/
+    │   └── container.ts           # tsyringe DI container setup
+    ├── persistence/
+    │   └── sqlite/
+    │       ├── connection.ts      # Database connection (~/.shep/data)
+    │       ├── migrations.ts      # Schema migrations (user_version)
+    │       └── mappers/
+    │           └── settings.mapper.ts  # TS ↔ SQL conversion
+    ├── repositories/
+    │   └── sqlite-settings.repository.ts  # SQLiteSettingsRepository impl
+    └── services/
+        └── settings.service.ts    # Singleton service (getSettings, initializeSettings)
+
+src/presentation/
+└── cli/
+    └── index.ts               # CLI entry point (bootstrap function)
 ```
 
 ## Testing Strategy
@@ -699,6 +699,6 @@ describe('CLI: settings initialization', () => {
 **Related files:**
 
 - `tsp/domain/entities/settings.tsp` - TypeSpec model definition
-- `src/infrastructure/di/container.ts` - DI container setup
-- `src/infrastructure/services/settings.service.ts` - Singleton service
-- `src/infrastructure/repositories/sqlite-settings.repository.ts` - Repository implementation
+- `packages/core/src/infrastructure/di/container.ts` - DI container setup
+- `packages/core/src/infrastructure/services/settings.service.ts` - Singleton service
+- `packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts` - Repository implementation
