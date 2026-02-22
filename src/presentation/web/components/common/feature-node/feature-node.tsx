@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus, Search, Wrench, type LucideIcon } from 'lucide-react';
+import { Settings, Plus, FileText, Wrench, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   featureNodeStateConfig,
@@ -19,10 +19,22 @@ function AgentIcon({ agentType, className }: { agentType?: string; className?: s
 function getBadgeIcon(data: FeatureNodeData): LucideIcon {
   const config = featureNodeStateConfig[data.state];
   if (data.state === 'action-required') {
-    if (data.lifecycle === 'requirements') return Search;
+    if (data.lifecycle === 'requirements') return FileText;
     if (data.lifecycle === 'implementation') return Wrench;
   }
   return config.icon;
+}
+
+/** Returns override badge classes for action-required based on lifecycle phase. */
+function getActionRequiredBadgeClasses(data: FeatureNodeData): {
+  badgeClass: string;
+  badgeBgClass: string;
+} | null {
+  if (data.state !== 'action-required') return null;
+  if (data.lifecycle === 'implementation') {
+    return { badgeClass: 'text-indigo-700', badgeBgClass: 'bg-indigo-50' };
+  }
+  return null; // requirements stays amber (default)
 }
 
 function getBadgeText(data: FeatureNodeData): string {
@@ -176,11 +188,14 @@ export function FeatureNode({
               {/* State badge */}
               <div
                 data-testid="feature-node-badge"
-                className={cn(
-                  'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                  config.badgeBgClass,
-                  config.badgeClass
-                )}
+                className={(() => {
+                  const override = getActionRequiredBadgeClasses(data);
+                  return cn(
+                    'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                    override?.badgeBgClass ?? config.badgeBgClass,
+                    override?.badgeClass ?? config.badgeClass
+                  );
+                })()}
               >
                 {(() => {
                   const BadgeIcon = getBadgeIcon(data);
