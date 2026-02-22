@@ -135,6 +135,12 @@ export function createShowCommand(): Command {
 
         if (timings.length > 0) {
           const isWaiting = run?.status === 'waiting_approval';
+          // Detect crashed agent: DB says running but process is dead
+          const isCrashed =
+            run &&
+            (run.status === 'running' || run.status === 'pending') &&
+            run.pid != null &&
+            !isProcessAlive(run.pid);
           const maxDurationMs = Math.max(
             ...timings.map((t) => (t.durationMs != null ? Number(t.durationMs) : 0))
           );
@@ -162,6 +168,24 @@ export function createShowCommand(): Command {
             // Waiting for approval - only the LAST timing
             else if (isLast && isWaiting) {
               lines.push(`${label} ${colors.warning('awaiting review')}`);
+            }
+            // Crashed/stopped phase - red bar with frozen duration
+            else if (isCrashed || run?.status === 'interrupted' || run?.status === 'failed') {
+              // Use time from startedAt to run's updatedAt (when crash was detected), not wall-clock
+              const endTime = run?.updatedAt
+                ? new Date(run.updatedAt as string | number).getTime()
+                : Date.now();
+              const elapsedMs = Math.max(0, endTime - new Date(t.startedAt).getTime());
+              const secs = (elapsedMs / 1000).toFixed(1);
+              const barLen =
+                maxDurationMs > 0
+                  ? Math.min(
+                      MAX_BAR,
+                      Math.max(1, Math.round((elapsedMs / maxDurationMs) * MAX_BAR))
+                    )
+                  : 1;
+              const bar = `${colors.error('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(MAX_BAR - barLen))}`;
+              lines.push(`${label} ${bar} ${secs}s (crashed)`);
             }
             // Running phase - blue bar with elapsed time
             else {
