@@ -1,0 +1,42 @@
+feature:
+  id: 035-gemini-cli-executor-2
+  name: gemini-cli-executor-2
+  number: 35
+  branch: feat/035-gemini-cli-executor-2
+  lifecycle: implementation
+  createdAt: '2026-02-22T11:53:37Z'
+status:
+  phase: ready-for-review
+  progress:
+    completed: 9
+    total: 9
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-22T12:44:00Z'
+  lastUpdatedBy: shep-kit:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - implementation
+validation:
+  lastRun: '2026-02-22T12:00:00Z'
+  gatesPassed:
+    - completeness
+    - consistency
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-22T11:53:37Z'
+    completedBy: feature-agent
+  - phase: implementation-complete
+    completedAt: '2026-02-22T12:44:00Z'
+    completedBy: shep-kit:implement
+errors:
+  current: null
+  history: []

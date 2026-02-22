@@ -35,15 +35,28 @@ describe('AgentExecutorFactory', () => {
       expect(executor.agentType).toBe(AgentType.ClaudeCode);
     });
 
-    it('should throw for unsupported agent types', () => {
-      const unsupportedConfig: AgentConfig = {
+    it('should create GeminiCliExecutor for gemini-cli type', () => {
+      const geminiConfig: AgentConfig = {
         type: AgentType.GeminiCli,
         authMethod: AgentAuthMethod.Session,
       };
 
-      expect(() => factory.createExecutor(AgentType.GeminiCli, unsupportedConfig)).toThrow(
-        'Unsupported agent type: gemini-cli'
-      );
+      const executor = factory.createExecutor(AgentType.GeminiCli, geminiConfig);
+
+      expect(executor).toBeDefined();
+      expect(executor.agentType).toBe(AgentType.GeminiCli);
+    });
+
+    it('should cache gemini-cli executor instances', () => {
+      const geminiConfig: AgentConfig = {
+        type: AgentType.GeminiCli,
+        authMethod: AgentAuthMethod.Session,
+      };
+
+      const executor1 = factory.createExecutor(AgentType.GeminiCli, geminiConfig);
+      const executor2 = factory.createExecutor(AgentType.GeminiCli, geminiConfig);
+
+      expect(executor1).toBe(executor2);
     });
 
     it('should throw for aider agent type', () => {
@@ -89,13 +102,13 @@ describe('AgentExecutorFactory', () => {
 
       expect(supported).toContain('claude-code');
       expect(supported).toContain('cursor');
-      expect(supported).toHaveLength(2);
+      expect(supported).toContain('gemini-cli');
+      expect(supported).toHaveLength(3);
     });
 
     it('should not include unsupported agents', () => {
       const supported = factory.getSupportedAgents();
 
-      expect(supported).not.toContain('gemini-cli');
       expect(supported).not.toContain('aider');
       expect(supported).not.toContain('continue');
     });

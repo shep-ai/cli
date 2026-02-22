@@ -1,0 +1,154 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: gemini-cli-executor-2
+summary: >
+  Implement GeminiCliExecutorService following the CursorExecutorService pattern closely, with one key
+  extension: passing AgentConfig to the constructor for GEMINI_API_KEY env var injection on token auth.
+  The implementation spans 3 phases — (1) core executor with TDD, (2) integration into factory/validator/TUI,
+  (3) streaming support — touching 5 existing files and creating 2 new files. Zero new interfaces,
+  zero TypeSpec changes, zero DI container changes.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Google Gemini CLI (gemini binary, v0.29+)
+  - TypeScript
+  - tsyringe (DI)
+  - node:child_process (spawn)
+  - Vitest (unit tests)
+  - Commander.js (CLI)
+  - Inquirer.js (TUI wizard)
+relatedLinks:
+  - https://github.com/google-gemini/gemini-cli
+  - https://geminicli.com/docs/cli/headless/
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Core Executor — execute() with TDD'
+    description: >
+      Build GeminiCliExecutorService with execute() (JSON output), argument building, feature
+      declaration, token auth env var injection, error handling, and timeout support. This is the
+      foundation — all subsequent phases depend on a working executor with passing tests. Follows
+      CursorExecutorService patterns closely but adds authConfig constructor param for GEMINI_API_KEY.
+    parallel: false
+
+  - id: phase-2
+    name: 'System Integration'
+    description: >
+      Wire the executor into the existing agent system: factory switch case, validator binary map,
+      and TUI prompt activation. Small, focused changes to existing files (3-10 lines each) with
+      corresponding test updates. Each integration point touches a different file.
+    parallel: false
+
+  - id: phase-3
+    name: 'Streaming — executeStream() with TDD'
+    description: >
+      Add stream-JSON parsing for executeStream() using the async queue pattern from CursorExecutorService.
+      Maps Gemini stream-JSON event types (init, message, tool_use, tool_result, result, error) to
+      AgentExecutionStreamEvent. Most complex phase, but patterns are well-established in the codebase.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/infrastructure/services/agents/common/executors/gemini-cli-executor.service.ts
+  - tests/unit/infrastructure/services/agents/executors/gemini-cli-executor.test.ts
+
+filesToModify:
+  - packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts
+  - packages/core/src/infrastructure/services/agents/common/agent-validator.service.ts
+  - src/presentation/tui/prompts/agent-select.prompt.ts
+  - tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts
+  - tests/unit/infrastructure/services/agents/agent-validator.service.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The agent executor system follows a factory + provider pattern with dependency injection:
+
+  ```
+  DI Container → AgentExecutorProvider → AgentExecutorFactory → IAgentExecutor
+  ```
+
+  Each executor implements `IAgentExecutor` with `execute()`, `executeStream()`, and `supportsFeature()`.
+  Executors are self-contained: they receive a `SpawnFunction` via constructor, build CLI args internally,
+  spawn the binary, parse output, and return typed results. The factory caches instances by agent type.
+
+  `GeminiCliExecutorService` fits cleanly into this architecture with one small extension: the constructor
+  also accepts an optional `AgentConfig` so it can inject `GEMINI_API_KEY` into the spawned process
+  environment when token auth is configured. The factory already receives `_authConfig` (currently unused)
+  — it just needs to forward it for the gemini-cli case.
+
+  ### File Placement
+
+  ```
+  packages/core/src/infrastructure/services/agents/common/executors/
+  ├── claude-code-executor.service.ts   (441 lines, existing)
+  ├── cursor-executor.service.ts        (340 lines, existing)
+  └── gemini-cli-executor.service.ts    (~280 lines, NEW)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. GEMINI_API_KEY (not GOOGLE_API_KEY) for Token Auth
+
+  Research corrects the spec: `GEMINI_API_KEY` is the official env var for Google AI Studio API keys.
+  `GOOGLE_API_KEY` is for Vertex AI and requires additional config (GOOGLE_CLOUD_PROJECT, etc.).
+  The executor passes `GEMINI_API_KEY=<token>` in the spawned process environment when
+  `authConfig.authMethod === 'token'` and `authConfig.token` is non-empty.
+
+  ### 2. Constructor Accepts Optional AgentConfig
+
+  Unlike Claude/Cursor executors (which take only SpawnFunction), Gemini needs auth config for env var
+  injection. The constructor signature is `constructor(spawn: SpawnFunction, authConfig?: AgentConfig)`.
+  The factory's `createExecutor(agentType, authConfig)` already has the authConfig param — just forwards it.
+
+  ### 3. Separate Output Formats for execute() vs executeStream()
+
+  - `execute()`: `--output-format json` → single JSON object, simple parse
+  - `executeStream()`: `--output-format stream-json` → newline-delimited JSON events
+
+  Cleaner than always using stream-json and accumulating. Gemini's JSON output is well-structured
+  enough for direct parsing.
+
+  ### 4. Defensive Stream Parsing
+
+  Stream-json format is relatively new (mid-2025). Implementation uses try/catch per line, handles
+  known event types explicitly, skips unknown types with debug log, and falls back to raw progress
+  events for non-JSON lines. Mirrors the CursorExecutorService pattern.
+
+  ### 5. Feature Declaration: session-resume, streaming, tool-scoping
+
+  Gemini CLI supports `--resume`, `--output-format stream-json`, and `--allowed-tools`, but lacks
+  `--append-system-prompt` and `--json-schema` equivalents. Feature matrix ensures
+  StructuredAgentCallerService correctly falls back to prompt-wrapping.
+
+  ## Implementation Strategy
+
+  **Phase ordering rationale:**
+
+  Phase 1 (Core Executor) comes first because it establishes the new file and all foundational logic.
+  Tests are written first (TDD RED) covering execute(), args, auth, errors, and features — then
+  implementation satisfies them (GREEN), then cleanup (REFACTOR).
+
+  Phase 2 (Integration) comes second because it wires the tested executor into the system. Each
+  integration point is small and independent (factory, validator, TUI), with corresponding test updates.
+
+  Phase 3 (Streaming) comes last because it builds on the established executor file and test patterns
+  from Phase 1. Stream parsing is the most complex logic but follows well-established patterns from
+  CursorExecutorService.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Gemini CLI stream-json format may differ from documented structure | Defensive parsing with try/catch per line; skip unknown event types; fallback to raw progress |
+  | GEMINI_API_KEY env var name could change in future CLI versions | Single constant definition; easy to update |
+  | Factory caching ignores auth config changes | Acceptable per existing pattern — token changes require settings update which restarts agent system |
+  | Gemini CLI not installed on CI | Tests use mock SpawnFunction — no real binary needed |
+  | Stream-json session_id field may be absent | Return undefined for sessionId — don't fail. `--resume "latest"` fallback exists |
