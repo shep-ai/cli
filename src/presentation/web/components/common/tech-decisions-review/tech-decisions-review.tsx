@@ -17,9 +17,14 @@ function DecisionCard({ decision }: { decision: TechDecision }) {
           {decision.title}
         </p>
         <p className="text-foreground mt-1 text-sm font-semibold">{decision.chosen}</p>
+        {decision.rationale ? (
+          <p className="text-muted-foreground mt-1 text-xs leading-relaxed italic">
+            {decision.rationale}
+          </p>
+        ) : null}
       </div>
 
-      {/* Expandable rejected + rationale */}
+      {/* Expandable rejected alternatives */}
       {decision.rejected.length > 0 ? (
         <div className="border-border border-t px-3 py-2">
           <button
@@ -34,18 +39,11 @@ function DecisionCard({ decision }: { decision: TechDecision }) {
             {decision.rejected.length > 1 ? 's' : ''}
           </button>
           {expanded ? (
-            <div className="mt-2 space-y-2">
-              <ul className="text-muted-foreground ml-4 list-disc space-y-1 text-xs">
-                {decision.rejected.map((alt) => (
-                  <li key={alt}>{alt}</li>
-                ))}
-              </ul>
-              {decision.rationale ? (
-                <p className="text-muted-foreground text-xs leading-relaxed italic">
-                  {decision.rationale}
-                </p>
-              ) : null}
-            </div>
+            <ul className="text-muted-foreground mt-2 ml-4 list-disc space-y-1 text-xs">
+              {decision.rejected.map((alt) => (
+                <li key={alt}>{alt}</li>
+              ))}
+            </ul>
           ) : null}
         </div>
       ) : null}
