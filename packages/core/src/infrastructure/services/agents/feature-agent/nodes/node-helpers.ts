@@ -321,16 +321,41 @@ export function executeNode(
     await updateNodeLifecycle(nodeName);
 
     // On resume from interrupt, LangGraph re-executes the node function from
-    // the top. Skip the expensive executor call if this phase already completed
-    // (markPhaseComplete is called before interrupt, so completed = done but
-    // awaiting approval; the approval has now been granted).
+    // the top. If this phase already completed (markPhaseComplete is called
+    // before interrupt), consume the resume value to determine next action:
+    // - Approval: skip re-execution, continue to next node
+    // - Rejection: clear completed phase, fall through to re-execute
+    //
+    // IMPORTANT: This interrupt() consumes the resume value from
+    // Command({ resume }). If rejected and re-executed, the interrupt() at the
+    // bottom of this function will have no pending resume value and will
+    // correctly suspend for a new approval cycle.
     const completedPhases = getCompletedPhases(state.specDir);
     if (completedPhases.includes(nodeName)) {
-      log.info('Phase already completed (resuming from approval), skipping execution');
-      return {
-        currentNode: nodeName,
-        messages: [`[${nodeName}] Approved — continuing`],
-      };
+      if (shouldInterrupt(nodeName, state.approvalGates)) {
+        const resumeValue = interrupt({
+          node: nodeName,
+          message: `Node "${nodeName}" completed. Approve to continue.`,
+        });
+
+        if (isRejectionPayload(resumeValue)) {
+          log.info(`Phase rejected with feedback: "${resumeValue.feedback}" — re-executing`);
+          clearCompletedPhase(state.specDir, nodeName, log);
+          // Fall through to re-execute the node
+        } else {
+          log.info('Phase approved, skipping re-execution');
+          return {
+            currentNode: nodeName,
+            messages: [`[${nodeName}] Approved — continuing`],
+          };
+        }
+      } else {
+        log.info('Phase already completed (no gate), skipping execution');
+        return {
+          currentNode: nodeName,
+          messages: [`[${nodeName}] Approved — continuing`],
+        };
+      }
     }
 
     const startTime = Date.now();

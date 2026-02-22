@@ -21,21 +21,16 @@ vi.mock('js-yaml', () => ({
 
 vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
   writeSpecFileAtomic: vi.fn(),
-  clearCompletedPhase: vi.fn(),
 }));
 
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
-import {
-  writeSpecFileAtomic,
-  clearCompletedPhase,
-} from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import { writeSpecFileAtomic } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 
 const mockReadFileSync = vi.mocked(readFileSync);
 const mockYamlLoad = vi.mocked(yaml.load);
 const mockYamlDump = vi.mocked(yaml.dump);
 const mockWriteSpecFileAtomic = vi.mocked(writeSpecFileAtomic);
-const mockClearCompletedPhase = vi.mocked(clearCompletedPhase);
 
 function createMockRunRepository() {
   return {
@@ -271,64 +266,6 @@ describe('RejectAgentRunUseCase (iteration support)', () => {
 
     expect(result.rejected).toBe(false);
     expect(result.reason).toContain('Feedback is required');
-  });
-
-  it('should clear rejected phase from completedPhases before spawning worker', async () => {
-    mockRunRepo.findById.mockResolvedValue(createWaitingRun());
-    mockTimingRepo.findByRunId.mockResolvedValue([
-      {
-        id: 'timing-001',
-        agentRunId: 'run-001',
-        phase: 'requirements',
-        startedAt: new Date(),
-        waitingApprovalAt: new Date(Date.now() - 5000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ]);
-    mockReadFileSync.mockReturnValue('yaml-content');
-    mockYamlLoad.mockReturnValue({ openQuestions: [] });
-    mockYamlDump.mockReturnValue('updated-yaml');
-
-    await useCase.execute('run-001', 'Fix something');
-
-    expect(mockClearCompletedPhase).toHaveBeenCalledWith(
-      '/test/repo/.shep/wt/feat-branch',
-      'requirements'
-    );
-    // clearCompletedPhase must be called before spawn
-    const clearOrder = mockClearCompletedPhase.mock.invocationCallOrder[0];
-    const spawnOrder = mockProcessService.spawn.mock.invocationCallOrder[0];
-    expect(clearOrder).toBeLessThan(spawnOrder);
-  });
-
-  it('should strip iteration suffix when clearing completed phase', async () => {
-    mockRunRepo.findById.mockResolvedValue(createWaitingRun());
-    mockTimingRepo.findByRunId.mockResolvedValue([
-      {
-        id: 'timing-002',
-        agentRunId: 'run-001',
-        phase: 'requirements:2',
-        startedAt: new Date(),
-        waitingApprovalAt: new Date(Date.now() - 5000),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      },
-    ]);
-    mockReadFileSync.mockReturnValue('yaml-content');
-    mockYamlLoad.mockReturnValue({
-      openQuestions: [],
-      rejectionFeedback: [{ iteration: 1, message: 'First', timestamp: '' }],
-    });
-    mockYamlDump.mockReturnValue('updated-yaml');
-
-    await useCase.execute('run-001', 'Second fix');
-
-    // Should strip ":2" suffix and clear "requirements"
-    expect(mockClearCompletedPhase).toHaveBeenCalledWith(
-      '/test/repo/.shep/wt/feat-branch',
-      'requirements'
-    );
   });
 
   it('should record approval wait duration', async () => {
