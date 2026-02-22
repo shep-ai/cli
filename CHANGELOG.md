@@ -1,3 +1,9 @@
+## [1.37.3](https://github.com/shep-ai/cli/compare/v1.37.2...v1.37.3) (2026-02-22)
+
+### Bug Fixes
+
+- **cli:** include feature short id in approve/reject hints ([#87](https://github.com/shep-ai/cli/issues/87)) ([c803bd9](https://github.com/shep-ai/cli/commit/c803bd962b76733b46822e0b02f618dee2a53e54))
+
 ## [1.37.2](https://github.com/shep-ai/cli/compare/v1.37.1...v1.37.2) (2026-02-22)
 
 ### Bug Fixes
