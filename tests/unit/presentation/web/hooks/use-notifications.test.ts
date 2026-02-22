@@ -15,12 +15,12 @@ vi.mock('sonner', () => ({
   toast: mockToast,
 }));
 
-// --- Mock useAgentEvents ---
+// --- Mock useAgentEventsContext ---
 let mockEvents: NotificationEvent[] = [];
 let mockLastEvent: NotificationEvent | null = null;
 
-vi.mock('../../../../../src/presentation/web/hooks/use-agent-events.js', () => ({
-  useAgentEvents: () => ({
+vi.mock('../../../../../src/presentation/web/hooks/agent-events-provider.js', () => ({
+  useAgentEventsContext: () => ({
     events: mockEvents,
     lastEvent: mockLastEvent,
     connectionStatus: 'connected' as const,

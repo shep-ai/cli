@@ -15,6 +15,14 @@ vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: mockRefresh }),
 }));
 
+vi.mock('@/hooks/agent-events-provider', () => ({
+  useAgentEventsContext: () => ({
+    events: [],
+    lastEvent: null,
+    connectionStatus: 'connected' as const,
+  }),
+}));
+
 const mockToastSuccess = vi.fn();
 const mockToastError = vi.fn();
 vi.mock('sonner', () => ({
