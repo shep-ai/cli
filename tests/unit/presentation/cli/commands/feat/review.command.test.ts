@@ -95,7 +95,7 @@ describe('createReviewCommand', () => {
     );
   });
 
-  it('should fallback to non-interactive when review fails', async () => {
+  it('should set exitCode 1 and skip wizard when review returns no questions', async () => {
     mockResolveWaiting.mockResolvedValue({ feature, run });
     mockReviewExecute.mockResolvedValue({ success: false, reason: 'No questions' });
 
@@ -103,7 +103,7 @@ describe('createReviewCommand', () => {
     await cmd.parseAsync([], { from: 'user' });
 
     expect(mockWizard).not.toHaveBeenCalled();
-    expect(process.exitCode).toBeUndefined();
+    expect(process.exitCode).toBe(1);
   });
 
   it('should launch wizard and approve on success', async () => {
