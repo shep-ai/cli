@@ -19,7 +19,10 @@ import type {
   PrdRejectionPayload,
   RejectionFeedbackEntry,
 } from '../../../domain/generated/output.js';
-import { writeSpecFileAtomic } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import {
+  writeSpecFileAtomic,
+  clearCompletedPhase,
+} from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 
 @injectable()
 export class RejectAgentRunUseCase {
@@ -96,11 +99,14 @@ export class RejectAgentRunUseCase {
       updatedAt: now,
     });
 
-    // Record approval wait duration
+    // Record approval wait duration and determine which phase was interrupted
+    let rejectedPhase: string | undefined;
     try {
       const timings = await this.phaseTimingRepository.findByRunId(id);
       const waitingTiming = timings.find((t) => t.waitingApprovalAt && !t.approvalWaitMs);
       if (waitingTiming) {
+        // Extract base phase name (strip iteration suffix like ":2")
+        rejectedPhase = waitingTiming.phase.replace(/:\d+$/, '');
         const waitStart =
           waitingTiming.waitingApprovalAt instanceof Date
             ? waitingTiming.waitingApprovalAt.getTime()
@@ -112,6 +118,13 @@ export class RejectAgentRunUseCase {
       }
     } catch {
       // Non-fatal
+    }
+
+    // Clear the rejected phase from completedPhases so the worker re-executes it
+    // instead of skipping it on resume (executeNode checks completedPhases to
+    // decide whether to skip a phase that was already done).
+    if (rejectedPhase) {
+      clearCompletedPhase(specDir, rejectedPhase);
     }
 
     // Spawn worker with rejection payload
