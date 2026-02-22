@@ -1,6 +1,6 @@
 'use client';
 
-import { Code2, FolderOpen, Loader2, Terminal, Trash2, XIcon } from 'lucide-react';
+import { Loader2, Trash2, XIcon } from 'lucide-react';
 import {
   Drawer,
   DrawerContent,
@@ -21,7 +21,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ActionButton } from '@/components/common/action-button';
+import { OpenActionMenu } from '@/components/common/open-action-menu';
 import { useFeatureActions } from '@/components/common/feature-drawer/use-feature-actions';
 import type { ReviewDrawerShellProps } from './review-drawer-shell-config';
 
@@ -38,17 +38,7 @@ export function ReviewDrawerShell({
   children,
 }: ReviewDrawerShellProps) {
   const actionsInput = repositoryPath && branch ? { repositoryPath, branch, specPath } : null;
-  const {
-    openInIde,
-    openInShell,
-    openSpecsFolder,
-    ideLoading,
-    shellLoading,
-    specsLoading,
-    ideError,
-    shellError,
-    specsError,
-  } = useFeatureActions(actionsInput);
+  const actions = useFeatureActions(actionsInput);
 
   return (
     <Drawer
@@ -79,32 +69,14 @@ export function ReviewDrawerShell({
           ) : null}
         </DrawerHeader>
 
-        {/* Action buttons + inline delete */}
+        {/* Action menu + inline delete */}
         {actionsInput ? (
           <div className="flex items-center gap-2 px-4 pb-3">
-            <ActionButton
-              label="Open in IDE"
-              onClick={openInIde}
-              loading={ideLoading}
-              error={!!ideError}
-              icon={Code2}
+            <OpenActionMenu
+              actions={actions}
+              repositoryPath={actionsInput.repositoryPath}
+              showSpecs={!!specPath}
             />
-            <ActionButton
-              label="Open in Shell"
-              onClick={openInShell}
-              loading={shellLoading}
-              error={!!shellError}
-              icon={Terminal}
-            />
-            {specPath ? (
-              <ActionButton
-                label="Open Specs"
-                onClick={openSpecsFolder}
-                loading={specsLoading}
-                error={!!specsError}
-                icon={FolderOpen}
-              />
-            ) : null}
             {onDelete && featureId ? (
               <>
                 <div className="bg-border mx-1 h-4 w-px" />

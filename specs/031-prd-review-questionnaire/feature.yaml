@@ -9,8 +9,8 @@ prUrl: 'https://github.com/shep-ai/cli/pull/79'
 status:
   phase: in-review
   progress:
-    completed: 17
-    total: 17
+    completed: 14
+    total: 14
     percentage: 100
   currentTask: null
   lastUpdated: '2026-02-19T19:25:00Z'

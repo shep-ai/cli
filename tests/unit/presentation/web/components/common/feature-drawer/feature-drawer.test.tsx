@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { FeatureDrawer } from '@/components/common/feature-drawer';
 import type { FeatureDrawerProps } from '@/components/common/feature-drawer';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
@@ -8,13 +9,17 @@ import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common
 // Mock useFeatureActions hook
 const mockOpenInIde = vi.fn();
 const mockOpenInShell = vi.fn();
+const mockOpenSpecsFolder = vi.fn();
 let mockHookReturn = {
   openInIde: mockOpenInIde,
   openInShell: mockOpenInShell,
+  openSpecsFolder: mockOpenSpecsFolder,
   ideLoading: false,
   shellLoading: false,
+  specsLoading: false,
   ideError: null as string | null,
   shellError: null as string | null,
+  specsError: null as string | null,
 };
 
 vi.mock('@/components/common/feature-drawer/use-feature-actions', () => ({
@@ -46,13 +51,17 @@ describe('FeatureDrawer', () => {
     mockHookReturn = {
       openInIde: mockOpenInIde,
       openInShell: mockOpenInShell,
+      openSpecsFolder: mockOpenSpecsFolder,
       ideLoading: false,
       shellLoading: false,
+      specsLoading: false,
       ideError: null,
       shellError: null,
+      specsError: null,
     };
     mockOpenInIde.mockReset();
     mockOpenInShell.mockReset();
+    mockOpenSpecsFolder.mockReset();
   });
 
   describe('closed state', () => {
@@ -208,69 +217,50 @@ describe('FeatureDrawer', () => {
     });
   });
 
-  describe('action buttons', () => {
-    it('renders Open in IDE button when repositoryPath and branch are present', () => {
+  describe('open action menu', () => {
+    it('renders Open dropdown button when repositoryPath and branch are present', () => {
       renderDrawer(defaultData);
-      expect(screen.getByRole('button', { name: /open in ide/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /open/i })).toBeInTheDocument();
     });
 
-    it('renders Open in Shell button when repositoryPath and branch are present', () => {
-      renderDrawer(defaultData);
-      expect(screen.getByRole('button', { name: /open in shell/i })).toBeInTheDocument();
-    });
-
-    it('does not render action buttons when repositoryPath is empty', () => {
+    it('does not render Open button when repositoryPath is empty', () => {
       renderDrawer({ ...defaultData, repositoryPath: '', branch: 'feat/test' });
-      expect(screen.queryByRole('button', { name: /open in ide/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /open in shell/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^open$/i })).not.toBeInTheDocument();
     });
 
-    it('does not render action buttons when branch is empty', () => {
+    it('does not render Open button when branch is empty', () => {
       renderDrawer({ ...defaultData, repositoryPath: '/home/user/repo', branch: '' });
-      expect(screen.queryByRole('button', { name: /open in ide/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /open in shell/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^open$/i })).not.toBeInTheDocument();
     });
 
-    it('calls openInIde when IDE button is clicked', () => {
+    it('shows menu items when dropdown is opened', async () => {
+      const user = userEvent.setup();
       renderDrawer(defaultData);
-      screen.getByRole('button', { name: /open in ide/i }).click();
+      await user.click(screen.getByRole('button', { name: /open/i }));
+      expect(screen.getByText('IDE')).toBeInTheDocument();
+      expect(screen.getByText('Terminal')).toBeInTheDocument();
+    });
+
+    it('calls openInIde when IDE menu item is clicked', async () => {
+      const user = userEvent.setup();
+      renderDrawer(defaultData);
+      await user.click(screen.getByRole('button', { name: /open/i }));
+      await user.click(screen.getByText('IDE'));
       expect(mockOpenInIde).toHaveBeenCalledOnce();
     });
 
-    it('calls openInShell when Shell button is clicked', () => {
+    it('calls openInShell when Terminal menu item is clicked', async () => {
+      const user = userEvent.setup();
       renderDrawer(defaultData);
-      screen.getByRole('button', { name: /open in shell/i }).click();
+      await user.click(screen.getByRole('button', { name: /open/i }));
+      await user.click(screen.getByText('Terminal'));
       expect(mockOpenInShell).toHaveBeenCalledOnce();
     });
 
-    it('shows loading spinner on IDE button when ideLoading is true', () => {
+    it('disables Open button when any action is loading', () => {
       mockHookReturn = { ...mockHookReturn, ideLoading: true };
       renderDrawer(defaultData);
-      const button = screen.getByRole('button', { name: /open in ide/i });
-      expect(button).toBeDisabled();
-      expect(button.querySelector('.animate-spin')).toBeInTheDocument();
-    });
-
-    it('shows loading spinner on Shell button when shellLoading is true', () => {
-      mockHookReturn = { ...mockHookReturn, shellLoading: true };
-      renderDrawer(defaultData);
-      const button = screen.getByRole('button', { name: /open in shell/i });
-      expect(button).toBeDisabled();
-      expect(button.querySelector('.animate-spin')).toBeInTheDocument();
-    });
-
-    it('shows error styling on IDE button when ideError is set', () => {
-      mockHookReturn = { ...mockHookReturn, ideError: 'IDE not found' };
-      renderDrawer(defaultData);
-      const button = screen.getByRole('button', { name: /open in ide/i });
-      expect(button).toHaveClass('text-destructive');
-    });
-
-    it('shows error styling on Shell button when shellError is set', () => {
-      mockHookReturn = { ...mockHookReturn, shellError: 'Shell not available' };
-      renderDrawer(defaultData);
-      const button = screen.getByRole('button', { name: /open in shell/i });
-      expect(button).toHaveClass('text-destructive');
+      expect(screen.getByRole('button', { name: /open/i })).toBeDisabled();
     });
   });
 

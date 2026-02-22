@@ -1,8 +1,8 @@
 'use client';
 
-import { XIcon, Code2, Terminal, FolderOpen, Loader2, Trash2 } from 'lucide-react';
+import { XIcon, Loader2, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { ActionButton } from '@/components/common/action-button';
+import { OpenActionMenu } from '@/components/common/open-action-menu';
 import {
   Drawer,
   DrawerContent,
@@ -222,43 +222,11 @@ function DrawerActions({
   branch: string;
   specPath?: string;
 }) {
-  const {
-    openInIde,
-    openInShell,
-    openSpecsFolder,
-    ideLoading,
-    shellLoading,
-    specsLoading,
-    ideError,
-    shellError,
-    specsError,
-  } = useFeatureActions({ repositoryPath, branch, specPath });
+  const actions = useFeatureActions({ repositoryPath, branch, specPath });
 
   return (
     <div className="flex gap-2 px-4 pb-3">
-      <ActionButton
-        label="Open in IDE"
-        onClick={openInIde}
-        loading={ideLoading}
-        error={!!ideError}
-        icon={Code2}
-      />
-      <ActionButton
-        label="Open in Shell"
-        onClick={openInShell}
-        loading={shellLoading}
-        error={!!shellError}
-        icon={Terminal}
-      />
-      {specPath ? (
-        <ActionButton
-          label="Open Specs"
-          onClick={openSpecsFolder}
-          loading={specsLoading}
-          error={!!specsError}
-          icon={FolderOpen}
-        />
-      ) : null}
+      <OpenActionMenu actions={actions} repositoryPath={repositoryPath} showSpecs={!!specPath} />
     </div>
   );
 }

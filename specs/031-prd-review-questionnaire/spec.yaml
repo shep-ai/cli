@@ -4,13 +4,15 @@
 name: prd-review-questionnaire
 number: 031
 branch: feat/031-prd-review-questionnaire
-oneLiner: Build a reusable PRD questionnaire component for structured requirements discovery
+oneLiner: Build a multi-step PRD questionnaire with review drawer shell and shared action menus
 summary: >
-  This feature builds a `PrdQuestionnaire` controlled component (Tier 1, `common/`) that renders
-  structured requirements discovery questions with numbered A/B/C/D options, AI-recommended
-  badges, a chat refinement input, and animated progress bar — matching the POC design exactly.
-  The feature requires new TypeSpec models in a new `tsp/ui/` module, Storybook stories, and
-  full TDD coverage.
+  This feature builds a `PrdQuestionnaire` multi-step wizard component (Tier 1, `common/`) that
+  presents requirements discovery questions one at a time with step indicator dots, auto-advance on
+  selection, Previous/Next/Skip navigation, and an approve button on the last step. It also
+  introduces `ReviewDrawerShell` — a reusable right-slide drawer for all review-type components
+  (PRD questionnaire and tech decisions), `OpenActionMenu` — a shared dropdown for IDE/Shell/Specs
+  actions, and refactors `TechDecisionsReview` to use markdown rendering and collapsed alternatives.
+  Includes new TypeSpec models in `tsp/ui/`, Storybook stories, and full TDD coverage.
 phase: Requirements
 sizeEstimate: M
 
@@ -19,13 +21,13 @@ relatedFeatures: []
 
 technologies:
   - TypeSpec (domain model definitions, new tsp/ui/ module)
-  - React 19 (controlled component patterns)
-  - Tailwind CSS v4 (all styling, matching POC design)
-  - Storybook (component stories, 5 variants for questionnaire)
-  - Vitest (TDD unit tests)
-  - Playwright (E2E tests)
-  - sonner (toast notifications for error handling)
-  - lucide-react (Send and Check icons)
+  - React 19 (multi-step wizard with controlled selections, internal step state)
+  - shadcn/ui (Button, Input, Badge, Drawer, AlertDialog, DropdownMenu, Separator)
+  - Tailwind CSS v4 (styling with theme tokens, custom keyframes)
+  - Storybook (9 story variants across questionnaire and drawer)
+  - Vitest (TDD unit tests, 63+ test cases)
+  - react-markdown (markdown rendering for tech decisions rationale)
+  - lucide-react (Send, Check, ChevronLeft, ChevronRight, XIcon, Trash2, Code2, Terminal, FolderOpen, Copy, Loader2, CircleAlert, ChevronDown, Layers, GitCompareArrows)
 
 relatedLinks: []
 
@@ -158,139 +160,203 @@ openQuestions:
 content: |
   ## Problem Statement
 
-  The web UI currently lacks a PRD questionnaire component for the requirements discovery phase.
+  The web UI needs a multi-step PRD questionnaire for the requirements discovery phase, a reusable
+  review drawer shell shared by both PRD and tech decisions reviews, and a shared action menu for
+  IDE/Shell/Specs actions across drawer types.
 
   During the requirements discovery phase, the AI agent generates structured questions with
-  multiple-choice options and AI recommendations. There is no React component to display these
-  questionnaires. A POC exists in vanilla JS (`docs/poc/js/app.js` lines 101-166) but needs to be
-  implemented as a proper React component following the project's component architecture.
+  multiple-choice options and AI recommendations. The web UI needed: (1) a multi-step wizard
+  component to present these questions one at a time, (2) a consistent drawer shell for review-type
+  interactions, and (3) a shared action menu to replace inline action buttons in drawers.
 
   ## Success Criteria
 
-  - [ ] TypeSpec models compile without errors (`pnpm tsp:compile`)
-  - [ ] New `tsp/ui/` module created with `prd-questionnaire.tsp` and `index.tsp`
-  - [ ] All new code has passing tests following TDD red-green-refactor
-  - [ ] `PrdQuestionnaire` renders exactly like POC (`docs/poc/js/app.js` lines 101-166)
-  - [ ] `PrdQuestionnaire` is a controlled component: `selections` via prop, changes via `onSelect` callback
-  - [ ] Numbered option labels (A, B, C, D) with correct text sizing (`text-[10px]`, `text-[9px]`, `text-[8px]`)
-  - [ ] "AI Recommended" badge renders on `recommended` options (`bg-blue-600 text-white`)
-  - [ ] "New" badge renders on newly added options (`bg-emerald-600 text-white`)
-  - [ ] Progress bar calculates automatically from selections/total questions ratio
-  - [ ] `isProcessing` prop controls animated/disabled state (progress bar animation, controls disabled)
-  - [ ] Chat refinement input fires `onRefine(text)` callback, does not make API calls
-  - [ ] "Finalize Requirements" button fires `onApprove(finalActionId)` callback
-  - [ ] 5 Storybook story variants: `Default`, `WithSelections`, `AllAnswered`, `Refining`, `MinimalData`
-  - [ ] All lint, type, and format checks pass (`pnpm validate`)
-  - [ ] Production build succeeds (`pnpm build:web`)
+  - [x] TypeSpec models compile without errors (`pnpm tsp:compile`)
+  - [x] New `tsp/ui/` module created with `prd-questionnaire.tsp` and `index.tsp`
+  - [x] All new code has passing tests following TDD red-green-refactor
+  - [x] `PrdQuestionnaire` renders as multi-step wizard with one question per step
+  - [x] Selections controlled via `selections` prop + `onSelect` callback with auto-advance
+  - [x] Numbered option labels (A, B, C, D) with letter prefix and option label
+  - [x] "AI Recommended" badge renders on `recommended` options via shadcn Badge
+  - [x] "New" badge renders on `isNew` options (`bg-emerald-600 text-white`)
+  - [x] Progress bar calculates automatically from answered/total questions ratio
+  - [x] `isProcessing` prop controls animated/disabled state
+  - [x] Chat refinement input fires `onRefine(text)` callback, does not make API calls
+  - [x] Approve button appears on last step, fires `onApprove(finalAction.id)` when all answered
+  - [x] Step indicator dots for navigation between questions
+  - [x] `ReviewDrawerShell` provides consistent drawer UX for PRD and tech decisions
+  - [x] `OpenActionMenu` dropdown replaces inline action buttons in drawers
+  - [x] `TechDecisionsReview` renders rationale as markdown with collapsed alternatives
+  - [x] 5 PrdQuestionnaire + 4 PrdQuestionnaireDrawer Storybook story variants
+  - [x] All lint, type, and format checks pass (`pnpm validate`)
+  - [x] Production build succeeds (`pnpm build:web`)
 
   ## Functional Requirements
 
-  ### Sub-Feature A: PRD Questionnaire Component
+  ### Sub-Feature A: PRD Questionnaire Component (Multi-Step Wizard)
 
-  - **FR-1**: A new Tier 1 component `PrdQuestionnaire` SHALL be created at `components/common/prd-questionnaire/` following the standard directory pattern: barrel `index.ts`, component file, config/types file, and stories file.
+  - **FR-1**: A new Tier 1 component `PrdQuestionnaire` SHALL be created at `components/common/prd-questionnaire/` following the standard directory pattern: barrel `index.ts`, component file, config/types file, drawer wrapper, and stories file.
 
   - **FR-2**: The `PrdQuestionnaire` SHALL accept the following props:
-    - `question: string` — Header title text
-    - `context: string` — Header context/description text
-    - `questions: PrdQuestion[]` — Array of question objects, each with `id`, `question`, `type: 'select'`, and `options: PrdOption[]`
+    - `data: PrdQuestionnaireData` — Bundled data object containing `question` (header title), `context` (header description), `questions: PrdQuestion[]`, and `finalAction: PrdFinalAction`
     - `selections: Record<string, string>` — Map of questionId to selected optionId (controlled state)
     - `onSelect: (questionId: string, optionId: string) => void` — Selection change callback
     - `onRefine: (text: string) => void` — Chat refinement submit callback
     - `onApprove: (actionId: string) => void` — Finalize requirements callback
-    - `finalAction: { id: string; label: string; description: string }` — Approve button configuration
-    - `isProcessing?: boolean` — Controls disabled/animated state during refinement
+    - `isProcessing?: boolean` — Controls disabled/animated state during refinement (default: false)
+    - `showHeader?: boolean` — Toggle visibility of the goal/context header block (default: false)
 
   - **FR-3**: Each `PrdOption` SHALL have the properties: `id: string`, `label: string`, `rationale: string`, `recommended?: boolean`, `isNew?: boolean`.
 
-  - **FR-4**: The component SHALL render a scrollable content area with: (a) a header block showing an amber status dot, the `question` title, and `context` text; (b) numbered questions with their options displayed as selectable buttons.
+  - **FR-4**: The component SHALL render a multi-step wizard showing one question at a time. Each step displays: (a) the current question text (`text-sm font-semibold`), (b) step indicator dots at the right showing progress (filled for answered, active for current), (c) option buttons for the current question.
 
-  - **FR-5**: Each option button SHALL display: (a) a letter prefix (A, B, C, D...), (b) the option label, (c) an "AI Recommended" badge if `recommended` is `true` (`bg-blue-600 text-white text-[8px]`), (d) a "New" badge if `isNew` is `true` (`bg-emerald-600 text-white text-[8px]`), (e) the rationale text.
+  - **FR-5**: Each option button SHALL display: (a) a letter prefix (A, B, C, D...) in mono font (`text-xs`), (b) the option label (`text-xs font-semibold`), (c) an "AI Recommended" shadcn Badge if `recommended` is `true` (`text-[10px]`), (d) a "New" Badge if `isNew` is `true` (`bg-emerald-600 text-white text-[10px]`), (e) the rationale text (`text-xs text-muted-foreground`).
 
-  - **FR-6**: Selected options SHALL be visually highlighted with `border-blue-500 bg-blue-50`. Only one option per question can be selected at a time.
+  - **FR-6**: Selected options SHALL be visually highlighted with `border-primary bg-primary/5` using theme tokens. Only one option per question can be selected at a time.
 
-  - **FR-7**: The component SHALL render a fixed bottom action bar containing: (a) a progress bar showing `selections count / questions count` ratio, (b) a text input with placeholder "Ask AI to refine requirements...", (c) a send button, (d) the finalize/approve button.
+  - **FR-7**: After selecting an option, the component SHALL auto-advance to the next step after a 250ms delay (unless on the last step).
 
-  - **FR-8**: When `isProcessing` is `true`, the component SHALL: (a) show an animated progress bar, (b) disable all option buttons, (c) disable the chat input and send button, (d) disable the approve button.
+  - **FR-8**: The component SHALL render step navigation between the question area and the action bar: (a) a Previous button (disabled on first step), (b) a Next/Skip button (shows "Next" when current question is answered, "Skip" when not) or (c) the Approve button on the last step (enabled only when ALL questions are answered).
 
-  - **FR-9**: The progress bar SHALL be visible (`opacity-100`) when at least one question is answered or when `isProcessing` is `true`, and hidden (`opacity-0`) otherwise.
+  - **FR-9**: The component SHALL render a fixed bottom action bar containing: (a) a progress bar showing `answered count / total questions` ratio, (b) a text input with placeholder "Ask AI to refine requirements...", (c) a send button.
 
-  - **FR-10**: Options with `isNew: true` SHALL have an `option-highlight` CSS animation class applied for visual emphasis when new options appear after refinement.
+  - **FR-10**: When `isProcessing` is `true`, the component SHALL: (a) show an animated indeterminate progress bar, (b) disable all option buttons, (c) disable the chat input and send button, (d) disable all navigation buttons.
 
-  ### Sub-Feature B: TypeSpec Models
+  - **FR-11**: The progress bar SHALL be visible (`opacity-100`) when some but not all questions are answered OR when `isProcessing` is `true`, and hidden (`opacity-0`) otherwise (including when all questions are answered).
 
-  - **FR-11**: A new `tsp/ui/` module SHALL be created with an `index.tsp` barrel file that is imported by `tsp/main.tsp`.
+  - **FR-12**: Options with `isNew: true` SHALL have the `animate-option-highlight` CSS animation class applied for visual emphasis when new options appear after refinement.
 
-  - **FR-12**: A `tsp/ui/prd-questionnaire.tsp` file SHALL define value object models for `PrdOption`, `PrdQuestion`, `PrdFinalAction`, and `PrdQuestionnaireData` matching the component's type requirements.
+  - **FR-13**: When `showHeader` is `true`, the component SHALL render a header block with: an amber status dot (`bg-amber-500`), the `question` title (`text-sm font-bold`), and `context` text (`text-xs text-muted-foreground`), separated by a bottom border.
 
-  ### Sub-Feature C: Storybook Stories
+  - **FR-14**: Step indicator dots SHALL be clickable buttons with `aria-label="Go to question N"`. The active step dot is wider (`w-4`) with `bg-primary`. Answered dots show `bg-primary/50`. Unanswered dots show `bg-muted-foreground/25`.
 
-  - **FR-13**: The `PrdQuestionnaire` SHALL have 5 Storybook story variants:
-    - **Default**: Full questionnaire with 4-6 questions, no selections, not processing
-    - **WithSelections**: 2-3 questions answered, showing progress bar partially filled
-    - **AllAnswered**: All questions answered, progress bar full, approve button visually prominent
+  - **FR-15**: The component SHALL return `null` if `questions` array is empty.
+
+  ### Sub-Feature B: PrdQuestionnaireDrawer
+
+  - **FR-16**: A `PrdQuestionnaireDrawer` component SHALL wrap `PrdQuestionnaire` inside `ReviewDrawerShell`, accepting all questionnaire props plus drawer-specific props (`open`, `onClose`, `featureName`, `featureId`, `repositoryPath`, `branch`, `specPath`, `onDelete`, `isDeleting`).
+
+  ### Sub-Feature C: ReviewDrawerShell
+
+  - **FR-17**: A reusable `ReviewDrawerShell` Tier 1 component SHALL be created at `components/common/review-drawer-shell/` providing a consistent right-slide drawer shell for review-type components.
+
+  - **FR-18**: `ReviewDrawerShell` SHALL render: (a) a right-direction `Drawer` (non-modal, `w-xl`), (b) a close button (X icon) at top-right, (c) a header with `featureName` as title and `featureId` as sr-only description, (d) an `OpenActionMenu` dropdown when `repositoryPath` and `branch` are provided, (e) an inline delete button (Trash2 icon with AlertDialog confirmation) when `onDelete` is provided and `featureId` exists, (f) a separator, (g) a content slot via `children`.
+
+  - **FR-19**: The delete confirmation AlertDialog SHALL show the feature name and ID, with Cancel/Delete buttons. During deletion (`isDeleting=true`), buttons show a spinner and are disabled.
+
+  ### Sub-Feature D: OpenActionMenu
+
+  - **FR-20**: A reusable `OpenActionMenu` Tier 1 component SHALL be created at `components/common/open-action-menu/` providing a dropdown menu for IDE/Shell/Specs/Copy actions.
+
+  - **FR-21**: `OpenActionMenu` SHALL render a DropdownMenu with: (a) "Open in" label, (b) "IDE" item using `actions.openInIde`, (c) "Terminal" item using `actions.openInShell`, (d) "Specs Folder" item using `actions.openSpecsFolder` (disabled when `showSpecs` is false), (e) a separator, (f) "Copy path" item that copies `repositoryPath` to clipboard with 2-second "Copied!" feedback.
+
+  - **FR-22**: Each menu item SHALL show a Loader2 spinner when loading, CircleAlert icon on error, or the default icon normally. The trigger button SHALL be disabled when any action is loading.
+
+  ### Sub-Feature E: TechDecisionsReview Enhancements
+
+  - **FR-23**: `TechDecisionsReview` SHALL render rationale text as Markdown using `react-markdown` with custom component overrides for consistent styling.
+
+  - **FR-24**: Each decision card SHALL have a collapsible "Other Options Considered" section that is collapsed by default. Clicking expands to show rejected alternatives.
+
+  - **FR-25**: `TechDecisionsDrawer` SHALL be refactored to use `ReviewDrawerShell` instead of implementing its own drawer logic.
+
+  ### Sub-Feature F: FeatureDrawer Enhancements
+
+  - **FR-26**: `FeatureDrawer` SHALL be refactored to use `OpenActionMenu` for IDE/Shell/Specs actions instead of inline buttons, via `useFeatureActions` hook.
+
+  ### Sub-Feature G: TypeSpec Models
+
+  - **FR-27**: A new `tsp/ui/` module SHALL be created with an `index.tsp` barrel file that is imported by `tsp/main.tsp`.
+
+  - **FR-28**: A `tsp/ui/prd-questionnaire.tsp` file SHALL define value object models for `PrdOption`, `PrdQuestion`, `PrdFinalAction`, and `PrdQuestionnaireData` matching the component's type requirements.
+
+  ### Sub-Feature H: Storybook Stories
+
+  - **FR-29**: The `PrdQuestionnaire` SHALL have 5 Storybook story variants using interactive wrappers:
+    - **Default**: 6 questions, no selections, first step shown with auto-advance on click
+    - **WithSelections**: 3 of 6 questions answered, step dots reflect answered state
+    - **AllAnswered**: All 6 answered, last step shows Approve button enabled
     - **Refining**: `isProcessing=true`, showing animated progress bar with disabled controls
-    - **MinimalData**: Minimal props (1 question, 2 options) to test edge cases
+    - **MinimalData**: Single question with 2 options
+
+  - **FR-30**: The `PrdQuestionnaireDrawer` SHALL have 4 additional Storybook story variants:
+    - **InDrawer**: Basic drawer with questionnaire
+    - **InDrawerWithSelections**: Drawer with partial progress
+    - **WithDeleteButton**: Drawer showing delete button
+    - **DeletingState**: Drawer with delete in progress
 
   ## Non-Functional Requirements
 
   - **NFR-1 (Performance)**: The `PrdQuestionnaire` progress bar animation SHALL use CSS `transition-all duration-300` for smooth width changes and `opacity-0`/`opacity-100` transitions with `duration-200` — no JavaScript animation loops.
 
-  - **NFR-2 (Performance)**: The `PrdQuestionnaire` SHALL use `useMemo` or equivalent to avoid recomputing derived values (progress percentage) on every render when `selections`/`questions` have not changed.
+  - **NFR-2 (Performance)**: The `PrdQuestionnaire` SHALL use `useMemo` for the `answeredCount` derivation from `selections` to avoid unnecessary recomputation.
 
-  - **NFR-3 (UX)**: The `PrdQuestionnaire` text sizing SHALL exactly match the POC: question labels at `text-[10px]`, option letter prefixes at `text-[9px]`, badges at `text-[8px]`, rationale text at `text-[9px]`.
+  - **NFR-3 (Styling)**: The `PrdQuestionnaire` SHALL use shadcn/ui components (`Button`, `Input`, `Badge`) with theme tokens (`border-primary`, `bg-primary/5`, `text-foreground`, `text-muted-foreground`) for design system consistency rather than hardcoded color values.
 
-  - **NFR-4 (Maintainability)**: The `PrdQuestionnaire` component file SHALL not exceed ~200 lines. If it grows beyond that, sub-components (e.g., QuestionGroup, OptionButton, ActionBar) SHALL be extracted into the same directory.
+  - **NFR-4 (Maintainability)**: The `PrdQuestionnaire` component file SHALL not exceed ~220 lines. Component is 217 lines as implemented.
 
   - **NFR-5 (Maintainability)**: All TypeSpec UI models SHALL be value objects (not extending `BaseEntity`) since they are presentation-layer types with no persistence identity.
 
-  - **NFR-6 (Accessibility)**: Option buttons SHALL be rendered as `<button>` elements (not `<div>`) for keyboard accessibility. The chat input SHALL have an associated `aria-label`.
+  - **NFR-6 (Accessibility)**: Option buttons SHALL be rendered as `<button>` elements for keyboard accessibility. The chat input SHALL have `aria-label="Ask AI to refine requirements"`. Step indicator dots SHALL have `aria-label="Go to question N"`.
 
-  - **NFR-7 (Testing)**: All new code SHALL have unit tests written following TDD (red-green-refactor). The `PrdQuestionnaire` component SHALL have tests covering all major interactions (selection, refinement, processing state, completion).
+  - **NFR-7 (Testing)**: All new code SHALL have unit tests written following TDD (red-green-refactor). The `PrdQuestionnaire` component SHALL have 63+ test cases covering rendering, navigation, selection, badges, progress, processing state, refinement, and accessibility.
 
-  - **NFR-8 (Architecture)**: The `PrdQuestionnaire` SHALL be a purely presentational controlled component with no internal state management, no API calls, and no side effects. All state changes flow through callbacks to the parent.
+  - **NFR-8 (Architecture)**: The `PrdQuestionnaire` SHALL have controlled selection state via props (`selections` + `onSelect`), with internal state limited to UI-only concerns: `currentStep` for wizard navigation and `chatInput` for the text field. No API calls or domain logic.
+
+  - **NFR-9 (Reusability)**: `ReviewDrawerShell` SHALL be a generic drawer container reused by both `PrdQuestionnaireDrawer` and `TechDecisionsDrawer` to eliminate duplication of drawer chrome, action menus, and delete confirmation.
 
   ## Product Questions & AI Recommendations
 
   | # | Question | AI Recommendation | Rationale |
   | - | -------- | ----------------- | --------- |
   | 1 | Single-select or multi-select per question? | Single-select only | Matches POC behavior. Multi-select can be added later as a new question type. |
-  | 2 | Controlled or uncontrolled `PrdQuestionnaire`? | Fully controlled (`selections` prop + `onSelect` callback) | Aligns with project's component architecture. Enables parent-managed persistence and undo. |
+  | 2 | Controlled or uncontrolled `PrdQuestionnaire`? | Controlled selections, internal step/input state | Selection state is controlled (parent-managed). Step navigation and chat input are internal UI state. |
   | 3 | Progress bar: calculated or prop? | Auto-calculated from `selections`/`questions` | Deterministic ratio avoids parent duplication. `isProcessing` prop for animated state. |
   | 4 | Chat input: API call or callback? | Callback-only (`onRefine`) | Tier 1 component = presentational only. API calls belong in parent/feature layer. |
-  | 5 | Approve button: inside or outside component? | Inside, controlled via `finalAction` prop + `onApprove` callback | POC renders it as part of the action bar. Separating breaks visual layout. |
+  | 5 | Approve button: inside or outside component? | Inside, on last step, controlled via `finalAction` prop + `onApprove` callback | Contextual placement on last step when all questions answered. |
   | 6 | TypeSpec UI models location? | New `tsp/ui/` module | Presentation-layer types don't belong in `tsp/domain/`. Keeps Clean Architecture boundaries clean. |
+  | 7 | All questions at once or one at a time? | Multi-step wizard, one question per step | Better UX for focused decision-making. Auto-advance reduces friction. Step dots show overall progress. |
+  | 8 | Plain HTML or shadcn/ui components? | shadcn/ui (Button, Input, Badge) | Design system consistency. Theme token support for light/dark modes. |
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
   | `tsp/main.tsp` | Low | Add single import line for new `tsp/ui/` module |
-  | `tsp/ui/` (new) | High | Create entire new module: `prd-questionnaire.tsp`, `index.tsp` |
-  | `src/presentation/web/components/common/prd-questionnaire/` (new) | High | Entire new Tier 1 component: config types, component, 5 stories, barrel export |
-  | `src/domain/generated/output.ts` | Low | Auto-generated — updated by `pnpm tsp:compile` after TypeSpec changes |
+  | `tsp/ui/` (new) | Medium | Create new module: `prd-questionnaire.tsp`, `index.tsp` |
+  | `src/presentation/web/components/common/prd-questionnaire/` (new) | High | 5 files: component, drawer, config, stories, barrel |
+  | `src/presentation/web/components/common/review-drawer-shell/` (new) | High | 4 files: component, config, stories, barrel |
+  | `src/presentation/web/components/common/open-action-menu/` (new) | Medium | 4 files: component, config, stories, barrel |
+  | `src/presentation/web/components/common/tech-decisions-review/` | High | Refactored: markdown rationale, collapsed alternatives, drawer uses ReviewDrawerShell |
+  | `src/presentation/web/components/common/feature-drawer/` | Medium | Refactored: uses OpenActionMenu, useFeatureActions hook |
+  | `src/presentation/web/components/ui/dropdown-menu.tsx` (new) | Low | New shadcn/ui DropdownMenu primitive |
+  | `src/presentation/web/app/globals.css` | Low | Add `option-highlight` keyframe animation and theme variable |
+  | `src/domain/generated/output.ts` | Low | Auto-generated — updated by `pnpm tsp:compile` |
 
   ## Dependencies
 
   **Existing code dependencies:**
-  - POC design reference: `docs/poc/js/app.js` lines 101-166 (exact Tailwind classes to replicate)
-  - POC data structure reference: `docs/poc/js/state.js` lines 858-1041 (questionnaire data shape)
+  - POC design reference: `docs/poc/js/app.js` (questionnaire interaction patterns)
+  - `useFeatureActions` hook for IDE/Shell/Specs actions
+  - shadcn/ui component library (Button, Input, Badge, Drawer, AlertDialog, DropdownMenu, Separator)
 
   **Library dependencies (all already installed):**
-  - `lucide-react` — Icons (Send, Check icons for buttons)
-  - `sonner` — Toast notifications (for error feedback if needed)
-  - `tailwindcss` — All styling
+  - `lucide-react` — Icons (Send, Check, ChevronLeft, ChevronRight, XIcon, Trash2, etc.)
+  - `react-markdown` — Markdown rendering for tech decisions rationale
+  - `tailwindcss` — Styling with theme tokens
   - `@storybook/react` — Story definitions
 
   **No new npm dependencies required.**
 
   ## Size Estimate
 
-  **S (Small)** — 1-2 days.
+  **M (Medium)** — 2-3 days.
 
   Justification:
-  - Single focused sub-feature (PRD questionnaire component only)
-  - Design is fully specified in the POC with exact Tailwind classes
-  - 4 new files to create (TypeSpec models, component, config, stories)
-  - All technologies are already in use in the codebase — no new learning curve
-  - TypeSpec model additions are straightforward value objects
-  - Storybook stories are well-defined (5 variants with clear mock data)
+  - Multi-step wizard component with navigation, auto-advance, and step indicators
+  - 3 new Tier 1 components (PrdQuestionnaire, ReviewDrawerShell, OpenActionMenu)
+  - 2 existing components refactored (TechDecisionsReview, FeatureDrawer)
+  - TypeSpec model additions
+  - 9+ Storybook story variants with interactive wrappers
+  - 63+ unit test cases
+  - New shadcn/ui primitive (DropdownMenu)
