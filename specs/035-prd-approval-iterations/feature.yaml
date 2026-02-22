@@ -3,22 +3,23 @@ feature:
   name: prd-approval-iterations
   number: 35
   branch: feat/035-prd-approval-iterations
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-22T10:54:30Z'
 status:
-  phase: ready-for-review
+  phase: in-review
   progress:
     completed: 20
     total: 20
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-22T12:18:00Z'
-  lastUpdatedBy: shep-kit:implement
+  lastUpdated: '2026-02-22T12:20:00Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
     - research
     - plan
+prUrl: https://github.com/shep-ai/cli/pull/86
 validation:
   lastRun: null
   gatesPassed: []
@@ -34,6 +35,9 @@ checkpoints:
   - phase: implementation-complete
     completedAt: '2026-02-22T12:18:00Z'
     completedBy: shep-kit:implement
+  - phase: pr-created
+    completedAt: '2026-02-22T12:20:00Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
