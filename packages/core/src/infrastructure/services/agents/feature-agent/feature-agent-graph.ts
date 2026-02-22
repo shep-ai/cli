@@ -23,7 +23,7 @@ export { FeatureAgentAnnotation, type FeatureAgentState } from './state.js';
  */
 export interface FeatureAgentGraphDeps {
   executor: IAgentExecutor;
-  mergeNodeDeps: MergeNodeDeps;
+  mergeNodeDeps?: Omit<MergeNodeDeps, 'executor'>;
 }
 
 /**
@@ -164,9 +164,7 @@ export function createFeatureAgentGraph(
 ) {
   // Support legacy signature: createFeatureAgentGraph(executor, checkpointer)
   const deps: FeatureAgentGraphDeps =
-    'execute' in depsOrExecutor
-      ? { executor: depsOrExecutor, mergeNodeDeps: undefined as unknown as MergeNodeDeps }
-      : depsOrExecutor;
+    'execute' in depsOrExecutor ? { executor: depsOrExecutor } : depsOrExecutor;
   const { executor } = deps;
 
   const graph = new StateGraph(FeatureAgentAnnotation)
@@ -193,10 +191,6 @@ export function createFeatureAgentGraph(
     .addNode('repair_plan_tasks', createRepairNode(['plan.yaml', 'tasks.yaml'], executor))
 
     // --- Edges: linear flow with validation gates ---
-    // Interruptible nodes (requirements, plan) use conditional edges that
-    // check _needsReexecution to loop back on rejection. This ensures each
-    // re-execution is a fresh node invocation with a clean interrupt index,
-    // avoiding the stale interrupt replay bug with dual interrupt() calls.
     .addEdge(START, 'analyze')
     .addEdge('analyze', 'validate_spec_analyze')
     .addConditionalEdges(
@@ -225,8 +219,12 @@ export function createFeatureAgentGraph(
 
   // --- Merge node: wired when deps are provided ---
   if (deps.mergeNodeDeps) {
+    const mergeNodeDeps: MergeNodeDeps = {
+      executor,
+      ...deps.mergeNodeDeps,
+    };
     graph
-      .addNode('merge', createMergeNode(deps.mergeNodeDeps))
+      .addNode('merge', createMergeNode(mergeNodeDeps))
       .addEdge('implement', 'merge')
       .addEdge('merge', END);
   } else {
