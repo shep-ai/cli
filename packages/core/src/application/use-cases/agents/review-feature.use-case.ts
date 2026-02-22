@@ -11,7 +11,6 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-repository.interface.js';
-import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 import type { QuestionOption } from '../../../domain/generated/output.js';
 
@@ -41,8 +40,7 @@ export interface ReviewFeatureError {
 export class ReviewFeatureUseCase {
   constructor(
     @inject('IFeatureRepository') private readonly featureRepository: IFeatureRepository,
-    @inject('IAgentRunRepository') private readonly agentRunRepository: IAgentRunRepository,
-    @inject('IWorktreeService') private readonly worktreeService: IWorktreeService
+    @inject('IAgentRunRepository') private readonly agentRunRepository: IAgentRunRepository
   ) {}
 
   async execute(
@@ -65,9 +63,11 @@ export class ReviewFeatureUseCase {
       };
     }
 
-    // Read spec.yaml from worktree
-    const worktreePath = this.worktreeService.getWorktreePath(repoPath, feature.branch);
-    const specPath = join(worktreePath, 'specs', feature.slug ?? feature.name, 'spec.yaml');
+    // Read spec.yaml using feature's stored specPath
+    if (!feature.specPath) {
+      return { success: false, reason: 'Feature has no spec path' };
+    }
+    const specPath = join(feature.specPath, 'spec.yaml');
     let specContent: string;
     try {
       specContent = readFileSync(specPath, 'utf-8');

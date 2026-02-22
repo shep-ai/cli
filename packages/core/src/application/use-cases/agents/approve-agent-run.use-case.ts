@@ -15,7 +15,6 @@ import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-re
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import type { IPhaseTimingRepository } from '../../ports/output/agents/phase-timing-repository.interface.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
-import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 import type { PrdApprovalPayload } from '../../../domain/generated/output.js';
 import { writeSpecFileAtomic } from '../../../infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
@@ -29,8 +28,6 @@ export class ApproveAgentRunUseCase {
     private readonly processService: IFeatureAgentProcessService,
     @inject('IFeatureRepository')
     private readonly featureRepository: IFeatureRepository,
-    @inject('IWorktreeService')
-    private readonly worktreeService: IWorktreeService,
     @inject('IPhaseTimingRepository')
     private readonly phaseTimingRepository: IPhaseTimingRepository
   ) {}
@@ -51,18 +48,13 @@ export class ApproveAgentRunUseCase {
       };
     }
 
-    // Look up the feature to get the branch for worktree path derivation
+    // Look up the feature to get specPath
     const feature = run.featureId ? await this.featureRepository.findById(run.featureId) : null;
 
-    const repoPath = run.repositoryPath ?? '';
-    const worktreePath = feature
-      ? this.worktreeService.getWorktreePath(repoPath, feature.branch)
-      : repoPath;
-
     // Write updated selections to spec.yaml if changedSelections provided
-    if (payload?.changedSelections && payload.changedSelections.length > 0 && feature) {
+    if (payload?.changedSelections && payload.changedSelections.length > 0 && feature?.specPath) {
       try {
-        const specDir = join(worktreePath, 'specs', feature.slug ?? feature.name);
+        const specDir = feature.specPath;
         const specContent = readFileSync(join(specDir, 'spec.yaml'), 'utf-8');
         const spec = yaml.load(specContent) as Record<string, unknown>;
 
@@ -112,9 +104,9 @@ export class ApproveAgentRunUseCase {
     this.processService.spawn(
       run.featureId ?? '',
       id,
-      repoPath,
-      worktreePath, // specDir = worktree path (same as initial spawn)
-      worktreePath,
+      feature?.repositoryPath ?? run.repositoryPath ?? '',
+      feature?.specPath ?? '',
+      feature?.worktreePath,
       {
         resume: true,
         approvalGates: run.approvalGates,

@@ -49,15 +49,6 @@ function createMockAgentRunRepository() {
   };
 }
 
-function createMockWorktreeService() {
-  return {
-    create: vi.fn(),
-    remove: vi.fn(),
-    getWorktreePath: vi.fn().mockReturnValue('/test/repo/.shep/wt/feat-branch'),
-    exists: vi.fn(),
-  };
-}
-
 function createWaitingRun(overrides?: Partial<AgentRun>): AgentRun {
   return {
     id: 'run-001',
@@ -101,18 +92,12 @@ describe('ReviewFeatureUseCase', () => {
   let useCase: ReviewFeatureUseCase;
   let mockFeatureRepo: ReturnType<typeof createMockFeatureRepository>;
   let mockRunRepo: ReturnType<typeof createMockAgentRunRepository>;
-  let mockWorktreeService: ReturnType<typeof createMockWorktreeService>;
 
   beforeEach(() => {
     vi.clearAllMocks();
     mockFeatureRepo = createMockFeatureRepository();
     mockRunRepo = createMockAgentRunRepository();
-    mockWorktreeService = createMockWorktreeService();
-    useCase = new ReviewFeatureUseCase(
-      mockFeatureRepo as any,
-      mockRunRepo as any,
-      mockWorktreeService as any
-    );
+    useCase = new ReviewFeatureUseCase(mockFeatureRepo as any, mockRunRepo as any);
   });
 
   it('should return open questions from spec.yaml for a waiting feature', async () => {
@@ -123,6 +108,7 @@ describe('ReviewFeatureUseCase', () => {
       branch: 'feat/test-feature',
       agentRunId: 'run-001',
       repositoryPath: '/test/repo',
+      specPath: '/test/repo/.shep/wt/feat-branch',
     });
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockReturnValue('yaml-content');
@@ -161,6 +147,7 @@ describe('ReviewFeatureUseCase', () => {
       branch: 'feat/test-feature',
       agentRunId: 'run-001',
       repositoryPath: '/test/repo',
+      specPath: '/test/repo/.shep/wt/feat-branch',
     });
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockReturnValue('yaml-content');
@@ -196,6 +183,7 @@ describe('ReviewFeatureUseCase', () => {
       branch: 'feat/test-feature',
       agentRunId: 'run-001',
       repositoryPath: '/test/repo',
+      specPath: '/test/repo/.shep/wt/feat-branch',
     });
     mockRunRepo.findById.mockResolvedValue(createWaitingRun({ status: AgentRunStatus.running }));
 
@@ -214,6 +202,7 @@ describe('ReviewFeatureUseCase', () => {
       branch: 'feat/test-feature',
       agentRunId: 'run-001',
       repositoryPath: '/test/repo',
+      specPath: '/test/repo/.shep/wt/feat-branch',
     });
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockImplementation(() => {
@@ -235,6 +224,7 @@ describe('ReviewFeatureUseCase', () => {
       branch: 'feat/test-feature',
       agentRunId: 'run-001',
       repositoryPath: '/test/repo',
+      specPath: '/test/repo/.shep/wt/feat-branch',
     });
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockReturnValue('yaml-content');
@@ -247,7 +237,7 @@ describe('ReviewFeatureUseCase', () => {
     expect(result.reason).toContain('No open questions');
   });
 
-  it('should construct spec path using worktree path and feature slug', async () => {
+  it('should construct spec path using feature specPath', async () => {
     mockFeatureRepo.findById.mockResolvedValue({
       id: 'feat-001',
       name: 'test-feature',
@@ -255,6 +245,7 @@ describe('ReviewFeatureUseCase', () => {
       branch: 'feat/test-feature',
       agentRunId: 'run-001',
       repositoryPath: '/test/repo',
+      specPath: '/test/repo/.shep/wt/feat-branch/specs/my-feature',
     });
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
     mockReadFileSync.mockReturnValue('yaml-content');
@@ -262,12 +253,8 @@ describe('ReviewFeatureUseCase', () => {
 
     await useCase.execute('feat-001', '/test/repo');
 
-    expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith(
-      '/test/repo',
-      'feat/test-feature'
-    );
     expect(mockReadFileSync).toHaveBeenCalledWith(
-      expect.stringContaining('specs/my-feature/spec.yaml'),
+      '/test/repo/.shep/wt/feat-branch/specs/my-feature/spec.yaml',
       'utf-8'
     );
   });

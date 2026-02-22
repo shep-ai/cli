@@ -14,7 +14,6 @@ import type { IAgentRunRepository } from '../../ports/output/agents/agent-run-re
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
 import type { IPhaseTimingRepository } from '../../ports/output/agents/phase-timing-repository.interface.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
-import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import { AgentRunStatus } from '../../../domain/generated/output.js';
 import type {
   PrdRejectionPayload,
@@ -31,8 +30,6 @@ export class RejectAgentRunUseCase {
     private readonly processService: IFeatureAgentProcessService,
     @inject('IFeatureRepository')
     private readonly featureRepository: IFeatureRepository,
-    @inject('IWorktreeService')
-    private readonly worktreeService: IWorktreeService,
     @inject('IPhaseTimingRepository')
     private readonly phaseTimingRepository: IPhaseTimingRepository
   ) {}
@@ -63,15 +60,14 @@ export class RejectAgentRunUseCase {
       return { rejected: false, reason: 'Feedback is required for rejection' };
     }
 
-    // Look up feature for worktree path
+    // Look up feature for spec path
     const feature = run.featureId ? await this.featureRepository.findById(run.featureId) : null;
-    const repoPath = run.repositoryPath ?? '';
-    const worktreePath = feature
-      ? this.worktreeService.getWorktreePath(repoPath, feature.branch)
-      : repoPath;
+    if (!feature?.specPath) {
+      return { rejected: false, reason: 'Feature has no spec path' };
+    }
 
     // Read and update spec.yaml with rejection feedback
-    const specDir = join(worktreePath, 'specs', feature?.slug ?? feature?.name ?? 'unknown');
+    const specDir = feature.specPath;
     let iteration = 1;
     try {
       const specContent = readFileSync(join(specDir, 'spec.yaml'), 'utf-8');
@@ -125,15 +121,22 @@ export class RejectAgentRunUseCase {
       iteration,
     };
 
-    this.processService.spawn(run.featureId ?? '', id, repoPath, worktreePath, worktreePath, {
-      resume: true,
-      approvalGates: run.approvalGates,
-      threadId: run.threadId,
-      resumeFromInterrupt: true,
-      push: feature?.push ?? false,
-      openPr: feature?.openPr ?? false,
-      resumePayload: JSON.stringify(rejectionPayload),
-    });
+    this.processService.spawn(
+      run.featureId ?? '',
+      id,
+      feature.repositoryPath,
+      feature.specPath,
+      feature.worktreePath,
+      {
+        resume: true,
+        approvalGates: run.approvalGates,
+        threadId: run.threadId,
+        resumeFromInterrupt: true,
+        push: feature?.push ?? false,
+        openPr: feature?.openPr ?? false,
+        resumePayload: JSON.stringify(rejectionPayload),
+      }
+    );
 
     return {
       rejected: true,

@@ -52,15 +52,6 @@ function createMockFeatureRepository() {
   };
 }
 
-function createMockWorktreeService(worktreePath: string) {
-  return {
-    create: vi.fn(),
-    remove: vi.fn(),
-    getWorktreePath: vi.fn().mockReturnValue(worktreePath),
-    exists: vi.fn(),
-  };
-}
-
 function createMockTimingRepository() {
   return {
     save: vi.fn(),
@@ -113,16 +104,8 @@ const SPEC_WITH_QUESTIONS = {
   ],
 };
 
-const FEATURE = {
-  id: 'feat-001',
-  name: 'test-feature',
-  slug: 'test-feature',
-  branch: 'feat/test-feature',
-  repositoryPath: '/test/repo',
-  push: false,
-  openPr: false,
-  agentRunId: 'run-001',
-};
+// specPath will be set in beforeEach after tempDir is created
+let FEATURE: Record<string, unknown>;
 
 describe('PRD Approval Iterations (Integration)', () => {
   let tempDir: string;
@@ -132,6 +115,17 @@ describe('PRD Approval Iterations (Integration)', () => {
     tempDir = mkdtempSync(join(tmpdir(), 'shep-prd-iter-'));
     specDir = join(tempDir, 'specs', 'test-feature');
     mkdirSync(specDir, { recursive: true });
+    FEATURE = {
+      id: 'feat-001',
+      name: 'test-feature',
+      slug: 'test-feature',
+      branch: 'feat/test-feature',
+      repositoryPath: '/test/repo',
+      push: false,
+      openPr: false,
+      agentRunId: 'run-001',
+      specPath: specDir,
+    };
   });
 
   afterEach(() => {
@@ -154,7 +148,6 @@ describe('PRD Approval Iterations (Integration)', () => {
       const mockRunRepo = createMockRunRepository();
       const mockProcessService = createMockProcessService();
       const mockFeatureRepo = createMockFeatureRepository();
-      const mockWorktreeService = createMockWorktreeService(tempDir);
       const mockTimingRepo = createMockTimingRepository();
 
       mockRunRepo.findById.mockResolvedValue(createWaitingRun());
@@ -164,7 +157,6 @@ describe('PRD Approval Iterations (Integration)', () => {
         mockRunRepo as any,
         mockProcessService as any,
         mockFeatureRepo as any,
-        mockWorktreeService as any,
         mockTimingRepo as any
       );
 
@@ -196,8 +188,8 @@ describe('PRD Approval Iterations (Integration)', () => {
         'feat-001',
         'run-001',
         '/test/repo',
-        expect.any(String),
-        expect.any(String),
+        specDir,
+        undefined,
         expect.objectContaining({
           resume: true,
           resumeFromInterrupt: true,
@@ -219,7 +211,6 @@ describe('PRD Approval Iterations (Integration)', () => {
       const mockRunRepo = createMockRunRepository();
       const mockProcessService = createMockProcessService();
       const mockFeatureRepo = createMockFeatureRepository();
-      const mockWorktreeService = createMockWorktreeService(tempDir);
       const mockTimingRepo = createMockTimingRepository();
 
       mockRunRepo.findById.mockResolvedValue(createWaitingRun());
@@ -229,7 +220,6 @@ describe('PRD Approval Iterations (Integration)', () => {
         mockRunRepo as any,
         mockProcessService as any,
         mockFeatureRepo as any,
-        mockWorktreeService as any,
         mockTimingRepo as any
       );
 
@@ -262,8 +252,8 @@ describe('PRD Approval Iterations (Integration)', () => {
         'feat-001',
         'run-001',
         '/test/repo',
-        expect.any(String),
-        expect.any(String),
+        specDir,
+        undefined,
         expect.objectContaining({
           resumePayload: JSON.stringify(approvalPayload),
         })
@@ -278,7 +268,6 @@ describe('PRD Approval Iterations (Integration)', () => {
       const mockRunRepo = createMockRunRepository();
       const mockProcessService = createMockProcessService();
       const mockFeatureRepo = createMockFeatureRepository();
-      const mockWorktreeService = createMockWorktreeService(tempDir);
       const mockTimingRepo = createMockTimingRepository();
 
       mockRunRepo.findById.mockResolvedValue(createWaitingRun());
@@ -288,7 +277,6 @@ describe('PRD Approval Iterations (Integration)', () => {
         mockRunRepo as any,
         mockProcessService as any,
         mockFeatureRepo as any,
-        mockWorktreeService as any,
         mockTimingRepo as any
       );
 
@@ -317,7 +305,6 @@ describe('PRD Approval Iterations (Integration)', () => {
       const mockRunRepo = createMockRunRepository();
       const mockProcessService = createMockProcessService();
       const mockFeatureRepo = createMockFeatureRepository();
-      const mockWorktreeService = createMockWorktreeService(tempDir);
       const mockTimingRepo = createMockTimingRepository();
 
       mockFeatureRepo.findById.mockResolvedValue(FEATURE);
@@ -326,7 +313,6 @@ describe('PRD Approval Iterations (Integration)', () => {
         mockRunRepo as any,
         mockProcessService as any,
         mockFeatureRepo as any,
-        mockWorktreeService as any,
         mockTimingRepo as any
       );
 
@@ -374,7 +360,6 @@ describe('PRD Approval Iterations (Integration)', () => {
       const mockRunRepo = createMockRunRepository();
       const mockProcessService = createMockProcessService();
       const mockFeatureRepo = createMockFeatureRepository();
-      const mockWorktreeService = createMockWorktreeService(tempDir);
       const mockTimingRepo = createMockTimingRepository();
 
       mockRunRepo.findById.mockResolvedValue(createWaitingRun());
@@ -384,7 +369,6 @@ describe('PRD Approval Iterations (Integration)', () => {
         mockRunRepo as any,
         mockProcessService as any,
         mockFeatureRepo as any,
-        mockWorktreeService as any,
         mockTimingRepo as any
       );
 
@@ -406,16 +390,11 @@ describe('PRD Approval Iterations (Integration)', () => {
 
       const mockFeatureRepo = createMockFeatureRepository();
       const mockRunRepo = createMockRunRepository();
-      const mockWorktreeService = createMockWorktreeService(tempDir);
 
       mockFeatureRepo.findById.mockResolvedValue(FEATURE);
       mockRunRepo.findById.mockResolvedValue(createWaitingRun());
 
-      const useCase = new ReviewFeatureUseCase(
-        mockFeatureRepo as any,
-        mockRunRepo as any,
-        mockWorktreeService as any
-      );
+      const useCase = new ReviewFeatureUseCase(mockFeatureRepo as any, mockRunRepo as any);
 
       const result = await useCase.execute('feat-001', '/test/repo');
 
@@ -438,16 +417,11 @@ describe('PRD Approval Iterations (Integration)', () => {
 
       const mockFeatureRepo = createMockFeatureRepository();
       const mockRunRepo = createMockRunRepository();
-      const mockWorktreeService = createMockWorktreeService(tempDir);
 
       mockFeatureRepo.findById.mockResolvedValue(FEATURE);
       mockRunRepo.findById.mockResolvedValue(createWaitingRun());
 
-      const useCase = new ReviewFeatureUseCase(
-        mockFeatureRepo as any,
-        mockRunRepo as any,
-        mockWorktreeService as any
-      );
+      const useCase = new ReviewFeatureUseCase(mockFeatureRepo as any, mockRunRepo as any);
 
       const result = await useCase.execute('feat-001', '/test/repo');
 

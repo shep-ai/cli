@@ -64,15 +64,6 @@ function createMockFeatureRepository() {
   };
 }
 
-function createMockWorktreeService() {
-  return {
-    create: vi.fn(),
-    remove: vi.fn(),
-    getWorktreePath: vi.fn().mockReturnValue('/test/repo/.shep/wt/feat-branch'),
-    exists: vi.fn(),
-  };
-}
-
 function createMockTimingRepository() {
   return {
     save: vi.fn(),
@@ -105,7 +96,6 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
   let mockRunRepo: ReturnType<typeof createMockRunRepository>;
   let mockProcessService: ReturnType<typeof createMockProcessService>;
   let mockFeatureRepo: ReturnType<typeof createMockFeatureRepository>;
-  let mockWorktreeService: ReturnType<typeof createMockWorktreeService>;
   let mockTimingRepo: ReturnType<typeof createMockTimingRepository>;
 
   beforeEach(() => {
@@ -113,7 +103,6 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
     mockRunRepo = createMockRunRepository();
     mockProcessService = createMockProcessService();
     mockFeatureRepo = createMockFeatureRepository();
-    mockWorktreeService = createMockWorktreeService();
     mockTimingRepo = createMockTimingRepository();
     mockFeatureRepo.findById.mockResolvedValue({
       id: 'feat-001',
@@ -121,12 +110,12 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
       slug: 'test-feature',
       branch: 'feat/test-feature',
       repositoryPath: '/test/repo',
+      specPath: '/test/repo/.shep/wt/feat-branch',
     });
     useCase = new ApproveAgentRunUseCase(
       mockRunRepo as any,
       mockProcessService as any,
       mockFeatureRepo as any,
-      mockWorktreeService as any,
       mockTimingRepo as any
     );
   });
@@ -141,8 +130,8 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
       'feat-001',
       'run-001',
       '/test/repo',
-      expect.any(String),
-      expect.any(String),
+      '/test/repo/.shep/wt/feat-branch',
+      undefined,
       expect.not.objectContaining({ resumePayload: expect.any(String) })
     );
   });
@@ -158,8 +147,8 @@ describe('ApproveAgentRunUseCase with PrdApprovalPayload', () => {
       'feat-001',
       'run-001',
       '/test/repo',
-      expect.any(String),
-      expect.any(String),
+      '/test/repo/.shep/wt/feat-branch',
+      undefined,
       expect.objectContaining({
         resumePayload: JSON.stringify(payload),
       })

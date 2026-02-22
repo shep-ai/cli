@@ -60,15 +60,6 @@ function createMockFeatureRepository() {
   };
 }
 
-function createMockWorktreeService() {
-  return {
-    create: vi.fn(),
-    remove: vi.fn(),
-    getWorktreePath: vi.fn().mockReturnValue('/test/repo/.shep/wt/feat-branch'),
-    exists: vi.fn(),
-  };
-}
-
 function createMockTimingRepository() {
   return {
     save: vi.fn(),
@@ -101,7 +92,6 @@ describe('RejectAgentRunUseCase', () => {
   let mockRunRepo: ReturnType<typeof createMockRunRepository>;
   let mockProcessService: ReturnType<typeof createMockProcessService>;
   let mockFeatureRepo: ReturnType<typeof createMockFeatureRepository>;
-  let mockWorktreeService: ReturnType<typeof createMockWorktreeService>;
   let mockTimingRepo: ReturnType<typeof createMockTimingRepository>;
 
   beforeEach(() => {
@@ -109,7 +99,6 @@ describe('RejectAgentRunUseCase', () => {
     mockRunRepo = createMockRunRepository();
     mockProcessService = createMockProcessService();
     mockFeatureRepo = createMockFeatureRepository();
-    mockWorktreeService = createMockWorktreeService();
     mockTimingRepo = createMockTimingRepository();
     mockFeatureRepo.findById.mockResolvedValue({
       id: 'feat-001',
@@ -119,12 +108,12 @@ describe('RejectAgentRunUseCase', () => {
       repositoryPath: '/test/repo',
       push: false,
       openPr: false,
+      specPath: '/test/repo/.shep/wt/feat-branch',
     });
     useCase = new RejectAgentRunUseCase(
       mockRunRepo as any,
       mockProcessService as any,
       mockFeatureRepo as any,
-      mockWorktreeService as any,
       mockTimingRepo as any
     );
   });
