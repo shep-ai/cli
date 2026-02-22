@@ -7,6 +7,7 @@
  */
 
 import Ajv2020 from 'ajv/dist/2020.js';
+import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
 import { readdirSync, readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
@@ -30,6 +31,7 @@ function resolveSchemaDir(): string {
 
 function createValidator(): Ajv2020 {
   const ajv = new Ajv2020({ allErrors: true, strict: false });
+  addFormats(ajv);
   const schemaDir = resolveSchemaDir();
   const files = readdirSync(schemaDir).filter((f) => f.endsWith('.yaml'));
 
