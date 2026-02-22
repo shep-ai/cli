@@ -7,9 +7,11 @@ vi.mock('@shepai/core/infrastructure/services/file-dialog.service', () => ({
   },
 }));
 
-const { pickFiles } = await import('../../../../../src/presentation/web/app/actions/pick-files.js');
+const { POST } = await import(
+  '../../../../../src/presentation/web/app/api/dialog/pick-files/route.js'
+);
 
-describe('pickFiles server action', () => {
+describe('POST /api/dialog/pick-files', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -21,36 +23,42 @@ describe('pickFiles server action', () => {
     ];
     mockPickFiles.mockReturnValue(files);
 
-    const result = await pickFiles();
+    const response = await POST();
+    const data = await response.json();
 
-    expect(result).toEqual({ files });
+    expect(data).toEqual({ files, cancelled: false });
   });
 
-  it('returns null files when user cancels the dialog', async () => {
+  it('returns cancelled when user cancels the dialog', async () => {
     mockPickFiles.mockReturnValue(null);
 
-    const result = await pickFiles();
+    const response = await POST();
+    const data = await response.json();
 
-    expect(result).toEqual({ files: null });
+    expect(data).toEqual({ files: null, cancelled: true });
   });
 
-  it('returns error message on service failure', async () => {
+  it('returns error on service failure', async () => {
     mockPickFiles.mockImplementation(() => {
       throw new Error('Unsupported platform: freebsd');
     });
 
-    const result = await pickFiles();
+    const response = await POST();
+    const data = await response.json();
 
-    expect(result).toEqual({ files: null, error: 'Unsupported platform: freebsd' });
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ files: null, cancelled: false, error: 'Unsupported platform: freebsd' });
   });
 
-  it('returns generic error message for non-Error throws', async () => {
+  it('returns generic error for non-Error throws', async () => {
     mockPickFiles.mockImplementation(() => {
       throw 'something unexpected';
     });
 
-    const result = await pickFiles();
+    const response = await POST();
+    const data = await response.json();
 
-    expect(result).toEqual({ files: null, error: 'Failed to open file dialog' });
+    expect(response.status).toBe(500);
+    expect(data).toEqual({ files: null, cancelled: false, error: 'Failed to open file dialog' });
   });
 });
