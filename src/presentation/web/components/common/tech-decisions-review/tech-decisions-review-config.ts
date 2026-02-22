@@ -20,6 +20,12 @@ export interface TechDecisionsReviewProps {
   onApprove: () => void;
   /** Controls disabled state during loading */
   isProcessing?: boolean;
+  /** Show the name/summary header section (default: true) */
+  showHeader?: boolean;
+  /** Show the tech stack section (default: true) */
+  showTechStack?: boolean;
+  /** Show the rationale text for each decision (default: true) */
+  showRationale?: boolean;
 }
 
 export interface TechDecisionsDrawerProps extends TechDecisionsReviewProps {

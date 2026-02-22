@@ -113,7 +113,12 @@ export function TechDecisionsDrawer({
 
         {/* Tech decisions review body */}
         <div className="flex min-h-0 flex-1 flex-col">
-          <TechDecisionsReview {...reviewProps} />
+          <TechDecisionsReview
+            {...reviewProps}
+            showHeader={false}
+            showTechStack={false}
+            showRationale={false}
+          />
         </div>
 
         {/* Delete action */}

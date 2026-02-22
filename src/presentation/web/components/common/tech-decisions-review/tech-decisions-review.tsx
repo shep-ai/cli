@@ -44,6 +44,9 @@ export function TechDecisionsReview({
   onSelect,
   onApprove,
   isProcessing = false,
+  showHeader = true,
+  showTechStack = true,
+  showRationale = true,
 }: TechDecisionsReviewProps) {
   const { name, summary, decisions, technologies } = data;
   const [currentStep, setCurrentStep] = useState(0);
@@ -72,16 +75,20 @@ export function TechDecisionsReview({
     <div className="flex h-full flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Header */}
-        <div className="border-border flex items-start gap-3 border-b pb-3">
-          <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-          <div className="flex-1">
-            <h3 className="text-foreground mb-1.5 text-sm font-bold">{name}</h3>
-            <p className="text-muted-foreground text-xs leading-relaxed">{summary}</p>
+        {showHeader ? (
+          <div className="border-border flex items-start gap-3 border-b pb-3">
+            <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+            <div className="flex-1">
+              <h3 className="text-foreground mb-1.5 text-sm font-bold">{name}</h3>
+              <p className="text-muted-foreground text-xs leading-relaxed">{summary}</p>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* Technologies (collapsed by default) */}
-        {technologies.length > 0 ? <TechStackCollapsible technologies={technologies} /> : null}
+        {showTechStack && technologies.length > 0 ? (
+          <TechStackCollapsible technologies={technologies} />
+        ) : null}
 
         {/* Decision title + step indicator */}
         <div className="space-y-3">
@@ -106,9 +113,11 @@ export function TechDecisionsReview({
               ))}
             </div>
           </div>
-          <p className="text-muted-foreground text-xs leading-relaxed">
-            {currentDecision.rationale}
-          </p>
+          {showRationale ? (
+            <p className="text-muted-foreground text-xs leading-relaxed">
+              {currentDecision.rationale}
+            </p>
+          ) : null}
           <div className="space-y-2">
             {options.map((opt, optIdx) => {
               const selected = selections[currentStep] === opt;
