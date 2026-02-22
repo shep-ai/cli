@@ -7,9 +7,9 @@ vi.mock('@shepai/core/infrastructure/services/settings.service', () => ({
   getSettings: mockGetSettings,
 }));
 
-const mockLaunchIde = vi.fn();
-vi.mock('@shepai/core/infrastructure/services/ide-launchers/launch-ide', () => ({
-  launchIde: mockLaunchIde,
+const mockExecute = vi.fn();
+vi.mock('@/lib/server-container', () => ({
+  resolve: () => ({ execute: mockExecute }),
 }));
 
 const { openIde } = await import('../../../../../src/presentation/web/app/actions/open-ide.js');
@@ -20,7 +20,7 @@ describe('openIde server action', () => {
     mockGetSettings.mockReturnValue({
       environment: { defaultEditor: 'vscode' },
     });
-    mockLaunchIde.mockResolvedValue({
+    mockExecute.mockResolvedValue({
       ok: true,
       editorName: 'VS Code',
       worktreePath: '/mock/.shep/repos/abc123/wt/feat-test',
@@ -45,10 +45,10 @@ describe('openIde server action', () => {
     });
   });
 
-  it('calls launchIde without branch when branch is not provided', async () => {
+  it('calls use case without branch when branch is not provided', async () => {
     await openIde({ repositoryPath: '/home/user/project' });
 
-    expect(mockLaunchIde).toHaveBeenCalledWith({
+    expect(mockExecute).toHaveBeenCalledWith({
       editorId: 'vscode',
       repositoryPath: '/home/user/project',
       branch: undefined,
@@ -66,10 +66,10 @@ describe('openIde server action', () => {
     });
   });
 
-  it('calls launchIde with branch and checkAvailability', async () => {
+  it('calls use case with branch and checkAvailability', async () => {
     await openIde({ repositoryPath: '/home/user/project', branch: 'main' });
 
-    expect(mockLaunchIde).toHaveBeenCalledWith({
+    expect(mockExecute).toHaveBeenCalledWith({
       editorId: 'vscode',
       repositoryPath: '/home/user/project',
       branch: 'main',
@@ -77,11 +77,11 @@ describe('openIde server action', () => {
     });
   });
 
-  it('returns error when launchIde returns unknown_editor', async () => {
+  it('returns error when use case returns unknown_editor', async () => {
     mockGetSettings.mockReturnValue({
       environment: { defaultEditor: 'unknown-editor' },
     });
-    mockLaunchIde.mockResolvedValue({
+    mockExecute.mockResolvedValue({
       ok: false,
       code: 'unknown_editor',
       message: 'No launcher found for editor: unknown-editor',
@@ -106,8 +106,8 @@ describe('openIde server action', () => {
     });
   });
 
-  it('returns error when launchIde returns launch_failed', async () => {
-    mockLaunchIde.mockResolvedValue({
+  it('returns error when use case returns launch_failed', async () => {
+    mockExecute.mockResolvedValue({
       ok: false,
       code: 'launch_failed',
       message: 'Failed to spawn process',

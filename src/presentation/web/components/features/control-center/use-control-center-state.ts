@@ -96,11 +96,11 @@ export function useControlCenterState(
         return serverNode;
       });
     });
-  }, [initialNodeKey]);
+  }, [initialNodeKey, initialNodes]);
 
   useEffect(() => {
     setEdges(initialEdges);
-  }, [initialEdgeKey]);
+  }, [initialEdgeKey, initialEdges]);
 
   // Refresh server data when SSE agent events arrive (status changes)
   const { lastEvent } = useAgentEvents();

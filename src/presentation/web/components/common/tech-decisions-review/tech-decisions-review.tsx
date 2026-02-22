@@ -89,9 +89,9 @@ export function TechDecisionsReview({
             Decision {currentStep + 1} of {total}
           </span>
           <div className="flex gap-1">
-            {decisions.map((_, idx) => (
+            {decisions.map((decision, idx) => (
               <button
-                key={idx}
+                key={decision.title}
                 type="button"
                 aria-label={`Go to decision ${idx + 1}`}
                 className={cn(

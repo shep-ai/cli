@@ -33,10 +33,7 @@ let busInstance: NotificationBus | null = null;
  * Lazily creates the bus on first access.
  */
 export function getNotificationBus(): NotificationBus {
-  if (busInstance === null) {
-    busInstance = new EventEmitter<NotificationEventMap>();
-  }
-
+  busInstance ??= new EventEmitter<NotificationEventMap>();
   return busInstance;
 }
 
