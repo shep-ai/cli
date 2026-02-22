@@ -85,6 +85,39 @@ export async function recordPhaseEnd(timingId: string | null, durationMs: number
 }
 
 /**
+ * Record an instant lifecycle event (e.g., run:started, run:stopped, run:crashed).
+ * These are phase timing records with zero duration, used to mark events in the timeline.
+ *
+ * Can be called with explicit runId and repository (for use outside the worker context,
+ * e.g., from use cases like StopAgentRunUseCase or ResumeFeatureUseCase).
+ */
+export async function recordLifecycleEvent(
+  phase: string,
+  explicitRunId?: string,
+  explicitRepo?: IPhaseTimingRepository
+): Promise<void> {
+  const runId = explicitRunId ?? contextRunId;
+  const repo = explicitRepo ?? contextRepository;
+  if (!runId || !repo) return;
+
+  const now = new Date();
+  try {
+    await repo.save({
+      id: randomUUID(),
+      agentRunId: runId,
+      phase,
+      startedAt: now,
+      completedAt: now,
+      durationMs: BigInt(0),
+      createdAt: now,
+      updatedAt: now,
+    });
+  } catch {
+    // Swallow — lifecycle event recording is non-fatal
+  }
+}
+
+/**
  * Record the start of an approval wait. Sets waitingApprovalAt on the timing record.
  * No-op if timingId is null or context is not set.
  */
