@@ -2,24 +2,25 @@ feature:
   id: 035-gemini-cli-executor-2
   name: gemini-cli-executor-2
   number: 35
-  branch: feat/035-gemini-cli-executor-2
-  lifecycle: implementation
+  branch: feat/gemini-cli-executor-2
+  lifecycle: review
   createdAt: '2026-02-22T11:53:37Z'
 status:
-  phase: ready-for-review
+  phase: in-review
   progress:
     completed: 9
     total: 9
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-22T12:44:00Z'
-  lastUpdatedBy: shep-kit:implement
+  lastUpdated: '2026-02-22T12:48:00Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
     - research
     - plan
     - implementation
+prUrl: https://github.com/shep-ai/cli/pull/88
 validation:
   lastRun: '2026-02-22T12:00:00Z'
   gatesPassed:
@@ -37,6 +38,9 @@ checkpoints:
   - phase: implementation-complete
     completedAt: '2026-02-22T12:44:00Z'
     completedBy: shep-kit:implement
+  - phase: pr-created
+    completedAt: '2026-02-22T12:48:00Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
