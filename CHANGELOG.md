@@ -1,3 +1,9 @@
+# [1.39.0](https://github.com/shep-ai/cli/compare/v1.38.0...v1.39.0) (2026-02-22)
+
+### Features
+
+- **agents:** add prd approval iterations with interactive tui review ([#86](https://github.com/shep-ai/cli/issues/86)) ([c574d1b](https://github.com/shep-ai/cli/commit/c574d1b5a7ebba2b81431089300b54a79677aac8))
+
 # [1.38.0](https://github.com/shep-ai/cli/compare/v1.37.3...v1.38.0) (2026-02-22)
 
 ### Features
