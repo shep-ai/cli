@@ -22,7 +22,6 @@ test.describe('Feature Create Drawer — native file attachments', () => {
 
     // Navigate to control center
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     // Click the sidebar "New feature" button to open the create drawer
     const newFeatureButton = page.locator('button', { hasText: 'New feature' });
@@ -74,7 +73,6 @@ test.describe('Feature Create Drawer — native file attachments', () => {
     );
 
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     const newFeatureButton = page.locator('button', { hasText: 'New feature' });
     await expect(newFeatureButton).toBeVisible({ timeout: 15000 });
@@ -117,7 +115,6 @@ test.describe('Feature Create Drawer — native file attachments', () => {
     );
 
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
 
     const newFeatureButton = page.locator('button', { hasText: 'New feature' });
     await expect(newFeatureButton).toBeVisible({ timeout: 15000 });
