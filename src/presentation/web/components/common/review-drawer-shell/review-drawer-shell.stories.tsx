@@ -43,6 +43,7 @@ export const Default: Story = {
   render: () => (
     <ShellTemplate
       featureName="User Authentication Flow"
+      featureDescription="Implement OAuth2 login with social providers and MFA support"
       featureId="FEAT-042"
       repositoryPath="/Users/dev/my-project"
       branch="feat/auth-flow"

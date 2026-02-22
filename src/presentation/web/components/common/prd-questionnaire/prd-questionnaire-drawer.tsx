@@ -8,6 +8,7 @@ export function PrdQuestionnaireDrawer({
   open,
   onClose,
   featureName,
+  featureDescription,
   featureId,
   repositoryPath,
   branch,
@@ -21,6 +22,7 @@ export function PrdQuestionnaireDrawer({
       open={open}
       onClose={onClose}
       featureName={featureName}
+      featureDescription={featureDescription}
       featureId={featureId}
       repositoryPath={repositoryPath}
       branch={branch}

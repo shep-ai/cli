@@ -7,6 +7,8 @@ export interface ReviewDrawerShellProps {
   onClose: () => void;
   /** Feature name shown in drawer header */
   featureName: string;
+  /** Short description shown below the feature name */
+  featureDescription?: string;
   /** Feature ID shown below the name (sr-only) */
   featureId?: string;
   /** Absolute path to the repository on disk */

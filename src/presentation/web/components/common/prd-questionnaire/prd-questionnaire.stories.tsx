@@ -329,6 +329,7 @@ export const InDrawer: DrawerStory = {
   render: () => (
     <DrawerTemplate
       featureName="User Authentication Flow"
+      featureDescription="Implement OAuth2 login with social providers and MFA support"
       featureId="FEAT-042"
       lifecycleLabel="Requirements"
       data={mockData}

@@ -218,6 +218,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           open={showPrdDrawer}
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
+          featureDescription={selectedNode?.description}
           featureId={selectedNode?.featureId}
           repositoryPath={selectedNode?.repositoryPath}
           branch={selectedNode?.branch}
