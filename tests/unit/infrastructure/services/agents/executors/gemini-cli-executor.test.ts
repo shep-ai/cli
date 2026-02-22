@@ -395,6 +395,50 @@ describe('GeminiCliExecutorService', () => {
       await expect(executePromise).rejects.toThrow(/Failed to parse Gemini JSON output/);
     });
 
+    it('should reject when stderr contains fatal API errors despite exit code 0', async () => {
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      // Gemini CLI exits 0 but stderr shows repeated 429 rate limit errors
+      const stderrOutput =
+        'Attempt 1 failed with status 429. Retrying with backoff... GaxiosError: [{\n' +
+        '  "error": { "code": 429, "message": "No capacity available for model gemini-3-flash-preview on the server" }\n' +
+        '}]';
+      const jsonOutput = buildGeminiJsonResponse('Some partial response');
+      const executePromise = executor.execute('Test', { silent: true });
+      emitStreamData(mockProc, jsonOutput, stderrOutput, 0);
+
+      await expect(executePromise).rejects.toThrow(/fatal error.*stderr/i);
+    });
+
+    it('should reject when stderr contains RESOURCE_EXHAUSTED despite exit code 0', async () => {
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      const stderrOutput = '"status": "RESOURCE_EXHAUSTED"';
+      const jsonOutput = buildGeminiJsonResponse('Partial');
+      const executePromise = executor.execute('Test', { silent: true });
+      emitStreamData(mockProc, jsonOutput, stderrOutput, 0);
+
+      await expect(executePromise).rejects.toThrow(/fatal error.*stderr/i);
+    });
+
+    it('should NOT reject for non-fatal stderr messages with exit code 0', async () => {
+      const mockProc = createMockChildProcess();
+      vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
+
+      // YOLO mode and skill conflict are benign stderr messages
+      const stderrOutput =
+        'YOLO mode is enabled. All tool calls will be automatically approved.\n' +
+        'Skill conflict detected: "find-skills"';
+      const jsonOutput = buildGeminiJsonResponse('Success!');
+      const executePromise = executor.execute('Test', { silent: true });
+      emitStreamData(mockProc, jsonOutput, stderrOutput, 0);
+
+      const result = await executePromise;
+      expect(result.result).toBe('Success!');
+    });
+
     it('should handle spawn error event (ENOENT)', async () => {
       const mockProc = createMockChildProcess();
       vi.mocked(mockSpawn).mockReturnValue(mockProc as any);
@@ -543,6 +587,17 @@ describe('GeminiCliExecutorService', () => {
     it('should emit error event on spawn error', async () => {
       const events = await streamWith(executor, { emitError: new Error('spawn gemini ENOENT') });
       expect(events).toContainEqual({ type: 'error', content: 'spawn gemini ENOENT' });
+    });
+
+    it('should emit error event when stderr contains fatal API errors despite exit code 0', async () => {
+      const events = await streamWith(executor, {
+        stderrData:
+          'Attempt 1 failed with status 429. Retrying with backoff... "status": "RESOURCE_EXHAUSTED"',
+        exitCode: 0,
+      });
+      expect(events).toContainEqual(
+        expect.objectContaining({ type: 'error', content: expect.stringContaining('fatal') })
+      );
     });
 
     it('should include --resume and stream-json format in args', async () => {

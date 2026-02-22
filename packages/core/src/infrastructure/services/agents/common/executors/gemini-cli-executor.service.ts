@@ -111,6 +111,14 @@ export class GeminiCliExecutorService implements IAgentExecutor {
           return;
         }
 
+        // Gemini CLI may exit 0 despite fatal API errors (e.g. 429 rate limits).
+        // Check stderr for known fatal patterns before trusting the output.
+        const fatalError = this.detectFatalStderrError(stderr);
+        if (fatalError) {
+          reject(new Error(fatalError));
+          return;
+        }
+
         try {
           const parsed = JSON.parse(stdout);
           const result: AgentExecutionResult = { result: parsed.response ?? '' };
@@ -206,6 +214,12 @@ export class GeminiCliExecutorService implements IAgentExecutor {
           ? `Process exited with code ${code}: ${stderr.trim()}`
           : `Process exited with code ${code}`;
         enqueue({ type: 'error', content: msg, timestamp: new Date() });
+      } else {
+        // Gemini CLI may exit 0 despite fatal API errors (e.g. 429 rate limits)
+        const fatalError = this.detectFatalStderrError(stderr);
+        if (fatalError) {
+          enqueue({ type: 'error', content: fatalError, timestamp: new Date() });
+        }
       }
       enqueue(null);
     });
@@ -280,6 +294,32 @@ export class GeminiCliExecutorService implements IAgentExecutor {
       // Non-JSON line — emit as raw progress
       return { type: 'progress', content: line, timestamp: new Date() };
     }
+  }
+
+  /**
+   * Patterns in stderr that indicate a fatal API error even when exit code is 0.
+   * Gemini CLI sometimes exits 0 after exhausting retries on 429/5xx errors.
+   */
+  private static readonly FATAL_STDERR_PATTERNS = [
+    /RESOURCE_EXHAUSTED/i,
+    /failed with status 4\d{2}\. Retrying/i,
+    /failed with status 5\d{2}\. Retrying/i,
+  ];
+
+  /**
+   * Check stderr for patterns indicating fatal API errors.
+   * Returns an error message if fatal patterns are found, null otherwise.
+   */
+  private detectFatalStderrError(stderr: string): string | null {
+    for (const pattern of GeminiCliExecutorService.FATAL_STDERR_PATTERNS) {
+      if (pattern.test(stderr)) {
+        // Extract a concise summary from the noisy stderr
+        const lines = stderr.split('\n').filter((l) => l.trim());
+        const summary = lines.slice(0, 3).join(' | ').slice(0, 300);
+        return `Gemini CLI exited 0 but fatal error detected in stderr: ${summary}`;
+      }
+    }
+    return null;
   }
 
   /**

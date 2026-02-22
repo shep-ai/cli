@@ -9,6 +9,17 @@ summary: >
   (3) streaming support — touching 5 existing files and creating 2 new files. Zero new interfaces,
   zero TypeSpec changes, zero DI container changes.
 
+overview: |
+  New `GeminiCliExecutorService` — drives Google's Gemini CLI as an agent backend, matching the existing Claude Code and Cursor executor pattern.
+
+  **Phase 1 — Core Executor (TDD):** `execute()` with JSON output, CLI arg building, `GEMINI_API_KEY` env injection for token auth, feature declaration, error/timeout handling.
+
+  **Phase 2 — System Integration:** Wire into factory (+ forward authConfig), validator (binary check), and TUI prompt. Small changes to 3 existing files + test updates.
+
+  **Phase 3 — Streaming (TDD):** `executeStream()` with stream-JSON parsing, event mapping to `AgentExecutionStreamEvent`, async queue backpressure, defensive per-line parsing.
+
+  **Scope:** 2 new files, 5 modified files. Zero new interfaces, zero TypeSpec/DI changes.
+
 # Relationships
 relatedFeatures: []
 technologies:
