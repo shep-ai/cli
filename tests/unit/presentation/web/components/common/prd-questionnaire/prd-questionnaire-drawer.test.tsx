@@ -26,6 +26,8 @@ const baseProps: PrdQuestionnaireDrawerProps = {
   featureName: 'Auth Flow',
   featureId: 'FEAT-042',
   lifecycleLabel: 'REQUIREMENTS',
+  repositoryPath: '/tmp/test-repo',
+  branch: 'feat/test',
   data: mockData,
   selections: {},
   onSelect: vi.fn(),
@@ -37,20 +39,20 @@ describe('PrdQuestionnaireDrawer delete button', () => {
   it('renders delete button when onDelete is provided', () => {
     render(<PrdQuestionnaireDrawer {...baseProps} onDelete={vi.fn()} />);
 
-    expect(screen.getByTestId('prd-drawer-delete')).toBeInTheDocument();
+    expect(screen.getByTestId('review-drawer-delete')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /delete feature/i })).toBeInTheDocument();
   });
 
   it('does not render delete button when onDelete is undefined', () => {
     render(<PrdQuestionnaireDrawer {...baseProps} />);
 
-    expect(screen.queryByTestId('prd-drawer-delete')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('review-drawer-delete')).not.toBeInTheDocument();
   });
 
   it('does not render delete button when featureId is undefined', () => {
     render(<PrdQuestionnaireDrawer {...baseProps} featureId={undefined} onDelete={vi.fn()} />);
 
-    expect(screen.queryByTestId('prd-drawer-delete')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('review-drawer-delete')).not.toBeInTheDocument();
   });
 
   it('opens confirmation dialog with feature name and id', () => {

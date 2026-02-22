@@ -62,8 +62,15 @@ const defaultProps: PrdQuestionnaireProps = {
 
 describe('PrdQuestionnaire', () => {
   describe('header rendering', () => {
-    it('renders header with amber dot, question title, and context', () => {
+    it('hides header by default (showHeader=false)', () => {
       render(<PrdQuestionnaire {...defaultProps} />);
+
+      // Header is hidden by default
+      expect(screen.queryByText('Review Requirements')).not.toBeInTheDocument();
+    });
+
+    it('renders header with amber dot, question title, and context when showHeader=true', () => {
+      render(<PrdQuestionnaire {...defaultProps} showHeader />);
 
       expect(screen.getByText('Review Requirements')).toBeInTheDocument();
       expect(
@@ -77,13 +84,14 @@ describe('PrdQuestionnaire', () => {
   });
 
   describe('question rendering', () => {
-    it('renders the current question and step indicator', () => {
+    it('renders the current question and step dots', () => {
       render(<PrdQuestionnaire {...defaultProps} />);
 
       // First question visible on step 1
       expect(screen.getByText('What problem does this solve?')).toBeInTheDocument();
-      // Step indicator shows "Question 1 of 2"
-      expect(screen.getByText(/Question 1 of 2/)).toBeInTheDocument();
+      // Step dots (one per question)
+      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
+      expect(stepDots).toHaveLength(2);
     });
 
     it('renders options as button elements with letter prefixes', () => {
