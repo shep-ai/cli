@@ -1,71 +1,57 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Check,
-  CheckCircle2,
-  ChevronRight,
-  GitCompareArrows,
-  Lightbulb,
-  Send,
-  XCircle,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
+import { Check, GitCompareArrows, Layers, Send } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { TechDecisionsReviewProps, TechDecision } from './tech-decisions-review-config';
 
 function DecisionCard({ decision, index }: { decision: TechDecision; index: number }) {
-  const [expanded, setExpanded] = useState(false);
-
   return (
     <div className="border-border rounded-lg border">
-      <div className="space-y-2.5 px-4 py-3">
-        <div className="flex items-center gap-2.5">
-          <span className="bg-primary/10 text-primary flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">
-            {index + 1}
-          </span>
-          <h3 className="text-foreground text-base leading-tight font-semibold">
-            {decision.title}
-          </h3>
-        </div>
-
-        <div className="bg-primary/10 border-primary/20 flex items-start gap-2.5 rounded-lg border px-3 py-2.5">
-          <CheckCircle2 className="text-primary mt-0.5 h-4 w-4 shrink-0" />
-          <span className="text-foreground text-sm font-semibold">{decision.chosen}</span>
-        </div>
-
-        {decision.rationale ? (
-          <div className="flex items-start gap-2 px-1">
-            <Lightbulb className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
-            <p className="text-muted-foreground text-xs leading-relaxed">{decision.rationale}</p>
+      {/* Header: number + title + chosen badge */}
+      <div className="space-y-3 px-4 py-3">
+        <div className="flex items-start justify-between gap-3">
+          <div className="flex items-start gap-2.5">
+            <span className="bg-primary text-primary-foreground flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold">
+              {index + 1}
+            </span>
+            <div className="min-w-0">
+              <h3 className="text-foreground text-sm leading-tight font-semibold">
+                {decision.title}
+              </h3>
+              <p className="text-muted-foreground mt-0.5 text-xs">{decision.chosen}</p>
+            </div>
           </div>
+          {'decisionName' in decision &&
+          (decision as unknown as { decisionName?: string }).decisionName ? (
+            <Badge variant="secondary" className="bg-primary/10 text-primary shrink-0">
+              {(decision as unknown as { decisionName: string }).decisionName}
+            </Badge>
+          ) : null}
+        </div>
+
+        {/* Rationale */}
+        {decision.rationale ? (
+          <p className="text-muted-foreground text-xs leading-relaxed">{decision.rationale}</p>
         ) : null}
       </div>
 
+      {/* Rejected alternatives */}
       {decision.rejected.length > 0 ? (
-        <div className="border-border border-t px-4 py-2">
-          <button
-            type="button"
-            className="text-muted-foreground flex items-center gap-1.5 text-xs"
-            onClick={() => setExpanded((prev) => !prev)}
-          >
-            <ChevronRight
-              className={cn('h-3 w-3 transition-transform', expanded ? 'rotate-90' : '')}
-            />
-            {decision.rejected.length} rejected alternative
-            {decision.rejected.length > 1 ? 's' : ''}
-          </button>
-          {expanded ? (
-            <ul className="mt-2 space-y-1.5 pl-1">
-              {decision.rejected.map((alt) => (
-                <li key={alt} className="text-muted-foreground flex items-center gap-2 text-xs">
-                  <XCircle className="h-3 w-3 shrink-0 opacity-50" />
-                  {alt}
-                </li>
-              ))}
-            </ul>
-          ) : null}
+        <div className="border-border border-t px-4 py-3">
+          <p className="text-muted-foreground mb-2 flex items-center gap-1.5 text-xs font-medium">
+            <Layers className="h-3.5 w-3.5" />
+            Other Options Considered
+          </p>
+          <div className="space-y-1.5">
+            {decision.rejected.map((alt) => (
+              <div key={alt} className="bg-primary/5 rounded-md px-3 py-2">
+                <span className="text-foreground text-xs">{alt}</span>
+              </div>
+            ))}
+          </div>
         </div>
       ) : null}
     </div>
@@ -93,16 +79,27 @@ export function TechDecisionsReview({
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-3 overflow-y-auto p-4">
-        {summary ? (
-          <div className="bg-muted/50 rounded-lg px-4 py-3">
-            <p className="text-foreground text-sm leading-relaxed">{summary}</p>
-            <p className="text-muted-foreground mt-2 flex items-center gap-1.5 text-xs font-medium">
-              <GitCompareArrows className="h-3.5 w-3.5" />
-              {decisions.length} decision{decisions.length !== 1 ? 's' : ''} to review
-            </p>
+      <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        {/* Header */}
+        <div className="flex items-start gap-3">
+          <div className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-blue-500" />
+          <div className="flex-1">
+            <h2 className="text-foreground text-sm font-bold">
+              Technical Implementation Plan Review
+            </h2>
+            {summary ? (
+              <p className="text-muted-foreground mt-1 text-xs leading-relaxed">{summary}</p>
+            ) : null}
           </div>
-        ) : null}
+        </div>
+
+        {/* Section heading */}
+        <div className="flex items-center gap-2 pt-1">
+          <GitCompareArrows className="text-primary h-4 w-4" />
+          <h3 className="text-foreground text-sm font-bold">Technical Decisions</h3>
+        </div>
+
+        {/* Decision cards */}
         {decisions.map((decision, i) => (
           <DecisionCard key={decision.title} decision={decision} index={i} />
         ))}
