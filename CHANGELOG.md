@@ -1,3 +1,9 @@
+## [1.40.2](https://github.com/shep-ai/cli/compare/v1.40.1...v1.40.2) (2026-02-22)
+
+### Bug Fixes
+
+- **domain:** add ajv-formats for date-time validation ([#90](https://github.com/shep-ai/cli/issues/90)) ([4ff5ed5](https://github.com/shep-ai/cli/commit/4ff5ed50f2a069e56876b20a751d142217e0b654))
+
 ## [1.40.1](https://github.com/shep-ai/cli/compare/v1.40.0...v1.40.1) (2026-02-22)
 
 ### Bug Fixes
