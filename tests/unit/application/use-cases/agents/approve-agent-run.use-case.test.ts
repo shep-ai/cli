@@ -43,15 +43,6 @@ function createMockFeatureRepository() {
   };
 }
 
-function createMockWorktreeService() {
-  return {
-    create: vi.fn(),
-    remove: vi.fn(),
-    getWorktreePath: vi.fn().mockReturnValue('/test/repo/.shep/wt/feat-branch'),
-    exists: vi.fn(),
-  };
-}
-
 function createMockTimingRepository() {
   return {
     save: vi.fn(),
@@ -84,25 +75,24 @@ describe('ApproveAgentRunUseCase', () => {
   let mockRunRepo: ReturnType<typeof createMockRunRepository>;
   let mockProcessService: ReturnType<typeof createMockProcessService>;
   let mockFeatureRepo: ReturnType<typeof createMockFeatureRepository>;
-  let mockWorktreeService: ReturnType<typeof createMockWorktreeService>;
   let mockTimingRepo: ReturnType<typeof createMockTimingRepository>;
 
   beforeEach(() => {
     mockRunRepo = createMockRunRepository();
     mockProcessService = createMockProcessService();
     mockFeatureRepo = createMockFeatureRepository();
-    mockWorktreeService = createMockWorktreeService();
     mockTimingRepo = createMockTimingRepository();
     mockFeatureRepo.findById.mockResolvedValue({
       id: 'feat-001',
       branch: 'feat/test-feature',
       repositoryPath: '/test/repo',
+      specPath: '/test/repo/.shep/wt/feat-branch',
+      worktreePath: '/test/repo/.shep/wt/feat-branch',
     });
     useCase = new ApproveAgentRunUseCase(
       mockRunRepo as any,
       mockProcessService as any,
       mockFeatureRepo as any,
-      mockWorktreeService as any,
       mockTimingRepo as any
     );
   });
@@ -119,10 +109,6 @@ describe('ApproveAgentRunUseCase', () => {
       expect.objectContaining({
         updatedAt: expect.any(Date),
       })
-    );
-    expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith(
-      '/test/repo',
-      'feat/test-feature'
     );
     const wt = '/test/repo/.shep/wt/feat-branch';
     expect(mockProcessService.spawn).toHaveBeenCalledWith(

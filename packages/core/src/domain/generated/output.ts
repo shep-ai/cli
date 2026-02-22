@@ -826,6 +826,24 @@ export type TechDecision = {
 };
 
 /**
+ * Rejection feedback entry for PRD iteration tracking
+ */
+export type RejectionFeedbackEntry = {
+  /**
+   * Iteration number (1-based)
+   */
+  iteration: number;
+  /**
+   * User's feedback message explaining what needs to change
+   */
+  message: string;
+  /**
+   * When the rejection occurred
+   */
+  timestamp: any;
+};
+
+/**
  * Implementation phase grouping related tasks
  */
 export type PlanPhase = {
@@ -935,6 +953,10 @@ export type FeatureArtifact = SpecArtifactBase & {
    * Size estimate: XS, S, M, L, or XL
    */
   sizeEstimate: string;
+  /**
+   * Rejection feedback history for PRD iterations (append-only)
+   */
+  rejectionFeedback?: RejectionFeedbackEntry[];
 };
 
 /**
@@ -1750,6 +1772,92 @@ export type PrdQuestionnaireData = {
    * Configuration for the finalize/approve action button
    */
   finalAction: PrdFinalAction;
+};
+
+/**
+ * Change to a question's selected option during PRD review
+ */
+export type QuestionSelectionChange = {
+  /**
+   * ID of the open question being changed (the question text)
+   */
+  questionId: string;
+  /**
+   * The option text that the user selected
+   */
+  selectedOption: string;
+};
+
+/**
+ * Payload sent when user approves a PRD with optional selection changes
+ */
+export type PrdApprovalPayload = {
+  /**
+   * Always true for approval payloads
+   */
+  approved: boolean;
+  /**
+   * List of selection changes the user made during review (empty if no changes)
+   */
+  changedSelections?: QuestionSelectionChange[];
+};
+
+/**
+ * Payload sent when user rejects a PRD with feedback for iteration
+ */
+export type PrdRejectionPayload = {
+  /**
+   * Always true for rejection payloads
+   */
+  rejected: boolean;
+  /**
+   * User's feedback explaining what needs to change
+   */
+  feedback: string;
+  /**
+   * Iteration number (1-based, derived from PhaseTiming row count)
+   */
+  iteration: number;
+};
+
+/**
+ * A single question with its options as presented in the review TUI
+ */
+export type ReviewQuestion = {
+  /**
+   * The question text
+   */
+  question: string;
+  /**
+   * Available options with selection state
+   */
+  options: QuestionOption[];
+  /**
+   * The option text that was selected by the user
+   */
+  selectedOption: string;
+  /**
+   * Whether the user changed the selection from the AI default
+   */
+  changed: boolean;
+};
+
+/**
+ * Result of the PRD review TUI interaction
+ */
+export type PrdReviewResult = {
+  /**
+   * All questions with their final selection state
+   */
+  questions: ReviewQuestion[];
+  /**
+   * User action: approve or reject
+   */
+  action: string;
+  /**
+   * Rejection feedback (only present when action is 'reject')
+   */
+  feedback?: string;
 };
 export enum AgentFeature {
   sessionResume = 'session-resume',

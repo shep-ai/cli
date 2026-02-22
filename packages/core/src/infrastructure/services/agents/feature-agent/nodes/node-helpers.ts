@@ -6,7 +6,7 @@
  */
 
 import yaml from 'js-yaml';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type {
@@ -102,9 +102,8 @@ export function safeYamlLoad(content: string): unknown {
  * - allowPlan: when true, skip interrupt after plan phase
  * - allowMerge: when true, skip interrupt after merge phase
  *
- * Nodes not covered by a gate (analyze, research) never interrupt.
- * The implement node always interrupts when gates are present
- * (unless all three gates are true, meaning fully autonomous).
+ * Nodes not covered by a gate (analyze, research, implement) never interrupt.
+ * Implementation always proceeds to merge; the merge node handles its own gate.
  *
  */
 export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefined): boolean {
@@ -114,7 +113,6 @@ export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefin
   if (nodeName === 'requirements') return !gates.allowPrd;
   if (nodeName === 'plan') return !gates.allowPlan;
   if (nodeName === 'merge') return !gates.allowMerge;
-  if (nodeName === 'implement') return true;
   return false;
 }
 
@@ -212,6 +210,45 @@ export function getCompletedPhases(specDir: string): string[] {
 }
 
 /**
+ * Remove a phase from completedPhases in feature.yaml.
+ * Used when a phase is rejected and needs to re-execute.
+ */
+export function clearCompletedPhase(specDir: string, phaseId: string, log?: NodeLogger): void {
+  try {
+    const content = readSpecFile(specDir, 'feature.yaml');
+    if (!content) return;
+    const data = yaml.load(content) as Record<string, unknown>;
+    if (!data || typeof data !== 'object') return;
+    const status = (data.status ?? {}) as Record<string, unknown>;
+    const completedPhases = Array.isArray(status.completedPhases)
+      ? status.completedPhases.filter((p: string) => p !== phaseId)
+      : [];
+    data.status = { ...status, completedPhases };
+    writeFileSync(
+      join(specDir, 'feature.yaml'),
+      yaml.dump(data, { indent: 2, lineWidth: -1 }),
+      'utf-8'
+    );
+  } catch (err) {
+    log?.error(
+      `Failed to clear completed phase: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+}
+
+/**
+ * Type guard to detect rejection payloads from interrupt() return value.
+ */
+export function isRejectionPayload(value: unknown): value is { rejected: true; feedback: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'rejected' in value &&
+    (value as Record<string, unknown>).rejected === true
+  );
+}
+
+/**
  * Mark a phase as complete in feature.yaml by adding its ID to completedPhases.
  */
 export function markPhaseComplete(specDir: string, phaseId: string, log?: NodeLogger): void {
@@ -241,6 +278,25 @@ export function markPhaseComplete(specDir: string, phaseId: string, log?: NodeLo
 }
 
 /**
+ * Write a spec file atomically using temp-file-then-rename pattern.
+ * Prevents corruption on crash mid-write.
+ */
+export function writeSpecFileAtomic(specDir: string, filename: string, content: string): void {
+  const targetPath = join(specDir, filename);
+  const tempPath = join(specDir, `.${filename}.tmp`);
+  try {
+    writeFileSync(tempPath, content, 'utf-8');
+    renameSync(tempPath, targetPath);
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      // Temp file already renamed or doesn't exist
+    }
+  }
+}
+
+/**
  * Execute a node with consistent logging and error handling.
  *
  * Wraps the node's core logic with:
@@ -263,16 +319,44 @@ export function executeNode(
     await updateNodeLifecycle(nodeName);
 
     // On resume from interrupt, LangGraph re-executes the node function from
-    // the top. Skip the expensive executor call if this phase already completed
-    // (markPhaseComplete is called before interrupt, so completed = done but
-    // awaiting approval; the approval has now been granted).
+    // the top. Instead of re-executing within this invocation (which would
+    // require a second interrupt() call and trigger the stale-replay bug),
+    // we return early. Rejection sets _needsReexecution=true so a conditional
+    // edge in the graph routes back to this node for a fresh invocation.
     const completedPhases = getCompletedPhases(state.specDir);
     if (completedPhases.includes(nodeName)) {
-      log.info('Phase already completed (resuming from approval), skipping execution');
-      return {
-        currentNode: nodeName,
-        messages: [`[${nodeName}] Approved — continuing`],
-      };
+      if (shouldInterrupt(nodeName, state.approvalGates)) {
+        if (state._approvalAction === 'rejected') {
+          const feedback = state._rejectionFeedback ?? '(no feedback)';
+          log.info(`Phase rejected with feedback: "${feedback}" — scheduling re-execution`);
+          clearCompletedPhase(state.specDir, nodeName, log);
+          // Return early — the conditional edge will route back to this node
+          // for a fresh invocation with a clean interrupt index.
+          return {
+            currentNode: nodeName,
+            messages: [`[${nodeName}] Rejected — will re-execute`],
+            _approvalAction: null,
+            _rejectionFeedback: null,
+            _needsReexecution: true,
+          };
+        } else {
+          log.info('Phase approved, skipping re-execution');
+          return {
+            currentNode: nodeName,
+            messages: [`[${nodeName}] Approved — continuing`],
+            _approvalAction: null,
+            _rejectionFeedback: null,
+            _needsReexecution: false,
+          };
+        }
+      } else {
+        log.info('Phase already completed (no gate), skipping execution');
+        return {
+          currentNode: nodeName,
+          messages: [`[${nodeName}] Approved — continuing`],
+          _needsReexecution: false,
+        };
+      }
     }
 
     const startTime = Date.now();
@@ -295,15 +379,21 @@ export function executeNode(
       await recordPhaseEnd(timingId, durationMs);
 
       // Mark phase complete BEFORE interrupting so that on resume the
-      // node detects the work is already done and skips re-execution.
+      // node detects the work is already done and returns early.
       markPhaseComplete(state.specDir, nodeName, log);
 
       const nodeResult: Partial<FeatureAgentState> = {
         currentNode: nodeName,
         messages: [`[${nodeName}] Complete (${result.result.length} chars, ${elapsed}s)`],
+        _approvalAction: null,
+        _rejectionFeedback: null,
+        _needsReexecution: false,
       };
 
-      // Human-in-the-loop: interrupt after node execution for review
+      // Human-in-the-loop: interrupt after node execution for review.
+      // This is the ONLY interrupt() call in the entire execution path.
+      // On resume, the node returns early (above) without calling interrupt(),
+      // so there is no stale interrupt replay.
       if (shouldInterrupt(nodeName, state.approvalGates)) {
         log.info('Interrupting for human approval');
         await recordApprovalWaitStart(timingId);

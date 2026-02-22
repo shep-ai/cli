@@ -78,3 +78,6 @@ import "./agent-definition.tsp";
 // Human-in-the-loop approval gates and phase timing
 import "./approval-gates.tsp";
 import "./phase-timing.tsp";
+
+// PRD approval/rejection DTOs
+import "./prd-approval.tsp";

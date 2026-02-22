@@ -7,12 +7,20 @@
  * Usage: shep feat show <id>
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Command } from 'commander';
+import yaml from 'js-yaml';
 import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
-import type { Feature, AgentRun, PhaseTiming } from '@/domain/generated/output.js';
+import type {
+  Feature,
+  AgentRun,
+  PhaseTiming,
+  RejectionFeedbackEntry,
+} from '@/domain/generated/output.js';
 import { colors, symbols, messages, renderDetailView } from '../../ui/index.js';
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
@@ -106,6 +114,22 @@ function isProcessAlive(pid: number): boolean {
 }
 
 /**
+ * Load rejection feedback entries from spec.yaml (best-effort).
+ */
+function loadRejectionFeedback(specPath: string | undefined | null): RejectionFeedbackEntry[] {
+  if (!specPath) return [];
+  try {
+    const content = readFileSync(join(specPath, 'spec.yaml'), 'utf-8');
+    const spec = yaml.load(content) as Record<string, unknown>;
+    return Array.isArray(spec?.rejectionFeedback)
+      ? (spec.rejectionFeedback as RejectionFeedbackEntry[])
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Group timings by agentRunId, preserving order.
  */
 function groupTimingsByRun(timings: PhaseTiming[]): { runId: string; timings: PhaseTiming[] }[] {
@@ -138,7 +162,7 @@ function renderNodeTiming(
   const lines: string[] = [];
   const isSubPhase = t.phase.includes(':');
   const label = isSubPhase
-    ? `  \u21b3 ${t.phase.split(':')[1]}`.padEnd(16)
+    ? `  \u21b3 rev ${t.phase.split(':')[1]}`.padEnd(16)
     : (NODE_TO_PHASE[t.phase] ?? t.phase).padEnd(16);
 
   // Completed phase - green bar with duration
@@ -215,7 +239,11 @@ function renderNodeTiming(
 /**
  * Render the full phase timing section, grouped by agent run with lifecycle events.
  */
-function renderPhaseTimings(timings: PhaseTiming[], currentRun: AgentRun | null): string[] {
+function renderPhaseTimings(
+  timings: PhaseTiming[],
+  currentRun: AgentRun | null,
+  rejections: RejectionFeedbackEntry[] = []
+): string[] {
   const groups = groupTimingsByRun(timings);
   const multiRun = groups.length > 1;
 
@@ -261,6 +289,7 @@ function renderPhaseTimings(timings: PhaseTiming[], currentRun: AgentRun | null)
 
     const isWaiting = isCurrentRun && currentRun?.status === 'waiting_approval';
 
+    let resumedIdx = 0;
     for (const [idx, t] of group.timings.entries()) {
       const isLast = isLastGroup && idx === group.timings.length - 1;
 
@@ -268,6 +297,20 @@ function renderPhaseTimings(timings: PhaseTiming[], currentRun: AgentRun | null)
       if (isLifecycleEvent(t.phase)) {
         const event = LIFECYCLE_EVENTS[t.phase];
         if (event) {
+          // For resumed events, show rejection feedback if available
+          if (t.phase === 'run:resumed' && rejections.length > 0) {
+            const feedback = rejections[resumedIdx];
+            resumedIdx++;
+            if (feedback?.message) {
+              const maxLen = 60;
+              const msg =
+                feedback.message.length > maxLen
+                  ? `${feedback.message.slice(0, maxLen)}…`
+                  : feedback.message;
+              lines.push(`  ${colors.error(`↩ rejected: "${msg}"`)}`);
+              continue;
+            }
+          }
           const sym =
             t.phase === 'run:completed'
               ? symbols.success
@@ -362,7 +405,8 @@ export function createShowCommand(): Command {
         }
 
         if (timings.length > 0) {
-          const lines = renderPhaseTimings(timings, run);
+          const rejections = loadRejectionFeedback(feature.specPath);
+          const lines = renderPhaseTimings(timings, run, rejections);
           textBlocks.push({ title: 'Phase Timing', content: lines.join('\n') });
         }
 

@@ -43,6 +43,7 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
       resumeFromInterrupt?: boolean;
       push?: boolean;
       openPr?: boolean;
+      resumePayload?: string;
     }
   ): number {
     const workerPath = join(__dirname, 'feature-agent-worker.js');
@@ -77,6 +78,9 @@ export class FeatureAgentProcessService implements IFeatureAgentProcessService {
     }
     if (options?.openPr) {
       args.push('--open-pr');
+    }
+    if (options?.resumePayload) {
+      args.push('--resume-payload', options.resumePayload);
     }
     // Create log file for worker output (for debugging)
     const logsDir = join(homedir(), '.shep', 'logs');

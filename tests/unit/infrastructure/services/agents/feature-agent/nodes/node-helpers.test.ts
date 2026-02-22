@@ -1,6 +1,14 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import yaml from 'js-yaml';
 import type { ApprovalGates } from '@/domain/generated/output.js';
-import { shouldInterrupt } from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
+import {
+  shouldInterrupt,
+  clearCompletedPhase,
+  isRejectionPayload,
+} from '@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js';
 
 /**
  * Helper to create ApprovalGates with defaults (all false).
@@ -65,9 +73,9 @@ describe('shouldInterrupt', () => {
   });
 
   describe('implement node', () => {
-    it('interrupts when gates exist but not fully autonomous', () => {
+    it('never interrupts (implementation always proceeds to merge)', () => {
       const gates = makeGates({ allowPrd: true, allowPlan: false });
-      expect(shouldInterrupt('implement', gates)).toBe(true);
+      expect(shouldInterrupt('implement', gates)).toBe(false);
     });
   });
 
@@ -89,5 +97,91 @@ describe('shouldInterrupt', () => {
       expect(shouldInterrupt('analyze', gates)).toBe(false);
       expect(shouldInterrupt('research', gates)).toBe(false);
     });
+  });
+});
+
+describe('clearCompletedPhase', () => {
+  let specDir: string;
+
+  beforeEach(() => {
+    specDir = mkdtempSync(join(tmpdir(), 'node-helpers-test-'));
+  });
+
+  it('removes the given phase from completedPhases', () => {
+    const featureData = {
+      status: { completedPhases: ['analyze', 'requirements', 'plan'] },
+    };
+    writeFileSync(join(specDir, 'feature.yaml'), yaml.dump(featureData), 'utf-8');
+
+    clearCompletedPhase(specDir, 'requirements');
+
+    const result = yaml.load(readFileSync(join(specDir, 'feature.yaml'), 'utf-8')) as Record<
+      string,
+      unknown
+    >;
+    const status = result.status as Record<string, unknown>;
+    expect(status.completedPhases).toEqual(['analyze', 'plan']);
+  });
+
+  it('is a no-op when phase is not in completedPhases', () => {
+    const featureData = {
+      status: { completedPhases: ['analyze'] },
+    };
+    writeFileSync(join(specDir, 'feature.yaml'), yaml.dump(featureData), 'utf-8');
+
+    clearCompletedPhase(specDir, 'requirements');
+
+    const result = yaml.load(readFileSync(join(specDir, 'feature.yaml'), 'utf-8')) as Record<
+      string,
+      unknown
+    >;
+    const status = result.status as Record<string, unknown>;
+    expect(status.completedPhases).toEqual(['analyze']);
+  });
+
+  it('handles missing feature.yaml gracefully', () => {
+    // Should not throw
+    clearCompletedPhase(specDir, 'requirements');
+  });
+
+  it('handles missing completedPhases array gracefully', () => {
+    const featureData = { status: {} };
+    writeFileSync(join(specDir, 'feature.yaml'), yaml.dump(featureData), 'utf-8');
+
+    // Should not throw
+    clearCompletedPhase(specDir, 'requirements');
+
+    const result = yaml.load(readFileSync(join(specDir, 'feature.yaml'), 'utf-8')) as Record<
+      string,
+      unknown
+    >;
+    const status = result.status as Record<string, unknown>;
+    expect(status.completedPhases).toEqual([]);
+  });
+});
+
+describe('isRejectionPayload', () => {
+  it('returns true for valid rejection payload', () => {
+    expect(isRejectionPayload({ rejected: true, feedback: 'needs more detail' })).toBe(true);
+  });
+
+  it('returns false for approval payload', () => {
+    expect(isRejectionPayload({ approved: true })).toBe(false);
+  });
+
+  it('returns false for null', () => {
+    expect(isRejectionPayload(null)).toBe(false);
+  });
+
+  it('returns false for undefined', () => {
+    expect(isRejectionPayload(undefined)).toBe(false);
+  });
+
+  it('returns false for string', () => {
+    expect(isRejectionPayload('rejected')).toBe(false);
+  });
+
+  it('returns false when rejected is not true', () => {
+    expect(isRejectionPayload({ rejected: false, feedback: 'test' })).toBe(false);
   });
 });

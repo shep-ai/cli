@@ -44,6 +44,7 @@ export interface WorkerArgs {
   resumeFromInterrupt?: boolean;
   push?: boolean;
   openPr?: boolean;
+  resumePayload?: string;
 }
 
 /**
@@ -82,6 +83,12 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const threadId =
     threadIdx !== -1 && threadIdx + 1 < args.length ? args[threadIdx + 1] : undefined;
 
+  const resumePayloadIdx = args.indexOf('--resume-payload');
+  const resumePayload =
+    resumePayloadIdx !== -1 && resumePayloadIdx + 1 < args.length
+      ? args[resumePayloadIdx + 1]
+      : undefined;
+
   return {
     featureId: getArg('feature-id'),
     runId: getArg('run-id'),
@@ -94,6 +101,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     resumeFromInterrupt,
     push,
     openPr,
+    resumePayload,
   };
 }
 
@@ -212,8 +220,38 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
     let result: Record<string, unknown>;
     if (args.resume && args.resumeFromInterrupt) {
       // Resume from an interrupt (human-in-the-loop approval)
+      let resumeValue: unknown = { approved: true }; // default backward-compatible
+      if (args.resumePayload) {
+        try {
+          resumeValue = JSON.parse(args.resumePayload);
+          log(`Resuming with typed payload: ${args.resumePayload.slice(0, 200)}`);
+        } catch (e) {
+          log(`Warning: Failed to parse --resume-payload, using default approval: ${e}`);
+        }
+      }
+
+      // Derive state updates from the resume payload so executeNode() can
+      // read _approvalAction from state instead of from interrupt() return
+      // value (fixes the dual-interrupt stale replay bug).
+      const stateUpdate: Record<string, unknown> = {};
+      if (
+        typeof resumeValue === 'object' &&
+        resumeValue !== null &&
+        'rejected' in resumeValue &&
+        (resumeValue as Record<string, unknown>).rejected === true
+      ) {
+        stateUpdate._approvalAction = 'rejected';
+        stateUpdate._rejectionFeedback = (resumeValue as Record<string, unknown>).feedback ?? null;
+      } else {
+        stateUpdate._approvalAction = 'approved';
+        stateUpdate._rejectionFeedback = null;
+      }
+
       log('Resuming graph from interrupt checkpoint...');
-      result = await graph.invoke(new Command({ resume: { approved: true } }), graphConfig);
+      result = await graph.invoke(
+        new Command({ resume: resumeValue, update: stateUpdate }),
+        graphConfig
+      );
     } else if (args.resume) {
       // Resume from error — re-invoke with initial state; LangGraph continues
       // from the last successfully checkpointed node.

@@ -41,8 +41,40 @@ export function clearPhaseTimingContext(): void {
 }
 
 /**
+ * Compute the iteration-aware phase name.
+ *
+ * Queries existing PhaseTiming rows for the current run, counts how many
+ * share the same base phase name, and appends `:N` for iterations > 1.
+ *
+ * Examples:
+ *   - First "requirements" execution  → "requirements"
+ *   - Second "requirements" execution → "requirements:2"
+ *   - Third "requirements" execution  → "requirements:3"
+ */
+async function resolveIterationPhase(
+  phase: string,
+  runId: string,
+  repository: IPhaseTimingRepository
+): Promise<string> {
+  try {
+    const existing = await repository.findByRunId(runId);
+    // Count rows whose phase is the base name or matches the base:N pattern
+    const count = existing.filter(
+      (t) => t.phase === phase || t.phase.startsWith(`${phase}:`)
+    ).length;
+    return count === 0 ? phase : `${phase}:${count + 1}`;
+  } catch {
+    // On error, fall back to bare phase name
+    return phase;
+  }
+}
+
+/**
  * Record the start of a phase. Returns the timing record ID (for later update)
  * or null if context is not set or save fails.
+ *
+ * Automatically appends an iteration suffix (`:2`, `:3`, …) when the same
+ * phase has already been recorded for this run (e.g. after a rejection loop).
  */
 export async function recordPhaseStart(phase: string): Promise<string | null> {
   if (!contextRunId || !contextRepository) return null;
@@ -51,10 +83,11 @@ export async function recordPhaseStart(phase: string): Promise<string | null> {
   const now = new Date();
 
   try {
+    const iterationPhase = await resolveIterationPhase(phase, contextRunId, contextRepository);
     await contextRepository.save({
       id,
       agentRunId: contextRunId,
-      phase,
+      phase: iterationPhase,
       startedAt: now,
       createdAt: now,
       updatedAt: now,

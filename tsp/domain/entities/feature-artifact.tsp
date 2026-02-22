@@ -37,4 +37,7 @@ model FeatureArtifact extends SpecArtifactBase {
 
   @doc("Size estimate: XS, S, M, L, or XL")
   sizeEstimate: string;
+
+  @doc("Rejection feedback history for PRD iterations (append-only)")
+  rejectionFeedback?: RejectionFeedbackEntry[];
 }

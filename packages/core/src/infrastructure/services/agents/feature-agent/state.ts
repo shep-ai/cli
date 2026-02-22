@@ -39,6 +39,19 @@ export const FeatureAgentAnnotation = Annotation.Root({
     reducer: (_prev, next) => next,
     default: () => [],
   }),
+  // --- Approval action channels (set by Command({update}) on resume) ---
+  _approvalAction: Annotation<string | null>({
+    reducer: (_prev, next) => (next !== undefined ? next : _prev),
+    default: () => null,
+  }),
+  _rejectionFeedback: Annotation<string | null>({
+    reducer: (_prev, next) => (next !== undefined ? next : _prev),
+    default: () => null,
+  }),
+  _needsReexecution: Annotation<boolean>({
+    reducer: (_prev, next) => next,
+    default: () => false,
+  }),
   // --- Merge and workflow state channels ---
   prUrl: Annotation<string | null>({
     reducer: (_prev, next) => (next !== undefined ? next : _prev),
