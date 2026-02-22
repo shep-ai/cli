@@ -1,13 +1,53 @@
 'use client';
 
 import { useState } from 'react';
-import { Check, GitCompareArrows, Layers, Send } from 'lucide-react';
+import type { Components } from 'react-markdown';
+import Markdown from 'react-markdown';
+import { Check, ChevronRight, GitCompareArrows, Layers, Send } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import type { TechDecisionsReviewProps, TechDecision } from './tech-decisions-review-config';
 
+const markdownComponents: Components = {
+  p: ({ children }) => (
+    <p className="text-muted-foreground mb-2 text-xs leading-relaxed last:mb-0">{children}</p>
+  ),
+  strong: ({ children }) => <strong className="text-foreground font-semibold">{children}</strong>,
+  em: ({ children }) => <em className="italic">{children}</em>,
+  code: ({ children, className }) =>
+    className ? (
+      <code className={`${className} text-[11px]`}>{children}</code>
+    ) : (
+      <code className="bg-muted text-foreground rounded-md px-1.5 py-0.5 font-mono text-[11px]">
+        {children}
+      </code>
+    ),
+  pre: ({ children }) => (
+    <pre className="bg-muted my-2 overflow-x-auto rounded-lg border p-3">{children}</pre>
+  ),
+  ul: ({ children }) => (
+    <ul className="text-muted-foreground mb-2 list-disc space-y-1 pl-4 text-xs">{children}</ul>
+  ),
+  ol: ({ children }) => (
+    <ol className="text-muted-foreground mb-2 list-decimal space-y-1 pl-4 text-xs">{children}</ol>
+  ),
+  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  a: ({ children, href }) => (
+    <a
+      href={href}
+      className="text-primary underline underline-offset-2"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      {children}
+    </a>
+  ),
+};
+
 function DecisionCard({ decision, index }: { decision: TechDecision; index: number }) {
+  const [alternativesOpen, setAlternativesOpen] = useState(false);
+
   return (
     <div className="border-border rounded-lg border">
       {/* Header: number + title + chosen badge */}
@@ -34,24 +74,33 @@ function DecisionCard({ decision, index }: { decision: TechDecision; index: numb
 
         {/* Rationale */}
         {decision.rationale ? (
-          <p className="text-muted-foreground text-xs leading-relaxed">{decision.rationale}</p>
+          <Markdown components={markdownComponents}>{decision.rationale}</Markdown>
         ) : null}
       </div>
 
-      {/* Rejected alternatives */}
+      {/* Rejected alternatives (collapsed by default) */}
       {decision.rejected.length > 0 ? (
-        <div className="border-border border-t px-4 py-3">
-          <p className="text-muted-foreground mb-2 flex items-center gap-1.5 text-xs font-medium">
+        <div className="border-border border-t">
+          <button
+            type="button"
+            onClick={() => setAlternativesOpen((prev) => !prev)}
+            className="text-muted-foreground hover:bg-muted/50 flex w-full items-center gap-1.5 px-4 py-3 text-xs font-medium transition-colors"
+          >
+            <ChevronRight
+              className={`h-3.5 w-3.5 transition-transform ${alternativesOpen ? 'rotate-90' : ''}`}
+            />
             <Layers className="h-3.5 w-3.5" />
-            Other Options Considered
-          </p>
-          <div className="space-y-1.5">
-            {decision.rejected.map((alt) => (
-              <div key={alt} className="bg-primary/5 rounded-md px-3 py-2">
-                <span className="text-foreground text-xs">{alt}</span>
-              </div>
-            ))}
-          </div>
+            Other Options Considered ({decision.rejected.length})
+          </button>
+          {alternativesOpen ? (
+            <div className="space-y-1.5 px-4 pb-3">
+              {decision.rejected.map((alt) => (
+                <div key={alt} className="bg-primary/5 rounded-md px-3 py-2">
+                  <span className="text-foreground text-xs">{alt}</span>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>

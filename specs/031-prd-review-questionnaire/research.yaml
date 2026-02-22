@@ -3,7 +3,7 @@
 
 name: prd-review-questionnaire
 summary: >
-  Technical research for the PRD Review Questionnaire feature. Builds a PrdQuestionnaire Tier 1
+  Technical research for the PRD Review Questionnaire feature. Builds a `PrdQuestionnaire` Tier 1
   controlled component with TypeSpec UI models for structured requirements discovery. All decisions
   follow existing codebase patterns — feature-node component architecture and TypeSpec value object
   conventions. No new npm dependencies required.
@@ -26,94 +26,94 @@ relatedLinks: []
 # Structured technology decisions
 decisions:
   - title: 'PrdQuestionnaire Component Architecture'
-    chosen: 'Tier 1 controlled component at components/common/prd-questionnaire/ following feature-node directory pattern'
+    chosen: 'Tier 1 controlled component at `components/common/prd-questionnaire/` following feature-node directory pattern'
     rejected:
-      - 'Tier 2 feature-level component — rejected because the questionnaire is a reusable presentational component with no business logic, no API calls, and no feature-specific state. Tier 2 (features/) is for components that compose Tier 0-1 components with feature-specific logic. The questionnaire is pure UI rendering.'
-      - 'Single-file component without config separation — rejected because the component needs TypeScript interfaces (PrdQuestion, PrdOption, PrdQuestionnaireProps) that should be importable by consumers without pulling in rendering code. The feature-node pattern of separating types into a -config.ts file is the established convention.'
+      - 'Tier 2 feature-level component — rejected because the questionnaire is a reusable presentational component with no business logic, no API calls, and no feature-specific state. Tier 2 (`features/`) is for components that compose Tier 0-1 components with feature-specific logic. The questionnaire is pure UI rendering.'
+      - 'Single-file component without config separation — rejected because the component needs TypeScript interfaces (`PrdQuestion`, `PrdOption`, `PrdQuestionnaireProps`) that should be importable by consumers without pulling in rendering code. The feature-node pattern of separating types into a `-config.ts` file is the established convention.'
     rationale: >
       Directory structure follows the feature-node pattern exactly:
-      prd-questionnaire/index.ts (barrel), prd-questionnaire.tsx (component),
-      prd-questionnaire-config.ts (types + any config data), prd-questionnaire.stories.tsx (5 variants).
-      The component is fully controlled: selections prop (Record<string, string>), onSelect callback,
-      onRefine callback, onApprove callback. Progress is derived internally via useMemo from
-      selections count / questions count. isProcessing prop controls disabled/animated state.
-      No internal useState — all state flows through props from the parent.
+      `prd-questionnaire/index.ts` (barrel), `prd-questionnaire.tsx` (component),
+      `prd-questionnaire-config.ts` (types + any config data), `prd-questionnaire.stories.tsx` (5 variants).
+      The component is fully controlled: `selections` prop (`Record<string, string>`), `onSelect` callback,
+      `onRefine` callback, `onApprove` callback. Progress is derived internally via `useMemo` from
+      `selections` count / `questions` count. `isProcessing` prop controls disabled/animated state.
+      No internal `useState` — all state flows through props from the parent.
 
   - title: 'PrdQuestionnaire Progress Calculation'
-    chosen: 'Internal useMemo derivation from selections and questions props'
+    chosen: 'Internal `useMemo` derivation from `selections` and `questions` props'
     rejected:
-      - 'External progress prop — rejected because progress is deterministic (selections.size / questions.length) and forcing every parent to calculate it duplicates logic and risks inconsistency. The component has all the data it needs.'
-      - 'useEffect with state — rejected because derived values should not use useState+useEffect in React. useMemo is the correct primitive for synchronous derivation from props.'
+      - 'External progress prop — rejected because progress is deterministic (`selections.size` / `questions.length`) and forcing every parent to calculate it duplicates logic and risks inconsistency. The component has all the data it needs.'
+      - '`useEffect` with state — rejected because derived values should not use `useState`+`useEffect` in React. `useMemo` is the correct primitive for synchronous derivation from props.'
     rationale: >
-      Progress percentage = Object.keys(selections).length / questions.length * 100, computed
-      in a useMemo with [selections, questions.length] dependency array. The progress bar width
-      uses inline style={{ width: `${progress}%` }} with Tailwind transition-all duration-300
-      for smooth animation. When isProcessing is true, the progress bar shows an animated
-      indeterminate state instead of the deterministic width. Visibility toggles via opacity-0/
-      opacity-100 with duration-200 transition — visible when progress > 0 or isProcessing.
+      Progress percentage = `Object.keys(selections).length / questions.length * 100`, computed
+      in a `useMemo` with `[selections, questions.length]` dependency array. The progress bar width
+      uses inline `style={{ width: `${progress}%` }}` with Tailwind `transition-all duration-300`
+      for smooth animation. When `isProcessing` is `true`, the progress bar shows an animated
+      indeterminate state instead of the deterministic width. Visibility toggles via `opacity-0`/
+      `opacity-100` with `duration-200` transition — visible when progress > 0 or `isProcessing`.
 
   - title: 'TypeSpec UI Module Organization'
-    chosen: 'New tsp/ui/ module with index.tsp barrel and prd-questionnaire.tsp value objects'
+    chosen: 'New `tsp/ui/` module with `index.tsp` barrel and `prd-questionnaire.tsp` value objects'
     rejected:
-      - 'Place in tsp/domain/value-objects/ — rejected because PrdQuestionnaire models are presentation-layer types, not domain value objects. Mixing presentation concerns into the domain layer violates Clean Architecture boundaries. The domain layer should not know about UI-specific concepts like "AI Recommended badges" or "question types".'
-      - 'Skip TypeSpec, define types only in TypeScript — rejected because the project mandates TypeSpec-first architecture. All type definitions must originate in .tsp files and be generated to TypeScript. Hand-writing types that should be in TypeSpec breaks the build flow and the single-source-of-truth guarantee.'
+      - 'Place in `tsp/domain/value-objects/` — rejected because `PrdQuestionnaire` models are presentation-layer types, not domain value objects. Mixing presentation concerns into the domain layer violates Clean Architecture boundaries. The domain layer should not know about UI-specific concepts like "AI Recommended badges" or "question types".'
+      - 'Skip TypeSpec, define types only in TypeScript — rejected because the project mandates TypeSpec-first architecture. All type definitions must originate in `.tsp` files and be generated to TypeScript. Hand-writing types that should be in TypeSpec breaks the build flow and the single-source-of-truth guarantee.'
     rationale: >
-      Creates tsp/ui/index.tsp (barrel) and tsp/ui/prd-questionnaire.tsp (models). The barrel
-      is imported by tsp/main.tsp following the existing pattern (import "./ui/index.tsp").
-      Models are value objects (no extends BaseEntity) since they have no persistence identity:
-      PrdOption { id, label, rationale, recommended?, isNew? },
-      PrdQuestion { id, question, type: "select", options: PrdOption[] },
-      PrdFinalAction { id, label, description },
-      PrdQuestionnaireData { question, context, questions: PrdQuestion[], finalAction: PrdFinalAction }.
-      Generated TypeScript types are consumed via import type from @/domain/generated/output.
-      However, the component-level config.ts file may also define its own prop interfaces that
-      compose these generated types with callback props (onSelect, onRefine, etc.).
+      Creates `tsp/ui/index.tsp` (barrel) and `tsp/ui/prd-questionnaire.tsp` (models). The barrel
+      is imported by `tsp/main.tsp` following the existing pattern (`import "./ui/index.tsp"`).
+      Models are value objects (no `extends BaseEntity`) since they have no persistence identity:
+      `PrdOption { id, label, rationale, recommended?, isNew? }`,
+      `PrdQuestion { id, question, type: "select", options: PrdOption[] }`,
+      `PrdFinalAction { id, label, description }`,
+      `PrdQuestionnaireData { question, context, questions: PrdQuestion[], finalAction: PrdFinalAction }`.
+      Generated TypeScript types are consumed via `import type` from `@/domain/generated/output`.
+      However, the component-level `config.ts` file may also define its own prop interfaces that
+      compose these generated types with callback props (`onSelect`, `onRefine`, etc.).
 
   - title: 'Storybook Story Organization'
-    chosen: 'Standard Storybook pattern with 5 story variants for PrdQuestionnaire'
+    chosen: 'Standard Storybook pattern with 5 story variants for `PrdQuestionnaire`'
     rejected:
-      - 'Use Storybook interaction tests with play functions for all stories — rejected because the existing stories use play functions sparingly. Most stories are visual snapshots with argTypes for action handlers. The questionnaire stories should use argTypes for onSelect/onRefine/onApprove actions and let visual regression catch rendering issues.'
+      - 'Use Storybook interaction tests with play functions for all stories — rejected because the existing stories use play functions sparingly. Most stories are visual snapshots with `argTypes` for action handlers. The questionnaire stories should use `argTypes` for `onSelect`/`onRefine`/`onApprove` actions and let visual regression catch rendering issues.'
       - 'Chromatic visual regression testing — rejected because it is not set up in this project. Stories serve as visual documentation and development tools, not automated visual regression.'
     rationale: >
-      PrdQuestionnaire stories (5 variants): Default (full data, no selections), WithSelections
-      (2-3 questions answered), AllAnswered (all answered, full progress), Refining (isProcessing=true),
-      MinimalData (1 question, 2 options). Stories use Meta<PrdQuestionnaireProps> and
-      render: (args) => <PrdQuestionnaire {...args} /> directly — no wrapper needed since
-      PrdQuestionnaire is not a React Flow node. Title convention: 'Composed/PrdQuestionnaire'.
+      `PrdQuestionnaire` stories (5 variants): `Default` (full data, no selections), `WithSelections`
+      (2-3 questions answered), `AllAnswered` (all answered, full progress), `Refining` (`isProcessing=true`),
+      `MinimalData` (1 question, 2 options). Stories use `Meta<PrdQuestionnaireProps>` and
+      `render: (args) => <PrdQuestionnaire {...args} />` directly — no wrapper needed since
+      `PrdQuestionnaire` is not a React Flow node. Title convention: `'Composed/PrdQuestionnaire'`.
 
   - title: 'Component Prop Types vs TypeSpec Generated Types'
-    chosen: 'Component config.ts defines prop interface that uses generated types for data shapes, adds callback props separately'
+    chosen: 'Component `config.ts` defines prop interface that uses generated types for data shapes, adds callback props separately'
     rejected:
-      - 'Use only generated types directly as component props — rejected because generated types do not include React-specific callback props (onSelect, onRefine, onApprove) or React-specific flags (isProcessing). Component props need to compose data types with UI behavior.'
-      - 'Duplicate types in config.ts without using generated types — rejected because it violates the TypeSpec-first principle. The data shape types (PrdOption, PrdQuestion, etc.) should be imported from generated output to maintain the single source of truth.'
+      - 'Use only generated types directly as component props — rejected because generated types do not include React-specific callback props (`onSelect`, `onRefine`, `onApprove`) or React-specific flags (`isProcessing`). Component props need to compose data types with UI behavior.'
+      - 'Duplicate types in `config.ts` without using generated types — rejected because it violates the TypeSpec-first principle. The data shape types (`PrdOption`, `PrdQuestion`, etc.) should be imported from generated output to maintain the single source of truth.'
     rationale: >
-      The prd-questionnaire-config.ts file will: (1) re-export generated types (PrdOption,
-      PrdQuestion, PrdFinalAction, PrdQuestionnaireData) from @/domain/generated/output,
-      (2) define PrdQuestionnaireProps interface that composes these with React callback props.
-      This matches how feature-node-state-config.ts works: it imports domain types and defines
+      The `prd-questionnaire-config.ts` file will: (1) re-export generated types (`PrdOption`,
+      `PrdQuestion`, `PrdFinalAction`, `PrdQuestionnaireData`) from `@/domain/generated/output`,
+      (2) define `PrdQuestionnaireProps` interface that composes these with React callback props.
+      This matches how `feature-node-state-config.ts` works: it imports domain types and defines
       UI-specific interfaces that add rendering concerns (callbacks, display config, state flags).
 
   - title: 'CSS Animation for New Options'
-    chosen: 'Tailwind @keyframes with option-highlight class name matching POC'
+    chosen: 'Tailwind `@keyframes` with `option-highlight` class name matching POC'
     rejected:
-      - 'Framer Motion animation — rejected because framer-motion is not installed in the project and the POC uses a simple CSS animation. Adding a dependency for one highlight animation is excessive.'
+      - 'Framer Motion animation — rejected because `framer-motion` is not installed in the project and the POC uses a simple CSS animation. Adding a dependency for one highlight animation is excessive.'
       - 'React Spring — rejected for the same reason as Framer Motion. Not installed, and a CSS keyframe is sufficient.'
     rationale: >
-      The POC references an `option-highlight` class for isNew options. This should be defined
-      as a Tailwind @keyframes animation in the web package's CSS (likely globals.css or
-      tailwind config). A simple background-color pulse from emerald-50 to transparent over
-      ~1.5s provides the visual emphasis. The class is conditionally applied when opt.isNew is true.
+      The POC references an `option-highlight` class for `isNew` options. This should be defined
+      as a Tailwind `@keyframes` animation in the web package's CSS (likely `globals.css` or
+      tailwind config). A simple background-color pulse from `emerald-50` to transparent over
+      ~1.5s provides the visual emphasis. The class is conditionally applied when `opt.isNew` is `true`.
 
 # Open questions (resolved during research)
 openQuestions:
-  - question: 'How should the Send button icon be rendered without Font Awesome (POC uses fas fa-paper-plane)?'
+  - question: 'How should the Send button icon be rendered without Font Awesome (POC uses `fas fa-paper-plane`)?'
     resolved: true
     options:
       - option: 'Import Font Awesome and match POC exactly'
         description: 'Add Font Awesome dependency to match POC icons precisely.'
         selected: false
-      - option: 'Use lucide-react Send icon'
-        description: 'Replace with lucide-react equivalent (Send icon) for consistency with project standards.'
+      - option: 'Use `lucide-react` `Send` icon'
+        description: 'Replace with `lucide-react` equivalent (`Send` icon) for consistency with project standards.'
         selected: true
       - option: 'Use a custom SVG icon'
         description: 'Create a custom SVG icon for the send button.'
@@ -122,19 +122,19 @@ openQuestions:
         description: 'Use text label instead of icon.'
         selected: false
     selectionRationale: >
-      Option 2 (lucide-react Send icon) was selected because the project uses lucide-react for all icons
-      (Github, Plus, FolderOpen, etc.). The POC uses Font Awesome (fas fa-paper-plane, fas fa-check) but the
-      React implementation should use equivalent lucide-react icons: Send for paper plane, Check for approve checkmark.
+      Option 2 (`lucide-react` `Send` icon) was selected because the project uses `lucide-react` for all icons
+      (`Github`, `Plus`, `FolderOpen`, etc.). The POC uses Font Awesome (`fas fa-paper-plane`, `fas fa-check`) but the
+      React implementation should use equivalent `lucide-react` icons: `Send` for paper plane, `Check` for approve checkmark.
       This maintains consistency with the project's icon library.
 
-  - question: 'Should the PrdQuestionnaire use shadcn/ui primitives or plain HTML elements?'
+  - question: 'Should the `PrdQuestionnaire` use shadcn/ui primitives or plain HTML elements?'
     resolved: true
     options:
-      - option: 'shadcn/ui Button, Input, and other components'
+      - option: 'shadcn/ui `Button`, `Input`, and other components'
         description: 'Use shadcn/ui for consistent component library styling.'
         selected: false
       - option: 'Plain HTML elements with Tailwind CSS'
-        description: 'Use button, input, div with direct Tailwind classes matching POC.'
+        description: 'Use `<button>`, `<input>`, `<div>` with direct Tailwind classes matching POC.'
         selected: true
       - option: 'Headless UI (from shadcn/ui dependencies)'
         description: 'Use Radix primitives directly without shadcn wrapper.'
@@ -145,14 +145,14 @@ openQuestions:
     selectionRationale: >
       Option 2 (Plain HTML with Tailwind) was selected to replicate the POC faithfully. shadcn/ui components add
       their own styling defaults that conflict with POC's exact class specifications. Using plain HTML elements with
-      exact POC Tailwind classes ensures pixel-perfect reproduction. Accessibility is handled by semantic HTML (button
-      for options, input with aria-label for chat).
+      exact POC Tailwind classes ensures pixel-perfect reproduction. Accessibility is handled by semantic HTML (`<button>`
+      for options, `<input>` with `aria-label` for chat).
 
   - question: 'How should the component handle the "selected" visual state given it uses POC recommended styling?'
     resolved: true
     options:
       - option: 'Use same styling for selected and recommended'
-        description: 'Apply border-blue-500 bg-blue-50 for both states.'
+        description: 'Apply `border-blue-500 bg-blue-50` for both states.'
         selected: false
       - option: 'Selected and recommended are independent: selected takes precedence'
         description: 'Once user selects, selection highlighting overrides recommended. Badge shown separately.'
@@ -165,29 +165,29 @@ openQuestions:
         selected: false
     selectionRationale: >
       Option 2 (Selection takes precedence) was selected because selected and recommended are orthogonal concerns.
-      Selected state uses border-blue-500 bg-blue-50. The recommended badge (AI Recommended) is always shown
-      regardless of selection state. Non-selected options use border-slate-200 (default). Per FR-16, selected
-      options are visually highlighted with border-blue-500 bg-blue-50.
+      Selected state uses `border-blue-500 bg-blue-50`. The recommended badge (AI Recommended) is always shown
+      regardless of selection state. Non-selected options use `border-slate-200` (default). Per FR-16, selected
+      options are visually highlighted with `border-blue-500 bg-blue-50`.
 
-  - question: 'How does the option-highlight CSS animation get included in the Tailwind build?'
+  - question: 'How does the `option-highlight` CSS animation get included in the Tailwind build?'
     resolved: true
     options:
-      - option: 'Define in globals.css with @keyframes'
-        description: 'Add @keyframes and .option-highlight class to globals.css.'
+      - option: 'Define in `globals.css` with `@keyframes`'
+        description: 'Add `@keyframes` and `.option-highlight` class to `globals.css`.'
         selected: true
-      - option: 'Define in tailwind.config.ts animation extension'
+      - option: 'Define in `tailwind.config.ts` animation extension'
         description: 'Extend Tailwind animation configuration with custom keyframes.'
         selected: false
-      - option: 'Use Tailwind @apply directive in a component stylesheet'
+      - option: 'Use Tailwind `@apply` directive in a component stylesheet'
         description: 'Define animation in component-specific CSS.'
         selected: false
       - option: 'Use inline Tailwind animation classes'
         description: 'Use existing Tailwind animations without custom keyframes.'
         selected: false
     selectionRationale: >
-      Option 1 (Define in globals.css) was selected because the pattern is established (animate-indeterminate-progress
-      custom animation already exists). Add @keyframes option-highlight with background-color pulse (emerald-50 to transparent
-      over ~1.5s) in src/presentation/web/app/globals.css. Apply .option-highlight class when opt.isNew is true.
+      Option 1 (Define in `globals.css`) was selected because the pattern is established (`animate-indeterminate-progress`
+      custom animation already exists). Add `@keyframes option-highlight` with background-color pulse (`emerald-50` to transparent
+      over ~1.5s) in `src/presentation/web/app/globals.css`. Apply `.option-highlight` class when `opt.isNew` is `true`.
 
 # Markdown content (the full research document)
 content: |
@@ -195,54 +195,54 @@ content: |
 
   ### 1. Folder Open API Route Pattern
 
-  **Chosen:** Clone /api/shell/open/route.ts pattern with simplified validator
+  **Chosen:** Clone `/api/shell/open/route.ts` pattern with simplified validator
 
   **Rejected:**
-  - Reuse /api/shell/open with query parameter — shell/open is coupled to terminal launch (settings.shellPreference, computeWorktreePath with branch). Folder open has no branch concept. Overloading adds unnecessary conditionals.
-  - Use /api/ide/open pattern with launchIde abstraction — ide/open uses a launcher registry with availability checks. Folder open is a trivial spawn with no registry needed.
+  - Reuse `/api/shell/open` with query parameter — `shell/open` is coupled to terminal launch (`settings.shellPreference`, `computeWorktreePath` with branch). Folder open has no branch concept. Overloading adds unnecessary conditionals.
+  - Use `/api/ide/open` pattern with `launchIde` abstraction — `ide/open` uses a launcher registry with availability checks. Folder open is a trivial `spawn` with no registry needed.
 
-  **Rationale:** The shell/open route is the closest template with identical structure: validate input → existsSync → platform switch → spawn detached → return success. The folder route simplifies by removing branch handling, worktree path computation, and settings access. Commands: `open <path>` (macOS), `xdg-open <path>` (Linux). Same spawn config: `{ detached: true, stdio: 'ignore' }` + `child.unref()`.
+  **Rationale:** The `shell/open` route is the closest template with identical structure: validate input → `existsSync` → platform switch → `spawn` detached → return success. The folder route simplifies by removing branch handling, worktree path computation, and settings access. Commands: `open <path>` (macOS), `xdg-open <path>` (Linux). Same spawn config: `{ detached: true, stdio: 'ignore' }` + `child.unref()`.
 
   ### 2. Input Validation Strategy
 
   **Chosen:** Dedicated `validateFolderInput` in `app/api/validate-folder-input.ts`
 
   **Rejected:**
-  - Reuse validateToolbarInput — requires branch parameter that folder/open doesn't need. Would require dummy values or conditional logic, violating SRP.
+  - Reuse `validateToolbarInput` — requires branch parameter that `folder/open` doesn't need. Would require dummy values or conditional logic, violating SRP.
   - Shared validation base with optional fields — over-engineering for two ~15-line validators.
   - Zod schema validation — no other route uses Zod. Would introduce inconsistency.
 
-  **Rationale:** Follows validateToolbarInput's discriminated union pattern (`ValidFolderInput | ValidationError`), callers check `if ('error' in validation)`. Four checks: non-empty string, absolute path (/), no path traversal (..), no null bytes (\0). Located at `app/api/validate-folder-input.ts` mirroring the existing file.
+  **Rationale:** Follows `validateToolbarInput`'s discriminated union pattern (`ValidFolderInput | ValidationError`), callers check `if ('error' in validation)`. Four checks: non-empty string, absolute path (`/`), no path traversal (`..`), no null bytes (`\0`). Located at `app/api/validate-folder-input.ts` mirroring the existing file.
 
   ### 3. Platform Detection and File Manager Commands
 
   **Chosen:** Inline platform switch with `open` (macOS) and `xdg-open` (Linux)
 
   **Rejected:**
-  - Platform registry/factory — only 2 platforms, same inline switch pattern as shell/open. Factory is over-engineering.
-  - sindresorhus/open npm package — not installed, and raw spawn achieves the same with zero dependencies.
+  - Platform registry/factory — only 2 platforms, same inline switch pattern as `shell/open`. Factory is over-engineering.
+  - `sindresorhus/open` npm package — not installed, and raw `spawn` achieves the same with zero dependencies.
 
   **Rationale:** `spawn('open', [repositoryPath])` opens Finder on macOS. `spawn('xdg-open', [repositoryPath])` opens the default file manager on Linux. Both with `{ detached: true, stdio: 'ignore' }` and `child.unref()`. No `shell: true` (NFR-1 security). Windows returns 501.
 
   ### 4. RepositoryNode Extension Approach
 
-  **Chosen:** Extend RepositoryNodeData with `repositoryPath` and `onOpenFolder`, add FolderOpen button inline
+  **Chosen:** Extend `RepositoryNodeData` with `repositoryPath` and `onOpenFolder`, add `FolderOpen` button inline
 
   **Rejected:**
   - Separate FolderButton sub-component — the button is a single `<div>` with icon, same as the existing add button. One-liner component file adds no value.
   - Generic action button array — 2 buttons don't warrant an array abstraction. Easy to refactor later if needed.
 
-  **Rationale:** RepositoryNode grows from ~40 to ~60 lines — well within the 150-line guideline. New button uses `group-hover:opacity-100` (same pattern as add button), `bg-muted` styling, `h-5 w-5`, positioned left of the add button via flex layout. FolderOpen icon from lucide-react.
+  **Rationale:** `RepositoryNode` grows from ~40 to ~60 lines — well within the 150-line guideline. New button uses `group-hover:opacity-100` (same pattern as add button), `bg-muted` styling, `h-5 w-5`, positioned left of the add button via flex layout. `FolderOpen` icon from `lucide-react`.
 
   ### 5. Data Flow Wiring for Folder Open
 
   **Chosen:** Follow existing `onRepositoryAdd` wiring chain
 
   **Rejected:**
-  - Direct API call from RepositoryNode — violates established pattern where node components are purely presentational. All callbacks flow through enrichedNodes.
+  - Direct API call from `RepositoryNode` — violates established pattern where node components are purely presentational. All callbacks flow through `enrichedNodes`.
   - Event bus / context approach — no such pattern exists in the codebase. Would be inconsistent.
 
-  **Rationale:** Chain: page.tsx passes `repositoryPath` in node data → ControlCenterInner passes `handleOpenFolder` as `onRepositoryOpenFolder` to FeaturesCanvas → FeaturesCanvas enriches repositoryNode data with `onOpenFolder: () => onRepositoryOpenFolder(node.id)` → RepositoryNode renders button when `data.onOpenFolder` is defined. The `handleOpenFolder` handler in useControlCenterState reads `repositoryPath` from node data and calls `fetch('/api/folder/open', ...)` with `toast.error()` on failure.
+  **Rationale:** Chain: `page.tsx` passes `repositoryPath` in node data → `ControlCenterInner` passes `handleOpenFolder` as `onRepositoryOpenFolder` to `FeaturesCanvas` → `FeaturesCanvas` enriches repositoryNode data with `onOpenFolder: () => onRepositoryOpenFolder(node.id)` → `RepositoryNode` renders button when `data.onOpenFolder` is defined. The `handleOpenFolder` handler in `useControlCenterState` reads `repositoryPath` from node data and calls `fetch('/api/folder/open', ...)` with `toast.error()` on failure.
 
   ### 6. PrdQuestionnaire Component Architecture
 
@@ -252,7 +252,7 @@ content: |
   - Tier 2 feature-level component — the questionnaire is pure UI with no business logic, no API calls. Tier 2 is for feature-specific compositions.
   - Single-file without config separation — types need to be importable by consumers without pulling rendering code.
 
-  **Rationale:** Directory pattern matches feature-node exactly: `index.ts` (barrel), `prd-questionnaire.tsx` (component), `prd-questionnaire-config.ts` (types), `prd-questionnaire.stories.tsx` (5 variants). Fully controlled: selections prop, callback props (onSelect, onRefine, onApprove). Progress derived internally via `useMemo`. No internal state.
+  **Rationale:** Directory pattern matches feature-node exactly: `index.ts` (barrel), `prd-questionnaire.tsx` (component), `prd-questionnaire-config.ts` (types), `prd-questionnaire.stories.tsx` (5 variants). Fully controlled: `selections` prop, callback props (`onSelect`, `onRefine`, `onApprove`). Progress derived internally via `useMemo`. No internal state.
 
   ### 7. Progress Calculation
 
@@ -260,29 +260,29 @@ content: |
 
   **Rejected:**
   - External progress prop — forces every parent to duplicate deterministic logic.
-  - useEffect with state — derived values should use useMemo, not useState+useEffect.
+  - `useEffect` with state — derived values should use `useMemo`, not `useState`+`useEffect`.
 
-  **Rationale:** `Object.keys(selections).length / questions.length * 100` in useMemo with `[selections, questions.length]` deps. Progress bar uses inline `style={{ width }}` with `transition-all duration-300`. isProcessing toggles indeterminate animation. Visibility: `opacity-0` when no progress and not processing, `opacity-100` otherwise.
+  **Rationale:** `Object.keys(selections).length / questions.length * 100` in `useMemo` with `[selections, questions.length]` deps. Progress bar uses inline `style={{ width }}` with `transition-all duration-300`. `isProcessing` toggles indeterminate animation. Visibility: `opacity-0` when no progress and not processing, `opacity-100` otherwise.
 
   ### 8. TypeSpec UI Module
 
   **Chosen:** New `tsp/ui/` module with value object models
 
   **Rejected:**
-  - Place in tsp/domain/value-objects/ — presentation types in domain layer violates Clean Architecture.
+  - Place in `tsp/domain/value-objects/` — presentation types in domain layer violates Clean Architecture.
   - Skip TypeSpec, TypeScript-only — violates TypeSpec-first architecture mandate.
 
-  **Rationale:** Creates `tsp/ui/index.tsp` and `tsp/ui/prd-questionnaire.tsp`. Imported by `tsp/main.tsp` via `import "./ui/index.tsp"`. Value objects (no extends BaseEntity): PrdOption, PrdQuestion, PrdFinalAction, PrdQuestionnaireData. Generated types consumed via `import type` from generated output.
+  **Rationale:** Creates `tsp/ui/index.tsp` and `tsp/ui/prd-questionnaire.tsp`. Imported by `tsp/main.tsp` via `import "./ui/index.tsp"`. Value objects (no `extends BaseEntity`): `PrdOption`, `PrdQuestion`, `PrdFinalAction`, `PrdQuestionnaireData`. Generated types consumed via `import type` from generated output.
 
   ### 9. Component Prop Types vs Generated Types
 
   **Chosen:** Config file composes generated types with React callback props
 
   **Rejected:**
-  - Use only generated types as props — generated types lack callbacks (onSelect, onRefine).
+  - Use only generated types as props — generated types lack callbacks (`onSelect`, `onRefine`).
   - Duplicate types without generated imports — violates TypeSpec-first principle.
 
-  **Rationale:** `prd-questionnaire-config.ts` re-exports generated types and defines `PrdQuestionnaireProps` that adds onSelect, onRefine, onApprove, isProcessing. Matches how feature-node-state-config.ts composes domain types with UI concerns.
+  **Rationale:** `prd-questionnaire-config.ts` re-exports generated types and defines `PrdQuestionnaireProps` that adds `onSelect`, `onRefine`, `onApprove`, `isProcessing`. Matches how `feature-node-state-config.ts` composes domain types with UI concerns.
 
   ### 10. CSS Animation for New Options
 
@@ -292,36 +292,36 @@ content: |
   - Framer Motion — not installed, excessive for one animation.
   - React Spring — same: not installed, overkill.
 
-  **Rationale:** Define `@keyframes option-highlight` (background-color pulse from emerald-50 to transparent) in `globals.css`. Apply `.option-highlight` class when `opt.isNew` is true. Follows the pattern of existing `animate-indeterminate-progress` custom animation.
+  **Rationale:** Define `@keyframes option-highlight` (background-color pulse from `emerald-50` to transparent) in `globals.css`. Apply `.option-highlight` class when `opt.isNew` is `true`. Follows the pattern of existing `animate-indeterminate-progress` custom animation.
 
   ### 11. Storybook Stories Organization
 
   **Chosen:** Standard Storybook patterns: 5 questionnaire variants + 2 repository node variants
 
   **Rejected:**
-  - Play functions for all stories — existing stories use play functions sparingly. Visual snapshots with argTypes suffice.
+  - Play functions for all stories — existing stories use play functions sparingly. Visual snapshots with `argTypes` suffice.
   - Chromatic visual regression — not set up in this project.
 
-  **Rationale:** PrdQuestionnaire stories use `Meta<PrdQuestionnaireProps>` directly (no ReactFlow wrapper needed). RepositoryNode stories use existing `RepositoryNodeCanvas` wrapper. All stories follow `title: 'Composed/<Name>'` convention. Actions via `argTypes: { onX: { action: 'onX' } }`.
+  **Rationale:** `PrdQuestionnaire` stories use `Meta<PrdQuestionnaireProps>` directly (no ReactFlow wrapper needed). `RepositoryNode` stories use existing `RepositoryNodeCanvas` wrapper. All stories follow `title: 'Composed/<Name>'` convention. Actions via `argTypes: { onX: { action: 'onX' } }`.
 
   ## Library Analysis
 
   | Library | Purpose | Decision | Reasoning |
   | ------- | ------- | -------- | --------- |
-  | `@xyflow/react` | React Flow canvas nodes | Use (existing) | Already installed. RepositoryNode extends its Node type. No version change needed. |
-  | `lucide-react` | Icons (FolderOpen, Send, Check) | Use (existing) | Already installed. Project standard for all icons. FolderOpen for folder button, Send for chat, Check for approve. |
-  | `sonner` | Toast notifications | Use (existing) | Already installed. toast.error() for folder open failures matches existing error handling pattern. |
-  | `tailwindcss` v4 | Styling | Use (existing) | Already installed. All POC classes are standard Tailwind. Custom keyframes via @keyframes in CSS. |
+  | `@xyflow/react` | React Flow canvas nodes | Use (existing) | Already installed. `RepositoryNode` extends its Node type. No version change needed. |
+  | `lucide-react` | Icons (`FolderOpen`, `Send`, `Check`) | Use (existing) | Already installed. Project standard for all icons. `FolderOpen` for folder button, `Send` for chat, `Check` for approve. |
+  | `sonner` | Toast notifications | Use (existing) | Already installed. `toast.error()` for folder open failures matches existing error handling pattern. |
+  | `tailwindcss` v4 | Styling | Use (existing) | Already installed. All POC classes are standard Tailwind. Custom keyframes via `@keyframes` in CSS. |
   | `@storybook/react` | Component stories | Use (existing) | Already installed. 7 new story variants follow existing patterns. |
-  | `sindresorhus/open` | Cross-platform open | Reject | Not installed. Raw child_process.spawn achieves the same thing. Matches existing shell/open pattern. |
+  | `sindresorhus/open` | Cross-platform open | Reject | Not installed. Raw `child_process.spawn` achieves the same thing. Matches existing `shell/open` pattern. |
   | `zod` | Schema validation | Reject | Not used for API route validation in this codebase. Plain runtime checks with discriminated unions are the convention. |
-  | `framer-motion` | Animation | Reject | Not installed. CSS @keyframes sufficient for option-highlight animation. |
+  | `framer-motion` | Animation | Reject | Not installed. CSS `@keyframes` sufficient for `option-highlight` animation. |
 
   ## Security Considerations
 
   ### Command Injection Prevention (NFR-1)
   - `spawn()` is used WITHOUT `shell: true` — arguments are passed as an array, never interpolated into a shell string
-  - This is the same security model as the existing shell/open route
+  - This is the same security model as the existing `shell/open` route
   - The command (`open` or `xdg-open`) is hardcoded, never derived from user input
   - Only the path argument comes from user input, and it is validated before use
 
@@ -331,7 +331,7 @@ content: |
   - Rejects relative paths (must start with `/`)
   - Rejects empty strings
   - `existsSync` check prevents opening non-existent directories
-  - These are the same security checks as validateToolbarInput, minus branch validation
+  - These are the same security checks as `validateToolbarInput`, minus branch validation
 
   ### No Sensitive Data Exposure
   - The API route returns only `{ success: true, path }` on success
@@ -341,17 +341,17 @@ content: |
   ## Performance Implications
 
   ### PrdQuestionnaire Component
-  - **useMemo for progress**: Prevents recomputing `selections count / questions.length` on every render. Memoized on `[selections, questions.length]`.
+  - **`useMemo` for progress**: Prevents recomputing `selections count / questions.length` on every render. Memoized on `[selections, questions.length]`.
   - **CSS transitions only**: Progress bar width uses `transition-all duration-300`. Opacity uses `duration-200`. No JavaScript animation loops (NFR-4).
-  - **No re-renders from callbacks**: All callbacks (onSelect, onRefine, onApprove) are passed as props. The component does not create new function references internally — the parent is responsible for stable references (useCallback).
-  - **Conditional rendering**: Badges (AI Recommended, New) render only when their boolean flags are true. No unnecessary DOM nodes.
+  - **No re-renders from callbacks**: All callbacks (`onSelect`, `onRefine`, `onApprove`) are passed as props. The component does not create new function references internally — the parent is responsible for stable references (`useCallback`).
+  - **Conditional rendering**: Badges (AI Recommended, New) render only when their boolean flags are `true`. No unnecessary DOM nodes.
 
   ### Folder Open API Route
   - **Fire and forget**: `child.unref()` detaches the spawned process. The API response returns immediately after spawn — does not wait for the file manager to open.
   - **No async operations besides spawn**: `existsSync` is synchronous (acceptable for a single path check on localhost). No database queries, no network calls.
   - **No caching needed**: Each folder open is a stateless operation.
 
-  ### FeaturesCanvas enrichedNodes
+  ### FeaturesCanvas `enrichedNodes`
   - **Minimal impact**: Adding one more conditional spread (`onOpenFolder`) to the existing `useMemo` adds negligible computation. The dependency array grows by one reference (`onRepositoryOpenFolder`), which should be a stable `useCallback` reference.
 
   ## Architecture Notes
@@ -359,7 +359,7 @@ content: |
   ### Clean Architecture Compliance
   - **Presentation layer only**: All changes are in `src/presentation/web/` (API routes, components, state hooks). No domain or application layer changes.
   - **TypeSpec UI module**: New `tsp/ui/` module keeps presentation types separate from domain types. Generated types flow into `src/domain/generated/output.ts` alongside existing types.
-  - **Controlled component**: PrdQuestionnaire has no side effects, no API calls, no internal state. All behavior flows through props and callbacks — pure presentation (NFR-14).
+  - **Controlled component**: `PrdQuestionnaire` has no side effects, no API calls, no internal state. All behavior flows through props and callbacks — pure presentation (NFR-14).
   - **Handler separation**: The `handleOpenFolder` handler in `useControlCenterState` encapsulates the API call logic. The component tree is unaware of the API endpoint.
 
   ### File Organization
@@ -368,7 +368,7 @@ content: |
   - **Auto-generated (1)**: `src/domain/generated/output.ts` updated by `pnpm tsp:compile`
 
   ### Component Sub-splitting Strategy (NFR-9)
-  - PrdQuestionnaire should start as a single component file. If it exceeds ~200 lines, extract sub-components into the same directory: `question-group.tsx` (renders a single question with its options), `option-button.tsx` (renders a single option), `action-bar.tsx` (renders the bottom bar with progress, input, buttons).
+  - `PrdQuestionnaire` should start as a single component file. If it exceeds ~200 lines, extract sub-components into the same directory: `question-group.tsx` (renders a single question with its options), `option-button.tsx` (renders a single option), `action-bar.tsx` (renders the bottom bar with progress, input, buttons).
   - Based on POC analysis, the component is likely to be 150-180 lines — borderline. The initial implementation should be a single file, with sub-splitting done in the REFACTOR phase of TDD if needed.
 
   ### TypeSpec Model Design
@@ -407,7 +407,7 @@ content: |
 
   ### API Contract
 
-  **POST /api/folder/open**
+  **POST `/api/folder/open`**
 
   Request:
   ```json
