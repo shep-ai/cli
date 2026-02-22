@@ -1,0 +1,139 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: delete-auto-relayout
+summary: >
+  Add a layoutWithDagre call inside handleDeleteFeature's success path so remaining nodes
+  re-flow after deletion. The change is ~10 lines of production code using the exact same
+  pattern as handleLayout (filter+layout inside setNodes callback, setEdges inside, return
+  result.nodes). Layout parameters match the server-side page.tsx values (LR, ranksep 200,
+  nodesep 60). Four new unit tests verify relayout behavior on success/error paths.
+
+relatedFeatures: []
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - '@xyflow/react (React Flow v12)'
+  - '@dagrejs/dagre (layout algorithm)'
+  - Vitest (unit testing)
+  - '@testing-library/react'
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Unit Tests for Deletion Relayout (RED)'
+    description: >
+      Write failing tests that assert post-deletion relayout behavior. Tests capture node
+      positions via the onStateChange callback before and after deletion, verifying that
+      positions change on success, remain unchanged on error, disconnected nodes are handled,
+      and node/edge counts are correct post-relayout. These tests must fail before any
+      production code changes, establishing the RED phase of TDD.
+    parallel: false
+
+  - id: phase-2
+    name: 'Implement Relayout in handleDeleteFeature (GREEN)'
+    description: >
+      Modify handleDeleteFeature to call layoutWithDagre on the filtered nodes/edges inside
+      a setNodes callback, following the exact handleLayout pattern. Add edges to the
+      useCallback dependency array. This is the minimal change to make all tests pass.
+    parallel: false
+
+  - id: phase-3
+    name: 'Refactor and Validate (REFACTOR)'
+    description: >
+      Review the implementation for consistency with handleLayout. Run full test suite and
+      lint to verify no regressions. Consider whether layout params should be extracted to
+      a shared constant (only if it improves readability without over-abstracting).
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The change is entirely within the presentation layer's client-side state management.
+  `useControlCenterState` is a React hook that manages canvas nodes/edges via `useState`.
+  The existing `handleLayout` callback (lines 377-391) already demonstrates the exact
+  pattern needed: call `layoutWithDagre` inside a `setNodes` functional updater, call
+  `setEdges` with the result edges, and return `result.nodes`.
+
+  The `handleDeleteFeature` callback (lines 339-362) currently removes the deleted node
+  and its connected edges via separate `setNodes` and `setEdges` filter calls. The fix
+  replaces these with a combined filter+layout inside a single `setNodes` callback,
+  ensuring the user never sees an intermediate gap state.
+
+  No architectural boundaries are crossed. No interfaces change. No new dependencies.
+
+  ## Key Design Decisions
+
+  ### 1. Inline Pattern vs Shared Helper
+
+  **Chosen**: Inline the layoutWithDagre call inside handleDeleteFeature, mirroring
+  handleLayout's pattern.
+
+  The call is only ~3 lines (filter, layout, set edges). Extracting a shared helper would
+  be premature abstraction for an S-sized fix. Both callsites have different contexts
+  (handleLayout takes a direction parameter from the UI; handleDeleteFeature filters nodes
+  first and uses fixed server-side layout params).
+
+  ### 2. Single State Update (No Visual Flash)
+
+  **Chosen**: Compute filtered nodes, run layout, and set edges all inside the `setNodes`
+  callback. This produces a single React render with the final positions — the user never
+  sees the gap.
+
+  **Rejected**: Two-phase update (filter first, then layout) would cause a visible flash
+  of the gap before repositioning, violating FR-3.
+
+  ### 3. Layout Parameters Match Server-Side page.tsx
+
+  **Chosen**: `{ direction: 'LR', ranksep: 200, nodesep: 60 }` matching `page.tsx`
+  lines 111-115.
+
+  **Important correction**: The spec's open questions state `ranksep: 60, nodesep: 20`,
+  but these values do not match the actual server-side code. The codebase uses
+  `ranksep: 200, nodesep: 60`. Using the correct server-side values ensures post-deletion
+  layout spacing matches what users see on initial page load. Note that `handleLayout`
+  (the manual relayout button) uses different values (`ranksep: 60, nodesep: 20`) — the
+  post-deletion relayout should match the initial page layout, not the manual relayout
+  button, so that deleting a node produces minimal visual disruption.
+
+  ### 4. Edge Access from Closure + Dependency Array Update
+
+  The `handleLayout` reads `edges` from the closure (line 380). `handleDeleteFeature`
+  will use the same approach. However, `handleDeleteFeature`'s current dependency array
+  is `[router]` — `edges` must be added to ensure the callback always sees fresh edge
+  data. This is a necessary change that mirrors `handleLayout`'s dependency array `[edges]`.
+
+  ### 5. Position-Based Test Assertions
+
+  Tests capture node positions via `onStateChange` before and after deletion, then assert
+  positions changed. This tests actual behavior rather than implementation details (like
+  whether layoutWithDagre was called). It follows the existing test harness patterns in
+  the file.
+
+  ## Implementation Strategy
+
+  Phase 1 (RED) writes the failing tests first. The tests assert that after successful
+  deletion, node positions differ from their pre-deletion values — which will fail because
+  the current code just filters without relaying out. Phase 2 (GREEN) adds the
+  layoutWithDagre call to make tests pass. Phase 3 (REFACTOR) runs the full validation
+  suite and reviews for cleanup opportunities.
+
+  The phases are sequential because GREEN depends on RED tests existing, and REFACTOR
+  depends on GREEN passing.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Layout params don't match server-side, causing jarring shift | Verified actual page.tsx values (ranksep: 200, nodesep: 60) by reading the source code. |
+  | Adding `edges` to dependency array causes unnecessary re-creation of handleDeleteFeature | The callback is only invoked on user click. A new function reference is harmless — it's not passed as a prop to memoized children. |
+  | Existing deletion tests break due to position changes | Existing tests check node count, edge count, and selectedNode — not positions. The relayout preserves counts and clears selection, so existing tests remain green. |
+  | setEdges called inside setNodes callback causes issues | This is the exact pattern handleLayout already uses at line 386. It's proven in the codebase. |

@@ -351,8 +351,19 @@ export function useControlCenterState(
         }
 
         setSelectedNode(null);
-        setNodes((prev) => prev.filter((n) => n.id !== featureId));
-        setEdges((prev) => prev.filter((e) => e.source !== featureId && e.target !== featureId));
+        setNodes((currentNodes) => {
+          const remainingNodes = currentNodes.filter((n) => n.id !== featureId);
+          const remainingEdges = edges.filter(
+            (e) => e.source !== featureId && e.target !== featureId
+          );
+          const result = layoutWithDagre(remainingNodes, remainingEdges, {
+            direction: 'LR',
+            ranksep: 200,
+            nodesep: 60,
+          });
+          setEdges(result.edges);
+          return result.nodes;
+        });
         toast.success('Feature deleted successfully');
         router.refresh();
       } catch {
@@ -361,7 +372,7 @@ export function useControlCenterState(
         setIsDeleting(false);
       }
     },
-    [router]
+    [router, edges]
   );
 
   const handleDeleteRepository = useCallback(

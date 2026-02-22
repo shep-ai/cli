@@ -1,0 +1,208 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: delete-auto-relayout
+summary: >
+  Technical research for adding automatic Dagre relayout after feature deletion. The change
+  is minimal (~10 lines of production code) — calling the existing layoutWithDagre function
+  inside handleDeleteFeature after filtering nodes/edges, using the same setNodes-callback
+  pattern as handleLayout. No new dependencies, no interface changes, no new state.
+
+relatedFeatures: []
+
+technologies:
+  - '@xyflow/react (React Flow v12) — existing, provides Node/Edge types and state'
+  - '@dagrejs/dagre — existing, used by layoutWithDagre for hierarchical layout'
+  - Vitest — existing, unit test framework
+  - '@testing-library/react — existing, test harness for hook testing'
+
+relatedLinks: []
+
+decisions:
+  - title: 'Where to call layoutWithDagre in the deletion flow'
+    chosen: 'Inline inside handleDeleteFeature, after filtering nodes/edges, before setting state'
+    rejected:
+      - 'Extract a shared relayout helper called by both handleLayout and handleDeleteFeature — adds abstraction for a 3-line call that only differs in when it runs. Premature indirection for an S-sized fix.'
+      - 'Call handleLayout after setting state in a useEffect — introduces a two-render flash (gap visible, then relayout) violating FR-3. Also adds dependency-tracking complexity.'
+    rationale: >
+      The existing handleLayout (lines 377-391) demonstrates the correct pattern: call
+      layoutWithDagre inside a setNodes callback, then call setEdges with the result. Inlining
+      the same pattern inside handleDeleteFeature keeps the change self-contained, avoids a
+      visual flash (single state update), and follows the established codebase convention. The
+      call is only 3 lines — extracting a shared helper would be premature abstraction.
+
+  - title: 'State update strategy — single vs separate setNodes/setEdges calls'
+    chosen: 'Compute filtered nodes/edges inside a setNodes callback, pass to layoutWithDagre, set edges via nested setEdges, return layout result nodes'
+    rejected:
+      - 'Two-phase update: first setNodes/setEdges to remove, then a second pair to relayout — causes two renders, one showing the gap before the relayout fills it. Violates FR-3.'
+      - 'Use React.startTransition or flushSync — unnecessary complexity. React 19 batches state updates within the same async handler already, but the concern is that the intermediate state (gap visible) exists at all. Computing layout before setting state avoids it entirely.'
+    rationale: >
+      handleLayout (lines 377-391) already uses this exact pattern: inside the setNodes callback
+      it computes the layout from current nodes + current edges, calls setEdges with the result
+      edges, and returns the result nodes. For deletion, we filter inside the setNodes callback,
+      pass the filtered lists to layoutWithDagre, then call setEdges with result.edges and return
+      result.nodes. This ensures the user never sees the intermediate gap state and follows the
+      established pattern exactly.
+
+  - title: 'Layout parameters for post-deletion relayout'
+    chosen: 'LR direction with ranksep: 200 and nodesep: 60, matching the actual server-side page.tsx parameters'
+    rejected:
+      - 'Use ranksep: 60 and nodesep: 20 as stated in the spec open questions — these values do not match the actual codebase. page.tsx line 111-115 uses ranksep: 200 and nodesep: 60. Using mismatched values would produce a jarring layout shift on deletion.'
+      - 'Use handleLayout defaults (ranksep: 80, nodesep: 30 from the layoutWithDagre function defaults) — these are the fallback values when no options are passed. Also do not match the server-side layout and would cause a layout shift.'
+    rationale: >
+      The codebase is the source of truth. page.tsx (lines 111-115) clearly shows direction LR,
+      ranksep 200, and nodesep 60. The spec open question answer states ranksep 60 and nodesep 20,
+      which appears to be an error — those values do not appear anywhere in the codebase. Using the
+      actual server-side values ensures post-deletion layout matches what users see on initial page
+      load, avoiding a jarring spacing shift. NOTE: The spec contains incorrect values — the correct
+      values from the codebase are ranksep 200, nodesep 60.
+
+  - title: 'Test strategy for verifying relayout'
+    chosen: 'Capture node positions via onStateChange callback before and after deletion, assert positions changed'
+    rejected:
+      - 'Mock layoutWithDagre and assert it was called — verifies the call but not the effect. Does not catch bugs where the result is ignored or applied incorrectly.'
+      - 'Snapshot entire node array — brittle, breaks on any unrelated node data change. Position-based assertions are more targeted and meaningful.'
+    rationale: >
+      The existing test harness uses an onStateChange callback to capture the full ControlCenterState.
+      Tests can record node positions before deletion, perform the delete, then verify that remaining
+      node positions differ from their pre-deletion values. This approach tests the actual behavior
+      (positions change) rather than implementation details (function was called). It follows the
+      existing test patterns in the file (lines 1072-1324) which use the same harness.
+
+openQuestions:
+  - question: 'Should post-deletion relayout use the server-side layout params (ranksep: 200, nodesep: 60) or the spec-stated params (ranksep: 60, nodesep: 20)?'
+    resolved: true
+    options:
+      - option: 'Server-side params (ranksep: 200, nodesep: 60)'
+        description: >
+          Match the actual server-side layout in page.tsx (lines 111-115). This produces
+          the same spacing the user sees on page load. Post-deletion relayout is visually
+          consistent — only the deleted node disappears, spacing stays the same.
+        selected: true
+      - option: 'Spec-stated params (ranksep: 60, nodesep: 20)'
+        description: >
+          Use the values from the spec open questions section. However, these do NOT match
+          the actual codebase. Using them would cause a visible layout shift on deletion
+          (nodes would compress to much tighter spacing).
+        selected: false
+      - option: 'handleLayout defaults (ranksep: 80, nodesep: 30)'
+        description: >
+          Use the defaults from layoutWithDagre function signature. These are the fallback
+          values when no options are passed. Also do not match the server-side layout and
+          would cause a layout shift.
+        selected: false
+    selectionRationale: >
+      The codebase is the source of truth. page.tsx line 111-115 clearly shows ranksep 200
+      and nodesep 60 with LR direction. The spec open question answer states ranksep 60
+      and nodesep 20, which appears to be an error — those values do not appear anywhere in
+      the codebase. Using the actual server-side values ensures visual consistency.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Where to Call layoutWithDagre in the Deletion Flow
+
+  **Chosen:** Inline inside `handleDeleteFeature`, after filtering nodes/edges, before setting state
+
+  **Rejected:**
+  - Extract a shared relayout helper — premature abstraction for a 3-line pattern
+  - Call `handleLayout` via useEffect after state change — causes two-render flash violating FR-3
+
+  **Rationale:** The existing `handleLayout` (lines 377-391) demonstrates the pattern: call `layoutWithDagre` inside a `setNodes` callback, call `setEdges` with the result, return `result.nodes`. Inlining the same pattern keeps the change self-contained and avoids a visible gap.
+
+  ### 2. State Update Strategy
+
+  **Chosen:** Filter + layout inside `setNodes` callback (single state update, no intermediate gap)
+
+  **Rejected:**
+  - Two-phase update (remove then relayout) — two renders, gap visible in between
+  - `React.startTransition` or `flushSync` — unnecessary complexity for this pattern
+
+  **Rationale:** Following the exact `handleLayout` pattern (lines 377-391), the implementation uses functional `setNodes(currentNodes => ...)` to compute the filtered list, pass it through `layoutWithDagre`, call `setEdges(result.edges)` inside the callback, and return `result.nodes`. This guarantees no intermediate gap state is ever rendered.
+
+  ### 3. Layout Parameters
+
+  **Chosen:** `{ direction: 'LR', ranksep: 200, nodesep: 60 }` matching `page.tsx` lines 111-115
+
+  **Rejected:**
+  - `ranksep: 60, nodesep: 20` (spec open question values) — do not match actual server-side code; would cause visible layout compression on deletion
+  - `ranksep: 80, nodesep: 30` (layoutWithDagre defaults) — also do not match server-side layout
+
+  **Rationale:** The spec's open question states `ranksep: 60, nodesep: 20`, but the actual server-side code in `page.tsx` uses `ranksep: 200, nodesep: 60`. The codebase is the source of truth. Using server-side values ensures post-deletion layout matches what users see on initial page load.
+
+  ### 4. Test Strategy
+
+  **Chosen:** Position-based assertions via `onStateChange` callback
+
+  **Rejected:**
+  - Mock `layoutWithDagre` and assert calls — tests implementation, not behavior
+  - Snapshot entire node array — brittle, breaks on unrelated changes
+
+  **Rationale:** Capture positions before deletion, verify they changed after. This tests actual behavior and follows the existing test patterns in the file.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `@dagrejs/dagre` | Hierarchical graph layout | Use (existing) | Already used by `layoutWithDagre`. No new dependency. |
+  | `@xyflow/react` | React Flow canvas and types | Use (existing) | Provides `Node`, `Edge` types. No changes needed. |
+  | `framer-motion` | Animation library | Reject | Could animate node transitions but adds scope, new dependency, and complexity. Out of scope per spec. |
+  | `react-spring` | Physics-based animation | Reject | Same as framer-motion — animation is explicitly out of scope. |
+
+  ## Security Considerations
+
+  No security implications. The change is purely client-side — it repositions existing canvas nodes after a deletion that has already been authorized and executed by the server action. No new data flows, no new API calls, no user input handling.
+
+  ## Performance Implications
+
+  `layoutWithDagre` is a synchronous pure function. For typical canvas sizes (<50 nodes), Dagre layout computation takes <1ms. The function already runs on every manual "Relayout" button click via `handleLayout` without perceptible delay. Adding it to the deletion path has identical performance characteristics. No optimization needed.
+
+  ## Architecture Notes
+
+  ### Implementation Approach
+
+  The change is localized to a single function (`handleDeleteFeature` in `use-control-center-state.ts`, lines 339-362). The approach follows the exact pattern used by `handleLayout` (lines 377-391):
+
+  ```typescript
+  // Inside handleDeleteFeature success path, replace the separate setNodes/setEdges calls with:
+  setNodes((currentNodes) => {
+    const remainingNodes = currentNodes.filter((n) => n.id !== featureId);
+    const remainingEdges = edges.filter(
+      (e) => e.source !== featureId && e.target !== featureId
+    );
+    const result = layoutWithDagre(remainingNodes, remainingEdges, {
+      direction: 'LR',
+      ranksep: 200,
+      nodesep: 60,
+    });
+    setEdges(result.edges);
+    return result.nodes;
+  });
+  ```
+
+  **Key details:**
+  - Uses functional `setNodes` to get current nodes (same as `handleLayout`)
+  - Gets `edges` from the closure (same as `handleLayout` which reads `edges` at line 380)
+  - Calls `setEdges` inside the `setNodes` callback (same as `handleLayout` at line 386)
+  - Returns `result.nodes` from the callback (same as `handleLayout` at line 387)
+  - All existing side effects preserved: `setSelectedNode(null)`, `toast.success()`, `router.refresh()`
+  - `isDeleting` lifecycle unchanged: `true` before action, `false` in `finally`
+
+  ### Edge Access Pattern
+
+  The `handleLayout` function accesses `edges` from the closure (line 380: `const currentEdges = edges`). The `handleDeleteFeature` will use the same approach — reading `edges` from the hook closure. This means `edges` must be added to the `useCallback` dependency array (currently `[router]`). This is a necessary change to ensure the callback always has fresh edge data.
+
+  ### Files Changed
+
+  | File | Change | Lines Affected |
+  | ---- | ------ | -------------- |
+  | `use-control-center-state.ts` | Replace separate `setNodes`/`setEdges` filter calls with combined filter+layout in `setNodes` callback; add `edges` to dependency array | ~349-353, ~361 |
+  | `use-control-center-state.test.tsx` | Add 4 new tests: positions change after successful delete, positions unchanged after error, disconnected node positioning, correct node/edge counts post-relayout | New tests after line 1324 |
+
+  ### Interface Stability
+
+  The `ControlCenterState` interface (lines 16-39) is unchanged. No new properties, no changed signatures. The `handleDeleteFeature` function signature remains `(featureId: string) => Promise<void>`.
+
+  ### Spec Correction
+
+  **Important:** The spec's open questions state that the server-side layout uses `ranksep: 60, nodesep: 20`. This is incorrect. The actual values in `page.tsx` (lines 111-115) are `ranksep: 200, nodesep: 60`. The implementation must use the correct codebase values to avoid a jarring layout shift after deletion.
