@@ -1,7 +1,7 @@
 /**
  * Agent Stop Command
  *
- * Sends SIGTERM to a running agent and marks it as cancelled.
+ * Sends SIGTERM to a running agent and marks it as interrupted (resumable).
  *
  * Usage:
  *   shep agent stop <id>

@@ -7,7 +7,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { StopAgentRunUseCase } from '@/application/use-cases/agents/stop-agent-run.use-case.js';
 import { AgentRunStatus, AgentType } from '@/domain/generated/output.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import type { AgentRun } from '@/domain/generated/output.js';
+
+vi.mock('@/infrastructure/services/agents/feature-agent/phase-timing-context.js', () => ({
+  recordLifecycleEvent: vi.fn().mockResolvedValue(undefined),
+}));
 
 function makeAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {
   const now = new Date().toISOString();
@@ -25,9 +30,20 @@ function makeAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {
   };
 }
 
+function createMockTimingRepo(): IPhaseTimingRepository {
+  return {
+    save: vi.fn().mockResolvedValue(undefined),
+    update: vi.fn().mockResolvedValue(undefined),
+    updateApprovalWait: vi.fn().mockResolvedValue(undefined),
+    findByRunId: vi.fn().mockResolvedValue([]),
+    findByFeatureId: vi.fn().mockResolvedValue([]),
+  };
+}
+
 describe('StopAgentRunUseCase', () => {
   let useCase: StopAgentRunUseCase;
   let mockRepo: IAgentRunRepository;
+  let mockTimingRepo: IPhaseTimingRepository;
 
   beforeEach(() => {
     mockRepo = {
@@ -39,8 +55,9 @@ describe('StopAgentRunUseCase', () => {
       list: vi.fn().mockResolvedValue([]),
       delete: vi.fn().mockResolvedValue(undefined),
     };
+    mockTimingRepo = createMockTimingRepo();
 
-    useCase = new StopAgentRunUseCase(mockRepo);
+    useCase = new StopAgentRunUseCase(mockRepo, mockTimingRepo);
   });
 
   it('should return error if run not found', async () => {
@@ -64,7 +81,7 @@ describe('StopAgentRunUseCase', () => {
     expect(mockRepo.updateStatus).not.toHaveBeenCalled();
   });
 
-  it('should cancel run with no PID', async () => {
+  it('should interrupt run with no PID', async () => {
     vi.mocked(mockRepo.findById).mockResolvedValue(
       makeAgentRun({ pid: undefined, status: AgentRunStatus.pending })
     );
@@ -74,12 +91,12 @@ describe('StopAgentRunUseCase', () => {
     expect(result.stopped).toBe(true);
     expect(mockRepo.updateStatus).toHaveBeenCalledWith(
       'run-123',
-      AgentRunStatus.cancelled,
-      expect.objectContaining({ error: expect.stringContaining('no PID') })
+      AgentRunStatus.interrupted,
+      expect.objectContaining({ error: expect.stringContaining('Stopped by user') })
     );
   });
 
-  it('should send SIGTERM to alive process and mark as cancelled', async () => {
+  it('should send SIGTERM to alive process and mark as interrupted', async () => {
     // Use our own PID which we know is alive
     vi.mocked(mockRepo.findById).mockResolvedValue(
       makeAgentRun({ pid: process.pid, status: AgentRunStatus.running })
@@ -96,12 +113,12 @@ describe('StopAgentRunUseCase', () => {
     expect(killSpy).toHaveBeenCalledWith(process.pid, 'SIGTERM');
     expect(mockRepo.updateStatus).toHaveBeenCalledWith(
       'run-123',
-      AgentRunStatus.cancelled,
-      expect.objectContaining({ error: 'Cancelled by user' })
+      AgentRunStatus.interrupted,
+      expect.objectContaining({ error: 'Stopped by user' })
     );
   });
 
-  it('should mark as cancelled even if process is already dead', async () => {
+  it('should mark as interrupted even if process is already dead', async () => {
     vi.mocked(mockRepo.findById).mockResolvedValue(
       makeAgentRun({ pid: 1, status: AgentRunStatus.running })
     );
@@ -112,10 +129,10 @@ describe('StopAgentRunUseCase', () => {
     const result = await useCase.execute('run-123');
 
     expect(result.stopped).toBe(true);
-    expect(result.reason).toContain('already dead');
+    expect(result.reason).toContain('interrupted');
     expect(mockRepo.updateStatus).toHaveBeenCalledWith(
       'run-123',
-      AgentRunStatus.cancelled,
+      AgentRunStatus.interrupted,
       expect.anything()
     );
   });

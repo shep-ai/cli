@@ -207,11 +207,29 @@ describe('ResumeFeatureUseCase', () => {
     await expect(useCase.execute('feat-001')).rejects.toThrow(/no agent run/i);
   });
 
-  it('should throw when agent run is still running', async () => {
+  it('should throw when agent run is still running and process is alive', async () => {
     featureRepo.findById.mockResolvedValue(createTestFeature());
-    runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.running }));
+    // checkAndMarkCrashed does nothing (process is alive), status stays "running"
+    runRepo.findById.mockResolvedValue(createTestRun({ status: AgentRunStatus.running, pid: 999 }));
+    processService.checkAndMarkCrashed.mockResolvedValue(undefined);
 
     await expect(useCase.execute('feat-001')).rejects.toThrow(/still running/i);
+    expect(processService.checkAndMarkCrashed).toHaveBeenCalledWith('run-001');
+  });
+
+  it('should auto-detect crashed process and resume instead of throwing', async () => {
+    featureRepo.findById.mockResolvedValue(createTestFeature());
+    // First findById returns running, second returns interrupted (after checkAndMarkCrashed)
+    runRepo.findById
+      .mockResolvedValueOnce(createTestRun({ status: AgentRunStatus.running, pid: 999 }))
+      .mockResolvedValueOnce(createTestRun({ status: AgentRunStatus.interrupted, pid: 999 }));
+    processService.checkAndMarkCrashed.mockResolvedValue(undefined);
+
+    const result = await useCase.execute('feat-001');
+
+    expect(processService.checkAndMarkCrashed).toHaveBeenCalledWith('run-001');
+    expect(result.feature.id).toBe('feat-001');
+    expect(processService.spawn).toHaveBeenCalled();
   });
 
   it('should throw when agent run already completed', async () => {
