@@ -1,3 +1,9 @@
+## [1.40.1](https://github.com/shep-ai/cli/compare/v1.40.0...v1.40.1) (2026-02-22)
+
+### Bug Fixes
+
+- **tsp:** regenerate types and json schemas from current typespec models ([#89](https://github.com/shep-ai/cli/issues/89)) ([e4d96e9](https://github.com/shep-ai/cli/commit/e4d96e94424cd54248fdb5e5220abddd7b64a67b))
+
 # [1.40.0](https://github.com/shep-ai/cli/compare/v1.39.0...v1.40.0) (2026-02-22)
 
 ### Features
