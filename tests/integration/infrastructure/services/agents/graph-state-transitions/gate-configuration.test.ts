@@ -13,7 +13,6 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { createTestContext, type TestContext } from './setup.js';
 import {
-  getInterrupts,
   expectInterruptAt,
   expectNoInterrupts,
   ALL_GATES_DISABLED,
