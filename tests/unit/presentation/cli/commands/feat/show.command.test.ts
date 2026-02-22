@@ -11,12 +11,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import type { Feature, AgentRun, PhaseTiming } from '@/domain/generated/output.js';
 
-const { mockResolve, mockShowExecute, mockFindById, mockFindByRunId } = vi.hoisted(() => ({
-  mockResolve: vi.fn(),
-  mockShowExecute: vi.fn(),
-  mockFindById: vi.fn(),
-  mockFindByRunId: vi.fn(),
-}));
+const { mockResolve, mockShowExecute, mockFindById, mockFindByRunId, mockFindByFeatureId } =
+  vi.hoisted(() => ({
+    mockResolve: vi.fn(),
+    mockShowExecute: vi.fn(),
+    mockFindById: vi.fn(),
+    mockFindByRunId: vi.fn(),
+    mockFindByFeatureId: vi.fn(),
+  }));
 
 vi.mock('@/infrastructure/di/container.js', () => ({
   container: { resolve: (...args: unknown[]) => mockResolve(...args) },
@@ -100,7 +102,8 @@ describe('createShowCommand - phase timing & approval', () => {
     mockResolve.mockImplementation((token: unknown) => {
       if (typeof token === 'string') {
         if (token === 'IAgentRunRepository') return { findById: mockFindById };
-        if (token === 'IPhaseTimingRepository') return { findByRunId: mockFindByRunId };
+        if (token === 'IPhaseTimingRepository')
+          return { findByRunId: mockFindByRunId, findByFeatureId: mockFindByFeatureId };
         return {};
       }
       // Class token (ShowFeatureUseCase)
@@ -118,7 +121,7 @@ describe('createShowCommand - phase timing & approval', () => {
       ];
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue(timings);
+      mockFindByFeatureId.mockResolvedValue(timings);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -137,7 +140,7 @@ describe('createShowCommand - phase timing & approval', () => {
       ];
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue(timings);
+      mockFindByFeatureId.mockResolvedValue(timings);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -155,7 +158,7 @@ describe('createShowCommand - phase timing & approval', () => {
       ];
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue(timings);
+      mockFindByFeatureId.mockResolvedValue(timings);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -178,7 +181,7 @@ describe('createShowCommand - phase timing & approval', () => {
       ];
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue(timings);
+      mockFindByFeatureId.mockResolvedValue(timings);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -193,7 +196,7 @@ describe('createShowCommand - phase timing & approval', () => {
       const run = makeRun({ status: AgentRunStatus.running });
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue([]);
+      mockFindByFeatureId.mockResolvedValue([]);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -209,7 +212,7 @@ describe('createShowCommand - phase timing & approval', () => {
       const run = makeRun({ status: AgentRunStatus.waitingApproval, result: 'node:plan' });
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue([]);
+      mockFindByFeatureId.mockResolvedValue([]);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -224,7 +227,7 @@ describe('createShowCommand - phase timing & approval', () => {
       const run = makeRun({ status: AgentRunStatus.running });
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue([]);
+      mockFindByFeatureId.mockResolvedValue([]);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });

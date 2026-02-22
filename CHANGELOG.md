@@ -1,3 +1,15 @@
+## [1.37.3](https://github.com/shep-ai/cli/compare/v1.37.2...v1.37.3) (2026-02-22)
+
+### Bug Fixes
+
+- **cli:** include feature short id in approve/reject hints ([#87](https://github.com/shep-ai/cli/issues/87)) ([c803bd9](https://github.com/shep-ai/cli/commit/c803bd962b76733b46822e0b02f618dee2a53e54))
+
+## [1.37.2](https://github.com/shep-ai/cli/compare/v1.37.1...v1.37.2) (2026-02-22)
+
+### Bug Fixes
+
+- **agents:** detect crashed processes on resume and fix timing display ([#85](https://github.com/shep-ai/cli/issues/85)) ([7074929](https://github.com/shep-ai/cli/commit/7074929588401b3e27a7ca54620c75d5544c0e93))
+
 ## [1.37.1](https://github.com/shep-ai/cli/compare/v1.37.0...v1.37.1) (2026-02-19)
 
 ### Bug Fixes

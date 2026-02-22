@@ -25,7 +25,7 @@ import { AgentRunStatus } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
-import { setPhaseTimingContext } from './phase-timing-context.js';
+import { setPhaseTimingContext, recordLifecycleEvent } from './phase-timing-context.js';
 import { setLifecycleContext } from './lifecycle-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import { generatePrYaml } from './nodes/pr-yaml-generator.js';
@@ -196,8 +196,15 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const timingRepository = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
   setPhaseTimingContext(args.runId, timingRepository);
 
+  // Capture repos for SIGTERM handler
+  runRepoForSignal = runRepository;
+  timingRepoForSignal = timingRepository;
+
   // Set lifecycle context so nodes update the feature lifecycle as they execute
   setLifecycleContext(args.featureId, featureRepository);
+
+  // Record lifecycle event
+  await recordLifecycleEvent(args.resume ? 'run:resumed' : 'run:started');
 
   try {
     const graphConfig = { configurable: { thread_id: checkpointId } };
@@ -262,6 +269,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
         completedAt: failedAt,
         updatedAt: failedAt,
       });
+      await recordLifecycleEvent('run:failed');
       log(`Run marked as failed: ${result.error}`);
       return;
     }
@@ -272,6 +280,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       completedAt,
       updatedAt: completedAt,
     });
+    await recordLifecycleEvent('run:completed');
     log('Run marked as completed');
   } catch (error: unknown) {
     stopHeartbeat();
@@ -283,6 +292,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       completedAt: failedAt,
       updatedAt: failedAt,
     });
+    await recordLifecycleEvent('run:failed');
     log('Run marked as failed');
   }
 }
@@ -306,6 +316,7 @@ process.on('disconnect', () => {
 // Handle SIGTERM for graceful shutdown
 let runIdForSignal: string | undefined;
 let runRepoForSignal: IAgentRunRepository | undefined;
+let timingRepoForSignal: IPhaseTimingRepository | undefined;
 
 process.on('SIGTERM', async () => {
   log('Received SIGTERM, shutting down...');
@@ -316,6 +327,7 @@ process.on('SIGTERM', async () => {
       completedAt: now,
       updatedAt: now,
     });
+    await recordLifecycleEvent('run:stopped', runIdForSignal, timingRepoForSignal);
   }
   process.exit(0);
 });
