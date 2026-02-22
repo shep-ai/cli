@@ -195,7 +195,9 @@ export function TechDecisionsReview({
         <div
           className={cn(
             'bg-muted h-1.5 overflow-hidden',
-            answeredCount > 0 || isProcessing ? 'opacity-100' : 'opacity-0',
+            (answeredCount > 0 && answeredCount < total) || isProcessing
+              ? 'opacity-100'
+              : 'opacity-0',
             'transition-opacity duration-200'
           )}
           data-testid="progress-bar-container"

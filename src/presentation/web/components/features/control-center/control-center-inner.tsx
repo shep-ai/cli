@@ -132,6 +132,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         }
         if (result.questionnaire) {
           setQuestionnaireData(result.questionnaire);
+          // Pre-select AI-recommended answers
+          const defaults: Record<string, string> = {};
+          for (const q of result.questionnaire.questions) {
+            const recommended = q.options.find((o) => o.recommended);
+            if (recommended) defaults[q.id] = recommended.id;
+          }
+          setPrdSelections(defaults);
         }
       })
       .catch(() => {
@@ -165,6 +172,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         }
         if (result.techDecisions) {
           setTechDecisionsData(result.techDecisions);
+          // Pre-select AI-recommended (chosen) answers
+          const defaults: Record<number, string> = {};
+          result.techDecisions.decisions.forEach((d, idx) => {
+            defaults[idx] = d.chosen;
+          });
+          setTechDecisionsSelections(defaults);
         }
       })
       .catch(() => {
