@@ -12,20 +12,12 @@ export interface TechDecisionsReviewData {
 export interface TechDecisionsReviewProps {
   /** Tech decisions data from the research artifact */
   data: TechDecisionsReviewData;
-  /** Map of decision index to selected option label (controlled state) */
-  selections: Record<number, string>;
-  /** Selection change callback — index is the decision index, value is the chosen option label */
-  onSelect: (index: number, value: string) => void;
+  /** Chat refinement callback — sends user feedback to the agent */
+  onRefine: (text: string) => void;
   /** Approve plan callback */
   onApprove: () => void;
   /** Controls disabled state during loading */
   isProcessing?: boolean;
-  /** Show the name/summary header section (default: true) */
-  showHeader?: boolean;
-  /** Show the tech stack section (default: true) */
-  showTechStack?: boolean;
-  /** Show the rationale text for each decision (default: true) */
-  showRationale?: boolean;
 }
 
 export interface TechDecisionsDrawerProps extends TechDecisionsReviewProps {

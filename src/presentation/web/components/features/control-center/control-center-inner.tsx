@@ -51,9 +51,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   // Tech decisions drawer state
   const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
-  const [techDecisionsSelections, setTechDecisionsSelections] = useState<Record<number, string>>(
-    {}
-  );
   const [isLoadingTechDecisions, setIsLoadingTechDecisions] = useState(false);
 
   const showPrdDrawer =
@@ -93,8 +90,11 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     [selectedNode?.featureId, clearSelection]
   );
 
-  const handleTechDecisionsSelect = useCallback((index: number, value: string) => {
-    setTechDecisionsSelections((prev) => ({ ...prev, [index]: value }));
+  const handleTechDecisionsRefine = useCallback(async (_text: string) => {
+    setIsLoadingTechDecisions(true);
+    // TODO: Call API to refine tech decisions
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsLoadingTechDecisions(false);
   }, []);
 
   const handleTechDecisionsApprove = useCallback(async () => {
@@ -110,7 +110,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
     toast.success('Plan approved — agent resuming');
     clearSelection();
-    setTechDecisionsSelections({});
   }, [selectedNode?.featureId, clearSelection]);
 
   // Fetch questionnaire data and reset selections when a different feature is selected
@@ -157,7 +156,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const techDecisionsFeatureId = showTechDecisionsDrawer ? selectedNode?.featureId : null;
   useEffect(() => {
     setTechDecisionsData(null);
-    setTechDecisionsSelections({});
 
     if (!techDecisionsFeatureId) return;
 
@@ -172,12 +170,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         }
         if (result.techDecisions) {
           setTechDecisionsData(result.techDecisions);
-          // Pre-select AI-recommended (chosen) answers
-          const defaults: Record<number, string> = {};
-          result.techDecisions.decisions.forEach((d, idx) => {
-            defaults[idx] = d.chosen;
-          });
-          setTechDecisionsSelections(defaults);
         }
       })
       .catch(() => {
@@ -250,8 +242,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           branch={selectedNode?.branch}
           specPath={selectedNode?.specPath}
           data={techDecisionsData}
-          selections={techDecisionsSelections}
-          onSelect={handleTechDecisionsSelect}
+          onRefine={handleTechDecisionsRefine}
           onApprove={handleTechDecisionsApprove}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}

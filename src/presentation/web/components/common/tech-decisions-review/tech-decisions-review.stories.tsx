@@ -42,21 +42,6 @@ const mockData: TechDecisionsReviewData = {
   ],
 };
 
-/* ─── Interactive wrapper for controlled state ─── */
-
-function InteractiveReview(
-  props: Omit<React.ComponentProps<typeof TechDecisionsReview>, 'selections' | 'onSelect'>
-) {
-  const [selections, setSelections] = useState<Record<number, string>>({});
-  return (
-    <TechDecisionsReview
-      {...props}
-      selections={selections}
-      onSelect={(idx, val) => setSelections((prev) => ({ ...prev, [idx]: val }))}
-    />
-  );
-}
-
 /* ─── Standalone TechDecisionsReview ─── */
 
 const meta: Meta<typeof TechDecisionsReview> = {
@@ -78,36 +63,40 @@ const meta: Meta<typeof TechDecisionsReview> = {
 export default meta;
 type Story = StoryObj<typeof TechDecisionsReview>;
 
-/** Default state — stepper with decisions shown one at a time. */
+/** Default — scrollable list of decisions taken. */
 export const Default: Story = {
-  render: () => <InteractiveReview data={mockData} onApprove={fn().mockName('onApprove')} />,
+  args: {
+    data: mockData,
+    onRefine: fn().mockName('onRefine'),
+    onApprove: fn().mockName('onApprove'),
+  },
 };
 
-/** Processing state — options disabled. */
+/** Processing state — approve button disabled. */
 export const Processing: Story = {
-  render: () => (
-    <InteractiveReview data={mockData} onApprove={fn().mockName('onApprove')} isProcessing />
-  ),
+  args: {
+    data: mockData,
+    onApprove: fn().mockName('onApprove'),
+    isProcessing: true,
+  },
 };
 
-/** Single decision — minimal stepper. */
+/** Single decision. */
 export const SingleDecision: Story = {
-  render: () => (
-    <InteractiveReview
-      data={{ ...mockData, decisions: [mockData.decisions[0]] }}
-      onApprove={fn().mockName('onApprove')}
-    />
-  ),
+  args: {
+    data: { ...mockData, decisions: [mockData.decisions[0]] },
+    onRefine: fn().mockName('onRefine'),
+    onApprove: fn().mockName('onApprove'),
+  },
 };
 
 /** No technologies listed. */
 export const NoTechnologies: Story = {
-  render: () => (
-    <InteractiveReview
-      data={{ ...mockData, technologies: [] }}
-      onApprove={fn().mockName('onApprove')}
-    />
-  ),
+  args: {
+    data: { ...mockData, technologies: [] },
+    onRefine: fn().mockName('onRefine'),
+    onApprove: fn().mockName('onApprove'),
+  },
 };
 
 /* ─── Drawer Variant ─── */
@@ -124,13 +113,9 @@ const drawerMeta = {
 };
 
 function DrawerTemplate(
-  props: Omit<
-    React.ComponentProps<typeof TechDecisionsDrawer>,
-    'open' | 'onClose' | 'selections' | 'onSelect'
-  >
+  props: Omit<React.ComponentProps<typeof TechDecisionsDrawer>, 'open' | 'onClose'>
 ) {
   const [open, setOpen] = useState(true);
-  const [selections, setSelections] = useState<Record<number, string>>({});
 
   return (
     <div style={{ height: '100vh', background: '#f8fafc', padding: '2rem' }}>
@@ -141,18 +126,12 @@ function DrawerTemplate(
       >
         Open Drawer
       </button>
-      <TechDecisionsDrawer
-        {...props}
-        open={open}
-        onClose={() => setOpen(false)}
-        selections={selections}
-        onSelect={(idx, val) => setSelections((prev) => ({ ...prev, [idx]: val }))}
-      />
+      <TechDecisionsDrawer {...props} open={open} onClose={() => setOpen(false)} />
     </div>
   );
 }
 
-/** Drawer with tech decision stepper. */
+/** Drawer with tech decisions list. */
 export const InDrawer: DrawerStory = {
   ...drawerMeta,
   render: () => (
@@ -160,6 +139,7 @@ export const InDrawer: DrawerStory = {
       featureName="Agent Executor Abstraction"
       featureId="FEAT-099"
       data={mockData}
+      onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
     />
   ),
@@ -173,6 +153,7 @@ export const WithDeleteButton: DrawerStory = {
       featureName="Agent Executor Abstraction"
       featureId="FEAT-099"
       data={mockData}
+      onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
       onDelete={fn().mockName('onDelete')}
     />
@@ -187,6 +168,7 @@ export const DeletingState: DrawerStory = {
       featureName="Agent Executor Abstraction"
       featureId="FEAT-099"
       data={mockData}
+      onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
       onDelete={fn().mockName('onDelete')}
       isDeleting

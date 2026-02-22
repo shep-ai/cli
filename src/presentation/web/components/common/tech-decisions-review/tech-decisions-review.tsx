@@ -1,220 +1,115 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
-import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useState } from 'react';
+import { Check, ChevronRight, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import type { TechDecisionsReviewProps, TechDecision } from './tech-decisions-review-config';
 
-function TechStackCollapsible({ technologies }: { technologies: string[] }) {
-  const [open, setOpen] = useState(false);
+function DecisionCard({ decision }: { decision: TechDecision }) {
+  const [expanded, setExpanded] = useState(false);
 
   return (
-    <div>
-      <button
-        type="button"
-        className="text-muted-foreground flex items-center gap-1 text-xs font-medium"
-        onClick={() => setOpen((prev) => !prev)}
-      >
-        <ChevronRight className={`h-3.5 w-3.5 transition-transform ${open ? 'rotate-90' : ''}`} />
-        Tech stack ({technologies.length})
-      </button>
-      {open ? (
-        <div className="mt-2 flex flex-wrap gap-1.5">
-          {technologies.map((tech) => (
-            <Badge key={tech} variant="outline" className="text-xs">
-              {tech}
-            </Badge>
-          ))}
+    <div className="border-border rounded-md border">
+      <div className="px-3 py-2.5">
+        <p className="text-muted-foreground text-[11px] font-medium tracking-wide uppercase">
+          {decision.title}
+        </p>
+        <p className="text-foreground mt-1 text-sm font-semibold">{decision.chosen}</p>
+      </div>
+
+      {/* Expandable rejected + rationale */}
+      {decision.rejected.length > 0 ? (
+        <div className="border-border border-t px-3 py-2">
+          <button
+            type="button"
+            className="text-muted-foreground flex items-center gap-1 text-xs"
+            onClick={() => setExpanded((prev) => !prev)}
+          >
+            <ChevronRight
+              className={cn('h-3 w-3 transition-transform', expanded ? 'rotate-90' : '')}
+            />
+            {decision.rejected.length} rejected alternative
+            {decision.rejected.length > 1 ? 's' : ''}
+          </button>
+          {expanded ? (
+            <div className="mt-2 space-y-2">
+              <ul className="text-muted-foreground ml-4 list-disc space-y-1 text-xs">
+                {decision.rejected.map((alt) => (
+                  <li key={alt}>{alt}</li>
+                ))}
+              </ul>
+              {decision.rationale ? (
+                <p className="text-muted-foreground text-xs leading-relaxed italic">
+                  {decision.rationale}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
       ) : null}
     </div>
   );
 }
 
-function buildOptions(decision: TechDecision): string[] {
-  // Put chosen first, then rejected — preserving original order context
-  return [decision.chosen, ...decision.rejected];
-}
-
 export function TechDecisionsReview({
   data,
-  selections,
-  onSelect,
+  onRefine,
   onApprove,
   isProcessing = false,
-  showHeader = true,
-  showTechStack = true,
-  showRationale = true,
 }: TechDecisionsReviewProps) {
-  const { name, summary, decisions, technologies } = data;
-  const [currentStep, setCurrentStep] = useState(0);
+  const { summary, decisions } = data;
+  const [chatInput, setChatInput] = useState('');
 
-  const total = decisions.length;
-  const isFirstStep = currentStep === 0;
-  const isLastStep = currentStep === total - 1;
-  const currentDecision = decisions[currentStep];
-  const options = useMemo(() => buildOptions(currentDecision), [currentDecision]);
+  function handleSubmit(e: { preventDefault: () => void }) {
+    e.preventDefault();
+    const text = chatInput.trim();
+    if (!text) return;
+    onRefine(text);
+    setChatInput('');
+  }
 
-  const answeredCount = useMemo(() => Object.keys(selections).length, [selections]);
-
-  const handleSelect = useCallback(
-    (index: number, value: string) => {
-      onSelect(index, value);
-      if (!isLastStep) {
-        setTimeout(() => setCurrentStep((s) => s + 1), 250);
-      }
-    },
-    [onSelect, isLastStep]
-  );
-
-  if (total === 0) return null;
+  if (decisions.length === 0) return null;
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex-1 space-y-4 overflow-y-auto p-4">
-        {/* Header */}
-        {showHeader ? (
-          <div className="border-border flex items-start gap-3 border-b pb-3">
-            <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-            <div className="flex-1">
-              <h3 className="text-foreground mb-1.5 text-sm font-bold">{name}</h3>
-              <p className="text-muted-foreground text-xs leading-relaxed">{summary}</p>
-            </div>
-          </div>
+      <div className="flex-1 space-y-3 overflow-y-auto p-4">
+        {summary ? (
+          <p className="text-muted-foreground text-xs leading-relaxed">{summary}</p>
         ) : null}
-
-        {/* Technologies (collapsed by default) */}
-        {showTechStack && technologies.length > 0 ? (
-          <TechStackCollapsible technologies={technologies} />
-        ) : null}
-
-        {/* Decision title + step indicator */}
-        <div className="space-y-3">
-          <div className="flex items-start gap-3">
-            <label className="text-foreground min-w-0 flex-1 text-sm font-semibold">
-              {currentDecision.title}
-            </label>
-            <div className="mt-1.5 flex shrink-0 gap-1">
-              {decisions.map((decision, idx) => (
-                <button
-                  key={decision.title}
-                  type="button"
-                  aria-label={`Go to decision ${idx + 1}`}
-                  className={cn(
-                    'h-1.5 rounded-full transition-all duration-200',
-                    idx === currentStep ? 'bg-primary w-4' : 'w-1.5',
-                    idx !== currentStep && selections[idx] ? 'bg-primary/50' : '',
-                    idx !== currentStep && !selections[idx] ? 'bg-muted-foreground/25' : ''
-                  )}
-                  onClick={() => setCurrentStep(idx)}
-                />
-              ))}
-            </div>
-          </div>
-          {showRationale ? (
-            <p className="text-muted-foreground text-xs leading-relaxed">
-              {currentDecision.rationale}
-            </p>
-          ) : null}
-          <div className="space-y-2">
-            {options.map((opt, optIdx) => {
-              const selected = selections[currentStep] === opt;
-              const isOriginalChoice = opt === currentDecision.chosen;
-              const letter = String.fromCharCode(65 + optIdx);
-              return (
-                <button
-                  key={opt}
-                  type="button"
-                  className={cn(
-                    'border-border w-full rounded-md border px-3 py-3 text-left text-xs transition-all',
-                    'hover:border-primary/70 hover:bg-primary/5 group',
-                    selected && 'border-primary bg-primary/5'
-                  )}
-                  disabled={isProcessing}
-                  onClick={() => handleSelect(currentStep, opt)}
-                >
-                  <div className="flex items-start gap-2">
-                    <span className="text-muted-foreground mt-0.5 font-mono text-xs">
-                      {letter}.
-                    </span>
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className="text-foreground text-xs font-semibold">{opt}</span>
-                        {isOriginalChoice ? (
-                          <Badge className="shrink-0 px-1.5 py-0 text-[10px] whitespace-nowrap">
-                            AI Recommended
-                          </Badge>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Step navigation */}
-        <div className="flex items-center justify-between pt-2">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            disabled={isFirstStep || isProcessing}
-            onClick={() => setCurrentStep((s) => s - 1)}
-          >
-            <ChevronLeft className="mr-1 h-4 w-4" />
-            Previous
-          </Button>
-
-          {isLastStep ? (
-            <Button
-              type="button"
-              size="sm"
-              disabled={isProcessing || answeredCount < total}
-              onClick={onApprove}
-            >
-              <Check className="mr-1 h-4 w-4" />
-              Approve Plan
-            </Button>
-          ) : (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              disabled={isProcessing}
-              onClick={() => setCurrentStep((s) => s + 1)}
-            >
-              {selections[currentStep] ? 'Next' : 'Skip'}
-              <ChevronRight className="ml-1 h-4 w-4" />
-            </Button>
-          )}
-        </div>
+        {decisions.map((decision) => (
+          <DecisionCard key={decision.title} decision={decision} />
+        ))}
       </div>
 
-      {/* Progress bar */}
-      <div className="border-border bg-background shrink-0 border-t">
-        <div
-          className={cn(
-            'bg-muted h-1.5 overflow-hidden',
-            (answeredCount > 0 && answeredCount < total) || isProcessing
-              ? 'opacity-100'
-              : 'opacity-0',
-            'transition-opacity duration-200'
-          )}
-          data-testid="progress-bar-container"
-        >
-          {isProcessing ? (
-            <div className="bg-primary animate-indeterminate-progress h-full w-1/3" />
-          ) : (
-            <div
-              className="bg-primary h-full transition-all duration-300"
-              style={{ width: `${total > 0 ? (answeredCount / total) * 100 : 0}%` }}
-              data-testid="progress-bar"
-            />
-          )}
+      {/* Action bar: chat + approve */}
+      <div className="border-border shrink-0 border-t">
+        <form onSubmit={handleSubmit} className="flex items-center gap-2 p-4 pb-2">
+          <Input
+            type="text"
+            placeholder="Ask AI to revise the plan..."
+            aria-label="Ask AI to revise the plan"
+            disabled={isProcessing}
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value)}
+            className="flex-1"
+          />
+          <Button
+            type="submit"
+            variant="secondary"
+            size="icon"
+            aria-label="Send"
+            disabled={isProcessing}
+          >
+            <Send />
+          </Button>
+        </form>
+        <div className="px-4 pt-2 pb-4">
+          <Button type="button" className="w-full" disabled={isProcessing} onClick={onApprove}>
+            <Check className="mr-1.5 h-4 w-4" />
+            Approve Plan
+          </Button>
         </div>
       </div>
     </div>
