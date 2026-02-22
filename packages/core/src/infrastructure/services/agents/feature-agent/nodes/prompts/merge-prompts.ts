@@ -80,18 +80,20 @@ ${steps.join('\n')}
 /**
  * Build a prompt for the merge/squash agent call.
  *
- * Handles both PR-based merge (gh pr merge) and direct branch merge (git merge).
+ * When a PR exists, uses `gh pr merge` (remote operation — no local merge needed).
+ * When no PR exists, performs a local merge in the ORIGINAL repo directory
+ * (not the worktree, which IS the feature branch).
  */
 export function buildMergeSquashPrompt(
   state: FeatureAgentState,
   branch: string,
   baseBranch: string
 ): string {
-  const cwd = state.worktreePath || state.repositoryPath;
-
-  let mergeInstructions: string;
   if (state.prUrl && state.prNumber) {
-    mergeInstructions = `## PR to Merge
+    // PR path: remote merge via GitHub CLI — no local merge needed
+    return `You are merging a pull request via the GitHub CLI.
+
+## PR to Merge
 
 - PR URL: ${state.prUrl}
 - PR Number: #${state.prNumber}
@@ -100,33 +102,45 @@ export function buildMergeSquashPrompt(
 
 1. Merge the PR using squash merge: \`gh pr merge ${state.prNumber} --squash --delete-branch\`
 2. If merge conflicts are encountered, resolve them and retry
-3. If the merge fails, report the error clearly`;
-  } else {
-    mergeInstructions = `## Branch to Merge
-
-- Feature branch: \`${branch}\`
-- Base branch: \`${baseBranch}\`
-
-## Instructions
-
-1. Checkout the base branch: \`git checkout ${baseBranch}\`
-2. Merge the feature branch: \`git merge --squash ${branch}\`
-3. If merge conflicts are encountered, resolve them manually and complete the merge
-4. Commit the squash merge with a descriptive message
-5. Delete the feature branch after successful merge: \`git branch -d ${branch}\``;
-  }
-
-  return `You are performing a merge operation in a repository.
-
-${mergeInstructions}
-
-## Working Directory
-
-${cwd}
+3. If the merge fails, report the error clearly
 
 ## Constraints
 
 - Use squash merge strategy to keep history clean
+- Report the merge result clearly`;
+  }
+
+  // Non-PR path: local merge in the ORIGINAL repo (not the worktree)
+  const originalRepo = state.repositoryPath;
+
+  return `You are performing a local merge in the original repository directory.
+
+IMPORTANT: You MUST run all git commands in the original repository directory, NOT in any worktree.
+
+## Branch to Merge
+
+- Feature branch: \`${branch}\`
+- Base branch: \`${baseBranch}\`
+
+## Working Directory
+
+${originalRepo}
+
+## Instructions
+
+1. Change to the original repository: \`cd ${originalRepo}\`
+2. Fetch latest: \`git fetch origin\`
+3. Checkout the base branch: \`git checkout ${baseBranch}\`
+4. Pull latest base: \`git pull origin ${baseBranch}\`
+5. Merge the feature branch: \`git merge --squash ${branch}\`
+6. If merge conflicts are encountered, resolve them manually and complete the merge
+7. Commit the squash merge with a descriptive conventional commit message
+8. Delete the feature branch after successful merge: \`git branch -d ${branch}\`
+
+## Constraints
+
+- Use squash merge strategy to keep history clean
+- All commands MUST run in \`${originalRepo}\` (the original repo), NOT in the worktree
 - If conflicts arise during merge, attempt to resolve them intelligently
 - Do NOT modify any source code beyond what is needed for conflict resolution
 - Report the merge result clearly`;

@@ -122,40 +122,85 @@ describe('buildCommitPushPrPrompt', () => {
 });
 
 describe('buildMergeSquashPrompt', () => {
-  it('should include PR number and URL when provided', () => {
-    const prompt = buildMergeSquashPrompt(
-      baseState({ prUrl: 'https://github.com/test/repo/pull/42', prNumber: 42 }),
-      'feat/test',
-      'main'
-    );
-    expect(prompt).toContain('42');
-    expect(prompt).toContain('https://github.com/test/repo/pull/42');
+  describe('PR path (remote merge)', () => {
+    it('should include PR number and URL when provided', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: 'https://github.com/test/repo/pull/42', prNumber: 42 }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).toContain('42');
+      expect(prompt).toContain('https://github.com/test/repo/pull/42');
+    });
+
+    it('should use gh pr merge for remote merge', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: 'https://github.com/test/repo/pull/42', prNumber: 42 }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).toContain('gh pr merge');
+    });
+
+    it('should NOT reference worktree or repositoryPath for PR merge', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: 'https://github.com/test/repo/pull/42', prNumber: 42 }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).not.toContain('/tmp/worktree');
+      expect(prompt).not.toContain('/tmp/repo');
+    });
   });
 
-  it('should include merge strategy instruction', () => {
-    const prompt = buildMergeSquashPrompt(baseState(), 'feat/test', 'main');
-    expect(prompt.toLowerCase()).toMatch(/merge|squash/);
-  });
+  describe('non-PR path (local merge)', () => {
+    it('should use repositoryPath (original repo), NOT worktreePath', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: null, prNumber: null }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).toContain('/tmp/repo');
+      expect(prompt).not.toContain('/tmp/worktree');
+    });
 
-  it('should instruct agent to resolve conflicts if encountered', () => {
-    const prompt = buildMergeSquashPrompt(baseState(), 'feat/test', 'main');
-    expect(prompt.toLowerCase()).toContain('conflict');
-  });
+    it('should include git merge --squash instructions', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: null, prNumber: null }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).toContain('git merge --squash');
+    });
 
-  it('should include branch names', () => {
-    const prompt = buildMergeSquashPrompt(baseState(), 'feat/my-branch', 'main');
-    expect(prompt).toContain('feat/my-branch');
-    expect(prompt).toContain('main');
-  });
+    it('should instruct agent to checkout base branch first', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: null, prNumber: null }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).toContain('git checkout main');
+    });
 
-  it('should handle merge when no PR exists (direct branch merge)', () => {
-    const prompt = buildMergeSquashPrompt(
-      baseState({ prUrl: null, prNumber: null }),
-      'feat/test',
-      'main'
-    );
-    // Should still include merge instructions for direct branch merge
-    expect(prompt.toLowerCase()).toContain('merge');
+    it('should instruct to cd to original repo', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: null, prNumber: null }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).toContain('cd /tmp/repo');
+    });
+
+    it('should include branch names', () => {
+      const prompt = buildMergeSquashPrompt(baseState(), 'feat/my-branch', 'main');
+      expect(prompt).toContain('feat/my-branch');
+      expect(prompt).toContain('main');
+    });
+
+    it('should instruct agent to resolve conflicts if encountered', () => {
+      const prompt = buildMergeSquashPrompt(baseState(), 'feat/test', 'main');
+      expect(prompt.toLowerCase()).toContain('conflict');
+    });
   });
 
   it('should be deterministic', () => {
