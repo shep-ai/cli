@@ -1,3 +1,9 @@
+# [1.40.0](https://github.com/shep-ai/cli/compare/v1.39.0...v1.40.0) (2026-02-22)
+
+### Features
+
+- **agents:** add gemini cli executor with streaming and token auth ([#88](https://github.com/shep-ai/cli/issues/88)) ([dc8a3ca](https://github.com/shep-ai/cli/commit/dc8a3ca7a8b39557776b78a874a8acdebbb41e64))
+
 # [1.39.0](https://github.com/shep-ai/cli/compare/v1.38.0...v1.39.0) (2026-02-22)
 
 ### Features
