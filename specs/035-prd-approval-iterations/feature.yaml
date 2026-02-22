@@ -1,0 +1,39 @@
+feature:
+  id: 035-prd-approval-iterations
+  name: prd-approval-iterations
+  number: 35
+  branch: feat/035-prd-approval-iterations
+  lifecycle: research
+  createdAt: '2026-02-22T10:54:30Z'
+status:
+  phase: ready-for-review
+  progress:
+    completed: 20
+    total: 20
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-22T12:18:00Z'
+  lastUpdatedBy: shep-kit:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-22T10:54:30Z'
+    completedBy: feature-agent
+  - phase: implementation-complete
+    completedAt: '2026-02-22T12:18:00Z'
+    completedBy: shep-kit:implement
+errors:
+  current: null
+  history: []

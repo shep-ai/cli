@@ -1,0 +1,202 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-approval-iterations
+summary: >
+  Implementation plan for PRD approval iterations. The feature adds an interactive TUI review flow,
+  reject-and-reiterate workflow (reject -> feedback -> re-run requirements -> re-approve), and iteration
+  tracking in phase timings. The approach is bottom-up: TypeSpec DTOs first (compilation prerequisite),
+  then infrastructure changes (worker resume payload, node-helpers re-execution, iteration-aware timing),
+  then application layer (use cases), then presentation layer (TUI wizard, CLI commands). Each layer
+  builds on the previous, minimizing integration risk.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (new DTOs in tsp/agents/prd-approval.tsp, updated spec-metadata.tsp and feature-artifact.tsp)
+  - '@inquirer/prompts (select, confirm, input for interactive review TUI)'
+  - LangGraph Command API (arbitrary JSON resume payloads via interrupt() return value)
+  - tsyringe (DI for ReviewFeatureUseCase)
+  - js-yaml (spec.yaml read/write with atomic temp+rename)
+  - Commander.js (updated feat review/approve/reject commands)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'TypeSpec DTOs & Domain Models'
+    description: >
+      Define all new TypeSpec models and update existing ones. This phase must come first because
+      pnpm tsp:compile generates the TypeScript types that all subsequent phases depend on.
+      New file: tsp/agents/prd-approval.tsp with PrdApprovalPayload, PrdRejectionPayload,
+      PrdReviewResult, QuestionSelectionChange, ReviewQuestion. Update spec-metadata.tsp with
+      RejectionFeedbackEntry. Update feature-artifact.tsp with optional rejectionFeedback field.
+      Update agents/index.tsp to import the new file.
+    parallel: false
+
+  - id: phase-2
+    name: 'Infrastructure - Resume Payload & Re-execution'
+    description: >
+      Modify the worker and graph infrastructure to support typed resume payloads and node
+      re-execution on rejection. This includes: (1) adding --resume-payload CLI arg to
+      parseWorkerArgs/spawn/interface, (2) passing the full payload in Command({ resume }),
+      (3) updating executeNode() to capture the interrupt() return value and re-execute on
+      rejection instead of skipping, (4) adding clearCompletedPhase() to node-helpers,
+      (5) making phase-timing-context iteration-aware (count existing rows, append :N suffix).
+    parallel: false
+
+  - id: phase-3
+    name: 'Infrastructure - Requirements Prompt Restructuring'
+    description: >
+      Update the requirements prompt to produce structured QuestionOption[] output with
+      { option, description, selected } objects instead of free-text answers. Also add
+      rejection feedback inclusion so re-execution reads prior feedback from spec.yaml and
+      incorporates it into the prompt. The answer field is populated from the selected option
+      for backward compatibility.
+    parallel: false
+
+  - id: phase-4
+    name: 'Application Layer - Use Cases'
+    description: >
+      Create ReviewFeatureUseCase (reads spec.yaml openQuestions for TUI), modify
+      ApproveAgentRunUseCase (accept optional PrdApprovalPayload, write changed selections
+      to spec.yaml, pass payload to spawn), and rewrite RejectAgentRunUseCase (append feedback
+      to spec.yaml, clear completedPhases, record timing, resume graph with rejection payload).
+      Register ReviewFeatureUseCase in DI container. Add soft iteration limit check.
+    parallel: false
+
+  - id: phase-5
+    name: 'Presentation Layer - TUI Wizard & CLI Commands'
+    description: >
+      Create the prd-review.wizard.ts TUI wizard (sequential @inquirer/select per question,
+      summary screen, approve/reject action). Rewrite feat review command to launch interactive
+      TUI and call approve/reject use cases. Update feat approve for backward-compatible DTO
+      passthrough. Update feat reject to require --reason and trigger iteration. Add iteration
+      limit confirm prompt.
+    parallel: false
+
+  - id: phase-6
+    name: 'Integration Testing & Polish'
+    description: >
+      End-to-end integration tests for the full iteration cycle (reject -> re-run -> approve),
+      approve-with-changes flow, and backward compatibility (approve-no-changes). Verify
+      phase timing iteration entries display correctly in feat show. Validate atomic spec.yaml
+      writes and edge cases (5+ iterations warning, missing openQuestions).
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - tsp/agents/prd-approval.tsp
+  - packages/core/src/application/use-cases/agents/review-feature.use-case.ts
+  - src/presentation/tui/wizards/prd-review.wizard.ts
+  - src/presentation/tui/prompts/prd-review-question.prompt.ts
+  - src/presentation/tui/prompts/prd-review-summary.prompt.ts
+  - tests/unit/application/use-cases/agents/review-feature.use-case.test.ts
+  - tests/unit/application/use-cases/agents/approve-agent-run-payload.test.ts
+  - tests/unit/application/use-cases/agents/reject-agent-run-iteration.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/node-helpers-reexecution.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/phase-timing-iteration.test.ts
+  - tests/integration/prd-approval-iterations.test.ts
+
+filesToModify:
+  - tsp/agents/index.tsp
+  - tsp/domain/value-objects/spec-metadata.tsp
+  - tsp/domain/entities/feature-artifact.tsp
+  - packages/core/src/application/ports/output/agents/feature-agent-process.interface.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/phase-timing-context.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/requirements.prompt.ts
+  - packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts
+  - packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/feat/review.command.ts
+  - src/presentation/cli/commands/feat/approve.command.ts
+  - src/presentation/cli/commands/feat/reject.command.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature introduces an **iteration loop** into the existing linear feature-agent graph.
+  Currently: `analyze -> requirements -> [interrupt] -> research -> plan -> implement -> merge`.
+  After this feature: `analyze -> requirements -> [interrupt] -> {approve: continue | reject: loop back to requirements} -> research -> ...`.
+
+  The iteration is implemented by reusing LangGraph's existing interrupt/resume mechanism:
+  - On **approve**: resume with `PrdApprovalPayload` -- same flow as today but with typed payload
+  - On **reject**: resume with `PrdRejectionPayload` -- `executeNode()` detects the rejection in
+    the `interrupt()` return value, clears `completedPhases`, and re-executes the requirements node
+
+  All new data structures are TypeSpec-defined. The feature follows Clean Architecture strictly:
+  presentation -> application (use cases) -> infrastructure (graph, repositories).
+
+  ## Key Design Decisions
+
+  ### 1. Resume Payload via CLI Arg (not IPC or temp file)
+
+  The existing worker spawn mechanism passes all data via CLI args (including JSON-serialized
+  `approvalGates`). Adding `--resume-payload <json>` follows the exact same pattern. IPC is
+  disconnected immediately after fork(), and temp files add lifecycle management concerns.
+
+  ### 2. interrupt() Return Value for Routing (no new graph state channels)
+
+  LangGraph's `interrupt()` returns the value from `Command({ resume })`. Currently discarded
+  in `executeNode()` -- we capture it to distinguish approval from rejection. This uses LangGraph's
+  API as designed with zero changes to `state.ts`.
+
+  ### 3. Same AgentRun Reuse on Rejection (not new run)
+
+  Spawning a new run would break the checkpoint chain, lose phase timing continuity, and
+  complicate the UI. Reusing the same run preserves the full LangGraph checkpoint history.
+
+  ### 4. Iteration Numbering from PhaseTiming Row Count
+
+  First iteration: bare `"requirements"`. After first rejection: `"requirements:2"`. Derived by
+  counting existing PhaseTiming rows with the same phase prefix -- no new schema fields needed.
+  The `feat show` command already handles `:` sub-phase display.
+
+  ### 5. Atomic Spec.yaml Writes
+
+  Write to temp file in same directory, then `renameSync` -- atomic on same filesystem. Prevents
+  corruption on crash mid-write.
+
+  ### 6. Sequential TUI Prompts (not all-at-once)
+
+  One `@inquirer/select` per open question, matching the existing agent-config wizard pattern.
+  Final summary screen shows changes and offers approve/reject. @inquirer/prompts doesn't
+  natively support multi-question forms.
+
+  ## Implementation Strategy
+
+  **Bottom-up ordering**: TypeSpec -> infrastructure -> application -> presentation -> integration.
+
+  Phase 1 compiles TypeSpec first because all subsequent code depends on the generated TypeScript types.
+  Phase 2 modifies the lowest infrastructure layer (worker args, Command payload routing, node-helpers
+  re-execution logic, iteration-aware timing). Phase 3 restructures the requirements prompt for
+  structured options and feedback inclusion. Phase 4 builds the use cases that orchestrate
+  the approve/reject/review flows. Phase 5 creates the TUI and updates CLI commands. Phase 6
+  runs end-to-end integration tests.
+
+  Each phase has explicit TDD cycles: write failing tests first (RED), implement to pass (GREEN),
+  then refactor while green.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | LangGraph interrupt() not returning resume value | Verified in LangGraph docs and source -- interrupt() IS the suspension/resume point and returns Command resume value. Write a focused unit test in Phase 2 to confirm. |
+  | Breaking existing approve-no-changes flow | Phase 2 and 4 maintain backward compatibility: when no payload is provided, behavior is identical to current. Dedicated test for this path. |
+  | Spec.yaml corruption on crash | Atomic write via temp+rename pattern in Phase 4 use cases. Unit test verifies temp file cleanup. |
+  | Infinite rejection loops | Soft limit of 5 iterations with @inquirer/confirm override. Checked in RejectAgentRunUseCase, surfaced to CLI. |
+  | Requirements prompt producing unstructured options | Phase 3 adds explicit JSON schema examples in the prompt. Validation in validate.node.ts can be extended to check QuestionOption structure. |
+  | Worker not receiving resume payload | Phase 2 tests parseWorkerArgs with --resume-payload arg and verifies it reaches Command({ resume }). |
+
+  ---
+
+  _Plan created 2026-02-22 -- proceed with task breakdown_

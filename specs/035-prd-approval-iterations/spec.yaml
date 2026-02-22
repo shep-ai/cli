@@ -1,0 +1,284 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-approval-iterations
+number: 035
+branch: feat/035-prd-approval-iterations
+oneLiner: >
+  PRD approval iterations with interactive TUI review, reject-and-reiterate workflow, and TSP-defined DTOs
+userQuery: >
+  i want to implement handling of approve/reject PRD stage, if user doesnt change answered question option, we continue as we do now, but if user changes some option and hit approve, we need to consider this in next step - research & planning. If user reject , he must provide a message, in that case we dont cancel the feature, we need to update the spec.yaml according to users request, and then again, wait on approval - this is our iterations mechanism, each such iteration must be recorded and shown in Phase Timings (feat show id command). Also i want to extend our feat review command, i want to show TUI with openquestion with selected options, for each question user may change option in any question and APPROVE. Those selectionts will be passed to approve step using TSP dto! All dtos must be tsp defined. Use only usecases for presentation layer
+summary: >
+  Implement a full PRD approval iteration loop: the `feat review` command becomes an interactive TUI
+  showing open questions with selectable options (using @inquirer/prompts). On approve, changed
+  selections are passed via a TSP-defined DTO to the next phases (research & planning). On reject,
+  the user provides feedback, the spec is updated, and the requirements phase re-runs — creating an
+  iteration cycle. Each iteration is recorded as a separate phase timing entry visible in `feat show`.
+  All DTOs are TypeSpec-defined; all logic is exposed through use cases only.
+phase: Requirements
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (TSP DTOs for approval/rejection payloads)
+  - '@inquirer/prompts (interactive TUI for open question review)'
+  - LangGraph (graph interrupt/resume with Command payloads)
+  - tsyringe (DI for new use cases)
+  - js-yaml (spec.yaml reading/writing)
+  - Commander.js (CLI command updates)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should `feat review` combine review + approve into a single interactive command, or keep approve as a separate command?'
+    resolved: true
+    answer: >
+      Recommend combining into a single `feat review` command that ends with an approve/reject action.
+      This is the natural UX: the user reviews open questions, optionally changes selections, then
+      approves or rejects — all in one flow. The standalone `feat approve` remains as a non-interactive
+      shortcut (approve-with-no-changes), and `feat reject` remains for CLI scripting. Rationale: forcing
+      the user to run `feat review` then separately `feat approve` is a disjointed experience when the
+      whole point of review is to decide approve/reject.
+
+  - question: 'Should rejection feedback be appended to spec.yaml as a new section, or should it modify existing openQuestions/content?'
+    resolved: true
+    answer: >
+      Recommend appending rejection feedback as a dedicated `rejectionFeedback` field in spec.yaml
+      (array of { iteration, message, timestamp }). The requirements agent reads this on re-run and
+      incorporates the feedback into its revised output. Rationale: modifying existing content risks
+      data loss and makes iteration history untraceable. A dedicated field preserves history and gives
+      the agent clear instructions on what to address.
+
+  - question: 'How should iteration numbering work — per-phase or per-run?'
+    resolved: true
+    answer: >
+      Recommend per-phase iteration numbering using the existing sub-phase convention (e.g.,
+      `requirements:1`, `requirements:2`). Each iteration creates a new PhaseTiming row with the
+      incremented suffix. The iteration counter is derived from existing PhaseTiming rows for that
+      phase prefix, not stored as a separate field. Rationale: this leverages the existing sub-phase
+      infrastructure in `feat show` with zero schema changes to PhaseTiming, and naturally handles
+      the case where only requirements iterates while plan does not.
+
+  - question: 'Should the reject-and-reiterate flow spawn a new AgentRun or reuse the existing one?'
+    resolved: true
+    answer: >
+      Recommend reusing the same AgentRun (same run ID and thread ID). On reject, the run status
+      transitions from `waiting_approval` → `running` (not `cancelled`), the `completedPhases` entry
+      for the current phase is cleared in `feature.yaml`, and the worker resumes the graph with a
+      Command payload containing the rejection feedback. The requirements node detects the feedback
+      in state and re-executes instead of skipping. Rationale: spawning a new run would break the
+      checkpoint chain, lose phase timing continuity, and complicate the UI. Reusing the same run
+      preserves the full LangGraph checkpoint history and keeps all timing under one run ID.
+
+  - question: 'Should the TUI show ALL open questions at once, or page through them one-by-one?'
+    resolved: true
+    answer: >
+      Recommend showing all open questions sequentially, one at a time, using @inquirer/select for
+      each question. After cycling through all questions, show a final confirmation prompt with
+      summary of changes and approve/reject action. Rationale: showing all at once requires a custom
+      multi-select UI that @inquirer/prompts does not natively support. Sequential select prompts
+      match the existing TUI patterns (agent-config wizard) and let the user focus on one decision
+      at a time. The final summary ensures they see the full picture before confirming.
+
+  - question: 'What happens if the user approves with changed selections — should the requirements phase re-run or should changes be passed directly to research?'
+    resolved: true
+    answer: >
+      Recommend NOT re-running requirements when the user approves with changes. The changed
+      selections are written back to spec.yaml (updating the `selected` field on QuestionOption
+      and the `answer` field on OpenQuestion) and passed via the approval DTO to the graph resume.
+      Research and planning phases read the updated spec.yaml and see the user's chosen options.
+      Rationale: the user is explicitly approving — they are satisfied with the PRD except for
+      the option selections. Re-running requirements would be wasteful and might produce different
+      questions entirely. The approve-with-changes path should feel instant, not trigger another
+      AI generation cycle.
+
+  - question: 'Should there be a maximum iteration limit to prevent infinite reject loops?'
+    resolved: true
+    answer: >
+      Recommend a maximum of 5 iterations per phase, configurable via a constant. After 5 rejections
+      of the same phase, the system warns the user and asks for explicit confirmation to continue
+      (not a hard block). Rationale: infinite loops waste time and money (each iteration calls the LLM).
+      5 iterations is generous — most PRDs should converge in 2-3. A soft limit with user override
+      provides safety without being restrictive.
+
+  - question: 'Should the review TUI be available only during `waiting_approval` state, or also after the feature is completed (for historical review)?'
+    resolved: true
+    answer: >
+      Recommend limiting the interactive review TUI to `waiting_approval` state only. For completed
+      features, `feat show` already displays the phase timing history. Historical open questions are
+      readable in the spec.yaml file. Rationale: adding a read-only TUI mode for historical review
+      is scope creep and provides marginal value over reading the YAML directly. Keep the first
+      implementation focused on the approval flow.
+
+content: |
+  ## Problem Statement
+
+  Currently, the PRD approval flow is binary: approve resumes the agent, reject cancels the entire run. There is no mechanism for users to:
+
+  1. **Review and modify** the AI's open question recommendations before approving
+  2. **Reject with feedback** and have the requirements phase re-run with that feedback (iteration)
+  3. **Track iterations** — each approve/reject cycle is invisible in phase timing
+
+  The `feat review` command is a bare text display with no interactivity. The `feat approve` command accepts no payload (no way to pass changed selections). The `feat reject` command sets the run to `cancelled` — terminating the feature entirely.
+
+  ### Current Limitations (by file)
+
+  - **`RejectAgentRunUseCase`**: Sets status to `cancelled` — no iteration support
+  - **`ApproveAgentRunUseCase`**: Resumes with `{ approved: true }` — no payload for changed selections
+  - **`feat review` command**: Static text display, no TUI, no open questions shown
+  - **`feat approve` command**: Calls `approveUseCase.execute(run.id)` with no DTO
+  - **`feat reject` command**: Calls `rejectUseCase.execute(run.id, reason)` which cancels the run
+  - **`requirements.prompt.ts`**: Generates openQuestions with free-text `answer` pattern, not structured `QuestionOption[]` with `selected` booleans
+  - **`node-helpers.ts` `executeNode()`**: Once `markPhaseComplete()` is called, the phase is skipped on resume — no way to re-run after rejection
+  - **`feature-agent-worker.ts`**: Resume from interrupt sends `Command({ resume: { approved: true } })` — no payload support
+  - **Graph structure**: Linear flow `requirements → validate → research` — no loop-back for iterations
+
+  ## Success Criteria
+
+  - [ ] `shep feat review` launches an interactive TUI showing each open question with its options (AI-recommended option pre-selected)
+  - [ ] User can change the selected option for any question during review
+  - [ ] After reviewing all questions, a summary screen shows which selections were changed and prompts approve/reject
+  - [ ] Approve with no changes continues the agent identically to current behavior (backward compatible)
+  - [ ] Approve with changed selections writes updated options to spec.yaml and passes a `PrdApprovalPayload` DTO to the graph resume
+  - [ ] Reject requires a non-empty feedback message (enforced in TUI and CLI)
+  - [ ] Reject does NOT cancel the feature — instead writes feedback to spec.yaml, clears the completed phase, and re-runs the requirements node
+  - [ ] The requirements node re-execution reads the rejection feedback and incorporates it into the revised output
+  - [ ] Each iteration creates a new phase timing entry with iteration suffix (e.g., `requirements:2`, `requirements:3`)
+  - [ ] `feat show` displays iteration timing entries as indented sub-phases with the `↳` prefix
+  - [ ] All DTOs (`PrdApprovalPayload`, `PrdRejectionPayload`, `PrdReviewResult`) are TypeSpec-defined
+  - [ ] All presentation-layer logic goes through use cases (no direct repository/service access in CLI commands)
+  - [ ] Requirements prompt generates openQuestions with structured `QuestionOption[]` (option text, description, selected boolean)
+  - [ ] Standalone `feat approve` works as a no-changes shortcut (backward compatible)
+  - [ ] Standalone `feat reject --reason "..."` triggers iteration (not cancellation)
+  - [ ] A soft iteration limit of 5 warns the user but does not hard-block
+
+  ## Functional Requirements
+
+  ### FR-1: Interactive Review TUI (`feat review`)
+  The `feat review` command launches an interactive TUI when the feature is in `waiting_approval` state on the requirements phase. For each `OpenQuestion` in `spec.yaml`, a `@inquirer/select` prompt displays the question text and its `QuestionOption[]` with the AI-recommended option pre-selected. The user can change the selection or keep the default. After all questions, a summary screen lists any changed selections and offers Approve / Reject actions.
+
+  ### FR-2: Approve with Changed Selections
+  When the user approves (via `feat review` TUI or `feat approve` CLI), if any selections differ from the AI defaults, the use case: (a) writes the updated selections back to `spec.yaml` (setting the `selected` boolean on `QuestionOption` and updating the `answer` field on `OpenQuestion`), (b) resumes the LangGraph with a `Command({ resume: PrdApprovalPayload })` containing the changed selections, (c) records the approval wait time on the current PhaseTiming row.
+
+  ### FR-3: Approve with No Changes (Backward Compatible)
+  When the user approves with no selection changes, the flow is identical to the current behavior: `Command({ resume: { approved: true } })`. The `completedPhases` skip logic in `executeNode()` works as before. No spec.yaml modifications occur.
+
+  ### FR-4: Reject with Feedback (Iteration)
+  When the user rejects (via `feat review` TUI or `feat reject --reason` CLI), the use case: (a) validates the feedback message is non-empty, (b) appends the feedback to a `rejectionFeedback` array in `spec.yaml` (with iteration number, message, timestamp), (c) records the approval wait time on the current PhaseTiming, (d) removes the current phase from `completedPhases` in `feature.yaml`, (e) resumes the LangGraph with a `Command({ resume: PrdRejectionPayload })` containing the feedback, (f) increments the iteration counter so the next phase timing row uses the `:N` suffix.
+
+  ### FR-5: Requirements Node Re-execution with Feedback
+  When the requirements node receives a resume payload containing `PrdRejectionPayload` (rejection feedback), it re-executes instead of skipping. The `buildRequirementsPrompt()` function includes the rejection feedback in the prompt, instructing the AI to revise the PRD addressing the user's concerns. The revised output replaces the previous openQuestions in spec.yaml.
+
+  ### FR-6: Iteration Phase Timing
+  Each iteration of a phase creates a new `PhaseTiming` row with an iteration suffix (e.g., `requirements:1` for the first run, `requirements:2` after first rejection). The iteration number is determined by counting existing PhaseTiming rows with the same phase prefix for this run. The `feat show` command displays these as indented sub-phases using the existing `:` convention.
+
+  ### FR-7: TSP-Defined DTOs
+  All data transfer objects are defined in TypeSpec and compiled to TypeScript:
+  - `PrdApprovalPayload`: `{ approved: true, changedSelections?: QuestionSelectionChange[] }` where `QuestionSelectionChange` has `{ questionId: string, selectedOption: string }`
+  - `PrdRejectionPayload`: `{ rejected: true, feedback: string, iteration: int32 }`
+  - `PrdReviewResult`: `{ questions: ReviewQuestion[], action: "approve" | "reject", feedback?: string }` where `ReviewQuestion` has `{ question: string, options: QuestionOption[], selectedOption: string, changed: boolean }`
+
+  ### FR-8: Structured OpenQuestion Options in Requirements Prompt
+  The requirements prompt instructs the AI to produce `openQuestions` where each question has a `QuestionOption[]` array. Each option has: `option` (short label), `description` (explanation), `selected` (boolean, exactly one true per question). The free-text `answer` field is populated with the selected option's text for backward compatibility.
+
+  ### FR-9: Soft Iteration Limit
+  After 5 rejections of the same phase, the system displays a warning ("You have iterated N times on this phase. Continue?") and requires explicit `@inquirer/confirm` before proceeding. This is a UX safeguard, not a hard block.
+
+  ### FR-10: Updated `feat reject` Command
+  The `feat reject` command's `--reason` option becomes required (not optional). The success message changes from "cancelled" to "iterating — requirements phase will re-run with your feedback". The run status transitions to `running`, not `cancelled`.
+
+  ### FR-11: Standalone `feat approve` Backward Compatibility
+  The `feat approve` command continues to work without TUI interaction. It approves with no changes (equivalent to the current behavior). Users who want to change selections must use `feat review`.
+
+  ### FR-12: Graph Resume Payload Handling
+  The `feature-agent-worker.ts` resume logic is updated to pass the full DTO (approval or rejection payload) in the `Command({ resume: payload })` call instead of the hardcoded `{ approved: true }`. The graph state receives this payload and routes accordingly: approval payloads continue forward, rejection payloads trigger re-execution of the interrupted node.
+
+  ### FR-13: Spec.yaml `rejectionFeedback` Array
+  A new `rejectionFeedback` field is added to `spec.yaml` (array of `{ iteration: number, message: string, timestamp: string }`). This field is written by the reject use case and read by the requirements prompt on re-execution. It provides a full audit trail of iteration feedback.
+
+  ## Non-Functional Requirements
+
+  ### NFR-1: Backward Compatibility
+  The approve-with-no-changes path must produce identical behavior to the current implementation. Existing features in `waiting_approval` state must be approvable without any migration. The `feat approve` command signature does not change.
+
+  ### NFR-2: Clean Architecture Compliance
+  All new logic follows the existing Clean Architecture layers. Presentation layer (CLI/TUI) calls use cases only — no direct repository or service access. New use cases are registered in the DI container. DTOs flow from presentation → application → infrastructure.
+
+  ### NFR-3: TUI Responsiveness
+  The review TUI must render within 500ms of command invocation (reading spec.yaml and building prompts). Each `@inquirer/select` prompt must appear instantly after the previous selection. No spinner or loading state needed for local file reads.
+
+  ### NFR-4: Data Integrity on Iteration
+  Spec.yaml writes during approve-with-changes and reject must be atomic (write to temp file, then rename). A crash mid-write must not corrupt the spec. The `rejectionFeedback` array is append-only — previous entries are never modified.
+
+  ### NFR-5: Test Coverage
+  All new use cases must have unit tests (mocked repositories/services). The TUI wizard must have integration tests verifying prompt sequence and output DTO shape. The iteration flow (reject → re-run → approve) must have an end-to-end test covering the full cycle.
+
+  ### NFR-6: TypeSpec Consistency
+  All new DTOs compile cleanly via `pnpm tsp:compile`. Generated TypeScript types in `output.ts` match the TypeSpec definitions exactly. No hand-edited types — all types flow from TSP.
+
+  ### NFR-7: Idempotent Approve
+  Calling `feat approve` on an already-approved run (status !== `waiting_approval`) returns a clear error message, not a crash. Same for `feat reject` and `feat review`.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should `feat review` combine review + approve into a single command? | Yes — review ends with approve/reject action | Natural UX flow; standalone `feat approve` remains as shortcut |
+  | 2 | Where should rejection feedback be stored in spec.yaml? | Dedicated `rejectionFeedback` array field | Preserves history, avoids data loss from modifying existing content |
+  | 3 | How should iteration numbering work? | Per-phase suffix (e.g., `requirements:2`) derived from PhaseTiming rows | Leverages existing sub-phase display infrastructure, no schema changes |
+  | 4 | New AgentRun per iteration or reuse? | Reuse same run (same ID, same thread) | Preserves checkpoint chain, keeps timing under one run, simpler UI |
+  | 5 | Show all questions at once or one-by-one? | Sequential `@inquirer/select`, one per question, then summary | Matches existing TUI patterns (agent-config wizard), focused UX |
+  | 6 | Re-run requirements on approve-with-changes? | No — write changes to spec, pass DTO to research | User is approving; re-running wastes time and may produce different questions |
+  | 7 | Maximum iteration limit? | Soft limit of 5 with user override via confirm prompt | Safety net against infinite loops without being restrictive |
+  | 8 | Interactive review for historical/completed features? | No — TUI only for `waiting_approval` state | Scope control; spec.yaml is readable for historical review |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/agents/` | High | New TSP DTOs: PrdApprovalPayload, PrdRejectionPayload, PrdReviewResult, QuestionSelectionChange, ReviewQuestion |
+  | `tsp/domain/value-objects/spec-metadata.tsp` | Medium | Ensure QuestionOption has `selected: boolean` field, add RejectionFeedbackEntry model |
+  | `packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts` | High | Accept PrdApprovalPayload DTO, write changed selections to spec.yaml, pass payload to resume |
+  | `packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts` | High | Complete rewrite: write feedback to spec.yaml, clear completedPhases, resume graph (not cancel) |
+  | `packages/core/src/application/use-cases/agents/` | High | New use case: ReviewFeatureUseCase (reads spec.yaml openQuestions for TUI) |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts` | High | Support re-execution after rejection: check resume payload, skip only on approval |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/requirements.prompt.ts` | High | Include rejection feedback in prompt, enforce structured QuestionOption[] output |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` | Medium | Pass full DTO in Command resume payload, support approval and rejection payloads |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` | Medium | Add optional `approvalPayload` channel to graph state for routing resume behavior |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/phase-timing-context.ts` | Medium | Iteration-aware phase naming (e.g., `requirements:2`) |
+  | `src/presentation/cli/commands/feat/review.command.ts` | High | Complete rewrite: interactive TUI with @inquirer/prompts, approve/reject actions |
+  | `src/presentation/cli/commands/feat/approve.command.ts` | Medium | Pass PrdApprovalPayload (no changes) to updated use case |
+  | `src/presentation/cli/commands/feat/reject.command.ts` | Medium | Make --reason required, update messaging to reflect iteration |
+  | `src/presentation/tui/` | Medium | New TUI wizard: prd-review.wizard.ts for open question review flow |
+  | `src/presentation/cli/commands/feat/show.command.ts` | Low | Already supports sub-phase display — may need `feat review` hint in awaiting block |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | Register ReviewFeatureUseCase |
+  | `packages/core/src/domain/generated/output.ts` | Low | Auto-generated from TSP — will reflect new DTOs after tsp:compile |
+
+  ## Dependencies
+
+  - **Existing OpenQuestion/QuestionOption models** (`tsp/domain/value-objects/spec-metadata.tsp`): Foundation for the TUI and DTOs
+  - **LangGraph interrupt/Command API** (`@langchain/langgraph`): `Command({ resume: payload })` must support arbitrary JSON payloads (confirmed — LangGraph accepts any serializable object)
+  - **@inquirer/prompts**: Already a dependency, `select` and `confirm` used in existing TUI
+  - **Phase timing infrastructure**: `IPhaseTimingRepository`, `phase-timing-context.ts`, `feat show` display — all exist and support sub-phases via `:` notation
+  - **feature.yaml completedPhases mechanism**: Must be modified to allow clearing a phase entry on rejection
+  - **Spec YAML read/write utilities**: `readSpecFile()`, `safeYamlLoad()` in `node-helpers.ts`
+  - **Existing TUI patterns**: `shepTheme`, wizard pattern from `agent-config.wizard.ts`
+
+  ## Size Estimate
+
+  **L** — This is a multi-day effort touching 15+ files across all architecture layers:
+
+  - **TypeSpec layer**: 5+ new models/DTOs with compilation
+  - **Application layer**: 1 new use case (ReviewFeature) + 2 significantly modified use cases (Approve, Reject)
+  - **Infrastructure layer**: Graph state changes, worker resume payload, node-helpers iteration support, phase timing iteration naming, requirements prompt restructuring
+  - **Presentation layer**: Complete rewrite of `feat review` with interactive TUI wizard, updates to `feat approve` and `feat reject` commands
+  - **Testing**: Unit tests for all new use cases, TUI wizard integration tests, iteration flow e2e test
+
+  The complexity is elevated because it touches the core LangGraph interrupt/resume mechanism, requires careful handling of spec.yaml state across iterations, and introduces a new interactive TUI pattern.
+
+  ---
+
+  _Generated by feature agent — proceed with research_

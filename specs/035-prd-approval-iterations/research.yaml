@@ -1,0 +1,505 @@
+name: prd-approval-iterations
+summary: >
+  Technical research for PRD approval iterations. Key decisions: pass resume payloads via a new
+  --resume-payload CLI arg (JSON-serialized DTO), add new TSP models in tsp/agents/prd-approval.tsp,
+  implement a ReviewFeatureUseCase for the TUI, rewrite RejectAgentRunUseCase to clear completedPhases
+  and resume the graph, and derive iteration numbers from existing PhaseTiming rows.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (new DTOs in tsp/agents/prd-approval.tsp)
+  - '@inquirer/prompts (select, confirm for review TUI)'
+  - LangGraph Command API (arbitrary JSON resume payloads)
+  - tsyringe (DI for ReviewFeatureUseCase)
+  - js-yaml (spec.yaml read/write with atomic temp-file rename)
+  - Commander.js (updated feat review/approve/reject commands)
+  - picocolors (TUI theme colors via shepTheme)
+  - AJV (JSON Schema validation of spec.yaml after TSP compile)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Resume Payload Delivery Mechanism'
+    chosen: 'New --resume-payload CLI arg with JSON-serialized DTO'
+    rejected:
+      - 'IPC message channel — IPC is immediately disconnected after fork(), would require architectural change to keep alive; also non-trivial to serialize typed DTOs over IPC reliably'
+      - 'Shared temp file — worker reads payload from a temp file path passed as CLI arg; adds file lifecycle management, cleanup concerns, and race conditions'
+      - 'Environment variable — size-limited, not suitable for arbitrary JSON, and would require escaping'
+    rationale: >
+      The existing spawn mechanism already passes all data via CLI args (including JSON-serialized
+      approvalGates). Adding a --resume-payload <json> arg follows the exact same pattern, requires
+      minimal changes to IFeatureAgentProcessService.spawn() options, FeatureAgentProcessService
+      serialization, parseWorkerArgs() deserialization, and the runWorker() resume branch. The payload
+      is small (a few hundred bytes at most) so CLI arg size limits are not a concern.
+
+  - title: 'TypeSpec DTO File Organization'
+    chosen: 'Single new file tsp/agents/prd-approval.tsp containing all PRD approval DTOs'
+    rejected:
+      - 'Inline in existing agent-run.tsp — would bloat the file beyond 150 lines and mix approval-specific models with general AgentRun definition'
+      - 'Multiple files (one per DTO) — over-engineering for 5 small related models; the existing tsp/agents/ pattern groups related models per file (e.g., approval-gates.tsp, phase-timing.tsp)'
+    rationale: >
+      The codebase groups related TypeSpec models per file in tsp/agents/ (approval-gates.tsp has
+      ApprovalGates, phase-timing.tsp has PhaseTiming). A single prd-approval.tsp file for all 5
+      related DTOs (PrdApprovalPayload, PrdRejectionPayload, PrdReviewResult, QuestionSelectionChange,
+      ReviewQuestion) follows this pattern. These models are tightly coupled and will always change
+      together. The file stays well under 150 lines.
+
+  - title: 'RejectionFeedbackEntry Model Location'
+    chosen: 'Add RejectionFeedbackEntry to tsp/domain/value-objects/spec-metadata.tsp alongside existing OpenQuestion/QuestionOption'
+    rejected:
+      - 'Put it in tsp/agents/prd-approval.tsp — the rejectionFeedback array lives in spec.yaml which is a domain artifact, not an agent concern; spec-metadata.tsp already defines OpenQuestion and QuestionOption which are its siblings'
+      - 'Create a new tsp/domain/value-objects/rejection-feedback.tsp — single model does not warrant a new file; spec-metadata.tsp already groups spec.yaml value objects'
+    rationale: >
+      RejectionFeedbackEntry describes a field in spec.yaml, which is a domain artifact parsed by
+      spec-yaml-parser.ts. The existing spec-metadata.tsp already defines all spec.yaml value objects
+      (OpenQuestion, QuestionOption, TechDecision). Adding RejectionFeedbackEntry here keeps spec.yaml
+      models cohesive. The generated TypeScript type will be available via output.ts for both the
+      use case layer and the YAML parser.
+
+  - title: 'Reject Flow — Graph Resume vs New Invocation'
+    chosen: 'Resume the same graph run with Command({ resume: PrdRejectionPayload }) after clearing completedPhases'
+    rejected:
+      - 'Spawn a completely new AgentRun — breaks checkpoint chain, loses phase timing continuity, complicates the UI with multiple run IDs for the same feature, and requires the user to understand that rejection creates a new "run"'
+      - 'Cancel current run and auto-start a new one — the feature spec explicitly says to reuse the same run; also, the phase timing sub-phase numbering (requirements:2) only makes sense within a single run'
+    rationale: >
+      The spec mandates reusing the same AgentRun (same run ID and thread ID). The implementation
+      clears the phase from completedPhases in feature.yaml so executeNode() does not skip it,
+      then resumes with Command({ resume: PrdRejectionPayload }). The requirements node detects the
+      rejection payload in the resume value and re-executes with the feedback. LangGraph natively
+      supports arbitrary JSON in Command({ resume }), so the rejected payload flows through naturally.
+      The key insight: when LangGraph resumes from interrupt, it re-enters the node that called
+      interrupt(). The completedPhases skip-check in executeNode() must be updated to NOT skip when
+      the resume payload indicates rejection.
+
+  - title: 'How executeNode() Distinguishes Approval vs Rejection on Resume'
+    chosen: 'Read the Command resume value from LangGraph interrupt() return value'
+    rejected:
+      - 'Add a graph state channel (e.g., resumePayload) set by the worker before invoke — LangGraph Command({ resume }) already delivers the value directly to the interrupted node; duplicating it in state adds complexity and requires state channel management'
+      - 'Use a file-based flag (e.g., .rejection file in specDir) — fragile, requires cleanup, and circumvents the LangGraph state management'
+    rationale: >
+      LangGraph interrupt/resume mechanism delivers the Command({ resume: value }) payload as the
+      return value of the interrupt() call inside the node. The executeNode() wrapper calls
+      interrupt({...}) which pauses execution. On resume, interrupt() returns the value from
+      Command({ resume }). The executeNode() wrapper can check this return value: if it contains
+      { rejected: true, feedback: ... }, clear completedPhases and re-execute; if { approved: true },
+      skip as before. This uses the LangGraph API exactly as designed — no additional state channels
+      or side-channel files needed. The key implementation detail: interrupt() currently discards its
+      return value in executeNode(); we need to capture it and branch accordingly.
+
+  - title: 'Phase Timing Iteration Number Derivation'
+    chosen: 'Count existing PhaseTiming rows with same phase prefix for the run, derive next suffix'
+    rejected:
+      - 'Store iteration counter in feature.yaml — adds a new field to track, requires schema change, and duplicates information already derivable from PhaseTiming rows'
+      - 'Store iteration counter in graph state — lost on process crash, not visible to external queries'
+      - 'Use a separate counter table in SQLite — over-engineering for a derived value'
+    rationale: >
+      The spec recommends per-phase iteration numbering derived from existing PhaseTiming rows. The
+      implementation in recordPhaseStart() queries findByRunId(), filters for rows where phase starts
+      with the base phase name, counts them, and uses count+1 as the suffix (e.g., if 1 row exists for
+      "requirements", the next is "requirements:2"). First iteration uses bare "requirements" (no :1
+      suffix) for backward compatibility. This leverages the existing PhaseTiming infrastructure with
+      zero schema changes.
+
+  - title: 'Spec.yaml Atomic Write Strategy'
+    chosen: 'Write to temp file in same directory, then rename (atomic on same filesystem)'
+    rejected:
+      - 'Direct writeFileSync overwrite — non-atomic; crash mid-write corrupts the file'
+      - 'Write to a different directory then copy — cross-filesystem copy is not atomic'
+    rationale: >
+      The NFR-4 requires atomic writes. The standard Unix pattern is write-to-temp-then-rename,
+      which is atomic when source and destination are on the same filesystem. Since temp file and
+      spec.yaml are in the same specDir, this is guaranteed. Implementation: writeFileSync to
+      specDir/.spec.yaml.tmp, then renameSync to spec.yaml. The existing markPhaseComplete()
+      uses writeFileSync directly — this should also be updated for consistency, but that is out
+      of scope for this feature.
+
+  - title: 'TUI Wizard Architecture'
+    chosen: 'New prd-review.wizard.ts in src/presentation/tui/wizards/ with per-question @inquirer/select prompts'
+    rejected:
+      - 'Custom multi-select UI showing all questions at once — @inquirer/prompts does not natively support multi-question forms; would require a custom renderer or third-party library (enquirer, ink)'
+      - 'Web-based review UI — the feature spec explicitly calls for TUI; web UI can be added later as a separate feature'
+    rationale: >
+      The spec recommends sequential @inquirer/select prompts (one per question), matching the existing
+      agent-config wizard pattern. The wizard file follows the established convention: exported async
+      function returning a typed result DTO, using shepTheme for consistent styling, with prompt configs
+      factored into separate files. The final summary screen uses @inquirer/select with "Approve" and
+      "Reject" options. On reject, a follow-up @inquirer/input prompt collects the feedback message.
+
+  - title: 'ReviewFeatureUseCase Design'
+    chosen: 'Single use case that reads spec.yaml and returns structured OpenQuestion[] with options for the TUI'
+    rejected:
+      - 'Have the CLI command read spec.yaml directly — violates Clean Architecture (presentation layer accessing infrastructure/files); also, the spec explicitly requires all logic through use cases'
+      - 'Split into GetOpenQuestionsUseCase + SubmitReviewUseCase — over-splitting; the review flow is a single user interaction; the approve/reject submission is already handled by existing use cases'
+    rationale: >
+      The ReviewFeatureUseCase has a single responsibility: given a feature ID, read spec.yaml, parse
+      openQuestions, and return them as structured data for the TUI. It does NOT handle the
+      approve/reject action — that remains in ApproveAgentRunUseCase and RejectAgentRunUseCase.
+      This keeps use cases focused and avoids duplicating approval logic. The use case is injected
+      with IFeatureRepository (to resolve the feature and its specPath) and uses the existing
+      spec-yaml-parser to parse spec.yaml.
+
+  - title: 'Modified ApproveAgentRunUseCase — Payload Handling'
+    chosen: 'Add optional PrdApprovalPayload parameter to execute(), write changed selections to spec.yaml, pass payload through spawn options'
+    rejected:
+      - 'Create a separate ApproveWithChangesUseCase — unnecessary split; the approve flow is the same with or without changes; an optional parameter is cleaner'
+      - 'Have the CLI command write spec.yaml changes before calling approve — violates Clean Architecture; the use case should own all business logic including spec.yaml writes'
+    rationale: >
+      The existing execute(id) signature gains an optional second parameter: execute(id, payload?).
+      When payload has changedSelections, the use case writes updated options to spec.yaml before
+      spawning the worker. The payload is serialized as --resume-payload in the spawn options. When
+      no payload is provided (standalone feat approve), behavior is identical to current — backward
+      compatible. The use case must also read spec.yaml to validate that the changed question IDs
+      exist in the current openQuestions.
+
+  - title: 'Modified RejectAgentRunUseCase — Iteration Support'
+    chosen: 'Rewrite to append rejectionFeedback to spec.yaml, clear completedPhases, record timing, and resume graph (not cancel)'
+    rejected:
+      - 'Keep the cancel behavior and add a separate IterateAgentRunUseCase — the spec explicitly says reject should NOT cancel; having two rejection paths adds confusion'
+      - 'Just clear completedPhases without resuming — the worker would not restart; the graph needs an explicit resume to continue'
+    rationale: >
+      The spec mandates that reject transitions from waiting_approval to running (not cancelled).
+      The use case: (1) validates non-empty feedback, (2) appends RejectionFeedbackEntry to spec.yaml,
+      (3) clears the current phase from completedPhases in feature.yaml, (4) records approval wait
+      duration on the PhaseTiming row, (5) spawns the worker with resumeFromInterrupt=true and the
+      rejection payload. This is a significant rewrite of the current cancel-only behavior. The
+      cancellation path is removed entirely — if users want to truly cancel, they use feat cancel (if
+      it exists) or kill the process.
+
+  - title: 'Requirements Prompt Restructuring for Structured Options'
+    chosen: 'Update requirements.prompt.ts to instruct AI to produce openQuestions with QuestionOption[] array including selected boolean'
+    rejected:
+      - 'Parse free-text answers into options post-hoc — unreliable; the AI output format is the source of truth and should be structured from the start'
+      - 'Use a separate "options extraction" agent call — wasteful; a single well-structured prompt achieves the same result'
+    rationale: >
+      The current prompt produces openQuestions with free-text answer fields. The updated prompt
+      adds explicit JSON schema examples showing the expected QuestionOption[] structure with
+      { option, description, selected } objects. The answer field is set to the selected option text
+      for backward compatibility (existing validate_spec_requirements checks this field).
+      The prompt template adds a clear instruction block with examples.
+
+  - title: 'Soft Iteration Limit Implementation'
+    chosen: 'Check in RejectAgentRunUseCase, count PhaseTiming rows for phase prefix, warn at 5+ via return value consumed by CLI'
+    rejected:
+      - 'Check in the CLI command — business rule belongs in the use case layer, not presentation'
+      - 'Hard-block at 5 iterations — spec explicitly says soft limit with user override'
+    rationale: >
+      The use case counts existing PhaseTiming rows for the current phase prefix to determine the
+      iteration number. When >= 5, it returns a warning flag in the result. The CLI command checks
+      this flag and shows a @inquirer/confirm prompt. If the user declines, the rejection is not
+      executed. This keeps the business logic (counting) in the use case and the UX decision
+      (confirm prompt) in the presentation layer.
+
+  - title: 'Graph State Channel for Resume Payload'
+    chosen: 'No new graph state channel — use LangGraph interrupt() return value directly'
+    rejected:
+      - 'Add a resumePayload channel to FeatureAgentAnnotation — the interrupt() return value already delivers the payload; adding a state channel would duplicate this data and require a custom reducer'
+    rationale: >
+      LangGraph interrupt() function returns the value passed in Command({ resume }). The
+      executeNode() wrapper currently discards this return value. Capturing it is sufficient to
+      route the node behavior. No changes to state.ts are needed. This is the simplest approach
+      and uses LangGraph as designed.
+
+openQuestions:
+  - question: 'Does LangGraph interrupt() actually return the Command resume value in the node function?'
+    resolved: true
+    answer: >
+      Yes. Per LangGraph documentation and the @langchain/langgraph source, interrupt(value)
+      pauses execution and returns the resume value when the graph is resumed via
+      Command({ resume: payload }). The interrupt() call acts as a suspension point — execution
+      of the node function stops at the interrupt() call, and when resumed, interrupt() returns
+      the value from Command({ resume }). This is the standard human-in-the-loop pattern in
+      LangGraph. The current codebase discards this return value (interrupt({...}) with no
+      assignment), but capturing it is straightforward: const resumeValue = interrupt({...}).
+
+  - question: 'Can the existing JSON Schema validation (AJV) handle the new rejectionFeedback field in spec.yaml?'
+    resolved: true
+    answer: >
+      Yes. The FeatureArtifact JSON Schema is auto-generated from TypeSpec via tsp:compile.
+      Adding a rejectionFeedback field to FeatureArtifact in TypeSpec will automatically include
+      it in the generated JSON Schema. The spec-yaml-parser uses AJV with the generated schemas,
+      so it will validate the new field automatically. However, we need to ensure backward
+      compatibility — the field must be optional (rejectionFeedback?: RejectionFeedbackEntry[])
+      so existing spec.yaml files without it still pass validation.
+
+  - question: 'Where should rejectionFeedback live — in FeatureArtifact (spec.yaml) or FeatureStatus (feature.yaml)?'
+    resolved: true
+    answer: >
+      In FeatureArtifact (spec.yaml). The rejection feedback is about the spec content — it tells
+      the requirements agent what to change. feature.yaml tracks execution status (completedPhases,
+      tasks). The spec says "appends rejection feedback to spec.yaml" explicitly. This also means
+      the rejectionFeedback field must be added to the FeatureArtifact model in
+      tsp/domain/entities/feature-artifact.tsp (which extends SpecArtifactBase).
+
+  - question: 'Should the first iteration use a bare phase name (requirements) or requirements:1?'
+    resolved: true
+    answer: >
+      Bare phase name (requirements) for the first iteration, requirements:2 for the second, etc.
+      This maintains backward compatibility — existing phase timing rows and completedPhases entries
+      use bare names. The iteration suffix is only added starting from the second iteration. The
+      show command already handles the : sub-phase convention, so requirements:2 will automatically
+      render with the indent prefix.
+
+  - question: 'How does clearCompletedPhases interact with the reject flow timing?'
+    resolved: true
+    answer: >
+      The sequence is: (1) record approval wait on current PhaseTiming row, (2) clear phase from
+      completedPhases in feature.yaml, (3) spawn worker with rejection payload. The worker then
+      calls executeNode() which sees the phase is NOT in completedPhases, so it re-executes.
+      recordPhaseStart() creates a new PhaseTiming row with the iterated name (requirements:2).
+      The old PhaseTiming row (requirements) retains its full timing data including approval wait.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Resume Payload Delivery Mechanism
+
+  **Chosen:** New `--resume-payload` CLI arg with JSON-serialized DTO
+
+  **Rejected:**
+  - IPC message channel — IPC is immediately disconnected after fork(); would require architectural change
+  - Shared temp file — adds file lifecycle management and cleanup concerns
+  - Environment variable — size-limited, not suitable for arbitrary JSON
+
+  **Rationale:** The existing spawn mechanism already passes all data via CLI args (including
+  JSON-serialized `approvalGates`). Adding `--resume-payload <json>` follows the exact same pattern.
+  The payload is small (a few hundred bytes) so CLI arg size limits are not a concern.
+
+  ### 2. TypeSpec DTO File Organization
+
+  **Chosen:** Single new file `tsp/agents/prd-approval.tsp`
+
+  **Rejected:**
+  - Inline in agent-run.tsp — would bloat beyond 150 lines
+  - One file per DTO — over-engineering for 5 small related models
+
+  **Rationale:** The codebase groups related TypeSpec models per file in `tsp/agents/` (approval-gates.tsp,
+  phase-timing.tsp). A single prd-approval.tsp keeps all 5 related DTOs cohesive.
+
+  ### 3. RejectionFeedbackEntry Location
+
+  **Chosen:** Add to `tsp/domain/value-objects/spec-metadata.tsp` alongside OpenQuestion/QuestionOption
+
+  **Rejected:**
+  - In tsp/agents/prd-approval.tsp — rejectionFeedback is a spec.yaml field (domain artifact)
+  - New tsp/domain/value-objects/rejection-feedback.tsp — single model doesn't warrant new file
+
+  **Rationale:** spec-metadata.tsp already groups all spec.yaml value objects.
+
+  ### 4. Reject Flow — Graph Resume vs New Invocation
+
+  **Chosen:** Resume same graph run with `Command({ resume: PrdRejectionPayload })` after clearing completedPhases
+
+  **Rejected:**
+  - New AgentRun — breaks checkpoint chain, loses timing continuity
+  - Cancel + auto-start — spec mandates same run reuse
+
+  **Rationale:** LangGraph natively supports arbitrary JSON in `Command({ resume })`. Clearing
+  completedPhases lets executeNode() re-execute the node. The requirements node reads the
+  rejection payload from the interrupt() return value.
+
+  ### 5. executeNode() Approval vs Rejection Routing
+
+  **Chosen:** Capture the `interrupt()` return value to distinguish approval from rejection
+
+  **Rejected:**
+  - Graph state channel for payload — duplicates data LangGraph already delivers
+  - File-based flag — fragile, requires cleanup
+
+  **Rationale:** `interrupt()` returns the `Command({ resume })` value when the graph resumes. Currently
+  discarded — capturing it is straightforward: `const resumeValue = interrupt({...})`. If resumeValue
+  has `{ rejected: true }`, re-execute; if `{ approved: true }`, skip (existing behavior).
+
+  ### 6. Phase Timing Iteration Numbering
+
+  **Chosen:** Count existing PhaseTiming rows with same phase prefix, derive suffix
+
+  **Rejected:**
+  - Counter in feature.yaml — redundant, derivable from PhaseTiming rows
+  - Counter in graph state — lost on crash
+  - Separate SQLite table — over-engineering
+
+  **Rationale:** First iteration uses bare name (e.g., "requirements"), second uses "requirements:2".
+  Backward compatible with existing timing display. The show command already handles `:` sub-phases.
+
+  ### 7. Atomic Spec.yaml Writes
+
+  **Chosen:** Write to temp file in specDir, then atomic rename
+
+  **Rejected:**
+  - Direct writeFileSync — not atomic, crash-unsafe
+  - Cross-directory copy — not atomic across filesystems
+
+  **Rationale:** Standard Unix write-temp-then-rename pattern. Same filesystem guarantees atomicity.
+
+  ### 8. TUI Wizard Architecture
+
+  **Chosen:** New `prd-review.wizard.ts` with sequential `@inquirer/select` prompts
+
+  **Rejected:**
+  - Custom multi-select showing all questions — @inquirer/prompts doesn't support natively
+  - Web-based review — spec requires TUI
+
+  **Rationale:** Matches existing agent-config wizard pattern. Sequential prompts let user focus
+  on one decision at a time with a final summary screen.
+
+  ### 9. ReviewFeatureUseCase Design
+
+  **Chosen:** Single use case returning structured OpenQuestion[] for the TUI
+
+  **Rejected:**
+  - CLI reads spec.yaml directly — violates Clean Architecture
+  - Split into Get + Submit use cases — over-splitting
+
+  **Rationale:** Clean separation: ReviewFeatureUseCase reads spec data, ApproveAgentRunUseCase
+  handles approval, RejectAgentRunUseCase handles rejection. Each has one responsibility.
+
+  ### 10. ApproveAgentRunUseCase Payload Handling
+
+  **Chosen:** Optional `PrdApprovalPayload` parameter on `execute()`, writes changes to spec.yaml
+
+  **Rejected:**
+  - Separate ApproveWithChangesUseCase — unnecessary split
+  - CLI writes spec.yaml before calling approve — violates Clean Architecture
+
+  **Rationale:** When payload has `changedSelections`, the use case writes updated options to spec.yaml
+  before spawning. No payload = current behavior (backward compatible).
+
+  ### 11. RejectAgentRunUseCase Rewrite
+
+  **Chosen:** Append feedback to spec.yaml, clear completedPhases, record timing, resume graph
+
+  **Rejected:**
+  - Keep cancel + separate IterateUseCase — spec says reject = iterate, not cancel
+  - Clear phases without resuming — worker wouldn't restart
+
+  **Rationale:** The reject use case transitions to `running`, clears completedPhases, and spawns
+  the worker with the rejection payload. The old cancel-only behavior is removed.
+
+  ### 12. Requirements Prompt Restructuring
+
+  **Chosen:** Update prompt to instruct AI to produce QuestionOption[] with selected boolean
+
+  **Rejected:**
+  - Parse free-text into options post-hoc — unreliable
+  - Separate extraction agent — wasteful
+
+  **Rationale:** Structured output from the prompt is the source of truth. The `answer` field is
+  populated with the selected option text for backward compatibility.
+
+  ### 13. Soft Iteration Limit
+
+  **Chosen:** Count in use case, warn via return value, confirm in CLI
+
+  **Rejected:**
+  - Check in CLI — business rule belongs in use case
+  - Hard block — spec says soft limit
+
+  **Rationale:** Use case counts PhaseTiming rows and returns a warning flag. CLI shows
+  `@inquirer/confirm` when flag is set. User can override.
+
+  ### 14. Graph State Changes
+
+  **Chosen:** No new graph state channels — use interrupt() return value directly
+
+  **Rejected:**
+  - Add resumePayload channel — duplicates LangGraph's built-in mechanism
+
+  **Rationale:** LangGraph interrupt/resume is designed for this exact pattern. No state.ts changes needed.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @inquirer/prompts (select) | Per-question option selection in TUI | Use (existing dep) | Already used in agent-config wizard; select prompt fits the one-question-at-a-time UX |
+  | @inquirer/prompts (confirm) | Final approve/reject and iteration limit warning | Use (existing dep) | Standard confirm pattern; no new dependencies |
+  | @inquirer/prompts (input) | Rejection feedback text entry | Use (existing dep) | For free-text rejection message; built into existing dependency |
+  | js-yaml | Read/write spec.yaml and feature.yaml | Use (existing dep) | Already used throughout node-helpers.ts; yaml.load() and yaml.dump() |
+  | @langchain/langgraph Command | Pass typed resume payloads | Use (existing dep) | Command({ resume: payload }) natively supports arbitrary JSON |
+  | ink / enquirer | Alternative TUI frameworks | Reject | Over-engineered for sequential prompts; would introduce new dependency |
+  | zod | Runtime validation of DTOs | Reject | AJV with TSP-generated JSON Schemas already handles validation |
+
+  ## Security Considerations
+
+  - **Injection via rejection feedback**: The feedback message is written to spec.yaml and later included
+    in an LLM prompt. Sanitize the message to prevent prompt injection — strip control characters, limit
+    length (max 2000 chars). The existing prompt template wraps user content in clear delimiters.
+  - **Spec.yaml tampering**: spec.yaml is read from the local filesystem; no network attack surface.
+    The atomic write (temp + rename) prevents partial corruption but not intentional tampering.
+    Acceptable for a local CLI tool.
+  - **CLI arg payload size**: The --resume-payload JSON is passed via process.argv. Linux has a
+    ~2MB limit on total argv+env size. Our payloads are well under 1KB, so no concern.
+
+  ## Performance Implications
+
+  - **TUI startup**: The review TUI reads spec.yaml (local file, <1ms) and builds prompts. No network
+    calls. NFR-3 (500ms render) is easily met.
+  - **Reject iteration**: Each rejection triggers a new LLM call (requirements re-generation). This is
+    the expected cost — the soft limit of 5 iterations bounds the maximum spend.
+  - **PhaseTiming queries**: Iteration count derivation queries findByRunId() which returns all timing
+    rows for the run. With a maximum of ~30 rows (6 phases x 5 iterations), this is negligible.
+  - **Spec.yaml writes**: Atomic write (temp + rename) adds one extra filesystem operation. Negligible
+    for a local file.
+
+  ## Architecture Notes
+
+  ### Data Flow: Approve with Changed Selections
+
+  ```
+  CLI (feat review) -> prd-review.wizard.ts -> PrdReviewResult DTO
+    -> ApproveAgentRunUseCase.execute(runId, PrdApprovalPayload)
+      -> writes changed selections to spec.yaml
+      -> records approval wait timing
+      -> processService.spawn(..., { resumePayload: PrdApprovalPayload })
+        -> worker receives --resume-payload <json>
+          -> graph.invoke(new Command({ resume: PrdApprovalPayload }))
+            -> executeNode("requirements") -> completedPhases has "requirements" -> skip (approved)
+            -> continues to research/plan (reads updated spec.yaml)
+  ```
+
+  ### Data Flow: Reject with Feedback
+
+  ```
+  CLI (feat review / feat reject) -> PrdRejectionPayload DTO
+    -> RejectAgentRunUseCase.execute(runId, PrdRejectionPayload)
+      -> appends rejectionFeedback to spec.yaml
+      -> clears "requirements" from completedPhases in feature.yaml
+      -> records approval wait timing
+      -> processService.spawn(..., { resumePayload: PrdRejectionPayload })
+        -> worker receives --resume-payload <json>
+          -> graph.invoke(new Command({ resume: PrdRejectionPayload }))
+            -> executeNode("requirements") -> interrupt() returns { rejected: true, feedback: ... }
+              -> re-executes node with feedback in prompt
+              -> writes revised spec.yaml
+              -> markPhaseComplete("requirements") with iterated name
+              -> interrupt() again for approval
+  ```
+
+  ### Modified Files Summary
+
+  | File | Change Type | Description |
+  | ---- | ----------- | ----------- |
+  | `tsp/agents/prd-approval.tsp` | New | PrdApprovalPayload, PrdRejectionPayload, PrdReviewResult, QuestionSelectionChange, ReviewQuestion |
+  | `tsp/agents/index.tsp` | Modify | Add import for prd-approval.tsp |
+  | `tsp/domain/value-objects/spec-metadata.tsp` | Modify | Add RejectionFeedbackEntry model |
+  | `tsp/domain/entities/feature-artifact.tsp` | Modify | Add optional rejectionFeedback field |
+  | `packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts` | Modify | Accept optional PrdApprovalPayload, write spec.yaml changes, pass payload to spawn |
+  | `packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts` | Rewrite | Iteration logic: feedback -> clear phases -> record timing -> resume |
+  | `packages/core/src/application/use-cases/agents/review-feature.use-case.ts` | New | Read spec.yaml openQuestions for TUI |
+  | `packages/core/src/application/ports/output/agents/feature-agent-process.interface.ts` | Modify | Add resumePayload to spawn options |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-process.service.ts` | Modify | Serialize resumePayload as --resume-payload CLI arg |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts` | Modify | Parse --resume-payload, pass to Command({ resume }) |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts` | Modify | Capture interrupt() return value, route approval vs rejection |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/requirements.prompt.ts` | Modify | Structured QuestionOption[] output, include rejectionFeedback |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/phase-timing-context.ts` | Modify | Iteration-aware phase naming in recordPhaseStart() |
+  | `packages/core/src/infrastructure/di/container.ts` | Modify | Register ReviewFeatureUseCase |
+  | `src/presentation/cli/commands/feat/review.command.ts` | Rewrite | Interactive TUI with wizard |
+  | `src/presentation/cli/commands/feat/approve.command.ts` | Modify | Minimal — same behavior |
+  | `src/presentation/cli/commands/feat/reject.command.ts` | Modify | --reason required, iteration messaging |
+  | `src/presentation/tui/wizards/prd-review.wizard.ts` | New | Interactive review wizard |
+  | `src/presentation/tui/prompts/prd-review-question.prompt.ts` | New | Prompt config for question selection |
+  | `src/presentation/tui/prompts/prd-review-summary.prompt.ts` | New | Prompt config for summary/approve/reject |
+
+  ---
+
+  _Research completed — proceed with planning phase_

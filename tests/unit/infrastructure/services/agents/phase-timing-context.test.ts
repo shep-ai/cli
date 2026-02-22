@@ -146,6 +146,65 @@ describe('PhaseTimingContext', () => {
     });
   });
 
+  describe('recordPhaseStart iteration naming', () => {
+    it('uses bare phase name on first execution', async () => {
+      const repo = createMockTimingRepo();
+      setPhaseTimingContext('run-1', repo);
+
+      await recordPhaseStart('requirements');
+
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ phase: 'requirements' }));
+    });
+
+    it('appends :2 suffix on second execution of same phase', async () => {
+      const repo = createMockTimingRepo();
+      (repo.findByRunId as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { phase: 'requirements', agentRunId: 'run-1' },
+      ]);
+      setPhaseTimingContext('run-1', repo);
+
+      await recordPhaseStart('requirements');
+
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ phase: 'requirements:2' }));
+    });
+
+    it('appends :3 suffix on third execution of same phase', async () => {
+      const repo = createMockTimingRepo();
+      (repo.findByRunId as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { phase: 'requirements', agentRunId: 'run-1' },
+        { phase: 'requirements:2', agentRunId: 'run-1' },
+      ]);
+      setPhaseTimingContext('run-1', repo);
+
+      await recordPhaseStart('requirements');
+
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ phase: 'requirements:3' }));
+    });
+
+    it('does not count other phase names', async () => {
+      const repo = createMockTimingRepo();
+      (repo.findByRunId as ReturnType<typeof vi.fn>).mockResolvedValue([
+        { phase: 'analyze', agentRunId: 'run-1' },
+        { phase: 'plan', agentRunId: 'run-1' },
+      ]);
+      setPhaseTimingContext('run-1', repo);
+
+      await recordPhaseStart('requirements');
+
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ phase: 'requirements' }));
+    });
+
+    it('falls back to bare phase name when findByRunId fails', async () => {
+      const repo = createMockTimingRepo();
+      (repo.findByRunId as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB error'));
+      setPhaseTimingContext('run-1', repo);
+
+      await recordPhaseStart('requirements');
+
+      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ phase: 'requirements' }));
+    });
+  });
+
   describe('getLastTimingId', () => {
     it('should return null before any phase starts', () => {
       expect(getLastTimingId()).toBeNull();

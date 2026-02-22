@@ -38,6 +38,7 @@ export interface IFeatureAgentProcessService {
       resumeFromInterrupt?: boolean;
       push?: boolean;
       openPr?: boolean;
+      resumePayload?: string;
     }
   ): number;
 

@@ -82,6 +82,7 @@ import { StopAgentRunUseCase } from '../../application/use-cases/agents/stop-age
 import { DeleteAgentRunUseCase } from '../../application/use-cases/agents/delete-agent-run.use-case.js';
 import { ApproveAgentRunUseCase } from '../../application/use-cases/agents/approve-agent-run.use-case.js';
 import { RejectAgentRunUseCase } from '../../application/use-cases/agents/reject-agent-run.use-case.js';
+import { ReviewFeatureUseCase } from '../../application/use-cases/agents/review-feature.use-case.js';
 import { CreateFeatureUseCase } from '../../application/use-cases/features/create/create-feature.use-case.js';
 import { MetadataGenerator } from '../../application/use-cases/features/create/metadata-generator.js';
 import { SlugResolver } from '../../application/use-cases/features/create/slug-resolver.js';
@@ -262,6 +263,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(DeleteAgentRunUseCase);
   container.registerSingleton(ApproveAgentRunUseCase);
   container.registerSingleton(RejectAgentRunUseCase);
+  container.registerSingleton(ReviewFeatureUseCase);
   container.registerSingleton(MetadataGenerator);
   container.registerSingleton(SlugResolver);
   container.registerSingleton(CreateFeatureUseCase);

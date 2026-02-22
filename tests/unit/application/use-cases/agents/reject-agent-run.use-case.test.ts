@@ -2,8 +2,8 @@
  * Reject Agent Run Use Case Unit Tests
  *
  * Tests for rejecting a paused agent run (human-in-the-loop).
- *
- * TDD Phase: RED
+ * Tests the basic validation paths (not found, wrong status, empty feedback).
+ * See reject-agent-run-iteration.test.ts for iteration-specific tests.
  */
 
 import 'reflect-metadata';
@@ -11,6 +11,22 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import type { AgentRun } from '@/domain/generated/output.js';
 import { RejectAgentRunUseCase } from '@/application/use-cases/agents/reject-agent-run.use-case.js';
+
+// Mock fs, js-yaml, and writeSpecFileAtomic
+vi.mock('node:fs', () => ({
+  readFileSync: vi.fn().mockReturnValue('{}'),
+}));
+
+vi.mock('js-yaml', () => ({
+  default: {
+    load: vi.fn().mockReturnValue({ openQuestions: [] }),
+    dump: vi.fn().mockReturnValue('yaml'),
+  },
+}));
+
+vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', () => ({
+  writeSpecFileAtomic: vi.fn(),
+}));
 
 function createMockRunRepository() {
   return {
@@ -21,6 +37,45 @@ function createMockRunRepository() {
     findRunningByPid: vi.fn(),
     list: vi.fn(),
     delete: vi.fn(),
+  };
+}
+
+function createMockProcessService() {
+  return {
+    spawn: vi.fn().mockReturnValue(12345),
+    isAlive: vi.fn().mockReturnValue(true),
+    checkAndMarkCrashed: vi.fn(),
+  };
+}
+
+function createMockFeatureRepository() {
+  return {
+    create: vi.fn(),
+    findById: vi.fn(),
+    findByIdPrefix: vi.fn(),
+    findBySlug: vi.fn(),
+    list: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+}
+
+function createMockWorktreeService() {
+  return {
+    create: vi.fn(),
+    remove: vi.fn(),
+    getWorktreePath: vi.fn().mockReturnValue('/test/repo/.shep/wt/feat-branch'),
+    exists: vi.fn(),
+  };
+}
+
+function createMockTimingRepository() {
+  return {
+    save: vi.fn(),
+    update: vi.fn(),
+    updateApprovalWait: vi.fn(),
+    findByRunId: vi.fn().mockResolvedValue([]),
+    findByFeatureId: vi.fn(),
   };
 }
 
@@ -44,13 +99,37 @@ function createWaitingRun(overrides?: Partial<AgentRun>): AgentRun {
 describe('RejectAgentRunUseCase', () => {
   let useCase: RejectAgentRunUseCase;
   let mockRunRepo: ReturnType<typeof createMockRunRepository>;
+  let mockProcessService: ReturnType<typeof createMockProcessService>;
+  let mockFeatureRepo: ReturnType<typeof createMockFeatureRepository>;
+  let mockWorktreeService: ReturnType<typeof createMockWorktreeService>;
+  let mockTimingRepo: ReturnType<typeof createMockTimingRepository>;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     mockRunRepo = createMockRunRepository();
-    useCase = new RejectAgentRunUseCase(mockRunRepo as any);
+    mockProcessService = createMockProcessService();
+    mockFeatureRepo = createMockFeatureRepository();
+    mockWorktreeService = createMockWorktreeService();
+    mockTimingRepo = createMockTimingRepository();
+    mockFeatureRepo.findById.mockResolvedValue({
+      id: 'feat-001',
+      name: 'test-feature',
+      slug: 'test-feature',
+      branch: 'feat/test-feature',
+      repositoryPath: '/test/repo',
+      push: false,
+      openPr: false,
+    });
+    useCase = new RejectAgentRunUseCase(
+      mockRunRepo as any,
+      mockProcessService as any,
+      mockFeatureRepo as any,
+      mockWorktreeService as any,
+      mockTimingRepo as any
+    );
   });
 
-  it('should reject a waiting agent run and mark as cancelled', async () => {
+  it('should reject a waiting agent run and iterate', async () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
 
     const result = await useCase.execute('run-001', 'User rejected the plan');
@@ -58,9 +137,9 @@ describe('RejectAgentRunUseCase', () => {
     expect(result.rejected).toBe(true);
     expect(mockRunRepo.updateStatus).toHaveBeenCalledWith(
       'run-001',
-      AgentRunStatus.cancelled,
+      AgentRunStatus.running,
       expect.objectContaining({
-        error: 'User rejected the plan',
+        updatedAt: expect.any(Date),
       })
     );
   });
@@ -68,7 +147,7 @@ describe('RejectAgentRunUseCase', () => {
   it('should return error when run not found', async () => {
     mockRunRepo.findById.mockResolvedValue(null);
 
-    const result = await useCase.execute('non-existent');
+    const result = await useCase.execute('non-existent', 'feedback');
 
     expect(result.rejected).toBe(false);
     expect(result.reason).toContain('not found');
@@ -77,24 +156,18 @@ describe('RejectAgentRunUseCase', () => {
   it('should return error when run is not in waiting_approval status', async () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun({ status: AgentRunStatus.completed }));
 
-    const result = await useCase.execute('run-001');
+    const result = await useCase.execute('run-001', 'feedback');
 
     expect(result.rejected).toBe(false);
     expect(result.reason).toContain('not waiting');
   });
 
-  it('should use default reason when none provided', async () => {
+  it('should return error when feedback is empty', async () => {
     mockRunRepo.findById.mockResolvedValue(createWaitingRun());
 
-    const result = await useCase.execute('run-001');
+    const result = await useCase.execute('run-001', '');
 
-    expect(result.rejected).toBe(true);
-    expect(mockRunRepo.updateStatus).toHaveBeenCalledWith(
-      'run-001',
-      AgentRunStatus.cancelled,
-      expect.objectContaining({
-        error: expect.stringContaining('Rejected'),
-      })
-    );
+    expect(result.rejected).toBe(false);
+    expect(result.reason).toContain('Feedback is required');
   });
 });

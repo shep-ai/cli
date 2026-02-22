@@ -6,7 +6,7 @@
  */
 
 import yaml from 'js-yaml';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync, unlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type {
@@ -212,6 +212,45 @@ export function getCompletedPhases(specDir: string): string[] {
 }
 
 /**
+ * Remove a phase from completedPhases in feature.yaml.
+ * Used when a phase is rejected and needs to re-execute.
+ */
+export function clearCompletedPhase(specDir: string, phaseId: string, log?: NodeLogger): void {
+  try {
+    const content = readSpecFile(specDir, 'feature.yaml');
+    if (!content) return;
+    const data = yaml.load(content) as Record<string, unknown>;
+    if (!data || typeof data !== 'object') return;
+    const status = (data.status ?? {}) as Record<string, unknown>;
+    const completedPhases = Array.isArray(status.completedPhases)
+      ? status.completedPhases.filter((p: string) => p !== phaseId)
+      : [];
+    data.status = { ...status, completedPhases };
+    writeFileSync(
+      join(specDir, 'feature.yaml'),
+      yaml.dump(data, { indent: 2, lineWidth: -1 }),
+      'utf-8'
+    );
+  } catch (err) {
+    log?.error(
+      `Failed to clear completed phase: ${err instanceof Error ? err.message : String(err)}`
+    );
+  }
+}
+
+/**
+ * Type guard to detect rejection payloads from interrupt() return value.
+ */
+export function isRejectionPayload(value: unknown): value is { rejected: true; feedback: string } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'rejected' in value &&
+    (value as Record<string, unknown>).rejected === true
+  );
+}
+
+/**
  * Mark a phase as complete in feature.yaml by adding its ID to completedPhases.
  */
 export function markPhaseComplete(specDir: string, phaseId: string, log?: NodeLogger): void {
@@ -237,6 +276,25 @@ export function markPhaseComplete(specDir: string, phaseId: string, log?: NodeLo
     log?.error(
       `Failed to mark phase complete: ${err instanceof Error ? err.message : String(err)}`
     );
+  }
+}
+
+/**
+ * Write a spec file atomically using temp-file-then-rename pattern.
+ * Prevents corruption on crash mid-write.
+ */
+export function writeSpecFileAtomic(specDir: string, filename: string, content: string): void {
+  const targetPath = join(specDir, filename);
+  const tempPath = join(specDir, `.${filename}.tmp`);
+  try {
+    writeFileSync(tempPath, content, 'utf-8');
+    renameSync(tempPath, targetPath);
+  } finally {
+    try {
+      unlinkSync(tempPath);
+    } catch {
+      // Temp file already renamed or doesn't exist
+    }
   }
 }
 

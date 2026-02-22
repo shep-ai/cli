@@ -20,8 +20,8 @@ export function createRejectCommand(): Command {
   return new Command('reject')
     .description('Reject a feature waiting for review')
     .argument('[id]', 'Feature ID (auto-resolves if omitted)')
-    .option('--reason <text>', 'Rejection reason')
-    .action(async (featureId: string | undefined, options: { reason?: string }) => {
+    .requiredOption('--reason <text>', 'Rejection feedback (required)')
+    .action(async (featureId: string | undefined, options: { reason: string }) => {
       try {
         const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
         const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
@@ -43,10 +43,12 @@ export function createRejectCommand(): Command {
 
         messages.newline();
         messages.warning(`Rejected: ${feature.name}`);
-        if (options.reason) {
-          console.log(`  ${colors.muted('Reason:')} ${options.reason}`);
+        console.log(`  ${colors.muted('Reason:')}    ${options.reason}`);
+        console.log(`  ${colors.muted('Iteration:')} ${result.iteration}`);
+        if (result.iterationWarning) {
+          messages.warning('Warning: 5+ iterations. Consider refining the prompt instead.');
         }
-        console.log(`  ${colors.muted('Agent:')}  cancelled`);
+        console.log(`  ${colors.muted('Agent:')}     re-running requirements`);
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));

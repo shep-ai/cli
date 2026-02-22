@@ -47,16 +47,21 @@ describe('createRejectCommand', () => {
     expect(cmd.name()).toBe('reject');
   });
 
-  it('should reject a waiting feature and show confirmation', async () => {
+  it('should reject a waiting feature with --reason and show iterating message', async () => {
     const feature = { id: 'feat-001', name: 'Test Feature', branch: 'feat/test' };
     const run = { id: 'run-001', status: AgentRunStatus.waitingApproval, result: 'node:plan' };
     (resolveWaitingFeature as ReturnType<typeof vi.fn>).mockResolvedValue({ feature, run });
-    mockRejectExecute.mockResolvedValue({ rejected: true, reason: 'Rejected and cancelled' });
+    mockRejectExecute.mockResolvedValue({
+      rejected: true,
+      reason: 'Rejected and iterating',
+      iteration: 1,
+      iterationWarning: false,
+    });
 
     const cmd = createRejectCommand();
-    await cmd.parseAsync([], { from: 'user' });
+    await cmd.parseAsync(['--reason', 'Needs more detail'], { from: 'user' });
 
-    expect(mockRejectExecute).toHaveBeenCalledWith('run-001', undefined);
+    expect(mockRejectExecute).toHaveBeenCalledWith('run-001', 'Needs more detail');
     expect(process.exitCode).toBeUndefined();
   });
 
@@ -64,7 +69,12 @@ describe('createRejectCommand', () => {
     const feature = { id: 'feat-001', name: 'F', branch: 'feat/f' };
     const run = { id: 'run-001', status: AgentRunStatus.waitingApproval, result: 'node:plan' };
     (resolveWaitingFeature as ReturnType<typeof vi.fn>).mockResolvedValue({ feature, run });
-    mockRejectExecute.mockResolvedValue({ rejected: true, reason: 'OK' });
+    mockRejectExecute.mockResolvedValue({
+      rejected: true,
+      reason: 'OK',
+      iteration: 2,
+      iterationWarning: false,
+    });
 
     const cmd = createRejectCommand();
     await cmd.parseAsync(['--reason', 'Plan needs more detail'], { from: 'user' });
@@ -79,7 +89,7 @@ describe('createRejectCommand', () => {
     mockRejectExecute.mockResolvedValue({ rejected: false, reason: 'Not waiting' });
 
     const cmd = createRejectCommand();
-    await cmd.parseAsync([], { from: 'user' });
+    await cmd.parseAsync(['--reason', 'some reason'], { from: 'user' });
 
     expect(process.exitCode).toBe(1);
   });
@@ -88,13 +98,25 @@ describe('createRejectCommand', () => {
     const feature = { id: 'feat-001', name: 'F', branch: 'feat/f' };
     const run = { id: 'run-001', status: AgentRunStatus.waitingApproval, result: 'node:plan' };
     (resolveWaitingFeature as ReturnType<typeof vi.fn>).mockResolvedValue({ feature, run });
-    mockRejectExecute.mockResolvedValue({ rejected: true, reason: 'OK' });
+    mockRejectExecute.mockResolvedValue({
+      rejected: true,
+      reason: 'OK',
+      iteration: 1,
+      iterationWarning: false,
+    });
 
     const cmd = createRejectCommand();
-    await cmd.parseAsync(['feat-001'], { from: 'user' });
+    await cmd.parseAsync(['feat-001', '--reason', 'fix it'], { from: 'user' });
 
     expect(resolveWaitingFeature).toHaveBeenCalledWith(
       expect.objectContaining({ featureId: 'feat-001' })
     );
+  });
+
+  it('should require --reason flag (Commander requiredOption)', () => {
+    const cmd = createRejectCommand();
+    const reasonOpt = cmd.options.find((o) => o.long === '--reason');
+    expect(reasonOpt).toBeDefined();
+    expect(reasonOpt!.mandatory).toBe(true);
   });
 });

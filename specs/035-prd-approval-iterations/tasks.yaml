@@ -1,0 +1,691 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-approval-iterations
+summary: >
+  20 tasks across 6 phases. Bottom-up implementation: TypeSpec DTOs (2 tasks),
+  infrastructure resume/re-execution (5 tasks), requirements prompt (2 tasks),
+  use cases (4 tasks), presentation TUI/CLI (4 tasks), integration tests (3 tasks).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec
+  - '@inquirer/prompts'
+  - LangGraph Command API
+  - tsyringe
+  - js-yaml
+  - Commander.js
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ============================================================
+  # PHASE 1: TypeSpec DTOs & Domain Models
+  # ============================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create PRD approval TypeSpec DTOs'
+    description: >
+      Create tsp/agents/prd-approval.tsp with PrdApprovalPayload, PrdRejectionPayload,
+      PrdReviewResult, QuestionSelectionChange, and ReviewQuestion models. Add import in
+      tsp/agents/index.tsp. Run tsp:compile to generate TypeScript types.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'tsp/agents/prd-approval.tsp exists with all 5 models'
+      - 'PrdApprovalPayload has: approved (boolean), changedSelections (optional QuestionSelectionChange[])'
+      - 'PrdRejectionPayload has: rejected (boolean), feedback (string), iteration (int32)'
+      - 'PrdReviewResult has: questions (ReviewQuestion[]), action (string union "approve"|"reject"), feedback (optional string)'
+      - 'QuestionSelectionChange has: questionId (string), selectedOption (string)'
+      - 'ReviewQuestion has: question (string), options (QuestionOption[]), selectedOption (string), changed (boolean)'
+      - 'tsp/agents/index.tsp imports prd-approval.tsp'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Generated output.ts contains all new types'
+    tdd:
+      red:
+        - 'Write test that imports PrdApprovalPayload, PrdRejectionPayload, PrdReviewResult from output.ts and asserts they are defined types'
+        - 'Test will fail because types do not exist yet'
+      green:
+        - 'Create tsp/agents/prd-approval.tsp with all 5 models'
+        - 'Add import to tsp/agents/index.tsp'
+        - 'Run pnpm tsp:compile'
+        - 'Tests pass with generated types'
+      refactor:
+        - 'Review model field names for consistency with existing TSP conventions'
+        - 'Ensure @doc annotations are present on all models and fields'
+    estimatedEffort: '1h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add RejectionFeedbackEntry and update FeatureArtifact'
+    description: >
+      Add RejectionFeedbackEntry model to tsp/domain/value-objects/spec-metadata.tsp
+      (iteration: int32, message: string, timestamp: utcDateTime). Add optional
+      rejectionFeedback field (RejectionFeedbackEntry[]) to FeatureArtifact in
+      tsp/domain/entities/feature-artifact.tsp. Run tsp:compile.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'RejectionFeedbackEntry model exists in spec-metadata.tsp with iteration, message, timestamp fields'
+      - 'FeatureArtifact has optional rejectionFeedback: RejectionFeedbackEntry[] field'
+      - 'pnpm tsp:compile succeeds'
+      - 'Generated output.ts contains RejectionFeedbackEntry type'
+      - 'Existing spec.yaml files without rejectionFeedback still pass any validation (field is optional)'
+    tdd:
+      red:
+        - 'Write test that imports RejectionFeedbackEntry from output.ts and validates its shape'
+        - 'Test will fail because type does not exist yet'
+      green:
+        - 'Add RejectionFeedbackEntry to spec-metadata.tsp'
+        - 'Add rejectionFeedback? field to FeatureArtifact in feature-artifact.tsp'
+        - 'Run pnpm tsp:compile'
+      refactor:
+        - 'Verify spec-metadata.tsp stays under 150 lines'
+        - 'Ensure @doc annotations on new model and fields'
+    estimatedEffort: '30min'
+
+  # ============================================================
+  # PHASE 2: Infrastructure - Resume Payload & Re-execution
+  # ============================================================
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add --resume-payload to worker spawn interface and implementation'
+    description: >
+      Add optional resumePayload field (JSON string) to IFeatureAgentProcessService.spawn()
+      options. Update FeatureAgentProcessService to serialize --resume-payload arg. Update
+      parseWorkerArgs() in feature-agent-worker.ts to parse the new arg. Update WorkerArgs
+      interface with resumePayload? field.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'IFeatureAgentProcessService spawn options include resumePayload?: string'
+      - 'FeatureAgentProcessService passes --resume-payload <json> when resumePayload is set'
+      - 'parseWorkerArgs() parses --resume-payload and sets it on WorkerArgs'
+      - 'Existing spawn calls without resumePayload still work (backward compatible)'
+    tdd:
+      red:
+        - 'Write test for parseWorkerArgs: given args including --resume-payload {"approved":true}, verify WorkerArgs.resumePayload is parsed'
+        - 'Write test for parseWorkerArgs: given args without --resume-payload, verify WorkerArgs.resumePayload is undefined'
+        - 'Tests fail because resumePayload field does not exist'
+      green:
+        - 'Add resumePayload? to WorkerArgs interface'
+        - 'Add parsing logic to parseWorkerArgs()'
+        - 'Add resumePayload? to IFeatureAgentProcessService spawn options'
+        - 'Add serialization to FeatureAgentProcessService.spawn()'
+      refactor:
+        - 'Ensure JSON.parse error handling for malformed --resume-payload (log warning, fall back to undefined)'
+    estimatedEffort: '1h'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Pass typed resume payload in Command({ resume })'
+    description: >
+      Update runWorker() in feature-agent-worker.ts to pass the deserialized resumePayload
+      in Command({ resume: payload }) instead of hardcoded { approved: true }. When no
+      resumePayload is provided, fall back to { approved: true } for backward compatibility.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'When resumePayload is provided, Command({ resume }) receives the deserialized payload'
+      - 'When resumePayload is undefined, Command({ resume: { approved: true } }) is used (backward compatible)'
+      - 'PrdApprovalPayload and PrdRejectionPayload types flow through correctly'
+    tdd:
+      red:
+        - 'Write test: when WorkerArgs has resumePayload = JSON for PrdRejectionPayload, assert graph.invoke receives Command with that payload'
+        - 'Write test: when WorkerArgs has no resumePayload, assert graph.invoke receives Command({ resume: { approved: true } })'
+        - 'Tests fail because worker still hardcodes { approved: true }'
+      green:
+        - 'In runWorker() resume-from-interrupt branch, parse resumePayload or fall back to { approved: true }'
+        - 'Pass parsed payload to new Command({ resume: payload })'
+      refactor:
+        - 'Extract payload resolution to a helper function for clarity'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Update executeNode() to capture interrupt() return and handle rejection'
+    description: >
+      Modify executeNode() in node-helpers.ts to capture the return value of interrupt().
+      When the returned value contains { rejected: true }, clear the completed phase from
+      feature.yaml and re-execute the node instead of skipping. When { approved: true } or
+      no rejection flag, maintain existing skip behavior. Add clearCompletedPhase() helper.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'executeNode() captures interrupt() return value'
+      - 'On resume with { approved: true }, phase is still in completedPhases -> skip (existing behavior)'
+      - 'On resume with { rejected: true, feedback: "..." }, completedPhases is cleared for this node and node re-executes'
+      - 'clearCompletedPhase(specDir, phaseId) function exists and removes a phase from feature.yaml completedPhases'
+      - 'After rejection re-execution, markPhaseComplete() is called again for the new iteration'
+    tdd:
+      red:
+        - 'Write test: executeNode resumes with { approved: true } when phase is in completedPhases -> skips execution (existing behavior, regression test)'
+        - 'Write test: executeNode resumes with { rejected: true, feedback: "fix X" } when phase is in completedPhases -> clears phase, re-executes node, calls buildPrompt'
+        - 'Write test: clearCompletedPhase removes the specified phase from feature.yaml completedPhases array'
+        - 'Tests fail because executeNode ignores interrupt return value'
+      green:
+        - 'Implement clearCompletedPhase() in node-helpers.ts'
+        - 'Capture interrupt() return value in executeNode()'
+        - 'Add branching logic: if rejected, clear phase and re-execute; if approved, skip as before'
+        - 'Re-call markPhaseComplete after re-execution'
+      refactor:
+        - 'Extract rejection detection into isRejectionPayload() type guard'
+        - 'Ensure error handling around clearCompletedPhase matches existing markPhaseComplete pattern'
+    estimatedEffort: '2h'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Make phase-timing-context iteration-aware'
+    description: >
+      Update recordPhaseStart() in phase-timing-context.ts to derive iteration-aware phase
+      names. Query existing PhaseTiming rows for the run, count rows with the same phase
+      prefix, and append :N suffix for iterations > 1. First iteration uses bare name
+      (e.g., "requirements"), second uses "requirements:2", etc.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'First call to recordPhaseStart("requirements") creates row with phase "requirements"'
+      - 'Second call to recordPhaseStart("requirements") (after rejection) creates row with phase "requirements:2"'
+      - 'Third call creates "requirements:3", etc.'
+      - 'Other phases (analyze, research) are unaffected (always first iteration)'
+      - 'Iteration count is derived from existing PhaseTiming rows, not stored separately'
+    tdd:
+      red:
+        - 'Write test: first recordPhaseStart("requirements") saves phase as "requirements"'
+        - 'Write test: after one existing requirements row, recordPhaseStart("requirements") saves as "requirements:2"'
+        - 'Write test: after two existing requirements rows, saves as "requirements:3"'
+        - 'Write test: recordPhaseStart("analyze") always saves as "analyze" regardless of requirements rows'
+        - 'Tests fail because recordPhaseStart does not count existing rows'
+      green:
+        - 'Add findByRunId query in recordPhaseStart() to count existing rows for the phase prefix'
+        - 'Compute iteration number: count + 1 (but only append suffix when > 1)'
+        - 'Pass iterated phase name to repository.save()'
+      refactor:
+        - 'Extract iteration counting into a deriveIteratedPhaseName() helper'
+        - 'Ensure the findByRunId call failure is swallowed (non-fatal, consistent with existing error handling)'
+    estimatedEffort: '1h'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Add atomic spec.yaml write utility'
+    description: >
+      Create a writeSpecFileAtomic(specDir, filename, content) helper in node-helpers.ts
+      that writes to a temp file (.filename.tmp) then renames atomically. This will be used
+      by use cases and node functions for crash-safe spec.yaml writes.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'writeSpecFileAtomic(specDir, "spec.yaml", content) writes content to specDir/.spec.yaml.tmp then renames to spec.yaml'
+      - 'If rename succeeds, temp file does not exist'
+      - 'Original file is replaced atomically (no partial writes)'
+      - 'Function is exported from node-helpers.ts'
+    tdd:
+      red:
+        - 'Write test: writeSpecFileAtomic writes content and file matches expected content'
+        - 'Write test: writeSpecFileAtomic does not leave .tmp file after success'
+        - 'Write test: if original file exists, it is replaced entirely (not appended)'
+        - 'Tests fail because function does not exist'
+      green:
+        - 'Implement writeSpecFileAtomic using writeFileSync to temp path + renameSync'
+        - 'Temp path: join(specDir, `.${filename}.tmp`)'
+      refactor:
+        - 'Add try/finally to clean up temp file on rename failure'
+    estimatedEffort: '30min'
+
+  # ============================================================
+  # PHASE 3: Infrastructure - Requirements Prompt Restructuring
+  # ============================================================
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Update requirements prompt for structured QuestionOption[] output'
+    description: >
+      Modify buildRequirementsPrompt() in requirements.prompt.ts to instruct the AI to produce
+      openQuestions with structured QuestionOption[] arrays. Each option has { option, description,
+      selected } with exactly one selected per question. The answer field is populated with the
+      selected option text for backward compatibility.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Prompt template includes explicit instruction for structured options format'
+      - 'Prompt includes JSON example showing QuestionOption[] structure with { option, description, selected }'
+      - 'Prompt instructs AI to set answer field to the selected option text'
+      - 'Prompt instructs exactly one option per question must have selected: true'
+    tdd:
+      red:
+        - 'Write test: buildRequirementsPrompt output contains "options:" keyword (structured options instruction)'
+        - 'Write test: buildRequirementsPrompt output contains "selected: true" or "selected:" in example'
+        - 'Tests fail because current prompt uses free-text answer pattern without structured options'
+      green:
+        - 'Update the openQuestions section in the prompt template to show structured options format'
+        - 'Add JSON schema example with QuestionOption[] structure'
+        - 'Add instruction for backward-compatible answer field'
+      refactor:
+        - 'Ensure prompt template stays readable and well-organized'
+    estimatedEffort: '45min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Include rejection feedback in requirements prompt'
+    description: >
+      Update buildRequirementsPrompt() to read rejectionFeedback from spec.yaml when present.
+      If rejectionFeedback entries exist, include them in the prompt with clear instructions
+      for the AI to address the user feedback in the revised requirements.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'When spec.yaml has rejectionFeedback entries, they appear in the prompt under a "Previous Rejection Feedback" section'
+      - 'Each entry shows iteration number, message, and timestamp'
+      - 'Prompt instructs the AI to address the most recent feedback and revise accordingly'
+      - 'When no rejectionFeedback exists, the section is omitted (backward compatible)'
+    tdd:
+      red:
+        - 'Write test: buildRequirementsPrompt with spec.yaml containing rejectionFeedback includes "Rejection Feedback" in output'
+        - 'Write test: buildRequirementsPrompt with spec.yaml without rejectionFeedback does NOT include "Rejection Feedback" section'
+        - 'Tests fail because prompt does not read rejectionFeedback'
+      green:
+        - 'Parse spec.yaml content to extract rejectionFeedback array'
+        - 'If present, append a "Previous Rejection Feedback" section to the prompt'
+        - 'Include each entry with iteration, message, timestamp'
+      refactor:
+        - 'Extract feedback formatting into a helper function for readability'
+    estimatedEffort: '45min'
+
+  # ============================================================
+  # PHASE 4: Application Layer - Use Cases
+  # ============================================================
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Create ReviewFeatureUseCase'
+    description: >
+      Create a new use case that reads spec.yaml for a given feature, parses openQuestions
+      with their QuestionOption[] arrays, and returns structured data for the TUI.
+      Inject IFeatureRepository and IAgentRunRepository. Validate that the feature is in
+      waiting_approval state on the requirements phase.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'ReviewFeatureUseCase.execute(featureId, repoPath) returns { questions: OpenQuestion[], featureName: string, phase: string }'
+      - 'Questions include QuestionOption[] with selected booleans'
+      - 'Returns error result if feature is not in waiting_approval state'
+      - 'Returns error result if spec.yaml has no openQuestions'
+      - 'Reads spec.yaml from the feature specPath'
+    tdd:
+      red:
+        - 'Write test: execute with valid feature in waiting_approval returns parsed openQuestions with options'
+        - 'Write test: execute with feature not in waiting_approval returns error result'
+        - 'Write test: execute with spec.yaml missing openQuestions returns error result'
+        - 'Tests fail because use case does not exist'
+      green:
+        - 'Create review-feature.use-case.ts with @injectable decorator'
+        - 'Inject IFeatureRepository, IAgentRunRepository'
+        - 'Implement execute(): find feature, find run, validate status, read spec.yaml, parse and return openQuestions'
+      refactor:
+        - 'Extract spec.yaml parsing into a reusable helper if needed by other use cases'
+    estimatedEffort: '1.5h'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Modify ApproveAgentRunUseCase to accept PrdApprovalPayload'
+    description: >
+      Add optional PrdApprovalPayload parameter to execute(). When payload has changedSelections,
+      write updated selections back to spec.yaml (set selected boolean on matching QuestionOption,
+      update answer field). Pass serialized payload as resumePayload in spawn options. When no
+      payload, behavior is identical to current (backward compatible).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-7
+      - task-10
+    acceptanceCriteria:
+      - 'execute(id, payload?) accepts optional PrdApprovalPayload'
+      - 'When payload has changedSelections, spec.yaml is updated with new selected options using atomic write'
+      - 'When payload has changedSelections, spawn options include resumePayload with serialized payload'
+      - 'When payload is undefined or has no changedSelections, behavior matches current implementation exactly'
+      - 'Changed selections validation: questionId must exist in spec.yaml openQuestions'
+    tdd:
+      red:
+        - 'Write test: execute(id) with no payload approves and spawns with no resumePayload (backward compat)'
+        - 'Write test: execute(id, payload) with changedSelections writes updated spec.yaml and spawns with resumePayload'
+        - 'Write test: execute(id, payload) with invalid questionId returns error'
+        - 'Tests fail because execute() does not accept payload parameter'
+      green:
+        - 'Add optional payload parameter to execute()'
+        - 'When payload.changedSelections exists, read spec.yaml, update matching options, write atomically'
+        - 'Pass serialized payload to processService.spawn() options.resumePayload'
+      refactor:
+        - 'Extract spec.yaml option updating into a focused helper function'
+    estimatedEffort: '1.5h'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Rewrite RejectAgentRunUseCase for iteration support'
+    description: >
+      Complete rewrite: (1) validate non-empty feedback, (2) append RejectionFeedbackEntry
+      to spec.yaml rejectionFeedback array (with iteration number, message, timestamp),
+      (3) clear current phase from completedPhases in feature.yaml via clearCompletedPhase(),
+      (4) record approval wait duration on PhaseTiming, (5) spawn worker with resumeFromInterrupt
+      and PrdRejectionPayload. Remove cancellation logic entirely. Add iteration count check
+      for soft limit (>= 5 returns warning flag).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-5
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'execute(id, feedback) requires non-empty feedback string'
+      - 'Appends RejectionFeedbackEntry to spec.yaml rejectionFeedback array using atomic write'
+      - 'Clears current phase from completedPhases in feature.yaml'
+      - 'Records approval wait duration on PhaseTiming'
+      - 'Spawns worker with resume, resumeFromInterrupt, and PrdRejectionPayload in resumePayload'
+      - 'Run status transitions to running (NOT cancelled)'
+      - 'Returns iterationWarning flag when iteration count >= 5'
+      - 'Returns iteration number in result'
+    tdd:
+      red:
+        - 'Write test: execute with valid feedback appends to spec.yaml rejectionFeedback, clears completedPhases, spawns worker'
+        - 'Write test: execute with empty feedback returns error result'
+        - 'Write test: run status after reject is "running" not "cancelled"'
+        - 'Write test: after 5+ rejections, result includes iterationWarning: true'
+        - 'Write test: PrdRejectionPayload in spawn options contains correct feedback and iteration number'
+        - 'Tests fail because use case still cancels on reject'
+      green:
+        - 'Rewrite execute() with full iteration logic'
+        - 'Inject IFeatureAgentProcessService, IPhaseTimingRepository, IFeatureRepository, IWorktreeService (matching approve pattern)'
+        - 'Add spec.yaml read/write for rejectionFeedback'
+        - 'Add clearCompletedPhase call'
+        - 'Add iteration counting from PhaseTiming rows'
+        - 'Spawn worker with rejection payload'
+      refactor:
+        - 'Extract iteration counting into a shared utility if also needed by approve use case'
+        - 'Ensure error messages are clear and actionable'
+    estimatedEffort: '2.5h'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Register ReviewFeatureUseCase in DI container'
+    description: >
+      Add ReviewFeatureUseCase registration to the DI container in
+      packages/core/src/infrastructure/di/container.ts following the existing singleton pattern.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'container.registerSingleton(ReviewFeatureUseCase) is present in container.ts'
+      - 'ReviewFeatureUseCase can be resolved from the container after initializeContainer()'
+    tdd:
+      red:
+        - 'Write test: container.resolve(ReviewFeatureUseCase) returns an instance after initializeContainer()'
+        - 'Test fails because use case is not registered'
+      green:
+        - 'Add container.registerSingleton(ReviewFeatureUseCase) to container.ts in the use cases section'
+        - 'Add the import statement'
+      refactor:
+        - 'Ensure registration is placed with other agent use cases for grouping consistency'
+    estimatedEffort: '15min'
+
+  # ============================================================
+  # PHASE 5: Presentation Layer - TUI Wizard & CLI Commands
+  # ============================================================
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Create prd-review TUI prompt configs'
+    description: >
+      Create two prompt config files: prd-review-question.prompt.ts (builds @inquirer/select
+      config for a single open question with its options) and prd-review-summary.prompt.ts
+      (builds @inquirer/select config for the approve/reject action with change summary).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'createPrdReviewQuestionConfig(question) returns a select config with question text as message and options as choices'
+      - 'AI-recommended option (selected: true) is marked as default'
+      - 'createPrdReviewSummaryConfig(changes) returns a select config with Approve/Reject choices'
+      - 'Summary config message shows count of changed selections'
+      - 'Both configs use shepTheme'
+    tdd:
+      red:
+        - 'Write test: createPrdReviewQuestionConfig returns config with correct message, choices matching options, and default set to selected option'
+        - 'Write test: createPrdReviewSummaryConfig returns config with Approve and Reject choices'
+        - 'Tests fail because prompt files do not exist'
+      green:
+        - 'Create prd-review-question.prompt.ts with createPrdReviewQuestionConfig()'
+        - 'Create prd-review-summary.prompt.ts with createPrdReviewSummaryConfig()'
+        - 'Follow existing prompt config patterns (agent-select.prompt.ts, auth-method.prompt.ts)'
+      refactor:
+        - 'Ensure consistent naming and export patterns with existing prompts'
+    estimatedEffort: '45min'
+
+  - id: task-15
+    phaseId: phase-5
+    title: 'Create prd-review wizard'
+    description: >
+      Create prd-review.wizard.ts in src/presentation/tui/wizards/. The wizard takes
+      OpenQuestion[] as input, shows sequential @inquirer/select prompts for each question,
+      then shows a summary screen with changes and an approve/reject action. On reject,
+      shows an @inquirer/input prompt for feedback. Returns PrdReviewResult DTO.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'prdReviewWizard(questions) is an async function returning PrdReviewResult'
+      - 'Shows one @inquirer/select per open question with options'
+      - 'Tracks which selections differ from AI defaults (changed: true)'
+      - 'Shows summary screen listing all questions with changed/unchanged status'
+      - 'Approve action returns { action: "approve", questions: [...], feedback: undefined }'
+      - 'Reject action prompts for feedback via @inquirer/input and returns { action: "reject", feedback: "...", questions: [...] }'
+      - 'Empty rejection feedback is re-prompted (enforced non-empty)'
+    tdd:
+      red:
+        - 'Write test: wizard with mocked prompts returns PrdReviewResult with correct structure'
+        - 'Write test: changing a selection marks that question as changed: true in result'
+        - 'Write test: keeping default selection marks question as changed: false'
+        - 'Tests fail because wizard does not exist'
+      green:
+        - 'Create prd-review.wizard.ts following agent-config.wizard.ts pattern'
+        - 'Iterate over questions with select prompts'
+        - 'Build summary and show approve/reject select'
+        - 'Handle reject path with input prompt'
+        - 'Return typed PrdReviewResult'
+      refactor:
+        - 'Extract question iteration and summary building into helper functions if wizard exceeds 100 lines'
+    estimatedEffort: '1.5h'
+
+  - id: task-16
+    phaseId: phase-5
+    title: 'Rewrite feat review command with interactive TUI'
+    description: >
+      Rewrite review.command.ts to: resolve waiting feature, call ReviewFeatureUseCase to get
+      openQuestions, launch prdReviewWizard, then call ApproveAgentRunUseCase or
+      RejectAgentRunUseCase based on the wizard result. Handle iteration warning with
+      @inquirer/confirm prompt. Show appropriate success messages.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-12
+      - task-13
+      - task-15
+    acceptanceCriteria:
+      - 'feat review launches interactive TUI when feature is in waiting_approval state'
+      - 'On approve with changes, calls ApproveAgentRunUseCase with PrdApprovalPayload containing changedSelections'
+      - 'On approve with no changes, calls ApproveAgentRunUseCase with no payload'
+      - 'On reject, calls RejectAgentRunUseCase with feedback'
+      - 'When iterationWarning is returned, shows @inquirer/confirm before proceeding with reject'
+      - 'Shows success messages with phase name and action taken'
+      - 'All logic goes through use cases (no direct repository access)'
+    tdd:
+      red:
+        - 'Write test: review command calls ReviewFeatureUseCase.execute and prdReviewWizard'
+        - 'Write test: approve path calls ApproveAgentRunUseCase with correct payload'
+        - 'Write test: reject path calls RejectAgentRunUseCase with feedback'
+        - 'Tests fail because command is still static text display'
+      green:
+        - 'Rewrite review.command.ts action handler'
+        - 'Resolve waiting feature, call review use case, launch wizard, route to approve/reject'
+        - 'Add iteration warning confirm prompt'
+      refactor:
+        - 'Extract approve and reject handlers into separate functions for readability'
+    estimatedEffort: '1.5h'
+
+  - id: task-17
+    phaseId: phase-5
+    title: 'Update feat approve and feat reject commands'
+    description: >
+      Update approve.command.ts to pass no-changes payload to updated use case (minimal change,
+      backward compatible). Update reject.command.ts to make --reason required, change success
+      message from "cancelled" to "iterating", and handle iterationWarning with confirm prompt.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-12
+    acceptanceCriteria:
+      - 'feat approve continues to work identically to current (backward compatible)'
+      - 'feat reject --reason is now required (error if omitted)'
+      - 'feat reject success message says "iterating" not "cancelled"'
+      - 'feat reject shows iteration count in output'
+      - 'When iterationWarning flag is set, feat reject shows @inquirer/confirm prompt'
+    tdd:
+      red:
+        - 'Write test: feat reject without --reason shows error'
+        - 'Write test: feat reject with --reason shows "iterating" message'
+        - 'Tests fail because reject still accepts optional reason and shows "cancelled"'
+      green:
+        - 'Update reject command: make --reason required via .requiredOption()'
+        - 'Update success message to reflect iteration behavior'
+        - 'Add iteration warning handling with confirm prompt'
+        - 'Update approve command minimally if needed (should be a no-op if use case signature is backward compatible)'
+      refactor:
+        - 'Ensure error messages are consistent with review command'
+    estimatedEffort: '45min'
+
+  # ============================================================
+  # PHASE 6: Integration Testing & Polish
+  # ============================================================
+
+  - id: task-18
+    phaseId: phase-6
+    title: 'Integration test: full rejection iteration cycle'
+    description: >
+      Write an integration test that exercises the complete reject-and-reiterate flow:
+      create a feature in waiting_approval state with spec.yaml, reject with feedback,
+      verify spec.yaml has rejectionFeedback, verify completedPhases is cleared,
+      verify phase timing has iteration suffix, verify worker would be spawned with
+      rejection payload.
+    state: Todo
+    dependencies:
+      - task-12
+      - task-16
+    acceptanceCriteria:
+      - 'Test creates realistic feature/run/spec.yaml state'
+      - 'Test calls RejectAgentRunUseCase.execute and verifies all side effects'
+      - 'Spec.yaml rejectionFeedback array has new entry with correct iteration, message, timestamp'
+      - 'Feature.yaml completedPhases no longer contains the rejected phase'
+      - 'PhaseTiming row exists with iteration suffix'
+      - 'Process service spawn was called with correct rejection payload'
+    tdd:
+      red:
+        - 'Write the integration test with all assertions'
+        - 'Test should pass if all previous tasks are correctly implemented'
+      green:
+        - 'Fix any integration issues discovered during test execution'
+      refactor:
+        - 'Extract test setup into reusable fixtures for other integration tests'
+    estimatedEffort: '2h'
+
+  - id: task-19
+    phaseId: phase-6
+    title: 'Integration test: approve with changed selections'
+    description: >
+      Write an integration test for the approve-with-changes flow: create spec.yaml with
+      openQuestions and options, call ApproveAgentRunUseCase with PrdApprovalPayload containing
+      changedSelections, verify spec.yaml options are updated, verify spawn receives payload.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-16
+    acceptanceCriteria:
+      - 'Test creates spec.yaml with openQuestions having QuestionOption[] arrays'
+      - 'Test calls ApproveAgentRunUseCase with PrdApprovalPayload with changedSelections'
+      - 'Spec.yaml is updated: correct option has selected: true, answer field matches'
+      - 'Process service spawn was called with serialized PrdApprovalPayload as resumePayload'
+    tdd:
+      red:
+        - 'Write the integration test with all assertions'
+      green:
+        - 'Fix any integration issues discovered'
+      refactor:
+        - 'Share test fixtures with task-18'
+    estimatedEffort: '1.5h'
+
+  - id: task-20
+    phaseId: phase-6
+    title: 'Integration test: backward compatibility (approve no changes)'
+    description: >
+      Write an integration test verifying that the existing approve-no-changes path
+      is completely unaffected: call ApproveAgentRunUseCase with no payload, verify
+      no spec.yaml modifications, verify spawn is called without resumePayload, verify
+      identical behavior to pre-feature implementation.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'Test calls ApproveAgentRunUseCase.execute(id) with no second argument'
+      - 'Spec.yaml is not modified'
+      - 'Process service spawn options do not include resumePayload'
+      - 'Run status transitions to running (same as current)'
+      - 'Approval wait timing is recorded (same as current)'
+    tdd:
+      red:
+        - 'Write the integration test as a regression test'
+      green:
+        - 'Should pass if backward compatibility was maintained throughout implementation'
+      refactor:
+        - 'Document this test as a critical regression guard in test comments'
+    estimatedEffort: '1h'
+
+# Total effort estimate
+totalEstimate: '21h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  20 tasks across 6 phases implementing the PRD approval iterations feature bottom-up.
+
+  The work begins with TypeSpec model definitions (phase 1) since all code depends on generated types.
+  Next, infrastructure changes (phase 2) add the resume payload plumbing through worker spawn/args,
+  update executeNode() to handle rejection by capturing the interrupt() return value, make phase
+  timing iteration-aware, and add atomic spec.yaml writes. Phase 3 restructures the requirements
+  prompt for structured options and rejection feedback. Phase 4 builds the three use cases:
+  ReviewFeatureUseCase (new), ApproveAgentRunUseCase (extended with payload), and
+  RejectAgentRunUseCase (rewritten for iteration). Phase 5 creates the TUI wizard and updates
+  all three CLI commands. Phase 6 validates the complete flows with integration tests.
+
+  Key dependency chains:
+  - TypeSpec compile (task-1, task-2) gates all code tasks
+  - Worker payload plumbing (task-3, task-4) gates executeNode changes (task-5) and use cases (task-11, task-12)
+  - Use cases (task-10, task-11, task-12) gate CLI commands (task-16, task-17)
+  - Atomic write utility (task-7) is needed by both approve and reject use cases
+
+  The total estimate is ~21 hours of focused development time.
+
+  ---
+
+  _Task breakdown created 2026-02-22 -- ready for implementation_

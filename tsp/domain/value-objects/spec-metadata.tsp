@@ -92,6 +92,22 @@ model TechDecision {
 }
 
 /**
+ * Records a single rejection feedback entry for iteration tracking.
+ * Appended to spec.yaml's rejectionFeedback array on each rejection.
+ */
+@doc("Rejection feedback entry for PRD iteration tracking")
+model RejectionFeedbackEntry {
+  @doc("Iteration number (1-based)")
+  iteration: int32;
+
+  @doc("User's feedback message explaining what needs to change")
+  message: string;
+
+  @doc("When the rejection occurred")
+  timestamp: utcDateTime;
+}
+
+/**
  * Represents an implementation phase within a plan.
  *
  * PlanPhase groups related tasks into a logical implementation phase,
