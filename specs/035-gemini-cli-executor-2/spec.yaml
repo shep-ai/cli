@@ -1,0 +1,209 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: gemini-cli-executor-2
+number: 035
+branch: feat/035-gemini-cli-executor-2
+oneLiner: Add Gemini CLI executor to the agent system with session/token auth and full streaming support
+userQuery: >
+  i want to implement gemini-cli support in our generic agent running arch, settings agent should support selcting it with existing session or token, see claude/cursor for details, all clean arch!
+summary: >
+  Implement a GeminiCliExecutorService that spawns the `gemini` binary in non-interactive mode,
+  parsing both JSON and stream-json output formats. Wire it into the existing agent executor factory,
+  agent validator, DI container, and TUI wizard so users can select Gemini CLI as their agent
+  with session or token auth — following the same Clean Architecture patterns as Claude Code and Cursor executors.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Google Gemini CLI (gemini binary, v0.29+)
+  - TypeScript
+  - tsyringe (DI)
+  - node:child_process (spawn)
+  - Vitest (unit tests)
+  - Commander.js (CLI)
+  - Inquirer.js (TUI wizard)
+
+relatedLinks:
+  - https://github.com/google-gemini/gemini-cli
+  - https://geminicli.com/docs/
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should we pass GOOGLE_API_KEY env var when token auth is configured, or rely on the gemini binary to handle auth independently?'
+    resolved: true
+    answer: >
+      Recommend passing GOOGLE_API_KEY as an environment variable to the spawned process when token auth is configured
+      (i.e., settings.agent.token is set). This mirrors how other CLIs handle token auth and gives Shep control
+      over the auth flow. The gemini binary respects GOOGLE_API_KEY from the environment. For session auth,
+      no env var is needed — the binary uses its own `gemini auth login` session.
+
+  - question: 'Should the executor pass -y (yolo/auto-approve) by default, or make it configurable?'
+    resolved: true
+    answer: >
+      Recommend always passing -y by default, matching the pattern of Claude Code (--dangerously-skip-permissions)
+      and Cursor (--force). The agent system requires unattended execution — interactive permission prompts
+      would hang the process. This is not configurable; it is a hard requirement for non-interactive mode.
+
+  - question: 'Which AgentFeatures should GeminiCliExecutorService declare support for?'
+    resolved: true
+    answer: >
+      Declare support for: session-resume, streaming, tool-scoping. Do NOT declare: structured-output
+      (no --json-schema equivalent), system-prompt (no --append-system-prompt equivalent). This matches
+      the binary capabilities verified against v0.29.2 and ensures StructuredAgentCallerService correctly
+      falls back to prompt-wrapping for structured output requests.
+
+  - question: 'Should we support the --sandbox flag as an option?'
+    resolved: true
+    answer: >
+      Recommend NOT exposing --sandbox as an option in this iteration. The sandbox flag is a Gemini-specific
+      safety feature that restricts file system access. Since Shep already passes -y for auto-approve and
+      the agent needs full file system access to implement features, sandbox mode would conflict with
+      the agent workflow. Can be added later if a use case emerges. Keep scope minimal.
+
+  - question: 'How should token usage be extracted from Gemini CLI output?'
+    resolved: true
+    answer: >
+      For JSON output (-o json): extract from stats.models.<model>.tokens (inputTokens, outputTokens).
+      For stream-JSON: extract from the final "result" event stats (input_tokens, output_tokens).
+      Map these to AgentExecutionResult.usage. If stats are missing or unparseable, return undefined
+      for usage — do not fail the execution. This is best-effort metadata, not a correctness requirement.
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The agent executor system currently supports Claude Code and Cursor as agent backends, but Gemini CLI
+  (`gemini`) is already defined in the `AgentType` TypeSpec enum as `"gemini-cli"` with a "Coming Soon"
+  status. Users who prefer Google's Gemini models cannot use them through Shep's autonomous agent system.
+
+  The `gemini` binary (v0.29+) supports non-interactive mode (`-p`), JSON and stream-JSON output formats
+  (`-o json`, `-o stream-json`), session resume (`--resume`), model selection (`-m`), tool allow-listing
+  (`--allowed-tools`), and auto-approve mode (`-y`/`--yolo`) — making it fully compatible with the
+  `IAgentExecutor` interface contract.
+
+  ## Success Criteria
+
+  - [ ] `GeminiCliExecutorService` implements `IAgentExecutor` with `execute()` and `executeStream()` methods
+  - [ ] `execute()` spawns `gemini -p <prompt> -o json -y` and returns parsed `AgentExecutionResult`
+  - [ ] `execute()` extracts `sessionId` from JSON output `session_id` field
+  - [ ] `execute()` extracts `usage` (inputTokens, outputTokens) from JSON `stats.models` when available
+  - [ ] `executeStream()` spawns `gemini -p <prompt> -o stream-json -y` and yields `AgentExecutionStreamEvent`s
+  - [ ] Stream parser correctly handles: init, message (user/assistant), tool_use, tool_result, result, error event types
+  - [ ] Assistant message events with `delta:true` emit as `progress` stream events
+  - [ ] Final `result` event emits as `result` stream event with accumulated content
+  - [ ] Session resume works via `--resume <session_id>` when `options.resumeSession` is provided
+  - [ ] Model selection works via `-m <model>` when `options.model` is provided
+  - [ ] Tool scoping works via `--allowed-tools <tools>` when `options.allowedTools` is provided
+  - [ ] `supportsFeature()` returns true for: `session-resume`, `streaming`, `tool-scoping`
+  - [ ] `supportsFeature()` returns false for: `structured-output`, `system-prompt`
+  - [ ] Token auth passes `GOOGLE_API_KEY` env var to spawned process when `settings.agent.token` is set
+  - [ ] `AgentExecutorFactory` routes `'gemini-cli'` to `GeminiCliExecutorService` and includes it in `getSupportedAgents()`
+  - [ ] `AgentValidatorService` maps `'gemini-cli'` → `'gemini'` binary name for availability checking
+  - [ ] TUI agent select prompt enables Gemini CLI selection (removes `disabled: '(Coming Soon)'`, adds description)
+  - [ ] `StructuredAgentCallerService` correctly falls back to prompt-wrapping (no native structured output)
+  - [ ] Timeout handling kills the spawned process after `options.timeout` milliseconds
+  - [ ] Non-zero exit codes produce descriptive error messages including stderr content
+  - [ ] Unit tests cover: execute (JSON), executeStream (stream-JSON), session resume, model selection, tool scoping, token auth env var, error handling, timeout, and feature support
+  - [ ] Factory tests updated to verify `'gemini-cli'` instantiation and caching
+  - [ ] Validator tests updated to verify `'gemini-cli'` → `'gemini'` binary mapping
+  - [ ] All existing tests continue to pass (no regressions)
+
+  ## Functional Requirements
+
+  - **FR-1: Executor Service** — Create `GeminiCliExecutorService` in `packages/core/src/infrastructure/services/agents/common/executors/gemini-cli-executor.service.ts` implementing the `IAgentExecutor` interface. Constructor accepts `SpawnFunction` for testability, matching the pattern of `ClaudeCodeExecutorService` and `CursorExecutorService`.
+
+  - **FR-2: Non-Interactive Execution (JSON)** — `execute()` spawns `gemini` with args: `-p <prompt>`, `-o json`, `-y`. Collects stdout, parses the JSON response, and returns `AgentExecutionResult` with `result` (from `response` field), `sessionId` (from `session_id`), and `usage` (from `stats.models.<model>.tokens`).
+
+  - **FR-3: Streaming Execution** — `executeStream()` spawns `gemini` with args: `-p <prompt>`, `-o stream-json`, `-y`. Parses newline-delimited JSON events from stdout. Yields `AgentExecutionStreamEvent` objects: `progress` events for assistant message deltas, `result` event for the final result, and `error` events for failures.
+
+  - **FR-4: Stream Event Mapping** — Map Gemini stream-JSON event types to `AgentExecutionStreamEvent`:
+    - `init` → skip (internal metadata)
+    - `message` with `role:"user"` → skip (echoed input)
+    - `message` with `role:"assistant"` and `delta:true` → `{ type: 'progress', content: delta_text }`
+    - `tool_use` → `{ type: 'progress', content: '[tool_use: <tool_name>]' }` (informational)
+    - `tool_result` → `{ type: 'progress', content: '[tool_result: <status>]' }` (informational)
+    - `result` → `{ type: 'result', content: accumulated_text }`
+    - Error/unexpected → `{ type: 'error', content: error_message }`
+
+  - **FR-5: Session Resume** — When `options.resumeSession` is provided, append `--resume <session_id>` to spawn args. Works with both UUID session IDs and the special value `"latest"`.
+
+  - **FR-6: Model Selection** — When `options.model` is provided, append `-m <model>` to spawn args.
+
+  - **FR-7: Tool Scoping** — When `options.allowedTools` is provided (non-empty array), append `--allowed-tools <tools>` with comma-separated tool names.
+
+  - **FR-8: Token Auth via Environment** — When the executor receives an `AgentConfig` with `authMethod: 'token'` and a non-empty `token` field, pass `GOOGLE_API_KEY=<token>` in the spawned process environment (merged with the parent env, stripping sensitive vars like `CLAUDECODE`).
+
+  - **FR-9: Factory Integration** — Add `case 'gemini-cli'` to `AgentExecutorFactory.createExecutor()` switch statement, instantiating `GeminiCliExecutorService` with the injected `SpawnFunction`. Add `'gemini-cli'` to the `getSupportedAgents()` return array.
+
+  - **FR-10: Validator Integration** — Add `'gemini-cli': 'gemini'` entry to `AGENT_BINARY_MAP` in `AgentValidatorService` so that `isAvailable('gemini-cli')` checks for the `gemini` binary via `gemini --version`.
+
+  - **FR-11: TUI Prompt Activation** — In `agent-select.prompt.ts`, remove `disabled: '(Coming Soon)'` from the GeminiCli choice and add `description: 'Google Gemini CLI'` to match the pattern of other enabled agents.
+
+  - **FR-12: Feature Declaration** — `supportsFeature()` returns `true` for `AgentFeature.sessionResume`, `AgentFeature.streaming`, and `AgentFeature.toolScoping`. Returns `false` for all others (`structuredOutput`, `systemPrompt`).
+
+  - **FR-13: Error Handling** — Handle: (a) non-zero exit codes with stderr in error message, (b) unparseable JSON/stream-JSON with raw output in error, (c) process spawn failures (binary not found), (d) timeout via `process.kill()` after `options.timeout` ms.
+
+  - **FR-14: Graceful Option Omission** — Silently ignore unsupported options: `systemPrompt`, `outputSchema`, `maxTurns`, `disableMcp`. Do not throw errors for these — just omit from spawn args. Log a debug warning if `systemPrompt` or `outputSchema` is passed (to aid debugging).
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Test Coverage** — Unit tests must cover all `execute()`, `executeStream()`, session resume, model selection, tool scoping, token auth, error handling, and timeout scenarios. Follow existing test patterns with mock `SpawnFunction` and `createMockChildProcess()` helper. Minimum: 15 test cases for the executor, plus updates to factory and validator test suites.
+
+  - **NFR-2: Code Consistency** — The implementation must follow the exact same patterns as `CursorExecutorService` (closest feature parity): constructor injection of `SpawnFunction`, same error handling flow, same stream parsing structure. No new abstractions or shared utilities — keep it self-contained.
+
+  - **NFR-3: No Interface Changes** — No modifications to `IAgentExecutor`, `IAgentExecutorFactory`, `IAgentExecutorProvider`, `SpawnFunction`, or any application-layer ports. The new executor must fit entirely within the existing contracts.
+
+  - **NFR-4: No TypeSpec Changes** — `AgentType.GeminiCli` already exists in the TypeSpec enum. No domain model changes required. No regeneration of TypeSpec outputs.
+
+  - **NFR-5: No DI Container Changes** — The factory already handles executor instantiation. Adding a new case to the factory switch is sufficient. The DI container registration remains unchanged.
+
+  - **NFR-6: File Size** — Executor service file should be ≤350 lines (Cursor is 341, Claude is 441). Test file should be ≤400 lines. Keep files focused and avoid over-engineering.
+
+  - **NFR-7: Environment Isolation** — Strip potentially conflicting environment variables (e.g., `CLAUDECODE`) from the spawned process environment, matching the pattern in existing executors.
+
+  - **NFR-8: Backwards Compatibility** — All existing tests must continue to pass. No changes to the behavior of Claude Code or Cursor executors. The mock executor gate (`SHEP_MOCK_EXECUTOR=1`) remains unaffected.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Pass GOOGLE_API_KEY env var for token auth? | Yes, pass it to spawned process | Gemini CLI respects this env var; gives Shep control over auth flow. Session auth needs no env var. |
+  | 2 | Always pass -y (auto-approve)? | Yes, always | Non-interactive mode requires unattended execution. Interactive prompts would hang. Matches Claude/Cursor pattern. |
+  | 3 | Which AgentFeatures to declare? | session-resume, streaming, tool-scoping | Matches verified binary capabilities. Excludes structured-output and system-prompt (no CLI flags). |
+  | 4 | Support --sandbox flag? | No, defer to future iteration | Sandbox restricts file access, conflicting with agent workflow. Keep scope minimal. |
+  | 5 | How to handle token usage extraction? | Best-effort from stats fields | Extract from JSON stats or stream result event. Return undefined if missing — don't fail execution. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/agents/common/executors/` | High | New `gemini-cli-executor.service.ts` file implementing `IAgentExecutor` |
+  | `packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts` | Medium | Add `'gemini-cli'` case to `createExecutor()` switch and `getSupportedAgents()` |
+  | `packages/core/src/infrastructure/services/agents/common/agent-validator.service.ts` | Low | Add `'gemini-cli': 'gemini'` to `AGENT_BINARY_MAP` |
+  | `src/presentation/tui/prompts/agent-select.prompt.ts` | Low | Remove `disabled: '(Coming Soon)'` from GeminiCli choice, add description |
+  | `tests/unit/infrastructure/services/agents/executors/` | High | New `gemini-cli-executor.test.ts` following existing test patterns |
+  | `tests/unit/infrastructure/services/agents/agent-executor-factory.test.ts` | Low | Add test for `'gemini-cli'` instantiation |
+  | `tests/unit/infrastructure/services/agents/agent-validator.test.ts` | Low | Add test for `'gemini-cli'` validation |
+
+  ## Dependencies
+
+  - `gemini` binary (Google Gemini CLI v0.29+, installed via `npx @google/gemini-cli` or `npm i -g @google/gemini-cli`)
+  - Existing `IAgentExecutor` interface (no changes needed)
+  - Existing `SpawnFunction` type for DI (no changes needed)
+  - `AgentType.GeminiCli` already in TypeSpec enum (no TypeSpec changes needed)
+  - `AgentAuthMethod.Session` and `AgentAuthMethod.Token` already defined (no changes needed)
+
+  ## Size Estimate
+
+  **M** — The architecture is well-established with clear patterns to follow. The main work is:
+  1. One new executor service (~250 lines, following Cursor executor closely since feature set is similar)
+  2. Small modifications to 3 existing files (factory, validator, TUI prompt — ~10 lines each)
+  3. One comprehensive test suite (~350 lines, following existing test patterns)
+  4. Updates to existing factory/validator tests (~20 lines)
+
+  The stream-JSON format is similar to Claude's format, and the JSON output is simpler.
+  No TypeSpec changes, no DI container changes, no new interfaces needed.

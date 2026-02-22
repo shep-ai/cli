@@ -26,7 +26,7 @@ export function createAgentSelectConfig() {
       {
         name: 'Gemini CLI',
         value: AgentType.GeminiCli,
-        disabled: '(Coming Soon)',
+        description: 'Google Gemini CLI',
       },
       {
         name: 'Aider',
