@@ -75,7 +75,6 @@ export const DeletingState: Story = {
       repositoryPath="/Users/dev/my-project"
       branch="feat/auth-flow"
       onDelete={fn().mockName('onDelete')}
-      isDeleting
     />
   ),
 };

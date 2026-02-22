@@ -1,0 +1,354 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-feature-deletion
+number: 036
+branch: feat/036-optimistic-feature-deletion
+oneLiner: Convert feature deletion from pessimistic (wait for API) to optimistic (instant UI update with rollback on failure)
+userQuery: >
+  Feature: When deleting a feature do it in optimistic mode
+summary: >
+  Refactor the feature deletion flow in the Web UI control center from a pessimistic pattern
+  (blocking UI until the server action resolves) to an optimistic pattern that mirrors the existing
+  optimistic feature creation. The node transitions to a visual "deleting" state immediately, the
+  drawer closes instantly, the server action fires in the background, and the UI rolls back on failure.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  - '024-optimistic-feature-creation'
+
+technologies:
+  - React 19
+  - Next.js (Server Actions, router.refresh)
+  - '@xyflow/react (React Flow)'
+  - Tailwind CSS v4
+  - Vitest + React Testing Library
+  - Storybook
+  - sonner (toast notifications)
+  - lucide-react (icons)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: "What visual treatment should the 'deleting' node state use?"
+    resolved: true
+    options:
+      - option: 'Reduced opacity + trash icon'
+        description: >
+          Node fades to ~50% opacity with a Trash2 icon badge and 'Deleting...' label.
+          Clearly communicates pending removal without introducing new animation patterns.
+          Mirrors the 'creating' state approach but uses destructive color semantics (red tones).
+        selected: true
+      - option: 'Animated shrink/fade-out'
+        description: >
+          Node animates a shrink+fade transition over ~300ms before settling into a ghost state.
+          More dramatic visual feedback but introduces CSS animation complexity and may conflict
+          with React Flow's layout engine.
+        selected: false
+      - option: 'Strikethrough overlay'
+        description: >
+          Node renders normally but with a diagonal strikethrough line overlay and muted colors.
+          Distinctive but unconventional pattern that may confuse users.
+        selected: false
+    selectionRationale: >
+      Reduced opacity + trash icon is recommended because it follows the established pattern
+      from the 'creating' state (icon + label + visual differentiation) while using destructive
+      color semantics (red) that users already associate with deletion in the UI. It requires
+      minimal new CSS and integrates cleanly with the existing featureNodeStateConfig system.
+    answer: 'Reduced opacity + trash icon'
+
+  - question: 'Should the confirmation dialog remain before optimistic deletion, or should deletion be instant with an undo toast?'
+    resolved: true
+    options:
+      - option: 'Keep confirmation dialog'
+        description: >
+          Preserve the existing AlertDialog confirmation step before triggering the optimistic
+          delete. User flow: click Delete → confirm in dialog → optimistic update begins.
+          Safer for destructive actions, consistent with current UX, minimal change.
+        selected: true
+      - option: 'Remove dialog, add undo toast'
+        description: >
+          Skip confirmation entirely. Delete immediately on button click with a timed undo toast
+          (e.g., 5-second window). Faster UX but requires implementing undo/cancel logic on both
+          client and server, significantly increasing scope.
+        selected: false
+    selectionRationale: >
+      Keeping the confirmation dialog is recommended because deletion is destructive and
+      irreversible (cancels agents, removes worktrees, deletes DB records). The dialog is
+      already implemented and tested. Removing it would require building undo infrastructure
+      that doesn't exist, inflating this S-sized task to M or L. The optimistic improvement
+      (instant visual feedback after confirmation) already eliminates the perceived sluggishness.
+    answer: 'Keep confirmation dialog'
+
+  - question: "How should the state reconciliation useEffect handle 'deleting' nodes when server data arrives?"
+    resolved: true
+    options:
+      - option: 'Filter out deleting nodes during merge'
+        description: >
+          During the useEffect reconciliation, explicitly filter out nodes with state 'deleting'
+          that don't appear in server data — mirroring how 'creating' nodes are handled. This
+          ensures clean removal without ghost nodes lingering.
+        selected: true
+      - option: 'Let natural absence handle it'
+        description: >
+          Don't add special handling. Since the deleted feature won't appear in server data
+          after router.refresh(), the reconciliation will simply not include it. However, this
+          may leave the 'deleting' node visible until the next server data cycle if timing is off.
+        selected: false
+    selectionRationale: >
+      Explicit filtering is recommended because it mirrors the proven 'creating' node pattern
+      and prevents edge cases where a 'deleting' node could linger if router.refresh() timing
+      is delayed or if the component re-renders before fresh server data arrives. Consistency
+      with the existing reconciliation pattern reduces cognitive load for maintainers.
+    answer: 'Filter out deleting nodes during merge'
+
+  - question: 'Should double-deletion be prevented (user deletes the same feature from another tab or via rapid interaction)?'
+    resolved: true
+    options:
+      - option: 'Prevent via node state check'
+        description: >
+          Before initiating deletion, check if the node is already in 'deleting' state and
+          skip if so. Since the drawer closes immediately and clicking a 'deleting' node is
+          blocked, this is mostly a defensive guard. Low effort, no extra infrastructure.
+        selected: true
+      - option: 'No guard needed'
+        description: >
+          Rely on the fact that the drawer closes immediately and 'deleting' nodes block clicks.
+          The server action is idempotent anyway (deleting a non-existent feature returns an error
+          that triggers rollback). Saves a few lines of code.
+        selected: false
+    selectionRationale: >
+      A defensive state check is recommended because it costs nearly nothing (one if-statement)
+      and prevents unnecessary server calls. While the server action is tolerant of double-delete,
+      avoiding it entirely is cleaner and prevents confusing rollback behavior where a node
+      might revert after being deleted from another interaction path.
+    answer: 'Prevent via node state check'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Feature deletion in the Web UI control center currently uses a pessimistic pattern: when the user
+  confirms deletion, the UI blocks with a loading spinner (`isDeleting` state) while awaiting the
+  `deleteFeature` server action. Only after the API responds does the node get removed from the
+  canvas, the drawer close, and a toast appear.
+
+  This creates a sluggish user experience — especially when the backend must cancel running agents,
+  clean up worktrees, and delete the database record, which can take noticeable time. The codebase
+  already has a proven optimistic pattern from feature 024 (optimistic feature creation) that provides
+  instant UI feedback with rollback on failure. The same pattern should be applied to deletion.
+
+  ### Current Flow (Pessimistic)
+
+  1. User clicks "Delete" → confirmation dialog appears
+  2. User confirms → `isDeleting = true`, delete button shows spinner
+  3. `await deleteFeature(featureId)` blocks
+  4. On success → remove node/edges, close drawer, show toast, `router.refresh()`
+  5. On error → show error toast, UI stays as-is
+
+  ### Desired Flow (Optimistic)
+
+  1. User clicks "Delete" → confirmation dialog appears
+  2. User confirms → node transitions to `'deleting'` visual state immediately
+  3. Drawer closes instantly, selected node cleared
+  4. `deleteFeature(featureId)` fires in background (no await)
+  5. On success → `router.refresh()` reconciles (server no longer returns deleted node)
+  6. On error → node reverts to original state, error toast shown
+
+  ## Success Criteria
+
+  - [ ] Node visually transitions to a "deleting" state (reduced opacity, Trash2 icon, red badge) immediately on delete confirmation — before API response
+  - [ ] Feature drawer closes immediately on delete confirmation — not after API response
+  - [ ] Selected node is cleared immediately on delete confirmation
+  - [ ] `deleteFeature` server action is called in the background (non-blocking, no `await`)
+  - [ ] On successful deletion, `router.refresh()` is called to reconcile server state
+  - [ ] On API error (server returns `{ error }` ), node reverts to its original state and an error toast is shown
+  - [ ] On network failure (promise rejection), node reverts to its original state and a generic error toast is shown
+  - [ ] Clicking a node in "deleting" state does not open the feature drawer
+  - [ ] The `isDeleting` boolean state variable and prop are removed from the hook interface and drawer component
+  - [ ] State reconciliation useEffect filters out 'deleting' nodes (mirroring 'creating' node handling)
+  - [ ] Double-deletion is prevented by checking node state before initiating delete
+  - [ ] Storybook story exists for the "deleting" visual state on FeatureNode
+  - [ ] The "DeletingState" Storybook story is removed from feature-drawer (no longer has isDeleting prop)
+  - [ ] All existing deletion tests pass or are updated to reflect the optimistic pattern
+  - [ ] New unit tests cover: immediate state transition, drawer close, rollback on API error, rollback on network failure
+
+  ## Functional Requirements
+
+  - **FR-1: Immediate visual state transition** — On delete confirmation, the target node's `data.state`
+    must be set to `'deleting'` in local React state synchronously (within the same event handler tick),
+    before the server action is invoked.
+
+  - **FR-2: Instant drawer dismissal** — On delete confirmation, `setSelectedNode(null)` must be called
+    synchronously, causing the feature drawer to close without waiting for the server response.
+
+  - **FR-3: Background server action** — The `deleteFeature(featureId)` server action must be called
+    without `await`. Use `.then()` / `.catch()` pattern (mirroring `handleCreateFeatureSubmit`) to
+    handle success and error asynchronously.
+
+  - **FR-4: Success reconciliation** — On successful server action response (no `error` in result),
+    call `router.refresh()` to trigger Next.js server data re-fetch. The deleted feature will not
+    appear in the refreshed `initialNodes`, causing the node to naturally disappear from the canvas.
+
+  - **FR-5: Error rollback — API error** — If the server action returns `{ error: string }`, revert
+    the node's `data.state` to its pre-deletion value and display the error message via `toast.error()`.
+
+  - **FR-6: Error rollback — Network failure** — If the server action promise rejects (network error,
+    timeout, etc.), revert the node's `data.state` to its pre-deletion value and display a generic
+    error message ("Failed to delete feature") via `toast.error()`.
+
+  - **FR-7: Click blocking on deleting nodes** — `handleNodeClick` must check for `data.state === 'deleting'`
+    and return early (no drawer open), identical to the existing `'creating'` state check.
+
+  - **FR-8: Add 'deleting' to FeatureNodeState** — Extend the `FeatureNodeState` union type to include
+    `'deleting'` and add a corresponding entry in `featureNodeStateConfig` with: Trash2 icon,
+    red/destructive color semantics, `'Deleting...'` label, `showProgressBar: false`.
+
+  - **FR-9: Node visual rendering for 'deleting' state** — The FeatureNode component must render the
+    'deleting' state with reduced opacity and the configured icon/badge, following the same rendering
+    pattern as the 'creating' state (icon + label, no action items).
+
+  - **FR-10: Remove isDeleting state** — Remove the `isDeleting` useState from the hook, remove
+    `isDeleting` from the hook's return interface, and remove the `isDeleting` prop from
+    `FeatureDrawerProps` and its usage in the drawer component.
+
+  - **FR-11: State reconciliation for deleting nodes** — The `useEffect` that merges `initialNodes`
+    with local state must filter out nodes with `state === 'deleting'` whose IDs do not appear in
+    server data — mirroring the existing handling of `'creating'` nodes. This ensures clean removal.
+
+  - **FR-12: Double-deletion guard** — Before initiating the optimistic delete flow, check if the
+    target node's current state is already `'deleting'` and return early if so.
+
+  - **FR-13: Edge preservation during deleting state** — While a node is in 'deleting' state, its
+    connected edges must remain visible (they represent the relationship until confirmed deleted).
+    Edges are only removed when the node is removed from the canvas via server reconciliation.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Perceived latency** — The visual transition to 'deleting' state and drawer dismissal
+    must occur within the same React render cycle as the user's delete confirmation click (< 16ms
+    perceived delay).
+
+  - **NFR-2: Pattern consistency** — The optimistic deletion implementation must follow the exact
+    same architectural pattern as optimistic creation (`handleCreateFeatureSubmit`): synchronous
+    local state update → non-blocking server action → `.then()` success path → `.catch()` error
+    path → rollback on failure.
+
+  - **NFR-3: Test coverage** — All new and modified code paths must have corresponding unit tests.
+    Minimum test cases: (1) immediate state transition, (2) immediate drawer close, (3) server
+    action called, (4) rollback on API error, (5) rollback on network failure, (6) click blocking
+    on deleting node, (7) double-delete prevention.
+
+  - **NFR-4: Storybook coverage** — A 'Deleting' story variant must be added to
+    `feature-node.stories.tsx`. The 'DeletingState' story must be removed from
+    `feature-drawer.stories.tsx` (since `isDeleting` prop is removed).
+
+  - **NFR-5: No backend changes** — The existing `deleteFeature` server action and backend
+    infrastructure must not be modified. All changes are confined to the presentation layer.
+
+  - **NFR-6: Accessibility** — The 'deleting' node state must not rely solely on color to communicate
+    status. The Trash2 icon and "Deleting..." label text provide non-color indicators. Reduced
+    opacity must remain above 0.4 to maintain readability.
+
+  - **NFR-7: Clean removal of dead code** — All references to `isDeleting` (state variable, prop,
+    test assertions, story variants) must be fully removed — no commented-out code, no unused
+    variables, no backwards-compatibility shims.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | What visual treatment for the 'deleting' state? | Reduced opacity + Trash2 icon with red badge | Follows established pattern from 'creating' state; uses familiar destructive color semantics; minimal CSS; integrates with existing featureNodeStateConfig |
+  | 2 | Keep confirmation dialog or switch to undo toast? | Keep confirmation dialog | Deletion is irreversible (cancels agents, removes worktrees, deletes DB). Undo would require cancel infrastructure that doesn't exist. The optimistic update already eliminates perceived sluggishness after confirmation |
+  | 3 | How should reconciliation handle 'deleting' nodes? | Filter out explicitly during merge | Mirrors proven 'creating' node pattern; prevents ghost nodes from timing issues; maintains consistency in reconciliation logic |
+  | 4 | Prevent double-deletion? | Yes, via node state check | One if-statement cost; prevents unnecessary server calls; avoids confusing rollback from concurrent deletes |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The affected code lives entirely within the Web UI presentation layer:
+
+  ```
+  src/presentation/web/
+  ├── components/
+  │   ├── common/
+  │   │   ├── feature-node/
+  │   │   │   ├── feature-node.tsx              # Node rendering
+  │   │   │   ├── feature-node-state-config.ts  # State type + visual config
+  │   │   │   └── feature-node.stories.tsx      # Storybook stories
+  │   │   └── feature-drawer/
+  │   │       ├── feature-drawer.tsx            # Drawer with delete button
+  │   │       └── feature-drawer.stories.tsx    # Storybook stories
+  │   └── features/
+  │       └── control-center/
+  │           └── use-control-center-state.ts   # State hook with handleDeleteFeature
+  ├── app/actions/
+  │   └── delete-feature.ts                     # Server action (no changes needed)
+  └── hooks/
+      └── agent-events-provider.ts              # SSE events (no changes needed)
+  ```
+
+  Tests:
+  ```
+  tests/unit/presentation/web/features/control-center/
+  └── use-control-center-state.test.tsx         # Comprehensive test suite
+  ```
+
+  ### Architecture Patterns
+
+  **Optimistic update pattern (already proven in feature creation):**
+  1. Immediate local state update with a transient visual state (`'creating'`)
+  2. Server action fired without `await` (`.then()` / `.catch()`)
+  3. On success: `router.refresh()` merges server data, replacing optimistic state
+  4. On error: rollback local state, show error toast
+  5. State reconciliation in `useEffect` merges server props with client positions
+
+  **State management:** Pure React `useState` + `useCallback`. No React Query or SWR.
+
+  **Node state system:** `FeatureNodeState` union type with a config record mapping each state
+  to visual properties (icon, colors, border, badge text). Currently has 6 states:
+  `'creating' | 'running' | 'action-required' | 'done' | 'blocked' | 'error'`.
+
+  ### Relevant Technologies
+
+  - **React Flow (@xyflow/react):** Canvas-based node rendering. Nodes stored as `CanvasNodeType[]`
+    in state, filtered/mapped for additions/removals.
+  - **Next.js Server Actions:** `deleteFeature` server action already exists, returns
+    `{ feature?: Feature; error?: string }`. No changes needed.
+  - **sonner:** Toast library for success/error notifications.
+  - **lucide-react:** Icon library. `Trash2` icon available for the deleting state badge.
+  - **Tailwind CSS v4:** Utility classes for visual styling of the deleting state.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `feature-node-state-config.ts` | Medium | Add `'deleting'` to `FeatureNodeState` union type and `featureNodeStateConfig` record |
+  | `use-control-center-state.ts` | High | Refactor `handleDeleteFeature` from pessimistic to optimistic pattern; remove `isDeleting` state; block clicks on deleting nodes; add double-delete guard |
+  | `feature-node.tsx` | Low | Add rendering branch for `'deleting'` state (reduced opacity + Trash2 icon + 'Deleting...' label) |
+  | `feature-drawer.tsx` | Low | Remove `isDeleting` prop usage; update `FeatureDrawerProps` interface |
+  | `feature-node.stories.tsx` | Low | Add "Deleting" story variant |
+  | `feature-drawer.stories.tsx` | Low | Remove `DeletingState` story variant (isDeleting prop no longer exists) |
+  | `use-control-center-state.test.tsx` | High | Update existing deletion tests to verify optimistic behavior; add new tests for rollback, click blocking, double-delete prevention |
+
+  ## Dependencies
+
+  - **Existing `deleteFeature` server action** (`app/actions/delete-feature.ts`): No changes needed.
+    Already returns the shape needed for error detection.
+  - **Existing optimistic creation pattern**: The implementation directly mirrors `handleCreateFeatureSubmit`
+    in `use-control-center-state.ts`. Proven pattern with comprehensive tests.
+  - **State reconciliation `useEffect`**: Already handles merging server props with client state.
+    Needs extension to filter 'deleting' nodes mirroring 'creating' node handling.
+  - **FeatureNodeState + config system**: Existing extensible union type and config record.
+    Adding 'deleting' follows the same pattern as all other states.
+
+  ## Size Estimate
+
+  **S** — This is a focused refactor of one mutation handler (`handleDeleteFeature`) plus a new
+  visual state entry. The pattern is already proven in the codebase (optimistic creation), the
+  test harness is fully set up, and no backend changes are needed. The scope is well-defined:
+  7 files touched, all within the presentation layer, with a clear pattern to follow.

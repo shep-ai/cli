@@ -2,7 +2,12 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
 import { FeatureNode, lifecycleDisplayLabels } from '@/components/common/feature-node';
-import type { FeatureNodeData, FeatureNodeType } from '@/components/common/feature-node';
+import type {
+  FeatureNodeData,
+  FeatureNodeType,
+  FeatureNodeState,
+} from '@/components/common/feature-node';
+import { featureNodeStateConfig } from '@/components/common/feature-node/feature-node-state-config';
 
 const nodeTypes = { featureNode: FeatureNode };
 
@@ -279,6 +284,56 @@ describe('FeatureNode', () => {
       renderFeatureNode({ state: 'creating' });
       const card = screen.getByTestId('feature-node-card');
       expect(card).toHaveAttribute('aria-busy', 'true');
+    });
+  });
+
+  describe('deleting state', () => {
+    it('is assignable to FeatureNodeState', () => {
+      const state: FeatureNodeState = 'deleting';
+      expect(state).toBe('deleting');
+    });
+
+    it('has a config entry in featureNodeStateConfig', () => {
+      const config = featureNodeStateConfig['deleting'];
+      expect(config).toBeDefined();
+      expect(config.label).toBe('Deleting...');
+      expect(config.showProgressBar).toBe(false);
+    });
+
+    it('uses red/destructive color palette', () => {
+      const config = featureNodeStateConfig['deleting'];
+      expect(config.borderClass).toBe('border-l-red-500');
+      expect(config.badgeClass).toBe('text-red-700');
+      expect(config.badgeBgClass).toBe('bg-red-50');
+    });
+
+    it('renders deleting state with reduced opacity', () => {
+      renderFeatureNode({ state: 'deleting' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).toContain('opacity-50');
+    });
+
+    it('sets aria-busy for deleting state', () => {
+      renderFeatureNode({ state: 'deleting' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card).toHaveAttribute('aria-busy', 'true');
+    });
+
+    it('displays Deleting... badge text', () => {
+      renderFeatureNode({ state: 'deleting' });
+      expect(screen.getByText('Deleting...')).toBeInTheDocument();
+    });
+
+    it('renders through the default badge path (not progress bar)', () => {
+      renderFeatureNode({ state: 'deleting' });
+      expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
+      expect(screen.queryByTestId('feature-node-progress-bar')).not.toBeInTheDocument();
+    });
+
+    it('does not apply opacity-50 for non-deleting states', () => {
+      renderFeatureNode({ state: 'done' });
+      const card = screen.getByTestId('feature-node-card');
+      expect(card.className).not.toContain('opacity-50');
     });
   });
 

@@ -19,8 +19,6 @@ export interface ReviewDrawerShellProps {
   specPath?: string;
   /** Callback to delete the feature — shows inline delete button when provided */
   onDelete?: (featureId: string) => void;
-  /** Whether a delete operation is in progress */
-  isDeleting?: boolean;
   /** Drawer body content */
   children: ReactNode;
 }

@@ -1,0 +1,40 @@
+feature:
+  id: 036-optimistic-feature-deletion
+  name: optimistic-feature-deletion
+  number: 36
+  branch: feat/036-optimistic-feature-deletion
+  lifecycle: research
+  createdAt: '2026-02-22T17:28:39Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 7
+    total: 7
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-22T18:05:01.422Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-22T17:28:39Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

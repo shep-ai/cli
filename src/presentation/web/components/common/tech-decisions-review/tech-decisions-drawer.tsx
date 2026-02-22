@@ -13,7 +13,6 @@ export function TechDecisionsDrawer({
   branch,
   specPath,
   onDelete,
-  isDeleting,
   ...reviewProps
 }: TechDecisionsDrawerProps) {
   return (
@@ -26,7 +25,6 @@ export function TechDecisionsDrawer({
       branch={branch}
       specPath={specPath}
       onDelete={onDelete}
-      isDeleting={isDeleting}
     >
       <TechDecisionsReview {...reviewProps} />
     </ReviewDrawerShell>

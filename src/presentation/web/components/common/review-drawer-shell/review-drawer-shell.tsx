@@ -1,6 +1,6 @@
 'use client';
 
-import { Loader2, Trash2, XIcon } from 'lucide-react';
+import { Trash2, XIcon } from 'lucide-react';
 import {
   Drawer,
   DrawerContent,
@@ -35,7 +35,6 @@ export function ReviewDrawerShell({
   branch,
   specPath,
   onDelete,
-  isDeleting,
   children,
 }: ReviewDrawerShellProps) {
   const actionsInput = repositoryPath && branch ? { repositoryPath, branch, specPath } : null;
@@ -89,15 +88,10 @@ export function ReviewDrawerShell({
                       variant="ghost"
                       size="icon-sm"
                       aria-label="Delete feature"
-                      disabled={isDeleting}
                       className="text-muted-foreground hover:text-destructive"
                       data-testid="review-drawer-delete"
                     >
-                      {isDeleting ? (
-                        <Loader2 className="size-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="size-4" />
-                      )}
+                      <Trash2 className="size-4" />
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
@@ -109,20 +103,9 @@ export function ReviewDrawerShell({
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                      <AlertDialogAction
-                        variant="destructive"
-                        disabled={isDeleting}
-                        onClick={() => onDelete(featureId)}
-                      >
-                        {isDeleting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Deleting…
-                          </>
-                        ) : (
-                          'Delete'
-                        )}
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction variant="destructive" onClick={() => onDelete(featureId)}>
+                        Delete
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>

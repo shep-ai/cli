@@ -13,7 +13,6 @@ export function MergeReviewDrawer({
   branch,
   specPath,
   onDelete,
-  isDeleting,
   ...reviewProps
 }: MergeReviewDrawerProps) {
   return (
@@ -26,7 +25,6 @@ export function MergeReviewDrawer({
       branch={branch}
       specPath={specPath}
       onDelete={onDelete}
-      isDeleting={isDeleting}
     >
       <MergeReview {...reviewProps} />
     </ReviewDrawerShell>

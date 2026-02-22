@@ -379,7 +379,6 @@ export const DeletingState: DrawerStory = {
       lifecycleLabel="Requirements"
       data={mockData}
       onDelete={fn().mockName('onDelete')}
-      isDeleting
     />
   ),
 };

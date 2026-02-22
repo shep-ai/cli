@@ -86,9 +86,10 @@ describe('PrdQuestionnaireDrawer delete button', () => {
     expect(onDelete).not.toHaveBeenCalled();
   });
 
-  it('disables delete trigger button when isDeleting is true', () => {
-    render(<PrdQuestionnaireDrawer {...baseProps} onDelete={vi.fn()} isDeleting />);
+  it('renders delete button without loading state', () => {
+    render(<PrdQuestionnaireDrawer {...baseProps} onDelete={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: /delete feature/i })).toBeDisabled();
+    const triggerButton = screen.getByRole('button', { name: /delete feature/i });
+    expect(triggerButton).not.toBeDisabled();
   });
 });

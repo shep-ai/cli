@@ -14,7 +14,6 @@ export function PrdQuestionnaireDrawer({
   branch,
   specPath,
   onDelete,
-  isDeleting,
   ...questionnaireProps
 }: PrdQuestionnaireDrawerProps) {
   return (
@@ -28,7 +27,6 @@ export function PrdQuestionnaireDrawer({
       branch={branch}
       specPath={specPath}
       onDelete={onDelete}
-      isDeleting={isDeleting}
     >
       <PrdQuestionnaire {...questionnaireProps} />
     </ReviewDrawerShell>

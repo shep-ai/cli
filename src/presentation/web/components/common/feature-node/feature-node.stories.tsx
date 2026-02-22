@@ -149,6 +149,16 @@ const allStatesData: FeatureNodeData[] = [
     repositoryPath: '/home/user/my-repo',
     branch: 'feat/email-service',
   },
+  {
+    name: 'Legacy Module',
+    description: 'Remove deprecated legacy module',
+    featureId: '#f7',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'deleting',
+    progress: 0,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/legacy-module',
+  },
 ];
 
 export const AllStates: Story = {
@@ -334,6 +344,18 @@ export const MergeReviewActionRequired: Story = {
     lifecycle: 'review',
     state: 'action-required',
     progress: 90,
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const Deleting: Story = {
+  args: {
+    name: 'Legacy Module',
+    description: 'Remove deprecated legacy module',
+    featureId: '#f7',
+    lifecycle: 'implementation',
+    state: 'deleting',
+    progress: 0,
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };

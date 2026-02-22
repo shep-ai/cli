@@ -59,6 +59,8 @@ function getBadgeText(data: FeatureNodeData): string {
       return config.label;
     case 'error':
       return data.errorMessage ?? 'Something went wrong';
+    case 'deleting':
+      return 'Deleting...';
     default:
       return config.label;
   }
@@ -88,10 +90,11 @@ export function FeatureNode({
 
       <div
         data-testid="feature-node-card"
-        aria-busy={data.state === 'creating' ? 'true' : undefined}
+        aria-busy={data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined}
         className={cn(
           'bg-card flex min-h-35 w-72 flex-col rounded-lg border p-3 shadow-sm',
-          selected && 'ring-primary ring-2'
+          selected && 'ring-primary ring-2',
+          data.state === 'deleting' && 'opacity-50'
         )}
       >
         {/* Top row: lifecycle label + settings */}

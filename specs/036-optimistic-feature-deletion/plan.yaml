@@ -1,0 +1,171 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-feature-deletion
+summary: >
+  Convert feature deletion from a pessimistic (blocking await) pattern to an optimistic (instant UI
+  update with rollback on failure) pattern by mirroring the proven handleCreateFeatureSubmit
+  architecture. Changes span 7 presentation-layer files: extend FeatureNodeState with 'deleting',
+  refactor handleDeleteFeature to synchronous state transition + non-blocking server action,
+  add visual rendering with reduced opacity + Trash2 icon, remove the dead isDeleting prop chain,
+  update state reconciliation to filter confirmed deletions, and update all tests and stories.
+
+relatedFeatures:
+  - '024-optimistic-feature-creation'
+
+technologies:
+  - React 19 (useState, useCallback, useEffect)
+  - Next.js Server Actions (deleteFeature)
+  - '@xyflow/react (React Flow) — CanvasNodeType, setNodes'
+  - Tailwind CSS v4 (opacity-50, red color palette)
+  - sonner (toast.error, toast.success)
+  - lucide-react (Trash2)
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Foundation — FeatureNodeState Extension'
+    description: >
+      Add 'deleting' to the FeatureNodeState union type and featureNodeStateConfig record.
+      This is the foundation that all other phases depend on — the type system, visual config,
+      and rendering all reference this state value. Must come first because the hook refactor
+      (phase 2) and component changes (phase 3) both require 'deleting' to be a valid state.
+    parallel: false
+
+  - id: phase-2
+    name: 'Core Logic — Optimistic Delete Handler + State Reconciliation'
+    description: >
+      Refactor handleDeleteFeature from async/await to synchronous state transition + non-blocking
+      .then()/.catch() pattern. Remove the isDeleting useState. Add 'deleting' click-blocking in
+      handleNodeClick. Add double-deletion guard. Extend the useEffect reconciliation to filter
+      out confirmed 'deleting' nodes. Update the ControlCenterState interface (handleDeleteFeature
+      return type changes from Promise<void> to void, isDeleting removed). This is the highest-impact
+      phase and contains the core behavioral change.
+    parallel: false
+
+  - id: phase-3
+    name: 'Visual Rendering + Drawer Cleanup'
+    description: >
+      Update FeatureNode component to render 'deleting' state with reduced opacity and extend
+      aria-busy. Update getBadgeText to handle the 'deleting' case. Remove isDeleting prop from
+      FeatureDrawer — simplify the AlertDialogAction to remove the Loader2 spinner and disabled
+      states. Clean up the Loader2 import if no longer used.
+    parallel: false
+
+  - id: phase-4
+    name: 'Stories + Test Updates'
+    description: >
+      Add 'Deleting' story to feature-node.stories.tsx and add deleting to the AllStates matrix.
+      Remove DeletingState story from feature-drawer.stories.tsx and clean up isDeleting references
+      in story fixtures. Update existing deletion tests in use-control-center-state.test.tsx to verify
+      optimistic behavior. Add new tests for rollback, click blocking, double-delete prevention.
+      Remove all isDeleting assertions.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The implementation follows the exact optimistic update architecture already proven in
+  `handleCreateFeatureSubmit` (use-control-center-state.ts:298-333). The pattern is:
+
+  ```
+  User Confirms Delete
+    -> Synchronous: setNodes(map: target.state -> 'deleting')
+    -> Synchronous: setSelectedNode(null) -- closes drawer
+    -> Non-blocking: deleteFeature(featureId).then().catch()
+        .then(success) -> router.refresh() -- server reconciliation removes node
+        .then(error)   -> rollback: restore original state + toast.error(message)
+        .catch()       -> rollback: restore original state + toast.error(generic)
+  ```
+
+  All changes are confined to the Web UI presentation layer (src/presentation/web/ and
+  tests/unit/presentation/web/). No backend, domain, application, or infrastructure changes.
+
+  The `FeatureNodeState` union type (feature-node-state-config.ts:5-11) is extended with
+  `'deleting'` following the same pattern as the existing 6 states. The `featureNodeStateConfig`
+  record gets a new entry using Trash2 icon and the red/destructive color palette already
+  established by the 'error' state (border-l-red-500, text-red-700, bg-red-50).
+
+  ## Key Design Decisions
+
+  ### 1. Mirror Creation Pattern (Not useOptimistic or React Query)
+
+  The codebase uses plain `useState` + `.then()/.catch()` for optimistic creation. Introducing
+  `useOptimistic` (React 19) or React Query for deletion alone would create an inconsistent
+  pattern. The existing approach is proven with 12+ test cases and well-understood by the team.
+
+  ### 2. In-Place State Mutation (Not Node Removal + Re-add)
+
+  Changing `data.state` to `'deleting'` via `setNodes()` map preserves node position, edges,
+  and all properties. Removing the node immediately would lose this context and make rollback
+  complex. The `featureNodeStateConfig` system is designed for exactly this extensibility.
+
+  ### 3. Closure-Based Rollback (Not Array Snapshot)
+
+  Before transitioning to 'deleting', capture the original `data.state` value in a local variable
+  within the callback closure. On error, restore just that one value via `setNodes()` map.
+  No additional `useState` needed. This is cheaper and more precise than snapshotting the entire
+  nodes array.
+
+  ### 4. Static Trash2 Icon (Not Animated)
+
+  The 'creating' state uses `animate-spin` because `Loader2` is a circular icon designed to spin.
+  `Trash2` is not symmetrical and would look unnatural spinning. Static icon + reduced opacity
+  + red badge + "Deleting..." text provides clear visual feedback without new animation patterns.
+
+  ### 5. Explicit Reconciliation Filtering (Not Natural Absence)
+
+  The useEffect at lines 67-98 already handles 'creating' nodes explicitly. Adding symmetric
+  handling for 'deleting' nodes prevents ghost nodes from timing issues and maintains pattern
+  consistency. Nodes with `state === 'deleting'` absent from `serverIds` are filtered out.
+
+  ### 6. Complete isDeleting Removal (Not Keep-but-unused)
+
+  The `isDeleting` boolean, its `useState`, the prop chain to `FeatureDrawer`, the Loader2 spinner
+  in the AlertDialog, the disabled button states, the DeletingState story, and all test assertions
+  are fully removed. The optimistic pattern makes them dead code -- the dialog closes instantly
+  so the spinner is never visible. Per NFR-7, no backwards-compatibility shims.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency:
+
+  1. **Foundation first** -- The type system (`FeatureNodeState`) and config must exist before
+     any code can reference `'deleting'`. This is a 2-line type change + 10-line config entry.
+
+  2. **Core logic second** -- The hook refactor is the highest-impact change and the heart of
+     the feature. It depends on phase 1 (setting `state: 'deleting'`). The reconciliation
+     update is co-located here because it's part of the same hook file.
+
+  3. **Visual + cleanup third** -- Component rendering and drawer cleanup depend on phase 1
+     (config exists) and phase 2 (isDeleting removed from hook). These are low-risk changes.
+
+  4. **Stories + tests last** -- Tests validate the behavior from phases 1-3. Stories document
+     the visual states. Running tests last ensures they test the final implementation.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Reconciliation race: 'deleting' node lingers if router.refresh() is slow | Explicit filter in useEffect removes 'deleting' nodes absent from server data, preventing ghost nodes |
+  | Rollback leaves node in wrong state after concurrent operations | Capture original state in closure before mutation; restore exact pre-deletion state on error |
+  | Double-delete from rapid clicks or multi-tab | Guard at top of handleDeleteFeature: if node already has state 'deleting', return early |
+  | Edge removal during deleting state breaks visual context | Edges preserved during 'deleting' state (FR-13); only removed when node disappears via server reconciliation |
+  | isDeleting removal breaks consumer components | FeatureDrawer is the only consumer; update simultaneously in phase 3 to avoid broken intermediate state |
+  | Type errors from FeatureNodeState extension | Adding 'deleting' to the union type is additive; existing switch/if statements fall through to default handling; only getBadgeText needs a new case |

@@ -41,7 +41,7 @@ const defaultData: FeatureNodeData = {
 function renderDrawer(
   selectedNode: FeatureNodeData | null = defaultData,
   onClose = vi.fn(),
-  props?: Partial<Pick<FeatureDrawerProps, 'onDelete' | 'isDeleting'>>
+  props?: Partial<Pick<FeatureDrawerProps, 'onDelete'>>
 ) {
   return render(<FeatureDrawer selectedNode={selectedNode} onClose={onClose} {...props} />);
 }
@@ -331,11 +331,12 @@ describe('FeatureDrawer', () => {
       expect(onDelete).toHaveBeenCalledWith('#abc');
     });
 
-    it('delete trigger button is disabled when isDeleting is true', () => {
-      renderDrawer(defaultData, vi.fn(), { onDelete: vi.fn(), isDeleting: true });
+    it('renders delete button without loading state', () => {
+      renderDrawer(defaultData, vi.fn(), { onDelete: vi.fn() });
 
       const triggerButton = screen.getByRole('button', { name: /delete feature/i });
-      expect(triggerButton).toBeDisabled();
+      expect(triggerButton).not.toBeDisabled();
+      expect(triggerButton).toHaveTextContent('Delete feature');
     });
   });
 });

@@ -171,7 +171,6 @@ export const DeletingState: DrawerStory = {
       onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
       onDelete={fn().mockName('onDelete')}
-      isDeleting
     />
   ),
 };

@@ -179,6 +179,17 @@ const creatingData: FeatureNodeData = {
   branch: '',
 };
 
+const deletingData: FeatureNodeData = {
+  name: 'Legacy Module',
+  description: 'Remove deprecated legacy module',
+  featureId: '#f7',
+  lifecycle: 'implementation',
+  state: 'deleting',
+  progress: 0,
+  repositoryPath: '/home/user/my-repo',
+  branch: 'feat/legacy-module',
+};
+
 const stateFixtures: Record<FeatureNodeState, FeatureNodeData> = {
   creating: creatingData,
   running: runningData,
@@ -186,6 +197,7 @@ const stateFixtures: Record<FeatureNodeState, FeatureNodeData> = {
   done: doneData,
   blocked: blockedData,
   error: errorData,
+  deleting: deletingData,
 };
 
 const allLifecycles: FeatureLifecyclePhase[] = [
@@ -313,15 +325,7 @@ function noop() {
   // intentional no-op for stories
 }
 
-function DrawerTriggerWithDelete({
-  data,
-  label,
-  isDeleting = false,
-}: {
-  data: FeatureNodeData;
-  label: string;
-  isDeleting?: boolean;
-}) {
+function DrawerTriggerWithDelete({ data, label }: { data: FeatureNodeData; label: string }) {
   const [selected, setSelected] = useState<FeatureNodeData | null>(null);
 
   return (
@@ -329,12 +333,7 @@ function DrawerTriggerWithDelete({
       <Button variant="outline" onClick={() => setSelected(data)}>
         {label}
       </Button>
-      <FeatureDrawer
-        selectedNode={selected}
-        onClose={() => setSelected(null)}
-        onDelete={noop}
-        isDeleting={isDeleting}
-      />
+      <FeatureDrawer selectedNode={selected} onClose={() => setSelected(null)} onDelete={noop} />
     </div>
   );
 }
@@ -342,11 +341,6 @@ function DrawerTriggerWithDelete({
 /** FeatureDrawer with a delete button in the footer. */
 export const WithDeleteButton: Story = {
   render: () => <DrawerTriggerWithDelete data={doneData} label="Open With Delete" />,
-};
-
-/** FeatureDrawer showing the delete button in loading/disabled state. */
-export const DeletingState: Story = {
-  render: () => <DrawerTriggerWithDelete data={doneData} label="Open Deleting State" isDeleting />,
 };
 
 /** FeatureDrawer with a running agent showing the running-agent warning in the AlertDialog. */

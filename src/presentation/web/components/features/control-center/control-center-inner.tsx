@@ -33,7 +33,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     edges,
     selectedNode,
     isCreateDrawerOpen,
-    isDeleting,
     pendingRepositoryPath,
     onNodesChange,
     handleConnect,
@@ -307,7 +306,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         }
         onClose={clearSelection}
         onDelete={handleDeleteFeature}
-        isDeleting={isDeleting}
       />
       {questionnaireData ? (
         <PrdQuestionnaireDrawer
@@ -325,7 +323,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onRefine={handlePrdRefine}
           onApprove={handlePrdApprove}
           onDelete={handleDeleteFeature}
-          isDeleting={isDeleting}
           isProcessing={isPrdProcessing || isLoadingQuestionnaire}
         />
       ) : null}
@@ -342,7 +339,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onRefine={handleTechDecisionsRefine}
           onApprove={handleTechDecisionsApprove}
           onDelete={handleDeleteFeature}
-          isDeleting={isDeleting}
           isProcessing={isLoadingTechDecisions}
         />
       ) : null}
@@ -359,7 +355,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onApprove={handleMergeApprove}
           onRefine={handleMergeRefine}
           onDelete={handleDeleteFeature}
-          isDeleting={isDeleting}
           isProcessing={isLoadingMergeReview}
         />
       ) : null}

@@ -1,6 +1,6 @@
 'use client';
 
-import { XIcon, Loader2, Trash2 } from 'lucide-react';
+import { XIcon, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import {
@@ -32,15 +32,9 @@ export interface FeatureDrawerProps {
   selectedNode: FeatureNodeData | null;
   onClose: () => void;
   onDelete?: (featureId: string) => void;
-  isDeleting?: boolean;
 }
 
-export function FeatureDrawer({
-  selectedNode,
-  onClose,
-  onDelete,
-  isDeleting = false,
-}: FeatureDrawerProps) {
+export function FeatureDrawer({ selectedNode, onClose, onDelete }: FeatureDrawerProps) {
   return (
     <Drawer
       direction="right"
@@ -120,7 +114,7 @@ export function FeatureDrawer({
                 <div data-testid="feature-drawer-delete" className="p-4">
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
-                      <Button variant="destructive" className="w-full" disabled={isDeleting}>
+                      <Button variant="destructive" className="w-full">
                         <Trash2 className="mr-2 h-4 w-4" />
                         Delete feature
                       </Button>
@@ -137,20 +131,12 @@ export function FeatureDrawer({
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
-                        <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction
                           variant="destructive"
-                          disabled={isDeleting}
                           onClick={() => onDelete(selectedNode.featureId)}
                         >
-                          {isDeleting ? (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Deleting…
-                            </>
-                          ) : (
-                            'Delete'
-                          )}
+                          Delete
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>

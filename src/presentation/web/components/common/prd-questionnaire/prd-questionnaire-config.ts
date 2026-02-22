@@ -45,6 +45,4 @@ export interface PrdQuestionnaireDrawerProps extends PrdQuestionnaireProps {
   specPath?: string;
   /** Callback to delete the feature — shows delete button when provided */
   onDelete?: (featureId: string) => void;
-  /** Whether a delete operation is in progress */
-  isDeleting?: boolean;
 }

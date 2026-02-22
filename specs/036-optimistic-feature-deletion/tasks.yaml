@@ -1,0 +1,287 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-feature-deletion
+summary: >
+  7 tasks across 4 phases. Phase 1 extends the FeatureNodeState type system. Phase 2 refactors
+  the delete handler and reconciliation logic. Phase 3 updates component rendering and removes
+  dead isDeleting props. Phase 4 updates stories and tests.
+
+relatedFeatures:
+  - '024-optimistic-feature-creation'
+
+technologies:
+  - React 19
+  - '@xyflow/react'
+  - sonner
+  - lucide-react (Trash2)
+  - Tailwind CSS v4
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: "Add 'deleting' to FeatureNodeState and featureNodeStateConfig"
+    description: >
+      Extend the FeatureNodeState union type with 'deleting' and add a corresponding entry in
+      the featureNodeStateConfig record. This is the foundation for all subsequent changes —
+      the type, icon (Trash2), colors (red/destructive palette matching 'error' state), label
+      ('Deleting...'), and showProgressBar: false must all be defined before any code references
+      the 'deleting' state.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - "FeatureNodeState union type includes 'deleting' (feature-node-state-config.ts:5-11)"
+      - "featureNodeStateConfig record has a 'deleting' entry with Trash2 icon, red palette (border-l-red-500, text-red-700, bg-red-50), label 'Deleting...', showProgressBar: false"
+      - 'Trash2 is imported from lucide-react at the top of the file'
+      - 'TypeScript compiles without errors (pnpm typecheck:web)'
+    tdd:
+      red:
+        - "Write a test that imports FeatureNodeState and asserts 'deleting' is assignable to it"
+        - "Write a test that asserts featureNodeStateConfig['deleting'] exists and has expected properties (icon, label, showProgressBar)"
+      green:
+        - "Add '| deleting' to FeatureNodeState union type"
+        - 'Import Trash2 from lucide-react'
+        - "Add 'deleting' entry to featureNodeStateConfig with Trash2 icon, red palette, 'Deleting...' label, showProgressBar: false"
+      refactor:
+        - 'Verify import ordering follows existing convention (alphabetical lucide-react imports)'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Refactor handleDeleteFeature to optimistic pattern'
+    description: >
+      Convert handleDeleteFeature from async/await to synchronous state transition + non-blocking
+      .then()/.catch(). The refactored handler: (1) captures original node state, (2) guards against
+      double-delete, (3) transitions node to 'deleting' state via setNodes map, (4) clears
+      selectedNode to close drawer, (5) fires deleteFeature() without await, (6) on .then() success
+      calls router.refresh(), (7) on .then() API error restores original state + toast.error(message),
+      (8) on .catch() restores original state + toast.error('Failed to delete feature').
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'handleDeleteFeature is no longer async — returns void, not Promise<void>'
+      - "Node transitions to state 'deleting' synchronously before server action fires"
+      - 'setSelectedNode(null) is called synchronously (drawer closes immediately)'
+      - 'deleteFeature() is called without await, using .then()/.catch()'
+      - 'On success (.then with no error): router.refresh() is called'
+      - 'On API error (.then with result.error): node state reverts to original, toast.error shows error message'
+      - "On network failure (.catch): node state reverts to original, toast.error shows 'Failed to delete feature'"
+      - "Double-delete guard: if target node is already in 'deleting' state, return early"
+      - 'Edges are NOT removed during the optimistic update (FR-13)'
+    tdd:
+      red:
+        - "Write test: 'transitions node to deleting state immediately on delete' — call handleDeleteFeature, assert node state is 'deleting' before promise resolves"
+        - "Write test: 'closes drawer immediately on delete' — assert selectedNode is null after handleDeleteFeature call"
+        - "Write test: 'calls deleteFeature server action' — verify deleteFeature was called with correct featureId"
+        - "Write test: 'reverts node state on API error' — mock deleteFeature to return { error: 'msg' }, assert node state returns to original"
+        - "Write test: 'reverts node state on network failure' — mock deleteFeature to reject, assert node state returns to original"
+        - "Write test: 'prevents double-delete' — set node to 'deleting' state, call handleDeleteFeature, verify deleteFeature was NOT called"
+        - "Write test: 'preserves edges during deleting state' — assert edges are not modified when node transitions to 'deleting'"
+      green:
+        - 'Replace async/await handleDeleteFeature with synchronous implementation following handleCreateFeatureSubmit pattern'
+        - "Add double-delete guard at top: find target node, check if state is already 'deleting', return if so"
+        - 'Capture original state: const originalState = targetNode.data.state'
+        - "Set node state: setNodes(prev => prev.map(n => n.id === featureId ? {...n, data: {...n.data, state: 'deleting'}} : n))"
+        - 'Close drawer: setSelectedNode(null)'
+        - 'Fire server action: deleteFeature(featureId).then(result => {...}).catch(() => {...})'
+        - 'In .then: if result.error, rollback via setNodes map restoring originalState + toast.error(result.error), else router.refresh()'
+        - "In .catch: rollback via setNodes map restoring originalState + toast.error('Failed to delete feature')"
+      refactor:
+        - 'Verify the rollback setNodes map function is consistent between .then(error) and .catch() — consider extracting a shared rollback helper if the map logic is duplicated'
+        - "Ensure useCallback dependency array includes only 'router' (matching handleCreateFeatureSubmit)"
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: "Add 'deleting' click-blocking and update ControlCenterState interface"
+    description: >
+      Add a check in handleNodeClick to block clicks on nodes in 'deleting' state (mirroring the
+      existing 'creating' check at line 128). Update the ControlCenterState interface: change
+      handleDeleteFeature return type from Promise<void> to void, remove isDeleting property.
+      Remove the isDeleting useState declaration (line 52) and remove isDeleting from the hook's
+      return object (line 446).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - "handleNodeClick returns early when node state is 'deleting' (mirroring 'creating' check)"
+      - 'ControlCenterState.handleDeleteFeature type is (featureId: string) => void (not Promise<void>)'
+      - 'ControlCenterState.isDeleting is removed from the interface'
+      - 'useState<boolean>(false) for isDeleting is removed from the hook body'
+      - "isDeleting is removed from the hook's return object"
+    tdd:
+      red:
+        - "Write test: 'does not open drawer when clicking a deleting node' — set node to 'deleting', call handleNodeClick, assert selectedNode remains null"
+      green:
+        - "Add 'if (data.state === 'deleting') return;' after the existing 'creating' check in handleNodeClick (line 128)"
+        - "Change handleDeleteFeature type in ControlCenterState from 'Promise<void>' to 'void'"
+        - "Remove 'isDeleting: boolean' from ControlCenterState interface"
+        - "Remove 'const [isDeleting, setIsDeleting] = useState(false)' (line 52)"
+        - "Remove 'isDeleting' from the return object (line 446)"
+      refactor:
+        - 'Verify no other files import or reference isDeleting from ControlCenterState'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: "Update useEffect reconciliation to filter 'deleting' nodes"
+    description: >
+      Extend the useEffect at lines 67-98 that merges initialNodes with local state. After the
+      existing merge logic, filter out nodes with state === 'deleting' whose IDs do NOT appear
+      in serverIds. This mirrors the 'creating' node handling pattern and ensures that confirmed
+      deletions are cleanly removed from the canvas. Nodes with state === 'deleting' whose IDs
+      ARE in serverIds get normal treatment (server data overrides, which will restore their state).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - "Nodes with state 'deleting' absent from serverIds are filtered out of the merged result"
+      - "Nodes with state 'deleting' present in serverIds get normal server-data merge (state restored from server)"
+      - "Existing 'creating' node reconciliation behavior is unchanged"
+    tdd:
+      red:
+        - "Write test: 'removes deleting node when server data no longer contains it' — set node to 'deleting', rerender with initialNodes that exclude it, verify node is gone"
+        - "Write test: 'restores deleting node state when server data still contains it' — set node to 'deleting', rerender with initialNodes that include it (e.g., delete failed server-side), verify node state is restored from server data"
+      green:
+        - "After the initialNodes.map() merge, add a .filter() or .concat() step that appends 'deleting' nodes still present in current state but absent from serverIds — actually, we need the inverse: we need to NOT include 'deleting' nodes that are absent from server data"
+        - "Modify the setNodes callback: after building the merged array from initialNodes.map(), append any currentNodes that are 'creating' (existing behavior) but NOT any that are 'deleting' and absent from serverIds"
+      refactor:
+        - "Ensure the filtering logic is clearly commented, mirroring the comment style of the 'creating' node handling"
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: "Update FeatureNode rendering for 'deleting' state"
+    description: >
+      Add reduced opacity (opacity-50) to the card wrapper div when state is 'deleting'. Extend
+      the aria-busy condition to include 'deleting' alongside 'creating'. Add a 'deleting' case
+      to getBadgeText returning 'Deleting...'. The 'deleting' state falls through to the default
+      badge rendering path (showProgressBar: false) so no new rendering branch is needed — the
+      config (Trash2 icon, red badge) handles it automatically.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - "Card wrapper div has 'opacity-50' class when data.state is 'deleting'"
+      - "aria-busy is 'true' when data.state is 'creating' OR 'deleting'"
+      - "getBadgeText returns 'Deleting...' for state 'deleting'"
+      - "The 'deleting' state renders through the default badge path (Trash2 icon + 'Deleting...' text + red badge)"
+      - 'No new rendering branch is added to the bottom section conditional chain'
+    tdd:
+      red:
+        - "Write test: 'renders deleting state with reduced opacity' — render FeatureNode with state 'deleting', assert card has opacity-50 class"
+        - "Write test: 'sets aria-busy for deleting state' — render with state 'deleting', assert aria-busy='true'"
+        - "Write test: 'displays Deleting... badge text' — render with state 'deleting', assert badge text is 'Deleting...'"
+      green:
+        - "Add conditional opacity-50 class to card div: cn(..., data.state === 'deleting' && 'opacity-50')"
+        - "Extend aria-busy: data.state === 'creating' || data.state === 'deleting' ? 'true' : undefined"
+        - "Add case 'deleting': return 'Deleting...' to getBadgeText switch statement"
+      refactor:
+        - 'Verify the opacity-50 value meets NFR-6 accessibility requirement (above 0.4 readability threshold)'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Remove isDeleting prop from FeatureDrawer'
+    description: >
+      Remove isDeleting from FeatureDrawerProps interface. Remove all isDeleting usage in the
+      component: the disabled states on Delete and Cancel buttons (tied to isDeleting), the
+      conditional Loader2 spinner in the AlertDialogAction, and the Loader2 import if no longer
+      used elsewhere in the file. Simplify the AlertDialogAction to always render 'Delete' text.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'isDeleting is removed from FeatureDrawerProps interface'
+      - 'No references to isDeleting remain in feature-drawer.tsx'
+      - "AlertDialogAction content is always 'Delete' (no Loader2 spinner conditional)"
+      - 'Delete button is not conditionally disabled by isDeleting'
+      - 'Cancel button is not conditionally disabled by isDeleting'
+      - 'Loader2 import is removed if not used elsewhere in the file'
+      - 'Component renders and behaves correctly without isDeleting prop'
+    tdd:
+      red:
+        - "Write test: 'FeatureDrawer renders delete button without loading state' — render without isDeleting prop, assert button shows 'Delete' text and is not disabled"
+      green:
+        - "Remove 'isDeleting?: boolean' from FeatureDrawerProps"
+        - 'Remove disabled={isDeleting} from Delete button and Cancel button'
+        - "Replace conditional Loader2/Delete text in AlertDialogAction with just 'Delete'"
+        - 'Remove Loader2 from lucide-react import if unused'
+      refactor:
+        - 'Verify no TypeScript errors from consumers passing isDeleting — they should stop passing it after task-3 removes it from the hook'
+    estimatedEffort: '10min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Update stories and tests'
+    description: >
+      Stories: Add 'Deleting' story to feature-node.stories.tsx showing the deleting visual state.
+      Add 'deleting' entry to the allStatesData array for the AllStates matrix story. Remove
+      DeletingState story from feature-drawer.stories.tsx. Remove isDeleting references from
+      story fixtures/helpers. Tests: Update existing deletion tests in use-control-center-state.test.tsx
+      to verify optimistic behavior instead of pessimistic. Remove all isDeleting assertions.
+      Ensure all tests from tasks 2-4 are properly integrated into the test file structure.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - "feature-node.stories.tsx has a 'Deleting' story with state 'deleting'"
+      - "AllStates matrix in feature-node.stories.tsx includes the 'deleting' state"
+      - 'feature-drawer.stories.tsx no longer has DeletingState story'
+      - 'feature-drawer.stories.tsx has no references to isDeleting'
+      - 'Existing deletion tests updated: no isDeleting assertions, verify optimistic state transitions'
+      - "Test: 'removes deleted node from nodes on success' updated to verify node transitions to 'deleting' state immediately, then is removed after server reconciliation"
+      - "Test: 'preserves nodes and edges on server action error' updated to verify rollback from 'deleting' to original state"
+      - 'All tests pass (pnpm test:unit)'
+      - 'Storybook builds without errors (pnpm build:storybook)'
+    tdd:
+      red:
+        - 'Run existing tests — identify which fail after the refactors and need updating'
+        - 'Identify any missing test coverage for the new optimistic flows'
+      green:
+        - "Add 'Deleting' story to feature-node.stories.tsx matching the pattern of 'Creating' story"
+        - "Add { state: 'deleting', ... } entry to allStatesData array"
+        - 'Remove DeletingState story and isDeleting references from feature-drawer.stories.tsx'
+        - "Update 'removes deleted node from nodes on success' test: assert immediate 'deleting' state, then resolve promise, then assert node removed"
+        - "Update 'preserves nodes and edges on server action error' test: assert immediate 'deleting' state, then resolve with error, then assert state rollback"
+        - "Update 'isDeleting is true during action' test: replace with optimistic state transition test"
+        - 'Remove all result.current.isDeleting assertions'
+      refactor:
+        - 'Consolidate test helper functions if deletion and creation tests share rollback verification patterns'
+        - 'Ensure test descriptions accurately describe optimistic behavior (not pessimistic)'
+    estimatedEffort: '45min'
+
+totalEstimate: '2h 45min'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 7 tasks across 4 phases, totaling approximately 2h 45min of
+  estimated effort.
+
+  The work begins with the type system foundation (phase 1) — extending FeatureNodeState and its
+  config record with the 'deleting' entry. This unlocks phase 2, which is the core behavioral
+  change: refactoring handleDeleteFeature from a blocking await pattern to a synchronous state
+  transition with non-blocking .then()/.catch() server action, mirroring handleCreateFeatureSubmit
+  exactly. Phase 2 also handles click-blocking, double-delete guards, interface cleanup (removing
+  isDeleting), and state reconciliation updates.
+
+  Phase 3 handles the visual layer — adding reduced opacity and aria-busy to FeatureNode for the
+  'deleting' state, and removing the now-dead isDeleting prop chain from FeatureDrawer (including
+  the Loader2 spinner and disabled states).
+
+  Phase 4 is the final integration pass — updating Storybook stories to document the new visual
+  state, removing obsolete DeletingState stories, and updating the comprehensive test suite to
+  verify optimistic behavior instead of pessimistic. All existing deletion tests are migrated to
+  assert immediate state transitions and rollback behavior rather than isDeleting boolean toggling.

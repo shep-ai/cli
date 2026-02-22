@@ -32,9 +32,8 @@ export interface ControlCenterState {
   handleLayout: (direction: LayoutDirection) => void;
   handleCreateFeatureSubmit: (data: FeatureCreatePayload) => void;
   closeCreateDrawer: () => void;
-  handleDeleteFeature: (featureId: string) => Promise<void>;
+  handleDeleteFeature: (featureId: string) => void;
   handleDeleteRepository: (repositoryId: string) => Promise<void>;
-  isDeleting: boolean;
   createFeatureNode: (
     sourceNodeId: string | null,
     dataOverride?: Partial<FeatureNodeData>
@@ -52,7 +51,6 @@ export function useControlCenterState(
   const [edges, setEdges] = useState<Edge[]>(initialEdges);
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
 
   // Sync server props into local state when router.refresh() delivers new data
@@ -86,6 +84,18 @@ export function useControlCenterState(
         // Node already exists on canvas — keep its position, update data
         const existing = currentById.get(serverNode.id);
         if (existing) {
+          // Preserve 'deleting' state during reconciliation — the optimistic delete
+          // is still in-flight and the server hasn't processed it yet
+          if (
+            existing.type === 'featureNode' &&
+            (existing.data as FeatureNodeData).state === 'deleting'
+          ) {
+            return {
+              ...serverNode,
+              position: existing.position,
+              data: { ...(serverNode.data as FeatureNodeData), state: 'deleting' as const },
+            } as CanvasNodeType;
+          }
           return { ...serverNode, position: existing.position };
         }
 
@@ -128,7 +138,7 @@ export function useControlCenterState(
   const handleNodeClick = useCallback((_event: React.MouseEvent, node: CanvasNodeType) => {
     if (node.type === 'featureNode') {
       const data = node.data as FeatureNodeData;
-      if (data.state === 'creating') return;
+      if (data.state === 'creating' || data.state === 'deleting') return;
       setIsCreateDrawerOpen(false);
       setSelectedNode(data);
     }
@@ -340,39 +350,61 @@ export function useControlCenterState(
   }, []);
 
   const handleDeleteFeature = useCallback(
-    async (featureId: string) => {
-      setIsDeleting(true);
-      try {
-        const result = await deleteFeature(featureId);
-
-        if (result.error) {
-          toast.error(result.error);
-          return;
-        }
-
-        setSelectedNode(null);
-        setNodes((currentNodes) => {
-          const remainingNodes = currentNodes.filter((n) => n.id !== featureId);
-          const remainingEdges = edges.filter(
-            (e) => e.source !== featureId && e.target !== featureId
-          );
-          const result = layoutWithDagre(remainingNodes, remainingEdges, {
-            direction: 'LR',
-            ranksep: 200,
-            nodesep: 60,
-          });
-          setEdges(result.edges);
-          return result.nodes;
-        });
-        toast.success('Feature deleted successfully');
-        router.refresh();
-      } catch {
-        toast.error('Failed to delete feature');
-      } finally {
-        setIsDeleting(false);
+    (featureId: string) => {
+      // Double-delete guard: skip if already deleting
+      const targetNode = nodes.find((n) => n.id === featureId);
+      if (
+        targetNode?.type === 'featureNode' &&
+        (targetNode.data as FeatureNodeData).state === 'deleting'
+      ) {
+        return;
       }
+
+      // Capture original state for rollback
+      const originalState =
+        targetNode?.type === 'featureNode' ? (targetNode.data as FeatureNodeData).state : undefined;
+
+      // Optimistic: transition node to 'deleting' state immediately
+      setNodes((prev) =>
+        prev.map((n) =>
+          n.id === featureId && n.type === 'featureNode'
+            ? { ...n, data: { ...n.data, state: 'deleting' } }
+            : n
+        )
+      );
+
+      // Close drawer immediately
+      setSelectedNode(null);
+
+      // Rollback helper
+      const rollback = () => {
+        if (originalState) {
+          setNodes((prev) =>
+            prev.map((n) =>
+              n.id === featureId && n.type === 'featureNode'
+                ? { ...n, data: { ...n.data, state: originalState } }
+                : n
+            )
+          );
+        }
+      };
+
+      // Fire server action in the background (no await)
+      deleteFeature(featureId)
+        .then((result) => {
+          if (result.error) {
+            rollback();
+            toast.error(result.error);
+            return;
+          }
+          router.refresh();
+        })
+        .catch(() => {
+          rollback();
+          toast.error('Failed to delete feature');
+        });
     },
-    [router, edges]
+    [router, nodes]
   );
 
   const handleDeleteRepository = useCallback(
@@ -561,7 +593,6 @@ export function useControlCenterState(
     closeCreateDrawer,
     handleDeleteFeature,
     handleDeleteRepository,
-    isDeleting,
     createFeatureNode,
   };
 }
