@@ -144,11 +144,12 @@ content: |
   `approvalGates`). Adding `--resume-payload <json>` follows the exact same pattern. IPC is
   disconnected immediately after fork(), and temp files add lifecycle management concerns.
 
-  ### 2. interrupt() Return Value for Routing (no new graph state channels)
+  ### 2. State Channels for Routing (fixes dual-interrupt replay bug)
 
-  LangGraph's `interrupt()` returns the value from `Command({ resume })`. Currently discarded
-  in `executeNode()` -- we capture it to distinguish approval from rejection. This uses LangGraph's
-  API as designed with zero changes to `state.ts`.
+  The initial approach of capturing `interrupt()` return values had a critical bug: `executeNode()`
+  needed TWO `interrupt()` calls per path, and LangGraph replays previous values by index on re-entry.
+  Fix: use `Command({resume, update})` to pass `_approvalAction` and `_rejectionFeedback` through
+  new state channels. The node reads state on re-entry — only ONE `interrupt()` at the bottom.
 
   ### 3. Same AgentRun Reuse on Rejection (not new run)
 

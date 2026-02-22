@@ -280,7 +280,7 @@ describe('Merge Flow (Graph-level)', () => {
       const config = { configurable: { thread_id: 'merge-gate-thread' } };
 
       // allowPrd=true, allowPlan=true skips requirements/plan gates.
-      // implement always interrupts when gates are present and not fully autonomous.
+      // implement does not interrupt — proceeds directly to merge.
       const result1 = await graph.invoke(
         baseInput({
           openPr: false,
@@ -289,14 +289,8 @@ describe('Merge Flow (Graph-level)', () => {
         config
       );
 
-      // First interrupt: implement node (always interrupts when not fully autonomous)
-      const interrupts1 = getInterrupts(result1);
-      expect(interrupts1.length).toBe(1);
-      expect(interrupts1[0].value.node).toBe('implement');
-
-      // Resume past implement → should now interrupt at merge
-      const result2 = await graph.invoke(new Command({ resume: { approved: true } }), config);
-      const interrupts2 = getInterrupts(result2);
+      // First interrupt: merge node (implement does not interrupt)
+      const interrupts2 = getInterrupts(result1);
       expect(interrupts2.length).toBe(1);
       expect(interrupts2[0].value.node).toBe('merge');
       expect(interrupts2[0].value.diffSummary).toBeDefined();
@@ -321,17 +315,14 @@ describe('Merge Flow (Graph-level)', () => {
       const graph = createFeatureAgentGraph(deps, checkpointer);
       const config = { configurable: { thread_id: 'merge-gate-diff-thread' } };
 
-      // First invoke → interrupt at implement
-      await graph.invoke(
+      // Invoke → implement does not interrupt, merge interrupts with diff summary
+      const result = await graph.invoke(
         baseInput({
           openPr: false,
           approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
         }),
         config
       );
-
-      // Resume past implement → interrupt at merge with diff summary
-      const result = await graph.invoke(new Command({ resume: { approved: true } }), config);
       const interrupts = getInterrupts(result);
       expect(interrupts[0].value.node).toBe('merge');
       expect(interrupts[0].value.diffSummary).toEqual(

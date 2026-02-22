@@ -102,9 +102,8 @@ export function safeYamlLoad(content: string): unknown {
  * - allowPlan: when true, skip interrupt after plan phase
  * - allowMerge: when true, skip interrupt after merge phase
  *
- * Nodes not covered by a gate (analyze, research) never interrupt.
- * The implement node always interrupts when gates are present
- * (unless all three gates are true, meaning fully autonomous).
+ * Nodes not covered by a gate (analyze, research, implement) never interrupt.
+ * Implementation always proceeds to merge; the merge node handles its own gate.
  *
  */
 export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefined): boolean {
@@ -114,7 +113,6 @@ export function shouldInterrupt(nodeName: string, gates: ApprovalGates | undefin
   if (nodeName === 'requirements') return !gates.allowPrd;
   if (nodeName === 'plan') return !gates.allowPlan;
   if (nodeName === 'merge') return !gates.allowMerge;
-  if (nodeName === 'implement') return true;
   return false;
 }
 
@@ -321,32 +319,34 @@ export function executeNode(
     await updateNodeLifecycle(nodeName);
 
     // On resume from interrupt, LangGraph re-executes the node function from
-    // the top. If this phase already completed (markPhaseComplete is called
-    // before interrupt), consume the resume value to determine next action:
-    // - Approval: skip re-execution, continue to next node
-    // - Rejection: clear completed phase, fall through to re-execute
-    //
-    // IMPORTANT: This interrupt() consumes the resume value from
-    // Command({ resume }). If rejected and re-executed, the interrupt() at the
-    // bottom of this function will have no pending resume value and will
-    // correctly suspend for a new approval cycle.
+    // the top. Instead of re-executing within this invocation (which would
+    // require a second interrupt() call and trigger the stale-replay bug),
+    // we return early. Rejection sets _needsReexecution=true so a conditional
+    // edge in the graph routes back to this node for a fresh invocation.
     const completedPhases = getCompletedPhases(state.specDir);
     if (completedPhases.includes(nodeName)) {
       if (shouldInterrupt(nodeName, state.approvalGates)) {
-        const resumeValue = interrupt({
-          node: nodeName,
-          message: `Node "${nodeName}" completed. Approve to continue.`,
-        });
-
-        if (isRejectionPayload(resumeValue)) {
-          log.info(`Phase rejected with feedback: "${resumeValue.feedback}" — re-executing`);
+        if (state._approvalAction === 'rejected') {
+          const feedback = state._rejectionFeedback ?? '(no feedback)';
+          log.info(`Phase rejected with feedback: "${feedback}" — scheduling re-execution`);
           clearCompletedPhase(state.specDir, nodeName, log);
-          // Fall through to re-execute the node
+          // Return early — the conditional edge will route back to this node
+          // for a fresh invocation with a clean interrupt index.
+          return {
+            currentNode: nodeName,
+            messages: [`[${nodeName}] Rejected — will re-execute`],
+            _approvalAction: null,
+            _rejectionFeedback: null,
+            _needsReexecution: true,
+          };
         } else {
           log.info('Phase approved, skipping re-execution');
           return {
             currentNode: nodeName,
             messages: [`[${nodeName}] Approved — continuing`],
+            _approvalAction: null,
+            _rejectionFeedback: null,
+            _needsReexecution: false,
           };
         }
       } else {
@@ -354,6 +354,7 @@ export function executeNode(
         return {
           currentNode: nodeName,
           messages: [`[${nodeName}] Approved — continuing`],
+          _needsReexecution: false,
         };
       }
     }
@@ -378,15 +379,21 @@ export function executeNode(
       await recordPhaseEnd(timingId, durationMs);
 
       // Mark phase complete BEFORE interrupting so that on resume the
-      // node detects the work is already done and skips re-execution.
+      // node detects the work is already done and returns early.
       markPhaseComplete(state.specDir, nodeName, log);
 
       const nodeResult: Partial<FeatureAgentState> = {
         currentNode: nodeName,
         messages: [`[${nodeName}] Complete (${result.result.length} chars, ${elapsed}s)`],
+        _approvalAction: null,
+        _rejectionFeedback: null,
+        _needsReexecution: false,
       };
 
-      // Human-in-the-loop: interrupt after node execution for review
+      // Human-in-the-loop: interrupt after node execution for review.
+      // This is the ONLY interrupt() call in the entire execution path.
+      // On resume, the node returns early (above) without calling interrupt(),
+      // so there is no stale interrupt replay.
       if (shouldInterrupt(nodeName, state.approvalGates)) {
         log.info('Interrupting for human approval');
         await recordApprovalWaitStart(timingId);

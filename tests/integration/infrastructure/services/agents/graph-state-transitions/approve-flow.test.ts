@@ -12,8 +12,8 @@
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { createTestContext, type TestContext } from './setup.js';
 import {
-  getInterrupts,
   expectInterruptAt,
+  expectNoInterrupts,
   approveCommand,
   readCompletedPhases,
   ALL_GATES_DISABLED,
@@ -59,7 +59,7 @@ describe('Graph State Transitions › Approve Flow', () => {
     expect(ctx.executor.execute).toHaveBeenCalledTimes(4);
   });
 
-  it('should approve plan and continue to implement (Test 5)', async () => {
+  it('should approve plan and continue to implement → end (Test 5)', async () => {
     const config = ctx.newConfig();
     // PRD auto-approved, plan gated
     const state = ctx.initialState(PRD_ALLOWED);
@@ -68,12 +68,12 @@ describe('Graph State Transitions › Approve Flow', () => {
     const result1 = await ctx.graph.invoke(state, config);
     expectInterruptAt(result1, 'plan');
 
-    // Invoke #2 — approve plan → implement interrupts
+    // Invoke #2 — approve plan → implement runs, graph completes (no merge in test graph)
     const result2 = await ctx.graph.invoke(approveCommand(), config);
-    expectInterruptAt(result2, 'implement');
+    expectNoInterrupts(result2);
 
     // Requirements did NOT interrupt (allowPrd: true)
-    // Only plan should have interrupted
+    // Only plan should have interrupted; implement never interrupts
   });
 
   it('should walk through all gates: requirements → plan → implement → end', async () => {
@@ -88,13 +88,9 @@ describe('Graph State Transitions › Approve Flow', () => {
     const r2 = await ctx.graph.invoke(approveCommand(), config);
     expectInterruptAt(r2, 'plan');
 
-    // Step 3: approve → interrupt at implement
+    // Step 3: approve → implement runs, graph completes (no merge in test graph)
     const r3 = await ctx.graph.invoke(approveCommand(), config);
-    expectInterruptAt(r3, 'implement');
-
-    // Step 4: approve → graph completes
-    const r4 = await ctx.graph.invoke(approveCommand(), config);
-    expect(getInterrupts(r4)).toHaveLength(0);
-    expect(r4.messages.length).toBeGreaterThanOrEqual(1);
+    expectNoInterrupts(r3);
+    expect(r3.messages.length).toBeGreaterThanOrEqual(1);
   });
 });

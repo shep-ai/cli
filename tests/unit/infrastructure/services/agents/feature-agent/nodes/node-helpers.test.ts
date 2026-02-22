@@ -73,9 +73,9 @@ describe('shouldInterrupt', () => {
   });
 
   describe('implement node', () => {
-    it('interrupts when gates exist but not fully autonomous', () => {
+    it('never interrupts (implementation always proceeds to merge)', () => {
       const gates = makeGates({ allowPrd: true, allowPlan: false });
-      expect(shouldInterrupt('implement', gates)).toBe(true);
+      expect(shouldInterrupt('implement', gates)).toBe(false);
     });
   });
 

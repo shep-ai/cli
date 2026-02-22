@@ -7,32 +7,15 @@
  * Covers:
  * - Test 2: Requirements rejected → re-executes and interrupts again
  * - Test 3: Requirements rejected once → approved on second attempt
- * - Test 4: Multiple consecutive rejections (known limitation — see note)
+ * - Test 4: Multiple consecutive rejections (fixed — state-based detection)
  * - Test 6: Plan rejected → re-executes and interrupts again
- *
- * ## Known Limitation: Multiple Consecutive Rejections
- *
- * The `executeNode()` function uses TWO `interrupt()` calls per execution:
- * one at the top (to detect approval/rejection on re-entry) and one at the
- * bottom (to pause after execution for human review).
- *
- * LangGraph replays previous interrupt return values when re-entering a node.
- * On the Nth resume (N > 1), interrupt index 0 (top) replays with the STALE
- * rejection value from the (N-1)th resume, while interrupt index 1 (bottom)
- * consumes the ACTUAL resume value without suspending.
- *
- * Result: second consecutive rejection causes the node to re-execute but
- * NOT re-interrupt — the graph continues to the next phase.
- *
- * Fix: refactor `executeNode` to use a single `interrupt()` call per
- * execution path, or use `Command({update})` to pass the resume value
- * through the graph state instead of through `interrupt()`.
  */
 
 import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import { createTestContext, type TestContext } from './setup.js';
 import {
   expectInterruptAt,
+  expectNoInterrupts,
   approveCommand,
   rejectCommand,
   readCompletedPhases,
@@ -96,27 +79,13 @@ describe('Graph State Transitions › Reject Flow', () => {
     const r3 = await ctx.graph.invoke(approveCommand(), config);
     expectInterruptAt(r3, 'plan');
 
-    // NOTE: Due to LangGraph interrupt replay, the approve resume triggers
-    // a stale rejection replay at interrupt index 0, causing an extra
-    // requirements re-execution before the approve is consumed at index 1.
-    // analyze(1) + req(2) + req-reexec(3) + req-replay-reexec(4) + research(5) + plan(6)
-    expect(ctx.executor.execute).toHaveBeenCalledTimes(6);
+    // With state-based detection (no stale replay), the approve skips
+    // requirements and continues: research(4) + plan(5)
+    // analyze(1) + req(2) + req-reexec(3) + research(4) + plan(5) = 5
+    expect(ctx.executor.execute).toHaveBeenCalledTimes(5);
   });
 
-  /**
-   * KNOWN BUG: Multiple consecutive rejections don't work correctly.
-   *
-   * On the 2nd rejection resume, LangGraph replays interrupt index 0 (top)
-   * with the stale 1st rejection value. The actual 2nd rejection value is
-   * consumed by interrupt index 1 (bottom) which doesn't suspend.
-   * The graph continues past requirements to the next phase.
-   *
-   * This test documents the CURRENT (broken) behavior.
-   * When the bug is fixed, update this test to verify correct behavior:
-   * - Each rejection should re-interrupt at "requirements"
-   * - Final approve should continue to "plan"
-   */
-  it('should handle consecutive rejections (documents current behavior — see known bug)', async () => {
+  it('should handle consecutive rejections correctly (Test 4)', async () => {
     const config = ctx.newConfig();
     const state = ctx.initialState(ALL_GATES_DISABLED);
 
@@ -128,13 +97,54 @@ describe('Graph State Transitions › Reject Flow', () => {
     const r2 = await ctx.graph.invoke(rejectCommand('fix A'), config);
     expectInterruptAt(r2, 'requirements');
 
-    // Invoke #3 — second rejection: due to interrupt replay bug,
-    // the graph continues past requirements to plan
+    // Invoke #3 — second rejection: with state-based detection, this
+    // correctly re-interrupts at requirements (bug fixed)
     const r3 = await ctx.graph.invoke(rejectCommand('fix B'), config);
-    // BUG: should interrupt at 'requirements' but interrupts at 'plan'
-    // because interrupt index 1 (bottom) consumes the resume value
-    // without suspending.
-    expectInterruptAt(r3, 'plan');
+    expectInterruptAt(r3, 'requirements');
+
+    // analyze(1) + req(2) + req-reexec(3) + req-reexec(4) = 4
+    expect(ctx.executor.execute).toHaveBeenCalledTimes(4);
+  });
+
+  it('should handle 5 consecutive rejections then approve (Test 11)', async () => {
+    const config = ctx.newConfig();
+    const state = ctx.initialState(ALL_GATES_DISABLED);
+
+    // Invoke #1 — interrupt at requirements
+    const r1 = await ctx.graph.invoke(state, config);
+    expectInterruptAt(r1, 'requirements');
+    expect(ctx.executor.callCount).toBe(2); // analyze + requirements
+
+    // 5 consecutive rejections — each should re-interrupt at requirements
+    const rejectionMessages = [
+      'add error handling section',
+      'include performance requirements',
+      'clarify authentication flow',
+      'add data migration strategy',
+      'specify API rate limits',
+    ];
+
+    for (let i = 0; i < rejectionMessages.length; i++) {
+      const result = await ctx.graph.invoke(rejectCommand(rejectionMessages[i]), config);
+      expectInterruptAt(result, 'requirements');
+
+      // Each rejection re-executes requirements once
+      // analyze(1) + req(1) + rejections(i+1)
+      expect(ctx.executor.callCount).toBe(3 + i);
+
+      // completedPhases should still include requirements after each re-execution
+      expect(readCompletedPhases(ctx.specDir)).toContain('requirements');
+    }
+
+    // Final call count after 5 rejections: analyze(1) + req(1) + 5 re-execs = 7
+    expect(ctx.executor.callCount).toBe(7);
+
+    // Invoke #7 — approve → should continue past requirements to research, then plan
+    const rApprove = await ctx.graph.invoke(approveCommand(), config);
+    expectInterruptAt(rApprove, 'plan');
+
+    // After approve: research(8) + plan(9)
+    expect(ctx.executor.callCount).toBe(9);
   });
 
   it('should reject plan, re-execute plan only (Test 6)', async () => {
@@ -154,10 +164,8 @@ describe('Graph State Transitions › Reject Flow', () => {
     // Only plan was re-executed (research was NOT re-executed)
     expect(ctx.executor.callCount - callsBeforeReject).toBe(1);
 
-    // Invoke #3 — approve plan → continue to implement
-    // NOTE: Same interrupt replay issue as test 3 — plan re-executes
-    // once more before the approve is consumed at interrupt index 1.
+    // Invoke #3 — approve plan → implement runs, graph completes (no merge in test graph)
     const r3 = await ctx.graph.invoke(approveCommand(), config);
-    expectInterruptAt(r3, 'implement');
+    expectNoInterrupts(r3);
   });
 });

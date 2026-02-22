@@ -27,6 +27,24 @@ export interface FeatureAgentGraphDeps {
 }
 
 /**
+ * Factory that creates a conditional edge function for re-execution routing.
+ *
+ * After an interruptible node resumes, it returns early with _needsReexecution
+ * set to true (rejection) or false (approval). This edge routes back to the
+ * same node on rejection for a fresh invocation, avoiding the stale interrupt
+ * replay bug caused by dual interrupt() calls.
+ */
+function routeReexecution(
+  selfNode: string,
+  nextNode: string
+): (state: FeatureAgentState) => string {
+  return (state: FeatureAgentState): string => {
+    if (state._needsReexecution) return selfNode;
+    return nextNode;
+  };
+}
+
+/**
  * Factory that creates a conditional edge function for validation routing.
  *
  * Routes to successNode on pass, repairNode on fail, throws after maxRetries.
@@ -175,6 +193,10 @@ export function createFeatureAgentGraph(
     .addNode('repair_plan_tasks', createRepairNode(['plan.yaml', 'tasks.yaml'], executor))
 
     // --- Edges: linear flow with validation gates ---
+    // Interruptible nodes (requirements, plan) use conditional edges that
+    // check _needsReexecution to loop back on rejection. This ensures each
+    // re-execution is a fresh node invocation with a clean interrupt index,
+    // avoiding the stale interrupt replay bug with dual interrupt() calls.
     .addEdge(START, 'analyze')
     .addEdge('analyze', 'validate_spec_analyze')
     .addConditionalEdges(
@@ -183,7 +205,10 @@ export function createFeatureAgentGraph(
     )
     .addEdge('repair_spec_analyze', 'validate_spec_analyze')
 
-    .addEdge('requirements', 'validate_spec_requirements')
+    .addConditionalEdges(
+      'requirements',
+      routeReexecution('requirements', 'validate_spec_requirements')
+    )
     .addConditionalEdges(
       'validate_spec_requirements',
       routeValidation('research', 'repair_spec_requirements')
@@ -194,7 +219,7 @@ export function createFeatureAgentGraph(
     .addConditionalEdges('validate_research', routeValidation('plan', 'repair_research'))
     .addEdge('repair_research', 'validate_research')
 
-    .addEdge('plan', 'validate_plan_tasks')
+    .addConditionalEdges('plan', routeReexecution('plan', 'validate_plan_tasks'))
     .addConditionalEdges('validate_plan_tasks', routeValidation('implement', 'repair_plan_tasks'))
     .addEdge('repair_plan_tasks', 'validate_plan_tasks');
 

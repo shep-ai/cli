@@ -98,8 +98,8 @@ describe('shouldInterrupt', () => {
       expect(shouldInterrupt('plan', gates)).toBe(true);
     });
 
-    it('should interrupt on implement node', () => {
-      expect(shouldInterrupt('implement', gates)).toBe(true);
+    it('should NOT interrupt on implement node', () => {
+      expect(shouldInterrupt('implement', gates)).toBe(false);
     });
   });
 
@@ -122,8 +122,8 @@ describe('shouldInterrupt', () => {
       expect(shouldInterrupt('plan', gates)).toBe(true);
     });
 
-    it('should interrupt on implement node', () => {
-      expect(shouldInterrupt('implement', gates)).toBe(true);
+    it('should NOT interrupt on implement node', () => {
+      expect(shouldInterrupt('implement', gates)).toBe(false);
     });
   });
 

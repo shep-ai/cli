@@ -75,14 +75,15 @@ describe('Graph State Transitions › Gate Configuration', () => {
     expectInterruptAt(result, 'plan');
   });
 
-  it('should skip requirements and plan when both allowed, interrupt at implement', async () => {
+  it('should skip requirements and plan when both allowed, run to completion', async () => {
     const config = ctx.newConfig();
     const state = ctx.initialState(PRD_PLAN_ALLOWED);
 
     const result = await ctx.graph.invoke(state, config);
 
-    // Requirements + plan pass through, implement always interrupts when gates present
-    expectInterruptAt(result, 'implement');
+    // Requirements + plan pass through, implement runs, graph completes (no merge in test graph)
+    expectNoInterrupts(result);
+    expect(result.messages.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should interrupt at requirements when only allowPrd is false', async () => {

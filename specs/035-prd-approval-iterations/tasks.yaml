@@ -149,36 +149,43 @@ tasks:
 
   - id: task-5
     phaseId: phase-2
-    title: 'Update executeNode() to capture interrupt() return and handle rejection'
+    title: 'Refactor executeNode() to use state-based approval detection (fix dual-interrupt bug)'
     description: >
-      Modify executeNode() in node-helpers.ts to capture the return value of interrupt().
-      When the returned value contains { rejected: true }, clear the completed phase from
-      feature.yaml and re-execute the node instead of skipping. When { approved: true } or
-      no rejection flag, maintain existing skip behavior. Add clearCompletedPhase() helper.
+      Refactor executeNode() in node-helpers.ts to use state-based approval detection instead of
+      interrupt() return values. Add _approvalAction and _rejectionFeedback channels to state.ts.
+      On re-entry, read state._approvalAction: if "rejected", clear completed phase and re-execute;
+      if "approved", skip. Remove the top interrupt() call entirely — only ONE interrupt() at the
+      bottom remains. Update Command construction in worker and test helpers to use
+      Command({resume, update}) setting the state channels. This fixes the dual-interrupt replay
+      bug where consecutive rejections caused the graph to silently advance past the current node.
     state: Todo
     dependencies:
       - task-4
     acceptanceCriteria:
-      - 'executeNode() captures interrupt() return value'
-      - 'On resume with { approved: true }, phase is still in completedPhases -> skip (existing behavior)'
-      - 'On resume with { rejected: true, feedback: "..." }, completedPhases is cleared for this node and node re-executes'
+      - 'state.ts has _approvalAction and _rejectionFeedback channels with null defaults'
+      - 'executeNode() reads state._approvalAction instead of interrupt() return value on re-entry'
+      - 'On resume with _approvalAction="approved", phase is in completedPhases -> skip (existing behavior)'
+      - 'On resume with _approvalAction="rejected", completedPhases is cleared and node re-executes'
+      - 'Only ONE interrupt() call exists per execution path (at the bottom, after execution)'
+      - 'Node return value clears _approvalAction and _rejectionFeedback to null'
+      - 'Worker and test helpers use Command({resume, update}) to set state channels'
+      - 'Consecutive rejections (2+) correctly re-interrupt at the same node (bug fixed)'
       - 'clearCompletedPhase(specDir, phaseId) function exists and removes a phase from feature.yaml completedPhases'
-      - 'After rejection re-execution, markPhaseComplete() is called again for the new iteration'
     tdd:
       red:
-        - 'Write test: executeNode resumes with { approved: true } when phase is in completedPhases -> skips execution (existing behavior, regression test)'
-        - 'Write test: executeNode resumes with { rejected: true, feedback: "fix X" } when phase is in completedPhases -> clears phase, re-executes node, calls buildPrompt'
+        - 'Write test: 5 consecutive rejections each re-interrupt at requirements, final approve continues to research (NEW)'
+        - 'Write test: executeNode with _approvalAction="approved" skips execution (regression test)'
+        - 'Write test: executeNode with _approvalAction="rejected" clears phase and re-executes'
         - 'Write test: clearCompletedPhase removes the specified phase from feature.yaml completedPhases array'
-        - 'Tests fail because executeNode ignores interrupt return value'
       green:
-        - 'Implement clearCompletedPhase() in node-helpers.ts'
-        - 'Capture interrupt() return value in executeNode()'
-        - 'Add branching logic: if rejected, clear phase and re-execute; if approved, skip as before'
-        - 'Re-call markPhaseComplete after re-execution'
+        - 'Add _approvalAction and _rejectionFeedback channels to state.ts'
+        - 'Refactor executeNode() to read state._approvalAction instead of top interrupt()'
+        - 'Update Command construction in worker to include update field'
+        - 'Update test helpers approveCommand/rejectCommand to use Command({resume, update})'
       refactor:
-        - 'Extract rejection detection into isRejectionPayload() type guard'
-        - 'Ensure error handling around clearCompletedPhase matches existing markPhaseComplete pattern'
-    estimatedEffort: '2h'
+        - 'Remove stale dual-interrupt documentation from test files'
+        - 'Update call count expectations in existing tests (no more extra replay re-executions)'
+    estimatedEffort: '3h'
 
   - id: task-6
     phaseId: phase-2

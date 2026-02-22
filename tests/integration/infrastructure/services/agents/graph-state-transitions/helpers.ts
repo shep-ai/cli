@@ -50,13 +50,19 @@ export function expectNoInterrupts(result: Record<string, unknown>): void {
 /** Create a LangGraph Command to approve and continue. */
 
 export function approveCommand(): any {
-  return new Command({ resume: { approved: true } });
+  return new Command({
+    resume: { approved: true },
+    update: { _approvalAction: 'approved', _rejectionFeedback: null },
+  });
 }
 
 /** Create a LangGraph Command to reject with feedback. */
 
 export function rejectCommand(feedback: string): any {
-  return new Command({ resume: { rejected: true, feedback } });
+  return new Command({
+    resume: { rejected: true, feedback },
+    update: { _approvalAction: 'rejected', _rejectionFeedback: feedback },
+  });
 }
 
 /* ------------------------------------------------------------------ */

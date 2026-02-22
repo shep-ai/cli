@@ -33,7 +33,7 @@ graph LR
     RS --> VRS[validate_research]:::validator
     VRS --> P[plan]:::interruptible
     P --> VP[validate_plan_tasks]:::validator
-    VP --> I[implement]:::interruptible
+    VP --> I[implement]:::producer
     I --> M[merge]:::interruptible
     M --> E((End)):::startEnd
 
@@ -54,7 +54,8 @@ Interrupt-capable nodes (controlled by `ApprovalGates`):
 - `requirements` — gated by `allowPrd`
 - `plan` — gated by `allowPlan`
 - `merge` — gated by `allowMerge`
-- `implement` — always interrupts when gates present
+
+Non-interruptible nodes: `analyze`, `research`, `implement` (always proceed autonomously).
 
 ## Directory Structure
 
@@ -66,8 +67,9 @@ graph-state-transitions/
 ├── fixtures.ts            # Valid YAML fixtures for spec, research, plan, tasks
 ├── helpers.ts             # Shared utilities (interrupt helpers, resume commands)
 ├── approve-flow.test.ts   # Approval path tests (Tests 1, 5)
-├── reject-flow.test.ts    # Rejection iteration tests (Tests 2, 3, 4, 6)
+├── reject-flow.test.ts    # Rejection iteration tests (Tests 2, 3, 4, 6, 11)
 ├── gate-configuration.test.ts  # ApprovalGates combination tests (Tests 7, 8)
+├── merge-flow.test.ts     # Merge node gate tests (Tests 12-16)
 └── feedback-and-timing.test.ts # Feedback propagation and timing tests (Tests 9, 10)
 ```
 
@@ -269,13 +271,13 @@ sequenceDiagram
 
 **Scenario**: Same as test 1 but for the plan node (validates gates work for all interruptible nodes).
 
-**Gates**: `{ allowPrd: true, allowPlan: false, allowMerge: true }`
+**Gates**: `{ allowPrd: true, allowPlan: false, allowMerge: false }`
 
 **Assertions**:
 
 - Requirements does NOT interrupt (allowPrd: true)
 - Plan DOES interrupt (allowPlan: false)
-- Implement interrupts after plan is approved
+- After plan approval, implement runs and graph completes (no merge in legacy test graph)
 
 ---
 
@@ -332,25 +334,79 @@ sequenceDiagram
 
 ---
 
-## Known Issues
+### 11. Five Consecutive Rejections Then Approve
 
-### Double-Interrupt Replay Bug
+**Scenario**: Requirements rejected 5 times in a row, then approved on the 6th invoke.
 
-`executeNode()` uses two `interrupt()` calls: one at the top (to detect approval/rejection on re-entry) and one at the bottom (to pause after execution). LangGraph tracks interrupts by their call index within the function.
+**Assertions**:
 
-**Impact:**
+- Each rejection re-executes requirements and interrupts again
+- Final approval skips re-execution and continues to research → plan
+- Executor call count: analyze(1) + requirements(1) + 5 re-execs + research + plan = 9
 
-1. **Multiple consecutive rejections don't work.** On the 2nd rejection, LangGraph replays interrupt index 0 with the stale 1st rejection value. The actual 2nd rejection value is consumed by interrupt index 1 (bottom) which returns without suspending. The graph continues past the node instead of re-interrupting.
+---
 
-2. **Reject-then-approve causes an extra re-execution.** On approve after a rejection, the stale rejection is replayed at interrupt index 0, causing the node to clear its phase and re-execute once more. The actual approval is consumed at index 1, and the graph continues correctly — but with one unnecessary executor call.
+### 12. Merge Interrupt With PRD+Plan Auto-Approved
 
-**Affected tests:**
+**Scenario**: `{ allowPrd: true, allowPlan: true, allowMerge: false }` — graph runs through all producer nodes and interrupts at merge.
 
-- `reject-flow.test.ts` — "consecutive rejections" test documents the broken behavior
-- `reject-flow.test.ts` — "reject then approve" has adjusted call count (6 instead of expected 5)
-- `feedback-and-timing.test.ts` — call count tracking reflects the extra re-execution
+**Graph**: Uses `withMerge: true` context (merge node wired with stubbed deps).
 
-**Fix required in:** `executeNode()` in `node-helpers.ts` — refactor to use a single `interrupt()` per execution path. See `CLAUDE.md` in this directory for fix options.
+**Assertions**:
+
+- All 5 producer nodes execute without interrupt
+- Merge node interrupts (allowMerge: false)
+
+---
+
+### 13. Full Completion With All Gates Enabled (With Merge)
+
+**Scenario**: `{ allowPrd: true, allowPlan: true, allowMerge: true }` — fully autonomous including merge.
+
+**Assertions**: No interrupts, all nodes run, graph completes.
+
+---
+
+### 14. Full Gate Walk-Through With Merge
+
+**Scenario**: All gates disabled — walk through requirements, plan, and merge approvals.
+
+**Assertions**:
+
+- Invoke #1: interrupt at requirements
+- Invoke #2 (approve): interrupt at plan
+- Invoke #3 (approve): implement runs, interrupt at merge
+- Invoke #4 (approve): merge completes, graph ends
+
+---
+
+### 15. Plan Reject Through Merge Approve
+
+**Scenario**: Plan rejected, re-executed, then approved through to merge completion.
+
+**Assertions**:
+
+- Plan re-executes on rejection
+- After plan approval, implement runs, merge interrupts
+- After merge approval, graph completes
+
+---
+
+### 16. No Gates With Merge Node
+
+**Scenario**: `approvalGates` undefined, merge node wired. No interrupts at all.
+
+**Assertions**: Same as test 7 but with merge node in the graph.
+
+---
+
+## Resolved Issues
+
+### Double-Interrupt Replay Bug (FIXED)
+
+`executeNode()` previously used two `interrupt()` calls: one at the top (to detect approval/rejection on re-entry) and one at the bottom (to pause after execution). LangGraph tracks interrupts by call index, causing stale replay on consecutive rejections.
+
+**Fix**: Refactored to use state-based detection via `Command({resume, update})`. On rejection, the node returns early with `_needsReexecution: true` and a conditional edge (`routeReexecution`) routes back to the same node for a fresh invocation. Each invocation now has at most ONE `interrupt()` call.
 
 ---
 

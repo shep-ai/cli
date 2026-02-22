@@ -73,19 +73,19 @@ decisions:
       the resume payload indicates rejection.
 
   - title: 'How executeNode() Distinguishes Approval vs Rejection on Resume'
-    chosen: 'Read the Command resume value from LangGraph interrupt() return value'
+    chosen: 'Pass approval action via Command({update}) into graph state channels, eliminating the top interrupt() call'
     rejected:
-      - 'Add a graph state channel (e.g., resumePayload) set by the worker before invoke — LangGraph Command({ resume }) already delivers the value directly to the interrupted node; duplicating it in state adds complexity and requires state channel management'
+      - 'Read the Command resume value from LangGraph interrupt() return value — REJECTED DUE TO BUG: executeNode() requires TWO interrupt() calls (one at top to consume resume value, one at bottom to suspend after execution). LangGraph replays interrupt values by index on re-entry, so on the Nth resume (N>1) interrupt[0] replays with the STALE (N-1)th value while interrupt[1] consumes the actual Nth value without suspending. This causes consecutive rejections to silently advance the graph past the current node after the 2nd rejection.'
       - 'Use a file-based flag (e.g., .rejection file in specDir) — fragile, requires cleanup, and circumvents the LangGraph state management'
     rationale: >
-      LangGraph interrupt/resume mechanism delivers the Command({ resume: value }) payload as the
-      return value of the interrupt() call inside the node. The executeNode() wrapper calls
-      interrupt({...}) which pauses execution. On resume, interrupt() returns the value from
-      Command({ resume }). The executeNode() wrapper can check this return value: if it contains
-      { rejected: true, feedback: ... }, clear completedPhases and re-execute; if { approved: true },
-      skip as before. This uses the LangGraph API exactly as designed — no additional state channels
-      or side-channel files needed. The key implementation detail: interrupt() currently discards its
-      return value in executeNode(); we need to capture it and branch accordingly.
+      The initial approach of capturing the interrupt() return value had a critical bug: it required
+      TWO interrupt() calls per execution path (one to detect approval/rejection, one to suspend for
+      review). LangGraph replays previous interrupt values by index, causing stale replay on consecutive
+      rejections. The fix uses Command({resume, update}) to pass the approval action through graph state
+      channels (_approvalAction, _rejectionFeedback) instead. The node reads state._approvalAction on
+      re-entry — no top interrupt needed. Only ONE interrupt() call remains (at the bottom, after
+      execution), ensuring correct behavior for unlimited consecutive rejections. Command({update})
+      merges into state before the node re-executes, so the node sees the updated action immediately.
 
   - title: 'Phase Timing Iteration Number Derivation'
     chosen: 'Count existing PhaseTiming rows with same phase prefix for the run, derive next suffix'
@@ -191,14 +191,16 @@ decisions:
       (confirm prompt) in the presentation layer.
 
   - title: 'Graph State Channel for Resume Payload'
-    chosen: 'No new graph state channel — use LangGraph interrupt() return value directly'
+    chosen: 'Add _approvalAction and _rejectionFeedback channels to FeatureAgentAnnotation'
     rejected:
-      - 'Add a resumePayload channel to FeatureAgentAnnotation — the interrupt() return value already delivers the payload; adding a state channel would duplicate this data and require a custom reducer'
+      - 'No new graph state channels, use interrupt() return value directly — REJECTED DUE TO BUG: requires dual interrupt() calls which causes stale replay on consecutive rejections (see decision 5 for details)'
     rationale: >
-      LangGraph interrupt() function returns the value passed in Command({ resume }). The
-      executeNode() wrapper currently discards this return value. Capturing it is sufficient to
-      route the node behavior. No changes to state.ts are needed. This is the simplest approach
-      and uses LangGraph as designed.
+      Two new internal state channels are added: _approvalAction ("approved" | "rejected" | null)
+      and _rejectionFeedback (string | null). These are set by Command({update}) when resuming
+      from an interrupt, and read by executeNode() on re-entry to determine whether to skip
+      (approved) or re-execute (rejected). The channels use last-value-wins reducers and default
+      to null. They are cleared (set to null) in the node return value after being consumed,
+      so they do not leak to subsequent nodes. This eliminates the dual-interrupt pattern entirely.
 
 openQuestions:
   - question: 'Does LangGraph interrupt() actually return the Command resume value in the node function?'
@@ -300,15 +302,19 @@ content: |
 
   ### 5. executeNode() Approval vs Rejection Routing
 
-  **Chosen:** Capture the `interrupt()` return value to distinguish approval from rejection
+  **Chosen:** Pass approval action via `Command({update})` into graph state channels
 
   **Rejected:**
-  - Graph state channel for payload — duplicates data LangGraph already delivers
+  - Capture interrupt() return value — REJECTED DUE TO BUG: requires dual interrupt() calls causing stale replay on consecutive rejections
   - File-based flag — fragile, requires cleanup
 
-  **Rationale:** `interrupt()` returns the `Command({ resume })` value when the graph resumes. Currently
-  discarded — capturing it is straightforward: `const resumeValue = interrupt({...})`. If resumeValue
-  has `{ rejected: true }`, re-execute; if `{ approved: true }`, skip (existing behavior).
+  **Rationale:** The initial interrupt()-return-value approach had a critical bug: `executeNode()` needed
+  TWO interrupt() calls per path (one to consume resume value, one to suspend). LangGraph replays
+  previous interrupt values by index, so on the Nth resume (N>1), interrupt[0] replays with stale
+  data while interrupt[1] consumes the actual value without suspending. Fix: use `Command({resume, update})`
+  to pass `_approvalAction` and `_rejectionFeedback` through state channels. The node reads state on
+  re-entry — no top interrupt needed. Only ONE interrupt() at the bottom ensures correct behavior
+  for unlimited consecutive rejections.
 
   ### 6. Phase Timing Iteration Numbering
 
@@ -400,12 +406,14 @@ content: |
 
   ### 14. Graph State Changes
 
-  **Chosen:** No new graph state channels — use interrupt() return value directly
+  **Chosen:** Add `_approvalAction` and `_rejectionFeedback` channels to `FeatureAgentAnnotation`
 
   **Rejected:**
-  - Add resumePayload channel — duplicates LangGraph's built-in mechanism
+  - No new channels, use interrupt() return value — REJECTED: causes dual-interrupt replay bug
 
-  **Rationale:** LangGraph interrupt/resume is designed for this exact pattern. No state.ts changes needed.
+  **Rationale:** Two internal state channels (`_approvalAction`, `_rejectionFeedback`) are set by
+  `Command({update})` on resume and read by `executeNode()` on re-entry. This eliminates the
+  dual-interrupt pattern that caused consecutive rejections to silently advance the graph.
 
   ## Library Analysis
 

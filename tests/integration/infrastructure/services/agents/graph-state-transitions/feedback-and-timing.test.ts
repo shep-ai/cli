@@ -94,12 +94,9 @@ describe('Graph State Transitions › Feedback & Timing', () => {
     await ctx.graph.invoke(rejectCommand('iteration 1'), config);
     expect(ctx.executor.callCount).toBe(3); // + requirements re-exec
 
-    // Invoke #3 — approve → continues to plan
-    // NOTE: Due to LangGraph interrupt replay, the approve triggers a stale
-    // rejection replay at interrupt index 0, causing one extra requirements
-    // re-execution before the approve is consumed at index 1.
-    // So: req-replay-reexec(4) + research(5) + plan(6) = 3 more calls
+    // Invoke #3 — approve → requirements skips (approved via state), continues
+    // analyze(1) + req(2) + req-reexec(3) + research(4) + plan(5) = 5
     await ctx.graph.invoke(approveCommand(), config);
-    expect(ctx.executor.callCount).toBe(6);
+    expect(ctx.executor.callCount).toBe(5);
   });
 });

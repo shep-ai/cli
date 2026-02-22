@@ -16,7 +16,11 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { vi, type Mock } from 'vitest';
-import { createFeatureAgentGraph } from '@/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
+import {
+  createFeatureAgentGraph,
+  type FeatureAgentGraphDeps,
+} from '@/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
+import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
 import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
@@ -69,8 +73,54 @@ export function createStubExecutor(): StubExecutor {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Stub Merge Node Dependencies                                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Create stubbed MergeNodeDeps for testing the merge node in the graph.
+ * All external calls are no-ops that return canned data.
+ */
+export function createStubMergeNodeDeps(featureId?: string): MergeNodeDeps {
+  return {
+    gitPrService: {
+      hasUncommittedChanges: vi.fn().mockResolvedValue(false),
+      commitAll: vi.fn().mockResolvedValue('abc1234'),
+      push: vi.fn().mockResolvedValue(undefined),
+      createPr: vi.fn().mockResolvedValue({ url: 'https://github.com/test/pr/1', number: 1 }),
+      mergePr: vi.fn().mockResolvedValue(undefined),
+      mergeBranch: vi.fn().mockResolvedValue(undefined),
+      getCiStatus: vi.fn().mockResolvedValue({ status: 'success' }),
+      watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
+      deleteBranch: vi.fn().mockResolvedValue(undefined),
+      getPrDiffSummary: vi.fn().mockResolvedValue({
+        filesChanged: 3,
+        additions: 50,
+        deletions: 10,
+        commitCount: 2,
+      }),
+    },
+    generatePrYaml: vi.fn().mockReturnValue('/tmp/pr.yaml'),
+    featureRepository: {
+      findById: vi.fn().mockResolvedValue({
+        id: featureId ?? 'feat-test',
+        name: 'Test Feature',
+        slug: 'test-feature',
+        branch: 'feat/test',
+        repositoryPath: '/tmp',
+      }),
+      update: vi.fn().mockResolvedValue(undefined),
+    },
+  };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Test Context                                                      */
 /* ------------------------------------------------------------------ */
+
+export interface TestContextOptions {
+  /** When true, wire up the merge node with stubbed deps. Default: false. */
+  withMerge?: boolean;
+}
 
 export interface TestContext {
   /** Temporary directory root for this test suite. */
@@ -81,6 +131,8 @@ export interface TestContext {
   executor: StubExecutor;
   /** The compiled LangGraph graph. */
   graph: ReturnType<typeof createFeatureAgentGraph>;
+  /** Stubbed merge node deps (only available when withMerge=true). */
+  mergeNodeDeps?: MergeNodeDeps;
   /** Generate a unique graph config with isolated thread_id. */
   newConfig: () => { configurable: { thread_id: string } };
   /** Build initial state for graph.invoke(). */
@@ -104,11 +156,24 @@ export interface TestContext {
  * - Stub executor (no AI calls)
  * - Unique thread_id generation for checkpoint isolation
  */
-export function createTestContext(): TestContext {
+export function createTestContext(options?: TestContextOptions): TestContext {
+  const withMerge = options?.withMerge ?? false;
   let tempDir = '';
   let specDir = '';
   let executor: StubExecutor;
+  let mergeNodeDeps: MergeNodeDeps | undefined;
   let graph: ReturnType<typeof createFeatureAgentGraph>;
+
+  function buildGraph(): void {
+    executor = createStubExecutor();
+    if (withMerge) {
+      mergeNodeDeps = createStubMergeNodeDeps();
+      const deps: FeatureAgentGraphDeps = { executor, mergeNodeDeps };
+      graph = createFeatureAgentGraph(deps, createCheckpointer(':memory:'));
+    } else {
+      graph = createFeatureAgentGraph(executor, createCheckpointer(':memory:'));
+    }
+  }
 
   const ctx: TestContext = {
     get tempDir() {
@@ -122,6 +187,9 @@ export function createTestContext(): TestContext {
     },
     get graph() {
       return graph;
+    },
+    get mergeNodeDeps() {
+      return mergeNodeDeps;
     },
 
     newConfig: () => ({
@@ -138,9 +206,7 @@ export function createTestContext(): TestContext {
 
     reset: () => {
       writeFileSync(join(specDir, 'feature.yaml'), 'status:\n  completedPhases: []\n');
-      // Re-create executor and graph for clean mock state
-      executor = createStubExecutor();
-      graph = createFeatureAgentGraph(executor, createCheckpointer(':memory:'));
+      buildGraph();
     },
 
     init: () => {
@@ -154,8 +220,7 @@ export function createTestContext(): TestContext {
       writeFileSync(join(specDir, 'tasks.yaml'), VALID_TASKS_YAML);
       writeFileSync(join(specDir, 'feature.yaml'), 'status:\n  completedPhases: []\n');
 
-      executor = createStubExecutor();
-      graph = createFeatureAgentGraph(executor, createCheckpointer(':memory:'));
+      buildGraph();
     },
 
     cleanup: () => {

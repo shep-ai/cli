@@ -229,8 +229,29 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
           log(`Warning: Failed to parse --resume-payload, using default approval: ${e}`);
         }
       }
+
+      // Derive state updates from the resume payload so executeNode() can
+      // read _approvalAction from state instead of from interrupt() return
+      // value (fixes the dual-interrupt stale replay bug).
+      const stateUpdate: Record<string, unknown> = {};
+      if (
+        typeof resumeValue === 'object' &&
+        resumeValue !== null &&
+        'rejected' in resumeValue &&
+        (resumeValue as Record<string, unknown>).rejected === true
+      ) {
+        stateUpdate._approvalAction = 'rejected';
+        stateUpdate._rejectionFeedback = (resumeValue as Record<string, unknown>).feedback ?? null;
+      } else {
+        stateUpdate._approvalAction = 'approved';
+        stateUpdate._rejectionFeedback = null;
+      }
+
       log('Resuming graph from interrupt checkpoint...');
-      result = await graph.invoke(new Command({ resume: resumeValue }), graphConfig);
+      result = await graph.invoke(
+        new Command({ resume: resumeValue, update: stateUpdate }),
+        graphConfig
+      );
     } else if (args.resume) {
       // Resume from error — re-invoke with initial state; LangGraph continues
       // from the last successfully checkpointed node.

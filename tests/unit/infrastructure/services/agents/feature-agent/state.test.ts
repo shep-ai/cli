@@ -38,7 +38,10 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('openPr');
       expect(channelNames).not.toContain('autoMerge');
       expect(channelNames).not.toContain('allowMerge');
-      expect(channelNames.length).toBe(17);
+      expect(channelNames).toContain('_approvalAction');
+      expect(channelNames).toContain('_rejectionFeedback');
+      expect(channelNames).toContain('_needsReexecution');
+      expect(channelNames.length).toBe(20);
     });
   });
 });
