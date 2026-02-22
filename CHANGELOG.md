@@ -1,3 +1,9 @@
+# [1.38.0](https://github.com/shep-ai/cli/compare/v1.37.3...v1.38.0) (2026-02-22)
+
+### Features
+
+- **web:** add prd questionnaire component and folder open api ([#79](https://github.com/shep-ai/cli/issues/79)) ([17f26f6](https://github.com/shep-ai/cli/commit/17f26f6a16fdd69631ca25efa7e015ba5b417528))
+
 ## [1.37.3](https://github.com/shep-ai/cli/compare/v1.37.2...v1.37.3) (2026-02-22)
 
 ### Bug Fixes
