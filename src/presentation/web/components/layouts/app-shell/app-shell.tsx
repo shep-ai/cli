@@ -4,13 +4,15 @@ import { useCallback, type ReactNode } from 'react';
 import { SidebarProvider, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from '@/components/layouts/app-sidebar';
 import { ThemeToggle } from '@/components/common/theme-toggle';
+import { AgentEventsProvider } from '@/hooks/agent-events-provider';
 import { useNotifications } from '@/hooks/use-notifications';
 
 interface AppShellProps {
   children: ReactNode;
 }
 
-export function AppShell({ children }: AppShellProps) {
+/** Inner shell that consumes the agent-events context for notifications. */
+function AppShellInner({ children }: AppShellProps) {
   // Subscribe to agent lifecycle events and dispatch toast/browser notifications
   useNotifications();
 
@@ -30,5 +32,13 @@ export function AppShell({ children }: AppShellProps) {
         </div>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+export function AppShell({ children }: AppShellProps) {
+  return (
+    <AgentEventsProvider>
+      <AppShellInner>{children}</AppShellInner>
+    </AgentEventsProvider>
   );
 }

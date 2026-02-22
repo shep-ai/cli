@@ -4,11 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { NotificationSeverity } from '@shepai/core/domain/generated/output';
-import { useAgentEvents } from './use-agent-events';
-
-export interface UseNotificationsOptions {
-  runId?: string;
-}
+import { useAgentEventsContext } from './agent-events-provider';
 
 export interface UseNotificationsResult {
   requestBrowserPermission: () => Promise<void>;
@@ -34,8 +30,8 @@ function dispatchBrowserNotification(event: NotificationEvent): void {
   new Notification(event.featureName, { body: event.message });
 }
 
-export function useNotifications(options?: UseNotificationsOptions): UseNotificationsResult {
-  const { lastEvent } = useAgentEvents({ runId: options?.runId });
+export function useNotifications(): UseNotificationsResult {
+  const { lastEvent } = useAgentEventsContext();
 
   const [browserPermissionState, setBrowserPermissionState] = useState<NotificationPermission>(
     () => {

@@ -11,7 +11,7 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 import { createFeature } from '@/app/actions/create-feature';
 import { deleteFeature } from '@/app/actions/delete-feature';
-import { useAgentEvents } from '@/hooks/use-agent-events';
+import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -103,7 +103,7 @@ export function useControlCenterState(
   }, [initialEdgeKey, initialEdges]);
 
   // Refresh server data when SSE agent events arrive (status changes)
-  const { lastEvent } = useAgentEvents();
+  const { lastEvent } = useAgentEventsContext();
   const processedEventRef = useRef<string | null>(null);
 
   useEffect(() => {
