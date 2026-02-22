@@ -20,6 +20,8 @@ export interface PrdQuestionnaireProps {
   onApprove: (actionId: string) => void;
   /** Controls disabled/animated state during refinement */
   isProcessing?: boolean;
+  /** Show the goal/context header (default: false) */
+  showHeader?: boolean;
 }
 
 export interface PrdQuestionnaireDrawerProps extends PrdQuestionnaireProps {

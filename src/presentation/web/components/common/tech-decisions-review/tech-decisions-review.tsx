@@ -84,10 +84,7 @@ export function TechDecisionsReview({
         {technologies.length > 0 ? <TechStackCollapsible technologies={technologies} /> : null}
 
         {/* Step indicator */}
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground text-xs font-medium">
-            Decision {currentStep + 1} of {total}
-          </span>
+        <div className="flex justify-end">
           <div className="flex gap-1">
             {decisions.map((decision, idx) => (
               <button

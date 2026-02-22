@@ -15,6 +15,7 @@ export function PrdQuestionnaire({
   onRefine,
   onApprove,
   isProcessing = false,
+  showHeader = false,
 }: PrdQuestionnaireProps) {
   const { question, context, questions, finalAction } = data;
   const [currentStep, setCurrentStep] = useState(0);
@@ -52,19 +53,18 @@ export function PrdQuestionnaire({
     <div className="flex h-full flex-col">
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
         {/* Header */}
-        <div className="border-border flex items-start gap-3 border-b pb-3">
-          <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
-          <div className="flex-1">
-            <h3 className="text-foreground mb-1.5 text-sm font-bold">{question}</h3>
-            <p className="text-muted-foreground text-xs leading-relaxed">{context}</p>
+        {showHeader ? (
+          <div className="border-border flex items-start gap-3 border-b pb-3">
+            <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+            <div className="flex-1">
+              <h3 className="text-foreground mb-1.5 text-sm font-bold">{question}</h3>
+              <p className="text-muted-foreground text-xs leading-relaxed">{context}</p>
+            </div>
           </div>
-        </div>
+        ) : null}
 
         {/* Step indicator */}
-        <div className="flex items-center justify-between">
-          <span className="text-muted-foreground text-xs font-medium">
-            Question {currentStep + 1} of {total}
-          </span>
+        <div className="flex justify-end">
           <div className="flex gap-1">
             {questions.map((q, idx) => (
               <button
