@@ -18,8 +18,12 @@ export interface PrdQuestionnaireProps {
   onRefine: (text: string) => void;
   /** Finalize requirements callback */
   onApprove: (actionId: string) => void;
+  /** Reject requirements callback — opens feedback dialog when provided */
+  onReject?: (feedback: string) => void;
   /** Controls disabled/animated state during refinement */
   isProcessing?: boolean;
+  /** Whether a reject operation is in flight */
+  isRejecting?: boolean;
   /** Show the goal/context header (default: false) */
   showHeader?: boolean;
 }

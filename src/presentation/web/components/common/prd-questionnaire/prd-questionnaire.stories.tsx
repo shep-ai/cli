@@ -383,3 +383,35 @@ export const DeletingState: DrawerStory = {
     />
   ),
 };
+
+/* ─── Reject Variants ─── */
+
+const allAnsweredSelections = {
+  problem: 'user_pain',
+  priority: 'p1',
+  success: 'adoption',
+  timeline: 'sprint',
+  scope: 'mvp',
+  stakeholders: 'end_users',
+};
+
+/** All answered with reject button visible on last step. */
+export const WithRejectButton: Story = {
+  render: () => (
+    <InteractiveQuestionnaire
+      data={mockData}
+      selections={allAnsweredSelections}
+      onReject={fn().mockName('onReject')}
+    />
+  ),
+};
+
+/** Rejecting state — reject button disabled with spinner while reject action is in flight. */
+export const RejectingState: Story = {
+  args: {
+    data: mockData,
+    selections: allAnsweredSelections,
+    onReject: fn().mockName('onReject'),
+    isRejecting: true,
+  },
+};

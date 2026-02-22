@@ -1,11 +1,12 @@
 'use client';
 
-import { Send, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Send, Check, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { RejectFeedbackDialog } from '@/components/common/reject-feedback-dialog';
 import type { PrdQuestionnaireProps } from './prd-questionnaire-config';
 
 export function PrdQuestionnaire({
@@ -14,12 +15,15 @@ export function PrdQuestionnaire({
   onSelect,
   onRefine,
   onApprove,
+  onReject,
   isProcessing = false,
+  isRejecting = false,
   showHeader = false,
 }: PrdQuestionnaireProps) {
   const { question, context, questions, finalAction } = data;
   const [currentStep, setCurrentStep] = useState(0);
   const [chatInput, setChatInput] = useState('');
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
 
   const total = questions.length;
   const isFirstStep = currentStep === 0;
@@ -144,15 +148,38 @@ export function PrdQuestionnaire({
           </Button>
 
           {isLastStep ? (
-            <Button
-              type="button"
-              size="sm"
-              disabled={isProcessing || answeredCount < total}
-              onClick={() => onApprove(finalAction.id)}
-            >
-              <Check className="mr-1 h-4 w-4" />
-              {finalAction.label}
-            </Button>
+            <div className="flex items-center gap-2">
+              {onReject ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    disabled={isProcessing || isRejecting}
+                    onClick={() => setRejectDialogOpen(true)}
+                  >
+                    <X className="mr-1 h-4 w-4" />
+                    Reject
+                  </Button>
+                  <RejectFeedbackDialog
+                    open={rejectDialogOpen}
+                    onOpenChange={setRejectDialogOpen}
+                    onConfirm={onReject}
+                    isSubmitting={isRejecting}
+                  />
+                </>
+              ) : null}
+              <Button
+                type="button"
+                size="sm"
+                disabled={isProcessing || isRejecting || answeredCount < total}
+                onClick={() => onApprove(finalAction.id)}
+              >
+                <Check className="mr-1 h-4 w-4" />
+                {finalAction.label}
+              </Button>
+            </div>
           ) : (
             <Button
               type="button"

@@ -1,0 +1,399 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: drawer-approval-rejection
+number: 036
+branch: feat/036-drawer-approval-rejection
+oneLiner: Wire PRD and Tech Decisions drawers to call reject use case with feedback UI
+summary: >
+  The PRD Questionnaire and Tech Decisions Review drawers currently only support
+  approve actions. This feature adds reject functionality by creating a
+  reject-feature server action, adding reject buttons with feedback collection
+  AlertDialogs to both drawer components, wiring the control center to handle
+  rejection callbacks, and passing approval payloads (selection changes) through
+  the approve flow. The backend RejectAgentRunUseCase is already implemented;
+  this is a presentation-layer wiring task following established patterns.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - '035 - PRD Approval Iterations'
+  - '031 - PRD Review Questionnaire'
+  - '034 - Approval Timing'
+  - '016 - HITL Approval Gates'
+
+technologies:
+  - React 19
+  - Next.js 16+ (App Router, Server Actions)
+  - shadcn/ui (Button, Textarea, Drawer, AlertDialog)
+  - Tailwind CSS v4
+  - Vitest + React Testing Library
+  - Storybook
+  - tsyringe (DI)
+  - TypeSpec (domain types)
+  - sonner (toast notifications)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'How should the reject feedback UI be presented — inline in the drawer or in an AlertDialog overlay?'
+    resolved: true
+    options:
+      - option: 'AlertDialog overlay'
+        description: >
+          Opens a modal AlertDialog when the user clicks Reject. Contains a
+          Textarea for feedback, a Cancel button, and a Confirm Reject button.
+          Follows the existing delete-confirmation pattern in ReviewDrawerShell.
+          Keeps the drawer content uncluttered and makes rejection feel
+          deliberate — users must consciously confirm.
+        selected: true
+      - option: 'Inline in drawer'
+        description: >
+          Shows a Textarea and confirm button inline below the reject button,
+          expanding the drawer content. Fewer clicks but clutters the drawer
+          and makes accidental rejection easier. No existing inline-expansion
+          pattern to follow in this codebase.
+        selected: false
+    selectionRationale: >
+      AlertDialog overlay is recommended because the codebase already uses
+      AlertDialog for the delete confirmation in ReviewDrawerShell, making this
+      pattern consistent. Rejection is a destructive action that triggers agent
+      re-iteration, so requiring an explicit confirmation step prevents
+      accidental rejections. The TUI also uses a separate prompt step for
+      feedback collection, maintaining UX parity across surfaces.
+    answer: 'AlertDialog overlay'
+
+  - question: 'Should the reject button be placed next to the approve button or in a separate location?'
+    resolved: true
+    options:
+      - option: 'Side by side with approve'
+        description: >
+          Place reject and approve buttons next to each other in the footer
+          action area. Reject uses a destructive/outline variant, approve uses
+          the primary variant. Both are always visible, giving users a clear
+          choice. Standard approval/rejection UX pattern.
+        selected: true
+      - option: 'In the action overflow menu'
+        description: >
+          Hide reject in the ReviewDrawerShell's action menu (alongside delete).
+          Keeps the primary action area clean with only approve, but makes
+          reject harder to discover. Users may not realize they can reject.
+        selected: false
+      - option: 'Above approve as a text link'
+        description: >
+          Show a subtle text link like "Request changes" above or below the
+          approve button. Less visually prominent but discoverable. Risk of
+          being overlooked.
+        selected: false
+    selectionRationale: >
+      Side-by-side placement is recommended because reject is a primary action
+      equal in importance to approve — the user must make an explicit choice.
+      Hiding it in an overflow menu would reduce discoverability. The TUI
+      presents approve and reject as equally weighted options in the same
+      prompt. Using a destructive variant for reject and primary for approve
+      provides clear visual distinction.
+    answer: 'Side by side with approve'
+
+  - question: 'Should feedback be required or optional when rejecting?'
+    resolved: true
+    options:
+      - option: 'Required (non-empty)'
+        description: >
+          The RejectAgentRunUseCase already validates that feedback is non-empty
+          and returns a validation error if missing. The TUI enforces this with
+          an input validator. Making feedback required ensures the agent gets
+          actionable direction for the next iteration.
+        selected: true
+      - option: 'Optional with default message'
+        description: >
+          Allow empty feedback, using a default message like 'No specific
+          feedback provided.' Reduces friction but may lead to unhelpful
+          re-iterations since the agent has no direction.
+        selected: false
+    selectionRationale: >
+      Required feedback is recommended because the RejectAgentRunUseCase
+      already enforces non-empty feedback at the domain level, the TUI already
+      validates this, and empty rejections produce poor agent re-iteration
+      results. Enforcing at the UI level provides immediate user feedback
+      rather than a server-side error.
+    answer: 'Required (non-empty)'
+
+  - question: 'How should the iteration warning (>= 5 iterations) be displayed?'
+    resolved: true
+    options:
+      - option: 'Warning toast after rejection'
+        description: >
+          After a successful reject, show a standard success toast with the
+          iteration count, and if iteration >= 5, show an additional warning
+          toast via sonner. Follows the existing toast pattern for approve
+          success. The CLI already logs a warning message at this threshold.
+        selected: true
+      - option: 'Warning in the AlertDialog before confirming'
+        description: >
+          Show the current iteration count in the AlertDialog description, with
+          a warning badge if >= 5. This requires fetching iteration count
+          before the user confirms, adding complexity (extra server call or
+          passing iteration state through props).
+        selected: false
+    selectionRationale: >
+      Warning toast after rejection is recommended because the iteration count
+      is returned by RejectAgentRunUseCase in its response, so no extra server
+      call is needed. The CLI uses the same post-action warning pattern. Adding
+      iteration count to the AlertDialog would require either an extra API call
+      or threading iteration state through the component tree, adding
+      unnecessary complexity for an edge case (most users won't hit 5
+      iterations).
+    answer: 'Warning toast after rejection'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The PRD Questionnaire drawer and Tech Decisions Review drawer are the web UI
+  surfaces where users review and approve agent-generated requirements and
+  technical plans. Both drawers currently have **approve** buttons and
+  **refinement chat input**, but are **missing reject functionality**:
+
+  1. **No `reject-feature` server action** — `approve-feature.ts` exists but
+     there is no corresponding `reject-feature.ts` action to call
+     `RejectAgentRunUseCase`.
+  2. **No `onReject` callback in component props** — `PrdQuestionnaireProps` and
+     `TechDecisionsReviewProps` define `onApprove` but not `onReject`.
+  3. **No reject button or feedback prompt in the UI** — Both drawers show
+     only an approve button; there is no way for users to reject with feedback.
+  4. **No reject handlers in the control center** — `control-center-inner.tsx`
+     has `handlePrdApprove` and `handleTechDecisionsApprove` but no reject
+     handlers.
+  5. **Approve does not pass selection changes** — `handlePrdApprove` calls
+     `approveFeature(featureId)` but does not forward `prdSelections` as a
+     `PrdApprovalPayload`, so user selection changes are lost.
+  6. **Refine handlers are stubs** — `handlePrdRefine` and
+     `handleTechDecisionsRefine` contain `TODO` comments with placeholder
+     `setTimeout` delays.
+
+  The CLI and TUI already support reject with feedback (via `shep feat reject`
+  and `prdReviewWizard`). The `RejectAgentRunUseCase` is fully implemented in
+  the application layer. This feature closes the gap by wiring the web UI
+  drawers to the existing backend reject flow.
+
+  ## Success Criteria
+
+  - [ ] New `reject-feature.ts` server action exists and calls `RejectAgentRunUseCase` with featureId and feedback string
+  - [ ] `reject-feature` server action returns `{ rejected, iteration, iterationWarning, error? }` to the caller
+  - [ ] PRD Questionnaire drawer renders a "Reject" button (destructive variant) next to the "Approve" button
+  - [ ] Clicking PRD Reject opens an AlertDialog with a Textarea for feedback input
+  - [ ] PRD AlertDialog disables the confirm button when feedback is empty
+  - [ ] Tech Decisions Review drawer renders a "Reject" button (destructive variant) next to the "Approve" button
+  - [ ] Clicking Tech Decisions Reject opens an AlertDialog with a Textarea for feedback input
+  - [ ] Tech Decisions AlertDialog disables the confirm button when feedback is empty
+  - [ ] Control center wires `onReject` handlers to both drawers, calling `reject-feature` server action
+  - [ ] On successful reject, a success toast shows "Requirements rejected — agent re-iterating (iteration N)"
+  - [ ] If `iterationWarning` is true (>= 5 iterations), an additional warning toast is shown
+  - [ ] On reject error, an error toast displays the error message
+  - [ ] After successful reject, drawer closes and selection state clears (same as approve flow)
+  - [ ] `approve-feature` server action is updated to accept and forward `PrdApprovalPayload` with `changedSelections`
+  - [ ] `handlePrdApprove` in control center forwards `prdSelections` state as `QuestionSelectionChange[]` to the approve action
+  - [ ] All new/modified components have colocated Storybook stories
+  - [ ] Unit tests cover: reject button rendering, AlertDialog open/close, feedback validation, callback invocation, toast messages
+  - [ ] Existing approve functionality remains unchanged (regression-safe)
+
+  ## Functional Requirements
+
+  - **FR-1: Reject Feature Server Action** — Create `reject-feature.ts` in
+    `src/presentation/web/app/actions/` following the `approve-feature.ts`
+    pattern. The action must: resolve `IFeatureRepository` and
+    `RejectAgentRunUseCase` from the DI container, validate the feature exists
+    and has an `agentRunId`, call `rejectUseCase.execute(agentRunId, feedback)`,
+    and return `{ rejected: boolean, iteration?: number, iterationWarning?: boolean, error?: string }`.
+
+  - **FR-2: PRD Questionnaire Reject UI** — Add an `onReject` callback to
+    `PrdQuestionnaireProps` with signature `(feedback: string) => void`. Add a
+    reject button with `variant="outline"` and destructive styling next to the
+    existing "Approve Requirements" button. Clicking the reject button opens an
+    AlertDialog containing a Textarea for feedback. The confirm button in the
+    AlertDialog is disabled when the Textarea is empty. On confirm, call
+    `onReject(feedback)` and close the dialog.
+
+  - **FR-3: Tech Decisions Review Reject UI** — Add an `onReject` callback to
+    `TechDecisionsReviewProps` with signature `(feedback: string) => void`. Add
+    a reject button with the same pattern as FR-2 next to the existing
+    "Approve Plan" button. The AlertDialog, Textarea, and validation behavior
+    must be identical to the PRD Questionnaire reject UI.
+
+  - **FR-4: Control Center Reject Handlers** — Add `handlePrdReject` and
+    `handleTechDecisionsReject` callbacks in `control-center-inner.tsx`. Each
+    handler must: call the `rejectFeature(featureId, feedback)` server action,
+    show a success toast with iteration count on success, show a warning toast
+    if `iterationWarning` is true, show an error toast on failure, and call
+    `clearSelection()` + `setPrdSelections({})` on success.
+
+  - **FR-5: Wire onReject Props** — Pass `handlePrdReject` as `onReject` to the
+    `PrdQuestionnaire` component and `handleTechDecisionsReject` as `onReject`
+    to the `TechDecisionsReview` component in the control center JSX.
+
+  - **FR-6: Forward Approval Payload** — Update the `approve-feature` server
+    action to accept an optional `payload?: PrdApprovalPayload` parameter and
+    forward it to `approveUseCase.execute(agentRunId, payload)`. Update
+    `handlePrdApprove` in the control center to construct a
+    `PrdApprovalPayload` from the current `prdSelections` state (converting
+    the `Record<string, string>` to `QuestionSelectionChange[]`) and pass it
+    to the updated `approveFeature` action.
+
+  - **FR-7: Reject Button Processing State** — While the reject server action
+    is in flight, disable the reject button and show a loading indicator
+    (consistent with the existing `isProcessing` pattern used for approve).
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Pattern Consistency** — The reject server action must follow the
+    exact same structure as `approve-feature.ts`: `'use server'` directive,
+    DI container resolution, feature validation, use case execution, and
+    structured return type. No new patterns introduced.
+
+  - **NFR-2: Storybook Coverage** — Every modified component must have updated
+    Storybook stories showing: default state (no reject in progress), reject
+    AlertDialog open with empty feedback, reject AlertDialog with feedback
+    entered, and processing/loading state during reject. Stories must be
+    colocated with the component per project convention.
+
+  - **NFR-3: Test Coverage** — Unit tests must cover: reject button renders
+    when `onReject` is provided, clicking reject opens the AlertDialog, confirm
+    is disabled with empty feedback, confirm is enabled with non-empty feedback,
+    `onReject` is called with the feedback string on confirm, AlertDialog closes
+    after confirm. Tests must use Vitest + React Testing Library per project
+    conventions.
+
+  - **NFR-4: Accessibility** — The reject AlertDialog must be keyboard-navigable
+    (Radix AlertDialog handles this by default). The Textarea must have a
+    visible label or `aria-label`. The reject button must have descriptive text
+    (not just an icon). Focus must return to the reject button when the dialog
+    is cancelled.
+
+  - **NFR-5: Error Resilience** — If the reject server action fails (network
+    error, server error), the UI must show an error toast and NOT close the
+    drawer, allowing the user to retry. The feedback text must be preserved
+    in the AlertDialog if the action fails.
+
+  - **NFR-6: UX Parity with TUI** — The web UI reject flow must match the TUI
+    behavior: feedback is mandatory, rejection triggers agent re-iteration, and
+    iteration warnings appear at >= 5 iterations. The user experience should
+    feel equivalent across surfaces.
+
+  - **NFR-7: No Domain Layer Changes** — This feature must not modify any
+    TypeSpec models, generated types, domain entities, application use cases,
+    or infrastructure services. All changes are confined to the presentation
+    layer (server actions, components, tests, stories).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should the reject feedback UI be presented? | AlertDialog overlay | Follows existing delete-confirmation pattern in ReviewDrawerShell; makes rejection deliberate; matches TUI's separate prompt step |
+  | 2 | Where should the reject button be placed? | Side by side with approve | Reject is equally important as approve; hiding it reduces discoverability; TUI presents both as equal options |
+  | 3 | Should feedback be required or optional? | Required (non-empty) | RejectAgentRunUseCase already enforces non-empty feedback; TUI validates this; empty rejections produce poor re-iterations |
+  | 4 | How should the iteration warning be displayed? | Warning toast after rejection | Iteration count is in the use case response (no extra API call); CLI uses same post-action pattern; avoids pre-fetch complexity |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The web UI lives in `src/presentation/web/` following a 4-tier component
+  hierarchy:
+
+  - **Tier 0** (`components/ui/`): Base shadcn/ui primitives (Drawer, Button, Input, AlertDialog, Textarea)
+  - **Tier 1** (`components/common/`): Domain components including
+    `review-drawer-shell/`, `prd-questionnaire/`, `tech-decisions-review/`
+  - **Tier 2** (`components/layouts/`): Page layouts (`app-shell/`)
+  - **Tier 3** (`components/features/`): Feature orchestrators (`control-center/`)
+
+  Server actions in `app/actions/` are the RPC bridge between client
+  components and `packages/core/` use cases via the DI container.
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Domain → Application → Infrastructure → Presentation
+  - **Server Actions**: `'use server'` functions resolve use cases from tsyringe DI
+  - **Props cascade**: Config types in `*-config.ts` files define component interfaces
+  - **ReviewDrawerShell**: Common wrapper providing header, delete, and action menu
+  - **Control Center**: Orchestrates drawer visibility based on feature lifecycle + state
+  - **AlertDialog pattern**: Used for delete confirmation in ReviewDrawerShell — reject feedback collection should follow this same pattern
+
+  ### Relevant Technologies
+
+  - **React 19** with Next.js App Router for server actions
+  - **shadcn/ui** Button, Textarea, AlertDialog, Badge for UI controls
+  - **sonner** for toast notifications
+  - **Vitest + React Testing Library** for unit tests
+  - **Storybook** for visual documentation (mandatory for all components)
+
+  ### Key Files
+
+  | File | Role |
+  | ---- | ---- |
+  | `src/presentation/web/app/actions/approve-feature.ts` | Server action for approve (pattern to follow) |
+  | `src/presentation/web/app/actions/reject-feature.ts` | **New** — Server action for reject |
+  | `src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.tsx` | PRD review UI (needs reject button + AlertDialog) |
+  | `src/presentation/web/components/common/prd-questionnaire/prd-questionnaire-config.ts` | Props interface (needs `onReject`) |
+  | `src/presentation/web/components/common/tech-decisions-review/tech-decisions-review.tsx` | Tech decisions UI (needs reject button + AlertDialog) |
+  | `src/presentation/web/components/common/tech-decisions-review/tech-decisions-review-config.ts` | Props interface (needs `onReject`) |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Drawer orchestrator (needs reject handlers + payload forwarding) |
+  | `packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts` | Backend reject use case (already implemented, read-only reference) |
+  | `packages/core/src/application/use-cases/agents/approve-agent-run.use-case.ts` | Backend approve use case (already accepts payload, read-only reference) |
+  | `tsp/agents/prd-approval.tsp` | TypeSpec types for PrdApprovalPayload, PrdRejectionPayload (read-only reference) |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/app/actions/` | High | New `reject-feature.ts` server action |
+  | `src/presentation/web/app/actions/approve-feature.ts` | Medium | Forward `PrdApprovalPayload` with selection changes |
+  | `src/presentation/web/components/common/prd-questionnaire/` | High | Add `onReject` prop, reject button, AlertDialog with Textarea |
+  | `src/presentation/web/components/common/tech-decisions-review/` | High | Add `onReject` prop, reject button, AlertDialog with Textarea |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | High | Add reject handlers, wire `onReject` to drawers, forward selections to approve |
+  | `tests/unit/presentation/web/components/common/prd-questionnaire/` | Medium | Tests for reject button, AlertDialog, feedback validation, callback |
+  | `tests/unit/presentation/web/components/common/tech-decisions-review/` | Medium | Tests for reject button, AlertDialog, feedback validation, callback |
+  | Storybook stories for both drawers | Medium | Story variants for reject AlertDialog states |
+
+  ## Dependencies
+
+  - **`RejectAgentRunUseCase`** (already implemented) — The backend use case
+    that handles rejection with feedback, spawns resume worker, and tracks
+    iteration count. Accepts `(id: string, feedback: string)` and returns
+    `{ rejected, reason, iteration?, iterationWarning? }`.
+  - **`ApproveAgentRunUseCase`** (already implemented) — Accepts optional
+    `PrdApprovalPayload` parameter which the approve server action currently
+    does not forward. Signature: `execute(id: string, payload?: PrdApprovalPayload)`.
+  - **`PrdRejectionPayload` / `PrdApprovalPayload` / `QuestionSelectionChange`**
+    (TypeSpec-generated types) — Domain DTOs already defined in
+    `tsp/agents/prd-approval.tsp` and generated to
+    `packages/core/src/domain/generated/output.ts`.
+  - **`ReviewDrawerShell`** — Shared drawer wrapper; no changes needed since
+    reject UI lives in the content components, not the shell.
+  - **shadcn/ui `AlertDialog`** — Already installed and used for delete
+    confirmation in ReviewDrawerShell; reused for reject feedback prompt.
+  - **shadcn/ui `Textarea`** — Already installed at
+    `src/presentation/web/components/ui/textarea.tsx`; used for feedback input.
+  - **`sonner` (toast)** — Already used in control-center-inner.tsx for
+    approve success/error toasts; reused for reject feedback.
+
+  ## Size Estimate
+
+  **M** — This is a medium-sized feature involving:
+  - 1 new server action file (~30 lines, follows existing approve pattern)
+  - 2 config type updates (adding `onReject` callback to props interfaces)
+  - 2 component updates (adding reject button + AlertDialog with Textarea)
+  - 1 orchestrator update (control center reject handlers + payload forwarding)
+  - 1 server action update (approve payload forwarding)
+  - Corresponding unit tests (~4-6 test files)
+  - Storybook story updates for both drawer components
+  - No new domain models, no TypeSpec changes, no infrastructure changes
+
+  The backend is fully implemented. This is purely a presentation-layer wiring
+  task with well-established patterns to follow (AlertDialog for confirmation,
+  server actions for RPC, toast for feedback).
+
+  ---
+
+  _Requirements completed — proceed with research_

@@ -16,8 +16,12 @@ export interface TechDecisionsReviewProps {
   onRefine: (text: string) => void;
   /** Approve plan callback */
   onApprove: () => void;
+  /** Reject plan callback — opens feedback dialog when provided */
+  onReject?: (feedback: string) => void;
   /** Controls disabled state during loading */
   isProcessing?: boolean;
+  /** Whether a reject operation is in flight */
+  isRejecting?: boolean;
 }
 
 export interface TechDecisionsDrawerProps extends TechDecisionsReviewProps {

@@ -3,10 +3,11 @@
 import { useState } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
-import { Check, ChevronRight, GitCompareArrows, Layers, Send } from 'lucide-react';
+import { Check, ChevronRight, GitCompareArrows, Layers, Send, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { RejectFeedbackDialog } from '@/components/common/reject-feedback-dialog';
 import type { TechDecisionsReviewProps, TechDecision } from './tech-decisions-review-config';
 
 const markdownComponents: Components = {
@@ -111,10 +112,13 @@ export function TechDecisionsReview({
   data,
   onRefine,
   onApprove,
+  onReject,
   isProcessing = false,
+  isRejecting = false,
 }: TechDecisionsReviewProps) {
   const { summary, decisions } = data;
   const [chatInput, setChatInput] = useState('');
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
 
   function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault();
@@ -176,8 +180,34 @@ export function TechDecisionsReview({
             <Send />
           </Button>
         </form>
-        <div className="px-4 pt-2 pb-4">
-          <Button type="button" className="w-full" disabled={isProcessing} onClick={onApprove}>
+        <div className="flex items-center gap-2 px-4 pt-2 pb-4">
+          {onReject ? (
+            <>
+              <Button
+                type="button"
+                variant="outline"
+                className="text-destructive hover:text-destructive"
+                disabled={isProcessing || isRejecting}
+                onClick={() => setRejectDialogOpen(true)}
+              >
+                <X className="mr-1.5 h-4 w-4" />
+                Reject
+              </Button>
+              <RejectFeedbackDialog
+                open={rejectDialogOpen}
+                onOpenChange={setRejectDialogOpen}
+                onConfirm={onReject}
+                isSubmitting={isRejecting}
+                title="Reject Plan"
+              />
+            </>
+          ) : null}
+          <Button
+            type="button"
+            className="flex-1"
+            disabled={isProcessing || isRejecting}
+            onClick={onApprove}
+          >
             <Check className="mr-1.5 h-4 w-4" />
             Approve Plan
           </Button>

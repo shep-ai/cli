@@ -310,6 +310,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.register('ApproveAgentRunUseCase', {
     useFactory: (c) => c.resolve(ApproveAgentRunUseCase),
   });
+  container.register('RejectAgentRunUseCase', {
+    useFactory: (c) => c.resolve(RejectAgentRunUseCase),
+  });
   container.register('GetFeatureArtifactUseCase', {
     useFactory: (c) => c.resolve(GetFeatureArtifactUseCase),
   });

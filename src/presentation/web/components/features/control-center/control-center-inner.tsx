@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import { toast } from 'sonner';
+import type {
+  PrdApprovalPayload,
+  QuestionSelectionChange,
+} from '@shepai/core/domain/generated/output';
 import { approveFeature } from '@/app/actions/approve-feature';
+import { rejectFeature } from '@/app/actions/reject-feature';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getWorkflowDefaults } from '@/app/actions/get-workflow-defaults';
@@ -65,6 +70,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const [questionnaireData, setQuestionnaireData] = useState<PrdQuestionnaireData | null>(null);
   const [isLoadingQuestionnaire, setIsLoadingQuestionnaire] = useState(false);
 
+  // Reject state (shared by both drawers)
+  const [isRejecting, setIsRejecting] = useState(false);
+
   // Tech decisions drawer state
   const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
   const [isLoadingTechDecisions, setIsLoadingTechDecisions] = useState(false);
@@ -99,7 +107,23 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       const featureId = selectedNode?.featureId;
       if (!featureId) return;
 
-      const result = await approveFeature(featureId);
+      let payload: PrdApprovalPayload | undefined;
+      if (questionnaireData) {
+        const changedSelections: QuestionSelectionChange[] = [];
+        for (const [questionId, optionId] of Object.entries(prdSelections)) {
+          const question = questionnaireData.questions.find((q) => q.id === questionId);
+          const option = question?.options.find((o) => o.id === optionId);
+          if (question && option) {
+            changedSelections.push({
+              questionId: question.question,
+              selectedOption: option.label,
+            });
+          }
+        }
+        payload = { approved: true, changedSelections };
+      }
+
+      const result = await approveFeature(featureId, payload);
 
       if (!result.approved) {
         toast.error(result.error ?? 'Failed to approve requirements');
@@ -109,6 +133,35 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       toast.success('Requirements approved — agent resuming');
       clearSelection();
       setPrdSelections({});
+    },
+    [selectedNode?.featureId, clearSelection, questionnaireData, prdSelections]
+  );
+
+  const handlePrdReject = useCallback(
+    async (feedback: string) => {
+      const featureId = selectedNode?.featureId;
+      if (!featureId) return;
+
+      setIsRejecting(true);
+      try {
+        const result = await rejectFeature(featureId, feedback);
+
+        if (!result.rejected) {
+          toast.error(result.error ?? 'Failed to reject requirements');
+          return;
+        }
+
+        toast.success(`Requirements rejected — agent re-iterating (iteration ${result.iteration})`);
+        if (result.iterationWarning) {
+          toast.warning(
+            `Iteration ${result.iteration} — consider approving or adjusting feedback to avoid excessive iterations`
+          );
+        }
+        clearSelection();
+        setPrdSelections({});
+      } finally {
+        setIsRejecting(false);
+      }
     },
     [selectedNode?.featureId, clearSelection]
   );
@@ -134,6 +187,34 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     toast.success('Plan approved — agent resuming');
     clearSelection();
   }, [selectedNode?.featureId, clearSelection]);
+
+  const handleTechDecisionsReject = useCallback(
+    async (feedback: string) => {
+      const featureId = selectedNode?.featureId;
+      if (!featureId) return;
+
+      setIsRejecting(true);
+      try {
+        const result = await rejectFeature(featureId, feedback);
+
+        if (!result.rejected) {
+          toast.error(result.error ?? 'Failed to reject plan');
+          return;
+        }
+
+        toast.success(`Plan rejected — agent re-iterating (iteration ${result.iteration})`);
+        if (result.iterationWarning) {
+          toast.warning(
+            `Iteration ${result.iteration} — consider approving or adjusting feedback to avoid excessive iterations`
+          );
+        }
+        clearSelection();
+      } finally {
+        setIsRejecting(false);
+      }
+    },
+    [selectedNode?.featureId, clearSelection]
+  );
 
   const handleMergeApprove = useCallback(async () => {
     const featureId = selectedNode?.featureId;
@@ -324,6 +405,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onSelect={handlePrdSelect}
           onRefine={handlePrdRefine}
           onApprove={handlePrdApprove}
+          onReject={handlePrdReject}
+          isRejecting={isRejecting}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
           isProcessing={isPrdProcessing || isLoadingQuestionnaire}
@@ -341,6 +424,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           data={techDecisionsData}
           onRefine={handleTechDecisionsRefine}
           onApprove={handleTechDecisionsApprove}
+          onReject={handleTechDecisionsReject}
+          isRejecting={isRejecting}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
           isProcessing={isLoadingTechDecisions}

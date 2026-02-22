@@ -1,0 +1,41 @@
+feature:
+  id: 036-drawer-approval-rejection
+  name: drawer-approval-rejection
+  number: 36
+  branch: feat/036-drawer-approval-rejection
+  lifecycle: research
+  createdAt: '2026-02-22T17:34:06Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 14
+    total: 14
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-22T18:10:36.399Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-22T17:34:06Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

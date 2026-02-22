@@ -175,3 +175,26 @@ export const DeletingState: DrawerStory = {
     />
   ),
 };
+
+/* ─── Reject Variants ─── */
+
+/** With reject button visible next to approve. */
+export const WithRejectButton: Story = {
+  args: {
+    data: mockData,
+    onRefine: fn().mockName('onRefine'),
+    onApprove: fn().mockName('onApprove'),
+    onReject: fn().mockName('onReject'),
+  },
+};
+
+/** Rejecting state — reject button disabled while reject action is in flight. */
+export const RejectingState: Story = {
+  args: {
+    data: mockData,
+    onRefine: fn().mockName('onRefine'),
+    onApprove: fn().mockName('onApprove'),
+    onReject: fn().mockName('onReject'),
+    isRejecting: true,
+  },
+};
