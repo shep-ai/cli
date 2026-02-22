@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus } from 'lucide-react';
+import { Settings, Plus, Search, Wrench, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   featureNodeStateConfig,
@@ -16,6 +16,15 @@ function AgentIcon({ agentType, className }: { agentType?: string; className?: s
   return <IconComponent className={className} />;
 }
 
+function getBadgeIcon(data: FeatureNodeData): LucideIcon {
+  const config = featureNodeStateConfig[data.state];
+  if (data.state === 'action-required') {
+    if (data.lifecycle === 'requirements') return Search;
+    if (data.lifecycle === 'implementation') return Wrench;
+  }
+  return config.icon;
+}
+
 function getBadgeText(data: FeatureNodeData): string {
   const config = featureNodeStateConfig[data.state];
   switch (data.state) {
@@ -27,6 +36,10 @@ function getBadgeText(data: FeatureNodeData): string {
       return data.runtime ? `Completed in ${data.runtime}` : 'Completed';
     case 'blocked':
       return data.blockedBy ? `Waiting on ${data.blockedBy}` : 'Blocked';
+    case 'action-required':
+      if (data.lifecycle === 'requirements') return 'Review Product Requirements';
+      if (data.lifecycle === 'implementation') return 'Review Technical Planning';
+      return config.label;
     case 'error':
       return data.errorMessage ?? 'Something went wrong';
     default:
@@ -169,7 +182,10 @@ export function FeatureNode({
                   config.badgeClass
                 )}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {(() => {
+                  const BadgeIcon = getBadgeIcon(data);
+                  return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
+                })()}
                 <span className="truncate">{getBadgeText(data)}</span>
               </div>
             </>
