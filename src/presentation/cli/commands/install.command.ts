@@ -23,8 +23,8 @@ interface InstallOptions {
 
 function printToolsList(): void {
   const tools = Object.entries(TOOL_METADATA);
-  const ides = tools.filter(([, meta]) => meta.category === 'ide');
-  const cliAgents = tools.filter(([, meta]) => meta.category === 'cli-agent');
+  const ides = tools.filter(([, meta]) => meta.tags.includes('ide'));
+  const cliAgents = tools.filter(([, meta]) => meta.tags.includes('cli-agent'));
 
   console.log(fmt.heading('IDEs:'));
   for (const [key, meta] of ides) {
@@ -122,7 +122,7 @@ function printInstallInstructions(metadata: (typeof TOOL_METADATA)[keyof typeof 
   console.log(`${fmt.label('Name:')} ${metadata.name}`);
   console.log(`${fmt.label('Summary:')} ${metadata.summary}`);
   console.log(`${fmt.label('Description:')} ${metadata.description}`);
-  console.log(`${fmt.label('Category:')} ${metadata.category}`);
+  console.log(`${fmt.label('Tags:')} ${metadata.tags.join(', ')}`);
   console.log();
 
   const binaryDisplay =

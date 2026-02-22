@@ -8,20 +8,28 @@ import 'reflect-metadata';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Command } from 'commander';
 
-const { mockMessages, mockCheckAvailable } = vi.hoisted(() => ({
+const { mockMessages, mockCheckAvailability } = vi.hoisted(() => ({
   mockMessages: {
     success: vi.fn(),
     error: vi.fn(),
     warning: vi.fn(),
     info: vi.fn(),
   },
-  mockCheckAvailable: vi.fn(),
+  mockCheckAvailability: vi.fn(),
 }));
+
+const mockIdeLauncherService = {
+  launch: vi.fn(),
+  checkAvailability: mockCheckAvailability,
+};
 
 // Mock the container
 vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
-    resolve: vi.fn(),
+    resolve: vi.fn((token: string) => {
+      if (token === 'IIdeLauncherService') return mockIdeLauncherService;
+      return { execute: vi.fn() };
+    }),
   },
 }));
 
@@ -37,53 +45,27 @@ vi.mock('@/infrastructure/services/settings.service.js', () => ({
   resetSettings: vi.fn(),
 }));
 
+// Mock tool metadata
+vi.mock('@/infrastructure/services/tool-installer/tool-metadata.js', () => ({
+  getIdeEntries: vi.fn(() => [
+    ['vscode', { name: 'Visual Studio Code', summary: 'Code editor', openDirectory: 'code {dir}' }],
+    ['cursor', { name: 'Cursor', summary: 'AI editor', openDirectory: 'cursor {dir}' }],
+    ['windsurf', { name: 'Windsurf', summary: 'Windsurf editor', openDirectory: 'windsurf {dir}' }],
+    ['zed', { name: 'Zed', summary: 'Zed editor', openDirectory: 'zed {dir}' }],
+    [
+      'antigravity',
+      {
+        name: 'Antigravity',
+        summary: 'Google Antigravity IDE',
+        openDirectory: 'antigravity {dir}',
+      },
+    ],
+  ]),
+}));
+
 // Mock the UI messages module
 vi.mock('../../../../../../src/presentation/cli/ui/index.js', () => ({
   messages: mockMessages,
-}));
-
-// Mock the launcher registry
-vi.mock('@/infrastructure/services/ide-launchers/ide-launcher.registry.js', () => ({
-  createLauncherRegistry: vi.fn(() => {
-    const launcher = {
-      name: 'VS Code',
-      editorId: 'vscode',
-      binary: 'code',
-      launch: vi.fn(),
-      checkAvailable: mockCheckAvailable,
-    };
-    const map = new Map();
-    map.set('vscode', launcher);
-    map.set('cursor', {
-      ...launcher,
-      name: 'Cursor',
-      editorId: 'cursor',
-      binary: 'cursor',
-      checkAvailable: mockCheckAvailable,
-    });
-    map.set('windsurf', {
-      ...launcher,
-      name: 'Windsurf',
-      editorId: 'windsurf',
-      binary: 'windsurf',
-      checkAvailable: mockCheckAvailable,
-    });
-    map.set('zed', {
-      ...launcher,
-      name: 'Zed',
-      editorId: 'zed',
-      binary: 'zed',
-      checkAvailable: mockCheckAvailable,
-    });
-    map.set('antigravity', {
-      ...launcher,
-      name: 'Antigravity',
-      editorId: 'antigravity',
-      binary: 'agy',
-      checkAvailable: mockCheckAvailable,
-    });
-    return map;
-  }),
 }));
 
 import { container } from '@/infrastructure/di/container.js';
@@ -117,14 +99,17 @@ describe('IDE Command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.exitCode = undefined;
-    (container.resolve as ReturnType<typeof vi.fn>).mockReturnValue(mockUpdateUseCase);
+    (container.resolve as ReturnType<typeof vi.fn>).mockImplementation((token: unknown) => {
+      if (token === 'IIdeLauncherService') return mockIdeLauncherService;
+      return mockUpdateUseCase;
+    });
     (getSettings as ReturnType<typeof vi.fn>).mockReturnValue({
       ...mockSettings,
       environment: { ...mockSettings.environment },
     });
     mockUpdateUseCase.execute.mockResolvedValue(mockSettings);
     // Default: binary found in PATH
-    mockCheckAvailable.mockResolvedValue(true);
+    mockCheckAvailability.mockResolvedValue(true);
   });
 
   describe('command structure', () => {
@@ -191,7 +176,7 @@ describe('IDE Command', () => {
 
   describe('PATH validation warning', () => {
     it('should warn when IDE binary not found in PATH', async () => {
-      mockCheckAvailable.mockResolvedValue(false);
+      mockCheckAvailability.mockResolvedValue(false);
 
       const cmd = createIdeCommand();
       await cmd.parseAsync(['--editor', 'vscode'], { from: 'user' });

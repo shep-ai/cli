@@ -2,80 +2,74 @@
  * IDE Open Command
  *
  * Opens a feature worktree in the configured IDE.
+ * IDE flags (e.g. --vscode, --cursor) are derived dynamically from
+ * the JSON tool metadata files in packages/core.
  *
- * Usage: shep ide <feat-id> [--vscode|--cursor|--windsurf|--zed|--antigravity]
+ * Usage: shep ide <feat-id> [--<ide-name>]
  */
 
 import { Command } from 'commander';
-import { EditorType } from '@/domain/generated/output.js';
 import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
+import { LaunchIdeUseCase } from '@/application/use-cases/ide/launch-ide.use-case.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
-import { launchIde } from '@/infrastructure/services/ide-launchers/launch-ide.js';
+import { getIdeEntries } from '@/infrastructure/services/tool-installer/tool-metadata.js';
 import { messages } from '../ui/index.js';
 
-/** IDE flag names mapped to their EditorType values. */
-const IDE_FLAG_MAP: Record<string, EditorType> = {
-  vscode: EditorType.VsCode,
-  cursor: EditorType.Cursor,
-  windsurf: EditorType.Windsurf,
-  zed: EditorType.Zed,
-  antigravity: EditorType.Antigravity,
-};
-
-interface IdeOpenOptions {
-  vscode?: boolean;
-  cursor?: boolean;
-  windsurf?: boolean;
-  zed?: boolean;
-  antigravity?: boolean;
+/** Commander converts --kebab-case flags to camelCase option keys. */
+function toCamelCase(s: string): string {
+  return s.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }
 
 /**
  * Determine which editor to use based on CLI flags and settings.
  * Flag takes precedence over settings.
  */
-function resolveEditorId(options: IdeOpenOptions): EditorType {
-  for (const [flag, editorType] of Object.entries(IDE_FLAG_MAP)) {
-    if (options[flag as keyof IdeOpenOptions]) {
-      return editorType;
-    }
+function resolveEditorId(options: Record<string, boolean | undefined>, ideIds: string[]): string {
+  for (const id of ideIds) {
+    if (options[toCamelCase(id)]) return id;
   }
   return getSettings().environment.defaultEditor;
 }
 
 export function createIdeOpenCommand(): Command {
-  return new Command('ide')
+  const cmd = new Command('ide')
     .description('Open a feature worktree in your IDE')
-    .argument('<feat-id>', 'Feature ID or prefix')
-    .option('--vscode', 'Open in VS Code')
-    .option('--cursor', 'Open in Cursor')
-    .option('--windsurf', 'Open in Windsurf')
-    .option('--zed', 'Open in Zed')
-    .option('--antigravity', 'Open in Antigravity')
-    .action(async (featId: string, options: IdeOpenOptions) => {
-      try {
-        const editorId = resolveEditorId(options);
-        const useCase = container.resolve(ShowFeatureUseCase);
-        const feature = await useCase.execute(featId);
+    .argument('<feat-id>', 'Feature ID or prefix');
 
-        const result = await launchIde({
-          editorId,
-          repositoryPath: feature.repositoryPath,
-          branch: feature.branch,
-        });
+  const ideEntries = getIdeEntries();
+  const ideIds = ideEntries.map(([id]) => id);
 
-        if (!result.ok) {
-          messages.error(result.message, new Error(result.message));
-          process.exitCode = 1;
-          return;
-        }
+  for (const [id, meta] of ideEntries) {
+    cmd.option(`--${id}`, `Open in ${meta.name}`);
+  }
 
-        messages.success(`Opened ${result.editorName} at ${result.worktreePath}`);
-      } catch (error) {
-        const err = error instanceof Error ? error : new Error(String(error));
-        messages.error('Failed to open IDE', err);
+  cmd.action(async (featId: string, options: Record<string, boolean | undefined>) => {
+    try {
+      const editorId = resolveEditorId(options, ideIds);
+      const showFeature = container.resolve(ShowFeatureUseCase);
+      const feature = await showFeature.execute(featId);
+
+      const launchIde = container.resolve(LaunchIdeUseCase);
+      const result = await launchIde.execute({
+        editorId,
+        repositoryPath: feature.repositoryPath,
+        branch: feature.branch,
+      });
+
+      if (!result.ok) {
+        messages.error(result.message, new Error(result.message));
         process.exitCode = 1;
+        return;
       }
-    });
+
+      messages.success(`Opened ${result.editorName} at ${result.worktreePath}`);
+    } catch (error) {
+      const err = error instanceof Error ? error : new Error(String(error));
+      messages.error('Failed to open IDE', err);
+      process.exitCode = 1;
+    }
+  });
+
+  return cmd;
 }

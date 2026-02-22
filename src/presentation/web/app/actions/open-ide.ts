@@ -1,7 +1,8 @@
 'use server';
 
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
-import { launchIde } from '@shepai/core/infrastructure/services/ide-launchers/launch-ide';
+import type { LaunchIdeUseCase } from '@shepai/core/application/use-cases/ide/launch-ide.use-case';
+import { resolve } from '@/lib/server-container';
 
 interface OpenIdeInput {
   repositoryPath: string;
@@ -20,7 +21,8 @@ export async function openIde(
   const settings = getSettings();
   const editor = settings.environment.defaultEditor;
 
-  const result = await launchIde({
+  const useCase = resolve<LaunchIdeUseCase>('LaunchIdeUseCase');
+  const result = await useCase.execute({
     editorId: editor,
     repositoryPath,
     branch,
