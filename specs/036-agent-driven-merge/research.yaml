@@ -1,0 +1,111 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-driven-merge
+summary: >
+  Technical analysis for replacing IGitPrService calls with IAgentExecutor calls in the merge node.
+  All patterns already exist in the codebase — no new libraries or infrastructure needed.
+
+relatedFeatures:
+  - '020-worktree-merge-flow'
+technologies:
+  - IAgentExecutor
+  - LangGraph
+  - retryExecute
+relatedLinks: []
+
+decisions:
+  - title: Agent call granularity
+    chosen: 'Two agent calls: (1) commit+push+PR, (2) merge'
+    rejected:
+      - 'Single agent call for everything — too much scope, hard to interrupt between PR and merge'
+      - 'Three agent calls (commit, PR, merge) — unnecessary granularity, commit+push+PR is one logical unit'
+    rationale: >
+      Commit, push, and PR creation form one logical operation (shipping code for review).
+      Merge is a separate decision that happens after the approval gate. Two calls maps
+      naturally to the existing approval gate interrupt between steps 3 and 5.
+
+  - title: How to extract prUrl/prNumber/commitHash from agent output
+    chosen: 'Parse agent text output with regex patterns'
+    rejected:
+      - 'Use IStructuredAgentCaller with JSON schema — adds complexity, agent already outputs URLs naturally'
+      - 'Require agent to write results to a temp file — fragile, unnecessary indirection'
+    rationale: >
+      The agent outputs git command results containing commit SHAs and PR URLs in predictable
+      formats. Simple regex extraction is reliable. Falls back gracefully if parsing fails —
+      the operations still succeed, we just don't capture metadata.
+
+  - title: How to handle the approval gate diff summary
+    chosen: 'Keep a minimal getDiffSummary function dependency instead of full IGitPrService'
+    rejected:
+      - 'Remove IGitPrService entirely — but getPrDiffSummary is needed for the interrupt display'
+      - 'Ask agent to produce diff summary — wasteful agent call for a simple git stat command'
+    rationale: >
+      The approval gate interrupt needs a DiffSummary object for the UI display. This is a
+      simple deterministic git operation (git diff --stat) that doesn't benefit from AI. Inject
+      as a function rather than the full service interface.
+
+  - title: Prompt structure for commit+push+PR call
+    chosen: 'Single prompt with spec context, feature metadata, and step-by-step instructions'
+    rejected:
+      - "Minimal prompt with just 'commit and push' — misses the opportunity for intelligent messages"
+    rationale: >
+      The prompt includes spec.yaml summary (for PR description context), branch names,
+      push/PR flags, and the feature.yaml path for prUrl update. The agent reads the diff
+      itself and crafts the commit message and PR body.
+
+openQuestions: []
+
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-22
+
+  ## Technology Decisions
+
+  ### Agent Call Granularity
+
+  **Options considered:**
+  1. Single agent call for everything
+  2. Two agent calls: commit+push+PR and merge (separately)
+  3. Three agent calls: commit, PR, merge
+
+  **Decision:** Two agent calls
+
+  **Rationale:** Maps naturally to the approval gate — agent call 1 before gate, agent call 2 after.
+
+  ### Output Parsing Strategy
+
+  **Options considered:**
+  1. IStructuredAgentCaller with JSON schema
+  2. Regex-based extraction from text output
+  3. Agent writes results to temp file
+
+  **Decision:** Regex-based extraction
+
+  **Rationale:** Agent outputs standard git/gh output. Regex for SHA and PR URL is simple and reliable.
+
+  ### Approval Gate Diff Summary
+
+  **Options considered:**
+  1. Remove IGitPrService entirely
+  2. Keep minimal getDiffSummary function dependency
+  3. Use agent for diff summary
+
+  **Decision:** Keep minimal function dependency
+
+  **Rationale:** DiffSummary for UI display is a simple `git diff --stat` — no AI needed.
+
+  ## Security Considerations
+
+  No security implications — the agent already has full shell access in the worktree.
+
+  ## Performance Implications
+
+  Agent calls are slower than direct shell commands (~30-60s vs <1s). However the merge node
+  runs once per feature, and the quality improvement justifies the latency.
+
+  ## Open Questions
+
+  All questions resolved.
