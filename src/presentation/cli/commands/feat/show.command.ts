@@ -375,8 +375,8 @@ export function createShowCommand(): Command {
             content: [
               `${phase} is waiting for your review.`,
               '',
-              `  ${colors.accent('shep feat approve')}  Resume the agent`,
-              `  ${colors.accent('shep feat reject')}   Cancel with feedback`,
+              `  ${colors.accent(`shep feat approve ${feature.id.slice(0, 8)}`)}  Resume the agent`,
+              `  ${colors.accent(`shep feat reject ${feature.id.slice(0, 8)}`)}   Cancel with feedback`,
             ].join('\n'),
           });
         }
