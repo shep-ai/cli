@@ -11,12 +11,20 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Repository } from '@/domain/generated/output.js';
 
-const { mockResolveRepository } = vi.hoisted(() => ({
+const { mockResolveRepository, mockContainerResolve, mockFeatureList } = vi.hoisted(() => ({
   mockResolveRepository: vi.fn(),
+  mockContainerResolve: vi.fn(),
+  mockFeatureList: vi.fn(),
 }));
 
 vi.mock('../../../../../../src/presentation/cli/commands/repo/resolve-repository.js', () => ({
   resolveRepository: mockResolveRepository,
+}));
+
+vi.mock('@/infrastructure/di/container.js', () => ({
+  container: {
+    resolve: (...args: unknown[]) => mockContainerResolve(...args),
+  },
 }));
 
 import { createShowCommand } from '../../../../../../src/presentation/cli/commands/repo/show.command.js';
@@ -40,6 +48,11 @@ describe('repo show command', () => {
     vi.clearAllMocks();
     consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn());
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(vi.fn());
+    mockContainerResolve.mockImplementation((token: unknown) => {
+      if (token === 'IFeatureRepository') return { list: mockFeatureList };
+      return {};
+    });
+    mockFeatureList.mockResolvedValue([]);
     process.exitCode = undefined;
   });
 
@@ -110,6 +123,50 @@ describe('repo show command', () => {
     expect(process.exitCode).toBe(1);
     const output = consoleErrorSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
     expect(output).toContain('Failed to show repository');
+  });
+
+  it('should display features section with feature names and lifecycle', async () => {
+    const repo = makeRepository();
+    mockResolveRepository.mockResolvedValue({ repository: repo });
+    mockFeatureList.mockResolvedValue([
+      {
+        id: 'f1',
+        name: 'add-auth',
+        slug: 'add-auth',
+        lifecycle: 'Implementation',
+        branch: 'feat/add-auth',
+      },
+      {
+        id: 'f2',
+        name: 'fix-login',
+        slug: 'fix-login',
+        lifecycle: 'Review',
+        branch: 'feat/fix-login',
+      },
+    ]);
+
+    const cmd = createShowCommand();
+    await cmd.parseAsync(['a1b2c3d4'], { from: 'user' });
+
+    expect(mockFeatureList).toHaveBeenCalledWith({ repositoryPath: '/home/user/my-project' });
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
+    expect(output).toContain('Features');
+    expect(output).toContain('add-auth');
+    expect(output).toContain('fix-login');
+    expect(output).toContain('Implementation');
+    expect(output).toContain('Review');
+  });
+
+  it('should show "No features" when repository has no features', async () => {
+    const repo = makeRepository();
+    mockResolveRepository.mockResolvedValue({ repository: repo });
+    mockFeatureList.mockResolvedValue([]);
+
+    const cmd = createShowCommand();
+    await cmd.parseAsync(['a1b2c3d4'], { from: 'user' });
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
+    expect(output).toContain('No features found');
   });
 
   it('should show deletedAt when present', async () => {

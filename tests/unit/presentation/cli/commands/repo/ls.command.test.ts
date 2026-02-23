@@ -11,13 +11,16 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { Repository } from '@/domain/generated/output.js';
 
-const { mockResolve, mockExecute } = vi.hoisted(() => ({
+const { mockResolve, mockExecute, mockFeatureList } = vi.hoisted(() => ({
   mockResolve: vi.fn(),
   mockExecute: vi.fn(),
+  mockFeatureList: vi.fn(),
 }));
 
 vi.mock('@/infrastructure/di/container.js', () => ({
-  container: { resolve: (...args: unknown[]) => mockResolve(...args) },
+  container: {
+    resolve: (...args: unknown[]) => mockResolve(...args),
+  },
 }));
 
 vi.mock('@/application/use-cases/repositories/list-repositories.use-case.js', () => ({
@@ -46,7 +49,11 @@ describe('repo ls command', () => {
     vi.clearAllMocks();
     consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn());
     vi.spyOn(console, 'error').mockImplementation(vi.fn());
-    mockResolve.mockReturnValue({ execute: mockExecute });
+    mockResolve.mockImplementation((token: unknown) => {
+      if (token === 'IFeatureRepository') return { list: mockFeatureList };
+      return { execute: mockExecute };
+    });
+    mockFeatureList.mockResolvedValue([]);
     process.exitCode = undefined;
   });
 
@@ -99,6 +106,34 @@ describe('repo ls command', () => {
 
     const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
     expect(output).toContain('deadbeef');
+  });
+
+  it('should show feature count for each repository', async () => {
+    const repo = makeRepository();
+    mockExecute.mockResolvedValue([repo]);
+    mockFeatureList.mockResolvedValue([
+      { id: 'f1', name: 'feat-1', lifecycle: 'Started' },
+      { id: 'f2', name: 'feat-2', lifecycle: 'Implementation' },
+    ]);
+
+    const cmd = createLsCommand();
+    await cmd.parseAsync([], { from: 'user' });
+
+    expect(mockFeatureList).toHaveBeenCalledWith({ repositoryPath: '/home/user/my-project' });
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
+    expect(output).toContain('2');
+  });
+
+  it('should show 0 features when repository has none', async () => {
+    const repo = makeRepository();
+    mockExecute.mockResolvedValue([repo]);
+    mockFeatureList.mockResolvedValue([]);
+
+    const cmd = createLsCommand();
+    await cmd.parseAsync([], { from: 'user' });
+
+    const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
+    expect(output).toContain('0');
   });
 
   it('should set process.exitCode = 1 on error', async () => {

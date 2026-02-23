@@ -8,6 +8,8 @@
  */
 
 import { Command } from 'commander';
+import { container } from '@/infrastructure/di/container.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { messages, renderDetailView } from '../../ui/index.js';
 import { resolveRepository } from './resolve-repository.js';
 
@@ -33,6 +35,13 @@ export function createShowCommand(): Command {
           return;
         }
         const repository = resolved.repository;
+        const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
+        const features = await featureRepo.list({ repositoryPath: repository.path });
+
+        const featureFields =
+          features.length > 0
+            ? features.map((f) => ({ label: f.name, value: f.lifecycle }))
+            : [{ label: 'No features found', value: '—' }];
 
         renderDetailView({
           title: 'Repository',
@@ -51,6 +60,10 @@ export function createShowCommand(): Command {
                 { label: 'Updated', value: formatDate(repository.updatedAt) },
                 { label: 'Deleted', value: formatDate(repository.deletedAt) },
               ],
+            },
+            {
+              title: `Features (${features.length})`,
+              fields: featureFields,
             },
           ],
         });
