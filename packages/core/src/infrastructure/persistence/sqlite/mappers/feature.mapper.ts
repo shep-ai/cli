@@ -43,6 +43,8 @@ export interface FeatureRow {
   allow_plan: number;
   allow_merge: number;
   worktree_path: string | null;
+  // Repository reference
+  repository_id: string | null;
   // PR tracking (flat columns)
   pr_url: string | null;
   pr_number: number | null;
@@ -83,6 +85,8 @@ export function toDatabase(feature: Feature): FeatureRow {
     allow_plan: feature.approvalGates?.allowPlan ? 1 : 0,
     allow_merge: feature.approvalGates?.allowMerge ? 1 : 0,
     worktree_path: feature.worktreePath ?? null,
+    // Repository reference
+    repository_id: feature.repositoryId ?? null,
     // Flatten pr to individual columns
     pr_url: feature.pr?.url ?? null,
     pr_number: feature.pr?.number ?? null,
@@ -127,6 +131,8 @@ export function fromDatabase(row: FeatureRow): Feature {
       allowMerge: row.allow_merge === 1,
     },
     ...(row.worktree_path !== null && { worktreePath: row.worktree_path }),
+    // Repository reference
+    ...(row.repository_id !== null && { repositoryId: row.repository_id }),
     // Assemble pr from flat columns (only when pr_url exists)
     ...(row.pr_url !== null && {
       pr: {

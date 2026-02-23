@@ -11,6 +11,7 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 import { createFeature } from '@/app/actions/create-feature';
 import { deleteFeature } from '@/app/actions/delete-feature';
+import { addRepository } from '@/app/actions/add-repository';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 
 export interface ControlCenterState {
@@ -390,40 +391,84 @@ export function useControlCenterState(
     [edges]
   );
 
-  const handleAddRepository = useCallback((path: string) => {
-    const id = `repo-${Date.now()}`;
+  const handleAddRepository = useCallback(
+    (path: string) => {
+      const tempId = `repo-temp-${Date.now()}`;
+      const repoName =
+        path
+          .replace(/[\\/]+$/, '')
+          .split(/[\\/]/)
+          .pop() ?? path;
 
-    setNodes((currentNodes) => {
-      const addRepoNode = currentNodes.find((n) => n.type === 'addRepositoryNode');
-      const position = addRepoNode
-        ? { x: addRepoNode.position.x, y: addRepoNode.position.y }
-        : { x: 50, y: 50 };
+      // Optimistic UI: add node immediately
+      setNodes((currentNodes) => {
+        const addRepoNode = currentNodes.find((n) => n.type === 'addRepositoryNode');
+        const position = addRepoNode
+          ? { x: addRepoNode.position.x, y: addRepoNode.position.y }
+          : { x: 50, y: 50 };
 
-      const newNode = {
-        id,
-        type: 'repositoryNode' as const,
-        position,
-        data: {
-          name:
-            path
-              .replace(/[\\/]+$/, '')
-              .split(/[\\/]/)
-              .pop() ?? path,
-        },
-      } as CanvasNodeType;
+        const newNode = {
+          id: tempId,
+          type: 'repositoryNode' as const,
+          position,
+          data: { name: repoName, repositoryPath: path, id: tempId },
+        } as CanvasNodeType;
 
-      // Shift the add-repo node down
-      return currentNodes
-        .map((n) =>
-          n.type === 'addRepositoryNode'
-            ? { ...n, position: { ...n.position, y: n.position.y + 80 } }
-            : n
-        )
-        .concat(newNode);
-    });
-  }, []);
+        return currentNodes
+          .map((n) =>
+            n.type === 'addRepositoryNode'
+              ? { ...n, position: { ...n.position, y: n.position.y + 80 } }
+              : n
+          )
+          .concat(newNode);
+      });
 
-  const pendingRepositoryPath = pendingRepoNodeId?.replace(/^repo-/, '') ?? '';
+      // Persist via server action
+      addRepository({ path, name: repoName })
+        .then((result) => {
+          if (result.error) {
+            // Rollback optimistic node
+            setNodes((prev) => prev.filter((n) => n.id !== tempId));
+            toast.error(result.error);
+            return;
+          }
+
+          // Replace temp ID with real repository ID
+          const repo = result.repository!;
+          const realId = `repo-${repo.id}`;
+          setNodes((prev) =>
+            prev.map((n) =>
+              n.id === tempId
+                ? ({
+                    ...n,
+                    id: realId,
+                    data: { ...n.data, id: repo.id, repositoryPath: repo.path },
+                  } as CanvasNodeType)
+                : n
+            )
+          );
+          setEdges((prev) =>
+            prev.map((e) => ({
+              ...e,
+              source: e.source === tempId ? realId : e.source,
+              target: e.target === tempId ? realId : e.target,
+              id: e.id.replace(tempId, realId),
+            }))
+          );
+
+          router.refresh();
+        })
+        .catch(() => {
+          setNodes((prev) => prev.filter((n) => n.id !== tempId));
+          toast.error('Failed to add repository');
+        });
+    },
+    [router]
+  );
+
+  const pendingNode = pendingRepoNodeId ? nodes.find((n) => n.id === pendingRepoNodeId) : null;
+  const pendingRepositoryPath =
+    (pendingNode?.data as { repositoryPath?: string } | undefined)?.repositoryPath ?? '';
 
   return {
     nodes,

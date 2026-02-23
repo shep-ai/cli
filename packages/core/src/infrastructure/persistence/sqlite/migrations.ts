@@ -232,6 +232,47 @@ ALTER TABLE phase_timings ADD COLUMN waiting_approval_at INTEGER;
 ALTER TABLE phase_timings ADD COLUMN approval_wait_ms INTEGER;
 `,
   },
+  {
+    version: 15,
+    sql: `
+-- Migration 015: Create Repositories Table and backfill from features
+
+-- 1. Create repositories table
+CREATE TABLE repositories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  path TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_repositories_path ON repositories(path);
+
+-- 2. Extract unique repository_path values from features into repositories
+INSERT INTO repositories (id, name, path, created_at, updated_at)
+SELECT
+  lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))) AS id,
+  CASE
+    WHEN instr(repository_path, '/') > 0
+    THEN substr(repository_path, length(repository_path) - length(replace(repository_path, '/', '')) + 1)
+    ELSE repository_path
+  END AS name,
+  repository_path AS path,
+  MIN(created_at) AS created_at,
+  MAX(updated_at) AS updated_at
+FROM features
+WHERE repository_path IS NOT NULL AND repository_path != ''
+GROUP BY repository_path;
+
+-- 3. Add repository_id column to features
+ALTER TABLE features ADD COLUMN repository_id TEXT;
+
+-- 4. Backfill repository_id on all existing features
+UPDATE features SET repository_id = (
+  SELECT r.id FROM repositories r WHERE r.path = features.repository_path
+);
+`,
+  },
 ];
 
 /**
