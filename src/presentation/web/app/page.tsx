@@ -1,6 +1,7 @@
 import { ControlCenter } from '@/components/features/control-center';
 import { resolve } from '@/lib/server-container';
 import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
+import type { ListRepositoriesUseCase } from '@shepai/core/application/use-cases/repositories/list-repositories.use-case';
 import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
 import {
   deriveNodeState,
@@ -35,8 +36,11 @@ const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
 
 export default async function HomePage() {
   const listFeatures = resolve<ListFeaturesUseCase>('ListFeaturesUseCase');
+  const listRepos = resolve<ListRepositoriesUseCase>('ListRepositoriesUseCase');
   const agentRunRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
-  const features = await listFeatures.execute();
+
+  const [features, repositories] = await Promise.all([listFeatures.execute(), listRepos.execute()]);
+
   const featuresWithRuns = await Promise.all(
     features.map(async (feature) => {
       const run = feature.agentRunId ? await agentRunRepo.findById(feature.agentRunId) : null;
@@ -44,7 +48,7 @@ export default async function HomePage() {
     })
   );
 
-  // Group features by repository path
+  // Group features by repository path (features may still reference paths not yet in repositories table)
   const featuresByRepo: Record<string, typeof featuresWithRuns> = {};
   featuresWithRuns.forEach((entry) => {
     const repoKey = entry.feature.repositoryPath;
@@ -57,16 +61,17 @@ export default async function HomePage() {
   const nodes: CanvasNodeType[] = [];
   const edges: Edge[] = [];
 
-  Object.entries(featuresByRepo).forEach(([repoPath, repoFeatures]) => {
-    const repoNodeId = `repo-${repoPath}`;
-    const repoName = repoPath.split('/').pop() ?? repoPath;
+  // First, add nodes for all persisted repositories (including those without features)
+  for (const repo of repositories) {
+    const repoNodeId = `repo-${repo.id}`;
     nodes.push({
       id: repoNodeId,
       type: 'repositoryNode',
       position: { x: 0, y: 0 },
-      data: { name: repoName, repositoryPath: repoPath },
+      data: { name: repo.name, repositoryPath: repo.path, id: repo.id },
     });
 
+    const repoFeatures = featuresByRepo[repo.path] ?? [];
     repoFeatures.forEach(({ feature, run }) => {
       const agentNode = run?.result?.startsWith('node:') ? run.result.slice(5) : undefined;
       const lifecycle: FeatureLifecyclePhase =
@@ -105,14 +110,35 @@ export default async function HomePage() {
         style: { strokeDasharray: '5 5' },
       });
     });
-  });
+  }
 
   // Use dagre LR layout for compact, automatic positioning
   const laid = layoutWithDagre(nodes, edges, {
     direction: 'LR',
     ranksep: 200,
-    nodesep: 60,
+    nodesep: 15,
   });
+
+  // Position "+ Add Repository" vertically centered with the bottom-most feature node,
+  // mirroring how Dagre centers repo nodes with their connected features.
+  const repoNodes = laid.nodes.filter((n) => n.type === 'repositoryNode');
+  const featureNodes = laid.nodes.filter((n) => n.type === 'featureNode');
+  const sortedFeatures = [...featureNodes].sort((a, b) => a.position.y - b.position.y);
+  // Pick the feature node just below center (one past the midpoint index)
+  const centerIdx = Math.floor(sortedFeatures.length / 2);
+  const targetFeature = sortedFeatures[centerIdx + 1] ?? sortedFeatures[sortedFeatures.length - 1];
+  const repoX = repoNodes[0]?.position.x ?? 0;
+  // Center the add-repo node (h=50) with the target feature node (h=140)
+  const addRepoPosition = targetFeature
+    ? { x: repoX, y: targetFeature.position.y + 70 - 25 }
+    : { x: repoX, y: (repoNodes[0]?.position.y ?? 0) + 150 };
+
+  laid.nodes.push({
+    id: 'add-repository',
+    type: 'addRepositoryNode',
+    position: addRepoPosition,
+    data: {},
+  } as CanvasNodeType);
 
   return (
     <div className="h-screen w-full">

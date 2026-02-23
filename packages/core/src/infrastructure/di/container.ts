@@ -20,6 +20,8 @@ import type { ISettingsRepository } from '../../application/ports/output/reposit
 import { SQLiteSettingsRepository } from '../repositories/sqlite-settings.repository.js';
 import type { IFeatureRepository } from '../../application/ports/output/repositories/feature-repository.interface.js';
 import { SQLiteFeatureRepository } from '../repositories/sqlite-feature.repository.js';
+import type { IRepositoryRepository } from '../../application/ports/output/repositories/repository-repository.interface.js';
+import { SQLiteRepositoryRepository } from '../repositories/sqlite-repository.repository.js';
 
 // Validator interfaces and implementations
 import type { IAgentValidator } from '../../application/ports/output/agents/agent-validator.interface.js';
@@ -96,6 +98,9 @@ import { GetResearchArtifactUseCase } from '../../application/use-cases/features
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
 import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use-case.js';
+import { AddRepositoryUseCase } from '../../application/use-cases/repositories/add-repository.use-case.js';
+import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
+import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -136,6 +141,13 @@ export async function initializeContainer(): Promise<typeof container> {
     useFactory: (c) => {
       const database = c.resolve<Database.Database>('Database');
       return new SQLiteFeatureRepository(database);
+    },
+  });
+
+  container.register<IRepositoryRepository>('IRepositoryRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteRepositoryRepository(database);
     },
   });
 
@@ -278,6 +290,9 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
   container.registerSingleton(LaunchIdeUseCase);
+  container.registerSingleton(AddRepositoryUseCase);
+  container.registerSingleton(ListRepositoriesUseCase);
+  container.registerSingleton(DeleteRepositoryUseCase);
 
   // String-token aliases for web routes (Turbopack can't resolve .js→.ts
   // imports inside @shepai/core, so routes use string tokens instead of class refs)
@@ -301,6 +316,15 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('LaunchIdeUseCase', {
     useFactory: (c) => c.resolve(LaunchIdeUseCase),
+  });
+  container.register('AddRepositoryUseCase', {
+    useFactory: (c) => c.resolve(AddRepositoryUseCase),
+  });
+  container.register('ListRepositoriesUseCase', {
+    useFactory: (c) => c.resolve(ListRepositoriesUseCase),
+  });
+  container.register('DeleteRepositoryUseCase', {
+    useFactory: (c) => c.resolve(DeleteRepositoryUseCase),
   });
 
   _initialized = true;

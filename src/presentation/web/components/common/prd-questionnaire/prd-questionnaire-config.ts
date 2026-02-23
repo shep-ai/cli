@@ -31,6 +31,8 @@ export interface PrdQuestionnaireDrawerProps extends PrdQuestionnaireProps {
   onClose: () => void;
   /** Feature name shown in drawer header */
   featureName: string;
+  /** Short description shown below the feature name */
+  featureDescription?: string;
   /** Feature ID shown below the name */
   featureId?: string;
   /** Current lifecycle stage label */

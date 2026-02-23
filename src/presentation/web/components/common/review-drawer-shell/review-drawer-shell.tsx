@@ -29,6 +29,7 @@ export function ReviewDrawerShell({
   open,
   onClose,
   featureName,
+  featureDescription,
   featureId,
   repositoryPath,
   branch,
@@ -64,7 +65,9 @@ export function ReviewDrawerShell({
         {/* Header */}
         <DrawerHeader>
           <DrawerTitle>{featureName}</DrawerTitle>
-          {featureId ? (
+          {featureDescription ? (
+            <DrawerDescription>{featureDescription}</DrawerDescription>
+          ) : featureId ? (
             <DrawerDescription className="sr-only">{featureId}</DrawerDescription>
           ) : null}
         </DrawerHeader>

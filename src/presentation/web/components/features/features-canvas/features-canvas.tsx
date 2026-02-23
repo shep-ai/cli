@@ -25,6 +25,7 @@ export interface FeaturesCanvasProps {
   onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
   onPaneClick?: (event: React.MouseEvent) => void;
   onRepositoryAdd?: (repoNodeId: string) => void;
+  onRepositoryDelete?: (repositoryId: string) => void;
   onConnect?: (connection: Connection) => void;
   onRepositorySelect?: (path: string) => void;
   toolbar?: React.ReactNode;
@@ -42,6 +43,7 @@ export function FeaturesCanvas({
   onNodeClick,
   onPaneClick,
   onRepositoryAdd,
+  onRepositoryDelete,
   onRepositorySelect,
   toolbar,
   emptyState,
@@ -85,13 +87,22 @@ export function FeaturesCanvas({
             }),
           ...(node.type === 'repositoryNode' && {
             onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
+            onDelete: onRepositoryDelete,
           }),
           ...(node.type === 'addRepositoryNode' && {
             onSelect: onRepositorySelect ? (path: string) => onRepositorySelect(path) : undefined,
           }),
         },
       })) as CanvasNodeType[],
-    [nodes, edges.length, onNodeAction, onNodeSettings, onRepositoryAdd, onRepositorySelect]
+    [
+      nodes,
+      edges.length,
+      onNodeAction,
+      onNodeSettings,
+      onRepositoryAdd,
+      onRepositoryDelete,
+      onRepositorySelect,
+    ]
   );
 
   if (nodes.length === 0) {

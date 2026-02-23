@@ -1,0 +1,147 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repository-entity
+summary: Technical decisions for promoting Repository to a first-class domain entity
+
+# Relationships
+relatedFeatures:
+  - '031-repo-node-actions'
+technologies:
+  - TypeSpec
+  - TypeScript
+  - SQLite (better-sqlite3)
+  - tsyringe (DI)
+  - Next.js Server Actions
+  - React Flow
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: Repository entity modeling approach
+    chosen: TypeSpec-first domain entity extending BaseEntity
+    rejected:
+      - Plain TypeScript interface without TypeSpec
+      - Settings field (trackedRepositories string array)
+      - Lightweight table without domain model
+    rationale: >
+      CLAUDE.md mandates TypeSpec-first architecture. Repository is a genuine domain concept
+      that entities (Features) reference. It deserves full entity treatment with UUID identity,
+      timestamps, and generated types. This keeps the domain model consistent and enables
+      future extensions (repository settings, metadata, branch policies).
+
+  - title: Feature-to-Repository relationship
+    chosen: Add repositoryId UUID foreign key to Feature, keep repositoryPath as denormalized read field on Repository
+    rejected:
+      - Keep only repositoryPath string on Feature (status quo)
+      - Replace repositoryPath entirely with repositoryId (breaking change for agents)
+      - Many-to-many relationship via join table
+    rationale: >
+      Features belong to exactly one repository (1:N relationship). Adding `repositoryId` to
+      Feature establishes the FK relationship. The repository `path` field lives on the
+      Repository entity. Agent code that currently reads `feature.repositoryPath` can be
+      updated to resolve through the repository, but for the migration we keep backward
+      compatibility by also storing the path on features during transition.
+
+  - title: Migration strategy for existing data
+    chosen: Single migration that creates repositories table, extracts unique paths, backfills repository_id on features
+    rejected:
+      - Multi-step migration across multiple versions
+      - Application-level migration on startup
+      - Drop and recreate features table
+    rationale: >
+      SQLite supports adding columns and updating within a transaction. A single migration
+      (v15) can CREATE the repositories table, INSERT unique repository_path values as
+      Repository records with generated UUIDs, then ALTER features to add repository_id
+      and UPDATE it from the repository records. This is atomic and safe.
+
+  - title: Naming convention
+    chosen: Repository (not TrackedRepository, not Repo)
+    rejected:
+      - TrackedRepository (implies tracking state)
+      - Repo (too abbreviated for domain model)
+      - Project (overloaded term)
+    rationale: >
+      "Repository" is the established domain term in the codebase (repositoryPath, repository_path,
+      repositoryNode). Using the full name aligns with existing conventions and avoids confusion.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-23
+
+  ## Technology Decisions
+
+  ### Repository Entity Modeling
+
+  **Options considered:**
+
+  1. **TypeSpec-first domain entity** — Full entity with BaseEntity inheritance, UUID, timestamps
+  2. **Plain TypeScript interface** — Skip TypeSpec, hand-write types
+  3. **Settings extension** — Add `trackedRepositories: string[]` to singleton Settings
+  4. **Lightweight table** — Simple SQLite table without domain model
+
+  **Decision:** TypeSpec-first domain entity extending BaseEntity
+
+  **Rationale:** Follows the mandatory TypeSpec-first architecture. Repository is a genuine
+  domain concept referenced by Features. Full entity treatment enables future extensions
+  and maintains consistency with Feature, Task, Artifact, and other entities.
+
+  ### Feature-to-Repository Relationship
+
+  **Options considered:**
+
+  1. **Add repositoryId FK** — Feature gets `repositoryId` referencing Repository.id
+  2. **Keep repositoryPath only** — No FK, repositories remain inferred
+  3. **Replace repositoryPath with repositoryId** — Remove path from Feature entirely
+  4. **Join table** — Many-to-many relationship
+
+  **Decision:** Add `repositoryId` FK to Feature, repository stores the `path`
+
+  **Rationale:** 1:N relationship (one repository has many features). The repository entity
+  owns the `path` field. Feature references repository by ID. During migration, existing
+  features get their repository_id backfilled from their repository_path values.
+
+  ### Migration Strategy
+
+  **Decision:** Single atomic migration (v15) that:
+  1. Creates `repositories` table
+  2. Extracts unique `repository_path` values from `features` into repository records
+  3. Adds `repository_id` column to `features`
+  4. Backfills `repository_id` from matching repository records
+  5. Retains `repository_path` on features for backward compatibility during transition
+
+  This runs in a single SQLite transaction, ensuring atomicity.
+
+  ## Library Analysis
+
+  No new libraries required. Uses existing stack:
+  - `better-sqlite3` for database operations
+  - `tsyringe` for dependency injection
+  - `@typespec-tools/emitter-typescript` for type generation
+  - `crypto.randomUUID()` for ID generation in migration
+
+  ## Security Considerations
+
+  - Repository paths are absolute filesystem paths — no new security surface beyond existing
+    `repositoryPath` handling on features
+  - UUID generation for migration uses `lower(hex(randomblob(4)) || '-' || ...)` SQLite pattern
+
+  ## Performance Implications
+
+  - Adding `repository_id` index on features table ensures fast lookups
+  - Repository list query is simple and fast (typically <10 repositories per user)
+  - Migration is one-time and fast (SQLite transaction, in-memory for small datasets)
+
+  ## Open Questions
+
+  All questions resolved.
+
+  ---
+
+  _Updated by `/shep-kit:new-feature-fast` — proceed with `/shep-kit:plan`_

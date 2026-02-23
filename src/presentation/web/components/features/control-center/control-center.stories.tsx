@@ -6,6 +6,7 @@ import type { FeatureNodeType } from '@/components/common/feature-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
 import { layoutWithDagre } from '@/lib/layout-with-dagre';
+import { AgentEventsProvider } from '@/hooks/agent-events-provider';
 
 const meta: Meta<typeof ControlCenter> = {
   title: 'Features/ControlCenter',
@@ -16,9 +17,11 @@ const meta: Meta<typeof ControlCenter> = {
   },
   decorators: [
     (Story) => (
-      <div style={{ height: '100vh' }}>
-        <Story />
-      </div>
+      <AgentEventsProvider>
+        <div style={{ height: '100vh' }}>
+          <Story />
+        </div>
+      </AgentEventsProvider>
     ),
   ],
 };

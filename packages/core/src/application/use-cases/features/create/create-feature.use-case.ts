@@ -25,6 +25,7 @@ import type { IWorktreeService } from '../../../ports/output/services/worktree-s
 import type { IFeatureAgentProcessService } from '../../../ports/output/agents/feature-agent-process.interface.js';
 import type { IAgentRunRepository } from '../../../ports/output/agents/agent-run-repository.interface.js';
 import type { ISpecInitializerService } from '../../../ports/output/services/spec-initializer.interface.js';
+import type { IRepositoryRepository } from '../../../ports/output/repositories/repository-repository.interface.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
 import { MetadataGenerator } from './metadata-generator.js';
 import { SlugResolver } from './slug-resolver.js';
@@ -46,7 +47,9 @@ export class CreateFeatureUseCase {
     @inject(MetadataGenerator)
     private readonly metadataGenerator: MetadataGenerator,
     @inject(SlugResolver)
-    private readonly slugResolver: SlugResolver
+    private readonly slugResolver: SlugResolver,
+    @inject('IRepositoryRepository')
+    private readonly repositoryRepo: IRepositoryRepository
   ) {}
 
   async execute(input: CreateFeatureInput): Promise<CreateFeatureResult> {
@@ -80,6 +83,21 @@ export class CreateFeatureUseCase {
       input.userInput
     );
 
+    // Resolve or create repository entity for this path
+    const normalizedPath = input.repositoryPath.replace(/\/+$/, '') || input.repositoryPath;
+    let repository = await this.repositoryRepo.findByPath(normalizedPath);
+    if (!repository) {
+      const repoName = normalizedPath.split('/').pop() ?? normalizedPath;
+      repository = {
+        id: randomUUID(),
+        name: repoName,
+        path: normalizedPath,
+        createdAt: now,
+        updatedAt: now,
+      };
+      await this.repositoryRepo.create(repository);
+    }
+
     const feature: Feature = {
       id: randomUUID(),
       name: metadata.name,
@@ -100,6 +118,7 @@ export class CreateFeatureUseCase {
       },
       agentRunId: runId,
       specPath: specDir,
+      repositoryId: repository.id,
       createdAt: now,
       updatedAt: now,
     };

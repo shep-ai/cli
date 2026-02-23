@@ -364,6 +364,9 @@ model Feature extends BaseEntity {
   @doc("Absolute path to the feature spec directory inside the worktree")
   specPath?: string;
 
+  @doc("ID of the Repository entity this feature belongs to")
+  repositoryId?: UUID;
+
   // ── Workflow Configuration ──────────────────────────────────
 
   @doc("Push branch to remote after implementation (default: false)")

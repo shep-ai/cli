@@ -25,3 +25,4 @@ import "./tasks-artifact.tsp";
 import "./feature-status.tsp";
 import "./tool.tsp";
 import "./notification-event.tsp";
+import "./repository.tsp";

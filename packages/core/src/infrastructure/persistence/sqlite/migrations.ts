@@ -235,7 +235,66 @@ ALTER TABLE phase_timings ADD COLUMN approval_wait_ms INTEGER;
   {
     version: 15,
     sql: `
--- Migration 015: Add onboarding and approval gate default columns
+-- Migration 015: Create Repositories Table and backfill from features
+
+-- 1. Create repositories table
+CREATE TABLE repositories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  path TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_repositories_path ON repositories(path);
+
+-- 2. Extract unique repository_path values from features into repositories
+INSERT INTO repositories (id, name, path, created_at, updated_at)
+SELECT
+  lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))) AS id,
+  CASE
+    WHEN instr(repository_path, '/') > 0
+    THEN replace(repository_path, rtrim(repository_path, replace(repository_path, '/', '')), '')
+    ELSE repository_path
+  END AS name,
+  repository_path AS path,
+  MIN(created_at) AS created_at,
+  MAX(updated_at) AS updated_at
+FROM features
+WHERE repository_path IS NOT NULL AND repository_path != ''
+GROUP BY repository_path;
+
+-- 3. Add repository_id column to features
+ALTER TABLE features ADD COLUMN repository_id TEXT;
+
+-- 4. Backfill repository_id on all existing features
+UPDATE features SET repository_id = (
+  SELECT r.id FROM repositories r WHERE r.path = features.repository_path
+);
+`,
+  },
+  {
+    version: 16,
+    sql: `
+-- Migration 016: Add soft delete support to repositories
+ALTER TABLE repositories ADD COLUMN deleted_at INTEGER;
+`,
+  },
+  {
+    version: 17,
+    sql: `
+-- Migration 017: Fix repository names backfilled incorrectly in migration 015
+-- The original substr formula extracted from the wrong position.
+-- Correct approach: strip the last path segment using rtrim trick.
+UPDATE repositories
+SET name = replace(path, rtrim(path, replace(path, '/', '')), '')
+WHERE instr(path, '/') > 0;
+`,
+  },
+  {
+    version: 18,
+    sql: `
+-- Migration 018: Add onboarding and approval gate default columns
 ALTER TABLE settings ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE settings ADD COLUMN approval_gate_allow_prd INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE settings ADD COLUMN approval_gate_allow_plan INTEGER NOT NULL DEFAULT 0;

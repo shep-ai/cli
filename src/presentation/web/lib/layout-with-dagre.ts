@@ -17,7 +17,7 @@ export interface LayoutOptions {
 /** Known node-type dimensions for the canvas node types */
 const NODE_DIMENSIONS: Record<string, { width: number; height: number }> = {
   featureNode: { width: 288, height: 140 },
-  repositoryNode: { width: 224, height: 50 },
+  repositoryNode: { width: 288, height: 50 },
   addRepositoryNode: { width: 224, height: 50 },
 };
 

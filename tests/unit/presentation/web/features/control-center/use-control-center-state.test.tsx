@@ -343,12 +343,12 @@ describe('useControlCenterState', () => {
       expect(screen.getByTestId('node-count')).toHaveTextContent('1');
     });
 
-    it('exposes pendingRepositoryPath derived from repo node id', () => {
+    it('exposes pendingRepositoryPath derived from repo node data', () => {
       const serverRepoNode: RepositoryNodeType = {
         id: 'repo-/Users/foo/bar',
         type: 'repositoryNode',
         position: { x: 0, y: 0 },
-        data: { name: 'bar' },
+        data: { name: 'bar', repositoryPath: '/Users/foo/bar' },
       };
       renderHook([serverRepoNode] as CanvasNodeType[]);
 
@@ -607,7 +607,7 @@ describe('useControlCenterState', () => {
       id: 'repo-/Users/foo/bar',
       type: 'repositoryNode',
       position: { x: 0, y: 0 },
-      data: { name: 'bar' },
+      data: { name: 'bar', repositoryPath: '/Users/foo/bar' },
     };
 
     it('inserts an optimistic node with state "creating" before server action resolves', async () => {

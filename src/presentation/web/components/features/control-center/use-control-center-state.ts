@@ -11,6 +11,8 @@ import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 import { createFeature } from '@/app/actions/create-feature';
 import { deleteFeature } from '@/app/actions/delete-feature';
+import { addRepository } from '@/app/actions/add-repository';
+import { deleteRepository } from '@/app/actions/delete-repository';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 
 export interface ControlCenterState {
@@ -31,6 +33,7 @@ export interface ControlCenterState {
   handleCreateFeatureSubmit: (data: FeatureCreatePayload) => void;
   closeCreateDrawer: () => void;
   handleDeleteFeature: (featureId: string) => Promise<void>;
+  handleDeleteRepository: (repositoryId: string) => Promise<void>;
   isDeleting: boolean;
   createFeatureNode: (
     sourceNodeId: string | null,
@@ -205,8 +208,8 @@ export function useControlCenterState(
         } else if (sourceNodeId) {
           // First child — position to the right of parent
           const parent = currentNodes.find((n) => n.id === sourceNodeId);
-          // Parent width + consistent 56px gap (repo: 224+56=280, feature: 288+56=344)
-          const xOffset = parent?.type === 'featureNode' ? 344 : 280;
+          // Parent width (288) + 200px gap matching dagre ranksep
+          const xOffset = 488;
           position = parent
             ? { x: parent.position.x + xOffset, y: parent.position.y }
             : { x: 400, y: 200 };
@@ -361,6 +364,33 @@ export function useControlCenterState(
     [router]
   );
 
+  const handleDeleteRepository = useCallback(
+    async (repositoryId: string) => {
+      const repoNodeId = `repo-${repositoryId}`;
+
+      // Optimistic: remove node and its edges immediately
+      setNodes((prev) => prev.filter((n) => n.id !== repoNodeId));
+      setEdges((prev) => prev.filter((e) => e.source !== repoNodeId && e.target !== repoNodeId));
+
+      try {
+        const result = await deleteRepository(repositoryId);
+
+        if (!result.success) {
+          toast.error(result.error ?? 'Failed to remove repository');
+          router.refresh();
+          return;
+        }
+
+        toast.success('Repository removed');
+        router.refresh();
+      } catch {
+        toast.error('Failed to remove repository');
+        router.refresh();
+      }
+    },
+    [router]
+  );
+
   const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
     setSelectedNode(null);
     setPendingRepoNodeId(repoNodeId);
@@ -390,40 +420,97 @@ export function useControlCenterState(
     [edges]
   );
 
-  const handleAddRepository = useCallback((path: string) => {
-    const id = `repo-${Date.now()}`;
+  const handleAddRepository = useCallback(
+    (path: string) => {
+      const tempId = `repo-temp-${Date.now()}`;
+      const repoName =
+        path
+          .replace(/[\\/]+$/, '')
+          .split(/[\\/]/)
+          .pop() ?? path;
 
-    setNodes((currentNodes) => {
-      const addRepoNode = currentNodes.find((n) => n.type === 'addRepositoryNode');
-      const position = addRepoNode
-        ? { x: addRepoNode.position.x, y: addRepoNode.position.y }
-        : { x: 50, y: 50 };
+      // Optimistic UI: add node immediately
+      setNodes((currentNodes) => {
+        const repoNodes = currentNodes.filter((n) => n.type === 'repositoryNode');
+        const addRepoNode = currentNodes.find((n) => n.type === 'addRepositoryNode');
 
-      const newNode = {
-        id,
-        type: 'repositoryNode' as const,
-        position,
-        data: {
-          name:
-            path
-              .replace(/[\\/]+$/, '')
-              .split(/[\\/]/)
-              .pop() ?? path,
-        },
-      } as CanvasNodeType;
+        // Place in the repo column, below the last existing repo node
+        const repoX = repoNodes[0]?.position.x ?? addRepoNode?.position.x ?? 50;
+        const repoHeight = 50; // repositoryNode height
+        const gap = 15; // match dagre nodesep
 
-      // Shift the add-repo node down
-      return currentNodes
-        .map((n) =>
-          n.type === 'addRepositoryNode'
-            ? { ...n, position: { ...n.position, y: n.position.y + 80 } }
-            : n
-        )
-        .concat(newNode);
-    });
-  }, []);
+        const lastRepoBottomY =
+          repoNodes.length > 0
+            ? Math.max(...repoNodes.map((n) => n.position.y)) + repoHeight
+            : addRepoNode
+              ? addRepoNode.position.y
+              : 0;
 
-  const pendingRepositoryPath = pendingRepoNodeId?.replace(/^repo-/, '') ?? '';
+        const position = { x: repoX, y: lastRepoBottomY + gap };
+
+        const newNode = {
+          id: tempId,
+          type: 'repositoryNode' as const,
+          position,
+          data: { name: repoName, repositoryPath: path, id: tempId },
+        } as CanvasNodeType;
+
+        // Move addRepo button below the new node
+        const addRepoY = position.y + repoHeight + gap;
+
+        return currentNodes
+          .map((n) =>
+            n.type === 'addRepositoryNode' ? { ...n, position: { ...n.position, y: addRepoY } } : n
+          )
+          .concat(newNode);
+      });
+
+      // Persist via server action
+      addRepository({ path, name: repoName })
+        .then((result) => {
+          if (result.error) {
+            // Rollback optimistic node
+            setNodes((prev) => prev.filter((n) => n.id !== tempId));
+            toast.error(result.error);
+            return;
+          }
+
+          // Replace temp ID with real repository ID
+          const repo = result.repository!;
+          const realId = `repo-${repo.id}`;
+          setNodes((prev) =>
+            prev.map((n) =>
+              n.id === tempId
+                ? ({
+                    ...n,
+                    id: realId,
+                    data: { ...n.data, id: repo.id, repositoryPath: repo.path },
+                  } as CanvasNodeType)
+                : n
+            )
+          );
+          setEdges((prev) =>
+            prev.map((e) => ({
+              ...e,
+              source: e.source === tempId ? realId : e.source,
+              target: e.target === tempId ? realId : e.target,
+              id: e.id.replace(tempId, realId),
+            }))
+          );
+
+          router.refresh();
+        })
+        .catch(() => {
+          setNodes((prev) => prev.filter((n) => n.id !== tempId));
+          toast.error('Failed to add repository');
+        });
+    },
+    [router]
+  );
+
+  const pendingNode = pendingRepoNodeId ? nodes.find((n) => n.id === pendingRepoNodeId) : null;
+  const pendingRepositoryPath =
+    (pendingNode?.data as { repositoryPath?: string } | undefined)?.repositoryPath ?? '';
 
   return {
     nodes,
@@ -443,6 +530,7 @@ export function useControlCenterState(
     handleCreateFeatureSubmit,
     closeCreateDrawer,
     handleDeleteFeature,
+    handleDeleteRepository,
     isDeleting,
     createFeatureNode,
   };

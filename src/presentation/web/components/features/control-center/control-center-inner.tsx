@@ -40,6 +40,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     clearSelection,
     handleCreateFeatureSubmit,
     handleDeleteFeature,
+    handleDeleteRepository,
     closeCreateDrawer,
   } = useControlCenterState(initialNodes, initialEdges);
 
@@ -204,6 +205,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onNodeClick={handleNodeClick}
         onPaneClick={clearSelection}
         onRepositoryAdd={handleAddFeatureToRepo}
+        onRepositoryDelete={handleDeleteRepository}
         onRepositorySelect={handleAddRepository}
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />
@@ -218,6 +220,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           open={showPrdDrawer}
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
+          featureDescription={selectedNode?.description}
           featureId={selectedNode?.featureId}
           repositoryPath={selectedNode?.repositoryPath}
           branch={selectedNode?.branch}

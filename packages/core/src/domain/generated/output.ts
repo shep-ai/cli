@@ -730,6 +730,10 @@ export type Feature = BaseEntity & {
    */
   specPath?: string;
   /**
+   * ID of the Repository entity this feature belongs to
+   */
+  repositoryId?: UUID;
+  /**
    * Push branch to remote after implementation (default: false)
    */
   push: boolean;
@@ -1287,6 +1291,20 @@ export type NotificationEvent = {
    * When the event occurred
    */
   timestamp: any;
+};
+
+/**
+ * A code repository tracked by the Shep platform
+ */
+export type Repository = SoftDeletableEntity & {
+  /**
+   * Human-readable name for the repository (typically the directory name)
+   */
+  name: string;
+  /**
+   * Absolute file system path to the repository root (unique)
+   */
+  path: string;
 };
 
 /**
