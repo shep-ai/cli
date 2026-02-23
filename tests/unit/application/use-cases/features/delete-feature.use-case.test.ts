@@ -77,6 +77,7 @@ describe('DeleteFeatureUseCase', () => {
       exists: vi.fn(),
       branchExists: vi.fn(),
       getWorktreePath: vi.fn().mockReturnValue('/repo/.worktrees/feat-test-feature'),
+      ensureGitRepository: vi.fn(),
     };
 
     mockProcessService = {

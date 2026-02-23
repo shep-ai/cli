@@ -101,4 +101,14 @@ export interface IWorktreeService {
    * @returns Computed worktree path (e.g., /repo/.worktrees/branch-name)
    */
   getWorktreePath(repoPath: string, branch: string): string;
+
+  /**
+   * Ensure a directory is a valid git repository with at least one commit.
+   * If the directory is not a git repo, initializes it with `git init`
+   * and creates an empty initial commit. No-ops for existing repos.
+   *
+   * @param repoPath - Path to the directory to check/initialize
+   * @throws WorktreeError if git initialization fails
+   */
+  ensureGitRepository(repoPath: string): Promise<void>;
 }
