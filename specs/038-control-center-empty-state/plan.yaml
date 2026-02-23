@@ -4,6 +4,9 @@
 name: control-center-empty-state
 number: 038
 branch: feat/038-control-center-empty-state
+summary: >
+  Single-phase implementation adding hasRepositories conditional rendering
+  to ControlCenterInner with TDD approach.
 
 phases:
   - id: phase-1

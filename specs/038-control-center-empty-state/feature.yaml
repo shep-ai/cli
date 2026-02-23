@@ -7,19 +7,23 @@ feature:
   createdAt: '2026-02-23T16:37:11Z'
 
 status:
-  phase: 'ready-to-implement'
+  phase: 'ready-for-review'
   progress:
-    completed: 0
+    completed: 3
     total: 3
-    percentage: 0
+    percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-23T16:38:00Z'
-  lastUpdatedBy: 'shep-kit:new-feature-fast'
+  lastUpdated: '2026-02-23T17:10:00Z'
+  lastUpdatedBy: 'shep-kit:implement'
 
 validation:
-  lastRun: null
-  gatesPassed: []
-  autoFixesApplied: []
+  lastRun: '2026-02-23T17:10:00Z'
+  gatesPassed:
+    - completeness
+    - consistency
+  autoFixesApplied:
+    - 'Added missing summary key to plan.yaml'
+    - 'Added missing summary key to tasks.yaml'
 
 tasks:
   current: null
@@ -36,6 +40,9 @@ checkpoints:
   - phase: 'plan-complete'
     completedAt: '2026-02-23T16:38:00Z'
     completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'implementation-complete'
+    completedAt: '2026-02-23T17:10:00Z'
+    completedBy: 'shep-kit:implement'
 
 errors:
   current: null

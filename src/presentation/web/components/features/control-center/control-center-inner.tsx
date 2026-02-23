@@ -185,12 +185,23 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     };
   }, [techDecisionsFeatureId]);
 
+  const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
+
   // Listen for global "open create drawer" events from the sidebar
   useEffect(() => {
     const handler = () => handleAddFeature();
     window.addEventListener('shep:open-create-drawer', handler);
     return () => window.removeEventListener('shep:open-create-drawer', handler);
   }, [handleAddFeature]);
+
+  if (!hasRepositories) {
+    return (
+      <>
+        <NotificationPermissionBanner />
+        <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />
+      </>
+    );
+  }
 
   return (
     <>
