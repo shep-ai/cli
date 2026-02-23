@@ -226,7 +226,7 @@ export function createFeatureAgentGraph(
     graph
       .addNode('merge', createMergeNode(mergeNodeDeps))
       .addEdge('implement', 'merge')
-      .addEdge('merge', END);
+      .addConditionalEdges('merge', routeReexecution('merge', END));
   } else {
     graph.addEdge('implement', END);
   }

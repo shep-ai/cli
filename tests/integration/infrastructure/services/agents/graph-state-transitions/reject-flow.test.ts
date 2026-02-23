@@ -106,7 +106,7 @@ describe('Graph State Transitions › Reject Flow', () => {
     expect(ctx.executor.execute).toHaveBeenCalledTimes(4);
   });
 
-  it('should handle 5 consecutive rejections then approve (Test 11)', async () => {
+  it('should handle 7+ consecutive PRD rejections then approve', async () => {
     const config = ctx.newConfig();
     const state = ctx.initialState(ALL_GATES_DISABLED);
 
@@ -115,13 +115,16 @@ describe('Graph State Transitions › Reject Flow', () => {
     expectInterruptAt(r1, 'requirements');
     expect(ctx.executor.callCount).toBe(2); // analyze + requirements
 
-    // 5 consecutive rejections — each should re-interrupt at requirements
+    // 8 consecutive rejections — each should re-interrupt at requirements
     const rejectionMessages = [
       'add error handling section',
       'include performance requirements',
       'clarify authentication flow',
       'add data migration strategy',
       'specify API rate limits',
+      'add rollback procedures',
+      'include monitoring requirements',
+      'define SLA targets',
     ];
 
     for (let i = 0; i < rejectionMessages.length; i++) {
@@ -136,15 +139,61 @@ describe('Graph State Transitions › Reject Flow', () => {
       expect(readCompletedPhases(ctx.specDir)).toContain('requirements');
     }
 
-    // Final call count after 5 rejections: analyze(1) + req(1) + 5 re-execs = 7
-    expect(ctx.executor.callCount).toBe(7);
+    // Final call count after 8 rejections: analyze(1) + req(1) + 8 re-execs = 10
+    expect(ctx.executor.callCount).toBe(10);
 
-    // Invoke #7 — approve → should continue past requirements to research, then plan
+    // Approve → should continue past requirements to research, then plan
     const rApprove = await ctx.graph.invoke(approveCommand(), config);
     expectInterruptAt(rApprove, 'plan');
 
-    // After approve: research(8) + plan(9)
-    expect(ctx.executor.callCount).toBe(9);
+    // After approve: research(11) + plan(12)
+    expect(ctx.executor.callCount).toBe(12);
+  });
+
+  it('should handle 7+ consecutive plan rejections then approve', async () => {
+    const config = ctx.newConfig();
+    // PRD auto-approved so we get directly to plan
+    const state = ctx.initialState(PRD_ALLOWED);
+
+    // Invoke #1 — runs to plan, interrupts
+    const r1 = await ctx.graph.invoke(state, config);
+    expectInterruptAt(r1, 'plan');
+    // analyze(1) + requirements(2) + research(3) + plan(4) = 4
+    expect(ctx.executor.callCount).toBe(4);
+
+    // 8 consecutive plan rejections
+    const rejectionMessages = [
+      'add more implementation detail',
+      'break tasks into smaller chunks',
+      'clarify testing strategy',
+      'add rollback plan',
+      'specify dependency order',
+      'include code review checkpoints',
+      'add integration test phase',
+      'define acceptance criteria',
+    ];
+
+    for (let i = 0; i < rejectionMessages.length; i++) {
+      const result = await ctx.graph.invoke(rejectCommand(rejectionMessages[i]), config);
+      expectInterruptAt(result, 'plan');
+
+      // Each rejection re-executes plan only
+      // initial(4) + rejections(i+1)
+      expect(ctx.executor.callCount).toBe(5 + i);
+
+      // completedPhases should still include plan after each re-execution
+      expect(readCompletedPhases(ctx.specDir)).toContain('plan');
+    }
+
+    // Final call count: initial(4) + 8 re-execs = 12
+    expect(ctx.executor.callCount).toBe(12);
+
+    // Approve → implement runs, graph completes (no merge in test graph)
+    const rApprove = await ctx.graph.invoke(approveCommand(), config);
+    expectNoInterrupts(rApprove);
+
+    // After approve: implement(13)
+    expect(ctx.executor.callCount).toBe(13);
   });
 
   it('should reject plan, re-execute plan only (Test 6)', async () => {
