@@ -1,3 +1,9 @@
+# [1.43.0](https://github.com/shep-ai/cli/compare/v1.42.0...v1.43.0) (2026-02-23)
+
+### Features
+
+- **cli:** auto-open browser when `shep ui` starts ([#95](https://github.com/shep-ai/cli/issues/95)) ([9ef0781](https://github.com/shep-ai/cli/commit/9ef0781222cbe19f72552a0784b8face5a27f62d))
+
 # [1.42.0](https://github.com/shep-ai/cli/compare/v1.41.1...v1.42.0) (2026-02-23)
 
 ### Features
