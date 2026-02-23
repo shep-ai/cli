@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Brain, Plus } from 'lucide-react';
+import { Home, Brain, Puzzle, Plus } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -86,6 +86,12 @@ export function AppSidebar({
             label="Memory"
             href="/memory"
             active={pathname === '/memory'}
+          />
+          <SidebarNavItem
+            icon={Puzzle}
+            label="Skills"
+            href="/skills"
+            active={pathname === '/skills'}
           />
         </SidebarMenu>
       </SidebarHeader>

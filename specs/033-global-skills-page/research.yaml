@@ -1,0 +1,497 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: global-skills-page
+summary: >
+  Technical research for the Global Skills Page feature. Key decisions: use process.cwd() for
+  project root resolution in the server component, parse SKILL.md frontmatter with js-yaml
+  (split-on-delimiters approach, no new dependency needed), use Sheet/Drawer for skill detail
+  (matching the spec's resolved open question and existing feature-drawer pattern in the codebase),
+  read both project and global skills with source badges, follow the established server→client
+  component data flow pattern from the version page, and structure components under
+  features/skills/ as Tier 3 with colocated Storybook stories.
+
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 (App Router, server components, force-dynamic)
+  - React 19
+  - shadcn/ui (Card, Badge, Input, Sheet, ScrollArea, Separator, Button)
+  - Tailwind CSS v4 (theme tokens for dark mode)
+  - Lucide React (Puzzle icon for nav, FolderOpen, FileText, ChevronRight, Search, X)
+  - Storybook (colocated .stories.tsx files, autodocs)
+  - js-yaml (YAML frontmatter parsing — already in root package.json)
+  - Node.js fs/promises (server-side directory/file reading)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Skill Detail View Pattern'
+    chosen: 'Drawer (Sheet slide-out panel) — matching spec open question resolution'
+    rejected:
+      - >
+        Inline expand (accordion-style) — Simpler to implement but the spec's resolved open
+        question explicitly chose Drawer. Additionally, the codebase already has a well-established
+        drawer pattern via FeatureDrawer (Sheet-based) that shows entity detail on click. Following
+        this existing pattern ensures UX consistency across the app. The Sheet component is already
+        installed and fully functional.
+      - >
+        Separate /skills/[name] route — Overkill for the amount of data (frontmatter + short
+        markdown body + resource list). Adds dynamic routing, navigation complexity (back buttons),
+        and is inconsistent with how the app handles entity detail elsewhere (drawers, not pages).
+    rationale: >
+      The spec's resolved open question chose Drawer (Sheet slide-out panel). The codebase has an
+      established pattern for entity detail views using Sheet drawers — see FeatureDrawer at
+      src/presentation/web/components/common/feature-drawer/feature-drawer.tsx which uses Sheet
+      with SheetContent, SheetHeader, SheetTitle, SheetDescription. Following this pattern ensures
+      consistency. The Sheet component (src/presentation/web/components/ui/sheet.tsx) supports
+      side='right', overlay, close button, and portal rendering — all needed for skill detail.
+      The drawer keeps the skill list visible behind the overlay, giving users context of where
+      they are. Note: the spec's success criteria still reference "inline expand" language (FR-9)
+      but the resolved open question answer overrides this to Drawer. Implementation should follow
+      the resolved answer.
+
+  - title: 'Project Root Path Resolution for Filesystem Access'
+    chosen: 'process.cwd() — runtime working directory'
+    rejected:
+      - >
+        import.meta.dirname with relative traversal (../../../) — This is fragile and depends on
+        the exact file location within the source tree. If the web app is built or restructured,
+        the relative path breaks. The next.config.ts uses this pattern for package.json but that
+        is a build-time concern, not a runtime one.
+      - >
+        Environment variable (e.g., SHEP_PROJECT_ROOT) — Would require changes to both the CLI
+        bootstrap (shep ui command) and the dev-server to set the variable. Adds unnecessary
+        coordination. process.cwd() already gives the right answer in both contexts since the CLI
+        runs from the project root and dev:web is run from the project root.
+    rationale: >
+      When the CLI starts the web server via `shep ui`, it runs from the project's working
+      directory. When running `pnpm dev:web` for development, the developer is in the project
+      root. In both cases, process.cwd() returns the project root where .claude/skills/ lives.
+      This matches the simplicity principle — no new env vars, no config changes, just use the
+      runtime CWD. The server component's getSkills() function will use process.cwd() to build
+      the path to .claude/skills/. For global skills (~/.claude/skills/), os.homedir() provides
+      the home directory path.
+
+  - title: 'YAML Frontmatter Parsing Strategy'
+    chosen: 'js-yaml with manual delimiter splitting (no new dependency)'
+    rejected:
+      - >
+        gray-matter npm package — A dedicated frontmatter parsing library that handles splitting
+        and YAML parsing in one call. However, it is not currently in the project dependencies
+        and adding it for a simple split-on-`---` + yaml.load() is unnecessary overhead. The
+        manual approach is ~10 lines of code and avoids a new dependency.
+      - >
+        Custom regex-based extraction — More fragile than splitting on --- delimiters. Regex
+        for multi-line YAML frontmatter is error-prone and harder to maintain than a simple
+        string split.
+    rationale: >
+      js-yaml (^4.1.1) is already a direct dependency in the root package.json with @types/js-yaml
+      for TypeScript support. It is used in the CLI layer at src/presentation/cli/ui/output.ts.
+      The frontmatter parsing is straightforward: split SKILL.md content on the first two ---
+      delimiters, parse the YAML portion with yaml.load(), and treat the remainder as the markdown
+      body. This is a proven pattern used by many tools. Since the skill reader runs server-side
+      in a Next.js server component, it can import js-yaml directly from the root workspace
+      dependency (Next.js serverExternalPackages handles native modules, and js-yaml is pure JS).
+      No need to add js-yaml to the web package.json — the pnpm workspace hoisting makes it
+      available. However, if module resolution issues arise, adding it to the web package is a
+      one-line fix.
+
+  - title: 'Skill Source Scope (Project vs Global)'
+    chosen: 'Both project (.claude/skills/) and global (~/.claude/skills/) with source badge'
+    rejected:
+      - >
+        Project-level only (.claude/skills/) — The spec's resolved open question chose "Both
+        project and global skills with visual distinction". Limiting to project-only would miss
+        globally installed skills that affect the project's Claude Code behavior.
+      - >
+        Configurable via settings toggle — Adds settings state, persistence, and UI complexity
+        for a V1 feature. The spec did not choose this option.
+    rationale: >
+      The spec's resolved open question explicitly chose "Both project and global skills with
+      visual distinction". The implementation reads from both directories: .claude/skills/ (relative
+      to process.cwd()) and ~/.claude/skills/ (via os.homedir()). Each skill gets a "source" field
+      ("project" or "global") shown as a Badge on the card. If either directory doesn't exist,
+      that source simply returns an empty array — no error. Duplicate skill names (same skill in
+      both locations) are shown separately with their source badge for transparency. The global
+      directory may contain symlinks (observed: vercel-react-best-practices links to .agents/skills/);
+      the reader follows symlinks by default via fs.readdir/fs.readFile which is safe since both
+      directories are system-controlled paths, not user input.
+
+  - title: 'Server-Client Data Flow Architecture'
+    chosen: 'Server component reads filesystem → passes typed props to client component'
+    rejected:
+      - >
+        API route (/api/skills) with client-side fetch — Adds unnecessary indirection. The skills
+        data is static per page load and doesn't need client-side fetching, caching, or SWR.
+        An API route would add a network round-trip and require error handling on the client.
+        The existing version page uses direct server→client prop passing, not an API route.
+      - >
+        Server component with server actions for filtering — Over-engineering. With ~20 skills,
+        client-side filtering is instant and doesn't benefit from server round-trips. Server
+        actions add complexity for no performance gain.
+    rationale: >
+      The version page (src/presentation/web/app/version/page.tsx) establishes the pattern:
+      a server component calls a utility function (getVersionInfo), passes the result as props
+      to a 'use client' component (VersionPageClient). The skills page follows identically:
+      page.tsx (server component) calls getSkills() from lib/skills.ts, passes the skill array
+      to SkillsPageClient (client component). The client component handles search, filtering,
+      and drawer state. This is the simplest correct architecture for read-only data that needs
+      interactivity.
+
+  - title: 'Category Derivation Implementation'
+    chosen: 'Pure function with ordered rule array — single source of truth'
+    rejected:
+      - >
+        Switch/case in component — Scatters categorization logic across the rendering layer.
+        Hard to test in isolation and violates NFR-8 (maintainability — one-line change to
+        add/modify a category).
+      - >
+        Configuration file (JSON/YAML) — Over-engineering for 4 categories with simple prefix
+        rules. Adds file I/O and parsing for no benefit. The rules change with code releases,
+        not at runtime.
+    rationale: >
+      A pure function deriveCategory(skillName: string): SkillCategory using an ordered array
+      of { test: (name: string) => boolean, category: SkillCategory } rules. The first matching
+      rule wins, with a "Reference" fallback. This is trivially testable (pure input→output),
+      satisfies NFR-8 (adding a category = adding one array entry), and keeps the logic in a
+      single location (lib/skills.ts or a dedicated constants file). The categories from the spec:
+      Workflow (shep-kit:*), Code Generation (shep:*), Analysis (*review*, *validate*,
+      *cross-validate*), Reference (fallback).
+
+  - title: 'Component Architecture and File Organization'
+    chosen: 'Tier 3 features/skills/ directory with colocated stories and barrel exports'
+    rejected:
+      - >
+        Flat files in features/ — Violates the project's subdirectory grouping rule (CLAUDE.md:
+        "Group related files into subdirectories instead of flat structures"). Would mix skill
+        components with control-center and version components.
+      - >
+        Separate common/ components for skill primitives — No reuse case exists. SkillCard,
+        CategoryFilter, and SkillList are skills-page-specific. They don't belong in common/
+        until another page needs them.
+    rationale: >
+      Following the established Tier 3 pattern from features/control-center/ and features/version/:
+      src/presentation/web/components/features/skills/ contains SkillsPageClient, SkillCard,
+      SkillList, CategoryFilter, and SkillDetailDrawer. Each component has a colocated
+      .stories.tsx file per the mandatory Storybook requirement. An index.ts barrel export
+      re-exports the public API. The page server component lives at app/skills/page.tsx and
+      imports from lib/skills.ts for data fetching.
+
+  - title: 'Sidebar Navigation Icon'
+    chosen: 'Puzzle icon from Lucide React'
+    rejected:
+      - >
+        Blocks icon — Less immediately recognizable as "skills/plugins". Puzzle is the standard
+        icon for extensions/plugins/skills across developer tools (VS Code, JetBrains, etc.).
+      - >
+        Wrench icon — Implies settings/configuration rather than skills/capabilities. Would be
+        confusing next to the existing settings-related navigation.
+    rationale: >
+      The spec suggests Puzzle or Blocks. Puzzle (from lucide-react) is the most universally
+      recognized icon for "skills", "plugins", or "extensions" in developer tools. It follows
+      the existing pattern in app-sidebar.tsx where icons are imported from lucide-react (Home,
+      Brain, Plus) and passed as LucideIcon type props to SidebarNavItem.
+
+  - title: 'Skill Name Display Formatting'
+    chosen: 'Strip prefix for display title, show full name as subtitle/badge'
+    rejected:
+      - >
+        Show full name only — Names like "shep-kit:new-feature-fast" are long and the prefix is
+        noise when skills are already grouped by category (which derives from the prefix). The
+        prefix is redundant visual information within a category group.
+      - >
+        Strip prefix and hide original — Loses information. Users who know skills by their full
+        invocation name (e.g., /shep-kit:implement) need to see the full name somewhere.
+    rationale: >
+      The spec (FR-8) requires: "Skill name as the card title (formatted: strip shep-kit: or
+      shep: prefix for display, show full name as subtitle)". This produces cleaner card titles
+      (e.g., "implement" instead of "shep-kit:implement") while preserving the full invocation
+      name as a secondary label. The stripping logic is a simple string operation applied at
+      render time in the SkillCard component.
+
+openQuestions:
+  - question: >-
+      Should js-yaml be added as an explicit dependency of the web package, or rely on
+      pnpm workspace hoisting from the root package?
+    resolved: true
+    options:
+      - option: Add js-yaml to web package.json dependencies
+        description: >
+          Explicitly add "js-yaml": "^4.1.1" to src/presentation/web/package.json dependencies.
+          Makes the dependency explicit and self-documenting. Prevents potential issues if pnpm
+          hoisting behavior changes or if the web package is ever extracted.
+        selected: true
+      - option: Rely on pnpm workspace hoisting
+        description: >
+          js-yaml is in the root package.json and pnpm hoisting makes it available to workspace
+          packages. No package.json change needed. However, this is an implicit dependency that
+          could break if hoisting configuration changes.
+        selected: false
+      - option: Inline YAML parsing without js-yaml
+        description: >
+          Write a minimal YAML parser for the limited frontmatter fields (4 string fields).
+          Avoids any dependency concern but reinvents the wheel and is fragile for edge cases
+          (multi-line strings, special YAML characters).
+        selected: false
+    selectionRationale: >
+      Explicit is better than implicit. Adding js-yaml to the web package.json is a one-line
+      change that documents the dependency clearly. The skill reader in lib/skills.ts runs
+      server-side and uses yaml.load() which requires js-yaml at runtime. Making this explicit
+      prevents mysterious breakage if workspace hoisting changes. Also add @types/js-yaml to
+      devDependencies for type safety.
+
+  - question: >-
+      How should the skill markdown body be rendered in the drawer detail view?
+    resolved: true
+    options:
+      - option: Plain text display (whitespace-preserving)
+        description: >
+          Render the SKILL.md body content in a <pre> or whitespace-preserving div. Simple,
+          no parsing needed. Headings and formatting will appear as raw markdown syntax.
+          The spec says "plain text display is acceptable for V1" (FR-9).
+        selected: true
+      - option: Rendered markdown (using a markdown library)
+        description: >
+          Parse the markdown body and render as HTML using react-markdown or similar. Produces
+          nicely formatted content with headings, lists, code blocks. Requires adding a markdown
+          rendering dependency (react-markdown + remark plugins) which is not currently installed.
+        selected: false
+      - option: Structured extraction (parse headings/sections into components)
+        description: >
+          Parse the markdown body into structured sections and render with custom React components.
+          Most polished but highest complexity. Requires a markdown parser and custom rendering
+          logic for an uncertain set of markdown patterns across skills.
+        selected: false
+    selectionRationale: >
+      The spec explicitly states "plain text display is acceptable for V1" (FR-9). This avoids
+      adding a markdown rendering dependency (react-markdown, remark, rehype) for V1. The skill
+      body is primarily instructional text that is readable as plain text. Use a whitespace-preserving
+      container with monospace or prose styling. Markdown rendering can be added as a V2 enhancement
+      when the dependency is justified by other features that need it.
+
+  - question: >-
+      How should the page handle the navigation item placement relative to existing items?
+    resolved: true
+    options:
+      - option: Between Memory and Features section (after Brain icon)
+        description: >
+          Place "Skills" nav item after "Memory" in the SidebarHeader menu, before the
+          SidebarContent features section. This groups all top-level page navigation together
+          at the top of the sidebar.
+        selected: true
+      - option: In the SidebarFooter (before New Feature button)
+        description: >
+          Place "Skills" in the footer area. Less prominent but keeps the header clean. However,
+          footer is typically for actions (New Feature button), not navigation.
+        selected: false
+      - option: In the SidebarContent area as a section header link
+        description: >
+          Add Skills as a section within the scrollable content area. More discoverable but
+          inconsistent with how Control Center and Memory are placed (both in SidebarHeader).
+        selected: false
+    selectionRationale: >
+      The existing navigation pattern places page links in the SidebarHeader SidebarMenu
+      (Control Center at /, Memory at /memory). Adding Skills at /skills follows this pattern
+      directly — it's another SidebarNavItem in the same menu. Placing it after Memory keeps
+      the nav items in a logical order: home, memory, skills. The SidebarContent area is for
+      the features list and the SidebarFooter is for actions.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Skill Detail View Pattern
+
+  **Chosen:** Drawer (Sheet slide-out panel)
+
+  **Rejected:**
+  - Inline expand (accordion-style) — The spec's resolved open question explicitly chose Drawer. The codebase has an established drawer pattern via FeatureDrawer using Sheet. Following this ensures UX consistency.
+  - Separate /skills/[name] route — Overkill for lightweight data. Adds routing complexity inconsistent with the app's entity detail pattern (drawers, not pages).
+
+  **Rationale:** The spec resolved the skill detail question in favor of Drawer. The codebase's FeatureDrawer component (`components/common/feature-drawer/`) demonstrates the exact pattern: Sheet with SheetContent, SheetHeader, SheetTitle, SheetDescription. The Sheet component (`components/ui/sheet.tsx`) supports side='right', overlay, close button, and portal rendering. Clicking a skill card opens a right-side drawer with the full skill details, keeping the skill list visible behind the overlay.
+
+  ### 2. Project Root Path Resolution
+
+  **Chosen:** `process.cwd()` for project skills, `os.homedir()` for global skills
+
+  **Rejected:**
+  - `import.meta.dirname` with relative traversal — Fragile, depends on exact file location in source tree
+  - Environment variable — Requires coordination between CLI bootstrap and dev-server for no benefit
+
+  **Rationale:** Both `shep ui` and `pnpm dev:web` run from the project root, so `process.cwd()` returns the correct base for `.claude/skills/`. For global skills at `~/.claude/skills/`, `os.homedir()` provides the home directory. These are standard Node.js APIs with no configuration needed.
+
+  ### 3. YAML Frontmatter Parsing
+
+  **Chosen:** js-yaml with manual `---` delimiter splitting
+
+  **Rejected:**
+  - gray-matter package — Not installed, unnecessary dependency for a ~10 line operation
+  - Custom regex — Fragile for multi-line YAML content
+
+  **Rationale:** js-yaml (^4.1.1) is already in the root package.json. The parsing approach: split on first two `---` delimiters, `yaml.load()` the YAML portion, treat the remainder as the markdown body. Will add js-yaml as explicit dependency to web package.json for clarity.
+
+  ### 4. Skill Source Scope
+
+  **Chosen:** Both project and global skills with "Project"/"Global" source badge
+
+  **Rejected:**
+  - Project-level only — Spec resolved this question in favor of both
+  - Configurable toggle — Over-engineering for V1
+
+  **Rationale:** The spec's resolved open question chose "Both project and global skills with visual distinction". Read from `.claude/skills/` (project) and `~/.claude/skills/` (global). Each skill gets a `source: 'project' | 'global'` field displayed as a Badge variant. Missing directories return empty arrays gracefully.
+
+  ### 5. Server-Client Data Flow
+
+  **Chosen:** Server component → typed props → client component
+
+  **Rejected:**
+  - API route with client-side fetch — Unnecessary indirection for static-per-load data
+  - Server actions for filtering — Over-engineering for ~20 items
+
+  **Rationale:** Follows the version page pattern exactly: `app/skills/page.tsx` (server) calls `getSkills()`, passes result to `SkillsPageClient` (client). Client handles search, filter, and drawer state. Simplest correct architecture.
+
+  ### 6. Category Derivation
+
+  **Chosen:** Pure function with ordered rule array
+
+  **Rejected:**
+  - Switch/case in component — Scatters logic, hard to test
+  - Configuration file — Over-engineering for 4 simple rules
+
+  **Rationale:** `deriveCategory(name: string): SkillCategory` with an ordered rules array. First match wins, "Reference" fallback. Pure function = trivially testable. Single location satisfies NFR-8 maintainability requirement.
+
+  ### 7. Component Architecture
+
+  **Chosen:** Tier 3 `features/skills/` with colocated stories
+
+  **Rejected:**
+  - Flat files in features/ — Violates project subdirectory grouping rules
+  - Common/ components — No reuse case exists for V1
+
+  **Rationale:** Components:
+  - `features/skills/skills-page-client.tsx` — Main client component (search, filter, drawer state)
+  - `features/skills/skill-card.tsx` — Individual skill card display
+  - `features/skills/skill-list.tsx` — Category-grouped grid layout
+  - `features/skills/category-filter.tsx` — Filter chip row
+  - `features/skills/skill-detail-drawer.tsx` — Sheet drawer for skill detail
+  - Each with colocated `.stories.tsx`
+
+  ### 8. Navigation Icon
+
+  **Chosen:** `Puzzle` from Lucide React
+
+  **Rationale:** Universal "extensions/skills" icon. Follows existing lucide-react icon import pattern in app-sidebar.tsx.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | js-yaml | YAML frontmatter parsing | **Use** (already installed) | Already in root package.json. Add to web package.json explicitly. ~10 lines for split + parse. |
+  | gray-matter | Frontmatter parsing | **Reject** | Not installed. Adds a dependency for something js-yaml already handles with minimal code. |
+  | react-markdown | Markdown rendering | **Reject (V1)** | Not installed. Spec says plain text acceptable for V1. Would add react-markdown + remark + rehype chain. |
+  | shadcn/ui Sheet | Skill detail drawer | **Use** (already installed) | Already at components/ui/sheet.tsx. Full implementation with portal, overlay, sides, close button. |
+  | shadcn/ui Card | Skill card container | **Use** (already installed) | Already at components/ui/card.tsx. Standard pattern for entity display. |
+  | shadcn/ui Badge | Metadata badges (context, source, tools) | **Use** (already installed) | Already at components/ui/badge.tsx. Used extensively in version page and feature nodes. |
+  | shadcn/ui Input | Search input | **Use** (already installed) | Already at components/ui/input.tsx. Standard text input. |
+  | Lucide React | Icons (Puzzle, Search, FolderOpen, etc.) | **Use** (already installed) | Already in web package.json. Extensive usage throughout sidebar and components. |
+
+  ## Security Considerations
+
+  - **Path Traversal**: The skill reader reads from exactly two fixed directories (`.claude/skills/` relative to `process.cwd()` and `~/.claude/skills/` relative to `os.homedir()`). No user input controls the paths. Skill names from directory listing are used only for display, not for constructing arbitrary paths.
+  - **Symlink Safety**: The global skills directory may contain symlinks (observed: `vercel-react-best-practices` links to `.agents/skills/`). `fs.readFile` follows symlinks by default. Since both source directories are system-controlled (project root and home directory), following symlinks is acceptable. We do NOT follow symlinks outside these directories — the reader only enumerates immediate subdirectories.
+  - **YAML Injection**: `yaml.load()` with default settings (safeLoad equivalent in js-yaml 4.x) does not execute arbitrary code. The DEFAULT_SCHEMA in js-yaml 4.x is safe (no `!!js/function` or `!!python/object` constructors).
+  - **XSS Prevention**: Skill data (name, description, body) is rendered via React JSX which auto-escapes HTML entities. No `dangerouslySetInnerHTML` is used. The plain text body display in `<pre>` also auto-escapes.
+  - **File System Errors**: Missing directories, unreadable files, and malformed YAML are handled gracefully with try/catch. Individual skill errors skip that skill with console.warn — remaining skills still render (NFR-2).
+
+  ## Performance Implications
+
+  - **Filesystem I/O**: ~20 skills × ~2KB each = ~40KB total read. At SSD speeds, this is <5ms. Well within the 200ms server-side budget (NFR-1).
+  - **No Caching Needed**: With <50 files totaling <100KB, fresh reads on each page load are negligible. The spec confirms caching is only needed at 100+ skills.
+  - **Client-Side Filtering**: ~20 items with string matching is O(n) with n=20. No debounce needed. Filtering is instant.
+  - **Drawer Animation**: Sheet component uses CSS animations (slide-in/slide-out). No JavaScript animation library needed. Existing component handles this.
+  - **Bundle Size**: No new npm packages. The components use already-installed shadcn/ui primitives. Incremental bundle impact is minimal (just the new component code).
+  - **Parallel Directory Reads**: Read project and global skill directories in parallel with `Promise.all()` for optimal I/O.
+
+  ## Architecture Notes
+
+  ### File Structure
+
+  ```
+  src/presentation/web/
+  ├── app/skills/
+  │   └── page.tsx                     # Server component — calls getSkills(), passes to client
+  ├── lib/
+  │   └── skills.ts                    # getSkills() utility — reads filesystem, parses SKILL.md
+  └── components/features/skills/
+      ├── index.ts                     # Barrel export
+      ├── skills-page-client.tsx       # 'use client' — search, filter, drawer state, layout
+      ├── skills-page-client.stories.tsx
+      ├── skill-card.tsx               # Individual skill card component
+      ├── skill-card.stories.tsx
+      ├── skill-list.tsx               # Category-grouped grid of skill cards
+      ├── skill-list.stories.tsx
+      ├── category-filter.tsx          # Category filter chip row
+      ├── category-filter.stories.tsx
+      ├── skill-detail-drawer.tsx      # Sheet-based skill detail view
+      └── skill-detail-drawer.stories.tsx
+  ```
+
+  ### Data Flow
+
+  ```
+  page.tsx (server)
+    → getSkills(process.cwd(), os.homedir())  [lib/skills.ts]
+      → fs.readdir('.claude/skills/')          [project skills]
+      → fs.readdir('~/.claude/skills/')        [global skills]
+      → For each skill directory:
+        → fs.readFile('SKILL.md')
+        → Split on --- delimiters
+        → yaml.load(frontmatter)
+        → fs.readdir(resourceDirs)
+        → deriveCategory(name)
+      → Return SkillData[]
+    → <SkillsPageClient skills={skills} />     [client component]
+      → State: searchQuery, activeCategory, selectedSkill
+      → Filter skills by search + category
+      → Render SkillList with CategoryFilter
+      → On card click → open SkillDetailDrawer
+  ```
+
+  ### Type Definitions (lib/skills.ts)
+
+  ```typescript
+  type SkillCategory = 'Workflow' | 'Code Generation' | 'Analysis' | 'Reference';
+  type SkillSource = 'project' | 'global';
+
+  interface SkillResource {
+    name: string;      // e.g., 'references'
+    fileCount: number;
+  }
+
+  interface SkillData {
+    name: string;           // Full skill name from frontmatter (e.g., 'shep-kit:implement')
+    displayName: string;    // Prefix-stripped name (e.g., 'implement')
+    description: string;
+    context?: string;       // e.g., 'fork'
+    allowedTools?: string;  // e.g., 'Read, Write, Bash, Edit, Glob'
+    category: SkillCategory;
+    source: SkillSource;
+    body: string;           // Markdown body after frontmatter
+    resources: SkillResource[];
+  }
+  ```
+
+  ### Navigation Change
+
+  One `SidebarNavItem` added to `app-sidebar.tsx` after the Memory item:
+
+  ```tsx
+  <SidebarNavItem icon={Puzzle} label="Skills" href="/skills" active={pathname === '/skills'} />
+  ```
+
+  ### Testing Strategy
+
+  - **Unit tests** for `getSkills()`: Create temp directory with mock SKILL.md files, verify parsing, category derivation, resource detection, error handling
+  - **Unit tests** for `deriveCategory()`: Pure function, test all prefix rules and fallback
+  - **Storybook stories**: All 5 components with representative variants (empty state, with skills, with search, with filters, drawer open/closed, single source, both sources, dark mode)
+  - **No integration tests needed**: No database, no API routes, no DI container involved

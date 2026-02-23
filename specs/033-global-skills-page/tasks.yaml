@@ -1,0 +1,466 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: global-skills-page
+summary: >
+  14 tasks across 5 phases. Phase 1 builds the skill reader utility and types with full unit
+  test coverage. Phase 2 creates the three presentational UI components (SkillCard, CategoryFilter,
+  SkillList). Phase 3 builds the interactive drawer and page client. Phase 4 wires the route,
+  navigation, and js-yaml dependency. Phase 5 adds Storybook stories for all components.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Skill Reader Utility & Types ──────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Define SkillData types and category derivation function'
+    description: >
+      Create lib/skills.ts with TypeScript type definitions (SkillData, SkillCategory,
+      SkillSource, SkillResource) and the pure deriveCategory() function. The category
+      rules are defined as an ordered array constant. Also implement the display name
+      formatter (strip shep-kit: and shep: prefixes). Start with tests for deriveCategory
+      covering all 20 known skills (16 project + 4 global) plus edge cases.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'SkillData, SkillCategory, SkillSource, SkillResource types are exported from lib/skills.ts'
+      - 'deriveCategory() returns Workflow for shep-kit:* names'
+      - 'deriveCategory() returns Code Generation for shep:* names'
+      - 'deriveCategory() returns Analysis for names containing review, validate, or cross-validate'
+      - 'deriveCategory() returns Reference for all other names'
+      - 'getDisplayName() strips shep-kit: and shep: prefixes, returns original name if no prefix'
+      - 'Unit tests pass for all category rules and display name formatting'
+    tdd:
+      red:
+        - 'Write tests for deriveCategory() with inputs: shep-kit:implement → Workflow, shep:ui-component → Code Generation, architecture-reviewer → Analysis, cross-validate-artifacts → Analysis, shadcn-ui → Reference, mermaid-diagrams → Reference'
+        - 'Write tests for getDisplayName(): shep-kit:implement → implement, shep:ui-component → ui-component, shadcn-ui → shadcn-ui'
+      green:
+        - 'Implement deriveCategory() with CATEGORY_RULES ordered array and first-match logic'
+        - 'Implement getDisplayName() with prefix stripping'
+        - 'Export all types from lib/skills.ts'
+      refactor:
+        - 'Ensure CATEGORY_RULES is a module-level constant for easy modification'
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement SKILL.md frontmatter parser'
+    description: >
+      Add a parseFrontmatter() function to lib/skills.ts that takes a file content string,
+      splits on --- delimiters, parses YAML with js-yaml, and returns the extracted fields
+      plus the markdown body. Handle edge cases: missing frontmatter, invalid YAML, missing
+      required fields (name, description).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'parseFrontmatter() extracts name, description, context, allowed-tools from valid SKILL.md content'
+      - 'parseFrontmatter() returns the markdown body (content after second --- delimiter)'
+      - 'parseFrontmatter() returns null for content without --- delimiters'
+      - 'parseFrontmatter() returns null for content with invalid YAML between delimiters'
+      - 'parseFrontmatter() returns null when name or description is missing from frontmatter'
+      - 'Optional fields (context, allowed-tools) default to undefined when absent'
+      - 'Extra frontmatter fields (license, metadata) are silently ignored'
+    tdd:
+      red:
+        - 'Write test with valid frontmatter (name + description + context + allowed-tools) → extracts all fields and body'
+        - 'Write test with minimal frontmatter (name + description only) → context and allowedTools are undefined'
+        - 'Write test with extra fields (license, metadata) → only known fields extracted'
+        - 'Write test with no --- delimiters → returns null'
+        - 'Write test with invalid YAML → returns null'
+        - 'Write test with missing name → returns null'
+        - 'Write test with missing description → returns null'
+      green:
+        - 'Implement parseFrontmatter(): split content on ---, yaml.load() the middle section, validate required fields, extract body'
+      refactor:
+        - 'Extract frontmatter field validation into a type guard or validation helper if it grows complex'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Implement skill directory reader (getSkills)'
+    description: >
+      Add the main getSkills() async function to lib/skills.ts. It reads from both project
+      (.claude/skills/) and global (~/.claude/skills/) directories in parallel using
+      Promise.all(). For each skill subdirectory, it reads SKILL.md, parses frontmatter,
+      detects known resource subdirectories with file counts, derives category, and assembles
+      SkillData objects. Results are sorted alphabetically by name. Uses a private helper
+      getSkillsFromDirectory() that handles a single directory and tags each skill with its
+      source. Test with a temporary filesystem (tmp dir with mock SKILL.md files).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'getSkills() returns SkillData[] sorted alphabetically by name'
+      - 'Each skill has correct source field (project or global)'
+      - 'Resource subdirectories (references/, examples/, templates/, scripts/, validation/, rules/) are detected with file counts'
+      - 'Skills without SKILL.md are skipped'
+      - 'Skills with malformed frontmatter are skipped (other skills still returned)'
+      - 'Non-existent directory returns empty array (no error thrown)'
+      - 'Empty directory returns empty array'
+      - 'Results from both project and global directories are merged'
+      - 'displayName is correctly derived from name'
+      - 'category is correctly derived from name'
+    tdd:
+      red:
+        - 'Write test: create tmp dir with 2 mock skill dirs (valid SKILL.md each), call getSkillsFromDirectory() → returns 2 SkillData objects with correct fields'
+        - 'Write test: skill dir without SKILL.md → skill is skipped'
+        - 'Write test: skill dir with malformed SKILL.md → skill is skipped, no throw'
+        - 'Write test: non-existent directory path → returns empty array'
+        - 'Write test: skill dir with resource subdirs (references/ with 3 files) → resources array has {name: "references", fileCount: 3}'
+        - 'Write test: getSkills() with both project and global paths → merges and sorts results, source fields correct'
+      green:
+        - 'Implement getSkillsFromDirectory(dirPath, source) that reads subdirs, parses each SKILL.md, detects resources'
+        - 'Implement getSkills(projectRoot, homeDir) that calls getSkillsFromDirectory twice in parallel, merges, sorts'
+        - 'Add try/catch around directory reads and individual skill reads'
+      refactor:
+        - 'Extract KNOWN_RESOURCE_DIRS as a module-level constant'
+        - 'Ensure consistent error logging with console.warn for skipped skills'
+    estimatedEffort: '1h'
+
+  # ── Phase 2: Presentational UI Components ──────────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Build SkillCard component'
+    description: >
+      Create the SkillCard component at features/skills/skill-card.tsx. Displays: display
+      name as title, full name as muted subtitle, description (truncated to 2 lines),
+      source badge (Project/Global), context badge (if present), allowed-tools badge (if
+      present), and resource count indicator. Card is clickable (calls onSelect callback).
+      Uses shadcn/ui Card, Badge, and Tailwind classes.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Renders display name as card title'
+      - 'Renders full skill name as muted subtitle text'
+      - 'Renders description truncated to 2 lines (line-clamp-2)'
+      - 'Renders source badge showing "Project" or "Global"'
+      - 'Renders context badge only when context field is present'
+      - 'Renders allowed-tools badge only when allowedTools field is present'
+      - 'Renders resource count (e.g., "3 resources") only when resources array is non-empty'
+      - 'Calls onSelect callback with the skill when card is clicked'
+      - 'Card is keyboard-accessible (focusable, operable with Enter/Space)'
+      - 'Uses Tailwind theme tokens (no hardcoded colors) for dark mode support'
+    tdd:
+      red:
+        - 'Write test: renders skill name and description'
+        - 'Write test: renders source badge with correct text'
+        - 'Write test: renders context badge only when context is provided'
+        - 'Write test: does not render context badge when context is undefined'
+        - 'Write test: renders resource count when resources exist'
+        - 'Write test: calls onSelect when card is clicked'
+      green:
+        - 'Implement SkillCard with Card, CardHeader, CardContent, Badge components'
+        - 'Add onClick handler that calls onSelect prop'
+        - 'Conditionally render badges based on field presence'
+      refactor:
+        - 'Extract badge rendering into a small helper if the component exceeds ~80 lines'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Build CategoryFilter component'
+    description: >
+      Create the CategoryFilter component at features/skills/category-filter.tsx. Renders
+      a row of filter chips: All, Workflow, Code Generation, Analysis, Reference. Active
+      chip has a distinct visual style (default variant vs outline). Calls onCategoryChange
+      callback when a chip is clicked. "All" represents null/no filter.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Renders 5 filter buttons: All, Workflow, Code Generation, Analysis, Reference'
+      - 'Active category button has visually distinct style (default variant)'
+      - 'Inactive buttons use outline variant'
+      - '"All" is selected by default when activeCategory is null'
+      - 'Clicking a category calls onCategoryChange with the category value (or null for All)'
+      - 'Buttons are keyboard-navigable'
+      - 'Each button shows the count of skills in that category when counts prop is provided'
+    tdd:
+      red:
+        - 'Write test: renders all 5 category buttons'
+        - 'Write test: All button has default variant when activeCategory is null'
+        - 'Write test: Workflow button has default variant when activeCategory is Workflow'
+        - 'Write test: clicking a category button calls onCategoryChange with correct value'
+        - 'Write test: clicking All button calls onCategoryChange with null'
+      green:
+        - 'Implement CategoryFilter with Button components in flex row'
+        - 'Apply variant based on activeCategory comparison'
+        - 'Wire onClick handlers'
+      refactor:
+        - 'Define CATEGORIES constant array to drive rendering (avoid hardcoded JSX repetition)'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Build SkillList component'
+    description: >
+      Create the SkillList component at features/skills/skill-list.tsx. Groups skills by
+      category, renders each group with a heading (category name + skill count), and displays
+      SkillCards in a responsive grid (1/2/3 columns). Calls onSkillSelect when a card is
+      clicked. Groups with zero skills are not rendered.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Groups skills by category with section headings'
+      - 'Each section heading shows category name and skill count (e.g., "Workflow (8)")'
+      - 'Skills within each category are displayed as SkillCard components'
+      - 'Responsive grid: 1 column mobile, 2 medium, 3 large (grid-cols-1 md:grid-cols-2 lg:grid-cols-3)'
+      - 'Empty categories are not rendered'
+      - 'Passes onSkillSelect to each SkillCard as onSelect'
+    tdd:
+      red:
+        - 'Write test: renders category headings for groups with skills'
+        - 'Write test: does not render heading for empty categories'
+        - 'Write test: renders correct number of SkillCard components'
+        - 'Write test: passes onSkillSelect to cards'
+      green:
+        - 'Implement SkillList: group skills by category, map over groups, render heading + grid of SkillCards'
+      refactor:
+        - 'Extract grouping logic into a helper function if complex'
+    estimatedEffort: '30min'
+
+  # ── Phase 3: Skill Detail Drawer & Page Client ─────────────────────────
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Build SkillDetailDrawer component'
+    description: >
+      Create the SkillDetailDrawer at features/skills/skill-detail-drawer.tsx. Uses the Sheet
+      component (radix-ui based) to display full skill details in a right-side panel. Shows:
+      skill name, full description, source badge, context badge, allowed-tools, the SKILL.md
+      markdown body in a whitespace-preserving container, and a list of resource subdirectories
+      with file counts. Open/close state controlled by parent via props.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Uses Sheet, SheetContent (side="right"), SheetHeader, SheetTitle, SheetDescription'
+      - 'Renders skill display name as SheetTitle'
+      - 'Renders full skill name as SheetDescription'
+      - 'Shows source, context, and allowed-tools badges'
+      - 'Renders SKILL.md body in a whitespace-preserving container (pre or whitespace-pre-wrap)'
+      - 'Lists resource subdirectories with name and file count (e.g., "references/ — 7 files")'
+      - 'Empty resource list section is hidden when no resources exist'
+      - 'Sheet opens when skill prop is non-null, closes when null'
+      - 'Calls onClose callback when Sheet is dismissed'
+      - 'ScrollArea wraps the body content for long skills'
+    tdd:
+      red:
+        - 'Write test: renders skill name and description when open'
+        - 'Write test: renders badges for source, context, allowed-tools'
+        - 'Write test: renders resource list with file counts'
+        - 'Write test: hides resource section when resources array is empty'
+        - 'Write test: renders skill body text'
+        - 'Write test: calls onClose when sheet close is triggered'
+      green:
+        - 'Implement SkillDetailDrawer with Sheet components, badges, body pre, resource list'
+      refactor:
+        - 'Extract resource list into a small sub-component if the file exceeds ~100 lines'
+    estimatedEffort: '45min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Build SkillsPageClient component'
+    description: >
+      Create the main page client at features/skills/skills-page-client.tsx. This is the
+      'use client' component that receives SkillData[] as props and manages all interactive
+      state: search query (string), active category filter (SkillCategory | null), and
+      selected skill (SkillData | null). Composes PageHeader, search Input, CategoryFilter,
+      SkillList, SkillDetailDrawer, and EmptyState. Implements client-side filtering:
+      case-insensitive substring match on name + description, intersected with category filter.
+      Shows appropriate empty state when no skills exist or when filters yield no results.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'Renders PageHeader with title "Skills" and description'
+      - 'Renders search Input with search icon'
+      - 'Renders CategoryFilter with correct active state'
+      - 'Renders SkillList with filtered skills'
+      - 'Search filters skills by name and description (case-insensitive substring)'
+      - 'Category filter restricts skills to selected category'
+      - 'Search + category filter combine (both must match)'
+      - 'Clicking a skill card opens SkillDetailDrawer with that skill'
+      - 'Closing the drawer clears selectedSkill state'
+      - 'Shows "No skills found" empty state when skills prop is empty'
+      - 'Shows "No matching skills" empty state with "Clear filters" action when filters yield no results'
+      - 'Clear filters resets both search query and category filter'
+      - 'CategoryFilter chips show skill counts per category (from full, unfiltered list)'
+    tdd:
+      red:
+        - 'Write test: renders page header with "Skills" title'
+        - 'Write test: renders all skills when no filters applied'
+        - 'Write test: search input filters skills by name'
+        - 'Write test: category filter shows only skills in selected category'
+        - 'Write test: shows empty state when no skills provided'
+        - 'Write test: shows "No matching skills" when filter yields zero results'
+      green:
+        - 'Implement SkillsPageClient with useState for searchQuery, activeCategory, selectedSkill'
+        - 'Implement filtering logic: useMemo to compute filtered skills from search + category'
+        - 'Compose all child components with appropriate props and callbacks'
+        - 'Add empty state branches'
+      refactor:
+        - 'Extract filtering logic to a named function for testability if complex'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create barrel export index.ts'
+    description: >
+      Create features/skills/index.ts barrel export that re-exports SkillsPageClient as the
+      default export and named exports for individual components used by stories.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'index.ts exports SkillsPageClient as default'
+      - 'index.ts exports SkillCard, SkillList, CategoryFilter, SkillDetailDrawer as named exports'
+    tdd: null
+    estimatedEffort: '5min'
+
+  # ── Phase 4: Route, Navigation & Server Wiring ─────────────────────────
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Add js-yaml dependency to web package'
+    description: >
+      Add js-yaml as an explicit dependency and @types/js-yaml as a devDependency in the web
+      package.json. This makes the server-side import in lib/skills.ts explicit rather than
+      relying on pnpm workspace hoisting.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'js-yaml is listed in src/presentation/web/package.json dependencies'
+      - '@types/js-yaml is listed in src/presentation/web/package.json devDependencies'
+      - 'pnpm install succeeds without errors'
+    tdd: null
+    estimatedEffort: '5min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Create /skills route server component'
+    description: >
+      Create app/skills/page.tsx as a Next.js server component. It imports getSkills from
+      lib/skills.ts, calls it with process.cwd() and os.homedir(), and passes the result
+      to SkillsPageClient. Follows the exact same pattern as app/version/page.tsx.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-8
+      - task-10
+    acceptanceCriteria:
+      - 'app/skills/page.tsx exports a default async server component'
+      - 'Server component calls getSkills() and passes result as skills prop to SkillsPageClient'
+      - '/skills route renders the skills page when navigated to'
+    tdd:
+      red:
+        - 'Verify the route renders by checking that SkillsPageClient receives skills data (manual verification or smoke test)'
+      green:
+        - 'Create page.tsx that calls getSkills() and renders <SkillsPageClient skills={skills} />'
+      refactor:
+        - 'Ensure import paths follow project conventions (@/ aliases)'
+    estimatedEffort: '10min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Add Skills navigation item to AppSidebar'
+    description: >
+      Add a SidebarNavItem for "Skills" in the AppSidebar component, after the Memory item.
+      Uses the Puzzle icon from lucide-react. Active when pathname is /skills.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'Skills nav item appears in sidebar between Memory and the features content section'
+      - 'Uses Puzzle icon from lucide-react'
+      - 'Links to /skills'
+      - 'Highlights when pathname is /skills'
+      - 'Existing sidebar tests still pass'
+    tdd:
+      red:
+        - 'Write test or verify existing sidebar test: Skills nav item is rendered with correct label and href'
+      green:
+        - 'Add Puzzle import to app-sidebar.tsx'
+        - 'Add SidebarNavItem with icon={Puzzle} label="Skills" href="/skills" after Memory item'
+      refactor:
+        - 'None expected — this is a one-line addition following the exact existing pattern'
+    estimatedEffort: '10min'
+
+  # ── Phase 5: Storybook Stories ─────────────────────────────────────────
+
+  - id: task-13
+    phaseId: phase-5
+    title: 'Create Storybook stories for SkillCard, CategoryFilter, SkillList, and SkillDetailDrawer'
+    description: >
+      Create colocated .stories.tsx files for all four presentational components. Each story
+      file follows the project pattern: meta with autodocs tag, multiple story variants covering
+      default state, edge cases, and configurations. Stories use mock SkillData objects.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'skill-card.stories.tsx: Default, WithContext, WithAllBadges, ProjectSource, GlobalSource variants'
+      - 'category-filter.stories.tsx: AllSelected, WorkflowSelected, WithCounts variants'
+      - 'skill-list.stories.tsx: Default (mixed categories), SingleCategory, Empty variants'
+      - 'skill-detail-drawer.stories.tsx: Open, WithResources, WithoutResources, MinimalSkill variants'
+      - 'All stories render without errors in Storybook'
+      - 'Stories use autodocs tag'
+    tdd: null
+    estimatedEffort: '1h'
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Create Storybook story for SkillsPageClient'
+    description: >
+      Create skills-page-client.stories.tsx with story variants exercising the full page
+      client: default with skills, empty state (no skills), with search applied, and with
+      category filter applied. Uses mock SkillData arrays.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-13
+    acceptanceCriteria:
+      - 'skills-page-client.stories.tsx: Default, Empty, ManySkills variants'
+      - 'Stories render the full page client with search, filter, and drawer functionality'
+      - 'All stories render without errors in Storybook'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '7h 45min'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation consists of 14 tasks across 5 phases, estimated at approximately 8 hours
+  of work. The approach is bottom-up: first build the data layer (skill reader utility with
+  types, frontmatter parsing, and filesystem reading — all heavily unit-tested), then build
+  presentational UI components that consume the typed data, then compose them into the
+  interactive page client with drawer, then wire the server route and navigation, and finally
+  add Storybook stories for all components.
+
+  The critical path runs through the skill reader utility (tasks 1-3) → SkillCard/SkillList
+  (tasks 4-6) → SkillsPageClient (task 8) → route wiring (task 11) → navigation (task 12).
+  The category filter (task 5) and drawer (task 7) can proceed in parallel with other phase 2-3
+  work since they only depend on the type definitions from task 1.
+
+  TDD is enforced for all code tasks (tasks 1-8, 11-12). Non-code tasks (barrel export, package.json
+  change, Storybook stories) have tdd: null since they are not code logic.
+
+  Key testing focus areas:
+  - Skill reader utility: comprehensive unit tests with tmp filesystem (tasks 1-3)
+  - Component rendering: React Testing Library tests for rendering and interaction (tasks 4-8)
+  - Integration: manual verification that the /skills route renders correctly (task 11)
