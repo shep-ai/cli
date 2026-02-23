@@ -1,0 +1,21 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureTaskTracking.yaml
+type: object
+properties:
+  current:
+    type: string
+    description: ID of the task currently being worked on (null if none)
+  blocked:
+    type: array
+    items:
+      type: string
+    description: IDs of tasks blocked by unmet dependencies
+  failed:
+    type: array
+    items:
+      type: string
+    description: IDs of tasks that failed execution
+required:
+  - blocked
+  - failed
+description: Task execution tracking state

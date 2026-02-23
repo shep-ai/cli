@@ -1,0 +1,22 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: GanttViewData.yaml
+type: object
+properties:
+  tasks:
+    type: array
+    items:
+      $ref: GanttTask.yaml
+    description: Collection of tasks to display in the Gantt chart
+  startDate:
+    type: string
+    format: date-time
+    description: Start date of the overall work plan (left boundary of the chart)
+  endDate:
+    type: string
+    format: date-time
+    description: End date of the overall work plan (right boundary of the chart)
+required:
+  - tasks
+  - startDate
+  - endDate
+description: Container for Gantt chart visualization data including tasks and time bounds

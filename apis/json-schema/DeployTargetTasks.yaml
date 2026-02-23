@@ -1,0 +1,17 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: DeployTargetTasks.yaml
+type: object
+properties:
+  kind:
+    type: string
+    const: tasks
+    description: Discriminator indicating this is a multi-task target
+  tasks:
+    type: array
+    items:
+      $ref: Task.yaml
+    description: The tasks to deploy - enables batch deployment of related work
+required:
+  - kind
+  - tasks
+description: Deployment target wrapping multiple Tasks for batch deployments

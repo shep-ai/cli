@@ -1,0 +1,21 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: InstallationSuggestion.yaml
+type: object
+properties:
+  packageManager:
+    type: string
+    description: Package manager or installation method
+  command:
+    type: string
+    description: Installation command
+  documentationUrl:
+    type: string
+    description: Official documentation URL
+  notes:
+    type: string
+    description: Additional notes for installation
+required:
+  - packageManager
+  - command
+  - documentationUrl
+description: Single installation suggestion for a tool

@@ -1,0 +1,63 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentRun.yaml
+type: object
+properties:
+  agentType:
+    $ref: AgentType.yaml
+    description: Agent executor type used (claude-code, gemini-cli, etc.)
+  agentName:
+    type: string
+    description: Agent workflow name (analyze-repository, requirements, etc.)
+  status:
+    $ref: AgentRunStatus.yaml
+    description: Current execution status
+  prompt:
+    type: string
+    description: Input prompt sent to agent executor
+  result:
+    type: string
+    description: Final result output (optional, populated on completion)
+  sessionId:
+    type: string
+    description: Executor session ID for resumption (optional)
+  threadId:
+    type: string
+    description: LangGraph thread_id for checkpoint lookup and crash resume
+  pid:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Process ID for crash recovery (optional)
+  lastHeartbeat:
+    type: string
+    format: date-time
+    description: Last heartbeat timestamp for crash detection (optional)
+  startedAt:
+    type: string
+    format: date-time
+    description: Execution start timestamp (optional)
+  completedAt:
+    type: string
+    format: date-time
+    description: Execution completion timestamp (optional)
+  error:
+    type: string
+    description: Error message if execution failed (optional)
+  featureId:
+    type: string
+    description: Associated feature ID for feature agent runs (optional)
+  repositoryPath:
+    type: string
+    description: Repository path for context scoping (optional)
+  approvalGates:
+    $ref: ApprovalGates.yaml
+    description: Approval gate configuration for human-in-the-loop review (optional)
+required:
+  - agentType
+  - agentName
+  - status
+  - prompt
+  - threadId
+allOf:
+  - $ref: BaseEntity.yaml
+description: Agent execution run record

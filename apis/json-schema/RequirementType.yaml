@@ -1,0 +1,7 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: RequirementType.yaml
+type: string
+enum:
+  - Functional
+  - NonFunctional
+description: Types of requirements based on their nature

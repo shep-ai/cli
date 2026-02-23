@@ -1,0 +1,13 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AuditableEntity.yaml
+type: object
+properties:
+  createdBy:
+    $ref: UUID.yaml
+    description: UUID of the user who created this entity (null for system-created)
+  updatedBy:
+    $ref: UUID.yaml
+    description: UUID of the user who last updated this entity (null for system-updated)
+allOf:
+  - $ref: BaseEntity.yaml
+description: Entity with audit trail tracking who created and modified it

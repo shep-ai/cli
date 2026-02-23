@@ -1,0 +1,28 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ToolInstallationStatus.yaml
+type: object
+properties:
+  status:
+    anyOf:
+      - type: string
+        const: available
+      - type: string
+        const: missing
+      - type: string
+        const: error
+    description: Current installation status
+  toolName:
+    type: string
+    description: Tool name
+  errorMessage:
+    type: string
+    description: Error message if status is error
+  suggestions:
+    type: array
+    items:
+      $ref: InstallationSuggestion.yaml
+    description: Installation suggestions
+required:
+  - status
+  - toolName
+description: Installation status and suggestions for a tool

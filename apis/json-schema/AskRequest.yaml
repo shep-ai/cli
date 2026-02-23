@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AskRequest.yaml
+type: object
+properties:
+  query:
+    type: string
+    description: The natural language query to be processed by the AI agent
+required:
+  - query
+description: Request model for conversational AI interactions

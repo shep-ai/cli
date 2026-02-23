@@ -1,0 +1,8 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ArtifactState.yaml
+type: string
+enum:
+  - Todo
+  - Elaborating
+  - Done
+description: States for artifact entities during generation

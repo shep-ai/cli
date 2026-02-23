@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureStatusProgress.yaml
+type: object
+properties:
+  completed:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Number of completed tasks
+  total:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Total number of tasks
+  percentage:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Completion percentage (0-100)
+required:
+  - completed
+  - total
+  - percentage
+description: Task completion progress counters

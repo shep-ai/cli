@@ -1,0 +1,32 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureIdentity.yaml
+type: object
+properties:
+  id:
+    type: string
+    description: Feature ID slug (e.g., '012-autonomous-pr-review-loop')
+  name:
+    type: string
+    description: Human-readable feature name
+  number:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Feature number (e.g., 12)
+  branch:
+    type: string
+    description: Git branch for this feature
+  lifecycle:
+    type: string
+    description: Current lifecycle phase (e.g., 'research', 'implementation', 'complete')
+  createdAt:
+    type: string
+    description: When the feature was created
+required:
+  - id
+  - name
+  - number
+  - branch
+  - lifecycle
+  - createdAt
+description: Feature identity metadata in feature.yaml

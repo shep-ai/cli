@@ -1,0 +1,34 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: GanttTask.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for the Gantt task
+  name:
+    type: string
+    description: Display name of the task shown in the Gantt chart
+  start:
+    type: string
+    format: date-time
+    description: Scheduled start time for the task
+  end:
+    type: string
+    format: date-time
+    description: Scheduled end time for the task
+  dependencies:
+    type: array
+    items:
+      $ref: UUID.yaml
+    description: IDs of tasks that this task depends on (must complete before this task can start)
+  progress:
+    type: number
+    description: Completion progress as a fraction (0.0 = not started, 1.0 = complete)
+required:
+  - id
+  - name
+  - start
+  - end
+  - dependencies
+  - progress
+description: Individual task representation within a Gantt chart visualization

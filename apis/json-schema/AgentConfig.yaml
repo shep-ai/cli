@@ -1,0 +1,19 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentConfig.yaml
+type: object
+properties:
+  type:
+    $ref: AgentType.yaml
+    default: claude-code
+    description: Selected AI coding agent
+  authMethod:
+    $ref: AgentAuthMethod.yaml
+    default: session
+    description: Authentication method for the agent
+  token:
+    type: string
+    description: API token for token-based auth (optional)
+required:
+  - type
+  - authMethod
+description: AI coding agent configuration

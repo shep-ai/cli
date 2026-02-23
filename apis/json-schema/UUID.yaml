@@ -1,0 +1,4 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: UUID.yaml
+type: string
+description: A universally unique identifier (UUID v4) in string format

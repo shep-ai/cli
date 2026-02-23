@@ -9,9 +9,10 @@
 import Ajv2020 from 'ajv/dist/2020.js';
 import addFormats from 'ajv-formats';
 import yaml from 'js-yaml';
-import { readdirSync, readFileSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type {
   FeatureArtifact,
   ResearchArtifact,
@@ -24,9 +25,18 @@ import type {
 // Schema loader — loads all JSON Schema YAML files from apis/json-schema/
 // ---------------------------------------------------------------------------
 
-/** Resolve the apis/json-schema directory relative to the project root */
+/** Resolve the apis/json-schema directory relative to the package root */
 function resolveSchemaDir(): string {
-  return join(process.cwd(), 'apis', 'json-schema');
+  const __dirname = dirname(fileURLToPath(import.meta.url));
+  let dir = __dirname;
+  for (let i = 0; i < 10; i++) {
+    const candidate = join(dir, 'apis', 'json-schema');
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  throw new Error(`Could not find apis/json-schema directory (searched from ${__dirname})`);
 }
 
 function createValidator(): Ajv2020 {

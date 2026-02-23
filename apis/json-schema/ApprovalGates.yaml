@@ -1,0 +1,18 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ApprovalGates.yaml
+type: object
+properties:
+  allowPrd:
+    type: boolean
+    description: Skip human review after requirements phase
+  allowPlan:
+    type: boolean
+    description: Skip human review after plan phase
+  allowMerge:
+    type: boolean
+    description: Skip human review after merge phase
+required:
+  - allowPrd
+  - allowPlan
+  - allowMerge
+description: Configuration for human-in-the-loop approval gates

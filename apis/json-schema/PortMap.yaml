@@ -1,0 +1,19 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PortMap.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Service name identifier (e.g., 'web', 'api', 'db', 'redis')
+  port:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Port number to expose on the host or container network
+  protocol:
+    $ref: PortProtocol.yaml
+    description: Network protocol for the port (defaults to TCP if not specified)
+required:
+  - name
+  - port
+description: Port mapping configuration for exposing container services to the network

@@ -1,0 +1,30 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureStatusInfo.yaml
+type: object
+properties:
+  phase:
+    type: string
+    description: Current SDLC phase
+  completedPhases:
+    type: array
+    items:
+      type: string
+    description: Phases that have been completed
+  progress:
+    $ref: FeatureStatusProgress.yaml
+    description: Task completion progress
+  currentTask:
+    type: string
+    description: ID of the task currently being executed (null if none)
+  lastUpdated:
+    type: string
+    description: ISO timestamp of last status update
+  lastUpdatedBy:
+    type: string
+    description: Agent or skill that last updated the status
+required:
+  - phase
+  - progress
+  - lastUpdated
+  - lastUpdatedBy
+description: Feature execution status

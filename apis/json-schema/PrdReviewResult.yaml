@@ -1,0 +1,19 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PrdReviewResult.yaml
+type: object
+properties:
+  questions:
+    type: array
+    items:
+      $ref: ReviewQuestion.yaml
+    description: All questions with their final selection state
+  action:
+    type: string
+    description: "User action: approve or reject"
+  feedback:
+    type: string
+    description: Rejection feedback (only present when action is 'reject')
+required:
+  - questions
+  - action
+description: Result of the PRD review TUI interaction

@@ -1,0 +1,17 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TimelineEvent.yaml
+type: object
+properties:
+  userQuery:
+    type: string
+    description: The user query or action that triggered this timeline event
+  timestamp:
+    type: string
+    format: date-time
+    description: Timestamp when this event occurred (read-only, set by system)
+required:
+  - userQuery
+  - timestamp
+allOf:
+  - $ref: BaseEntity.yaml
+description: A significant event in the feature's timeline tracking user interactions and milestones

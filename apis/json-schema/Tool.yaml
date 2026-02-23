@@ -1,0 +1,23 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Tool.yaml
+type: object
+properties:
+  toolName:
+    type: string
+    description: Display name of the tool
+  type:
+    $ref: ToolType.yaml
+    description: Tool type classification
+  installedVersion:
+    type: string
+    description: Installed version number
+  installedAt:
+    type: string
+    format: date-time
+    description: Tool installation timestamp
+required:
+  - toolName
+  - type
+allOf:
+  - $ref: BaseEntity.yaml
+description: IDE or CLI tool entity with installation tracking

@@ -1,0 +1,15 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: DeployTargetActionItem.yaml
+type: object
+properties:
+  kind:
+    type: string
+    const: actionItem
+    description: Discriminator indicating this is an action item target
+  actionItem:
+    $ref: ActionItem.yaml
+    description: The action item to deploy - represents an atomic unit of work
+required:
+  - kind
+  - actionItem
+description: Deployment target wrapping a single ActionItem for granular deployments

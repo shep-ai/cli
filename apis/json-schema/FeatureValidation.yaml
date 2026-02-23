@@ -1,0 +1,21 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureValidation.yaml
+type: object
+properties:
+  lastRun:
+    type: string
+    description: ISO timestamp of last validation run (null if never run)
+  gatesPassed:
+    type: array
+    items:
+      type: string
+    description: Names of validation gates that passed
+  autoFixesApplied:
+    type: array
+    items:
+      type: string
+    description: Descriptions of auto-fixes that were applied
+required:
+  - gatesPassed
+  - autoFixesApplied
+description: Validation gate results

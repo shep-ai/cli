@@ -1,0 +1,7 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PortProtocol.yaml
+type: string
+enum:
+  - TCP
+  - UDP
+description: Network transport protocols for port configuration

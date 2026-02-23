@@ -1,0 +1,18 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: LocalDeployAgent.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for this deployment agent instance
+  url:
+    type: string
+    description: URL where the deployment is accessible once available (null before deployment)
+  createdAt:
+    type: string
+    format: date-time
+    description: Timestamp when this deployment agent was created
+required:
+  - id
+  - createdAt
+description: Agent for handling local deployment of features, tasks, or action items

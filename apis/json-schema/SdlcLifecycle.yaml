@@ -1,0 +1,13 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: SdlcLifecycle.yaml
+type: string
+enum:
+  - Started
+  - Analyze
+  - Requirements
+  - Research
+  - Planning
+  - Implementation
+  - Review
+  - Maintain
+description: Software Development Lifecycle stages for feature progression

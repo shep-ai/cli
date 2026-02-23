@@ -1,0 +1,22 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: NotificationPreferences.yaml
+type: object
+properties:
+  inApp:
+    $ref: NotificationChannelConfig.yaml
+    description: In-app toast notification channel (Sonner)
+  browser:
+    $ref: NotificationChannelConfig.yaml
+    description: Browser push notification channel (Web Notifications API)
+  desktop:
+    $ref: NotificationChannelConfig.yaml
+    description: Desktop OS notification channel (node-notifier)
+  events:
+    $ref: NotificationEventConfig.yaml
+    description: Which event types trigger notifications
+required:
+  - inApp
+  - browser
+  - desktop
+  - events
+description: Notification preferences for agent lifecycle events
