@@ -128,8 +128,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     [selectedNode?.featureId, clearSelection, questionnaireData, prdSelections]
   );
 
-  const handlePrdReject = useCallback(
-    async (feedback: string) => {
+  // Shared reject handler — all drawers use the same rejectFeature flow
+  const handleReject = useCallback(
+    async (feedback: string, label: string, onDone?: () => void) => {
       const featureId = selectedNode?.featureId;
       if (!featureId) return;
 
@@ -138,18 +139,18 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         const result = await rejectFeature(featureId, feedback);
 
         if (!result.rejected) {
-          toast.error(result.error ?? 'Failed to reject requirements');
+          toast.error(result.error ?? `Failed to reject ${label.toLowerCase()}`);
           return;
         }
 
-        toast.success(`Requirements rejected — agent re-iterating (iteration ${result.iteration})`);
+        toast.success(`${label} rejected — agent re-iterating (iteration ${result.iteration})`);
         if (result.iterationWarning) {
           toast.warning(
             `Iteration ${result.iteration} — consider approving or adjusting feedback to avoid excessive iterations`
           );
         }
         clearSelection();
-        setPrdSelections({});
+        onDone?.();
       } finally {
         setIsRejecting(false);
       }
@@ -157,70 +158,46 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     [selectedNode?.featureId, clearSelection]
   );
 
-  const handleTechDecisionsApprove = useCallback(async () => {
-    const featureId = selectedNode?.featureId;
-    if (!featureId) return;
-
-    const result = await approveFeature(featureId);
-
-    if (!result.approved) {
-      toast.error(result.error ?? 'Failed to approve plan');
-      return;
-    }
-
-    toast.success('Plan approved — agent resuming');
-    clearSelection();
-  }, [selectedNode?.featureId, clearSelection]);
+  const handlePrdReject = useCallback(
+    (feedback: string) => handleReject(feedback, 'Requirements', () => setPrdSelections({})),
+    [handleReject]
+  );
 
   const handleTechDecisionsReject = useCallback(
-    async (feedback: string) => {
+    (feedback: string) => handleReject(feedback, 'Plan'),
+    [handleReject]
+  );
+
+  const handleMergeReject = useCallback(
+    (feedback: string) => handleReject(feedback, 'Merge'),
+    [handleReject]
+  );
+
+  // Shared approve handler — tech decisions and merge use identical approve flows
+  const handleSimpleApprove = useCallback(
+    async (label: string) => {
       const featureId = selectedNode?.featureId;
       if (!featureId) return;
 
-      setIsRejecting(true);
-      try {
-        const result = await rejectFeature(featureId, feedback);
+      const result = await approveFeature(featureId);
 
-        if (!result.rejected) {
-          toast.error(result.error ?? 'Failed to reject plan');
-          return;
-        }
-
-        toast.success(`Plan rejected — agent re-iterating (iteration ${result.iteration})`);
-        if (result.iterationWarning) {
-          toast.warning(
-            `Iteration ${result.iteration} — consider approving or adjusting feedback to avoid excessive iterations`
-          );
-        }
-        clearSelection();
-      } finally {
-        setIsRejecting(false);
+      if (!result.approved) {
+        toast.error(result.error ?? `Failed to approve ${label.toLowerCase()}`);
+        return;
       }
+
+      toast.success(`${label} approved — agent resuming`);
+      clearSelection();
     },
     [selectedNode?.featureId, clearSelection]
   );
 
-  const handleMergeApprove = useCallback(async () => {
-    const featureId = selectedNode?.featureId;
-    if (!featureId) return;
+  const handleTechDecisionsApprove = useCallback(
+    () => handleSimpleApprove('Plan'),
+    [handleSimpleApprove]
+  );
 
-    const result = await approveFeature(featureId);
-
-    if (!result.approved) {
-      toast.error(result.error ?? 'Failed to approve merge');
-      return;
-    }
-
-    toast.success('Merge approved — agent resuming');
-    clearSelection();
-  }, [selectedNode?.featureId, clearSelection]);
-
-  const handleMergeRefine = useCallback(async (_text: string) => {
-    setIsLoadingMergeReview(true);
-    // TODO: Call API to refine merge
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoadingMergeReview(false);
-  }, []);
+  const handleMergeApprove = useCallback(() => handleSimpleApprove('Merge'), [handleSimpleApprove]);
 
   // Fetch questionnaire data and reset selections when a different feature is selected
   const prdFeatureId = showPrdDrawer ? selectedNode?.featureId : null;
@@ -424,7 +401,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           specPath={selectedNode?.specPath}
           data={mergeReviewData}
           onApprove={handleMergeApprove}
-          onRefine={handleMergeRefine}
+          onReject={handleMergeReject}
+          isRejecting={isRejecting}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
           isProcessing={isLoadingMergeReview}

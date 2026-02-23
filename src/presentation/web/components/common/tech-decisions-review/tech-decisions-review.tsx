@@ -3,11 +3,9 @@
 import { useState } from 'react';
 import type { Components } from 'react-markdown';
 import Markdown from 'react-markdown';
-import { Check, ChevronRight, GitCompareArrows, Layers, Send, X } from 'lucide-react';
+import { Check, ChevronRight, GitCompareArrows, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { RejectFeedbackDialog } from '@/components/common/reject-feedback-dialog';
+import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 import type { TechDecisionsReviewProps, TechDecision } from './tech-decisions-review-config';
 
 const markdownComponents: Components = {
@@ -116,16 +114,6 @@ export function TechDecisionsReview({
   isRejecting = false,
 }: TechDecisionsReviewProps) {
   const { summary, decisions } = data;
-  const [chatInput, setChatInput] = useState('');
-  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
-
-  function handleSubmit(e: { preventDefault: () => void }) {
-    e.preventDefault();
-    const text = chatInput.trim();
-    if (!text || !onReject) return;
-    onReject(text);
-    setChatInput('');
-  }
 
   if (decisions.length === 0) return null;
 
@@ -157,61 +145,16 @@ export function TechDecisionsReview({
         ))}
       </div>
 
-      {/* Action bar: chat + approve */}
-      <div className="border-border shrink-0 border-t">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 p-4 pb-2">
-          <Input
-            type="text"
-            placeholder="Ask AI to revise the plan..."
-            aria-label="Ask AI to revise the plan"
-            disabled={isProcessing || isRejecting || !onReject}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            variant="secondary"
-            size="icon"
-            aria-label="Send"
-            disabled={isProcessing || isRejecting || !onReject}
-          >
-            <Send />
-          </Button>
-        </form>
-        <div className="flex items-center gap-2 px-4 pt-2 pb-4">
-          {onReject ? (
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="text-destructive hover:text-destructive"
-                disabled={isProcessing || isRejecting}
-                onClick={() => setRejectDialogOpen(true)}
-              >
-                <X className="mr-1.5 h-4 w-4" />
-                Reject
-              </Button>
-              <RejectFeedbackDialog
-                open={rejectDialogOpen}
-                onOpenChange={setRejectDialogOpen}
-                onConfirm={onReject}
-                isSubmitting={isRejecting}
-                title="Reject Plan"
-              />
-            </>
-          ) : null}
-          <Button
-            type="button"
-            className="flex-1"
-            disabled={isProcessing || isRejecting}
-            onClick={onApprove}
-          >
-            <Check className="mr-1.5 h-4 w-4" />
-            Approve Plan
-          </Button>
-        </div>
-      </div>
+      <DrawerActionBar
+        onReject={onReject}
+        onApprove={onApprove}
+        approveLabel="Approve Plan"
+        approveIcon={<Check className="mr-1.5 h-4 w-4" />}
+        revisionPlaceholder="Ask AI to revise the plan..."
+        rejectDialogTitle="Reject Plan"
+        isProcessing={isProcessing}
+        isRejecting={isRejecting}
+      />
     </div>
   );
 }

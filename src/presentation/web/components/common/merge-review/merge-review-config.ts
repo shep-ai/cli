@@ -52,10 +52,12 @@ export interface MergeReviewProps {
   data: MergeReviewData;
   /** Approve merge callback */
   onApprove: () => void;
-  /** Send refinement text to AI */
-  onRefine: (text: string) => void;
+  /** Reject merge callback — opens feedback dialog when provided; also used for inline text rejection */
+  onReject?: (feedback: string) => void;
   /** Controls disabled state during approval */
   isProcessing?: boolean;
+  /** Whether a reject operation is in flight */
+  isRejecting?: boolean;
 }
 
 /** Props for the merge review drawer (shell wrapper) */

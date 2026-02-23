@@ -133,7 +133,7 @@ describe('TechDecisionsReview', () => {
       const onReject = vi.fn();
       render(<TechDecisionsReview {...defaultProps} onReject={onReject} />);
 
-      const input = screen.getByLabelText('Ask AI to revise the plan');
+      const input = screen.getByLabelText('Ask AI to revise the plan...');
       fireEvent.change(input, { target: { value: 'Add caching layer' } });
 
       const sendButton = screen.getByRole('button', { name: /send/i });
@@ -151,9 +151,10 @@ describe('TechDecisionsReview', () => {
     });
 
     it('disables chat input and send button when isProcessing is true', () => {
-      render(<TechDecisionsReview {...defaultProps} isProcessing />);
+      const onReject = vi.fn();
+      render(<TechDecisionsReview {...defaultProps} onReject={onReject} isProcessing />);
 
-      expect(screen.getByLabelText('Ask AI to revise the plan')).toBeDisabled();
+      expect(screen.getByLabelText('Ask AI to revise the plan...')).toBeDisabled();
       expect(screen.getByRole('button', { name: /send/i })).toBeDisabled();
     });
   });
