@@ -14,6 +14,7 @@ vi.mock('@/hooks/agent-events-provider', () => ({
 }));
 
 import { ControlCenter } from '@/components/features/control-center';
+import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 
 const mockFeatureNode: FeatureNodeType = {
@@ -61,7 +62,23 @@ describe('ControlCenter', () => {
   });
 
   it('renders feature nodes when initialNodes has feature nodes', () => {
-    render(<ControlCenter initialNodes={[mockFeatureNode, mockFeatureNode2]} initialEdges={[]} />);
+    const repoNode = {
+      id: 'repo-1',
+      type: 'repositoryNode',
+      position: { x: 50, y: 50 },
+      data: { name: 'my-repo', repositoryPath: '/home/user/my-repo', id: 'repo-1' },
+    } as CanvasNodeType;
+
+    render(
+      <ControlCenter
+        initialNodes={[
+          repoNode,
+          mockFeatureNode as CanvasNodeType,
+          mockFeatureNode2 as CanvasNodeType,
+        ]}
+        initialEdges={[]}
+      />
+    );
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
     expect(screen.getByText('Another Feature')).toBeInTheDocument();
   });

@@ -119,19 +119,28 @@ export default async function HomePage() {
     nodesep: 15,
   });
 
-  // Position "+ Add Repository" vertically centered with the bottom-most feature node,
-  // mirroring how Dagre centers repo nodes with their connected features.
+  // Position "+ Add Repository" below the last repo node (no-features case) or
+  // vertically centered with a bottom feature node (features case).
   const repoNodes = laid.nodes.filter((n) => n.type === 'repositoryNode');
   const featureNodes = laid.nodes.filter((n) => n.type === 'featureNode');
-  const sortedFeatures = [...featureNodes].sort((a, b) => a.position.y - b.position.y);
-  // Pick the feature node just below center (one past the midpoint index)
-  const centerIdx = Math.floor(sortedFeatures.length / 2);
-  const targetFeature = sortedFeatures[centerIdx + 1] ?? sortedFeatures[sortedFeatures.length - 1];
   const repoX = repoNodes[0]?.position.x ?? 0;
-  // Center the add-repo node (h=50) with the target feature node (h=140)
-  const addRepoPosition = targetFeature
-    ? { x: repoX, y: targetFeature.position.y + 70 - 25 }
-    : { x: repoX, y: (repoNodes[0]?.position.y ?? 0) + 150 };
+
+  let addRepoPosition: { x: number; y: number };
+  if (featureNodes.length > 0) {
+    // Mirror how dagre centers repo nodes with their connected features
+    const sortedFeatures = [...featureNodes].sort((a, b) => a.position.y - b.position.y);
+    const centerIdx = Math.floor(sortedFeatures.length / 2);
+    const targetFeature =
+      sortedFeatures[centerIdx + 1] ?? sortedFeatures[sortedFeatures.length - 1];
+    // Center the add-repo node (h=50) with the target feature node (h=140)
+    addRepoPosition = { x: repoX, y: targetFeature.position.y + 70 - 25 };
+  } else {
+    // No features — place below the bottom-most repo node with a gap
+    const lastRepoY = repoNodes.length > 0 ? Math.max(...repoNodes.map((n) => n.position.y)) : 0;
+    const repoHeight = 50;
+    const gap = 200;
+    addRepoPosition = { x: repoX, y: lastRepoY + repoHeight + gap };
+  }
 
   laid.nodes.push({
     id: 'add-repository',

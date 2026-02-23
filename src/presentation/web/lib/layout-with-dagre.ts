@@ -124,6 +124,9 @@ export function layoutWithDagre<N extends Node>(
       minX = Math.min(minX, n.position.x);
     }
 
+    // When no graph nodes exist (all disconnected), default to origin
+    if (minX === Infinity) minX = 0;
+
     for (let i = 0; i < disconnectedNodes.length; i++) {
       const node = disconnectedNodes[i];
       const size = getNodeSize(node, nodeSize);
