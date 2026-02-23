@@ -3,17 +3,17 @@ feature:
   name: drawer-approval-rejection
   number: 36
   branch: feat/036-drawer-approval-rejection
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-22T17:34:06Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 14
     total: 14
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-22T18:10:36.399Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-23T00:00:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -36,6 +36,10 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-22T17:34:06Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-23T00:00:00.000Z'
+    completedBy: shep-kit:commit-pr
+prUrl: https://github.com/shep-ai/cli/pull/109
 errors:
   current: null
   history: []
