@@ -247,7 +247,13 @@ describe('Merge Flow (Graph-level)', () => {
       expect(interrupts2[0].value.diffSummary).toBeDefined();
 
       // Resume past merge → completes
-      const result3 = await graph.invoke(new Command({ resume: { approved: true } }), config);
+      const result3 = await graph.invoke(
+        new Command({
+          resume: { approved: true },
+          update: { _approvalAction: 'approved', _rejectionFeedback: null },
+        }),
+        config
+      );
       expect(getInterrupts(result3)).toHaveLength(0);
 
       // After resume, lifecycle should be updated to Review (allowMerge=false, no auto-merge)
