@@ -8,13 +8,16 @@ import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getWorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
+import { getMergeReviewData } from '@/app/actions/get-merge-review-data';
 import type { TechDecisionsReviewData } from '@/components/common/tech-decisions-review';
+import type { MergeReviewData } from '@/components/common/merge-review';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
 import { PrdQuestionnaireDrawer } from '@/components/common/prd-questionnaire';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
 import { TechDecisionsDrawer } from '@/components/common/tech-decisions-review';
+import { MergeReviewDrawer } from '@/components/common/merge-review';
 import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
@@ -66,11 +69,18 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
   const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
   const [isLoadingTechDecisions, setIsLoadingTechDecisions] = useState(false);
 
+  // Merge review drawer state
+  const [mergeReviewData, setMergeReviewData] = useState<MergeReviewData | null>(null);
+  const [isLoadingMergeReview, setIsLoadingMergeReview] = useState(false);
+
   const showPrdDrawer =
     selectedNode?.lifecycle === 'requirements' && selectedNode?.state === 'action-required';
 
   const showTechDecisionsDrawer =
     selectedNode?.lifecycle === 'implementation' && selectedNode?.state === 'action-required';
+
+  const showMergeReviewDrawer =
+    selectedNode?.lifecycle === 'review' && selectedNode?.state === 'action-required';
 
   const handlePrdSelect = useCallback((questionId: string, optionId: string) => {
     setPrdSelections((prev) => ({ ...prev, [questionId]: optionId }));
@@ -124,6 +134,28 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     toast.success('Plan approved — agent resuming');
     clearSelection();
   }, [selectedNode?.featureId, clearSelection]);
+
+  const handleMergeApprove = useCallback(async () => {
+    const featureId = selectedNode?.featureId;
+    if (!featureId) return;
+
+    const result = await approveFeature(featureId);
+
+    if (!result.approved) {
+      toast.error(result.error ?? 'Failed to approve merge');
+      return;
+    }
+
+    toast.success('Merge approved — agent resuming');
+    clearSelection();
+  }, [selectedNode?.featureId, clearSelection]);
+
+  const handleMergeRefine = useCallback(async (_text: string) => {
+    setIsLoadingMergeReview(true);
+    // TODO: Call API to refine merge
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsLoadingMergeReview(false);
+  }, []);
 
   // Fetch questionnaire data and reset selections when a different feature is selected
   const prdFeatureId = showPrdDrawer ? selectedNode?.featureId : null;
@@ -197,6 +229,36 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     };
   }, [techDecisionsFeatureId]);
 
+  // Fetch merge review data when a feature is in review + action-required
+  const mergeFeatureId = showMergeReviewDrawer ? selectedNode?.featureId : null;
+  useEffect(() => {
+    setMergeReviewData(null);
+
+    if (!mergeFeatureId) return;
+
+    let cancelled = false;
+    setIsLoadingMergeReview(true);
+    getMergeReviewData(mergeFeatureId)
+      .then((result) => {
+        if (cancelled) return;
+        if ('error' in result) {
+          toast.error(result.error);
+          return;
+        }
+        setMergeReviewData(result);
+      })
+      .catch(() => {
+        if (!cancelled) toast.error('Failed to load merge review data');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingMergeReview(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [mergeFeatureId]);
+
   const hasRepositories = nodes.some((n) => n.type === 'repositoryNode');
 
   // Listen for global "open create drawer" events from the sidebar
@@ -240,7 +302,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         emptyState={<ControlCenterEmptyState onRepositorySelect={handleAddRepository} />}
       />
       <FeatureDrawer
-        selectedNode={showPrdDrawer || showTechDecisionsDrawer ? null : selectedNode}
+        selectedNode={
+          showPrdDrawer || showTechDecisionsDrawer || showMergeReviewDrawer ? null : selectedNode
+        }
         onClose={clearSelection}
         onDelete={handleDeleteFeature}
         isDeleting={isDeleting}
@@ -280,6 +344,23 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
           isProcessing={isLoadingTechDecisions}
+        />
+      ) : null}
+      {mergeReviewData ? (
+        <MergeReviewDrawer
+          open={showMergeReviewDrawer}
+          onClose={clearSelection}
+          featureName={selectedNode?.name ?? ''}
+          featureId={selectedNode?.featureId}
+          repositoryPath={selectedNode?.repositoryPath}
+          branch={selectedNode?.branch}
+          specPath={selectedNode?.specPath}
+          data={mergeReviewData}
+          onApprove={handleMergeApprove}
+          onRefine={handleMergeRefine}
+          onDelete={handleDeleteFeature}
+          isDeleting={isDeleting}
+          isProcessing={isLoadingMergeReview}
         />
       ) : null}
       <FeatureCreateDrawer

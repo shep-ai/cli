@@ -32,6 +32,7 @@ const nodeToLifecyclePhase: Record<string, FeatureLifecyclePhase> = {
   research: 'research',
   plan: 'implementation',
   implement: 'implementation',
+  merge: 'review',
 };
 
 export default async function HomePage() {

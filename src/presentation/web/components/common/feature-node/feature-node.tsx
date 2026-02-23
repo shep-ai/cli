@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus, FileText, Wrench, type LucideIcon } from 'lucide-react';
+import { Settings, Plus, FileText, Wrench, GitMerge, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   featureNodeStateConfig,
@@ -21,6 +21,7 @@ function getBadgeIcon(data: FeatureNodeData): LucideIcon {
   if (data.state === 'action-required') {
     if (data.lifecycle === 'requirements') return FileText;
     if (data.lifecycle === 'implementation') return Wrench;
+    if (data.lifecycle === 'review') return GitMerge;
   }
   return config.icon;
 }
@@ -33,6 +34,9 @@ function getActionRequiredBadgeClasses(data: FeatureNodeData): {
   if (data.state !== 'action-required') return null;
   if (data.lifecycle === 'implementation') {
     return { badgeClass: 'text-indigo-700', badgeBgClass: 'bg-indigo-50' };
+  }
+  if (data.lifecycle === 'review') {
+    return { badgeClass: 'text-emerald-700', badgeBgClass: 'bg-emerald-50' };
   }
   return null; // requirements stays amber (default)
 }
@@ -51,6 +55,7 @@ function getBadgeText(data: FeatureNodeData): string {
     case 'action-required':
       if (data.lifecycle === 'requirements') return 'Review Product Requirements';
       if (data.lifecycle === 'implementation') return 'Review Technical Planning';
+      if (data.lifecycle === 'review') return 'Review Merge Request';
       return config.label;
     case 'error':
       return data.errorMessage ?? 'Something went wrong';
