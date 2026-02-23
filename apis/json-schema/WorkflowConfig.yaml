@@ -6,26 +6,10 @@ properties:
     type: boolean
     default: false
     description: "Create PR on implementation complete (default: false)"
-  pushOnImplementationComplete:
-    type: boolean
-    default: false
-    description: "Push branch on implementation complete (default: false)"
-  allowPrd:
-    type: boolean
-    default: false
-    description: "Auto-approve requirements phase (default: false)"
-  allowPlan:
-    type: boolean
-    default: false
-    description: "Auto-approve planning phase (default: false)"
-  autoMergeOnImplementationComplete:
-    type: boolean
-    default: false
-    description: "Auto-merge on implementation complete (default: false)"
+  approvalGateDefaults:
+    $ref: ApprovalGateDefaults.yaml
+    description: Default approval gate preferences for new features
 required:
   - openPrOnImplementationComplete
-  - pushOnImplementationComplete
-  - allowPrd
-  - allowPlan
-  - autoMergeOnImplementationComplete
+  - approvalGateDefaults
 description: Global workflow configuration defaults

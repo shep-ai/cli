@@ -138,6 +138,8 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
   return {
     executor: createMockExecutor(),
     getDiffSummary: createMockGetDiffSummary(),
+    hasRemote: vi.fn().mockResolvedValue(true),
+    getDefaultBranch: vi.fn().mockResolvedValue('main'),
     featureRepository: createMockFeatureRepo(),
     ...overrides,
   };
@@ -270,6 +272,20 @@ describe('createMergeNode (agent-driven)', () => {
         expect.any(String),
         'main'
       );
+    });
+
+    it('should override push and openPr to false when no remote is configured', async () => {
+      const noRemoteDeps = baseDeps({ hasRemote: vi.fn().mockResolvedValue(false) });
+      const node = createMergeNode(noRemoteDeps);
+      const state = baseState({ push: true, openPr: true });
+      await node(state);
+
+      expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
+        expect.objectContaining({ push: false, openPr: false }),
+        expect.any(String),
+        'main'
+      );
+      expect(mockParsePrUrl).not.toHaveBeenCalled();
     });
 
     it('should NOT parse prUrl when openPr=false', async () => {

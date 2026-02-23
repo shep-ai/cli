@@ -128,9 +128,11 @@ describe('PrCreateResult', () => {
 });
 
 describe('IGitPrService', () => {
-  it('should be implementable with all 10 methods', () => {
+  it('should be implementable with all 12 methods', () => {
     // Compile-time check: a mock class implementing IGitPrService must provide all methods
     const mock: IGitPrService = {
+      hasRemote: async () => true,
+      getDefaultBranch: async () => 'main',
       hasUncommittedChanges: async () => false,
       commitAll: async () => 'abc123',
       push: async () => {

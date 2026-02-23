@@ -19,7 +19,7 @@ emit:
   # - "@typespec/protobuf"  # Uncomment when protobuf annotations added
 
 # Base output directory for all emitters
-output-dir: '{cwd}/apis'
+output-dir: '{project-root}/apis'
 
 # Per-emitter configuration options
 options:
@@ -34,7 +34,7 @@ options:
     # bundleId: "shep-ai-models"  # Bundle all schemas (optional)
 
   '@typespec-tools/emitter-typescript':
-    emitter-output-dir: '{cwd}/packages/core/src/domain/generated'
+    emitter-output-dir: '{project-root}/packages/core/src/domain/generated'
 
   # "@typespec/protobuf":
   #   emitter-output-dir: "{output-dir}/protobuf"

@@ -23,6 +23,10 @@ properties:
   workflow:
     $ref: WorkflowConfig.yaml
     description: Global workflow configuration defaults
+  onboardingComplete:
+    type: boolean
+    default: false
+    description: "Whether first-run onboarding has been completed (default: false)"
 required:
   - models
   - user
@@ -31,6 +35,7 @@ required:
   - agent
   - notifications
   - workflow
+  - onboardingComplete
 allOf:
   - $ref: BaseEntity.yaml
 description: Global Shep platform settings (singleton)

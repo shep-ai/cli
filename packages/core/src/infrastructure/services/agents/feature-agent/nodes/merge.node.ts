@@ -33,6 +33,8 @@ import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 export interface MergeNodeDeps {
   executor: IAgentExecutor;
   getDiffSummary: (cwd: string, baseBranch: string) => Promise<DiffSummary>;
+  hasRemote: (cwd: string) => Promise<boolean>;
+  getDefaultBranch: (cwd: string) => Promise<string>;
   featureRepository: Pick<IFeatureRepository, 'findById' | 'update'>;
 }
 
@@ -62,12 +64,21 @@ export function createMergeNode(deps: MergeNodeDeps) {
       // Resolve branch name from feature
       const feature = await deps.featureRepository.findById(state.featureId);
       const branch = feature?.branch ?? `feat/${state.featureId}`;
-      const baseBranch = 'main';
+      const baseBranch = await deps.getDefaultBranch(cwd);
       const options = buildExecutorOptions(state);
+
+      // --- Check for git remote ---
+      const remoteAvailable = await deps.hasRemote(cwd);
+      if (!remoteAvailable) {
+        log.info('No git remote configured — skipping push and PR, will merge locally');
+      }
+
+      // Override push/openPr when no remote is available
+      const effectiveState = remoteAvailable ? state : { ...state, push: false, openPr: false };
 
       // --- Agent Call 1: Commit + Push + PR ---
       log.info('Agent call 1: commit + push + PR');
-      const commitPushPrPrompt = buildCommitPushPrPrompt(state, branch, baseBranch);
+      const commitPushPrPrompt = buildCommitPushPrPrompt(effectiveState, branch, baseBranch);
       const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
         logger: log,
       });
@@ -80,7 +91,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       let prNumber = state.prNumber;
       const ciStatus = state.ciStatus;
 
-      if (state.openPr) {
+      if (effectiveState.openPr) {
         const prResult = parsePrUrl(commitResult.result);
         if (prResult) {
           prUrl = prResult.url;

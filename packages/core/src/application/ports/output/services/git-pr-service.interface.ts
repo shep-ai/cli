@@ -85,6 +85,25 @@ export type MergeStrategy = 'squash' | 'merge' | 'rebase';
  */
 export interface IGitPrService {
   /**
+   * Check if the repository has any configured git remotes.
+   *
+   * @param cwd - Working directory path
+   * @returns True if at least one remote is configured
+   */
+  hasRemote(cwd: string): Promise<boolean>;
+
+  /**
+   * Detect the repository's default branch with robust fallback chain:
+   * 1. Remote HEAD (git symbolic-ref refs/remotes/origin/HEAD)
+   * 2. Local branches named main or master (in that order)
+   * 3. Current branch (git symbolic-ref HEAD)
+   *
+   * @param cwd - Working directory path
+   * @returns The default branch name (e.g. "main", "master", "develop")
+   */
+  getDefaultBranch(cwd: string): Promise<string>;
+
+  /**
    * Check if the working directory has uncommitted changes.
    *
    * @param cwd - Working directory path

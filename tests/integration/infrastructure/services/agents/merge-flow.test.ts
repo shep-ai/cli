@@ -102,7 +102,12 @@ describe('Merge Flow (Graph-level)', () => {
     const featureRepo = overrides?.featureRepo ?? createMockFeatureRepo();
     const deps: FeatureAgentGraphDeps = {
       executor: createMockExecutor(),
-      mergeNodeDeps: { getDiffSummary, featureRepository: featureRepo },
+      mergeNodeDeps: {
+        getDiffSummary,
+        hasRemote: vi.fn().mockResolvedValue(true),
+        getDefaultBranch: vi.fn().mockResolvedValue('main'),
+        featureRepository: featureRepo,
+      },
     };
     return { deps, getDiffSummary, featureRepo };
   }
