@@ -1,0 +1,289 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repo-cli-commands
+summary: >
+  Technical research for adding `shep repo ls` and `shep repo show <id>` CLI commands.
+  All infrastructure exists (Repository entity, IRepositoryRepository, ListRepositoriesUseCase,
+  SQLiteRepositoryRepository, DI registrations). The implementation follows established patterns
+  from agent and feat command groups with no new libraries or schema changes required.
+
+relatedFeatures:
+  - 'feat/038 - Repository promoted to first-class entity'
+
+technologies:
+  - Commander.js (CLI framework — existing)
+  - tsyringe (dependency injection — existing)
+  - better-sqlite3 (repository persistence — existing)
+  - picocolors (terminal colors via cli/ui — existing)
+  - vitest (unit testing — existing)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Resolve Helper Pattern'
+    chosen: 'In-memory filter following resolve-run.ts pattern'
+    rejected:
+      - 'New findByIdPrefix repository method — requires interface changes to IRepositoryRepository, SQLite implementation changes, and mock updates across all existing tests. Overkill for <50 repositories.'
+      - 'SQL LIKE query in a new use case — adds unnecessary use case, violates the resolve-helper-in-presentation-layer convention used by agent commands.'
+    rationale: >
+      The existing `resolve-run.ts` in `src/presentation/cli/commands/agent/` is the exact pattern
+      to follow: try exact `findById`, fall back to `list()` + `startsWith` filter. Zero
+      infrastructure changes needed. The `resolveRepository` helper resolves `'IRepositoryRepository'`
+      from the DI container (same approach as `agent/show.command.ts` resolving `'IAgentRunRepository'`).
+
+  - title: 'Date Formatting Strategy'
+    chosen: 'toLocaleString() for detail view, relative time (formatDuration) for list view'
+    rejected:
+      - 'ISO 8601 strings everywhere — too verbose for table columns, poor readability in terminal output.'
+      - 'External date formatting library (dayjs/date-fns) — unnecessary dependency when native Date methods and existing formatDuration utility suffice.'
+    rationale: >
+      Matches established conventions: `agent/show.command.ts` uses `new Date(date).toLocaleString()`
+      for detail views; `feat/ls.command.ts` uses `formatDuration(now - ts) + " ago"` for relative
+      time in list columns. For `repo ls`, the Created column uses relative time. For `repo show`,
+      timestamps use `toLocaleString()`. No new dependencies needed.
+
+  - title: 'Command File Structure'
+    chosen: 'Mirror agent/ command group structure with 4 files'
+    rejected:
+      - 'Single file for both commands — violates the one-responsibility-per-file rule and the established convention of separate ls.command.ts and show.command.ts files.'
+      - 'Flat files without index.ts grouping — inconsistent with feat/ and agent/ patterns which use an index.ts to create the command group and chain .addCommand() calls.'
+    rationale: >
+      Both `feat/` and `agent/` command groups use identical structure: `index.ts` (group factory),
+      `ls.command.ts`, `show.command.ts`, plus helper files. The repo command group follows the same
+      pattern with 4 files: `index.ts`, `ls.command.ts`, `show.command.ts`, and `resolve-repository.ts`.
+
+  - title: 'DI Resolution in show command'
+    chosen: 'Resolve IRepositoryRepository directly via string token'
+    rejected:
+      - 'Create a new GetRepositoryUseCase — trivial pass-through for a single findById call; no existing command creates use cases just for resolve helpers.'
+      - 'Use ListRepositoriesUseCase only and filter — loses exact-match-first optimization and deviates from the resolve-run.ts two-step pattern.'
+    rationale: >
+      The `agent/show.command.ts` already resolves `'IAgentRunRepository'` directly from the
+      presentation layer without a use case wrapper. This establishes precedent for read-only
+      queries where a use case would be a trivial pass-through. `resolveRepository` will resolve
+      `'IRepositoryRepository'` from the container and call `findById` + `list` directly.
+      The `ls` command uses `ListRepositoriesUseCase` (following the feat ls convention).
+
+  - title: 'Test Strategy'
+    chosen: 'Unit tests with DI container mocking (3 test files)'
+    rejected:
+      - 'Integration tests with real SQLite — wrong layer for presentation tests; integration tests belong in the repository layer which already has them.'
+      - 'Commander-only testing without isolated helper tests — misses resolve helper edge cases which should be tested independently.'
+    rationale: >
+      Three test files following established patterns: (1) `resolve-repository.test.ts` mocks the
+      DI container and tests exact/prefix/ambiguous/not-found cases (matching resolve-run.ts pattern).
+      (2) `ls.command.test.ts` mocks the container, verifies table rendering and empty state via
+      console.log spy. (3) `show.command.test.ts` mocks the container, verifies detail rendering
+      and error states. All use `vi.hoisted` + `vi.mock` for container mocking, `beforeEach` with
+      `vi.clearAllMocks()`, and Commander `parseAsync(['...'], { from: 'user' })` for execution.
+
+openQuestions:
+  - question: 'Should resolveRepository resolve dependencies from the DI container internally or accept them as function arguments?'
+    resolved: true
+    options:
+      - option: 'Resolve from DI container internally (like resolve-run.ts)'
+        description: >
+          Follow the exact resolve-run.ts pattern where the helper calls container.resolve()
+          internally. Simpler call site in show.command.ts — just pass the ID string.
+          Container is mocked in tests via vi.mock.
+        selected: true
+      - option: 'Accept repository as function argument (like resolve-waiting-feature.ts)'
+        description: >
+          Pass IRepositoryRepository as a parameter. More testable without mocking globals,
+          but deviates from the simpler resolve-run.ts pattern and makes the call site verbose.
+        selected: false
+      - option: 'Create a class-based resolver registered in DI'
+        description: >
+          Over-engineered for a simple resolve function. No existing command uses this pattern
+          for ID resolution. Adds unnecessary abstraction.
+        selected: false
+    selectionRationale: >
+      The resolve-run.ts pattern is the closest analog (same structure — simple entity resolved
+      by ID or prefix). It resolves dependencies from the container internally, keeping the call
+      site clean (`resolveRepository(id)` vs `resolveRepository({ id, repo })`). Tests mock the
+      container using the established vi.mock pattern.
+
+  - question: 'How should the list command format the Created column?'
+    resolved: true
+    options:
+      - option: 'Relative time (e.g., "3d ago") using formatDuration'
+        description: >
+          Matches feat/ls.command.ts which shows relative timestamps. Compact, fits in a
+          narrow column (width 12). Uses existing formatDuration utility.
+        selected: true
+      - option: 'Short date (e.g., "2026-02-23") via toLocaleDateString'
+        description: >
+          More precise but takes more width. Not used by any existing ls command.
+          Locale-dependent output makes testing harder.
+        selected: false
+      - option: 'Full locale string via toLocaleString'
+        description: >
+          Too wide for a table column. Only used in detail/show views, not list views.
+        selected: false
+    selectionRationale: >
+      The feat ls command uses relative time for its Time column with formatDuration. This is
+      compact, human-friendly, and fits the 12-character column width. Repository creation dates
+      are more useful as "3 months ago" than an exact date in a list context. The show command
+      displays full timestamps for users who need precision.
+
+  - question: 'Should resolveRepository call findById directly on the repository or through a use case?'
+    resolved: true
+    options:
+      - option: 'Call repository.findById directly (no use case wrapper)'
+        description: >
+          IRepositoryRepository.findById is available via DI token. The resolve-run.ts pattern
+          uses GetAgentRunUseCase, but that use case already existed before the resolve helper
+          was written. Creating a new use case solely for this adds unnecessary files.
+        selected: true
+      - option: 'Create GetRepositoryUseCase first'
+        description: >
+          Follows strict clean architecture (presentation never calls repositories directly).
+          But agent/show.command.ts already resolves IAgentRunRepository directly, establishing
+          precedent for read-only queries.
+        selected: false
+      - option: 'Skip exact match, always use list + filter'
+        description: >
+          Simpler code but wastes resources listing all repositories even for exact UUID matches.
+          Deviates from the resolve-run.ts two-step pattern.
+        selected: false
+    selectionRationale: >
+      The agent/show.command.ts already resolves IAgentRunRepository directly from the
+      presentation layer without a use case wrapper. This establishes precedent that
+      presentation code can call repository methods directly for simple read-only queries.
+      The resolveRepository helper resolves 'IRepositoryRepository' from the container and
+      calls findById + list directly, keeping the change surface minimal.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Resolve Helper Pattern
+
+  **Chosen:** In-memory filter following `resolve-run.ts` pattern
+
+  **Rejected:**
+  - New `findByIdPrefix` repository method — requires IRepositoryRepository interface change, SQLite implementation change, and mock updates across all tests. Overkill for <50 repositories.
+  - SQL LIKE query in a new use case — adds unnecessary use case, violates the resolve-helper-in-presentation-layer convention.
+
+  **Rationale:** The `resolve-run.ts` helper in `src/presentation/cli/commands/agent/` is the exact pattern to follow: try exact `findById`, fall back to `list()` + `startsWith` filter. Zero infrastructure changes needed. The `resolveRepository` helper resolves `'IRepositoryRepository'` from the DI container (same approach as `agent/show.command.ts` resolving `'IAgentRunRepository'`).
+
+  ### 2. Date Formatting Strategy
+
+  **Chosen:** `toLocaleString()` for detail view, relative time (`formatDuration`) for list view
+
+  **Rejected:**
+  - ISO 8601 everywhere — too verbose for table columns
+  - External date library (dayjs/date-fns) — unnecessary when native Date + existing `formatDuration` suffice
+
+  **Rationale:** Matches established conventions: `agent/show.command.ts` uses `toLocaleString()` for detail views; `feat/ls.command.ts` uses `formatDuration(now - ts) + " ago"` for list columns.
+
+  ### 3. Command File Structure
+
+  **Chosen:** Mirror `agent/` command group structure (4 files)
+
+  **Rejected:**
+  - Single file for both commands — violates one-responsibility-per-file rule
+  - Flat files without `index.ts` — inconsistent with feat/agent patterns
+
+  **Rationale:** Consistent with established patterns. Files: `index.ts`, `ls.command.ts`, `show.command.ts`, `resolve-repository.ts`.
+
+  ### 4. DI Resolution in show command
+
+  **Chosen:** Resolve `IRepositoryRepository` directly via `'IRepositoryRepository'` string token
+
+  **Rejected:**
+  - New `GetRepositoryUseCase` — trivial pass-through, no existing command creates use cases just for resolve helpers
+  - ListRepositoriesUseCase only — loses exact-match-first optimization
+
+  **Rationale:** `agent/show.command.ts` resolves `'IAgentRunRepository'` directly. Same pattern applies. `ls.command.ts` uses `ListRepositoriesUseCase` for listing.
+
+  ### 5. Test Strategy
+
+  **Chosen:** Unit tests with DI container mocking (3 test files)
+
+  **Rejected:**
+  - Integration tests with SQLite — wrong layer for presentation tests
+  - Commander-only tests without isolated helper tests — misses resolve helper edge cases
+
+  **Rationale:** Three test files: `resolve-repository.test.ts`, `ls.command.test.ts`, `show.command.test.ts`. All follow `vi.hoisted` + `vi.mock` pattern from existing tests.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Commander.js | CLI command framework | Use (existing) | Already used by all commands; fluent API for `.command()`, `.argument()`, `.description()`, `.action()` |
+  | tsyringe | Dependency injection | Use (existing) | Container resolution via `container.resolve()` with string tokens for repositories, class tokens for use cases |
+  | picocolors | Terminal colors | Use (existing) | Exposed through `cli/ui/colors.ts` semantic palette; already imported in all commands |
+  | better-sqlite3 | SQLite persistence | No change | Repository and use cases already exist; no schema or query changes needed |
+  | vitest | Unit testing | Use (existing) | `vi.mock`, `vi.hoisted`, `vi.fn` patterns established in all command tests |
+  | date-fns / dayjs | Date formatting | Reject | Native `Date.toLocaleString()` and existing `formatDuration` utility cover all needs |
+
+  ## Security Considerations
+
+  - **No new attack surface**: Commands are read-only (list and show). No user input is written to the database.
+  - **ID input sanitization**: The resolve helper only uses the ID for `===` comparison and `startsWith()` string matching — no SQL injection vector since `findById` uses parameterized queries in SQLite.
+  - **Path exposure**: `repo show` displays the absolute filesystem path. This is expected behavior (users need to know where repos are tracked) and matches the existing `feat show` which displays `repositoryPath`.
+  - **No authentication changes**: Commands use the existing DI container and settings bootstrap.
+
+  ## Performance Implications
+
+  - **Negligible overhead**: `list()` queries a table expected to have <50 rows. The in-memory prefix filter adds O(n) string comparison over a tiny dataset.
+  - **No caching needed**: Repository data is static (rarely changes after creation). Each command invocation opens a fresh SQLite connection via the DI container bootstrap.
+  - **Single SQL query for ls**: `ListRepositoriesUseCase.execute()` → `SELECT * FROM repositories WHERE deleted_at IS NULL ORDER BY name`. No joins, no subqueries.
+
+  ## Architecture Notes
+
+  ### File Layout
+
+  ```
+  src/presentation/cli/commands/repo/
+  ├── index.ts                  # createRepoCommand() — group factory
+  ├── ls.command.ts             # createLsCommand() — list all repos
+  ├── show.command.ts           # createShowCommand() — show repo details
+  └── resolve-repository.ts     # resolveRepository(id) — exact/prefix ID match
+
+  tests/unit/presentation/cli/commands/repo/
+  ├── ls.command.test.ts
+  ├── show.command.test.ts
+  └── resolve-repository.test.ts
+  ```
+
+  ### Integration Points
+
+  1. **CLI Bootstrap** (`src/presentation/cli/index.ts`): Add `program.addCommand(createRepoCommand())` alongside existing `createAgentCommand()` and `createFeatCommand()` calls.
+
+  2. **DI Container**: No changes. All needed registrations exist:
+     - `'IRepositoryRepository'` → `SQLiteRepositoryRepository` (factory)
+     - `ListRepositoriesUseCase` (singleton)
+
+  3. **Domain Layer**: No changes. `Repository` type imported from `@/domain/generated/output.js`.
+
+  4. **Infrastructure Layer**: No changes. `SQLiteRepositoryRepository` already implements `findById` and `list`.
+
+  ### Key Implementation Details
+
+  **`resolveRepository` helper** (following `resolve-run.ts` exactly):
+  ```
+  1. Resolve IRepositoryRepository from container via 'IRepositoryRepository' token
+  2. Try repo.findById(id) — return { repository } if found
+  3. If id.length < 36, try repo.list() + filter by id.startsWith
+  4. Return { repository } on unique match
+  5. Return { error: "Multiple repositories match..." } listing 8-char prefixes on 2+ matches
+  6. Return { error: "Repository not found: <id>" } on 0 matches
+  ```
+
+  **`ls.command.ts` columns:**
+  | Column | Width | Value |
+  | ------ | ----- | ----- |
+  | ID | 10 | `id.substring(0, 8)` |
+  | Name | 32 | `repository.name` |
+  | Path | 40 | `repository.path` |
+  | Created | 12 | `formatDuration(now - createdAt) + " ago"` via `colors.muted()` |
+
+  **`show.command.ts` sections:**
+  - Section 1 (no title): ID, Name, Path
+  - Section 2 "Timestamps": Created (`toLocaleString`), Updated (`toLocaleString`), Deleted (`toLocaleString` if present, otherwise null/skipped)
+
+  ---
+
+  _Research complete — proceed with planning_

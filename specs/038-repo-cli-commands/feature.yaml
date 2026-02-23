@@ -1,0 +1,44 @@
+feature:
+  id: 038-repo-cli-commands
+  name: repo-cli-commands
+  number: 38
+  branch: feat/038-repo-cli-commands
+  lifecycle: review
+  createdAt: '2026-02-23T16:18:02Z'
+status:
+  phase: in-review
+  progress:
+    completed: 7
+    total: 7
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-23T17:00:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+prUrl: 'https://github.com/shep-ai/cli/pull/99'
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-23T16:18:02Z'
+    completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-23T17:00:00.000Z'
+    completedBy: shep-kit:commit-pr
+errors:
+  current: null
+  history: []

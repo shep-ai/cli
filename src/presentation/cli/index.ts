@@ -15,6 +15,7 @@
  *   shep run          Run an AI agent workflow
  *   shep agent        Manage and view agent runs
  *   shep feat         Manage features through the SDLC lifecycle
+ *   shep repo         Manage tracked repositories
  *   shep settings     Configure Shep settings
  *   shep upgrade      Upgrade Shep CLI to the latest version
  *   shep --version    Display version number only
@@ -35,6 +36,7 @@ import { createUiCommand } from './commands/ui.command.js';
 import { createRunCommand } from './commands/run.command.js';
 import { createAgentCommand } from './commands/agent/index.js';
 import { createFeatCommand } from './commands/feat/index.js';
+import { createRepoCommand } from './commands/repo/index.js';
 import { createIdeOpenCommand } from './commands/ide-open.command.js';
 import { createInstallCommand } from './commands/install.command.js';
 import { createUpgradeCommand } from './commands/upgrade.command.js';
@@ -104,6 +106,7 @@ async function bootstrap() {
     program.addCommand(createRunCommand());
     program.addCommand(createAgentCommand());
     program.addCommand(createFeatCommand());
+    program.addCommand(createRepoCommand());
     program.addCommand(createIdeOpenCommand());
     program.addCommand(createInstallCommand());
     program.addCommand(createUpgradeCommand());

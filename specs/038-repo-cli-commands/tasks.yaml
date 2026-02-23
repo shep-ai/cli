@@ -1,0 +1,224 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repo-cli-commands
+summary: >
+  7 tasks across 4 phases. Builds resolve helper first (foundation), then list command, then show
+  command, and finally CLI bootstrap integration with full validation.
+
+relatedFeatures:
+  - 'feat/038 - Repository promoted to first-class entity'
+
+technologies:
+  - Commander.js
+  - tsyringe
+  - vitest
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create resolveRepository helper with tests'
+    description: >
+      Implement the resolveRepository(id) helper following the resolve-run.ts pattern. Resolves
+      IRepositoryRepository from DI container, tries exact findById first, falls back to list()
+      + startsWith prefix matching. Write tests first covering: exact match, prefix match (unique),
+      multiple prefix matches (ambiguous error), no match (not-found error), and short ID < 36 chars.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'resolveRepository returns { repository } on exact UUID match'
+      - 'resolveRepository returns { repository } on unique prefix match when id.length < 36'
+      - 'resolveRepository returns { error } listing 8-char prefixes when multiple repos match a prefix'
+      - 'resolveRepository returns { error: "Repository not found: <id>" } when no match'
+      - 'resolveRepository resolves IRepositoryRepository via container.resolve("IRepositoryRepository")'
+      - 'All tests pass: tests/unit/presentation/cli/commands/repo/resolve-repository.test.ts'
+    tdd:
+      red:
+        - 'Create resolve-repository.test.ts with vi.hoisted mock for container.resolve'
+        - 'Write test: returns repository on exact findById match'
+        - 'Write test: returns repository on unique prefix match (id.length < 36)'
+        - 'Write test: returns error listing matches when multiple repos match prefix'
+        - 'Write test: returns error "Repository not found" when no match found'
+        - 'Write test: skips prefix matching when id.length === 36 (full UUID)'
+      green:
+        - 'Create resolve-repository.ts with resolveRepository(id) function'
+        - 'Resolve IRepositoryRepository from container via string token'
+        - 'Implement exact findById check, then prefix fallback with list + startsWith filter'
+        - 'Return discriminated union: { repository } | { error }'
+      refactor:
+        - 'Ensure error messages match resolve-run.ts format exactly'
+        - 'Verify import paths follow @/ convention'
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create repo command group index'
+    description: >
+      Create the repo/index.ts command group factory that creates the "repo" command and chains
+      addCommand() calls for ls and show subcommands. Follows agent/index.ts pattern exactly.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'createRepoCommand() returns a Commander Command instance'
+      - 'Command name is "repo" with description "Manage tracked repositories"'
+      - 'Registers createLsCommand() and createShowCommand() via addCommand()'
+    tdd:
+      red:
+        - 'N/A — structural wiring file with no logic to unit test independently'
+      green:
+        - 'Create index.ts exporting createRepoCommand()'
+        - 'Import and register createLsCommand and createShowCommand'
+      refactor:
+        - 'Ensure JSDoc comment matches agent/index.ts style'
+    estimatedEffort: '10min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Create repo ls command with tests'
+    description: >
+      Implement the list command that resolves ListRepositoriesUseCase from DI, fetches all repos,
+      and renders a table with columns: ID (8-char prefix, width 10), Name (width 32), Path
+      (width 40), Created (relative time, width 12). Empty state shows "No repositories found"
+      via messages.info(). Write tests first covering table rendering and empty state.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'createLsCommand() returns a Commander Command named "ls" with description "List tracked repositories"'
+      - 'Resolves ListRepositoriesUseCase from container and calls execute()'
+      - 'Renders table via renderListView with 4 columns: ID, Name, Path, Created'
+      - 'ID column shows 8-char prefix of UUID'
+      - 'Created column shows relative time (e.g., "3d ago") via formatDuration + colors.muted'
+      - 'Empty list shows "No repositories found" via messages.info()'
+      - 'Errors caught with try/catch, messages.error(), process.exitCode = 1'
+      - 'All tests pass: tests/unit/presentation/cli/commands/repo/ls.command.test.ts'
+    tdd:
+      red:
+        - 'Create ls.command.test.ts with vi.hoisted mocks for container.resolve and ListRepositoriesUseCase'
+        - 'Write test: renders table with repository data (verify console.log output contains repo name and path)'
+        - 'Write test: shows "No repositories found" when list is empty'
+        - 'Write test: sets process.exitCode = 1 on error'
+      green:
+        - 'Create ls.command.ts exporting createLsCommand()'
+        - 'Resolve ListRepositoriesUseCase, call execute(), map to rows'
+        - 'Call renderListView with columns and rows'
+        - 'Handle empty state with messages.info()'
+        - 'Wrap in try/catch with messages.error() and process.exitCode = 1'
+      refactor:
+        - 'Extract date formatting to match feat/ls.command.ts pattern'
+        - 'Verify column widths produce clean output'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Create repo show command with tests'
+    description: >
+      Implement the show command that accepts a required <id> argument, calls resolveRepository
+      to find the repo, and renders detail view with two sections: basic info (ID, Name, Path)
+      and timestamps (Created, Updated, Deleted if present). Error states delegate to
+      resolveRepository error messages. Write tests first.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'createShowCommand() returns a Commander Command named "show" with argument "<id>"'
+      - 'Calls resolveRepository(id) to resolve the repository'
+      - 'On success, renders detail view via renderDetailView with 2 sections'
+      - 'Section 1 (no title): ID, Name, Path fields'
+      - 'Section 2 "Timestamps": Created (toLocaleString), Updated (toLocaleString), Deleted (toLocaleString or null)'
+      - 'On resolve error, displays messages.error() and sets process.exitCode = 1'
+      - 'Unexpected errors caught with try/catch, messages.error(), process.exitCode = 1'
+      - 'All tests pass: tests/unit/presentation/cli/commands/repo/show.command.test.ts'
+    tdd:
+      red:
+        - 'Create show.command.test.ts with vi.hoisted mocks for resolveRepository'
+        - 'Write test: renders repository details when resolved successfully'
+        - 'Write test: shows error and sets exitCode when repository not found'
+        - 'Write test: shows error and sets exitCode when multiple matches (ambiguous)'
+        - 'Write test: handles unexpected errors with try/catch'
+      green:
+        - 'Create show.command.ts exporting createShowCommand()'
+        - 'Define command with .argument("<id>", "Repository ID (or prefix)")'
+        - 'Call resolveRepository(id), check for error key'
+        - 'On success, call renderDetailView with sections'
+        - 'On error, call messages.error() and set process.exitCode = 1'
+      refactor:
+        - 'Extract formatDate helper matching agent/show.command.ts pattern'
+        - 'Ensure deletedAt field is only shown when present (null hides the field in renderDetailView)'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-4
+    title: 'Register repo command in CLI bootstrap'
+    description: >
+      Add createRepoCommand() import and program.addCommand() call in src/presentation/cli/index.ts,
+      alongside the existing createAgentCommand() and createFeatCommand() registrations.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'src/presentation/cli/index.ts imports createRepoCommand from ./commands/repo/index.js'
+      - 'program.addCommand(createRepoCommand()) is called in the command registration section'
+      - 'CLI help output shows "repo" command in the list'
+    tdd:
+      red:
+        - 'N/A — wiring change verified by integration in task-6'
+      green:
+        - 'Add import for createRepoCommand'
+        - 'Add program.addCommand(createRepoCommand()) after createFeatCommand() line'
+      refactor:
+        - 'Update JSDoc comment at top of file to include "shep repo" in command list'
+    estimatedEffort: '5min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Run full test suite'
+    description: >
+      Run pnpm test to ensure all existing tests still pass and all new tests pass.
+      Fix any failures.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'pnpm test passes with 0 failures'
+      - 'New test files are discovered and executed'
+      - 'No regressions in existing tests'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Run full validation suite'
+    description: >
+      Run pnpm validate (lint, format, typecheck, tsp compile) to ensure code quality
+      gates pass. Fix any issues found.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm lint passes with no errors'
+      - 'pnpm format:check passes'
+      - 'pnpm typecheck passes'
+      - 'pnpm validate completes successfully'
+    tdd: null
+    estimatedEffort: '10min'
+
+totalEstimate: '2h 20min'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation proceeds in 4 phases with 7 tasks totaling ~2h 20min. Phase 1 establishes
+  the resolve helper (the foundational utility) and the command group index. Phase 2 builds the
+  list command with table rendering. Phase 3 builds the show command with detail rendering,
+  leveraging the resolve helper. Phase 4 wires everything into the CLI bootstrap and validates
+  with full test suite and linting. Every code task follows TDD: tests are written first (RED),
+  minimal implementation follows (GREEN), then cleanup (REFACTOR).
