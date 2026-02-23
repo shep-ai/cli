@@ -85,6 +85,14 @@ export type MergeStrategy = 'squash' | 'merge' | 'rebase';
  */
 export interface IGitPrService {
   /**
+   * Check if the repository has any configured git remotes.
+   *
+   * @param cwd - Working directory path
+   * @returns True if at least one remote is configured
+   */
+  hasRemote(cwd: string): Promise<boolean>;
+
+  /**
    * Check if the working directory has uncommitted changes.
    *
    * @param cwd - Working directory path

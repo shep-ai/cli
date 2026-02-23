@@ -171,6 +171,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
     mergeNodeDeps: {
       getDiffSummary: (cwd: string, baseBranch: string) =>
         gitPrService.getPrDiffSummary(cwd, baseBranch),
+      hasRemote: (cwd: string) => gitPrService.hasRemote(cwd),
       featureRepository,
     },
   };

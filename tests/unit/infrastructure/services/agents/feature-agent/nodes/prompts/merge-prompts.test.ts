@@ -191,6 +191,26 @@ describe('buildMergeSquashPrompt', () => {
       expect(prompt).toContain('cd /tmp/repo');
     });
 
+    it('should include fetch/pull from origin when push or openPr is set', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: null, prNumber: null, push: true }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).toContain('git fetch origin');
+      expect(prompt).toContain('git pull origin');
+    });
+
+    it('should NOT include fetch/pull from origin when no remote (push=false, openPr=false)', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: null, prNumber: null, push: false, openPr: false }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).not.toContain('git fetch origin');
+      expect(prompt).not.toContain('git pull origin');
+    });
+
     it('should include branch names', () => {
       const prompt = buildMergeSquashPrompt(baseState(), 'feat/my-branch', 'main');
       expect(prompt).toContain('feat/my-branch');

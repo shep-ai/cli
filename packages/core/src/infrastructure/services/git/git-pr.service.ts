@@ -25,6 +25,11 @@ import type { ExecFunction } from './worktree.service.js';
 export class GitPrService implements IGitPrService {
   constructor(@inject('ExecFunction') private readonly execFile: ExecFunction) {}
 
+  async hasRemote(cwd: string): Promise<boolean> {
+    const { stdout } = await this.execFile('git', ['remote'], { cwd });
+    return stdout.trim().length > 0;
+  }
+
   async hasUncommittedChanges(cwd: string): Promise<boolean> {
     const { stdout } = await this.execFile('git', ['status', '--porcelain'], { cwd });
     return stdout.trim().length > 0;

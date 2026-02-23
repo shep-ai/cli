@@ -112,6 +112,21 @@ export function buildMergeSquashPrompt(
 
   // Non-PR path: local merge in the ORIGINAL repo (not the worktree)
   const originalRepo = state.repositoryPath;
+  const hasRemote = state.push || state.openPr;
+
+  const fetchSteps = hasRemote
+    ? `2. Fetch latest: \`git fetch origin\`
+3. Checkout the base branch: \`git checkout ${baseBranch}\`
+4. Pull latest base: \`git pull origin ${baseBranch}\`
+5. Merge the feature branch: \`git merge --squash ${branch}\`
+6. If merge conflicts are encountered, resolve them manually and complete the merge
+7. Commit the squash merge with a descriptive conventional commit message
+8. Delete the feature branch after successful merge: \`git branch -d ${branch}\``
+    : `2. Checkout the base branch: \`git checkout ${baseBranch}\`
+3. Merge the feature branch: \`git merge --squash ${branch}\`
+4. If merge conflicts are encountered, resolve them manually and complete the merge
+5. Commit the squash merge with a descriptive conventional commit message
+6. Delete the feature branch after successful merge: \`git branch -d ${branch}\``;
 
   return `You are performing a local merge in the original repository directory.
 
@@ -129,13 +144,7 @@ ${originalRepo}
 ## Instructions
 
 1. Change to the original repository: \`cd ${originalRepo}\`
-2. Fetch latest: \`git fetch origin\`
-3. Checkout the base branch: \`git checkout ${baseBranch}\`
-4. Pull latest base: \`git pull origin ${baseBranch}\`
-5. Merge the feature branch: \`git merge --squash ${branch}\`
-6. If merge conflicts are encountered, resolve them manually and complete the merge
-7. Commit the squash merge with a descriptive conventional commit message
-8. Delete the feature branch after successful merge: \`git branch -d ${branch}\`
+${fetchSteps}
 
 ## Constraints
 
