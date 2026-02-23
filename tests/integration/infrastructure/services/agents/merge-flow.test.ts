@@ -105,6 +105,7 @@ describe('Merge Flow (Graph-level)', () => {
       mergeNodeDeps: {
         getDiffSummary,
         hasRemote: vi.fn().mockResolvedValue(true),
+        getDefaultBranch: vi.fn().mockResolvedValue('main'),
         featureRepository: featureRepo,
       },
     };

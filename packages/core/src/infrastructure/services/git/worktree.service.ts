@@ -37,11 +37,16 @@ export type ExecFunction = (
 export class WorktreeService implements IWorktreeService {
   constructor(@inject('ExecFunction') private readonly execFile: ExecFunction) {}
 
-  async create(repoPath: string, branch: string, worktreePath: string): Promise<WorktreeInfo> {
+  async create(
+    repoPath: string,
+    branch: string,
+    worktreePath: string,
+    startPoint?: string
+  ): Promise<WorktreeInfo> {
     try {
-      await this.execFile('git', ['worktree', 'add', worktreePath, '-b', branch], {
-        cwd: repoPath,
-      });
+      const args = ['worktree', 'add', worktreePath, '-b', branch];
+      if (startPoint) args.push(startPoint);
+      await this.execFile('git', args, { cwd: repoPath });
     } catch (error) {
       throw this.parseGitError(error);
     }

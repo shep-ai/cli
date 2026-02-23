@@ -93,6 +93,17 @@ export interface IGitPrService {
   hasRemote(cwd: string): Promise<boolean>;
 
   /**
+   * Detect the repository's default branch with robust fallback chain:
+   * 1. Remote HEAD (git symbolic-ref refs/remotes/origin/HEAD)
+   * 2. Local branches named main or master (in that order)
+   * 3. Current branch (git symbolic-ref HEAD)
+   *
+   * @param cwd - Working directory path
+   * @returns The default branch name (e.g. "main", "master", "develop")
+   */
+  getDefaultBranch(cwd: string): Promise<string>;
+
+  /**
    * Check if the working directory has uncommitted changes.
    *
    * @param cwd - Working directory path

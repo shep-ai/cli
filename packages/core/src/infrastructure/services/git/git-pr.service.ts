@@ -30,6 +30,45 @@ export class GitPrService implements IGitPrService {
     return stdout.trim().length > 0;
   }
 
+  async getDefaultBranch(cwd: string): Promise<string> {
+    // 1. Try remote HEAD reference (most reliable when remote exists)
+    try {
+      const { stdout } = await this.execFile('git', ['symbolic-ref', 'refs/remotes/origin/HEAD'], {
+        cwd,
+      });
+      const ref = stdout.trim(); // e.g. "refs/remotes/origin/main"
+      if (ref) return ref.replace('refs/remotes/origin/', '');
+    } catch {
+      // No remote HEAD configured — continue to fallbacks
+    }
+
+    // 2. Check for common default branch names locally
+    for (const candidate of ['main', 'master']) {
+      try {
+        const { stdout } = await this.execFile(
+          'git',
+          ['rev-parse', '--verify', `refs/heads/${candidate}`],
+          { cwd }
+        );
+        if (stdout.trim()) return candidate;
+      } catch {
+        // Branch doesn't exist — try next
+      }
+    }
+
+    // 3. Fall back to current branch (works for single-branch / fresh repos)
+    try {
+      const { stdout } = await this.execFile('git', ['symbolic-ref', '--short', 'HEAD'], { cwd });
+      const branch = stdout.trim();
+      if (branch) return branch;
+    } catch {
+      // Detached HEAD — continue
+    }
+
+    // 4. Ultimate fallback
+    return 'main';
+  }
+
   async hasUncommittedChanges(cwd: string): Promise<boolean> {
     const { stdout } = await this.execFile('git', ['status', '--porcelain'], { cwd });
     return stdout.trim().length > 0;

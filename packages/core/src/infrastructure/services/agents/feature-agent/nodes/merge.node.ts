@@ -34,6 +34,7 @@ export interface MergeNodeDeps {
   executor: IAgentExecutor;
   getDiffSummary: (cwd: string, baseBranch: string) => Promise<DiffSummary>;
   hasRemote: (cwd: string) => Promise<boolean>;
+  getDefaultBranch: (cwd: string) => Promise<string>;
   featureRepository: Pick<IFeatureRepository, 'findById' | 'update'>;
 }
 
@@ -63,7 +64,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
       // Resolve branch name from feature
       const feature = await deps.featureRepository.findById(state.featureId);
       const branch = feature?.branch ?? `feat/${state.featureId}`;
-      const baseBranch = 'main';
+      const baseBranch = await deps.getDefaultBranch(cwd);
       const options = buildExecutorOptions(state);
 
       // --- Check for git remote ---

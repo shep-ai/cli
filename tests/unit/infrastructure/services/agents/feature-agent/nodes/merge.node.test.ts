@@ -139,6 +139,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
     executor: createMockExecutor(),
     getDiffSummary: createMockGetDiffSummary(),
     hasRemote: vi.fn().mockResolvedValue(true),
+    getDefaultBranch: vi.fn().mockResolvedValue('main'),
     featureRepository: createMockFeatureRepo(),
     ...overrides,
   };

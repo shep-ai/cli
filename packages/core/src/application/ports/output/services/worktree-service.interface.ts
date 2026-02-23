@@ -54,10 +54,16 @@ export interface IWorktreeService {
    * @param repoPath - Path to the git repository
    * @param branch - Branch name to create
    * @param worktreePath - Path for the new worktree directory
+   * @param startPoint - Optional commit/branch to start from (defaults to HEAD)
    * @returns Information about the created worktree
    * @throws WorktreeError with appropriate code
    */
-  create(repoPath: string, branch: string, worktreePath: string): Promise<WorktreeInfo>;
+  create(
+    repoPath: string,
+    branch: string,
+    worktreePath: string,
+    startPoint?: string
+  ): Promise<WorktreeInfo>;
 
   /**
    * Remove an existing worktree.
