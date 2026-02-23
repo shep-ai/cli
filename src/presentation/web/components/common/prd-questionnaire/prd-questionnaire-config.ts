@@ -14,11 +14,9 @@ export interface PrdQuestionnaireProps {
   selections: Record<string, string>;
   /** Selection change callback */
   onSelect: (questionId: string, optionId: string) => void;
-  /** Chat refinement submit callback */
-  onRefine: (text: string) => void;
   /** Finalize requirements callback */
   onApprove: (actionId: string) => void;
-  /** Reject requirements callback — opens feedback dialog when provided */
+  /** Reject requirements callback — opens feedback dialog when provided; also used for inline text rejection */
   onReject?: (feedback: string) => void;
   /** Controls disabled/animated state during refinement */
   isProcessing?: boolean;

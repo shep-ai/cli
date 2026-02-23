@@ -12,11 +12,9 @@ export interface TechDecisionsReviewData {
 export interface TechDecisionsReviewProps {
   /** Tech decisions data from the research artifact */
   data: TechDecisionsReviewData;
-  /** Chat refinement callback — sends user feedback to the agent */
-  onRefine: (text: string) => void;
   /** Approve plan callback */
   onApprove: () => void;
-  /** Reject plan callback — opens feedback dialog when provided */
+  /** Reject plan callback — opens feedback dialog when provided; also used for inline text rejection */
   onReject?: (feedback: string) => void;
   /** Controls disabled state during loading */
   isProcessing?: boolean;

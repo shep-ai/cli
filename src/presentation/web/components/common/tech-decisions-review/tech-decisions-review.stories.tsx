@@ -67,7 +67,7 @@ type Story = StoryObj<typeof TechDecisionsReview>;
 export const Default: Story = {
   args: {
     data: mockData,
-    onRefine: fn().mockName('onRefine'),
+    onReject: fn().mockName('onReject'),
     onApprove: fn().mockName('onApprove'),
   },
 };
@@ -85,7 +85,7 @@ export const Processing: Story = {
 export const SingleDecision: Story = {
   args: {
     data: { ...mockData, decisions: [mockData.decisions[0]] },
-    onRefine: fn().mockName('onRefine'),
+    onReject: fn().mockName('onReject'),
     onApprove: fn().mockName('onApprove'),
   },
 };
@@ -94,7 +94,7 @@ export const SingleDecision: Story = {
 export const NoTechnologies: Story = {
   args: {
     data: { ...mockData, technologies: [] },
-    onRefine: fn().mockName('onRefine'),
+    onReject: fn().mockName('onReject'),
     onApprove: fn().mockName('onApprove'),
   },
 };
@@ -139,8 +139,8 @@ export const InDrawer: DrawerStory = {
       featureName="Agent Executor Abstraction"
       featureId="FEAT-099"
       data={mockData}
-      onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
+      onReject={fn().mockName('onReject')}
     />
   ),
 };
@@ -153,8 +153,8 @@ export const WithDeleteButton: DrawerStory = {
       featureName="Agent Executor Abstraction"
       featureId="FEAT-099"
       data={mockData}
-      onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
+      onReject={fn().mockName('onReject')}
       onDelete={fn().mockName('onDelete')}
     />
   ),
@@ -168,8 +168,8 @@ export const DeletingState: DrawerStory = {
       featureName="Agent Executor Abstraction"
       featureId="FEAT-099"
       data={mockData}
-      onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
+      onReject={fn().mockName('onReject')}
       onDelete={fn().mockName('onDelete')}
       isDeleting
     />
@@ -182,7 +182,6 @@ export const DeletingState: DrawerStory = {
 export const WithRejectButton: Story = {
   args: {
     data: mockData,
-    onRefine: fn().mockName('onRefine'),
     onApprove: fn().mockName('onApprove'),
     onReject: fn().mockName('onReject'),
   },
@@ -192,7 +191,6 @@ export const WithRejectButton: Story = {
 export const RejectingState: Story = {
   args: {
     data: mockData,
-    onRefine: fn().mockName('onRefine'),
     onApprove: fn().mockName('onApprove'),
     onReject: fn().mockName('onReject'),
     isRejecting: true,

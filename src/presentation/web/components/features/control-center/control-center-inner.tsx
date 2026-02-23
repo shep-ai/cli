@@ -66,7 +66,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   // PRD questionnaire drawer state
   const [prdSelections, setPrdSelections] = useState<Record<string, string>>({});
-  const [isPrdProcessing, setIsPrdProcessing] = useState(false);
   const [questionnaireData, setQuestionnaireData] = useState<PrdQuestionnaireData | null>(null);
   const [isLoadingQuestionnaire, setIsLoadingQuestionnaire] = useState(false);
 
@@ -92,14 +91,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   const handlePrdSelect = useCallback((questionId: string, optionId: string) => {
     setPrdSelections((prev) => ({ ...prev, [questionId]: optionId }));
-  }, []);
-
-  const handlePrdRefine = useCallback(async (_text: string) => {
-    setIsPrdProcessing(true);
-    // TODO: Call API to refine requirements
-    // For now simulate a delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsPrdProcessing(false);
   }, []);
 
   const handlePrdApprove = useCallback(
@@ -165,13 +156,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     },
     [selectedNode?.featureId, clearSelection]
   );
-
-  const handleTechDecisionsRefine = useCallback(async (_text: string) => {
-    setIsLoadingTechDecisions(true);
-    // TODO: Call API to refine tech decisions
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoadingTechDecisions(false);
-  }, []);
 
   const handleTechDecisionsApprove = useCallback(async () => {
     const featureId = selectedNode?.featureId;
@@ -403,13 +387,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           data={questionnaireData}
           selections={prdSelections}
           onSelect={handlePrdSelect}
-          onRefine={handlePrdRefine}
           onApprove={handlePrdApprove}
           onReject={handlePrdReject}
           isRejecting={isRejecting}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
-          isProcessing={isPrdProcessing || isLoadingQuestionnaire}
+          isProcessing={isLoadingQuestionnaire}
         />
       ) : null}
       {techDecisionsData ? (
@@ -422,7 +405,6 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           branch={selectedNode?.branch}
           specPath={selectedNode?.specPath}
           data={techDecisionsData}
-          onRefine={handleTechDecisionsRefine}
           onApprove={handleTechDecisionsApprove}
           onReject={handleTechDecisionsReject}
           isRejecting={isRejecting}

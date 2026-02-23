@@ -13,7 +13,6 @@ export function PrdQuestionnaire({
   data,
   selections,
   onSelect,
-  onRefine,
   onApprove,
   onReject,
   isProcessing = false,
@@ -46,8 +45,8 @@ export function PrdQuestionnaire({
   function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault();
     const text = chatInput.trim();
-    if (!text) return;
-    onRefine(text);
+    if (!text || !onReject) return;
+    onReject(text);
     setChatInput('');
   }
 
@@ -222,7 +221,7 @@ export function PrdQuestionnaire({
             type="text"
             placeholder="Ask AI to refine requirements..."
             aria-label="Ask AI to refine requirements"
-            disabled={isProcessing}
+            disabled={isProcessing || isRejecting || !onReject}
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             className="flex-1"
@@ -232,7 +231,7 @@ export function PrdQuestionnaire({
             variant="secondary"
             size="icon"
             aria-label="Send"
-            disabled={isProcessing}
+            disabled={isProcessing || isRejecting || !onReject}
           >
             <Send />
           </Button>

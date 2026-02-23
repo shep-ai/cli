@@ -146,10 +146,9 @@ const mockFinalAction = {
 function InteractiveQuestionnaire({
   selections: initialSelections = {},
   ...props
-}: Omit<
-  React.ComponentProps<typeof PrdQuestionnaire>,
-  'onSelect' | 'onRefine' | 'onApprove' | 'selections'
-> & { selections?: Record<string, string> }) {
+}: Omit<React.ComponentProps<typeof PrdQuestionnaire>, 'onSelect' | 'onApprove' | 'selections'> & {
+  selections?: Record<string, string>;
+}) {
   const [selections, setSelections] = useState<Record<string, string>>(initialSelections);
 
   return (
@@ -157,7 +156,6 @@ function InteractiveQuestionnaire({
       {...props}
       selections={selections}
       onSelect={(qId, optId) => setSelections((prev) => ({ ...prev, [qId]: optId }))}
-      onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
     />
   );
@@ -174,7 +172,6 @@ const meta: Meta<typeof PrdQuestionnaire> = {
   },
   argTypes: {
     onSelect: { action: 'onSelect' },
-    onRefine: { action: 'onRefine' },
     onApprove: { action: 'onApprove' },
   },
   decorators: [
@@ -296,7 +293,7 @@ function DrawerTemplate({
   ...props
 }: Omit<
   React.ComponentProps<typeof PrdQuestionnaireDrawer>,
-  'open' | 'onClose' | 'onSelect' | 'onRefine' | 'onApprove' | 'selections'
+  'open' | 'onClose' | 'onSelect' | 'onApprove' | 'selections'
 > & { selections?: Record<string, string> }) {
   const [open, setOpen] = useState(true);
   const [selections, setSelections] = useState<Record<string, string>>(initialSelections);
@@ -316,7 +313,6 @@ function DrawerTemplate({
         onClose={() => setOpen(false)}
         selections={selections}
         onSelect={(qId, optId) => setSelections((prev) => ({ ...prev, [qId]: optId }))}
-        onRefine={fn().mockName('onRefine')}
         onApprove={fn().mockName('onApprove')}
       />
     </div>

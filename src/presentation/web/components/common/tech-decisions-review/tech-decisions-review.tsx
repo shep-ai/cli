@@ -110,7 +110,6 @@ function DecisionCard({ decision, index }: { decision: TechDecision; index: numb
 
 export function TechDecisionsReview({
   data,
-  onRefine,
   onApprove,
   onReject,
   isProcessing = false,
@@ -123,8 +122,8 @@ export function TechDecisionsReview({
   function handleSubmit(e: { preventDefault: () => void }) {
     e.preventDefault();
     const text = chatInput.trim();
-    if (!text) return;
-    onRefine(text);
+    if (!text || !onReject) return;
+    onReject(text);
     setChatInput('');
   }
 
@@ -165,7 +164,7 @@ export function TechDecisionsReview({
             type="text"
             placeholder="Ask AI to revise the plan..."
             aria-label="Ask AI to revise the plan"
-            disabled={isProcessing}
+            disabled={isProcessing || isRejecting || !onReject}
             value={chatInput}
             onChange={(e) => setChatInput(e.target.value)}
             className="flex-1"
@@ -175,7 +174,7 @@ export function TechDecisionsReview({
             variant="secondary"
             size="icon"
             aria-label="Send"
-            disabled={isProcessing}
+            disabled={isProcessing || isRejecting || !onReject}
           >
             <Send />
           </Button>

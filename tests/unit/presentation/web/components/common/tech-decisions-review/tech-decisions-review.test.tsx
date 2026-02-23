@@ -23,7 +23,6 @@ const defaultProps: TechDecisionsReviewProps = {
     ],
     technologies: ['TypeScript', 'Node.js'],
   },
-  onRefine: vi.fn(),
   onApprove: vi.fn(),
 };
 
@@ -130,9 +129,9 @@ describe('TechDecisionsReview', () => {
       expect(onApprove).toHaveBeenCalledOnce();
     });
 
-    it('chat input submit calls onRefine with input text', () => {
-      const onRefine = vi.fn();
-      render(<TechDecisionsReview {...defaultProps} onRefine={onRefine} />);
+    it('chat input submit calls onReject with input text', () => {
+      const onReject = vi.fn();
+      render(<TechDecisionsReview {...defaultProps} onReject={onReject} />);
 
       const input = screen.getByLabelText('Ask AI to revise the plan');
       fireEvent.change(input, { target: { value: 'Add caching layer' } });
@@ -140,7 +139,7 @@ describe('TechDecisionsReview', () => {
       const sendButton = screen.getByRole('button', { name: /send/i });
       fireEvent.click(sendButton);
 
-      expect(onRefine).toHaveBeenCalledWith('Add caching layer');
+      expect(onReject).toHaveBeenCalledWith('Add caching layer');
     });
   });
 

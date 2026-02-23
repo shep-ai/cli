@@ -56,7 +56,6 @@ const defaultProps: PrdQuestionnaireProps = {
   },
   selections: {},
   onSelect: vi.fn(),
-  onRefine: vi.fn(),
   onApprove: vi.fn(),
 };
 
@@ -161,9 +160,9 @@ describe('PrdQuestionnaire', () => {
       expect(onSelect).toHaveBeenCalledWith('q-1', 'opt-a');
     });
 
-    it('chat input submit calls onRefine with input text', () => {
-      const onRefine = vi.fn();
-      render(<PrdQuestionnaire {...defaultProps} onRefine={onRefine} />);
+    it('chat input submit calls onReject with input text', () => {
+      const onReject = vi.fn();
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} />);
 
       const input = screen.getByLabelText('Ask AI to refine requirements');
       fireEvent.change(input, { target: { value: 'Make it simpler' } });
@@ -171,7 +170,7 @@ describe('PrdQuestionnaire', () => {
       const sendButton = screen.getByRole('button', { name: /send/i });
       fireEvent.click(sendButton);
 
-      expect(onRefine).toHaveBeenCalledWith('Make it simpler');
+      expect(onReject).toHaveBeenCalledWith('Make it simpler');
     });
 
     it('approve button calls onApprove with finalAction.id on the last step', () => {
