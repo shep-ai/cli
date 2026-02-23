@@ -441,23 +441,23 @@ export function useControlCenterState(
           .pop() ?? path;
 
       // Optimistic UI: add node immediately
+      let savedAddRepoY = 0;
       setNodes((currentNodes) => {
         const repoNodes = currentNodes.filter((n) => n.type === 'repositoryNode');
         const addRepoNode = currentNodes.find((n) => n.type === 'addRepositoryNode');
 
-        // Place in the repo column, below the last existing repo node
+        // Save addRepoNode's original Y for rollback on error
+        if (addRepoNode) savedAddRepoY = addRepoNode.position.y;
+
+        // Place in the repo column, at the addRepoNode's current position
         const repoX = repoNodes[0]?.position.x ?? addRepoNode?.position.x ?? 50;
         const repoHeight = 50; // repositoryNode height
         const gap = 15; // match dagre nodesep
 
-        const lastRepoBottomY =
-          repoNodes.length > 0
-            ? Math.max(...repoNodes.map((n) => n.position.y)) + repoHeight
-            : addRepoNode
-              ? addRepoNode.position.y
-              : 0;
-
-        const position = { x: repoX, y: lastRepoBottomY + gap };
+        const position = {
+          x: repoX,
+          y: addRepoNode ? addRepoNode.position.y : 0,
+        };
 
         const newNode = {
           id: tempId,
@@ -466,8 +466,10 @@ export function useControlCenterState(
           data: { name: repoName, repositoryPath: path, id: tempId },
         } as CanvasNodeType;
 
-        // Move addRepo button below the new node
-        const addRepoY = position.y + repoHeight + gap;
+        // Shift addRepo button down by exactly one slot
+        const addRepoY = addRepoNode
+          ? addRepoNode.position.y + repoHeight + gap
+          : position.y + repoHeight + gap;
 
         return currentNodes
           .map((n) =>
@@ -480,8 +482,16 @@ export function useControlCenterState(
       addRepository({ path, name: repoName })
         .then((result) => {
           if (result.error) {
-            // Rollback optimistic node
-            setNodes((prev) => prev.filter((n) => n.id !== tempId));
+            // Rollback optimistic node and restore addRepoNode position
+            setNodes((prev) =>
+              prev
+                .filter((n) => n.id !== tempId)
+                .map((n) =>
+                  n.type === 'addRepositoryNode'
+                    ? { ...n, position: { ...n.position, y: savedAddRepoY } }
+                    : n
+                )
+            );
             toast.error(result.error);
             return;
           }
@@ -512,7 +522,16 @@ export function useControlCenterState(
           router.refresh();
         })
         .catch(() => {
-          setNodes((prev) => prev.filter((n) => n.id !== tempId));
+          // Rollback optimistic node and restore addRepoNode position
+          setNodes((prev) =>
+            prev
+              .filter((n) => n.id !== tempId)
+              .map((n) =>
+                n.type === 'addRepositoryNode'
+                  ? { ...n, position: { ...n.position, y: savedAddRepoY } }
+                  : n
+              )
+          );
           toast.error('Failed to add repository');
         });
     },
