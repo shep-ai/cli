@@ -35,6 +35,8 @@ vi.mock('sonner', () => ({
 // --- Server action mocks ---
 const mockCreateFeature = vi.fn();
 const mockDeleteFeature = vi.fn();
+const mockAddRepository = vi.fn();
+const mockDeleteRepository = vi.fn();
 
 vi.mock('@/app/actions/create-feature', () => ({
   createFeature: (...args: unknown[]) => mockCreateFeature(...args),
@@ -42,6 +44,14 @@ vi.mock('@/app/actions/create-feature', () => ({
 
 vi.mock('@/app/actions/delete-feature', () => ({
   deleteFeature: (...args: unknown[]) => mockDeleteFeature(...args),
+}));
+
+vi.mock('@/app/actions/add-repository', () => ({
+  addRepository: (...args: unknown[]) => mockAddRepository(...args),
+}));
+
+vi.mock('@/app/actions/delete-repository', () => ({
+  deleteRepository: (...args: unknown[]) => mockDeleteRepository(...args),
 }));
 
 const mockFeatureNode: FeatureNodeType = {
@@ -181,6 +191,8 @@ describe('useControlCenterState', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.restoreAllMocks();
+    // Default: addRepository resolves successfully so handleAddRepository .then() doesn't throw
+    mockAddRepository.mockResolvedValue({ repository: { id: 'test-repo-id', path: '/test' } });
   });
 
   it('returns null selectedNode initially', () => {
@@ -587,7 +599,8 @@ describe('useControlCenterState', () => {
       });
 
       const addRepoAfter = capturedState!.nodes.find((n) => n.type === 'addRepositoryNode');
-      expect(addRepoAfter!.position.y).toBe(130); // 50 + 80
+      // 50 (original Y) + 50 (repoHeight) + 15 (gap) = 115
+      expect(addRepoAfter!.position.y).toBe(115);
     });
 
     it('creates repo node with selected path as name', () => {
@@ -603,6 +616,88 @@ describe('useControlCenterState', () => {
       const repoNode = capturedState!.nodes.find((n) => n.type === 'repositoryNode');
       expect(repoNode).toBeDefined();
       expect((repoNode!.data as { name: string }).name).toBe('repo');
+    });
+
+    it('places new repo at addRepositoryNode current Y position', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-repository'));
+      });
+
+      const repoNode = capturedState!.nodes.find((n) => n.type === 'repositoryNode');
+      expect(repoNode).toBeDefined();
+      // New repo should be placed at addRepoNode's original position {x: 50, y: 50}
+      expect(repoNode!.position.x).toBe(50);
+      expect(repoNode!.position.y).toBe(50);
+    });
+
+    it('stacks multiple repos correctly with addRepo shifting down', () => {
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      // First add
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-repository'));
+      });
+
+      // Second add
+      act(() => {
+        fireEvent.click(screen.getByTestId('add-repository'));
+      });
+
+      const repoNodes = capturedState!.nodes.filter((n) => n.type === 'repositoryNode');
+      const addRepoAfter = capturedState!.nodes.find((n) => n.type === 'addRepositoryNode');
+
+      expect(repoNodes).toHaveLength(2);
+
+      // Second repo should be at addRepo's position after first add: Y=115
+      expect(repoNodes[1].position.y).toBe(115);
+      // addRepo should shift down again: 115 + 50 + 15 = 180
+      expect(addRepoAfter!.position.y).toBe(180);
+    });
+
+    it('restores addRepoNode position on server action error', async () => {
+      mockAddRepository.mockResolvedValue({ error: 'Repository already exists' });
+
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('add-repository'));
+      });
+
+      // Temp repo node should be removed (only addRepoNode remains)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+      // addRepoNode should be restored to its original Y position (50)
+      const addRepoAfter = capturedState!.nodes.find((n) => n.type === 'addRepositoryNode');
+      expect(addRepoAfter!.position.y).toBe(50);
+    });
+
+    it('restores addRepoNode position on network failure', async () => {
+      mockAddRepository.mockRejectedValue(new Error('Network error'));
+
+      let capturedState: ControlCenterState | null = null;
+      renderHook([mockAddRepoNode] as CanvasNodeType[], [], (state) => {
+        capturedState = state;
+      });
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('add-repository'));
+      });
+
+      // Temp repo node should be removed (only addRepoNode remains)
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
+      // addRepoNode should be restored to its original Y position (50)
+      const addRepoAfter = capturedState!.nodes.find((n) => n.type === 'addRepositoryNode');
+      expect(addRepoAfter!.position.y).toBe(50);
     });
   });
 

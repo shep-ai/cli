@@ -1,0 +1,130 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-add-repo-position
+summary: >
+  Fix the handleAddRepository() position calculation in use-control-center-state.ts so that
+  new repo nodes take the addRepositoryNode's current Y position and addRepo shifts down by
+  exactly one slot (repoHeight + gap = 65px). Add error rollback for addRepo position via
+  closure variable. Update existing test assertion from 130→115 and add new tests for
+  first-add, multi-add stacking, and error rollback position restoration. Two phases:
+  (1) fix source code + rollback, (2) update and add tests.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - '@xyflow/react (React Flow)'
+  - TypeScript
+  - Vitest
+  - '@testing-library/react'
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Test Updates & New Test Cases'
+    description: >
+      TDD RED phase: Update the existing broken test assertion ("shifts add-repo node down")
+      from 130→115, add new test cases for first-add positioning, multi-add stacking, and
+      error rollback position restoration. Add the addRepository server action mock needed
+      for rollback tests. All new tests must fail against the current (buggy) source code,
+      confirming they test the correct behavior.
+    parallel: false
+  - id: phase-2
+    name: 'Position Calculation Fix & Rollback'
+    description: >
+      TDD GREEN phase: Fix the Y-position calculation in handleAddRepository() so new repos
+      take addRepoNode's current Y and addRepo shifts down by one slot. Add closure variable
+      to save addRepoNode's original Y before setNodes and restore it in both .then(error)
+      and .catch() rollback handlers. All tests from phase-1 must pass after this change.
+
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This fix is entirely within the **Presentation Layer** (web UI). The change is scoped to one
+  callback function (`handleAddRepository`) in `use-control-center-state.ts` and its corresponding
+  tests. No domain, application, or infrastructure layers are affected.
+
+  The web UI follows an established pattern:
+  - **Server-side (page.tsx):** Dagre layout + manual addRepoNode positioning → provides `initialNodes`
+  - **Client-side (use-control-center-state.ts):** Manual positioning for dynamic adds → updates React state
+
+  The fix preserves this boundary — no dagre re-layout is triggered, only the manual position
+  arithmetic within the setNodes callback changes.
+
+  ## Key Design Decisions
+
+  ### 1. Position Calculation: Use addRepoNode's Current Y for New Repo
+
+  **Chosen:** New repo node gets `addRepoNode.position.y`, addRepo moves to `addRepoNode.position.y + repoHeight + gap`.
+
+  **Rejected alternatives:**
+  - Re-run dagre after each add — breaks the server=dagre / client=manual pattern, causes visual jumps
+  - Calculate from last existing repo (current buggy approach) — this IS the bug; places new repo below
+    all repos AND then addRepo below that = double shift
+
+  **Rationale:** The current code computes `lastRepoBottomY + gap` for the new repo and then
+  `newRepoY + repoHeight + gap` for addRepo. This double-stacks. The fix simply reads addRepo's
+  current position for the new repo and shifts addRepo down by one slot. Three lines change in the
+  Y calculation. The X calculation is NOT buggy and stays unchanged.
+
+  ### 2. Error Rollback: Closure Variable for Saved Y Position
+
+  **Chosen:** Declare `let savedAddRepoY` before setNodes, capture the value inside the updater,
+  restore in `.then(error)` and `.catch()` handlers.
+
+  **Rejected alternatives:**
+  - Rely on router.refresh() only — visible layout glitch until server responds
+  - useRef to store position — adds a hook, persists beyond single add operation
+  - Read current state in error handler — unreliable with concurrent adds
+
+  **Rationale:** The closure variable approach matches the existing `tempId` pattern (line 425),
+  requires no new hooks, and keeps rollback logic local to handleAddRepository. The setNodes
+  updater runs synchronously, guaranteeing the value is set before the async addRepository resolves.
+
+  ### 3. Test Assertions: Concrete Values
+
+  **Chosen:** Assert exact pixel values (e.g., addRepo Y = 115 after first add, 180 after second).
+
+  **Rejected:** Relative comparisons (wouldn't catch the double-shift bug), snapshot testing (brittle).
+
+  **Rationale:** NFR-4 requires concrete values. The existing test already uses concrete values
+  (line 590 asserts 130) — it's just the wrong value. Concrete values self-document the math:
+  50 (initial Y) + 50 (repoHeight) + 15 (gap) = 115.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Tests First — TDD RED):** Write/update all tests before touching source code.
+  Update the existing broken assertion (130→115). Add the addRepository server action mock.
+  Add new tests for first-add positioning, multi-add stacking, and error rollback. All tests
+  must FAIL against the current buggy code, confirming they assert correct behavior.
+
+  **Phase 2 (Fix Source — TDD GREEN):** Apply the 3-line position calculation fix and the 3-line
+  rollback enhancement in handleAddRepository(). All tests from phase 1 must now PASS. No
+  additional refactoring needed — the change is minimal and clean.
+
+  This ordering ensures we never have untested code and the tests themselves validate the fix.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Breaking existing handleAddRepository tests | Phase 1 explicitly updates the existing test assertion first; all other existing tests are unaffected |
+  | Incorrect position math | Concrete test values calculated from known constants (repoHeight=50, gap=15, initial Y=50) provide self-documenting verification |
+  | Rollback not restoring position | Dedicated test with controlled server action mock verifies position restoration on error |
+  | Concurrent adds interleaving | Each invocation captures its own savedAddRepoY via closure, matching existing tempId pattern |
+  | X-position regression | Existing X logic is unchanged; existing test for repo name already verifies node creation |

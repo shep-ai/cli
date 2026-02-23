@@ -1,0 +1,298 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-add-repo-position
+summary: >
+  Targeted bug fix in handleAddRepository() within use-control-center-state.ts. The position
+  calculation must be inverted: new repo takes addRepoNode's current Y, addRepoNode shifts down
+  by (repoHeight + gap). Error rollback must restore addRepoNode's original position. No new
+  dependencies, no architectural changes — pure logic fix with updated and new test cases.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - '@xyflow/react (React Flow)'
+  - TypeScript
+  - Vitest
+  - '@testing-library/react'
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Position Calculation Strategy'
+    chosen: 'Use addRepositoryNode current position for new repo, shift addRepo down by one slot'
+    rejected:
+      - 'Re-run dagre layout after each add — would require calling layoutWithDagre() inside handleAddRepository(), which changes the architectural pattern (server=dagre, client=manual positioning) and could cause visual jumps for all nodes on the canvas, not just the repo column'
+      - 'Calculate new repo position relative to last existing repo (current buggy approach) — this is the root cause of the bug; it places the new repo below all repos AND then addRepo below that, causing a double-shift'
+    rationale: >
+      The initial layout in page.tsx (lines 122-150) positions addRepoNode below all repos.
+      The client-side handleAddRepository() should mirror this pattern: new repo takes addRepo's
+      spot, addRepo moves down by exactly one slot (repoHeight 50 + gap 15 = 65px). This is
+      the simplest fix (3 lines changed in position calculation) and matches the existing
+      pattern where page.tsx manually positions addRepoNode after dagre layout. No dagre
+      re-layout is needed because the client-side pattern is intentionally manual positioning.
+
+  - title: 'Error Rollback Strategy for addRepoNode Position'
+    chosen: 'Save addRepoNode Y before setNodes, restore on error alongside temp node removal'
+    rejected:
+      - 'Rely solely on router.refresh() for position correction — while router.refresh() will eventually re-render with correct server-side layout, there is a visible delay where addRepoNode is stuck at the wrong Y position; the user sees a layout glitch until the server response arrives'
+      - 'Re-capture addRepoNode position inside the error handler by reading current state — this is unreliable because multiple concurrent adds could interleave setNodes calls, making it impossible to determine what the "original" position was from within the error callback'
+    rationale: >
+      The current rollback (lines 471-475) already removes the temp node on error. Adding
+      position restoration requires saving one number (addRepoNode.position.y) before the
+      setNodes call and restoring it in both the .then(error) and .catch() handlers. This is
+      a minimal addition (~3 lines) that provides immediate visual consistency. The saved value
+      must be captured outside the setNodes closure to be accessible in the async handlers.
+      Since the value is captured per-invocation, concurrent adds each save their own original
+      position, making the approach safe for concurrent operations.
+
+  - title: 'Test Approach for Position Assertions'
+    chosen: 'Concrete expected values based on known constants (repoHeight=50, gap=15, addRepo initial Y=50)'
+    rejected:
+      - 'Relative comparisons (e.g., "addRepo Y > repo Y") — relative checks would not have caught the current bug since both the buggy and correct behavior satisfy "addRepo is below the new repo"; only concrete values catch the exact off-by-one-slot error'
+      - 'Snapshot testing for node positions — snapshots are brittle for position values and would need updating whenever any constant changes; explicit value assertions document the expected math clearly'
+    rationale: >
+      The existing test (line 590) already uses a concrete value (130) — it just asserts the
+      wrong value due to testing the buggy behavior. The mockAddRepoNode is at position
+      {x: 50, y: 50}. With the fix, after one add: new repo Y = 50 (addRepo's original Y),
+      addRepo Y = 50 + 50 + 15 = 115. Concrete values make the position math self-documenting
+      and catch regressions precisely. NFR-4 from the spec explicitly requires concrete values.
+
+  - title: 'X-Position Source for New Repo Node'
+    chosen: 'Use addRepositoryNode X position as the X source for new repo nodes'
+    rejected:
+      - 'Use first existing repositoryNode X (current approach line 438) — this requires a fallback to addRepoNode.x anyway when there are no repos, making the addRepoNode.x-first approach simpler and more consistent'
+      - 'Hardcode a fixed X value — fragile; if initial layout changes the repo column X, the hardcoded value would be wrong'
+    rationale: >
+      The addRepositoryNode is always present in the repo column, positioned by the
+      server-side layout in page.tsx. Its X coordinate is always aligned with the repo column.
+      Using it as the X source eliminates the branching logic for the "no existing repos" case
+      (current line 438 has a three-way fallback). However, the current approach (prefer
+      existing repo X, fallback to addRepo X) also works correctly. The fix should keep the
+      existing X logic unchanged to minimize the diff — the X calculation is not buggy, only
+      the Y calculation is.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the addRepository server action mock be added to the test file for error rollback position tests?'
+    resolved: true
+    options:
+      - option: 'Yes — add mock for addRepository server action'
+        description: >
+          Add a vi.mock for @/app/actions/add-repository to control the server action response.
+          This enables testing the error rollback path (position restoration on failure) by
+          making addRepository reject or return an error. Without this mock, the async
+          .then()/.catch() handlers fire unpredictably in tests.
+        selected: true
+      - option: 'No — test only the synchronous setNodes behavior'
+        description: >
+          Keep the existing pattern where handleAddRepository tests only verify the immediate
+          optimistic state (synchronous setNodes call). Skip testing the error rollback of
+          addRepoNode position. This is simpler but leaves the rollback behavior untested.
+        selected: false
+      - option: 'Use a spy instead of a mock to observe calls without controlling responses'
+        description: >
+          Use vi.spyOn to observe addRepository calls but not control their responses.
+          This verifies the action is called but cannot test error rollback behavior.
+        selected: false
+    selectionRationale: >
+      The spec requires SC-6 (error rollback restores addRepoNode position) and NFR-3
+      (existing tests must be updated). To test the rollback path, we need to control
+      the addRepository server action's response. The existing test file already mocks
+      createFeature and deleteFeature server actions with the same pattern (vi.mock with
+      mockFn), so adding a mock for addRepository is consistent with the established
+      test patterns. The mock should follow the same pattern as mockCreateFeature/mockDeleteFeature.
+
+  - question: 'How should the saved addRepoNode Y position be captured for rollback?'
+    resolved: true
+    options:
+      - option: 'Capture inside the setNodes callback and lift via closure variable'
+        description: >
+          Declare a let variable before setNodes (e.g., let savedAddRepoY = 0), then inside
+          the setNodes updater function, read addRepoNode.position.y and assign it to the
+          outer variable. The async .then/.catch handlers close over this variable to access
+          the saved value. This works because setNodes updater runs synchronously within the
+          React batch.
+        selected: true
+      - option: 'Use a React ref to store the position'
+        description: >
+          Add a useRef<number> to track the addRepoNode Y position. Set it before each add
+          and read it in the error handler. This is more "React-idiomatic" but adds a hook
+          and stateful tracking that persists beyond a single add operation.
+        selected: false
+      - option: 'Read addRepoNode position from current nodes state in the error handler'
+        description: >
+          In the error handler, use setNodes with a callback to read the current addRepoNode
+          position and compute the rollback. This avoids any external state but cannot reliably
+          determine the "original" position if the node has been modified by subsequent operations.
+        selected: false
+    selectionRationale: >
+      The closure variable approach is the simplest and most contained. It requires no new
+      hooks or refs, keeps the rollback logic local to the handleAddRepository callback, and
+      follows the same pattern already used for tempId (line 425 — a local variable closed
+      over by the async handlers). Since setNodes with an updater function runs synchronously,
+      the captured value is guaranteed to be set before the async addRepository call resolves.
+      This is the minimum-diff solution.
+
+  - question: 'Should the gap constant (15) match dagre nodesep or use a separate constant?'
+    resolved: true
+    options:
+      - option: 'Keep using inline literal 15 (match existing code)'
+        description: >
+          The current code (line 440) already uses `const gap = 15` inline. Keep this
+          pattern unchanged. It matches the dagre nodesep=15 used in handleLayout (line 414)
+          and the initial layout in page.tsx (line 119). No extraction needed.
+        selected: true
+      - option: 'Extract to a shared constant in layout-with-dagre.ts'
+        description: >
+          Export a REPO_GAP constant from layout-with-dagre.ts alongside NODE_DIMENSIONS.
+          Import it in use-control-center-state.ts. More DRY but adds coupling between
+          the layout utility and the state hook for a single value.
+        selected: false
+      - option: 'Read from NODE_DIMENSIONS at runtime'
+        description: >
+          Import NODE_DIMENSIONS from layout-with-dagre.ts to get repoHeight dynamically.
+          This keeps dimensions in sync but NODE_DIMENSIONS is currently not exported and
+          the gap value is not stored there.
+        selected: false
+    selectionRationale: >
+      The spec (NFR-1) requires changes to be confined to handleAddRepository(). Extracting
+      constants would require modifying layout-with-dagre.ts (exporting NODE_DIMENSIONS or
+      adding a new export), which violates the scope constraint. The inline literal 15 is
+      already used consistently across the codebase (handleAddRepository line 440, page.tsx
+      line 119, handleLayout line 414) and is well-understood. Keep it as-is.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Position Calculation Strategy
+
+  **Chosen:** Use addRepositoryNode's current position for new repo, shift addRepo down by one slot
+
+  **Rejected:**
+  - Re-run dagre layout after each add — breaks the established server=dagre / client=manual pattern, causes all-node visual jumps
+  - Calculate from last existing repo (current buggy approach) — root cause of the bug; double-shifts addRepoNode
+
+  **Rationale:** The server-side page.tsx manually positions addRepoNode after dagre layout. The client-side fix mirrors this: new repo takes addRepo's spot (Y), addRepo moves down by (repoHeight + gap) = 65px. Minimal 3-line change to the Y calculation.
+
+  ### 2. Error Rollback Strategy
+
+  **Chosen:** Save addRepoNode Y before setNodes, restore on error alongside temp node removal
+
+  **Rejected:**
+  - Rely on router.refresh() only — visible layout glitch during server response delay
+  - Re-read position in error handler — unreliable with concurrent operations
+
+  **Rationale:** Current rollback already removes temp node. Adding position restore requires saving one number before setNodes and restoring in .then(error)/.catch(). Uses closure variable pattern already established for tempId. Safe for concurrent adds since each invocation captures its own value.
+
+  ### 3. Test Approach
+
+  **Chosen:** Concrete expected values (repoHeight=50, gap=15, addRepo initial Y=50)
+
+  **Rejected:**
+  - Relative comparisons (addRepo Y > repo Y) — would not catch the double-shift bug
+  - Snapshot testing — brittle for position values, doesn't document the math
+
+  **Rationale:** NFR-4 requires concrete values. The existing test already uses concrete values (line 590 asserts 130). With the fix: after one add, addRepo Y = 50 + 50 + 15 = 115. After two adds, addRepo Y = 115 + 50 + 15 = 180. These values make the position math self-documenting.
+
+  ### 4. X-Position Source
+
+  **Chosen:** Keep existing X logic unchanged (prefer existing repo X, fallback to addRepo X)
+
+  **Rejected:**
+  - Always use addRepoNode X — would simplify the code but changes behavior when repos exist with different X
+  - Hardcode fixed X — fragile if layout changes
+
+  **Rationale:** The X calculation is not buggy. Only the Y calculation needs fixing. Minimizing the diff reduces regression risk.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `@xyflow/react` | React Flow node positioning | Use (existing) | Already used; position is just `{x, y}` on node objects |
+  | `@dagrejs/dagre` | Layout algorithm | No change | Only used for initial layout and manual re-layout button; not involved in handleAddRepository |
+  | `vitest` | Test runner | Use (existing) | Already used for all tests in the project |
+  | `@testing-library/react` | React component testing | Use (existing) | Already used; provides render, act, fireEvent for the hook test harness |
+
+  No new libraries needed. NFR-2 explicitly prohibits new dependencies.
+
+  ## Security Considerations
+
+  - **No security implications.** This is a pure client-side UI positioning bug fix. No data is exposed, no new inputs are accepted, no authentication/authorization changes. The server action (`addRepository`) is unchanged.
+  - The position values are internal React state and never transmitted to the server.
+  - The rollback logic doesn't introduce any new attack surface — it only restores a Y coordinate.
+
+  ## Performance Implications
+
+  - **No performance impact.** The fix changes three lines of arithmetic in the setNodes callback (O(1) per add). No additional DOM operations, no additional re-renders, no additional server calls.
+  - The saved Y value for rollback is a single number captured in a closure — negligible memory.
+  - The existing pattern of filtering through all nodes in setNodes callback is unchanged.
+
+  ## Architecture Notes
+
+  ### How This Fits Into Existing Architecture
+
+  The fix is entirely within the **Presentation Layer** (web UI), specifically in one callback function:
+  - **File:** `src/presentation/web/components/features/control-center/use-control-center-state.ts`
+  - **Function:** `handleAddRepository()` (lines 423-509)
+  - **Pattern:** Optimistic UI with manual positioning (no dagre re-layout)
+
+  The fix preserves the established architectural boundary:
+  - **Server-side (page.tsx):** Dagre layout + manual addRepoNode positioning → provides `initialNodes`
+  - **Client-side (use-control-center-state.ts):** Manual positioning for dynamic adds → updates React state
+
+  No changes to domain layer, application layer, or infrastructure layer.
+
+  ### Code Change Summary
+
+  **Position calculation fix (lines 442-449 → 3 lines changed):**
+  - Before: `newRepoY = lastRepoBottomY + gap` (below last repo)
+  - After: `newRepoY = addRepoNode.position.y` (at addRepo's current position)
+  - Before: `addRepoY = newRepoY + repoHeight + gap` (below new repo — double shift)
+  - After: `addRepoY = addRepoNode.position.y + repoHeight + gap` (one slot below addRepo's original position)
+
+  **Rollback position tracking (3 lines added):**
+  - Save: `let savedAddRepoY` before setNodes, capture inside updater
+  - Restore in `.then(error)`: setNodes callback updates addRepoNode Y back to savedAddRepoY
+  - Restore in `.catch()`: same pattern
+
+  **Test updates:**
+  - Update existing assertion: `130` → `115` (line 590)
+  - Add test: first repo (no existing repos) positions correctly
+  - Add test: multiple sequential adds produce correct stacking
+  - Add test: error rollback restores addRepoNode position
+  - Add mock: `addRepository` server action (for rollback testing)
+
+  ### Constants Reference
+
+  | Constant | Value | Source |
+  | -------- | ----- | ------ |
+  | repoHeight | 50 | NODE_DIMENSIONS in layout-with-dagre.ts (line 20) |
+  | addRepoHeight | 50 | NODE_DIMENSIONS in layout-with-dagre.ts (line 21) |
+  | gap (nodesep) | 15 | handleAddRepository line 440, page.tsx line 119 |
+  | mockAddRepoNode initial Y | 50 | test file line 74 |
+  | mockAddRepoNode initial X | 50 | test file line 74 |
+
+  ### Position Math Verification
+
+  **Mock setup:** addRepoNode at {x: 50, y: 50}
+
+  **After first add (no existing repos):**
+  - New repo: {x: 50, y: 50} (takes addRepo's position)
+  - addRepo: {x: 50, y: 50 + 50 + 15} = {x: 50, y: 115}
+
+  **After second add (one existing repo):**
+  - Second repo: {x: 50, y: 115} (takes addRepo's current position)
+  - addRepo: {x: 50, y: 115 + 50 + 15} = {x: 50, y: 180}
+
+  **After third add (two existing repos):**
+  - Third repo: {x: 50, y: 180} (takes addRepo's current position)
+  - addRepo: {x: 50, y: 180 + 50 + 15} = {x: 50, y: 245}
+
+  ---
+
+  _Research completed — proceed with planning_
