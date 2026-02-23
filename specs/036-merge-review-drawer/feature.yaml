@@ -1,0 +1,35 @@
+feature:
+  id: 036-merge-review-drawer
+  name: merge-review-drawer
+  number: 36
+  branch: feat/036-merge-review-drawer
+  lifecycle: research
+  createdAt: '2026-02-23T11:21:33Z'
+status:
+  phase: research
+  progress:
+    completed: 0
+    total: 0
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-23T11:21:33Z'
+  lastUpdatedBy: feature-agent
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-23T11:21:33Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

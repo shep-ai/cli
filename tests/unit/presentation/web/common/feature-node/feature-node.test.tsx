@@ -170,9 +170,16 @@ describe('FeatureNode', () => {
       expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
     });
 
-    it('shows "User action required" text for generic lifecycle', () => {
+    it('shows "Review Merge Request" badge in review lifecycle', () => {
       renderFeatureNode({ state: 'action-required', lifecycle: 'review', progress: 60 });
-      expect(screen.getByText('User action required')).toBeInTheDocument();
+      expect(screen.getByText('Review Merge Request')).toBeInTheDocument();
+    });
+
+    it('applies emerald badge classes in review lifecycle', () => {
+      renderFeatureNode({ state: 'action-required', lifecycle: 'review', progress: 60 });
+      const badge = screen.getByTestId('feature-node-badge');
+      expect(badge.className).toContain('text-emerald-700');
+      expect(badge.className).toContain('bg-emerald-50');
     });
 
     it('shows "Review Product Requirements" badge in requirements lifecycle', () => {

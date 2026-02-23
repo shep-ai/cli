@@ -75,6 +75,21 @@ const featureNodes: FeatureNodeType[] = [
       branch: 'feat/api-gateway',
     },
   },
+  {
+    id: 'feat-4',
+    type: 'featureNode',
+    position: { x: 800, y: 345 },
+    data: {
+      name: 'Merge Review',
+      description: 'PR ready for merge approval',
+      featureId: '#f4',
+      lifecycle: 'review',
+      state: 'action-required',
+      progress: 90,
+      repositoryPath: '/home/user/my-repo',
+      branch: 'feat/merge-review',
+    },
+  },
 ];
 
 const repoNode: RepositoryNodeType = {
