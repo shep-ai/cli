@@ -1,0 +1,300 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-desktop-notifications
+summary: >
+  Technical research for fixing two desktop notification bugs: startup notification storm and UUID display.
+  Both fixes are localized to NotificationWatcherService with minimal DI wiring changes. No new libraries,
+  schema changes, or architectural shifts required — leverages existing IFeatureRepository and in-memory
+  tracking patterns already established in the codebase.
+
+relatedFeatures:
+  - '021-agent-notifications'
+
+technologies:
+  - TypeScript
+  - Clean Architecture (ports/adapters)
+  - DB polling (SQLite)
+  - SSE (Server-Sent Events)
+  - node-notifier (desktop notifications)
+  - vitest (testing)
+
+relatedLinks: []
+
+decisions:
+  - title: 'First-Poll Warm-Up Strategy'
+    chosen: 'Boolean firstPoll flag with silent seed'
+    rejected:
+      - 'Timestamp-based cutoff — Requires reliable updatedAt on AgentRun, adds query complexity (WHERE updatedAt > startTime), risks race conditions for transitions within the same second, and introduces a schema dependency the current polling design avoids.'
+      - 'Separate initialization method (e.g., seedInitialState()) — Adds API surface and requires callers to remember to call seed before start. The current start() method is the only public lifecycle entry point; adding a mandatory pre-step is error-prone and breaks the simple start/stop contract.'
+    rationale: >
+      The existing NotificationWatcherService already uses an in-memory Map<string, WatcherState> (trackedRuns)
+      to detect state changes between polls. Adding a private boolean isFirstPoll = true that suppresses
+      event emission during the initial poll is the minimal change. On first poll, processRuns populates
+      trackedRuns with current state (status + completedPhases) but skips all emitStatusEvent and
+      checkPhaseCompletions notification calls. After first poll completes, the flag flips to false and
+      subsequent polls behave normally. This matches the existing pattern — no new data structures, no
+      schema changes, no timing dependencies.
+
+  - title: 'Feature Name Resolution — Repository Injection Approach'
+    chosen: 'Add IFeatureRepository as constructor parameter'
+    rejected:
+      - 'Resolve IFeatureRepository from DI container inside resolveFeatureName — Violates Clean Architecture by coupling the service to the container. The existing constructor already accepts IAgentRunRepository, IPhaseTimingRepository, and INotificationService via explicit parameters, not container lookups. Adding another parameter follows the established pattern.'
+      - 'Create a separate FeatureNameResolver service — Over-engineered for a single findById call. Would add a new interface, implementation, DI registration, and test file for what amounts to one line of business logic. The spec explicitly sizes this as S.'
+    rationale: >
+      The NotificationWatcherService constructor at line 83 already accepts three dependencies via explicit
+      parameters (runRepository, phaseTimingRepository, notificationService). Adding IFeatureRepository as
+      a fourth parameter follows the exact same pattern. The singleton factory initializeNotificationWatcher()
+      at line 238 and the call site in ui.command.ts (line 81) both need updating to pass the new parameter.
+      IFeatureRepository is already registered in the DI container (container.ts line 140) so resolution is
+      trivial: container.resolve<IFeatureRepository>('IFeatureRepository').
+
+  - title: 'Feature Name Display Field'
+    chosen: 'Feature.slug'
+    rejected:
+      - 'Feature.name — Can be longer (e.g., "Autonomous PR Review Loop") and may truncate in narrow OS notification banners. Slugs are more concise.'
+      - 'Feature.name with slug fallback — Both fields always populated at feature creation time, adds unnecessary conditional logic for no practical benefit.'
+    rationale: >
+      The Feature entity (generated output.ts line 695) has a slug field described as "URL-friendly
+      identifier derived from name (unique within repository)". Slugs are concise (e.g., "user-authentication"),
+      always populated, and already used as the primary human identifier in branches and spec directories.
+      The user specifically requested "slug or something" in the original bug report. Slugs fit well within
+      OS notification character limits across macOS, Linux, and Windows.
+
+  - title: 'Fallback Strategy for Failed Feature Lookups'
+    chosen: 'Generic label — "Feature agent" (with featureId) or "Agent run" (without)'
+    rejected:
+      - 'Fallback to raw/truncated UUID — Directly contradicts the core UX complaint. Even truncated UUIDs (e.g., "a1b2c3d4…") are meaningless to users.'
+      - 'Throw/propagate the error — Would prevent the notification from being emitted entirely. NFR-4 requires error isolation: a failed lookup must not block notification dispatch.'
+    rationale: >
+      The spec requires NFR-4 (error isolation) — resolveFeatureName failures must not prevent notification
+      emission. A generic label like "Feature agent" is informative enough to tell the user something happened
+      with a feature agent, while the web UI provides full details for disambiguation. When no featureId exists
+      at all, "Agent run" is used. This matches the existing fallback pattern at line 224 but replaces the
+      UUID with a clean label. Errors are logged at warn level for debugging.
+
+  - title: 'Async resolveFeatureName Design'
+    chosen: 'Make resolveFeatureName async, called once per run at first observation'
+    rejected:
+      - 'Keep resolveFeatureName synchronous with a pre-populated cache — Would require pre-fetching all features before each poll or maintaining a separate cache data structure. The existing WatcherState.featureName field already caches the resolved name per run, so adding another cache layer is redundant.'
+      - 'Resolve feature names lazily on notification emit — Would cause repeated DB queries if the same run triggers multiple events (status + phase completions). The current architecture calls resolveFeatureName once when a run is first tracked and stores the result in WatcherState.'
+    rationale: >
+      The current code calls resolveFeatureName synchronously at line 141 when a new run is first observed,
+      storing the result in WatcherState.featureName. Making it async means the processRuns method needs to
+      await it, but since processRuns is already async (line 127) this is a minimal change. The resolved name
+      is stored in WatcherState and reused for all subsequent events for that run — no per-poll DB queries.
+      This satisfies NFR-1 (no additional DB queries per poll cycle).
+
+openQuestions:
+  - question: 'Should the firstPoll flag be exposed for testing or kept strictly private?'
+    resolved: true
+    options:
+      - option: 'Strictly private with behavior-based testing'
+        description: >
+          Keep isFirstPoll as a private field. Tests verify behavior: first poll with pre-existing runs
+          produces zero notifications, second poll with state changes produces notifications. This follows
+          the existing test patterns in notification-watcher.service.test.ts which test observable behavior
+          (receivedEvents) not internal state.
+        selected: true
+      - option: 'Protected with getter for test subclass'
+        description: >
+          Make isFirstPoll protected and create a test subclass that exposes it. Adds complexity and
+          couples tests to implementation details.
+        selected: false
+      - option: 'Public readonly property'
+        description: >
+          Expose isFirstPoll as a public readonly. Leaks implementation detail into the public API and
+          allows external code to depend on internal warm-up state.
+        selected: false
+    selectionRationale: >
+      The existing test suite exclusively tests observable behavior via receivedEvents and mock call counts.
+      Adding a test that sets up pre-existing runs, calls start(), advances timers, and asserts zero
+      notifications is both more maintainable and more meaningful than checking internal boolean state.
+      This matches the testing philosophy already established in the test file.
+
+  - question: 'Should initializeNotificationWatcher parameter order change?'
+    resolved: true
+    options:
+      - option: 'Append IFeatureRepository as 4th parameter (before optional pollIntervalMs)'
+        description: >
+          Add featureRepository as the 4th parameter, keeping pollIntervalMs as the optional 5th.
+          Signature: (runRepo, phaseTimingRepo, notificationService, featureRepository, pollIntervalMs?).
+          Simple, follows the existing parameter ordering convention of required params first.
+        selected: true
+      - option: 'Use an options object for all dependencies'
+        description: >
+          Refactor to accept a single { runRepository, phaseTimingRepository, notificationService,
+          featureRepository, pollIntervalMs? } object. More future-proof but changes the API surface
+          significantly and requires updating all existing call sites and tests.
+        selected: false
+      - option: 'Add IFeatureRepository as first parameter'
+        description: >
+          Changes the parameter order unnecessarily. The existing order groups repositories together
+          then services; inserting at position 1 would reorder all existing parameters.
+        selected: false
+    selectionRationale: >
+      Appending the new parameter maintains backward compatibility for the parameter ordering (existing
+      params stay in same position). The constructor and factory function only have 2 call sites
+      (ui.command.ts and the test file) so the update scope is small. An options object refactor would
+      be over-engineering for a 4-parameter constructor.
+
+  - question: 'How should the warm-up interact with checkPhaseCompletions on first poll?'
+    resolved: true
+    options:
+      - option: 'Seed completedPhases from DB but suppress phase notifications on first poll'
+        description: >
+          On first poll, still call phaseTimingRepository.findByRunId() for each tracked run and populate
+          the completedPhases set, but do not emit PhaseCompleted events. This way, subsequent polls only
+          detect NEW phase completions. Requires the async checkPhaseCompletions call to be aware of the
+          firstPoll flag.
+        selected: true
+      - option: 'Skip checkPhaseCompletions entirely on first poll'
+        description: >
+          Do not call checkPhaseCompletions at all during the first poll. The completedPhases set starts
+          empty and gets populated on the second poll, which would then fire notifications for all
+          already-completed phases — defeating the purpose of the warm-up.
+        selected: false
+      - option: 'Pre-seed completedPhases before starting the poll loop'
+        description: >
+          Add a separate initialization step that queries all phase timings before the first poll. Adds
+          complexity, a new async init method, and changes the start() lifecycle contract.
+        selected: false
+    selectionRationale: >
+      The first poll must populate BOTH trackedRuns status AND completedPhases to establish a full baseline.
+      If completedPhases is empty after first poll, the second poll would emit PhaseCompleted for all
+      already-completed phases — which is exactly the notification storm bug. The cleanest approach is to
+      run the full processing logic on first poll but suppress all event emission (both status and phase).
+      This can be implemented by checking the firstPoll flag in both emitStatusEvent and the phase
+      notification path within checkPhaseCompletions.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. First-Poll Warm-Up Strategy
+
+  **Chosen:** Boolean `isFirstPoll` flag with silent seed
+
+  **Rejected:**
+  - Timestamp-based cutoff — Requires reliable `updatedAt` on AgentRun, adds query complexity, risks same-second race conditions
+  - Separate `seedInitialState()` method — Adds API surface, breaks the simple start/stop lifecycle contract
+
+  **Rationale:** The existing `trackedRuns` Map already provides the in-memory state tracking pattern.
+  A private `isFirstPoll = true` flag suppresses all event emission (status events AND phase completion
+  events) during the initial poll while still populating `trackedRuns` with status and `completedPhases`.
+  After first poll completes, the flag flips to `false`. This is the minimal change — no new data
+  structures, no schema changes, no timing dependencies.
+
+  **Implementation detail:** The flag must gate event emission at two points:
+  1. `emitStatusEvent` — status transition notifications
+  2. Phase completion notification in `checkPhaseCompletions` — phase completion notifications
+
+  The flag is flipped to `false` at the end of `poll()` after `processRuns` completes, ensuring the
+  entire first poll (including all phase timing queries) completes before any events can be emitted.
+
+  ### 2. Feature Name Resolution — Repository Injection
+
+  **Chosen:** Add `IFeatureRepository` as constructor parameter
+
+  **Rejected:**
+  - Container.resolve inside method — Violates Clean Architecture, couples service to DI container
+  - Separate FeatureNameResolver service — Over-engineered for a single `findById` call
+
+  **Rationale:** The constructor already accepts 3 dependencies via explicit parameters (lines 83-88).
+  Adding a 4th follows the established pattern. `IFeatureRepository` is already registered in the DI
+  container (`container.ts` line 140).
+
+  ### 3. Feature Name Display Field
+
+  **Chosen:** `Feature.slug`
+
+  **Rejected:**
+  - `Feature.name` — Can be longer, may truncate in OS notification banners
+  - Name with slug fallback — Both fields always populated, unnecessary conditional logic
+
+  **Rationale:** Slugs are concise, always populated, and already the primary human identifier in
+  branches and spec directories. User specifically requested "slug or something".
+
+  ### 4. Fallback Strategy for Failed Feature Lookups
+
+  **Chosen:** Generic label — "Feature agent" / "Agent run"
+
+  **Rejected:**
+  - Raw/truncated UUID fallback — Contradicts the core UX complaint
+  - Error propagation — Would block notification emission, violating NFR-4
+
+  **Rationale:** NFR-4 requires error isolation. Generic labels are informative enough for desktop
+  notifications; the web UI provides full details.
+
+  ### 5. Async resolveFeatureName Design
+
+  **Chosen:** Make `resolveFeatureName` async, called once per run at first observation
+
+  **Rejected:**
+  - Synchronous with pre-populated cache — Redundant with existing WatcherState.featureName
+  - Lazy resolution on emit — Repeated DB queries for multi-event runs
+
+  **Rationale:** `processRuns` is already async. Resolved name stored in `WatcherState.featureName`
+  and reused. One DB query per run lifetime (NFR-1).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | node-notifier | Desktop notifications | Keep (existing) | Already used by DesktopNotifier, no changes needed |
+  | vitest | Unit testing | Keep (existing) | Test framework already used, extend existing test file |
+  | tsyringe | DI container | Keep (existing) | IFeatureRepository already registered, just resolve it |
+
+  No new libraries are needed. All changes use existing infrastructure.
+
+  ## Security Considerations
+
+  - **No new attack surface**: No new endpoints, no new user input paths
+  - **Feature ID lookup**: Uses existing `IFeatureRepository.findById()` which is already SQL-injection-safe
+    via parameterized queries in `SQLiteFeatureRepository`
+  - **Error isolation**: Failed lookups return generic labels, never leak internal IDs or stack traces to
+    desktop notifications
+
+  ## Performance Implications
+
+  - **First poll**: Same DB queries as before (runRepository.list + phaseTimingRepository.findByRunId per run),
+    plus one additional `featureRepository.findById()` per newly tracked run. For typical usage (1-3 concurrent
+    agent runs), this adds 1-3 lightweight SQLite queries — negligible impact.
+  - **Subsequent polls**: Zero additional feature lookups (NFR-1). Feature name is cached in WatcherState.
+  - **No startup latency increase**: The warm-up poll runs the same code path as a normal poll, just suppresses
+    event emission. No additional sleep or initialization step (NFR-2).
+
+  ## Architecture Notes
+
+  ### Files to Modify
+
+  1. **`packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts`** (Primary)
+     - Add `private isFirstPoll = true` field
+     - Add `IFeatureRepository` constructor parameter
+     - Update `processRuns` to suppress events when `isFirstPoll` is true, flip flag after first poll
+     - Make `resolveFeatureName` async, call `featureRepository.findById()`, return `feature.slug`
+     - Add try/catch in `resolveFeatureName` with generic fallback labels
+     - Update `initializeNotificationWatcher` signature to accept `IFeatureRepository`
+
+  2. **`src/presentation/cli/commands/ui.command.ts`** (DI Wiring)
+     - Resolve `IFeatureRepository` from container
+     - Pass to `initializeNotificationWatcher()`
+
+  3. **`tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts`** (Tests)
+     - Add `IFeatureRepository` mock to test setup
+     - Update `NotificationWatcherService` constructor calls
+     - Add test group: "first-poll warm-up" (silent seed behavior)
+     - Add test group: "feature name resolution" (slug display, fallback on null, fallback on error)
+     - Update existing tests to pass the new mock parameter
+
+  ### Dependency Flow (Clean Architecture Compliance)
+
+  ```
+  ui.command.ts (Presentation)
+    → container.resolve('IFeatureRepository') (Infrastructure/DI)
+    → initializeNotificationWatcher(..., featureRepo) (Infrastructure/Services)
+    → NotificationWatcherService constructor (Infrastructure/Services)
+    → IFeatureRepository.findById() (Application Port — interface only)
+  ```
+
+  Dependencies point inward: the service depends on the `IFeatureRepository` interface (Application layer),
+  not the `SQLiteFeatureRepository` implementation (Infrastructure layer). This is correct per Clean Architecture.

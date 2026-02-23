@@ -23,6 +23,7 @@ import type { IWebServerService } from '@/application/ports/output/services/web-
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { setVersionEnvVars } from '@/infrastructure/services/version.service.js';
 import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
 import {
@@ -78,7 +79,8 @@ Examples:
         const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
         const phaseTimingRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
         const notificationService = container.resolve<INotificationService>('INotificationService');
-        initializeNotificationWatcher(runRepo, phaseTimingRepo, notificationService);
+        const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
+        initializeNotificationWatcher(runRepo, phaseTimingRepo, notificationService, featureRepo);
         getNotificationWatcher().start();
 
         const url = `http://localhost:${port}`;

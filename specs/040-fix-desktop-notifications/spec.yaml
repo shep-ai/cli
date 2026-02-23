@@ -1,0 +1,229 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-desktop-notifications
+number: 040
+branch: feat/040-fix-desktop-notifications
+oneLiner: Fix notification storm on startup and show feature slug instead of UUID in notifications
+userQuery: >
+  we have a bug with desktop notification, when running shep ui, im getting ALL events at once BOOM! Also i see ID of feature in notification, i want to see more user firendly data like maybe slug or something we have on feature
+summary: >
+  Two bugs in the desktop notification system: (1) When starting `shep ui`, the NotificationWatcherService
+  fires notifications for ALL existing active-status runs on its first poll, causing a notification storm.
+  The watcher needs a warm-up pass that seeds initial state without emitting events. (2) The
+  `resolveFeatureName` method displays raw feature UUIDs because it lacks access to IFeatureRepository.
+  It needs to look up the Feature entity and display the slug or name instead.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  - '021-agent-notifications'
+
+technologies:
+  - TypeScript
+  - Clean Architecture (ports/adapters)
+  - DB polling (SQLite)
+  - SSE (Server-Sent Events)
+  - node-notifier (desktop notifications)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'What should the warm-up strategy be for the first poll?'
+    resolved: true
+    options:
+      - option: 'Silent seed (firstPoll flag)'
+        description: >
+          Add a boolean `firstPoll` flag to the watcher. On the first poll, seed the `trackedRuns` Map
+          with all current run states but suppress all event emissions. Subsequent polls detect only
+          real state transitions. Simple, minimal code change, no new dependencies.
+        selected: true
+      - option: 'Timestamp-based cutoff'
+        description: >
+          Record the watcher start time and only emit notifications for runs whose status changed after
+          that timestamp. Requires `updatedAt` on AgentRun to be reliable and indexed, adds query
+          complexity, and still risks missing transitions that happen in the same second.
+        selected: false
+    selectionRationale: >
+      The silent-seed approach is simpler, requires no schema or query changes, and matches the existing
+      in-memory tracking pattern. It guarantees zero false notifications on startup regardless of DB state.
+    answer: 'Silent seed (firstPoll flag)'
+
+  - question: 'What field should be displayed for the feature name in notifications?'
+    resolved: true
+    options:
+      - option: 'Feature slug'
+        description: >
+          Display `feature.slug` (e.g., "user-authentication"). Slugs are URL-safe, concise, and
+          already used in branches and spec directories. They are always set when a feature is created.
+        selected: true
+      - option: 'Feature name'
+        description: >
+          Display `feature.name` (e.g., "User Authentication"). More human-readable but can be longer
+          and may truncate in narrow OS notification banners.
+        selected: false
+      - option: 'Name with slug fallback'
+        description: >
+          Display `feature.name`, falling back to `feature.slug` if name is empty. More complex logic
+          for minimal benefit since both are always populated.
+        selected: false
+    selectionRationale: >
+      Slugs are concise, always populated, and already the primary human identifier used in branches and
+      spec directories. They fit well within OS notification character limits. The user specifically
+      mentioned "slug" in their request.
+    answer: 'Feature slug'
+
+  - question: 'How should resolveFeatureName handle a failed feature lookup?'
+    resolved: true
+    options:
+      - option: 'Fallback to agent run ID'
+        description: >
+          If `featureRepository.findById()` returns null or throws, fall back to `"Agent <run.id>"`.
+          Simple, always available, but shows a UUID which is the problem we are fixing.
+        selected: false
+      - option: 'Fallback to truncated featureId'
+        description: >
+          Show first 8 chars of the featureId (e.g., "Feature a1b2c3d4…"). Less noisy than full UUID
+          but still not user-friendly.
+        selected: false
+      - option: 'Fallback to "Feature agent" generic label'
+        description: >
+          If lookup fails, return a generic label like "Feature agent" (when featureId exists) or
+          "Agent run" (when it does not). No UUID leaks into the notification. User can check the
+          web UI for details.
+        selected: true
+    selectionRationale: >
+      A generic label avoids showing any UUID to the user, which is the core UX complaint. The web UI
+      already provides full run details, so the desktop notification does not need to uniquely identify
+      the run — it just needs to be informative enough to prompt the user to check the UI.
+    answer: 'Fallback to "Feature agent" generic label'
+
+  - question: 'Should feature lookups be cached to avoid repeated DB queries per poll?'
+    resolved: true
+    options:
+      - option: 'Cache per tracked run'
+        description: >
+          Cache the resolved feature name in the WatcherState alongside the existing `featureName` field.
+          Since `resolveFeatureName` is already called once when a run is first tracked, the result is
+          stored in WatcherState and reused — no additional caching layer needed.
+        selected: true
+      - option: 'Separate LRU cache'
+        description: >
+          Add a separate Map<featureId, string> cache with TTL or LRU eviction. More complex, adds a new
+          data structure, but would deduplicate lookups across multiple runs for the same feature.
+        selected: false
+    selectionRationale: >
+      The existing WatcherState already stores `featureName` per tracked run. Making `resolveFeatureName`
+      async and calling it once at first observation means the feature lookup happens exactly once per run
+      lifetime. No additional caching is needed — this is already the architecture.
+    answer: 'Cache per tracked run'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Two bugs exist in the desktop notification system (`NotificationWatcherService`):
+
+  **Bug 1 — Notification storm on startup:** When `shep ui` starts, the watcher's first `poll()` call
+  fetches ALL agent runs from the database via `runRepository.list()`. The guard at line 131 correctly
+  skips terminal runs that haven't been tracked, but runs still in active statuses (`running`,
+  `waitingApproval`, `pending`) — including stale runs from previous sessions where the worker crashed
+  or wasn't cleaned up — all trigger notifications simultaneously. Additionally, `checkPhaseCompletions`
+  fires for every already-completed phase of those active runs, compounding the burst.
+
+  **Bug 2 — Feature UUID shown instead of name/slug:** The `resolveFeatureName` method (line 217) returns
+  `"Feature ${run.featureId}"` — displaying the raw UUID. The code has a TODO comment acknowledging this
+  requires `IFeatureRepository` which isn't injected. The Feature entity has both `name` and `slug` fields
+  that would be much more user-friendly.
+
+  ## Success Criteria
+
+  - [ ] Starting `shep ui` with existing active runs in the DB produces zero notifications on the first poll
+  - [ ] Starting `shep ui` with existing completed phases in the DB produces zero phase-completion notifications on the first poll
+  - [ ] Only genuine status transitions detected AFTER the first poll trigger notifications
+  - [ ] Only newly completed phases detected AFTER the first poll trigger phase-completion notifications
+  - [ ] Notifications display the feature slug (e.g., "user-authentication") instead of the raw UUID
+  - [ ] When feature lookup fails (null result), notifications show a generic label without any UUID
+  - [ ] When a run has no featureId, notifications show a generic "Agent run" label
+  - [ ] Feature lookup happens at most once per tracked run (no repeated DB queries per poll cycle)
+  - [ ] All existing notification watcher tests continue to pass
+  - [ ] New unit tests cover the warm-up/first-poll silent-seed behavior
+  - [ ] New unit tests cover async feature name resolution with slug display
+  - [ ] New unit tests cover feature lookup failure fallback behavior
+
+  ## Functional Requirements
+
+  - **FR-1: Silent first-poll warm-up** — On the first invocation of `poll()`, the watcher MUST populate
+    `trackedRuns` with the current state of all active runs (status and completed phases) WITHOUT emitting
+    any `NotificationEvent`s. This establishes a baseline snapshot.
+
+  - **FR-2: Event emission only on state changes** — After the first poll, the watcher MUST only emit
+    status events when a tracked run's status differs from its previously recorded status, and only emit
+    phase-completion events for phases not already in the run's `completedPhases` set.
+
+  - **FR-3: Feature slug resolution** — The `resolveFeatureName` method MUST use `IFeatureRepository.findById()`
+    to look up the Feature entity by `run.featureId` and return `feature.slug` as the display name.
+
+  - **FR-4: Graceful fallback on lookup failure** — If `featureRepository.findById()` returns `null` or throws,
+    `resolveFeatureName` MUST return `"Feature agent"` (when `featureId` is present) or `"Agent run"` (when
+    `featureId` is absent). No UUID may appear in the returned string.
+
+  - **FR-5: IFeatureRepository injection** — The `NotificationWatcherService` constructor MUST accept an
+    `IFeatureRepository` parameter. The `initializeNotificationWatcher()` singleton factory and the
+    `ui.command.ts` DI wiring MUST pass the resolved `IFeatureRepository` instance.
+
+  - **FR-6: Async resolveFeatureName** — The `resolveFeatureName` method MUST become async (returning
+    `Promise<string>`) to support the async `findById()` call. All call sites within the watcher MUST
+    be updated to await the result.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: No additional DB queries per poll cycle** — Feature name resolution MUST happen once when a
+    run is first tracked. The resolved name is stored in `WatcherState.featureName` and reused on
+    subsequent polls. No per-poll feature lookups.
+
+  - **NFR-2: No startup latency increase** — The warm-up poll MUST complete within the same time bounds
+    as a normal poll. No additional sleep, delay, or sequential initialization step.
+
+  - **NFR-3: Backward-compatible singleton API** — The `initializeNotificationWatcher()` function signature
+    change (adding `IFeatureRepository` parameter) is a breaking change to the internal API. All call sites
+    in the codebase MUST be updated. No default/optional parameter to silently degrade.
+
+  - **NFR-4: Error isolation** — A failure in `resolveFeatureName` (e.g., DB error) MUST NOT prevent the
+    notification from being emitted. The fallback label MUST be used and the error logged at warn level.
+
+  - **NFR-5: Test coverage** — All new behavior MUST have unit tests following the existing test patterns
+    in `tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts`.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | What warm-up strategy for the first poll? | Silent seed (firstPoll flag) | Simplest approach, no schema changes, matches existing in-memory tracking pattern |
+  | 2 | What field to display for feature name? | Feature slug | Concise, always populated, user specifically requested it, fits notification banners |
+  | 3 | How to handle failed feature lookups? | Generic label ("Feature agent") | Avoids UUID leak, web UI provides full details for disambiguation |
+  | 4 | Should feature lookups be cached? | Cache per tracked run (existing WatcherState) | Already built into the architecture — one lookup per run lifetime |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | High | Both bugs are here: first-poll logic and resolveFeatureName |
+  | `src/presentation/cli/commands/ui.command.ts` | Medium | Must resolve and pass IFeatureRepository to watcher initializer |
+  | `tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts` | High | Tests must cover warm-up behavior and feature name resolution |
+  | `tests/unit/presentation/cli/commands/ui.command.test.ts` | Low | Mock update for new IFeatureRepository parameter |
+
+  ## Dependencies
+
+  - `IFeatureRepository` interface already exists with `findById()` method
+  - `IFeatureRepository` is already registered in the DI container
+  - `Feature` entity already has `slug` and `name` fields
+  - Existing test infrastructure for the watcher (mocks, test patterns)
+
+  ## Size Estimate
+
+  **S** — Two focused changes in one primary file (notification-watcher.service.ts) plus DI wiring
+  update in ui.command.ts. The fixes are well-scoped: add a firstPoll flag and inject one additional
+  repository. Test updates are straightforward extensions of existing test patterns.

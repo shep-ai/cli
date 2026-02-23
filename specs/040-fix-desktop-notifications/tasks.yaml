@@ -1,0 +1,232 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-desktop-notifications
+summary: >
+  7 tasks across 4 phases. Updates test infrastructure first, then fixes feature slug resolution
+  (Bug 2), adds silent first-poll warm-up (Bug 1), and completes DI wiring.
+
+relatedFeatures:
+  - '021-agent-notifications'
+
+technologies:
+  - TypeScript
+  - vitest
+  - Clean Architecture
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add IFeatureRepository mock and update constructor calls in tests'
+    description: >
+      Create a createMockFeatureRepository() helper in the test file. Update the beforeEach block
+      and all NotificationWatcherService constructor calls to pass the mock as the 4th parameter.
+      The constructor signature change in production code happens in the same step to keep tests
+      green. This is the foundation for all subsequent tasks.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'createMockFeatureRepository() helper exists with findById mock returning null by default'
+      - 'All existing NotificationWatcherService constructor calls pass featureRepo as 4th argument'
+      - 'Constructor in notification-watcher.service.ts accepts IFeatureRepository as 4th param (before pollIntervalMs)'
+      - 'initializeNotificationWatcher signature updated with featureRepository parameter'
+      - 'All existing tests pass unchanged (same assertions, same behavior)'
+    tdd:
+      red:
+        - 'Existing tests fail after adding IFeatureRepository to constructor (TypeScript compile error)'
+      green:
+        - 'Add IFeatureRepository import and constructor parameter to NotificationWatcherService'
+        - 'Update initializeNotificationWatcher to accept and pass IFeatureRepository'
+        - 'Create createMockFeatureRepository() helper in test file'
+        - 'Update all constructor calls in tests to pass the mock'
+      refactor:
+        - 'Ensure mock helper follows same pattern as existing createMockRunRepository/createMockPhaseTimingRepository'
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Write tests for async feature slug resolution'
+    description: >
+      Add a new describe block for feature slug resolution via IFeatureRepository. Tests cover:
+      successful slug lookup, fallback when findById returns null, fallback when findById throws,
+      and fallback when featureId is absent. These tests will fail (RED) until resolveFeatureName
+      is updated.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test: when findById returns a Feature, notification featureName is the feature slug'
+      - 'Test: when findById returns null, notification featureName is "Feature agent"'
+      - 'Test: when findById throws, notification featureName is "Feature agent"'
+      - 'Test: when run has no featureId, notification featureName is "Agent run"'
+      - 'Test: findById is called exactly once per run (cached in WatcherState)'
+    tdd:
+      red:
+        - 'Write test: resolves feature slug from IFeatureRepository.findById'
+        - 'Write test: returns "Feature agent" when findById returns null'
+        - 'Write test: returns "Feature agent" when findById throws error'
+        - 'Write test: returns "Agent run" when featureId is undefined'
+        - 'Write test: findById called once per run, not on subsequent polls'
+      green:
+        - 'Deferred to task-3'
+      refactor:
+        - 'Deferred to task-3'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Implement async resolveFeatureName with slug lookup and fallbacks'
+    description: >
+      Make resolveFeatureName async. Call featureRepository.findById(run.featureId), return
+      feature.slug on success. Add try/catch for error isolation: return "Feature agent" when
+      featureId exists but lookup fails, "Agent run" when featureId is absent. Log errors at
+      warn level. Update call site in processRuns to await.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'resolveFeatureName is async (returns Promise<string>)'
+      - 'Returns feature.slug when findById succeeds'
+      - 'Returns "Feature agent" when findById returns null (featureId present)'
+      - 'Returns "Feature agent" when findById throws (featureId present)'
+      - 'Returns "Agent run" when featureId is absent'
+      - 'Errors logged at warn level'
+      - 'processRuns awaits resolveFeatureName'
+      - 'All tests from task-2 pass (GREEN)'
+    tdd:
+      red:
+        - 'Tests from task-2 are failing'
+      green:
+        - 'Make resolveFeatureName async with IFeatureRepository.findById call'
+        - 'Add try/catch with generic fallback labels'
+        - 'Add console.warn for error logging'
+        - 'Update processRuns to await resolveFeatureName'
+      refactor:
+        - 'Verify no UUID strings leak in any code path'
+        - 'Ensure error messages are descriptive for debugging'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Write tests for silent first-poll warm-up behavior'
+    description: >
+      Add a new describe block for first-poll warm-up. Tests cover: pre-existing active runs
+      produce zero notifications on first poll, pre-existing completed phases produce zero
+      phase-completion notifications on first poll, and genuine transitions AFTER first poll
+      still produce notifications. These tests will fail (RED) until the isFirstPoll flag is
+      implemented.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Test: first poll with pre-existing running run emits zero notifications'
+      - 'Test: first poll with pre-existing completed phases emits zero phase-completion notifications'
+      - 'Test: second poll detects genuine status change and emits notification'
+      - 'Test: second poll detects new phase completion and emits notification'
+      - 'Test: multiple pre-existing active runs all silenced on first poll'
+    tdd:
+      red:
+        - 'Write test: first poll with active run emits zero events'
+        - 'Write test: first poll with completed phases emits zero phase events'
+        - 'Write test: status change on second poll emits event correctly'
+        - 'Write test: new phase completion on second poll emits event correctly'
+        - 'Write test: multiple active runs silenced on first poll'
+      green:
+        - 'Deferred to task-5'
+      refactor:
+        - 'Deferred to task-5'
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Implement isFirstPoll flag to suppress first-poll event emission'
+    description: >
+      Add private isFirstPoll = true field. Gate emitStatusEvent to return early when isFirstPoll
+      is true. Gate phase completion notification in checkPhaseCompletions to skip notify() when
+      isFirstPoll is true (still populate completedPhases set). Flip isFirstPoll to false at end
+      of poll() after processRuns completes.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'isFirstPoll is a private boolean field, initialized to true'
+      - 'emitStatusEvent is a no-op when isFirstPoll is true'
+      - 'checkPhaseCompletions populates completedPhases but skips notify when isFirstPoll is true'
+      - 'isFirstPoll flipped to false at end of poll() after processRuns'
+      - 'All tests from task-4 pass (GREEN)'
+      - 'All existing tests still pass'
+    tdd:
+      red:
+        - 'Tests from task-4 are failing'
+      green:
+        - 'Add private isFirstPoll = true field'
+        - 'Add early return in emitStatusEvent when isFirstPoll'
+        - 'Add guard in checkPhaseCompletions to skip notify when isFirstPoll'
+        - 'Flip isFirstPoll = false at end of poll()'
+      refactor:
+        - 'Verify completedPhases set is still populated on first poll (baseline seeded)'
+        - 'Ensure flag flip happens after processRuns completes, not before'
+    estimatedEffort: '25min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Update DI wiring in ui.command.ts'
+    description: >
+      Resolve IFeatureRepository from the DI container in ui.command.ts and pass it to
+      initializeNotificationWatcher as the 4th argument.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'IFeatureRepository import added to ui.command.ts'
+      - 'container.resolve<IFeatureRepository>("IFeatureRepository") called before initializeNotificationWatcher'
+      - 'featureRepo passed as 4th argument to initializeNotificationWatcher'
+      - 'TypeScript compiles without errors (pnpm typecheck)'
+    tdd:
+      red:
+        - 'pnpm typecheck fails due to missing 4th argument in initializeNotificationWatcher call'
+      green:
+        - 'Add IFeatureRepository import to ui.command.ts'
+        - 'Resolve IFeatureRepository from container'
+        - 'Pass to initializeNotificationWatcher'
+      refactor:
+        - 'Verify import ordering follows existing conventions in the file'
+    estimatedEffort: '10min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Full validation pass (typecheck, lint, all tests)'
+    description: >
+      Run the full validation suite to ensure everything compiles, lints, and all tests pass.
+      Fix any issues discovered.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm typecheck passes'
+      - 'pnpm lint passes'
+      - 'pnpm test:unit passes (all notification watcher tests green)'
+      - 'No regressions in other test suites'
+    tdd: null
+    estimatedEffort: '10min'
+
+totalEstimate: '2h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a 4-phase approach across 7 tasks. Phase 1 updates the test
+  infrastructure to accommodate the new IFeatureRepository constructor parameter, ensuring
+  all existing tests remain green. Phase 2 implements feature slug resolution (Bug 2) using
+  TDD — tests first for slug lookup and fallback behavior, then the async resolveFeatureName
+  implementation. Phase 3 tackles the notification storm (Bug 1) with TDD — tests first for
+  silent first-poll behavior, then the isFirstPoll flag implementation. Phase 4 completes the
+  DI wiring in ui.command.ts and runs the full validation suite.
+
+  The ordering minimizes risk: test infrastructure first, simpler bug second, complex bug third,
+  integration last. Each phase builds on the previous one, and the TDD cycle ensures confidence
+  at every step.

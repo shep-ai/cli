@@ -18,6 +18,7 @@ import { NotificationWatcherService } from '@/infrastructure/services/notificati
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 
 function createMockAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {
   return {
@@ -68,6 +69,18 @@ function createMockPhaseTimingRepository(timings: PhaseTiming[] = []): IPhaseTim
   };
 }
 
+function createMockFeatureRepository(): IFeatureRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn().mockResolvedValue(null),
+    findByIdPrefix: vi.fn(),
+    findBySlug: vi.fn(),
+    list: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+}
+
 function createMockNotificationService(): INotificationService & {
   receivedEvents: NotificationEvent[];
 } {
@@ -84,6 +97,7 @@ describe('NotificationWatcherService', () => {
   let runRepo: IAgentRunRepository;
   let phaseRepo: IPhaseTimingRepository;
   let notificationService: ReturnType<typeof createMockNotificationService>;
+  let featureRepo: IFeatureRepository;
   let watcher: NotificationWatcherService;
 
   beforeEach(() => {
@@ -92,7 +106,8 @@ describe('NotificationWatcherService', () => {
     runRepo = createMockRunRepository();
     phaseRepo = createMockPhaseTimingRepository();
     notificationService = createMockNotificationService();
-    watcher = new NotificationWatcherService(runRepo, phaseRepo, notificationService);
+    featureRepo = createMockFeatureRepository();
+    watcher = new NotificationWatcherService(runRepo, phaseRepo, notificationService, featureRepo);
   });
 
   afterEach(() => {
@@ -132,18 +147,21 @@ describe('NotificationWatcherService', () => {
   });
 
   describe('status transition detection', () => {
-    it('should emit agentStarted event when run transitions to running', async () => {
+    it('should emit agentStarted event when new run appears after first poll', async () => {
       const run = createMockAgentRun({
         id: 'run-1',
         status: AgentRunStatus.running,
         featureId: 'feat-1',
       });
 
-      vi.mocked(runRepo.list).mockResolvedValue([run]);
+      // First poll: empty (warm-up), second poll: new run appears
+      vi.mocked(runRepo.list).mockResolvedValueOnce([]).mockResolvedValueOnce([run]);
       vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
 
       watcher.start();
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(0); // first poll (silent warm-up)
+
+      await vi.advanceTimersByTimeAsync(3000); // second poll — new run detected
 
       expect(notificationService.receivedEvents).toHaveLength(1);
       expect(notificationService.receivedEvents[0]!.eventType).toBe(
@@ -225,15 +243,18 @@ describe('NotificationWatcherService', () => {
     it('should not emit duplicate event for already-seen status', async () => {
       const run = createMockAgentRun({ id: 'run-1', status: AgentRunStatus.running });
 
-      vi.mocked(runRepo.list).mockResolvedValue([run]);
+      // First poll: empty (warm-up), second poll onward: run present
+      vi.mocked(runRepo.list).mockResolvedValueOnce([]).mockResolvedValue([run]);
       vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
 
       watcher.start();
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(0); // first poll (silent warm-up)
+
+      await vi.advanceTimersByTimeAsync(3000); // second poll — new run, emits event
       expect(notificationService.receivedEvents).toHaveLength(1);
 
-      await vi.advanceTimersByTimeAsync(3000);
-      expect(notificationService.receivedEvents).toHaveLength(1); // no duplicate
+      await vi.advanceTimersByTimeAsync(3000); // third poll — same status, no duplicate
+      expect(notificationService.receivedEvents).toHaveLength(1);
     });
   });
 
@@ -273,33 +294,152 @@ describe('NotificationWatcherService', () => {
         completedAt: new Date(),
       });
 
-      vi.mocked(runRepo.list).mockResolvedValue([run]);
+      // First poll: empty (warm-up), second poll: run + phase appear
+      vi.mocked(runRepo.list).mockResolvedValueOnce([]).mockResolvedValue([run]);
       vi.mocked(phaseRepo.findByRunId).mockResolvedValue([completedPhase]);
 
       watcher.start();
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(0); // first poll (silent warm-up)
+
+      await vi.advanceTimersByTimeAsync(3000); // second poll — new run + phase emitted
       const initialPhaseEvents = notificationService.receivedEvents.filter(
         (e) => e.eventType === NotificationEventType.PhaseCompleted
       );
       expect(initialPhaseEvents).toHaveLength(1);
 
       notificationService.receivedEvents.length = 0;
-      await vi.advanceTimersByTimeAsync(3000);
+      await vi.advanceTimersByTimeAsync(3000); // third poll — same phase, no re-emit
 
-      const secondPhaseEvents = notificationService.receivedEvents.filter(
+      const thirdPhaseEvents = notificationService.receivedEvents.filter(
         (e) => e.eventType === NotificationEventType.PhaseCompleted
       );
-      expect(secondPhaseEvents).toHaveLength(0);
+      expect(thirdPhaseEvents).toHaveLength(0);
     });
   });
 
   describe('feature name resolution', () => {
-    it('should use agent run id as fallback when featureId is not set', async () => {
+    it('should resolve feature slug from IFeatureRepository.findById', async () => {
+      const run = createMockAgentRun({
+        id: 'run-1',
+        status: AgentRunStatus.running,
+        featureId: 'feat-1',
+      });
+
+      // First poll: empty (warm-up), second poll: run appears
+      vi.mocked(runRepo.list).mockResolvedValueOnce([]).mockResolvedValueOnce([run]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+      vi.mocked(featureRepo.findById).mockResolvedValue({
+        id: 'feat-1',
+        slug: 'user-authentication',
+        name: 'User Authentication',
+      } as any);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0); // first poll (silent warm-up)
+
+      await vi.advanceTimersByTimeAsync(3000); // second poll — run appears
+
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.featureName).toBe('user-authentication');
+      expect(featureRepo.findById).toHaveBeenCalledWith('feat-1');
+    });
+
+    it('should return "Feature agent" when findById returns null', async () => {
+      const run = createMockAgentRun({
+        id: 'run-1',
+        status: AgentRunStatus.running,
+        featureId: 'feat-missing',
+      });
+
+      vi.mocked(runRepo.list).mockResolvedValueOnce([]).mockResolvedValueOnce([run]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+      vi.mocked(featureRepo.findById).mockResolvedValue(null);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      await vi.advanceTimersByTimeAsync(3000);
+
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.featureName).toBe('Feature agent');
+    });
+
+    it('should return "Feature agent" when findById throws error', async () => {
+      // eslint-disable-next-line @typescript-eslint/no-empty-function
+      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const run = createMockAgentRun({
+        id: 'run-1',
+        status: AgentRunStatus.running,
+        featureId: 'feat-err',
+      });
+
+      vi.mocked(runRepo.list).mockResolvedValueOnce([]).mockResolvedValueOnce([run]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+      vi.mocked(featureRepo.findById).mockRejectedValue(new Error('DB error'));
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      await vi.advanceTimersByTimeAsync(3000);
+
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.featureName).toBe('Feature agent');
+      expect(consoleSpy).toHaveBeenCalled();
+
+      consoleSpy.mockRestore();
+    });
+
+    it('should return "Agent run" when featureId is undefined', async () => {
       const run = createMockAgentRun({
         id: 'run-1',
         status: AgentRunStatus.running,
         featureId: undefined,
       });
+
+      vi.mocked(runRepo.list).mockResolvedValueOnce([]).mockResolvedValueOnce([run]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      await vi.advanceTimersByTimeAsync(3000);
+
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.featureName).toBe('Agent run');
+    });
+
+    it('should call findById once per run and cache the result', async () => {
+      const run = createMockAgentRun({
+        id: 'run-1',
+        status: AgentRunStatus.running,
+        featureId: 'feat-1',
+      });
+
+      vi.mocked(runRepo.list).mockResolvedValue([run]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+      vi.mocked(featureRepo.findById).mockResolvedValue({
+        id: 'feat-1',
+        slug: 'user-authentication',
+        name: 'User Authentication',
+      } as any);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(featureRepo.findById).toHaveBeenCalledTimes(1);
+
+      // Second poll — same run, no additional findById call
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(featureRepo.findById).toHaveBeenCalledTimes(1);
+
+      // Third poll — still cached
+      await vi.advanceTimersByTimeAsync(3000);
+      expect(featureRepo.findById).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('first-poll warm-up', () => {
+    it('should emit zero notifications on first poll with pre-existing active run', async () => {
+      const run = createMockAgentRun({ id: 'run-1', status: AgentRunStatus.running });
 
       vi.mocked(runRepo.list).mockResolvedValue([run]);
       vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
@@ -307,8 +447,90 @@ describe('NotificationWatcherService', () => {
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
+      expect(notificationService.receivedEvents).toHaveLength(0);
+    });
+
+    it('should emit zero phase-completion notifications on first poll with pre-existing completed phases', async () => {
+      const run = createMockAgentRun({ id: 'run-1', status: AgentRunStatus.running });
+      const completedPhase = createMockPhaseTiming({
+        agentRunId: 'run-1',
+        phase: 'analyze',
+        completedAt: new Date(),
+      });
+
+      vi.mocked(runRepo.list).mockResolvedValue([run]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([completedPhase]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(notificationService.receivedEvents).toHaveLength(0);
+    });
+
+    it('should emit notification for genuine status change on second poll', async () => {
+      const runningRun = createMockAgentRun({ id: 'run-1', status: AgentRunStatus.running });
+      const completedRun = createMockAgentRun({ id: 'run-1', status: AgentRunStatus.completed });
+
+      vi.mocked(runRepo.list)
+        .mockResolvedValueOnce([runningRun])
+        .mockResolvedValueOnce([completedRun]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(notificationService.receivedEvents).toHaveLength(0); // first poll silent
+
+      await vi.advanceTimersByTimeAsync(3000);
+
       expect(notificationService.receivedEvents).toHaveLength(1);
-      expect(notificationService.receivedEvents[0]!.featureName).toBe('Agent run-1');
+      expect(notificationService.receivedEvents[0]!.eventType).toBe(
+        NotificationEventType.AgentCompleted
+      );
+    });
+
+    it('should emit notification for new phase completion on second poll', async () => {
+      const run = createMockAgentRun({ id: 'run-1', status: AgentRunStatus.running });
+      const analyzePhase = createMockPhaseTiming({
+        agentRunId: 'run-1',
+        phase: 'analyze',
+        completedAt: new Date(),
+      });
+      const planPhase = createMockPhaseTiming({
+        agentRunId: 'run-1',
+        phase: 'plan',
+        completedAt: new Date(),
+      });
+
+      vi.mocked(runRepo.list).mockResolvedValue([run]);
+      vi.mocked(phaseRepo.findByRunId)
+        .mockResolvedValueOnce([analyzePhase]) // first poll: analyze already completed
+        .mockResolvedValueOnce([analyzePhase, planPhase]); // second poll: plan newly completed
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+      expect(notificationService.receivedEvents).toHaveLength(0); // first poll silent
+
+      await vi.advanceTimersByTimeAsync(3000);
+
+      const phaseEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.PhaseCompleted
+      );
+      expect(phaseEvents).toHaveLength(1);
+      expect(phaseEvents[0]!.phaseName).toBe('plan'); // only the new phase
+    });
+
+    it('should silence multiple pre-existing active runs on first poll', async () => {
+      const run1 = createMockAgentRun({ id: 'run-1', status: AgentRunStatus.running });
+      const run2 = createMockAgentRun({ id: 'run-2', status: AgentRunStatus.waitingApproval });
+      const run3 = createMockAgentRun({ id: 'run-3', status: AgentRunStatus.pending });
+
+      vi.mocked(runRepo.list).mockResolvedValue([run1, run2, run3]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(notificationService.receivedEvents).toHaveLength(0);
     });
   });
 

@@ -1,0 +1,134 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-desktop-notifications
+summary: >
+  Fix two desktop notification bugs by adding a silent first-poll warm-up (isFirstPoll flag that
+  suppresses all event emission during initial poll) and injecting IFeatureRepository to resolve
+  feature slugs instead of raw UUIDs. Changes are localized to NotificationWatcherService with
+  DI wiring updates in ui.command.ts and comprehensive test coverage.
+
+relatedFeatures:
+  - '021-agent-notifications'
+
+technologies:
+  - TypeScript
+  - Clean Architecture (ports/adapters)
+  - DB polling (SQLite)
+  - vitest
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Test infrastructure & constructor signature update'
+    description: >
+      Update existing test file to pass an IFeatureRepository mock as the new 4th constructor
+      parameter. Ensures all existing tests still pass after the signature change and establishes
+      mock infrastructure for new tests in subsequent phases.
+    parallel: false
+
+  - id: phase-2
+    name: 'Feature slug resolution (Bug 2 fix)'
+    description: >
+      Make resolveFeatureName async, inject IFeatureRepository, and return feature.slug instead of
+      raw UUID. Includes graceful fallback to generic labels on lookup failure. Simpler of the two
+      bugs, can be verified in isolation before tackling the warm-up fix.
+    parallel: false
+
+  - id: phase-3
+    name: 'Silent first-poll warm-up (Bug 1 fix)'
+    description: >
+      Add isFirstPoll flag that suppresses all event emission (status events AND phase completion
+      events) during the initial poll while still populating trackedRuns with baseline state.
+      Core fix for the notification storm on startup.
+    parallel: false
+
+  - id: phase-4
+    name: 'DI wiring and integration'
+    description: >
+      Update ui.command.ts to resolve IFeatureRepository from the DI container and pass it to
+      initializeNotificationWatcher. Update the singleton factory signature. Verify end-to-end
+      wiring compiles and typechecks.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts
+  - src/presentation/cli/commands/ui.command.ts
+  - tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Both bugs live in `NotificationWatcherService` (packages/core/src/infrastructure/services/notifications/
+  notification-watcher.service.ts). The service follows a polling pattern: `start()` triggers an immediate
+  `poll()` then sets up `setInterval`. Each `poll()` calls `runRepository.list()`, processes runs through
+  `processRuns()`, and emits `NotificationEvent`s via `INotificationService.notify()`.
+
+  The service already tracks per-run state in `Map<string, WatcherState>` with status and completedPhases.
+  The `featureName` field on WatcherState is set once per run via `resolveFeatureName()` — this is the
+  natural caching point. The architecture requires no new data structures or patterns.
+
+  The DI wiring flows from `ui.command.ts` → `initializeNotificationWatcher()` → constructor. Adding
+  `IFeatureRepository` as a 4th parameter follows the exact same pattern as the existing 3 dependencies.
+
+  ## Key Design Decisions
+
+  **1. Silent first-poll via `isFirstPoll` flag** (from research decision #1)
+
+  A private `isFirstPoll = true` boolean suppresses ALL event emission during the initial poll. The full
+  processing logic still runs (populating trackedRuns with status AND completedPhases from DB), but
+  `emitStatusEvent` and the phase notification path in `checkPhaseCompletions` are gated by the flag.
+  The flag flips to `false` at the end of `poll()` after `processRuns` completes.
+
+  Rejected: timestamp-based cutoff (requires schema changes, race conditions), separate
+  `seedInitialState()` method (breaks the simple start/stop lifecycle contract).
+
+  **2. IFeatureRepository as constructor parameter** (from research decision #2)
+
+  Added as the 4th constructor parameter, before the optional `pollIntervalMs`. Follows the existing
+  pattern — the constructor already accepts 3 explicit dependencies. Container.resolve inside the method
+  was rejected (violates Clean Architecture); a separate FeatureNameResolver service was rejected
+  (over-engineered for a single findById call).
+
+  **3. Feature.slug as display field** (from research decision #3)
+
+  Slugs are concise, always populated, and already the primary human identifier in branches and spec
+  directories. The user specifically requested "slug or something".
+
+  **4. Generic fallback labels** (from research decision #4)
+
+  "Feature agent" when featureId exists but lookup fails; "Agent run" when no featureId. No UUID ever
+  appears in notifications. Errors logged at warn level per NFR-4.
+
+  **5. Async resolveFeatureName** (from research decision #5)
+
+  `resolveFeatureName` becomes async (returns `Promise<string>`). Since `processRuns` is already async,
+  this is a minimal change — just add `await` at the call site. The resolved name is stored once in
+  `WatcherState.featureName` and reused (NFR-1).
+
+  ## Implementation Strategy
+
+  Phases are ordered to minimize risk and enable incremental verification:
+
+  1. **Phase 1** updates existing tests first — ensures the constructor signature change doesn't break
+     anything and establishes mock infrastructure for new tests.
+  2. **Phase 2** fixes Bug 2 (feature slug resolution) — simpler, independent change verified with
+     focused unit tests.
+  3. **Phase 3** fixes Bug 1 (notification storm) — more complex change, but by this point test
+     infrastructure is fully set up and feature name resolution is already working.
+  4. **Phase 4** wires everything into the DI layer and verifies end-to-end compilation.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Existing tests break from constructor change | Phase 1 updates all existing tests first, verifying green before proceeding |
+  | Feature lookup adds latency to poll cycle | Lookup happens once per run lifetime, cached in WatcherState (NFR-1) |
+  | Feature lookup DB errors crash notifications | try/catch with generic fallback label and warn-level logging (NFR-4) |
+  | First-poll flag doesn't suppress phase events | Tests explicitly verify zero phase-completion events on first poll with pre-existing completed phases |
+  | initializeNotificationWatcher callers missed | Only 2 call sites: ui.command.ts and test file. TypeScript compiler catches missing arguments |
