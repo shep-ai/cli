@@ -226,6 +226,21 @@ model SystemConfig {
  *
  * Resolution order: CLI flag → Feature entity in DB → Settings default.
  */
+@doc("Default approval gate settings for new features")
+model ApprovalGateDefaults {
+  @doc("Auto-approve requirements phase (default: false)")
+  allowPrd: boolean = false;
+
+  @doc("Auto-approve planning phase (default: false)")
+  allowPlan: boolean = false;
+
+  @doc("Auto-approve merge phase (default: false)")
+  allowMerge: boolean = false;
+
+  @doc("Push branch to remote on implementation complete (default: false)")
+  pushOnImplementationComplete: boolean = false;
+}
+
 @doc("Global workflow configuration defaults")
 model WorkflowConfig {
   /**
@@ -241,6 +256,13 @@ model WorkflowConfig {
    */
   @doc("Auto-merge on implementation complete (default: false)")
   autoMergeOnImplementationComplete: boolean = false;
+
+  /**
+   * Default approval gate preferences for new features.
+   * Per-feature overrides: `feat new --allow-prd`, `--allow-plan`, etc.
+   */
+  @doc("Default approval gate preferences for new features")
+  approvalGateDefaults: ApprovalGateDefaults;
 }
 
 @doc("AI coding agent configuration")
@@ -461,4 +483,11 @@ model Settings extends BaseEntity {
    */
   @doc("Global workflow configuration defaults")
   workflow: WorkflowConfig;
+
+  /**
+   * Whether the first-run onboarding wizard has been completed.
+   * When false, CLI bootstrap gates all commands until the wizard runs.
+   */
+  @doc("Whether first-run onboarding has been completed (default: false)")
+  onboardingComplete: boolean = false;
 }

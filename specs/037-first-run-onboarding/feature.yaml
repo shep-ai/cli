@@ -1,0 +1,36 @@
+feature:
+  id: 037-first-run-onboarding
+  name: first-run-onboarding
+  number: 37
+  branch: feat/037-first-run-onboarding
+  lifecycle: research
+  createdAt: '2026-02-22T17:34:51Z'
+status:
+  phase: implementation
+  progress:
+    completed: 0
+    total: 14
+    percentage: 0
+  currentTask: task-1
+  lastUpdated: '2026-02-22T18:00:00Z'
+  lastUpdatedBy: shep-kit:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-22T17:34:51Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

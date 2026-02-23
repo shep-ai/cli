@@ -1,0 +1,197 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: first-run-onboarding
+summary: >
+  Implementation plan for the first-run onboarding wizard. The approach follows inside-out Clean Architecture:
+  start with TypeSpec domain model updates (ApprovalGateDefaults + onboardingComplete), then build application
+  layer use cases (CheckOnboardingStatus + CompleteOnboarding), then infrastructure (migration 15, mapper, DI),
+  then presentation layer (modular wizard steps + bootstrap gate), and finally integrate approval gate defaults
+  into the feat new command. Each phase builds on the previous, enabling TDD at every layer.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (domain model updates — Settings.onboardingComplete, ApprovalGateDefaults on WorkflowConfig)
+  - '@inquirer/prompts (select, checkbox, password — already in use)'
+  - tsyringe (DI container — register two new use cases)
+  - Commander.js (CLI bootstrap — first-run gate insertion)
+  - better-sqlite3 (SQLite migration 15 for new columns)
+  - Vitest (TDD across all layers)
+  - picocolors (welcome banner via existing shep theme)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Domain Model & Defaults Foundation'
+    description: >
+      Update TypeSpec models to add onboardingComplete to Settings and ApprovalGateDefaults to WorkflowConfig.
+      Regenerate TypeScript types. Update the settings defaults factory with new field defaults. This phase
+      establishes the data model that all subsequent layers depend on.
+    parallel: false
+
+  - id: phase-2
+    name: 'Application Layer — Use Cases'
+    description: >
+      Create CheckOnboardingStatusUseCase (reads singleton, returns isComplete boolean) and
+      CompleteOnboardingUseCase (merges wizard results, sets onboardingComplete=true, persists atomically).
+      Both follow the established @injectable() pattern with ISettingsRepository injection.
+    parallel: false
+
+  - id: phase-3
+    name: 'Infrastructure — Migration, Mapper & DI'
+    description: >
+      Add SQLite migration 15 for new columns (onboarding_complete + 4 approval gate columns), update
+      the settings mapper to handle bidirectional mapping of new fields, and register new use cases in
+      the DI container. Existing users get onboarding_complete=1 to skip the wizard.
+    parallel: false
+
+  - id: phase-4
+    name: 'Presentation Layer — Onboarding Wizard'
+    description: >
+      Build the modular onboarding wizard under tui/wizards/onboarding/ with three step files (agent,
+      IDE, workflow-defaults), types, and an orchestrator. Integrate the first-run gate into CLI bootstrap
+      between settings initialization and Commander setup. Handle Ctrl+C gracefully.
+    parallel: false
+
+  - id: phase-5
+    name: 'Feature Integration — Default Resolution'
+    description: >
+      Extend getWorkflowDefaults() in feat/new.command.ts to read approval gate defaults and push from
+      settings. CLI flags override settings defaults via nullish coalescing. This completes the end-to-end
+      value of the onboarding wizard — defaults chosen during onboarding are applied to new features.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/application/use-cases/settings/check-onboarding-status.use-case.ts
+  - packages/core/src/application/use-cases/settings/complete-onboarding.use-case.ts
+  - src/presentation/tui/wizards/onboarding/types.ts
+  - src/presentation/tui/wizards/onboarding/steps/agent.step.ts
+  - src/presentation/tui/wizards/onboarding/steps/ide.step.ts
+  - src/presentation/tui/wizards/onboarding/steps/workflow-defaults.step.ts
+  - src/presentation/tui/wizards/onboarding/onboarding.wizard.ts
+  - tests/unit/application/use-cases/settings/check-onboarding-status.use-case.test.ts
+  - tests/unit/application/use-cases/settings/complete-onboarding.use-case.test.ts
+  - tests/unit/domain/factories/settings-defaults-onboarding.test.ts
+  - tests/unit/presentation/tui/wizards/onboarding/onboarding.wizard.test.ts
+  - tests/unit/presentation/tui/wizards/onboarding/steps/workflow-defaults.step.test.ts
+  - tests/integration/infrastructure/persistence/sqlite/migration-015.test.ts
+
+filesToModify:
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/factories/settings-defaults.factory.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/settings.mapper.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/index.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - tests/unit/infrastructure/persistence/sqlite/mappers/settings.mapper.test.ts
+  - tests/integration/infrastructure/repositories/sqlite-settings.repository.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The onboarding wizard follows the existing Clean Architecture layering:
+
+  ```
+  Domain (TypeSpec → generated types + defaults factory)
+    ↑
+  Application (CheckOnboardingStatusUseCase + CompleteOnboardingUseCase)
+    ↑
+  Infrastructure (migration 15, mapper, DI container)
+    ↑
+  Presentation (onboarding wizard steps + CLI bootstrap gate)
+  ```
+
+  The feature introduces two new concepts to the Settings model:
+  1. **`onboardingComplete: boolean`** — top-level flag on Settings, gates CLI access
+  2. **`ApprovalGateDefaults`** — nested model on WorkflowConfig with allowPrd, allowPlan, allowMerge, pushOnImplementationComplete
+
+  The wizard is a thin presentation-layer orchestrator that composes existing prompt components
+  (agentConfigWizard, createIdeSelectConfig) with one new checkbox prompt (workflow defaults).
+  All persistence flows through CompleteOnboardingUseCase — no direct repository access from the TUI.
+
+  ## Key Design Decisions
+
+  ### 1. CompleteOnboardingUseCase with Direct Repository Access
+  Follows the ConfigureAgentUseCase pattern (load → merge → persist atomically). Does not delegate
+  to UpdateSettingsUseCase because it needs to load current settings, merge multiple wizard results,
+  and set onboardingComplete=true in a single write. This avoids partial state if any step fails.
+
+  Reference: `packages/core/src/application/use-cases/agents/configure-agent.use-case.ts` lines 54-84.
+
+  ### 2. CheckOnboardingStatusUseCase from In-Memory Singleton
+  Reads `getSettings().onboardingComplete` — zero DB overhead since settings are already loaded during
+  bootstrap step 2. Keeps business logic ("what counts as onboarding complete") in the application
+  layer, not the CLI bootstrap. Provides a future seam for re-onboarding logic.
+
+  Note: This use case does NOT use DI injection for the singleton — it calls `getSettings()` directly,
+  similar to how `getWorkflowDefaults()` works in the CLI layer. Acceptable because it's read-only
+  with no side effects.
+
+  ### 3. ApprovalGateDefaults as Separate Model from Runtime ApprovalGates
+  The runtime `ApprovalGates` (in `tsp/agents/`) are per-agent-run gates. `ApprovalGateDefaults` are
+  persistent user preferences for new features. They include `pushOnImplementationComplete` which
+  doesn't exist on the runtime model. Keeping them separate avoids conflating two distinct concerns.
+
+  ### 4. Migration 15 with Existing-User Protection
+  ALTER TABLE adds 5 new INTEGER columns with DEFAULT 0. Then UPDATE sets `onboarding_complete=1`
+  on existing rows so returning users skip the wizard. Matches the established migration pattern
+  from migrations 9 (notifications) and 10 (workflow flags).
+
+  ### 5. Wizard Orchestrator with Injectable Steps
+  The orchestrator is an async function (matching `agentConfigWizard` pattern) that accepts step
+  functions as optional parameters. Default imports are used in production; tests inject mocks.
+  This is the simplest pattern that satisfies testability without over-engineering.
+
+  ### 6. Bootstrap Gate Between Steps 2 and 3
+  Inserting the onboarding check after settings initialization but before Commander setup means:
+  - Settings are loaded and in-memory (zero-overhead check)
+  - ALL commands are gated (including --help, --version) per spec requirement
+  - No Commander hook complications (preAction fires per-command, not globally)
+
+  ### 7. Settings Singleton Refresh Pattern
+  After `CompleteOnboardingUseCase` persists updated settings, the orchestrator calls
+  `resetSettings()` + `initializeSettings(updatedSettings)` to refresh the in-memory singleton.
+  This is the same pattern used by `agent.command.ts` (line 72-73).
+
+  ## Implementation Strategy
+
+  Build inside-out, layer by layer:
+
+  **Phase 1** establishes the data model — TypeSpec changes + factory defaults. Without this, no
+  other layer can compile. This is the foundation everything depends on.
+
+  **Phase 2** builds the use cases that encapsulate business logic. These are independently testable
+  with mock repositories (no DB needed). Must come before infrastructure so the DI container
+  can register them.
+
+  **Phase 3** wires up infrastructure — the migration creates DB columns, the mapper handles
+  serialization, and the DI container registers use cases. After this phase, the application layer
+  is fully functional end-to-end.
+
+  **Phase 4** builds the user-facing wizard and hooks it into the CLI bootstrap. This is the largest
+  phase but each step file is small (15-50 lines) and independently testable.
+
+  **Phase 5** closes the loop by making onboarding defaults actually affect feature creation. This
+  is a small change to an existing function (`getWorkflowDefaults`) but completes the feature's value.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compilation fails with new models | Run `pnpm tsp:compile` immediately after TSP changes; fix any type conflicts before proceeding |
+  | Migration 15 conflicts with another feature branch | Use sequential version 15 (next after 14); if conflict occurs during merge, renumber |
+  | Existing settings mapper tests break with new fields | Update mapper tests in phase 3 alongside mapper changes; run test suite after each change |
+  | Ctrl+C during wizard corrupts settings | CompleteOnboardingUseCase only runs after ALL steps complete; cancellation at any step exits cleanly |
+  | agentConfigWizard changes break Step 1 | Step 1 is a thin wrapper — if the underlying wizard API changes, only agent.step.ts needs updating |
+  | Parallel CLI invocations during onboarding | SQLite handles concurrent writes; CompleteOnboardingUseCase does a single atomic update |
+  | getWorkflowDefaults extension breaks existing feat new behavior | Nullish coalescing (??) ensures CLI flags always take precedence; no change for explicit flags |
+
+  ---
+
+  _Plan complete — proceed with tasks_

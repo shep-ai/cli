@@ -1,0 +1,497 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: first-run-onboarding
+summary: >
+  14 tasks across 5 phases. Builds the first-run onboarding wizard inside-out: domain models → use cases →
+  infrastructure → presentation → integration. Each task follows TDD (RED-GREEN-REFACTOR).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec
+  - Vitest
+  - tsyringe
+  - '@inquirer/prompts'
+  - better-sqlite3
+  - picocolors
+relatedLinks: []
+
+tasks:
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 1: Domain Model & Defaults Foundation
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Update TypeSpec models — add onboardingComplete and ApprovalGateDefaults'
+    description: >
+      Add onboardingComplete: boolean = false to Settings (top-level) and create ApprovalGateDefaults model
+      with allowPrd, allowPlan, allowMerge, pushOnImplementationComplete (all boolean = false). Add
+      approvalGateDefaults: ApprovalGateDefaults to WorkflowConfig. Run pnpm tsp:compile to regenerate
+      TypeScript types. Verify generated output.ts contains new types.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Settings model in settings.tsp has onboardingComplete: boolean = false at top level'
+      - 'ApprovalGateDefaults model exists in settings.tsp with 4 boolean fields (all default false)'
+      - 'WorkflowConfig has approvalGateDefaults: ApprovalGateDefaults field'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Generated output.ts exports Settings with onboardingComplete and WorkflowConfig with approvalGateDefaults'
+    tdd:
+      red:
+        - 'pnpm tsp:compile fails or output.ts lacks new types (before TSP changes)'
+      green:
+        - 'Edit settings.tsp: add ApprovalGateDefaults model, add field to WorkflowConfig, add onboardingComplete to Settings'
+        - 'Run pnpm tsp:compile — verify success and inspect generated output.ts'
+      refactor:
+        - 'Ensure JSDoc @doc annotations are present on all new models and fields'
+        - 'Run pnpm tsp:format to normalize formatting'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Update settings defaults factory — add onboardingComplete and approvalGateDefaults'
+    description: >
+      Update createDefaultSettings() in settings-defaults.factory.ts to include onboardingComplete: false
+      and workflow.approvalGateDefaults with all fields set to false. Update existing factory tests and
+      add new tests for the onboarding-related defaults.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'createDefaultSettings() returns Settings with onboardingComplete: false'
+      - 'createDefaultSettings() returns workflow.approvalGateDefaults with all 4 fields set to false'
+      - 'Existing factory tests still pass'
+      - 'New tests verify onboardingComplete and approvalGateDefaults defaults'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Write tests in settings-defaults-onboarding.test.ts: assert createDefaultSettings().onboardingComplete === false'
+        - 'Write tests: assert createDefaultSettings().workflow.approvalGateDefaults has all 4 false fields'
+        - "Tests fail because factory doesn't include new fields yet"
+      green:
+        - 'Add onboardingComplete: false to createDefaultSettings() return object'
+        - 'Add approvalGateDefaults: { allowPrd: false, allowPlan: false, allowMerge: false, pushOnImplementationComplete: false } to workflow section'
+        - 'All new and existing tests pass'
+      refactor:
+        - 'Extract approval gate defaults into a named constant if it improves readability'
+        - 'Verify no duplication with existing workflow defaults'
+    estimatedEffort: '30min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 2: Application Layer — Use Cases
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Create CheckOnboardingStatusUseCase'
+    description: >
+      Create a use case that reads the in-memory settings singleton and returns { isComplete: boolean }.
+      This use case encapsulates the business logic of what "onboarding complete" means. It reads from
+      getSettings() (no DI injection for the singleton — same pattern as getWorkflowDefaults in CLI).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'CheckOnboardingStatusUseCase has an execute() method returning Promise<{ isComplete: boolean }>'
+      - 'Returns { isComplete: true } when settings.onboardingComplete is true'
+      - 'Returns { isComplete: false } when settings.onboardingComplete is false'
+      - 'Unit tests cover both states with mock settings singleton'
+      - 'File is under 30 lines'
+    tdd:
+      red:
+        - 'Write test: when onboardingComplete is true, execute() returns { isComplete: true }'
+        - 'Write test: when onboardingComplete is false, execute() returns { isComplete: false }'
+        - "Tests fail because use case file doesn't exist"
+      green:
+        - 'Create check-onboarding-status.use-case.ts in packages/core/src/application/use-cases/settings/'
+        - 'Implement execute() that reads getSettings().onboardingComplete and returns the boolean'
+        - 'Tests pass'
+      refactor:
+        - 'Ensure consistent naming and JSDoc with other use cases in the same directory'
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create CompleteOnboardingUseCase'
+    description: >
+      Create a use case that accepts wizard results (agent config, IDE, workflow defaults), merges them
+      into the current settings, sets onboardingComplete=true, and persists atomically via ISettingsRepository.
+      Follows the ConfigureAgentUseCase pattern: @injectable() with @inject('ISettingsRepository').
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'CompleteOnboardingUseCase is @injectable() with ISettingsRepository injection'
+      - 'execute() accepts CompleteOnboardingInput (agent config, IDE string, workflow defaults)'
+      - 'Loads current settings from repository, merges wizard results, sets onboardingComplete=true'
+      - 'Persists merged settings via repository.update() in a single call'
+      - 'Returns the updated Settings object'
+      - 'Throws if settings not found (not initialized)'
+      - 'Sets updatedAt to current timestamp'
+      - 'Unit tests with mock repository cover: success path, merge correctness, error case'
+      - 'File is under 70 lines'
+    tdd:
+      red:
+        - 'Write test: execute() with valid input persists settings with onboardingComplete=true'
+        - 'Write test: agent config from input is merged into settings.agent'
+        - 'Write test: IDE from input is merged into settings.environment.defaultEditor'
+        - 'Write test: workflow defaults from input are merged into settings.workflow.approvalGateDefaults'
+        - 'Write test: throws error when settings not found (repository.load returns null)'
+        - 'Write test: updatedAt is set to current time'
+        - "Tests fail because use case doesn't exist"
+      green:
+        - 'Create complete-onboarding.use-case.ts following ConfigureAgentUseCase pattern'
+        - 'Define CompleteOnboardingInput interface with agent, ide, workflowDefaults fields'
+        - 'Implement execute(): load settings → merge → set onboardingComplete=true → persist → return'
+        - 'All tests pass'
+      refactor:
+        - 'Ensure input interface is exported for use by the wizard orchestrator'
+        - 'Verify error messages match the style of other use cases'
+    estimatedEffort: '45min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 3: Infrastructure — Migration, Mapper & DI
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Add SQLite migration 15 — onboarding and approval gate columns'
+    description: >
+      Add migration version 15 to migrations.ts. Adds 5 new INTEGER columns to settings table:
+      onboarding_complete, approval_gate_allow_prd, approval_gate_allow_plan, approval_gate_allow_merge,
+      approval_gate_push_on_impl_complete. All DEFAULT 0. Then UPDATE existing rows to set
+      onboarding_complete=1 so existing users skip the wizard. Update LATEST_SCHEMA_VERSION.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Migration 15 SQL adds 5 columns with INTEGER NOT NULL DEFAULT 0'
+      - 'Migration 15 UPDATE sets onboarding_complete=1 on all existing rows'
+      - 'LATEST_SCHEMA_VERSION is 15'
+      - 'Integration test verifies migration runs successfully on fresh DB'
+      - 'Integration test verifies existing settings row gets onboarding_complete=1'
+      - 'Integration test verifies new settings row gets onboarding_complete=0'
+    tdd:
+      red:
+        - 'Write integration test: after migration 15, existing settings row has onboarding_complete=1'
+        - 'Write integration test: new row inserted after migration has onboarding_complete=0 (from DEFAULT)'
+        - 'Write integration test: all 5 new columns exist with correct defaults'
+        - "Tests fail because migration 15 doesn't exist"
+      green:
+        - 'Add migration 15 object to MIGRATIONS array in migrations.ts'
+        - 'SQL: 5 ALTER TABLE statements + 1 UPDATE statement'
+        - 'Update LATEST_SCHEMA_VERSION derivation (auto from array length)'
+        - 'Integration tests pass'
+      refactor:
+        - 'Ensure migration SQL comments follow the style of migrations 9-14'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Update settings mapper — map new fields bidirectionally'
+    description: >
+      Update SettingsRow interface, toDatabase(), and fromDatabase() in settings.mapper.ts to handle
+      the 5 new columns. Boolean fields map to INTEGER 0/1. Update existing mapper unit tests.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-5
+    acceptanceCriteria:
+      - 'SettingsRow interface includes onboarding_complete and 4 approval_gate_* columns (all number)'
+      - 'toDatabase() maps onboardingComplete boolean to onboarding_complete integer'
+      - 'toDatabase() maps workflow.approvalGateDefaults.* to approval_gate_* integers'
+      - 'fromDatabase() maps integer columns back to boolean fields'
+      - 'Existing mapper tests updated to include new fields'
+      - 'New tests verify round-trip mapping of new fields'
+    tdd:
+      red:
+        - 'Update existing mapper tests to include new fields in test data'
+        - 'Write test: toDatabase maps onboardingComplete:true → onboarding_complete:1'
+        - 'Write test: fromDatabase maps onboarding_complete:1 → onboardingComplete:true'
+        - 'Write test: round-trip of approvalGateDefaults fields preserves values'
+        - "Tests fail because mapper doesn't handle new fields"
+      green:
+        - 'Add 5 new fields to SettingsRow interface'
+        - 'Add mapping logic to toDatabase() for onboardingComplete and approvalGateDefaults'
+        - 'Add mapping logic to fromDatabase() for the reverse'
+        - 'All mapper tests pass'
+      refactor:
+        - 'Ensure consistent naming between column names and TypeSpec field names'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Register new use cases in DI container'
+    description: >
+      Register CompleteOnboardingUseCase as a singleton in the DI container (container.ts).
+      CheckOnboardingStatusUseCase does NOT need DI registration — it reads from getSettings()
+      directly and is instantiated manually.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'CompleteOnboardingUseCase is registered via container.registerSingleton()'
+      - 'Container can resolve CompleteOnboardingUseCase with its ISettingsRepository dependency'
+      - 'Import statement follows existing patterns (grouped with other settings use cases)'
+    tdd:
+      red:
+        - 'Verify container.resolve(CompleteOnboardingUseCase) throws before registration'
+      green:
+        - 'Add import and registerSingleton call to container.ts'
+        - 'container.resolve(CompleteOnboardingUseCase) succeeds'
+      refactor:
+        - 'Ensure import is grouped with other settings use case imports'
+    estimatedEffort: '10min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Update integration tests for settings persistence with new fields'
+    description: >
+      Update the existing sqlite-settings.repository integration test to include new fields in
+      test fixtures. Verify that initialize → load round-trips all new fields correctly.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'Integration test creates settings with onboardingComplete and approvalGateDefaults'
+      - 'Integration test verifies round-trip: initialize → load returns correct new field values'
+      - 'All existing integration tests still pass'
+    tdd:
+      red:
+        - 'Update test fixtures to include onboardingComplete: false and approvalGateDefaults with all false'
+        - 'Add assertions for new fields in load test'
+        - 'Tests may fail if fixtures are incomplete'
+      green:
+        - 'Update test data to include all new fields'
+        - 'Assertions pass with mapper and migration in place'
+      refactor:
+        - "Consolidate test fixture creation if there's duplication"
+    estimatedEffort: '20min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 4: Presentation Layer — Onboarding Wizard
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Create onboarding wizard types'
+    description: >
+      Create types.ts under src/presentation/tui/wizards/onboarding/ defining OnboardingResult
+      interface and WorkflowDefaultsResult interface. These are the contracts between wizard steps
+      and the orchestrator.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'OnboardingResult interface with agent (AgentConfigResult), ide (string), workflowDefaults (WorkflowDefaultsResult)'
+      - 'WorkflowDefaultsResult interface with allowPrd, allowPlan, allowMerge, pushOnImplementationComplete, openPrOnImplementationComplete, autoMergeOnImplementationComplete (all boolean)'
+      - 'File is under 25 lines'
+      - 'Types are exported for use by steps, orchestrator, and tests'
+    tdd:
+      red:
+        - "TypeScript compilation fails when importing OnboardingResult from the new file (file doesn't exist)"
+      green:
+        - 'Create types.ts with both interfaces'
+        - 'Import succeeds and types compile'
+      refactor:
+        - 'Verify interface field names match the CompleteOnboardingInput from task-4'
+    estimatedEffort: '10min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Create onboarding wizard steps — agent, IDE, workflow-defaults'
+    description: >
+      Create three step files under src/presentation/tui/wizards/onboarding/steps/:
+      - agent.step.ts: wraps agentConfigWizard(), returns AgentConfigResult
+      - ide.step.ts: wraps select(createIdeSelectConfig()), returns IDE string
+      - workflow-defaults.step.ts: new checkbox() prompt with 6 items (all unchecked by default), returns WorkflowDefaultsResult
+      Each step is an async function. Workflow defaults step gets unit tests.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'agent.step.ts exports runAgentStep() that calls agentConfigWizard() and returns AgentConfigResult'
+      - 'ide.step.ts exports runIdeStep() that calls select(createIdeSelectConfig()) and returns string'
+      - 'workflow-defaults.step.ts exports runWorkflowDefaultsStep() with checkbox prompt'
+      - 'Checkbox has 6 items: Allow PRD, Allow Plan, Allow Merge, Push on finish, Create PR, Auto-merge'
+      - 'All items unchecked by default; each has name and description'
+      - 'All steps use shepTheme'
+      - 'agent.step.ts under 20 lines, ide.step.ts under 25 lines, workflow-defaults.step.ts under 50 lines'
+      - 'Unit test for workflow-defaults.step verifies checkbox config shape'
+    tdd:
+      red:
+        - 'Write test for workflow-defaults step: verify it calls checkbox() with correct config'
+        - 'Write test: verify all 6 checkbox items have name, value, and description'
+        - 'Write test: verify all items are unchecked by default (checked: false)'
+        - "Tests fail because step files don't exist"
+      green:
+        - 'Create agent.step.ts wrapping agentConfigWizard()'
+        - 'Create ide.step.ts wrapping select(createIdeSelectConfig())'
+        - 'Create workflow-defaults.step.ts with checkbox config and 6 items'
+        - 'All tests pass'
+      refactor:
+        - 'Extract checkbox config to a named constant for readability'
+        - 'Verify consistent export naming across all three steps'
+    estimatedEffort: '45min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Create onboarding wizard orchestrator'
+    description: >
+      Create onboarding.wizard.ts that orchestrates the 3 steps sequentially, displays a welcome
+      banner before step 1, catches ExitPromptError for Ctrl+C handling, and calls
+      CompleteOnboardingUseCase after all steps complete. Step functions are passed as optional
+      parameters for testability (defaults to real imports).
+    state: Todo
+    dependencies:
+      - task-4
+      - task-7
+      - task-10
+    acceptanceCriteria:
+      - 'Exports onboardingWizard() async function'
+      - 'Displays welcome banner with app name, description, and step count before step 1'
+      - 'Runs steps in order: agent → IDE → workflow defaults'
+      - 'After all steps, resolves CompleteOnboardingUseCase from DI container and calls execute()'
+      - 'Refreshes settings singleton: resetSettings() + initializeSettings(updatedSettings)'
+      - 'Catches ExitPromptError (from @inquirer/prompts) and calls process.exit(0)'
+      - 'Step functions are injectable via parameters for test mocking'
+      - 'File is under 60 lines'
+      - 'Unit test: orchestrator calls steps in order and delegates to use case'
+      - 'Unit test: Ctrl+C (ExitPromptError) exits without calling use case'
+    tdd:
+      red:
+        - 'Write test: orchestrator calls agent step, then ide step, then workflow step in order'
+        - 'Write test: orchestrator calls CompleteOnboardingUseCase.execute() with combined results'
+        - 'Write test: orchestrator calls resetSettings() + initializeSettings() after use case'
+        - 'Write test: when a step throws ExitPromptError, orchestrator calls process.exit(0)'
+        - 'Write test: when a step throws ExitPromptError, CompleteOnboardingUseCase is NOT called'
+        - "Tests fail because orchestrator doesn't exist"
+      green:
+        - 'Create onboarding.wizard.ts with welcome banner + 3 step calls + use case call + singleton refresh'
+        - 'Add try-catch for ExitPromptError with process.exit(0)'
+        - 'All tests pass'
+      refactor:
+        - 'Extract welcome banner to a small helper function within the file if it improves clarity'
+        - 'Verify error message for cancellation matches existing pattern in agent.command.ts'
+    estimatedEffort: '45min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Integrate first-run gate into CLI bootstrap'
+    description: >
+      Modify bootstrap() in src/presentation/cli/index.ts to check onboarding status after settings
+      initialization (step 2) and before Commander setup (step 3). If onboarding is not complete,
+      run the onboarding wizard. Uses CheckOnboardingStatusUseCase (instantiated directly, not via DI).
+    state: Todo
+    dependencies:
+      - task-3
+      - task-11
+    acceptanceCriteria:
+      - 'After initializeSettings() call, CheckOnboardingStatusUseCase.execute() is called'
+      - 'If isComplete is false, onboardingWizard() runs before Commander setup'
+      - 'If isComplete is true, normal flow continues (no wizard)'
+      - 'bootstrap() still works correctly for the normal (post-onboarding) path'
+      - 'No changes to Commander setup or command registration'
+    tdd:
+      red:
+        - 'This task modifies bootstrap() which is hard to unit test in isolation'
+        - 'Verify manually: fresh settings (onboardingComplete=false) triggers wizard'
+        - 'Verify manually: existing settings (onboardingComplete=true) skips wizard'
+      green:
+        - 'Add CheckOnboardingStatusUseCase import and instantiation in bootstrap()'
+        - 'Add conditional: if !isComplete, await onboardingWizard()'
+        - 'Manual verification: both paths work'
+      refactor:
+        - 'Ensure the onboarding check is clearly commented for future maintainers'
+        - 'Keep bootstrap() under its current ~120 lines'
+    estimatedEffort: '20min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 5: Feature Integration — Default Resolution
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-13
+    phaseId: phase-5
+    title: 'Extend getWorkflowDefaults() to include approval gate defaults and push'
+    description: >
+      Modify getWorkflowDefaults() in feat/new.command.ts to also return allowPrd, allowPlan,
+      allowMerge, and push from settings.workflow.approvalGateDefaults. The feat new action handler
+      uses nullish coalescing (??) to apply these defaults when CLI flags are not explicitly set.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-8
+    acceptanceCriteria:
+      - 'getWorkflowDefaults() returns allowPrd, allowPlan, allowMerge, push in addition to existing openPr'
+      - 'Values come from settings.workflow.approvalGateDefaults and settings.workflow.openPrOnImplementationComplete'
+      - 'feat new action handler applies defaults via ?? when CLI flags are undefined'
+      - 'Explicit CLI flags (--allow-prd, --allow-plan, --allow-merge, --push) override settings defaults'
+      - 'Existing --pr behavior unchanged'
+    tdd:
+      red:
+        - 'Write test: getWorkflowDefaults() returns approval gate defaults from settings'
+        - 'Write test: CLI flags override settings defaults (flag=true overrides default=false)'
+        - 'Write test: when no CLI flags, settings defaults are used'
+        - "Tests fail because getWorkflowDefaults doesn't return new fields"
+      green:
+        - 'Extend getWorkflowDefaults() return type and implementation'
+        - 'Update action handler to use ?? for new defaults'
+        - 'All tests pass'
+      refactor:
+        - 'Verify return type is explicitly typed (not inferred) for clarity'
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'End-to-end validation — full pipeline verification'
+    description: >
+      Run the complete validation suite: pnpm validate (lint, format, typecheck, tsp), pnpm test
+      (all unit + integration tests), and verify no regressions. Fix any issues that surface.
+      This is the final quality gate before the feature is considered complete.
+    state: Todo
+    dependencies:
+      - task-12
+      - task-13
+    acceptanceCriteria:
+      - 'pnpm validate passes (lint + format + typecheck + tsp compile)'
+      - 'pnpm test passes (all unit + integration tests)'
+      - 'No TypeScript errors in any package'
+      - 'No lint warnings introduced'
+      - 'All new files comply with the ~150 line limit'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '6h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  14 tasks across 5 phases implement the first-run onboarding wizard following inside-out Clean Architecture.
+
+  The foundation starts with TypeSpec domain model updates (ApprovalGateDefaults model + onboardingComplete flag)
+  and settings defaults factory changes. These must come first because all other layers depend on the generated types.
+
+  Next, two application-layer use cases are built: CheckOnboardingStatusUseCase (simple singleton read) and
+  CompleteOnboardingUseCase (load-merge-persist following the ConfigureAgentUseCase pattern). Both are independently
+  testable with mock repositories.
+
+  Infrastructure wiring follows: migration 15 adds 5 SQLite columns (protecting existing users with
+  onboarding_complete=1), the settings mapper gains bidirectional field mapping, the DI container registers
+  the new use case, and integration tests verify round-trip persistence.
+
+  The presentation layer is the largest phase: a types file defines contracts, three step files wrap existing
+  prompts (agent, IDE) and add one new prompt (workflow defaults checkbox), and an orchestrator composes them
+  with welcome banner, Ctrl+C handling, and use case delegation. The CLI bootstrap gets a simple gate between
+  settings init and Commander setup.
+
+  Finally, getWorkflowDefaults() in the feat new command is extended so that onboarding choices actually
+  affect feature creation — closing the value loop. A full validation run (lint, typecheck, tests) serves
+  as the final quality gate.
+
+  ---
+
+  _Task breakdown complete — ready for implementation_

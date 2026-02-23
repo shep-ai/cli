@@ -44,6 +44,8 @@ import { messages } from './ui/index.js';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
+import { CheckOnboardingStatusUseCase } from '@/application/use-cases/settings/check-onboarding-status.use-case.js';
+import { onboardingWizard } from '../tui/wizards/onboarding/onboarding.wizard.js';
 
 /**
  * Bootstrap function - initializes all dependencies before CLI starts.
@@ -71,6 +73,14 @@ async function bootstrap() {
       const err = error instanceof Error ? error : new Error(String(error));
       messages.error('Failed to initialize settings', err);
       throw error;
+    }
+
+    // Step 2.5: First-run onboarding gate
+    // If onboarding hasn't been completed, run the wizard before any command
+    const onboardingCheck = new CheckOnboardingStatusUseCase();
+    const { isComplete } = await onboardingCheck.execute();
+    if (!isComplete) {
+      await onboardingWizard();
     }
 
     // Step 3: Set up Commander CLI

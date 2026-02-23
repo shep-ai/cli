@@ -33,13 +33,26 @@ interface NewOptions {
 /**
  * Read workflow defaults from settings, falling back to false if settings unavailable.
  */
-function getWorkflowDefaults(): { openPr: boolean } {
+interface WorkflowDefaults {
+  openPr: boolean;
+  allowPrd: boolean;
+  allowPlan: boolean;
+  allowMerge: boolean;
+  push: boolean;
+}
+
+function getWorkflowDefaults(): WorkflowDefaults {
   if (!hasSettings()) {
-    return { openPr: false };
+    return { openPr: false, allowPrd: false, allowPlan: false, allowMerge: false, push: false };
   }
   const settings = getSettings();
+  const gates = settings.workflow.approvalGateDefaults;
   return {
     openPr: settings.workflow.openPrOnImplementationComplete,
+    allowPrd: gates.allowPrd,
+    allowPlan: gates.allowPlan,
+    allowMerge: gates.allowMerge,
+    push: gates.pushOnImplementationComplete,
   };
 }
 
@@ -67,16 +80,16 @@ export function createNewCommand(): Command {
         const defaults = getWorkflowDefaults();
         const openPr = options.pr ?? defaults.openPr;
 
-        // Build approval gates from flags (each flag controls only its own step)
+        // Build approval gates from flags, falling back to settings defaults
         const approvalGates: ApprovalGates = options.allowAll
           ? { allowPrd: true, allowPlan: true, allowMerge: true }
           : {
-              allowPrd: !!options.allowPrd,
-              allowPlan: !!options.allowPlan,
-              allowMerge: !!options.allowMerge,
+              allowPrd: options.allowPrd ?? defaults.allowPrd,
+              allowPlan: options.allowPlan ?? defaults.allowPlan,
+              allowMerge: options.allowMerge ?? defaults.allowMerge,
             };
 
-        const push = !!options.push;
+        const push = options.push ?? defaults.push;
 
         const result = await spinner('Thinking', () =>
           useCase.execute({

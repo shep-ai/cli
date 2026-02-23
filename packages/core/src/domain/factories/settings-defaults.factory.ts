@@ -22,6 +22,7 @@ import type {
   AgentConfig,
   NotificationPreferences,
   WorkflowConfig,
+  ApprovalGateDefaults,
 } from '../generated/output';
 import { AgentType, AgentAuthMethod, EditorType } from '../generated/output';
 
@@ -122,9 +123,17 @@ export function createDefaultSettings(): Settings {
     },
   };
 
+  const approvalGateDefaults: ApprovalGateDefaults = {
+    allowPrd: false,
+    allowPlan: false,
+    allowMerge: false,
+    pushOnImplementationComplete: false,
+  };
+
   const workflow: WorkflowConfig = {
     openPrOnImplementationComplete: false,
     autoMergeOnImplementationComplete: false,
+    approvalGateDefaults,
   };
 
   return {
@@ -136,6 +145,7 @@ export function createDefaultSettings(): Settings {
     agent,
     notifications,
     workflow,
+    onboardingComplete: false,
     createdAt: now,
     updatedAt: now,
   };

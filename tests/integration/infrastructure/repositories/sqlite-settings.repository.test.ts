@@ -65,7 +65,14 @@ describe('SQLiteSettingsRepository', () => {
     workflow: {
       openPrOnImplementationComplete: false,
       autoMergeOnImplementationComplete: false,
+      approvalGateDefaults: {
+        allowPrd: false,
+        allowPlan: false,
+        allowMerge: false,
+        pushOnImplementationComplete: false,
+      },
     },
+    onboardingComplete: false,
   });
 
   beforeEach(async () => {

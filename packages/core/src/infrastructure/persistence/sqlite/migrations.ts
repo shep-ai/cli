@@ -232,6 +232,20 @@ ALTER TABLE phase_timings ADD COLUMN waiting_approval_at INTEGER;
 ALTER TABLE phase_timings ADD COLUMN approval_wait_ms INTEGER;
 `,
   },
+  {
+    version: 15,
+    sql: `
+-- Migration 015: Add onboarding and approval gate default columns
+ALTER TABLE settings ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_prd INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_plan INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_merge INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_push_on_impl_complete INTEGER NOT NULL DEFAULT 0;
+
+-- Existing users should NOT be forced through onboarding
+UPDATE settings SET onboarding_complete = 1 WHERE id IS NOT NULL;
+`,
+  },
 ];
 
 /**
