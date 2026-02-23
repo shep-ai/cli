@@ -83,7 +83,7 @@ describe('MergeReviewBranch interface', () => {
 });
 
 describe('MergeReviewProps interface', () => {
-  it('accepts props with data, onApprove, onRefine, and isProcessing', () => {
+  it('accepts props with data, onApprove, onReject, and isProcessing', () => {
     const props: MergeReviewProps = {
       data: {
         pr: {
@@ -93,7 +93,7 @@ describe('MergeReviewProps interface', () => {
         },
       },
       onApprove: vi.fn(),
-      onRefine: vi.fn(),
+      onReject: vi.fn(),
       isProcessing: true,
     };
 
@@ -110,7 +110,7 @@ describe('MergeReviewProps interface', () => {
         },
       },
       onApprove: vi.fn(),
-      onRefine: vi.fn(),
+      onReject: vi.fn(),
     };
 
     expectTypeOf(props).toMatchTypeOf<MergeReviewProps>();
@@ -128,7 +128,7 @@ describe('MergeReviewDrawerProps interface', () => {
         },
       },
       onApprove: vi.fn(),
-      onRefine: vi.fn(),
+      onReject: vi.fn(),
       open: true,
       onClose: vi.fn(),
       featureName: 'My Feature',
@@ -147,7 +147,7 @@ describe('MergeReviewDrawerProps interface', () => {
     const props: MergeReviewDrawerProps = {
       data: {},
       onApprove: vi.fn(),
-      onRefine: vi.fn(),
+      onReject: vi.fn(),
       open: false,
       onClose: vi.fn(),
       featureName: 'My Feature',

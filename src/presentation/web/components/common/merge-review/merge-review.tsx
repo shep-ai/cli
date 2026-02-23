@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   CheckCircle2,
   ExternalLink,
@@ -13,12 +12,10 @@ import {
   GitBranch,
   ArrowRight,
   Layers,
-  Send,
 } from 'lucide-react';
 import { CiStatus } from '@shepai/core/domain/generated/output';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 import type { MergeReviewProps, MergeReviewPhase } from './merge-review-config';
 
 function CiStatusBadge({ status }: { status: CiStatus }) {
@@ -77,17 +74,14 @@ function PhaseList({ phases }: { phases: MergeReviewPhase[] }) {
   );
 }
 
-export function MergeReview({ data, onApprove, onRefine, isProcessing = false }: MergeReviewProps) {
+export function MergeReview({
+  data,
+  onApprove,
+  onReject,
+  isProcessing = false,
+  isRejecting = false,
+}: MergeReviewProps) {
   const { pr, diffSummary, phases, branch, warning } = data;
-  const [chatInput, setChatInput] = useState('');
-
-  function handleSubmit(e: { preventDefault: () => void }) {
-    e.preventDefault();
-    const text = chatInput.trim();
-    if (!text) return;
-    onRefine(text);
-    setChatInput('');
-  }
 
   return (
     <div className="flex h-full flex-col">
@@ -208,45 +202,22 @@ export function MergeReview({ data, onApprove, onRefine, isProcessing = false }:
         {phases && phases.length > 0 ? <PhaseList phases={phases} /> : null}
       </div>
 
-      {/* Action bar: chat + approve */}
-      <div className="border-border shrink-0 border-t">
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 p-4 pb-2">
-          <Input
-            type="text"
-            placeholder="Ask AI to revise before merging..."
-            aria-label="Ask AI to revise before merging"
-            disabled={isProcessing}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            variant="secondary"
-            size="icon"
-            aria-label="Send"
-            disabled={isProcessing}
-          >
-            <Send />
-          </Button>
-        </form>
-        <div className="px-4 pt-2 pb-4">
-          <Button
-            type="button"
-            className="w-full"
-            disabled={isProcessing}
-            onClick={onApprove}
-            aria-label="Approve Merge"
-          >
-            {isProcessing ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-            ) : (
-              <GitMerge className="mr-1.5 h-4 w-4" />
-            )}
-            Approve Merge
-          </Button>
-        </div>
-      </div>
+      <DrawerActionBar
+        onReject={onReject}
+        onApprove={onApprove}
+        approveLabel="Approve Merge"
+        approveIcon={
+          isProcessing ? (
+            <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+          ) : (
+            <GitMerge className="mr-1.5 h-4 w-4" />
+          )
+        }
+        revisionPlaceholder="Ask AI to revise before merging..."
+        rejectDialogTitle="Reject Merge"
+        isProcessing={isProcessing}
+        isRejecting={isRejecting}
+      />
     </div>
   );
 }

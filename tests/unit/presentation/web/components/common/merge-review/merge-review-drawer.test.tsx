@@ -28,7 +28,7 @@ const defaultProps: MergeReviewDrawerProps = {
     },
   },
   onApprove: vi.fn(),
-  onRefine: vi.fn(),
+  onReject: vi.fn(),
 };
 
 describe('MergeReviewDrawer', () => {

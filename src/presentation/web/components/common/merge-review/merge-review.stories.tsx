@@ -36,7 +36,7 @@ const fullData: MergeReviewData = {
 
 const defaultActions = {
   onApprove: fn().mockName('onApprove'),
-  onRefine: fn().mockName('onRefine'),
+  onReject: fn().mockName('onReject'),
 };
 
 /* ─── Standalone MergeReview ─── */

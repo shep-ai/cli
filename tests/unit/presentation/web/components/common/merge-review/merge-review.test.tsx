@@ -23,7 +23,7 @@ const baseProps: MergeReviewProps = {
     },
   },
   onApprove: vi.fn(),
-  onRefine: vi.fn(),
+  onReject: vi.fn(),
 };
 
 describe('MergeReview', () => {
@@ -200,25 +200,25 @@ describe('MergeReview', () => {
       ).toBeInTheDocument();
     });
 
-    it('calls onRefine with trimmed text on submit', () => {
-      const onRefine = vi.fn();
-      render(<MergeReview {...baseProps} onRefine={onRefine} />);
+    it('calls onReject with trimmed text on submit', () => {
+      const onReject = vi.fn();
+      render(<MergeReview {...baseProps} onReject={onReject} />);
 
       const input = screen.getByRole('textbox', { name: /ask ai to revise before merging/i });
       fireEvent.change(input, { target: { value: '  fix the tests  ' } });
       fireEvent.submit(input.closest('form')!);
 
-      expect(onRefine).toHaveBeenCalledWith('fix the tests');
+      expect(onReject).toHaveBeenCalledWith('fix the tests');
     });
 
-    it('does not call onRefine when input is empty', () => {
-      const onRefine = vi.fn();
-      render(<MergeReview {...baseProps} onRefine={onRefine} />);
+    it('does not call onReject when input is empty', () => {
+      const onReject = vi.fn();
+      render(<MergeReview {...baseProps} onReject={onReject} />);
 
       const input = screen.getByRole('textbox', { name: /ask ai to revise before merging/i });
       fireEvent.submit(input.closest('form')!);
 
-      expect(onRefine).not.toHaveBeenCalled();
+      expect(onReject).not.toHaveBeenCalled();
     });
 
     it('disables chat input when isProcessing is true', () => {

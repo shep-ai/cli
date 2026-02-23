@@ -3,7 +3,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import { toast } from 'sonner';
+import type {
+  PrdApprovalPayload,
+  QuestionSelectionChange,
+} from '@shepai/core/domain/generated/output';
 import { approveFeature } from '@/app/actions/approve-feature';
+import { rejectFeature } from '@/app/actions/reject-feature';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
 import { getWorkflowDefaults } from '@/app/actions/get-workflow-defaults';
@@ -61,9 +66,11 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   // PRD questionnaire drawer state
   const [prdSelections, setPrdSelections] = useState<Record<string, string>>({});
-  const [isPrdProcessing, setIsPrdProcessing] = useState(false);
   const [questionnaireData, setQuestionnaireData] = useState<PrdQuestionnaireData | null>(null);
   const [isLoadingQuestionnaire, setIsLoadingQuestionnaire] = useState(false);
+
+  // Reject state (shared by both drawers)
+  const [isRejecting, setIsRejecting] = useState(false);
 
   // Tech decisions drawer state
   const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
@@ -86,20 +93,28 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     setPrdSelections((prev) => ({ ...prev, [questionId]: optionId }));
   }, []);
 
-  const handlePrdRefine = useCallback(async (_text: string) => {
-    setIsPrdProcessing(true);
-    // TODO: Call API to refine requirements
-    // For now simulate a delay
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsPrdProcessing(false);
-  }, []);
-
   const handlePrdApprove = useCallback(
     async (_actionId: string) => {
       const featureId = selectedNode?.featureId;
       if (!featureId) return;
 
-      const result = await approveFeature(featureId);
+      let payload: PrdApprovalPayload | undefined;
+      if (questionnaireData) {
+        const changedSelections: QuestionSelectionChange[] = [];
+        for (const [questionId, optionId] of Object.entries(prdSelections)) {
+          const question = questionnaireData.questions.find((q) => q.id === questionId);
+          const option = question?.options.find((o) => o.id === optionId);
+          if (question && option) {
+            changedSelections.push({
+              questionId: question.question,
+              selectedOption: option.label,
+            });
+          }
+        }
+        payload = { approved: true, changedSelections };
+      }
+
+      const result = await approveFeature(featureId, payload);
 
       if (!result.approved) {
         toast.error(result.error ?? 'Failed to approve requirements');
@@ -110,52 +125,79 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       clearSelection();
       setPrdSelections({});
     },
+    [selectedNode?.featureId, clearSelection, questionnaireData, prdSelections]
+  );
+
+  // Shared reject handler — all drawers use the same rejectFeature flow
+  const handleReject = useCallback(
+    async (feedback: string, label: string, onDone?: () => void) => {
+      const featureId = selectedNode?.featureId;
+      if (!featureId) return;
+
+      setIsRejecting(true);
+      try {
+        const result = await rejectFeature(featureId, feedback);
+
+        if (!result.rejected) {
+          toast.error(result.error ?? `Failed to reject ${label.toLowerCase()}`);
+          return;
+        }
+
+        toast.success(`${label} rejected — agent re-iterating (iteration ${result.iteration})`);
+        if (result.iterationWarning) {
+          toast.warning(
+            `Iteration ${result.iteration} — consider approving or adjusting feedback to avoid excessive iterations`
+          );
+        }
+        clearSelection();
+        onDone?.();
+      } finally {
+        setIsRejecting(false);
+      }
+    },
     [selectedNode?.featureId, clearSelection]
   );
 
-  const handleTechDecisionsRefine = useCallback(async (_text: string) => {
-    setIsLoadingTechDecisions(true);
-    // TODO: Call API to refine tech decisions
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoadingTechDecisions(false);
-  }, []);
+  const handlePrdReject = useCallback(
+    (feedback: string) => handleReject(feedback, 'Requirements', () => setPrdSelections({})),
+    [handleReject]
+  );
 
-  const handleTechDecisionsApprove = useCallback(async () => {
-    const featureId = selectedNode?.featureId;
-    if (!featureId) return;
+  const handleTechDecisionsReject = useCallback(
+    (feedback: string) => handleReject(feedback, 'Plan'),
+    [handleReject]
+  );
 
-    const result = await approveFeature(featureId);
+  const handleMergeReject = useCallback(
+    (feedback: string) => handleReject(feedback, 'Merge'),
+    [handleReject]
+  );
 
-    if (!result.approved) {
-      toast.error(result.error ?? 'Failed to approve plan');
-      return;
-    }
+  // Shared approve handler — tech decisions and merge use identical approve flows
+  const handleSimpleApprove = useCallback(
+    async (label: string) => {
+      const featureId = selectedNode?.featureId;
+      if (!featureId) return;
 
-    toast.success('Plan approved — agent resuming');
-    clearSelection();
-  }, [selectedNode?.featureId, clearSelection]);
+      const result = await approveFeature(featureId);
 
-  const handleMergeApprove = useCallback(async () => {
-    const featureId = selectedNode?.featureId;
-    if (!featureId) return;
+      if (!result.approved) {
+        toast.error(result.error ?? `Failed to approve ${label.toLowerCase()}`);
+        return;
+      }
 
-    const result = await approveFeature(featureId);
+      toast.success(`${label} approved — agent resuming`);
+      clearSelection();
+    },
+    [selectedNode?.featureId, clearSelection]
+  );
 
-    if (!result.approved) {
-      toast.error(result.error ?? 'Failed to approve merge');
-      return;
-    }
+  const handleTechDecisionsApprove = useCallback(
+    () => handleSimpleApprove('Plan'),
+    [handleSimpleApprove]
+  );
 
-    toast.success('Merge approved — agent resuming');
-    clearSelection();
-  }, [selectedNode?.featureId, clearSelection]);
-
-  const handleMergeRefine = useCallback(async (_text: string) => {
-    setIsLoadingMergeReview(true);
-    // TODO: Call API to refine merge
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setIsLoadingMergeReview(false);
-  }, []);
+  const handleMergeApprove = useCallback(() => handleSimpleApprove('Merge'), [handleSimpleApprove]);
 
   // Fetch questionnaire data and reset selections when a different feature is selected
   const prdFeatureId = showPrdDrawer ? selectedNode?.featureId : null;
@@ -322,11 +364,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           data={questionnaireData}
           selections={prdSelections}
           onSelect={handlePrdSelect}
-          onRefine={handlePrdRefine}
           onApprove={handlePrdApprove}
+          onReject={handlePrdReject}
+          isRejecting={isRejecting}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
-          isProcessing={isPrdProcessing || isLoadingQuestionnaire}
+          isProcessing={isLoadingQuestionnaire}
         />
       ) : null}
       {techDecisionsData ? (
@@ -339,8 +382,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           branch={selectedNode?.branch}
           specPath={selectedNode?.specPath}
           data={techDecisionsData}
-          onRefine={handleTechDecisionsRefine}
           onApprove={handleTechDecisionsApprove}
+          onReject={handleTechDecisionsReject}
+          isRejecting={isRejecting}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
           isProcessing={isLoadingTechDecisions}
@@ -357,7 +401,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           specPath={selectedNode?.specPath}
           data={mergeReviewData}
           onApprove={handleMergeApprove}
-          onRefine={handleMergeRefine}
+          onReject={handleMergeReject}
+          isRejecting={isRejecting}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
           isProcessing={isLoadingMergeReview}
