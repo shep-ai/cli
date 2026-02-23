@@ -1,3 +1,13 @@
+# [1.49.0](https://github.com/shep-ai/cli/compare/v1.48.0...v1.49.0) (2026-02-23)
+
+### Bug Fixes
+
+- **agents:** handle merge node rejection loop ([#111](https://github.com/shep-ai/cli/issues/111)) ([fd1fff3](https://github.com/shep-ai/cli/commit/fd1fff33ca2dc88bf06fbdebafb83115cbec340a))
+
+### Features
+
+- **web:** add approval/rejection flows to control center drawers ([#109](https://github.com/shep-ai/cli/issues/109)) ([8ca3a89](https://github.com/shep-ai/cli/commit/8ca3a898cf23fc0a75325adbd8c4d96af1b87d3c))
+
 # [1.48.0](https://github.com/shep-ai/cli/compare/v1.47.0...v1.48.0) (2026-02-23)
 
 ### Bug Fixes
