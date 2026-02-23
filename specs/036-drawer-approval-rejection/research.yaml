@@ -1,0 +1,397 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: drawer-approval-rejection
+summary: >
+  Technical research for wiring PRD and Tech Decisions drawers to call the
+  existing RejectAgentRunUseCase with a feedback-collection AlertDialog, and
+  forwarding PrdApprovalPayload through the approve flow. All changes are
+  presentation-layer only, using established codebase patterns (AlertDialog
+  confirmation, server action RPC, sonner toast notifications). A string-token
+  DI alias must be added for RejectAgentRunUseCase in the DI container.
+
+relatedFeatures:
+  - '035 - PRD Approval Iterations'
+  - '031 - PRD Review Questionnaire'
+  - '034 - Approval Timing'
+  - '016 - HITL Approval Gates'
+
+technologies:
+  - React 19
+  - Next.js 16+ (App Router, Server Actions)
+  - shadcn/ui (AlertDialog, Button, Textarea, Drawer)
+  - Radix UI AlertDialog (underlying primitive)
+  - Tailwind CSS v4
+  - sonner (toast notifications)
+  - tsyringe (DI container)
+  - Vitest + React Testing Library
+  - Storybook
+  - TypeSpec (domain types - read-only reference)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Reject Feedback UI Pattern'
+    chosen: 'AlertDialog overlay with controlled open state'
+    rejected:
+      - 'Inline expand in drawer — No existing inline-expansion pattern in the codebase. Would clutter the drawer content area with a Textarea + confirm button, making accidental rejection easier. The drawer components (PrdQuestionnaire, TechDecisionsReview) render content in a scrollable area with a fixed action bar; inserting inline feedback would require reworking the layout.'
+      - 'Uncontrolled AlertDialog (AlertDialogTrigger asChild) — The delete confirmation uses this, but reject needs controlled state because: feedback must be preserved on server error, Textarea must reset on success, and dialog close must be async-gated. Uncontrolled AlertDialogAction closes the dialog immediately on click, before the async action finishes.'
+    rationale: >
+      Use a controlled AlertDialog (open + onOpenChange state) triggered by the
+      reject button. The dialog contains a Textarea for feedback and a confirm
+      button that is disabled when feedback is empty. On confirm, the async
+      reject server action is called; on success the dialog closes and state
+      resets, on error the dialog stays open with feedback preserved. This
+      differs from the delete confirmation pattern (which uses uncontrolled
+      AlertDialogTrigger) because reject is an async action whose outcome
+      determines whether the dialog should close. The controlled pattern is
+      well-supported by Radix AlertDialog via the open prop.
+
+  - title: 'Reject Button Placement and Styling'
+    chosen: 'Side-by-side with approve button using destructive outline variant'
+    rejected:
+      - 'In the ReviewDrawerShell action menu (alongside delete) — Reduces discoverability; reject is a primary action equal to approve, not a secondary management action like delete. The TUI presents approve and reject as equally-weighted options.'
+      - 'Separate row above/below the approve button — Creates visual separation that implies reject is secondary. Both actions should be in the same row with equal visual weight, differentiated by variant (destructive vs primary).'
+    rationale: >
+      Place the reject button next to the approve button in the existing action
+      area. For PrdQuestionnaire, this is the footer area where the approve
+      button currently appears on the last step (line 146-155). For
+      TechDecisionsReview, this is the bottom action bar (line 179-184). The
+      reject button uses variant outline with destructive color classes to
+      visually signal its destructive nature while keeping the approve button
+      as the primary CTA. Both buttons have text labels for clarity per NFR-4.
+
+  - title: 'Reject Server Action Structure'
+    chosen: 'New reject-feature.ts mirroring approve-feature.ts with string-token DI resolution'
+    rejected:
+      - 'Reuse approve-feature.ts with an action parameter — Violates SRP; approve and reject have different parameters (approve takes optional PrdApprovalPayload, reject takes required feedback string) and different return types (reject includes iteration and iterationWarning). Combining them would create a confusing union type.'
+      - 'Direct class-based DI resolution (resolve(RejectAgentRunUseCase)) — Turbopack limitation prevents this (see container.ts line 280 comment). All existing server actions use string-token resolution. RejectAgentRunUseCase currently lacks a string-token alias, so one must be added.'
+    rationale: >
+      Create reject-feature.ts following the exact pattern of approve-feature.ts:
+      'use server' directive, string-token DI resolution, feature validation,
+      use case execution, structured return type. The action accepts
+      (featureId, feedback) and returns { rejected, iteration?,
+      iterationWarning?, error? }. A new 'RejectAgentRunUseCase' string-token
+      registration must be added in container.ts alongside the existing
+      'ApproveAgentRunUseCase' alias (line 291-293). This is the only change
+      outside the presentation layer, but it is infrastructure wiring (not
+      domain/application logic) and follows the established pattern.
+
+  - title: 'Approval Payload Forwarding Strategy'
+    chosen: 'Convert prdSelections Record to QuestionSelectionChange[] in control center handler'
+    rejected:
+      - 'Convert in the server action — The server action should be a thin RPC layer; business logic about what constitutes a changed selection belongs in the presentation orchestrator (control center). The server action just forwards the payload to the use case.'
+      - 'Store selections as QuestionSelectionChange[] from the start — Would require changing the PrdQuestionnaire component selections interface from Record<string, string> to QuestionSelectionChange[], breaking the existing component API and the auto-advance logic that uses keyed lookups.'
+    rationale: >
+      The control center already manages prdSelections as Record<string, string>
+      (questionId to optionId). In handlePrdApprove, convert this to
+      QuestionSelectionChange[] by mapping entries. The QuestionSelectionChange
+      type requires questionId (the question text) and selectedOption (the option
+      text). Since prdSelections stores IDs not text, we look up the question and
+      option text from questionnaireData. The converted payload is passed to the
+      updated approveFeature(featureId, payload) server action, which forwards
+      it to approveUseCase.execute(agentRunId, payload).
+
+  - title: 'Toast Notification Strategy for Reject'
+    chosen: 'Success toast with iteration count plus conditional warning toast via sonner'
+    rejected:
+      - 'Single toast with embedded warning — Combining success and warning in one toast makes the message too long and conflates two different pieces of information (action succeeded vs approaching iteration limit).'
+      - 'Warning in AlertDialog before confirming — Requires fetching the current iteration count before the user confirms rejection, which means either an extra server call or threading iteration state through component props. Over-engineering for an edge case.'
+    rationale: >
+      After successful reject, show toast.success with iteration count. If the
+      response includes iterationWarning true (>= 5 iterations), show a second
+      toast.warning. This matches the CLI pattern which logs a warning at the
+      same threshold. The toast.warning function is available in sonner
+      (confirmed in sonner.stories.tsx line 102). On error, show toast.error.
+
+  - title: 'Shared Reject AlertDialog Component vs Inline in Each Drawer'
+    chosen: 'Extract a shared RejectFeedbackDialog component used by both drawers'
+    rejected:
+      - 'Duplicate AlertDialog markup in PrdQuestionnaire and TechDecisionsReview — Both drawers need identical AlertDialog structure (title, description, Textarea, cancel/confirm buttons, empty-feedback validation, loading state). Duplicating violates DRY and means bug fixes must be applied twice.'
+      - 'Build into ReviewDrawerShell — The shell is a layout wrapper for drawer chrome (header, delete, action menu). Reject is a content-level action specific to approval drawers, not all review drawers. Adding it to the shell would couple unrelated concerns.'
+    rationale: >
+      Create a small RejectFeedbackDialog component in components/common/
+      reject-feedback-dialog/ that encapsulates the controlled AlertDialog with
+      Textarea, empty-feedback validation, and loading state. Props: open,
+      onOpenChange, onConfirm, isSubmitting. Both PrdQuestionnaire and
+      TechDecisionsReview render this component. This follows the Tier 1 common
+      component pattern and keeps each drawer's changes minimal.
+
+  - title: 'Processing State Management for Reject'
+    chosen: 'Local isRejecting state in control center handlers, parallel to existing isProcessing'
+    rejected:
+      - 'Reuse existing isProcessing/isPrdProcessing state — These states are used for refinement chat processing and data loading. Overloading them for reject would disable the entire drawer (including approve) during reject, and would cause confusing state transitions.'
+      - 'State in the RejectFeedbackDialog component — The dialog needs a loading indicator, but the control center also needs to know when rejection is in flight (to potentially disable other actions). State should be owned by the orchestrator.'
+    rationale: >
+      Add isRejecting state in control-center-inner.tsx. Set to true before
+      calling the reject server action, false after completion. Pass to the
+      drawer components so they can disable the reject button and show a
+      loading spinner. The RejectFeedbackDialog receives isSubmitting to
+      disable its confirm button. This parallels how isDeleting is managed
+      in the control center and passed to ReviewDrawerShell.
+
+openQuestions:
+  - question: 'Should RejectAgentRunUseCase string-token registration be added to the DI container, or should the server action use a different resolution strategy?'
+    resolved: true
+    options:
+      - option: 'Add string-token alias in container.ts'
+        description: >
+          Register 'RejectAgentRunUseCase' with useFactory alongside the existing
+          'ApproveAgentRunUseCase' alias. This is the established pattern for all
+          server actions and takes one line. The class singleton is already registered.
+        selected: true
+      - option: 'Resolve by class reference in server action'
+        description: >
+          Import and resolve RejectAgentRunUseCase class directly. This would
+          bypass the string-token pattern but may fail with Turbopack inability to
+          resolve .js to .ts imports in @shepai/core (the reason string tokens exist).
+        selected: false
+      - option: 'Create a unified approval/rejection server action'
+        description: >
+          Merge approve and reject into a single server action with an action
+          discriminator. Avoids needing a new DI registration but creates a complex
+          action with union parameters and return types, violating one-action-per-file.
+        selected: false
+    selectionRationale: >
+      Adding a string-token alias is the correct approach because it follows the
+      established pattern exactly. The comment at line 280 of container.ts
+      explicitly explains why string tokens are needed. This is a one-line
+      infrastructure wiring change, not a domain or application logic change.
+
+  - question: 'How should the control center convert prdSelections Record to QuestionSelectionChange[] for the approval payload?'
+    resolved: true
+    options:
+      - option: 'Map all selections to QuestionSelectionChange[]'
+        description: >
+          Convert every entry in prdSelections to a QuestionSelectionChange by
+          looking up the question text and option text from questionnaireData.
+          Simple and the use case handles unchanged selections gracefully.
+        selected: true
+      - option: 'Diff against initial recommended defaults'
+        description: >
+          Track the initial AI-recommended selections separately and only include
+          entries where the user changed from the default. More precise but
+          requires additional state management and the use case is idempotent.
+        selected: false
+      - option: 'Pass raw Record and convert in the server action'
+        description: >
+          Send the selections map to the server action and convert there. Moves
+          presentation logic to the server action, which should be a thin RPC
+          layer. Also requires passing questionnaireData for text lookups.
+        selected: false
+    selectionRationale: >
+      Mapping all selections is simplest and correct. The ApproveAgentRunUseCase
+      already handles the changedSelections array by iterating and updating
+      spec.yaml question-by-question. Sending all selections is safe because the
+      use case update is idempotent. The questionnaireData is already available
+      in the control center closure for text lookups.
+
+  - question: 'Where should the RejectFeedbackDialog component live in the component hierarchy?'
+    resolved: true
+    options:
+      - option: 'components/common/reject-feedback-dialog/ (Tier 1)'
+        description: >
+          Create as a Tier 1 common component with its own directory, config file,
+          stories, and tests. Used by both drawers. Follows established pattern
+          for shared domain components like review-drawer-shell.
+        selected: true
+      - option: 'components/ui/reject-feedback-dialog.tsx (Tier 0)'
+        description: >
+          Place alongside base shadcn/ui primitives. Not appropriate because
+          Tier 0 is for generic UI primitives, not domain-specific components.
+        selected: false
+      - option: 'Inline in each drawer component (no extraction)'
+        description: >
+          Duplicate the AlertDialog plus Textarea markup in both drawers. Faster
+          initially but creates maintenance burden for identical validation,
+          styling, and behavior.
+        selected: false
+    selectionRationale: >
+      Tier 1 common component is correct. The reject feedback dialog is a
+      domain-specific component (approval workflow) shared by two consumers.
+      The codebase places shared domain components in components/common/ with
+      their own directories. The component follows this pattern with its own
+      config.ts, stories, and index.ts barrel export.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Reject Feedback UI Pattern
+
+  **Chosen:** AlertDialog overlay with controlled open state
+
+  **Rejected:**
+  - Inline expand in drawer — No existing pattern; clutters content area
+  - Uncontrolled AlertDialog (AlertDialogTrigger) — Cannot async-gate close; feedback lost on error
+
+  **Rationale:** Use React state (`open` + `onOpenChange`) to control the AlertDialog. On confirm, call reject server action async; on success close dialog and reset, on error keep dialog open with feedback preserved. Differs from delete confirmation (uncontrolled) because reject outcome determines close behavior.
+
+  ### 2. Reject Button Placement and Styling
+
+  **Chosen:** Side-by-side with approve button using destructive outline variant
+
+  **Rejected:**
+  - In ReviewDrawerShell action menu — Reduces discoverability for primary action
+  - Separate row — Implies reject is secondary
+
+  **Rationale:** Both buttons share the action area. Reject uses `variant="outline"` with destructive styling. Approve keeps primary variant. Both have text labels for accessibility.
+
+  ### 3. Reject Server Action Structure
+
+  **Chosen:** New `reject-feature.ts` mirroring `approve-feature.ts` with string-token DI resolution
+
+  **Rejected:**
+  - Reuse approve-feature.ts with action param — Different params/return types violate SRP
+  - Direct class-based DI resolution — Turbopack limitation (container.ts line 280)
+
+  **Rationale:** New server action following exact approve pattern. **Critical: `RejectAgentRunUseCase` lacks a string-token alias in the DI container** (unlike `ApproveAgentRunUseCase` at line 291). Must add `'RejectAgentRunUseCase'` registration in `container.ts`.
+
+  ### 4. Approval Payload Forwarding
+
+  **Chosen:** Convert `prdSelections` Record to `QuestionSelectionChange[]` in control center
+
+  **Rejected:**
+  - Convert in server action — Business logic belongs in presentation orchestrator
+  - Store as QuestionSelectionChange[] — Breaks existing component API
+
+  **Rationale:** In `handlePrdApprove`, map `prdSelections` entries by looking up question/option text from `questionnaireData`. Pass as `PrdApprovalPayload` to updated `approveFeature()`.
+
+  ### 5. Toast Notifications
+
+  **Chosen:** Success toast + conditional warning toast via sonner
+
+  **Rejected:**
+  - Single combined toast — Too long, conflates success and warning
+  - Warning in AlertDialog pre-confirm — Requires extra server call
+
+  **Rationale:** `toast.success()` for result, `toast.warning()` if `iterationWarning` is true. Both confirmed available in sonner.
+
+  ### 6. Shared RejectFeedbackDialog Component
+
+  **Chosen:** Extract shared Tier 1 component at `components/common/reject-feedback-dialog/`
+
+  **Rejected:**
+  - Duplicate markup in each drawer — Violates DRY for identical UI
+  - Build into ReviewDrawerShell — Couples layout with content-level action
+
+  **Rationale:** Both drawers need identical feedback collection. Shared component with props: `open`, `onOpenChange`, `onConfirm`, `isSubmitting`.
+
+  ### 7. Processing State Management
+
+  **Chosen:** Local `isRejecting` state in control center
+
+  **Rejected:**
+  - Reuse isProcessing — Would disable entire drawer during reject
+  - State in dialog — Orchestrator needs to know rejection flight status
+
+  **Rationale:** Parallels `isDeleting` state management pattern.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | shadcn/ui AlertDialog | Reject feedback modal | Use (installed) | Same pattern as delete confirmation in ReviewDrawerShell |
+  | shadcn/ui Textarea | Feedback input | Use (installed) | Available at components/ui/textarea.tsx |
+  | shadcn/ui Button | Reject/confirm buttons | Use (installed) | Core UI primitive |
+  | sonner | Toast notifications | Use (installed) | Already used in control-center-inner.tsx; toast.warning() confirmed |
+  | Radix AlertDialog | Underlying primitive | Use (installed) | Provides controlled mode via open prop |
+  | lucide-react | Button icons | Use (installed) | X or Ban for reject; Loader2 for loading |
+  | react-hook-form | Form validation | Reject | Overkill for single Textarea; useState + empty check sufficient |
+  | zod | Schema validation | Reject | No complex validation; single non-empty string check |
+
+  ## Security Considerations
+
+  - **Input sanitization**: Feedback string written to spec.yaml via js-yaml serialization which handles special characters safely. No HTML rendering of feedback — no XSS risk.
+  - **Authorization**: Web UI served locally by `shep ui`. No remote access, no auth boundaries crossed.
+  - **Server action validation**: reject-feature.ts validates featureId and feedback are non-empty before proceeding (same pattern as approve-feature.ts).
+  - **No new attack surface**: All data flows through existing DI-resolved use cases. No new external calls or data stores.
+
+  ## Performance Implications
+
+  - **No additional server calls**: Reject is a single RPC call. Iteration count returned in response (no pre-fetch needed).
+  - **No bundle size impact**: All UI components already installed. New RejectFeedbackDialog is ~50 lines.
+  - **State management**: Adding isRejecting state has negligible impact. No new contexts or providers.
+
+  ## Architecture Notes
+
+  ### Component Hierarchy Changes
+
+  ```
+  ControlCenterInner (orchestrator)
+  ├── PrdQuestionnaireDrawer
+  │   └── ReviewDrawerShell
+  │       └── PrdQuestionnaire
+  │           ├── [existing question stepper]
+  │           ├── Reject button (NEW) — on last step next to approve
+  │           └── RejectFeedbackDialog (NEW shared component)
+  ├── TechDecisionsDrawer
+  │   └── ReviewDrawerShell
+  │       └── TechDecisionsReview
+  │           ├── [existing decision cards]
+  │           ├── Reject button (NEW) — in action bar next to approve
+  │           └── RejectFeedbackDialog (NEW shared component)
+  ```
+
+  ### Data Flow: Reject
+
+  ```
+  User clicks Reject → AlertDialog opens → User types feedback → Clicks Confirm
+  → Component calls onReject(feedback)
+  → ControlCenterInner.handlePrdReject(feedback)
+  → rejectFeature(featureId, feedback) server action
+  → resolve('RejectAgentRunUseCase').execute(agentRunId, feedback)
+  → Returns { rejected, iteration, iterationWarning }
+  → toast.success/warning/error
+  → clearSelection() + setPrdSelections({})
+  ```
+
+  ### Data Flow: Approve with Payload
+
+  ```
+  User clicks Approve → Component calls onApprove(actionId)
+  → ControlCenterInner.handlePrdApprove(actionId)
+  → Convert prdSelections to QuestionSelectionChange[]
+  → approveFeature(featureId, { approved: true, changedSelections })
+  → resolve('ApproveAgentRunUseCase').execute(agentRunId, payload)
+  → Returns { approved, reason }
+  → toast.success/error → clearSelection()
+  ```
+
+  ### Files to Create
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `src/presentation/web/app/actions/reject-feature.ts` | Server action calling RejectAgentRunUseCase |
+  | `src/presentation/web/components/common/reject-feedback-dialog/reject-feedback-dialog.tsx` | Shared AlertDialog for feedback collection |
+  | `src/presentation/web/components/common/reject-feedback-dialog/reject-feedback-dialog-config.ts` | Props interface |
+  | `src/presentation/web/components/common/reject-feedback-dialog/reject-feedback-dialog.stories.tsx` | Storybook stories |
+  | `src/presentation/web/components/common/reject-feedback-dialog/index.ts` | Barrel export |
+  | `tests/unit/presentation/web/components/common/reject-feedback-dialog/reject-feedback-dialog.test.tsx` | Unit tests |
+  | `tests/unit/presentation/web/app/actions/reject-feature.test.ts` | Server action tests |
+
+  ### Files to Modify
+
+  | File | Changes |
+  | ---- | ------- |
+  | `packages/core/src/infrastructure/di/container.ts` | Add 'RejectAgentRunUseCase' string-token alias |
+  | `src/presentation/web/app/actions/approve-feature.ts` | Add optional payload param, forward to use case |
+  | `src/presentation/web/components/common/prd-questionnaire/prd-questionnaire-config.ts` | Add onReject callback to props |
+  | `src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.tsx` | Add reject button + RejectFeedbackDialog |
+  | `src/presentation/web/components/common/tech-decisions-review/tech-decisions-review-config.ts` | Add onReject callback to props |
+  | `src/presentation/web/components/common/tech-decisions-review/tech-decisions-review.tsx` | Add reject button + RejectFeedbackDialog |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Add reject handlers, isRejecting state, wire props, forward payload |
+  | Storybook stories for both drawers | Add reject-related story variants |
+  | Existing test files for both drawers | Add reject button and dialog tests |
+
+  ### DI Container Change Detail
+
+  Add after the ApproveAgentRunUseCase registration (line 293) in container.ts:
+  ```typescript
+  container.register('RejectAgentRunUseCase', {
+    useFactory: (c) => c.resolve(RejectAgentRunUseCase),
+  });
+  ```
+
+  ---
+
+  _Research completed — proceed with planning_

@@ -31,7 +31,6 @@ const baseProps: PrdQuestionnaireDrawerProps = {
   data: mockData,
   selections: {},
   onSelect: vi.fn(),
-  onRefine: vi.fn(),
   onApprove: vi.fn(),
 };
 

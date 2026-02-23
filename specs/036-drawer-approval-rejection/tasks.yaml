@@ -1,0 +1,433 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: drawer-approval-rejection
+summary: >
+  14 tasks across 5 phases. Phase 1 sets up DI wiring and server actions.
+  Phase 2 builds the shared RejectFeedbackDialog component. Phase 3 updates
+  both drawer components with reject buttons and dialog integration. Phase 4
+  wires the control center orchestrator with reject handlers and approval
+  payload forwarding. Phase 5 adds Storybook stories for all new/modified
+  components.
+
+relatedFeatures:
+  - '035 - PRD Approval Iterations'
+  - '031 - PRD Review Questionnaire'
+
+technologies:
+  - React 19
+  - Next.js 16+ (Server Actions)
+  - shadcn/ui (AlertDialog, Button, Textarea)
+  - sonner
+  - tsyringe
+  - Vitest + React Testing Library
+  - Storybook
+
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: DI Wiring & Server Actions ──
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add RejectAgentRunUseCase string-token alias to DI container'
+    description: >
+      Add a string-token registration for 'RejectAgentRunUseCase' in
+      container.ts, following the existing 'ApproveAgentRunUseCase' pattern
+      at line 291-293. The class singleton is already registered at line 265;
+      this adds the string alias needed by server actions under Turbopack.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - "container.ts has `container.register('RejectAgentRunUseCase', { useFactory: (c) => c.resolve(RejectAgentRunUseCase) })` after line 293"
+      - 'RejectAgentRunUseCase import is present at the top of container.ts'
+      - 'Existing registrations are unchanged'
+    tdd:
+      red:
+        - "Write a unit test that resolves 'RejectAgentRunUseCase' from the initialized container and asserts it is an instance of RejectAgentRunUseCase"
+      green:
+        - 'Add the string-token registration and import in container.ts'
+      refactor:
+        - 'Ensure the new registration is grouped with other use case aliases and has a comment if needed'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create reject-feature server action'
+    description: >
+      Create reject-feature.ts in app/actions/ following the approve-feature.ts
+      pattern. The action accepts (featureId, feedback), validates both inputs,
+      resolves IFeatureRepository and RejectAgentRunUseCase via string tokens,
+      validates the feature has an agentRunId, calls the use case, and returns
+      { rejected, iteration?, iterationWarning?, error? }.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'reject-feature.ts exists at src/presentation/web/app/actions/reject-feature.ts'
+      - 'Exports async function rejectFeature(featureId: string, feedback: string)'
+      - 'Returns { rejected: boolean; iteration?: number; iterationWarning?: boolean; error?: string }'
+      - 'Validates featureId is non-empty'
+      - 'Validates feedback is non-empty'
+      - 'Validates feature exists and has agentRunId'
+      - 'Calls RejectAgentRunUseCase.execute(agentRunId, feedback)'
+      - 'Wraps errors in { rejected: false, error: message }'
+    tdd:
+      red:
+        - 'Write tests that mock the DI resolve function and verify: empty featureId returns error, empty feedback returns error, missing feature returns error, missing agentRunId returns error, use case rejection failure returns error, successful rejection returns { rejected: true, iteration, iterationWarning }'
+      green:
+        - 'Implement reject-feature.ts mirroring approve-feature.ts structure with feedback parameter and expanded return type'
+      refactor:
+        - 'Ensure consistent error messages match approve-feature.ts style'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Update approve-feature server action to forward PrdApprovalPayload'
+    description: >
+      Add an optional payload parameter to approveFeature() and forward it to
+      approveUseCase.execute(agentRunId, payload). The payload type is
+      PrdApprovalPayload from domain generated types. Existing callers that
+      pass no payload continue to work unchanged.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'approveFeature signature is approveFeature(featureId: string, payload?: PrdApprovalPayload)'
+      - 'Payload is forwarded to approveUseCase.execute(feature.agentRunId, payload)'
+      - 'Calling approveFeature(featureId) without payload still works (backward compatible)'
+      - 'PrdApprovalPayload type is imported from @shepai/core/domain/generated/output'
+    tdd:
+      red:
+        - 'Write a test that calls approveFeature with a payload object and verifies the use case receives it'
+        - 'Write a test that calls approveFeature without payload and verifies backward compatibility'
+      green:
+        - 'Add optional payload parameter to approveFeature and forward to execute()'
+      refactor:
+        - 'Verify the import path for PrdApprovalPayload uses the correct @shepai/core alias'
+    estimatedEffort: '20min'
+
+  # ── Phase 2: Shared RejectFeedbackDialog Component ──
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create RejectFeedbackDialog config and component'
+    description: >
+      Create the RejectFeedbackDialog Tier 1 common component. It is a
+      controlled AlertDialog containing a title ("Reject Requirements"),
+      description ("Provide feedback..."), Textarea for feedback input, Cancel
+      button, and Confirm Reject button. The confirm button is disabled when
+      feedback is empty or isSubmitting is true. Uses a Loader2 spinner during
+      submission. Resets feedback on open. Props: open, onOpenChange,
+      onConfirm(feedback), isSubmitting, title? (defaults to "Reject
+      Requirements"), description? (defaults to standard text).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'reject-feedback-dialog-config.ts exports RejectFeedbackDialogProps interface with open, onOpenChange, onConfirm, isSubmitting, title?, description?'
+      - 'reject-feedback-dialog.tsx renders AlertDialog with controlled open prop'
+      - "Textarea has aria-label 'Rejection feedback'"
+      - 'Confirm button is disabled when feedback is empty (whitespace-only counts as empty)'
+      - 'Confirm button is disabled when isSubmitting is true'
+      - 'Confirm button shows Loader2 spinner when isSubmitting'
+      - 'Cancel button calls onOpenChange(false) and is disabled during submission'
+      - 'Feedback state resets to empty when dialog opens'
+      - 'index.ts barrel-exports the component and config types'
+    tdd:
+      red:
+        - 'Write tests: dialog renders when open=true, dialog hidden when open=false, Textarea has aria-label, confirm disabled with empty feedback, confirm enabled with non-empty feedback, confirm disabled when isSubmitting, onConfirm called with trimmed feedback text on click, onOpenChange(false) called on cancel, feedback resets when dialog reopens'
+      green:
+        - 'Implement the component with useState for feedback, controlled AlertDialog, Textarea, and button states'
+      refactor:
+        - 'Extract default title/description as constants; ensure consistent class names with codebase patterns'
+    estimatedEffort: '45min'
+
+  # ── Phase 3: Drawer Component Updates ──
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Add onReject and isRejecting to PrdQuestionnaire props'
+    description: >
+      Add optional onReject callback and isRejecting boolean to
+      PrdQuestionnaireProps. The onReject signature is (feedback: string) => void.
+      isRejecting controls the reject button's disabled/loading state. Both
+      are optional to maintain backward compatibility — drawers without reject
+      simply don't render the button.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'PrdQuestionnaireProps has onReject?: (feedback: string) => void'
+      - 'PrdQuestionnaireProps has isRejecting?: boolean'
+      - 'PrdQuestionnaireDrawerProps inherits both via extends'
+      - 'JSDoc comments describe the props'
+    tdd:
+      red:
+        - 'Write a type-level test or render test confirming PrdQuestionnaire accepts onReject and isRejecting props without error'
+      green:
+        - 'Add the two optional props to PrdQuestionnaireProps in prd-questionnaire-config.ts'
+      refactor:
+        - 'Group reject props near onApprove for logical ordering'
+    estimatedEffort: '10min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add reject button and RejectFeedbackDialog to PrdQuestionnaire'
+    description: >
+      On the last step of the questionnaire (where the approve button appears),
+      add a reject button with variant="outline" and destructive text styling
+      next to the approve button. Clicking it opens the RejectFeedbackDialog.
+      The button only renders when onReject is provided. Uses local state for
+      dialog open/close. Passes isRejecting as isSubmitting to the dialog.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'Reject button appears on last step when onReject is provided'
+      - 'Reject button does not appear when onReject is undefined'
+      - "Reject button uses variant='outline' with destructive text color"
+      - 'Reject button is disabled when isRejecting or isProcessing is true'
+      - 'Clicking reject opens RejectFeedbackDialog'
+      - 'Dialog onConfirm calls onReject(feedback)'
+      - 'Reject and approve buttons are in a flex row with gap'
+      - 'Button order: Reject (left), Approve (right) for clear visual hierarchy'
+    tdd:
+      red:
+        - 'Write tests: reject button not rendered when onReject is undefined, reject button rendered on last step when onReject provided, reject button disabled when isRejecting=true, clicking reject shows the AlertDialog, confirming dialog calls onReject with feedback'
+      green:
+        - 'Add state for dialogOpen, import and render RejectFeedbackDialog, add reject button in the isLastStep branch next to approve'
+      refactor:
+        - 'Ensure button layout is responsive; verify approve button is not displaced'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add onReject and isRejecting to TechDecisionsReview props'
+    description: >
+      Add optional onReject callback and isRejecting boolean to
+      TechDecisionsReviewProps, matching the PrdQuestionnaire pattern exactly.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'TechDecisionsReviewProps has onReject?: (feedback: string) => void'
+      - 'TechDecisionsReviewProps has isRejecting?: boolean'
+      - 'TechDecisionsDrawerProps inherits both via extends'
+      - 'JSDoc comments describe the props'
+    tdd:
+      red:
+        - 'Write a render test confirming TechDecisionsReview accepts onReject and isRejecting props'
+      green:
+        - 'Add the two optional props to TechDecisionsReviewProps in tech-decisions-review-config.ts'
+      refactor:
+        - 'Group reject props near onApprove for logical ordering'
+    estimatedEffort: '10min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add reject button and RejectFeedbackDialog to TechDecisionsReview'
+    description: >
+      In the action bar (where "Approve Plan" currently renders as a full-width
+      button), add a reject button next to approve. Convert the approve button
+      area to a flex row with reject (outline destructive) and approve (primary).
+      Wire RejectFeedbackDialog with local open state and isRejecting prop.
+      Pass title="Reject Plan" to the dialog to differentiate from PRD.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-7
+    acceptanceCriteria:
+      - 'Reject button appears in action bar when onReject is provided'
+      - 'Reject button does not appear when onReject is undefined'
+      - "Reject button uses variant='outline' with destructive text color"
+      - 'Reject button is disabled when isRejecting or isProcessing is true'
+      - "Clicking reject opens RejectFeedbackDialog with title 'Reject Plan'"
+      - 'Dialog onConfirm calls onReject(feedback)'
+      - 'Both buttons share the action bar row; approve is still primary/prominent'
+    tdd:
+      red:
+        - 'Write tests: reject button not rendered when onReject undefined, reject button rendered in action bar when onReject provided, reject button disabled when isRejecting=true, clicking reject shows AlertDialog, confirming calls onReject with feedback'
+      green:
+        - 'Add state for dialogOpen, import and render RejectFeedbackDialog, restructure the button area to flex row with reject and approve'
+      refactor:
+        - 'Ensure the approve button still fills remaining space or both buttons have equal width'
+    estimatedEffort: '30min'
+
+  # ── Phase 4: Control Center Orchestration ──
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Add handlePrdReject handler and isRejecting state to control center'
+    description: >
+      Add isRejecting state and handlePrdReject callback in
+      control-center-inner.tsx. The handler calls rejectFeature(featureId,
+      feedback), shows toast.success with iteration count on success,
+      toast.warning if iterationWarning is true, toast.error on failure, and
+      calls clearSelection() + setPrdSelections({}) on success.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-6
+    acceptanceCriteria:
+      - 'isRejecting state exists (useState<boolean>(false))'
+      - 'handlePrdReject is a useCallback that accepts (feedback: string)'
+      - 'Sets isRejecting true before server action call, false after'
+      - "On success: toast.success('Requirements rejected — agent re-iterating (iteration N)')"
+      - 'On iterationWarning: toast.warning about iteration count'
+      - 'On error: toast.error with error message'
+      - 'On success: calls clearSelection() and setPrdSelections({})'
+      - 'rejectFeature import added from @/app/actions/reject-feature'
+    tdd:
+      red:
+        - 'Write tests mocking the server action: successful reject shows success toast + clears selection, iterationWarning shows warning toast, failure shows error toast and does NOT clear selection'
+      green:
+        - 'Implement handlePrdReject with isRejecting state management and toast calls'
+      refactor:
+        - 'Extract toast messages as constants if they become verbose'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Add handleTechDecisionsReject handler to control center'
+    description: >
+      Add handleTechDecisionsReject callback following the same pattern as
+      handlePrdReject. Shares the isRejecting state. Uses different toast
+      messages: 'Plan rejected — agent re-iterating (iteration N)'.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-8
+    acceptanceCriteria:
+      - 'handleTechDecisionsReject is a useCallback accepting (feedback: string)'
+      - 'Shares isRejecting state with handlePrdReject'
+      - "On success: toast.success('Plan rejected — agent re-iterating (iteration N)')"
+      - 'On iterationWarning: toast.warning about iteration count'
+      - 'On error: toast.error with error message'
+      - 'On success: calls clearSelection()'
+    tdd:
+      red:
+        - 'Write tests: successful tech decisions reject shows correct toast, warning shows warning toast, error shows error toast'
+      green:
+        - 'Implement handleTechDecisionsReject mirroring handlePrdReject with different messages'
+      refactor:
+        - 'Consider extracting common reject handler logic if both handlers are nearly identical'
+    estimatedEffort: '20min'
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Wire onReject and isRejecting props to both drawers'
+    description: >
+      Pass handlePrdReject as onReject and isRejecting to PrdQuestionnaireDrawer.
+      Pass handleTechDecisionsReject as onReject and isRejecting to
+      TechDecisionsDrawer. This connects the UI components to the server action
+      handlers.
+    state: Todo
+    dependencies:
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - 'PrdQuestionnaireDrawer receives onReject={handlePrdReject} and isRejecting={isRejecting}'
+      - 'TechDecisionsDrawer receives onReject={handleTechDecisionsReject} and isRejecting={isRejecting}'
+      - 'Existing props (onApprove, onRefine, etc.) remain unchanged'
+    tdd:
+      red:
+        - 'Write an integration-style render test that verifies the reject button appears in the rendered control center when the appropriate lifecycle/state conditions are met'
+      green:
+        - 'Add the onReject and isRejecting props to both drawer JSX elements in control-center-inner.tsx'
+      refactor:
+        - 'Verify no TypeScript errors from the new props'
+    estimatedEffort: '15min'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Forward PrdApprovalPayload in handlePrdApprove'
+    description: >
+      Update handlePrdApprove to convert the prdSelections Record<string, string>
+      to QuestionSelectionChange[] by looking up question text and option text
+      from questionnaireData. Construct PrdApprovalPayload { approved: true,
+      changedSelections } and pass to the updated approveFeature(featureId,
+      payload). The conversion maps prdSelections entries where each key is a
+      questionId and the value is an optionId, looking up the question.question
+      text and option.label text from questionnaireData.questions.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'handlePrdApprove converts prdSelections to QuestionSelectionChange[]'
+      - 'Each QuestionSelectionChange has questionId (question text) and selectedOption (option label)'
+      - 'PrdApprovalPayload { approved: true, changedSelections } is passed to approveFeature'
+      - 'If questionnaireData is null, approves without payload (graceful fallback)'
+      - 'QuestionSelectionChange and PrdApprovalPayload types imported from @shepai/core'
+    tdd:
+      red:
+        - 'Write a test that mocks approveFeature and verifies it receives the correct PrdApprovalPayload with changedSelections containing question text and option label lookups'
+        - 'Write a test that verifies approve without questionnaireData passes no payload'
+      green:
+        - 'Add conversion logic in handlePrdApprove: map prdSelections entries using questionnaireData for text lookups, construct payload, pass to approveFeature'
+      refactor:
+        - 'Extract the conversion helper to a pure function for testability if the logic exceeds 10 lines'
+    estimatedEffort: '30min'
+
+  # ── Phase 5: Storybook Stories ──
+
+  - id: task-13
+    phaseId: phase-5
+    title: 'Add RejectFeedbackDialog Storybook stories'
+    description: >
+      Create stories for the RejectFeedbackDialog component showing: default
+      (dialog open, empty feedback), with feedback entered, submitting state
+      (spinner, disabled buttons), and custom title/description variants.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "reject-feedback-dialog.stories.tsx exists with meta title 'Composed/RejectFeedbackDialog'"
+      - 'Stories: Default (open, empty), WithFeedback (text in textarea), Submitting (isSubmitting=true), CustomTitle'
+      - 'Stories use fn() mocks for onConfirm and onOpenChange'
+      - 'Colocated in the reject-feedback-dialog/ directory'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Update PrdQuestionnaire and TechDecisionsReview stories with reject variants'
+    description: >
+      Add story variants to both existing story files: WithRejectButton (on last
+      step with onReject provided), RejectDialogOpen (showing the AlertDialog),
+      and RejectingState (isRejecting=true, button disabled with spinner).
+      For the drawer stories, add variants with onReject wired.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-8
+    acceptanceCriteria:
+      - 'prd-questionnaire.stories.tsx has WithRejectButton and RejectingState story variants'
+      - 'tech-decisions-review.stories.tsx has WithRejectButton and RejectingState story variants'
+      - 'All new stories render correctly in Storybook (visual verification)'
+      - 'Story variants use fn() mocks for onReject callback'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '5h 15min'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a bottom-up approach across 5 phases with 14 tasks.
+  First, the DI container and server actions are set up as the foundation layer
+  (3 tasks). Then the shared RejectFeedbackDialog component is built as a
+  reusable Tier 1 component (1 task). Next, both drawer components are updated
+  with reject buttons and dialog integration (4 tasks — 2 per drawer for config
+  + implementation). The control center orchestrator is then wired with handlers,
+  state management, and approval payload forwarding (4 tasks). Finally, Storybook
+  stories are added for visual documentation (2 tasks).
+
+  The first 3 tasks in phase 1 and the config-only tasks (5, 7) have no
+  cross-dependencies and can be worked in parallel if desired. The critical
+  path runs through: task-1 → task-2 → task-9/10 → task-11 (reject server
+  action through to control center wiring). The approval payload path
+  (task-3 → task-12) is independent and can be developed in parallel.
+
+  Every code task follows TDD with explicit RED-GREEN-REFACTOR cycles. Tests
+  use Vitest + React Testing Library per project conventions. Storybook tasks
+  are documentation-only and do not have TDD cycles.

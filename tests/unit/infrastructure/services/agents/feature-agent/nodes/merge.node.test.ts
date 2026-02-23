@@ -23,6 +23,9 @@ vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 const {
   mockInterrupt,
   mockShouldInterrupt,
+  mockGetCompletedPhases,
+  mockClearCompletedPhase,
+  mockMarkPhaseComplete,
   mockRecordPhaseStart,
   mockRecordPhaseEnd,
   mockRecordApprovalWaitStart,
@@ -33,6 +36,9 @@ const {
 } = vi.hoisted(() => ({
   mockInterrupt: vi.fn(),
   mockShouldInterrupt: vi.fn().mockReturnValue(false),
+  mockGetCompletedPhases: vi.fn().mockReturnValue([]),
+  mockClearCompletedPhase: vi.fn(),
+  mockMarkPhaseComplete: vi.fn(),
   mockRecordPhaseStart: vi.fn().mockResolvedValue('timing-123'),
   mockRecordPhaseEnd: vi.fn().mockResolvedValue(undefined),
   mockRecordApprovalWaitStart: vi.fn().mockResolvedValue(undefined),
@@ -58,6 +64,9 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', 
   }),
   readSpecFile: vi.fn().mockReturnValue('name: Test Feature\ndescription: A test\n'),
   shouldInterrupt: mockShouldInterrupt,
+  getCompletedPhases: mockGetCompletedPhases,
+  clearCompletedPhase: mockClearCompletedPhase,
+  markPhaseComplete: mockMarkPhaseComplete,
   retryExecute: vi
     .fn()
     .mockImplementation(

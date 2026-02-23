@@ -146,10 +146,9 @@ const mockFinalAction = {
 function InteractiveQuestionnaire({
   selections: initialSelections = {},
   ...props
-}: Omit<
-  React.ComponentProps<typeof PrdQuestionnaire>,
-  'onSelect' | 'onRefine' | 'onApprove' | 'selections'
-> & { selections?: Record<string, string> }) {
+}: Omit<React.ComponentProps<typeof PrdQuestionnaire>, 'onSelect' | 'onApprove' | 'selections'> & {
+  selections?: Record<string, string>;
+}) {
   const [selections, setSelections] = useState<Record<string, string>>(initialSelections);
 
   return (
@@ -157,7 +156,6 @@ function InteractiveQuestionnaire({
       {...props}
       selections={selections}
       onSelect={(qId, optId) => setSelections((prev) => ({ ...prev, [qId]: optId }))}
-      onRefine={fn().mockName('onRefine')}
       onApprove={fn().mockName('onApprove')}
     />
   );
@@ -174,7 +172,6 @@ const meta: Meta<typeof PrdQuestionnaire> = {
   },
   argTypes: {
     onSelect: { action: 'onSelect' },
-    onRefine: { action: 'onRefine' },
     onApprove: { action: 'onApprove' },
   },
   decorators: [
@@ -296,7 +293,7 @@ function DrawerTemplate({
   ...props
 }: Omit<
   React.ComponentProps<typeof PrdQuestionnaireDrawer>,
-  'open' | 'onClose' | 'onSelect' | 'onRefine' | 'onApprove' | 'selections'
+  'open' | 'onClose' | 'onSelect' | 'onApprove' | 'selections'
 > & { selections?: Record<string, string> }) {
   const [open, setOpen] = useState(true);
   const [selections, setSelections] = useState<Record<string, string>>(initialSelections);
@@ -316,7 +313,6 @@ function DrawerTemplate({
         onClose={() => setOpen(false)}
         selections={selections}
         onSelect={(qId, optId) => setSelections((prev) => ({ ...prev, [qId]: optId }))}
-        onRefine={fn().mockName('onRefine')}
         onApprove={fn().mockName('onApprove')}
       />
     </div>
@@ -381,4 +377,36 @@ export const DeletingState: DrawerStory = {
       onDelete={fn().mockName('onDelete')}
     />
   ),
+};
+
+/* ─── Reject Variants ─── */
+
+const allAnsweredSelections = {
+  problem: 'user_pain',
+  priority: 'p1',
+  success: 'adoption',
+  timeline: 'sprint',
+  scope: 'mvp',
+  stakeholders: 'end_users',
+};
+
+/** All answered with reject button visible on last step. */
+export const WithRejectButton: Story = {
+  render: () => (
+    <InteractiveQuestionnaire
+      data={mockData}
+      selections={allAnsweredSelections}
+      onReject={fn().mockName('onReject')}
+    />
+  ),
+};
+
+/** Rejecting state — reject button disabled with spinner while reject action is in flight. */
+export const RejectingState: Story = {
+  args: {
+    data: mockData,
+    selections: allAnsweredSelections,
+    onReject: fn().mockName('onReject'),
+    isRejecting: true,
+  },
 };

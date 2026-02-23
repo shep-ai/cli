@@ -56,7 +56,6 @@ const defaultProps: PrdQuestionnaireProps = {
   },
   selections: {},
   onSelect: vi.fn(),
-  onRefine: vi.fn(),
   onApprove: vi.fn(),
 };
 
@@ -161,30 +160,22 @@ describe('PrdQuestionnaire', () => {
       expect(onSelect).toHaveBeenCalledWith('q-1', 'opt-a');
     });
 
-    it('chat input submit calls onRefine with input text', () => {
-      const onRefine = vi.fn();
-      render(<PrdQuestionnaire {...defaultProps} onRefine={onRefine} />);
+    it('chat input submit calls onReject with input text', () => {
+      const onReject = vi.fn();
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} />);
 
-      const input = screen.getByLabelText('Ask AI to refine requirements');
+      const input = screen.getByLabelText('Ask AI to refine requirements...');
       fireEvent.change(input, { target: { value: 'Make it simpler' } });
 
       const sendButton = screen.getByRole('button', { name: /send/i });
       fireEvent.click(sendButton);
 
-      expect(onRefine).toHaveBeenCalledWith('Make it simpler');
+      expect(onReject).toHaveBeenCalledWith('Make it simpler');
     });
 
-    it('approve button calls onApprove with finalAction.id on the last step', () => {
+    it('approve button calls onApprove with finalAction.id', () => {
       const onApprove = vi.fn();
-      // Provide all selections so approve button is enabled
-      const allSelections = { 'q-1': 'opt-a', 'q-2': 'opt-a' };
-      render(
-        <PrdQuestionnaire {...defaultProps} onApprove={onApprove} selections={allSelections} />
-      );
-
-      // Navigate to the last step via the step dot
-      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
-      fireEvent.click(stepDots[stepDots.length - 1]);
+      render(<PrdQuestionnaire {...defaultProps} onApprove={onApprove} />);
 
       const approveButton = screen.getByRole('button', { name: /approve requirements/i });
       fireEvent.click(approveButton);
@@ -218,7 +209,8 @@ describe('PrdQuestionnaire', () => {
 
   describe('processing state', () => {
     it('isProcessing=true disables option buttons, nav buttons, and chat input', () => {
-      render(<PrdQuestionnaire {...defaultProps} isProcessing />);
+      const onReject = vi.fn();
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} isProcessing />);
 
       // Option buttons are disabled
       const optionButtons = screen
@@ -242,17 +234,125 @@ describe('PrdQuestionnaire', () => {
       expect(sendButton).toBeDisabled();
 
       // Chat input is disabled
-      const input = screen.getByLabelText('Ask AI to refine requirements');
+      const input = screen.getByLabelText('Ask AI to refine requirements...');
       expect(input).toBeDisabled();
     });
   });
 
-  describe('accessibility', () => {
-    it('chat input has aria-label attribute', () => {
-      render(<PrdQuestionnaire {...defaultProps} />);
+  describe('reject functionality', () => {
+    it('does not render reject button when onReject is undefined', () => {
+      // Navigate to last step
+      const allSelections = { 'q-1': 'opt-a', 'q-2': 'opt-a' };
+      render(<PrdQuestionnaire {...defaultProps} selections={allSelections} />);
 
-      const input = screen.getByLabelText('Ask AI to refine requirements');
-      expect(input).toHaveAttribute('aria-label', 'Ask AI to refine requirements');
+      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
+      fireEvent.click(stepDots[stepDots.length - 1]);
+
+      expect(screen.queryByRole('button', { name: /reject/i })).not.toBeInTheDocument();
+    });
+
+    it('renders reject button on last step when onReject is provided', () => {
+      const onReject = vi.fn();
+      const allSelections = { 'q-1': 'opt-a', 'q-2': 'opt-a' };
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} selections={allSelections} />);
+
+      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
+      fireEvent.click(stepDots[stepDots.length - 1]);
+
+      expect(screen.getByRole('button', { name: /reject/i })).toBeInTheDocument();
+    });
+
+    it('renders reject button on all steps when onReject is provided', () => {
+      const onReject = vi.fn();
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} />);
+
+      // Reject button is always visible in the action bar
+      expect(screen.getByRole('button', { name: /reject/i })).toBeInTheDocument();
+    });
+
+    it('reject button is disabled when isRejecting is true', () => {
+      const onReject = vi.fn();
+      const allSelections = { 'q-1': 'opt-a', 'q-2': 'opt-a' };
+      render(
+        <PrdQuestionnaire
+          {...defaultProps}
+          onReject={onReject}
+          isRejecting
+          selections={allSelections}
+        />
+      );
+
+      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
+      fireEvent.click(stepDots[stepDots.length - 1]);
+
+      expect(screen.getByRole('button', { name: /reject/i })).toBeDisabled();
+    });
+
+    it('reject button is disabled when isProcessing is true', () => {
+      const onReject = vi.fn();
+      const allSelections = { 'q-1': 'opt-a', 'q-2': 'opt-a' };
+      render(
+        <PrdQuestionnaire
+          {...defaultProps}
+          onReject={onReject}
+          isProcessing
+          selections={allSelections}
+        />
+      );
+
+      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
+      fireEvent.click(stepDots[stepDots.length - 1]);
+
+      expect(screen.getByRole('button', { name: /reject/i })).toBeDisabled();
+    });
+
+    it('clicking reject opens the AlertDialog', () => {
+      const onReject = vi.fn();
+      const allSelections = { 'q-1': 'opt-a', 'q-2': 'opt-a' };
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} selections={allSelections} />);
+
+      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
+      fireEvent.click(stepDots[stepDots.length - 1]);
+
+      fireEvent.click(screen.getByRole('button', { name: /reject/i }));
+
+      expect(screen.getByText('Reject Requirements')).toBeInTheDocument();
+      expect(screen.getByLabelText('Rejection feedback')).toBeInTheDocument();
+    });
+
+    it('confirming dialog calls onReject with feedback', () => {
+      const onReject = vi.fn();
+      const allSelections = { 'q-1': 'opt-a', 'q-2': 'opt-a' };
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} selections={allSelections} />);
+
+      const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
+      fireEvent.click(stepDots[stepDots.length - 1]);
+
+      fireEvent.click(screen.getByRole('button', { name: /reject/i }));
+
+      const textarea = screen.getByLabelText('Rejection feedback');
+      fireEvent.change(textarea, { target: { value: 'Needs more detail' } });
+
+      fireEvent.click(screen.getByRole('button', { name: /confirm reject/i }));
+
+      expect(onReject).toHaveBeenCalledWith('Needs more detail');
+    });
+
+    it('approve button is disabled when isRejecting is true', () => {
+      const onReject = vi.fn();
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} isRejecting />);
+
+      expect(screen.getByRole('button', { name: /approve requirements/i })).toBeDisabled();
+    });
+  });
+
+  describe('accessibility', () => {
+    it('chat input has aria-label attribute when onReject is provided', () => {
+      const onReject = vi.fn();
+      render(<PrdQuestionnaire {...defaultProps} onReject={onReject} />);
+
+      const input = screen.getByLabelText('Ask AI to refine requirements...');
+      expect(input).toHaveAttribute('aria-label', 'Ask AI to refine requirements...');
     });
   });
 });
