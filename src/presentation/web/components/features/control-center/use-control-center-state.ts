@@ -14,6 +14,10 @@ import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
+import {
+  mapEventTypeToState,
+  mapPhaseNameToLifecycle,
+} from '@/components/common/feature-node/derive-feature-state';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -105,16 +109,54 @@ export function useControlCenterState(
     setEdges(initialEdges);
   }, [initialEdgeKey, initialEdges]);
 
-  // Refresh server data when SSE agent events arrive (status changes)
+  // Targeted optimistic updates from SSE agent events + debounced reconciliation
   const { lastEvent } = useAgentEventsContext();
   const processedEventRef = useRef<string | null>(null);
+  const reconcileTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    return () => clearTimeout(reconcileTimerRef.current);
+  }, []);
 
   useEffect(() => {
     if (!lastEvent) return;
     const key = `${lastEvent.agentRunId}-${lastEvent.eventType}-${lastEvent.timestamp}`;
     if (processedEventRef.current === key) return;
     processedEventRef.current = key;
-    router.refresh();
+
+    const newState = mapEventTypeToState(lastEvent.eventType);
+    const newLifecycle = mapPhaseNameToLifecycle(lastEvent.phaseName);
+
+    // Targeted node update — only clone the matched node
+    setNodes((prev) =>
+      prev.map((node) => {
+        if (node.type !== 'featureNode') return node;
+        const data = node.data as FeatureNodeData;
+        if (data.name !== lastEvent.featureName) return node;
+        return {
+          ...node,
+          data: {
+            ...data,
+            state: newState,
+            ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
+          },
+        };
+      })
+    );
+
+    // Update drawer if it's showing the matched feature
+    setSelectedNode((prev) => {
+      if (prev?.name !== lastEvent.featureName) return prev;
+      return {
+        ...prev,
+        state: newState,
+        ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
+      };
+    });
+
+    // Debounced background reconciliation (3s after last SSE event)
+    clearTimeout(reconcileTimerRef.current);
+    reconcileTimerRef.current = setTimeout(() => router.refresh(), 3000);
   }, [lastEvent, router]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {

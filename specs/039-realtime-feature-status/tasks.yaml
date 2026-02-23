@@ -1,0 +1,179 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: realtime-feature-status
+summary: >
+  4 tasks across 2 phases. Phase 1 adds two pure mapping functions with full test coverage
+  (TDD). Phase 2 integrates them into useControlCenterState with targeted node updates,
+  selectedNode drawer sync, and debounced router.refresh() reconciliation.
+
+relatedFeatures: []
+technologies:
+  - 'React 19'
+  - '@xyflow/react'
+  - 'Next.js 16+'
+  - 'Vitest'
+  - 'TypeSpec-generated NotificationEventType'
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add mapEventTypeToState pure function with tests'
+    description: >
+      Create a pure function that maps NotificationEventType enum values to FeatureNodeState
+      strings. Add to derive-feature-state.ts alongside the existing deriveNodeState function.
+      Write tests first (RED) in the existing derive-feature-state.test.ts, then implement
+      (GREEN). The mapping is: agent_started → running, phase_completed → running,
+      waiting_approval → action-required, agent_completed → done, agent_failed → error.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'mapEventTypeToState is exported from derive-feature-state.ts'
+      - 'Maps all 5 NotificationEventType enum values to correct FeatureNodeState'
+      - 'Function is pure — no side effects, no React hooks, no imports beyond types'
+      - 'All 5 test cases pass in derive-feature-state.test.ts'
+    tdd:
+      red:
+        - >
+          Add a new describe("mapEventTypeToState") block in derive-feature-state.test.ts
+          with 5 test cases, one per NotificationEventType value:
+          agent_started → "running", phase_completed → "running",
+          waiting_approval → "action-required", agent_completed → "done",
+          agent_failed → "error". Import mapEventTypeToState (will fail — function doesn't exist yet).
+      green:
+        - >
+          Implement mapEventTypeToState in derive-feature-state.ts as a switch statement over
+          NotificationEventType enum values, returning the corresponding FeatureNodeState string.
+          Import NotificationEventType from @shepai/core/domain/generated/output.
+      refactor:
+        - >
+          Verify the function is < 15 lines. Ensure no unnecessary type assertions. Confirm
+          the import path follows existing patterns in the file.
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add mapPhaseNameToLifecycle pure function with tests'
+    description: >
+      Create a pure function that maps SSE event phaseName strings to FeatureLifecyclePhase
+      values. Returns undefined when phaseName is undefined or unrecognized. The mapping mirrors
+      page.tsx's nodeToLifecyclePhase (lines 29-35) exactly: analyze → requirements,
+      requirements → requirements, research → research, plan → implementation,
+      implement → implementation. Add to derive-feature-state.ts and test in
+      derive-feature-state.test.ts.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'mapPhaseNameToLifecycle is exported from derive-feature-state.ts'
+      - 'Maps all 5 known phaseName strings to correct FeatureLifecyclePhase'
+      - 'Returns undefined for undefined input'
+      - 'Returns undefined for unrecognized phaseName strings'
+      - 'Function is pure — no side effects, no React hooks'
+      - 'All 7+ test cases pass in derive-feature-state.test.ts'
+    tdd:
+      red:
+        - >
+          Add a new describe("mapPhaseNameToLifecycle") block in derive-feature-state.test.ts
+          with test cases: "analyze" → "requirements", "requirements" → "requirements",
+          "research" → "research", "plan" → "implementation", "implement" → "implementation",
+          undefined → undefined, "unknown_phase" → undefined. Import mapPhaseNameToLifecycle
+          (will fail — function doesn't exist yet).
+      green:
+        - >
+          Implement mapPhaseNameToLifecycle in derive-feature-state.ts using a Record<string,
+          FeatureLifecyclePhase> lookup map (mirroring page.tsx's nodeToLifecyclePhase). Return
+          map[phaseName] or undefined for unrecognized/missing values.
+      refactor:
+        - >
+          Verify the mapping exactly mirrors page.tsx lines 29-35 (analyze, requirements,
+          research, plan, implement). Ensure the lookup map is const and typed.
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Implement targeted node updates in useControlCenterState SSE handler'
+    description: >
+      Modify the existing SSE event useEffect in useControlCenterState (lines 108-118) to apply
+      targeted optimistic node updates instead of immediately calling router.refresh(). After
+      deduplication, use mapEventTypeToState and mapPhaseNameToLifecycle to derive new state,
+      then call setNodes with a functional update that clones only the matched node (by
+      featureName === node.data.name). Non-matching nodes must be returned by reference for
+      React Flow's referential stability. Also update selectedNode if the drawer is open for the
+      matched feature. Replace the immediate router.refresh() with a debounced version (3s
+      window via useRef timer).
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'SSE events trigger targeted node updates — only the matched node is cloned'
+      - 'Non-matching nodes remain referentially stable (same object reference)'
+      - 'selectedNode is updated synchronously if the drawer shows the matched feature'
+      - 'router.refresh() is debounced at 3 seconds after the last SSE event'
+      - 'Debounce timer is cleared on component unmount (useEffect cleanup)'
+      - 'Events with no matching featureName are silently ignored for optimistic updates'
+      - 'Existing event deduplication logic (agentRunId + eventType + timestamp key) is preserved'
+      - 'Progress percentage is NOT updated optimistically — only state and lifecycle change'
+    tdd:
+      red:
+        - >
+          Since useControlCenterState is a complex hook with many dependencies (React Flow, Next.js
+          router, server actions, SSE context), direct hook testing is impractical. Instead, verify
+          correctness through: (1) the pure mapping function tests from tasks 1-2 already cover the
+          mapping logic, (2) manual verification that targeted updates work when running the dev
+          server with pnpm dev:web. The acceptance criteria for this task are integration-verified.
+      green:
+        - >
+          In the SSE useEffect (lines 108-118 of use-control-center-state.ts):
+          1. Add a useRef for the debounce timer at hook level.
+          2. After the existing deduplication check, call mapEventTypeToState(lastEvent.eventType)
+             and mapPhaseNameToLifecycle(lastEvent.phaseName).
+          3. Call setNodes with a functional update that maps over nodes, finds the match by
+             featureName === node.data.name, and spreads only state (and lifecycle if defined).
+          4. If selectedNode?.name matches, call setSelectedNode with updated fields.
+          5. Replace router.refresh() with clearTimeout + setTimeout(router.refresh, 3000).
+          6. Add useEffect cleanup to clear the debounce timer on unmount.
+      refactor:
+        - >
+          Verify the useEffect dependency array is correct (add mapEventTypeToState and
+          mapPhaseNameToLifecycle if they are closures, though as module-level pure functions they
+          should not need to be). Ensure the debounce cleanup is in the right useEffect. Confirm
+          total hook stays under the ~150 line guideline per file.
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Validate integration and run checks'
+    description: >
+      Run the full test suite, type checker, and linter to verify no regressions. Confirm
+      existing derive-feature-state tests still pass alongside the new mapping function tests.
+      Verify the web package type checks cleanly with the new imports.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'pnpm test:unit passes — all existing + new tests green'
+      - 'pnpm typecheck:web passes — no type errors in web package'
+      - 'pnpm lint:web passes — no lint violations'
+      - 'No changes to any backend, TypeSpec, or infrastructure files'
+    tdd: null
+    estimatedEffort: '10min'
+
+totalEstimate: '1h 10min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a bottom-up approach across 2 phases and 4 tasks. Phase 1
+  establishes the pure mapping foundation with full TDD coverage: two small functions that
+  translate SSE event data into UI state types, tested against every possible input value.
+  Phase 2 integrates these functions into the existing useControlCenterState hook, replacing
+  the coarse-grained router.refresh() with targeted node mutations and a debounced reconciliation
+  mechanism. The drawer update and validation round out the implementation.
+
+  All changes touch exactly 3 files: derive-feature-state.ts (add functions),
+  use-control-center-state.ts (modify SSE handler), and derive-feature-state.test.ts (add tests).
+  No new files, no backend changes, no component modifications needed.
