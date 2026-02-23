@@ -1,0 +1,9 @@
+title: 'feat: optimistic-feature-deletion'
+body: |+
+  ## Summary
+
+baseBranch: main
+headBranch: feat/optimistic-feature-deletion
+labels:
+  - feature
+draft: false
