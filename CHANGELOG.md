@@ -1,3 +1,9 @@
+## [1.44.2](https://github.com/shep-ai/cli/compare/v1.44.1...v1.44.2) (2026-02-23)
+
+### Bug Fixes
+
+- **domain:** resolve branch detection and schema path bugs ([#98](https://github.com/shep-ai/cli/issues/98)) ([1dd3976](https://github.com/shep-ai/cli/commit/1dd3976c7811562c4c371eb623928e421a491c5a))
+
 ## [1.44.1](https://github.com/shep-ai/cli/compare/v1.44.0...v1.44.1) (2026-02-23)
 
 ### Bug Fixes
