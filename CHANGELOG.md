@@ -1,3 +1,9 @@
+# [1.44.0](https://github.com/shep-ai/cli/compare/v1.43.0...v1.44.0) (2026-02-23)
+
+### Features
+
+- **domain:** promote repository to first-class entity ([#92](https://github.com/shep-ai/cli/issues/92)) ([f98c485](https://github.com/shep-ai/cli/commit/f98c4859eb80df95521f568c4bb097b1bfeaaf86))
+
 # [1.43.0](https://github.com/shep-ai/cli/compare/v1.42.0...v1.43.0) (2026-02-23)
 
 ### Features
