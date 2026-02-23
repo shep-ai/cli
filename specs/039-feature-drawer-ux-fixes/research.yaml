@@ -1,0 +1,386 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-drawer-ux-fixes
+summary: >
+  Technical analysis of three UX bugs in the feature drawer system. The fixes require CSS-only
+  changes to two source files (drawer.tsx and feature-drawer.tsx) plus one new Storybook story.
+  Key decisions: apply pointer-events-none to DrawerOverlay globally in drawer.tsx (not per-drawer),
+  add pointer-events-auto to DrawerContent for defense-in-depth, use the established flex-1
+  overflow-y-auto pattern for scrolling, and pin the delete action outside the scroll container.
+
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - vaul ^1.1.2 (drawer primitive built on Radix Dialog)
+  - '@xyflow/react (React Flow)'
+  - Tailwind CSS v4
+  - shadcn/ui
+  - Radix UI Dialog primitives (underlying vaul)
+
+relatedLinks:
+  - https://github.com/emilkowalski/vaul/issues/509
+  - https://github.com/emilkowalski/vaul/releases/tag/v1.1.0
+  - https://github.com/radix-ui/primitives/issues/2122
+  - https://github.com/emilkowalski/vaul/issues/577
+
+decisions:
+  - title: 'Pointer-Events Fix Scope — Global vs Per-Drawer'
+    chosen: 'Global fix in the shared drawer.tsx primitive'
+    rejected:
+      - >
+        Per-drawer scoped fix — Apply pointer-events overrides only in feature-drawer.tsx,
+        review-drawer-shell.tsx, and feature-create-drawer.tsx individually. Rejected because
+        it creates duplication across three (and growing) drawer consumers, risks forgetting
+        to apply the fix in future drawers, and contradicts the DRY principle. Since all three
+        existing drawers use modal={false} with direction="right", the fix belongs in the
+        shared primitive.
+    rationale: >
+      The modal={false} prop already expresses intent that the drawer should not block background
+      interaction. Making the overlay transparent to pointer events (pointer-events-none) is the
+      natural CSS complement to that semantic. The DrawerContent component in drawer.tsx is the
+      single place where the DrawerPortal and DrawerPrimitive.Content are wired together —
+      applying the fix here ensures all current and future non-modal drawers automatically get
+      correct behavior. This matches the existing pattern where drawer.tsx already applies global
+      style overrides (e.g., userSelect: 'text' to override vaul's user-select:none).
+
+  - title: 'Pointer-Events Strategy — Overlay pointer-events-none + Content pointer-events-auto'
+    chosen: 'Dual-layer CSS fix: pointer-events-none on DrawerOverlay, pointer-events-auto on DrawerContent'
+    rejected:
+      - >
+        Remove DrawerOverlay entirely for non-modal drawers — Conditionally skip rendering
+        DrawerOverlay when modal={false}. Rejected because (1) DrawerOverlay is not currently
+        rendered by any consumer component, so removing it changes nothing for the actual
+        bug, (2) it would require threading the modal prop through the component tree,
+        (3) it risks breaking vaul's internal DOM expectations, and (4) it eliminates the
+        visual backdrop if the overlay is ever re-enabled.
+      - >
+        Body-level pointer-events override via useEffect — Add a useEffect hook to reset
+        document.body.style.pointerEvents when the drawer opens. Rejected because (1) it
+        fights against the library's internal state management, (2) vaul v1.1.0 already fixes
+        the body pointer-events issue for non-modal drawers without overlay, (3) the project
+        already uses vaul ^1.1.2 so the body fix is included, and (4) imperative DOM
+        manipulation is fragile and harder to maintain than declarative CSS classes.
+    rationale: >
+      The dual-layer approach is a defense-in-depth strategy. Adding pointer-events-none to
+      DrawerOverlay ensures that IF the overlay is ever rendered (e.g., if a consumer adds
+      DrawerOverlay to their composition), it won't block background interaction for non-modal
+      drawers. Adding pointer-events-auto to DrawerContent ensures the drawer panel itself
+      remains fully interactive regardless of parent pointer-events state. This pattern is
+      well-established in CSS (used by toast libraries, notification systems, floating UI
+      patterns) and is purely declarative — no JavaScript side-effects, no fighting the library.
+      The vaul v1.1.0 fix handles the body-level pointer-events issue, so the CSS fix handles
+      the overlay/content layer. Together they provide complete coverage.
+
+  - title: 'Scrollable Content Layout Pattern'
+    chosen: 'flex-1 overflow-y-auto min-h-0 wrapper around scrollable content, matching feature-create-drawer pattern'
+    rejected:
+      - >
+        max-height with calc() — Use max-height: calc(100vh - header - footer) on the content
+        area. Rejected because it requires hardcoding pixel values for header and footer heights,
+        breaks if those sections change size, and doesn't leverage the existing flex layout that
+        DrawerContent already establishes (flex flex-col on the content container). The flex-based
+        approach is responsive and self-adjusting.
+      - >
+        CSS overflow-y-auto on DrawerContent itself — Apply overflow to the entire DrawerContent
+        rather than a wrapper div. Rejected because it would scroll the header and footer along
+        with the content, contradicting FR-2 (pinned delete footer) and the established pattern.
+        The header, scrollable body, and footer need to be separate flex children to achieve
+        the desired pinned-header/pinned-footer behavior.
+    rationale: >
+      The feature-create-drawer.tsx already uses this exact pattern successfully (line 160):
+      <div className="flex-1 overflow-y-auto p-4"> for the form body, with DrawerFooter pinned
+      below it. The review-drawer-shell.tsx uses a similar pattern (line 138): <div className=
+      "flex min-h-0 flex-1 flex-col">. Both patterns work because DrawerContent is already
+      display:flex flex-col (line 53 of drawer.tsx), so adding flex-1 overflow-y-auto to a
+      child div creates a proper scrollable region that fills remaining space. The min-h-0
+      class is important for Firefox compatibility — without it, flex children with overflow
+      may not shrink below their content size.
+
+  - title: 'Delete Action Positioning'
+    chosen: 'Pin delete action outside scroll container as a fixed footer section'
+    rejected:
+      - >
+        Scroll delete with content — Place the delete AlertDialog trigger inside the scrollable
+        wrapper. Rejected because (1) the delete action becomes hidden when content is long,
+        making it hard to find, (2) destructive actions should always be visible as a safety
+        anchor per standard UX patterns, and (3) the feature-create-drawer already establishes
+        the pinned footer pattern with its DrawerFooter containing submit/cancel buttons.
+      - >
+        Floating action button overlay — Position the delete button as a fixed overlay within
+        the drawer using absolute/fixed positioning. Rejected because it adds unnecessary
+        complexity, could overlap with scrollable content, and doesn't follow the existing
+        drawer footer pattern. A simple flex layout with the delete section as a non-scrolling
+        flex child is cleaner and consistent.
+    rationale: >
+      The feature-create-drawer.tsx (line 252-260) pins its footer by placing <DrawerFooter>
+      AFTER the scrollable <div className="flex-1 overflow-y-auto"> container. Since
+      DrawerContent uses flex-col layout, the footer naturally stays at the bottom. The delete
+      action in feature-drawer.tsx should follow the same structure: header (fixed), scrollable
+      content (flex-1 overflow-y-auto), delete section (fixed at bottom). The existing Separator
+      + delete div pattern just needs to be moved outside the scrollable wrapper.
+
+  - title: 'Storybook Story Approach for Long Content'
+    chosen: 'Add a LongContent story variant using the existing DrawerTriggerWithDelete wrapper with extended fixture data'
+    rejected:
+      - >
+        Create a separate story file — Add a feature-drawer-scroll.stories.tsx file. Rejected
+        because NFR-4 mandates minimal file changes, the existing stories file already has the
+        DrawerTriggerWithDelete wrapper that handles delete button rendering, and colocating
+        related stories in one file is the established pattern.
+      - >
+        Use Storybook decorators for viewport manipulation — Add a decorator that artificially
+        constrains the viewport height. Rejected because (1) real scroll behavior is better
+        demonstrated with actual long content, (2) viewport constraints may interfere with
+        vaul's portal rendering, and (3) a data-driven approach (long description + error
+        message + all fields populated) is more realistic and easier to maintain.
+    rationale: >
+      The existing stories file has a DrawerTriggerWithDelete component (line 316-339) that
+      renders FeatureDrawer with onDelete prop, which is exactly what's needed to demonstrate
+      the pinned delete footer alongside scrollable content. A new fixture with a very long
+      description, all optional fields populated, and a detailed error message will generate
+      enough content to exceed the viewport and demonstrate scrolling. This follows the same
+      pattern as the existing AllFields story but with intentionally verbose content.
+
+openQuestions:
+  - question: 'Should the DrawerOverlay be rendered inside DrawerContent or remain a separate export?'
+    resolved: true
+    options:
+      - option: 'Keep DrawerOverlay as separate export, add pointer-events-none to its definition'
+        description: >
+          Leave the current architecture unchanged — DrawerOverlay remains an independently
+          exportable component. Add pointer-events-none to its className. Consumers who want
+          an overlay can compose it themselves by placing DrawerOverlay inside DrawerPortal.
+          Currently no consumer uses it, but the fix is defensive. This is the least invasive
+          change and matches shadcn/ui's compositional pattern.
+        selected: true
+      - option: 'Render DrawerOverlay inside DrawerContent automatically'
+        description: >
+          Move DrawerOverlay rendering into the DrawerContent component so it's always
+          present. This would add the visual backdrop (bg-black/50) to all drawers. However,
+          none of the current drawers render an overlay, and adding one would change the
+          visual appearance. Would also require passing modal prop to conditionally render.
+        selected: false
+      - option: 'Remove DrawerOverlay export entirely'
+        description: >
+          Since no consumer uses DrawerOverlay, remove it from drawer.tsx to reduce the API
+          surface. However, this is a breaking change for any future drawer that might want
+          an overlay (e.g., modal bottom-sheet drawers). Also violates the principle of
+          minimal changes and removes a shadcn/ui standard component.
+        selected: false
+    selectionRationale: >
+      Keeping DrawerOverlay as a separate export with pointer-events-none added is the safest,
+      most minimal change. It preserves the existing compositional API, adds defensive
+      pointer-events handling for any future usage, and doesn't change the visual appearance
+      of any existing drawer. No consumer currently renders DrawerOverlay, so the fix is
+      purely preventive — but it aligns with the spec's requirement (FR-3) and costs nothing.
+
+  - question: 'Is min-h-0 needed on the scroll wrapper for cross-browser compatibility?'
+    resolved: true
+    options:
+      - option: 'Include min-h-0 on the scroll wrapper'
+        description: >
+          Add min-h-0 alongside flex-1 overflow-y-auto. In CSS flexbox, flex children have
+          min-height:auto by default, which prevents them from shrinking below their content
+          size. This can cause overflow-y-auto to not trigger scrolling in Firefox and older
+          browsers. Adding min-h-0 explicitly sets min-height:0, allowing the flex child to
+          shrink and enabling the overflow scrollbar.
+        selected: true
+      - option: 'Omit min-h-0, rely on overflow-y-auto alone'
+        description: >
+          Skip min-h-0 and use only flex-1 overflow-y-auto. This works in Chrome/Safari
+          because they handle flex overflow more leniently, but may fail in Firefox where
+          the content won't scroll because the flex child won't shrink below its content
+          height. The review-drawer-shell.tsx includes min-h-0 (line 138), suggesting the
+          team has already encountered this cross-browser issue.
+        selected: false
+      - option: 'Use overflow-hidden on parent instead'
+        description: >
+          Apply overflow-hidden to the parent DrawerContent container to force children to
+          respect bounds. This is a heavier-handed approach that could interfere with the
+          close button's absolute positioning and any future overflow needs in the header
+          or footer sections.
+        selected: false
+    selectionRationale: >
+      The review-drawer-shell.tsx already uses min-h-0 in its flex scroll pattern (line 138:
+      "flex min-h-0 flex-1 flex-col"), indicating the team has already encountered the Firefox
+      flexbox overflow issue. Including min-h-0 is a zero-cost addition that ensures
+      cross-browser correctness. The spec (FR-1) explicitly mentions this class. Omitting it
+      would be a regression risk for Firefox users.
+
+  - question: 'Should pointer-events-auto be applied via className or inline style on DrawerContent?'
+    resolved: true
+    options:
+      - option: 'Apply via Tailwind className (pointer-events-auto)'
+        description: >
+          Add pointer-events-auto to the className string in DrawerContent. This is consistent
+          with how all other styling is applied in the component (Tailwind utility classes via
+          cn()). It's declarative, visible in the class list, and follows the existing pattern.
+          The class can also be overridden by consumers via the className prop if needed.
+        selected: true
+      - option: 'Apply via inline style (pointerEvents: "auto")'
+        description: >
+          Add pointerEvents: "auto" to the existing style object in DrawerContent. The component
+          already has an inline style block for --initial-transform and userSelect overrides.
+          However, mixing pointer-events between className and style creates inconsistency —
+          the overlay uses className (pointer-events-none) so the content should too.
+        selected: false
+      - option: 'Apply via CSS custom property / data attribute selector'
+        description: >
+          Add a data attribute (e.g., data-non-modal) and use a global CSS rule to set
+          pointer-events. This is over-engineered for a single utility class and introduces
+          an indirection that makes the behavior less obvious. The Tailwind utility is simpler.
+        selected: false
+    selectionRationale: >
+      Tailwind className is the standard approach throughout drawer.tsx and all shadcn/ui
+      components. The existing DrawerOverlay uses className for its fixed/z-50 positioning,
+      so pointer-events-none belongs there too. DrawerContent should follow suit with
+      pointer-events-auto in its className. The inline style block is reserved for dynamic
+      values (--initial-transform) and library overrides (userSelect) — pointer-events is
+      a static utility that belongs in the class list.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Pointer-Events Fix Scope — Global vs Per-Drawer
+
+  **Chosen:** Global fix in the shared `drawer.tsx` primitive
+
+  **Rejected:**
+  - Per-drawer scoped fix — Would duplicate the fix across 3+ drawer consumers and risk missing future drawers
+
+  **Rationale:** The `modal={false}` prop already signals non-blocking intent. Making the overlay
+  transparent to pointer events is the natural CSS complement. `drawer.tsx` is the single point
+  where `DrawerPortal` and `DrawerPrimitive.Content` are composed — it's the right place for this
+  fix. This matches the existing pattern where `drawer.tsx` already applies global overrides
+  (e.g., `userSelect: 'text'`).
+
+  ### 2. Pointer-Events Strategy — Dual-Layer CSS Fix
+
+  **Chosen:** `pointer-events-none` on `DrawerOverlay` + `pointer-events-auto` on `DrawerContent`
+
+  **Rejected:**
+  - Remove DrawerOverlay for non-modal — Changes nothing (no consumer renders it), risks library breakage
+  - Body-level pointer-events useEffect — Fights the library, fragile, and vaul v1.1.0+ already fixes body-level issue
+
+  **Rationale:** Defense-in-depth. The overlay fix prevents blocking IF ever rendered. The content
+  fix ensures interactivity regardless of parent state. This is a standard CSS pattern used by
+  toast/notification libraries. Zero JavaScript, purely declarative.
+
+  **Background on vaul pointer-events behavior:**
+  - vaul v1.1.0 fixed body-level `pointer-events: none` for non-modal drawers without overlay
+  - Project uses vaul `^1.1.2`, so the body fix is included
+  - The CSS fix handles the overlay/content layer — together with vaul's fix, complete coverage
+  - Known issue: https://github.com/emilkowalski/vaul/issues/509 (controlled modal={false})
+  - Radix Dialog underlying issue: https://github.com/radix-ui/primitives/issues/2122
+
+  ### 3. Scrollable Content Layout Pattern
+
+  **Chosen:** `flex-1 overflow-y-auto min-h-0` wrapper around scrollable content
+
+  **Rejected:**
+  - `max-height: calc()` — Hardcoded pixel values, fragile
+  - `overflow-y-auto` on DrawerContent — Scrolls header/footer too
+
+  **Rationale:** Matches existing patterns in the codebase:
+  - `feature-create-drawer.tsx:160` — `<div className="flex-1 overflow-y-auto p-4">`
+  - `review-drawer-shell.tsx:138` — `<div className="flex min-h-0 flex-1 flex-col">`
+
+  `DrawerContent` already uses `flex flex-col`, so a `flex-1 overflow-y-auto min-h-0` child
+  creates a proper scrollable region. `min-h-0` is essential for Firefox compatibility
+  (prevents flex children from refusing to shrink below content size).
+
+  ### 4. Delete Action Positioning
+
+  **Chosen:** Pin delete action outside scroll container as fixed footer
+
+  **Rejected:**
+  - Scroll with content — Hides destructive action, poor UX
+  - Floating overlay button — Over-engineered, doesn't match existing patterns
+
+  **Rationale:** Matches `feature-create-drawer.tsx` pattern where `DrawerFooter` is placed
+  AFTER the scrollable `flex-1 overflow-y-auto` div. The flex-col layout naturally pins the
+  footer at the bottom. Structure: header (fixed) → scrollable content (flex-1) → separator +
+  delete section (fixed at bottom).
+
+  ### 5. Storybook Story Approach
+
+  **Chosen:** Add `LongContent` story variant to existing `feature-drawer.stories.tsx`
+
+  **Rejected:**
+  - Separate story file — Violates NFR-4 minimal file changes
+  - Viewport decorator manipulation — Less realistic than actual long content
+
+  **Rationale:** Reuse existing `DrawerTriggerWithDelete` wrapper with a fixture containing
+  a very long description, all optional fields, and verbose error message. This naturally
+  produces enough content to demonstrate scroll behavior.
+
+  ## Library Analysis
+
+  | Library | Version | Purpose | Decision | Reasoning |
+  | ------- | ------- | ------- | -------- | --------- |
+  | vaul | ^1.1.2 | Drawer primitive | Use (no changes) | v1.1.0+ fixes body pointer-events for non-modal drawers. CSS-layer fix handles overlay. No version change needed. |
+  | @xyflow/react | existing | Canvas graph | Use (no changes) | Canvas panning relies on pointer events reaching `.react-flow__pane`. Fix is in the drawer layer, not the canvas. |
+  | Tailwind CSS v4 | existing | Utility classes | Use (no changes) | `pointer-events-none`, `pointer-events-auto`, `flex-1`, `overflow-y-auto`, `min-h-0` are all standard Tailwind utilities. |
+  | shadcn/ui | existing | Component primitives | Use (no changes) | `DrawerOverlay`, `DrawerContent`, `DrawerFooter` are the components being modified. No new shadcn components needed. |
+
+  **No new dependencies required.** NFR-1 confirmed — all fixes use existing CSS utilities and
+  the current vaul configuration.
+
+  ## Security Considerations
+
+  **No security implications.** The changes are purely CSS/layout:
+  - `pointer-events-none` on an overlay element — reduces interactable surface area (positive)
+  - `pointer-events-auto` on drawer content — restores normal interactivity (neutral)
+  - `overflow-y-auto` on a content div — standard scroll behavior (neutral)
+  - No new event handlers, API calls, data flows, or user input processing
+
+  The `AlertDialog` for delete confirmation is unchanged — the existing confirmation gate
+  remains in place for the destructive delete action.
+
+  ## Performance Implications
+
+  **Negligible performance impact.** The changes involve:
+  - Adding 2-3 CSS classes to existing elements — zero runtime cost (parsed at stylesheet level)
+  - Wrapping existing JSX in one additional `<div>` for the scroll container — minimal DOM overhead
+  - No new React state, effects, refs, or callbacks
+  - No new event listeners or subscriptions
+  - No changes to React Flow canvas rendering or node virtualization
+
+  The `pointer-events-none` on the overlay actually improves performance slightly by removing
+  the overlay from the pointer-event hit-testing tree, allowing browser to skip it during
+  event dispatch.
+
+  ## Architecture Notes
+
+  ### Files Changed
+
+  | File | Changes | Impact |
+  | ---- | ------- | ------ |
+  | `components/ui/drawer.tsx` | Add `pointer-events-none` to `DrawerOverlay` className; add `pointer-events-auto` to `DrawerContent` className | Low — 2 class additions to the shared primitive |
+  | `components/common/feature-drawer/feature-drawer.tsx` | Wrap scrollable content in `flex-1 overflow-y-auto min-h-0` div; move delete section outside scroll wrapper | Medium — structural change to the JSX layout |
+  | `components/common/feature-drawer/feature-drawer.stories.tsx` | Add `LongContent` story with extended fixture data | Low — additive only |
+
+  ### No Files Created or Deleted
+
+  Per NFR-4, changes are confined to the 3 files above. No new components, hooks, utilities,
+  or configuration files.
+
+  ### Pattern Consistency
+
+  The scroll fix follows established patterns in two existing drawers:
+  - `feature-create-drawer.tsx` — `flex-1 overflow-y-auto` for form body, `DrawerFooter` pinned below
+  - `review-drawer-shell.tsx` — `flex min-h-0 flex-1 flex-col` for content slot
+
+  The pointer-events fix follows the standard CSS pattern for non-modal overlays used across
+  the web ecosystem (toast libraries, notification systems, floating panels).
+
+  ### Verification Strategy
+
+  No code changes expected in these files (verify behavior only):
+  - `features-canvas.tsx` — Canvas panning should work with drawer open (React Flow `onPaneClick` receives events)
+  - `control-center-inner.tsx` — Click-outside-to-close via `onPaneClick → clearSelection()` should work
+  - `review-drawer-shell.tsx` — Existing scroll behavior unchanged
+  - `feature-create-drawer.tsx` — Existing form scroll and pinned footer unchanged

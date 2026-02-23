@@ -1,0 +1,215 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-drawer-ux-fixes
+number: 039
+branch: feat/039-feature-drawer-ux-fixes
+oneLiner: Fix feature drawer scrolling, canvas drag-through, and click-outside-to-close behavior
+
+summary: >
+  Fix three UX bugs in the feature drawer system: (1) add missing overflow scrolling when drawer
+  content exceeds viewport height, (2) allow canvas panning/dragging to pass through while drawers
+  are open so users can navigate the graph, and (3) ensure clicking outside the drawer on the
+  canvas pane properly closes the drawer.
+
+phase: Requirements
+sizeEstimate: S
+
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - vaul (drawer primitive)
+  - '@xyflow/react (React Flow)'
+  - Tailwind CSS v4
+  - shadcn/ui
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'Should the pointer-events fix be applied globally in the shared drawer.tsx primitive or only scoped to drawers used alongside the canvas?'
+    resolved: true
+    options:
+      - option: 'Global fix in drawer.tsx'
+        description: >
+          Apply pointer-events-none to DrawerOverlay and pointer-events-auto to DrawerContent
+          in the shared drawer.tsx primitive. This ensures all non-modal drawers get pass-through
+          behavior automatically. Simpler, consistent, and prevents the same bug in future drawer
+          usages. Since modal={false} already signals non-blocking intent, pass-through pointer
+          events are the correct default for that mode.
+        selected: true
+      - option: 'Scoped fix per-drawer'
+        description: >
+          Apply pointer-events overrides only in the specific drawer components used in the
+          control center (feature-drawer, review-drawer-shell, feature-create-drawer). Avoids
+          changing shared primitives but requires duplicating the fix in each drawer and any
+          future drawers. Risk of forgetting to apply it.
+        selected: false
+    selectionRationale: >
+      The global fix in drawer.tsx is recommended because modal={false} already expresses the
+      intent that the drawer should not block background interaction. Making the overlay transparent
+      to pointer events is the natural CSS complement to that semantic. This avoids duplication
+      and ensures correctness for all current and future non-modal drawers.
+    answer: 'Global fix in drawer.tsx'
+
+  - question: 'Should the FeatureDrawer delete action be pinned to the bottom of the drawer or scroll with the content?'
+    resolved: true
+    options:
+      - option: 'Pin delete to bottom'
+        description: >
+          Keep the delete action fixed at the bottom of the drawer viewport (outside the scroll
+          container), similar to how feature-create-drawer pins its footer with submit/cancel
+          buttons. The delete action is always accessible without scrolling. This is the standard
+          pattern for destructive actions in drawer UIs — always visible as a safety reminder.
+        selected: true
+      - option: 'Scroll with content'
+        description: >
+          Place the delete action inside the scrollable area so it scrolls with the rest of the
+          content. Simpler implementation (everything in one scroll container). However, the delete
+          action becomes hidden when content is long, which could be disorienting if the user
+          scrolls looking for it.
+        selected: false
+    selectionRationale: >
+      Pinning the delete action to the bottom matches the existing pattern in feature-create-drawer
+      (which pins its footer) and is the standard UX pattern for destructive actions. It keeps the
+      action always accessible and serves as a persistent visual anchor.
+    answer: 'Pin delete to bottom'
+
+  - question: 'Should the DrawerOverlay be rendered at all for non-modal drawers, or should it be removed entirely?'
+    resolved: true
+    options:
+      - option: 'Keep overlay with pointer-events-none'
+        description: >
+          Keep the DrawerOverlay element in the DOM but make it transparent to pointer events.
+          This preserves the vaul library's expected DOM structure and animation hooks, and allows
+          easy restoration of the overlay visual (e.g., dimming) if needed later. The overlay
+          already has bg-black/50 which provides a subtle backdrop — removing it would change
+          the visual design.
+        selected: true
+      - option: 'Remove overlay for non-modal'
+        description: >
+          Conditionally skip rendering DrawerOverlay when modal={false}. Eliminates the pointer-
+          events problem entirely by removing the blocking element. However, this changes the
+          visual appearance (no backdrop dimming), may break vaul's internal assumptions about
+          DOM structure, and requires passing the modal prop through to DrawerContent.
+        selected: false
+    selectionRationale: >
+      Keeping the overlay with pointer-events-none is safer and less invasive. It preserves vaul's
+      expected DOM structure, maintains the visual backdrop, and solves the pointer-events problem
+      without risking library incompatibilities. The CSS-only fix is also easier to revert.
+    answer: 'Keep overlay with pointer-events-none'
+
+content: |
+  ## Problem Statement
+
+  The feature drawer system has three UX bugs that degrade the control center experience:
+
+  1. **Missing scroll on long content**: The `FeatureDrawer` component renders all content (header,
+     status, details, delete action) in a flat column inside `DrawerContent` without any overflow
+     scrolling. When a feature has a long description, error messages, or many detail rows, content
+     is clipped at the bottom of the viewport with no way to scroll to it.
+
+  2. **Canvas interaction blocked by open drawer**: When a drawer is open, users cannot pan or drag
+     the React Flow canvas behind it. The vaul drawer primitive renders a `DrawerOverlay` at
+     `fixed inset-0 z-50` with `bg-black/50` that sits above the canvas and captures all pointer
+     events, preventing the canvas from receiving drag gestures. Users expect to pan the graph
+     while the side drawer is visible (since it's non-modal with `modal={false}`).
+
+  3. **Click-outside-to-close**: Clicking on the canvas pane should close the drawer via the
+     existing `onPaneClick → clearSelection()` wiring in `ControlCenterInner`. This is blocked
+     by the same pointer-events issue from bug #2 — the overlay captures clicks before they
+     reach the React Flow pane. Fixing bug #2 will resolve this as a side-effect.
+
+  ## Success Criteria
+
+  - [ ] SC-1: FeatureDrawer content scrolls vertically when it exceeds the viewport height
+  - [ ] SC-2: Delete action remains pinned to the bottom of the drawer, visible without scrolling
+  - [ ] SC-3: Canvas can be panned/dragged while any right-side drawer is open
+  - [ ] SC-4: Clicking on the canvas pane (outside the drawer) closes the open drawer
+  - [ ] SC-5: Drawer panel itself remains fully interactive (buttons, links, scroll, text selection)
+  - [ ] SC-6: Escape key still closes the drawer
+  - [ ] SC-7: All existing Storybook stories pass visual review (no layout regressions)
+  - [ ] SC-8: Storybook includes a long-content variant for FeatureDrawer demonstrating scroll
+
+  ## Functional Requirements
+
+  - **FR-1: Scrollable content area in FeatureDrawer** — Wrap the FeatureDrawer content between
+    the header and the delete footer in a scrollable container using `flex-1 overflow-y-auto min-h-0`.
+    The header (name, feature ID, action buttons) and delete footer remain fixed; only the middle
+    content (status section, details section) scrolls.
+
+  - **FR-2: Pinned delete footer** — Move the delete action (AlertDialog) outside the scrollable
+    container so it is always visible at the bottom of the drawer regardless of scroll position.
+    Follow the same pattern as `feature-create-drawer.tsx` which pins its `DrawerFooter`.
+
+  - **FR-3: Pointer-events pass-through on DrawerOverlay** — Apply `pointer-events-none` to the
+    `DrawerOverlay` component in `drawer.tsx` so that pointer events (click, drag, pan) pass
+    through the overlay to elements behind it (the React Flow canvas). This applies to all
+    non-modal drawer usages.
+
+  - **FR-4: Pointer-events restoration on DrawerContent** — Apply `pointer-events-auto` to the
+    `DrawerContent` component in `drawer.tsx` to ensure the drawer panel itself remains fully
+    interactive despite the overlay being pointer-events-none.
+
+  - **FR-5: Click-outside-to-close via canvas pane** — Verify that with FR-3 applied, clicking
+    the canvas pane triggers the existing `onPaneClick → clearSelection()` handler in
+    `ControlCenterInner`, which closes the open drawer. No new close logic should be needed.
+
+  - **FR-6: Long-content Storybook story** — Add a Storybook story variant to
+    `feature-drawer.stories.tsx` that renders a FeatureDrawer with enough content to exceed the
+    viewport height, demonstrating the scroll behavior.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: No new dependencies** — The fix must use only existing CSS utilities (Tailwind classes)
+    and the current vaul configuration. No new npm packages or vaul version changes.
+
+  - **NFR-2: Consistency with existing patterns** — The scrollable content wrapper must follow the
+    same flex/overflow pattern already used in `feature-create-drawer.tsx` (`flex-1 overflow-y-auto`)
+    and `review-drawer-shell.tsx` (`flex min-h-0 flex-1 flex-col`). Do not introduce a new
+    scrolling pattern.
+
+  - **NFR-3: No regression in other drawers** — The pointer-events changes in `drawer.tsx` must
+    not break `FeatureCreateDrawer`, `PrdQuestionnaireDrawer`, or `TechDecisionsDrawer`. All
+    drawers must remain fully functional.
+
+  - **NFR-4: Minimal file changes** — Changes should be limited to 2-3 source files (`drawer.tsx`,
+    `feature-drawer.tsx`, `feature-drawer.stories.tsx`). No new files, no architectural changes.
+
+  - **NFR-5: Accessible scrolling** — The scrollable region must be keyboard-navigable (Tab
+    through focusable elements scrolls into view) and work with standard scroll gestures
+    (mousewheel, trackpad, touch).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should the pointer-events fix be applied globally in drawer.tsx or scoped per-drawer? | Global fix in drawer.tsx | modal={false} already signals non-blocking intent; pass-through pointer events are the correct default. Avoids duplication across drawers. |
+  | 2 | Should the delete action be pinned to the bottom or scroll with content? | Pin delete to bottom | Matches feature-create-drawer pattern. Destructive actions should always be visible as a safety anchor. |
+  | 3 | Should the DrawerOverlay be kept or removed for non-modal drawers? | Keep overlay with pointer-events-none | Preserves vaul DOM structure, maintains visual backdrop, CSS-only fix is safer and easier to revert. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `components/ui/drawer.tsx` | Medium | Add pointer-events-none to DrawerOverlay, pointer-events-auto to DrawerContent |
+  | `components/common/feature-drawer/feature-drawer.tsx` | High | Add scrollable wrapper around content body, pin delete footer |
+  | `components/common/feature-drawer/feature-drawer.stories.tsx` | Low | Add long-content story variant |
+  | `components/features/features-canvas/features-canvas.tsx` | Low | Verify canvas panning works with drawer open (no code changes expected) |
+  | `components/features/control-center/control-center-inner.tsx` | Low | Verify click-outside-to-close still works (no code changes expected) |
+  | `components/common/review-drawer-shell/review-drawer-shell.tsx` | Low | Verify scroll behavior (already has flex scroll pattern, no changes expected) |
+
+  ## Dependencies
+
+  - **vaul**: The drawer primitive library. The fix applies CSS overrides to its portal/overlay
+    output rather than changing library configuration. No vaul version change or API change needed.
+  - **@xyflow/react**: Canvas panning relies on pointer events reaching the `.react-flow__pane`
+    element. No library changes needed — just ensuring events aren't blocked by the overlay.
+
+  ## Size Estimate
+
+  **S** — This is a focused CSS/layout fix touching 2-3 source files. The scrolling fix is
+  straightforward (add overflow wrapper following existing patterns). The pointer-events fix is
+  a well-established CSS pattern (pointer-events-none on overlay, pointer-events-auto on content).
+  No new components, state management, or API changes needed. One new Storybook story.

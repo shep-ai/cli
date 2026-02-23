@@ -1,0 +1,129 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-drawer-ux-fixes
+summary: >
+  CSS-only implementation fixing three UX bugs in the feature drawer system. The approach applies
+  pointer-events-none to DrawerOverlay and pointer-events-auto to DrawerContent globally in
+  drawer.tsx (the shared primitive), adds a flex-1 overflow-y-auto min-h-0 scroll wrapper inside
+  FeatureDrawer with the delete action pinned outside as a fixed footer, and adds a LongContent
+  Storybook story. Two phases: first fix the shared primitive (pointer-events), then fix the
+  specific drawer (scroll + footer + story). Three source files touched, zero new files.
+
+relatedFeatures: []
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - vaul ^1.1.2 (drawer primitive)
+  - '@xyflow/react (React Flow)'
+  - Tailwind CSS v4
+  - shadcn/ui
+
+relatedLinks:
+  - https://github.com/emilkowalski/vaul/issues/509
+  - https://github.com/emilkowalski/vaul/issues/577
+
+phases:
+  - id: phase-1
+    name: 'Pointer-Events Pass-Through in Shared Drawer Primitive'
+    description: >
+      Fix the shared drawer.tsx primitive to allow pointer events to pass through the overlay
+      to the canvas behind it. This unblocks canvas panning (SC-3) and click-outside-to-close
+      (SC-4) for all current and future non-modal drawers. This phase comes first because it
+      is a prerequisite for verifying that the canvas interaction works end-to-end, and the
+      change is isolated to the shared primitive with no consumer-side changes needed.
+    parallel: false
+
+  - id: phase-2
+    name: 'Scrollable Content & Pinned Footer in FeatureDrawer'
+    description: >
+      Restructure the FeatureDrawer JSX layout to wrap the scrollable body (status + details)
+      in a flex-1 overflow-y-auto min-h-0 container and pin the delete action outside the
+      scroll wrapper as a fixed footer. Then add a LongContent Storybook story to demonstrate
+      the scroll behavior. This phase depends on phase-1 being complete so that the full
+      drawer UX (scroll + canvas interaction + close) can be verified together.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/ui/drawer.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The fix operates entirely within the presentation layer's web UI component hierarchy:
+
+  - **Tier 0 (ui/)**: `drawer.tsx` — The shared shadcn/ui primitive wrapping vaul. Two CSS class
+    additions here (pointer-events-none on overlay, pointer-events-auto on content) fix canvas
+    interaction for all non-modal drawers globally.
+
+  - **Tier 1 (common/)**: `feature-drawer.tsx` — The feature-specific drawer component. JSX
+    restructuring adds a scroll wrapper around the body content and pins the delete footer,
+    following the exact pattern already established by `feature-create-drawer.tsx` (line 159:
+    `flex-1 overflow-y-auto`) and `review-drawer-shell.tsx` (line 138: `flex min-h-0 flex-1`).
+
+  - **Storybook**: `feature-drawer.stories.tsx` — One additive story using the existing
+    `DrawerTriggerWithDelete` wrapper with an extended fixture.
+
+  No new components, hooks, state, or architectural patterns are introduced. The changes are
+  purely CSS classes and JSX element rearrangement within existing components.
+
+  ## Key Design Decisions
+
+  ### 1. Global Pointer-Events Fix in drawer.tsx (not per-drawer)
+
+  The `modal={false}` prop already expresses non-blocking intent. Making the overlay transparent
+  to pointer events is the CSS complement to that semantic. Applying the fix in the shared
+  primitive ensures all current drawers (FeatureDrawer, FeatureCreateDrawer, ReviewDrawerShell)
+  and any future non-modal drawers automatically get correct behavior. Per-drawer scoping was
+  rejected to avoid duplication across 3+ consumers.
+
+  ### 2. Dual-Layer pointer-events (overlay + content)
+
+  `pointer-events-none` on DrawerOverlay prevents the overlay from blocking canvas events.
+  `pointer-events-auto` on DrawerContent ensures the drawer panel remains interactive regardless
+  of parent pointer-events state. This defense-in-depth pattern is standard across toast
+  libraries and floating UI systems. The vaul v1.1.0+ body-level fix (already included in
+  ^1.1.2) handles the body layer — the CSS fix handles the overlay/content layer.
+
+  ### 3. flex-1 overflow-y-auto min-h-0 Scroll Pattern
+
+  Matches the established codebase pattern from feature-create-drawer.tsx (line 159) and
+  review-drawer-shell.tsx (line 138). min-h-0 is essential for Firefox compatibility where
+  flex children refuse to shrink below content size without it. DrawerContent already uses
+  `flex flex-col` (drawer.tsx line 53), so the scroll wrapper fits naturally as a flex child.
+
+  ### 4. Pinned Delete Footer Outside Scroll Container
+
+  Follows the feature-create-drawer.tsx pattern where DrawerFooter (line 252) sits after
+  the `flex-1 overflow-y-auto` div. The delete action remains always visible as a safety
+  anchor for destructive actions. The JSX structure becomes: close button → header → actions →
+  scrollable body (status, details) → separator + delete footer.
+
+  ## Implementation Strategy
+
+  Phase 1 (pointer-events) is done first because it's a prerequisite for verifying phase 2's
+  end-to-end behavior. The pointer-events fix is the smallest, most isolated change (2 class
+  additions in drawer.tsx) and unblocks SC-3 and SC-4 immediately. It can be tested by verifying
+  that other drawers (FeatureCreateDrawer, ReviewDrawerShell) remain fully interactive.
+
+  Phase 2 (scroll + footer + story) restructures the FeatureDrawer JSX and adds the Storybook
+  story. It depends on phase 1 so the full UX (scroll inside drawer + pan canvas behind drawer
+  + click-outside-to-close) can be verified together. The story serves as both documentation
+  and visual regression test for the scroll behavior.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | pointer-events-none on overlay breaks vaul internals | DrawerOverlay is not rendered by any current consumer; the fix is purely defensive. If overlay were rendered, vaul's drag gestures target DrawerContent (which has pointer-events-auto), not the overlay. |
+  | pointer-events-auto on DrawerContent overrides consumer className | The cn() merge utility in DrawerContent allows consumer-passed className to take precedence. If a consumer needs to override, they can pass pointer-events-none explicitly. |
+  | Scroll wrapper breaks existing FeatureDrawer layout when content is short | The flex-1 class ensures the scroll wrapper fills available space even with short content. overflow-y-auto only shows scrollbar when content exceeds container height. No visual change for short content. |
+  | min-h-0 causes unexpected behavior on non-Firefox browsers | min-h-0 is a no-op on browsers that already handle flex overflow correctly. It's a safe, zero-cost addition with no downside. |
+  | AlertDialog portal z-index conflict with pinned delete footer | AlertDialog renders in a Radix portal at z-50, independent of the drawer's DOM position. Moving the delete section outside the scroll wrapper doesn't change the portal rendering. |
+  | Existing Storybook stories break visually | The pointer-events and scroll changes are CSS-only; no existing story content changes. The WithDeleteButton and DeletingState stories will show the pinned footer, which is the intended behavior. |

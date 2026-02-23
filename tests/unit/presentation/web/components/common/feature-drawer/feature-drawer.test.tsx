@@ -264,6 +264,42 @@ describe('FeatureDrawer', () => {
     });
   });
 
+  describe('scrollable content layout', () => {
+    it('renders a scroll container with flex-1, overflow-y-auto, and min-h-0 classes', () => {
+      renderDrawer(defaultData);
+      const scrollContainer = screen.getByTestId('feature-drawer-scroll');
+      expect(scrollContainer).toHaveClass('flex-1');
+      expect(scrollContainer).toHaveClass('overflow-y-auto');
+      expect(scrollContainer).toHaveClass('min-h-0');
+    });
+
+    it('contains the status section inside the scroll container', () => {
+      renderDrawer(defaultData);
+      const scrollContainer = screen.getByTestId('feature-drawer-scroll');
+      const statusSection = screen.getByTestId('feature-drawer-status');
+      expect(scrollContainer).toContainElement(statusSection);
+    });
+
+    it('contains the details section inside the scroll container', () => {
+      renderDrawer(defaultData);
+      const scrollContainer = screen.getByTestId('feature-drawer-scroll');
+      const detailsSection = screen.getByTestId('feature-drawer-details');
+      expect(scrollContainer).toContainElement(detailsSection);
+    });
+
+    it('does not contain the delete section inside the scroll container', () => {
+      renderDrawer(defaultData, vi.fn(), { onDelete: vi.fn() });
+      const scrollContainer = screen.getByTestId('feature-drawer-scroll');
+      const deleteSection = screen.getByTestId('feature-drawer-delete');
+      expect(scrollContainer).not.toContainElement(deleteSection);
+    });
+
+    it('renders delete section when onDelete prop is provided', () => {
+      renderDrawer(defaultData, vi.fn(), { onDelete: vi.fn() });
+      expect(screen.getByTestId('feature-drawer-delete')).toBeInTheDocument();
+    });
+  });
+
   describe('delete button', () => {
     it('renders delete button when onDelete prop is provided', () => {
       renderDrawer(defaultData, vi.fn(), { onDelete: vi.fn() });

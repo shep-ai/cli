@@ -1,0 +1,172 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-drawer-ux-fixes
+summary: >
+  5 tasks across 2 phases. Phase 1 adds pointer-events pass-through to the shared drawer.tsx
+  primitive (2 tasks). Phase 2 restructures FeatureDrawer for scrollable content with a pinned
+  delete footer and adds a LongContent Storybook story (3 tasks).
+
+relatedFeatures: []
+technologies:
+  - React 19
+  - Tailwind CSS v4
+  - vaul ^1.1.2
+  - shadcn/ui
+  - Storybook
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add pointer-events-none to DrawerOverlay'
+    description: >
+      Add the pointer-events-none Tailwind class to the DrawerOverlay component in drawer.tsx
+      so that pointer events pass through the overlay to elements behind it. This is the first
+      half of the dual-layer pointer-events fix that unblocks canvas panning and click-outside-
+      to-close for all non-modal drawers.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'DrawerOverlay className includes pointer-events-none alongside existing classes'
+      - 'The cn() call preserves ability for consumers to override via className prop'
+    tdd:
+      red:
+        - 'Write a render test for DrawerOverlay that asserts the rendered element has the pointer-events-none class in its className'
+      green:
+        - 'Add pointer-events-none to the className string in the DrawerOverlay cn() call: cn("fixed inset-0 z-50 bg-black/50 pointer-events-none", className)'
+      refactor:
+        - 'Verify class ordering is consistent with other components (positional → visual → behavioral)'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add pointer-events-auto to DrawerContent'
+    description: >
+      Add the pointer-events-auto Tailwind class to the DrawerContent component in drawer.tsx
+      so that the drawer panel itself remains fully interactive despite any ancestor having
+      pointer-events-none. This is the defense-in-depth complement to task-1 and ensures
+      buttons, links, scroll, and text selection inside the drawer work correctly.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'DrawerContent className includes pointer-events-auto alongside existing classes'
+      - 'The cn() call preserves ability for consumers to override via className prop'
+      - 'All interactive elements inside DrawerContent (buttons, links, scroll) remain functional'
+    tdd:
+      red:
+        - 'Write a render test for DrawerContent that asserts the rendered element has the pointer-events-auto class in its className'
+      green:
+        - 'Add pointer-events-auto to the className string in the DrawerContent cn() call on line 53'
+      refactor:
+        - 'Review that both pointer-events classes (task-1 overlay + task-2 content) are consistent in placement within their respective cn() calls'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add scrollable content wrapper to FeatureDrawer'
+    description: >
+      Wrap the scrollable body content (status section + details section with their separators)
+      in a div with className="flex-1 overflow-y-auto min-h-0" inside FeatureDrawer. The header,
+      close button, and action buttons remain above the scroll wrapper. This follows the exact
+      pattern from feature-create-drawer.tsx (line 159) and enables vertical scrolling when
+      content exceeds the viewport height.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'A wrapper div with flex-1, overflow-y-auto, and min-h-0 classes wraps the status and details sections'
+      - 'The DrawerHeader, close button, and DrawerActions remain outside (above) the scroll wrapper'
+      - 'Content scrolls vertically when it exceeds the viewport height'
+      - 'Short content displays normally without a visible scrollbar'
+      - 'Keyboard navigation (Tab) through focusable elements scrolls them into view'
+    tdd:
+      red:
+        - 'Write a render test that mounts FeatureDrawer with a selectedNode and asserts a scroll container element exists with the classes flex-1, overflow-y-auto, and min-h-0'
+        - 'Write a test that asserts the status section (data-testid="feature-drawer-status") is inside the scroll container'
+        - 'Write a test that asserts the details section (data-testid="feature-drawer-details") is inside the scroll container'
+      green:
+        - 'Add a <div className="flex-1 overflow-y-auto min-h-0"> wrapper around the content between the action buttons and the delete footer in the FeatureDrawer JSX'
+        - 'Move the status section (with its Separator) and details section inside the new wrapper'
+      refactor:
+        - 'Ensure the wrapper element has a descriptive data-testid for future testing'
+        - 'Verify consistent spacing — padding on inner sections (p-4) should remain on the child elements, not the wrapper'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Pin delete action as fixed footer outside scroll container'
+    description: >
+      Move the delete action (Separator + AlertDialog div) outside the scrollable wrapper so it
+      remains pinned at the bottom of the drawer regardless of scroll position. This follows the
+      feature-create-drawer.tsx pattern where DrawerFooter sits after the flex-1 overflow-y-auto
+      div. The delete section should be the last child of the FeatureDrawer fragment, directly
+      after the scroll wrapper.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'The delete section (data-testid="feature-drawer-delete") is outside and below the scroll wrapper'
+      - 'The delete button is visible without scrolling even when content is long'
+      - 'The Separator above the delete section visually separates it from scrolled content'
+      - 'The AlertDialog confirmation still works correctly (opens, cancels, confirms)'
+    tdd:
+      red:
+        - 'Write a test that asserts the delete section (data-testid="feature-drawer-delete") is NOT inside the scroll container element'
+        - 'Write a test that asserts the delete section is rendered when onDelete prop is provided'
+      green:
+        - 'In the FeatureDrawer JSX, ensure the delete action block (Separator + delete div with AlertDialog) sits after the closing tag of the scroll wrapper div, not inside it'
+      refactor:
+        - 'Verify the JSX structure reads clearly: close button → header → actions → scroll wrapper(status, details) → separator + delete footer'
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Add LongContent Storybook story for FeatureDrawer'
+    description: >
+      Add a LongContent story variant to feature-drawer.stories.tsx that renders the FeatureDrawer
+      with enough content to exceed the viewport height, demonstrating the scroll behavior and
+      pinned delete footer. Use the existing DrawerTriggerWithDelete wrapper with a fixture
+      containing a very long description, all optional fields populated, and a verbose error message.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'A new exported story named LongContent exists in feature-drawer.stories.tsx'
+      - 'The story uses DrawerTriggerWithDelete to include the delete button'
+      - 'The fixture data has a description long enough to force vertical scrolling'
+      - 'All optional fields (description, agentType, runtime, blockedBy, errorMessage) are populated'
+      - 'Opening the story in Storybook shows scrollable content with the delete button pinned at the bottom'
+    tdd:
+      red:
+        - 'Write a smoke render test that imports the LongContent story and asserts it renders without errors'
+      green:
+        - 'Create a longContentData fixture with a multi-paragraph description (~300+ characters), all optional fields populated with verbose values, and a detailed errorMessage'
+        - 'Add a LongContent story using DrawerTriggerWithDelete with the longContentData fixture'
+      refactor:
+        - 'Ensure the fixture data is realistic and readable — use domain-appropriate text rather than lorem ipsum'
+        - 'Place the story in the Delete stories section alongside WithDeleteButton and DeletingState'
+    estimatedEffort: '20min'
+
+totalEstimate: '1h 40min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation proceeds in two phases with five focused tasks. First, the shared drawer.tsx
+  primitive gets pointer-events pass-through — DrawerOverlay receives pointer-events-none (task 1)
+  and DrawerContent receives pointer-events-auto (task 2). These two class additions fix canvas
+  panning and click-outside-to-close for all non-modal drawers.
+
+  Second, the FeatureDrawer component is restructured for scrollable content. A flex-1
+  overflow-y-auto min-h-0 wrapper is added around the status and details sections (task 3),
+  the delete action is pinned outside the scroll wrapper as a fixed footer (task 4), and a
+  LongContent Storybook story is added to demonstrate and document the scroll behavior (task 5).
+
+  Tasks are ordered by dependency: the pointer-events fix must land first so the full drawer
+  UX can be verified during phase 2. Within phase 2, the scroll wrapper (task 3) must exist
+  before the footer can be pinned outside it (task 4), and the footer must be pinned before
+  the LongContent story can demonstrate the complete behavior (task 5).

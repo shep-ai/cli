@@ -353,3 +353,44 @@ export const DeletingState: Story = {
 export const DeleteRunningAgent: Story = {
   render: () => <DrawerTriggerWithDelete data={runningData} label="Open Running Agent Delete" />,
 };
+
+/* ---------------------------------------------------------------------------
+ * Long-content story — demonstrates scrollable content + pinned delete footer
+ * ------------------------------------------------------------------------- */
+
+const longContentData: FeatureNodeData = {
+  name: 'Enterprise Authentication & Authorization Module',
+  description:
+    'Implement a comprehensive OAuth2 and OpenID Connect authentication flow with support for ' +
+    'multiple identity providers including Google, GitHub, Microsoft Entra ID, and custom ' +
+    'SAML-based enterprise SSO. The module handles token lifecycle management with automatic ' +
+    'refresh, revocation, and secure storage using encrypted HTTP-only cookies. It also provides ' +
+    'role-based access control (RBAC) with hierarchical permission inheritance, enabling ' +
+    'fine-grained authorization at both the API endpoint and UI component levels. Session ' +
+    'management includes concurrent session limits, device fingerprinting, and anomaly detection ' +
+    'for suspicious login patterns. The implementation follows OWASP security guidelines and ' +
+    'includes comprehensive audit logging of all authentication and authorization events for ' +
+    'compliance with SOC 2 and GDPR requirements.',
+  featureId: '#f42',
+  lifecycle: 'implementation',
+  state: 'error',
+  progress: 68,
+  agentType: 'claude-code',
+  runtime: '14h 37m',
+  blockedBy: 'Database Migration v3.2',
+  errorMessage:
+    'Build failed after 3 retry attempts. Root cause: TypeScript compilation error in ' +
+    'src/infrastructure/auth/token-refresh.service.ts — Type "TokenResponse | undefined" is ' +
+    'not assignable to type "TokenResponse". The optional chaining on line 142 returns ' +
+    'undefined when the refresh token has expired, but the downstream validator expects a ' +
+    'non-nullable value. Suggested fix: add an explicit null check before passing the token ' +
+    'to validateAndDecode(). See agent logs for full stack trace.',
+  repositoryPath: '/home/user/enterprise-platform',
+  branch: 'feat/enterprise-auth-module',
+  specPath: 'specs/042-enterprise-auth',
+};
+
+/** FeatureDrawer with long content that exceeds viewport, demonstrating scroll + pinned delete footer. */
+export const LongContent: Story = {
+  render: () => <DrawerTriggerWithDelete data={longContentData} label="Open Long Content" />,
+};

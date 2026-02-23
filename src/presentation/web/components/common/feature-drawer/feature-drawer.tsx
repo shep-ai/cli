@@ -79,41 +79,44 @@ export function FeatureDrawer({
               />
             ) : null}
 
-            <Separator />
+            {/* Scrollable content */}
+            <div data-testid="feature-drawer-scroll" className="min-h-0 flex-1 overflow-y-auto">
+              <Separator />
 
-            {/* Status */}
-            <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
-              <div className="text-muted-foreground text-xs font-semibold tracking-wider">
-                {lifecycleDisplayLabels[selectedNode.lifecycle]}
+              {/* Status */}
+              <div data-testid="feature-drawer-status" className="flex flex-col gap-3 p-4">
+                <div className="text-muted-foreground text-xs font-semibold tracking-wider">
+                  {lifecycleDisplayLabels[selectedNode.lifecycle]}
+                </div>
+
+                <StateBadge data={selectedNode} />
+
+                {selectedNode.progress > 0 ? (
+                  <div data-testid="feature-drawer-progress" className="flex flex-col gap-1">
+                    <div className="text-muted-foreground flex items-center justify-between text-xs">
+                      <span>Progress</span>
+                      <span>{selectedNode.progress}%</span>
+                    </div>
+                    <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
+                      <div
+                        className={cn(
+                          'h-full rounded-full transition-all',
+                          featureNodeStateConfig[selectedNode.state].progressClass
+                        )}
+                        style={{ width: `${selectedNode.progress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
-              <StateBadge data={selectedNode} />
+              <Separator />
 
-              {selectedNode.progress > 0 ? (
-                <div data-testid="feature-drawer-progress" className="flex flex-col gap-1">
-                  <div className="text-muted-foreground flex items-center justify-between text-xs">
-                    <span>Progress</span>
-                    <span>{selectedNode.progress}%</span>
-                  </div>
-                  <div className="bg-muted h-2 w-full overflow-hidden rounded-full">
-                    <div
-                      className={cn(
-                        'h-full rounded-full transition-all',
-                        featureNodeStateConfig[selectedNode.state].progressClass
-                      )}
-                      style={{ width: `${selectedNode.progress}%` }}
-                    />
-                  </div>
-                </div>
-              ) : null}
+              {/* Details */}
+              <DetailsSection data={selectedNode} />
             </div>
 
-            <Separator />
-
-            {/* Details */}
-            <DetailsSection data={selectedNode} />
-
-            {/* Delete action */}
+            {/* Delete action — pinned outside scroll container */}
             {onDelete ? (
               <>
                 <Separator />

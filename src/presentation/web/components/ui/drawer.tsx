@@ -29,7 +29,7 @@ function DrawerOverlay({
   return (
     <DrawerPrimitive.Overlay
       data-slot="drawer-overlay"
-      className={cn('fixed inset-0 z-50 bg-black/50', className)}
+      className={cn('pointer-events-none fixed inset-0 z-50 bg-black/50', className)}
       {...props}
     />
   );
@@ -50,7 +50,7 @@ function DrawerContent({
       <DrawerPrimitive.Content
         data-slot="drawer-content"
         className={cn(
-          'bg-background fixed z-50 flex flex-col shadow-lg',
+          'bg-background pointer-events-auto fixed z-50 flex flex-col shadow-lg',
           direction === 'bottom' && 'inset-x-0 bottom-0 mb-24 rounded-t-lg border-t',
           direction === 'top' && 'inset-x-0 top-0 mt-24 rounded-b-lg border-b',
           direction === 'right' && 'inset-y-0 right-0 h-full w-3/4 border-l',
