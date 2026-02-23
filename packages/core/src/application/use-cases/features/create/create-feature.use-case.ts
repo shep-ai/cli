@@ -53,6 +53,10 @@ export class CreateFeatureUseCase {
   ) {}
 
   async execute(input: CreateFeatureInput): Promise<CreateFeatureResult> {
+    // Ensure the target directory is a git repository (auto-init if needed)
+    // Must run before slug resolution which needs git commands
+    await this.worktreeService.ensureGitRepository(input.repositoryPath);
+
     const metadata = await this.metadataGenerator.generateMetadata(input.userInput);
     const originalSlug = metadata.slug;
 
@@ -70,9 +74,6 @@ export class CreateFeatureUseCase {
 
     const now = new Date();
     const runId = randomUUID();
-
-    // Ensure the target directory is a git repository (auto-init if needed)
-    await this.worktreeService.ensureGitRepository(input.repositoryPath);
 
     // Create git worktree for isolated development
     const worktreePath = this.worktreeService.getWorktreePath(input.repositoryPath, branch);

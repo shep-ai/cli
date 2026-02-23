@@ -35,12 +35,7 @@ export const messages = {
   error: (text: string, error?: Error): void => {
     console.error(colors.error(`${symbols.error} ${text}`));
     if (error) {
-      // Show full stack in debug mode, otherwise just the message
-      if (process.env.DEBUG) {
-        console.error(colors.muted(error.stack ?? error.message));
-      } else {
-        console.error(colors.muted(error.message));
-      }
+      console.error(colors.muted(error.stack ?? error.message));
     }
   },
 
