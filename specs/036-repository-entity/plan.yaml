@@ -1,0 +1,222 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repository-entity
+summary: Implementation plan for promoting Repository to a first-class domain entity
+
+# Relationships
+relatedFeatures:
+  - '031-repo-node-actions'
+technologies:
+  - TypeSpec
+  - TypeScript
+  - SQLite
+  - tsyringe
+  - Next.js
+  - React Flow
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Domain Model & Type Generation'
+    parallel: false
+    taskIds:
+      - task-1
+      - task-2
+
+  - id: phase-2
+    name: 'Database & Migration'
+    parallel: false
+    taskIds:
+      - task-3
+      - task-4
+
+  - id: phase-3
+    name: 'Application Layer (Ports & Use Cases)'
+    parallel: false
+    taskIds:
+      - task-5
+      - task-6
+
+  - id: phase-4
+    name: 'Infrastructure & DI Wiring'
+    parallel: false
+    taskIds:
+      - task-7
+      - task-8
+
+  - id: phase-5
+    name: 'Presentation Layer (Web UI & CLI)'
+    parallel: false
+    taskIds:
+      - task-9
+      - task-10
+      - task-11
+      - task-12
+
+# File change tracking
+filesToCreate:
+  - tsp/domain/entities/repository.tsp
+  - packages/core/src/application/ports/output/repositories/repository.repository.interface.ts
+  - packages/core/src/infrastructure/repositories/sqlite-repository.repository.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/repository.mapper.ts
+  - packages/core/src/application/use-cases/repositories/add-repository.use-case.ts
+  - packages/core/src/application/use-cases/repositories/list-repositories.use-case.ts
+  - src/presentation/web/app/actions/add-repository.ts
+  - tests/unit/application/use-cases/repositories/add-repository.use-case.test.ts
+  - tests/unit/application/use-cases/repositories/list-repositories.use-case.test.ts
+  - tests/integration/infrastructure/repositories/sqlite-repository.repository.test.ts
+
+filesToModify:
+  - tsp/domain/entities/feature.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts
+  - packages/core/src/infrastructure/repositories/sqlite-feature.repository.ts
+  - packages/core/src/application/ports/output/repositories/feature-repository.interface.ts
+  - packages/core/src/application/ports/output/repositories/index.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/web/app/page.tsx
+  - src/presentation/web/app/actions/create-feature.ts
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/common/repository-node/repository-node-config.ts
+  - packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content — architecture, strategy, and risks only.
+# Task-level detail lives in tasks.yaml (no duplication).
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-23
+
+  ## Architecture Overview
+
+  ```
+  ┌─────────────────────────────────────────────────────────┐
+  │                    TypeSpec Layer                        │
+  │  tsp/domain/entities/repository.tsp  (NEW)              │
+  │  tsp/domain/entities/feature.tsp     (+ repositoryId)   │
+  │          ↓ pnpm tsp:compile                             │
+  │  packages/core/src/domain/generated/output.ts           │
+  └─────────────────────────────────────────────────────────┘
+                          ↓
+  ┌─────────────────────────────────────────────────────────┐
+  │                  Application Layer                      │
+  │  IRepositoryRepository  ← interface (port)              │
+  │  AddRepositoryUseCase   ← orchestrates add + validate   │
+  │  ListRepositoriesUseCase← returns all repositories      │
+  │  CreateFeatureUseCase   ← updated: resolve/create repo  │
+  └─────────────────────────────────────────────────────────┘
+                          ↓
+  ┌─────────────────────────────────────────────────────────┐
+  │                Infrastructure Layer                     │
+  │  SQLiteRepositoryRepository  ← implements interface     │
+  │  repository.mapper.ts        ← domain ↔ DB mapping     │
+  │  migrations.ts v15           ← CREATE + backfill        │
+  │  sqlite-feature.repository   ← updated queries          │
+  │  container.ts                ← DI registration          │
+  └─────────────────────────────────────────────────────────┘
+                          ↓
+  ┌─────────────────────────────────────────────────────────┐
+  │                 Presentation Layer                      │
+  │  Web: addRepository server action (NEW)                 │
+  │  Web: page.tsx loads repos from DB                      │
+  │  Web: use-control-center-state.ts fixes                 │
+  │  CLI: run command updated for repository resolution     │
+  └─────────────────────────────────────────────────────────┘
+  ```
+
+  ## Implementation Strategy
+
+  **MANDATORY TDD**: All phases with executable code follow RED-GREEN-REFACTOR cycles.
+
+  **Phase 1 (Domain)** establishes the TypeSpec model and generates types. This is
+  foundational — all subsequent phases depend on the generated `Repository` type.
+
+  **Phase 2 (Database)** creates the migration that introduces the `repositories` table
+  and backfills existing features. This must run before any repository can be created.
+
+  **Phase 3 (Application)** defines the port interface and use cases. These are pure
+  business logic with no infrastructure dependencies, easily testable with mocks.
+
+  **Phase 4 (Infrastructure)** implements the SQLite repository and wires everything
+  into the DI container. Integration tests verify DB operations.
+
+  **Phase 5 (Presentation)** connects the UI and CLI. The web UI gets a server action,
+  page.tsx loads repos from DB, and the control center state bugs are fixed.
+
+  Phases are sequential because each layer depends on the one below it
+  (Clean Architecture dependency rule).
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `tsp/domain/entities/repository.tsp` | TypeSpec model for Repository entity |
+  | `packages/core/.../repositories/repository.repository.interface.ts` | Port interface |
+  | `packages/core/.../repositories/sqlite-repository.repository.ts` | SQLite implementation |
+  | `packages/core/.../mappers/repository.mapper.ts` | Domain ↔ DB mapper |
+  | `packages/core/.../use-cases/repositories/add-repository.use-case.ts` | Add repository use case |
+  | `packages/core/.../use-cases/repositories/list-repositories.use-case.ts` | List repositories use case |
+  | `src/presentation/web/app/actions/add-repository.ts` | Server action for web UI |
+  | `tests/unit/.../add-repository.use-case.test.ts` | Unit tests for add use case |
+  | `tests/unit/.../list-repositories.use-case.test.ts` | Unit tests for list use case |
+  | `tests/integration/.../sqlite-repository.repository.test.ts` | Integration tests |
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | `tsp/domain/entities/feature.tsp` | Add `repositoryId` field |
+  | `migrations.ts` | Add v15: create repositories table, backfill features |
+  | `feature.mapper.ts` | Add `repository_id` mapping |
+  | `sqlite-feature.repository.ts` | Update queries for `repository_id` |
+  | `feature-repository.interface.ts` | Add `repositoryId` to filters |
+  | `repositories/index.ts` | Export new interface |
+  | `container.ts` | Register new repository, use cases, string tokens |
+  | `page.tsx` | Load repos from DB instead of inferring from features |
+  | `create-feature.ts` (action) | Resolve repository before creating feature |
+  | `use-control-center-state.ts` | Fix node ID, data, path derivation, add server action |
+  | `create-feature.use-case.ts` | Create/resolve repository during feature creation |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  **CRITICAL:** Tests are written FIRST in each TDD cycle.
+
+  ### Unit Tests (RED -> GREEN -> REFACTOR)
+
+  - `AddRepositoryUseCase` — validates path, normalizes, delegates to repository
+  - `ListRepositoriesUseCase` — delegates to repository, returns list
+  - `CreateFeatureUseCase` — resolves/creates repository, sets repositoryId on feature
+
+  ### Integration Tests
+
+  - `SQLiteRepositoryRepository` — CRUD operations on real SQLite
+  - Migration v15 — verify table creation, data backfill, repository_id populated
+
+  ### Existing Test Updates
+
+  - Feature mapper tests — updated for `repository_id` field
+  - Feature repository tests — updated for new column
+  - Control center state tests — updated for server action call and fixed node data
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Migration corrupts existing features | Transaction-wrapped migration; test with real data in integration tests |
+  | UUID generation in SQLite | Use `lower(hex(randomblob(4)) \|\| ...)` pattern, verified in tests |
+  | Breaking agent system that reads repositoryPath | Keep `repository_path` column on features during transition; agents resolve through repository |
+  | Duplicate repositories from path variants | Normalize paths (strip trailing slashes) in AddRepositoryUseCase |
+  | Web UI race condition on add | Optimistic UI + router.refresh() after server action completes |
+
+  ---
+
+  _Updated by `/shep-kit:new-feature-fast` — see tasks.yaml for detailed task breakdown_

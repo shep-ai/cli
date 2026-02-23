@@ -1,0 +1,102 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repository-entity
+number: 036
+branch: chore/prd-add-descrption
+oneLiner: Promote Repository to a first-class domain entity with its own TypeSpec model, persistence, and UI/CLI support
+summary: >
+  Repositories are currently inferred from the `repositoryPath` string on Feature entities.
+  This means repos added in the web UI disappear on refresh (stored only in React state),
+  and there is no independent lifecycle for repositories. This feature promotes Repository
+  to a proper domain entity with TypeSpec model, SQLite persistence, Clean Architecture stack,
+  and full UI/CLI integration. Existing features are migrated to reference repositories by ID.
+phase: Requirements
+sizeEstimate: L
+
+# Relationships
+relatedFeatures:
+  - '031-repo-node-actions'
+
+technologies:
+  - TypeSpec
+  - TypeScript
+  - SQLite
+  - React
+  - Next.js
+  - React Flow
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  Repositories in the Shep platform have no persistence layer. They are inferred at runtime
+  by grouping features by their `repositoryPath` string field. This causes three critical issues:
+
+  1. **Data loss on refresh**: When a user adds a repository via the web UI "Add Repository"
+     button, it is stored only in React client state. Refreshing the page loses the repository
+     because `page.tsx` rebuilds repo nodes solely from persisted features.
+
+  2. **No independent repository lifecycle**: Repositories cannot exist without features.
+     You cannot add a repository and then later create features in it across sessions.
+
+  3. **Broken UI state**: The `handleAddRepository` function creates repo nodes with
+     `id: repo-${Date.now()}` (timestamp) but `pendingRepositoryPath` tries to derive the
+     path by stripping the `repo-` prefix, yielding a timestamp instead of a path. The node
+     data also omits `repositoryPath`, breaking IDE/shell/folder action buttons.
+
+  4. **No referential integrity**: Features store repository paths as free-form strings with
+     no validation or foreign key relationship. Different path formats (trailing slashes,
+     symlinks) can create duplicate logical repositories.
+
+  ## Success Criteria
+
+  - [ ] Repository TypeSpec model exists at `tsp/domain/entities/repository.tsp` extending BaseEntity
+  - [ ] Generated TypeScript types include `Repository` type in `output.ts`
+  - [ ] `repositories` SQLite table created via migration with proper schema
+  - [ ] Existing features migrated: unique `repository_path` values become Repository records, features get `repository_id` foreign key
+  - [ ] Feature TypeSpec model updated with `repositoryId` field
+  - [ ] `IRepositoryRepository` interface with CRUD operations exists
+  - [ ] `SQLiteRepositoryRepository` implements the interface
+  - [ ] Use cases: `AddRepositoryUseCase`, `ListRepositoriesUseCase` registered in DI
+  - [ ] Web UI: Adding a repository persists to DB and survives page refresh
+  - [ ] Web UI: `pendingRepositoryPath` derivation fixed (reads from node data)
+  - [ ] Web UI: Repository node data includes `repositoryPath` and `id` fields
+  - [ ] CLI: Feature creation supports repository ID reference
+  - [ ] All existing tests pass after migration
+  - [ ] `pnpm validate` passes (lint, typecheck, tsp:compile)
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | TypeSpec domain models | High | New `repository.tsp` entity, Feature model updated with `repositoryId` |
+  | Database schema | High | New `repositories` table, migration to backfill from existing features |
+  | Application ports | High | New `IRepositoryRepository` interface, updated `IFeatureRepository` filters |
+  | Infrastructure repositories | High | New `SQLiteRepositoryRepository`, updated feature repository queries |
+  | DI container | Medium | Register new repository, use cases, string tokens |
+  | Web UI server page | High | Load repositories from DB, pass to control center |
+  | Web UI state management | High | Fix handleAddRepository, pendingRepositoryPath, add server action |
+  | Web UI components | Medium | Update repository node data interface, feature create drawer |
+  | CLI commands | Medium | Update run command and feature creation to use repository ID |
+  | Agent system | Medium | Update agent state and workers to resolve repository from ID |
+  | Feature mapper | High | Add `repository_id` column mapping |
+
+  ## Dependencies
+
+  None — this is a foundational change that other features depend on.
+
+  ## Size Estimate
+
+  **L** — Touches all layers of the architecture (TypeSpec, domain, application, infrastructure,
+  presentation). Requires a data migration for existing features. Affects both web UI and CLI.
+  Estimated 12-15 tasks across 5 phases.
+
+  ---
+
+  _Generated by `/shep-kit:new-feature-fast`_
