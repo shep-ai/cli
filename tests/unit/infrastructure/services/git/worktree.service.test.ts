@@ -270,10 +270,12 @@ describe('WorktreeService', () => {
       expect(mockExecFile).toHaveBeenCalledTimes(1);
     });
 
-    it('should run git init and commit for a non-git directory', async () => {
+    it('should run git init, config user, and commit for a non-git directory', async () => {
       mockExecFile
         .mockRejectedValueOnce(new Error('fatal: not a git repository'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git init
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git config user.name
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git config user.email
         .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git commit
 
       await service.ensureGitRepository('/plain/dir');
@@ -282,6 +284,14 @@ describe('WorktreeService', () => {
         cwd: '/plain/dir',
       });
       expect(mockExecFile).toHaveBeenCalledWith('git', ['init'], { cwd: '/plain/dir' });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['config', 'user.name', 'Shep AI'], {
+        cwd: '/plain/dir',
+      });
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        ['config', 'user.email', 'noreply@shepai.dev'],
+        { cwd: '/plain/dir' }
+      );
       expect(mockExecFile).toHaveBeenCalledWith(
         'git',
         ['commit', '--allow-empty', '-m', 'Initial commit'],

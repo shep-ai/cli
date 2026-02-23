@@ -9,6 +9,9 @@
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { injectable, inject } from 'tsyringe';
+
+const GIT_AUTO_INIT_USER = 'Shep AI';
+const GIT_AUTO_INIT_EMAIL = 'noreply@shepai.dev';
 import type {
   IWorktreeService,
   WorktreeInfo,
@@ -95,6 +98,8 @@ export class WorktreeService implements IWorktreeService {
 
     try {
       await this.execFile('git', ['init'], { cwd: repoPath });
+      await this.execFile('git', ['config', 'user.name', GIT_AUTO_INIT_USER], { cwd: repoPath });
+      await this.execFile('git', ['config', 'user.email', GIT_AUTO_INIT_EMAIL], { cwd: repoPath });
       await this.execFile('git', ['commit', '--allow-empty', '-m', 'Initial commit'], {
         cwd: repoPath,
       });
