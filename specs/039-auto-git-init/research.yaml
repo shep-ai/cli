@@ -1,0 +1,116 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: auto-git-init
+summary: Technical analysis for auto git initialization in feature creation flow
+
+# Relationships
+relatedFeatures:
+  - '036-repository-entity'
+technologies:
+  - TypeScript
+  - node:child_process
+  - Vitest
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: Where to place git repo detection and initialization logic
+    chosen: Add `ensureGitRepository` method to WorktreeService
+    rejected:
+      - New standalone GitInitService
+      - Logic in CreateFeatureUseCase directly
+    rationale: >
+      WorktreeService already owns git operations and has the ExecFunction dependency
+      injected. Adding the method there keeps git concerns in one place. A standalone
+      service would be over-engineering for a single method. Putting it in the use case
+      would violate the dependency rule (use case calling git directly).
+
+  - title: How to detect if a directory is a git repository
+    chosen: Run `git rev-parse --is-inside-work-tree` via execFile
+    rejected:
+      - Check for `.git` directory existence via fs
+      - Run `git status`
+    rationale: >
+      `git rev-parse --is-inside-work-tree` is the canonical git way to check this.
+      It handles edge cases like bare repos, worktrees, and `.git` files (gitdir
+      references). Filesystem checks miss these cases. `git status` is heavier and
+      provides unnecessary output.
+
+  - title: Integration test strategy
+    chosen: Real git commands in isolated temp directories via Vitest
+    rejected:
+      - Mock-based unit tests only
+      - E2E CLI tests
+    rationale: >
+      The core value of this feature is that real git operations work correctly
+      end-to-end. Mocks would not catch git version quirks or race conditions.
+      E2E CLI tests are too heavy for this — we need to test the service layer
+      directly with real git, not through the full CLI bootstrap.
+
+# Open questions
+openQuestions: []
+
+# Markdown content
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-23
+
+  ## Technology Decisions
+
+  ### Where to place git repo detection and initialization logic
+
+  **Options considered:**
+
+  1. Add `ensureGitRepository` method to WorktreeService — keeps git concerns centralized
+  2. New standalone GitInitService — over-engineering for one method
+  3. Logic in CreateFeatureUseCase directly — violates dependency rule
+
+  **Decision:** Add to WorktreeService
+
+  **Rationale:** WorktreeService already owns git operations and has ExecFunction injected.
+
+  ### How to detect if a directory is a git repository
+
+  **Options considered:**
+
+  1. `git rev-parse --is-inside-work-tree` — canonical git approach
+  2. Check `.git` directory existence — misses bare repos, worktree `.git` files
+  3. `git status` — heavier, unnecessary output
+
+  **Decision:** `git rev-parse --is-inside-work-tree`
+
+  ### Integration test strategy
+
+  **Options considered:**
+
+  1. Real git commands in isolated temp directories — catches real git behavior
+  2. Mock-based unit tests only — wouldn't validate actual git flow
+  3. E2E CLI tests — too heavy, tests service layer directly
+
+  **Decision:** Real git commands in isolated temp dirs via Vitest
+
+  ## Library Analysis
+
+  No new libraries required. Uses existing `node:child_process` via ExecFunction DI token.
+
+  ## Security Considerations
+
+  - `git init` and `git commit` are called with hardcoded arguments only — no user input
+    is interpolated into command strings
+  - ExecFunction uses `execFile` (not `exec`), preventing shell injection
+
+  ## Performance Implications
+
+  - `git rev-parse` adds ~5ms to feature creation for already-initialized repos
+  - `git init` + `git commit` adds ~50ms for uninitialized repos (one-time cost)
+
+  ## Open Questions
+
+  All questions resolved.
+
+  ---
+
+  _Updated by `/shep-kit:new-feature-fast` — proceed with `/shep-kit:plan`_

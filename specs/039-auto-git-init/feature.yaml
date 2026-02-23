@@ -1,0 +1,42 @@
+feature:
+  id: '039-auto-git-init'
+  name: 'auto-git-init'
+  number: 39
+  branch: 'feat/039-auto-git-init'
+  lifecycle: 'implementation'
+  createdAt: '2026-02-23T17:43:24Z'
+
+status:
+  phase: 'ready-to-implement'
+  progress:
+    completed: 0
+    total: 4
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-23T17:45:00Z'
+  lastUpdatedBy: 'shep-kit:new-feature-fast'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-23T17:43:24Z'
+    completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'research-complete'
+    completedAt: '2026-02-23T17:44:00Z'
+    completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'plan-complete'
+    completedAt: '2026-02-23T17:45:00Z'
+    completedBy: 'shep-kit:new-feature-fast'
+
+errors:
+  current: null
+  history: []
