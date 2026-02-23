@@ -85,6 +85,15 @@ export interface IWorktreeService {
   exists(repoPath: string, branch: string): Promise<boolean>;
 
   /**
+   * Check if a git branch exists in the repository.
+   *
+   * @param repoPath - Path to the git repository
+   * @param branch - Branch name to check
+   * @returns True if the branch exists
+   */
+  branchExists(repoPath: string, branch: string): Promise<boolean>;
+
+  /**
    * Get the conventional worktree path for a branch.
    *
    * @param repoPath - Path to the git repository
