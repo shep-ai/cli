@@ -138,7 +138,7 @@ export default async function HomePage() {
     // No features — place below the bottom-most repo node with a gap
     const lastRepoY = repoNodes.length > 0 ? Math.max(...repoNodes.map((n) => n.position.y)) : 0;
     const repoHeight = 50;
-    const gap = 15;
+    const gap = 200;
     addRepoPosition = { x: repoX, y: lastRepoY + repoHeight + gap };
   }
 
