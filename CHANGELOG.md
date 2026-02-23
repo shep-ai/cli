@@ -1,3 +1,9 @@
+# [1.47.0](https://github.com/shep-ai/cli/compare/v1.46.0...v1.47.0) (2026-02-23)
+
+### Features
+
+- **web:** add push and open-pr checkbox controls to feature create drawer ([#103](https://github.com/shep-ai/cli/issues/103)) ([dc9003c](https://github.com/shep-ai/cli/commit/dc9003cd1c639cdb5933c647ec7cfd9d894f55ce))
+
 # [1.46.0](https://github.com/shep-ai/cli/compare/v1.45.0...v1.46.0) (2026-02-23)
 
 ### Features
