@@ -28,7 +28,6 @@ import { setHeartbeatContext } from './heartbeat.js';
 import { setPhaseTimingContext, recordLifecycleEvent } from './phase-timing-context.js';
 import { setLifecycleContext } from './lifecycle-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
-import { generatePrYaml } from './nodes/pr-yaml-generator.js';
 
 import type { ApprovalGates } from '@/domain/generated/output.js';
 
@@ -170,8 +169,8 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const graphDeps: FeatureAgentGraphDeps = {
     executor,
     mergeNodeDeps: {
-      gitPrService,
-      generatePrYaml,
+      getDiffSummary: (cwd: string, baseBranch: string) =>
+        gitPrService.getPrDiffSummary(cwd, baseBranch),
       featureRepository,
     },
   };

@@ -10,6 +10,8 @@
  * from the CLI domain layer.
  */
 
+import { arch, platform } from 'node:os';
+
 /** Version information for the package (mirrors domain VersionInfo) */
 export interface VersionInfo {
   version: string;
@@ -43,7 +45,7 @@ export function getVersionInfo(): VersionInfo {
 export function getSystemInfo(): SystemInfo {
   return {
     nodeVersion: process.version,
-    platform: process.platform,
-    arch: process.arch,
+    platform: platform(),
+    arch: arch(),
   };
 }

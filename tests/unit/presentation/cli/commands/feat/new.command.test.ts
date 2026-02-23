@@ -59,6 +59,12 @@ function makeSettings(overrides: { openPr?: boolean } = {}) {
   return {
     workflow: {
       openPrOnImplementationComplete: overrides.openPr ?? false,
+      approvalGateDefaults: {
+        allowPrd: false,
+        allowPlan: false,
+        allowMerge: false,
+        pushOnImplementationComplete: false,
+      },
     },
   };
 }

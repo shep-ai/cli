@@ -291,6 +291,20 @@ SET name = replace(path, rtrim(path, replace(path, '/', '')), '')
 WHERE instr(path, '/') > 0;
 `,
   },
+  {
+    version: 18,
+    sql: `
+-- Migration 018: Add onboarding and approval gate default columns
+ALTER TABLE settings ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_prd INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_plan INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_merge INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_push_on_impl_complete INTEGER NOT NULL DEFAULT 0;
+
+-- Existing users should NOT be forced through onboarding
+UPDATE settings SET onboarding_complete = 1 WHERE id IS NOT NULL;
+`,
+  },
 ];
 
 /**

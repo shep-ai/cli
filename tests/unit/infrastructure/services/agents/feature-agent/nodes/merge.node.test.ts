@@ -1,11 +1,15 @@
 /**
- * Merge Node Unit Tests
+ * Merge Node Unit Tests (Agent-Driven)
  *
- * Tests for the merge node which handles:
- * - Validation, commit, and push (task 17)
- * - pr.yaml generation and optional PR creation (task 18)
- * - Merge step with approval gate (task 19)
- * - Lifecycle transition and cleanup (task 20)
+ * Tests for the rewritten merge node which uses IAgentExecutor
+ * instead of IGitPrService for commit/push/PR/merge operations.
+ *
+ * Covers:
+ * - Two agent executor calls with correct prompts
+ * - Conditional push/PR logic
+ * - Approval gate behavior (interrupt when !allowMerge)
+ * - Feature lifecycle update after merge
+ * - Error handling (re-throw for LangGraph checkpoint/resume)
  *
  * TDD Phase: RED → GREEN
  */
@@ -22,12 +26,22 @@ const {
   mockRecordPhaseStart,
   mockRecordPhaseEnd,
   mockRecordApprovalWaitStart,
+  mockBuildCommitPushPrPrompt,
+  mockBuildMergeSquashPrompt,
+  mockParseCommitHash,
+  mockParsePrUrl,
 } = vi.hoisted(() => ({
   mockInterrupt: vi.fn(),
   mockShouldInterrupt: vi.fn().mockReturnValue(false),
   mockRecordPhaseStart: vi.fn().mockResolvedValue('timing-123'),
   mockRecordPhaseEnd: vi.fn().mockResolvedValue(undefined),
   mockRecordApprovalWaitStart: vi.fn().mockResolvedValue(undefined),
+  mockBuildCommitPushPrPrompt: vi.fn().mockReturnValue('commit-push-pr prompt'),
+  mockBuildMergeSquashPrompt: vi.fn().mockReturnValue('merge-squash prompt'),
+  mockParseCommitHash: vi.fn().mockReturnValue('abc1234'),
+  mockParsePrUrl: vi
+    .fn()
+    .mockReturnValue({ url: 'https://github.com/test/repo/pull/42', number: 42 }),
 }));
 
 // Mock LangGraph interrupt
@@ -44,6 +58,14 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', 
   }),
   readSpecFile: vi.fn().mockReturnValue('name: Test Feature\ndescription: A test\n'),
   shouldInterrupt: mockShouldInterrupt,
+  retryExecute: vi
+    .fn()
+    .mockImplementation(
+      async (executor: { execute: (p: string) => Promise<unknown> }, prompt: string) => {
+        return executor.execute(prompt);
+      }
+    ),
+  buildExecutorOptions: vi.fn().mockReturnValue({ cwd: '/tmp/worktree', maxTurns: 50 }),
 }));
 
 // Mock heartbeat
@@ -63,35 +85,33 @@ vi.mock('@/infrastructure/services/agents/feature-agent/lifecycle-context.js', (
   updateNodeLifecycle: vi.fn().mockResolvedValue(undefined),
 }));
 
+// Mock prompt builders
+vi.mock('@/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.js', () => ({
+  buildCommitPushPrPrompt: mockBuildCommitPushPrPrompt,
+  buildMergeSquashPrompt: mockBuildMergeSquashPrompt,
+}));
+
+// Mock output parser
+vi.mock('@/infrastructure/services/agents/feature-agent/nodes/merge-output-parser.js', () => ({
+  parseCommitHash: mockParseCommitHash,
+  parsePrUrl: mockParsePrUrl,
+}));
+
 import {
   createMergeNode,
   type MergeNodeDeps,
 } from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
-import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
+import type { DiffSummary } from '@/application/ports/output/services/git-pr-service.interface.js';
 
-function createMockGitPrService(): IGitPrService {
+function createMockExecutor(): IAgentExecutor {
   return {
-    hasUncommittedChanges: vi.fn().mockResolvedValue(true),
-    commitAll: vi.fn().mockResolvedValue('abc123'),
-    push: vi.fn().mockResolvedValue(undefined),
-    createPr: vi.fn().mockResolvedValue({ url: 'https://github.com/test/pr/1', number: 1 }),
-    mergePr: vi.fn().mockResolvedValue(undefined),
-    mergeBranch: vi.fn().mockResolvedValue(undefined),
-    getCiStatus: vi.fn().mockResolvedValue({ status: 'success' }),
-    watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
-    deleteBranch: vi.fn().mockResolvedValue(undefined),
-    getPrDiffSummary: vi.fn().mockResolvedValue({
-      filesChanged: 5,
-      additions: 100,
-      deletions: 20,
-      commitCount: 3,
-    }),
+    agentType: 'claude-code' as never,
+    execute: vi.fn().mockResolvedValue({ result: 'Agent completed all operations successfully' }),
+    executeStream: vi.fn(),
+    supportsFeature: vi.fn().mockReturnValue(false),
   };
-}
-
-function createMockPrYamlGenerator(): MergeNodeDeps['generatePrYaml'] {
-  return vi.fn().mockReturnValue('/tmp/specs/pr.yaml');
 }
 
 function createMockFeatureRepo(): MergeNodeDeps['featureRepository'] {
@@ -105,11 +125,21 @@ function createMockFeatureRepo(): MergeNodeDeps['featureRepository'] {
   } as any;
 }
 
-function baseDeps(): MergeNodeDeps {
+function createMockGetDiffSummary(): MergeNodeDeps['getDiffSummary'] {
+  return vi.fn().mockResolvedValue({
+    filesChanged: 5,
+    additions: 100,
+    deletions: 20,
+    commitCount: 3,
+  } satisfies DiffSummary);
+}
+
+function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
   return {
-    gitPrService: createMockGitPrService(),
-    generatePrYaml: createMockPrYamlGenerator(),
+    executor: createMockExecutor(),
+    getDiffSummary: createMockGetDiffSummary(),
     featureRepository: createMockFeatureRepo(),
+    ...overrides,
   };
 }
 
@@ -136,7 +166,7 @@ function baseState(overrides: Partial<FeatureAgentState> = {}): FeatureAgentStat
   } as FeatureAgentState;
 }
 
-describe('createMergeNode', () => {
+describe('createMergeNode (agent-driven)', () => {
   let deps: MergeNodeDeps;
 
   beforeEach(() => {
@@ -144,206 +174,165 @@ describe('createMergeNode', () => {
     deps = baseDeps();
   });
 
-  // --- Task 17: Validation, commit, and push ---
-  describe('commit and push step', () => {
-    it('should check for uncommitted changes and commit if present', async () => {
+  // --- Agent executor calls ---
+  describe('agent executor calls', () => {
+    it('should make first agent call with commit-push-pr prompt', async () => {
       const node = createMergeNode(deps);
       const state = baseState();
       await node(state);
 
-      expect(deps.gitPrService.hasUncommittedChanges).toHaveBeenCalledWith('/tmp/worktree');
-      expect(deps.gitPrService.commitAll).toHaveBeenCalledWith(
-        '/tmp/worktree',
-        expect.stringContaining('feat')
-      );
-    });
-
-    it('should skip commit when no uncommitted changes', async () => {
-      (deps.gitPrService.hasUncommittedChanges as ReturnType<typeof vi.fn>).mockResolvedValue(
-        false
-      );
-      const node = createMergeNode(deps);
-      const state = baseState();
-      await node(state);
-
-      expect(deps.gitPrService.commitAll).not.toHaveBeenCalled();
-    });
-
-    it('should push with --set-upstream when push=true', async () => {
-      const node = createMergeNode(deps);
-      const state = baseState({ push: true });
-      await node(state);
-
-      expect(deps.gitPrService.push).toHaveBeenCalledWith(
-        '/tmp/worktree',
+      expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
+        expect.objectContaining({ featureId: 'feat-001' }),
         expect.any(String),
-        true
+        'main'
       );
+      // retryExecute wraps executor.execute — verify it was called via the mock
+      expect(deps.executor.execute).toHaveBeenCalledWith('commit-push-pr prompt');
     });
 
-    it('should skip push when push=false and no openPr', async () => {
-      const node = createMergeNode(deps);
-      const state = baseState({ push: false, openPr: false });
-      await node(state);
-
-      expect(deps.gitPrService.push).not.toHaveBeenCalled();
-    });
-
-    it('should push when openPr=true even if push=false (implied)', async () => {
-      const node = createMergeNode(deps);
-      const state = baseState({ push: false, openPr: true });
-      await node(state);
-
-      expect(deps.gitPrService.push).toHaveBeenCalled();
-    });
-
-    it('should NOT push when only allowMerge=true (local merge does not require push)', async () => {
-      const node = createMergeNode(deps);
-      const state = baseState({
-        push: false,
-        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
-        openPr: false,
-      });
-      await node(state);
-
-      expect(deps.gitPrService.push).not.toHaveBeenCalled();
-    });
-
-    it('should return commitHash in state', async () => {
+    it('should parse commit hash and PR URL from first agent call result', async () => {
       const node = createMergeNode(deps);
       const state = baseState();
       const result = await node(state);
 
-      expect(result.commitHash).toBe('abc123');
-    });
-  });
-
-  // --- Task 18: pr.yaml generation and PR creation ---
-  describe('pr.yaml generation and PR creation', () => {
-    it('should always generate pr.yaml', async () => {
-      const node = createMergeNode(deps);
-      const state = baseState({ openPr: false });
-      await node(state);
-
-      expect(deps.generatePrYaml).toHaveBeenCalledWith('/tmp/specs', expect.any(String), 'main');
+      expect(mockParseCommitHash).toHaveBeenCalledWith(
+        'Agent completed all operations successfully'
+      );
+      expect(result.commitHash).toBe('abc1234');
     });
 
-    it('should create PR when openPr=true', async () => {
+    it('should parse PR URL from first call when openPr=true', async () => {
       const node = createMergeNode(deps);
       const state = baseState({ openPr: true });
       const result = await node(state);
 
-      expect(deps.gitPrService.createPr).toHaveBeenCalledWith(
-        '/tmp/worktree',
-        '/tmp/specs/pr.yaml'
-      );
-      expect(result.prUrl).toBe('https://github.com/test/pr/1');
-      expect(result.prNumber).toBe(1);
+      expect(mockParsePrUrl).toHaveBeenCalled();
+      expect(result.prUrl).toBe('https://github.com/test/repo/pull/42');
+      expect(result.prNumber).toBe(42);
     });
 
-    it('should NOT create PR when openPr=false', async () => {
-      const node = createMergeNode(deps);
-      const state = baseState({ openPr: false });
-      await node(state);
-
-      expect(deps.gitPrService.createPr).not.toHaveBeenCalled();
-    });
-
-    it('should skip CI watch after PR creation', async () => {
+    it('should make second agent call with merge-squash prompt when allowMerge=true', async () => {
       const node = createMergeNode(deps);
       const state = baseState({
-        openPr: true,
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
       });
       await node(state);
 
-      expect(deps.gitPrService.watchCi).not.toHaveBeenCalled();
+      expect(mockBuildMergeSquashPrompt).toHaveBeenCalled();
+      // Two calls: first for commit/push/PR, second for merge
+      expect(deps.executor.execute).toHaveBeenCalledTimes(2);
     });
 
-    it('should skip PR creation if prUrl already exists (idempotent)', async () => {
+    it('should NOT make second agent call when allowMerge is not true', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({ openPr: true, prUrl: 'https://github.com/test/pr/1', prNumber: 1 });
+      const state = baseState();
       await node(state);
 
-      expect(deps.gitPrService.createPr).not.toHaveBeenCalled();
+      // Only one call for commit/push/PR
+      expect(deps.executor.execute).toHaveBeenCalledTimes(1);
+      expect(mockBuildMergeSquashPrompt).not.toHaveBeenCalled();
     });
   });
 
-  // --- Task 19: Merge step with approval gate ---
-  describe('merge step', () => {
-    it('should merge PR when allowMerge=true and openPr=true', async () => {
-      (deps.gitPrService.watchCi as ReturnType<typeof vi.fn>).mockResolvedValue({
-        status: 'success',
-      });
+  // --- Conditional push/PR logic ---
+  describe('conditional push/PR logic', () => {
+    it('should pass push=false state to prompt builder when push=false and openPr=false', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({
-        openPr: true,
-        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
-      });
+      const state = baseState({ push: false, openPr: false });
       await node(state);
 
-      expect(deps.gitPrService.mergePr).toHaveBeenCalled();
-    });
-
-    it('should merge branch directly when allowMerge=true and openPr=false', async () => {
-      const node = createMergeNode(deps);
-      const state = baseState({
-        openPr: false,
-        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
-      });
-      await node(state);
-
-      expect(deps.gitPrService.mergeBranch).toHaveBeenCalledWith(
-        '/tmp/worktree',
+      expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
+        expect.objectContaining({ push: false, openPr: false }),
         expect.any(String),
         'main'
       );
     });
 
-    it('should NOT merge when allowMerge=false', async () => {
+    it('should pass push=true state to prompt builder when push=true', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({
-        openPr: true,
-        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-      });
+      const state = baseState({ push: true });
       await node(state);
 
-      expect(deps.gitPrService.mergePr).not.toHaveBeenCalled();
-      expect(deps.gitPrService.mergeBranch).not.toHaveBeenCalled();
+      expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
+        expect.objectContaining({ push: true }),
+        expect.any(String),
+        'main'
+      );
     });
 
-    it('should include diff summary in interrupt payload when allowMerge=false', async () => {
-      mockShouldInterrupt.mockReturnValueOnce(true);
-
+    it('should pass openPr=true state to prompt builder when openPr=true', async () => {
       const node = createMergeNode(deps);
-      const state = baseState({
-        openPr: false,
-        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
-      });
+      const state = baseState({ openPr: true });
       await node(state);
 
-      expect(mockInterrupt).toHaveBeenCalledWith(
-        expect.objectContaining({
-          node: 'merge',
-          diffSummary: expect.objectContaining({
-            filesChanged: 5,
-          }),
-        })
+      expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
+        expect.objectContaining({ openPr: true }),
+        expect.any(String),
+        'main'
       );
+    });
+
+    it('should NOT parse prUrl when openPr=false', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({ openPr: false });
+      const result = await node(state);
+
+      expect(mockParsePrUrl).not.toHaveBeenCalled();
+      expect(result.prUrl).toBeNull();
+      expect(result.prNumber).toBeNull();
     });
   });
 
-  // --- Task 20: Lifecycle transition and cleanup ---
-  describe('lifecycle transition and cleanup', () => {
-    it('should update feature to Review lifecycle when not merged (no allowMerge)', async () => {
+  // --- Approval gate behavior ---
+  describe('approval gate (interrupt)', () => {
+    it('should interrupt with diff summary when shouldInterrupt returns true', async () => {
+      mockShouldInterrupt.mockReturnValueOnce(true);
+      const node = createMergeNode(deps);
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      });
+      await node(state);
+
+      expect(deps.getDiffSummary).toHaveBeenCalledWith('/tmp/worktree', 'main');
+      expect(mockInterrupt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          node: 'merge',
+          diffSummary: expect.objectContaining({ filesChanged: 5 }),
+        })
+      );
+    });
+
+    it('should NOT call getDiffSummary when shouldInterrupt returns false', async () => {
+      mockShouldInterrupt.mockReturnValueOnce(false);
+      const node = createMergeNode(deps);
+      const state = baseState();
+      await node(state);
+
+      expect(deps.getDiffSummary).not.toHaveBeenCalled();
+    });
+
+    it('should record phase timing before interrupt', async () => {
+      mockShouldInterrupt.mockReturnValueOnce(true);
+      const node = createMergeNode(deps);
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      });
+      await node(state);
+
+      expect(mockRecordPhaseEnd).toHaveBeenCalledWith('timing-123', expect.any(Number));
+      expect(mockRecordApprovalWaitStart).toHaveBeenCalledWith('timing-123');
+    });
+  });
+
+  // --- Feature lifecycle update ---
+  describe('lifecycle transition', () => {
+    it('should update feature to Review lifecycle when not merged', async () => {
       const node = createMergeNode(deps);
       const state = baseState();
       await node(state);
 
       expect(deps.featureRepository.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          lifecycle: 'Review',
-        })
+        expect.objectContaining({ lifecycle: 'Review' })
       );
     });
 
@@ -355,9 +344,7 @@ describe('createMergeNode', () => {
       await node(state);
 
       expect(deps.featureRepository.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          lifecycle: 'Maintain',
-        })
+        expect.objectContaining({ lifecycle: 'Maintain' })
       );
     });
 
@@ -370,40 +357,61 @@ describe('createMergeNode', () => {
       expect(result.messages!.length).toBeGreaterThan(0);
       expect(result.currentNode).toBe('merge');
     });
+
+    it('should return commitHash in state', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState();
+      const result = await node(state);
+
+      expect(result.commitHash).toBe('abc1234');
+    });
+
+    it('should include PR data in feature update when PR was created', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({ openPr: true });
+      await node(state);
+
+      expect(deps.featureRepository.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pr: expect.objectContaining({
+            url: 'https://github.com/test/repo/pull/42',
+            number: 42,
+          }),
+        })
+      );
+    });
   });
 
   // --- Error handling ---
-  // Errors are re-thrown (not caught) so LangGraph can checkpoint properly
-  // and `feat resume` retries from the merge node instead of restarting.
   describe('error handling', () => {
-    it('should throw when push fails (allows LangGraph resume)', async () => {
-      (deps.gitPrService.push as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('Push rejected')
+    it('should throw when first executor call fails (allows LangGraph resume)', async () => {
+      (deps.executor.execute as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error('Agent execution failed')
       );
       const node = createMergeNode(deps);
-      const state = baseState({ push: true });
+      const state = baseState();
 
-      await expect(node(state)).rejects.toThrow('Push rejected');
+      await expect(node(state)).rejects.toThrow('Agent execution failed');
     });
 
-    it('should throw when PR creation fails (allows LangGraph resume)', async () => {
-      (deps.gitPrService.createPr as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('gh not found')
-      );
+    it('should throw when second executor call fails (merge step)', async () => {
+      (deps.executor.execute as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ result: 'Commit done' })
+        .mockRejectedValueOnce(new Error('Merge conflict'));
       const node = createMergeNode(deps);
-      const state = baseState({ openPr: true });
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
 
-      await expect(node(state)).rejects.toThrow('gh not found');
+      await expect(node(state)).rejects.toThrow('Merge conflict');
     });
 
     it('should record phase timing even when merge fails', async () => {
-      (deps.gitPrService.push as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error('Push rejected')
-      );
+      (deps.executor.execute as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('Failed'));
       const node = createMergeNode(deps);
-      const state = baseState({ push: true });
+      const state = baseState();
 
-      await expect(node(state)).rejects.toThrow('Push rejected');
+      await expect(node(state)).rejects.toThrow('Failed');
 
       expect(mockRecordPhaseStart).toHaveBeenCalledWith('merge');
       expect(mockRecordPhaseEnd).toHaveBeenCalledWith('timing-123', expect.any(Number));

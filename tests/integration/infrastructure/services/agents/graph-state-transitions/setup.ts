@@ -79,27 +79,16 @@ export function createStubExecutor(): StubExecutor {
 /**
  * Create stubbed MergeNodeDeps for testing the merge node in the graph.
  * All external calls are no-ops that return canned data.
+ * Returns Omit<MergeNodeDeps, 'executor'> — the graph factory adds the executor.
  */
-export function createStubMergeNodeDeps(featureId?: string): MergeNodeDeps {
+export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps, 'executor'> {
   return {
-    gitPrService: {
-      hasUncommittedChanges: vi.fn().mockResolvedValue(false),
-      commitAll: vi.fn().mockResolvedValue('abc1234'),
-      push: vi.fn().mockResolvedValue(undefined),
-      createPr: vi.fn().mockResolvedValue({ url: 'https://github.com/test/pr/1', number: 1 }),
-      mergePr: vi.fn().mockResolvedValue(undefined),
-      mergeBranch: vi.fn().mockResolvedValue(undefined),
-      getCiStatus: vi.fn().mockResolvedValue({ status: 'success' }),
-      watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
-      deleteBranch: vi.fn().mockResolvedValue(undefined),
-      getPrDiffSummary: vi.fn().mockResolvedValue({
-        filesChanged: 3,
-        additions: 50,
-        deletions: 10,
-        commitCount: 2,
-      }),
-    },
-    generatePrYaml: vi.fn().mockReturnValue('/tmp/pr.yaml'),
+    getDiffSummary: vi.fn().mockResolvedValue({
+      filesChanged: 3,
+      additions: 50,
+      deletions: 10,
+      commitCount: 2,
+    }),
     featureRepository: {
       findById: vi.fn().mockResolvedValue({
         id: featureId ?? 'feat-test',
@@ -132,7 +121,7 @@ export interface TestContext {
   /** The compiled LangGraph graph. */
   graph: ReturnType<typeof createFeatureAgentGraph>;
   /** Stubbed merge node deps (only available when withMerge=true). */
-  mergeNodeDeps?: MergeNodeDeps;
+  mergeNodeDeps?: Omit<MergeNodeDeps, 'executor'>;
   /** Generate a unique graph config with isolated thread_id. */
   newConfig: () => { configurable: { thread_id: string } };
   /** Build initial state for graph.invoke(). */
@@ -161,7 +150,7 @@ export function createTestContext(options?: TestContextOptions): TestContext {
   let tempDir = '';
   let specDir = '';
   let executor: StubExecutor;
-  let mergeNodeDeps: MergeNodeDeps | undefined;
+  let mergeNodeDeps: Omit<MergeNodeDeps, 'executor'> | undefined;
   let graph: ReturnType<typeof createFeatureAgentGraph>;
 
   function buildGraph(): void {

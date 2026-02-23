@@ -1,3 +1,33 @@
+# [1.43.0](https://github.com/shep-ai/cli/compare/v1.42.0...v1.43.0) (2026-02-23)
+
+### Features
+
+- **cli:** auto-open browser when `shep ui` starts ([#95](https://github.com/shep-ai/cli/issues/95)) ([9ef0781](https://github.com/shep-ai/cli/commit/9ef0781222cbe19f72552a0784b8face5a27f62d))
+
+# [1.42.0](https://github.com/shep-ai/cli/compare/v1.41.1...v1.42.0) (2026-02-23)
+
+### Features
+
+- **cli:** add first-run onboarding wizard ([#93](https://github.com/shep-ai/cli/issues/93)) ([7cde82a](https://github.com/shep-ai/cli/commit/7cde82a4a78c08f88a3caf9a7d7aaf899c067646))
+
+## [1.41.1](https://github.com/shep-ai/cli/compare/v1.41.0...v1.41.1) (2026-02-23)
+
+### Bug Fixes
+
+- **web:** use os.platform() instead of process.platform for runtime evaluation ([#94](https://github.com/shep-ai/cli/issues/94)) ([57e0893](https://github.com/shep-ai/cli/commit/57e0893e2bf2e78d51465ef763d4e62df6566c23))
+
+# [1.41.0](https://github.com/shep-ai/cli/compare/v1.40.2...v1.41.0) (2026-02-23)
+
+### Features
+
+- **agents:** replace direct git service calls with agent-driven merge ([#91](https://github.com/shep-ai/cli/issues/91)) ([5f8a13d](https://github.com/shep-ai/cli/commit/5f8a13de3dc6cb6d2c90b74e736f811ba118f143))
+
+## [1.40.2](https://github.com/shep-ai/cli/compare/v1.40.1...v1.40.2) (2026-02-22)
+
+### Bug Fixes
+
+- **domain:** add ajv-formats for date-time validation ([#90](https://github.com/shep-ai/cli/issues/90)) ([4ff5ed5](https://github.com/shep-ai/cli/commit/4ff5ed50f2a069e56876b20a751d142217e0b654))
+
 ## [1.40.1](https://github.com/shep-ai/cli/compare/v1.40.0...v1.40.1) (2026-02-22)
 
 ### Bug Fixes

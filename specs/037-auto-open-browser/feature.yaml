@@ -1,0 +1,38 @@
+feature:
+  id: 037-auto-open-browser
+  name: auto-open-browser
+  number: 37
+  branch: feat/037-auto-open-browser
+  lifecycle: research
+  createdAt: '2026-02-23T13:51:01Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 4
+    total: 4
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-23T14:08:59.501Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-23T13:51:01Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

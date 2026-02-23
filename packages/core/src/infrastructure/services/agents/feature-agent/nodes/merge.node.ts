@@ -1,21 +1,25 @@
 /**
- * Merge Node — Post-Implementation Merge Flow
+ * Merge Node — Agent-Driven Post-Implementation Merge Flow
  *
- * Handles the complete merge workflow after implementation:
- * 1. Commit uncommitted changes and push
- * 2. Generate pr.yaml (always) and optionally create PR
- * 3. Optionally auto-merge (via PR or direct branch merge)
- * 4. Update feature lifecycle and clean up
+ * Handles the complete merge workflow after implementation using two agent calls:
+ * 1. Commit + push + create PR (via agent executor)
+ * 2. Merge/squash (via agent executor, after approval gate)
  *
  * Uses interrupt() for the merge approval gate when allowMerge=false.
  */
 
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
+import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { FeatureAgentState } from '../state.js';
-import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { DiffSummary } from '@/application/ports/output/services/git-pr-service.interface.js';
 import { SdlcLifecycle, PrStatus, type CiStatus } from '@/domain/generated/output.js';
-import { createNodeLogger, shouldInterrupt } from './node-helpers.js';
+import {
+  createNodeLogger,
+  shouldInterrupt,
+  retryExecute,
+  buildExecutorOptions,
+} from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import {
   recordPhaseStart,
@@ -23,10 +27,12 @@ import {
   recordApprovalWaitStart,
 } from '../phase-timing-context.js';
 import { updateNodeLifecycle } from '../lifecycle-context.js';
+import { buildCommitPushPrPrompt, buildMergeSquashPrompt } from './prompts/merge-prompts.js';
+import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 
 export interface MergeNodeDeps {
-  gitPrService: IGitPrService;
-  generatePrYaml: (specDir: string, branch: string, baseBranch: string) => string;
+  executor: IAgentExecutor;
+  getDiffSummary: (cwd: string, baseBranch: string) => Promise<DiffSummary>;
   featureRepository: Pick<IFeatureRepository, 'findById' | 'update'>;
 }
 
@@ -50,70 +56,45 @@ export function createMergeNode(deps: MergeNodeDeps) {
     const mergeTimingId = await recordPhaseStart('merge');
 
     try {
-      const { gitPrService } = deps;
+      const { executor } = deps;
       const cwd = state.worktreePath;
 
       // Resolve branch name from feature
       const feature = await deps.featureRepository.findById(state.featureId);
       const branch = feature?.branch ?? `feat/${state.featureId}`;
       const baseBranch = 'main';
+      const options = buildExecutorOptions(state);
 
-      // --- Step 1: Commit and Push ---
-      let commitHash = state.commitHash;
+      // --- Agent Call 1: Commit + Push + PR ---
+      log.info('Agent call 1: commit + push + PR');
+      const commitPushPrPrompt = buildCommitPushPrPrompt(state, branch, baseBranch);
+      const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
+        logger: log,
+      });
 
-      const hasChanges = await gitPrService.hasUncommittedChanges(cwd);
-      if (hasChanges) {
-        log.info('Uncommitted changes detected, committing...');
-        commitHash = await gitPrService.commitAll(
-          cwd,
-          `feat: implementation complete for ${state.featureId}`
-        );
-        messages.push(`[merge] Committed changes: ${commitHash}`);
-      } else {
-        log.info('No uncommitted changes');
-        messages.push('[merge] No uncommitted changes to commit');
-      }
+      // Parse structured data from agent output
+      const commitHash = parseCommitHash(commitResult.result) ?? state.commitHash;
+      messages.push(`[merge] Agent completed commit/push/PR operations`);
 
-      // Push is controlled by the push flag (--push, or implied by --pr)
-      const shouldPush = state.push || state.openPr;
-      if (shouldPush) {
-        log.info('Pushing to remote...');
-        await gitPrService.push(cwd, branch, true);
-        messages.push(`[merge] Pushed branch ${branch}`);
-      } else {
-        log.info('Push skipped (--push not set)');
-        messages.push('[merge] Push skipped (use --push to push to remote)');
-      }
-
-      // --- Step 2: Generate pr.yaml (always) ---
-      log.info('Generating pr.yaml...');
-      const prYamlPath = deps.generatePrYaml(state.specDir, branch, baseBranch);
-      messages.push(`[merge] Generated pr.yaml at ${prYamlPath}`);
-
-      // --- Step 3: Create PR (if openPr=true and not already created) ---
       let prUrl = state.prUrl;
       let prNumber = state.prNumber;
       const ciStatus = state.ciStatus;
 
-      if (state.openPr && !state.prUrl) {
-        log.info('Creating pull request...');
-        const prResult = await gitPrService.createPr(cwd, prYamlPath);
-        prUrl = prResult.url;
-        prNumber = prResult.number;
-        messages.push(`[merge] PR created: ${prUrl}`);
-
-        // CI watching disabled — let the user check CI status externally
-        log.info('Skipping CI watch (disabled)');
-        messages.push('[merge] CI watch skipped');
+      if (state.openPr) {
+        const prResult = parsePrUrl(commitResult.result);
+        if (prResult) {
+          prUrl = prResult.url;
+          prNumber = prResult.number;
+          messages.push(`[merge] PR created: ${prUrl}`);
+        }
       }
 
-      // --- Step 4: Merge approval gate ---
+      // --- Merge approval gate ---
       if (shouldInterrupt('merge', state.approvalGates)) {
         log.info('Interrupting for merge approval');
-        // Close timing before interrupt so the pre-approval work has a duration
         await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
         await recordApprovalWaitStart(mergeTimingId);
-        const diffSummary = await gitPrService.getPrDiffSummary(cwd, baseBranch);
+        const diffSummary = await deps.getDiffSummary(cwd, baseBranch);
         interrupt({
           node: 'merge',
           message: 'Merge approval required. Review the changes and approve to continue.',
@@ -123,23 +104,21 @@ export function createMergeNode(deps: MergeNodeDeps) {
         });
       }
 
-      // --- Step 5: Auto-merge (if enabled) ---
+      // --- Agent Call 2: Merge (if enabled) ---
       let merged = false;
       if (state.approvalGates?.allowMerge) {
-        if (state.openPr && prNumber) {
-          log.info(`Auto-merging PR #${prNumber}...`);
-          await gitPrService.mergePr(cwd, prNumber, 'squash');
-          messages.push(`[merge] PR #${prNumber} merged via squash`);
-          merged = true;
-        } else {
-          log.info(`Auto-merging branch ${branch} into ${baseBranch}...`);
-          await gitPrService.mergeBranch(cwd, branch, baseBranch);
-          messages.push(`[merge] Branch ${branch} merged into ${baseBranch}`);
-          merged = true;
-        }
+        log.info('Agent call 2: merge/squash');
+        const mergePrompt = buildMergeSquashPrompt(
+          { ...state, prUrl, prNumber, commitHash },
+          branch,
+          baseBranch
+        );
+        await retryExecute(executor, mergePrompt, options, { logger: log });
+        messages.push(`[merge] Agent completed merge operation`);
+        merged = true;
       }
 
-      // --- Step 6: Update feature lifecycle ---
+      // --- Update feature lifecycle ---
       const newLifecycle = merged ? SdlcLifecycle.Maintain : SdlcLifecycle.Review;
       if (feature) {
         await deps.featureRepository.update({
@@ -186,8 +165,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
       await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
 
       // Re-throw so LangGraph does NOT checkpoint this node as completed.
-      // This allows `feat resume` to retry the merge node instead of
-      // restarting the entire graph from scratch.
       throw err;
     }
   };

@@ -1,0 +1,424 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: first-run-onboarding
+summary: >
+  Technical research for the first-run onboarding wizard. Key decisions: use CompleteOnboardingUseCase
+  that internally delegates to UpdateSettingsUseCase for persistence, add migration 15 with onboarding_complete
+  and approval gate default columns (setting onboarding_complete=1 for existing rows), and structure the wizard
+  as a modular step-based orchestrator under tui/wizards/onboarding/ with injectable step functions for testability.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (domain model updates — Settings.onboardingComplete, ApprovalGateDefaults on WorkflowConfig)
+  - '@inquirer/prompts (select, checkbox, password — already in use)'
+  - tsyringe (DI container — register two new use cases)
+  - Commander.js (CLI bootstrap — first-run gate insertion)
+  - better-sqlite3 (SQLite migrations — migration 15 for new columns)
+  - Vitest (TDD across all layers)
+  - picocolors (welcome banner via existing shep theme)
+
+relatedLinks: []
+
+decisions:
+  - title: 'CompleteOnboardingUseCase — Composition vs Direct Repository Access'
+    chosen: 'Direct ISettingsRepository injection with atomic write'
+    rejected:
+      - "Delegate to UpdateSettingsUseCase internally — adds unnecessary indirection since CompleteOnboardingUseCase needs to load-then-merge-then-write settings (not just blindly persist). UpdateSettingsUseCase only does repository.update(), so we'd still need to load and merge ourselves. Composing use cases adds coupling between use cases without benefit."
+      - 'Three separate use cases (ConfigureAgentUseCase + UpdateIdeUseCase + UpdateWorkflowUseCase) called in sequence — violates atomicity requirement, leaves partial state if any step fails, and leaks orchestration logic into the presentation layer.'
+    rationale: >
+      CompleteOnboardingUseCase must load current settings, merge all wizard results (agent, IDE, workflow defaults,
+      onboardingComplete=true), and persist in a single write. This matches the ConfigureAgentUseCase pattern
+      (see packages/core/src/application/use-cases/agents/configure-agent.use-case.ts lines 54-84) which also
+      loads settings → merges changes → persists. Direct repository injection keeps it simple and atomic.
+      The use case encapsulates the business rule "what constitutes completing onboarding" in one place.
+
+  - title: 'CheckOnboardingStatusUseCase — Dedicated Use Case vs Inline Check'
+    chosen: 'Dedicated CheckOnboardingStatusUseCase reading from in-memory singleton'
+    rejected:
+      - "Inline check in bootstrap (getSettings().onboardingComplete) — leaks business logic into presentation layer. If the definition of 'onboarding complete' changes (e.g., re-onboarding on version bump), the bootstrap would need to change too."
+      - "Middleware/hook pattern in Commander.js — Commander doesn't have a clean pre-parse middleware API. Using .hook('preAction') would fire per-command, not once globally before parsing. Overcomplicating for a simple boolean check."
+    rationale: >
+      Clean Architecture mandates that business logic lives in use cases, not the presentation layer. The
+      CheckOnboardingStatusUseCase reads from the in-memory settings singleton (getSettings().onboardingComplete)
+      so it adds zero DB overhead. It provides a clear seam for future changes (e.g., re-onboarding when new
+      required settings are added). The bootstrap simply calls useCase.execute() and branches on the result.
+
+  - title: 'TypeSpec Model Placement — ApprovalGateDefaults Location'
+    chosen: 'New ApprovalGateDefaults model in settings.tsp, nested under WorkflowConfig'
+    rejected:
+      - "Reuse existing ApprovalGates from tsp/agents/ — ApprovalGates is a runtime concept for agent runs (allowPrd, allowPlan, allowMerge). The settings defaults add pushOnImplementationComplete which doesn't exist on ApprovalGates. Mixing runtime agent gates with persistent defaults conflates two concerns."
+      - 'Flat fields on WorkflowConfig (no nested model) — WorkflowConfig already has openPrOnImplementationComplete and autoMergeOnImplementationComplete at the top level. Adding 4 more boolean fields would make it 6 flat booleans. Grouping approval-related defaults under ApprovalGateDefaults keeps WorkflowConfig organized and makes it clear which fields are approval gates vs other workflow config.'
+    rationale: >
+      ApprovalGateDefaults is semantically distinct from the runtime ApprovalGates — it represents user preferences
+      for new features, not active agent run gates. It belongs in settings.tsp alongside WorkflowConfig because it's
+      a settings concern. Nesting under WorkflowConfig groups related workflow defaults together. The model contains
+      allowPrd, allowPlan, allowMerge, and pushOnImplementationComplete — all boolean defaults for feat new.
+
+  - title: 'Database Migration Strategy — Handling Existing Settings Records'
+    chosen: 'Migration 15: ALTER TABLE with DEFAULT values + UPDATE existing rows to set onboarding_complete=1'
+    rejected:
+      - 'JSON column for approval gate defaults — breaks the established pattern of flattened columns for Settings (see migrations 1-10, every nested object is flattened to individual columns). Would require changing the mapper to handle JSON parsing for this one section while everything else is flat columns.'
+      - 'No migration, rely on factory defaults at read time — breaks the mapper which expects all columns to exist (fromDatabase does direct property access on the row). Missing columns would cause runtime errors for existing installations.'
+    rationale: >
+      The codebase uses a strict pattern: each Settings field maps to a dedicated SQLite column (see
+      settings.mapper.ts). New boolean fields use INTEGER NOT NULL DEFAULT 0. The critical detail is that
+      existing users (who already have a Settings row) must get onboarding_complete=1 so they're not forced
+      through onboarding. The migration adds columns with safe defaults, then UPDATEs existing rows. This
+      matches the pattern from migration 10 (workflow flags) and migration 9 (notification preferences).
+      Next available migration version is 15.
+
+  - title: 'Wizard Orchestration Pattern — Step Injection vs Direct Calls'
+    chosen: 'Orchestrator function with default step imports, overridable via parameters for testing'
+    rejected:
+      - 'Step registry pattern (Map<string, StepFn>) — over-engineered for 3 steps. Adds indirection and makes the execution order implicit rather than explicit. The user asked for scalable, not plugin-based.'
+      - 'Class-based wizard with abstract step methods — adds class hierarchy overhead. The existing wizard pattern (agentConfigWizard) is a simple async function. Introducing classes deviates from established patterns.'
+    rationale: >
+      The existing TUI wizard pattern uses standalone async functions (see agent-config.wizard.ts).
+      The onboarding orchestrator will be an async function that calls each step sequentially. For testability,
+      step functions are passed as parameters with default imports, allowing tests to inject mocks. This is
+      the simplest pattern that satisfies both scalability (add a new step = add a new file + one line in
+      orchestrator) and testability (inject mock steps in tests). The orchestrator remains under ~50 lines.
+
+  - title: 'Bootstrap Integration Point — Where to Insert the First-Run Check'
+    chosen: 'After settings initialization (Step 2), before Commander setup (Step 3) in bootstrap()'
+    rejected:
+      - "Inside Commander's .hook('preAction') — fires per-command, would need special handling for --help and --version. Also fires after argument parsing, which means invalid commands would error before the wizard runs."
+      - 'Before settings initialization — settings must exist to check onboardingComplete. Would require a separate DB query before the settings use case runs, adding complexity.'
+    rationale: >
+      The bootstrap function in src/presentation/cli/index.ts has a clear sequential flow: (1) init container,
+      (2) init settings, (3) setup Commander. The onboarding check fits naturally between steps 2 and 3.
+      At this point, settings are loaded and in-memory, so CheckOnboardingStatusUseCase can read the boolean
+      with zero overhead. If onboarding is needed, the wizard runs and updates settings before any Commander
+      parsing happens. This means ALL commands (including --help, --version) are gated, which matches the
+      spec requirement "no matter what command you called."
+
+  - title: 'Settings Singleton Refresh After Onboarding'
+    chosen: 'resetSettings() + initializeSettings(updatedSettings) after CompleteOnboardingUseCase'
+    rejected:
+      - 'Return updated settings from use case and call initializeSettings() without reset — initializeSettings() throws if already initialized (see settings.service.ts line 47-49). Must reset first.'
+      - 'Add an updateSettings() function to the settings service — would be a new API surface just for this one use case. resetSettings() + initializeSettings() already exists and is the established pattern (see agent.command.ts which does the same).'
+    rationale: >
+      The settings service (packages/core/src/infrastructure/services/settings.service.ts) uses a write-once
+      pattern with initializeSettings() that throws on re-init. The established pattern for updating the
+      singleton is resetSettings() followed by initializeSettings(newSettings). This is already used by
+      the settings agent command. CompleteOnboardingUseCase persists to DB, then the orchestrator refreshes
+      the in-memory singleton using this pattern.
+
+  - title: 'feat new Default Resolution — Extending getWorkflowDefaults()'
+    chosen: 'Extend getWorkflowDefaults() to return approval gate defaults and push from settings'
+    rejected:
+      - 'New getApprovalGateDefaults() function separate from getWorkflowDefaults() — splits related logic across two functions. The caller (createNewCommand action) would need to merge results from both, adding complexity.'
+      - 'Read settings directly in the .action() callback — already done for openPr via getWorkflowDefaults(). Adding more direct getSettings() calls in the action duplicates the pattern instead of extending it.'
+    rationale: >
+      getWorkflowDefaults() in feat/new.command.ts (line 36-44) already reads settings.workflow for openPr.
+      Extending it to also return allowPrd, allowPlan, allowMerge, and push from
+      settings.workflow.approvalGateDefaults is the natural evolution. The action handler then uses
+      ?? (nullish coalescing) to apply defaults only when CLI flags aren't explicitly set. This matches
+      the existing pattern: `const openPr = options.pr ?? defaults.openPr`.
+
+  - title: 'Graceful Cancellation Handling'
+    chosen: 'Let @inquirer/prompts ExitPromptError propagate, catch at orchestrator level'
+    rejected:
+      - 'Try-catch in each step file — duplicates error handling across 3 steps. The orchestrator is the right place to catch because partial results should NOT be persisted regardless of which step was cancelled.'
+      - "Global process.on('SIGINT') handler — too broad, would interfere with Commander's own signal handling. @inquirer/prompts already throws ExitPromptError on Ctrl+C which is the idiomatic way to handle cancellation."
+    rationale: >
+      @inquirer/prompts throws ExitPromptError on Ctrl+C. The onboarding orchestrator catches it and exits cleanly.
+      No partial settings are persisted because CompleteOnboardingUseCase runs only after all steps complete.
+      This matches the existing pattern in agent.command.ts which catches "force closed" errors from Inquirer prompts.
+
+openQuestions:
+  - question: 'Should CheckOnboardingStatusUseCase load settings from the repository or read the in-memory singleton?'
+    resolved: true
+    options:
+      - option: 'Read from in-memory singleton via getSettings()'
+        description: 'Zero DB overhead since settings are already loaded in bootstrap step 2. Simple implementation. The singleton is guaranteed to be populated by the time the onboarding check runs.'
+        selected: true
+      - option: 'Load from repository via ISettingsRepository.load()'
+        description: "More 'correct' from a DI perspective (injecting repository), but adds a redundant DB read since InitializeSettingsUseCase already loaded and cached settings. Adds ~1-3ms latency."
+        selected: false
+      - option: 'Accept Settings as a parameter instead of loading internally'
+        description: 'Makes the use case a pure function (input → output) but pushes the responsibility of providing settings to the caller, which means the bootstrap needs to pass settings around explicitly.'
+        selected: false
+    selectionRationale: >
+      The singleton is guaranteed populated after bootstrap step 2 (InitializeSettingsUseCase + initializeSettings).
+      Reading from it is instantaneous and avoids a redundant DB roundtrip. The NFR-1 requirement demands < 5ms
+      overhead — the singleton read is effectively 0ms. For testability, the use case can still be tested by
+      controlling what initializeSettings() receives in test setup. However, note that this use case won't use
+      DI injection — it will be a simple class that calls getSettings() internally, similar to how getWorkflowDefaults()
+      works in the CLI layer. This is acceptable because it's a read-only check with no side effects.
+
+  - question: 'What migration version number should the new migration use?'
+    resolved: true
+    options:
+      - option: 'Version 15'
+        description: 'The current LATEST_SCHEMA_VERSION is 14 (migration 014 adds approval wait timing columns to phase_timings). Next sequential version is 15.'
+        selected: true
+      - option: 'Version 20 (leave gaps for other features)'
+        description: "Leaves room for migrations from other feature branches. However, this project doesn't use version gaps — all migrations are sequential (1-14 with no gaps)."
+        selected: false
+      - option: 'Dynamic version based on timestamp'
+        description: 'Would break the sequential user_version pragma pattern. The migration system iterates MIGRATIONS array and compares version numbers sequentially.'
+        selected: false
+    selectionRationale: >
+      The migration system uses sequential version numbers tracked via SQLite's user_version pragma
+      (see migrations.ts). All existing migrations are sequential 1-14 with no gaps. The next available
+      version is 15. Using gaps or timestamps would break the established pattern.
+
+  - question: 'Should the onboarding wizard support a --skip-onboarding CLI flag for CI/scripting?'
+    resolved: true
+    options:
+      - option: 'No skip flag in this feature, defer to a future enhancement'
+        description: "Keep scope minimal. CI environments typically don't use interactive CLI tools. If needed, users can pre-populate settings via the existing shep settings agent/ide commands which set the relevant fields and would effectively bypass onboarding."
+        selected: true
+      - option: 'Add --skip-onboarding global flag'
+        description: 'Allows CI scripts to bypass the wizard. Requires adding a global Commander option before parsing, which complicates the bootstrap flow since the onboarding check runs before Commander setup.'
+        selected: false
+      - option: 'Use SHEP_SKIP_ONBOARDING environment variable'
+        description: "CI-friendly approach that doesn't require CLI changes. But adds a non-obvious escape hatch that could lead to misconfigured environments."
+        selected: false
+    selectionRationale: >
+      The spec explicitly states "no matter what command you called, first check if you finished the first
+      onboarding." Adding a skip mechanism is out of scope. For CI/scripting use cases, users can pre-configure
+      settings via non-interactive commands (shep settings agent --type claude-code --auth-method session)
+      which would set onboardingComplete=true indirectly. A skip flag can be added as a separate feature if
+      CI usage becomes a real need.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. CompleteOnboardingUseCase — Composition vs Direct Repository Access
+
+  **Chosen:** Direct ISettingsRepository injection with atomic write
+
+  **Rejected:**
+  - Delegate to UpdateSettingsUseCase internally — adds unnecessary indirection since CompleteOnboardingUseCase needs to load-then-merge-then-write settings. UpdateSettingsUseCase only does `repository.update()`, so we'd still need the load-and-merge logic ourselves.
+  - Three separate use cases called in sequence — violates atomicity requirement, leaves partial state if any step fails, and leaks orchestration logic into the presentation layer.
+
+  **Rationale:** CompleteOnboardingUseCase must load current settings, merge all wizard results (agent, IDE, workflow defaults, onboardingComplete=true), and persist in a single write. This matches the ConfigureAgentUseCase pattern which loads settings → merges changes → persists atomically.
+
+  ### 2. CheckOnboardingStatusUseCase — Dedicated Use Case vs Inline Check
+
+  **Chosen:** Dedicated CheckOnboardingStatusUseCase reading from in-memory singleton
+
+  **Rejected:**
+  - Inline check in bootstrap (`getSettings().onboardingComplete`) — leaks business logic into presentation layer
+  - Commander.js middleware/hook pattern — no clean pre-parse middleware; `.hook('preAction')` fires per-command
+
+  **Rationale:** Clean Architecture mandates business logic in use cases. The use case reads from the in-memory singleton (0ms overhead, meeting NFR-1 < 5ms requirement). Provides a clear seam for future evolution (e.g., re-onboarding on version bump).
+
+  ### 3. TypeSpec Model Placement — ApprovalGateDefaults
+
+  **Chosen:** New ApprovalGateDefaults model in settings.tsp, nested under WorkflowConfig
+
+  **Rejected:**
+  - Reuse existing ApprovalGates from tsp/agents/ — different semantic (runtime gates vs persistent defaults). Settings defaults include `pushOnImplementationComplete` which doesn't exist on ApprovalGates.
+  - Flat fields on WorkflowConfig — would make 6+ flat booleans. Grouping under ApprovalGateDefaults keeps it organized.
+
+  **Rationale:** ApprovalGateDefaults is semantically distinct from runtime ApprovalGates. It groups related workflow defaults: allowPrd, allowPlan, allowMerge, pushOnImplementationComplete (all boolean, default false).
+
+  ### 4. Database Migration Strategy
+
+  **Chosen:** Migration 15: ALTER TABLE with DEFAULT values + UPDATE existing rows (onboarding_complete=1)
+
+  **Rejected:**
+  - JSON column for approval gate defaults — breaks the established flattened-column pattern used throughout all 14 existing migrations
+  - No migration, rely on factory defaults at read time — mapper does direct property access on row; missing columns cause runtime errors
+
+  **Rationale:** Follows the strict pattern: each Settings field = dedicated SQLite column. Boolean fields use `INTEGER NOT NULL DEFAULT 0`. Existing users get `onboarding_complete = 1` so they skip the wizard. Migration adds 5 new columns to the settings table.
+
+  ### 5. Wizard Orchestration Pattern
+
+  **Chosen:** Orchestrator function with default step imports, overridable via parameters for testing
+
+  **Rejected:**
+  - Step registry pattern (Map<string, StepFn>) — over-engineered for 3 steps, makes execution order implicit
+  - Class-based wizard with abstract step methods — deviates from existing async function pattern (agentConfigWizard)
+
+  **Rationale:** Follows the existing TUI wizard pattern (standalone async functions). Steps are passed as parameters with default imports for testability. Adding a new step = add a file + one line in orchestrator.
+
+  ### 6. Bootstrap Integration Point
+
+  **Chosen:** After settings initialization (Step 2), before Commander setup (Step 3)
+
+  **Rejected:**
+  - Commander's `.hook('preAction')` — fires per-command, would miss --help/--version, errors before wizard on invalid commands
+  - Before settings initialization — settings must exist to check onboardingComplete
+
+  **Rationale:** Natural insertion point in bootstrap's sequential flow. All commands are gated. Settings are loaded and in-memory for zero-overhead check. Matches spec: "no matter what command you called."
+
+  ### 7. Settings Singleton Refresh
+
+  **Chosen:** `resetSettings()` + `initializeSettings(updatedSettings)` after CompleteOnboardingUseCase
+
+  **Rejected:**
+  - Call initializeSettings() without reset — throws "already initialized" error
+  - Add new updateSettings() function to service — unnecessary new API; reset + init is the established pattern
+
+  **Rationale:** The write-once singleton pattern requires reset before re-init. This is the same pattern used by `settings agent` command.
+
+  ### 8. feat new Default Resolution
+
+  **Chosen:** Extend `getWorkflowDefaults()` to return all approval gate defaults + push
+
+  **Rejected:**
+  - Separate getApprovalGateDefaults() function — splits related logic, forces caller to merge
+  - Direct getSettings() in action callback — duplicates existing pattern instead of extending it
+
+  **Rationale:** `getWorkflowDefaults()` already reads settings.workflow for openPr. Extending it to include approval gates and push follows the existing convention. CLI flags override via `??` (nullish coalescing).
+
+  ### 9. Graceful Cancellation
+
+  **Chosen:** Let @inquirer/prompts ExitPromptError propagate, catch at orchestrator level
+
+  **Rejected:**
+  - Try-catch in each step — duplicates error handling across 3 steps
+  - Global process.on('SIGINT') — too broad, interferes with Commander's signal handling
+
+  **Rationale:** @inquirer/prompts throws ExitPromptError on Ctrl+C. The orchestrator catches it and exits cleanly. No partial settings are persisted because CompleteOnboardingUseCase runs only after all steps complete.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @inquirer/prompts | TUI prompts (select, checkbox, password) | Use (existing) | Already used for agent/IDE/auth prompts. `checkbox()` needed for workflow defaults step. |
+  | tsyringe | Dependency injection | Use (existing) | DI container for new use cases. Standard `@injectable()` + `@inject()` pattern. |
+  | Commander.js | CLI framework | Use (existing) | Bootstrap hook insertion point. No new Commander APIs needed. |
+  | better-sqlite3 | SQLite database | Use (existing) | Migration 15 adds new columns. No new APIs needed. |
+  | picocolors | Terminal styling | Use (existing) | Welcome banner uses existing color utilities from shep theme. |
+  | Vitest | Testing | Use (existing) | TDD across all layers (unit, integration). |
+  | chalk | Terminal styling | Reject | Already using picocolors via shep theme. No need for a heavier alternative. |
+  | enquirer | Alternative prompts | Reject | @inquirer/prompts is already established in the codebase with consistent theme. |
+  | terminal-kit | Full TUI framework | Reject | Massive overkill for a 3-step wizard. @inquirer/prompts handles the needed interactions. |
+
+  ## Security Considerations
+
+  - **No new security concerns.** The onboarding wizard collects the same data as existing `shep settings agent` and `shep settings ide` commands. Agent tokens are already stored in the SQLite database with the same security model.
+  - **Token handling:** Step 1 reuses `agentConfigWizard()` which uses `password()` prompt with masking for API tokens. No changes to token storage or handling.
+  - **Settings file permissions:** The `~/.shep/` directory is created with 0700 permissions (existing behavior). No change needed.
+  - **Migration safety:** The migration adds columns with DEFAULT values and runs in a transaction. Failure rolls back cleanly. No data loss risk.
+
+  ## Performance Implications
+
+  - **Startup overhead (NFR-1):** CheckOnboardingStatusUseCase reads `getSettings().onboardingComplete` from the in-memory singleton. Cost: ~0ms (pointer dereference + property access). Well under the 5ms budget.
+  - **One-time wizard cost:** The onboarding wizard is interactive (user-paced), so execution time is bounded by user input speed, not system performance.
+  - **Migration 15:** Runs once on first launch after upgrade. ALTER TABLE + UPDATE on a single-row table is effectively instant.
+  - **No ongoing cost:** After onboarding completes, the check is a single boolean read per CLI invocation. No additional queries, network calls, or file reads.
+
+  ## Architecture Notes
+
+  ### Layer Responsibilities
+
+  ```
+  Presentation Layer (src/presentation/)
+  ├── cli/index.ts          → bootstrap() inserts onboarding gate between steps 2-3
+  ├── tui/wizards/onboarding/
+  │   ├── onboarding.wizard.ts    → orchestrates steps, calls CompleteOnboardingUseCase
+  │   ├── steps/agent.step.ts     → wraps agentConfigWizard() (reuse)
+  │   ├── steps/ide.step.ts       → wraps createIdeSelectConfig() + select() (reuse)
+  │   ├── steps/workflow-defaults.step.ts → new checkbox() prompt
+  │   └── types.ts                → OnboardingResult interface
+  └── cli/commands/feat/new.command.ts → extends getWorkflowDefaults()
+
+  Application Layer (packages/core/src/application/)
+  ├── use-cases/settings/
+  │   ├── check-onboarding-status.use-case.ts  → reads singleton, returns { isComplete }
+  │   └── complete-onboarding.use-case.ts      → merges results, sets onboardingComplete=true, persists
+
+  Domain Layer (tsp/ → packages/core/src/domain/)
+  ├── tsp/domain/entities/settings.tsp  → adds onboardingComplete, ApprovalGateDefaults
+  ├── domain/generated/output.ts        → regenerated (DO NOT EDIT)
+  └── domain/factories/settings-defaults.factory.ts → adds defaults
+
+  Infrastructure Layer (packages/core/src/infrastructure/)
+  ├── di/container.ts                    → registers 2 new use cases
+  ├── persistence/sqlite/migrations.ts   → migration 15
+  └── persistence/sqlite/mappers/settings.mapper.ts → maps new fields
+  ```
+
+  ### Data Flow
+
+  ```
+  CLI bootstrap
+    → InitializeSettingsUseCase.execute() (existing — loads/creates settings)
+    → initializeSettings(settings) (existing — populates singleton)
+    → CheckOnboardingStatusUseCase.execute()
+        → getSettings().onboardingComplete
+        → returns { isComplete: false }
+    → onboardingWizard()
+        → welcomeBanner() (picocolors styled output)
+        → agentStep() → agentConfigWizard() → AgentConfigResult
+        → ideStep() → select(createIdeSelectConfig()) → string
+        → workflowDefaultsStep() → checkbox() → WorkflowDefaultsResult
+        → CompleteOnboardingUseCase.execute({ agent, ide, workflowDefaults })
+            → settingsRepository.load()
+            → merge results into settings
+            → settings.onboardingComplete = true
+            → settingsRepository.update(mergedSettings)
+            → return mergedSettings
+        → resetSettings() + initializeSettings(updatedSettings)
+    → Commander setup + parseAsync() (normal flow)
+  ```
+
+  ### TypeSpec Changes
+
+  ```typespec
+  // In settings.tsp — new model
+  @doc("Default approval gate settings for new features")
+  model ApprovalGateDefaults {
+    @doc("Auto-approve requirements phase (default: false)")
+    allowPrd: boolean = false;
+
+    @doc("Auto-approve planning phase (default: false)")
+    allowPlan: boolean = false;
+
+    @doc("Auto-approve merge phase (default: false)")
+    allowMerge: boolean = false;
+
+    @doc("Push branch to remote on implementation complete (default: false)")
+    pushOnImplementationComplete: boolean = false;
+  }
+
+  // Updated WorkflowConfig
+  model WorkflowConfig {
+    openPrOnImplementationComplete: boolean = false;
+    autoMergeOnImplementationComplete: boolean = false;
+    approvalGateDefaults: ApprovalGateDefaults;  // NEW
+  }
+
+  // Updated Settings
+  model Settings extends BaseEntity {
+    // ... existing fields ...
+    onboardingComplete: boolean = false;  // NEW — top-level
+  }
+  ```
+
+  ### Migration 15 SQL
+
+  ```sql
+  -- Migration 015: Add onboarding and approval gate defaults
+  ALTER TABLE settings ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE settings ADD COLUMN approval_gate_allow_prd INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE settings ADD COLUMN approval_gate_allow_plan INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE settings ADD COLUMN approval_gate_allow_merge INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE settings ADD COLUMN approval_gate_push_on_impl_complete INTEGER NOT NULL DEFAULT 0;
+
+  -- Existing users should NOT be forced through onboarding
+  UPDATE settings SET onboarding_complete = 1 WHERE id IS NOT NULL;
+  ```
+
+  ### File Size Compliance (NFR-8)
+
+  All new files stay under the ~150 line limit:
+  - `onboarding.wizard.ts` — ~40-50 lines (orchestrator + welcome banner)
+  - `steps/agent.step.ts` — ~15 lines (wraps agentConfigWizard)
+  - `steps/ide.step.ts` — ~20 lines (wraps select + createIdeSelectConfig)
+  - `steps/workflow-defaults.step.ts` — ~40 lines (checkbox config + prompt)
+  - `types.ts` — ~20 lines (OnboardingResult interface)
+  - `check-onboarding-status.use-case.ts` — ~25 lines
+  - `complete-onboarding.use-case.ts` — ~60 lines
+
+  ---
+
+  _Research complete — proceed with planning_
