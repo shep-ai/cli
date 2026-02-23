@@ -1,0 +1,326 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-pr-push-flags
+number: 037
+branch: feat/037-feature-pr-push-flags
+oneLiner: Add push and PR checkbox controls to the Web UI feature creation drawer
+userQuery: >
+  Feature: Add support to new create pull request flags on new feature.
+  Also we need push checkbox support.
+summary: >
+  The CLI already supports --push and --pr flags when creating features via `shep feat new`,
+  but the Web UI's FeatureCreateDrawer and its server action are missing these controls entirely.
+  This feature adds push and PR (openPr) checkbox options to the Web UI feature creation form,
+  wires them through the server action to the CreateFeatureUseCase, and updates Storybook stories.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures:
+  - '020-worktree-merge-flow'
+
+technologies:
+  - React 19
+  - Next.js 16+ (App Router, Server Actions)
+  - shadcn/ui (Checkbox, CheckboxGroup components)
+  - Storybook
+  - Vitest
+  - TypeScript
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the checkboxes use standalone Checkbox components or a CheckboxGroup with parent toggle?'
+    resolved: true
+    options:
+      - option: 'Standalone Checkboxes'
+        description: >
+          Use two individual Checkbox+Label pairs (one for Push, one for Create PR) in a labeled
+          section. Simpler implementation, matches the independent boolean nature of these flags.
+          No parent/child indeterminate logic needed. Each checkbox is independently toggled.
+        selected: true
+      - option: 'CheckboxGroup with parent'
+        description: >
+          Use a CheckboxGroup with a parent "Git Actions" checkbox and two children (Push, Create PR).
+          Matches the existing approval gates pattern. However, a parent "select all" toggle is
+          semantically wrong here — "Create PR" implies "Push", but "Push" does not imply
+          "Create PR", so they are not equivalent peers.
+        selected: false
+    selectionRationale: >
+      Standalone checkboxes are recommended because push and PR are not equivalent peers — PR implies
+      push but not vice versa. A parent "select all" toggle would incorrectly suggest they are
+      symmetrical. Two standalone checkboxes with the PR-implies-push coupling logic are cleaner
+      and more intuitive. The existing CheckboxGroupItem component can still be reused for
+      consistent visual styling.
+    answer: 'Standalone Checkboxes'
+
+  - question: 'What should the default values for push and openPr be in the Web UI?'
+    resolved: true
+    options:
+      - option: 'Both default to false'
+        description: >
+          Simple, safe defaults. Both checkboxes start unchecked. No server-side settings
+          read needed. Matches the CLI behavior when no flags are passed. User explicitly
+          opts in to push/PR behavior.
+        selected: true
+      - option: 'Read defaults from settings'
+        description: >
+          Read settings.workflow.openPrOnImplementationComplete server-side (like the CLI does)
+          and pass as initial values to the drawer. Provides consistency with CLI defaults.
+          Requires async settings read in the server component or a new API call, adding complexity.
+        selected: false
+    selectionRationale: >
+      Defaulting both to false is recommended for the initial implementation. It is the safest
+      default (no unintended pushes or PRs), matches the CLI zero-flag behavior, and avoids
+      the complexity of reading settings server-side in the drawer. Settings-driven defaults
+      can be added as a follow-up enhancement.
+    answer: 'Both default to false'
+
+  - question: 'Where should the push/PR checkboxes be placed in the form layout?'
+    resolved: true
+    options:
+      - option: 'Between Approve and Attachments sections'
+        description: >
+          Place the new "Git" section between the existing "Approve" checkboxes and the
+          "Attachments" section. Groups all behavioral configuration (approve gates, git actions)
+          together before the file attachment section. Natural reading order: name → description →
+          approval behavior → git behavior → attachments.
+        selected: true
+      - option: 'After Attachments (bottom of form)'
+        description: >
+          Place at the very end of the form, after attachments. Keeps existing layout unchanged
+          but pushes git options to a less visible position. Users might miss them.
+        selected: false
+      - option: 'Inside the Approve section'
+        description: >
+          Merge push/PR checkboxes into the existing "Approve" CheckboxGroup. Fewer sections
+          but conflates two different concepts (approval gates vs. git actions), making the
+          form harder to understand.
+        selected: false
+    selectionRationale: >
+      Placing between Approve and Attachments groups all behavioral configuration together
+      while keeping the form's logical flow intact. The "Git" section label clearly separates
+      it from approval gates, and it appears before the less critical attachments section.
+    answer: 'Between Approve and Attachments sections'
+
+  - question: 'How should the PR-implies-push coupling behave in the UI?'
+    resolved: true
+    options:
+      - option: 'Auto-check and disable push when PR is checked'
+        description: >
+          When the user checks "Create PR", the "Push" checkbox is automatically checked and
+          becomes visually disabled (grayed out, non-interactive). This mirrors the CLI behavior
+          where --pr implies --push. When PR is unchecked, push becomes interactive again and
+          retains its previous state.
+        selected: true
+      - option: 'Auto-check push but keep it interactive'
+        description: >
+          When PR is checked, push is auto-checked but the user can still uncheck push manually
+          (which would also uncheck PR). More flexible but potentially confusing — a user might
+          uncheck push without realizing it disables PR.
+        selected: false
+    selectionRationale: >
+      Auto-check and disable is recommended because it makes the dependency crystal clear:
+      you cannot create a PR without pushing. Disabling the checkbox prevents an impossible
+      state (PR=true, push=false) and matches the CLI constraint where --pr implies --push.
+      This is the most intuitive UX for a dependency relationship.
+    answer: 'Auto-check and disable push when PR is checked'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The CLI command `shep feat new` already supports `--push` and `--pr` flags that control
+  whether the feature agent pushes the branch to remote and/or creates a pull request after
+  implementation. The domain model (`Feature.push`, `Feature.openPr`) and the use case
+  (`CreateFeatureInput.push`, `CreateFeatureInput.openPr`) fully support these options.
+
+  However, the **Web UI** has no way to set these flags:
+
+  1. **`FeatureCreateDrawer`** (`src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx`)
+     - `FeatureCreatePayload` interface is missing `push` and `openPr` fields
+     - The form has no checkboxes or controls for push/PR options
+  2. **`createFeature` server action** (`src/presentation/web/app/actions/create-feature.ts`)
+     - `CreateFeatureInput` interface is missing `push` and `openPr` fields
+     - The `createFeatureUseCase.execute()` call does not pass push/openPr values
+  3. **`useControlCenterState`** (`src/presentation/web/components/features/control-center/use-control-center-state.ts`)
+     - `handleCreateFeatureSubmit` calls `createFeature(data)` but the data lacks push/openPr
+
+  As a result, all features created from the Web UI default to `push: false` and `openPr: false`
+  with no user control.
+
+  ## Success Criteria
+
+  - [ ] `FeatureCreatePayload` interface includes `push: boolean` and `openPr: boolean` fields
+  - [ ] Feature create drawer shows a "GIT" section with Push and Create PR checkboxes
+  - [ ] Both checkboxes default to unchecked (false)
+  - [ ] Checking "Create PR" auto-checks "Push" and disables it (PR implies push)
+  - [ ] Unchecking "Create PR" re-enables "Push" checkbox, restoring its previous state
+  - [ ] The `handleSubmit` callback includes push and openPr in the submitted payload
+  - [ ] The `createFeature` server action accepts `push` and `openPr` fields
+  - [ ] The server action passes `push` and `openPr` through to `CreateFeatureUseCase.execute()`
+  - [ ] Form reset clears push and openPr back to false
+  - [ ] Storybook stories cover: default (both unchecked), push only, PR checked (push forced), and interactive
+  - [ ] All existing tests continue to pass
+  - [ ] New unit tests verify the server action passes push/openPr to the use case
+
+  ## Functional Requirements
+
+  - **FR-1: FeatureCreatePayload interface update** — Add `push: boolean` and `openPr: boolean`
+    fields to the `FeatureCreatePayload` interface exported from
+    `feature-create-drawer.tsx`. Both fields are required booleans (not optional) to ensure
+    explicit values are always passed through the data flow.
+
+  - **FR-2: Push checkbox** — Add a "Push" checkbox to the feature create drawer form.
+    When checked, the created feature will have `push: true`, causing the agent to push
+    the implementation branch to the remote after completion. Default: unchecked (false).
+
+  - **FR-3: Create PR checkbox** — Add a "Create PR" checkbox to the feature create drawer
+    form. When checked, the created feature will have `openPr: true`, causing the agent to
+    open a pull request after pushing. Default: unchecked (false).
+
+  - **FR-4: PR-implies-push coupling** — When "Create PR" is checked, the "Push" checkbox
+    must be automatically checked and disabled (non-interactive). This enforces the invariant
+    that a PR cannot be created without pushing. When "Create PR" is unchecked, "Push"
+    becomes interactive again.
+
+  - **FR-5: Push state preservation** — When "Create PR" is checked (forcing push on) and
+    then unchecked, the "Push" checkbox should retain whatever state it had before
+    "Create PR" was checked. If push was manually checked before PR was checked, it stays
+    checked. If it was unchecked, it returns to unchecked.
+
+  - **FR-6: Form section layout** — The push and PR checkboxes are rendered in a new "GIT"
+    labeled section placed between the existing "APPROVE" section and the "ATTACHMENTS"
+    section. Uses the same `Label` styling as other section headers
+    (`text-muted-foreground text-xs font-semibold tracking-wider`).
+
+  - **FR-7: Server action interface update** — Add optional `push?: boolean` and
+    `openPr?: boolean` fields to the `CreateFeatureInput` interface in
+    `create-feature.ts` server action. Optional to maintain backward compatibility.
+
+  - **FR-8: Server action passthrough** — The `createFeature` server action must pass
+    `push` and `openPr` values through to `CreateFeatureUseCase.execute()`. Values
+    default to `false` if not provided (matching existing behavior for backward
+    compatibility).
+
+  - **FR-9: Form reset** — When the drawer is closed (via cancel, close button, or
+    backdrop), the form reset must clear `push` and `openPr` state back to `false`,
+    matching the existing reset behavior for name, description, attachments, and
+    approvalGates.
+
+  - **FR-10: Disabled state** — When `isSubmitting` is true, both push and PR checkboxes
+    must be disabled, consistent with all other form controls in the drawer.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Visual consistency** — The push/PR checkboxes must use the same
+    `CheckboxGroupItem` component (or equivalent Checkbox + Label pattern) as the existing
+    approval gates, ensuring consistent spacing, typography, and interactive states.
+
+  - **NFR-2: Accessibility** — Each checkbox must have a proper `<Label>` association via
+    `htmlFor`/`id`, descriptive text, and work correctly with keyboard navigation (Tab,
+    Space to toggle). The disabled state on "Push" when PR is checked must be
+    communicated to screen readers via the `disabled` attribute.
+
+  - **NFR-3: Storybook coverage** — New Storybook stories must cover: (1) default state
+    (both unchecked), (2) push-only checked, (3) PR checked (push auto-forced), and
+    (4) interactive story showing the coupling behavior. Stories use the existing
+    `CreateDrawerTrigger` pattern.
+
+  - **NFR-4: Test coverage** — Unit tests for the server action must verify that `push`
+    and `openPr` values are correctly passed through to the use case. Tests must cover:
+    both provided, neither provided (defaults to false), and only one provided.
+
+  - **NFR-5: No breaking changes** — The `FeatureCreatePayload` interface change must not
+    break existing consumers. The `useControlCenterState` hook already passes the full
+    payload object to `createFeature()`, so the new fields flow through automatically.
+    The server action's `CreateFeatureInput` uses optional fields for backward compatibility.
+
+  - **NFR-6: Bundle size** — No new dependencies. All required UI components (Checkbox,
+    CheckboxGroupItem, Label) already exist in the project.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Standalone checkboxes vs CheckboxGroup? | Standalone Checkboxes | Push and PR are not symmetric peers — PR implies push. A parent toggle would incorrectly suggest equivalence. |
+  | 2 | Default values for push/openPr? | Both default to false | Safest default, no unintended side effects, matches CLI zero-flag behavior. Settings integration as follow-up. |
+  | 3 | Form placement of checkboxes? | Between Approve and Attachments | Groups behavioral config together, natural reading order, clearly labeled "GIT" section. |
+  | 4 | PR-implies-push UI behavior? | Auto-check and disable push | Makes dependency explicit, prevents impossible state (PR=true, push=false), matches CLI semantics. |
+
+  ## Codebase Analysis
+
+  ### Current Flow (CLI — Working)
+
+  ```
+  CLI: shep feat new "desc" --push --pr
+    → new.command.ts reads flags, resolves openPr from settings defaults
+    → CreateFeatureUseCase.execute({ push, openPr, ... })
+    → Feature entity created with push/openPr
+    → Agent worker spawned with --push --open-pr flags
+    → merge.node.ts reads state.push/state.openPr for push/PR logic
+  ```
+
+  ### Current Flow (Web UI — Missing push/openPr)
+
+  ```
+  Web UI: FeatureCreateDrawer form submit
+    → FeatureCreatePayload { name, description, attachments, repositoryPath, approvalGates }
+    → createFeature server action receives data (no push/openPr)
+    → CreateFeatureUseCase.execute({ ... }) — push/openPr default to false
+    → Feature always created with push=false, openPr=false
+  ```
+
+  ### Target Flow (Web UI — After Implementation)
+
+  ```
+  Web UI: FeatureCreateDrawer form submit
+    → FeatureCreatePayload { name, description, attachments, repositoryPath, approvalGates, push, openPr }
+    → createFeature server action receives data (with push/openPr)
+    → CreateFeatureUseCase.execute({ push, openPr, ... })
+    → Feature created with user-specified push/openPr values
+  ```
+
+  ### Project Structure (Relevant Files)
+
+  | File | Purpose |
+  | ---- | ------- |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | Drawer component with form |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | Storybook stories |
+  | `src/presentation/web/app/actions/create-feature.ts` | Server action |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | State hook calling server action |
+  | `src/presentation/web/components/ui/checkbox.tsx` | shadcn/ui Checkbox (already exists) |
+  | `src/presentation/web/components/ui/checkbox-group-item.tsx` | Checkbox + Label item component (already exists) |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | `CreateFeatureInput` (already has push/openPr) |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | High | Add push/openPr to FeatureCreatePayload, add checkbox UI, wire state with PR-implies-push coupling |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | High | Add stories for push/PR checkbox states (default, push-only, PR-checked, interactive) |
+  | `src/presentation/web/app/actions/create-feature.ts` | Medium | Add push/openPr to CreateFeatureInput interface, pass through to use case execute() call |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Low | No changes needed — already passes full FeatureCreatePayload to createFeature() |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | None | Already has push/openPr fields |
+
+  ## Dependencies
+
+  - `Checkbox` component (`src/presentation/web/components/ui/checkbox.tsx`) — already exists
+  - `CheckboxGroupItem` component (`src/presentation/web/components/ui/checkbox-group-item.tsx`) — already exists, can reuse for consistent styling
+  - `Label` component (`src/presentation/web/components/ui/label.tsx`) — already exists
+  - `CreateFeatureUseCase` already accepts `push` and `openPr` in its input interface
+  - Feature domain model already has `push: boolean` and `openPr: boolean` fields
+
+  ## Size Estimate
+
+  **S** — This is a small feature. The domain model, use case, and CLI already fully support
+  push/openPr flags. The work is purely in the Web UI presentation layer: adding two checkboxes
+  to an existing form, updating one server action interface, and adding Storybook stories.
+  Estimated 3 files changed (drawer component, server action, stories), all within the web
+  presentation layer. No domain, application, or infrastructure changes needed.
+
+  ---
+
+  _Requirements complete — proceed with research_

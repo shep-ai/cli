@@ -6,6 +6,8 @@ import { toast } from 'sonner';
 import { approveFeature } from '@/app/actions/approve-feature';
 import { getFeatureArtifact } from '@/app/actions/get-feature-artifact';
 import { getResearchArtifact } from '@/app/actions/get-research-artifact';
+import { getWorkflowDefaults } from '@/app/actions/get-workflow-defaults';
+import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import type { TechDecisionsReviewData } from '@/components/common/tech-decisions-review';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -43,6 +45,16 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteRepository,
     closeCreateDrawer,
   } = useControlCenterState(initialNodes, initialEdges);
+
+  // Workflow defaults for the create-feature drawer
+  const [workflowDefaults, setWorkflowDefaults] = useState<WorkflowDefaults | undefined>();
+  useEffect(() => {
+    getWorkflowDefaults()
+      .then(setWorkflowDefaults)
+      .catch(() => {
+        // Settings unavailable — drawer falls back to all-false defaults
+      });
+  }, []);
 
   // PRD questionnaire drawer state
   const [prdSelections, setPrdSelections] = useState<Record<string, string>>({});
@@ -204,6 +216,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onClose={closeCreateDrawer}
           onSubmit={handleCreateFeatureSubmit}
           repositoryPath={pendingRepositoryPath}
+          workflowDefaults={workflowDefaults}
         />
       </>
     );
@@ -274,6 +287,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onClose={closeCreateDrawer}
         onSubmit={handleCreateFeatureSubmit}
         repositoryPath={pendingRepositoryPath}
+        workflowDefaults={workflowDefaults}
       />
     </>
   );

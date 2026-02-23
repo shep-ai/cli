@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   XIcon,
@@ -25,9 +25,11 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { CheckboxGroup } from '@/components/ui/checkbox-group';
+import { CheckboxGroupItem } from '@/components/ui/checkbox-group-item';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 import type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
+import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { pickFiles } from './pick-files';
 
 export type { FileAttachment } from '@shepai/core/infrastructure/services/file-dialog.service';
@@ -42,6 +44,8 @@ export interface FeatureCreatePayload {
     allowPlan: boolean;
     allowMerge: boolean;
   };
+  push: boolean;
+  openPr: boolean;
 }
 
 const AUTO_APPROVE_OPTIONS = [
@@ -62,6 +66,7 @@ export interface FeatureCreateDrawerProps {
   onSubmit: (data: FeatureCreatePayload) => void;
   repositoryPath: string;
   isSubmitting?: boolean;
+  workflowDefaults?: WorkflowDefaults;
 }
 
 export function FeatureCreateDrawer({
@@ -70,18 +75,36 @@ export function FeatureCreateDrawer({
   onSubmit,
   repositoryPath,
   isSubmitting = false,
+  workflowDefaults,
 }: FeatureCreateDrawerProps) {
+  const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
+  const defaultPush = workflowDefaults?.push ?? false;
+  const defaultOpenPr = workflowDefaults?.openPr ?? false;
+
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
-  const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...EMPTY_GATES });
+  const [approvalGates, setApprovalGates] = useState<Record<string, boolean>>({ ...defaultGates });
+  const [push, setPush] = useState(defaultPush);
+  const [openPr, setOpenPr] = useState(defaultOpenPr);
+
+  // Sync state when workflowDefaults load asynchronously
+  useEffect(() => {
+    if (workflowDefaults) {
+      setApprovalGates({ ...workflowDefaults.approvalGates });
+      setPush(workflowDefaults.push);
+      setOpenPr(workflowDefaults.openPr);
+    }
+  }, [workflowDefaults]);
 
   const resetForm = useCallback(() => {
     setName('');
     setDescription('');
     setAttachments([]);
-    setApprovalGates({ ...EMPTY_GATES });
-  }, []);
+    setApprovalGates({ ...defaultGates });
+    setPush(defaultPush);
+    setOpenPr(defaultOpenPr);
+  }, [defaultGates, defaultPush, defaultOpenPr]);
 
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
@@ -108,9 +131,11 @@ export function FeatureCreateDrawer({
           allowPlan: approvalGates.allowPlan ?? false,
           allowMerge: approvalGates.allowMerge ?? false,
         },
+        push: push || openPr,
+        openPr,
       });
     },
-    [name, description, attachments, approvalGates, repositoryPath, onSubmit]
+    [name, description, attachments, approvalGates, repositoryPath, onSubmit, push, openPr]
   );
 
   const handleAddFiles = useCallback(async () => {
@@ -209,6 +234,31 @@ export function FeatureCreateDrawer({
                 onValueChange={setApprovalGates}
                 disabled={isSubmitting}
               />
+            </div>
+
+            {/* Git options */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-muted-foreground text-xs font-semibold tracking-wider">
+                GIT
+              </Label>
+              <div className="flex flex-col gap-2">
+                <CheckboxGroupItem
+                  id="push"
+                  label="Push"
+                  description="Push branch to remote after implementation."
+                  checked={push || openPr}
+                  onCheckedChange={setPush}
+                  disabled={openPr || isSubmitting}
+                />
+                <CheckboxGroupItem
+                  id="open-pr"
+                  label="Create PR"
+                  description="Open a pull request after pushing."
+                  checked={openPr}
+                  onCheckedChange={setOpenPr}
+                  disabled={isSubmitting}
+                />
+              </div>
             </div>
 
             {/* Attachments */}

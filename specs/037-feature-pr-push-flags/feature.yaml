@@ -1,0 +1,39 @@
+feature:
+  id: 037-feature-pr-push-flags
+  name: feature-pr-push-flags
+  number: 37
+  branch: feat/037-feature-pr-push-flags
+  lifecycle: research
+  createdAt: '2026-02-23T12:00:13Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 5
+    total: 5
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-23T12:17:58.461Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-23T12:00:13Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

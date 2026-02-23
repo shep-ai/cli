@@ -3,6 +3,7 @@ import type { Meta, StoryObj } from '@storybook/react';
 import { within, userEvent, fn } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
 import type { FeatureCreatePayload } from './feature-create-drawer';
+import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { Button } from '@/components/ui/button';
 
 /* ---------------------------------------------------------------------------
@@ -81,7 +82,13 @@ const logClose = fn().mockName('onClose');
  * ------------------------------------------------------------------------- */
 
 /** Starts closed — click button to open. Actions are logged. */
-function CreateDrawerTrigger({ label = 'Open Create Feature' }: { label?: string }) {
+function CreateDrawerTrigger({
+  label = 'Open Create Feature',
+  workflowDefaults,
+}: {
+  label?: string;
+  workflowDefaults?: WorkflowDefaults;
+}) {
   const [open, setOpen] = useState(false);
 
   return (
@@ -100,6 +107,7 @@ function CreateDrawerTrigger({ label = 'Open Create Feature' }: { label?: string
           setOpen(false);
         }}
         repositoryPath="/Users/dev/my-repo"
+        workflowDefaults={workflowDefaults}
       />
     </div>
   );
@@ -219,6 +227,71 @@ export const MergeOnly: Story = {
     const body = within(canvasElement.ownerDocument.body);
     const merge = await body.findByLabelText('Merge');
     await userEvent.click(merge);
+  },
+};
+
+/* ---------------------------------------------------------------------------
+ * Git checkbox stories
+ * ------------------------------------------------------------------------- */
+
+/**
+ * Push checkbox checked — the "Push" option is enabled so the branch will be
+ * pushed to remote after implementation. "Create PR" remains unchecked.
+ */
+export const PushOnly: Story = {
+  render: () => <CreateDrawerTrigger label="Open (Push Only)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Push Only)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const pushCheckbox = await body.findByLabelText('Push');
+    await userEvent.click(pushCheckbox);
+  },
+};
+
+/**
+ * Create PR checked — checking "Create PR" auto-checks and disables "Push"
+ * because a PR cannot be created without pushing. Both checkboxes appear
+ * checked, but "Push" is non-interactive (disabled).
+ */
+export const PrChecked: Story = {
+  render: () => <CreateDrawerTrigger label="Open (PR Checked)" />,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (PR Checked)' }));
+
+    const body = within(canvasElement.ownerDocument.body);
+    const prCheckbox = await body.findByLabelText('Create PR');
+    await userEvent.click(prCheckbox);
+  },
+};
+
+/* ---------------------------------------------------------------------------
+ * Workflow defaults stories
+ * ------------------------------------------------------------------------- */
+
+const SAMPLE_WORKFLOW_DEFAULTS: WorkflowDefaults = {
+  approvalGates: { allowPrd: true, allowPlan: true, allowMerge: false },
+  push: true,
+  openPr: true,
+};
+
+/**
+ * Drawer pre-populated from workflow settings — PRD and Plan approval gates
+ * are checked, Push and Create PR are enabled. These values come from
+ * `shep settings workflow` and are read at mount time via `getWorkflowDefaults()`.
+ */
+export const WithWorkflowDefaults: Story = {
+  render: () => (
+    <CreateDrawerTrigger
+      label="Open (Workflow Defaults)"
+      workflowDefaults={SAMPLE_WORKFLOW_DEFAULTS}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByRole('button', { name: 'Open (Workflow Defaults)' }));
   },
 };
 

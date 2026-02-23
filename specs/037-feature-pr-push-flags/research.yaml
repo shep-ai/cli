@@ -1,0 +1,387 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-pr-push-flags
+summary: >
+  Technical research for adding push/PR checkbox controls to the Web UI FeatureCreateDrawer.
+  The implementation requires changes to 3 files (drawer component, server action, stories) using
+  existing UI components (CheckboxGroupItem, Checkbox, Label) with no new dependencies. The core
+  use case already supports push/openPr; this is purely a presentation-layer wiring task.
+
+relatedFeatures:
+  - '020-worktree-merge-flow'
+
+technologies:
+  - React 19
+  - Next.js 16+ (App Router, Server Actions)
+  - shadcn/ui (Checkbox, CheckboxGroupItem, Label)
+  - Storybook
+  - Vitest
+  - TypeScript
+
+relatedLinks: []
+
+decisions:
+  - title: 'Checkbox Component Pattern for Push/PR Controls'
+    chosen: 'Reuse existing CheckboxGroupItem component as standalone items (no CheckboxGroup parent)'
+    rejected:
+      - >
+        Use CheckboxGroup with parent toggle — Rejected because CheckboxGroup renders a parent
+        "select all" checkbox with indeterminate state. Push and PR are not symmetric peers
+        (PR implies push, but push does not imply PR), so a parent toggle is semantically
+        incorrect. The CheckboxGroup pattern exists in the codebase for the approval gates
+        (allowPrd, allowPlan, allowMerge) which ARE equivalent peers suitable for "select all".
+      - >
+        Use raw Checkbox + Label pairs directly — Rejected because the CheckboxGroupItem
+        component already encapsulates the exact layout pattern needed (checkbox + label + optional
+        description, proper spacing with mt-0.75, gap-2, etc.). Using it directly ensures visual
+        consistency with the approval gates section without duplicating layout code.
+    rationale: >
+      The CheckboxGroupItem component (checkbox-group-item.tsx:15-44) provides the exact UI pattern
+      needed: a Checkbox with a Label and optional description, properly aligned. It accepts
+      id, label, description, checked, onCheckedChange, and disabled props — all needed for
+      the push/PR checkboxes. Using it standalone (without a CheckboxGroup parent wrapper) gives
+      consistent visual styling while correctly representing the independent-but-coupled nature
+      of push and PR. The PR-implies-push coupling is handled in React state, not via the
+      component hierarchy.
+
+  - title: 'State Management for PR-implies-Push Coupling'
+    chosen: 'Two independent useState booleans with derived disabled state'
+    rejected:
+      - >
+        Single combined state object — Rejected because a combined { push, openPr } state object
+        would require spreading and copying on every toggle, adding unnecessary complexity for
+        just two booleans. The existing drawer uses individual useState hooks for each field
+        (name, description, attachments, approvalGates), so two more useState calls follow the
+        established pattern.
+      - >
+        useReducer with action-based state transitions — Rejected as over-engineered for two
+        booleans with a simple coupling rule. The existing FeatureCreateDrawer uses zero reducers;
+        introducing one here would break the established useState-per-field pattern.
+    rationale: >
+      Two useState<boolean> hooks (one for push, one for openPr) follow the existing pattern in
+      FeatureCreateDrawer (lines 74-77). The PR-implies-push coupling is implemented by deriving
+      the push checkbox's checked and disabled props: when openPr is true, push displays as
+      checked and disabled. The actual push state variable preserves the user's manual push
+      preference so it can be restored when openPr is unchecked. On submit, the effective push
+      value is computed as (push || openPr) to enforce the invariant. On reset, both are set
+      to false (matching the resetForm pattern on line 79-84).
+
+  - title: 'Server Action Interface Design'
+    chosen: 'Add optional push/openPr fields to existing CreateFeatureInput, default to false'
+    rejected:
+      - >
+        Required fields in CreateFeatureInput — Rejected because making push/openPr required
+        would break backward compatibility. The server action's CreateFeatureInput is an internal
+        interface, but the control-center state hook passes the full FeatureCreatePayload object
+        as-is to createFeature(). Making fields required would cause TypeScript errors in any
+        caller not yet updated. Optional with defaults is safer.
+      - >
+        Separate git configuration parameter object — Rejected because adding a nested
+        { git: { push, openPr } } object would diverge from the flat structure used by the
+        core CreateFeatureInput (types.ts:3-8) which has push and openPr as top-level optional
+        fields. Keeping the same flat structure ensures consistency between CLI and Web UI
+        code paths.
+    rationale: >
+      The core use case's CreateFeatureInput (packages/core/src/application/use-cases/features/
+      create/types.ts:4-8) already defines push?: boolean and openPr?: boolean as optional
+      top-level fields. The server action should mirror this structure exactly. Adding
+      push?: boolean and openPr?: boolean to the server action's local CreateFeatureInput
+      interface and defaulting them to false via ?? operator (matching the existing
+      approvalGates defaulting pattern on line 63-67) ensures backward compatibility and
+      consistency with the core interface.
+
+  - title: 'Form Layout Placement'
+    chosen: 'New "GIT" section between APPROVE and ATTACHMENTS sections'
+    rejected:
+      - >
+        After ATTACHMENTS section (bottom of form) — Rejected because pushing git options to
+        the bottom makes them less discoverable. Users creating features from the Web UI may
+        not scroll down to find them, leading to the same problem as today (features always
+        created with push=false).
+      - >
+        Inside the existing APPROVE section — Rejected because approval gates (allowPrd,
+        allowPlan, allowMerge) and git actions (push, openPr) are semantically different
+        concepts. Merging them would make the form harder to understand and would require
+        either expanding the CheckboxGroup options array (mixing unrelated concerns) or
+        adding standalone items inside the group container (breaking visual hierarchy).
+    rationale: >
+      The form follows a clear visual hierarchy: name → description → approval behavior →
+      [new: git behavior] → attachments. Placing "GIT" between "APPROVE" (line 198-212) and
+      "ATTACHMENTS" (line 214-247) groups all behavioral configuration together while
+      maintaining a natural reading order. The section uses the same Label styling pattern
+      (text-muted-foreground text-xs font-semibold tracking-wider) as FEATURE NAME (line 164-168),
+      DESCRIPTION (line 182-186), APPROVE (line 200-202), and ATTACHMENTS (line 217-222),
+      ensuring visual consistency.
+
+  - title: 'Storybook Story Design'
+    chosen: 'Add dedicated stories for push/PR states alongside existing stories'
+    rejected:
+      - >
+        Replace existing stories with combined stories — Rejected because the existing stories
+        (Default, PreFilled, ValidationDisabled, PreOpened, checkbox stories, Interactive) cover
+        other form features independently. Replacing them would lose coverage of approval gate
+        states. Adding new stories extends coverage without disrupting existing ones.
+      - >
+        Only add an interactive story — Rejected because static state stories (push-only,
+        PR-checked) provide instant visual verification in the Storybook sidebar without
+        requiring user interaction. The existing pattern uses play() functions to pre-set
+        state (e.g., AllChecked, PrdOnly, MergeOnly stories), and new stories should follow suit.
+    rationale: >
+      The existing stories file (feature-create-drawer.stories.tsx) uses a CreateDrawerTrigger
+      wrapper pattern with play() functions to programmatically set checkbox states. New stories
+      should follow this exact pattern. Required stories: (1) PushOnly — clicks push checkbox,
+      (2) PrChecked — clicks PR checkbox (push auto-forced), (3) the existing Interactive story
+      will naturally show the new checkboxes. All use the same CreateDrawerTrigger, fn() action
+      loggers, and body-scoped queries via within(canvasElement.ownerDocument.body).
+
+  - title: 'Test Strategy for Server Action'
+    chosen: 'Extend existing create-feature.test.ts with push/openPr forwarding tests'
+    rejected:
+      - >
+        Separate test file for push/openPr — Rejected because the existing test file
+        (tests/unit/presentation/web/actions/features/create-feature.test.ts) already covers
+        the createFeature server action comprehensively (success, validation, errors,
+        approvalGates). Adding push/openPr tests in the same file maintains co-location
+        and follows the existing describe/it structure.
+      - >
+        Component-level tests for the drawer — Rejected for this feature because the drawer
+        is a presentational component with no existing component test file. The coupling logic
+        (PR implies push) is simple React state that's best verified via Storybook visual
+        testing and the Interactive story. Server action tests verify the critical data flow
+        (push/openPr reach the use case).
+    rationale: >
+      The existing test file already mocks the resolve() function and createFeatureUseCase.execute
+      (lines 3-14) and has a describe block for approvalGates forwarding (lines 172-216). A
+      parallel describe block for push/openPr forwarding follows naturally. Tests should cover:
+      (1) both push and openPr provided, (2) neither provided (defaults to false), (3) only
+      push provided, (4) only openPr provided. Each test verifies mockExecute was called with
+      the expected push/openPr values using expect.objectContaining().
+
+openQuestions:
+  - question: 'How should the effective push value be computed on form submit?'
+    resolved: true
+    options:
+      - option: 'Compute push || openPr in handleSubmit'
+        description: >
+          The handleSubmit callback computes the effective push value as (push || openPr)
+          before including it in the FeatureCreatePayload. This ensures the invariant
+          (PR implies push) is enforced at the form level, regardless of the visual state.
+          The server action receives the already-resolved values.
+        selected: true
+      - option: 'Let the server action resolve the coupling'
+        description: >
+          Pass both raw boolean values to the server action and let it resolve
+          push = push || openPr before calling the use case. Keeps the form simple
+          but splits coupling logic across layers.
+        selected: false
+      - option: 'Let the use case resolve the coupling'
+        description: >
+          Pass raw values all the way through to CreateFeatureUseCase and let it enforce
+          the invariant. This is the most "correct" from a DDD perspective, but the use case
+          currently does not enforce this invariant — it trusts the caller.
+        selected: false
+    selectionRationale: >
+      Computing push || openPr in handleSubmit follows the principle of resolving UI coupling
+      at the UI layer. The CLI already resolves this in the command handler (new.command.ts:79
+      uses !!options.push, and openPr on line 68 is resolved from flags/settings). The use case
+      does not enforce PR-implies-push — it accepts whatever values the caller provides. The
+      form should send resolved values to match CLI behavior.
+
+  - question: 'Should the push state be preserved when openPr is toggled?'
+    resolved: true
+    options:
+      - option: 'Preserve push state via separate useState (spec-mandated approach)'
+        description: >
+          Keep push as a separate useState<boolean>. When openPr is checked, the push checkbox
+          appears checked+disabled via derived props (checked={push || openPr}, disabled={openPr}).
+          When openPr is unchecked, push returns to its own independent state. The push useState
+          is never mutated by openPr toggling.
+        selected: true
+      - option: 'Force push=true on PR check, force push=false on PR uncheck'
+        description: >
+          When openPr is toggled on, call setPush(true). When openPr is toggled off, call
+          setPush(false). Simpler but loses the user's previous push preference. If they had
+          push=true before checking PR, they'd have to re-check it after unchecking PR.
+        selected: false
+      - option: 'Track previous push value in a ref'
+        description: >
+          When openPr is checked, save the current push value to a ref, then set push=true.
+          When openPr is unchecked, restore push from the ref. Works but adds unnecessary
+          complexity when the simpler "derived display" approach achieves the same result.
+        selected: false
+    selectionRationale: >
+      The separate useState approach is simplest and matches FR-5 (push state preservation).
+      The push useState tracks the user's manual intent. The checkbox display derives from
+      (push || openPr) for checked and (openPr) for disabled. This means: (1) If push=false
+      and user checks openPr, checkbox shows checked+disabled. When they uncheck openPr,
+      checkbox shows unchecked (push is still false). (2) If push=true and user checks openPr,
+      checkbox shows checked+disabled. When they uncheck openPr, checkbox shows checked
+      (push is still true). No ref needed.
+
+  - question: 'Where should the label text for push/PR checkboxes come from?'
+    resolved: true
+    options:
+      - option: 'Inline constants in the component (matching approval gates pattern)'
+        description: >
+          Define the labels directly as JSX strings or in a const array at the module level,
+          matching how AUTO_APPROVE_OPTIONS (line 47-51) defines approval gate labels inline.
+          Simple, colocated, and follows the existing pattern.
+        selected: true
+      - option: 'Internationalization via next-intl or similar'
+        description: >
+          Use an i18n library for all label text. Would be correct for a multi-language app
+          but this project has no i18n setup anywhere — all strings are hardcoded in English.
+          Adding i18n for two labels would be premature.
+        selected: false
+      - option: 'Shared constants file'
+        description: >
+          Create a shared constants file for checkbox labels. Over-engineering for labels
+          only used in one component. The approval gates options are defined in the same
+          file as the component (line 47-51) and this should follow the same pattern.
+        selected: false
+    selectionRationale: >
+      The existing FeatureCreateDrawer defines AUTO_APPROVE_OPTIONS as a module-level const
+      array (lines 47-51) with id, label, and description for each option. Since the push/PR
+      checkboxes are standalone CheckboxGroupItem instances (not fed through a CheckboxGroup
+      options array), they can use inline props directly. However, for consistency and
+      readability, defining the labels as descriptive string constants or inline JSX is fine.
+      The project has no i18n, so hardcoded English strings match the codebase convention.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Checkbox Component Pattern for Push/PR Controls
+
+  **Chosen:** Reuse existing `CheckboxGroupItem` component as standalone items (no `CheckboxGroup` parent)
+
+  **Rejected:**
+  - `CheckboxGroup` with parent toggle — Push/PR are not symmetric peers; a parent "select all" toggle is semantically incorrect for an asymmetric dependency (PR implies push)
+  - Raw `Checkbox` + `Label` pairs directly — `CheckboxGroupItem` already encapsulates the exact layout pattern, so using raw primitives would duplicate styling code
+
+  **Rationale:** `CheckboxGroupItem` (`checkbox-group-item.tsx`) provides `Checkbox` + `Label` + optional `description` with consistent spacing (`mt-0.75`, `gap-2`). Using it standalone gives identical visual appearance to approval gate items while correctly representing the push/PR coupling as independent checkboxes with state-driven dependencies.
+
+  ### 2. State Management for PR-implies-Push Coupling
+
+  **Chosen:** Two independent `useState<boolean>` hooks with derived disabled state
+
+  **Rejected:**
+  - Single combined state object — Unnecessary complexity for two booleans; existing pattern uses individual `useState` per field
+  - `useReducer` with actions — Over-engineered; the drawer uses zero reducers currently
+
+  **Rationale:** Two `useState` hooks follow the established pattern (`name`, `description`, `attachments`, `approvalGates`). The coupling is pure derived state:
+  - Push checkbox: `checked={push || openPr}`, `disabled={openPr || isSubmitting}`
+  - PR checkbox: `checked={openPr}`, `disabled={isSubmitting}`
+  - On submit: `push: push || openPr` (enforces invariant at form layer)
+  - On reset: both set to `false`
+
+  The `push` state variable is never mutated by `openPr` toggling, so the user's manual push preference is preserved (FR-5).
+
+  ### 3. Server Action Interface Design
+
+  **Chosen:** Add optional `push?: boolean` and `openPr?: boolean` to existing `CreateFeatureInput`
+
+  **Rejected:**
+  - Required fields — Would break backward compatibility
+  - Nested `{ git: { push, openPr } }` object — Diverges from core `CreateFeatureInput` flat structure
+
+  **Rationale:** Core use case's `CreateFeatureInput` (`types.ts:4-8`) already has `push?: boolean` and `openPr?: boolean` as top-level optional fields. The server action mirrors this structure, defaulting both to `false` via `??` operator (matching the `approvalGates` defaulting pattern).
+
+  ### 4. Form Layout Placement
+
+  **Chosen:** New "GIT" section between APPROVE and ATTACHMENTS sections
+
+  **Rejected:**
+  - After ATTACHMENTS — Less discoverable, users might miss the controls
+  - Inside APPROVE section — Conflates approval gates with git actions
+
+  **Rationale:** Groups all behavioral configuration (approve → git) before file attachments. Uses the same `Label` styling (`text-muted-foreground text-xs font-semibold tracking-wider`) as all other section headers.
+
+  ### 5. Storybook Story Design
+
+  **Chosen:** Add dedicated stories for push/PR states alongside existing stories
+
+  **Rejected:**
+  - Replace existing stories — Would lose approval gate coverage
+  - Only interactive story — Static state stories provide instant visual verification
+
+  **Rationale:** New stories follow the existing `CreateDrawerTrigger` + `play()` pattern. Add: `PushOnly` (push checked), `PrChecked` (PR checked with push auto-forced). The existing `Interactive` story naturally shows the new controls.
+
+  ### 6. Test Strategy
+
+  **Chosen:** Extend existing `create-feature.test.ts` with push/openPr forwarding describe block
+
+  **Rejected:**
+  - Separate test file — Existing file already covers the server action comprehensively
+  - Component-level tests for the drawer — Coupling logic is simple derived state, best verified visually via Storybook
+
+  **Rationale:** Add a `describe('push/openPr forwarding')` block mirroring the existing `describe('approvalGates')` block (lines 172-216). Tests: both provided, neither provided (defaults to false), only push, only openPr.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `CheckboxGroupItem` (internal) | Checkbox + Label layout | Use | Already exists at `components/ui/checkbox-group-item.tsx`, provides exact UI pattern needed |
+  | `Checkbox` (radix-ui) | Primitive checkbox | Use (via CheckboxGroupItem) | Already imported and used throughout the project |
+  | `Label` (internal) | Section header labels | Use | Already used for all section headers in the drawer |
+  | `CheckboxGroup` (internal) | Parent + children group | Skip | Not needed — push/PR are not symmetric peers requiring a parent toggle |
+  | No new external dependencies | — | N/A | All required components exist in the project |
+
+  ## Security Considerations
+
+  - **No security concerns.** The push and openPr fields are simple booleans that flow from the React form through the server action to the use case. There is no user-generated content, no file paths, no SQL, and no command injection surface. The values default to `false` (safe default), and the server action validates required fields (name, repositoryPath) before processing.
+  - The server action already runs server-side with `'use server'` directive, so form data cannot bypass the server validation.
+  - The fields are optional in the server action interface, so missing values default to `false` — an omission never causes unintended push/PR behavior.
+
+  ## Performance Implications
+
+  - **No performance impact.** The change adds two `useState<boolean>` hooks and two `CheckboxGroupItem` renders to an already-rendered form. The derived state computation (`push || openPr`) is O(1) and runs only on re-render triggered by checkbox toggles. No network calls, no new API endpoints, no bundle size increase (all components already imported in the bundle).
+
+  ## Architecture Notes
+
+  ### Data Flow (After Implementation)
+
+  ```
+  FeatureCreateDrawer (push, openPr state)
+    → handleSubmit() computes { push: push || openPr, openPr }
+    → FeatureCreatePayload includes push, openPr
+    → useControlCenterState.handleCreateFeatureSubmit(data)
+    → createFeature(data) server action
+    → destructure push, openPr with ?? false defaults
+    → createFeatureUseCase.execute({ ..., push, openPr })
+    → Feature entity created with push/openPr values
+  ```
+
+  ### Alignment with Clean Architecture
+
+  - **Domain layer**: No changes — Feature entity already has `push` and `openPr` fields
+  - **Application layer**: No changes — `CreateFeatureInput` already accepts `push?` and `openPr?`
+  - **Infrastructure layer**: No changes — use case implementation already handles these fields
+  - **Presentation layer**: All changes confined here:
+    - `feature-create-drawer.tsx` — UI state + form controls
+    - `create-feature.ts` — Server action interface + passthrough
+    - `feature-create-drawer.stories.tsx` — Visual documentation
+
+  This is a clean presentation-layer-only change that follows the dependency rule perfectly — no inner layers are modified.
+
+  ### Files to Modify
+
+  | # | File | Changes |
+  | - | ---- | ------- |
+  | 1 | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | Add `push`/`openPr` to `FeatureCreatePayload`, add `useState` hooks, add GIT section with `CheckboxGroupItem` instances, update `handleSubmit` and `resetForm` |
+  | 2 | `src/presentation/web/app/actions/create-feature.ts` | Add `push?`/`openPr?` to `CreateFeatureInput`, pass through to `useCase.execute()` |
+  | 3 | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx` | Add `PushOnly`, `PrChecked` stories with `play()` functions |
+  | 4 | `tests/unit/presentation/web/actions/features/create-feature.test.ts` | Add `describe('push/openPr forwarding')` with 4 test cases |
+
+  ### Files NOT Modified (Verified)
+
+  | File | Reason |
+  | ---- | ------ |
+  | `use-control-center-state.ts` | Already passes full `FeatureCreatePayload` to `createFeature(data)` — new fields flow through automatically |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | Already has `push?: boolean` and `openPr?: boolean` |
+  | `checkbox-group-item.tsx` | Used as-is, no modifications needed |
+  | `checkbox.tsx` | Used indirectly via `CheckboxGroupItem`, no modifications needed |
+
+  ---
+
+  _Research complete — proceed with planning_
