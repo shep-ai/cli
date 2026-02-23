@@ -1,3 +1,9 @@
+# [1.45.0](https://github.com/shep-ai/cli/compare/v1.44.2...v1.45.0) (2026-02-23)
+
+### Features
+
+- **cli:** add repo ls and repo show commands for repository management ([#99](https://github.com/shep-ai/cli/issues/99)) ([85a6d9b](https://github.com/shep-ai/cli/commit/85a6d9b3cd8a6aae52e42eb3fcdc3eba62f04f1f))
+
 ## [1.44.2](https://github.com/shep-ai/cli/compare/v1.44.1...v1.44.2) (2026-02-23)
 
 ### Bug Fixes
