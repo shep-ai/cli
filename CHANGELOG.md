@@ -1,3 +1,9 @@
+# [1.46.0](https://github.com/shep-ai/cli/compare/v1.45.0...v1.46.0) (2026-02-23)
+
+### Features
+
+- **web:** show empty state when no repositories in control center ([#100](https://github.com/shep-ai/cli/issues/100)) ([62a5033](https://github.com/shep-ai/cli/commit/62a503344b65729a57037038a435902db2e06089)), closes [#038](https://github.com/shep-ai/cli/issues/038)
+
 # [1.45.0](https://github.com/shep-ai/cli/compare/v1.44.2...v1.45.0) (2026-02-23)
 
 ### Features
