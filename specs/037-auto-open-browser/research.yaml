@@ -1,0 +1,270 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: auto-open-browser
+summary: >
+  Technical research for auto-opening the default browser when `shep ui` starts.
+  Key decisions: use a BrowserOpenerService with injectable deps (matching FileDialogService pattern),
+  Node.js child_process.execFile for security, fire-and-forget spawning, and no new npm dependencies.
+
+relatedFeatures: []
+
+technologies:
+  - Node.js child_process (execFile for secure subprocess spawning)
+  - Commander.js (--no-open negatable boolean flag)
+  - process.platform (platform detection for xdg-open/open/cmd)
+
+relatedLinks:
+  - https://nodejs.org/api/child_process.html#child_processexecfilefile-args-options-callback
+
+decisions:
+  - title: 'Service Architecture — BrowserOpenerService class vs utility function'
+    chosen: 'BrowserOpenerService class with injectable deps pattern'
+    rejected:
+      - 'Standalone utility function (like port.service.ts) — simpler but inconsistent with how the codebase handles platform-specific OS interaction. FileDialogService and FolderDialogService both use the class + deps pattern for exactly this kind of service. A plain function would require passing deps as arguments on every call or mocking globals in tests.'
+      - 'Third-party library (e.g., open npm package) — adds an external dependency for ~15 lines of code. The spec explicitly requires no new npm dependencies. The Node.js built-in child_process.execFile is sufficient and avoids supply chain risk.'
+    rationale: >
+      The codebase establishes a clear pattern for platform-specific OS utilities:
+      FileDialogService (file-dialog.service.ts) and FolderDialogService (folder-dialog.service.ts)
+      both use a class with a Deps interface, defaultDeps object, and Partial<Deps> constructor.
+      BrowserOpenerService follows this exact pattern for consistency and testability. The service
+      lives in packages/core/src/infrastructure/services/browser-opener.service.ts alongside
+      its siblings.
+
+  - title: 'Execution Method — execFile (no shell) vs spawn'
+    chosen: 'child_process.execFile (callback-based, fire-and-forget)'
+    rejected:
+      - 'child_process.spawn — more control over streams but unnecessary for fire-and-forget browser opening. We do not need stdout/stderr streaming. execFile is simpler: call it, ignore the result, catch errors in the callback.'
+      - 'Shell-based execution — introduces shell injection risk if the URL contains special characters. The spec explicitly requires no shell execution for security (NFR-1). While the URL is internally constructed (http://localhost:<port>), defense-in-depth favors execFile.'
+    rationale: >
+      execFile avoids shell injection by passing arguments as an array rather than
+      interpolating into a shell string. For Windows where "start" is a shell built-in,
+      we use execFile('cmd', ['/c', 'start', '', url]) which still avoids injection since
+      arguments are passed as an array to cmd.exe. The callback catches errors; on error
+      the warn function is called. The child process is unref'd so it doesn't keep the CLI alive.
+
+  - title: 'DI Registration — container-registered vs direct instantiation'
+    chosen: 'Direct instantiation in ui.command.ts (no DI registration)'
+    rejected:
+      - 'Register in DI container as singleton — adds complexity (interface, token, container registration) for a service with no injected dependencies of its own. FileDialogService and FolderDialogService are NOT registered in the DI container either; they are instantiated directly by their consumers. Adding DI registration for a leaf service with no dependencies is over-engineering.'
+      - 'Import as module-level function — loses the injectable deps pattern needed for testing. Cannot override platform/execFile in tests without mocking globals.'
+    rationale: >
+      Following the existing pattern: FileDialogService is NOT in the DI container. It is
+      instantiated directly by consumers (new FileDialogService() or new FileDialogService({ platform: 'linux' })
+      for tests). BrowserOpenerService follows the same approach — instantiated in ui.command.ts
+      with default deps in production, and with mock deps in tests. This keeps the DI container
+      focused on cross-cutting services that need singleton lifecycle management.
+
+  - title: 'Commander Flag Design — --no-open vs --open/--no-open pair'
+    chosen: '--no-open as a standalone negatable flag (default: browser opens)'
+    rejected:
+      - '--open with --no-open negatable pair — Commander supports .option("--no-open") which creates options.open defaulting to undefined. However, .option("--open/--no-open") creates a true/false toggle. Since auto-open should be the default (on), a standalone --no-open flag is cleaner. Users only need to opt out, not opt in.'
+      - 'Environment variable SHEP_NO_OPEN — adds indirection. CLI flags are the standard pattern in this codebase. An env var could be added later if CI/headless use cases demand it, but YAGNI for now.'
+    rationale: >
+      Commander.js supports boolean flags natively. Adding .option('--no-open', 'Do not auto-open browser')
+      creates options.open which is undefined by default (treated as true/auto-open) and false
+      when --no-open is passed. This matches common CLI patterns (e.g., npm's --no-fund, git's --no-edit).
+      The action callback checks if (options.open !== false) to trigger browser opening.
+
+  - title: 'Error Handling Strategy — warning log vs silent ignore'
+    chosen: 'Log warning via messages.warn() and continue'
+    rejected:
+      - 'Silent ignore — user gets no feedback if their browser fails to open. They might wait indefinitely not knowing they need to manually open the URL. A brief warning is more helpful.'
+      - 'Throw error and set exitCode — disproportionate response. Browser open is a convenience feature, not core functionality. Failing to open a browser should never cause shep ui to exit with error status.'
+    rationale: >
+      The spec requires non-fatal error handling (FR-6, NFR-2). Using messages.warn() from
+      the existing CLI message system (src/presentation/cli/ui/) provides consistent formatting.
+      The warning appears after the "Server ready" message so the user knows the server is running
+      and can manually open the URL. The execFile callback catches errors; on unsupported platforms,
+      the open is silently skipped (no command to run = no error to catch).
+
+openQuestions:
+  - question: 'Should the service method be synchronous (fire-and-forget) or return a Promise?'
+    resolved: true
+    options:
+      - option: 'Synchronous void method (fire-and-forget)'
+        description: >
+          The method calls execFile (callback-based) and returns immediately. No Promise,
+          no await. The caller just calls service.open(url) and moves on. This is the simplest
+          approach and matches the fire-and-forget requirement. Error handling happens in the
+          execFile callback which calls the injected warn function.
+        selected: true
+      - option: 'Async method returning Promise<void>'
+        description: >
+          Returns a Promise that resolves after spawning (not after browser opens).
+          Adds async/await ceremony for no benefit since the caller does not await the result.
+          Misleading — suggests the caller should await something.
+        selected: false
+      - option: 'Async method returning Promise<boolean>'
+        description: >
+          Returns whether the browser was opened successfully. Requires awaiting the child
+          process which contradicts the fire-and-forget design. Adds latency to CLI startup.
+        selected: false
+    selectionRationale: >
+      A synchronous void method is the most honest API for fire-and-forget. execFile with
+      a callback is already non-blocking. Making the method async would mislead callers into
+      thinking they should await the result. The error callback logs warnings internally,
+      so the caller has no reason to inspect the result.
+
+  - question: 'How should the service accept the warning logger — as a deps parameter or method parameter?'
+    resolved: true
+    options:
+      - option: 'Deps parameter (constructor injection)'
+        description: >
+          Add a warn function to the BrowserOpenerDeps interface, defaulting to console.warn.
+          The command passes messages.warn as the implementation. Tests can verify warnings
+          were called. Follows the deps pattern consistently.
+        selected: true
+      - option: 'Method parameter'
+        description: >
+          Pass warn as a parameter to the open() method: service.open(url, { onError: fn }).
+          Mixes configuration and invocation concerns. Less clean than the deps pattern.
+        selected: false
+      - option: 'No warning — just swallow errors'
+        description: >
+          Catch and ignore all errors silently. Simplest but violates NFR-2 which requires
+          errors to be logged as a warning via the CLI message system.
+        selected: false
+    selectionRationale: >
+      Constructor injection via deps is consistent with how FileDialogService handles its
+      dependencies. The warn function is a dependency of the service, not a per-call option.
+      Default to console.warn for production; tests inject a vi.fn() mock to assert warning behavior.
+
+  - question: 'Should the BrowserOpenerService be placed directly in services/ or in a subdirectory?'
+    resolved: true
+    options:
+      - option: 'Directly in services/ as browser-opener.service.ts'
+        description: >
+          Single file alongside file-dialog.service.ts and folder-dialog.service.ts.
+          The service is ~25-30 lines — no need for a subdirectory. Matches the pattern
+          of its sibling services which are also single files.
+        selected: true
+      - option: 'In services/browser/ subdirectory'
+        description: >
+          Creates a subdirectory for a single file. Over-organized for a simple utility.
+          The codebase only uses subdirectories when there are multiple related files
+          (e.g., agents/common/, agents/feature-agent/nodes/).
+        selected: false
+      - option: 'In services/os-utils/ shared subdirectory'
+        description: >
+          Group browser-opener with file-dialog and folder-dialog. Would require moving
+          existing files which is out of scope and adds unnecessary churn.
+        selected: false
+    selectionRationale: >
+      FileDialogService and FolderDialogService both live as single files directly in
+      packages/core/src/infrastructure/services/. BrowserOpenerService is a similarly
+      simple, single-file service (~25-30 lines). Placing it alongside its siblings
+      maintains the existing flat structure for leaf services.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Service Architecture — BrowserOpenerService class vs utility function
+
+  **Chosen:** BrowserOpenerService class with injectable deps pattern
+
+  **Rejected:**
+  - Standalone utility function (like port.service.ts) — inconsistent with how FileDialogService and FolderDialogService handle platform-specific OS interaction. Would require passing deps on every call or mocking globals in tests.
+  - Third-party library (e.g., `open` npm package) — adds an external dependency for ~15 lines of code. Spec explicitly requires no new npm dependencies.
+
+  **Rationale:** The codebase has a clear pattern for platform-specific OS utilities: class + Deps interface + defaultDeps + Partial<Deps> constructor. BrowserOpenerService at `packages/core/src/infrastructure/services/browser-opener.service.ts` follows this pattern exactly.
+
+  ### 2. Execution Method — execFile (no shell) vs spawn
+
+  **Chosen:** child_process.execFile (callback-based, fire-and-forget)
+
+  **Rejected:**
+  - child_process.spawn — unnecessary complexity for fire-and-forget; no need for stream control
+  - Shell-based execution — introduces injection risk per NFR-1
+
+  **Rationale:** execFile passes arguments as array (no shell interpolation). Windows uses `execFile('cmd', ['/c', 'start', '', url])`. Callback catches errors for warning logging. Child process is unref'd.
+
+  ### 3. DI Registration — container-registered vs direct instantiation
+
+  **Chosen:** Direct instantiation in ui.command.ts (no DI registration)
+
+  **Rejected:**
+  - Register in DI container — over-engineering for a leaf service with no injected dependencies. FileDialogService/FolderDialogService are also NOT in the DI container.
+  - Module-level function — loses injectable deps pattern needed for testing.
+
+  **Rationale:** Match the existing pattern where FileDialogService is instantiated directly by consumers with optional deps override for testing.
+
+  ### 4. Commander Flag Design
+
+  **Chosen:** `--no-open` as standalone negatable flag (default: auto-open)
+
+  **Rejected:**
+  - `--open/--no-open` pair — unnecessary since auto-open is the default. Users only need opt-out.
+  - Environment variable — YAGNI; CLI flags are the standard pattern in this codebase.
+
+  **Rationale:** `.option('--no-open', 'Do not auto-open browser')` creates `options.open` which is `undefined` by default (auto-open) and `false` when `--no-open` is passed.
+
+  ### 5. Error Handling Strategy
+
+  **Chosen:** Log warning via `messages.warn()` and continue
+
+  **Rejected:**
+  - Silent ignore — user gets no feedback when browser fails to open
+  - Throw error — disproportionate; browser open is convenience, not core functionality
+
+  **Rationale:** NFR-2 requires non-fatal warning logging. `messages.warn()` provides consistent CLI formatting.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `open` (npm) | Cross-platform browser opening | **Reject** | Adds external dependency for ~15 lines of code. Supply chain risk for trivial functionality. Spec requires no new deps. |
+  | `node:child_process` (built-in) | Subprocess spawning via `execFile` | **Use** | Built-in, no installation needed. `execFile` avoids shell injection. |
+  | `commander` (existing) | `--no-open` flag parsing | **Use** | Already the CLI framework. Native boolean flag support. |
+
+  ## Security Considerations
+
+  - **Shell injection prevention**: Using `execFile` (not shell-based execution) ensures the URL is passed as an argument array element, never interpolated into a shell string. Even on Windows where `cmd /c start` is needed, arguments go through the array: `execFile('cmd', ['/c', 'start', '', url])`.
+  - **URL construction**: The URL is always `http://localhost:<port>` where port is an integer validated by `parsePort()`. No user-supplied string reaches the execFile arguments.
+  - **No new attack surface**: The feature only opens a browser to localhost. No external network calls, no data exfiltration risk.
+
+  ## Performance Implications
+
+  - **Zero latency impact**: `execFile` is callback-based and non-blocking. The browser process is spawned and the callback handles errors asynchronously. The CLI event loop is never blocked.
+  - **Process cleanup**: The child process is unref'd (`child.unref()`) so it doesn't prevent the CLI from exiting on Ctrl+C. The spawned browser process is independent of the CLI process tree.
+
+  ## Architecture Notes
+
+  ### Service Design
+
+  ```typescript
+  // BrowserOpenerDeps — injectable dependencies
+  interface BrowserOpenerDeps {
+    platform: NodeJS.Platform;
+    execFile: typeof import('node:child_process').execFile;
+    warn: (msg: string) => void;
+  }
+
+  // Platform command mapping
+  const PLATFORM_COMMANDS: Record<string, { cmd: string; args: (url: string) => string[] }> = {
+    darwin:  { cmd: 'open',      args: (url) => [url] },
+    linux:   { cmd: 'xdg-open',  args: (url) => [url] },
+    win32:   { cmd: 'cmd',       args: (url) => ['/c', 'start', '', url] },
+  };
+  ```
+
+  ### Integration Point
+
+  In `ui.command.ts`, after line 81 (`messages.success(...)`):
+
+  ```typescript
+  // Auto-open browser (unless --no-open)
+  if (options.open !== false) {
+    const opener = new BrowserOpenerService();
+    opener.open(`http://localhost:${port}`);
+  }
+  ```
+
+  ### Test Strategy
+
+  - **BrowserOpenerService tests**: Inject mock `execFile` and `platform`. Verify correct command/args per platform. Verify `warn` called on error. Verify no-op on unsupported platform.
+  - **ui.command.ts tests**: Mock BrowserOpenerService module. Verify it's called after server start. Verify `--no-open` suppresses the call.
+
+  ---
+
+  _Research complete — proceed with planning phase_

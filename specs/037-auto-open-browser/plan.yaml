@@ -1,0 +1,104 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: auto-open-browser
+summary: >
+  Implement auto-open browser for `shep ui` using a BrowserOpenerService following the
+  existing FileDialogService injectable-deps pattern. Two phases: (1) build and test the
+  service, (2) integrate into ui.command.ts with --no-open flag. Zero new dependencies.
+
+relatedFeatures: []
+technologies:
+  - Node.js child_process.execFile (cross-platform browser open)
+  - Commander.js (--no-open flag)
+  - Vitest (unit testing with injectable mocks)
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'BrowserOpenerService — build and test'
+    description: >
+      Create the BrowserOpenerService in packages/core/src/infrastructure/services/
+      following the FileDialogService pattern (Deps interface, defaultDeps, Partial<Deps>
+      constructor). TDD: write tests first for all three platforms, unsupported platform,
+      and error handling, then implement the minimal service to pass.
+    parallel: false
+
+  - id: phase-2
+    name: 'UI command integration — --no-open flag and wiring'
+    description: >
+      Add the --no-open Commander flag to createUiCommand(), instantiate BrowserOpenerService
+      after the "Server ready" message, and call opener.open(url) when --no-open is not set.
+      TDD: extend ui.command.test.ts with tests for auto-open default, --no-open suppression,
+      and error resilience, then wire the integration code.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/infrastructure/services/browser-opener.service.ts
+  - tests/unit/infrastructure/services/browser-opener.service.test.ts
+
+filesToModify:
+  - src/presentation/cli/commands/ui.command.ts
+  - tests/unit/presentation/cli/commands/ui.command.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The feature adds a single leaf service (`BrowserOpenerService`) to the infrastructure
+  layer and wires it into the existing `ui.command.ts` presentation command. This follows
+  the established pattern where platform-specific OS utilities live as injectable-deps
+  classes in `packages/core/src/infrastructure/services/` (see `FileDialogService`,
+  `FolderDialogService`).
+
+  ```
+  presentation/cli/commands/ui.command.ts
+    └─ new BrowserOpenerService()  ← direct instantiation, no DI container
+         └─ child_process.execFile(platformCmd, args)  ← fire-and-forget, unref'd
+  ```
+
+  The service is NOT registered in the DI container — matching the pattern of its sibling
+  dialog services which are also instantiated directly by consumers.
+
+  ## Key Design Decisions
+
+  ### 1. Injectable Deps Pattern (from research)
+  The service uses `BrowserOpenerDeps { platform, execFile, warn }` with `defaultDeps`
+  and a `Partial<Deps>` constructor. This mirrors `FileDialogService` exactly and enables
+  deterministic unit tests without global mocking.
+
+  ### 2. Fire-and-Forget with execFile (from research)
+  The `open(url)` method is synchronous void. It calls `execFile` with a callback that
+  catches errors and calls `deps.warn()`. The child process is unref'd so it doesn't
+  prevent CLI exit. No Promise, no await — the caller just calls and moves on.
+
+  ### 3. Platform Command Map
+  A simple `Record<string, { cmd, args }>` maps `darwin → open`, `linux → xdg-open`,
+  `win32 → cmd /c start`. Unsupported platforms silently skip (no error, no warning).
+
+  ### 4. --no-open Flag (from research)
+  Commander `.option('--no-open', ...)` creates `options.open` which is `undefined` by
+  default and `false` when passed. The action checks `options.open !== false` to trigger
+  browser opening.
+
+  ### 5. Direct Instantiation (from research)
+  No DI registration needed. The service has no dependencies that require singleton lifecycle.
+  Instantiated as `new BrowserOpenerService()` in production, `new BrowserOpenerService({ ... })`
+  with mock deps in tests.
+
+  ## Implementation Strategy
+
+  Phase 1 comes first because the service is a standalone unit with no dependencies on
+  the command layer. Building it in isolation with full test coverage ensures correctness
+  before integration. Phase 2 then wires the tested service into the command with minimal
+  risk — the integration is just 4-5 lines of code plus a flag definition.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Windows `start` is a shell built-in | Use `execFile('cmd', ['/c', 'start', '', url])` — passes args as array, no shell injection |
+  | Browser open fails in CI/headless | Fire-and-forget with warning log. Tests use mock execFile, no real subprocess. |
+  | Existing ui.command tests break | Mock the BrowserOpenerService module in test file. Existing tests unchanged. |
+  | URL contains special characters | URL is always `http://localhost:<port>` with validated integer port. No user input reaches execFile args. |

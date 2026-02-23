@@ -1,0 +1,148 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: auto-open-browser
+summary: >
+  4 tasks across 2 phases. Phase 1 builds the BrowserOpenerService with full test
+  coverage (TDD). Phase 2 integrates the service into ui.command.ts with --no-open flag.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write BrowserOpenerService unit tests (RED)'
+    description: >
+      Create the test file for BrowserOpenerService covering all platforms (darwin, linux,
+      win32), unsupported platform silent skip, error handling with warn callback, and
+      child process unref. Tests use injectable mock deps — no global mocking.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Test file exists at tests/unit/infrastructure/services/browser-opener.service.test.ts'
+      - 'Tests cover darwin platform: execFile called with "open" and [url]'
+      - 'Tests cover linux platform: execFile called with "xdg-open" and [url]'
+      - 'Tests cover win32 platform: execFile called with "cmd" and ["/c", "start", "", url]'
+      - 'Tests cover unsupported platform: no execFile call, no warn call'
+      - 'Tests cover execFile error: warn function called with error message'
+      - 'Tests cover child.unref() is called'
+      - 'All tests fail (RED phase — service not yet implemented)'
+    tdd:
+      red:
+        - 'Create test file with describe("BrowserOpenerService")'
+        - 'Write test: opens browser on darwin with "open" command'
+        - 'Write test: opens browser on linux with "xdg-open" command'
+        - 'Write test: opens browser on win32 with "cmd /c start" command'
+        - 'Write test: silently skips on unsupported platform (e.g., "freebsd")'
+        - 'Write test: calls warn on execFile error'
+        - 'Write test: calls child.unref() to detach process'
+      green: []
+      refactor: []
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement BrowserOpenerService (GREEN + REFACTOR)'
+    description: >
+      Create the BrowserOpenerService class following the FileDialogService pattern with
+      BrowserOpenerDeps interface, defaultDeps, and Partial<Deps> constructor. Implement
+      the open(url) method with platform command map and fire-and-forget execFile.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Service file exists at packages/core/src/infrastructure/services/browser-opener.service.ts'
+      - 'Exports BrowserOpenerService class and BrowserOpenerDeps interface'
+      - 'Has defaultDeps with process.platform, child_process.execFile, and console.warn'
+      - 'Constructor accepts Partial<BrowserOpenerDeps> with spread over defaultDeps'
+      - 'open(url) method maps platform to correct command and args'
+      - 'execFile callback catches errors and calls deps.warn()'
+      - 'Child process is unref()d'
+      - 'Unsupported platforms silently return (no error)'
+      - 'All tests from task-1 pass (GREEN)'
+    tdd:
+      red: []
+      green:
+        - 'Create browser-opener.service.ts with BrowserOpenerDeps interface'
+        - 'Define defaultDeps: { platform: process.platform, execFile: cp.execFile, warn: console.warn }'
+        - 'Implement PLATFORM_COMMANDS record for darwin, linux, win32'
+        - 'Implement open(url) method: lookup platform, call execFile, catch errors, unref child'
+        - 'Run tests — all pass'
+      refactor:
+        - 'Ensure naming consistency with FileDialogService pattern'
+        - 'Verify exports are clean (class + interface + deps type)'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Write ui.command integration tests (RED)'
+    description: >
+      Extend the existing ui.command.test.ts with tests for auto-open behavior and --no-open
+      flag. Mock the BrowserOpenerService module. Tests verify: (1) BrowserOpenerService.open()
+      is called after server start, (2) --no-open suppresses the call, (3) --no-open option
+      exists on the command.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Test: --no-open option exists on the command'
+      - 'Test: BrowserOpenerService.open() called with correct URL after server start (default behavior)'
+      - 'Test: BrowserOpenerService.open() NOT called when --no-open is passed'
+      - 'All new tests fail (RED phase — integration not yet wired)'
+    tdd:
+      red:
+        - 'Add vi.mock for browser-opener.service.ts module in ui.command.test.ts'
+        - 'Write test: command has --no-open option'
+        - 'Write test: auto-opens browser with http://localhost:<port> after server start'
+        - 'Write test: --no-open suppresses browser open'
+      green: []
+      refactor: []
+    estimatedEffort: '20min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Wire --no-open flag and BrowserOpenerService into ui.command.ts (GREEN + REFACTOR)'
+    description: >
+      Add .option("--no-open", "Do not auto-open browser") to createUiCommand(). After the
+      "Server ready" message (line 81), add conditional BrowserOpenerService instantiation
+      and open() call when options.open !== false. Import the service from core package.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'ui.command.ts imports BrowserOpenerService'
+      - 'Command has .option("--no-open", "Do not auto-open browser")'
+      - 'options type includes open?: boolean'
+      - 'After messages.success(), if options.open !== false, instantiates BrowserOpenerService and calls open(url)'
+      - 'BrowserOpenerService constructed with { warn: messages.warn } to use CLI message system'
+      - 'All tests from task-3 pass (GREEN)'
+      - 'All existing tests still pass'
+      - 'pnpm typecheck passes'
+    tdd:
+      red: []
+      green:
+        - 'Add --no-open option to Commander command definition'
+        - 'Update options type to include open?: boolean'
+        - 'Import BrowserOpenerService'
+        - 'After messages.success() line, conditionally instantiate and call opener.open(url)'
+        - 'Run tests — all pass'
+      refactor:
+        - 'Extract url variable to avoid duplication with messages.success() line'
+        - 'Verify help text includes --no-open in examples section'
+    estimatedEffort: '15min'
+
+totalEstimate: '1.5h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows strict TDD across two phases. Phase 1 builds the
+  BrowserOpenerService as an isolated, fully-tested unit — tests first (task-1),
+  then implementation (task-2). Phase 2 integrates the service into the existing
+  ui.command — integration tests first (task-3), then wiring (task-4). Each RED
+  task produces failing tests; each GREEN task makes them pass with minimal code.
+  The total change is ~25 lines of service code, ~5 lines of command integration,
+  and ~80 lines of tests.
