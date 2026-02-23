@@ -1,0 +1,16 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AcceptanceCriteria.yaml
+type: object
+properties:
+  description:
+    type: string
+    description: Description of what must be true for this criterion to be satisfied
+  verified:
+    type: boolean
+    description: Whether this criterion has been verified as complete
+required:
+  - description
+  - verified
+allOf:
+  - $ref: BaseEntity.yaml
+description: Acceptance criterion for validating completion of an action item

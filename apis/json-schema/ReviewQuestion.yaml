@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ReviewQuestion.yaml
+type: object
+properties:
+  question:
+    type: string
+    description: The question text
+  options:
+    type: array
+    items:
+      $ref: QuestionOption.yaml
+    description: Available options with selection state
+  selectedOption:
+    type: string
+    description: The option text that was selected by the user
+  changed:
+    type: boolean
+    description: Whether the user changed the selection from the AI default
+required:
+  - question
+  - options
+  - selectedOption
+  - changed
+description: A single question with its options as presented in the review TUI

@@ -46,9 +46,10 @@ export class SlugResolver {
         continue;
       }
 
-      // Check if the git branch already exists (leftover from deleted feature)
+      // Check if the git branch already exists (worktree or standalone branch)
       const branchInUse = await this.worktreeService.exists(repositoryPath, branch);
-      if (branchInUse) continue;
+      const branchExists = await this.worktreeService.branchExists(repositoryPath, branch);
+      if (branchInUse || branchExists) continue;
 
       if (suffix > 0) {
         return {

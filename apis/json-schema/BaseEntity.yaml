@@ -1,0 +1,20 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: BaseEntity.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for this entity (UUID v4 format)
+  createdAt:
+    type: string
+    format: date-time
+    description: Timestamp when this entity was created (read-only, set by system)
+  updatedAt:
+    type: string
+    format: date-time
+    description: Timestamp when this entity was last updated (read-only, set by system)
+required:
+  - id
+  - createdAt
+  - updatedAt
+description: Base model providing identity and timestamp fields for all domain entities

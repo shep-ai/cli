@@ -1,0 +1,29 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: DeploySkill.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for the deployment skill configuration
+  ports:
+    type: array
+    items:
+      $ref: PortMap.yaml
+    description: List of port mappings for services to expose when deployed
+  method:
+    $ref: DeployMethod.yaml
+    description: Method to use for deployment (DockerCompose, Docker, Kubernetes, Script, or Manual)
+  instructions:
+    type: string
+    description: Deployment instructions or commands to execute for this deployment method
+  createdAt:
+    type: string
+    format: date-time
+    description: Timestamp when the deployment skill was created
+required:
+  - id
+  - ports
+  - method
+  - instructions
+  - createdAt
+description: Configuration defining how to deploy an application with method and instructions

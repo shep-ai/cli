@@ -229,6 +229,35 @@ describe('WorktreeService', () => {
     });
   });
 
+  describe('branchExists', () => {
+    it('should return true when branch exists in git', async () => {
+      mockExecFile.mockResolvedValue({ stdout: '  feat/my-branch\n', stderr: '' });
+
+      const result = await service.branchExists('/repo', 'feat/my-branch');
+
+      expect(result).toBe(true);
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['branch', '--list', 'feat/my-branch'], {
+        cwd: '/repo',
+      });
+    });
+
+    it('should return false when branch does not exist', async () => {
+      mockExecFile.mockResolvedValue({ stdout: '', stderr: '' });
+
+      const result = await service.branchExists('/repo', 'feat/nonexistent');
+
+      expect(result).toBe(false);
+    });
+
+    it('should return false when git command fails', async () => {
+      mockExecFile.mockRejectedValue(new Error('not a git repository'));
+
+      const result = await service.branchExists('/repo', 'feat/x');
+
+      expect(result).toBe(false);
+    });
+  });
+
   describe('getWorktreePath', () => {
     it('should compute path under ~/.shep/repos/HASH/wt/SLUG', () => {
       const result = service.getWorktreePath('/home/user/repo', 'feat/my-feature');

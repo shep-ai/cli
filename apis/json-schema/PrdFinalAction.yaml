@@ -1,0 +1,18 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PrdFinalAction.yaml
+type: object
+properties:
+  id:
+    type: string
+    description: Unique identifier for this action
+  label:
+    type: string
+    description: Button label text
+  description:
+    type: string
+    description: Description of what this action does
+required:
+  - id
+  - label
+  - description
+description: Configuration for the final action button in the questionnaire

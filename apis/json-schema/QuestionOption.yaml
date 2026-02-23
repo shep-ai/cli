@@ -1,0 +1,18 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: QuestionOption.yaml
+type: object
+properties:
+  option:
+    type: string
+    description: The option text describing the potential approach or answer
+  description:
+    type: string
+    description: Description explaining this option's benefits and approach
+  selected:
+    type: boolean
+    description: Whether this option was the one ultimately selected
+required:
+  - option
+  - description
+  - selected
+description: Option for resolving an open question

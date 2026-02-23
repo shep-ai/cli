@@ -1,0 +1,11 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: SoftDeletableEntity.yaml
+type: object
+properties:
+  deletedAt:
+    type: string
+    format: date-time
+    description: Timestamp when this entity was soft-deleted (null if not deleted)
+allOf:
+  - $ref: BaseEntity.yaml
+description: Entity that supports soft deletion with a deletedAt timestamp

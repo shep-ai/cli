@@ -1,0 +1,31 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: WorkflowConfig.yaml
+type: object
+properties:
+  openPrOnImplementationComplete:
+    type: boolean
+    default: false
+    description: "Create PR on implementation complete (default: false)"
+  pushOnImplementationComplete:
+    type: boolean
+    default: false
+    description: "Push branch on implementation complete (default: false)"
+  allowPrd:
+    type: boolean
+    default: false
+    description: "Auto-approve requirements phase (default: false)"
+  allowPlan:
+    type: boolean
+    default: false
+    description: "Auto-approve planning phase (default: false)"
+  autoMergeOnImplementationComplete:
+    type: boolean
+    default: false
+    description: "Auto-merge on implementation complete (default: false)"
+required:
+  - openPrOnImplementationComplete
+  - pushOnImplementationComplete
+  - allowPrd
+  - allowPlan
+  - autoMergeOnImplementationComplete
+description: Global workflow configuration defaults

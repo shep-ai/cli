@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ResearchArtifact.yaml
+type: object
+properties:
+  decisions:
+    type: array
+    items:
+      $ref: TechDecision.yaml
+    description: Structured technology decisions with rationale
+required:
+  - decisions
+allOf:
+  - $ref: SpecArtifactBase.yaml
+description: Research artifact documenting technical analysis and decisions

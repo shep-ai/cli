@@ -1,0 +1,26 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PlanPhase.yaml
+type: object
+properties:
+  id:
+    type: string
+    description: Unique identifier for this phase (e.g., 'phase-1')
+  name:
+    type: string
+    description: Display name of the phase
+  description:
+    type: string
+    description: Description of what this phase accomplishes and why it's ordered this way
+  parallel:
+    type: boolean
+    description: Whether tasks in this phase can be executed in parallel
+  taskIds:
+    type: array
+    items:
+      type: string
+    description: Task IDs belonging to this phase (e.g., ['task-1', 'task-2']). Optional — not present in plan.yaml phases.
+required:
+  - id
+  - name
+  - parallel
+description: Implementation phase grouping related tasks

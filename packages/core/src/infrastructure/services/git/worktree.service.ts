@@ -74,6 +74,17 @@ export class WorktreeService implements IWorktreeService {
     return worktrees.some((w) => w.branch === branch);
   }
 
+  async branchExists(repoPath: string, branch: string): Promise<boolean> {
+    try {
+      const { stdout } = await this.execFile('git', ['branch', '--list', branch], {
+        cwd: repoPath,
+      });
+      return stdout.trim().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
   getWorktreePath(repoPath: string, branch: string): string {
     const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
     const slug = branch.replace(/\//g, '-');

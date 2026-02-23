@@ -1,0 +1,44 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: SpecArtifactBase.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Artifact title / feature name
+  summary:
+    type: string
+    description: Short description of the artifact's purpose
+  content:
+    type: string
+    description: Raw Markdown body containing the human-written spec content
+  technologies:
+    type: array
+    items:
+      type: string
+    description: Key technologies mentioned or evaluated in this artifact
+  relatedFeatures:
+    type: array
+    items:
+      type: string
+    description: References to other spec IDs (e.g., '008-agent-configuration')
+  relatedLinks:
+    type: array
+    items:
+      type: string
+    description: URLs to external documentation, references, or comparisons
+  openQuestions:
+    type: array
+    items:
+      $ref: OpenQuestion.yaml
+    description: Structured open questions for validation gate checks
+required:
+  - name
+  - summary
+  - content
+  - technologies
+  - relatedFeatures
+  - relatedLinks
+  - openQuestions
+allOf:
+  - $ref: BaseEntity.yaml
+description: Base entity for spec artifacts with common metadata fields

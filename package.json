@@ -30,6 +30,7 @@
     }
   },
   "files": [
+    "apis",
     "dist",
     "web",
     "README.md",

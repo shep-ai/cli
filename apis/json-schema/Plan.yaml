@@ -1,0 +1,37 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Plan.yaml
+type: object
+properties:
+  overview:
+    type: string
+    description: High-level overview describing the implementation approach
+  requirements:
+    type: array
+    items:
+      $ref: Requirement.yaml
+    description: User and inferred requirements that this plan addresses
+  artifacts:
+    type: array
+    items:
+      $ref: Artifact.yaml
+    description: Documents and artifacts to be produced as part of this plan
+  tasks:
+    type: array
+    items:
+      $ref: Task.yaml
+    description: Work items (tasks) that comprise this implementation plan
+  state:
+    $ref: PlanState.yaml
+    description: Current state of the plan execution lifecycle
+  workPlan:
+    $ref: GanttViewData.yaml
+    description: Optional Gantt chart visualization data for work scheduling
+required:
+  - overview
+  - requirements
+  - artifacts
+  - tasks
+  - state
+allOf:
+  - $ref: BaseEntity.yaml
+description: Implementation plan for a feature containing tasks, artifacts, and requirements

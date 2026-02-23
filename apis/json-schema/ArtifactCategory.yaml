@@ -1,0 +1,9 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ArtifactCategory.yaml
+type: string
+enum:
+  - PRD
+  - API
+  - Design
+  - Other
+description: Categories for classifying artifact types by purpose

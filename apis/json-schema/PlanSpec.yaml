@@ -1,0 +1,26 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PlanSpec.yaml
+type: object
+properties:
+  phases:
+    type: array
+    items:
+      $ref: PlanPhase.yaml
+    description: Structured implementation phases with task groupings
+  filesToCreate:
+    type: array
+    items:
+      type: string
+    description: New files planned to be created
+  filesToModify:
+    type: array
+    items:
+      type: string
+    description: Existing files planned to be modified
+required:
+  - phases
+  - filesToCreate
+  - filesToModify
+allOf:
+  - $ref: SpecArtifactBase.yaml
+description: Implementation plan artifact defining strategy and file changes

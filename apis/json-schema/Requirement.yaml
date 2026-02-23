@@ -1,0 +1,26 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Requirement.yaml
+type: object
+properties:
+  slug:
+    type: string
+    description: URL-friendly short identifier for the requirement
+  userQuery:
+    type: string
+    description: The original user query that generated this requirement
+  type:
+    $ref: RequirementType.yaml
+    description: Classification type of the requirement (Functional or NonFunctional)
+  researches:
+    type: array
+    items:
+      $ref: Research.yaml
+    description: Research activities conducted to clarify or validate this requirement
+required:
+  - slug
+  - userQuery
+  - type
+  - researches
+allOf:
+  - $ref: BaseEntity.yaml
+description: A user or inferred requirement attached to a feature

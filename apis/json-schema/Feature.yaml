@@ -1,0 +1,77 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Feature.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Human-readable name identifying this feature
+  userQuery:
+    type: string
+    description: The exact user input that initiated this feature, preserved verbatim
+  slug:
+    type: string
+    description: URL-friendly identifier derived from name (unique within repository)
+  description:
+    type: string
+    description: Detailed description explaining the feature's purpose and scope
+  repositoryPath:
+    type: string
+    description: Absolute file system path to the repository
+  branch:
+    type: string
+    description: Git branch name where this feature's work is performed
+  lifecycle:
+    $ref: SdlcLifecycle.yaml
+    description: Current stage in the SDLC lifecycle
+  messages:
+    type: array
+    items:
+      $ref: Message.yaml
+    description: Conversation history with the AI assistant
+  plan:
+    $ref: Plan.yaml
+    description: Implementation plan containing tasks, artifacts, and requirements (optional)
+  relatedArtifacts:
+    type: array
+    items:
+      $ref: Artifact.yaml
+    description: Generated documents and artifacts attached to this feature
+  agentRunId:
+    type: string
+    description: Associated agent run ID for process tracking (optional)
+  specPath:
+    type: string
+    description: Absolute path to the feature spec directory inside the worktree
+  push:
+    type: boolean
+    default: false
+    description: "Push branch to remote after implementation (default: false)"
+  openPr:
+    type: boolean
+    default: false
+    description: "Create PR after implementation (default: false)"
+  approvalGates:
+    $ref: ApprovalGates.yaml
+    description: Approval gates configuration (embedded value object)
+  worktreePath:
+    type: string
+    description: Absolute path to the git worktree for this feature
+  pr:
+    $ref: PullRequest.yaml
+    description: Pull request data (null until PR created)
+required:
+  - name
+  - userQuery
+  - slug
+  - description
+  - repositoryPath
+  - branch
+  - lifecycle
+  - messages
+  - relatedArtifacts
+  - push
+  - openPr
+  - approvalGates
+allOf:
+  - $ref: BaseEntity.yaml
+description: Central entity tracking a piece of work through the SDLC lifecycle (Aggregate Root)

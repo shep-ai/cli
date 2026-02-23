@@ -1,0 +1,15 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureErrors.yaml
+type: object
+properties:
+  current:
+    type: string
+    description: Current error message (null if no active error)
+  history:
+    type: array
+    items:
+      type: string
+    description: History of past error messages
+required:
+  - history
+description: Error tracking for feature execution

@@ -1,0 +1,18 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureCheckpoint.yaml
+type: object
+properties:
+  phase:
+    type: string
+    description: Phase name (e.g., 'feature-created', 'research-complete')
+  completedAt:
+    type: string
+    description: ISO timestamp when this checkpoint was reached
+  completedBy:
+    type: string
+    description: Agent or skill that completed this phase
+required:
+  - phase
+  - completedAt
+  - completedBy
+description: Milestone checkpoint for phase completion

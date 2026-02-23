@@ -1,0 +1,9 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TaskState.yaml
+type: string
+enum:
+  - Todo
+  - Work in Progress
+  - Done
+  - Review
+description: States for task entities during execution

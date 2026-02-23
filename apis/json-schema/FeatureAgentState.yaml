@@ -1,0 +1,11 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureAgentState.yaml
+type: string
+enum:
+  - GatheringRequirements
+  - ClarificationsRequired
+  - DoingResearch
+  - AwaitingReview
+  - ExecutingWorkPlan
+  - Ready
+description: States for the feature agent orchestrating the SDLC workflow

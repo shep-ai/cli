@@ -1,0 +1,31 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: NotificationEventConfig.yaml
+type: object
+properties:
+  agentStarted:
+    type: boolean
+    default: true
+    description: Notify when agent starts running
+  phaseCompleted:
+    type: boolean
+    default: true
+    description: Notify when agent completes a workflow phase
+  waitingApproval:
+    type: boolean
+    default: true
+    description: Notify when agent is waiting for human approval
+  agentCompleted:
+    type: boolean
+    default: true
+    description: Notify when agent completes successfully
+  agentFailed:
+    type: boolean
+    default: true
+    description: Notify when agent execution fails
+required:
+  - agentStarted
+  - phaseCompleted
+  - waitingApproval
+  - agentCompleted
+  - agentFailed
+description: Notification event type filters

@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: DeployMethod.yaml
+type: string
+enum:
+  - DockerCompose
+  - Docker
+  - Kubernetes
+  - Script
+  - Manual
+description: Methods for deploying applications

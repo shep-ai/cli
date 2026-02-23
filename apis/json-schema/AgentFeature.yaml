@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentFeature.yaml
+type: string
+enum:
+  - session-resume
+  - streaming
+  - tool-scoping
+  - structured-output
+  - system-prompt
+description: Agent executor capability declarations

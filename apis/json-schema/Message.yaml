@@ -1,0 +1,29 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Message.yaml
+type: object
+properties:
+  role:
+    $ref: MessageRole.yaml
+    description: Role of the message sender (User or Assistant)
+  content:
+    type: string
+    description: The text content of the message
+  options:
+    type: array
+    items:
+      type: string
+    description: Optional choices presented to the user for selection
+  answer:
+    type: string
+    description: Optional user's freeform text answer
+  selectedOption:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Optional index of the selected option from the options array (0-based)
+required:
+  - role
+  - content
+allOf:
+  - $ref: BaseEntity.yaml
+description: A message in a conversation thread between user and AI assistant

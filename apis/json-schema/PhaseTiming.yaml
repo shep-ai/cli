@@ -1,0 +1,35 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PhaseTiming.yaml
+type: object
+properties:
+  agentRunId:
+    type: string
+    description: Agent run this timing belongs to
+  phase:
+    type: string
+    description: "Graph node name: analyze, requirements, research, plan, implement"
+  startedAt:
+    type: string
+    format: date-time
+    description: When the phase started executing
+  completedAt:
+    type: string
+    format: date-time
+    description: When the phase finished executing (null if still running)
+  durationMs:
+    type: string
+    description: Duration in milliseconds (computed on completion)
+  waitingApprovalAt:
+    type: string
+    format: date-time
+    description: When the phase started waiting for user approval (null if no approval needed)
+  approvalWaitMs:
+    type: string
+    description: Duration in milliseconds the phase waited for user approval (null if no approval needed)
+required:
+  - agentRunId
+  - phase
+  - startedAt
+allOf:
+  - $ref: BaseEntity.yaml
+description: Timing record for a single agent graph node execution

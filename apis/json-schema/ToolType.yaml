@@ -1,0 +1,12 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ToolType.yaml
+type: string
+enum:
+  - vscode
+  - cursor
+  - windsurf
+  - zed
+  - antigravity
+  - cursor-cli
+  - claude-code
+description: Supported IDE and CLI tool type for installation

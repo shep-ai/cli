@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TddCycle.yaml
+type: object
+properties:
+  red:
+    type: array
+    items:
+      type: string
+    description: "RED phase: tests to write FIRST (before implementation)"
+  green:
+    type: array
+    items:
+      type: string
+    description: "GREEN phase: minimal implementation to pass tests"
+  refactor:
+    type: array
+    items:
+      type: string
+    description: "REFACTOR phase: code improvements while keeping tests green"
+required:
+  - red
+  - green
+  - refactor
+description: Test-Driven Development cycle phases for a task

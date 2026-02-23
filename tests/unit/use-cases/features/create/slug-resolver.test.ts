@@ -16,6 +16,7 @@ describe('SlugResolver', () => {
 
     mockWorktreeService = {
       exists: vi.fn(),
+      branchExists: vi.fn(),
     } as any;
 
     resolver = new SlugResolver(mockFeatureRepo, mockWorktreeService);
@@ -25,6 +26,7 @@ describe('SlugResolver', () => {
     it('should return original slug if it is unique (no DB or git conflicts)', async () => {
       (mockFeatureRepo.findBySlug as any).mockResolvedValue(null);
       (mockWorktreeService.exists as any).mockResolvedValue(false);
+      (mockWorktreeService.branchExists as any).mockResolvedValue(false);
 
       const result = await resolver.resolveUniqueSlug('unique-slug', '/repo/path');
 
@@ -42,6 +44,7 @@ describe('SlugResolver', () => {
         .mockResolvedValueOnce({ id: 'existing' }) // original exists
         .mockResolvedValueOnce(null); // -2 does not exist
       (mockWorktreeService.exists as any).mockResolvedValue(false);
+      (mockWorktreeService.branchExists as any).mockResolvedValue(false);
 
       const result = await resolver.resolveUniqueSlug('my-feature', '/repo/path');
 
@@ -52,12 +55,31 @@ describe('SlugResolver', () => {
       });
     });
 
-    it('should try suffixed versions if git branch exists', async () => {
+    it('should try suffixed versions if git worktree branch exists', async () => {
       (mockFeatureRepo.findBySlug as any).mockResolvedValue(null);
-      // First call (original): branch exists
+      // First call (original): branch exists as worktree
       // Second call (-2): branch does not exist
       (mockWorktreeService.exists as any)
         .mockResolvedValueOnce(true) // original exists
+        .mockResolvedValueOnce(false); // -2 does not exist
+      (mockWorktreeService.branchExists as any).mockResolvedValue(false);
+
+      const result = await resolver.resolveUniqueSlug('my-feature', '/repo/path');
+
+      expect(result).toEqual({
+        slug: 'my-feature-2',
+        branch: 'feat/my-feature-2',
+        warning: 'Branch "feat/my-feature" already exists, using "feat/my-feature-2" instead',
+      });
+    });
+
+    it('should try suffixed versions if standalone git branch exists (no worktree)', async () => {
+      (mockFeatureRepo.findBySlug as any).mockResolvedValue(null);
+      (mockWorktreeService.exists as any).mockResolvedValue(false); // no worktree
+      // First call (original): branch exists in git
+      // Second call (-2): branch does not exist
+      (mockWorktreeService.branchExists as any)
+        .mockResolvedValueOnce(true) // original branch exists
         .mockResolvedValueOnce(false); // -2 does not exist
 
       const result = await resolver.resolveUniqueSlug('my-feature', '/repo/path');
@@ -77,6 +99,7 @@ describe('SlugResolver', () => {
         .mockResolvedValueOnce(null); // -3 is free
 
       (mockWorktreeService.exists as any).mockResolvedValue(false);
+      (mockWorktreeService.branchExists as any).mockResolvedValue(false);
 
       const result = await resolver.resolveUniqueSlug('test', '/repo/path');
 
@@ -87,25 +110,29 @@ describe('SlugResolver', () => {
       // All suffixes up to MAX_SUFFIX (10) are taken
       (mockFeatureRepo.findBySlug as any).mockResolvedValue({ id: 'existing' });
       (mockWorktreeService.exists as any).mockResolvedValue(false);
+      (mockWorktreeService.branchExists as any).mockResolvedValue(false);
 
       await expect(async () => {
         await resolver.resolveUniqueSlug('collision', '/repo/path');
       }).rejects.toThrow(/Could not find a unique slug/);
     });
 
-    it('should check both DB and git branch for each attempt', async () => {
+    it('should check DB, worktree, and git branch for each attempt', async () => {
       (mockFeatureRepo.findBySlug as any).mockResolvedValue(null);
       (mockWorktreeService.exists as any).mockResolvedValue(false);
+      (mockWorktreeService.branchExists as any).mockResolvedValue(false);
 
       await resolver.resolveUniqueSlug('test-slug', '/repo/path');
 
       expect(mockFeatureRepo.findBySlug).toHaveBeenCalledWith('test-slug', '/repo/path');
       expect(mockWorktreeService.exists).toHaveBeenCalledWith('/repo/path', 'feat/test-slug');
+      expect(mockWorktreeService.branchExists).toHaveBeenCalledWith('/repo/path', 'feat/test-slug');
     });
 
     it('should format branch name as feat/SLUG', async () => {
       (mockFeatureRepo.findBySlug as any).mockResolvedValue(null);
       (mockWorktreeService.exists as any).mockResolvedValue(false);
+      (mockWorktreeService.branchExists as any).mockResolvedValue(false);
 
       const result = await resolver.resolveUniqueSlug('github-oauth', '/repo/path');
 

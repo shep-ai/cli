@@ -1,0 +1,36 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Artifact.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Human-readable name identifying this artifact
+  type:
+    type: string
+    description: Type description providing additional context (e.g., 'documentation', 'api-spec')
+  category:
+    $ref: ArtifactCategory.yaml
+    description: Category classification (PRD, API, Design, or Other)
+  format:
+    $ref: ArtifactFormat.yaml
+    description: File format for the artifact content
+  summary:
+    type: string
+    description: Brief summary of the artifact's content and purpose
+  path:
+    type: string
+    description: Relative file path where the artifact is stored
+  state:
+    $ref: ArtifactState.yaml
+    description: Current state in the artifact generation lifecycle
+required:
+  - name
+  - type
+  - category
+  - format
+  - summary
+  - path
+  - state
+allOf:
+  - $ref: BaseEntity.yaml
+description: Generated document or file attached to a Feature

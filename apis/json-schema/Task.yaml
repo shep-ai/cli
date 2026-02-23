@@ -1,0 +1,38 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Task.yaml
+type: object
+properties:
+  title:
+    type: string
+    description: Optional human-readable title for the task
+  description:
+    type: string
+    description: Optional detailed description of what the task entails
+  dependsOn:
+    type: array
+    items:
+      $ref: Task.yaml
+    description: Tasks that must be completed before this task can begin
+  actionItems:
+    type: array
+    items:
+      $ref: ActionItem.yaml
+    description: Granular action items that comprise this task
+  baseBranch:
+    type: string
+    description: The base branch from which this task's working branch was created
+  state:
+    $ref: TaskState.yaml
+    description: Current state of task execution (Todo, WIP, Review, Done)
+  branch:
+    type: string
+    description: Git branch where work for this task is performed
+required:
+  - dependsOn
+  - actionItems
+  - baseBranch
+  - state
+  - branch
+allOf:
+  - $ref: BaseEntity.yaml
+description: A discrete unit of work within an implementation plan
