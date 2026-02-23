@@ -3,18 +3,20 @@ feature:
   name: 'repository-entity'
   number: 36
   branch: 'chore/prd-add-descrption'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-23T11:18:18Z'
 
 status:
-  phase: 'ready-for-review'
+  phase: 'in-review'
   progress:
     completed: 12
     total: 12
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-23T14:08:00Z'
-  lastUpdatedBy: 'shep-kit:implement'
+  lastUpdated: '2026-02-23T14:10:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/92'
 
 validation:
   lastRun: '2026-02-23T12:00:00Z'
@@ -42,6 +44,9 @@ checkpoints:
   - phase: 'implementation-complete'
     completedAt: '2026-02-23T14:08:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-23T14:10:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
