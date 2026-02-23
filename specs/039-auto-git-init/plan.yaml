@@ -1,0 +1,126 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: auto-git-init
+summary: Implementation plan for auto git initialization during feature creation
+
+# Relationships
+relatedFeatures:
+  - '036-repository-entity'
+technologies:
+  - TypeScript
+  - node:child_process
+  - Vitest
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Port & Service Layer'
+    parallel: false
+    taskIds:
+      - task-1
+      - task-2
+  - id: phase-2
+    name: 'Use Case Integration'
+    parallel: false
+    taskIds:
+      - task-3
+  - id: phase-3
+    name: 'Integration Tests'
+    parallel: false
+    taskIds:
+      - task-4
+
+# File change tracking
+filesToCreate:
+  - tests/integration/infrastructure/services/git/worktree-git-init.test.ts
+
+filesToModify:
+  - packages/core/src/application/ports/output/services/worktree-service.interface.ts
+  - packages/core/src/infrastructure/services/git/worktree.service.ts
+  - packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+
+# Open questions
+openQuestions: []
+
+# Markdown content
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-23
+
+  ## Architecture Overview
+
+  ```
+  CreateFeatureUseCase
+    │
+    ├─ 1. metadataGenerator.generateMetadata()
+    ├─ 2. slugResolver.resolveUniqueSlug()
+    ├─ 3. ★ worktreeService.ensureGitRepository(repoPath) ← NEW
+    ├─ 4. worktreeService.create(repoPath, branch, wtPath)
+    ├─ 5. specInitializer.initialize(...)
+    └─ 6. agentProcess.spawn(...)
+  ```
+
+  Step 3 is the new addition. It checks if repoPath is a git repo;
+  if not, runs `git init` + `git commit --allow-empty -m "Initial commit"`.
+
+  ## Implementation Strategy
+
+  **MANDATORY TDD**: All phases follow RED-GREEN-REFACTOR cycles.
+
+  **Phase 1 — Port & Service Layer**: Add `ensureGitRepository` to the
+  IWorktreeService interface and implement it in WorktreeService. The method
+  uses `git rev-parse --is-inside-work-tree` to detect repos, and `git init`
+  + `git commit` to initialize when needed.
+
+  **Phase 2 — Use Case Integration**: Call `ensureGitRepository` in
+  CreateFeatureUseCase before worktree creation. Minimal change.
+
+  **Phase 3 — Integration Tests**: Real git commands in isolated temp dirs
+  to validate the full flow.
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  | File | Purpose |
+  | ---- | ------- |
+  | tests/integration/infrastructure/services/git/worktree-git-init.test.ts | Integration tests with real git |
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | packages/core/src/application/ports/output/services/worktree-service.interface.ts | Add `ensureGitRepository(repoPath)` method |
+  | packages/core/src/infrastructure/services/git/worktree.service.ts | Implement `ensureGitRepository` |
+  | packages/core/src/application/use-cases/features/create/create-feature.use-case.ts | Call `ensureGitRepository` before `create` |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  **CRITICAL:** Tests are written FIRST in each TDD cycle.
+
+  ### Unit Tests (RED -> GREEN -> REFACTOR)
+
+  - WorktreeService.ensureGitRepository — mock execFile, test detect + init paths
+
+  ### Integration Tests
+
+  - Real git commands in temp directories:
+    - Non-git directory → auto-initializes, worktree creation succeeds
+    - Already-git directory → no re-initialization, worktree creation succeeds
+    - Read-only or invalid directory → clear error
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Git not installed on system | Already a prerequisite for worktrees — no new risk |
+  | Race condition with concurrent init | Feature creation is sequential per invocation |
+  | Modifying user's directory unexpectedly | Only initializes if no `.git` exists — safe |
+
+  ---
+
+  _Updated by `/shep-kit:new-feature-fast` — see tasks.yaml for detailed task breakdown_
