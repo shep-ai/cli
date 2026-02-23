@@ -29,6 +29,7 @@ import {
   initializeNotificationWatcher,
   getNotificationWatcher,
 } from '@/infrastructure/services/notifications/notification-watcher.service.js';
+import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
 
 function parsePort(value: string): number {
@@ -46,14 +47,16 @@ export function createUiCommand(): Command {
   return new Command('ui')
     .description('Start the Shep web UI')
     .option('-p, --port <number>', 'Port number (1024-65535)', parsePort)
+    .option('--no-open', 'Do not auto-open browser')
     .addHelpText(
       'after',
       `
 Examples:
   $ shep ui                 Start on default port (4050)
-  $ shep ui --port 8080     Start on custom port`
+  $ shep ui --port 8080     Start on custom port
+  $ shep ui --no-open       Start without opening browser`
     )
-    .action(async (options: { port?: number }) => {
+    .action(async (options: { port?: number; open?: boolean }) => {
       try {
         const startPort = options.port ?? DEFAULT_PORT;
         const port = await findAvailablePort(startPort);
@@ -78,9 +81,16 @@ Examples:
         initializeNotificationWatcher(runRepo, phaseTimingRepo, notificationService);
         getNotificationWatcher().start();
 
-        messages.success(`Server ready at ${fmt.code(`http://localhost:${port}`)}`);
+        const url = `http://localhost:${port}`;
+        messages.success(`Server ready at ${fmt.code(url)}`);
         messages.info('Press Ctrl+C to stop');
         messages.newline();
+
+        // Auto-open browser (unless --no-open)
+        if (options.open !== false) {
+          const opener = new BrowserOpenerService({ warn: messages.warning });
+          opener.open(url);
+        }
 
         // Handle graceful shutdown via SIGINT/SIGTERM
         // The HTTP server keeps the event loop alive — no explicit wait needed

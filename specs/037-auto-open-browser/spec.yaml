@@ -1,0 +1,239 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: auto-open-browser
+number: 037
+branch: feat/037-auto-open-browser
+oneLiner: Auto-open default browser when `shep ui` starts, with --no-open flag to disable
+userQuery: >
+  we have 'shep ui' command, i want it to automatically open default browser (generic cross platform), we also need flag to disable auto open
+summary: >
+  After the web server starts in `shep ui`, automatically open the user's default browser
+  to the server URL. Uses Node.js child_process.execFile with platform-specific commands
+  (xdg-open, open, start) for cross-platform support. Adds a --no-open flag to suppress auto-opening.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Commander.js (CLI option/flag parsing)
+  - Node.js child_process.execFile (cross-platform browser open via xdg-open/open/start)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Where should the browser-open utility live — presentation layer or infrastructure service?'
+    resolved: true
+    options:
+      - option: 'Infrastructure service'
+        description: >
+          Place in packages/core/src/infrastructure/services/ as a standalone service class
+          with injectable deps (like FileDialogService). Follows Clean Architecture for
+          OS-interaction utilities and matches the existing pattern for platform-specific services.
+        selected: true
+      - option: 'Presentation utility'
+        description: >
+          Place in src/presentation/cli/utils/ as a simple function. Keeps it close to the
+          only consumer (ui.command.ts) but breaks the convention that OS-interaction code
+          lives in infrastructure/services/.
+        selected: false
+    selectionRationale: >
+      Infrastructure service is recommended because the codebase already places platform-specific
+      OS interaction utilities (FileDialogService, FolderDialogService) in
+      packages/core/src/infrastructure/services/. A BrowserOpenerService with injectable deps
+      follows the same testable pattern and keeps the presentation layer thin.
+    answer: 'Infrastructure service'
+
+  - question: 'Should the browser open be fire-and-forget or should we wait for the child process?'
+    resolved: true
+    options:
+      - option: 'Fire-and-forget'
+        description: >
+          Spawn the process detached/unref so it does not block the CLI. If the command fails,
+          catch the error and log a warning. The CLI continues regardless. This is the standard
+          pattern for "open URL in browser" across CLIs (e.g., npm, vite, next dev).
+        selected: true
+      - option: 'Await with timeout'
+        description: >
+          Wait for the child process to exit (with a short timeout like 5s). Provides certainty
+          about success/failure but adds latency and complexity for no user-visible benefit —
+          the browser opens asynchronously either way.
+        selected: false
+    selectionRationale: >
+      Fire-and-forget is recommended because the user sees the browser open immediately regardless.
+      Waiting adds latency to the CLI startup for no benefit. Errors are caught via the callback
+      and logged as warnings. This matches how Vite, Next.js dev, and other CLIs handle it.
+    answer: 'Fire-and-forget'
+
+  - question: 'Should we use execFile (no shell) for launching the browser?'
+    resolved: true
+    options:
+      - option: 'execFile (no shell)'
+        description: >
+          Safer — no shell injection risk. Works well for macOS (open) and Linux (xdg-open).
+          Windows "start" is a shell built-in and requires special handling (use cmd /c start).
+          The codebase already uses execFile via the safe wrapper pattern.
+        selected: true
+      - option: 'Shell-based execution'
+        description: >
+          Simpler for Windows since "start" is a shell built-in. But introduces shell injection
+          risk if the URL is ever user-controlled. Less safe by default.
+        selected: false
+    selectionRationale: >
+      execFile is recommended for security (no shell injection). For Windows, use
+      execFile with cmd /c start which avoids shell injection while supporting the shell
+      built-in "start" command. This matches the security-conscious approach used in the codebase.
+    answer: 'execFile (no shell)'
+
+  - question: 'How should platform detection work — direct process.platform or injectable dependency?'
+    resolved: true
+    options:
+      - option: 'Injectable dependency'
+        description: >
+          Pass platform as a constructor/function parameter with a default of process.platform.
+          Makes the utility fully testable without mocking globals. Matches the FileDialogService
+          pattern which uses injectable deps ({ platform }).
+        selected: true
+      - option: 'Direct process.platform'
+        description: >
+          Read process.platform directly inside the function. Simpler but requires mocking
+          the global in tests, which is fragile and can leak across test cases.
+        selected: false
+    selectionRationale: >
+      Injectable dependency is recommended because it follows the established FileDialogService
+      pattern in the codebase, which uses a deps object with platform as an injectable parameter.
+      This makes unit tests deterministic without global mocking.
+    answer: 'Injectable dependency'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The `shep ui` command starts a Next.js web server and prints the URL to the console,
+  but requires users to manually copy/paste or click the URL to open it in a browser.
+  This adds unnecessary friction — the command should automatically open the default
+  browser after the server is ready, with an opt-out flag for headless/CI environments.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The feature touches the CLI presentation layer and a small utility:
+
+  - `src/presentation/cli/commands/ui.command.ts` — The `shep ui` command implementation.
+    Creates Commander command with `--port` option, starts the web server service, sets up
+    signal handlers for graceful shutdown. The browser open call goes here after the
+    "Server ready" message (line 81).
+  - `tests/unit/presentation/cli/commands/ui.command.test.ts` — Existing unit tests for
+    the ui command. New tests for auto-open behavior and --no-open flag go here.
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: CLI commands live in `src/presentation/cli/commands/`. They
+    resolve services from the DI container and orchestrate behavior.
+  - **Commander.js pattern**: Commands use `.option()` for flags and the action callback
+    receives parsed options.
+  - **Test pattern**: Tests mock the DI container, port service, and web server service.
+    The browser-open utility should be similarly mockable.
+
+  ### Relevant Technologies
+
+  - **Commander.js**: Already used for the `--port` option. Adding `--no-open` is a
+    boolean negatable option via `.option('--no-open', ...)`.
+  - **Node.js child_process.execFile**: Uses `execFile` (not shell-based execution) with
+    platform detection to invoke `xdg-open` (Linux), `open` (macOS), or `cmd /c start`
+    (Windows). This avoids shell injection risks.
+
+  ## Success Criteria
+
+  - [ ] `shep ui` automatically opens default browser to `http://localhost:<port>` after server starts
+  - [ ] Works on macOS (`open`), Linux (`xdg-open`), and Windows (`cmd /c start`)
+  - [ ] `shep ui --no-open` suppresses auto-open behavior
+  - [ ] Browser open failure is non-fatal — logged as a warning, does not crash the CLI
+  - [ ] Unit tests cover: auto-open default behavior, --no-open suppression, all three platforms, error handling
+  - [ ] Service follows injectable-deps pattern (like FileDialogService) for testability
+  - [ ] No new npm dependencies introduced
+
+  ## Functional Requirements
+
+  - **FR-1**: When `shep ui` starts and the web server is ready, the CLI SHALL automatically
+    open the user's default browser to `http://localhost:<port>` where `<port>` is the resolved
+    port number.
+
+  - **FR-2**: The browser open SHALL occur immediately after the "Server ready" success message
+    is printed (line 81 of ui.command.ts), so the user sees feedback before the browser opens.
+
+  - **FR-3**: The CLI SHALL support a `--no-open` flag that suppresses automatic browser opening.
+    When `--no-open` is passed, the command SHALL behave identically to today (no browser open).
+
+  - **FR-4**: The browser open utility SHALL support three platforms:
+    - **macOS** (`darwin`): execFile with `open` command and `[url]` args
+    - **Linux** (`linux`): execFile with `xdg-open` command and `[url]` args
+    - **Windows** (`win32`): execFile with `cmd` command and `['/c', 'start', '', url]` args
+
+  - **FR-5**: On unsupported platforms, the browser open SHALL be silently skipped (no error,
+    no warning). The user can still manually open the printed URL.
+
+  - **FR-6**: The browser open SHALL be fire-and-forget — the child process is spawned and
+    not awaited. The CLI does not block waiting for the browser to open.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 (Security)**: The utility SHALL use `execFile` (not shell-based execution) to
+    avoid shell injection. The URL is passed as an argument array element, never interpolated
+    into a shell string.
+
+  - **NFR-2 (Resilience)**: If the browser open child process fails (e.g., `xdg-open` not
+    installed, display server unavailable), the error SHALL be caught and logged as a warning
+    via the CLI message system. The CLI SHALL continue running normally.
+
+  - **NFR-3 (Testability)**: The browser open service SHALL accept injectable dependencies
+    (platform, execFile function) with sensible defaults, following the FileDialogService
+    pattern. This allows unit tests to verify behavior without mocking globals.
+
+  - **NFR-4 (Performance)**: The browser open SHALL not add perceptible latency to CLI
+    startup. The child process is spawned asynchronously and does not block the event loop.
+
+  - **NFR-5 (Maintainability)**: The browser open logic SHALL be a standalone service in
+    `packages/core/src/infrastructure/services/`, not inline in the command file. This
+    keeps the command thin and the utility reusable/testable independently.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Where should the browser-open utility live? | Infrastructure service | Matches FileDialogService/FolderDialogService pattern for OS interaction utilities |
+  | 2 | Fire-and-forget or await the browser process? | Fire-and-forget | Standard CLI pattern (Vite, Next.js). No user benefit to waiting. |
+  | 3 | Use execFile (no shell) for launching browser? | Yes, execFile | Security — no shell injection. Windows handled via cmd /c start. |
+  | 4 | Direct process.platform or injectable? | Injectable dependency | Follows existing FileDialogService pattern. Makes tests deterministic. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/ui.command.ts` | High | Add --no-open flag, call browser open after server ready |
+  | `packages/core/src/infrastructure/services/` | Medium | New BrowserOpenerService with injectable deps |
+  | `tests/unit/presentation/cli/commands/ui.command.test.ts` | High | New tests for auto-open and --no-open flag |
+  | `tests/unit/infrastructure/services/` | Medium | Unit tests for BrowserOpenerService |
+
+  ## Dependencies
+
+  - **Node.js `child_process.execFile`**: Built-in module, no external dependency needed.
+    Uses execFile for security (no shell injection).
+  - **`process.platform`**: For OS detection (darwin/linux/win32).
+  - No new npm packages required.
+
+  ## Size Estimate
+
+  **S** — Small, well-scoped change:
+  - One new service class (~25 lines) for cross-platform browser open
+  - One flag addition to existing command (~3 lines)
+  - One call site after server ready message (~5 lines)
+  - Unit tests for the service (~50 lines) and command integration (~30 lines)
+
+  ---
+
+  _Requirements complete — proceed with research_
