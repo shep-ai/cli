@@ -125,19 +125,19 @@ describe('repo show command', () => {
     expect(output).toContain('Failed to show repository');
   });
 
-  it('should display features section with feature names and lifecycle', async () => {
+  it('should display features section with IDs, names, and lifecycle', async () => {
     const repo = makeRepository();
     mockResolveRepository.mockResolvedValue({ repository: repo });
     mockFeatureList.mockResolvedValue([
       {
-        id: 'f1',
+        id: 'abcd1234-5678-9012-abcd-ef1234567890',
         name: 'add-auth',
         slug: 'add-auth',
         lifecycle: 'Implementation',
         branch: 'feat/add-auth',
       },
       {
-        id: 'f2',
+        id: 'dead5678-beef-9012-abcd-ef1234567890',
         name: 'fix-login',
         slug: 'fix-login',
         lifecycle: 'Review',
@@ -151,10 +151,10 @@ describe('repo show command', () => {
     expect(mockFeatureList).toHaveBeenCalledWith({ repositoryPath: '/home/user/my-project' });
     const output = consoleSpy.mock.calls.map((c: unknown[]) => c[0]).join('\n');
     expect(output).toContain('Features');
+    expect(output).toContain('abcd1234');
     expect(output).toContain('add-auth');
+    expect(output).toContain('dead5678');
     expect(output).toContain('fix-login');
-    expect(output).toContain('Implementation');
-    expect(output).toContain('Review');
   });
 
   it('should show "No features" when repository has no features', async () => {

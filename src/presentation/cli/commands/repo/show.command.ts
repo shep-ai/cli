@@ -10,8 +10,29 @@
 import { Command } from 'commander';
 import { container } from '@/infrastructure/di/container.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
-import { messages, renderDetailView } from '../../ui/index.js';
+import { colors, messages, renderDetailView } from '../../ui/index.js';
 import { resolveRepository } from './resolve-repository.js';
+
+/** Color a lifecycle value to match feat ls status styling. */
+function colorLifecycle(lifecycle: string): string {
+  switch (lifecycle) {
+    case 'Started':
+      return colors.muted(lifecycle);
+    case 'Analyze':
+    case 'Requirements':
+    case 'Research':
+    case 'Planning':
+      return colors.info(lifecycle);
+    case 'Implementation':
+      return colors.warning(lifecycle);
+    case 'Review':
+      return colors.brand(lifecycle);
+    case 'Maintain':
+      return colors.success(lifecycle);
+    default:
+      return colors.muted(lifecycle);
+  }
+}
 
 function formatDate(date?: Date | string | null): string | null {
   if (!date) return null;
@@ -40,7 +61,10 @@ export function createShowCommand(): Command {
 
         const featureFields =
           features.length > 0
-            ? features.map((f) => ({ label: f.name, value: f.lifecycle }))
+            ? features.map((f) => ({
+                label: `${colors.muted(f.id.slice(0, 8))}  ${f.name}`,
+                value: colorLifecycle(f.lifecycle),
+              }))
             : [{ label: 'No features found', value: '—' }];
 
         renderDetailView({
