@@ -137,7 +137,6 @@ describe('MergeReviewDrawerProps interface', () => {
       branch: 'feat/branch',
       specPath: '/path/to/specs',
       onDelete: vi.fn(),
-      isDeleting: false,
     };
 
     expectTypeOf(props).toMatchTypeOf<MergeReviewDrawerProps>();
