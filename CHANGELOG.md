@@ -1,3 +1,9 @@
+# [1.42.0](https://github.com/shep-ai/cli/compare/v1.41.1...v1.42.0) (2026-02-23)
+
+### Features
+
+- **cli:** add first-run onboarding wizard ([#93](https://github.com/shep-ai/cli/issues/93)) ([7cde82a](https://github.com/shep-ai/cli/commit/7cde82a4a78c08f88a3caf9a7d7aaf899c067646))
+
 ## [1.41.1](https://github.com/shep-ai/cli/compare/v1.41.0...v1.41.1) (2026-02-23)
 
 ### Bug Fixes
