@@ -199,6 +199,12 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
       <>
         <NotificationPermissionBanner />
         <ControlCenterEmptyState onRepositorySelect={handleAddRepository} />
+        <FeatureCreateDrawer
+          open={isCreateDrawerOpen}
+          onClose={closeCreateDrawer}
+          onSubmit={handleCreateFeatureSubmit}
+          repositoryPath={pendingRepositoryPath}
+        />
       </>
     );
   }
