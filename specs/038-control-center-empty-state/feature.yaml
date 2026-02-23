@@ -3,18 +3,20 @@ feature:
   name: 'control-center-empty-state'
   number: 38
   branch: 'feat/038-control-center-empty-state'
-  lifecycle: 'implementation'
+  lifecycle: 'review'
   createdAt: '2026-02-23T16:37:11Z'
 
 status:
-  phase: 'ready-for-review'
+  phase: 'in-review'
   progress:
     completed: 3
     total: 3
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-23T17:10:00Z'
-  lastUpdatedBy: 'shep-kit:implement'
+  lastUpdated: '2026-02-23T17:12:00Z'
+  lastUpdatedBy: 'shep-kit:commit-pr'
+
+prUrl: 'https://github.com/shep-ai/cli/pull/100'
 
 validation:
   lastRun: '2026-02-23T17:10:00Z'
@@ -43,6 +45,9 @@ checkpoints:
   - phase: 'implementation-complete'
     completedAt: '2026-02-23T17:10:00Z'
     completedBy: 'shep-kit:implement'
+  - phase: 'pr-created'
+    completedAt: '2026-02-23T17:12:00Z'
+    completedBy: 'shep-kit:commit-pr'
 
 errors:
   current: null
