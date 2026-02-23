@@ -42,6 +42,9 @@ properties:
   specPath:
     type: string
     description: Absolute path to the feature spec directory inside the worktree
+  repositoryId:
+    $ref: UUID.yaml
+    description: ID of the Repository entity this feature belongs to
   push:
     type: boolean
     default: false
