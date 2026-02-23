@@ -49,6 +49,8 @@ describe('createFeature server action', () => {
       userInput: 'Feature: Auth System\n\nAdd login and signup',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      push: false,
+      openPr: false,
     });
   });
 
@@ -62,6 +64,8 @@ describe('createFeature server action', () => {
       userInput: 'Feature: Quick Fix',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      push: false,
+      openPr: false,
     });
   });
 
@@ -75,6 +79,8 @@ describe('createFeature server action', () => {
       userInput: 'Feature: No Desc',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      push: false,
+      openPr: false,
     });
   });
 
@@ -97,6 +103,8 @@ describe('createFeature server action', () => {
         'Feature: With Files\n\nSee attached\n\nAttached files:\n- /src/index.ts\n- /src/utils.ts',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      push: false,
+      openPr: false,
     });
   });
 
@@ -114,6 +122,8 @@ describe('createFeature server action', () => {
       userInput: 'Feature: Files Only\n\nAttached files:\n- /readme.md',
       repositoryPath: '/repo',
       approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+      push: false,
+      openPr: false,
     });
   });
 
@@ -210,6 +220,75 @@ describe('createFeature server action', () => {
       expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        })
+      );
+    });
+  });
+
+  // --- push/openPr forwarding ---
+
+  describe('push/openPr forwarding', () => {
+    it('forwards push=true and openPr=true', async () => {
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+
+      await createFeature({
+        name: 'Test',
+        repositoryPath: '/repo',
+        push: true,
+        openPr: true,
+      });
+
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          push: true,
+          openPr: true,
+        })
+      );
+    });
+
+    it('defaults both to false when omitted', async () => {
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+
+      await createFeature({ name: 'Test', repositoryPath: '/repo' });
+
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          push: false,
+          openPr: false,
+        })
+      );
+    });
+
+    it('forwards push=true with openPr defaulting to false', async () => {
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+
+      await createFeature({
+        name: 'Test',
+        repositoryPath: '/repo',
+        push: true,
+      });
+
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          push: true,
+          openPr: false,
+        })
+      );
+    });
+
+    it('forwards openPr=true with push defaulting to false', async () => {
+      mockExecute.mockResolvedValue({ feature: { id: '1' } });
+
+      await createFeature({
+        name: 'Test',
+        repositoryPath: '/repo',
+        openPr: true,
+      });
+
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.objectContaining({
+          push: false,
+          openPr: true,
         })
       );
     });

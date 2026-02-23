@@ -153,6 +153,8 @@ describe('FeatureCreateDrawer', () => {
         attachments: [],
         repositoryPath: '/Users/dev/my-repo',
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: false,
+        openPr: false,
       });
     });
 

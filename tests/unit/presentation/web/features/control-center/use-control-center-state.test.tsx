@@ -114,6 +114,8 @@ function HookTestHarness({
             attachments: [],
             repositoryPath: '/Users/foo/bar',
             approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+            push: true,
+            openPr: true,
           })
         }
       >
@@ -307,6 +309,8 @@ describe('useControlCenterState', () => {
         attachments: [],
         repositoryPath: '/Users/foo/bar',
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: true,
+        openPr: true,
       });
     });
   });
@@ -753,6 +757,8 @@ describe('useControlCenterState', () => {
         attachments: [],
         repositoryPath: '/Users/foo/bar',
         approvalGates: { allowPrd: false, allowPlan: false, allowMerge: false },
+        push: true,
+        openPr: true,
       });
     });
 
