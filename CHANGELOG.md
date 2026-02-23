@@ -1,3 +1,15 @@
+# [1.48.0](https://github.com/shep-ai/cli/compare/v1.47.0...v1.48.0) (2026-02-23)
+
+### Bug Fixes
+
+- **web:** correct add-repo node position shifting in control center ([#039](https://github.com/shep-ai/cli/issues/039)) ([#108](https://github.com/shep-ai/cli/issues/108)) ([3612c55](https://github.com/shep-ai/cli/commit/3612c559142133c8eefd5ad1af57ea3e6fb14e5e))
+
+### Features
+
+- **domain:** auto-init git repos for feature creation ([#101](https://github.com/shep-ai/cli/issues/101)) ([41c3969](https://github.com/shep-ai/cli/commit/41c39696d834d72c643867496ed82eb3eb782fca))
+- **web:** auto-relayout canvas after feature deletion ([#107](https://github.com/shep-ai/cli/issues/107)) ([ff2df01](https://github.com/shep-ai/cli/commit/ff2df01cc78b80c1fa3c63fcc8cb6bcb8e15baf9))
+- **web:** enhance merge review with branch info, phases, and chat input ([#106](https://github.com/shep-ai/cli/issues/106)) ([ae1899c](https://github.com/shep-ai/cli/commit/ae1899cef740c4977315bffd5bede76aa402057e))
+
 # [1.47.0](https://github.com/shep-ai/cli/compare/v1.46.0...v1.47.0) (2026-02-23)
 
 ### Features
