@@ -2,18 +2,18 @@ feature:
   id: 036-merge-review-drawer
   name: merge-review-drawer
   number: 36
-  branch: feat/036-merge-review-drawer
-  lifecycle: research
+  branch: feat/merge-review-drawer
+  lifecycle: review
   createdAt: '2026-02-23T11:21:33Z'
 status:
-  phase: research
+  phase: in-review
   progress:
     completed: 0
     total: 0
     percentage: 0
   currentTask: null
-  lastUpdated: '2026-02-23T11:21:33Z'
-  lastUpdatedBy: feature-agent
+  lastUpdated: '2026-02-23T21:45:00Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -26,10 +26,14 @@ tasks:
   current: null
   blocked: []
   failed: []
+prUrl: 'https://github.com/shep-ai/cli/pull/106'
 checkpoints:
   - phase: feature-created
     completedAt: '2026-02-23T11:21:33Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-23T21:45:00Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
