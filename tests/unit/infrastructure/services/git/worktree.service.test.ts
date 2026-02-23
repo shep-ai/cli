@@ -11,7 +11,8 @@ import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('node:fs', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('node:fs')>();
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- vi.mock factory requires runtime import()
+  const actual = (await importOriginal()) as typeof import('node:fs');
   return { ...actual, mkdirSync: vi.fn() };
 });
 
