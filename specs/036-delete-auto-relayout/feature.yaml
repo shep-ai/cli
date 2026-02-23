@@ -3,17 +3,17 @@ feature:
   name: delete-auto-relayout
   number: 36
   branch: feat/036-delete-auto-relayout
-  lifecycle: research
+  lifecycle: review
   createdAt: '2026-02-22T17:31:43Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 4
     total: 4
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-22T17:47:36.614Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-23T00:00:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -30,10 +30,14 @@ tasks:
   current: null
   blocked: []
   failed: []
+prUrl: https://github.com/shep-ai/cli/pull/107
 checkpoints:
   - phase: feature-created
     completedAt: '2026-02-22T17:31:43Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-23T00:00:00.000Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
