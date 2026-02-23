@@ -258,6 +258,51 @@ describe('WorktreeService', () => {
     });
   });
 
+  describe('ensureGitRepository', () => {
+    it('should no-op for an existing git repository', async () => {
+      mockExecFile.mockResolvedValueOnce({ stdout: 'true\n', stderr: '' });
+
+      await service.ensureGitRepository('/existing/repo');
+
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', '--is-inside-work-tree'], {
+        cwd: '/existing/repo',
+      });
+      expect(mockExecFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('should run git init and commit for a non-git directory', async () => {
+      mockExecFile
+        .mockRejectedValueOnce(new Error('fatal: not a git repository'))
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git init
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git commit
+
+      await service.ensureGitRepository('/plain/dir');
+
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', '--is-inside-work-tree'], {
+        cwd: '/plain/dir',
+      });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['init'], { cwd: '/plain/dir' });
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        ['commit', '--allow-empty', '-m', 'Initial commit'],
+        { cwd: '/plain/dir' }
+      );
+    });
+
+    it('should throw WorktreeError when git init fails', async () => {
+      mockExecFile
+        .mockRejectedValueOnce(new Error('fatal: not a git repository'))
+        .mockRejectedValueOnce(new Error('permission denied'));
+
+      try {
+        await service.ensureGitRepository('/bad/dir');
+      } catch (e) {
+        expect(e).toBeInstanceOf(WorktreeError);
+        expect((e as WorktreeError).code).toBe(WorktreeErrorCode.GIT_ERROR);
+      }
+    });
+  });
+
   describe('getWorktreePath', () => {
     it('should compute path under ~/.shep/repos/HASH/wt/SLUG', () => {
       const result = service.getWorktreePath('/home/user/repo', 'feat/my-feature');

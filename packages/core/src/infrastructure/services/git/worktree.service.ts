@@ -85,6 +85,24 @@ export class WorktreeService implements IWorktreeService {
     }
   }
 
+  async ensureGitRepository(repoPath: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rev-parse', '--is-inside-work-tree'], { cwd: repoPath });
+      return; // Already a git repo
+    } catch {
+      // Not a git repo — initialize it
+    }
+
+    try {
+      await this.execFile('git', ['init'], { cwd: repoPath });
+      await this.execFile('git', ['commit', '--allow-empty', '-m', 'Initial commit'], {
+        cwd: repoPath,
+      });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
+  }
+
   getWorktreePath(repoPath: string, branch: string): string {
     const repoHash = createHash('sha256').update(repoPath).digest('hex').slice(0, 16);
     const slug = branch.replace(/\//g, '-');

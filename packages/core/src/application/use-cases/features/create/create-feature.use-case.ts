@@ -71,6 +71,9 @@ export class CreateFeatureUseCase {
     const now = new Date();
     const runId = randomUUID();
 
+    // Ensure the target directory is a git repository (auto-init if needed)
+    await this.worktreeService.ensureGitRepository(input.repositoryPath);
+
     // Create git worktree for isolated development
     const worktreePath = this.worktreeService.getWorktreePath(input.repositoryPath, branch);
     await this.worktreeService.create(input.repositoryPath, branch, worktreePath);
