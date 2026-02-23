@@ -284,7 +284,7 @@ describe('WorktreeService', () => {
         cwd: '/plain/dir',
       });
       expect(mockExecFile).toHaveBeenCalledWith('git', ['init'], { cwd: '/plain/dir' });
-      expect(mockExecFile).toHaveBeenCalledWith('git', ['config', 'user.name', 'shepai[bot]'], {
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['config', 'user.name', 'shep-ai[bot]'], {
         cwd: '/plain/dir',
       });
       expect(mockExecFile).toHaveBeenCalledWith('git', ['config', 'user.email', 'bot@shep.bot'], {

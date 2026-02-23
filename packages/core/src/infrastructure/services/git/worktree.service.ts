@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import { injectable, inject } from 'tsyringe';
 
-const GIT_AUTO_INIT_USER = 'shepai[bot]';
+const GIT_AUTO_INIT_USER = 'shep-ai[bot]';
 const GIT_AUTO_INIT_EMAIL = 'bot@shep.bot';
 import type {
   IWorktreeService,
