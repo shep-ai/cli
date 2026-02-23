@@ -76,11 +76,13 @@ async function bootstrap() {
     }
 
     // Step 2.5: First-run onboarding gate
-    // If onboarding hasn't been completed, run the wizard before any command
-    const onboardingCheck = new CheckOnboardingStatusUseCase();
-    const { isComplete } = await onboardingCheck.execute();
-    if (!isComplete) {
-      await onboardingWizard();
+    // Only run in interactive terminals (the wizard needs TTY for prompts)
+    if (process.stdin.isTTY) {
+      const onboardingCheck = new CheckOnboardingStatusUseCase();
+      const { isComplete } = await onboardingCheck.execute();
+      if (!isComplete) {
+        await onboardingWizard();
+      }
     }
 
     // Step 3: Set up Commander CLI
