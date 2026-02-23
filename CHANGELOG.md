@@ -1,3 +1,9 @@
+# [1.41.0](https://github.com/shep-ai/cli/compare/v1.40.2...v1.41.0) (2026-02-23)
+
+### Features
+
+- **agents:** replace direct git service calls with agent-driven merge ([#91](https://github.com/shep-ai/cli/issues/91)) ([5f8a13d](https://github.com/shep-ai/cli/commit/5f8a13de3dc6cb6d2c90b74e736f811ba118f143))
+
 ## [1.40.2](https://github.com/shep-ai/cli/compare/v1.40.1...v1.40.2) (2026-02-22)
 
 ### Bug Fixes
