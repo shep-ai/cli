@@ -17,12 +17,31 @@ export interface MergeReviewPr {
   ciStatus?: CiStatus;
 }
 
+/** A phase from the implementation plan */
+export interface MergeReviewPhase {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+/** Branch merge direction info */
+export interface MergeReviewBranch {
+  /** Feature branch name */
+  source: string;
+  /** Target branch name (e.g. 'main') */
+  target: string;
+}
+
 /** Data returned by the getMergeReviewData server action */
 export interface MergeReviewData {
-  /** PR metadata (always present when data is returned) */
-  pr: MergeReviewPr;
+  /** PR metadata (omitted when the feature has no PR) */
+  pr?: MergeReviewPr;
   /** Aggregate diff statistics (omitted when worktree is unavailable) */
   diffSummary?: MergeReviewDiffSummary;
+  /** Implementation phases from plan.yaml */
+  phases?: MergeReviewPhase[];
+  /** Branch merge direction */
+  branch?: MergeReviewBranch;
   /** Warning message when diff summary could not be retrieved */
   warning?: string;
 }
@@ -33,6 +52,8 @@ export interface MergeReviewProps {
   data: MergeReviewData;
   /** Approve merge callback */
   onApprove: () => void;
+  /** Send refinement text to AI */
+  onRefine: (text: string) => void;
   /** Controls disabled state during approval */
   isProcessing?: boolean;
 }
@@ -49,7 +70,7 @@ export interface MergeReviewDrawerProps extends MergeReviewProps {
   featureId?: string;
   /** Absolute path to the repository on disk */
   repositoryPath?: string;
-  /** Git branch name for this feature */
+  /** Git branch name — passed to ReviewDrawerShell for actions */
   branch?: string;
   /** Absolute path to the specs folder on disk */
   specPath?: string;

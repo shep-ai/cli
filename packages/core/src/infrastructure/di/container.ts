@@ -95,6 +95,7 @@ import { DeleteFeatureUseCase } from '../../application/use-cases/features/delet
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
 import { GetFeatureArtifactUseCase } from '../../application/use-cases/features/get-feature-artifact.use-case.js';
 import { GetResearchArtifactUseCase } from '../../application/use-cases/features/get-research-artifact.use-case.js';
+import { GetPlanArtifactUseCase } from '../../application/use-cases/features/get-plan-artifact.use-case.js';
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
 import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use-case.js';
@@ -287,6 +288,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ResumeFeatureUseCase);
   container.registerSingleton(GetFeatureArtifactUseCase);
   container.registerSingleton(GetResearchArtifactUseCase);
+  container.registerSingleton(GetPlanArtifactUseCase);
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
   container.registerSingleton(LaunchIdeUseCase);
@@ -313,6 +315,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetResearchArtifactUseCase', {
     useFactory: (c) => c.resolve(GetResearchArtifactUseCase),
+  });
+  container.register('GetPlanArtifactUseCase', {
+    useFactory: (c) => c.resolve(GetPlanArtifactUseCase),
   });
   container.register('LaunchIdeUseCase', {
     useFactory: (c) => c.resolve(LaunchIdeUseCase),

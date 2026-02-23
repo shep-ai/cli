@@ -3,11 +3,13 @@ import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 
 const mockFindById = vi.fn();
 const mockGetPrDiffSummary = vi.fn();
+const mockPlanExecute = vi.fn();
 
 vi.mock('@/lib/server-container', () => ({
   resolve: (token: string) => {
     if (token === 'IFeatureRepository') return { findById: mockFindById };
     if (token === 'IGitPrService') return { getPrDiffSummary: mockGetPrDiffSummary };
+    if (token === 'GetPlanArtifactUseCase') return { execute: mockPlanExecute };
     throw new Error(`Unknown token: ${token}`);
   },
 }));
@@ -27,6 +29,7 @@ const basePr = {
 const baseFeature = {
   id: 'feat-123',
   name: 'Test Feature',
+  branch: 'feat/test-feature',
   worktreePath: '/tmp/worktree',
   pr: basePr,
 };
@@ -38,9 +41,18 @@ const baseDiffSummary = {
   commitCount: 3,
 };
 
+const basePlanArtifact = {
+  phases: [
+    { id: 'phase-1', name: 'Foundation', description: 'Set up types', parallel: false },
+    { id: 'phase-2', name: 'Implementation', description: 'Build UI', parallel: false },
+  ],
+};
+
 describe('getMergeReviewData server action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: plan unavailable (many tests don't care about it)
+    mockPlanExecute.mockRejectedValue(new Error('no plan'));
   });
 
   it('returns error when featureId is empty string', async () => {
@@ -65,12 +77,26 @@ describe('getMergeReviewData server action', () => {
     expect(result).toEqual({ error: 'Feature not found' });
   });
 
-  it('returns error when feature has no PR data', async () => {
+  it('returns data without PR when feature has no PR', async () => {
     mockFindById.mockResolvedValue({ ...baseFeature, pr: undefined });
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
 
     const result = await getMergeReviewData('feat-123');
 
-    expect(result).toEqual({ error: 'No PR data available for this feature' });
+    expect(result).toMatchObject({ pr: undefined, diffSummary: baseDiffSummary });
+    expect(result).toHaveProperty('branch', { source: 'feat/test-feature', target: 'main' });
+  });
+
+  it('returns warning when feature has no PR and no worktree', async () => {
+    mockFindById.mockResolvedValue({ ...baseFeature, pr: undefined, worktreePath: undefined });
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({
+      pr: undefined,
+      warning: 'No PR or diff data available',
+      branch: { source: 'feat/test-feature', target: 'main' },
+    });
   });
 
   it('returns full data when PR and diff summary are available', async () => {
@@ -79,7 +105,7 @@ describe('getMergeReviewData server action', () => {
 
     const result = await getMergeReviewData('feat-123');
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       pr: {
         url: 'https://github.com/org/repo/pull/42',
         number: 42,
@@ -88,6 +114,7 @@ describe('getMergeReviewData server action', () => {
         ciStatus: CiStatus.Success,
       },
       diffSummary: baseDiffSummary,
+      branch: { source: 'feat/test-feature', target: 'main' },
     });
     expect(mockGetPrDiffSummary).toHaveBeenCalledWith('/tmp/worktree', 'main');
   });
@@ -98,7 +125,7 @@ describe('getMergeReviewData server action', () => {
 
     const result = await getMergeReviewData('feat-123');
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       pr: {
         url: 'https://github.com/org/repo/pull/42',
         number: 42,
@@ -110,12 +137,12 @@ describe('getMergeReviewData server action', () => {
     });
   });
 
-  it('returns data with warning when worktreePath is undefined', async () => {
+  it('returns PR data without warning when worktreePath is undefined', async () => {
     mockFindById.mockResolvedValue({ ...baseFeature, worktreePath: undefined });
 
     const result = await getMergeReviewData('feat-123');
 
-    expect(result).toEqual({
+    expect(result).toMatchObject({
       pr: {
         url: 'https://github.com/org/repo/pull/42',
         number: 42,
@@ -123,7 +150,7 @@ describe('getMergeReviewData server action', () => {
         commitHash: 'abc1234def',
         ciStatus: CiStatus.Success,
       },
-      warning: 'Diff statistics unavailable',
+      warning: undefined,
     });
     expect(mockGetPrDiffSummary).not.toHaveBeenCalled();
   });
@@ -142,8 +169,53 @@ describe('getMergeReviewData server action', () => {
 
     const result = await getMergeReviewData('feat-123');
 
-    expect('pr' in result && result.pr.commitHash).toBeUndefined();
-    expect('pr' in result && result.pr.ciStatus).toBeUndefined();
+    expect('pr' in result && result.pr?.commitHash).toBeUndefined();
+    expect('pr' in result && result.pr?.ciStatus).toBeUndefined();
+  });
+
+  it('includes phases when plan artifact is available', async () => {
+    mockFindById.mockResolvedValue(baseFeature);
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+    mockPlanExecute.mockResolvedValue(basePlanArtifact);
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({
+      phases: [
+        { id: 'phase-1', name: 'Foundation', description: 'Set up types' },
+        { id: 'phase-2', name: 'Implementation', description: 'Build UI' },
+      ],
+    });
+  });
+
+  it('returns undefined phases when plan artifact is unavailable', async () => {
+    mockFindById.mockResolvedValue(baseFeature);
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+    mockPlanExecute.mockRejectedValue(new Error('no spec path'));
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({ phases: undefined });
+  });
+
+  it('includes branch info from feature', async () => {
+    mockFindById.mockResolvedValue(baseFeature);
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({
+      branch: { source: 'feat/test-feature', target: 'main' },
+    });
+  });
+
+  it('returns undefined branch when feature has no branch', async () => {
+    mockFindById.mockResolvedValue({ ...baseFeature, branch: undefined });
+    mockGetPrDiffSummary.mockResolvedValue(baseDiffSummary);
+
+    const result = await getMergeReviewData('feat-123');
+
+    expect(result).toMatchObject({ branch: undefined });
   });
 
   it('returns error when repository throws', async () => {

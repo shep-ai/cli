@@ -4,6 +4,8 @@ import type {
   MergeReviewData,
   MergeReviewProps,
   MergeReviewDrawerProps,
+  MergeReviewPhase,
+  MergeReviewBranch,
 } from '../../../../../../../src/presentation/web/components/common/merge-review/merge-review-config';
 
 describe('MergeReviewData interface', () => {
@@ -22,19 +24,15 @@ describe('MergeReviewData interface', () => {
         deletions: 50,
         commitCount: 3,
       },
+      branch: { source: 'feat/x', target: 'main' },
+      phases: [{ id: 'p1', name: 'Foundation' }],
     };
 
     expectTypeOf(data).toMatchTypeOf<MergeReviewData>();
   });
 
   it('accepts data without optional fields', () => {
-    const data: MergeReviewData = {
-      pr: {
-        url: 'https://github.com/org/repo/pull/42',
-        number: 42,
-        status: PrStatus.Open,
-      },
-    };
+    const data: MergeReviewData = {};
 
     expectTypeOf(data).toMatchTypeOf<MergeReviewData>();
   });
@@ -51,10 +49,41 @@ describe('MergeReviewData interface', () => {
 
     expectTypeOf(data).toMatchTypeOf<MergeReviewData>();
   });
+
+  it('accepts data without PR (no-PR merge)', () => {
+    const data: MergeReviewData = {
+      branch: { source: 'feat/x', target: 'main' },
+      diffSummary: { filesChanged: 5, additions: 100, deletions: 20, commitCount: 2 },
+    };
+
+    expectTypeOf(data).toMatchTypeOf<MergeReviewData>();
+  });
+});
+
+describe('MergeReviewPhase interface', () => {
+  it('accepts phase with description', () => {
+    const phase: MergeReviewPhase = { id: 'p1', name: 'Foundation', description: 'Set up types' };
+
+    expectTypeOf(phase).toMatchTypeOf<MergeReviewPhase>();
+  });
+
+  it('accepts phase without description', () => {
+    const phase: MergeReviewPhase = { id: 'p1', name: 'Foundation' };
+
+    expectTypeOf(phase).toMatchTypeOf<MergeReviewPhase>();
+  });
+});
+
+describe('MergeReviewBranch interface', () => {
+  it('has source and target fields', () => {
+    const branch: MergeReviewBranch = { source: 'feat/x', target: 'main' };
+
+    expectTypeOf(branch).toMatchTypeOf<MergeReviewBranch>();
+  });
 });
 
 describe('MergeReviewProps interface', () => {
-  it('accepts props with data, onApprove, and isProcessing', () => {
+  it('accepts props with data, onApprove, onRefine, and isProcessing', () => {
     const props: MergeReviewProps = {
       data: {
         pr: {
@@ -64,6 +93,7 @@ describe('MergeReviewProps interface', () => {
         },
       },
       onApprove: vi.fn(),
+      onRefine: vi.fn(),
       isProcessing: true,
     };
 
@@ -80,6 +110,7 @@ describe('MergeReviewProps interface', () => {
         },
       },
       onApprove: vi.fn(),
+      onRefine: vi.fn(),
     };
 
     expectTypeOf(props).toMatchTypeOf<MergeReviewProps>();
@@ -97,6 +128,7 @@ describe('MergeReviewDrawerProps interface', () => {
         },
       },
       onApprove: vi.fn(),
+      onRefine: vi.fn(),
       open: true,
       onClose: vi.fn(),
       featureName: 'My Feature',
@@ -113,14 +145,9 @@ describe('MergeReviewDrawerProps interface', () => {
 
   it('accepts drawer props with only required fields', () => {
     const props: MergeReviewDrawerProps = {
-      data: {
-        pr: {
-          url: 'https://github.com/org/repo/pull/42',
-          number: 42,
-          status: PrStatus.Open,
-        },
-      },
+      data: {},
       onApprove: vi.fn(),
+      onRefine: vi.fn(),
       open: false,
       onClose: vi.fn(),
       featureName: 'My Feature',

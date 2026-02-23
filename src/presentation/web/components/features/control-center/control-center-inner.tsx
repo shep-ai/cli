@@ -150,6 +150,13 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     clearSelection();
   }, [selectedNode?.featureId, clearSelection]);
 
+  const handleMergeRefine = useCallback(async (_text: string) => {
+    setIsLoadingMergeReview(true);
+    // TODO: Call API to refine merge
+    await new Promise((resolve) => setTimeout(resolve, 1500));
+    setIsLoadingMergeReview(false);
+  }, []);
+
   // Fetch questionnaire data and reset selections when a different feature is selected
   const prdFeatureId = showPrdDrawer ? selectedNode?.featureId : null;
   useEffect(() => {
@@ -350,6 +357,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           specPath={selectedNode?.specPath}
           data={mergeReviewData}
           onApprove={handleMergeApprove}
+          onRefine={handleMergeRefine}
           onDelete={handleDeleteFeature}
           isDeleting={isDeleting}
           isProcessing={isLoadingMergeReview}

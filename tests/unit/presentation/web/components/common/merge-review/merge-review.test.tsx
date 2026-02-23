@@ -4,15 +4,17 @@ import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { MergeReview } from '@/components/common/merge-review/merge-review';
 import type { MergeReviewProps } from '@/components/common/merge-review/merge-review-config';
 
+const basePr = {
+  url: 'https://github.com/org/repo/pull/42',
+  number: 42,
+  status: PrStatus.Open,
+  commitHash: 'abc1234def5678',
+  ciStatus: CiStatus.Success,
+};
+
 const baseProps: MergeReviewProps = {
   data: {
-    pr: {
-      url: 'https://github.com/org/repo/pull/42',
-      number: 42,
-      status: PrStatus.Open,
-      commitHash: 'abc1234def5678',
-      ciStatus: CiStatus.Success,
-    },
+    pr: basePr,
     diffSummary: {
       filesChanged: 10,
       additions: 200,
@@ -21,6 +23,7 @@ const baseProps: MergeReviewProps = {
     },
   },
   onApprove: vi.fn(),
+  onRefine: vi.fn(),
 };
 
 describe('MergeReview', () => {
@@ -55,7 +58,7 @@ describe('MergeReview', () => {
         ...baseProps,
         data: {
           ...baseProps.data,
-          pr: { ...baseProps.data.pr, ciStatus: CiStatus.Pending },
+          pr: { ...basePr, ciStatus: CiStatus.Pending },
         },
       };
       render(<MergeReview {...props} />);
@@ -68,7 +71,7 @@ describe('MergeReview', () => {
         ...baseProps,
         data: {
           ...baseProps.data,
-          pr: { ...baseProps.data.pr, ciStatus: CiStatus.Failure },
+          pr: { ...basePr, ciStatus: CiStatus.Failure },
         },
       };
       render(<MergeReview {...props} />);
@@ -81,7 +84,7 @@ describe('MergeReview', () => {
         ...baseProps,
         data: {
           ...baseProps.data,
-          pr: { ...baseProps.data.pr, ciStatus: undefined },
+          pr: { ...basePr, ciStatus: undefined },
         },
       };
       render(<MergeReview {...props} />);
@@ -107,7 +110,7 @@ describe('MergeReview', () => {
       const props: MergeReviewProps = {
         ...baseProps,
         data: {
-          pr: baseProps.data.pr,
+          pr: basePr,
           warning: 'Diff statistics unavailable',
         },
       };
@@ -130,12 +133,99 @@ describe('MergeReview', () => {
         ...baseProps,
         data: {
           ...baseProps.data,
-          pr: { ...baseProps.data.pr, commitHash: undefined },
+          pr: { ...basePr, commitHash: undefined },
         },
       };
       render(<MergeReview {...props} />);
 
       expect(screen.queryByText('abc1234')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('branch info', () => {
+    it('renders source and target branch names when branch data is provided', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          branch: { source: 'feat/my-feature', target: 'main' },
+        },
+      };
+      render(<MergeReview {...props} />);
+
+      expect(screen.getByText('feat/my-feature')).toBeInTheDocument();
+      expect(screen.getByText('main')).toBeInTheDocument();
+    });
+
+    it('does not render branch section when branch is undefined', () => {
+      render(<MergeReview {...baseProps} />);
+
+      expect(screen.queryByText('feat/my-feature')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('phases', () => {
+    it('renders phase list when phases are provided', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: {
+          ...baseProps.data,
+          phases: [
+            { id: 'p1', name: 'Foundation', description: 'Set up types' },
+            { id: 'p2', name: 'Implementation' },
+          ],
+        },
+      };
+      render(<MergeReview {...props} />);
+
+      expect(screen.getByText('Implementation Phases')).toBeInTheDocument();
+      expect(screen.getByText('Foundation')).toBeInTheDocument();
+      expect(screen.getByText('Set up types')).toBeInTheDocument();
+      expect(screen.getByText('Implementation')).toBeInTheDocument();
+    });
+
+    it('does not render phases section when phases is undefined', () => {
+      render(<MergeReview {...baseProps} />);
+
+      expect(screen.queryByText('Implementation Phases')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('chat input', () => {
+    it('renders the chat input field', () => {
+      render(<MergeReview {...baseProps} />);
+
+      expect(
+        screen.getByRole('textbox', { name: /ask ai to revise before merging/i })
+      ).toBeInTheDocument();
+    });
+
+    it('calls onRefine with trimmed text on submit', () => {
+      const onRefine = vi.fn();
+      render(<MergeReview {...baseProps} onRefine={onRefine} />);
+
+      const input = screen.getByRole('textbox', { name: /ask ai to revise before merging/i });
+      fireEvent.change(input, { target: { value: '  fix the tests  ' } });
+      fireEvent.submit(input.closest('form')!);
+
+      expect(onRefine).toHaveBeenCalledWith('fix the tests');
+    });
+
+    it('does not call onRefine when input is empty', () => {
+      const onRefine = vi.fn();
+      render(<MergeReview {...baseProps} onRefine={onRefine} />);
+
+      const input = screen.getByRole('textbox', { name: /ask ai to revise before merging/i });
+      fireEvent.submit(input.closest('form')!);
+
+      expect(onRefine).not.toHaveBeenCalled();
+    });
+
+    it('disables chat input when isProcessing is true', () => {
+      render(<MergeReview {...baseProps} isProcessing />);
+
+      const input = screen.getByRole('textbox', { name: /ask ai to revise before merging/i });
+      expect(input).toBeDisabled();
     });
   });
 
@@ -155,6 +245,19 @@ describe('MergeReview', () => {
 
       const button = screen.getByRole('button', { name: /approve merge/i });
       expect(button).toBeDisabled();
+    });
+  });
+
+  describe('no PR', () => {
+    it('hides PR card and shows alternate description when pr is undefined', () => {
+      const props: MergeReviewProps = {
+        ...baseProps,
+        data: { branch: { source: 'feat/x', target: 'main' } },
+      };
+      render(<MergeReview {...props} />);
+
+      expect(screen.queryByRole('link', { name: /PR #/i })).not.toBeInTheDocument();
+      expect(screen.getByText('Review the changes and approve to merge.')).toBeInTheDocument();
     });
   });
 });
