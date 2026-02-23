@@ -40,7 +40,6 @@ describe('Onboarding flow (integration)', () => {
       allowMerge: false,
       pushOnImplementationComplete: true,
       openPrOnImplementationComplete: true,
-      autoMergeOnImplementationComplete: false,
     },
   };
 
@@ -134,6 +133,5 @@ describe('Onboarding flow (integration)', () => {
     expect(persisted!.workflow.approvalGateDefaults.allowMerge).toBe(false);
     expect(persisted!.workflow.approvalGateDefaults.pushOnImplementationComplete).toBe(true);
     expect(persisted!.workflow.openPrOnImplementationComplete).toBe(true);
-    expect(persisted!.workflow.autoMergeOnImplementationComplete).toBe(false);
   });
 });

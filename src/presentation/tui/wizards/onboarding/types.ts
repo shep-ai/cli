@@ -15,7 +15,6 @@ export interface WorkflowDefaultsResult {
   allowMerge: boolean;
   pushOnImplementationComplete: boolean;
   openPrOnImplementationComplete: boolean;
-  autoMergeOnImplementationComplete: boolean;
 }
 
 /**

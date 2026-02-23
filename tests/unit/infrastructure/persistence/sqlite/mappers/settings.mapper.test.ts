@@ -64,7 +64,6 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
     },
     workflow: {
       openPrOnImplementationComplete: false,
-      autoMergeOnImplementationComplete: false,
       approvalGateDefaults: {
         allowPrd: false,
         allowPlan: false,
@@ -109,7 +108,6 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     notif_evt_agent_completed: 1,
     notif_evt_agent_failed: 1,
     workflow_open_pr_on_impl_complete: 0,
-    workflow_auto_merge_on_impl_complete: 0,
     onboarding_complete: 0,
     approval_gate_allow_prd: 0,
     approval_gate_allow_plan: 0,

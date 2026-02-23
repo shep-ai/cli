@@ -346,10 +346,6 @@ export type WorkflowConfig = {
    */
   openPrOnImplementationComplete: boolean;
   /**
-   * Auto-merge on implementation complete (default: false)
-   */
-  autoMergeOnImplementationComplete: boolean;
-  /**
    * Default approval gate preferences for new features
    */
   approvalGateDefaults: ApprovalGateDefaults;

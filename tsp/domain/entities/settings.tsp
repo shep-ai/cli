@@ -222,7 +222,7 @@ model SystemConfig {
  *
  * Global defaults for the post-implementation workflow.
  * These settings are DEFAULTS that can be overridden per-feature
- * using CLI flags (--pr, --auto-merge).
+ * using CLI flags (--pr, --allow-merge, etc.).
  *
  * Resolution order: CLI flag → Feature entity in DB → Settings default.
  */
@@ -249,13 +249,6 @@ model WorkflowConfig {
    */
   @doc("Create PR on implementation complete (default: false)")
   openPrOnImplementationComplete: boolean = false;
-
-  /**
-   * Whether to automatically merge after implementation completes.
-   * Per-feature override: `feat new --auto-merge`
-   */
-  @doc("Auto-merge on implementation complete (default: false)")
-  autoMergeOnImplementationComplete: boolean = false;
 
   /**
    * Default approval gate preferences for new features.

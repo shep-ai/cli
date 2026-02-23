@@ -31,7 +31,6 @@ export interface CompleteOnboardingInput {
     allowMerge: boolean;
     pushOnImplementationComplete: boolean;
     openPrOnImplementationComplete: boolean;
-    autoMergeOnImplementationComplete: boolean;
   };
 }
 
@@ -73,7 +72,6 @@ export class CompleteOnboardingUseCase {
           pushOnImplementationComplete: input.workflowDefaults.pushOnImplementationComplete,
         },
         openPrOnImplementationComplete: input.workflowDefaults.openPrOnImplementationComplete,
-        autoMergeOnImplementationComplete: input.workflowDefaults.autoMergeOnImplementationComplete,
       },
       onboardingComplete: true,
       updatedAt: new Date(),

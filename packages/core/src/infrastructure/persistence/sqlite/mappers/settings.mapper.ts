@@ -64,7 +64,6 @@ export interface SettingsRow {
 
   // WorkflowConfig (workflow.*)
   workflow_open_pr_on_impl_complete: number;
-  workflow_auto_merge_on_impl_complete: number;
 
   // Onboarding
   onboarding_complete: number;
@@ -128,9 +127,6 @@ export function toDatabase(settings: Settings): SettingsRow {
 
     // WorkflowConfig (boolean → INTEGER)
     workflow_open_pr_on_impl_complete: settings.workflow.openPrOnImplementationComplete ? 1 : 0,
-    workflow_auto_merge_on_impl_complete: settings.workflow.autoMergeOnImplementationComplete
-      ? 1
-      : 0,
 
     // Onboarding (boolean → INTEGER)
     onboarding_complete: settings.onboardingComplete ? 1 : 0,
@@ -211,7 +207,6 @@ export function fromDatabase(row: SettingsRow): Settings {
     // WorkflowConfig (INTEGER → boolean)
     workflow: {
       openPrOnImplementationComplete: row.workflow_open_pr_on_impl_complete === 1,
-      autoMergeOnImplementationComplete: row.workflow_auto_merge_on_impl_complete === 1,
       approvalGateDefaults: {
         allowPrd: row.approval_gate_allow_prd === 1,
         allowPlan: row.approval_gate_allow_plan === 1,

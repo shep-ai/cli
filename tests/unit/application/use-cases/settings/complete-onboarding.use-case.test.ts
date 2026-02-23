@@ -40,7 +40,6 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
     },
     workflow: {
       openPrOnImplementationComplete: false,
-      autoMergeOnImplementationComplete: false,
       approvalGateDefaults: {
         allowPrd: false,
         allowPlan: false,
@@ -80,7 +79,6 @@ describe('CompleteOnboardingUseCase', () => {
         allowMerge: false,
         pushOnImplementationComplete: false,
         openPrOnImplementationComplete: false,
-        autoMergeOnImplementationComplete: false,
       },
     });
 
@@ -102,7 +100,6 @@ describe('CompleteOnboardingUseCase', () => {
         allowMerge: false,
         pushOnImplementationComplete: false,
         openPrOnImplementationComplete: false,
-        autoMergeOnImplementationComplete: false,
       },
     });
 
@@ -125,7 +122,6 @@ describe('CompleteOnboardingUseCase', () => {
         allowMerge: false,
         pushOnImplementationComplete: false,
         openPrOnImplementationComplete: false,
-        autoMergeOnImplementationComplete: false,
       },
     });
 
@@ -146,7 +142,6 @@ describe('CompleteOnboardingUseCase', () => {
         allowMerge: false,
         pushOnImplementationComplete: true,
         openPrOnImplementationComplete: true,
-        autoMergeOnImplementationComplete: false,
       },
     });
 
@@ -155,7 +150,6 @@ describe('CompleteOnboardingUseCase', () => {
     expect(result.workflow.approvalGateDefaults.allowMerge).toBe(false);
     expect(result.workflow.approvalGateDefaults.pushOnImplementationComplete).toBe(true);
     expect(result.workflow.openPrOnImplementationComplete).toBe(true);
-    expect(result.workflow.autoMergeOnImplementationComplete).toBe(false);
   });
 
   it('should throw error when settings not found', async () => {
@@ -171,7 +165,6 @@ describe('CompleteOnboardingUseCase', () => {
           allowMerge: false,
           pushOnImplementationComplete: false,
           openPrOnImplementationComplete: false,
-          autoMergeOnImplementationComplete: false,
         },
       })
     ).rejects.toThrow();
@@ -192,7 +185,6 @@ describe('CompleteOnboardingUseCase', () => {
         allowMerge: false,
         pushOnImplementationComplete: false,
         openPrOnImplementationComplete: false,
-        autoMergeOnImplementationComplete: false,
       },
     });
     const after = new Date();

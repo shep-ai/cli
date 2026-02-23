@@ -132,7 +132,6 @@ export function createDefaultSettings(): Settings {
 
   const workflow: WorkflowConfig = {
     openPrOnImplementationComplete: false,
-    autoMergeOnImplementationComplete: false,
     approvalGateDefaults,
   };
 

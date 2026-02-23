@@ -8,8 +8,8 @@ import { describe, it, expect } from 'vitest';
 import { workflowDefaultsConfig } from '../../../../../../../src/presentation/tui/wizards/onboarding/steps/workflow-defaults.step.js';
 
 describe('workflowDefaultsConfig', () => {
-  it('should have 6 checkbox items', () => {
-    expect(workflowDefaultsConfig.choices).toHaveLength(6);
+  it('should have 5 checkbox items', () => {
+    expect(workflowDefaultsConfig.choices).toHaveLength(5);
   });
 
   it('should have all items with name, value, and description', () => {
@@ -36,7 +36,6 @@ describe('workflowDefaultsConfig', () => {
     expect(values).toContain('allowMerge');
     expect(values).toContain('pushOnImplementationComplete');
     expect(values).toContain('openPrOnImplementationComplete');
-    expect(values).toContain('autoMergeOnImplementationComplete');
   });
 
   it('should use shepTheme', () => {

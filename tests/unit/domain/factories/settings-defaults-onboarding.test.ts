@@ -30,7 +30,6 @@ describe('createDefaultSettings — onboarding fields', () => {
     const settings = createDefaultSettings();
 
     expect(settings.workflow.openPrOnImplementationComplete).toBe(false);
-    expect(settings.workflow.autoMergeOnImplementationComplete).toBe(false);
     expect(settings.workflow.approvalGateDefaults).toBeDefined();
   });
 });

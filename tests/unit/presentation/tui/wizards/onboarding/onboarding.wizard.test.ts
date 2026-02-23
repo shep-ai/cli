@@ -39,7 +39,6 @@ describe('onboardingWizard', () => {
     allowMerge: false,
     pushOnImplementationComplete: false,
     openPrOnImplementationComplete: false,
-    autoMergeOnImplementationComplete: false,
   };
 
   const mockUpdatedSettings = { onboardingComplete: true };
