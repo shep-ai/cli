@@ -1,0 +1,149 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-driven-merge
+summary: >
+  Replace manual IGitPrService calls in merge.node.ts with two IAgentExecutor calls,
+  remove pr.yaml generation, and simplify graph wiring.
+
+relatedFeatures:
+  - '020-worktree-merge-flow'
+technologies:
+  - TypeScript
+  - LangGraph
+  - IAgentExecutor
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Prompt builders and output parsing'
+    parallel: false
+    taskIds:
+      - task-1
+      - task-2
+
+  - id: phase-2
+    name: 'Rewrite merge node'
+    parallel: false
+    taskIds:
+      - task-3
+
+  - id: phase-3
+    name: 'Update graph wiring and worker'
+    parallel: false
+    taskIds:
+      - task-4
+
+  - id: phase-4
+    name: 'Cleanup and delete pr-yaml-generator'
+    parallel: false
+    taskIds:
+      - task-5
+
+filesToCreate:
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-commit-pr.prompt.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-squash.prompt.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge-output-parser.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge-output-parser.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-commit-pr.prompt.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-squash.prompt.test.ts
+
+filesToModify:
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge.node.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-worker.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.test.ts
+  - tests/integration/infrastructure/services/agents/merge-flow.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  ```
+  merge.node.ts (rewritten)
+    |
+    |-- Phase 1: Agent Call — commit + push + create PR
+    |     |-- buildCommitPushPrPrompt(state, log) → prompt string
+    |     |-- retryExecute(executor, prompt, options) → AgentExecutionResult
+    |     |-- parseMergeOutput(result.result) → { commitHash?, prUrl?, prNumber? }
+    |     |-- Agent updates feature.yaml prUrl directly
+    |
+    |-- Approval Gate (interrupt) — unchanged
+    |     |-- getDiffSummary(cwd, baseBranch) → DiffSummary (simple function dep)
+    |
+    |-- Phase 2: Agent Call — merge
+    |     |-- buildMergePrompt(state, log) → prompt string
+    |     |-- retryExecute(executor, prompt, options) → AgentExecutionResult
+    |     |-- parseMergeResult(result.result) → { merged: boolean }
+    |
+    |-- Update feature lifecycle in DB — unchanged
+  ```
+
+  ## Implementation Strategy
+
+  **MANDATORY TDD**: All phases follow RED-GREEN-REFACTOR cycles.
+
+  **Phase 1** builds the prompt builders and output parser as standalone, testable units.
+  These have no dependencies on the merge node itself — pure functions that take state
+  and return strings, or take agent output and return parsed results.
+
+  **Phase 2** rewrites merge.node.ts to use the executor + prompt builders + parser.
+  The node's dependency interface changes from `MergeNodeDeps { gitPrService, generatePrYaml,
+  featureRepository }` to just `executor: IAgentExecutor` plus `getDiffSummary` and
+  `featureRepository`. This follows the same pattern as implement.node.ts.
+
+  **Phase 3** updates the graph factory and worker to wire the simplified merge node.
+  The `FeatureAgentGraphDeps` interface simplifies — no more `mergeNodeDeps` object,
+  since the merge node now takes the same executor as all other nodes.
+
+  **Phase 4** deletes pr-yaml-generator.ts and its tests, removes all references.
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  | File | Purpose |
+  | ---- | ------- |
+  | nodes/prompts/merge-commit-pr.prompt.ts | Prompt builder for commit+push+PR agent call |
+  | nodes/prompts/merge-squash.prompt.ts | Prompt builder for merge/squash agent call |
+  | nodes/merge-output-parser.ts | Regex-based parser for commit SHA, PR URL, PR number |
+  | tests for each above | Unit tests |
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | merge.node.ts | Rewrite to use executor, new deps interface |
+  | feature-agent-graph.ts | Remove mergeNodeDeps, pass executor to merge node |
+  | feature-agent-worker.ts | Remove gitPrService/generatePrYaml imports, simplify deps |
+  | merge.node.test.ts | Update mocks for new executor-based approach |
+  | merge-flow.test.ts | Update integration test for new deps |
+
+  ### Deleted Files
+
+  | File | Reason |
+  | ---- | ------ |
+  | nodes/pr-yaml-generator.ts | Replaced by agent-driven PR creation |
+  | tests/unit/.../pr-yaml-generator.test.ts | Tests for deleted file |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  ### Unit Tests
+
+  - Output parser: test regex extraction of SHA, PR URL, PR number from various agent outputs
+  - Prompt builders: test prompt contains spec context, branch names, correct instructions
+  - Merge node: mock executor, verify two calls made with correct prompts, state returned correctly
+
+  ### Integration Tests
+
+  - Update merge-flow.test.ts for new executor-based deps
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Agent fails to commit/push | retryExecute with 3 attempts and exponential backoff |
+  | Agent output doesn't contain parseable PR URL | Fallback: operations succeed, metadata is null |
+  | Agent creates duplicate PRs | Prompt instructs agent to check for existing PRs first |
+  | Approval gate loses diff summary | Keep getDiffSummary as simple function dependency |

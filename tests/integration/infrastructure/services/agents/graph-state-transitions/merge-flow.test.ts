@@ -50,8 +50,8 @@ describe('Graph State Transitions › Merge Flow', () => {
     const result = await ctx.graph.invoke(state, config);
     expectInterruptAt(result, 'merge');
 
-    // All producer nodes ran: analyze + requirements + research + plan + implement = 5
-    expect(ctx.executor.callCount).toBe(5);
+    // All producer nodes + merge commit call: analyze + requirements + research + plan + implement + merge-commit = 6
+    expect(ctx.executor.callCount).toBe(6);
   });
 
   it('should run to completion when all gates enabled (including merge)', async () => {
@@ -62,7 +62,8 @@ describe('Graph State Transitions › Merge Flow', () => {
 
     expectNoInterrupts(result);
     expect(result.messages.length).toBeGreaterThanOrEqual(1);
-    expect(ctx.executor.callCount).toBe(5);
+    // All producer nodes + merge commit + merge squash: 5 + 2 = 7
+    expect(ctx.executor.callCount).toBe(7);
   });
 
   it('should walk through all gates: requirements → plan → merge → end', async () => {
@@ -118,7 +119,7 @@ describe('Graph State Transitions › Merge Flow', () => {
     const result = await ctx.graph.invoke(state, config);
 
     expectNoInterrupts(result);
-    // All producer nodes + merge node ran (merge runs but doesn't interrupt without gates)
-    expect(ctx.executor.callCount).toBe(5);
+    // All producer nodes + merge commit call (no merge squash since no allowMerge gate)
+    expect(ctx.executor.callCount).toBe(6);
   });
 });

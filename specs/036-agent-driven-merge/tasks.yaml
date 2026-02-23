@@ -1,0 +1,177 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-driven-merge
+summary: >
+  Task breakdown for replacing IGitPrService calls with IAgentExecutor calls in the merge node.
+
+relatedFeatures:
+  - '020-worktree-merge-flow'
+technologies:
+  - TypeScript
+  - LangGraph
+  - IAgentExecutor
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    title: Create merge output parser
+    description: >
+      Build a utility module that extracts commit SHA, PR URL, and PR number from agent text output
+      using regex patterns. Includes fallback behavior when patterns don't match.
+    state: Todo
+    phaseId: phase-1
+    dependencies: []
+    acceptanceCriteria:
+      - 'parseCommitHash extracts 7-40 char hex SHA from git commit output'
+      - 'parsePrUrl extracts GitHub PR URL and number from gh pr create output'
+      - 'Returns null for each field when pattern not found (graceful fallback)'
+      - 'Handles multi-line agent output with mixed content'
+    tdd:
+      red:
+        - 'Write tests for parseCommitHash with various git commit output formats'
+        - 'Write tests for parsePrUrl with gh pr create output'
+        - "Write tests for graceful null fallback when patterns don't match"
+      green:
+        - 'Implement regex-based parsers in merge-output-parser.ts'
+      refactor:
+        - 'Extract shared regex constants if patterns are reusable'
+    estimatedEffort: S
+
+  - id: task-2
+    title: Create prompt builders for merge agent calls
+    description: >
+      Build two prompt builder functions: buildCommitPushPrPrompt (for commit+push+PR) and
+      buildMergeSquashPrompt (for merge/squash). Each reads spec context and state to produce
+      a focused agent prompt with clear step-by-step instructions.
+    state: Todo
+    phaseId: phase-1
+    dependencies: []
+    acceptanceCriteria:
+      - 'buildCommitPushPrPrompt always includes commit instructions (commit always happens)'
+      - 'buildCommitPushPrPrompt includes push instructions ONLY when state.push=true or state.openPr=true'
+      - 'buildCommitPushPrPrompt includes PR creation instructions ONLY when state.openPr=true'
+      - 'buildCommitPushPrPrompt includes spec.yaml context and branch names for commit message quality'
+      - 'buildCommitPushPrPrompt instructs agent to write conventional commit message from diff'
+      - 'buildCommitPushPrPrompt instructs agent to update feature.yaml prUrl after PR creation (only when openPr=true)'
+      - 'When push=false and openPr=false, prompt is commit-only (no push, no PR)'
+      - 'buildMergeSquashPrompt includes PR number/URL and merge strategy'
+      - 'buildMergeSquashPrompt instructs agent to resolve conflicts if encountered'
+      - 'Both prompts are deterministic given same state input'
+    tdd:
+      red:
+        - 'Write tests: push=false, openPr=false → prompt has commit instructions only, no push/PR'
+        - 'Write tests: push=true, openPr=false → prompt has commit+push, no PR'
+        - 'Write tests: openPr=true → prompt has commit+push+PR (openPr implies push)'
+        - 'Write tests: prompt always includes spec context and branch names'
+      green:
+        - 'Implement buildCommitPushPrPrompt in merge-commit-pr.prompt.ts'
+        - 'Implement buildMergeSquashPrompt in merge-squash.prompt.ts'
+      refactor:
+        - 'Extract shared prompt sections if duplicated between the two builders'
+    estimatedEffort: M
+
+  - id: task-3
+    title: Rewrite merge node to use agent executor
+    description: >
+      Replace the current merge.node.ts implementation. New MergeNodeDeps takes executor,
+      getDiffSummary function, and featureRepository. Two agent calls replace the manual
+      git service calls. Output parsed with merge-output-parser. Approval gate and feature
+      lifecycle update remain unchanged.
+    state: Todo
+    phaseId: phase-2
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'MergeNodeDeps interface has executor, getDiffSummary, featureRepository'
+      - 'First agent call handles commit+push+PR using buildCommitPushPrPrompt'
+      - 'Second agent call handles merge using buildMergeSquashPrompt (after approval gate)'
+      - 'retryExecute used for both agent calls'
+      - 'Output parser extracts commitHash, prUrl, prNumber from first call'
+      - 'Approval gate interrupt still works with DiffSummary'
+      - 'Feature lifecycle update unchanged'
+      - 'Error handling follows same pattern as other nodes (isGraphBubbleUp, re-throw)'
+    tdd:
+      red:
+        - 'Write tests mocking executor: verify two execute calls with correct prompts'
+        - 'Write tests for approval gate behavior (interrupt when !allowMerge)'
+        - 'Write tests for conditional push/PR logic (push=false, openPr=false)'
+        - 'Write tests for feature lifecycle update after merge'
+      green:
+        - 'Rewrite merge.node.ts with new deps and agent-driven flow'
+      refactor:
+        - 'Ensure consistent error handling with other nodes'
+    estimatedEffort: M
+
+  - id: task-4
+    title: Update graph wiring and worker
+    description: >
+      Simplify FeatureAgentGraphDeps — remove mergeNodeDeps, pass executor directly to merge node.
+      Update feature-agent-worker.ts to stop resolving IGitPrService and generatePrYaml.
+      Wire getDiffSummary as a simple function dependency.
+    state: Todo
+    phaseId: phase-3
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'FeatureAgentGraphDeps no longer has mergeNodeDeps field'
+      - 'createFeatureAgentGraph passes executor to createMergeNode'
+      - 'Worker no longer imports IGitPrService or generatePrYaml'
+      - 'getDiffSummary wired from container-resolved service'
+      - 'Legacy signature handling updated or removed'
+      - 'All existing graph tests pass'
+    tdd:
+      red:
+        - 'Write tests verifying graph compiles with new deps interface'
+        - 'Write tests verifying worker creates correct graph deps'
+      green:
+        - 'Update feature-agent-graph.ts and feature-agent-worker.ts'
+      refactor:
+        - 'Remove legacy executor-only signature if no longer needed'
+    estimatedEffort: S
+
+  - id: task-5
+    title: Delete pr-yaml-generator and clean up references
+    description: >
+      Remove pr-yaml-generator.ts and its test file. Remove all imports and references
+      across the codebase. Update integration tests.
+    state: Todo
+    phaseId: phase-4
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'pr-yaml-generator.ts deleted'
+      - 'pr-yaml-generator.test.ts deleted'
+      - 'No remaining imports or references to generatePrYaml in codebase'
+      - 'Integration merge-flow.test.ts updated for new deps'
+      - 'pnpm test passes'
+      - 'pnpm typecheck passes'
+      - 'pnpm lint passes'
+    tdd:
+      red:
+        - 'Run grep to verify no references remain after deletion'
+      green:
+        - 'Delete files and update imports'
+      refactor:
+        - 'Clean up any dead code exposed by removal'
+    estimatedEffort: S
+
+totalEstimate: M
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  Replace manual git service calls in merge node with agent executor calls — 5 tasks across 4 phases.
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All tasks completed
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint`)
+  - [ ] Types valid (`pnpm typecheck`)
+  - [ ] PR created and reviewed

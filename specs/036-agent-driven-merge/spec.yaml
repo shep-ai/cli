@@ -1,0 +1,83 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-driven-merge
+number: 036
+branch: feat/036-agent-driven-merge
+oneLiner: Replace manual git service calls in merge node with agent executor calls
+summary: >
+  Restructure the feature-agent merge node to delegate git operations (commit, push, PR creation,
+  merge) to the AI agent executor instead of calling IGitPrService methods directly. The agent can
+  write intelligent commit messages based on the diff, handle rebase conflicts, create rich PR
+  descriptions from spec context, resolve merge conflicts, and update feature.yaml with the PR URL.
+  This eliminates the pr.yaml intermediate file and the generatePrYaml dependency entirely.
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures:
+  - '020-worktree-merge-flow'
+
+technologies:
+  - TypeScript
+  - LangGraph
+  - IAgentExecutor
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The current merge node (`merge.node.ts`) uses `IGitPrService` to perform git operations
+  (commit, push, create PR, merge) via deterministic shell commands. This approach:
+
+  1. **Produces generic commit messages** — `feat: implementation complete for <id>` instead of
+     meaningful messages derived from the actual changes.
+  2. **Cannot handle conflicts** — if `git push` fails due to upstream divergence or `git merge`
+     hits conflicts, the node throws and the entire run fails.
+  3. **Generates a pr.yaml intermediate file** — a template-based file that produces bland PR
+     descriptions instead of rich context-aware descriptions.
+  4. **Cannot adapt** — deterministic code can't reason about unexpected git states, partial
+     commits, or choose between merge strategies based on context.
+
+  By delegating these operations to the AI agent (which already has full shell access and
+  codebase context), we get intelligent conflict resolution, meaningful commit messages,
+  rich PR descriptions, and resilient error handling — all for less code.
+
+  ## Success Criteria
+
+  - [ ] Merge node uses IAgentExecutor instead of IGitPrService for commit+push+PR operations
+  - [ ] Merge node uses IAgentExecutor for auto-merge operations
+  - [ ] Agent writes conventional commit messages based on actual diff content
+  - [ ] Agent creates PRs with rich descriptions derived from spec.yaml context
+  - [ ] Agent updates feature.yaml with prUrl after PR creation
+  - [ ] Prompt respects --push and --pr flags: agent commits always, but push/PR instructions are conditionally included/excluded from prompt based on state.push and state.openPr
+  - [ ] pr.yaml generation is removed (generatePrYaml function and pr-yaml-generator.ts)
+  - [ ] IGitPrService is removed from MergeNodeDeps (getPrDiffSummary still used for approval gate)
+  - [ ] All existing merge node tests updated for new agent-driven approach
+  - [ ] Graph wiring updated: merge node receives executor instead of mergeNodeDeps
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | merge.node.ts | High | Complete rewrite to use agent executor |
+  | feature-agent-graph.ts | Medium | Simplified deps — merge node takes executor like other nodes |
+  | feature-agent-worker.ts | Medium | Remove gitPrService/generatePrYaml from merge deps |
+  | pr-yaml-generator.ts | High | Deleted entirely |
+  | merge.prompt.ts | High | New prompt builders for commit+push+PR and merge operations |
+  | state.ts | Low | No changes — prUrl/prNumber/commitHash channels already exist |
+  | node-helpers.ts | Low | retryExecute already available, may add merge-specific helpers |
+
+  ## Dependencies
+
+  - IAgentExecutor interface (existing, no changes needed)
+  - retryExecute helper (existing in node-helpers.ts)
+  - feature.yaml prUrl field (existing in state channels)
+
+  ## Size Estimate
+
+  **M** - Rewriting one node + prompts + removing one file + updating graph wiring and tests.
+  Core logic is straightforward since all patterns (executor calls, retryExecute, prompt builders)
+  already exist in other nodes.
