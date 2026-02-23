@@ -4,9 +4,9 @@
 # All jobs run in parallel. Release only runs on push to main.
 #
 # Pipeline Structure:
-#   ┌──────┬───────────┬───────┬─────────┬─────────┬─────────┬────────┐
-#   │ Lint │ Typecheck │ Unit  │ E2E CLI │ E2E TUI │ E2E Web │ Docker │
-#   └──────┴───────────┴───────┴─────────┴─────────┴─────────┴────────┘
+#   ┌──────┬───────────┬───────┬─────────┬─────────┬─────────┬───────────┬────────┐
+#   │ Lint │ Typecheck │ Unit  │ E2E CLI │ E2E TUI │ E2E Web │ Storybook │ Docker │
+#   └──────┴───────────┴───────┴─────────┴─────────┴─────────┴───────────┴────────┘
 #   ┌───────────────┬──────────────────────┬──────────┬─────────┬──────────┐
 #   │ Trivy (deps)  │ Trivy (container)    │ Gitleaks │ Semgrep │ Hadolint │
 #   └───────────────┴──────────────────────┴──────────┴─────────┴──────────┘
@@ -134,6 +134,22 @@ jobs:
       - run: pnpm run build
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm run test:e2e:web
+
+  # ===========================================================================
+  # Storybook Build (catches missing mocks, broken imports in stories)
+  # ===========================================================================
+  storybook-build:
+    name: Storybook Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm run build:storybook
 
   # ===========================================================================
   # Docker Build (pushes SHA tag for non-main branches only)
@@ -412,6 +428,7 @@ jobs:
       - test-e2e-cli
       - test-e2e-tui
       - test-e2e-web
+      - storybook-build
       - docker
       - security-trivy
       - security-trivy-container
