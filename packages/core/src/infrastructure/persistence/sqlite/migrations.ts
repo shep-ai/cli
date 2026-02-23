@@ -254,7 +254,7 @@ SELECT
   lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))) AS id,
   CASE
     WHEN instr(repository_path, '/') > 0
-    THEN substr(repository_path, length(repository_path) - length(replace(repository_path, '/', '')) + 1)
+    THEN replace(repository_path, rtrim(repository_path, replace(repository_path, '/', '')), '')
     ELSE repository_path
   END AS name,
   repository_path AS path,
@@ -278,6 +278,17 @@ UPDATE features SET repository_id = (
     sql: `
 -- Migration 016: Add soft delete support to repositories
 ALTER TABLE repositories ADD COLUMN deleted_at INTEGER;
+`,
+  },
+  {
+    version: 17,
+    sql: `
+-- Migration 017: Fix repository names backfilled incorrectly in migration 015
+-- The original substr formula extracted from the wrong position.
+-- Correct approach: strip the last path segment using rtrim trick.
+UPDATE repositories
+SET name = replace(path, rtrim(path, replace(path, '/', '')), '')
+WHERE instr(path, '/') > 0;
 `,
   },
 ];

@@ -556,9 +556,65 @@ describe('SQLite Migrations', () => {
       }).toThrow();
     });
 
-    it('should set schema version to 15', () => {
+    it('should set schema version to at least 15', () => {
       const version = getSchemaVersion(db);
-      expect(version).toBe(15);
+      expect(version).toBeGreaterThanOrEqual(15);
+    });
+  });
+
+  describe('migration v17: fix repository names', () => {
+    it('should correctly extract last path segment as repository name', async () => {
+      await runSQLiteMigrations(db);
+
+      const now = Date.now();
+      // Insert repos with incorrectly extracted names (simulating migration 015 bug)
+      db.prepare(
+        `INSERT INTO repositories (id, name, path, created_at, updated_at)
+         VALUES ('r1', 'rs/arielshadkhan/Code/cli', '/Users/arielshadkhan/Code/cli', ${now}, ${now})`
+      ).run();
+      db.prepare(
+        `INSERT INTO repositories (id, name, path, created_at, updated_at)
+         VALUES ('r2', 'me/projects/webapp', '/home/projects/webapp', ${now}, ${now})`
+      ).run();
+
+      // Re-run the fix manually (migration already applied, so simulate it)
+      db.exec(`
+        UPDATE repositories
+        SET name = replace(path, rtrim(path, replace(path, '/', '')), '')
+        WHERE instr(path, '/') > 0;
+      `);
+
+      const r1 = db.prepare('SELECT name FROM repositories WHERE id = ?').get('r1') as {
+        name: string;
+      };
+      const r2 = db.prepare('SELECT name FROM repositories WHERE id = ?').get('r2') as {
+        name: string;
+      };
+
+      expect(r1.name).toBe('cli');
+      expect(r2.name).toBe('webapp');
+    });
+
+    it('should handle paths without slashes', async () => {
+      await runSQLiteMigrations(db);
+
+      const now = Date.now();
+      db.prepare(
+        `INSERT INTO repositories (id, name, path, created_at, updated_at)
+         VALUES ('r3', 'my-repo', 'my-repo', ${now}, ${now})`
+      ).run();
+
+      // The fix only runs WHERE instr(path, '/') > 0, so this should be unchanged
+      db.exec(`
+        UPDATE repositories
+        SET name = replace(path, rtrim(path, replace(path, '/', '')), '')
+        WHERE instr(path, '/') > 0;
+      `);
+
+      const r3 = db.prepare('SELECT name FROM repositories WHERE id = ?').get('r3') as {
+        name: string;
+      };
+      expect(r3.name).toBe('my-repo');
     });
   });
 
