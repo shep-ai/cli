@@ -99,6 +99,7 @@ import { InstallToolUseCase } from '../../application/use-cases/tools/install-to
 import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use-case.js';
 import { AddRepositoryUseCase } from '../../application/use-cases/repositories/add-repository.use-case.js';
 import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
+import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -289,6 +290,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(LaunchIdeUseCase);
   container.registerSingleton(AddRepositoryUseCase);
   container.registerSingleton(ListRepositoriesUseCase);
+  container.registerSingleton(DeleteRepositoryUseCase);
 
   // String-token aliases for web routes (Turbopack can't resolve .js→.ts
   // imports inside @shepai/core, so routes use string tokens instead of class refs)
@@ -318,6 +320,9 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('ListRepositoriesUseCase', {
     useFactory: (c) => c.resolve(ListRepositoriesUseCase),
+  });
+  container.register('DeleteRepositoryUseCase', {
+    useFactory: (c) => c.resolve(DeleteRepositoryUseCase),
   });
 
   _initialized = true;

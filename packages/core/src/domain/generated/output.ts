@@ -1270,7 +1270,7 @@ export type NotificationEvent = {
 /**
  * A code repository tracked by the Shep platform
  */
-export type Repository = BaseEntity & {
+export type Repository = SoftDeletableEntity & {
   /**
    * Human-readable name for the repository (typically the directory name)
    */

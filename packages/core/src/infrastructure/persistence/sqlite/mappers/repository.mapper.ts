@@ -19,6 +19,7 @@ export interface RepositoryRow {
   path: string;
   created_at: number;
   updated_at: number;
+  deleted_at: number | null;
 }
 
 /**
@@ -31,6 +32,11 @@ export function toDatabase(repo: Repository): RepositoryRow {
     path: repo.path,
     created_at: repo.createdAt instanceof Date ? repo.createdAt.getTime() : repo.createdAt,
     updated_at: repo.updatedAt instanceof Date ? repo.updatedAt.getTime() : repo.updatedAt,
+    deleted_at: repo.deletedAt
+      ? repo.deletedAt instanceof Date
+        ? repo.deletedAt.getTime()
+        : repo.deletedAt
+      : null,
   };
 }
 
@@ -44,5 +50,6 @@ export function fromDatabase(row: RepositoryRow): Repository {
     path: row.path,
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
+    deletedAt: row.deleted_at ? new Date(row.deleted_at) : undefined,
   };
 }

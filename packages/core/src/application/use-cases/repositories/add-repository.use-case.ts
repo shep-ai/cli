@@ -33,10 +33,17 @@ export class AddRepositoryUseCase {
   async execute(input: AddRepositoryInput): Promise<Repository> {
     const normalizedPath = normalizePath(input.path);
 
-    // Check for existing repository with same path
+    // Check for existing active repository with same path
     const existing = await this.repositoryRepo.findByPath(normalizedPath);
     if (existing) {
       return existing;
+    }
+
+    // Check for soft-deleted repository — restore it instead of creating a duplicate
+    const deleted = await this.repositoryRepo.findByPathIncludingDeleted(normalizedPath);
+    if (deleted) {
+      await this.repositoryRepo.restore(deleted.id);
+      return { ...deleted, deletedAt: undefined, updatedAt: new Date() };
     }
 
     const now = new Date();

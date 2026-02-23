@@ -50,6 +50,33 @@ vi.mock('radix-ui', () => ({
   },
 }));
 
+// Mock shadcn AlertDialog — controlled by `open` prop
+vi.mock('@/components/ui/alert-dialog', () => ({
+  AlertDialog: ({ children, open }: { children: React.ReactNode; open?: boolean }) =>
+    open ? <>{children}</> : null,
+  AlertDialogContent: ({ children }: { children: React.ReactNode }) => (
+    <div role="alertdialog">{children}</div>
+  ),
+  AlertDialogHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  AlertDialogTitle: ({ children }: { children: React.ReactNode }) => <h2>{children}</h2>,
+  AlertDialogDescription: ({ children }: { children: React.ReactNode }) => <p>{children}</p>,
+  AlertDialogAction: ({
+    children,
+    onClick,
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+  }) => (
+    <button data-testid="alert-dialog-confirm" onClick={onClick}>
+      {children}
+    </button>
+  ),
+  AlertDialogCancel: ({ children }: { children: React.ReactNode }) => (
+    <button data-testid="alert-dialog-cancel">{children}</button>
+  ),
+}));
+
 const defaultData: RepositoryNodeData = {
   name: 'shep-ai/cli',
 };
@@ -187,6 +214,68 @@ describe('RepositoryNode', () => {
 
       const card = screen.getByTestId('repository-node-card');
       expect(card).toHaveClass('w-72');
+    });
+  });
+
+  describe('delete button', () => {
+    it('renders delete button when onDelete and id are provided', () => {
+      renderNode({ ...dataWithRepoPath, id: 'repo-abc', onDelete: vi.fn() });
+
+      expect(screen.getByTestId('repository-node-delete-button')).toBeInTheDocument();
+    });
+
+    it('does not render delete button when onDelete is absent', () => {
+      renderNode(dataWithRepoPath);
+
+      expect(screen.queryByTestId('repository-node-delete-button')).not.toBeInTheDocument();
+    });
+
+    it('does not render delete button when id is absent', () => {
+      renderNode({ ...dataWithRepoPath, onDelete: vi.fn() });
+
+      expect(screen.queryByTestId('repository-node-delete-button')).not.toBeInTheDocument();
+    });
+
+    it('opens confirmation dialog when delete button is clicked', () => {
+      renderNode({ ...dataWithRepoPath, id: 'repo-abc', onDelete: vi.fn() });
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByTestId('repository-node-delete-button'));
+
+      expect(screen.getByRole('alertdialog')).toBeInTheDocument();
+      expect(screen.getByText('Remove repository?')).toBeInTheDocument();
+    });
+
+    it('calls onDelete only after confirming in the dialog', () => {
+      const onDelete = vi.fn();
+      renderNode({ ...dataWithRepoPath, id: 'repo-abc', onDelete });
+
+      fireEvent.click(screen.getByTestId('repository-node-delete-button'));
+      expect(onDelete).not.toHaveBeenCalled();
+
+      fireEvent.click(screen.getByTestId('alert-dialog-confirm'));
+      expect(onDelete).toHaveBeenCalledWith('repo-abc');
+    });
+
+    it('does not call onDelete when cancel is clicked', () => {
+      const onDelete = vi.fn();
+      renderNode({ ...dataWithRepoPath, id: 'repo-abc', onDelete });
+
+      fireEvent.click(screen.getByTestId('repository-node-delete-button'));
+      fireEvent.click(screen.getByTestId('alert-dialog-cancel'));
+
+      expect(onDelete).not.toHaveBeenCalled();
+    });
+
+    it('delete button click does not trigger parent onClick', () => {
+      const onClick = vi.fn();
+      const onDelete = vi.fn();
+      renderNode({ ...dataWithRepoPath, id: 'repo-abc', onClick, onDelete });
+
+      fireEvent.click(screen.getByTestId('repository-node-delete-button'));
+
+      expect(onClick).not.toHaveBeenCalled();
     });
   });
 

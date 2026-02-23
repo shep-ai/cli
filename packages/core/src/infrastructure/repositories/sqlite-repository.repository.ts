@@ -28,19 +28,23 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
   }
 
   async findById(id: string): Promise<Repository | null> {
-    const stmt = this.db.prepare('SELECT * FROM repositories WHERE id = ?');
+    const stmt = this.db.prepare('SELECT * FROM repositories WHERE id = ? AND deleted_at IS NULL');
     const row = stmt.get(id) as RepositoryRow | undefined;
     return row ? fromDatabase(row) : null;
   }
 
   async findByPath(path: string): Promise<Repository | null> {
-    const stmt = this.db.prepare('SELECT * FROM repositories WHERE path = ?');
+    const stmt = this.db.prepare(
+      'SELECT * FROM repositories WHERE path = ? AND deleted_at IS NULL'
+    );
     const row = stmt.get(path) as RepositoryRow | undefined;
     return row ? fromDatabase(row) : null;
   }
 
   async list(): Promise<Repository[]> {
-    const stmt = this.db.prepare('SELECT * FROM repositories ORDER BY name');
+    const stmt = this.db.prepare(
+      'SELECT * FROM repositories WHERE deleted_at IS NULL ORDER BY name'
+    );
     const rows = stmt.all() as RepositoryRow[];
     return rows.map(fromDatabase);
   }
@@ -48,5 +52,27 @@ export class SQLiteRepositoryRepository implements IRepositoryRepository {
   async remove(id: string): Promise<void> {
     const stmt = this.db.prepare('DELETE FROM repositories WHERE id = ?');
     stmt.run(id);
+  }
+
+  async findByPathIncludingDeleted(path: string): Promise<Repository | null> {
+    const stmt = this.db.prepare('SELECT * FROM repositories WHERE path = ?');
+    const row = stmt.get(path) as RepositoryRow | undefined;
+    return row ? fromDatabase(row) : null;
+  }
+
+  async softDelete(id: string): Promise<void> {
+    const now = Date.now();
+    const stmt = this.db.prepare(
+      'UPDATE repositories SET deleted_at = ?, updated_at = ? WHERE id = ?'
+    );
+    stmt.run(now, now, id);
+  }
+
+  async restore(id: string): Promise<void> {
+    const now = Date.now();
+    const stmt = this.db.prepare(
+      'UPDATE repositories SET deleted_at = NULL, updated_at = ? WHERE id = ?'
+    );
+    stmt.run(now, id);
   }
 }

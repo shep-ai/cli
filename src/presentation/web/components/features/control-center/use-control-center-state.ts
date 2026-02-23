@@ -12,6 +12,7 @@ import { layoutWithDagre, type LayoutDirection } from '@/lib/layout-with-dagre';
 import { createFeature } from '@/app/actions/create-feature';
 import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
+import { deleteRepository } from '@/app/actions/delete-repository';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
 
 export interface ControlCenterState {
@@ -32,6 +33,7 @@ export interface ControlCenterState {
   handleCreateFeatureSubmit: (data: FeatureCreatePayload) => void;
   closeCreateDrawer: () => void;
   handleDeleteFeature: (featureId: string) => Promise<void>;
+  handleDeleteRepository: (repositoryId: string) => Promise<void>;
   isDeleting: boolean;
   createFeatureNode: (
     sourceNodeId: string | null,
@@ -362,6 +364,33 @@ export function useControlCenterState(
     [router]
   );
 
+  const handleDeleteRepository = useCallback(
+    async (repositoryId: string) => {
+      const repoNodeId = `repo-${repositoryId}`;
+
+      // Optimistic: remove node and its edges immediately
+      setNodes((prev) => prev.filter((n) => n.id !== repoNodeId));
+      setEdges((prev) => prev.filter((e) => e.source !== repoNodeId && e.target !== repoNodeId));
+
+      try {
+        const result = await deleteRepository(repositoryId);
+
+        if (!result.success) {
+          toast.error(result.error ?? 'Failed to remove repository');
+          router.refresh();
+          return;
+        }
+
+        toast.success('Repository removed');
+        router.refresh();
+      } catch {
+        toast.error('Failed to remove repository');
+        router.refresh();
+      }
+    },
+    [router]
+  );
+
   const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
     setSelectedNode(null);
     setPendingRepoNodeId(repoNodeId);
@@ -488,6 +517,7 @@ export function useControlCenterState(
     handleCreateFeatureSubmit,
     closeCreateDrawer,
     handleDeleteFeature,
+    handleDeleteRepository,
     isDeleting,
     createFeatureNode,
   };

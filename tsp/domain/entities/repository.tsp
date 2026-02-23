@@ -18,7 +18,7 @@ import "../../common/scalars.tsp";
  * and independent lifecycle management.
  */
 @doc("A code repository tracked by the Shep platform")
-model Repository extends BaseEntity {
+model Repository extends SoftDeletableEntity {
   @doc("Human-readable name for the repository (typically the directory name)")
   name: string;
 

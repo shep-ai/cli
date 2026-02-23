@@ -273,6 +273,13 @@ UPDATE features SET repository_id = (
 );
 `,
   },
+  {
+    version: 16,
+    sql: `
+-- Migration 016: Add soft delete support to repositories
+ALTER TABLE repositories ADD COLUMN deleted_at INTEGER;
+`,
+  },
 ];
 
 /**

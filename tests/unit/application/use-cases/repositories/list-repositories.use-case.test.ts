@@ -11,6 +11,9 @@ function createMockRepo(): IRepositoryRepository {
     findByPath: vi.fn().mockResolvedValue(null),
     list: vi.fn().mockResolvedValue([]),
     remove: vi.fn(),
+    softDelete: vi.fn(),
+    findByPathIncludingDeleted: vi.fn().mockResolvedValue(null),
+    restore: vi.fn(),
   };
 }
 

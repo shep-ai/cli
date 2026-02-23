@@ -24,6 +24,7 @@ function createTestRow(overrides: Partial<RepositoryRow> = {}): RepositoryRow {
     path: '/Users/test/my-project',
     created_at: new Date('2025-06-01T10:00:00Z').getTime(),
     updated_at: new Date('2025-06-01T12:00:00Z').getTime(),
+    deleted_at: null,
     ...overrides,
   };
 }
@@ -71,6 +72,38 @@ describe('Repository Mapper', () => {
     });
   });
 
+  describe('soft delete (deletedAt)', () => {
+    it('toDatabase should map deletedAt Date to unix milliseconds', () => {
+      const deletedAt = new Date('2025-06-02T09:00:00Z');
+      const repo = createTestRepository({ deletedAt });
+      const row = toDatabase(repo);
+
+      expect(row.deleted_at).toBe(deletedAt.getTime());
+    });
+
+    it('toDatabase should map undefined deletedAt to null', () => {
+      const repo = createTestRepository();
+      const row = toDatabase(repo);
+
+      expect(row.deleted_at).toBeNull();
+    });
+
+    it('fromDatabase should map deleted_at integer to Date', () => {
+      const deletedAt = new Date('2025-06-02T09:00:00Z');
+      const row = createTestRow({ deleted_at: deletedAt.getTime() });
+      const repo = fromDatabase(row);
+
+      expect(repo.deletedAt).toEqual(deletedAt);
+    });
+
+    it('fromDatabase should map null deleted_at to undefined', () => {
+      const row = createTestRow({ deleted_at: null });
+      const repo = fromDatabase(row);
+
+      expect(repo.deletedAt).toBeUndefined();
+    });
+  });
+
   describe('round-trip', () => {
     it('should preserve all data through toDatabase -> fromDatabase', () => {
       const original = createTestRepository();
@@ -82,6 +115,16 @@ describe('Repository Mapper', () => {
       expect(restored.path).toBe(original.path);
       expect(restored.createdAt).toEqual(original.createdAt);
       expect(restored.updatedAt).toEqual(original.updatedAt);
+      expect(restored.deletedAt).toBeUndefined();
+    });
+
+    it('should preserve deletedAt through round-trip', () => {
+      const deletedAt = new Date('2025-06-02T09:00:00Z');
+      const original = createTestRepository({ deletedAt });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+
+      expect(restored.deletedAt).toEqual(deletedAt);
     });
   });
 });
