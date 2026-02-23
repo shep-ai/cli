@@ -34,6 +34,17 @@ describe('WorktreeService.ensureGitRepository (integration)', () => {
     }
   });
 
+  it('should create a non-existent directory recursively and initialize git', async () => {
+    const nestedPath = join(tempDir, 'deep', 'nested', 'repo');
+    expect(existsSync(nestedPath)).toBe(false);
+
+    await service.ensureGitRepository(nestedPath);
+
+    expect(existsSync(join(nestedPath, '.git'))).toBe(true);
+    const { stdout } = await execFile('git', ['log', '--oneline'], { cwd: nestedPath });
+    expect(stdout.trim()).toContain('Initial commit');
+  });
+
   it('should initialize a non-git directory with git init and initial commit', async () => {
     await service.ensureGitRepository(tempDir);
 

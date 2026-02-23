@@ -9,6 +9,12 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('node:fs', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('node:fs')>();
+  return { ...actual, mkdirSync: vi.fn() };
+});
+
 import { WorktreeService } from '@/infrastructure/services/git/worktree.service.js';
 import {
   WorktreeError,
@@ -270,7 +276,9 @@ describe('WorktreeService', () => {
       expect(mockExecFile).toHaveBeenCalledTimes(1);
     });
 
-    it('should run git init, config user, and commit for a non-git directory', async () => {
+    it('should create directory recursively and run git init for a non-git directory', async () => {
+      const { mkdirSync } = await import('node:fs');
+
       mockExecFile
         .mockRejectedValueOnce(new Error('fatal: not a git repository'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git init
@@ -280,6 +288,7 @@ describe('WorktreeService', () => {
 
       await service.ensureGitRepository('/plain/dir');
 
+      expect(mkdirSync).toHaveBeenCalledWith('/plain/dir', { recursive: true });
       expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', '--is-inside-work-tree'], {
         cwd: '/plain/dir',
       });
