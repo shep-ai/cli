@@ -1,0 +1,179 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: delete-auto-relayout
+summary: >
+  4 tasks across 3 phases. Phase 1 writes failing tests for relayout behavior.
+  Phase 2 implements the layoutWithDagre call in handleDeleteFeature. Phase 3
+  validates with full test suite/lint and reviews for refactor opportunities.
+
+relatedFeatures: []
+technologies:
+  - React 19
+  - '@xyflow/react (React Flow v12)'
+  - '@dagrejs/dagre'
+  - Vitest
+  - '@testing-library/react'
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write failing tests for post-deletion relayout behavior'
+    description: >
+      Add 4 new test cases to the existing handleDeleteFeature describe block in
+      use-control-center-state.test.tsx. These tests use the onStateChange callback
+      to capture node positions before and after deletion, asserting that positions
+      change on success, remain unchanged on error, disconnected nodes are repositioned,
+      and node/edge counts are correct post-relayout. All 4 new tests must FAIL at
+      this stage (existing tests must still pass).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Test "repositions remaining nodes after successful deletion" exists and FAILS'
+      - 'Test "does not change positions on server action error" exists and FAILS'
+      - 'Test "positions disconnected nodes below connected graph after deletion" exists and FAILS'
+      - 'Test "preserves correct node and edge counts after relayout" exists and FAILS'
+      - 'All tests use onStateChange callback to capture node positions (not mocking layoutWithDagre)'
+      - 'Existing deletion tests still PASS (no modifications to existing tests)'
+    tdd:
+      red:
+        - >
+          Write test "repositions remaining nodes after successful deletion": Set up 3 nodes
+          (repo + 2 features) with edges repo→feat-1 and feat-1→feat-2. Record positions of
+          feat-2 and repo via onStateChange before delete. Mock deleteFeature to return success.
+          Delete feat-1. Assert remaining nodes (repo and feat-2) have different positions than
+          before deletion, proving relayout occurred.
+        - >
+          Write test "does not change positions on server action error": Same 3-node setup.
+          Mock deleteFeature to return { error: "..." }. Record positions before delete.
+          Delete feat-1. Assert all 3 nodes still present with identical positions to
+          pre-deletion values.
+        - >
+          Write test "positions disconnected nodes below connected graph after deletion":
+          Set up repo → feat-1 → feat-2 chain (3 nodes, 2 edges). Delete feat-1. After
+          deletion, feat-2 becomes disconnected (no edges connect to it). Assert feat-2's
+          y-position is greater than repo's y-position plus repo node height (50px),
+          confirming layoutWithDagre placed the disconnected node below the graph.
+        - >
+          Write test "preserves correct node and edge counts after relayout": Set up 3 nodes
+          with 2 edges (repo→feat-1, feat-1→feat-2). Delete feat-1. Assert 2 nodes remain
+          and 0 edges remain (both edges were connected to feat-1). This confirms relayout
+          does not duplicate or lose nodes/edges.
+      green:
+        - 'These are test-only tasks — no production code in this task'
+      refactor:
+        - 'Review test readability and naming consistency with existing tests in the describe block'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add layoutWithDagre call to handleDeleteFeature success path'
+    description: >
+      Modify the success path of handleDeleteFeature in use-control-center-state.ts to
+      replace the separate setNodes/setEdges filter calls with a combined filter+layout
+      inside a setNodes callback. Uses layoutWithDagre with LR direction, ranksep 200,
+      nodesep 60 (matching page.tsx server-side layout). Add edges to the useCallback
+      dependency array.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'handleDeleteFeature calls layoutWithDagre on filtered nodes/edges inside setNodes callback'
+      - 'Layout uses direction LR, ranksep 200, nodesep 60 (matching page.tsx lines 111-115)'
+      - 'setEdges is called inside the setNodes callback with result.edges (single state update)'
+      - 'edges is read from the closure (same pattern as handleLayout line 380)'
+      - 'edges is added to the useCallback dependency array: [router, edges]'
+      - 'All existing deletion tests still pass'
+      - 'All 4 new relayout tests from task-1 now PASS'
+      - 'Error paths (server action error, network failure) do NOT trigger relayout'
+      - 'Existing side effects preserved: setSelectedNode(null), toast.success(), router.refresh()'
+      - 'isDeleting lifecycle unchanged: true before action, false in finally block'
+    tdd:
+      red:
+        - 'Tests from task-1 are already failing — this task is the GREEN phase'
+      green:
+        - >
+          Replace lines 351-352 (separate setNodes/setEdges filter calls) with a single
+          setNodes callback that: (1) filters currentNodes to remove featureId,
+          (2) filters edges from closure to remove edges connected to featureId,
+          (3) calls layoutWithDagre(remainingNodes, remainingEdges, { direction: "LR",
+          ranksep: 200, nodesep: 60 }), (4) calls setEdges(result.edges) inside the callback,
+          (5) returns result.nodes.
+        - >
+          Update the useCallback dependency array from [router] to [router, edges] so
+          the callback always has fresh edge data.
+      refactor:
+        - 'Verify the pattern structurally matches handleLayout (lines 377-391)'
+        - 'Ensure no leftover separate setEdges call for the filter (it is now inside setNodes)'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-3
+    title: 'Run full test suite and lint validation'
+    description: >
+      Run the complete test suite (pnpm test), linter (pnpm lint), and type checker
+      (pnpm typecheck:web) to verify no regressions were introduced. Fix any issues found.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'pnpm test passes with no failures'
+      - 'pnpm lint passes with no errors'
+      - 'pnpm typecheck:web passes with no errors'
+      - 'No unrelated test regressions'
+    tdd:
+      red:
+        - 'N/A — validation task'
+      green:
+        - 'N/A — validation task'
+      refactor:
+        - 'Fix any lint or type errors discovered during validation'
+    estimatedEffort: '10min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Review for refactor opportunities'
+    description: >
+      Review the implementation for clarity and consistency. Consider whether the layout
+      params (direction LR, ranksep 200, nodesep 60) duplicated between page.tsx and
+      handleDeleteFeature should be extracted to a shared constant in layout-with-dagre.ts.
+      Only extract if it genuinely improves readability — do not over-abstract for an
+      S-sized fix.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Implementation reviewed for consistency with handleLayout pattern'
+      - 'Decision made on whether to extract layout params to a shared constant'
+      - 'No unnecessary abstractions introduced'
+      - 'Code is clean, readable, and follows existing conventions'
+      - 'All tests still pass after any refactoring'
+    tdd:
+      red:
+        - 'N/A — refactor review, no new behavior'
+      green:
+        - 'N/A — refactor review'
+      refactor:
+        - 'If layout params are extracted, verify both page.tsx and the hook import correctly'
+        - 'If no extraction is needed, skip — two callsites is acceptable for an S-sized feature'
+        - 'Ensure all tests pass after any changes'
+    estimatedEffort: '10min'
+
+totalEstimate: '1h 10min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a strict TDD cycle across 3 phases. First, we write 4 failing
+  tests that assert the relayout behavior we want: positions change after successful deletion,
+  positions stay unchanged on error, disconnected nodes land below the graph, and node/edge
+  counts are correct. Then we make those tests pass by adding a ~10-line layoutWithDagre call
+  inside handleDeleteFeature's success path, using the same setNodes-callback pattern as the
+  existing handleLayout function. Finally, we run the full validation suite and review for
+  refactor opportunities.
+
+  The production change is localized to a single function in one file. The test additions
+  append to the existing handleDeleteFeature describe block. No new files, no new dependencies,
+  no interface changes.
