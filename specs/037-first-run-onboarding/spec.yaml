@@ -1,0 +1,324 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: first-run-onboarding
+number: 037
+branch: feat/037-first-run-onboarding
+oneLiner: >
+  First-run TUI onboarding wizard that gates all CLI commands until agent, IDE, and workflow defaults are configured
+userQuery: >
+  i want to create a tui wizard for FIRST ever usage of shep cli, no matter what command you called, first check if you finished the first onboarding. In this wizard we should follow few simple steps of - 1. select agent, we should reuse same ui from shep settings agent command, next 2. select ide, same as shep settings ide, last wizard page with checkboxes, i want a new section in our settings object, i want to present all our allow* command and push/pr flags, and this will be a default for all new  features, i want - Allow PRD, Allow Plan, Allow Merge, Push on finish implementation, Create PR, and something else if i missed. Wizard must be scalable, refactored from beginning, it may grow, preprea to breakdown into smaller files. Dont forget about clean arch and usage of Use cases for presentation layer and models from tsp! No direct service calls
+summary: >
+  Add a multi-step TUI onboarding wizard that runs on first-ever CLI invocation (any command). The wizard reuses
+  existing agent-select and IDE-select prompts, then presents workflow-default checkboxes (allowPrd, allowPlan,
+  allowMerge, push, openPr). A new onboardingComplete boolean on Settings tracks completion. The CLI bootstrap
+  checks this flag and launches the wizard before any command executes. Follows Clean Architecture with dedicated
+  use cases, TypeSpec model updates, and a scalable wizard file structure.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (domain model updates for Settings.onboardingComplete + ApprovalGateDefaults on WorkflowConfig)
+  - '@inquirer/prompts (select, checkbox) for TUI wizard steps'
+  - tsyringe (DI container registration for new use cases)
+  - Commander.js (CLI bootstrap hook for first-run gate)
+  - SQLite (settings persistence via existing repository)
+  - Vitest (unit + integration tests, TDD)
+  - picocolors (welcome banner styling via existing shep theme)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the onboarding wizard show a welcome banner before the first step?'
+    resolved: true
+    options:
+      - option: 'Simple welcome banner'
+        description: 'Show a brief 2-3 line welcome message with Shep branding before Step 1. Low effort, sets a friendly tone without delaying the user. Uses existing picocolors/chalk styling.'
+        selected: true
+      - option: 'No banner, start immediately'
+        description: 'Jump directly into Step 1 (agent select). Fastest path, but feels abrupt for a first-run experience.'
+        selected: false
+      - option: 'ASCII art logo + description'
+        description: 'Full ASCII art banner with version and tagline. More visually impressive but adds visual noise and implementation effort.'
+        selected: false
+    selectionRationale: 'A simple welcome banner strikes the right balance — it signals that this is a one-time setup flow, sets expectations for the 3 steps, and uses existing styling utilities. ASCII art is overkill for a CLI tool; no banner feels too abrupt for a first impression.'
+    answer: 'Simple welcome banner'
+
+  - question: 'How should approval gate defaults interact with the existing feat new --allow-* flags?'
+    resolved: true
+    options:
+      - option: 'Settings as defaults, CLI flags override'
+        description: 'Approval gate defaults from settings are used when no --allow-* flags are passed. Explicit CLI flags always win. Consistent with existing --pr flag behavior (settings.workflow.openPrOnImplementationComplete is the default, --pr overrides).'
+        selected: true
+      - option: 'CLI flags only, no settings defaults'
+        description: "Keep approval gates purely as CLI flags. Onboarding only configures push/PR. Simpler but misses the user's stated requirement for default approval gates."
+        selected: false
+    selectionRationale: "The user explicitly asked for approval gate defaults in settings. The existing --pr flag already follows the 'settings default, CLI override' pattern (see getWorkflowDefaults() in new.command.ts). Extending this pattern to approval gates is consistent and expected."
+    answer: 'Settings as defaults, CLI flags override'
+
+  - question: 'Where should the onboardingComplete flag live in the Settings model?'
+    resolved: true
+    options:
+      - option: 'Top-level on Settings'
+        description: 'Add onboardingComplete: boolean directly to the Settings model. Simple, easy to check in bootstrap. Aligns with the flag being a global one-time concern, not tied to any specific config section.'
+        selected: true
+      - option: 'Nested in a new onboarding section'
+        description: 'Create a new OnboardingConfig model with onboardingComplete plus room for future fields (e.g., onboardingVersion for re-onboarding). More extensible but premature — no known future fields justify the extra nesting.'
+        selected: false
+    selectionRationale: "Top-level is simplest and matches the user's description ('check if you finished the first onboarding'). If we need re-onboarding versioning later, we can refactor then. YAGNI applies — avoid over-engineering."
+    answer: 'Top-level on Settings'
+
+  - question: 'Should the push flag default be included in the workflow defaults checkbox step, or is it implicit from the PR flag?'
+    resolved: true
+    options:
+      - option: 'Include push as a separate checkbox'
+        description: "Show push as its own toggle alongside Create PR. Gives users explicit control. The user specifically listed 'Push on finish implementation' as a separate item."
+        selected: true
+      - option: 'Omit push, derive from PR'
+        description: "If Create PR is checked, push is implied. Fewer checkboxes but loses the 'push without PR' use case (some users want to push to remote without opening a PR)."
+        selected: false
+    selectionRationale: "The user explicitly listed 'Push on finish implementation' and 'Create PR' as separate items. Some users want to push to a remote branch without creating a PR (for CI feedback, backup, etc.). Keeping them separate respects both use cases."
+    answer: 'Include push as a separate checkbox'
+
+  - question: 'Should auto-merge be included in the workflow defaults checkboxes?'
+    resolved: true
+    options:
+      - option: 'Include auto-merge'
+        description: "Add autoMergeOnImplementationComplete to the checkbox list. The existing WorkflowConfig already has this field. Covers the user's 'and something else if I missed' note."
+        selected: true
+      - option: 'Exclude auto-merge'
+        description: "Leave auto-merge out of onboarding. It's a dangerous default for new users. Can be configured later via settings."
+        selected: false
+    selectionRationale: "The existing WorkflowConfig already has autoMergeOnImplementationComplete. Including it in onboarding is consistent. It defaults to unchecked, so new users won't accidentally enable it. The user said 'and something else if I missed' — auto-merge is the obvious missing item."
+    answer: 'Include auto-merge'
+
+  - question: 'How should the wizard handle the CheckOnboardingStatusUseCase — new dedicated use case or reuse LoadSettingsUseCase?'
+    resolved: true
+    options:
+      - option: 'New CheckOnboardingStatusUseCase'
+        description: 'Dedicated use case that loads settings and returns { isComplete: boolean }. Clean separation of concerns, explicit intent. Follows the single-responsibility pattern of existing use cases.'
+        selected: true
+      - option: 'Reuse LoadSettingsUseCase + check in presentation'
+        description: "Load full settings in bootstrap and check onboardingComplete inline. Less code but leaks business logic (what 'onboarding complete' means) into the presentation layer."
+        selected: false
+    selectionRationale: "Clean Architecture mandates that business logic stays in use cases. Checking onboarding status is a business decision (what counts as 'complete'). A dedicated use case keeps the presentation layer thin and allows the check to evolve independently (e.g., re-onboarding on version bump)."
+    answer: 'New CheckOnboardingStatusUseCase'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When a user installs Shep CLI and runs any command for the first time, there is no guided setup.
+  Settings are silently initialized with defaults (Claude Code agent, VSCode editor, all approval
+  gates off, no push/PR). Users must discover `shep settings agent`, `shep settings ide`, and
+  various `--allow-*` / `--push` / `--pr` flags manually. This leads to:
+
+  - Suboptimal defaults (e.g., wrong agent or IDE selected)
+  - Missed workflow automation opportunities (users don't know about approval gate defaults)
+  - Poor first impression — no welcome, no orientation
+
+  The solution is a mandatory first-run onboarding wizard that gates all CLI commands until the
+  user has completed initial configuration.
+
+  ## Success Criteria
+
+  - [ ] First CLI invocation (any command) triggers onboarding wizard if `settings.onboardingComplete` is false
+  - [ ] Wizard displays a welcome banner before Step 1
+  - [ ] Wizard Step 1: Agent selection — reuses existing `agentConfigWizard()` flow (agent type + auth method + optional token)
+  - [ ] Wizard Step 2: IDE selection — reuses existing `createIdeSelectConfig()` prompt via `@inquirer/prompts select()`
+  - [ ] Wizard Step 3: Workflow defaults — checkbox prompt with: Allow PRD, Allow Plan, Allow Merge, Push on finish, Create PR, Auto-merge
+  - [ ] All wizard results are persisted via `CompleteOnboardingUseCase` (no direct service/repository calls from presentation)
+  - [ ] `settings.onboardingComplete` set to true atomically with all other wizard results in a single use case call
+  - [ ] Subsequent CLI invocations skip the wizard entirely (bootstrap checks `onboardingComplete`)
+  - [ ] Wizard is scalable — modular file structure under `tui/wizards/onboarding/` with one file per step
+  - [ ] TypeSpec models updated: `onboardingComplete: boolean` on Settings, `ApprovalGateDefaults` model added to WorkflowConfig
+  - [ ] `feat new` command reads approval gate defaults + push from Settings when no explicit CLI flags are passed
+  - [ ] User can Ctrl+C at any step — CLI exits gracefully (process exit) without marking onboarding complete
+  - [ ] Settings defaults factory updated: `onboardingComplete: false`, all approval gate defaults `false`, push default `false`
+  - [ ] Database migration handles new fields on existing Settings records
+  - [ ] TDD: all layers have test coverage (unit for use cases + factory, integration for persistence, presentation for wizard orchestration)
+
+  ## Functional Requirements
+
+  - **FR-1: First-Run Gate** — The CLI bootstrap (`src/presentation/cli/index.ts`) must check `settings.onboardingComplete` after settings initialization. If `false`, the onboarding wizard runs before any Commander command is parsed. If `true`, normal command execution proceeds.
+
+  - **FR-2: Welcome Banner** — Before the first wizard step, display a short welcome message: app name, a one-line description of the setup wizard, and how many steps to expect (e.g., "3 quick steps"). Use existing `picocolors` styling from the shep theme.
+
+  - **FR-3: Step 1 — Agent Configuration** — Reuse `agentConfigWizard()` from `src/presentation/tui/wizards/agent-config.wizard.ts`. This runs the full agent selection flow: agent type → auth method → optional API token. Returns `AgentConfigResult { type, authMethod, token? }`.
+
+  - **FR-4: Step 2 — IDE Selection** — Use `select()` from `@inquirer/prompts` with `createIdeSelectConfig()` from `src/presentation/tui/prompts/ide-select.prompt.ts`. Returns the selected IDE tool identifier string (e.g., `"code"` for VS Code).
+
+  - **FR-5: Step 3 — Workflow Defaults** — Present a `checkbox()` prompt with these items (all unchecked by default):
+    - Allow PRD (auto-approve requirements phase) → `allowPrd`
+    - Allow Plan (auto-approve planning phase) → `allowPlan`
+    - Allow Merge (auto-approve merge phase) → `allowMerge`
+    - Push on finish (push branch to remote) → `pushOnImplementationComplete`
+    - Create PR (open PR on completion) → `openPrOnImplementationComplete`
+    - Auto-merge (merge after implementation) → `autoMergeOnImplementationComplete`
+
+  - **FR-6: Persistence via CompleteOnboardingUseCase** — A new `CompleteOnboardingUseCase` in `packages/core/src/application/use-cases/settings/` accepts the wizard results (agent config, IDE, workflow defaults), merges them into the current Settings object, sets `onboardingComplete = true`, and persists via `ISettingsRepository.update()`. The in-memory singleton is refreshed via `resetSettings()` + `initializeSettings()`.
+
+  - **FR-7: CheckOnboardingStatusUseCase** — A new use case that loads settings and returns `{ isComplete: boolean }`. Used by the bootstrap gate (FR-1). Encapsulates the business logic of what "onboarding complete" means.
+
+  - **FR-8: TypeSpec Model Updates** — Add to `tsp/domain/entities/settings.tsp`:
+    - `onboardingComplete: boolean = false` on `Settings` (top-level)
+    - `ApprovalGateDefaults` model with `allowPrd: boolean = false`, `allowPlan: boolean = false`, `allowMerge: boolean = false`, `pushOnImplementationComplete: boolean = false`
+    - Add `approvalGateDefaults: ApprovalGateDefaults` to `WorkflowConfig`
+
+  - **FR-9: Settings Defaults Factory Update** — `createDefaultSettings()` must include `onboardingComplete: false` and the new `workflow.approvalGateDefaults` with all fields set to `false`.
+
+  - **FR-10: feat new Default Resolution** — Extend `getWorkflowDefaults()` in `feat/new.command.ts` to read `settings.workflow.approvalGateDefaults` for `allowPrd`, `allowPlan`, `allowMerge`, and `push`. Each can still be overridden by explicit `--allow-*` / `--push` CLI flags. Resolution order: CLI flag → Settings default.
+
+  - **FR-11: Graceful Cancellation** — If the user presses Ctrl+C at any wizard step, the process exits without persisting any partial results and without setting `onboardingComplete = true`. The next CLI invocation re-triggers the wizard from Step 1.
+
+  - **FR-12: Scalable Wizard Structure** — The onboarding wizard must be organized as:
+    ```
+    src/presentation/tui/wizards/onboarding/
+    ├── onboarding.wizard.ts          # Orchestrator — runs steps in sequence
+    ├── steps/
+    │   ├── agent.step.ts             # Step 1: wraps agentConfigWizard()
+    │   ├── ide.step.ts               # Step 2: wraps IDE select prompt
+    │   └── workflow-defaults.step.ts  # Step 3: checkbox prompt
+    └── types.ts                      # OnboardingResult interface
+    ```
+
+  - **FR-13: Database Migration** — Add a migration to handle existing Settings records that lack the new `onboardingComplete` and `approvalGateDefaults` fields. Existing users who already have settings should have `onboardingComplete` set to `true` (they've already been using the CLI, so re-onboarding would be disruptive).
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Performance** — The onboarding check (`CheckOnboardingStatusUseCase`) must add < 5ms to CLI startup. It reads a single boolean from an already-loaded in-memory Settings singleton — no additional DB queries.
+
+  - **NFR-2: Clean Architecture Compliance** — All presentation → application communication flows through use cases. The wizard orchestrator calls `CompleteOnboardingUseCase.execute()`, never directly accessing repositories or the settings service. The bootstrap gate calls `CheckOnboardingStatusUseCase.execute()`.
+
+  - **NFR-3: No New Dependencies** — The feature must use only existing npm packages (`@inquirer/prompts`, `tsyringe`, `picocolors`). No new runtime dependencies.
+
+  - **NFR-4: Backward Compatibility** — Existing Settings records (users upgrading) must work without data loss. The migration sets `onboardingComplete = true` for existing records so returning users are not forced through onboarding.
+
+  - **NFR-5: Testability** — Each wizard step must be independently testable. The orchestrator accepts step functions as parameters (or uses a step registry) so steps can be stubbed in tests. Use cases are tested via DI with mock repositories.
+
+  - **NFR-6: Accessibility** — Checkbox labels in Step 3 must include clear descriptions (not just names). Each checkbox should have a `name` and `description` property so users understand what each option does.
+
+  - **NFR-7: Idempotency** — Running the CLI multiple times in rapid succession (e.g., parallel terminals) must not corrupt settings. The `CompleteOnboardingUseCase` performs a single atomic write.
+
+  - **NFR-8: File Size** — No single file in the wizard module should exceed ~150 lines, per project coding standards. Step files should be under 50 lines each (they're thin wrappers around existing prompts or a single checkbox call).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Show welcome banner before wizard? | Simple welcome banner | Sets friendly tone, signals one-time setup, low effort |
+  | 2 | How do approval gate defaults interact with --allow-* flags? | Settings as defaults, CLI flags override | Matches existing --pr flag pattern in getWorkflowDefaults() |
+  | 3 | Where does onboardingComplete live in Settings? | Top-level on Settings | Simplest approach, YAGNI — no known future fields justify nesting |
+  | 4 | Include push as separate checkbox from PR? | Yes, separate checkbox | User explicitly listed both; push-without-PR is a valid use case |
+  | 5 | Include auto-merge in workflow checkboxes? | Yes, include it | Already exists in WorkflowConfig; user said "and something else if I missed" |
+  | 6 | New CheckOnboardingStatusUseCase or inline check? | New dedicated use case | Clean Architecture — business logic belongs in use cases, not presentation |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The monorepo uses pnpm workspaces with three packages:
+
+  ```
+  . (@shepai/cli)              — CLI entry point + presentation layer
+  packages/core/ (@shepai/core) — Domain, Application, Infrastructure
+  src/presentation/web/         — Next.js web UI
+  ```
+
+  Key directories for this feature:
+
+  - `tsp/domain/entities/settings.tsp` — TypeSpec Settings model (source of truth)
+  - `packages/core/src/domain/generated/output.ts` — Generated TypeScript types (DO NOT EDIT)
+  - `packages/core/src/domain/factories/settings-defaults.factory.ts` — Default values factory
+  - `packages/core/src/application/use-cases/settings/` — Settings use cases (initialize, load, update, configure-agent)
+  - `packages/core/src/application/ports/output/repositories/settings.repository.interface.ts` — Repository port
+  - `packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts` — SQLite implementation
+  - `packages/core/src/infrastructure/services/settings.service.ts` — In-memory singleton (`getSettings()`)
+  - `packages/core/src/infrastructure/di/container.ts` — DI container wiring
+  - `src/presentation/cli/index.ts` — CLI bootstrap (where first-run check goes)
+  - `src/presentation/tui/prompts/` — Reusable prompt configs (agent-select, ide-select, auth-method)
+  - `src/presentation/tui/wizards/` — Multi-step wizards (agent-config, plan-review, etc.)
+  - `src/presentation/tui/themes/shep.theme.ts` — Shared Inquirer theme
+
+  ### Architecture Patterns
+
+  **Clean Architecture (4 layers):** Domain → Application → Infrastructure → Presentation.
+  Dependencies point inward. Presentation layer MUST use use cases, never direct service/repository calls.
+
+  **Settings lifecycle:**
+  1. `bootstrap()` calls `initializeContainer()` (DB + migrations)
+  2. `InitializeSettingsUseCase.execute()` — creates defaults if none exist via `createDefaultSettings()`
+  3. `initializeSettings(settings)` — stores in `globalThis.__shepSettings` singleton
+  4. Commander parses and executes commands
+  5. Commands read settings via `getSettings()`, persist changes via `UpdateSettingsUseCase`
+
+  **TUI pattern:** Prompt configs are standalone functions (`createXxxConfig()`) in `tui/prompts/`.
+  Wizards are async functions in `tui/wizards/` that compose multiple prompts.
+
+  **Use case pattern:** `@injectable()` class with `execute()` method, injected via `@inject('ITokenName')`.
+
+  ### Relevant Technologies
+
+  - **@inquirer/prompts** — `select`, `password`, `checkbox` (for workflow defaults step)
+  - **tsyringe** — DI container with `@injectable()`, `@inject()`, `container.resolve()`
+  - **Commander.js** — CLI framework, bootstrap in `src/presentation/cli/index.ts`
+  - **TypeSpec** — Domain model definitions, compiled to TypeScript via `pnpm tsp:compile`
+  - **SQLite (better-sqlite3)** — Settings persistence, singleton record pattern
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/settings.tsp` | High | Add `onboardingComplete: boolean` to Settings, add `ApprovalGateDefaults` model to WorkflowConfig |
+  | `tsp/agents/approval-gates.tsp` | Low | Reference only — ApprovalGates model defines the shape we mirror in defaults |
+  | `packages/core/src/domain/generated/output.ts` | High | Regenerated from TypeSpec — new types appear automatically |
+  | `packages/core/src/domain/factories/settings-defaults.factory.ts` | High | Add defaults for `onboardingComplete: false` and new workflow approval gate defaults |
+  | `packages/core/src/application/use-cases/settings/` | High | New `CompleteOnboardingUseCase` + `CheckOnboardingStatusUseCase` |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register two new use cases |
+  | `packages/core/src/infrastructure/repositories/sqlite-settings.repository.ts` | Medium | May need migration if schema changes for new fields |
+  | `packages/core/src/infrastructure/persistence/` | Medium | Database migration for new Settings fields (onboardingComplete + approvalGateDefaults) |
+  | `src/presentation/cli/index.ts` | High | Add first-run check after settings init — if not complete, run wizard before commands |
+  | `src/presentation/tui/wizards/onboarding/` | High | New modular wizard directory with orchestrator + 3 step files |
+  | `src/presentation/tui/prompts/` | Medium | New `workflow-defaults.prompt.ts` for checkbox step |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Medium | Extend `getWorkflowDefaults()` to read approval gate defaults from settings |
+  | `tests/unit/` | High | Unit tests for new use cases, factory defaults, wizard steps |
+  | `tests/integration/` | Medium | Integration tests for persistence of new fields + migration |
+
+  ## Dependencies
+
+  **Existing code to reuse:**
+  - `agentConfigWizard()` from `src/presentation/tui/wizards/agent-config.wizard.ts` — full agent selection + auth flow
+  - `createIdeSelectConfig()` from `src/presentation/tui/prompts/ide-select.prompt.ts` — IDE selection prompt
+  - `UpdateSettingsUseCase` from `packages/core/src/application/use-cases/settings/update-settings.use-case.ts` — used internally by CompleteOnboardingUseCase
+  - `InitializeSettingsUseCase` — already runs in bootstrap, provides the settings object to check
+  - `getSettings()` / `resetSettings()` / `initializeSettings()` — in-memory singleton management
+  - `shepTheme` from `src/presentation/tui/themes/shep.theme.ts` — consistent TUI styling
+
+  **Existing libraries (no new deps needed):**
+  - `@inquirer/prompts` — already used, has `checkbox` for workflow defaults step
+  - `tsyringe` — DI framework already in place
+  - `commander` — CLI framework already in place
+  - `picocolors` — already used in shep theme for styled output
+
+  **TypeSpec build dependency:**
+  - Must run `pnpm tsp:compile` after modifying `.tsp` files to regenerate TypeScript types
+
+  ## Size Estimate
+
+  **M (days)** — Touches multiple layers (TypeSpec → Domain → Application → Infrastructure → Presentation)
+  but each change is well-scoped. The wizard reuses existing prompt components. Main work is:
+  1. TypeSpec model updates + regeneration (~2 new models, 1 field on Settings)
+  2. Two new use cases (CompleteOnboarding + CheckOnboardingStatus) + factory updates
+  3. Modular onboarding wizard with 3 steps (2 reused, 1 new checkbox prompt)
+  4. Bootstrap hook (few lines in index.ts)
+  5. feat new default resolution extension (~15 lines)
+  6. Database migration for existing records
+  7. TDD tests across all layers
+
+  ---
+
+  _Requirements complete — proceed with research_

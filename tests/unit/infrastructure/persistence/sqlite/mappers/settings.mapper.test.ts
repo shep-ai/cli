@@ -64,8 +64,14 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
     },
     workflow: {
       openPrOnImplementationComplete: false,
-      autoMergeOnImplementationComplete: false,
+      approvalGateDefaults: {
+        allowPrd: false,
+        allowPlan: false,
+        allowMerge: false,
+        pushOnImplementationComplete: false,
+      },
     },
+    onboardingComplete: false,
     ...overrides,
   };
 }
@@ -102,7 +108,11 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     notif_evt_agent_completed: 1,
     notif_evt_agent_failed: 1,
     workflow_open_pr_on_impl_complete: 0,
-    workflow_auto_merge_on_impl_complete: 0,
+    onboarding_complete: 0,
+    approval_gate_allow_prd: 0,
+    approval_gate_allow_plan: 0,
+    approval_gate_allow_merge: 0,
+    approval_gate_push_on_impl_complete: 0,
     ...overrides,
   };
 }
@@ -321,6 +331,95 @@ describe('Settings Mapper', () => {
       expect(settings.environment.defaultEditor).toBe('vscode');
       expect(settings.system.autoUpdate).toBe(true);
       expect(settings.agent.type).toBe('claude-code');
+    });
+  });
+
+  describe('toDatabase() - onboarding fields', () => {
+    it('should map onboardingComplete:true to onboarding_complete:1', () => {
+      const settings = createTestSettings({ onboardingComplete: true } as any);
+      const row = toDatabase(settings);
+      expect(row.onboarding_complete).toBe(1);
+    });
+
+    it('should map onboardingComplete:false to onboarding_complete:0', () => {
+      const settings = createTestSettings({ onboardingComplete: false } as any);
+      const row = toDatabase(settings);
+      expect(row.onboarding_complete).toBe(0);
+    });
+
+    it('should map approvalGateDefaults fields to integer columns', () => {
+      const settings = createTestSettings();
+      (settings as any).workflow = {
+        ...settings.workflow,
+        approvalGateDefaults: {
+          allowPrd: true,
+          allowPlan: false,
+          allowMerge: true,
+          pushOnImplementationComplete: false,
+        },
+      };
+      const row = toDatabase(settings);
+      expect(row.approval_gate_allow_prd).toBe(1);
+      expect(row.approval_gate_allow_plan).toBe(0);
+      expect(row.approval_gate_allow_merge).toBe(1);
+      expect(row.approval_gate_push_on_impl_complete).toBe(0);
+    });
+  });
+
+  describe('fromDatabase() - onboarding fields', () => {
+    it('should map onboarding_complete:1 to onboardingComplete:true', () => {
+      const row = createTestRow({ onboarding_complete: 1 });
+      const settings = fromDatabase(row);
+      expect(settings.onboardingComplete).toBe(true);
+    });
+
+    it('should map onboarding_complete:0 to onboardingComplete:false', () => {
+      const row = createTestRow({ onboarding_complete: 0 });
+      const settings = fromDatabase(row);
+      expect(settings.onboardingComplete).toBe(false);
+    });
+
+    it('should reconstruct approvalGateDefaults from columns', () => {
+      const row = createTestRow({
+        approval_gate_allow_prd: 1,
+        approval_gate_allow_plan: 1,
+        approval_gate_allow_merge: 0,
+        approval_gate_push_on_impl_complete: 1,
+      });
+      const settings = fromDatabase(row);
+      expect(settings.workflow.approvalGateDefaults).toEqual({
+        allowPrd: true,
+        allowPlan: true,
+        allowMerge: false,
+        pushOnImplementationComplete: true,
+      });
+    });
+  });
+
+  describe('round-trip - onboarding fields', () => {
+    it('should preserve onboardingComplete and approvalGateDefaults through round-trip', () => {
+      const original = createTestSettings();
+      (original as any).onboardingComplete = true;
+      (original as any).workflow = {
+        ...original.workflow,
+        approvalGateDefaults: {
+          allowPrd: true,
+          allowPlan: false,
+          allowMerge: true,
+          pushOnImplementationComplete: true,
+        },
+      };
+
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+
+      expect(restored.onboardingComplete).toBe(true);
+      expect(restored.workflow.approvalGateDefaults).toEqual({
+        allowPrd: true,
+        allowPlan: false,
+        allowMerge: true,
+        pushOnImplementationComplete: true,
+      });
     });
   });
 });

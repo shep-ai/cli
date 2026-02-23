@@ -316,6 +316,28 @@ export type SystemConfig = {
 };
 
 /**
+ * Default approval gate settings for new features
+ */
+export type ApprovalGateDefaults = {
+  /**
+   * Auto-approve requirements phase (default: false)
+   */
+  allowPrd: boolean;
+  /**
+   * Auto-approve planning phase (default: false)
+   */
+  allowPlan: boolean;
+  /**
+   * Auto-approve merge phase (default: false)
+   */
+  allowMerge: boolean;
+  /**
+   * Push branch to remote on implementation complete (default: false)
+   */
+  pushOnImplementationComplete: boolean;
+};
+
+/**
  * Global workflow configuration defaults
  */
 export type WorkflowConfig = {
@@ -324,9 +346,9 @@ export type WorkflowConfig = {
    */
   openPrOnImplementationComplete: boolean;
   /**
-   * Auto-merge on implementation complete (default: false)
+   * Default approval gate preferences for new features
    */
-  autoMergeOnImplementationComplete: boolean;
+  approvalGateDefaults: ApprovalGateDefaults;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
@@ -448,6 +470,10 @@ export type Settings = BaseEntity & {
    * Global workflow configuration defaults
    */
   workflow: WorkflowConfig;
+  /**
+   * Whether first-run onboarding has been completed (default: false)
+   */
+  onboardingComplete: boolean;
 };
 export enum TaskState {
   Todo = 'Todo',
