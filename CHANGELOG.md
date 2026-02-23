@@ -1,3 +1,9 @@
+## [1.44.1](https://github.com/shep-ai/cli/compare/v1.44.0...v1.44.1) (2026-02-23)
+
+### Bug Fixes
+
+- **web:** add missing storybook mock and ci build check ([#97](https://github.com/shep-ai/cli/issues/97)) ([343bc77](https://github.com/shep-ai/cli/commit/343bc77a2dede6d80019730f8ed4e02d305c88cf))
+
 # [1.44.0](https://github.com/shep-ai/cli/compare/v1.43.0...v1.44.0) (2026-02-23)
 
 ### Features
