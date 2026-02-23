@@ -1,3 +1,9 @@
+## [1.41.1](https://github.com/shep-ai/cli/compare/v1.41.0...v1.41.1) (2026-02-23)
+
+### Bug Fixes
+
+- **web:** use os.platform() instead of process.platform for runtime evaluation ([#94](https://github.com/shep-ai/cli/issues/94)) ([57e0893](https://github.com/shep-ai/cli/commit/57e0893e2bf2e78d51465ef763d4e62df6566c23))
+
 # [1.41.0](https://github.com/shep-ai/cli/compare/v1.40.2...v1.41.0) (2026-02-23)
 
 ### Features
