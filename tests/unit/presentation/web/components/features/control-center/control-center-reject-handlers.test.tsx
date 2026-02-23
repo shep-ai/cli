@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { render, screen, act, fireEvent, waitFor, cleanup } from '@testing-library/react';
 
 // ── Server action mocks ──────────────────────────────────────────────
 const mockApproveFeature = vi.fn();
@@ -33,6 +33,18 @@ vi.mock('@/app/actions/get-feature-artifact', () => ({
 
 vi.mock('@/app/actions/get-research-artifact', () => ({
   getResearchArtifact: (...args: unknown[]) => mockGetResearchArtifact(...args),
+}));
+
+vi.mock('@/app/actions/get-workflow-defaults', () => ({
+  getWorkflowDefaults: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/app/actions/get-merge-review-data', () => ({
+  getMergeReviewData: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock('@/components/common/notification-permission-banner', () => ({
+  NotificationPermissionBanner: () => null,
 }));
 
 // ── Toast mock ────────────────────────────────────────────────────────
@@ -107,6 +119,13 @@ const techDecisionsData = {
   technologies: ['TypeScript'],
 };
 
+const repoNode: CanvasNodeType = {
+  id: 'repo-1',
+  type: 'repositoryNode',
+  position: { x: 50, y: 50 },
+  data: { name: 'my-repo', repositoryPath: '/tmp/repo', id: 'repo-1' },
+} as CanvasNodeType;
+
 const prdNode: CanvasNodeType = {
   id: 'feat-prd',
   type: 'featureNode',
@@ -137,7 +156,7 @@ const techNode: CanvasNodeType = {
   } as FeatureNodeData,
 };
 
-function renderControlCenter(nodes: CanvasNodeType[] = [prdNode, techNode]) {
+function renderControlCenter(nodes: CanvasNodeType[] = [repoNode, prdNode, techNode]) {
   return render(<ControlCenterInner initialNodes={nodes} initialEdges={[]} />);
 }
 
@@ -159,19 +178,13 @@ async function openPrdDrawerOnLastStep() {
     expect(screen.getByText('What problem does this solve?')).toBeInTheDocument();
   });
 
-  // Select all answers to enable approve
+  // Select answer on first step — component auto-advances after 250ms
   const optionA = screen.getAllByRole('button').find((b) => b.textContent?.includes('Pain Point'));
   await act(async () => {
     fireEvent.click(optionA!);
   });
 
-  // Navigate to last step
-  const stepDots = screen.getAllByRole('button', { name: /Go to question/ });
-  await act(async () => {
-    fireEvent.click(stepDots[stepDots.length - 1]);
-  });
-
-  // Select answer on last step too
+  // Wait for auto-advance to last step
   await waitFor(() => {
     expect(screen.getByText('What is the priority?')).toBeInTheDocument();
   });
@@ -202,6 +215,10 @@ async function openTechDecisionsDrawer() {
 describe('ControlCenterInner reject handlers', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   describe('handlePrdReject', () => {
@@ -389,10 +406,10 @@ describe('ControlCenterInner reject handlers', () => {
       mockApproveFeature.mockResolvedValue({ approved: true });
       await openPrdDrawerOnLastStep();
 
-      // Click approve
-      const approveBtn = screen.getByRole('button', { name: /approve requirements/i });
+      // Click approve (multiple buttons share the label; pick the first)
+      const approveBtns = screen.getAllByRole('button', { name: /approve requirements/i });
       await act(async () => {
-        fireEvent.click(approveBtn);
+        fireEvent.click(approveBtns[0]);
       });
 
       await waitFor(() => {
@@ -412,9 +429,9 @@ describe('ControlCenterInner reject handlers', () => {
       mockApproveFeature.mockResolvedValue({ approved: false, error: 'Approval failed' });
       await openPrdDrawerOnLastStep();
 
-      const approveBtn = screen.getByRole('button', { name: /approve requirements/i });
+      const approveBtns = screen.getAllByRole('button', { name: /approve requirements/i });
       await act(async () => {
-        fireEvent.click(approveBtn);
+        fireEvent.click(approveBtns[0]);
       });
 
       await waitFor(() => {
