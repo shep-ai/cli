@@ -1,6 +1,7 @@
 'use server';
 
 import { existsSync } from 'node:fs';
+import { platform } from 'node:os';
 import { spawn } from 'node:child_process';
 
 export async function openFolder(
@@ -15,15 +16,15 @@ export async function openFolder(
       return { success: false, error: 'Directory not found' };
     }
 
-    const platform = process.platform;
+    const currentPlatform = platform();
 
-    if (platform === 'darwin') {
+    if (currentPlatform === 'darwin') {
       const child = spawn('open', [repositoryPath], {
         detached: true,
         stdio: 'ignore',
       });
       child.unref();
-    } else if (platform === 'linux') {
+    } else if (currentPlatform === 'linux') {
       const child = spawn('xdg-open', [repositoryPath], {
         detached: true,
         stdio: 'ignore',
@@ -32,7 +33,7 @@ export async function openFolder(
     } else {
       return {
         success: false,
-        error: `Unsupported platform: ${platform}. Folder open is supported on macOS and Linux only.`,
+        error: `Unsupported platform: ${currentPlatform}. Folder open is supported on macOS and Linux only.`,
       };
     }
 
