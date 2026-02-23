@@ -48,6 +48,8 @@ describe('WorktreeService.ensureGitRepository (integration)', () => {
   it('should not re-initialize an existing git repository', async () => {
     // Manually init the repo with a custom commit message
     await execFile('git', ['init'], { cwd: tempDir });
+    await execFile('git', ['config', 'user.name', 'Test'], { cwd: tempDir });
+    await execFile('git', ['config', 'user.email', 'test@test.com'], { cwd: tempDir });
     await execFile('git', ['commit', '--allow-empty', '-m', 'Pre-existing commit'], {
       cwd: tempDir,
     });
