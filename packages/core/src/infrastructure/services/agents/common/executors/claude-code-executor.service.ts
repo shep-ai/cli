@@ -24,6 +24,7 @@ const SUPPORTED_FEATURES = new Set<string>([
   'streaming',
   'system-prompt',
   'structured-output',
+  'session-listing',
 ]);
 
 /**

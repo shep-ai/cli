@@ -1822,6 +1822,62 @@ export type PrdReviewResult = {
 };
 
 /**
+ * A single message within an agent provider CLI session
+ */
+export type AgentSessionMessage = {
+  /**
+   * Provider-native message UUID
+   */
+  uuid: string;
+  /**
+   * Message role — user turn or assistant turn
+   */
+  role: 'user' | 'assistant';
+  /**
+   * Normalized message content as plain text (tool calls and thinking blocks excluded)
+   */
+  content: string;
+  /**
+   * Timestamp when the message was recorded
+   */
+  timestamp: any;
+};
+
+/**
+ * An agent provider CLI session (conversation record read from provider local storage)
+ */
+export type AgentSession = BaseEntity & {
+  /**
+   * Agent executor type that owns this session (e.g. claude-code)
+   */
+  agentType: AgentType;
+  /**
+   * Tilde-abbreviated working directory path for the session (e.g. ~/repos/my-project)
+   */
+  projectPath: string;
+  /**
+   * Total number of user and assistant messages in the session
+   */
+  messageCount: number;
+  /**
+   * Truncated first user message text used as a session summary preview (optional)
+   */
+  preview?: string;
+  /**
+   * Conversation messages — populated only in the detail view (shep session show)
+   */
+  messages?: AgentSessionMessage[];
+  /**
+   * Timestamp of the first message in the session (optional)
+   */
+  firstMessageAt?: any;
+  /**
+   * Timestamp of the most recent message in the session (optional)
+   */
+  lastMessageAt?: any;
+};
+
+/**
  * A selectable option within a PRD questionnaire question
  */
 export type PrdOption = {
@@ -1914,6 +1970,7 @@ export enum AgentFeature {
   toolScoping = 'tool-scoping',
   structuredOutput = 'structured-output',
   systemPrompt = 'system-prompt',
+  sessionListing = 'session-listing',
 }
 export type DeployTarget = DeployTargetActionItem | DeployTargetTask | DeployTargetTasks;
 
