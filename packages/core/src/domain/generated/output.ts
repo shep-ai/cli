@@ -356,6 +356,7 @@ export enum AgentType {
   Aider = 'aider',
   Continue = 'continue',
   Cursor = 'cursor',
+  Dev = 'dev',
 }
 export enum AgentAuthMethod {
   Session = 'session',
