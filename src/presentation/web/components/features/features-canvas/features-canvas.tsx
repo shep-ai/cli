@@ -159,7 +159,7 @@ export function FeaturesCanvas({
           <Background />
           <Controls />
           {onRepositorySelect ? (
-            <Panel position="top-right" className="mr-12">
+            <Panel position="top-right" className="mr-16">
               <AddRepositoryButton onSelect={onRepositorySelect} />
             </Panel>
           ) : null}

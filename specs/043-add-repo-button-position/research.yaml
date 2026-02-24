@@ -1,0 +1,131 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: add-repo-button-position
+summary: >
+  Single-line Tailwind class change in features-canvas.tsx: replace mr-12 (48 px) with mr-16
+  (64 px) on the ReactFlow Panel so the Add Repository button clears the ThemeToggle's ~52 px
+  occupied zone with a comfortable 12 px gap. No libraries, schema changes, or architectural
+  decisions are required beyond choosing the correct spacing value.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Tailwind CSS
+  - '@xyflow/react (ReactFlow Panel)'
+  - React
+  - Next.js
+
+relatedLinks:
+  - https://tailwindcss.com/docs/margin
+  - https://reactflow.dev/api-reference/components/panel
+
+# Structured technology decisions
+decisions:
+  - title: 'Spacing mechanism — Tailwind utility class vs alternatives'
+    chosen: 'mr-16 Tailwind utility class on the ReactFlow Panel'
+    rejected:
+      - 'Inline style (style={{ marginRight: 64 }}) — works but violates FR-2 and the project utility-first CSS conventions; makes the value opaque to Tailwind tooling and purging.'
+      - 'Custom CSS class or CSS variable — unnecessary complexity for a standard spacing value already on the Tailwind scale; harder to grep and reason about.'
+    rationale: >
+      The project uses Tailwind throughout the presentation layer. All existing spacing on the
+      same Panel is expressed via mr-* utilities (currently mr-12). Staying on the Tailwind
+      spacing scale keeps the codebase consistent, satisfies FR-2 explicitly, and means the
+      value is immediately understandable to any contributor.
+
+  - title: 'Right-margin value — how much clearance to add'
+    chosen: 'mr-16 (64 px)'
+    rejected:
+      - 'mr-14 (56 px) — just 4 px beyond the 52 px ThemeToggle zone; functionally sufficient but visually tight and fragile if any rounding or subpixel rendering occurs.'
+      - 'mr-20 (80 px) — 28 px of clearance; more than necessary, pushes the button noticeably far from the edge and may look unbalanced on narrower viewports.'
+    rationale: >
+      The ThemeToggle (shadcn Button size="icon", 40x40 px) is positioned at right-3 (12 px
+      inset), so it occupies the rightmost ~52 px of the viewport. mr-16 = 64 px clears that
+      zone by 12 px — a gap that matches common UI breathing-room conventions (8–16 px between
+      interactive elements) without pushing the button excessively far left. This aligns with
+      the spec open-question resolution (mr-16 selected).
+
+  - title: 'Scope of change — single file vs shared layout adjustment'
+    chosen: 'Change only features-canvas.tsx (the Panel className)'
+    rejected:
+      - 'Move ThemeToggle inward in app-shell.tsx — would affect every page/view using AppShell; wider blast radius than needed.'
+      - 'Wrap the Panel in a container with padding in a parent component — unnecessary indirection; the Panel already accepts className directly.'
+    rationale: >
+      FR-3 explicitly restricts the fix to features-canvas.tsx. The Panel className prop is
+      the most direct and least-invasive injection point. Changing any shared layout component
+      risks unintended side-effects on other views.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Spacing mechanism — Tailwind utility class vs alternatives
+
+  **Chosen:** `mr-16` Tailwind utility on the `<Panel>` element in `features-canvas.tsx`
+
+  **Rejected:**
+  - Inline style (`style={{ marginRight: 64 }}`) — violates FR-2; bypasses Tailwind tooling
+  - Custom CSS class / CSS variable — unnecessary indirection for a standard spacing value
+
+  **Rationale:** The project is utility-first throughout the presentation layer. Using an
+  existing Tailwind spacing class is idiomatic, immediately readable, and satisfies all
+  functional requirements without introducing new abstractions.
+
+  ### 2. Right-margin value — mr-14 vs mr-16 vs mr-20
+
+  **Chosen:** `mr-16` (64 px)
+
+  **Rejected:**
+  - `mr-14` (56 px) — only 4 px clearance beyond the 52 px ThemeToggle zone; too tight
+  - `mr-20` (80 px) — 28 px clearance; exceeds what is needed, may look unbalanced
+
+  **Rationale:** The ThemeToggle occupies ~52 px (40 px icon + 12 px right-3 inset). 64 px
+  provides a 12 px visual gap — comfortable, intentional, and consistent with common spacing
+  conventions between adjacent interactive elements.
+
+  ### 3. Scope of change
+
+  **Chosen:** Single class change in `features-canvas.tsx` only
+
+  **Rejected:**
+  - Adjusting `AppShell` / ThemeToggle position — wider blast radius, touches unrelated views
+  - Wrapping the Panel in an extra container — unnecessary nesting for a one-line fix
+
+  **Rationale:** FR-3 constrains the fix to `features-canvas.tsx`. The `<Panel>` element
+  already accepts a `className` prop that maps directly to the wrapper div CSS classes,
+  making this the minimal and correct injection point.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Tailwind CSS | Spacing utility (mr-16) | Use (already in project) | Standard utility class, no new dependency |
+  | @xyflow/react Panel | Positions the button in canvas | Use (already in project) | className prop accepted; no change to Panel API |
+
+  ## Security Considerations
+
+  None. This is a pure CSS/layout change with no data handling, authentication, or user input
+  involved. No new attack surface is introduced.
+
+  ## Performance Implications
+
+  None. A Tailwind margin class change has zero runtime cost. No re-renders, no additional
+  DOM nodes, no layout recalculations beyond what already occurs.
+
+  ## Architecture Notes
+
+  The fix lives entirely in the `presentation/web` layer. No domain, application, or
+  infrastructure code is touched. The change is a single class substitution on line 162 of
+  `features-canvas.tsx`:
+
+  ```diff
+  - <Panel position="top-right" className="mr-12">
+  + <Panel position="top-right" className="mr-16">
+  ```
+
+  Verification is via Storybook (`features-canvas.stories.tsx`) — visually confirm the button
+  no longer overlaps the ThemeToggle area.

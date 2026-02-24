@@ -1,0 +1,131 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: add-repo-button-position
+number: 043
+branch: feat/043-add-repo-button-position
+oneLiner: Increase right margin on Add Repository button panel so it no longer overlaps the ThemeToggle
+userQuery: >
+  small fix, Add Repository button overlaps over dark mode switcher, need to move it bit left, do it fast, no deep analysis/research/req
+summary: >
+  The "Add Repository" button rendered inside a ReactFlow Panel at top-right in FeaturesCanvas
+  overlaps the ThemeToggle button (dark mode switcher) that is absolutely positioned in the
+  top-right corner of AppShell. Fix is a single Tailwind class change to increase the panel's
+  right margin so the two elements no longer collide.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React
+  - Next.js
+  - Tailwind CSS
+  - '@xyflow/react (ReactFlow Panel)'
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'How much right margin should the Panel use to clear the ThemeToggle?'
+    resolved: true
+    options:
+      - option: 'mr-14 (56 px, 4 px gap)'
+        description: 'Minimal clearance: 56 px clears the 52 px ThemeToggle zone with a 4 px gap. Tight but functional.'
+        selected: false
+      - option: 'mr-16 (64 px, 12 px gap)'
+        description: 'Comfortable clearance: 64 px provides a 12 px breathing gap between button and toggle. Preferred for visual polish.'
+        selected: true
+      - option: 'mr-20 (80 px, 28 px gap)'
+        description: 'Generous clearance: pushes the button noticeably further left; more than needed and may look unbalanced.'
+        selected: false
+    selectionRationale: 'mr-16 (64 px) is recommended because it provides a comfortable 12 px gap beyond the ThemeToggle zone, matching common UI spacing conventions without pushing the button excessively far from the edge.'
+    answer: 'mr-16 (64 px, 12 px gap)'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The "Add Repository" button is placed in a ReactFlow `<Panel position="top-right">` inside
+  `FeaturesCanvas` (`src/presentation/web/components/features/features-canvas/features-canvas.tsx`,
+  line 162). It currently has `className="mr-12"` (48 px right margin).
+
+  The ThemeToggle (dark mode switcher) is absolutely positioned at `top-3 right-3` (12 px from
+  the right edge) inside `AppShell`
+  (`src/presentation/web/components/layouts/app-shell/app-shell.tsx`, line 28). The toggle
+  uses shadcn `Button size="icon"` which renders as **40 × 40 px**, so it occupies the rightmost
+  ~52 px of the viewport. At `mr-12` (48 px) the Add Repository button's right edge sits inside
+  the toggle's area, causing visual overlap.
+
+  ## Success Criteria
+
+  - [ ] The "Add Repository" button and the ThemeToggle do not overlap at any viewport width ≥ 768 px
+  - [ ] The right edge of the Panel clears the ThemeToggle's 52 px occupied zone with visible gap
+  - [ ] No other UI elements are displaced or broken by the margin change
+  - [ ] Fix is contained to a single Tailwind class change in `features-canvas.tsx`
+  - [ ] Storybook story for `features-canvas` visually confirms the corrected layout
+
+  ## Functional Requirements
+
+  - **FR-1**: The ReactFlow `<Panel position="top-right">` in `FeaturesCanvas` MUST have a right margin that positions its right edge at least 56 px from the viewport's right edge (clearing the 52 px ThemeToggle zone).
+  - **FR-2**: The change MUST use an existing Tailwind spacing utility class (no custom CSS, no inline styles).
+  - **FR-3**: The fix MUST NOT modify `AppShell`, `ThemeToggle`, or any component outside of `features-canvas.tsx`.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The margin value MUST be chosen from the standard Tailwind spacing scale so it remains consistent with the project's existing utility-first CSS conventions.
+  - **NFR-2**: The fix MUST NOT introduce any visual regression in adjacent UI areas (header, sidebar, canvas controls).
+  - **NFR-3**: The change MUST be verifiable via Storybook (`features-canvas.stories.tsx`) without requiring a full browser run.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How much right margin should the Panel use? | `mr-16` (64 px, 12 px gap) | Provides comfortable clearance beyond the 52 px ThemeToggle zone; consistent with common UI spacing conventions |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | Low | Change `mr-12` → `mr-16` on the ReactFlow Panel so the button clears the 52 px ThemeToggle zone |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  src/presentation/web/
+  ├── components/
+  │   ├── layouts/
+  │   │   └── app-shell/app-shell.tsx        # ThemeToggle mounted here, absolute top-3 right-3
+  │   ├── features/
+  │   │   └── features-canvas/features-canvas.tsx  # Panel top-right with mr-12
+  │   └── common/
+  │       ├── add-repository-node/
+  │       │   └── add-repository-button.tsx  # The button component itself
+  │       └── theme-toggle/theme-toggle.tsx  # Dark mode switcher (size="icon" → 40 px)
+  ```
+
+  ### Architecture Patterns
+
+  Presentation layer only — no domain/application changes needed. The project uses
+  Clean Architecture; this fix is entirely in `presentation/web` and touches zero
+  business logic.
+
+  ### Relevant Technologies
+
+  - **Tailwind CSS** — spacing utilities (`mr-*`) control the panel offset.
+  - **@xyflow/react Panel** — positions its children relative to the ReactFlow viewport
+    canvas; `className` is passed through to the wrapper div.
+  - **shadcn Button size="icon"** — 40 × 40 px, the ThemeToggle occupies ≈52 px from
+    the right edge (40 px width + 12 px `right-3` inset).
+
+  ## Dependencies
+
+  - Existing Tailwind spacing scale (no new utilities needed).
+  - No changes to domain, application, or infrastructure layers.
+
+  ## Size Estimate
+
+  **S** — Single-line Tailwind class change in one file. Verification via Storybook
+  or visual inspection. No tests need updating (no behavioural change).
