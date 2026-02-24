@@ -304,3 +304,7 @@ rejectionFeedback:
     message: cicd failed
     phase: merge
     timestamp: '2026-02-24T21:01:16.518Z'
+  - iteration: 3
+    message: still fails cicd
+    phase: merge
+    timestamp: '2026-02-24T21:06:52.357Z'
