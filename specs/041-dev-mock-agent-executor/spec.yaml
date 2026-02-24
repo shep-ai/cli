@@ -1,0 +1,482 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: dev-mock-agent-executor
+number: 041
+branch: feat/041-dev-mock-agent-executor
+oneLiner: Add a "Dev" mock agent executor selectable in settings that simulates the full feature SDLC flow for local development
+
+userQuery: >
+  Feature: Dev Agent executer
+
+  We have agent executor selector in settings, and in tests we have mock for this one with preconfigured responses. I need that behviour in local dev mode.  Like for pnpm cli ui/settings and pnpm run dev we need to show this Dev mocked agent in settings and FULL feature new flow must work WELL with it, this dev mock must simulate real flow of some random feature, but all features - specs/etc
+
+summary: >
+  Introduce a first-class "Dev" mock agent executor type that is selectable in settings (CLI
+  wizard, web UI) without requiring any installed binary, and that fully simulates the complete
+  feature SDLC agent flow (analyze → requirements → research → plan → implement → merge) by
+  writing realistic fixture YAML artifacts for each node. This enables developers to test and
+  demo the full Shep UI/CLI workflow locally without a real AI agent installed.
+
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (tsp/ — AgentType enum extension)
+  - TypeScript (packages/core/src/)
+  - tsyringe (DI container)
+  - LangGraph (feature-agent graph nodes)
+  - Commander.js (CLI settings command)
+  - '@inquirer/prompts (TUI agent-select wizard)'
+  - React / Next.js (web UI agent icon + settings component)
+  - Storybook (stories for any new web UI components)
+  - better-sqlite3 (settings persistence)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the Dev executor be a new DevAgentExecutorService class or an evolution of the existing MockAgentExecutorService?'
+    resolved: true
+    options:
+      - option: 'New DevAgentExecutorService class'
+        description: >
+          Create a brand-new DevAgentExecutorService in a separate file alongside the existing
+          mock. The existing MockAgentExecutorService remains unchanged for test use via
+          SHEP_MOCK_EXECUTOR. This isolates concerns: test mock stays minimal/fast, dev mock
+          grows as rich fixture data is added. No risk of breaking existing unit/integration tests.
+        selected: true
+      - option: 'Evolve existing MockAgentExecutorService'
+        description: >
+          Enhance the current mock-executor.service.ts to handle all SDLC phases. Simpler file
+          count but risks inadvertently changing behavior that existing tests rely on. Requires
+          careful guard conditions to distinguish test vs. dev invocation context.
+        selected: false
+    selectionRationale: >
+      A separate DevAgentExecutorService keeps the test mock stable (avoiding test breakage)
+      and gives the dev executor room to grow with rich fixture data without coupling to test
+      infrastructure. This aligns with the Single Responsibility Principle and the project's
+      emphasis on small, focused files.
+    answer: 'New DevAgentExecutorService class'
+
+  - question: 'How should the Dev executor detect which SDLC phase is currently executing in order to return the correct fixture response?'
+    resolved: true
+    options:
+      - option: 'Keyword/pattern matching on prompt text'
+        description: >
+          Each feature-agent node injects phase-specific keywords into its prompt (e.g.,
+          "generate spec.yaml", "write research.yaml"). The dev executor matches against a
+          prioritized list of regex patterns to identify the phase. No interface changes needed;
+          works with the existing IAgentExecutor contract.
+        selected: true
+      - option: 'Structured phase context passed via options'
+        description: >
+          Extend IAgentExecutor.execute() options with an optional phase field set by each
+          node before calling the executor. Requires touching every node caller and the
+          interface definition—significant cross-cutting change for this feature.
+        selected: false
+      - option: 'Phase identifier injected as prompt prefix by nodes'
+        description: >
+          Each node prepends a machine-readable tag (e.g., [PHASE:analyze]) to the prompt.
+          Requires modifying all node prompt builders but produces an unambiguous signal.
+          Higher change surface than pattern matching.
+        selected: false
+    selectionRationale: >
+      Keyword/pattern matching on the prompt requires zero interface changes and zero node
+      modifications—the dev executor is entirely self-contained. Because each node's prompt
+      already contains highly distinctive content (YAML schema references, field names like
+      "slug", "researches", "actionItems"), regex matching is reliable and sufficient.
+    answer: 'Keyword/pattern matching on prompt text'
+
+  - question: 'What level of richness should the fixture YAML artifacts contain?'
+    resolved: true
+    options:
+      - option: 'Minimal valid fixtures (schema-compliant only)'
+        description: >
+          Write the smallest possible YAML that passes schema validators: required fields
+          populated with short placeholder strings ("Lorem ipsum", "task-1", etc.). Fast to
+          implement, but produces a sparse UI that looks obviously fake during demos.
+        selected: false
+      - option: 'Realistic fictional feature fixtures'
+        description: >
+          Write fully realistic fixture data for a plausible fictional feature (e.g., "Add
+          dark-mode toggle to settings"). Multiple tasks with action items, proper research
+          entries with summaries, implementation plan with TDD phases, realistic artifact
+          descriptions. Produces a polished, demo-ready UI experience.
+        selected: true
+    selectionRationale: >
+      The primary purpose of the Dev executor is to enable UI demos and local development
+      testing of the full Shep workflow. Sparse placeholder data defeats this goal. Rich,
+      realistic fixtures make the product look production-quality during demos and let
+      developers validate UI states (task lists, research panels, gantt view) with
+      representative data. The extra authoring cost is a one-time investment.
+    answer: 'Realistic fictional feature fixtures'
+
+  - question: 'How should the SHEP_MOCK_EXECUTOR environment variable be handled after this change?'
+    resolved: true
+    options:
+      - option: 'Preserve existing behavior unchanged'
+        description: >
+          Keep the SHEP_MOCK_EXECUTOR=1 branch in container.ts pointing to the existing
+          MockAgentExecutorFactory/MockAgentExecutorService. Existing test infrastructure
+          continues to work with zero changes. The new Dev executor is a separate code path
+          selected only via settings (AgentType.Dev).
+        selected: true
+      - option: 'Repurpose env-var to activate Dev agent type'
+        description: >
+          Change SHEP_MOCK_EXECUTOR=1 to set AgentType to "dev" in settings at runtime,
+          routing through the real factory. Cleaner long-term but silently breaks any CI
+          or test pipeline that relies on the current mock behavior.
+        selected: false
+      - option: 'Remove the env-var branch entirely'
+        description: >
+          Delete the SHEP_MOCK_EXECUTOR branch; existing tests that depend on it must be
+          migrated to use settings-based mock selection. Higher migration cost; risks
+          breaking CI until all callers are updated.
+        selected: false
+    selectionRationale: >
+      Preserving the env-var behavior eliminates breakage risk to existing CI/test pipelines.
+      The SHEP_MOCK_EXECUTOR path is a narrow test-infrastructure concern separate from the
+      user-facing Dev agent type. Keeping both paths clean and independent follows the
+      project's principle of not introducing backwards-compatibility hacks.
+    answer: 'Preserve existing behavior unchanged'
+
+  - question: 'Should the Dev executor introduce artificial delays between phase responses to simulate realistic agent execution time?'
+    resolved: true
+    options:
+      - option: 'No delays — respond instantly'
+        description: >
+          The dev executor returns fixture responses synchronously (or with negligible async
+          overhead). Fastest for repeated local testing cycles; however the UI transitions
+          between SDLC phases instantly, making it impossible to observe loading states,
+          progress indicators, or streaming UI.
+        selected: false
+      - option: 'Fixed short delay per phase (configurable)'
+        description: >
+          Each phase response is delayed by a configurable duration (default: 1–3 seconds).
+          The delay is controlled by a DEV_EXECUTOR_DELAY_MS environment variable (default
+          2000ms). This allows developers to observe loading/streaming UI states and makes
+          demos feel realistic without being slow.
+        selected: true
+    selectionRationale: >
+      A short, configurable delay is essential for validating loading states, SSE streaming
+      indicators, and progress UI that developers have built for real agent execution. Without
+      it, the UI flashes through phases too fast to observe. The env-var default makes it
+      easy to disable in fast iteration or CI contexts (DEV_EXECUTOR_DELAY_MS=0).
+    answer: 'Fixed short delay per phase (configurable)'
+
+  - question: 'Is building the web UI settings agent-selector page in scope for this feature?'
+    resolved: true
+    options:
+      - option: 'Icon addition only (settings page out of scope)'
+        description: >
+          This feature adds only the dev icon to agent-type-icons.tsx and wires the dev
+          type through CLI/TUI settings. The web settings agent-selector page (currently
+          an empty stub) is handled in a separate future feature. Keeps this feature
+          focused and shippable faster.
+        selected: true
+      - option: 'Full web settings agent-selector page in scope'
+        description: >
+          Build the complete agent configuration page in src/presentation/web/components/
+          features/settings/ with agent-type dropdown, dev option highlighted, and
+          Storybook stories. Larger scope; valuable but risks delaying the core dev executor
+          work that unblocks all local development.
+        selected: false
+    selectionRationale: >
+      The core blocker is the executor and settings persistence path, not the web UI page.
+      Keeping the web scope minimal (icon + existing TUI/CLI paths) ships the developer
+      unblocking value faster. The web settings page is a standalone UI work item that can
+      be done in a follow-on feature once the executor infrastructure is in place.
+    answer: 'Icon addition only (settings page out of scope)'
+
+content: |
+  ## Problem Statement
+
+  The existing `MockAgentExecutorService` is a test-only internal that is activated
+  exclusively via the `SHEP_MOCK_EXECUTOR=1` environment variable. It handles only a
+  single prompt pattern (metadata generation: slug/name/description) and cannot simulate
+  the full feature agent flow (analyze → requirements → research → plan → implement →
+  merge). Consequently:
+
+  - There is no way for a developer running `pnpm cli` or `pnpm run dev` to exercise the
+    complete Shep feature creation flow without a real AI agent binary (Claude Code, Cursor,
+    Gemini CLI) installed and configured.
+  - The mock is invisible to the settings system: no `AgentType` enum value, no TUI wizard
+    entry, no web UI option.
+  - The mock cannot write valid spec artifacts (spec.yaml, research.yaml, plan.yaml,
+    tasks.yaml) that satisfy the YAML schema validators embedded in the feature-agent graph.
+  - End-to-end local development and UI demoing is blocked by needing a real agent.
+
+  The fix is to promote the mock into a selectable, first-class agent type called "Dev"
+  (`dev`) that lives in settings and produces a complete, realistic fictional feature run
+  through all SDLC phases.
+
+  ## Success Criteria
+
+  - [ ] `AgentType.Dev` enum value exists in `tsp/common/enums/agent-config.tsp` and
+        `pnpm tsp:compile` completes without errors, regenerating `output.ts` with the new value.
+  - [ ] Running `pnpm cli settings agent` (interactive TUI) displays "Dev (Mock)" as a
+        selectable option that requires no binary validation and persists `agent.type = "dev"`
+        to the SQLite settings store.
+  - [ ] Running `pnpm cli settings agent --agent dev` (non-interactive CLI) succeeds without
+        binary-not-found errors and persists the setting.
+  - [ ] `AgentValidatorService` returns `{ available: true }` for `AgentType.Dev` without
+        attempting any binary check.
+  - [ ] Starting a new feature with `pnpm cli` (or web UI) when `agent.type = "dev"` runs
+        all feature-agent graph nodes to completion without errors or repair loops.
+  - [ ] After a complete Dev executor feature run, the spec directory contains valid YAML
+        files (spec.yaml, research.yaml, plan.yaml, tasks.yaml) that pass existing schema
+        validators without triggering a repair cycle.
+  - [ ] The fixture YAML files contain realistic fictional data (multiple tasks, action items,
+        research entries) — not empty or placeholder-only content.
+  - [ ] The Dev executor introduces a per-phase delay (default 2000ms, overridable via
+        `DEV_EXECUTOR_DELAY_MS`) observable in the CLI/web UI as loading/progress states.
+  - [ ] `agent-type-icons.tsx` contains a `'dev'` entry; the web UI does not render an
+        unknown-icon fallback when displaying dev-agent features.
+  - [ ] Unit tests cover `DevAgentExecutorService` for every SDLC phase prompt pattern,
+        asserting correct YAML file output and schema validity.
+  - [ ] Unit tests cover `AgentValidatorService` asserting dev type always returns available.
+  - [ ] Existing `MockAgentExecutorService` tests remain green; `SHEP_MOCK_EXECUTOR=1`
+        behavior is unchanged.
+  - [ ] `pnpm validate` (lint + format + typecheck + tsp) passes with no new errors.
+
+  ## Functional Requirements
+
+  - **FR-1**: The system MUST expose `AgentType.Dev` (value `"dev"`) as a first-class enum
+    value in the TypeSpec domain model (`tsp/common/enums/agent-config.tsp`), regenerating
+    all downstream TypeScript types via `pnpm tsp:compile`.
+
+  - **FR-2**: The system MUST provide a `DevAgentExecutorService` (new file, separate from
+    `MockAgentExecutorService`) that implements `IAgentExecutor` and handles all feature-agent
+    graph node prompt patterns through keyword/regex detection on prompt text.
+
+  - **FR-3**: `DevAgentExecutorService` MUST cover all feature-agent SDLC phases:
+    metadata generation (slug/name/description), analyze-repo, requirements gathering,
+    research, plan generation, implementation, and merge/PR — writing fixture YAML files
+    to `options.cwd` / `specDir` for file-based nodes and returning structured JSON/text
+    for response-based nodes, as each node expects.
+
+  - **FR-4**: All fixture YAML files written by `DevAgentExecutorService` MUST pass the
+    existing schema validators in `feature-agent/nodes/schemas/` without triggering any
+    repair cycles in the feature-agent graph's validate/repair loop.
+
+  - **FR-5**: The fixture data MUST be a realistic, internally consistent fictional feature
+    (e.g., "Add dark-mode toggle to settings") with ≥ 3 tasks, ≥ 2 action items per task,
+    ≥ 2 research entries, and a complete plan with TDD RED-GREEN-REFACTOR phases.
+
+  - **FR-6**: `DevAgentExecutorService.execute()` MUST introduce an async delay (default
+    2000ms per phase call) controlled by the `DEV_EXECUTOR_DELAY_MS` environment variable,
+    allowing the delay to be set to 0 for fast test execution.
+
+  - **FR-7**: `AgentValidatorService` MUST return `{ available: true, version: 'dev' }` for
+    `AgentType.Dev` without executing any binary lookup or `execFile` call.
+
+  - **FR-8**: `AgentExecutorFactory` MUST include a `case 'dev':` branch that instantiates
+    and returns `DevAgentExecutorService`, and `getSupportedAgents()` MUST include `'dev'`.
+
+  - **FR-9**: The `configure-agent.use-case.ts` MUST NOT perform binary validation when
+    `agentType` is `'dev'`, allowing settings to be persisted without an installed binary.
+
+  - **FR-10**: The TUI agent-select prompt (`agent-select.prompt.ts`) MUST include a
+    "Dev (Mock)" choice that is always enabled (not disabled) with description
+    "Local development mock — no agent binary required".
+
+  - **FR-11**: The CLI `shep settings agent --agent dev` command MUST accept `dev` as a
+    valid `--agent` flag value and succeed end-to-end without binary validation errors.
+
+  - **FR-12**: `agent-type-icons.tsx` MUST include a `'dev'` key in `agentTypeIconMap`
+    with a suitable icon (e.g., Beaker or Code2 from lucide-react) and a corresponding
+    Storybook story update or creation.
+
+  - **FR-13**: The `SHEP_MOCK_EXECUTOR=1` environment variable branch in `container.ts`
+    MUST remain functionally unchanged — it continues to activate `MockAgentExecutorFactory`
+    with the existing `MockAgentExecutorService` for test infrastructure compatibility.
+
+  - **FR-14**: The DI container MUST register `DevAgentExecutorService` through the real
+    `AgentExecutorFactory` code path (not via env-var branch), so `AgentType.Dev` is
+    selectable and persistable through the standard settings-driven resolution chain.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 (Correctness)**: Fixture YAML artifacts must be schema-valid on first write —
+    the validate/repair loop in the feature-agent graph must complete in exactly 0 repair
+    iterations when using the Dev executor.
+
+  - **NFR-2 (Isolation)**: `DevAgentExecutorService` must have zero production dependencies
+    on `MockAgentExecutorService`; the two classes must not share state or inherit from each
+    other.
+
+  - **NFR-3 (Configurability)**: The per-phase delay must be configurable via
+    `DEV_EXECUTOR_DELAY_MS` with a default of 2000ms. Setting `DEV_EXECUTOR_DELAY_MS=0`
+    must make the executor respond without observable delay (suitable for CI/test use).
+
+  - **NFR-4 (Maintainability)**: `DevAgentExecutorService` must follow the project's file
+    size guideline (≤ 150 lines per file). Fixture data for each SDLC phase must be in
+    separate constants or fixture files to keep the executor class readable.
+
+  - **NFR-5 (Test Coverage)**: Unit tests must achieve ≥ 90% branch coverage on
+    `DevAgentExecutorService` phase detection logic. Each phase pattern must have at least
+    one positive test (correct fixture returned) and one negative test (non-matching prompt
+    falls through to default/error).
+
+  - **NFR-6 (DX — Developer Experience)**: Running `pnpm cli` with the Dev agent type must
+    produce a visually observable end-to-end feature creation flow (progress output, realistic
+    artifacts on disk) within 30 seconds from feature name input to completion.
+
+  - **NFR-7 (Backward Compatibility)**: All existing unit and integration tests must pass
+    without modification after this change. The `SHEP_MOCK_EXECUTOR=1` path must behave
+    identically to its pre-change behavior.
+
+  - **NFR-8 (Architecture Compliance)**: `DevAgentExecutorService` must reside in
+    `packages/core/src/infrastructure/services/agents/common/executors/` and must implement
+    only `IAgentExecutor` (no direct imports of node or graph internals).
+
+  - **NFR-9 (TypeSpec-First)**: The `AgentType.Dev` addition must originate in the `.tsp`
+    source file; no hand-editing of `output.ts` or OpenAPI files is permitted.
+
+  - **NFR-10 (Storybook)**: Any web component touched (agent-type-icons.tsx) must have an
+    updated or new `.stories.tsx` file as mandated by the project's Storybook requirement.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | New class vs. evolve existing mock? | New `DevAgentExecutorService` | Keeps test mock stable; isolates dev fixture growth |
+  | 2 | Phase detection strategy? | Keyword/regex on prompt text | Zero interface changes; prompts have distinctive content |
+  | 3 | Fixture realism level? | Realistic fictional feature data | Demo-ready UI requires production-looking data |
+  | 4 | SHEP_MOCK_EXECUTOR env-var? | Preserve existing behavior | Avoids breaking CI/test pipelines |
+  | 5 | Artificial execution delays? | Configurable delay (default 2s) | Required to observe loading/streaming UI states |
+  | 6 | Web settings page scope? | Icon addition only | Ships core value faster; page is a separate work item |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  ```
+  tsp/
+  └── common/enums/agent-config.tsp          ← AgentType enum (source of truth)
+
+  packages/core/src/
+  ├── domain/generated/output.ts             ← Auto-generated TS types (DO NOT EDIT)
+  ├── application/
+  │   ├── ports/output/agents/
+  │   │   ├── agent-executor.interface.ts    ← IAgentExecutor contract
+  │   │   ├── agent-executor-factory.interface.ts
+  │   │   ├── agent-executor-provider.interface.ts
+  │   │   └── agent-validator.interface.ts
+  │   └── use-cases/agents/
+  │       └── configure-agent.use-case.ts    ← Validates binary + persists settings
+  └── infrastructure/
+      ├── di/container.ts                    ← Factory registration (env-var branch)
+      └── services/agents/common/
+          ├── agent-executor-factory.service.ts   ← Creates executors by AgentType
+          ├── agent-executor-provider.service.ts  ← Reads settings, delegates to factory
+          ├── agent-validator.service.ts           ← Binary map + execFile check
+          └── executors/
+              ├── claude-code-executor.service.ts
+              ├── cursor-executor.service.ts
+              ├── gemini-cli-executor.service.ts
+              ├── mock-executor.service.ts          ← Current limited test mock (unchanged)
+              ├── mock-executor-factory.service.ts  ← Returns mock regardless of type
+              └── dev-executor.service.ts           ← NEW: Full SDLC fixture executor
+
+  src/presentation/
+  ├── cli/commands/settings/agent.command.ts       ← CLI agent config command
+  ├── tui/prompts/agent-select.prompt.ts           ← Inquirer choices list
+  └── web/components/
+      ├── common/feature-node/agent-type-icons.tsx ← Agent icon map (add 'dev')
+      └── features/settings/                        ← Empty stub (out of scope)
+  ```
+
+  ### Architecture Patterns
+
+  The project uses **Clean Architecture** with strict dependency inversion:
+
+  - **Domain layer**: `IAgentExecutor`, `IAgentExecutorFactory`, `IAgentExecutorProvider` interfaces
+    in `application/ports/output/agents/`. No implementation details here.
+  - **Infrastructure layer**: Concrete executor implementations, factory, provider, validator.
+    These depend inward on port interfaces only.
+  - **Settings-driven resolution (MANDATORY)**: All executor resolution flows through
+    `IAgentExecutorProvider.getExecutor()` → reads `getSettings().agent.type` → delegates to
+    `AgentExecutorFactory.createExecutor()`. No component may hardcode or default agent type.
+  - **TypeSpec-first**: `AgentType` enum lives in `tsp/common/enums/agent-config.tsp`.
+    Adding a new enum value requires `pnpm tsp:compile` to regenerate
+    `packages/core/src/domain/generated/output.ts`.
+  - **DI container**: `container.ts` has a branch on `SHEP_MOCK_EXECUTOR=1` that swaps in
+    `MockAgentExecutorFactory` wholesale. The new "Dev" executor must instead be a proper
+    agent type flowing through the real factory, so it is persistable in settings and
+    selectable at runtime—not hardwired by env var.
+
+  ### Relevant Technologies
+
+  | Technology | Role |
+  | ---------- | ---- |
+  | TypeSpec | Single source of truth for `AgentType` enum and `AgentConfig` model |
+  | tsyringe | DI container wiring; `IAgentExecutorFactory` token resolves executor |
+  | LangGraph | Feature-agent graph drives node execution; each node calls `executor.execute()` |
+  | Node.js `fs` | Feature-agent nodes write YAML files to `specDir` on disk |
+  | `@inquirer/prompts` | TUI wizard renders selectable agent choices |
+  | Commander.js | CLI `shep settings agent --agent dev` non-interactive path |
+  | React / Next.js | Web settings UI (currently stub); agent-type-icons component |
+  | Storybook | Mandatory stories for any modified/added web components |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/common/enums/agent-config.tsp` | High | Must add `Dev: "dev"` enum value; triggers full type regen |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-regenerated via `pnpm tsp:compile`; consumers get new `AgentType.Dev` |
+  | `packages/core/src/infrastructure/services/agents/common/executors/dev-executor.service.ts` | High | NEW file: full SDLC phase detection + realistic fixture YAML generation for all nodes |
+  | `packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts` | Medium | Add `case 'dev':` branch returning `DevAgentExecutorService`; include in `getSupportedAgents()` |
+  | `packages/core/src/infrastructure/services/agents/common/agent-validator.service.ts` | Medium | Short-circuit to `{ available: true, version: 'dev' }` for `AgentType.Dev`; no binary check |
+  | `packages/core/src/application/use-cases/agents/configure-agent.use-case.ts` | Low | Skip binary validation step when `agentType === 'dev'` |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | No changes to env-var branch; `DevAgentExecutorService` registered through real factory |
+  | `src/presentation/tui/prompts/agent-select.prompt.ts` | Medium | Add "Dev (Mock)" choice — always enabled, no binary required |
+  | `src/presentation/cli/commands/settings/agent.command.ts` | Low | Accept `--agent dev`; no binary validation error for dev type |
+  | `src/presentation/web/components/common/feature-node/agent-type-icons.tsx` | Low | Add `'dev'` entry with Beaker/Code2 icon; update Storybook stories |
+  | Unit tests (`tests/unit/`) | Medium | New tests for `DevAgentExecutorService` (all phases), validator dev bypass |
+  | Integration tests (`tests/integration/`) | Low | Settings persistence test for `agent.type = "dev"` round-trip |
+
+  ## Dependencies
+
+  - **Existing `MockAgentExecutorService`**: Remains unchanged. `DevAgentExecutorService` is a
+    new parallel class; no inheritance or shared state between them.
+  - **Feature-agent node prompts**: Each node (analyze, requirements, research, plan,
+    implement, merge) calls `executor.execute(prompt)` with a long system prompt. The dev
+    executor detects the SDLC phase by matching regex patterns against distinctive prompt
+    keywords (e.g., "spec.yaml", "research.yaml", "actionItems", "slug"), then either writes
+    fixture YAML files to `options.cwd` / `specDir`, or returns the structured JSON/text the
+    node expects.
+  - **YAML schema validators** (`feature-agent/nodes/schemas/`): The fixture artifacts
+    written by the dev executor must pass the existing schema validation so the
+    validate/repair loop succeeds without needing repair cycles (NFR-1).
+  - **TypeSpec compile toolchain**: `pnpm tsp:compile` must run cleanly after adding the
+    new enum value.
+  - **`IAgentExecutorFactory` interface**: Adding support for `AgentType.Dev` must not
+    break the factory's `getSupportedAgents()` list or existing executor caching.
+  - **`DEV_EXECUTOR_DELAY_MS` env var**: New env var consumed only by `DevAgentExecutorService`;
+    defaults to 2000ms; must be documented alongside `SHEP_MOCK_EXECUTOR`.
+
+  ## Size Estimate
+
+  **M (days)** — Requirements-informed breakdown:
+
+  1. **TypeSpec + type regen** (small): One new enum value + `pnpm tsp:compile` = ~30 min.
+  2. **DevAgentExecutorService** (largest): Read all node prompt builders and schema files;
+     author realistic fixture data for 6+ SDLC phases; implement regex phase detection;
+     add configurable delay. Fixture data authoring is the dominant cost. ~1.5–2 days.
+  3. **Validator bypass** (small): Guard condition in `AGENT_BINARY_MAP` or explicit check.
+     ~15 min.
+  4. **Factory + DI registration** (small): One new `case` in factory; no container.ts
+     changes required. ~30 min.
+  5. **Configure-agent use-case guard** (small): Skip binary check for dev type. ~15 min.
+  6. **TUI/CLI settings surface** (small): One new Inquirer choice; CLI flag acceptance.
+     ~1 hour.
+  7. **Web UI icon + Storybook** (small): Add icon entry; update stories. ~30 min.
+  8. **Tests** (medium): Unit tests for all phase patterns + validator bypass + settings
+     integration test. ~half day.
+
+  Total: **2–3 developer-days** with TDD. Scope unchanged from Analysis phase.

@@ -226,6 +226,16 @@ describe('DevAgentExecutorService', () => {
     });
   });
 
+  describe('execute — CI fix phase', () => {
+    it('should return a CI fix string when prompt contains "fixing a CI failure"', async () => {
+      const prompt =
+        'You are fixing a CI failure in the feature worktree.\n\nFix the failing test.';
+      const result = await executor.execute(prompt);
+      expect(result.result.length).toBeGreaterThan(0);
+      expect(typeof result.result).toBe('string');
+    });
+  });
+
   describe('execute — unrecognized prompt', () => {
     it('should return a defined fallback string, not throw', async () => {
       const prompt = 'This is an unrecognized prompt with no matching patterns.';

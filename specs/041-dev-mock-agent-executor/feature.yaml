@@ -1,0 +1,41 @@
+feature:
+  id: 041-dev-mock-agent-executor
+  name: dev-mock-agent-executor
+  number: 41
+  branch: feat/041-dev-mock-agent-executor
+  lifecycle: research
+  createdAt: '2026-02-24T15:20:03Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 11
+    total: 11
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T16:16:43.740Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-24T15:20:03Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

@@ -1,0 +1,503 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: dev-mock-agent-executor
+summary: >
+  The Dev executor is a new DevAgentExecutorService class in the existing executors/
+  directory that implements IAgentExecutor by detecting SDLC phases from prompt text
+  via regex, extracting the specDir path from the prompt, writing realistic fixture
+  YAML files to disk, and returning mock results. All phase prompts (metadata, analyze,
+  requirements, research, plan, implement, merge) are covered, with fixture content
+  organized in separate constant files to stay within the 150-line file guideline.
+  No interface changes are required; the executor plugs into the existing factory,
+  validator bypass, and TUI/CLI settings surfaces with minimal touchpoints.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (tsp/common/enums/agent-config.tsp)
+  - TypeScript / Node.js fs module
+  - js-yaml (existing project dependency — used to confirm fixture format)
+  - tsyringe (DI container — no change to injection, only factory switch statement)
+  - IAgentExecutor interface (application/ports/output/agents/agent-executor.interface.ts)
+  - AgentExecutorFactory (infrastructure/services/agents/common/agent-executor-factory.service.ts)
+  - AgentValidatorService (infrastructure/services/agents/common/agent-validator.service.ts)
+  - ConfigureAgentUseCase (application/use-cases/agents/configure-agent.use-case.ts)
+  - agent-select.prompt.ts (src/presentation/tui/prompts/)
+  - agent-type-icons.tsx (src/presentation/web/components/common/feature-node/)
+  - lucide-react (for dev agent icon — already a project dependency)
+  - Storybook (stories update for agent-type-icons)
+  - Vitest (unit tests for DevAgentExecutorService)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Phase Detection: Prompt Regex vs. Options Extension vs. Node Prefix Tags'
+    chosen: >
+      Regex/keyword matching against distinctive strings already present in prompt text.
+      Each phase prompt contains a unique, non-overlapping marker: analyze embeds
+      "Write your analysis to:" + "spec.yaml"; requirements embeds "Update the file at:"
+      + "spec.yaml"; research embeds "Write your research to:" + "research.yaml"; plan
+      embeds "Write to BOTH" + "plan.yaml"; implement embeds "You are a senior software
+      engineer performing autonomous implementation"; merge-commit embeds "You are
+      performing git operations in a feature worktree"; merge-squash embeds "You are
+      merging a pull request" or "You are performing a local merge"; metadata embeds the
+      existing 'User request:\n"' extraction pattern from MockAgentExecutorService.
+    rejected:
+      - >
+        Extend AgentExecutionOptions with an optional phase field set by every node:
+        requires modifying IAgentExecutor interface, every node caller, every existing
+        executor type signature, and every existing test that constructs executor options.
+        High cross-cutting change surface for zero runtime benefit in the dev-only path.
+      - >
+        Prepend a machine-readable tag (e.g., "[PHASE:research]") to every node prompt
+        via the prompt builders: requires touching six production prompt builder files plus
+        the interface; produces a cleaner signal but adds unnecessary complexity to
+        production code paths that never use the dev executor.
+    rationale: >
+      Each feature-agent node prompt already contains highly distinctive, non-overlapping
+      content derived from the file paths embedded in the prompts (state.specDir is
+      injected at prompt-build time). With a prioritized list of ~8 regex patterns
+      checked in order (most specific first), all phases are unambiguously identified.
+      Zero interface changes, zero node modifications, fully self-contained executor.
+      This is consistent with the spec's selected answer for this open question.
+
+  - title: 'specDir Extraction: From Prompt Text vs. Extra Options Field vs. State Access'
+    chosen: >
+      Extract specDir by applying a regex to the prompt text that matches the absolute
+      path written into each YAML-producing prompt. Each prompt embeds a line like
+      "Write your analysis to: /abs/path/spec.yaml" or "Update the file at: /abs/path/spec.yaml"
+      or "Write to BOTH /abs/path/plan.yaml AND /abs/path/tasks.yaml". The regex
+      /(?:Write your \w+ to|Update the file at|Write to BOTH):\s+(.+?)\/[^/\s]+\.yaml/
+      captures the directory component as group 1.
+    rejected:
+      - >
+        Add a specDir field to AgentExecutionOptions: requires interface change and
+        propagation through every caller and test — same objection as phase option above.
+        Breaking the IAgentExecutor contract for a dev-only concern is disproportionate.
+      - >
+        Let the dev executor access FeatureAgentState directly via a side channel:
+        requires breaking the IAgentExecutor contract (execute signature) or using a
+        thread-local/global context; couples the dev executor to graph internals it
+        should never know about, violating the Clean Architecture dependency rule.
+    rationale: >
+      Every YAML-producing prompt already embeds the absolute specDir path as part of
+      the executor's instructions (analyze.prompt.ts line 39, requirements.prompt.ts
+      line 92, research.prompt.ts line 45, plan.prompt.ts lines 90 and 140). Extracting
+      the directory component via regex is reliable, zero-interface-change, and entirely
+      self-contained within DevAgentExecutorService. The extracted path is validated
+      (must be absolute, no ".." segments) before use.
+
+  - title: 'Fixture Data Organization: Separate Files vs. Inline Constants vs. Runtime YAML Files'
+    chosen: >
+      Separate TypeScript constant files per SDLC phase in a fixtures/ subdirectory
+      alongside dev-executor.service.ts. Each file exports a single pre-serialized YAML
+      string constant (e.g. SPEC_ANALYZE_FIXTURE, RESEARCH_FIXTURE). The executor imports
+      them and writes them to disk verbatim — no YAML serialization at runtime.
+      Structure: executors/fixtures/spec-analyze.fixture.ts,
+      spec-requirements.fixture.ts, research.fixture.ts, plan.fixture.ts, tasks.fixture.ts.
+    rejected:
+      - >
+        Inline all fixture YAML as template literals inside dev-executor.service.ts:
+        would make the file 400-600 lines, violating the project's ≤150 line per file
+        guideline and making phase-detection logic unreadable alongside fixture data.
+      - >
+        Load fixtures from .yaml files at runtime using fs.readFileSync relative to
+        __dirname or import.meta.url: runtime path resolution differs between ts-node,
+        jest/vitest transforms, and dist/ builds; requires bundler configuration for YAML
+        assets; TypeScript constant files are simpler and statically verifiable.
+    rationale: >
+      The project mandates ≤150 lines per file and groups related files into subdirectories
+      (e.g. nodes/schemas/, nodes/prompts/). A fixtures/ subdirectory mirrors this pattern.
+      Each fixture file is a simple exported const string — no logic, no imports — roughly
+      60-120 lines of YAML content. Pre-serialized strings avoid runtime yaml.dump overhead
+      and make fixture content trivially auditable.
+
+  - title: 'Fictional Feature Subject for Fixture Data'
+    chosen: >
+      "Add dark-mode toggle to the Shep web UI settings" — a realistic, internally
+      consistent fictional feature for the Shep platform itself. Fixtures include: spec
+      with phase=Requirements, sizeEstimate=M, 2 resolved openQuestions; research with 3
+      decisions each having chosen/rejected[]/rationale; plan with 3 phases (parallel:false)
+      and filesToCreate/filesToModify; tasks with 8 tasks across 3 phases, each with
+      id/title/phaseId/state/acceptanceCriteria[]/tdd or null/estimatedEffort.
+    rejected:
+      - >
+        Placeholder strings ("Lorem ipsum feature", "task-1", "criterion-a"): produces
+        sparse UI that looks obviously fake during demos and fails the richness requirement
+        (FR-5) for realistic fixture data that makes the product look production-quality.
+      - >
+        An unrelated domain (e.g. "e-commerce checkout"): harder to review for correctness
+        in context of the Shep platform; does not exercise Shep-specific UI panels with
+        recognizable domain data; harder for developers to judge if the demo looks realistic.
+    rationale: >
+      A self-referential fictional feature (dark mode for Shep UI) is immediately
+      recognizable to developers as a plausible real feature. It exercises all UI panels
+      with representative data and satisfies FR-5 (≥3 tasks, ≥2 action items, ≥2 research
+      entries, complete TDD plan). The fixture content references technologies already
+      present in the codebase (React, Tailwind CSS v4, shadcn/ui, Storybook), making it
+      look authentic rather than contrived.
+
+  - title: 'AgentValidatorService Bypass: Location of Guard Condition'
+    chosen: >
+      Add an early-return guard at the top of AgentValidatorService.isAvailable() before
+      the AGENT_BINARY_MAP lookup: if (agentType === 'dev') return { available: true,
+      version: 'dev' }. The AGENT_BINARY_MAP remains unchanged — no 'dev' entry is added.
+    rejected:
+      - >
+        Add 'dev' with a dummy binary name to AGENT_BINARY_MAP and catch the execFile
+        error: relies on error-path behavior, logs a misleading "binary not found" error,
+        and adds a dummy entry to a map that documents supported real agents.
+      - >
+        Move bypass logic into ConfigureAgentUseCase only and skip calling the validator:
+        the validator would still return an error for 'dev' if called from any other
+        context; incomplete fix; other code paths calling isAvailable() directly for 'dev'
+        would still fail.
+    rationale: >
+      The validator is the canonical authority for binary availability. Placing the bypass
+      directly in the validator ensures any caller — use case, CLI, future code — gets
+      the correct result. The guard is 2 lines, self-documenting, and trivially testable.
+      It follows the same pattern as NFR-2 (isolation): the dev executor has no side
+      effects on production paths, including the validator logic for real agent types.
+
+  - title: 'ConfigureAgentUseCase: Validation Skip for Dev Type'
+    chosen: >
+      Add a conditional guard before the agentValidator.isAvailable() call:
+      skip the call when input.type === 'dev' (belt-and-suspenders complementing the
+      validator bypass). The existing validation error-throw path remains unchanged for
+      all other agent types. No new use case class needed.
+    rejected:
+      - >
+        Remove the validation call from the use case entirely and rely solely on the
+        validator bypass: reduces code but removes the use case's explicit intent to skip
+        validation for dev; a future reader might add the call back, breaking the dev path.
+      - >
+        Create a separate ConfigureDevAgentUseCase class: class proliferation for a
+        2-line conditional; violates the project's guideline against over-engineering and
+        creating helpers for one-time operations.
+    rationale: >
+      The use case guard makes the "no binary validation for dev type" intent explicit
+      and readable at the business-logic layer. It is belt-and-suspenders vs. the validator
+      bypass. Two lines of conditional is the minimum change satisfying FR-9.
+
+  - title: 'Configurable Delay Implementation'
+    chosen: >
+      Read `parseInt(process.env.DEV_EXECUTOR_DELAY_MS ?? '2000', 10)` once in the
+      class constructor and cache as a readonly field. In execute(), add a single
+      `await new Promise(resolve => setTimeout(resolve, this.delayMs))` at the start
+      before phase detection. executeStream() delegates to execute() — no separate delay.
+    rejected:
+      - >
+        Per-phase configurable delays via separate env vars (DEV_EXECUTOR_DELAY_ANALYZE_MS
+        etc.): excessive configuration complexity with no practical benefit; a single
+        global delay sufficient to observe all loading/streaming UI states.
+      - >
+        Implement delay via a third-party sleep utility or test helper library:
+        unnecessary dependency for a one-liner; Node.js setTimeout wrapped in Promise
+        is idiomatic, needs no import, and is universally understood.
+    rationale: >
+      Caching the parsed env-var value in the constructor avoids re-parsing on every
+      execute() call (minor but clean). A single delay point satisfies NFR-3
+      (DEV_EXECUTOR_DELAY_MS=0 disables it) and NFR-6 (developers observe loading states
+      during demos). The 2000ms default means a 6-phase run takes ~12 seconds — within
+      the 30-second NFR-6 budget.
+
+  - title: 'Web UI Dev Icon: Beaker vs. Code2 vs. FlaskConical from lucide-react'
+    chosen: >
+      Beaker icon from lucide-react, rendered as an inline SVG React component (not a
+      brand image file) consistent with the DefaultAgentIcon function pattern already
+      used in agent-type-icons.tsx for the fallback case.
+    rejected:
+      - >
+        Code2 from lucide-react: semantically less distinctive for "mock/dev/experimental"
+        than Beaker; Code2 connotes "source code" rather than "laboratory/experimental".
+      - >
+        FlaskConical from lucide-react: synonym for Beaker and equally valid, but Beaker
+        is more widely recognized in developer tooling contexts (VS Code uses beaker for
+        experimental features). Beaker was chosen by convention for consistency.
+    rationale: >
+      Beaker is semantically appropriate (experimental / dev-mode), already available via
+      lucide-react (no new dependency), and renderable as a React component — avoiding the
+      need for a static brand image asset file that has no official "dev mock" brand.
+      The inline component approach matches DefaultAgentIcon in the existing file.
+
+  - title: 'DI Container Registration: Real Factory vs. Mock Branch vs. Direct Registration'
+    chosen: >
+      Add `case 'dev':` to AgentExecutorFactory.createExecutor() switch statement and
+      add 'dev' to getSupportedAgents() return array. No changes to container.ts.
+      The SHEP_MOCK_EXECUTOR=1 branch remains completely untouched.
+    rejected:
+      - >
+        Add DevAgentExecutorService to MockAgentExecutorFactory: the dev executor would
+        only be reachable when SHEP_MOCK_EXECUTOR=1, defeating its purpose as a
+        settings-selectable persistent type.
+      - >
+        Register DevAgentExecutorService directly in container.ts outside the factory
+        pattern: breaks the settings-driven resolution mandate from CLAUDE.md; bypasses
+        the factory cache; creates a parallel executor-resolution code path inconsistent
+        with the IAgentExecutorProvider → IAgentExecutorFactory → IAgentExecutor chain.
+    rationale: >
+      CLAUDE.md mandates: "ALL agent executor resolution MUST flow through settings via
+      IAgentExecutorProvider.getExecutor() → AgentExecutorFactory.createExecutor()."
+      Adding a case in the factory is the minimal, correct change that makes AgentType.Dev
+      a first-class, settings-persistable executor type with zero architectural deviation.
+
+openQuestions:
+  - question: >
+      Should DevAgentExecutorService write fixture files inline in execute() using imported
+      fixture constants, or should it extract a private writeFixtureFile helper method?
+    resolved: true
+    options:
+      - option: Inline writeFileSync in execute() per phase case
+        description: >
+          Each phase case in execute() directly calls mkdirSync + writeFileSync with the
+          imported fixture constant. No helper method. The dispatcher function stays ~90
+          lines with all phase logic visible. Fixture constants are imported from fixtures/
+          so the file stays under the 150-line limit.
+        selected: true
+      - option: Private writeFixtureFile(specDir, filename, content) helper
+        description: >
+          Extract a private helper that wraps mkdirSync + writeFileSync. Reduces repetition
+          slightly across phases but adds an abstraction for 2 lines of code — an example
+          of the over-engineering the project guidelines warn against.
+        selected: false
+      - option: Abstract file writing behind IFileSystem port injected via DI
+        description: >
+          Add an IFileSystem interface to application/ports/output/; inject into
+          DevAgentExecutorService for testability. Architecturally pure but introduces
+          a new port, DI binding, and mock for a single executor — disproportionate for
+          this use case when a real-fs temp-dir test approach is simpler.
+        selected: false
+    selectionRationale: >
+      With fixture content in separate files, execute() is a thin dispatcher: detect phase,
+      extract path, call mkdirSync + writeFileSync, return result. The two filesystem calls
+      per file-writing case are clear and explicit — no helper abstraction adds value here.
+      The project guideline states "three similar lines of code is better than a premature
+      abstraction." The inline approach satisfies ≤150 lines comfortably.
+
+  - question: >
+      For implement and merge phases, should the dev executor write any files to disk
+      or return only a success string?
+    resolved: true
+    options:
+      - option: Return a success string only (no disk writes for implement/merge)
+        description: >
+          The dev executor returns a realistic-looking string for implement
+          ("Implementation complete. All tests pass.") and merge phases ("Committed as
+          feat(ui): add dark-mode-toggle\nhttps://github.com/shep-ai/shep/commit/abc123").
+          No actual file operations or git commands. The node log records "Complete (N chars)"
+          without error. The merge output parser's regex matches the mock commit/PR URL strings.
+        selected: true
+      - option: Write placeholder source files to simulate implementation
+        description: >
+          Create a trivial placeholder file in the repository to simulate that something
+          was implemented, then simulate a commit. Adds real git history but creates
+          confusing artifacts in developer repos and coupling to git operations.
+        selected: false
+      - option: Execute real git add + commit of the fixture spec files
+        description: >
+          After writing fixture YAML files, perform a real git commit using child_process.
+          Couples the executor to git operations; risks polluting the developer's working
+          tree with unintended commits; merge conflicts possible.
+        selected: false
+    selectionRationale: >
+      The feature-agent graph does not validate the implement result content — it only
+      checks that execute() resolves without throwing and logs the result length. The merge
+      output parser (merge-output-parser.ts) extracts commit SHA and PR URL via regex from
+      the result string; the dev executor can return strings matching those patterns
+      (e.g., "abc1234" as commit SHA and a fake GitHub URL as PR URL) without performing
+      real git operations. This keeps the dev executor self-contained and safe.
+
+  - question: >
+      Should unit tests for DevAgentExecutorService use real filesystem writes to a temp
+      directory, or mock the fs module?
+    resolved: true
+    options:
+      - option: Real filesystem writes to a temp directory (fs.mkdtempSync)
+        description: >
+          Tests create a real temporary directory, run the executor with DEV_EXECUTOR_DELAY_MS=0,
+          and assert that the expected YAML files exist on disk with valid content (parseable
+          YAML, correct top-level fields). Cleanup with fs.rmSync after each test.
+          No mocking required; tests are fast (<1ms disk writes) and high-confidence.
+        selected: true
+      - option: Mock fs module with vi.mock('node:fs')
+        description: >
+          Replace writeFileSync/mkdirSync with spies; assert calls with correct path/content.
+          No actual disk I/O but requires careful mock setup and does not verify that
+          mkdirSync is called correctly before writeFileSync.
+        selected: false
+      - option: Abstract file writing behind IFileSystem port and inject mock in tests
+        description: >
+          Add an IFileSystem interface to application ports, inject it into
+          DevAgentExecutorService, test with in-memory mock. Architecturally correct but
+          introduces a new port interface and DI binding for one executor — over-engineering
+          for this use case.
+        selected: false
+    selectionRationale: >
+      Real filesystem writes in a temp directory provide the highest confidence that fixtures
+      are written correctly at the right paths. Setting DEV_EXECUTOR_DELAY_MS=0 makes tests
+      instantaneous. The project's existing integration tests already use real SQLite files
+      in temp directories — this pattern is established and consistent. The temp directory
+      is isolated per test via mkdtempSync to prevent cross-test pollution.
+
+content: |
+  ## Architecture Overview
+
+  ### How the Dev Executor Fits the Existing Architecture
+
+  The feature-agent graph calls `executor.execute(prompt, options)` on the injected
+  `IAgentExecutor` for every node. The graph receives the executor from
+  `AgentExecutorProvider.getExecutor()`, which reads `getSettings().agent.type` and
+  delegates to `AgentExecutorFactory.createExecutor()`.
+
+  Adding `AgentType.Dev` and `DevAgentExecutorService` follows the exact same path as
+  `claude-code`, `cursor`, and `gemini-cli` — no architectural changes:
+
+  ```
+  settings.agent.type = "dev"
+      ↓
+  AgentExecutorProvider.getExecutor()
+      ↓
+  AgentExecutorFactory.createExecutor("dev", authConfig)
+      ↓  (new case 'dev' in switch)
+  DevAgentExecutorService.execute(prompt, options)
+      ↓
+  Phase detection by regex on prompt text
+      ↓
+  Extract specDir from prompt path | Write fixture YAML to disk | Return mock string
+  ```
+
+  ### Phase-to-Prompt Mapping
+
+  Each of the 8 distinct call patterns is detectable by unique substrings:
+
+  | Phase | Distinctive Prompt Substring | Response Type |
+  | ----- | ---------------------------- | ------------- |
+  | Metadata (slug/name) | `User request:\n"` | JSON `{slug, name, description}` |
+  | Analyze | `Write your analysis to:` | Write spec.yaml analyze fixture |
+  | Requirements | `Update the file at:` | Write spec.yaml requirements fixture |
+  | Research | `Write your research to:` | Write research.yaml fixture |
+  | Plan | `Write to BOTH` | Write plan.yaml + tasks.yaml fixtures |
+  | Implement | `performing autonomous implementation` | Return success string |
+  | Merge (commit/push/PR) | `performing git operations in a feature worktree` | Return mock commit/PR output |
+  | Merge (squash) | `merging a pull request` OR `performing a local merge` | Return merge success |
+
+  Detection uses a prioritized `if/else if` chain — most specific patterns first to
+  prevent false matches between phases.
+
+  ### specDir Extraction
+
+  YAML-producing prompts embed the absolute specDir path inline (from state.specDir
+  injected at prompt-build time). The extraction regex:
+
+  ```
+  /(?:Write your \w+ to|Update the file at|Write to BOTH):\s+(.+?)\/[^/\s]+\.yaml/
+  ```
+
+  captures the directory component as group 1 for all four YAML-producing phases.
+  After extraction: validate absolute path, reject if contains `..`, call
+  `mkdirSync(specDir, { recursive: true })` before writing.
+
+  ### Fixture File Layout
+
+  ```
+  packages/core/src/infrastructure/services/agents/common/executors/
+  ├── dev-executor.service.ts             ← Phase dispatcher (~90 lines)
+  └── fixtures/
+      ├── spec-analyze.fixture.ts         ← SPEC_ANALYZE_FIXTURE string constant
+      ├── spec-requirements.fixture.ts    ← SPEC_REQUIREMENTS_FIXTURE string constant
+      ├── research.fixture.ts             ← RESEARCH_FIXTURE string constant
+      ├── plan.fixture.ts                 ← PLAN_FIXTURE string constant
+      └── tasks.fixture.ts                ← TASKS_FIXTURE string constant
+  ```
+
+  ### Fictional Feature: "Add Dark-Mode Toggle to Shep Web UI"
+
+  A self-referential fictional feature that exercises all Shep UI panels with
+  recognizable, production-looking data:
+
+  **Spec fixture** (requirements phase format):
+  - `phase: Requirements`, `sizeEstimate: M`
+  - 2 resolved openQuestions (localStorage vs DB persistence; CSS class vs custom props)
+  - Technologies: React, Next.js, Tailwind CSS v4, shadcn/ui, Storybook
+
+  **Research fixture**:
+  - 3 decisions: Theme State Management (React Context chosen), CSS Implementation
+    (Tailwind class-based chosen), Persistence Layer (localStorage chosen)
+  - Each with `chosen`, `rejected: [2 items]`, `rationale`
+
+  **Plan fixture**:
+  - 3 phases: `phase-1` Theme Context Foundation, `phase-2` ThemeToggle Component,
+    `phase-3` Settings Panel Integration; all `parallel: false`
+  - `filesToCreate`: 4 new component files; `filesToModify`: 2 existing files
+
+  **Tasks fixture**:
+  - 8 tasks across 3 phases: each with `id`, `title`, `phaseId`, `state: Todo`,
+    `acceptanceCriteria: [2-3 items]`, `tdd: {red, green, refactor}` or `null`,
+    `estimatedEffort`
+
+  All fixture YAML fields are designed to pass the existing schema validators in
+  `nodes/schemas/` without triggering repair cycles (satisfying NFR-1).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | node:fs | File writing (mkdirSync, writeFileSync) | Use (built-in) | No external dependency needed |
+  | node:path | Path manipulation (join, dirname) | Use (built-in) | Extract specDir from matched path |
+  | lucide-react | Beaker icon for dev agent | Use (existing dep) | No new dependency; already used in web components |
+  | js-yaml | YAML validation in tests | Use (existing dep) | Already project dependency; used to parse fixture output in tests |
+  | next-themes | SSR theme library | Reject (fixture data only) | Referenced in research fixture as a rejected option |
+  | vitest | Unit test framework | Use (existing dep) | All project tests use vitest; real-fs temp-dir tests |
+
+  ## Security Considerations
+
+  The dev executor writes fixture files to a path extracted from the prompt text.
+  A malformed prompt could supply an unexpected path. Mitigations:
+
+  - The dev executor is only active when `settings.agent.type === 'dev'`, which requires
+    deliberate user action (TUI wizard or CLI flag) — not reachable by default
+  - Extracted specDir is validated: must start with `/` (absolute) and must not contain
+    `..` path traversal segments; if invalid, the executor throws with a clear message
+  - Files are written with `writeFileSync` (not `eval` or shell execution), limiting
+    the blast radius to YAML file writes within the specDir only
+  - No user-supplied prompt content is executed as code or passed to a shell
+
+  ## Performance Implications
+
+  The configurable delay (default 2000ms per phase call) results in ~12 seconds for a
+  complete 6-phase feature run (analyze + requirements + research + plan + implement +
+  merge commit) — within the 30-second NFR-6 budget. Actual file write operations are
+  <5ms for the small YAML fixtures. Setting `DEV_EXECUTOR_DELAY_MS=0` makes the full
+  cycle complete in under 1 second, suitable for fast iteration and CI.
+
+  The fixture strings are imported as static module-level constants — no runtime YAML
+  serialization or file I/O until execute() is actually called. Zero startup overhead.
+
+  ## Integration Points
+
+  1. **TypeSpec compile**: `pnpm tsp:compile` regenerates `output.ts` with `AgentType.Dev`.
+     All downstream TypeScript consumers get the new union member automatically. No hand-
+     editing of generated files.
+
+  2. **Feature-agent graph**: No changes. The graph calls `executor.execute(prompt, options)`
+     and does not need to know whether a real or dev executor is active.
+
+  3. **Validate/repair loop**: The loop reads YAML from disk after each node. Since dev
+     executor writes schema-valid fixtures, `validationRetries` stays at 0 per NFR-1.
+
+  4. **Approval gates**: The dev executor results trigger approval gate interrupts like any
+     other executor — the interrupt payload shows the first 500 chars of the fixture YAML
+     content, which looks realistic for reviewers.
+
+  5. **Merge output parser**: `merge-output-parser.ts` extracts commit SHA and PR URL via
+     regex from the executor result string. The dev executor returns strings containing
+     a plausible fake commit SHA (e.g. "abc1234") and GitHub URL to satisfy the parser.
+
+  6. **Settings persistence**: `AgentType.Dev` is a standard string union member stored as
+     "dev" in SQLite settings. No migration needed; the existing settings schema handles
+     free-form agent type strings.
+
+  7. **SHEP_MOCK_EXECUTOR=1 branch**: Unchanged. When set, container.ts registers
+     `MockAgentExecutorFactory` which ignores agent type entirely. The dev executor is
+     invisible in this test-infrastructure path, preserving all existing test behavior.
