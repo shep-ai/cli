@@ -1,0 +1,38 @@
+feature:
+  id: 040-notification-replay-bug
+  name: notification-replay-bug
+  number: 40
+  branch: feat/040-notification-replay-bug
+  lifecycle: research
+  createdAt: '2026-02-24T12:16:15Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 5
+    total: 5
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T12:32:29.976Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-24T12:16:15Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []
