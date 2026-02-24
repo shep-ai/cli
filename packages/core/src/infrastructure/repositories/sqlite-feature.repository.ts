@@ -36,6 +36,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         agent_run_id, spec_path,
         push, open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
         pr_url, pr_number, pr_status, commit_hash, ci_status,
+        ci_fix_attempts, ci_fix_history,
         created_at, updated_at
       ) VALUES (
         @id, @name, @slug, @description, @user_query, @repository_path, @branch,
@@ -43,6 +44,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         @agent_run_id, @spec_path,
         @push, @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
         @pr_url, @pr_number, @pr_status, @commit_hash, @ci_status,
+        @ci_fix_attempts, @ci_fix_history,
         @created_at, @updated_at
       )
     `);
@@ -135,6 +137,8 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         pr_status = @pr_status,
         commit_hash = @commit_hash,
         ci_status = @ci_status,
+        ci_fix_attempts = @ci_fix_attempts,
+        ci_fix_history = @ci_fix_history,
         updated_at = @updated_at
       WHERE id = @id
     `);

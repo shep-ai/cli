@@ -51,6 +51,8 @@ export interface FeatureRow {
   pr_status: string | null;
   commit_hash: string | null;
   ci_status: string | null;
+  ci_fix_attempts: number | null;
+  ci_fix_history: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -93,6 +95,8 @@ export function toDatabase(feature: Feature): FeatureRow {
     pr_status: feature.pr?.status ?? null,
     commit_hash: feature.pr?.commitHash ?? null,
     ci_status: feature.pr?.ciStatus ?? null,
+    ci_fix_attempts: feature.pr?.ciFixAttempts ?? null,
+    ci_fix_history: feature.pr?.ciFixHistory ? JSON.stringify(feature.pr.ciFixHistory) : null,
     created_at: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
     updated_at: feature.updatedAt instanceof Date ? feature.updatedAt.getTime() : feature.updatedAt,
   };
@@ -141,6 +145,8 @@ export function fromDatabase(row: FeatureRow): Feature {
         status: row.pr_status as PrStatus,
         ...(row.commit_hash !== null && { commitHash: row.commit_hash }),
         ...(row.ci_status !== null && { ciStatus: row.ci_status as CiStatus }),
+        ...(row.ci_fix_attempts !== null && { ciFixAttempts: row.ci_fix_attempts }),
+        ...(row.ci_fix_history !== null && { ciFixHistory: JSON.parse(row.ci_fix_history) }),
       },
     }),
   };

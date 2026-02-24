@@ -6,13 +6,21 @@
  * 2. Merge/squash (via agent executor, after approval gate)
  *
  * Uses interrupt() for the merge approval gate when allowMerge=false.
+ *
+ * Sub-modules:
+ * - ci-watch-fix-loop.ts: CI watch + automatic fix loop
+ * - ci-helpers.ts: shared CI utility functions
+ * - merge-output-parser.ts: structured data extraction from agent output
  */
 
 import { interrupt, isGraphBubbleUp } from '@langchain/langgraph';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
-import type { FeatureAgentState } from '../state.js';
+import type { FeatureAgentState } from '../../state.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
-import type { DiffSummary } from '@/application/ports/output/services/git-pr-service.interface.js';
+import type {
+  DiffSummary,
+  IGitPrService,
+} from '@/application/ports/output/services/git-pr-service.interface.js';
 import { SdlcLifecycle, PrStatus, type CiStatus } from '@/domain/generated/output.js';
 import {
   createNodeLogger,
@@ -22,16 +30,17 @@ import {
   getCompletedPhases,
   clearCompletedPhase,
   markPhaseComplete,
-} from './node-helpers.js';
-import { reportNodeStart } from '../heartbeat.js';
+} from '../node-helpers.js';
+import { reportNodeStart } from '../../heartbeat.js';
 import {
   recordPhaseStart,
   recordPhaseEnd,
   recordApprovalWaitStart,
-} from '../phase-timing-context.js';
-import { updateNodeLifecycle } from '../lifecycle-context.js';
-import { buildCommitPushPrPrompt, buildMergeSquashPrompt } from './prompts/merge-prompts.js';
+} from '../../phase-timing-context.js';
+import { updateNodeLifecycle } from '../../lifecycle-context.js';
+import { buildCommitPushPrPrompt, buildMergeSquashPrompt } from '../prompts/merge-prompts.js';
 import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
+import { runCiWatchFixLoop } from './ci-watch-fix-loop.js';
 
 export interface MergeNodeDeps {
   executor: IAgentExecutor;
@@ -44,6 +53,7 @@ export interface MergeNodeDeps {
    * Returns true if baseBranch contains all commits from featureBranch.
    */
   verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) => Promise<boolean>;
+  gitPrService: IGitPrService;
 }
 
 /**
@@ -61,9 +71,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
     await updateNodeLifecycle('merge');
 
     // --- Rejection detection on resume (same pattern as executeNode) ---
-    // On resume after interrupt, check if merge was already completed.
-    // Rejection: clear phase, schedule re-execution via conditional edge.
-    // Approval: fall through to post-interrupt work (lifecycle update, optional merge/squash).
     const completedPhases = getCompletedPhases(state.specDir);
     const isResumeAfterInterrupt =
       completedPhases.includes('merge') && shouldInterrupt('merge', state.approvalGates);
@@ -83,15 +90,12 @@ export function createMergeNode(deps: MergeNodeDeps) {
 
     const messages: string[] = [];
     const startTime = Date.now();
-
-    // Record merge phase timing
     const mergeTimingId = await recordPhaseStart('merge');
 
     try {
       const { executor } = deps;
       const cwd = state.worktreePath;
 
-      // Resolve branch name from feature
       const feature = await deps.featureRepository.findById(state.featureId);
       const branch = feature?.branch ?? `feat/${state.featureId}`;
       const baseBranch = await deps.getDefaultBranch(cwd);
@@ -100,7 +104,11 @@ export function createMergeNode(deps: MergeNodeDeps) {
       let commitHash = state.commitHash;
       let prUrl = state.prUrl;
       let prNumber = state.prNumber;
-      const ciStatus = state.ciStatus;
+      let ciStatus = state.ciStatus;
+
+      let ciFixAttempts = state.ciFixAttempts ?? 0;
+      let ciFixHistory = state.ciFixHistory ?? [];
+      let ciFixStatus = state.ciFixStatus ?? 'idle';
 
       // --- Check for git remote (needed by both agent calls) ---
       const remoteAvailable = await deps.hasRemote(cwd);
@@ -111,7 +119,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
           log.info('No git remote configured — skipping push and PR, will merge locally');
         }
 
-        // Override push/openPr when no remote is available
         const effectiveState = remoteAvailable ? state : { ...state, push: false, openPr: false };
 
         log.info('Agent call 1: commit + push + PR');
@@ -120,7 +127,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
           logger: log,
         });
 
-        // Parse structured data from agent output
         commitHash = parseCommitHash(commitResult.result) ?? state.commitHash;
         messages.push(`[merge] Agent completed commit/push/PR operations`);
 
@@ -131,6 +137,32 @@ export function createMergeNode(deps: MergeNodeDeps) {
             prNumber = prResult.number;
             messages.push(`[merge] PR created: ${prUrl}`);
           }
+        }
+
+        // --- CI watch/fix loop (when push or openPr is enabled) ---
+        if (effectiveState.push || effectiveState.openPr) {
+          const ciResult = await runCiWatchFixLoop(
+            {
+              executor,
+              gitPrService: deps.gitPrService,
+              featureRepository: deps.featureRepository,
+            },
+            {
+              cwd,
+              branch,
+              options,
+              feature,
+              prUrl,
+              prNumber,
+              existingAttempts: ciFixAttempts,
+              messages,
+              log,
+            }
+          );
+          ciStatus = ciResult.ciStatus;
+          ciFixAttempts = ciResult.ciFixAttempts;
+          ciFixHistory = ciResult.ciFixHistory;
+          ciFixStatus = ciResult.ciFixStatus;
         }
 
         // --- Merge approval gate ---
@@ -146,6 +178,7 @@ export function createMergeNode(deps: MergeNodeDeps) {
             diffSummary,
             prUrl,
             prNumber,
+            ciStatus,
           });
         }
       } else {
@@ -198,6 +231,8 @@ export function createMergeNode(deps: MergeNodeDeps) {
                   status: merged ? PrStatus.Merged : PrStatus.Open,
                   ...(commitHash ? { commitHash } : {}),
                   ...(ciStatus ? { ciStatus: ciStatus as CiStatus } : {}),
+                  ...(ciFixAttempts > 0 ? { ciFixAttempts } : {}),
+                  ...(ciFixHistory.length > 0 ? { ciFixHistory } : {}),
                 },
               }
             : {}),
@@ -218,22 +253,20 @@ export function createMergeNode(deps: MergeNodeDeps) {
         prUrl,
         prNumber,
         ciStatus,
+        ciFixAttempts,
+        ciFixHistory,
+        ciFixStatus,
         _approvalAction: null,
         _rejectionFeedback: null,
         _needsReexecution: false,
       };
     } catch (err: unknown) {
-      // Re-throw LangGraph control-flow exceptions (interrupt, etc.)
       if (isGraphBubbleUp(err)) throw err;
 
       const message = err instanceof Error ? err.message : String(err);
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
       log.error(`Merge failed: ${message} (${elapsed}s)`);
-
-      // Record phase end even on failure so timing shows duration, not "running"
       await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
-
-      // Re-throw so LangGraph does NOT checkpoint this node as completed.
       throw err;
     }
   };

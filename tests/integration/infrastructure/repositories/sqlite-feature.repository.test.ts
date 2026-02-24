@@ -337,4 +337,157 @@ describe('SQLiteFeatureRepository', () => {
       await expect(repository.delete('non-existent')).resolves.not.toThrow();
     });
   });
+
+  describe('PR and CI fix fields', () => {
+    it('should persist and restore PR with ciFixAttempts and ciFixHistory', async () => {
+      const history = [
+        {
+          attempt: 1,
+          startedAt: '2025-06-01T10:00:00Z',
+          failureSummary: 'Test suite failed: 3 tests in auth module',
+          outcome: 'failed',
+        },
+        {
+          attempt: 2,
+          startedAt: '2025-06-01T10:05:00Z',
+          failureSummary: 'Lint error in utils.ts line 42',
+          outcome: 'fixed',
+        },
+      ];
+      const feature = createTestFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          commitHash: 'abc123',
+          ciStatus: 'Success' as any,
+          ciFixAttempts: 2,
+          ciFixHistory: history,
+        },
+      });
+
+      await repository.create(feature);
+      const found = await repository.findById('feat-1');
+
+      expect(found?.pr).toBeDefined();
+      expect(found!.pr!.url).toBe('https://github.com/org/repo/pull/42');
+      expect(found!.pr!.number).toBe(42);
+      expect(found!.pr!.ciFixAttempts).toBe(2);
+      expect(found!.pr!.ciFixHistory).toEqual(history);
+    });
+
+    it('should store ci_fix_history as JSON in database', async () => {
+      const feature = createTestFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: 'Open' as any,
+          ciFixAttempts: 1,
+          ciFixHistory: [
+            {
+              attempt: 1,
+              startedAt: '2025-01-01T00:00:00Z',
+              failureSummary: 'err',
+              outcome: 'fixed',
+            },
+          ],
+        },
+      });
+
+      await repository.create(feature);
+
+      const row = db.prepare('SELECT * FROM features WHERE id = ?').get('feat-1') as Record<
+        string,
+        unknown
+      >;
+      expect(row.ci_fix_attempts).toBe(1);
+      expect(typeof row.ci_fix_history).toBe('string');
+      expect(JSON.parse(row.ci_fix_history as string)).toEqual([
+        { attempt: 1, startedAt: '2025-01-01T00:00:00Z', failureSummary: 'err', outcome: 'fixed' },
+      ]);
+    });
+
+    it('should store NULL for ci_fix fields when PR has no fix data', async () => {
+      const feature = createTestFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: 'Open' as any,
+          ciStatus: 'Success' as any,
+        },
+      });
+
+      await repository.create(feature);
+
+      const row = db.prepare('SELECT * FROM features WHERE id = ?').get('feat-1') as Record<
+        string,
+        unknown
+      >;
+      expect(row.ci_fix_attempts).toBeNull();
+      expect(row.ci_fix_history).toBeNull();
+    });
+
+    it('should not include ciFixAttempts/ciFixHistory when NULL in database', async () => {
+      const feature = createTestFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: 'Open' as any,
+        },
+      });
+
+      await repository.create(feature);
+      const found = await repository.findById('feat-1');
+
+      expect(found?.pr).toBeDefined();
+      expect(found!.pr!.ciFixAttempts).toBeUndefined();
+      expect(found!.pr!.ciFixHistory).toBeUndefined();
+    });
+
+    it('should persist ciFixAttempts via update()', async () => {
+      const feature = createTestFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/1',
+          number: 1,
+          status: 'Open' as any,
+        },
+      });
+      await repository.create(feature);
+
+      await repository.update({
+        ...feature,
+        pr: {
+          ...feature.pr!,
+          ciStatus: 'Failure' as any,
+          ciFixAttempts: 3,
+          ciFixHistory: [
+            {
+              attempt: 1,
+              startedAt: '2025-01-01T00:00:00Z',
+              failureSummary: 'fail1',
+              outcome: 'failed',
+            },
+            {
+              attempt: 2,
+              startedAt: '2025-01-01T00:01:00Z',
+              failureSummary: 'fail2',
+              outcome: 'failed',
+            },
+            {
+              attempt: 3,
+              startedAt: '2025-01-01T00:02:00Z',
+              failureSummary: 'fail3',
+              outcome: 'timeout',
+            },
+          ],
+        },
+        updatedAt: new Date(),
+      });
+
+      const found = await repository.findById('feat-1');
+      expect(found!.pr!.ciFixAttempts).toBe(3);
+      expect(found!.pr!.ciFixHistory).toHaveLength(3);
+      expect(found!.pr!.ciFixHistory![2].outcome).toBe('timeout');
+    });
+  });
 });

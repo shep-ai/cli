@@ -349,6 +349,18 @@ export type WorkflowConfig = {
    * Default approval gate preferences for new features
    */
   approvalGateDefaults: ApprovalGateDefaults;
+  /**
+   * Maximum number of CI fix/push/watch iterations before giving up (default: 3)
+   */
+  ciMaxFixAttempts?: number;
+  /**
+   * Timeout in milliseconds for watching a CI run (default: 600000 = 10 minutes)
+   */
+  ciWatchTimeoutMs?: number;
+  /**
+   * Maximum characters of CI failure logs to pass to the executor (default: 50000)
+   */
+  ciLogMaxChars?: number;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
@@ -653,6 +665,28 @@ export enum CiStatus {
 }
 
 /**
+ * Record of one CI fix attempt in the watch/fix loop
+ */
+export type CiFixRecord = {
+  /**
+   * 1-based attempt number
+   */
+  attempt: number;
+  /**
+   * ISO timestamp when this attempt started
+   */
+  startedAt: string;
+  /**
+   * First 500 chars of failure logs for this attempt
+   */
+  failureSummary: string;
+  /**
+   * Outcome of this attempt: fixed, failed, or timeout
+   */
+  outcome: string;
+};
+
+/**
  * Pull request tracking data for a feature
  */
 export type PullRequest = {
@@ -676,6 +710,14 @@ export type PullRequest = {
    * CI pipeline status
    */
   ciStatus?: CiStatus;
+  /**
+   * Number of CI fix attempts made
+   */
+  ciFixAttempts?: number;
+  /**
+   * History of CI fix attempts
+   */
+  ciFixHistory?: CiFixRecord[];
 };
 
 /**

@@ -176,6 +176,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) =>
         gitPrService.verifyMerge(cwd, featureBranch, baseBranch),
       featureRepository,
+      gitPrService,
     },
   };
 

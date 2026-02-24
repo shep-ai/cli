@@ -1,5 +1,5 @@
 import { Annotation } from '@langchain/langgraph';
-import type { ApprovalGates } from '@/domain/generated/output.js';
+import type { ApprovalGates, CiFixRecord } from '@/domain/generated/output.js';
 
 /**
  * State annotation for the feature-agent graph.
@@ -76,6 +76,19 @@ export const FeatureAgentAnnotation = Annotation.Root({
   openPr: Annotation<boolean>({
     reducer: (_prev, next) => next,
     default: () => false,
+  }),
+  // --- CI watch/fix loop state ---
+  ciFixAttempts: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
+  ciFixHistory: Annotation<CiFixRecord[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+  ciFixStatus: Annotation<'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'>({
+    reducer: (_prev, next) => next,
+    default: () => 'idle',
   }),
 });
 
