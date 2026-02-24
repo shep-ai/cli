@@ -1,3 +1,9 @@
+## [1.52.1](https://github.com/shep-ai/cli/compare/v1.52.0...v1.52.1) (2026-02-24)
+
+### Bug Fixes
+
+- **web:** include serverExternalPackages in production next config ([#125](https://github.com/shep-ai/cli/issues/125)) ([87f5cf4](https://github.com/shep-ai/cli/commit/87f5cf4874a18add12a19e8cc70b5ca94ee57ad0))
+
 # [1.52.0](https://github.com/shep-ai/cli/compare/v1.51.2...v1.52.0) (2026-02-24)
 
 ### Features
