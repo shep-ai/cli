@@ -21,6 +21,7 @@ import {
 } from '../../../domain/generated/output.js';
 import type { IAgentRunRepository } from '../../../application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '../../../application/ports/output/agents/phase-timing-repository.interface.js';
+import type { IFeatureRepository } from '../../../application/ports/output/repositories/feature-repository.interface.js';
 import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
 
 const DEFAULT_POLL_INTERVAL_MS = 3000;
@@ -75,6 +76,7 @@ const EVENT_MESSAGES: Partial<Record<NotificationEventType, string>> = {
 export class NotificationWatcherService {
   private readonly runRepository: IAgentRunRepository;
   private readonly phaseTimingRepository: IPhaseTimingRepository;
+  private readonly featureRepository: IFeatureRepository;
   private readonly notificationService: INotificationService;
   private readonly pollIntervalMs: number;
   private readonly trackedRuns = new Map<string, WatcherState>();
@@ -85,11 +87,13 @@ export class NotificationWatcherService {
   constructor(
     runRepository: IAgentRunRepository,
     phaseTimingRepository: IPhaseTimingRepository,
+    featureRepository: IFeatureRepository,
     notificationService: INotificationService,
     pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS
   ) {
     this.runRepository = runRepository;
     this.phaseTimingRepository = phaseTimingRepository;
+    this.featureRepository = featureRepository;
     this.notificationService = notificationService;
     this.pollIntervalMs = pollIntervalMs;
   }
@@ -120,9 +124,8 @@ export class NotificationWatcherService {
     try {
       const runs = await this.runRepository.list();
       await this.processRuns(runs);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('NotificationWatcherService poll failed:', error);
+    } catch {
+      // DB not ready or query failed — skip this poll cycle
     }
   }
 
@@ -140,7 +143,7 @@ export class NotificationWatcherService {
 
       if (!prevState) {
         // New run — track and emit initial status event
-        const featureName = this.resolveFeatureName(run);
+        const featureName = await this.resolveFeatureName(run);
         const newState: WatcherState = {
           status: run.status,
           completedPhases: new Set<string>(),
@@ -224,12 +227,14 @@ export class NotificationWatcherService {
     }
   }
 
-  private resolveFeatureName(run: AgentRun): string {
-    // Feature name resolution from featureId would require IFeatureRepository.
-    // For now, use the agentName or a fallback. The NotificationService or
-    // a higher layer can enrich with the actual feature name if needed.
+  private async resolveFeatureName(run: AgentRun): Promise<string> {
     if (run.featureId) {
-      return `Feature ${run.featureId}`;
+      try {
+        const feature = await this.featureRepository.findById(run.featureId);
+        if (feature) return feature.name;
+      } catch {
+        // Fall through to fallback
+      }
     }
     return `Agent ${run.id}`;
   }
@@ -248,6 +253,7 @@ let watcherInstance: NotificationWatcherService | null = null;
 export function initializeNotificationWatcher(
   runRepository: IAgentRunRepository,
   phaseTimingRepository: IPhaseTimingRepository,
+  featureRepository: IFeatureRepository,
   notificationService: INotificationService,
   pollIntervalMs?: number
 ): void {
@@ -258,6 +264,7 @@ export function initializeNotificationWatcher(
   watcherInstance = new NotificationWatcherService(
     runRepository,
     phaseTimingRepository,
+    featureRepository,
     notificationService,
     pollIntervalMs
   );

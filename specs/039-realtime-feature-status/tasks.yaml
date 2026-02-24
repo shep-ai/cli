@@ -3,177 +3,227 @@
 
 name: realtime-feature-status
 summary: >
-  4 tasks across 2 phases. Phase 1 adds two pure mapping functions with full test coverage
-  (TDD). Phase 2 integrates them into useControlCenterState with targeted node updates,
-  selectedNode drawer sync, and debounced router.refresh() reconciliation.
+  7 tasks across 4 phases. Phase 1 builds the notification infrastructure (bus + watcher)
+  with tests. Phase 2 rewrites the SSE endpoint with DB polling. Phase 3 adds the Service
+  Worker and rewrites the React hook. Phase 4 integrates into server startup and validates.
 
 relatedFeatures: []
 technologies:
+  - 'Node.js EventEmitter'
+  - 'Server-Sent Events'
+  - 'Service Workers'
   - 'React 19'
-  - '@xyflow/react'
   - 'Next.js 16+'
+  - 'tsyringe'
   - 'Vitest'
-  - 'TypeSpec-generated NotificationEventType'
 relatedLinks: []
 
 tasks:
   - id: task-1
     phaseId: phase-1
-    title: 'Add mapEventTypeToState pure function with tests'
+    title: 'Create NotificationBus typed EventEmitter singleton'
     description: >
-      Create a pure function that maps NotificationEventType enum values to FeatureNodeState
-      strings. Add to derive-feature-state.ts alongside the existing deriveNodeState function.
-      Write tests first (RED) in the existing derive-feature-state.test.ts, then implement
-      (GREEN). The mapping is: agent_started → running, phase_completed → running,
-      waiting_approval → action-required, agent_completed → done, agent_failed → error.
-    state: Todo
+      Create notification-bus.ts with a typed EventEmitter singleton stored on globalThis
+      via Symbol.for(). Exports getNotificationBus() for lazy access and
+      resetNotificationBus() for test isolation.
+    state: Done
     dependencies: []
     acceptanceCriteria:
-      - 'mapEventTypeToState is exported from derive-feature-state.ts'
-      - 'Maps all 5 NotificationEventType enum values to correct FeatureNodeState'
-      - 'Function is pure — no side effects, no React hooks, no imports beyond types'
-      - 'All 5 test cases pass in derive-feature-state.test.ts'
+      - 'NotificationBus type exported as EventEmitter<NotificationEventMap>'
+      - 'getNotificationBus() returns the same instance across calls'
+      - 'globalThis storage via Symbol.for() survives module duplication'
+      - 'resetNotificationBus() removes all listeners and clears instance'
     tdd:
       red:
-        - >
-          Add a new describe("mapEventTypeToState") block in derive-feature-state.test.ts
-          with 5 test cases, one per NotificationEventType value:
-          agent_started → "running", phase_completed → "running",
-          waiting_approval → "action-required", agent_completed → "done",
-          agent_failed → "error". Import mapEventTypeToState (will fail — function doesn't exist yet).
+        - 'Test getNotificationBus() returns same instance across multiple calls'
+        - 'Test resetNotificationBus() clears the singleton'
       green:
-        - >
-          Implement mapEventTypeToState in derive-feature-state.ts as a switch statement over
-          NotificationEventType enum values, returning the corresponding FeatureNodeState string.
-          Import NotificationEventType from @shepai/core/domain/generated/output.
+        - 'Implement globalThis-based singleton with Symbol.for key'
       refactor:
-        - >
-          Verify the function is < 15 lines. Ensure no unnecessary type assertions. Confirm
-          the import path follows existing patterns in the file.
+        - 'Ensure JSDoc comments describe the cross-module singleton pattern'
     estimatedEffort: '15min'
 
   - id: task-2
     phaseId: phase-1
-    title: 'Add mapPhaseNameToLifecycle pure function with tests'
+    title: 'Create NotificationWatcherService with tests'
     description: >
-      Create a pure function that maps SSE event phaseName strings to FeatureLifecyclePhase
-      values. Returns undefined when phaseName is undefined or unrecognized. The mapping mirrors
-      page.tsx's nodeToLifecyclePhase (lines 29-35) exactly: analyze → requirements,
-      requirements → requirements, research → research, plan → implementation,
-      implement → implementation. Add to derive-feature-state.ts and test in
-      derive-feature-state.test.ts.
-    state: Todo
+      Create notification-watcher.service.ts that polls agent_runs table, tracks per-run
+      state (status + completed phases), and emits NotificationEvents through
+      INotificationService. Includes singleton accessors (initialize/get/has/reset).
+      Write comprehensive tests covering status transitions, phase completions,
+      terminal run cleanup, and feature name resolution.
+    state: Done
     dependencies:
       - task-1
     acceptanceCriteria:
-      - 'mapPhaseNameToLifecycle is exported from derive-feature-state.ts'
-      - 'Maps all 5 known phaseName strings to correct FeatureLifecyclePhase'
-      - 'Returns undefined for undefined input'
-      - 'Returns undefined for unrecognized phaseName strings'
-      - 'Function is pure — no side effects, no React hooks'
-      - 'All 7+ test cases pass in derive-feature-state.test.ts'
+      - 'Polls via setInterval with configurable interval'
+      - 'Tracks active runs (pending, running, waitingApproval) in Map'
+      - 'Emits status events on AgentRunStatus transitions'
+      - 'Emits PhaseCompleted events on new phase_timings.completedAt'
+      - 'Cleans up terminal runs after emitting final event'
+      - 'resolveFeatureName falls back to Agent ${id} on error'
+      - 'Singleton pattern: initialize/get/has/reset functions'
+      - 'start()/stop() lifecycle with isRunning() check'
+      - 'Unit tests cover all status transitions and phase detection'
     tdd:
       red:
-        - >
-          Add a new describe("mapPhaseNameToLifecycle") block in derive-feature-state.test.ts
-          with test cases: "analyze" → "requirements", "requirements" → "requirements",
-          "research" → "research", "plan" → "implementation", "implement" → "implementation",
-          undefined → undefined, "unknown_phase" → undefined. Import mapPhaseNameToLifecycle
-          (will fail — function doesn't exist yet).
+        - 'Test status change detection (running → completed, etc.)'
+        - 'Test phase completion detection via completedAt'
+        - 'Test terminal run cleanup'
+        - 'Test feature name resolution with fallback'
+        - 'Test singleton lifecycle (initialize, get, reset)'
       green:
-        - >
-          Implement mapPhaseNameToLifecycle in derive-feature-state.ts using a Record<string,
-          FeatureLifecyclePhase> lookup map (mirroring page.tsx's nodeToLifecyclePhase). Return
-          map[phaseName] or undefined for unrecognized/missing values.
+        - 'Implement polling loop with per-run state tracking'
+        - 'Implement STATUS_TO_EVENT mapping and emitStatusEvent'
+        - 'Implement checkPhaseCompletions'
+        - 'Implement singleton accessors'
       refactor:
-        - >
-          Verify the mapping exactly mirrors page.tsx lines 29-35 (analyze, requirements,
-          research, plan, implement). Ensure the lookup map is const and typed.
-    estimatedEffort: '15min'
+        - 'Extract constants (ACTIVE_STATUSES, TERMINAL_STATUSES, EVENT_MESSAGES)'
+    estimatedEffort: '45min'
 
   - id: task-3
     phaseId: phase-2
-    title: 'Implement targeted node updates in useControlCenterState SSE handler'
+    title: 'Rewrite SSE endpoint with DB polling and per-connection cache'
     description: >
-      Modify the existing SSE event useEffect in useControlCenterState (lines 108-118) to apply
-      targeted optimistic node updates instead of immediately calling router.refresh(). After
-      deduplication, use mapEventTypeToState and mapPhaseNameToLifecycle to derive new state,
-      then call setNodes with a functional update that clones only the matched node (by
-      featureName === node.data.name). Non-matching nodes must be returned by reference for
-      React Flow's referential stability. Also update selectedNode if the drawer is open for the
-      matched feature. Replace the immediate router.refresh() with a debounced version (3s
-      window via useRef timer).
-    state: Todo
+      Rewrite GET /api/agent-events to poll the database directly using
+      ListFeaturesUseCase, IAgentRunRepository, and IPhaseTimingRepository.
+      Implement per-connection cache (Map<featureId, CachedFeatureState>) that
+      seeds on first observation and emits only deltas. Add heartbeat, runId
+      filtering, and abort signal cleanup.
+    state: Done
     dependencies:
       - task-1
-      - task-2
     acceptanceCriteria:
-      - 'SSE events trigger targeted node updates — only the matched node is cloned'
-      - 'Non-matching nodes remain referentially stable (same object reference)'
-      - 'selectedNode is updated synchronously if the drawer shows the matched feature'
-      - 'router.refresh() is debounced at 3 seconds after the last SSE event'
-      - 'Debounce timer is cleared on component unmount (useEffect cleanup)'
-      - 'Events with no matching featureName are silently ignored for optimistic updates'
-      - 'Existing event deduplication logic (agentRunId + eventType + timestamp key) is preserved'
-      - 'Progress percentage is NOT updated optimistically — only state and lifecycle change'
+      - 'Route handler creates ReadableStream with DB polling'
+      - 'Per-connection cache seeds on first feature observation (no initial burst)'
+      - 'Status changes emit mapped NotificationEvent with correct eventType/severity'
+      - 'Phase completions emit PhaseCompleted events'
+      - 'Optional ?runId query parameter filters events'
+      - 'Heartbeat comments every 30s'
+      - 'Cleanup on request.signal abort'
+      - 'Integration tests verify SSE streaming behavior'
     tdd:
       red:
-        - >
-          Since useControlCenterState is a complex hook with many dependencies (React Flow, Next.js
-          router, server actions, SSE context), direct hook testing is impractical. Instead, verify
-          correctness through: (1) the pure mapping function tests from tasks 1-2 already cover the
-          mapping logic, (2) manual verification that targeted updates work when running the dev
-          server with pnpm dev:web. The acceptance criteria for this task are integration-verified.
+        - 'Integration test: SSE connection receives notification events'
+        - 'Integration test: runId filtering works correctly'
       green:
-        - >
-          In the SSE useEffect (lines 108-118 of use-control-center-state.ts):
-          1. Add a useRef for the debounce timer at hook level.
-          2. After the existing deduplication check, call mapEventTypeToState(lastEvent.eventType)
-             and mapPhaseNameToLifecycle(lastEvent.phaseName).
-          3. Call setNodes with a functional update that maps over nodes, finds the match by
-             featureName === node.data.name, and spreads only state (and lifecycle if defined).
-          4. If selectedNode?.name matches, call setSelectedNode with updated fields.
-          5. Replace router.refresh() with clearTimeout + setTimeout(router.refresh, 3000).
-          6. Add useEffect cleanup to clear the debounce timer on unmount.
+        - 'Implement ReadableStream with poll loop and cache'
+        - 'Implement STATUS_TO_EVENT mapping and resultToPhase helper'
       refactor:
-        - >
-          Verify the useEffect dependency array is correct (add mapEventTypeToState and
-          mapPhaseNameToLifecycle if they are closures, though as module-level pure functions they
-          should not need to be). Ensure the debounce cleanup is in the right useEffect. Confirm
-          total hook stays under the ~150 line guideline per file.
+        - 'Remove debug logging (dbg helper)'
     estimatedEffort: '30min'
 
   - id: task-4
-    phaseId: phase-2
-    title: 'Validate integration and run checks'
+    phaseId: phase-3
+    title: 'Create Service Worker for SSE multiplexing'
     description: >
-      Run the full test suite, type checker, and linter to verify no regressions. Confirm
-      existing derive-feature-state tests still pass alongside the new mapping function tests.
-      Verify the web package type checks cleanly with the new imports.
-    state: Todo
+      Create agent-events-sw.js that maintains a single EventSource connection
+      and broadcasts events to all open tabs via clients.matchAll(). Handles
+      subscribe/unsubscribe messages from tabs. Opens connection on first
+      subscriber, closes on last. Implements exponential backoff reconnection.
+    state: Done
     dependencies:
       - task-3
     acceptanceCriteria:
-      - 'pnpm test:unit passes — all existing + new tests green'
-      - 'pnpm typecheck:web passes — no type errors in web package'
-      - 'pnpm lint:web passes — no lint violations'
-      - 'No changes to any backend, TypeSpec, or infrastructure files'
+      - 'SW registers with skipWaiting and clients.claim()'
+      - 'Opens EventSource on first subscribe message'
+      - 'Closes EventSource when subscriber count reaches 0'
+      - 'Broadcasts { type: notification, data } to all tabs'
+      - 'Broadcasts { type: status, status } on connection changes'
+      - 'Exponential backoff: 1s base, 30s max, reset after 5s stable'
+      - 'Sends current status to new subscribers immediately'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Rewrite useAgentEvents hook with SW support and fallback'
+    description: >
+      Rewrite useAgentEvents to use the Service Worker as primary transport.
+      Falls back to direct EventSource when SW is unavailable. Both paths
+      implement exponential backoff reconnection. Returns { events, lastEvent,
+      connectionStatus }. Write unit tests for both paths.
+    state: Done
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Attempts SW registration first'
+      - 'Falls back to direct EventSource on SW failure'
+      - 'SW path: subscribe/unsubscribe via postMessage'
+      - 'Fallback path: exponential backoff (1s base, 30s max)'
+      - 'Returns { events, lastEvent, connectionStatus }'
+      - 'Cleanup on unmount (unsubscribe SW or close EventSource)'
+      - 'Unit tests cover SW path and fallback path'
+    tdd:
+      red:
+        - 'Test hook returns disconnected initially'
+        - 'Test SW registration and subscription'
+        - 'Test EventSource fallback when SW unavailable'
+        - 'Test event accumulation and lastEvent tracking'
+      green:
+        - 'Implement SW registration with activate/statechange handling'
+        - 'Implement connectDirectEventSource fallback'
+      refactor:
+        - 'Extract backoff constants to module level'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Integrate notification watcher into CLI and dev-server startup'
+    description: >
+      Add NotificationWatcherService initialization to both the CLI ui command
+      and the dev-server. Resolve repositories from DI container, initialize
+      and start the watcher. Add graceful shutdown (stop watcher on SIGINT/SIGTERM).
+      Update existing tests to account for new initialization.
+    state: Done
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'CLI ui command initializes and starts watcher after web server starts'
+      - 'Dev-server initializes and starts watcher after DI container setup'
+      - 'Both stop the watcher on graceful shutdown'
+      - 'ui.command.test.ts updated for watcher initialization'
+    tdd:
+      red:
+        - 'Test ui command initializes notification watcher'
+        - 'Test shutdown stops the watcher'
+      green:
+        - 'Add watcher initialization after container.resolve calls'
+        - 'Add getNotificationWatcher().stop() to shutdown handlers'
+      refactor:
+        - 'Ensure consistent initialization pattern between CLI and dev-server'
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Validate: run tests, typecheck, and lint'
+    description: >
+      Run the full test suite, type checker, and linter to verify no regressions.
+      Confirm all new and existing tests pass.
+    state: Done
+    dependencies:
+      - task-3
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm test passes — all unit and integration tests green'
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm lint passes'
     tdd: null
     estimatedEffort: '10min'
 
-totalEstimate: '1h 10min'
+totalEstimate: '2h 50min'
 openQuestions: []
 
 content: |
   ## Summary
 
-  The implementation follows a bottom-up approach across 2 phases and 4 tasks. Phase 1
-  establishes the pure mapping foundation with full TDD coverage: two small functions that
-  translate SSE event data into UI state types, tested against every possible input value.
-  Phase 2 integrates these functions into the existing useControlCenterState hook, replacing
-  the coarse-grained router.refresh() with targeted node mutations and a debounced reconciliation
-  mechanism. The drawer update and validation round out the implementation.
+  The implementation follows a bottom-up approach across 4 phases and 7 tasks. Phase 1
+  builds the notification infrastructure (bus + watcher service) with comprehensive tests.
+  Phase 2 rewrites the SSE endpoint to poll the DB directly, avoiding cross-module
+  singleton issues. Phase 3 adds the Service Worker for tab multiplexing and rewrites
+  the React hook. Phase 4 integrates everything into server startup and validates.
 
-  All changes touch exactly 3 files: derive-feature-state.ts (add functions),
-  use-control-center-state.ts (modify SSE handler), and derive-feature-state.test.ts (add tests).
-  No new files, no backend changes, no component modifications needed.
+  Files created: 3 (notification-bus.ts, notification-watcher.service.ts, agent-events-sw.js)
+  Files modified: 7 (route.ts, use-agent-events.ts, dev-server.ts, ui.command.ts, + 3 test files)

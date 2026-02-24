@@ -3,274 +3,144 @@
 
 name: realtime-feature-status
 number: 039
-branch: feat/039-realtime-feature-status
-oneLiner: Real-time feature status updates in the web UI via existing SSE infrastructure
+branch: feat/realtime-feature-status
+oneLiner: Real-time agent event streaming to the web UI via DB-polling SSE, Service Worker, and notification infrastructure
 userQuery: >
   Feature: When feature status is updating real time update the UI.
   We already have SSE we can reuse them.
 summary: >
-  Enhance the web UI control center to update feature node status in real-time
-  using the existing SSE notification infrastructure. Currently, SSE events
-  trigger a coarse-grained router.refresh() that re-renders all server components.
-  This feature will use SSE event data to apply targeted, incremental UI updates
-  to individual feature nodes (state, lifecycle, progress) without a full page refresh,
-  and update the feature drawer if it's open for the affected feature.
-phase: Requirements
-sizeEstimate: S
+  Build the real-time notification infrastructure that streams agent lifecycle events
+  (status transitions, phase completions) from the backend to the web UI. The SSE route
+  polls the database directly (avoiding cross-module singleton issues with Next.js
+  Turbopack), a Service Worker multiplexes a single SSE connection across browser tabs,
+  and a React hook delivers events to UI components. Backend services (NotificationBus,
+  NotificationWatcherService) detect status transitions via DB polling and dispatch
+  NotificationEvent objects. Both the CLI `shep ui` command and the dev-server initialize
+  the watcher on startup.
+phase: Implementation
+sizeEstimate: M
 
 relatedFeatures: []
 
 technologies:
-  - Next.js 16+ (App Router, Server Components, router.refresh)
-  - React 19 (hooks, context, useEffect, useRef)
-  - React Flow (@xyflow/react) for canvas node rendering
-  - Server-Sent Events (EventSource API)
+  - Next.js 16+ (App Router, route handlers, force-dynamic)
+  - React 19 (hooks, useCallback, useEffect, useRef, useState)
+  - Server-Sent Events (EventSource API, ReadableStream)
+  - Service Workers (message passing, lifecycle events)
+  - Node.js EventEmitter (typed, globalThis singleton)
   - TypeSpec-generated NotificationEvent model
-  - sonner (toast notifications)
-  - shadcn/ui (Drawer, Badge components)
+  - tsyringe DI container
+  - SQLite (agent_runs, phase_timings tables)
 
 relatedLinks: []
 
-openQuestions:
-  - question: 'Should router.refresh() be kept as a background reconciliation mechanism alongside optimistic SSE updates, or replaced entirely?'
-    resolved: true
-    options:
-      - option: 'Keep as debounced reconciliation'
-        description: >
-          Apply optimistic UI updates immediately from SSE event data, then debounce router.refresh()
-          (e.g., 2-5 seconds after the last SSE event) as a background reconciliation pass to ensure
-          eventual consistency with the full server-derived state. This is the safest approach — SSE
-          events provide instant visual feedback, while the server refresh catches any state that SSE
-          events cannot convey (e.g., progress percentage, task counts, fields not in NotificationEvent).
-        selected: true
-      - option: 'Remove router.refresh() entirely'
-        description: >
-          Rely solely on SSE events for UI updates. Simpler code but risks state drift — SSE events
-          do not carry full FeatureNodeData (e.g., progress percentage, description changes, task
-          details). Would require enriching the SSE payload, which means backend changes.
-        selected: false
-      - option: 'Keep router.refresh() on every event (status quo + optimistic)'
-        description: >
-          Add optimistic updates but still call router.refresh() on every SSE event as today.
-          Safest for consistency but does not reduce server load or unnecessary re-fetches.
-        selected: false
-    selectionRationale: >
-      Debounced reconciliation is the best balance. Optimistic SSE updates provide instant visual
-      feedback for the fields available in NotificationEvent (state, lifecycle phase). The debounced
-      router.refresh() ensures the UI eventually reconciles with the full server state (progress
-      percentage, task counts, etc.) without hammering the server on every event. This reduces
-      unnecessary re-renders while maintaining data integrity.
-    answer: 'Keep as debounced reconciliation'
-
-  - question: 'How should the feature node be matched to an incoming SSE event?'
-    resolved: true
-    options:
-      - option: 'Match by featureName'
-        description: >
-          Use NotificationEvent.featureName to find the corresponding node. featureName is always
-          present in the event payload. Nodes already carry the feature name in FeatureNodeData.name.
-          Simple string comparison. Risk: feature names could theoretically be non-unique across
-          repositories, but in practice each feature name is unique within a shep instance.
-        selected: true
-      - option: 'Match by agentRunId'
-        description: >
-          Use NotificationEvent.agentRunId to find the corresponding node. More precise since
-          agentRunId is guaranteed unique. However, FeatureNodeData does not currently carry
-          agentRunId — would require adding it to the node data shape, which means changes to
-          page.tsx server component to include it. Also, agentRunId only exists while an agent
-          is running; features without an active agent run would be unmatchable.
-        selected: false
-      - option: 'Match by featureName with agentRunId fallback'
-        description: >
-          Try featureName first, fall back to agentRunId if available. Most robust but adds
-          complexity for a scenario (name collision) that doesn't occur in practice.
-        selected: false
-    selectionRationale: >
-      featureName is the simplest and most reliable match key. It is always present in SSE events
-      and already available in FeatureNodeData.name. agentRunId would require adding new data to
-      the node shape and doesn't work for features without an active agent run. The theoretical
-      risk of name collision across repositories is negligible in practice — features are scoped
-      to a single shep instance.
-    answer: 'Match by featureName'
-
-  - question: 'What should happen to progress percentage during optimistic updates from SSE events?'
-    resolved: true
-    options:
-      - option: 'Do not update progress optimistically'
-        description: >
-          SSE events (NotificationEvent) do not carry task completion counts or progress percentages.
-          Leave progress unchanged during optimistic updates and let the debounced router.refresh()
-          reconcile the accurate progress from the server. The progress bar will update slightly
-          later (after the reconciliation pass) but will always show the correct value.
-        selected: true
-      - option: 'Estimate progress from phase transitions'
-        description: >
-          When a phase_completed event arrives, estimate progress based on the phase index
-          (e.g., requirements = 20%, research = 40%, planning = 60%, implementation = 80%).
-          Provides visual feedback but the estimate may not match actual task completion
-          percentages, leading to jumps when the server reconciliation corrects the value.
-        selected: false
-    selectionRationale: >
-      Not updating progress optimistically is the right call. The SSE event payload does not contain
-      task counts or completion data, so any estimate would be a guess that gets corrected seconds
-      later by the reconciliation pass. Showing a smooth but inaccurate progress jump followed by
-      a correction is worse UX than simply letting the progress update a few seconds later with the
-      correct value. The state badge and lifecycle label already provide immediate visual feedback
-      that something changed.
-    answer: 'Do not update progress optimistically'
-
-  - question: 'Should the debounce interval for background router.refresh() be configurable or fixed?'
-    resolved: true
-    options:
-      - option: 'Fixed at 3 seconds'
-        description: >
-          Use a hardcoded 3-second debounce after the last SSE event. Simple, predictable, and
-          aligns with the existing notification watcher polling interval (also 3s). No configuration
-          surface to maintain.
-        selected: true
-      - option: 'Configurable via constant'
-        description: >
-          Extract to a named constant (e.g., RECONCILIATION_DEBOUNCE_MS = 3000) at the top of the
-          hook file. Slightly more discoverable for future tuning but adds indirection for a value
-          unlikely to change.
-        selected: false
-    selectionRationale: >
-      A named constant is marginally better for discoverability, but per the project's "avoid
-      over-engineering" principle, a fixed 3-second value inline is sufficient. If tuning is
-      ever needed, it's a single line change in one file. The 3-second value matches the
-      notification watcher polling interval, creating a natural cadence.
-    answer: 'Fixed at 3 seconds'
+openQuestions: []
 
 content: |
   ## Problem Statement
 
-  The web UI control center displays feature nodes on a React Flow canvas. When a feature's
-  agent changes status (e.g., transitions from "running" to "waiting approval", or completes
-  a phase), the UI should reflect this change in real-time without requiring manual page refresh.
+  The web UI control center needs real-time updates when agent status changes (e.g.,
+  agent starts running, completes a phase, fails, or requires approval). Without
+  real-time events, users must manually refresh to see status changes.
 
-  **Current behavior**: The existing SSE infrastructure already streams `NotificationEvent` objects
-  to the browser via `GET /api/agent-events`. The `useControlCenterState` hook listens for these
-  events and calls `router.refresh()` on every SSE event, which re-runs the server component
-  (`page.tsx`), re-fetches all features from the database, and re-renders the entire canvas.
+  **Key challenge**: Next.js Turbopack bundles route handlers and server-side code
+  into separate module contexts, breaking in-process EventEmitter singletons. An
+  event bus created in one module context is invisible to route handlers in another.
 
-  **Problems with current approach**:
-  1. `router.refresh()` is coarse-grained — it re-fetches and re-renders ALL features, not just
-     the one that changed
-  2. The SSE event payload (`NotificationEvent`) contains useful metadata (`eventType`,
-     `agentRunId`, `featureName`, `phaseName`) that is discarded — the UI re-queries everything
-     from scratch instead of applying incremental updates
-  3. The feature drawer (detail panel) does not update when the selected feature's status changes —
-     it shows stale `FeatureNodeData` captured at click time until the next click
-  4. There is up to 3 seconds of latency from the notification watcher polling interval before
-     events reach the UI
-
-  **Desired behavior**: When an SSE event arrives, the UI should:
-  1. Identify which feature node is affected (via `featureName`)
-  2. Update that specific node's visual state (border color, icon, badge, lifecycle label)
-  3. Update the feature drawer if it's showing the affected feature
-  4. Continue using `router.refresh()` as a debounced background reconciliation mechanism
+  **Solution**: The SSE route polls the database directly instead of relying on an
+  in-process event bus for cross-module communication. A per-connection cache ensures
+  only deltas (status changes, new phase completions) are streamed to clients.
+  A Service Worker multiplexes a single SSE connection across all open browser tabs
+  to avoid redundant connections.
 
   ## Success Criteria
 
-  - [ ] Feature nodes update their visual state (icon, border color, badge, lifecycle label) within 100ms of an SSE event arriving in the browser
-  - [ ] Only the affected feature node's data is mutated — other nodes remain referentially stable
-  - [ ] The feature drawer reflects the updated state immediately if it is open for the affected feature
-  - [ ] `router.refresh()` runs as a debounced (3s) background reconciliation after the last SSE event, ensuring eventual consistency with full server state
-  - [ ] Progress percentage is NOT updated optimistically — it updates only after the reconciliation pass
-  - [ ] Existing notification toasts and browser notifications continue to work without regression
-  - [ ] Unit tests cover the `NotificationEvent.eventType` → `FeatureNodeState` mapping function
-  - [ ] Unit tests cover the `NotificationEvent.phaseName` → `FeatureLifecyclePhase` mapping function
-  - [ ] Unit tests cover the targeted node update logic in `useControlCenterState`
-  - [ ] No new backend changes are required — all work is in the web UI presentation layer
+  - [x] SSE endpoint at GET /api/agent-events streams NotificationEvent objects
+  - [x] Per-connection cache tracks last-seen state; only deltas are emitted
+  - [x] Optional ?runId query parameter filters events to a specific agent run
+  - [x] Heartbeat comments sent every 30s to keep connection alive
+  - [x] Service Worker maintains single SSE connection shared across tabs
+  - [x] Service Worker broadcasts events and connection status to all tabs
+  - [x] React hook (useAgentEvents) uses SW with direct EventSource fallback
+  - [x] Exponential backoff reconnection with stable-connection reset
+  - [x] NotificationBus provides typed EventEmitter singleton via globalThis
+  - [x] NotificationWatcherService polls DB for status transitions and phase completions
+  - [x] CLI `shep ui` command initializes and starts the notification watcher
+  - [x] Dev-server initializes and starts the notification watcher
+  - [x] Graceful shutdown stops the watcher in both CLI and dev-server
+  - [x] Unit tests cover NotificationWatcherService status/phase detection
+  - [x] Unit tests cover useAgentEvents hook (SW path and fallback path)
+  - [x] Integration tests cover SSE endpoint streaming behavior
 
   ## Functional Requirements
 
-  - **FR-1: Event-to-State Mapping** — A pure function shall map `NotificationEvent.eventType` to `FeatureNodeState`:
-    - `agent_started` → `'running'`
-    - `phase_completed` → `'running'`
-    - `waiting_approval` → `'action-required'`
-    - `agent_completed` → `'done'`
-    - `agent_failed` → `'error'`
+  - **FR-1: SSE Endpoint** — GET /api/agent-events streams Server-Sent Events with
+    `event: notification` type. Each event data is a JSON-serialized NotificationEvent.
+    Uses DB polling (500ms interval) with per-connection cache to emit only deltas.
 
-  - **FR-2: Event-to-Lifecycle Mapping** — A pure function shall map `NotificationEvent.phaseName` to `FeatureLifecyclePhase` when `phaseName` is present:
-    - `'analyze'` or `'requirements'` → `'requirements'`
-    - `'research'` → `'research'`
-    - `'plan'` or `'planning'` → `'implementation'` (planning precedes implementation in the UI)
-    - `'implement'` or `'implementation'` → `'implementation'`
-    - `'review'` → `'review'`
-    - When `phaseName` is absent, the lifecycle field shall not be updated
+  - **FR-2: Status Change Detection** — When an agent run's status changes (e.g.,
+    pending → running, running → completed), emit the corresponding NotificationEvent
+    with mapped eventType and severity.
 
-  - **FR-3: Targeted Node Update** — When an SSE event arrives, `useControlCenterState` shall:
-    1. Match the event to a node by comparing `NotificationEvent.featureName` to `FeatureNodeData.name`
-    2. Update only the matched node's `data.state` using the FR-1 mapping
-    3. Update the matched node's `data.lifecycle` using the FR-2 mapping (if `phaseName` present)
-    4. Leave all other node data fields (progress, description, etc.) unchanged
-    5. Leave all non-matching nodes referentially unchanged (same object reference)
+  - **FR-3: Phase Completion Detection** — When a phase timing record gains a
+    completedAt timestamp, emit a PhaseCompleted NotificationEvent with the phase name.
 
-  - **FR-4: Drawer Real-Time Update** — If the feature drawer is open and displaying a feature that receives an SSE update, the drawer shall immediately reflect the updated `state` and `lifecycle` fields without requiring the user to close and reopen it.
+  - **FR-4: Connection Management** — Heartbeat comments every 30s keep connections
+    alive. Client disconnect triggers cleanup of polling intervals and stream closure.
 
-  - **FR-5: Debounced Background Reconciliation** — After processing an SSE event with optimistic updates, `useControlCenterState` shall debounce `router.refresh()` calls with a 3-second window. The debounce resets on each new SSE event. This ensures full server-derived state (including progress percentage, task details, and any fields not in `NotificationEvent`) is eventually reconciled.
+  - **FR-5: Service Worker Multiplexing** — A Service Worker (agent-events-sw.js)
+    maintains a single SSE connection and broadcasts events to all connected tabs via
+    postMessage. Subscribers register via { type: 'subscribe', runId? } messages.
+    Connection starts on first subscriber, closes when last subscriber leaves.
 
-  - **FR-6: Event Deduplication** — The existing event deduplication logic (keyed on `agentRunId + eventType + timestamp`) shall be preserved to prevent processing the same SSE event twice.
+  - **FR-6: React Hook** — useAgentEvents() returns { events, lastEvent, connectionStatus }.
+    Uses Service Worker when available, falls back to direct EventSource. Both paths
+    implement exponential backoff reconnection (1s base, 30s max) with stable-connection
+    reset after 5 seconds.
 
-  - **FR-7: Graceful No-Match** — If an SSE event's `featureName` does not match any node on the canvas, the event shall be silently ignored for optimistic updates (the debounced `router.refresh()` will handle it via full server reconciliation).
+  - **FR-7: Notification Watcher** — NotificationWatcherService polls agent_runs table,
+    tracks per-run state (status + completed phases), emits NotificationEvents through
+    INotificationService. Tracks active runs and cleans up terminal ones.
+
+  - **FR-8: Notification Bus** — Typed EventEmitter singleton stored on globalThis via
+    Symbol.for() to survive module boundary issues. Provides pub/sub for notification
+    fan-out (SSE, desktop notifications, etc.).
 
   ## Non-Functional Requirements
 
-  - **NFR-1: Update Latency** — Optimistic visual updates must be applied within 100ms of the SSE event being received by the `useAgentEvents` hook (measured as time from `lastEvent` change to React re-render of the affected node).
+  - **NFR-1: No Cross-Module Singleton Issues** — SSE route polls DB directly instead
+    of relying on in-process event bus, avoiding Turbopack module boundary problems.
 
-  - **NFR-2: Render Efficiency** — Only the affected feature node shall re-render. Non-matching nodes must remain referentially stable (`===` same object) to avoid unnecessary React Flow re-renders across the entire canvas.
+  - **NFR-2: Tab Efficiency** — Service Worker ensures only one SSE connection per
+    browser regardless of how many tabs are open.
 
-  - **NFR-3: No Backend Changes** — All implementation must be confined to the web UI presentation layer (`src/presentation/web/`). No changes to backend services, SSE endpoint, TypeSpec models, or notification infrastructure.
+  - **NFR-3: Resilient Connections** — Exponential backoff with jitter prevents
+    thundering herd on server restart. Stable-connection detection resets backoff.
 
-  - **NFR-4: Existing Behavior Preservation** — Toast notifications (`useNotifications`), browser notifications, and the `AgentEventsProvider` context shall continue to function identically. The feature must be additive, not a replacement of existing notification behavior.
+  - **NFR-4: Clean Architecture** — NotificationWatcherService depends on repository
+    interfaces (IAgentRunRepository, IPhaseTimingRepository, IFeatureRepository) and
+    INotificationService. No direct DB access.
 
-  - **NFR-5: Testability** — The event-to-state and event-to-lifecycle mapping functions must be pure functions (no side effects, no hooks) that can be unit tested in isolation without React rendering or mocking.
-
-  - **NFR-6: Code Size** — Total implementation should remain under ~150 lines of production code (excluding tests), consistent with the S size estimate and the project's "avoid over-engineering" principle.
-
-  ## Product Questions & AI Recommendations
-
-  | # | Question | AI Recommendation | Rationale |
-  | - | -------- | ----------------- | --------- |
-  | 1 | Keep/replace/remove router.refresh()? | Keep as debounced (3s) reconciliation | SSE events lack full state (progress, task counts); debounced refresh catches drift without hammering server |
-  | 2 | Match nodes by featureName or agentRunId? | Match by featureName | Always present in events and node data; agentRunId would require node data shape changes and doesn't work for idle features |
-  | 3 | Update progress optimistically from SSE? | No — wait for server reconciliation | SSE events don't carry task counts; estimated progress would jump and then correct, which is worse UX |
-  | 4 | Fixed or configurable debounce interval? | Fixed at 3s | Matches notification watcher polling interval; avoid over-engineering per project principles |
+  - **NFR-5: Testability** — All services are constructor-injectable. NotificationBus
+    and NotificationWatcher have reset functions for test isolation.
 
   ## Affected Areas
 
   | Area | Impact | Reasoning |
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Core change: replace blind `router.refresh()` with targeted node state updates + debounced reconciliation |
-  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | Medium | Add pure functions to map `NotificationEvent.eventType` → `FeatureNodeState` and `phaseName` → `FeatureLifecyclePhase` |
-  | `src/presentation/web/components/common/feature-drawer/feature-drawer.tsx` | Medium | Ensure drawer reflects real-time state when the selected feature receives an SSE update |
-  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Low | May need to propagate updated selectedNode data when SSE updates the currently-selected feature |
-  | `tests/unit/` (new test files) | Medium | New unit tests for event-to-state mapping, event-to-lifecycle mapping, and targeted node update logic |
+  | `src/presentation/web/app/api/agent-events/route.ts` | High | Rewritten: DB-polling SSE with per-connection cache |
+  | `src/presentation/web/public/agent-events-sw.js` | High | New: Service Worker for SSE multiplexing across tabs |
+  | `src/presentation/web/hooks/use-agent-events.ts` | High | Rewritten: SW-first with EventSource fallback |
+  | `packages/core/src/infrastructure/services/notifications/notification-bus.ts` | High | New: typed EventEmitter singleton on globalThis |
+  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | High | New: DB-polling status/phase change detector |
+  | `src/presentation/cli/commands/ui.command.ts` | Medium | Modified: initializes notification watcher on startup |
+  | `src/presentation/web/dev-server.ts` | Medium | Modified: initializes notification watcher on startup |
 
   ## Dependencies
 
-  **Existing infrastructure (no changes needed)**:
-  - `NotificationWatcherService` — already polls DB and emits events
-  - `NotificationBus` / `NotificationService` — already handles fan-out
-  - SSE route (`/api/agent-events`) — already streams events to browser
-  - `useAgentEvents` hook + `AgentEventsProvider` — already provides events to React components
-  - `NotificationEvent` TypeSpec model — already contains `eventType`, `agentRunId`, `featureName`, `phaseName`
-  - `featureNodeStateConfig` — already defines visual mappings for all `FeatureNodeState` values
-
-  **No new backend work required** — all changes are in the web UI presentation layer.
-
-  ## Size Estimate
-
-  **S** — This is a small, focused frontend change. The SSE infrastructure and event data are
-  already in place. The work involves:
-  1. Two pure mapping functions (`eventType` → `FeatureNodeState`, `phaseName` → `FeatureLifecyclePhase`) (~20 lines)
-  2. Updating `useControlCenterState` to apply targeted node updates + debounced reconciliation (~40 lines)
-  3. Propagating state changes to the open feature drawer (~10 lines)
-  4. Unit tests for mapping functions and targeted update logic (~60 lines)
-
-  Total estimated: ~130 lines of code changes across 3-4 production files + test files.
-
-  ---
-
-  _Requirements completed — proceed with research_
+  **Existing infrastructure used**:
+  - NotificationEvent TypeSpec model (eventType, agentRunId, featureName, phaseName, severity)
+  - IAgentRunRepository, IPhaseTimingRepository, IFeatureRepository interfaces
+  - INotificationService interface
+  - tsyringe DI container
+  - AgentRunStatus, NotificationEventType, NotificationSeverity enums

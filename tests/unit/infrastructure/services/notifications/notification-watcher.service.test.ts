@@ -17,6 +17,7 @@ import {
 import { NotificationWatcherService } from '@/infrastructure/services/notifications/notification-watcher.service.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
 
 function createMockAgentRun(overrides: Partial<AgentRun> = {}): AgentRun {
@@ -68,6 +69,18 @@ function createMockPhaseTimingRepository(timings: PhaseTiming[] = []): IPhaseTim
   };
 }
 
+function createMockFeatureRepository(): IFeatureRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn().mockResolvedValue({ name: 'Quick Markdown File Creation' }),
+    findByIdPrefix: vi.fn(),
+    findBySlug: vi.fn(),
+    list: vi.fn(),
+    update: vi.fn(),
+    delete: vi.fn(),
+  };
+}
+
 function createMockNotificationService(): INotificationService & {
   receivedEvents: NotificationEvent[];
 } {
@@ -83,6 +96,7 @@ function createMockNotificationService(): INotificationService & {
 describe('NotificationWatcherService', () => {
   let runRepo: IAgentRunRepository;
   let phaseRepo: IPhaseTimingRepository;
+  let featureRepo: IFeatureRepository;
   let notificationService: ReturnType<typeof createMockNotificationService>;
   let watcher: NotificationWatcherService;
 
@@ -91,8 +105,9 @@ describe('NotificationWatcherService', () => {
 
     runRepo = createMockRunRepository();
     phaseRepo = createMockPhaseTimingRepository();
+    featureRepo = createMockFeatureRepository();
     notificationService = createMockNotificationService();
-    watcher = new NotificationWatcherService(runRepo, phaseRepo, notificationService);
+    watcher = new NotificationWatcherService(runRepo, phaseRepo, featureRepo, notificationService);
   });
 
   afterEach(() => {
@@ -449,6 +464,29 @@ describe('NotificationWatcherService', () => {
   });
 
   describe('feature name resolution', () => {
+    it('should resolve actual feature name from repository', async () => {
+      const run = createMockAgentRun({
+        id: 'run-1',
+        status: AgentRunStatus.running,
+        featureId: 'feat-1',
+      });
+
+      vi.mocked(featureRepo.findById).mockResolvedValue({
+        name: 'Quick Markdown File Creation',
+      } as any);
+      vi.mocked(runRepo.list).mockResolvedValue([run]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(featureRepo.findById).toHaveBeenCalledWith('feat-1');
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.featureName).toBe(
+        'Quick Markdown File Creation'
+      );
+    });
+
     it('should use agent run id as fallback when featureId is not set', async () => {
       await bootstrapWithEmptyRuns();
 
@@ -462,6 +500,24 @@ describe('NotificationWatcherService', () => {
       vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
 
       await vi.advanceTimersByTimeAsync(3000); // poll 2: first observation post-bootstrap
+
+      expect(notificationService.receivedEvents).toHaveLength(1);
+      expect(notificationService.receivedEvents[0]!.featureName).toBe('Agent run-1');
+    });
+
+    it('should fall back to agent id when feature repository throws', async () => {
+      const run = createMockAgentRun({
+        id: 'run-1',
+        status: AgentRunStatus.running,
+        featureId: 'feat-1',
+      });
+
+      vi.mocked(featureRepo.findById).mockRejectedValue(new Error('DB error'));
+      vi.mocked(runRepo.list).mockResolvedValue([run]);
+      vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
 
       expect(notificationService.receivedEvents).toHaveLength(1);
       expect(notificationService.receivedEvents[0]!.featureName).toBe('Agent run-1');
@@ -492,22 +548,17 @@ describe('NotificationWatcherService', () => {
 
   describe('error handling', () => {
     it('should not crash if repository throws during poll', async () => {
-      // eslint-disable-next-line @typescript-eslint/no-empty-function
-      const consoleSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
       vi.mocked(runRepo.list).mockRejectedValue(new Error('DB error'));
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(consoleSpy).toHaveBeenCalled();
       expect(notificationService.receivedEvents).toHaveLength(0);
 
-      // Should continue polling
+      // Should continue polling after error
       vi.mocked(runRepo.list).mockResolvedValue([]);
       await vi.advanceTimersByTimeAsync(3000);
       expect(runRepo.list).toHaveBeenCalledTimes(2);
-
-      consoleSpy.mockRestore();
     });
   });
 });

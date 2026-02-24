@@ -2,26 +2,67 @@
  * SSE API Route: GET /api/agent-events
  *
  * Streams agent lifecycle notification events to connected web UI clients
- * via Server-Sent Events (SSE). This is the first API route in the web UI.
+ * via Server-Sent Events (SSE).
  *
- * - Subscribes to the notification event bus (lazy-initialized singleton)
- * - Formats events as SSE data frames (event: notification\ndata: JSON\n\n)
+ * Uses DB polling with a per-connection cache so only deltas are sent.
+ * This avoids cross-module singleton issues with an in-process event bus.
+ *
+ * - Polls features + agent runs every 500ms
+ * - Compares against cached state and emits only changes
  * - Sends heartbeat comments every 30 seconds to keep connection alive
  * - Supports optional ?runId query parameter to filter events
- * - Cleans up listeners and intervals on client disconnect
+ * - Cleans up intervals on client disconnect
  */
 
-import { getNotificationBus } from '@shepai/core/infrastructure/services/notifications/notification-bus';
+import { resolve } from '@/lib/server-container';
+import type { IAgentRunRepository } from '@shepai/core/application/ports/output/agents/agent-run-repository.interface';
+import type { IPhaseTimingRepository } from '@shepai/core/application/ports/output/agents/phase-timing-repository.interface';
+import type { Feature, AgentRun } from '@shepai/core/domain/generated/output';
+import {
+  AgentRunStatus,
+  NotificationEventType,
+  NotificationSeverity,
+} from '@shepai/core/domain/generated/output';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
+import type { ListFeaturesUseCase } from '@shepai/core/application/use-cases/features/list-features.use-case';
 
+// Force dynamic — SSE streams must never be statically optimized or cached
+export const dynamic = 'force-dynamic';
+
+const POLL_INTERVAL_MS = 500;
 const HEARTBEAT_INTERVAL_MS = 30_000;
 
-function formatSSEEvent(event: NotificationEvent): string {
-  return `event: notification\ndata: ${JSON.stringify(event)}\n\n`;
+interface CachedFeatureState {
+  status: AgentRunStatus | null;
+  completedPhases: Set<string>;
+  featureName: string;
 }
 
-function formatHeartbeat(): string {
-  return ': heartbeat\n\n';
+const STATUS_TO_EVENT: Partial<
+  Record<AgentRunStatus, { eventType: NotificationEventType; severity: NotificationSeverity }>
+> = {
+  [AgentRunStatus.running]: {
+    eventType: NotificationEventType.AgentStarted,
+    severity: NotificationSeverity.Info,
+  },
+  [AgentRunStatus.waitingApproval]: {
+    eventType: NotificationEventType.WaitingApproval,
+    severity: NotificationSeverity.Warning,
+  },
+  [AgentRunStatus.completed]: {
+    eventType: NotificationEventType.AgentCompleted,
+    severity: NotificationSeverity.Success,
+  },
+  [AgentRunStatus.failed]: {
+    eventType: NotificationEventType.AgentFailed,
+    severity: NotificationSeverity.Error,
+  },
+};
+
+/** Map agent graph node name from AgentRun.result to a phase name. */
+function resultToPhase(result: string | undefined): string | undefined {
+  if (!result?.startsWith('node:')) return undefined;
+  return result.slice(5); // "node:analyze" → "analyze"
 }
 
 export function GET(request: Request): Response {
@@ -31,34 +72,129 @@ export function GET(request: Request): Response {
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       const encoder = new TextEncoder();
-      const bus = getNotificationBus();
 
-      const onNotification = (event: NotificationEvent) => {
-        if (runIdFilter && event.agentRunId !== runIdFilter) {
-          return;
+      // Per-connection cache: featureId → last-seen state
+      const cache = new Map<string, CachedFeatureState>();
+      let stopped = false;
+
+      function enqueue(text: string) {
+        if (stopped) return;
+        try {
+          controller.enqueue(encoder.encode(text));
+        } catch {
+          // Stream may be closed
         }
+      }
+
+      function emitEvent(event: NotificationEvent) {
+        enqueue(`event: notification\ndata: ${JSON.stringify(event)}\n\n`);
+      }
+
+      async function poll() {
+        if (stopped) return;
 
         try {
-          controller.enqueue(encoder.encode(formatSSEEvent(event)));
-        } catch {
-          // Stream may be closed — ignore enqueue errors
-        }
-      };
+          const listFeatures = resolve<ListFeaturesUseCase>('ListFeaturesUseCase');
+          const agentRunRepo = resolve<IAgentRunRepository>('IAgentRunRepository');
+          const phaseTimingRepo = resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
 
-      bus.on('notification', onNotification);
+          const features = await listFeatures.execute();
+
+          // Build current state for features with agent runs
+          const entries: { feature: Feature; run: AgentRun | null }[] = await Promise.all(
+            features.map(async (feature) => {
+              const run = feature.agentRunId
+                ? await agentRunRepo.findById(feature.agentRunId)
+                : null;
+              return { feature, run };
+            })
+          );
+
+          for (const { feature, run } of entries) {
+            if (!run) continue;
+
+            // Apply runId filter if present
+            if (runIdFilter && run.id !== runIdFilter) continue;
+
+            const prev = cache.get(feature.id);
+
+            if (!prev) {
+              // First time seeing this feature — seed cache, don't emit
+              const completedPhases = new Set<string>();
+              try {
+                const timings = await phaseTimingRepo.findByRunId(run.id);
+                for (const t of timings) {
+                  if (t.completedAt) completedPhases.add(t.phase);
+                }
+              } catch {
+                // Ignore timing errors
+              }
+
+              cache.set(feature.id, {
+                status: run.status,
+                completedPhases,
+                featureName: feature.name,
+              });
+              continue;
+            }
+
+            // Check for status change
+            if (prev.status !== run.status) {
+              prev.status = run.status;
+              const mapping = STATUS_TO_EVENT[run.status];
+              if (mapping) {
+                const phase = resultToPhase(run.result);
+                emitEvent({
+                  eventType: mapping.eventType,
+                  agentRunId: run.id,
+                  featureName: feature.name,
+                  ...(phase && { phaseName: phase }),
+                  message: `Agent status: ${run.status}`,
+                  severity: mapping.severity,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            }
+
+            // Check for new phase completions
+            try {
+              const timings = await phaseTimingRepo.findByRunId(run.id);
+              for (const t of timings) {
+                if (t.completedAt && !prev.completedPhases.has(t.phase)) {
+                  prev.completedPhases.add(t.phase);
+                  emitEvent({
+                    eventType: NotificationEventType.PhaseCompleted,
+                    agentRunId: run.id,
+                    featureName: feature.name,
+                    phaseName: t.phase,
+                    message: `Completed ${t.phase} phase`,
+                    severity: NotificationSeverity.Info,
+                    timestamp: new Date().toISOString(),
+                  });
+                }
+              }
+            } catch {
+              // Ignore timing errors
+            }
+          }
+        } catch {
+          // Ignore poll errors
+        }
+      }
+
+      // First poll immediately, then every POLL_INTERVAL_MS
+      void poll();
+      const pollInterval = setInterval(() => void poll(), POLL_INTERVAL_MS);
 
       // Heartbeat to keep connection alive
       const heartbeatInterval = setInterval(() => {
-        try {
-          controller.enqueue(encoder.encode(formatHeartbeat()));
-        } catch {
-          // Stream may be closed — ignore enqueue errors
-        }
+        enqueue(': heartbeat\n\n');
       }, HEARTBEAT_INTERVAL_MS);
 
       // Cleanup on client disconnect
       const cleanup = () => {
-        bus.removeListener('notification', onNotification);
+        stopped = true;
+        clearInterval(pollInterval);
         clearInterval(heartbeatInterval);
         try {
           controller.close();

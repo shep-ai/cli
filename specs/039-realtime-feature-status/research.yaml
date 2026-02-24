@@ -3,367 +3,213 @@
 
 name: realtime-feature-status
 summary: >
-  Technical research for adding targeted, optimistic UI updates to the control center
-  when SSE notification events arrive. The implementation adds two pure mapping functions
-  to derive-feature-state.ts, modifies useControlCenterState to apply targeted node mutations
-  with debounced router.refresh() reconciliation, and ensures the feature drawer reflects
-  real-time state changes. All changes are confined to the web UI presentation layer (~130 LOC).
+  Technical research for building the real-time agent event streaming infrastructure.
+  Key decisions: DB-polling SSE route (avoids Turbopack singleton issues), Service Worker
+  for tab multiplexing, globalThis-based EventEmitter singleton, NotificationWatcherService
+  for status/phase change detection, and exponential backoff reconnection.
 
 relatedFeatures: []
 
 technologies:
+  - 'Node.js EventEmitter (typed via generics)'
+  - 'Server-Sent Events (ReadableStream + TextEncoder)'
+  - 'Service Workers (postMessage broadcast)'
   - 'React 19 (useState, useEffect, useRef, useCallback)'
-  - 'Next.js 16+ App Router (router.refresh for background reconciliation)'
-  - '@xyflow/react (React Flow) — node data mutation, referential stability'
-  - 'Server-Sent Events (EventSource via existing useAgentEvents hook)'
-  - 'TypeSpec-generated NotificationEventType enum and NotificationEvent type'
-  - 'Vitest (unit testing framework, existing project standard)'
+  - 'Next.js 16+ (route handlers, force-dynamic)'
+  - 'tsyringe (DI for repository injection)'
+  - 'Vitest (unit + integration testing)'
 
 relatedLinks: []
 
 decisions:
-  - title: 'Location of event-to-state and event-to-lifecycle mapping functions'
-    chosen: 'Add to existing derive-feature-state.ts alongside deriveNodeState/deriveProgress'
+  - title: 'SSE route implementation strategy'
+    chosen: 'DB-polling with per-connection cache inside the route handler'
     rejected:
       - >
-        Create a new file (e.g., event-mappings.ts) — Adds file count for two small pure functions
-        (~20 lines total). The functions operate on the same types (FeatureNodeState,
-        FeatureLifecyclePhase) as the existing deriveNodeState/deriveProgress functions and share
-        the same conceptual responsibility: translating external signals into UI display state.
-        Splitting would fragment this cohesive concern.
+        In-process event bus subscription in route handler — Next.js Turbopack bundles
+        route handlers into separate module contexts. An EventEmitter singleton created
+        in the dev-server process is invisible to the route handler's module scope.
+        This was the original approach and it silently produced zero events.
       - >
-        Put mapping functions inline inside useControlCenterState hook — Violates testability
-        requirement (NFR-5). Pure functions must be importable without React context for unit
-        testing. The hook file is already ~130 lines and adding mapping logic would push it further.
+        WebSocket instead of SSE — Over-engineered for unidirectional server→client
+        events. SSE is simpler, works with HTTP/2 multiplexing, auto-reconnects natively,
+        and requires no additional server infrastructure.
     rationale: >
-      derive-feature-state.ts is the canonical location for "external signal → UI state" translations.
-      It already exports deriveNodeState (AgentRunStatus → FeatureNodeState) and deriveProgress
-      (Feature → number). The new functions mapEventTypeToState (NotificationEventType → FeatureNodeState)
-      and mapPhaseNameToLifecycle (string → FeatureLifecyclePhase) are conceptually identical — they
-      translate a different external signal (SSE event vs domain model) to the same UI types. Colocating
-      them keeps the file under ~100 lines, maintains SRP (all state derivation in one place), and
-      makes them trivially importable for unit tests. The existing test file at
-      tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts can be extended
-      with new describe blocks for the mapping functions.
+      The route handler polls the database directly (features + agent_runs + phase_timings)
+      every 500ms using a per-connection cache (Map<featureId, CachedFeatureState>). On each
+      poll, it compares current state against cached state and emits only deltas. This avoids
+      the cross-module singleton problem entirely — the route handler is self-contained with
+      no dependency on shared in-process state. The cache seeds on first observation (no
+      initial event burst) and tracks status + completedPhases per feature.
 
-  - title: 'Targeted node update strategy in useControlCenterState'
-    chosen: 'Mutate nodes via setNodes() with referentially-stable map — only clone the matched node'
+  - title: 'Service Worker for SSE connection multiplexing'
+    chosen: 'Dedicated Service Worker (agent-events-sw.js) that maintains one SSE connection and broadcasts to all tabs'
     rejected:
       - >
-        Use React Flow's setNodes with functional update + full re-layout (layoutWithDagre) —
-        Unnecessary. Layout is only needed when nodes are added/removed, not when data fields change.
-        Re-running dagre on every SSE event would be wasteful and could cause visual jitter as node
-        positions shift.
+        SharedWorker — Less browser support (no Safari on iOS). Service Workers have
+        broader support and also survive page navigations, providing better connection
+        persistence.
       - >
-        Use a separate React context/store (e.g., Zustand) for SSE-derived state overlays —
-        Over-engineered for this feature. Would require a new dependency, a new store, and
-        synchronization logic between the store and React Flow's internal state. The existing
-        useState + setNodes pattern in useControlCenterState is sufficient and consistent with
-        how optimistic creates/deletes already work in the same hook.
+        One EventSource per tab — Wasteful: N tabs = N SSE connections = N×polling load
+        on the server. The SSE route polls the DB on each connection independently.
     rationale: >
-      The existing useControlCenterState hook already manages nodes via useState and setNodes.
-      The targeted update maps over nodes, finds the match by featureName === node.data.name,
-      clones only that node with updated fields, and returns all others by reference. This
-      preserves React Flow's referential stability optimization — only the changed node triggers
-      a re-render. This is the same pattern used for optimistic create/delete operations already
-      in the hook. The setNodes functional form (prev => next) ensures atomic updates without
-      stale closures.
+      The Service Worker subscribes/unsubscribes based on client messages. It opens the
+      SSE connection on first subscriber and closes it when the last subscriber leaves.
+      Events are broadcast to all tabs via clients.matchAll(). Connection status (connected,
+      connecting, disconnected) is also broadcast so the UI can show connection indicators.
+      The SW handles its own reconnection with exponential backoff.
 
-  - title: 'Debounced router.refresh() implementation approach'
-    chosen: 'useRef-based debounce timer inside the existing SSE useEffect in useControlCenterState'
+  - title: 'NotificationBus singleton strategy'
+    chosen: 'globalThis with Symbol.for() key'
     rejected:
       - >
-        Import a debounce utility (e.g., lodash.debounce or a custom useDebouncedCallback hook) —
-        Adds a dependency or a new utility file for a 5-line pattern (clearTimeout + setTimeout).
-        The project does not currently use lodash, and adding it for one debounce would be wasteful.
-        A custom hook would be over-abstraction for a single use site.
+        Module-level singleton (let bus: EventEmitter) — Fails in Next.js where Turbopack
+        may create multiple copies of the module. Each copy gets its own singleton.
       - >
-        Use requestIdleCallback for reconciliation — Not universally available (Safari requires
-        polyfill). Also, requestIdleCallback's timing is unpredictable — it could fire immediately
-        or after many seconds depending on browser load. A fixed 3-second debounce is more
-        predictable and matches the notification watcher polling interval.
+        Dependency injection via tsyringe — The bus needs to be accessible from both
+        bundled route handlers and the dev-server process. DI container resolution may
+        not cross module boundaries in the same way.
     rationale: >
-      A useRef holding the timeout ID, cleared and reset on each SSE event, is the simplest
-      and most idiomatic React approach. The pattern is: on each new SSE event, (1) apply
-      optimistic node update immediately, (2) clear any pending debounce timer, (3) set a new
-      3-second timer that calls router.refresh(). This replaces the current immediate
-      router.refresh() call (line 117 of use-control-center-state.ts) with the debounced
-      version while keeping the same deduplication key logic. The useRef is cleaned up on
-      unmount via a useEffect cleanup function. Total: ~8 lines of change.
+      Symbol.for('shep:notification-bus') creates a global, cross-module-boundary key on
+      globalThis. This survives Turbopack's module isolation because globalThis is shared
+      across all JS execution contexts in the same process. The bus is lazily created on
+      first access. A resetNotificationBus() function is provided for test isolation.
 
-  - title: 'Feature drawer real-time update mechanism'
-    chosen: 'Update selectedNode synchronously in the SSE handler alongside setNodes'
+  - title: 'NotificationWatcherService polling approach'
+    chosen: 'Poll agent_runs table, track per-run state, emit via INotificationService'
     rejected:
       - >
-        useEffect watching nodes for selectedNode changes — Adds a one-render delay between
-        the canvas node updating and the drawer updating. The nodes update triggers the effect,
-        which then updates selectedNode, which triggers another render. Two renders instead of one.
+        File system watching (e.g., chokidar on SQLite file) — SQLite WAL mode makes
+        file change detection unreliable. Would need to re-query anyway after detecting
+        a change.
       - >
-        Derive selectedNode from nodes via useMemo instead of separate state — Would require
-        refactoring how selection works. Currently selectedNode is set on click and cleared on
-        escape/pane click. Changing to derived state would need a selectedFeatureName state
-        variable and a lookup into nodes on every render. Larger change than the feature warrants.
+        IPC from worker process — The feature agent worker is spawned detached with IPC
+        disconnected (for background execution). No IPC channel available.
     rationale: >
-      When the SSE handler matches a feature and calls setNodes, it simultaneously calls
-      setSelectedNode (if the drawer is open for that feature). React 19 automatic batching
-      ensures both updates commit in the same render cycle, so the drawer and canvas node
-      update atomically. The handler already has the event's featureName and the mapped
-      state/lifecycle values, making the selectedNode update a simple conditional spread.
+      The watcher polls every 3 seconds (configurable), listing all agent runs. It tracks
+      active runs (pending, running, waiting_approval) in a Map<runId, WatcherState>.
+      Status changes emit mapped NotificationEvents. Phase completions are detected by
+      comparing phase_timings.completedAt against the cached completedPhases set. Terminal
+      runs (completed, failed, cancelled, interrupted) are emitted once then cleaned up.
+      Feature names are resolved via IFeatureRepository.
 
-  - title: 'Test strategy for new mapping functions'
-    chosen: 'Extend existing derive-feature-state.test.ts with new describe blocks'
+  - title: 'React hook architecture'
+    chosen: 'Service Worker primary with direct EventSource fallback'
     rejected:
       - >
-        Create separate test files for each new function — Over-fragmentation for two small pure
-        functions. The existing test file already covers deriveNodeState and deriveProgress; adding
-        tests for mapEventTypeToState and mapPhaseNameToLifecycle in the same file keeps related
-        tests together and shares the existing test helper factories.
+        EventSource only — Works but creates redundant connections when multiple tabs
+        are open. No connection sharing possible with raw EventSource.
       - >
-        Write React Testing Library hook tests for useControlCenterState — Heavy mock setup
-        (React Flow, Next.js router, server actions, SSE context) for logic that can be verified
-        through unit tests of the pure mapping functions it calls.
+        Polling from React (useEffect + fetch) — Higher latency, no streaming, wastes
+        bandwidth re-fetching unchanged data.
     rationale: >
-      The mapping functions are pure and trivially testable. Extending the existing
-      derive-feature-state.test.ts with new describe blocks for mapEventTypeToState (5 cases
-      matching each NotificationEventType) and mapPhaseNameToLifecycle (7+ cases for each
-      phaseName string + undefined) keeps tests colocated with the functions they test.
+      useAgentEvents() first attempts to register a Service Worker. If SW is available,
+      events arrive via navigator.serviceWorker.onmessage. If SW registration fails
+      (e.g., HTTPS requirement, browser restriction), it falls back to a direct
+      EventSource connection with the same backoff/reconnection logic. Both paths
+      provide the same { events, lastEvent, connectionStatus } interface.
 
-openQuestions:
-  - question: 'Should the optimistic update handle the "creating" → "running" transition when an agent_started event arrives for a feature that was just created?'
-    resolved: true
-    options:
-      - option: 'No — treat "creating" nodes as exempt from SSE updates'
-        description: >
-          Nodes in the "creating" state are optimistic placeholders with temporary IDs (e.g.,
-          feature-1234567890-0) that do not match any real feature name. SSE events reference
-          real feature names. The existing server sync effect (lines 70-101 of
-          use-control-center-state.ts) handles the transition when router.refresh() delivers
-          the server-created node.
-        selected: true
-      - option: 'Yes — match by partial name when node is in "creating" state'
-        description: >
-          Attempt to match SSE events to "creating" nodes by comparing the event featureName
-          to the optimistic node name. Provides faster visual feedback but the optimistic name
-          may not match the server-assigned name (slug normalization), creating false matches.
-        selected: false
-      - option: 'Yes — use a pending feature name registry to bridge optimistic and real nodes'
-        description: >
-          Maintain a Map of optimistic IDs to pending feature names. When an SSE event arrives,
-          check this registry. Adds complexity for a transition that already resolves itself
-          within seconds via the server sync mechanism.
-        selected: false
-    selectionRationale: >
-      "Creating" nodes are temporary placeholders that exist only until router.refresh() delivers
-      the real server-created node (typically 1-3 seconds). They have temporary IDs and may have
-      names that do not exactly match the server-assigned name. The existing server sync effect
-      already handles this transition gracefully. Trying to match SSE events to "creating" nodes
-      would add complexity for a scenario that resolves itself within seconds.
-
-  - question: 'Should the selectedNode update happen via useEffect or synchronously in the SSE handler?'
-    resolved: true
-    options:
-      - option: 'Synchronously in the SSE handler alongside setNodes'
-        description: >
-          When the SSE handler matches a feature and calls setNodes, also call setSelectedNode
-          if the drawer is open for that feature. React 19 automatic batching ensures both
-          updates commit in the same render cycle. No extra useEffect needed.
-        selected: true
-      - option: 'Via useEffect watching nodes for changes to the selected feature'
-        description: >
-          Add a useEffect that runs when nodes change, finds the node matching selectedNode?.name,
-          and calls setSelectedNode if its state or lifecycle changed. Clean separation but adds
-          a one-render delay.
-        selected: false
-      - option: 'Derive selectedNode from nodes via useMemo'
-        description: >
-          Replace selectedNode useState with a useMemo that derives it from nodes whenever
-          a selected feature ID changes. Eliminates synchronization but requires refactoring
-          the selection model, a larger change than warranted.
-        selected: false
-    selectionRationale: >
-      Synchronous update in the SSE handler is the simplest approach. React 19 automatic
-      batching ensures both setNodes and setSelectedNode commit in the same render cycle, so
-      the drawer and canvas node update atomically. The handler already has the event's
-      featureName and the mapped state/lifecycle values. No extra effects or derivation needed.
-
-  - question: 'Should the debounce timer be shared with or independent from the optimistic update?'
-    resolved: true
-    options:
-      - option: 'Independent — optimistic update fires immediately, debounce runs in parallel'
-        description: >
-          The optimistic setNodes update happens synchronously on each SSE event. The debounce
-          timer starts/resets on each event and fires router.refresh() 3 seconds after the last
-          event. These serve different purposes: instant visual feedback vs full state reconciliation.
-        selected: true
-      - option: 'Sequential — wait for debounce, then decide if optimistic update is needed'
-        description: >
-          Only apply optimistic updates temporarily and let the debounced refresh be the real
-          update. More complex and defeats the purpose of instant visual feedback.
-        selected: false
-      - option: 'Combined — apply optimistic update and immediately call router.refresh (no debounce)'
-        description: >
-          Apply optimistic update AND call router.refresh() immediately on every event. Same
-          server load as today, defeating the debounce optimization.
-        selected: false
-    selectionRationale: >
-      Independent parallel execution is correct. The optimistic update path provides instant
-      visual feedback within a single React render cycle. The debounced reconciliation path
-      ensures eventual consistency with full server state (progress, task counts, etc.) without
-      hammering the server. During SSE event bursts, only one server refresh fires instead of
-      one per event.
+openQuestions: []
 
 content: |
   ## Technology Decisions
 
-  ### 1. Location of Event-to-State Mapping Functions
+  ### 1. DB-Polling SSE Route (not event bus subscription)
 
-  **Chosen:** Add to existing `derive-feature-state.ts`
-
-  **Rejected:**
-  - New file (e.g., `event-mappings.ts`) — Fragments cohesive state derivation logic across files for two small (~10 lines each) pure functions
-  - Inline in `useControlCenterState` hook — Violates testability requirement (NFR-5); pure functions must be importable without React context
-
-  **Rationale:** `derive-feature-state.ts` is the canonical location for "external signal → UI state" translations. It already exports `deriveNodeState` and `deriveProgress`. The new `mapEventTypeToState` and `mapPhaseNameToLifecycle` functions serve the same conceptual purpose with a different input signal (SSE events vs domain models). The file stays under ~100 lines, and existing tests extend naturally.
-
-  ### 2. Targeted Node Update Strategy
-
-  **Chosen:** `setNodes()` functional update with referentially-stable map — only clone the matched node
+  **Chosen:** Route handler polls DB directly with per-connection cache
 
   **Rejected:**
-  - Full re-layout via `layoutWithDagre` on each SSE event — Wasteful; layout is only needed for add/remove, not data field changes
-  - Separate React context/store (Zustand) for SSE state overlays — Over-engineered; adds dependency and synchronization complexity
+  - In-process event bus subscription — Fails due to Turbopack module isolation
+  - WebSocket — Over-engineered for unidirectional events
 
-  **Rationale:** The existing `useControlCenterState` hook already manages nodes via `useState` and `setNodes`. The targeted update maps over nodes, finds the match by `featureName === node.data.name`, clones only that node with updated fields, and returns all others by reference. This preserves React Flow's referential stability optimization.
+  **Rationale:** Self-contained route handler with no cross-module dependencies. Polls
+  every 500ms, compares against cached state, emits only deltas. Seeds cache on first
+  observation to avoid initial event burst.
 
-  ### 3. Debounced router.refresh() Implementation
+  ### 2. Service Worker for Tab Multiplexing
 
-  **Chosen:** `useRef`-based debounce timer inside the existing SSE `useEffect`
-
-  **Rejected:**
-  - `lodash.debounce` or custom `useDebouncedCallback` — Adds dependency for a 5-line pattern; project doesn't use lodash
-  - `requestIdleCallback` — Not universally available (Safari); unpredictable timing vs fixed 3s
-
-  **Rationale:** `clearTimeout` + `setTimeout` with a `useRef<ReturnType<typeof setTimeout>>` is idiomatic React and requires ~8 lines of change.
-
-  ### 4. Feature Drawer Real-Time Update
-
-  **Chosen:** Update `selectedNode` synchronously in the SSE handler alongside `setNodes`
+  **Chosen:** Dedicated SW that broadcasts SSE events to all tabs
 
   **Rejected:**
-  - `useEffect` watching nodes for changes — Adds one-render delay
-  - `useMemo` derivation from nodes — Requires refactoring selection model
+  - SharedWorker — Less browser support (no Safari iOS)
+  - One EventSource per tab — Wasteful redundant connections
 
-  **Rationale:** React 19 automatic batching ensures both `setNodes` and `setSelectedNode` commit in the same render cycle.
+  **Rationale:** One SSE connection per browser, shared via postMessage. Opens on first
+  subscriber, closes on last unsubscribe. Handles reconnection with exponential backoff.
 
-  ### 5. Test Strategy
+  ### 3. globalThis Singleton for NotificationBus
 
-  **Chosen:** Extend existing `derive-feature-state.test.ts` with new `describe` blocks
+  **Chosen:** Symbol.for() key on globalThis
 
   **Rejected:**
-  - Separate test files — Over-fragmentation for two pure functions
-  - React Testing Library hook tests — Heavy mock setup for logic verifiable through pure function tests
+  - Module-level singleton — Breaks with Turbopack module duplication
+  - DI container — May not cross module boundaries
 
-  **Rationale:** Pure mapping functions are trivially testable. Extending the existing test file keeps related tests colocated.
+  **Rationale:** globalThis is shared across all JS contexts in a process. Symbol.for()
+  prevents key collisions. Reset function provided for tests.
 
-  ## Library Analysis
+  ### 4. NotificationWatcherService for Status Detection
 
-  | Library | Purpose | Decision | Reasoning |
-  | ------- | ------- | -------- | --------- |
-  | `@xyflow/react` | React Flow node rendering | Use (existing) | Already renders feature nodes; `setNodes` provides mutation API for targeted updates |
-  | `react` (useState, useRef, useEffect) | State management and side effects | Use (existing) | Standard React hooks for node state, debounce timers, SSE event processing |
-  | `next/navigation` (router.refresh) | Background reconciliation | Use (existing) | Already used; debouncing reduces call frequency from every-event to once-per-burst |
-  | `@shepai/core/domain/generated` | NotificationEventType, NotificationEvent | Use (existing) | Type-safe enum values for mapping functions |
-  | `lodash.debounce` | Debounce utility | Reject | Not a project dependency; native setTimeout/clearTimeout achieves the same in ~5 lines |
-  | `zustand` | External state store | Reject | Over-engineered; existing useState pattern is sufficient |
-  | `use-debounce` (npm) | React debounce hooks | Reject | Unnecessary dependency for a single debounce use site |
+  **Chosen:** Poll agent_runs table, track per-run state
 
-  ## Security Considerations
+  **Rejected:**
+  - File system watching — Unreliable with SQLite WAL
+  - IPC from worker — Worker spawned detached, no IPC channel
 
-  **No new security concerns.** This feature:
-  - Does NOT introduce new API endpoints or server-side code
-  - Does NOT modify the SSE route or authentication model
-  - Operates entirely within the existing client-side React context
-  - SSE events are already validated and filtered by `NotificationService`
-  - No user input is processed by mapping functions — they operate on controlled enum values
-  - `featureName` matching uses strict string equality, not pattern matching or regex
-
-  ## Performance Implications
-
-  **Improvements over current behavior:**
-  1. **Reduced server load**: Debouncing `router.refresh()` (3s window) means SSE event bursts trigger one server refresh instead of one per event
-  2. **Faster visual feedback**: Optimistic state updates apply within the current React render cycle (~16ms) vs waiting for server round-trip
-  3. **Fewer re-renders**: Only the matched node is cloned; all other nodes keep the same object reference, so React Flow skips re-rendering them
-
-  **No degradation:**
-  - Debounced `router.refresh()` still fires for full state consistency
-  - Mapping functions are O(1) switch statements — negligible computation
-  - No new SSE connections or network requests introduced
+  **Rationale:** 3-second polling with in-memory state tracking. Detects status changes
+  and phase completions. Emits through INotificationService for fan-out.
 
   ## Architecture Notes
 
-  ### Event Flow (After Implementation)
+  ### Event Flow
 
   ```
-  SSE event arrives via EventSource
-    → useAgentEvents accumulates event, updates lastEvent
-    → AgentEventsProvider propagates to consumers
-    → useNotifications dispatches toasts (unchanged)
-    → useControlCenterState:
-        1. Deduplicates event (existing key-based check)
-        2. Maps eventType → FeatureNodeState via mapEventTypeToState()
-        3. Maps phaseName → FeatureLifecyclePhase via mapPhaseNameToLifecycle()
-        4. setNodes: find match by featureName, clone with new state/lifecycle
-        5. setSelectedNode: if drawer is open for matched feature, update it
-        6. Debounce: reset 3s timer → router.refresh() fires after burst
+  Agent worker updates DB (agent_runs, phase_timings)
+    → NotificationWatcherService polls DB every 3s
+    → Detects status change or phase completion
+    → Emits NotificationEvent via INotificationService
+    → NotificationBus fans out to listeners
+
+  Meanwhile (independent path for web UI):
+    SSE route polls DB every 500ms
+    → Per-connection cache detects deltas
+    → Streams NotificationEvent via SSE
+    → Service Worker receives event
+    → Broadcasts to all open tabs
+    → useAgentEvents hook delivers to React components
   ```
+
+  ### Status-to-Event Mapping
+
+  | AgentRunStatus    | NotificationEventType | NotificationSeverity |
+  | ----------------- | --------------------- | -------------------- |
+  | running           | AgentStarted          | Info                 |
+  | waitingApproval   | WaitingApproval       | Warning              |
+  | completed         | AgentCompleted        | Success              |
+  | failed            | AgentFailed           | Error                |
 
   ### Files Changed
 
-  | File | Change | Est. Lines |
-  | ---- | ------ | ---------- |
-  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | Add `mapEventTypeToState()` and `mapPhaseNameToLifecycle()` pure functions | ~25 |
-  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Replace immediate `router.refresh()` with targeted node update + debounced reconciliation; update selectedNode on match | ~40 |
-  | `tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts` | Add test cases for `mapEventTypeToState` (5 cases) and `mapPhaseNameToLifecycle` (7+ cases) | ~60 |
+  | File | Change | Type |
+  | ---- | ------ | ---- |
+  | `packages/core/src/infrastructure/services/notifications/notification-bus.ts` | New typed EventEmitter singleton | New |
+  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | New DB-polling status detector | New |
+  | `src/presentation/web/app/api/agent-events/route.ts` | Rewritten: DB polling with per-connection cache | Rewrite |
+  | `src/presentation/web/public/agent-events-sw.js` | New Service Worker for SSE multiplexing | New |
+  | `src/presentation/web/hooks/use-agent-events.ts` | Rewritten: SW-first with EventSource fallback | Rewrite |
+  | `src/presentation/web/dev-server.ts` | Initialize notification watcher on startup | Modified |
+  | `src/presentation/cli/commands/ui.command.ts` | Initialize notification watcher on startup | Modified |
 
-  **Total: ~125 lines** (within the S-size estimate of ~130 lines)
+  ## Security Considerations
 
-  ### Key Implementation Details
+  - SSE endpoint is read-only (GET), no mutation surface
+  - No authentication changes (inherits existing session model)
+  - Service Worker scoped to '/' — same-origin only
+  - No user input in DB queries (repository pattern with parameterized queries)
 
-  **mapEventTypeToState (NotificationEventType → FeatureNodeState):**
-  ```
-  agent_started    → 'running'
-  phase_completed  → 'running'
-  waiting_approval → 'action-required'
-  agent_completed  → 'done'
-  agent_failed     → 'error'
-  ```
+  ## Performance Implications
 
-  **mapPhaseNameToLifecycle (string | undefined → FeatureLifecyclePhase | undefined):**
-  ```
-  'analyze'        → 'requirements'
-  'requirements'   → 'requirements'
-  'research'       → 'research'
-  'plan'           → 'implementation'
-  'planning'       → 'implementation'
-  'implement'      → 'implementation'
-  'implementation' → 'implementation'
-  'review'         → 'review'
-  undefined        → undefined (do not update lifecycle)
-  ```
-
-  Note: This mapping mirrors the `nodeToLifecyclePhase` map in `page.tsx` (lines 29-35). The SSE event `phaseName` carries the same strings originating from agent graph node names via `NotificationWatcherService`.
-
-  ### What Does NOT Change
-
-  - `NotificationWatcherService` — backend polling unchanged
-  - `NotificationBus` / `NotificationService` — event distribution unchanged
-  - SSE route (`/api/agent-events`) — streaming unchanged
-  - `useAgentEvents` hook / `AgentEventsProvider` — event accumulation unchanged
-  - `useNotifications` — toast/browser notification dispatch unchanged
-  - `FeatureNode` component — already renders based on `FeatureNodeData` state/lifecycle
-  - `FeatureDrawer` component — already renders based on `selectedNode` props
-  - `page.tsx` server component — still source of truth; debounced refresh invokes it
-
-  ---
-
-  _Research completed — proceed with planning phase_
+  - SSE route polls every 500ms per connection — acceptable for single-user tool
+  - Service Worker reduces N tab connections to 1
+  - NotificationWatcherService polls every 3s — minimal DB load
+  - Per-connection cache ensures only deltas are serialized and sent
