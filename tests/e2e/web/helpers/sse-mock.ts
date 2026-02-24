@@ -14,6 +14,7 @@ import type { Page } from '@playwright/test';
 export interface NotificationEvent {
   eventType: string;
   agentRunId: string;
+  featureId: string;
   featureName: string;
   phaseName?: string;
   message: string;
@@ -138,13 +139,15 @@ export function makeEvent(
   featureName: string,
   overrides: Partial<NotificationEvent> = {}
 ): NotificationEvent {
+  const { featureId = 'e2e-feat-001', ...rest } = overrides;
   return {
     eventType: EventType.AgentStarted,
     agentRunId: 'e2e-showcase-run',
+    featureId,
     featureName,
     message: '',
     severity: Severity.Info,
     timestamp: new Date().toISOString(),
-    ...overrides,
+    ...rest,
   };
 }

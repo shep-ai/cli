@@ -1,29 +1,35 @@
 /**
- * E2E Showcase: Realtime Feature Lifecycle
+ * E2E Showcase: Realtime Feature Lifecycle (Real Agent)
  *
- * Produces a VIDEO recording that demonstrates the full realtime
- * notification and feature-node lifecycle pipeline:
+ * Produces a VIDEO + AUDIO recording demonstrating the full realtime
+ * notification pipeline against a live dev server with a mock agent:
  *
- *   1. Toast notifications (info / warning / success / error)
- *   2. Sound effects (button, notification, celebration, caution)
- *   3. Feature-node state transitions (creating → running → action-required → done → error)
- *   4. Lifecycle phase changes (requirements → research → implementation → completed)
+ *   1. Create a feature on an existing repo with all approval gates manual
+ *   2. Wait for each approval gate (PRD → Plan → Merge)
+ *   3. Approve each gate via the review drawer
+ *   4. Observe toast notifications + notification sounds at each step
+ *   5. Wait for agent completion with celebration sound
  *
- * The test injects synthetic SSE events via a mock EventSource so it
- * requires NO running agent — only the Next.js dev server.
+ * Requires: a running dev server (`shep ui` or `pnpm dev:web`) with repos
+ * and a mock agent configured. Each step should complete within ~5s.
  *
  * To produce the showcase video:
  *   npx playwright test realtime-showcase --project showcase
  *
- * Video is written to test-results/.
+ * Override the server URL:  SHOWCASE_URL=http://localhost:3000
+ * Override the target repo: SHOWCASE_REPO=agent-chaos
+ *
+ * Output: test-results/.../recording-with-audio.webm (video + audio merged)
  */
 
-import { test, expect } from '@playwright/test';
-import { installSseMock, injectEvent, makeEvent, EventType, Severity } from './helpers/sse-mock';
+import { test, expect } from './fixtures/audio-recording';
+import type { Page } from '@playwright/test';
 
 // ── Per-test config ─────────────────────────────────────────────────────
 
 test.use({
+  // Point at the user's live dev server (which has real repos + mock agent)
+  baseURL: process.env.SHOWCASE_URL || 'http://localhost:3000',
   // Allow audio autoplay without user gesture so sounds play in the video
   launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
   // Record video for this showcase suite
@@ -32,77 +38,99 @@ test.use({
 
 // ── Constants ───────────────────────────────────────────────────────────
 
-const FEATURE_NAME = 'OAuth Login';
+const REPO_NAME = process.env.SHOWCASE_REPO || 'agent-chaos';
+const FEATURE_NAME = `E2E Showcase ${Date.now()}`;
 
-/** Delay between events — long enough for the video to clearly show each transition. */
-const EVENT_GAP_MS = 2_500;
+/** Max wait for each agent phase transition (mock agent should be < 5s). */
+const GATE_TIMEOUT = 15_000;
 
 // ── Helpers ─────────────────────────────────────────────────────────────
 
-/** Wait for a Sonner toast containing the given text. */
-async function expectToast(page: import('@playwright/test').Page, text: string) {
-  const toast = page.locator('[data-sonner-toast]').filter({ hasText: text });
-  await expect(toast.first()).toBeVisible({ timeout: 5_000 });
+/** Remove all Sonner toast DOM nodes so the next gate's toast is unambiguous. */
+async function dismissToasts(page: Page) {
+  await page.evaluate(() => {
+    document.querySelectorAll('[data-sonner-toast]').forEach((el) => el.remove());
+  });
+}
+
+/**
+ * Wait for a feature node badge with the given text to appear on the canvas,
+ * then click the feature node card to open the corresponding review drawer.
+ *
+ * This is more reliable than clicking the toast "Review" button because:
+ * - The badge text is rendered only after React re-renders with updated node state
+ * - Clicking the node via handleNodeClick reads already-rendered (current) data
+ * - Avoids the race where selectFeatureById reads stale nodesRef.current
+ */
+async function waitForBadgeAndClickNode(page: Page, badgeText: string, timeout = GATE_TIMEOUT) {
+  const badge = page.getByTestId('feature-node-badge').filter({ hasText: badgeText });
+  await expect(badge.first()).toBeVisible({ timeout });
+
+  // Click the parent feature-node-card
+  const card = page.getByTestId('feature-node-card').filter({
+    has: page.getByTestId('feature-node-badge').filter({ hasText: badgeText }),
+  });
+  await card.first().click();
+}
+
+/**
+ * Handle PRD questionnaire: select AI-recommended answers for each question,
+ * then click the approve button. If no questions exist, approves immediately.
+ */
+async function approvePrd(page: Page) {
+  const approveBtn = page.getByRole('button', { name: /approve/i }).first();
+  await expect(approveBtn).toBeVisible({ timeout: 5_000 });
+
+  // Click through recommended options until the approve button is enabled
+  let attempts = 0;
+  while ((await approveBtn.isDisabled()) && attempts < 20) {
+    const recommended = page.getByText('AI Recommended').first();
+    const isVisible = await recommended.isVisible().catch(() => false);
+    if (isVisible) {
+      // Click the option card containing the recommendation
+      await recommended.locator('..').click();
+      await page.waitForTimeout(600);
+    } else {
+      // No more recommended options — try Next/Skip or break
+      const nextBtn = page.getByRole('button', { name: /next|skip/i }).first();
+      const nextVisible = await nextBtn.isVisible().catch(() => false);
+      if (nextVisible && (await nextBtn.isEnabled())) {
+        await nextBtn.click();
+        await page.waitForTimeout(400);
+      } else {
+        break;
+      }
+    }
+    attempts++;
+  }
+
+  await approveBtn.click();
 }
 
 // ── Tests ───────────────────────────────────────────────────────────────
 
-test.describe('Showcase: Realtime Feature Lifecycle', () => {
-  test('full agent lifecycle with notifications, sounds, and node state transitions', async ({
-    page,
-  }) => {
-    // ── 1. Setup: mock EventSource, block server actions after initial load ──
-
-    await installSseMock(page);
-
-    // Flag: once flipped, POST server-actions and RSC refresh requests hang,
-    // keeping the optimistic node alive and preventing data reconciliation.
-    let blockMutations = false;
-
-    await page.route('**/*', async (route) => {
-      const req = route.request();
-      const headers = req.headers();
-
-      if (blockMutations) {
-        // Hold server-action calls (POST with Next-Action header)
-        const isServerAction = req.method() === 'POST' && headers['next-action'];
-        // Hold RSC refresh fetches triggered by router.refresh()
-        const isRscRefresh =
-          req.method() === 'GET' && headers['rsc'] && req.url().includes('localhost');
-
-        if (isServerAction || isRscRefresh) {
-          // Don't call fulfill/continue/abort — the request just hangs.
-          return;
-        }
-      }
-
-      await route.continue();
-    });
-
-    // ── 2. Navigate and wait for the page shell ─────────────────────────
+test.describe('Showcase: Real Feature Lifecycle with Audio', () => {
+  test('create → approval gates → completion with notification sounds', async ({ page }) => {
+    // ── 1. Navigate and wait for the control center canvas ──────────────
 
     await page.goto('/');
 
-    // The control-center or empty-state should render
     const controlCenter = page.getByTestId('control-center');
-    const emptyState = page.getByTestId('control-center-empty-state');
-
-    // Wait for either the canvas or the empty state
-    await expect(controlCenter.or(emptyState)).toBeVisible({ timeout: 15_000 });
-
-    const canvasVisible = await controlCenter.isVisible();
+    await expect(controlCenter).toBeVisible({ timeout: 15_000 });
 
     // Enable sounds via localStorage
     await page.evaluate(() => localStorage.setItem('shep-sound-enabled', 'true'));
 
-    // ── 3. Create a feature node via the UI ─────────────────────────────
-    //    The node appears immediately (optimistic) — the server-action
-    //    is held so the node stays on screen for the entire showcase.
+    // ── 2. Create a feature via the repo node's "Add feature" button ────
+    //    This ensures repositoryPath is set (unlike the sidebar button).
 
-    // Click the sidebar "New feature" button
-    const newFeatureButton = page.locator('button', { hasText: 'New feature' });
-    await expect(newFeatureButton).toBeVisible({ timeout: 5_000 });
-    await newFeatureButton.click();
+    const repoCard = page.locator(
+      `[data-testid="repository-node-card"][data-repo-name="${REPO_NAME}"]`
+    );
+    await expect(repoCard).toBeVisible({ timeout: 5_000 });
+
+    const addFeatureBtn = repoCard.locator('[data-testid="repository-node-add-button"]');
+    await addFeatureBtn.click();
 
     // Wait for the create-feature drawer
     await expect(page.getByRole('heading', { name: 'NEW FEATURE' })).toBeVisible({
@@ -110,14 +138,17 @@ test.describe('Showcase: Realtime Feature Lifecycle', () => {
     });
 
     // Fill the feature name
-    const nameInput = page.getByPlaceholder('e.g. GitHub OAuth Login');
-    await expect(nameInput).toBeVisible();
-    await nameInput.fill(FEATURE_NAME);
+    await page.getByPlaceholder('e.g. GitHub OAuth Login').fill(FEATURE_NAME);
 
-    // Block mutations BEFORE submitting so the optimistic node stays
-    blockMutations = true;
+    // Ensure all auto-approve gates are unchecked (force manual approval)
+    for (const id of ['allowPrd', 'allowPlan', 'allowMerge']) {
+      const checkbox = page.locator(`#${id}`);
+      if (await checkbox.isChecked()) {
+        await checkbox.uncheck();
+      }
+    }
 
-    // Submit — creates an optimistic node with state="creating"
+    // Submit
     const submitButton = page.getByRole('button', { name: '+ Create Feature' });
     await expect(submitButton).toBeEnabled();
     await submitButton.click();
@@ -127,117 +158,42 @@ test.describe('Showcase: Realtime Feature Lifecycle', () => {
       timeout: 5_000,
     });
 
-    // If the canvas is visible, the node should appear with our feature name
-    if (canvasVisible) {
-      await expect(page.getByText(FEATURE_NAME).first()).toBeVisible({ timeout: 5_000 });
-    }
+    // ── 3. PRD approval gate ──────────────────────────────────────────────
+    //    Agent analyzes requirements → pauses for PRD review → warning toast.
+    //    We wait for the feature node badge (not the toast Review button) to
+    //    avoid a race where selectFeatureById reads stale node data.
 
-    // Brief pause before the event sequence starts (visual clarity in video)
-    await page.waitForTimeout(1_500);
+    await waitForBadgeAndClickNode(page, 'Review Product Requirements');
+    await approvePrd(page);
+    await dismissToasts(page);
 
-    // ── 4. Event sequence: walk through the full agent lifecycle ─────────
+    // ── 4. Plan approval gate ─────────────────────────────────────────────
+    //    Agent generates plan → pauses for plan review → warning toast
 
-    // -- 4a. Agent Started → "running" state (blue), info toast, button sound
-    await injectEvent(
-      page,
-      makeEvent(FEATURE_NAME, {
-        eventType: EventType.AgentStarted,
-        message: 'Agent started analyzing repository',
-        severity: Severity.Info,
-      })
-    );
-    await expectToast(page, 'Agent started');
-    await page.waitForTimeout(EVENT_GAP_MS);
+    await waitForBadgeAndClickNode(page, 'Review Technical Planning');
+    const approvePlanBtn = page.getByRole('button', { name: 'Approve Plan' });
+    await expect(approvePlanBtn).toBeVisible({ timeout: 5_000 });
+    await approvePlanBtn.click();
+    await dismissToasts(page);
 
-    // -- 4b. Phase: analyze complete → lifecycle: "requirements"
-    await injectEvent(
-      page,
-      makeEvent(FEATURE_NAME, {
-        eventType: EventType.PhaseCompleted,
-        phaseName: 'analyze',
-        message: 'Completed requirements analysis',
-        severity: Severity.Info,
-      })
-    );
-    await expectToast(page, 'Completed requirements');
-    await page.waitForTimeout(EVENT_GAP_MS);
+    // ── 5. Merge approval gate ────────────────────────────────────────────
+    //    Agent implements + pushes → pauses for merge review → warning toast
 
-    // -- 4c. Phase: research complete → lifecycle: "research"
-    await injectEvent(
-      page,
-      makeEvent(FEATURE_NAME, {
-        eventType: EventType.PhaseCompleted,
-        phaseName: 'research',
-        message: 'Completed technical research',
-        severity: Severity.Info,
-      })
-    );
-    await expectToast(page, 'Completed technical research');
-    await page.waitForTimeout(EVENT_GAP_MS);
+    await waitForBadgeAndClickNode(page, 'Review Merge Request');
+    const approveMergeBtn = page.getByRole('button', { name: 'Approve Merge' });
+    await expect(approveMergeBtn).toBeVisible({ timeout: 5_000 });
+    await approveMergeBtn.click();
+    await dismissToasts(page);
 
-    // -- 4d. Waiting Approval → "action-required" state (amber), warning toast, notification sound
-    await injectEvent(
-      page,
-      makeEvent(FEATURE_NAME, {
-        eventType: EventType.WaitingApproval,
-        phaseName: 'plan',
-        message: 'Waiting for plan approval',
-        severity: Severity.Warning,
-      })
-    );
-    await expectToast(page, 'Waiting for plan approval');
-    await page.waitForTimeout(EVENT_GAP_MS);
+    // ── 6. Wait for completion ────────────────────────────────────────────
+    //    Agent completes → success toast + celebration sound
 
-    // -- 4e. Agent resumes → "running" state (blue), lifecycle: "implementation"
-    await injectEvent(
-      page,
-      makeEvent(FEATURE_NAME, {
-        eventType: EventType.AgentStarted,
-        phaseName: 'implement',
-        message: 'Agent resumed — implementing feature',
-        severity: Severity.Info,
-      })
-    );
-    await expectToast(page, 'Agent resumed');
-    await page.waitForTimeout(EVENT_GAP_MS);
+    const completionToast = page.locator('[data-sonner-toast]').filter({
+      hasText: /completed|success/i,
+    });
+    await expect(completionToast.first()).toBeVisible({ timeout: GATE_TIMEOUT });
 
-    // -- 4f. Phase: implement complete
-    await injectEvent(
-      page,
-      makeEvent(FEATURE_NAME, {
-        eventType: EventType.PhaseCompleted,
-        phaseName: 'implement',
-        message: 'Implementation complete',
-        severity: Severity.Info,
-      })
-    );
-    await expectToast(page, 'Implementation complete');
-    await page.waitForTimeout(EVENT_GAP_MS);
-
-    // -- 4g. Agent Completed → "done" state (green), success toast, celebration sound
-    await injectEvent(
-      page,
-      makeEvent(FEATURE_NAME, {
-        eventType: EventType.AgentCompleted,
-        message: 'Feature completed successfully!',
-        severity: Severity.Success,
-      })
-    );
-    await expectToast(page, 'Feature completed');
-    await page.waitForTimeout(EVENT_GAP_MS);
-
-    // -- 4h. (Bonus) Agent Failed → "error" state (red), error toast, caution sound
-    await injectEvent(
-      page,
-      makeEvent(FEATURE_NAME, {
-        eventType: EventType.AgentFailed,
-        message: 'Build failed — test suite errors',
-        severity: Severity.Error,
-      })
-    );
-    await expectToast(page, 'Build failed');
-
-    // Hold the final frame for video
+    // Hold final frame for video
     await page.waitForTimeout(3_000);
   });
 });
