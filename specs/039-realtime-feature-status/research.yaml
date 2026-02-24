@@ -148,17 +148,34 @@ decisions:
       client-only, no server dependencies.
 
   - title: 'Notification sound mapping strategy'
-    chosen: 'Severity-based mapping in useNotifications hook'
+    chosen: 'Severity-based mapping in useNotifications hook (Info events silently skipped)'
     rejected:
       - >
         Event-type-based mapping — Too many event types (AgentStarted, WaitingApproval,
         AgentCompleted, AgentFailed, PhaseCompleted). Would require maintaining a large
         mapping table. Severity provides a natural 4-level grouping.
+      - >
+        Mapping all 4 severities to sounds — Info events (AgentStarted, PhaseCompleted)
+        fire frequently and produce noise. Only actionable/notable events (Error, Warning,
+        Success) warrant audio and toast attention.
     rationale: >
       NotificationSeverity maps to sounds: Success → celebration, Error → caution,
-      Warning → notification, Info → button. Each severity gets its own useSound instance
-      in useNotifications. Deduplication via processedRef Set prevents re-dispatch on
-      React re-renders (key = agentRunId+eventType+timestamp).
+      Warning → notification. Info-severity events are silently skipped. Each severity
+      gets its own useSound instance in useNotifications. Deduplication uses a
+      processedCountRef index counter (tracking how many events from the append-only
+      array have been processed) rather than a Set with compound keys — simpler and
+      leverages the append-only events array from useAgentEventsContext.
+
+  - title: 'Feature matching strategy in optimistic UI'
+    chosen: 'Match by event.featureId (stable UUID)'
+    rejected:
+      - >
+        Match by featureName — Feature names can change (user can rename). Names are also
+        not guaranteed unique across repositories. Using name matching caused missed updates.
+    rationale: >
+      Added featureId field to the NotificationEvent TypeSpec model. The SSE route populates
+      featureId from the feature's stable UUID. The client matches nodes by comparing
+      event.featureId to the node's featureId property, which is deterministic and immutable.
 
   - title: 'Optimistic UI for control center feature nodes'
     chosen: 'Client-side event-to-state mapping with SSE-driven updates'
@@ -283,13 +300,14 @@ content: |
 
   ### 6. Notification Sound Mapping
 
-  **Chosen:** Severity-based mapping (Success → celebration, Error → caution, etc.)
+  **Chosen:** Severity-based mapping (Success → celebration, Error → caution, Warning → notification). Info silently skipped.
 
   **Rejected:**
   - Event-type-based mapping — Too many event types, severity provides natural grouping
+  - Mapping all 4 severities — Info events fire too frequently, produce noise
 
-  **Rationale:** 4 severity levels map to 4 distinct sounds. Deduplication via processedRef
-  Set prevents re-dispatch on React re-renders.
+  **Rationale:** 3 actionable severity levels trigger sounds and toasts. Info events silently skipped.
+  Deduplication via processedCountRef index counter (not a Set).
 
   ### 7. Optimistic UI for Feature Nodes
 
@@ -318,10 +336,12 @@ content: |
   | `src/presentation/web/public/sounds/*.wav` | 28 WAV sound files | New |
   | `src/presentation/web/components/common/sound-toggle/` | SoundToggle component with stories | New |
   | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | Optimistic UI state derivation + event mapping | Enhanced |
-  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | Live status changes | Modified |
-  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Wired SSE events into canvas | Modified |
-  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Real-time event stream handling | Extended |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Wired SSE events + UI action sounds | Modified |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Optimistic SSE updates, polling fallback, state-transition toasts | Extended |
   | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | SoundToggle in header | Modified |
+  | `src/presentation/web/hooks/agent-events-provider.tsx` | AgentEventsProvider React context | New |
+  | `src/presentation/web/app/api/agent-events/health/route.ts` | Health endpoint for E2E | New |
+  | `tsp/domain/entities/notification-event.tsp` | Added featureId field | Modified |
   | `src/presentation/web/dev-server.ts` | Initialize notification watcher | Modified |
   | `src/presentation/cli/commands/ui.command.ts` | Initialize notification watcher | Modified |
 

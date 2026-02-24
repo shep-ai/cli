@@ -10,6 +10,8 @@ summary: >
   into server startup (CLI + dev-server) and validates. Phase 5 adds the sound system
   (useSound hook + WAV library + Storybook). Phase 6 wires sounds into notifications
   with favicon and branding. Phase 7 adds optimistic UI updates and SoundToggle component.
+  Phase 8 adds featureId matching, periodic polling fallback, state-transition toasts,
+  UI action sounds, and the E2E showcase test.
 
 relatedFeatures: []
 
@@ -72,9 +74,11 @@ phases:
     name: 'Notification Sound Integration + Branding'
     description: >
       Wire sound playback into useNotifications hook with severity-based mapping
-      (Success → celebration, Error → caution, Warning → notification, Info → button).
-      Add event deduplication via processedRef Set. Update browser notifications to use
-      favicon-light.svg icon.
+      (Success → celebration, Error → caution, Warning → notification). Info-severity
+      events silently skipped to reduce noise. Add event deduplication via
+      processedCountRef index counter. Update browser notifications to use
+      favicon-light.svg icon. Add shep:select-feature CustomEvent for notification→drawer
+      navigation on WaitingApproval toasts.
     parallel: false
 
   - id: phase-7
@@ -86,6 +90,17 @@ phases:
       SoundToggle component with Volume2/VolumeOff icons and add to app shell header.
     parallel: false
 
+  - id: phase-8
+    name: 'Hardening: featureId matching, polling fallback, E2E showcase'
+    description: >
+      Add featureId field to NotificationEvent TypeSpec model. Match features by featureId
+      (not featureName) in SSE route and optimistic UI. Add periodic 5s polling fallback
+      when features are in active state. Add fallback state-transition toasts from server
+      refresh when SSE missed events. Wire UI action sounds (click, create, delete, close)
+      into control center. Add health endpoint for E2E pipeline verification. Add shep:sound-toggle
+      cross-instance sync via CustomEvent. Create E2E showcase test with audio recording.
+    parallel: false
+
 filesToCreate:
   - packages/core/src/infrastructure/services/notifications/notification-bus.ts
   - packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts
@@ -93,28 +108,41 @@ filesToCreate:
   - src/presentation/web/hooks/use-sound.ts
   - src/presentation/web/hooks/use-sound-enabled.ts
   - src/presentation/web/hooks/use-sound.stories.tsx
+  - src/presentation/web/hooks/agent-events-provider.tsx
   - src/presentation/web/public/sounds/*.wav (28 files)
   - src/presentation/web/components/common/sound-toggle/sound-toggle.tsx
   - src/presentation/web/components/common/sound-toggle/sound-toggle.stories.tsx
   - src/presentation/web/components/common/sound-toggle/index.ts
+  - src/presentation/web/app/api/agent-events/health/route.ts
+  - tests/e2e/web/realtime-showcase.spec.ts
+  - tests/e2e/web/fixtures/audio-recording.ts
+  - tests/e2e/web/helpers/sse-mock.ts
 
 filesToModify:
   - src/presentation/web/app/api/agent-events/route.ts
   - src/presentation/web/hooks/use-agent-events.ts
   - src/presentation/web/hooks/use-notifications.ts
+  - src/presentation/web/hooks/use-notifications.stories.tsx
   - src/presentation/web/dev-server.ts
   - src/presentation/cli/commands/ui.command.ts
   - src/presentation/web/components/common/feature-node/derive-feature-state.ts
-  - src/presentation/web/components/common/feature-node/feature-node.tsx
   - src/presentation/web/components/features/control-center/control-center-inner.tsx
   - src/presentation/web/components/features/control-center/use-control-center-state.ts
   - src/presentation/web/components/layouts/app-shell/app-shell.tsx
+  - src/presentation/web/components/common/repository-node/repository-node.tsx
+  - src/presentation/web/app/layout.tsx
+  - tsp/domain/entities/notification-event.tsp
+  - apis/json-schema/NotificationEvent.yaml
+  - packages/core/src/domain/generated/output.ts
+  - playwright.config.ts
   - tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts
+  - tests/unit/infrastructure/services/notifications/notification-bus.test.ts
+  - tests/unit/infrastructure/services/notifications/notification.service.test.ts
   - tests/unit/presentation/web/hooks/use-agent-events.test.ts
+  - tests/unit/presentation/web/hooks/use-notifications.test.ts
   - tests/unit/presentation/cli/commands/ui.command.test.ts
   - tests/integration/api/agent-events-sse.test.ts
   - tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts
-  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
 
 openQuestions: []
 
@@ -166,8 +194,8 @@ content: |
   Global mute via useSoundEnabled + localStorage. SoundToggle in app shell header.
 
   ### 6. Severity-Based Sound Mapping
-  Success → celebration, Error → caution, Warning → notification, Info → button.
-  4 severity levels map naturally to 4 distinct sounds. Dedup via processedRef.
+  Success → celebration, Error → caution, Warning → notification. Info events silently
+  skipped. 3 severity levels trigger sounds. Dedup via processedCountRef index counter.
 
   ### 7. Optimistic UI Updates from SSE
   mapEventTypeToState converts SSE events to FeatureNodeState directly in the client.
@@ -185,4 +213,4 @@ content: |
   | Service Worker not available (HTTP, old browser) | Graceful fallback to direct EventSource |
   | Browser blocks autoplay audio | play().catch() silently ignores; user gesture unlocks |
   | Sound files increase bundle size | WAV files in /public (not bundled), small (~5-15KB each) |
-  | Stale node state after SSE disconnect | deriveNodeState re-derives from Feature + AgentRun on reconnect |
+  | Stale node state after SSE disconnect | deriveNodeState re-derives from Feature + AgentRun on reconnect; 5s periodic polling fallback for active features |

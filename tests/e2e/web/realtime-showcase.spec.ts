@@ -29,7 +29,7 @@ import type { Page } from '@playwright/test';
 
 test.use({
   // Point at the user's live dev server (which has real repos + mock agent)
-  baseURL: process.env.SHOWCASE_URL || 'http://localhost:3000',
+  baseURL: process.env.SHOWCASE_URL ?? 'http://localhost:3000',
   // Allow audio autoplay without user gesture so sounds play in the video
   launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
   // Record video for this showcase suite
@@ -38,7 +38,7 @@ test.use({
 
 // ── Constants ───────────────────────────────────────────────────────────
 
-const REPO_NAME = process.env.SHOWCASE_REPO || 'agent-chaos';
+const REPO_NAME = process.env.SHOWCASE_REPO ?? 'agent-chaos';
 const FEATURE_NAME = `E2E Showcase ${Date.now()}`;
 
 /** Max wait for each agent phase transition (mock agent should be < 5s). */

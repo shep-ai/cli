@@ -94,6 +94,18 @@ content: |
   - [x] mapPhaseNameToLifecycle maps SSE phase names to lifecycle phases
   - [x] deriveNodeState derives node state from Feature + AgentRun (mirrors CLI)
   - [x] deriveProgress derives task completion percentage
+  - [x] NotificationEvent TypeSpec model includes featureId field
+  - [x] Features matched by featureId (not featureName) in optimistic updates
+  - [x] Debounced router.refresh() for background data reconciliation
+  - [x] Periodic 5s polling fallback when features are in active state
+  - [x] Fallback state-transition toasts from server refresh when SSE missed
+  - [x] Agent events health endpoint for E2E testing
+  - [x] AgentEventsProvider context shares event stream across consumers
+  - [x] shep:sound-toggle cross-instance sync via CustomEvent
+  - [x] shep:select-feature notification→drawer navigation via CustomEvent
+  - [x] ?sse=direct query parameter for debugging (bypasses Service Worker)
+  - [x] UI action sounds (click, create, delete, close) in control center
+  - [x] E2E showcase test with audio recording and live agent lifecycle
 
   ## Functional Requirements
 
@@ -119,7 +131,9 @@ content: |
   - **FR-6: React Hook** — useAgentEvents() returns { events, lastEvent, connectionStatus }.
     Uses Service Worker when available, falls back to direct EventSource. Both paths
     implement exponential backoff reconnection (1s base, 30s max) with stable-connection
-    reset after 5 seconds.
+    reset after 5 seconds. A `?sse=direct` query parameter bypasses the Service Worker
+    for debugging. An AgentEventsProvider React context wraps the hook so multiple consumers
+    (useControlCenterState, useNotifications) share a single event stream instance.
 
   - **FR-7: Notification Watcher** — NotificationWatcherService polls agent_runs table,
     tracks per-run state (status + completed phases), emits NotificationEvents through
@@ -136,23 +150,56 @@ content: |
 
   - **FR-10: Sound-Enabled Persistence** — useSoundEnabled() hook reads/writes boolean
     state to localStorage key 'shep-sound-enabled'. Defaults to enabled. SoundToggle
-    component provides Volume2/VolumeOff icon button in the app shell header.
+    component provides Volume2/VolumeOff icon button in the app shell header. A custom
+    `shep:sound-toggle` event synchronizes state across all useSoundEnabled instances
+    in the same tab (e.g., SoundToggle and useSound hooks share the same mute state).
 
   - **FR-11: Notification Sound Integration** — useNotifications() maps notification
-    severity to sounds: Success → celebration, Error → caution, Warning → notification,
-    Info → button. Deduplicates events by agentRunId+eventType+timestamp to prevent
-    re-dispatch on re-render. Also dispatches toast (sonner) and browser Notification.
+    severity to sounds: Success → celebration, Error → caution, Warning → notification.
+    Info-severity events are silently skipped (no toast, notification, or sound) to reduce
+    noise from routine AgentStarted/PhaseCompleted events. Deduplication uses a
+    processedCountRef index counter (tracking how many events from the append-only array
+    have been processed) rather than a Set with compound keys — simpler and leverages the
+    append-only events array from useAgentEventsContext. Also dispatches toast (sonner) and
+    browser Notification. WaitingApproval toasts include a "Review" action button that fires
+    a `shep:select-feature` CustomEvent for notification→drawer navigation.
 
   - **FR-12: Optimistic UI Updates** — Control center feature nodes update immediately
-    from SSE events without waiting for data refetch. mapEventTypeToState converts
-    NotificationEventType to FeatureNodeState (AgentStarted → running, WaitingApproval →
-    action-required, AgentCompleted → done, AgentFailed → error). mapPhaseNameToLifecycle
-    maps phase names (analyze, requirements, research, plan, implement) to lifecycle phases.
+    from SSE events without waiting for data refetch. Features are matched by
+    `event.featureId` (not featureName) for reliable identification. mapEventTypeToState
+    converts NotificationEventType to FeatureNodeState (AgentStarted/PhaseCompleted →
+    running, WaitingApproval → action-required, AgentCompleted → done, AgentFailed →
+    error). mapPhaseNameToLifecycle maps phase names (analyze, requirements, research,
+    plan, implement, merge) to lifecycle phases. A debounced `router.refresh()` fires 3s
+    after the last SSE event for background data reconciliation.
 
   - **FR-13: Feature State Derivation** — deriveNodeState(feature, agentRun) derives the
     visual node state from a Feature and its optional AgentRun, with priority: waiting_approval
     → action-required, failed → error, interrupted/cancelled → blocked, completed → done,
     running/pending → running, fallback to plan tasks. deriveProgress returns task completion %.
+
+  - **FR-14: Feature ID Matching** — NotificationEvent includes a `featureId` field (added
+    to the TypeSpec model) so the SSE endpoint and client can match events to features by
+    stable ID rather than the mutable featureName string.
+
+  - **FR-15: Fallback State-Transition Toasts** — When server-refresh detects a feature
+    state transition that SSE did not already deliver (e.g., SSE was disconnected), the
+    control center fires a fallback toast: done → success, action-required → warning with
+    "Review" action, error → error. Prevents duplicate toasts by checking the SSE events
+    array for a matching featureId + state.
+
+  - **FR-16: Periodic Polling Fallback** — When any feature is in an active state (running,
+    action-required, creating), the control center polls `router.refresh()` every 5 seconds
+    as a belt-and-suspenders approach alongside SSE. Stops when no features are active.
+
+  - **FR-17: Agent Events Health Endpoint** — GET /api/agent-events/health returns JSON
+    with the last-polled timestamp and event counts, used by E2E tests to verify the SSE
+    pipeline is operational.
+
+  - **FR-18: UI Action Sounds** — Control center wires sounds into interactive actions:
+    tap_01 for node clicks, transition_up for feature creation, transition_down for feature
+    deletion and drawer close, caution for rejection. These are separate from notification
+    sounds (FR-11) and play directly via useSound in use-control-center-state.
 
   ## Non-Functional Requirements
 
@@ -190,15 +237,19 @@ content: |
   | `src/presentation/web/public/sounds/*.wav` | High | New: 28 WAV sound files across 8 categories |
   | `src/presentation/web/components/common/sound-toggle/` | Medium | New: SoundToggle component with stories |
   | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | High | Enhanced: optimistic UI state derivation + event mapping |
-  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | Medium | Modified: reflects live status changes |
-  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | High | Modified: wired SSE events into canvas for live node updates |
-  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Extended: handles real-time event streams for optimistic UI |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | High | Modified: wired SSE events + UI action sounds |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Extended: optimistic SSE updates, debounced reconciliation, periodic polling fallback, state-transition toasts |
   | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | Medium | Modified: integrated SoundToggle in header |
+  | `src/presentation/web/hooks/agent-events-provider.tsx` | High | New: AgentEventsProvider React context for shared event stream |
+  | `src/presentation/web/app/api/agent-events/health/route.ts` | Medium | New: health endpoint for E2E testing |
+  | `src/presentation/web/app/layout.tsx` | Low | Modified: added favicon meta tags |
+  | `tsp/domain/entities/notification-event.tsp` | Medium | Modified: added featureId field |
+  | `tests/e2e/web/realtime-showcase.spec.ts` | Medium | New: E2E test covering full real-time lifecycle |
 
   ## Dependencies
 
   **Existing infrastructure used**:
-  - NotificationEvent TypeSpec model (eventType, agentRunId, featureName, phaseName, severity)
+  - NotificationEvent TypeSpec model (eventType, agentRunId, featureId, featureName, phaseName, severity)
   - IAgentRunRepository, IPhaseTimingRepository, IFeatureRepository interfaces
   - INotificationService interface
   - tsyringe DI container

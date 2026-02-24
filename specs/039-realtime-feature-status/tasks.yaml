@@ -3,12 +3,13 @@
 
 name: realtime-feature-status
 summary: >
-  12 tasks across 7 phases. Phase 1 builds the notification infrastructure (bus + watcher)
+  16 tasks across 8 phases. Phase 1 builds the notification infrastructure (bus + watcher)
   with tests. Phase 2 rewrites the SSE endpoint with DB polling. Phase 3 adds the Service
   Worker and rewrites the React hook. Phase 4 integrates into server startup and validates.
   Phase 5 adds the sound system (useSound hook + WAV library + Storybook). Phase 6 wires
   sounds into notifications with favicon branding. Phase 7 adds optimistic UI updates and
-  SoundToggle component.
+  SoundToggle component. Phase 8 adds featureId matching, polling fallback, state-transition
+  toasts, UI action sounds, and E2E showcase.
 
 relatedFeatures: []
 technologies:
@@ -271,25 +272,31 @@ tasks:
     title: 'Wire sounds into notifications with favicon and branding'
     description: >
       Update useNotifications hook to play severity-mapped sounds on notification events.
-      Mapping: Success → celebration, Error → caution, Warning → notification, Info → button.
-      Add event deduplication via processedRef Set (key = agentRunId+eventType+timestamp).
-      Update browser notifications to use /favicon-light.svg icon.
+      Mapping: Success → celebration, Error → caution, Warning → notification. Info-severity
+      events are silently skipped (no toast, notification, or sound) to reduce noise from
+      routine AgentStarted/PhaseCompleted events. Add event deduplication via
+      processedCountRef index counter (tracking array position, not a Set with compound keys).
+      Update browser notifications to use /favicon-light.svg icon. Add shep:select-feature
+      CustomEvent on WaitingApproval toasts for notification→drawer navigation.
     state: Done
     dependencies:
       - task-8
     acceptanceCriteria:
       - 'useNotifications creates 4 useSound instances (one per severity)'
-      - 'Notification events trigger correct severity-mapped sound'
-      - 'Deduplication prevents replay on re-render'
+      - 'Only Error/Warning/Success events trigger sounds and toasts (Info skipped)'
+      - 'Deduplication via processedCountRef prevents replay on re-render'
       - 'Browser Notification uses favicon-light.svg icon'
       - 'Toast dispatched via sonner with severity method'
+      - 'WaitingApproval toast includes Review action with shep:select-feature event'
     tdd:
       red:
         - 'Test notification event plays correct sound for severity'
+        - 'Test Info events are silently skipped'
         - 'Test deduplication prevents double-dispatch'
       green:
         - 'Add SEVERITY_TO_SOUND mapping and useSound instances'
-        - 'Add processedRef deduplication'
+        - 'Add processedCountRef deduplication'
+        - 'Add shep:select-feature dispatch on WaitingApproval'
       refactor:
         - 'Extract severity mapping constants'
     estimatedEffort: '20min'
@@ -355,21 +362,119 @@ tasks:
         - 'Ensure consistent icon sizing with other header buttons'
     estimatedEffort: '15min'
 
-totalEstimate: '4h 30min'
+  - id: task-13
+    phaseId: phase-8
+    title: 'Add featureId to NotificationEvent and match by ID'
+    description: >
+      Add featureId field to the NotificationEvent TypeSpec model. Update the SSE route
+      to populate featureId on emitted events. Update use-control-center-state.ts to match
+      features by event.featureId (not featureName) for reliable identification. Update
+      tests to include featureId in event fixtures.
+    state: Done
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'NotificationEvent TypeSpec model includes featureId: string'
+      - 'SSE route populates featureId from feature.id'
+      - 'Optimistic UI matches nodes by featureId'
+      - 'Generated output.ts includes featureId field'
+    tdd:
+      red:
+        - 'Test optimistic update matches by featureId'
+      green:
+        - 'Add featureId to TypeSpec model'
+        - 'Update SSE route event construction'
+        - 'Update setNodes matcher in use-control-center-state'
+      refactor: null
+    estimatedEffort: '20min'
+
+  - id: task-14
+    phaseId: phase-8
+    title: 'Add periodic polling fallback and state-transition toasts'
+    description: >
+      Add periodic 5s router.refresh() polling when any feature is in an active state
+      (running, action-required, creating) as belt-and-suspenders alongside SSE. Add
+      fallback state-transition toasts from server refresh that fire only when SSE did not
+      already deliver the matching event (checks events array for matching featureId+state).
+      Toasts: done → success, action-required → warning with Review action, error → error.
+    state: Done
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - '5s interval polls router.refresh() when active features exist'
+      - 'Interval stops when no features are active'
+      - 'State-transition toasts fire on server refresh state changes'
+      - 'Duplicate prevention: SSE-covered transitions do not re-toast'
+    tdd:
+      red:
+        - 'Test polling interval starts with active features'
+        - 'Test polling stops with no active features'
+      green:
+        - 'Add useEffect with setInterval based on active feature detection'
+        - 'Add prevFeatureStatesRef tracking and transition detection'
+      refactor: null
+    estimatedEffort: '25min'
+
+  - id: task-15
+    phaseId: phase-8
+    title: 'Wire UI action sounds and cross-instance sound sync'
+    description: >
+      Wire useSound into control-center-state and control-center-inner for interactive
+      actions: tap_01 for node clicks, transition_up for create, transition_down for
+      delete/close, caution for reject. Add shep:sound-toggle CustomEvent in
+      useSoundEnabled so all hook instances in the same tab sync their mute state
+      immediately when toggled.
+    state: Done
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Node click plays tap_01 sound'
+      - 'Feature creation plays transition_up sound'
+      - 'Feature deletion plays transition_down sound'
+      - 'Drawer close plays transition_down sound'
+      - 'Rejection plays caution sound'
+      - 'shep:sound-toggle event syncs all useSoundEnabled instances'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-16
+    phaseId: phase-8
+    title: 'Add health endpoint and E2E showcase test'
+    description: >
+      Create GET /api/agent-events/health endpoint returning last-polled timestamp and
+      event counts for E2E pipeline verification. Create realtime-showcase.spec.ts E2E
+      test covering the full real-time lifecycle with audio recording fixture, SSE mock
+      helper, and live agent event simulation.
+    state: Done
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'Health endpoint returns JSON with timestamp and counts'
+      - 'E2E test verifies SSE events reach the UI'
+      - 'Audio recording fixture captures sound playback'
+      - 'SSE mock helper simulates agent events'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '6h'
 openQuestions: []
 
 content: |
   ## Summary
 
-  The implementation follows a bottom-up approach across 7 phases and 12 tasks. Phases 1-4
+  The implementation follows a bottom-up approach across 8 phases and 16 tasks. Phases 1-4
   build the core real-time infrastructure: notification bus + watcher service, SSE endpoint
   rewrite, Service Worker + React hook, and server startup integration. Phase 5 adds the
   sound system (useSound hook, 28 WAV files, Storybook). Phase 6 wires sounds into
   notifications with favicon branding. Phase 7 adds optimistic UI updates for control center
-  feature nodes and the SoundToggle component.
+  feature nodes and the SoundToggle component. Phase 8 hardens the pipeline with featureId
+  matching, periodic polling fallback, state-transition toasts, UI action sounds, cross-instance
+  sound sync, a health endpoint, and a full E2E showcase test.
 
-  Files created: 13 (notification-bus, notification-watcher, agent-events-sw, use-sound,
-  use-sound-enabled, use-sound.stories, sound-toggle/*, 28 WAV files)
-  Files modified: 10 (route.ts, use-agent-events.ts, use-notifications.ts, dev-server.ts,
-  ui.command.ts, derive-feature-state.ts, feature-node.tsx, control-center-inner.tsx,
-  use-control-center-state.ts, app-shell.tsx, + test files)
+  Files created: 18 (notification-bus, notification-watcher, agent-events-sw, use-sound,
+  use-sound-enabled, use-sound.stories, agent-events-provider, sound-toggle/*, health/route,
+  realtime-showcase.spec, audio-recording fixture, sse-mock helper, 28 WAV files)
+  Files modified: 17 (route.ts, use-agent-events.ts, use-notifications.ts, dev-server.ts,
+  ui.command.ts, derive-feature-state.ts, control-center-inner.tsx, use-control-center-state.ts,
+  app-shell.tsx, layout.tsx, repository-node.tsx, notification-event.tsp, playwright.config.ts,
+  + test files)
