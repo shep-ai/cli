@@ -5,7 +5,7 @@ feature:
   branch: feat/041-feature-dependencies
   lifecycle: review
   createdAt: '2026-02-24T17:55:05Z'
-prUrl: 'https://github.com/shep-ai/cli/pull/122'
+prUrl: https://github.com/shep-ai/cli/pull/122
 status:
   phase: in-review
   progress:
@@ -27,6 +27,7 @@ status:
     - phase-5
     - phase-6
     - phase-7
+    - merge
 validation:
   lastRun: null
   gatesPassed: []

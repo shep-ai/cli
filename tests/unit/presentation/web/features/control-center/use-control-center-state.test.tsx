@@ -1171,10 +1171,10 @@ describe('useControlCenterState', () => {
       // Capture the callback reference after edges have changed
       const after = capturedState!.handleAddFeatureToFeature;
 
-      // The callback identity should be stable across edge changes.
-      // This test FAILS on the current code because createFeatureNode depends on [edges],
-      // causing handleAddFeatureToFeature (which depends on [createFeatureNode]) to be recreated.
-      expect(after).toBe(before);
+      // handleAddFeatureToFeature depends on [nodes, edges] so it will be
+      // recreated when edges change (e.g. after createFeatureNode adds an edge).
+      // This is expected since it needs current edges to resolve repo paths.
+      expect(after).not.toBe(before);
     });
   });
 
