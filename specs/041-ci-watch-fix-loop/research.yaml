@@ -1,0 +1,585 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ci-watch-fix-loop
+summary: >
+  The CI watch/fix loop is implemented entirely within the existing merge node by extending
+  the post-push phase with a bounded retry state machine. CiFixRecord is a new TypeSpec
+  value object added to PullRequest; three new LangGraph Annotation channels (ciFixAttempts,
+  ciFixHistory, ciFixStatus) carry loop state through checkpointing. The IGitPrService
+  interface gains a getFailureLogs() method implemented via gh run view --log-failed.
+  Settings.workflow gains three backward-compatible optional fields (ciMaxFixAttempts,
+  ciWatchTimeoutMs, ciLogMaxChars) consumed at call-site with documented defaults.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - LangGraph Annotation (state channels with append/replace reducers)
+  - LangGraph checkpointing (SQLite checkpoint saver — existing, no changes needed)
+  - gh CLI (gh run watch, gh run list --json, gh run view --log-failed)
+  - IGitPrService / GitPrService (new getFailureLogs method)
+  - TypeSpec (CiFixRecord value object, WorkflowConfig extensions)
+  - tsyringe (no new registrations — GitPrService already registered)
+  - getSettings() singleton (read ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars at runtime)
+  - retryExecute() from node-helpers (reused for executor calls inside fix loop)
+  - createNodeLogger() from node-helpers (log each iteration at INFO level)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'CI watch/fix loop placement — merge.node.ts inline vs new node'
+    chosen: >
+      Extend existing merge.node.ts with an inline CI watch/fix loop after Agent Call 1
+      (commit/push/PR) and before the merge approval gate interrupt().
+    rejected:
+      - >
+        New dedicated ci-watch LangGraph node — requires graph topology changes (new node
+        registration, new edges, new routing state channel) with no architectural benefit.
+        The CI loop shares all state with the merge phase and is bounded at 3 iterations.
+        Adding a new node adds overhead to the graph factory with no isolation advantage.
+      - >
+        Sub-graph pattern (nested LangGraph graph) — appropriate for large autonomous
+        sub-workflows; overkill for a bounded 3-iteration fix loop. Sub-graphs have their
+        own state, checkpointing, and routing concerns that add significant complexity.
+    rationale: >
+      The existing merge.node.ts already owns the post-push phase and has direct access
+      to all required state and dependencies (executor, featureRepository, gitPrService,
+      branch, baseBranch). Adding inline logic follows the same pattern as the existing
+      approval gate (also inline in merge.node.ts). The spec explicitly lists merge.node.ts
+      as the primary affected file. Keeping the loop inline avoids graph topology churn
+      and keeps the feature's state machine contained and readable in one file (~80
+      additional lines per the spec size estimate).
+
+  - title: 'Run ID extraction for getFailureLogs — regex on runUrl vs interface extension'
+    chosen: >
+      Extract the numeric GitHub Actions run ID from CiStatusResult.runUrl via regex
+      (/\/runs\/(\d+)/) at the merge node call site. No interface changes to CiStatusResult
+      needed beyond what already exists.
+    rejected:
+      - >
+        Add runId field to CiStatusResult — watchCi() cannot return a structured run ID
+        (gh run watch streams human-readable progress, not JSON). Would require a second
+        getCiStatus() call after watchCi() completes to get the run ID, adding an extra
+        gh CLI invocation per CI check iteration.
+      - >
+        Pass branch to getFailureLogs() and derive run ID internally via gh run list —
+        duplicates the getCiStatus() logic inside getFailureLogs, adds an extra gh CLI
+        call per fix iteration, and introduces a race condition risk if a new run starts
+        between watchCi completing and the list call.
+    rationale: >
+      CiStatusResult.runUrl already exists and always contains the GitHub Actions run URL
+      when a run is detected. The run ID is the numeric suffix of that URL
+      (e.g., /actions/runs/12345). The regex is simple (/\/runs\/(\d+)/), unit-testable,
+      and consistent with the existing parseCommitHash / parsePrUrl regex patterns already
+      in merge-output-parser.ts. The no-CI skip path (FR-2) exits before getFailureLogs
+      is called, so the undefined runUrl case never reaches the extraction logic.
+
+  - title: 'MergeNodeDeps interface — direct IGitPrService vs individual method props'
+    chosen: >
+      Add gitPrService: IGitPrService directly to MergeNodeDeps to access watchCi(),
+      getCiStatus(), and getFailureLogs() cohesively.
+    rejected:
+      - >
+        Thread watchCi, getCiStatus, getFailureLogs as three separate function properties
+        on MergeNodeDeps — unwieldy when three related methods from the same service are
+        needed together. The pattern of individual method props (getDiffSummary, hasRemote,
+        getDefaultBranch) works for single-method delegations but becomes awkward at three.
+      - >
+        Create a dedicated ICiWatchService interface for only CI-related methods —
+        unnecessary abstraction layer and new port interface file for a thin subset of
+        IGitPrService that already encapsulates git/gh CI operations as a cohesive unit.
+    rationale: >
+      MergeNodeDeps already uses featureRepository: Pick<IFeatureRepository, ...> as a
+      direct interface reference, not individual method props. When multiple cohesive
+      methods from the same service are needed together, injecting the service interface
+      directly follows this established precedent. Test mocks remain straightforward
+      (mock IGitPrService, stub the three methods independently).
+
+  - title: 'ciFixStatus state channel type — TypeScript string union vs TypeSpec enum'
+    chosen: >
+      Use a TypeScript string union type directly in state.ts:
+      'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'
+    rejected:
+      - >
+        TypeSpec enum CiFixStatus — TypeSpec is the source of truth for domain entities
+        persisted to the application database (Settings, Feature, PullRequest). LangGraph
+        state channels are ephemeral runtime constructs stored only in the checkpointer's
+        SQLite blob. Adding a TypeSpec enum for a runtime-only status value pollutes
+        output.ts with infrastructure concerns and violates the TypeSpec-first boundary.
+      - >
+        TypeSpec string scalar with @doc annotations — same reasoning as above; TypeSpec
+        scalars are for domain model fields that feed into generated OpenAPI/JSON Schema,
+        not for ephemeral agent loop state values.
+    rationale: >
+      The existing state.ts already uses Annotation<string | null> for ciStatus (line 68)
+      without a TypeSpec-generated type — following the same reasoning that CI status in
+      LangGraph state is a runtime value, not a domain entity field. CiFixRecord objects
+      persisted to PullRequest in the database DO require TypeSpec (per NFR-9 and FR-12),
+      but the ephemeral loop status tracking does not. String unions are fully type-safe
+      in TypeScript and communicate intent clearly at the definition site.
+
+  - title: 'Log truncation strategy — head (first N chars) vs tail vs smart extraction'
+    chosen: >
+      Keep the first ciLogMaxChars characters of gh run view --log-failed output and
+      append a truncation notice when truncation occurs:
+      "\n[Log truncated at {N} chars — full log available via gh run view {runId}]"
+    rejected:
+      - >
+        Tail truncation (last N chars) — gh run view --log-failed outputs failed steps
+        ordered chronologically. The actual error messages (TypeScript errors, lint output,
+        test failures) appear near the beginning of the output. Keeping the tail risks
+        discarding the primary failure signal in favour of teardown/cleanup log noise.
+      - >
+        Smart keyword extraction (filter lines containing error/fail/warning) — more
+        complex, brittle to CI output format variations across different test runners,
+        lint tools, and CI systems. Loses important surrounding context lines that help
+        the executor understand the failure's origin. The simple head approach captures
+        complete failure output for the vast majority of real CI runs within 50k chars.
+    rationale: >
+      gh run view --log-failed outputs only failed steps' logs, ordered from first failing
+      step. CI failures (TypeScript errors, lint violations, test failures) consistently
+      appear near the beginning of this output. The 50,000 character default covers
+      approximately 1,000–2,000 lines — more than sufficient for nearly all real-world
+      CI failure payloads. The truncation notice gives the executor exact instructions for
+      retrieving the full log if the failure is in the truncated portion.
+
+  - title: 'Settings access in merge node — getSettings() singleton vs injected config'
+    chosen: >
+      Call getSettings() directly in the merge node to read ciMaxFixAttempts,
+      ciWatchTimeoutMs, and ciLogMaxChars from Settings.workflow, applying documented
+      defaults when fields are undefined.
+    rejected:
+      - >
+        Inject WorkflowConfig or the three individual config values into MergeNodeDeps
+        via the graph factory — adds constructor parameter churn to feature-agent-graph.ts
+        for three simple config values that are already accessible via getSettings().
+      - >
+        Inject the full Settings object into MergeNodeDeps — over-exposes the entire
+        singleton settings structure when only three WorkflowConfig fields are needed.
+    rationale: >
+      getSettings() is the established codebase-wide pattern for runtime settings access
+      in infrastructure services, use cases, and validators. It returns the in-memory
+      singleton initialized at CLI bootstrap. Using it directly in merge.node.ts requires
+      zero changes to the graph factory's DI wiring. Tests can mock getSettings() using
+      the same approach used throughout the test suite.
+
+  - title: 'CiFixRecord type definition — TypeSpec value object vs hand-written TypeScript'
+    chosen: >
+      Define CiFixRecord as a TypeSpec model in a new file
+      tsp/domain/value-objects/ci-fix-record.tsp, reference it from pull-request.tsp,
+      compile via pnpm tsp:compile, and import the generated type from output.ts.
+    rejected:
+      - >
+        Hand-written TypeScript interface in state.ts or a shared types file — violates
+        the TypeSpec-first architecture mandate (CLAUDE.md: "TypeSpec is the source of
+        truth for domain entities"). CiFixRecord is persisted to PullRequest in the
+        application database via featureRepository.update(), making it a domain value
+        object that MUST be TypeSpec-generated per NFR-9.
+      - >
+        Inline CiFixRecord as a plain object type in git-pr-service.interface.ts — the
+        interface file defines port types, not domain entities. Domain value objects flow
+        inward per Clean Architecture's dependency rule; they must not originate in
+        infrastructure port definitions.
+    rationale: >
+      FR-12 and NFR-9 explicitly require CiFixRecord to be TypeSpec-generated. The
+      existing value-objects directory (tsp/domain/value-objects/) already contains
+      pull-request.tsp, gantt.tsp, tool-installation-status.tsp, etc. CiFixRecord
+      belongs here as a companion to the PullRequest value object (pull-request.tsp
+      imports it). Running pnpm tsp:compile regenerates output.ts, making CiFixRecord
+      available as an imported TypeScript interface throughout the codebase.
+
+  - title: 'ciFixHistory LangGraph reducer — append vs replace vs dedup'
+    chosen: >
+      Append reducer: (prev, next) => [...prev, ...next] — accumulates all CiFixRecord
+      entries across state updates and checkpoint restores.
+    rejected:
+      - >
+        Replace reducer (_prev, next) => next — loses accumulation across checkpoint
+        restores. If the worker restarts mid-loop, a replace reducer would discard all
+        CiFixRecord entries recorded before the checkpoint, producing incomplete history
+        on resume. This directly violates NFR-2's requirement for records to accumulate
+        across worker restarts without duplication.
+      - >
+        Merge-by-attempt-number reducer (dedup by CiFixRecord.attempt field) — more
+        complex with no practical benefit. Each attempt produces exactly one record,
+        records are only ever appended (never updated), and the loop is bounded at 3
+        iterations. The simple append reducer handles all realistic cases correctly.
+    rationale: >
+      The messages channel in state.ts (line 26) uses the identical append reducer pattern
+      (reducer: (prev, next) => [...prev, ...next]) — the idiomatic LangGraph approach
+      for accumulating history across checkpoints. Consistent with existing conventions
+      and directly satisfies NFR-2's resumability requirement.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: >
+      How should the merge node obtain the GitHub Actions run ID when calling
+      getFailureLogs()? The watchCi() method currently returns only status and logExcerpt;
+      CiStatusResult has runUrl but not a numeric run ID field.
+    id: oq-r1
+    resolved: true
+    options:
+      - option: 'Extract run ID from runUrl via regex in the merge node'
+        description: >
+          CiStatusResult.runUrl contains the GitHub Actions URL in the format
+          https://github.com/<owner>/<repo>/actions/runs/<runId>. The merge node can
+          extract the numeric run ID with a simple regex (/\/runs\/(\d+)/) at the call
+          site. No interface changes needed. Simple, unit-testable, and consistent with
+          the existing parseCommitHash / parsePrUrl regex patterns in merge-output-parser.ts.
+        selected: true
+      - option: 'Add runId field to CiStatusResult interface'
+        description: >
+          Extend CiStatusResult with an optional runId: string field. getCiStatus()
+          would populate it from the databaseId field in gh run list --json output.
+          watchCi() cannot directly return a run ID (gh run watch does not output JSON),
+          so the merge node would need a second getCiStatus() call after watchCi()
+          completes — two gh CLI calls instead of one per CI check.
+        selected: false
+      - option: 'Pass branch name to getFailureLogs() and derive run ID internally'
+        description: >
+          getFailureLogs(branch) re-runs gh run list --branch internally to find the
+          latest failed run ID, avoiding run ID tracking in the caller. Adds a second
+          gh CLI call per fix iteration and risks a race condition where a new run
+          appears between watchCi completing and the list call.
+        selected: false
+    selectionRationale: >
+      Extracting the run ID from runUrl via regex requires zero interface changes and
+      follows the existing merge-output-parser.ts regex pattern. CiStatusResult.runUrl
+      already exists and contains the run URL; the GitHub Actions URL format (/runs/<id>)
+      is stable. The no-CI skip path (FR-2) exits before getFailureLogs is ever called,
+      so the undefined runUrl case never reaches the extraction logic.
+
+  - question: >
+      Should the CI fix loop's executor invocation reuse retryExecute() from node-helpers
+      or use direct executor.execute() calls?
+    id: oq-r2
+    resolved: true
+    options:
+      - option: 'Reuse retryExecute() from node-helpers'
+        description: >
+          Call retryExecute(executor, fixPrompt, options, { logger: log }) for each fix
+          attempt. Provides automatic exponential back-off for transient API errors within
+          each fix attempt, independent of the CI fix loop's own bounded iteration counter.
+          The two levels serve different purposes: retryExecute handles transient executor
+          errors; the CI fix loop handles semantic CI failures requiring code changes.
+        selected: true
+      - option: 'Direct executor.execute() with no retry'
+        description: >
+          Call executor.execute(fixPrompt, options) directly. Simpler code but any
+          transient API error during a fix attempt propagates as an exception and exits
+          the entire fix loop, wasting remaining fix attempts on recoverable errors.
+          Deviates from the retryExecute pattern established by all other executor calls.
+        selected: false
+      - option: 'Custom retry logic specific to the CI fix loop'
+        description: >
+          Implement custom retry logic inside the fix loop with its own counter and delay.
+          Duplicates the error classification and back-off logic already in retryExecute().
+          Harder to maintain and diverges from established node-helpers conventions with
+          no clear benefit.
+        selected: false
+    selectionRationale: >
+      All executor calls in existing nodes (implement, research, plan, merge Agent Call 1
+      and 2) use retryExecute(). Consistency requires the fix loop's executor call to
+      follow the same pattern. The two retry levels are complementary and non-conflicting:
+      retryExecute handles ephemeral executor failures; the CI fix loop handles semantic
+      CI failures that require actual code changes and re-pushes.
+
+  - question: >
+      Where in merge.node.ts should the CI watch/fix loop be positioned relative to
+      the merge approval gate interrupt() and Agent Call 2 (merge/squash)?
+    id: oq-r3
+    resolved: true
+    options:
+      - option: >
+          After Agent Call 1 (commit/push/PR), before the merge approval gate interrupt()
+        description: >
+          The CI loop runs immediately after the push/PR phase completes, before any
+          interrupt(). CI must pass before the human sees the approval gate. The interrupt
+          payload can include ciStatus for the approver's visibility. On approval resume
+          (isResumeAfterInterrupt=true), the existing guard at line 101 of merge.node.ts
+          already skips the entire Agent Call 1 block — the CI loop, being inside that
+          same block, is also correctly skipped on resume without additional logic.
+        selected: true
+      - option: 'After the merge approval gate, before Agent Call 2 (merge/squash)'
+        description: >
+          CI loop runs after human approval, immediately before the squash merge.
+          The human would be approving code that may have broken CI. Complicates the
+          isResumeAfterInterrupt path: additional logic is needed to detect whether CI
+          has already been watched and short-circuit correctly.
+        selected: false
+      - option: 'After Agent Call 2 (merge/squash), as post-merge CI validation'
+        description: >
+          Watch CI after the merge/squash operation completes. Once merged/squashed,
+          applying fixes and re-pushing to the same branch is not possible in the same
+          workflow. This option misreads the feature's intent: CI must be green before
+          merge, not validated after.
+        selected: false
+    selectionRationale: >
+      Running the CI loop after Agent Call 1 and before interrupt() mirrors the natural
+      CI lifecycle: push → CI runs → CI result determines whether to proceed. The
+      isResumeAfterInterrupt guard at line 101 of merge.node.ts already skips Agent Call 1
+      on approval resume — since the CI loop is inside that same if (!isResumeAfterInterrupt)
+      block, it is correctly skipped on resume with zero additional logic. The interrupt
+      payload can include ciStatus so the human sees a CI-passing build when they review.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-24
+
+  ## Technology Decisions
+
+  ### 1. CI Watch/Fix Loop Placement — merge.node.ts (inline)
+
+  **Chosen:** Extend the existing `merge.node.ts` with an inline CI watch/fix state
+  machine after Agent Call 1 (commit/push/PR) and before the merge approval gate.
+
+  **Rejected:**
+  - New dedicated `ci-watch` LangGraph node — requires graph topology changes
+    (new node, new edges, new routing channel) with no architectural benefit for
+    a bounded 3-iteration loop that shares all state with the merge phase.
+  - Sub-graph pattern — appropriate for large autonomous sub-workflows; overkill
+    here and significantly more complex to checkpoint correctly.
+
+  **Rationale:** The merge node already owns the post-push phase and has all required
+  state and dependencies. The inline approach follows the existing approval gate pattern
+  (also inline in merge.node.ts) and keeps the feature's state machine in one file.
+
+  ### 2. Run ID Extraction — regex on CiStatusResult.runUrl
+
+  **Chosen:** Extract the numeric run ID from `CiStatusResult.runUrl` via regex
+  (`/\/runs\/(\d+)/`) at the merge node call site. No interface changes to
+  `CiStatusResult` needed.
+
+  **Rejected:**
+  - Add `runId` field to `CiStatusResult` — watchCi() cannot return a run ID
+    (gh run watch doesn't output JSON), requiring a second getCiStatus() call.
+  - Derive run ID internally in `getFailureLogs()` — adds an extra gh CLI call
+    per iteration and risks race conditions.
+
+  **Rationale:** `CiStatusResult.runUrl` already exists and contains the run URL.
+  The regex is simple, unit-testable, and consistent with the existing
+  `parseCommitHash` / `parsePrUrl` patterns in `merge-output-parser.ts`. The no-CI
+  skip path exits before `getFailureLogs` is called, so the `undefined` runUrl case
+  never reaches the extraction logic.
+
+  ### 3. MergeNodeDeps — direct IGitPrService reference
+
+  **Chosen:** Add `gitPrService: IGitPrService` to `MergeNodeDeps` to access
+  `watchCi()`, `getCiStatus()`, and `getFailureLogs()` as a cohesive unit.
+
+  **Rejected:**
+  - Thread three individual method props — unwieldy for three cohesive methods
+    from the same service.
+  - New `ICiWatchService` interface — unnecessary abstraction for a thin subset
+    of an existing, well-defined service.
+
+  **Rationale:** `MergeNodeDeps` already has `featureRepository` as a direct
+  interface reference (not individual method props). Three related methods from
+  the same service warrant the same treatment. Test mocks remain straightforward.
+
+  ### 4. ciFixStatus — TypeScript string union (not TypeSpec enum)
+
+  **Chosen:** `'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'`
+  as a TypeScript string union in `state.ts`.
+
+  **Rejected:**
+  - TypeSpec enum — TypeSpec is for persistent domain entities, not ephemeral
+    LangGraph runtime state channels stored only in the checkpointer's SQLite blob.
+  - TypeSpec string scalar — same reasoning; pollutes `output.ts` with
+    infrastructure concerns.
+
+  **Rationale:** The existing `ciStatus: Annotation<string | null>` channel in
+  `state.ts` (line 68) uses the same approach. `CiFixRecord[]` (persisted to
+  PullRequest in the database) DOES require TypeSpec; the ephemeral loop status
+  tracking does not.
+
+  ### 5. Log Truncation — head (first N chars)
+
+  **Chosen:** Keep the first `ciLogMaxChars` characters and append:
+  `"\n[Log truncated at {N} chars — full log available via gh run view {runId}]"`
+
+  **Rejected:**
+  - Tail truncation — discards the primary failure signal; CI failure content
+    appears near the beginning of `gh run view --log-failed` output.
+  - Smart keyword extraction — brittle to CI output format variations across
+    different tools; loses surrounding context.
+
+  **Rationale:** `gh run view --log-failed` outputs only failed steps' logs, ordered
+  from first failing step. Failure content (TypeScript errors, lint violations, test
+  failures) consistently appears near the beginning. 50k chars ≈ 1,000–2,000 lines,
+  sufficient for nearly all real CI failure payloads.
+
+  ### 6. Settings Access — getSettings() singleton
+
+  **Chosen:** Call `getSettings()` directly in the merge node for `ciMaxFixAttempts`,
+  `ciWatchTimeoutMs`, `ciLogMaxChars` with documented defaults when fields are undefined.
+
+  **Rejected:**
+  - Inject WorkflowConfig into MergeNodeDeps — adds constructor parameter churn to
+    the graph factory for three simple config values.
+  - Inject full Settings object — over-exposes the entire settings structure.
+
+  **Rationale:** `getSettings()` is the established codebase-wide pattern for runtime
+  settings access. Zero changes to the graph factory's DI wiring required.
+
+  ### 7. CiFixRecord — TypeSpec value object
+
+  **Chosen:** New file `tsp/domain/value-objects/ci-fix-record.tsp` defining the
+  `CiFixRecord` model; referenced from `pull-request.tsp`; compiled via
+  `pnpm tsp:compile`.
+
+  **Rejected:**
+  - Hand-written TypeScript interface — violates TypeSpec-first architecture
+    (CLAUDE.md); CiFixRecord is persisted to PullRequest in the DB.
+  - Inline in `git-pr-service.interface.ts` — domain value objects must not
+    originate in infrastructure port definitions (Clean Architecture violation).
+
+  **Rationale:** FR-12 and NFR-9 explicitly require TypeSpec-generated types for
+  CiFixRecord. The value-objects directory already contains `pull-request.tsp`,
+  `gantt.tsp`, etc. — CiFixRecord is a natural companion to PullRequest.
+
+  ### 8. ciFixHistory Reducer — append
+
+  **Chosen:** `(prev, next) => [...prev, ...next]` — accumulates all CiFixRecord
+  entries across state updates and checkpoint restores.
+
+  **Rejected:**
+  - Replace reducer `(_prev, next) => next` — loses history on checkpoint restore;
+    violates NFR-2 (records must accumulate without duplication across restarts).
+  - Dedup-by-attempt-number reducer — complex with no practical benefit for a
+    bounded 3-iteration loop where each attempt produces exactly one record.
+
+  **Rationale:** The `messages` channel in `state.ts` (line 26) uses the identical
+  append reducer pattern — the idiomatic LangGraph approach for accumulating history
+  across checkpoints.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | @langchain/langgraph Annotation | New state channels (ciFixAttempts, ciFixHistory, ciFixStatus) | Use (existing) | Three new channels fit the established Annotation.Root pattern in state.ts |
+  | gh CLI | CI watching (gh run watch) and log retrieval (gh run view --log-failed) | Use (existing) | Already a dependency; two new subcommands, no version change needed |
+  | getSettings() singleton | Runtime config for ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars | Use (existing) | Established pattern; no new deps or DI wiring |
+  | TypeSpec + pnpm tsp:compile | Generate CiFixRecord domain type | Use (existing) | Required by TypeSpec-first architecture; CiFixRecord is a persisted value object |
+  | retryExecute() from node-helpers | Executor calls inside fix loop | Use (existing) | Consistent with all other executor invocations in the codebase |
+  | createNodeLogger() from node-helpers | Per-iteration INFO logging (NFR-1) | Use (existing) | Consistent log format across all nodes |
+
+  **No new external libraries are introduced by this feature.**
+
+  ## Security Considerations
+
+  - **CI log injection into prompts**: Failure logs from `gh run view --log-failed`
+    are passed verbatim (truncated) to the executor. These logs originate from the
+    repository's own CI workflows — the same trust domain as the repository code.
+    No additional sanitization beyond length truncation is required.
+  - **runId in truncation notice**: The run ID extracted from runUrl is a numeric
+    GitHub Actions run ID included in the appended truncation notice. No injection
+    risk — it is a simple integer from a URL the system already fetched.
+  - **Bounded execution**: The strict `ciMaxFixAttempts` cap (default 3) prevents
+    an infinite fix loop, protecting against runaway API costs and accidental
+    repository damage from excessive automated commits.
+  - **Commit message format enforcement**: Each fix commit uses the prescribed
+    `fix(ci): attempt N/max — <description>` format (NFR-6), providing an audit
+    trail in git history without preventing valid commit content.
+
+  ## Performance Implications
+
+  - **Blocking CI watch**: `gh run watch` is a blocking call that holds the
+    LangGraph worker process for the CI pipeline duration (up to `ciWatchTimeoutMs`,
+    default 10 minutes). This is intentional per NFR-7 (no polling spin). Workers
+    are long-running processes; one blocked worker per feature is acceptable. The
+    worker's heartbeat (heartbeat.ts `setInterval`) continues during the block.
+  - **Log retrieval overhead**: `gh run view --log-failed` is a single CLI call per
+    failed iteration. At 3 max iterations, at most 3 log fetches occur. Log size is
+    bounded by `ciLogMaxChars` (default 50,000) — negligible processing overhead.
+  - **Executor cost per fix attempt**: Each fix iteration invokes the agent executor
+    (dominant cost). Worst case: 4 executor calls (1 initial commit/push/PR + 3 fix
+    iterations). This matches the existing `retryExecute` max-3 convention.
+  - **Checkpoint overhead**: Three new state channels add minimal serialization
+    overhead. `ciFixHistory` grows by at most 3 small `CiFixRecord` JSON objects.
+
+  ## Architecture Notes
+
+  ### Files to create
+  - `tsp/domain/value-objects/ci-fix-record.tsp` — CiFixRecord TypeSpec model
+
+  ### Files to modify
+  - `tsp/domain/value-objects/pull-request.tsp` — add `ciFixAttempts?: int32`,
+    `ciFixHistory?: CiFixRecord[]` to the PullRequest model
+  - `tsp/domain/entities/settings.tsp` — add three optional fields to WorkflowConfig:
+    `ciMaxFixAttempts?: int32`, `ciWatchTimeoutMs?: int32`, `ciLogMaxChars?: int32`
+  - `packages/core/src/domain/generated/output.ts` — regenerated via `pnpm tsp:compile`
+    (DO NOT EDIT manually)
+  - `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` —
+    add `getFailureLogs(runId: string, branch: string): Promise<string>` to IGitPrService
+  - `packages/core/src/infrastructure/services/git/git-pr.service.ts` — implement
+    `getFailureLogs()` via `gh run view <runId> --log-failed`
+  - `packages/core/src/domain/factories/settings-defaults.factory.ts` — WorkflowConfig
+    in createDefaultSettings() gains no new required fields (optional fields omitted,
+    defaults applied at call-site per NFR-5)
+  - `packages/core/src/infrastructure/services/agents/feature-agent/state.ts` — add
+    three new Annotation channels
+  - `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge.node.ts` —
+    add gitPrService to MergeNodeDeps, add CI watch/fix loop inline
+  - `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ts` —
+    add `buildCiWatchFixPrompt()` function
+
+  ### New state channels (state.ts)
+  ```typescript
+  ciFixAttempts: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
+  ciFixHistory: Annotation<CiFixRecord[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+  ciFixStatus: Annotation<'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'>({
+    reducer: (_prev, next) => next,
+    default: () => 'idle',
+  }),
+  ```
+
+  ### CI loop position in merge.node.ts
+  ```
+  if (!isResumeAfterInterrupt) {
+    // ... existing hasRemote check ...
+    // ... existing Agent Call 1: commit/push/PR ...
+
+    // NEW: CI watch/fix loop (runs after push when push || openPr)
+    if (effectiveState.push || effectiveState.openPr) {
+      const settings = getSettings();
+      const maxAttempts = settings.workflow.ciMaxFixAttempts ?? 3;
+      const timeoutMs = settings.workflow.ciWatchTimeoutMs ?? 600_000;
+      const logMaxChars = settings.workflow.ciLogMaxChars ?? 50_000;
+      // ... loop logic ...
+    }
+
+    // ... existing merge approval gate interrupt() ...
+  }
+  // ... existing Agent Call 2: merge/squash ...
+  ```
+
+  ### CiFixRecord TypeSpec model (ci-fix-record.tsp)
+  ```
+  @doc("Record of one CI fix attempt")
+  model CiFixRecord {
+    @doc("1-based attempt number")
+    attempt: int32;
+    @doc("ISO timestamp when this attempt started")
+    startedAt: string;
+    @doc("First 500 chars of failure logs for this attempt")
+    failureSummary: string;
+    @doc("Outcome of this attempt")
+    outcome: string;  // 'fixed' | 'failed' | 'timeout'
+  }
+  ```
+
+  ---
+
+  _Research complete — proceed with /shep-kit:plan_

@@ -234,6 +234,26 @@ export class GitPrService implements IGitPrService {
     }
   }
 
+  async getFailureLogs(runId: string, _branch: string, logMaxChars = 50_000): Promise<string> {
+    try {
+      const { stdout } = await this.execFile('gh', ['run', 'view', runId, '--log-failed'], {
+        cwd: undefined,
+      });
+      return this.truncateLog(stdout, logMaxChars, runId);
+    } catch (error) {
+      throw this.parseGhError(error);
+    }
+  }
+
+  private truncateLog(output: string, maxChars: number, runId: string): string {
+    if (output.length <= maxChars) return output;
+    return `${output.slice(
+      0,
+      maxChars
+    )}\n[Log truncated at ${maxChars} chars — full log available via gh run view ${runId}]`;
+  }
+
+
   private parseGitError(error: unknown): GitPrError {
     const message = error instanceof Error ? error.message : String(error);
     const cause = error instanceof Error ? error : undefined;

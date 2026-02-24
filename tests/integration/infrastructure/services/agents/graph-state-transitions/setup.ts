@@ -102,6 +102,25 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
       }),
       update: vi.fn().mockResolvedValue(undefined),
     },
+    gitPrService: {
+      hasRemote: vi.fn().mockResolvedValue(true),
+      getDefaultBranch: vi.fn().mockResolvedValue('main'),
+      hasUncommittedChanges: vi.fn().mockResolvedValue(false),
+      commitAll: vi.fn().mockResolvedValue('abc1234'),
+      push: vi.fn().mockResolvedValue(undefined),
+      createPr: vi
+        .fn()
+        .mockResolvedValue({ url: 'https://github.com/test/repo/pull/1', number: 1 }),
+      mergePr: vi.fn().mockResolvedValue(undefined),
+      mergeBranch: vi.fn().mockResolvedValue(undefined),
+      getCiStatus: vi.fn().mockResolvedValue({ status: 'success', runId: undefined }),
+      watchCi: vi.fn().mockResolvedValue({ status: 'success', runId: undefined }),
+      deleteBranch: vi.fn().mockResolvedValue(undefined),
+      getPrDiffSummary: vi
+        .fn()
+        .mockResolvedValue({ filesChanged: 0, additions: 0, deletions: 0, commitCount: 0 }),
+      getFailureLogs: vi.fn().mockResolvedValue(''),
+    },
   };
 }
 

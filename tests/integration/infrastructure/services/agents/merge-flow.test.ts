@@ -12,6 +12,7 @@
  *   - Task 28: Idempotency and full regression
  */
 
+import 'reflect-metadata';
 import { describe, it, expect, beforeAll, beforeEach, afterAll, vi } from 'vitest';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
@@ -25,6 +26,8 @@ import { createCheckpointer } from '@/infrastructure/services/agents/common/chec
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { DiffSummary } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
+import { initializeSettings, resetSettings } from '@/infrastructure/services/settings.service.js';
+import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 
 function createMockExecutor(): IAgentExecutor {
   return {
@@ -58,6 +61,26 @@ function createMockFeatureRepo(): MergeNodeDeps['featureRepository'] {
   } as any;
 }
 
+function createMockGitPrService(): MergeNodeDeps['gitPrService'] {
+  return {
+    getCiStatus: vi.fn().mockResolvedValue({ status: 'success', runUrl: null }),
+    watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
+    getFailureLogs: vi.fn().mockResolvedValue(''),
+    hasRemote: vi.fn().mockResolvedValue(true),
+    getDefaultBranch: vi.fn().mockResolvedValue('main'),
+    hasUncommittedChanges: vi.fn().mockResolvedValue(false),
+    commitAll: vi.fn().mockResolvedValue('abc1234'),
+    push: vi.fn().mockResolvedValue(undefined),
+    createPr: vi.fn().mockResolvedValue({ url: '', number: 0 }),
+    mergePr: vi.fn().mockResolvedValue(undefined),
+    mergeBranch: vi.fn().mockResolvedValue(undefined),
+    deleteBranch: vi.fn().mockResolvedValue(undefined),
+    getPrDiffSummary: vi
+      .fn()
+      .mockResolvedValue({ filesChanged: 0, additions: 0, deletions: 0, commitCount: 0 }),
+  } as any;
+}
+
 /** Extract interrupt payloads from a graph result. */
 function getInterrupts(result: Record<string, unknown>): { value: Record<string, unknown> }[] {
   return (result.__interrupt__ as { value: Record<string, unknown> }[]) ?? [];
@@ -78,6 +101,9 @@ describe('Merge Flow (Graph-level)', () => {
 
     stdoutSpy = vi.spyOn(process.stdout, 'write').mockImplementation(() => true);
     stderrSpy = vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
+
+    // Initialize settings singleton required by merge.node.ts CI watch/fix loop
+    initializeSettings(createDefaultSettings());
   });
 
   beforeEach(() => {
@@ -88,6 +114,7 @@ describe('Merge Flow (Graph-level)', () => {
     stdoutSpy.mockRestore();
     stderrSpy.mockRestore();
     rmSync(tempDir, { recursive: true, force: true });
+    resetSettings();
   });
 
   function buildGraphDeps(overrides?: {
@@ -110,6 +137,7 @@ describe('Merge Flow (Graph-level)', () => {
         getDefaultBranch: vi.fn().mockResolvedValue('main'),
         verifyMerge: vi.fn().mockResolvedValue(overrides?.verifyMerge ?? true),
         featureRepository: featureRepo,
+        gitPrService: createMockGitPrService(),
       },
     };
     return { deps, getDiffSummary, featureRepo };

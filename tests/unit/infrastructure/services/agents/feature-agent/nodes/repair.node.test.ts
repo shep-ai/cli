@@ -54,6 +54,9 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     _approvalAction: null,
     _rejectionFeedback: null,
     _needsReexecution: false,
+    ciFixAttempts: 0,
+    ciFixHistory: [],
+    ciFixStatus: 'idle',
   } as FeatureAgentState;
 }
 
