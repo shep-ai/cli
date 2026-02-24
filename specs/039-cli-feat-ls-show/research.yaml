@@ -1,0 +1,88 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+# Retroactive spec: documents work implemented without prior specification.
+
+name: cli-feat-ls-show
+summary: >
+  Technical research for improving feat ls and feat show CLI views. Key decisions:
+  compute elapsed from phase timing sums, show approval gates as compact checkboxes,
+  sort by status priority, and render rejection feedback inline after approval wait bars.
+
+relatedFeatures:
+  - 039-realtime-feature-status
+  - 036-drawer-approval-rejection
+
+technologies:
+  - 'Commander.js (CLI commands)'
+  - 'chalk (terminal colors)'
+  - 'cli-table3 (table rendering)'
+  - 'IPhaseTimingRepository'
+
+relatedLinks: []
+
+decisions:
+  - title: 'Elapsed time computation'
+    chosen: 'Sum of all phase timing durationMs values with live delta for running phases'
+    rejected:
+      - >
+        Use run.startedAt/completedAt timestamps — Does not account for gaps between
+        phases (e.g., approval wait time). Phase timings provide accurate per-phase
+        duration data.
+    rationale: >
+      Phase timings track individual phase durations including the currently running phase
+      (where durationMs is null but startedAt is set). Summing all completed durations
+      plus the live delta for the running phase gives the most accurate elapsed time.
+
+  - title: 'Approval gate display format'
+    chosen: 'Compact colored squares: R P M push (enabled=green, disabled=muted)'
+    rejected:
+      - >
+        Text labels (e.g., "PRD:on Plan:off") — Takes too much horizontal space in the
+        table. Compact squares fit in a narrow column.
+    rationale: >
+      Four single-character indicators with colored squares provide at-a-glance visibility
+      into feature configuration without consuming table width. Column header "R P M push"
+      provides the legend.
+
+  - title: 'Rejection feedback placement in feat show'
+    chosen: 'Inline after approval wait bar of the rejected phase'
+    rejected:
+      - >
+        At run:resumed lifecycle events — This was the original approach. Problem: the
+        rejection message appears far from the phase it relates to, making it hard to
+        correlate. Also, resumed events may be skipped visually when a rejection was
+        already rendered inline.
+    rationale: >
+      Placing the rejection message immediately after the approval wait bar of the phase
+      that was rejected provides the best contextual relevance. The rejection is visually
+      tied to the phase it belongs to. Phase-specific matching uses base phase name
+      (e.g., "requirements" from "requirements:sub-phase") to find the correct rejection.
+
+openQuestions: []
+
+content: |
+  ## Implementation Notes
+
+  ### Phase Timing Elapsed Computation
+  ```
+  totalMs = sum(
+    pt.durationMs != null ? pt.durationMs : (now - pt.startedAt)
+  )
+  ```
+  Falls back to run.startedAt/completedAt if no phase timings exist.
+
+  ### Status Priority Sorting
+  | Status | Priority | Reasoning |
+  | ------ | -------- | --------- |
+  | running, pending | 0 | Active work shown first |
+  | waiting_approval | 1 | Needs attention |
+  | failed, interrupted | 2 | Needs investigation |
+  | completed | 3 | Done, least urgent |
+  | no run | 4 | Inactive |
+
+  ### Rejection Matching Algorithm
+  For each phase timing with approvalWaitMs > 0:
+  1. Extract base phase name (split on ':' for sub-phases)
+  2. Look up phase-specific rejections first
+  3. Fall back to '_legacy' bucket (entries without phase field)
+  4. Consume entries in order (track index per phase key)

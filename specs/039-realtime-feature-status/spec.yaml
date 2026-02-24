@@ -4,7 +4,7 @@
 name: realtime-feature-status
 number: 039
 branch: feat/realtime-feature-status
-oneLiner: Real-time agent event streaming to the web UI via DB-polling SSE, Service Worker, and notification infrastructure
+oneLiner: Real-time agent event streaming to the web UI via DB-polling SSE, Service Worker, notification sounds, and optimistic UI
 userQuery: >
   Feature: When feature status is updating real time update the UI.
   We already have SSE we can reuse them.
@@ -17,8 +17,15 @@ summary: >
   NotificationWatcherService) detect status transitions via DB polling and dispatch
   NotificationEvent objects. Both the CLI `shep ui` command and the dev-server initialize
   the watcher on startup.
+
+  Additionally: a sound system (useSound hook + 28 WAV sound files) provides audio
+  feedback on notification events, mapped by severity (success → celebration, error →
+  caution, warning → notification, info → button). A SoundToggle component with
+  localStorage persistence lets users mute/unmute globally. The control center applies
+  optimistic UI updates to feature nodes based on SSE events (state transitions, phase
+  progress) via mapEventTypeToState and mapPhaseNameToLifecycle helpers.
 phase: Implementation
-sizeEstimate: M
+sizeEstimate: L
 
 relatedFeatures: []
 
@@ -31,6 +38,10 @@ technologies:
   - TypeSpec-generated NotificationEvent model
   - tsyringe DI container
   - SQLite (agent_runs, phase_timings tables)
+  - Web Audio API (HTMLAudioElement for sound playback)
+  - localStorage (sound-enabled preference persistence)
+  - lucide-react (Volume2, VolumeOff icons for SoundToggle)
+  - shadcn/ui Button (ghost variant for SoundToggle)
 
 relatedLinks: []
 
@@ -71,6 +82,18 @@ content: |
   - [x] Unit tests cover NotificationWatcherService status/phase detection
   - [x] Unit tests cover useAgentEvents hook (SW path and fallback path)
   - [x] Integration tests cover SSE endpoint streaming behavior
+  - [x] useSound hook plays WAV audio files with volume control and loop support
+  - [x] useSoundEnabled hook persists mute/unmute state in localStorage
+  - [x] SoundToggle component renders Volume2/VolumeOff icon button
+  - [x] useNotifications wires severity-mapped sounds to notification events
+  - [x] Browser notifications use favicon-light.svg icon
+  - [x] Storybook stories for useSound hook with full sound catalog
+  - [x] Storybook stories for SoundToggle component
+  - [x] Control center feature nodes update optimistically from SSE events
+  - [x] mapEventTypeToState maps NotificationEventType to FeatureNodeState
+  - [x] mapPhaseNameToLifecycle maps SSE phase names to lifecycle phases
+  - [x] deriveNodeState derives node state from Feature + AgentRun (mirrors CLI)
+  - [x] deriveProgress derives task completion percentage
 
   ## Functional Requirements
 
@@ -106,6 +129,31 @@ content: |
     Symbol.for() to survive module boundary issues. Provides pub/sub for notification
     fan-out (SSE, desktop notifications, etc.).
 
+  - **FR-9: Sound System** — useSound(name, options) hook preloads WAV audio files from
+    /sounds/*.wav. Supports volume control (0-1), loop mode, play/stop/isPlaying API.
+    28 sounds in 8 categories: UI Actions, Toggles, Transitions, Alerts, Swipes, Taps,
+    Typing, Loops. Respects global sound-enabled state via useSoundEnabled hook.
+
+  - **FR-10: Sound-Enabled Persistence** — useSoundEnabled() hook reads/writes boolean
+    state to localStorage key 'shep-sound-enabled'. Defaults to enabled. SoundToggle
+    component provides Volume2/VolumeOff icon button in the app shell header.
+
+  - **FR-11: Notification Sound Integration** — useNotifications() maps notification
+    severity to sounds: Success → celebration, Error → caution, Warning → notification,
+    Info → button. Deduplicates events by agentRunId+eventType+timestamp to prevent
+    re-dispatch on re-render. Also dispatches toast (sonner) and browser Notification.
+
+  - **FR-12: Optimistic UI Updates** — Control center feature nodes update immediately
+    from SSE events without waiting for data refetch. mapEventTypeToState converts
+    NotificationEventType to FeatureNodeState (AgentStarted → running, WaitingApproval →
+    action-required, AgentCompleted → done, AgentFailed → error). mapPhaseNameToLifecycle
+    maps phase names (analyze, requirements, research, plan, implement) to lifecycle phases.
+
+  - **FR-13: Feature State Derivation** — deriveNodeState(feature, agentRun) derives the
+    visual node state from a Feature and its optional AgentRun, with priority: waiting_approval
+    → action-required, failed → error, interrupted/cancelled → blocked, completed → done,
+    running/pending → running, fallback to plan tasks. deriveProgress returns task completion %.
+
   ## Non-Functional Requirements
 
   - **NFR-1: No Cross-Module Singleton Issues** — SSE route polls DB directly instead
@@ -135,6 +183,17 @@ content: |
   | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | High | New: DB-polling status/phase change detector |
   | `src/presentation/cli/commands/ui.command.ts` | Medium | Modified: initializes notification watcher on startup |
   | `src/presentation/web/dev-server.ts` | Medium | Modified: initializes notification watcher on startup |
+  | `src/presentation/web/hooks/use-sound.ts` | High | New: useSound hook with HTMLAudioElement preloading |
+  | `src/presentation/web/hooks/use-sound-enabled.ts` | Medium | New: localStorage-backed sound enabled state |
+  | `src/presentation/web/hooks/use-sound.stories.tsx` | Medium | New: Storybook sound catalog with all 28 sounds |
+  | `src/presentation/web/hooks/use-notifications.ts` | High | Modified: wired severity-mapped sounds + favicon branding |
+  | `src/presentation/web/public/sounds/*.wav` | High | New: 28 WAV sound files across 8 categories |
+  | `src/presentation/web/components/common/sound-toggle/` | Medium | New: SoundToggle component with stories |
+  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | High | Enhanced: optimistic UI state derivation + event mapping |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | Medium | Modified: reflects live status changes |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | High | Modified: wired SSE events into canvas for live node updates |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Extended: handles real-time event streams for optimistic UI |
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | Medium | Modified: integrated SoundToggle in header |
 
   ## Dependencies
 
@@ -144,3 +203,6 @@ content: |
   - INotificationService interface
   - tsyringe DI container
   - AgentRunStatus, NotificationEventType, NotificationSeverity enums
+  - sonner toast library (for notification toasts)
+  - shadcn/ui Button component (for SoundToggle)
+  - lucide-react icons (Volume2, VolumeOff)

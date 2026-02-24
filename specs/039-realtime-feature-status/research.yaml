@@ -6,7 +6,9 @@ summary: >
   Technical research for building the real-time agent event streaming infrastructure.
   Key decisions: DB-polling SSE route (avoids Turbopack singleton issues), Service Worker
   for tab multiplexing, globalThis-based EventEmitter singleton, NotificationWatcherService
-  for status/phase change detection, and exponential backoff reconnection.
+  for status/phase change detection, exponential backoff reconnection, WAV-based sound
+  library with useSound hook, severity-mapped notification sounds, localStorage sound
+  preference, and optimistic UI updates for control center feature nodes.
 
 relatedFeatures: []
 
@@ -18,6 +20,10 @@ technologies:
   - 'Next.js 16+ (route handlers, force-dynamic)'
   - 'tsyringe (DI for repository injection)'
   - 'Vitest (unit + integration testing)'
+  - 'Web Audio API (HTMLAudioElement for sound playback)'
+  - 'localStorage (sound preference persistence)'
+  - 'sonner (toast notifications)'
+  - 'lucide-react (Volume2, VolumeOff icons)'
 
 relatedLinks: []
 
@@ -108,6 +114,69 @@ decisions:
       (e.g., HTTPS requirement, browser restriction), it falls back to a direct
       EventSource connection with the same backoff/reconnection logic. Both paths
       provide the same { events, lastEvent, connectionStatus } interface.
+
+  - title: 'Sound system implementation'
+    chosen: 'useSound React hook with HTMLAudioElement and preloaded WAV files'
+    rejected:
+      - >
+        Web Audio API (AudioContext + AudioBuffer) — More powerful but significantly
+        more complex. Requires decoding audio data, managing AudioContext lifecycle
+        (resume after user gesture), and doesn't add value for simple notification sounds.
+      - >
+        Howler.js library — Adds an external dependency for functionality achievable
+        with native HTMLAudioElement. WAV files don't need format negotiation (no
+        codec fallbacks needed).
+    rationale: >
+      HTMLAudioElement with preload='auto' is the simplest approach for short notification
+      sounds. The useSound hook creates an Audio element per sound name, manages lifecycle
+      (play/stop/cleanup), and respects the global sound-enabled state via useSoundEnabled.
+      WAV format chosen for zero-latency playback (no decoding overhead). 28 sounds
+      organized into 8 categories provide comprehensive UI audio feedback.
+
+  - title: 'Sound preference persistence'
+    chosen: 'localStorage with useSoundEnabled hook'
+    rejected:
+      - >
+        Server-side settings (SQLite) — Over-engineered for a client-only UI preference.
+        Would require API roundtrip and Settings model changes.
+      - >
+        Cookie-based — No advantage over localStorage for same-origin preference.
+    rationale: >
+      localStorage key 'shep-sound-enabled' stores boolean state. Defaults to enabled.
+      The useSoundEnabled hook provides { enabled, toggle } and is consumed by both
+      useSound (to gate playback) and SoundToggle (to render icon state). Simple,
+      client-only, no server dependencies.
+
+  - title: 'Notification sound mapping strategy'
+    chosen: 'Severity-based mapping in useNotifications hook'
+    rejected:
+      - >
+        Event-type-based mapping — Too many event types (AgentStarted, WaitingApproval,
+        AgentCompleted, AgentFailed, PhaseCompleted). Would require maintaining a large
+        mapping table. Severity provides a natural 4-level grouping.
+    rationale: >
+      NotificationSeverity maps to sounds: Success → celebration, Error → caution,
+      Warning → notification, Info → button. Each severity gets its own useSound instance
+      in useNotifications. Deduplication via processedRef Set prevents re-dispatch on
+      React re-renders (key = agentRunId+eventType+timestamp).
+
+  - title: 'Optimistic UI for control center feature nodes'
+    chosen: 'Client-side event-to-state mapping with SSE-driven updates'
+    rejected:
+      - >
+        Poll-and-refetch — Higher latency. User would see stale state for seconds
+        between refetch intervals.
+      - >
+        Full state replacement from SSE — SSE events are lightweight notifications,
+        not full Feature objects. Would require the SSE endpoint to serialize full
+        Feature state on every change.
+    rationale: >
+      mapEventTypeToState converts SSE NotificationEventType directly to FeatureNodeState
+      (AgentStarted/PhaseCompleted → running, WaitingApproval → action-required,
+      AgentCompleted → done, AgentFailed → error). mapPhaseNameToLifecycle maps phase
+      names to lifecycle phases for progress display. This gives instant visual feedback
+      without waiting for a data refetch. deriveNodeState provides the initial state
+      derivation from Feature + AgentRun with the same priority logic as CLI feat ls.
 
 openQuestions: []
 
@@ -200,12 +269,69 @@ content: |
   | `src/presentation/web/dev-server.ts` | Initialize notification watcher on startup | Modified |
   | `src/presentation/cli/commands/ui.command.ts` | Initialize notification watcher on startup | Modified |
 
+  ### 5. Sound System (useSound + WAV Library)
+
+  **Chosen:** useSound React hook with HTMLAudioElement and preloaded WAV files
+
+  **Rejected:**
+  - Web Audio API (AudioContext) — Over-complex for notification sounds
+  - Howler.js — External dependency not needed for simple playback
+
+  **Rationale:** HTMLAudioElement with preload='auto' is simplest for short sounds. WAV
+  format for zero-latency (no decoding). 28 sounds in 8 categories. useSoundEnabled
+  hook + localStorage for mute persistence. SoundToggle component in app shell header.
+
+  ### 6. Notification Sound Mapping
+
+  **Chosen:** Severity-based mapping (Success → celebration, Error → caution, etc.)
+
+  **Rejected:**
+  - Event-type-based mapping — Too many event types, severity provides natural grouping
+
+  **Rationale:** 4 severity levels map to 4 distinct sounds. Deduplication via processedRef
+  Set prevents re-dispatch on React re-renders.
+
+  ### 7. Optimistic UI for Feature Nodes
+
+  **Chosen:** Client-side event-to-state mapping from SSE events
+
+  **Rejected:**
+  - Poll-and-refetch — Higher latency
+  - Full state from SSE — Events are lightweight, not full Feature objects
+
+  **Rationale:** mapEventTypeToState converts SSE events directly to FeatureNodeState.
+  deriveNodeState provides initial state from Feature + AgentRun. Instant visual feedback.
+
+  ### Files Changed (Updated)
+
+  | File | Change | Type |
+  | ---- | ------ | ---- |
+  | `packages/core/src/infrastructure/services/notifications/notification-bus.ts` | New typed EventEmitter singleton | New |
+  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | New DB-polling status detector | New |
+  | `src/presentation/web/app/api/agent-events/route.ts` | Rewritten: DB polling with per-connection cache | Rewrite |
+  | `src/presentation/web/public/agent-events-sw.js` | New Service Worker for SSE multiplexing | New |
+  | `src/presentation/web/hooks/use-agent-events.ts` | Rewritten: SW-first with EventSource fallback | Rewrite |
+  | `src/presentation/web/hooks/use-sound.ts` | New useSound hook with HTMLAudioElement | New |
+  | `src/presentation/web/hooks/use-sound-enabled.ts` | New localStorage-backed sound state | New |
+  | `src/presentation/web/hooks/use-sound.stories.tsx` | New Storybook sound catalog | New |
+  | `src/presentation/web/hooks/use-notifications.ts` | Wired severity-mapped sounds + favicon | Modified |
+  | `src/presentation/web/public/sounds/*.wav` | 28 WAV sound files | New |
+  | `src/presentation/web/components/common/sound-toggle/` | SoundToggle component with stories | New |
+  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | Optimistic UI state derivation + event mapping | Enhanced |
+  | `src/presentation/web/components/common/feature-node/feature-node.tsx` | Live status changes | Modified |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Wired SSE events into canvas | Modified |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Real-time event stream handling | Extended |
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | SoundToggle in header | Modified |
+  | `src/presentation/web/dev-server.ts` | Initialize notification watcher | Modified |
+  | `src/presentation/cli/commands/ui.command.ts` | Initialize notification watcher | Modified |
+
   ## Security Considerations
 
   - SSE endpoint is read-only (GET), no mutation surface
   - No authentication changes (inherits existing session model)
   - Service Worker scoped to '/' — same-origin only
   - No user input in DB queries (repository pattern with parameterized queries)
+  - Sound files are static assets served from /public, no user-uploaded content
 
   ## Performance Implications
 
@@ -213,3 +339,5 @@ content: |
   - Service Worker reduces N tab connections to 1
   - NotificationWatcherService polls every 3s — minimal DB load
   - Per-connection cache ensures only deltas are serialized and sent
+  - WAV files preloaded via Audio.preload='auto' — instant playback, small files (~5-15KB each)
+  - Sound playback gated by useSoundEnabled — no audio processing when muted

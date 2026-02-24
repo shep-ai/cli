@@ -3,9 +3,12 @@
 
 name: realtime-feature-status
 summary: >
-  7 tasks across 4 phases. Phase 1 builds the notification infrastructure (bus + watcher)
+  12 tasks across 7 phases. Phase 1 builds the notification infrastructure (bus + watcher)
   with tests. Phase 2 rewrites the SSE endpoint with DB polling. Phase 3 adds the Service
   Worker and rewrites the React hook. Phase 4 integrates into server startup and validates.
+  Phase 5 adds the sound system (useSound hook + WAV library + Storybook). Phase 6 wires
+  sounds into notifications with favicon branding. Phase 7 adds optimistic UI updates and
+  SoundToggle component.
 
 relatedFeatures: []
 technologies:
@@ -213,17 +216,160 @@ tasks:
     tdd: null
     estimatedEffort: '10min'
 
-totalEstimate: '2h 50min'
+  - id: task-8
+    phaseId: phase-5
+    title: 'Create useSound hook and useSoundEnabled hook'
+    description: >
+      Create useSound(name, options) hook that creates an HTMLAudioElement per sound name,
+      preloads WAV from /sounds/*.wav, and provides play/stop/isPlaying API with volume
+      and loop options. Create useSoundEnabled() hook that reads/writes 'shep-sound-enabled'
+      localStorage key, defaulting to enabled. useSound gates playback via useSoundEnabled.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'useSound preloads Audio element with preload=auto'
+      - 'play() respects enabled state and resets currentTime'
+      - 'stop() pauses and resets audio'
+      - 'Cleanup on unmount removes src and refs'
+      - 'useSoundEnabled defaults to true, persists via localStorage'
+      - 'toggle() flips state and writes to localStorage'
+      - 'SoundName type union covers all 28 sounds'
+    tdd:
+      red:
+        - 'Test useSound creates Audio element on mount'
+        - 'Test play respects enabled state'
+        - 'Test useSoundEnabled defaults and persistence'
+      green:
+        - 'Implement useSound with useRef + useEffect'
+        - 'Implement useSoundEnabled with useState + localStorage'
+      refactor:
+        - 'Extract SOUND_NAMES as const array for type safety'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-5
+    title: 'Add WAV sound library and Storybook stories'
+    description: >
+      Add 28 WAV sound files to /public/sounds/ across 8 categories: UI Actions (button,
+      select, disabled), Toggles (toggle_on, toggle_off), Transitions (transition_up,
+      transition_down), Alerts (notification, caution, celebration), Swipes (6 variants),
+      Taps (5 variants), Typing (5 variants), Loops (progress_loop, ringtone_loop).
+      Create Storybook stories with interactive sound catalog.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - '28 WAV files present in /public/sounds/'
+      - 'Storybook story renders all sounds by category with play buttons'
+      - 'Volume control via Storybook argType range slider'
+      - 'Loop sounds support start/stop toggle'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-6
+    title: 'Wire sounds into notifications with favicon and branding'
+    description: >
+      Update useNotifications hook to play severity-mapped sounds on notification events.
+      Mapping: Success → celebration, Error → caution, Warning → notification, Info → button.
+      Add event deduplication via processedRef Set (key = agentRunId+eventType+timestamp).
+      Update browser notifications to use /favicon-light.svg icon.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'useNotifications creates 4 useSound instances (one per severity)'
+      - 'Notification events trigger correct severity-mapped sound'
+      - 'Deduplication prevents replay on re-render'
+      - 'Browser Notification uses favicon-light.svg icon'
+      - 'Toast dispatched via sonner with severity method'
+    tdd:
+      red:
+        - 'Test notification event plays correct sound for severity'
+        - 'Test deduplication prevents double-dispatch'
+      green:
+        - 'Add SEVERITY_TO_SOUND mapping and useSound instances'
+        - 'Add processedRef deduplication'
+      refactor:
+        - 'Extract severity mapping constants'
+    estimatedEffort: '20min'
+
+  - id: task-11
+    phaseId: phase-7
+    title: 'Add optimistic UI updates to control center feature nodes'
+    description: >
+      Create mapEventTypeToState(eventType) and mapPhaseNameToLifecycle(phaseName) helpers
+      in derive-feature-state.ts. Wire SSE events into control-center-inner.tsx and
+      use-control-center-state.ts to update feature node state/phase optimistically
+      without waiting for data refetch. Extend deriveNodeState and deriveProgress functions.
+    state: Done
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'mapEventTypeToState maps all NotificationEventTypes to FeatureNodeState'
+      - 'mapPhaseNameToLifecycle maps phase names to lifecycle phases'
+      - 'SSE events trigger immediate node state updates in control center'
+      - 'deriveNodeState priority: waiting_approval > failed > interrupted > completed > running'
+      - 'deriveProgress returns task completion percentage'
+      - 'Unit tests cover all event type and phase mappings'
+    tdd:
+      red:
+        - 'Test mapEventTypeToState for each NotificationEventType'
+        - 'Test mapPhaseNameToLifecycle for each phase name'
+        - 'Test deriveNodeState priority order'
+        - 'Test deriveProgress calculation'
+      green:
+        - 'Implement mapEventTypeToState switch statement'
+        - 'Implement phaseNameToLifecycle record'
+        - 'Wire events into use-control-center-state'
+      refactor:
+        - 'Extract phase mapping record as const'
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-7
+    title: 'Create SoundToggle component and integrate into app shell'
+    description: >
+      Create SoundToggle component using shadcn/ui Button (ghost, icon size) with
+      lucide-react Volume2/VolumeOff icons. Component reads useSoundEnabled to display
+      current state and toggle on click. Add to app-shell.tsx header. Create Storybook
+      stories for SoundToggle.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'SoundToggle renders Volume2 when enabled, VolumeOff when muted'
+      - 'Click toggles sound state via useSoundEnabled'
+      - 'Accessible: aria-label and sr-only text'
+      - 'Integrated in app shell header'
+      - 'Storybook stories cover both states'
+    tdd:
+      red:
+        - 'Test renders Volume2 icon when enabled'
+        - 'Test renders VolumeOff icon when muted'
+        - 'Test click toggles state'
+      green:
+        - 'Implement SoundToggle with useSoundEnabled'
+        - 'Add to app-shell header'
+      refactor:
+        - 'Ensure consistent icon sizing with other header buttons'
+    estimatedEffort: '15min'
+
+totalEstimate: '4h 30min'
 openQuestions: []
 
 content: |
   ## Summary
 
-  The implementation follows a bottom-up approach across 4 phases and 7 tasks. Phase 1
-  builds the notification infrastructure (bus + watcher service) with comprehensive tests.
-  Phase 2 rewrites the SSE endpoint to poll the DB directly, avoiding cross-module
-  singleton issues. Phase 3 adds the Service Worker for tab multiplexing and rewrites
-  the React hook. Phase 4 integrates everything into server startup and validates.
+  The implementation follows a bottom-up approach across 7 phases and 12 tasks. Phases 1-4
+  build the core real-time infrastructure: notification bus + watcher service, SSE endpoint
+  rewrite, Service Worker + React hook, and server startup integration. Phase 5 adds the
+  sound system (useSound hook, 28 WAV files, Storybook). Phase 6 wires sounds into
+  notifications with favicon branding. Phase 7 adds optimistic UI updates for control center
+  feature nodes and the SoundToggle component.
 
-  Files created: 3 (notification-bus.ts, notification-watcher.service.ts, agent-events-sw.js)
-  Files modified: 7 (route.ts, use-agent-events.ts, dev-server.ts, ui.command.ts, + 3 test files)
+  Files created: 13 (notification-bus, notification-watcher, agent-events-sw, use-sound,
+  use-sound-enabled, use-sound.stories, sound-toggle/*, 28 WAV files)
+  Files modified: 10 (route.ts, use-agent-events.ts, use-notifications.ts, dev-server.ts,
+  ui.command.ts, derive-feature-state.ts, feature-node.tsx, control-center-inner.tsx,
+  use-control-center-state.ts, app-shell.tsx, + test files)

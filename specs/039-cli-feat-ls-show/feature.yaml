@@ -1,31 +1,25 @@
 feature:
-  id: 039-realtime-feature-status
-  name: realtime-feature-status
+  id: 039-cli-feat-ls-show
+  name: cli-feat-ls-show
   number: 39
   branch: feat/realtime-feature-status
   lifecycle: implementation
-  createdAt: '2026-02-23T20:39:11Z'
+  createdAt: '2026-02-23T00:00:00Z'
 status:
   phase: implementation-complete
   progress:
-    completed: 12
-    total: 12
+    completed: 3
+    total: 3
     percentage: 100
   currentTask: null
   lastUpdated: '2026-02-24T00:00:00.000Z'
-  lastUpdatedBy: manual
+  lastUpdatedBy: retroactive-spec
   completedPhases:
     - analyze
     - requirements
     - research
     - plan
     - phase-1
-    - phase-2
-    - phase-3
-    - phase-4
-    - phase-5
-    - phase-6
-    - phase-7
 validation:
   lastRun: null
   gatesPassed: []
@@ -36,9 +30,9 @@ tasks:
   failed: []
 checkpoints:
   - phase: feature-created
-    completedAt: '2026-02-23T20:39:11Z'
-    completedBy: feature-agent
-prUrl: https://github.com/shep-ai/cli/pull/112
+    completedAt: '2026-02-23T00:00:00Z'
+    completedBy: retroactive-spec
+prUrl: https://github.com/shep-ai/cli/pull/115
 errors:
   current: null
   history: []

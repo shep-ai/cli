@@ -1,0 +1,124 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+# Retroactive spec: documents work implemented without prior specification.
+
+name: rejection-feedback-isolation
+summary: >
+  4 tasks across 2 phases. Phase 1 fixes the merge node rejection loop. Phase 2
+  adds phase-tagging and prompt filtering for rejection feedback isolation.
+
+relatedFeatures:
+  - 036-drawer-approval-rejection
+technologies:
+  - 'LangGraph'
+  - 'tsyringe'
+  - 'Vitest'
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Rewrite merge node to consume rejection feedback'
+    description: >
+      Update merge.node.ts to read state.rejectionFeedback, filter for merge-phase
+      entries, and pass them to the merge prompt. This breaks the infinite loop by
+      ensuring the next approval request incorporates user feedback.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'Merge node reads rejectionFeedback from state'
+      - 'Filters for merge-phase entries'
+      - 'Passes rejection context to merge prompt'
+      - 'Next approval request reflects user feedback'
+    tdd:
+      red:
+        - 'Test merge node reads rejection feedback from state'
+        - 'Test merge prompt includes rejection context'
+      green:
+        - 'Add rejectionFeedback reading to merge node'
+        - 'Pass feedback to merge-prompts.ts'
+      refactor:
+        - 'Extract rejection filtering to helper'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Update merge-prompts to format rejection context'
+    description: >
+      Enhance merge-prompts.ts to accept an optional rejection feedback parameter
+      and format it into the prompt context so the LLM understands what the user
+      rejected and why.
+    state: Done
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'merge-prompts accepts optional rejection feedback'
+      - 'Formats rejection message into prompt context'
+      - 'Unit tests verify prompt includes rejection'
+    tdd:
+      red:
+        - 'Test merge prompt with rejection feedback'
+        - 'Test merge prompt without rejection feedback'
+      green:
+        - 'Add rejection parameter to prompt builder'
+      refactor: null
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add phase field to rejection entries and DI token'
+    description: >
+      Update reject-agent-run.use-case.ts to store the current graph node name as
+      the phase field on RejectionFeedbackEntry. Register REJECT_FEEDBACK_TOKEN in
+      DI container.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'reject use case stores phase field on entry'
+      - 'REJECT_FEEDBACK_TOKEN registered in container'
+      - 'Container test verifies token registration'
+    tdd:
+      red:
+        - 'Test rejection entry includes phase field'
+        - 'Test DI container resolves REJECT_FEEDBACK_TOKEN'
+      green:
+        - 'Add phase parameter to reject use case'
+        - 'Register token in container.ts'
+      refactor: null
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Filter rejection feedback by phase in prompts'
+    description: >
+      Update plan.prompt.ts and requirements.prompt.ts to filter rejections by
+      entry.phase === currentPhase. Entries without a phase fall into '_legacy'.
+      Write integration tests for phase-specific feedback propagation.
+    state: Done
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Plan prompt only includes plan-phase rejections'
+      - 'Requirements prompt only includes requirements-phase rejections'
+      - 'Legacy entries (no phase) handled gracefully'
+      - 'Integration tests verify no cross-phase leakage'
+    tdd:
+      red:
+        - 'Test plan prompt filters by phase'
+        - 'Test requirements prompt filters by phase'
+        - 'Test cross-phase rejection does not appear'
+      green:
+        - 'Add phase filter to prompt builders'
+      refactor:
+        - 'Extract shared phase-filter helper'
+    estimatedEffort: '30min'
+
+totalEstimate: '1h 30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  4 tasks across 2 phases. Phase 1 fixes the immediate merge node rejection loop
+  by making it consume feedback. Phase 2 adds phase-level isolation across all prompts.
+  Total: ~1.5 hours of implementation.

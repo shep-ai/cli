@@ -1,0 +1,100 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+# Retroactive spec: documents work implemented without prior specification.
+
+name: cli-feat-ls-show
+summary: >
+  3 tasks in 1 phase. Task 1 rewrites feat ls. Task 2 updates feat show with
+  inline rejection feedback. Task 3 adds unit tests.
+
+relatedFeatures:
+  - 039-realtime-feature-status
+technologies:
+  - 'Commander.js'
+  - 'chalk'
+  - 'Vitest'
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Rewrite feat ls with elapsed, gates, sorting'
+    description: >
+      Rewrite ls.command.ts to: resolve IPhaseTimingRepository, compute elapsed from
+      phase timing sums, display approval gates as colored squares (R P M push), sort
+      by status priority, add Done column, truncate names, rename to "Review X" labels.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'Elapsed computed from phase timing durationMs sums'
+      - 'Approval gates shown as R P M push squares'
+      - 'Features sorted by status priority'
+      - 'Done column shows "X ago" for completed features'
+      - 'Names truncated to 30 chars with ellipsis'
+      - '"Review X" labels for waiting_approval status'
+    tdd:
+      red:
+        - 'Test elapsed computation from phase timings'
+        - 'Test status priority sorting'
+      green:
+        - 'Implement formatElapsed, formatGates, getStatusPriority'
+        - 'Add IPhaseTimingRepository resolution and parallel loading'
+      refactor:
+        - 'Extract truncate helper'
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Update feat show with inline rejection feedback'
+    description: >
+      Update show.command.ts to render rejection feedback inline after approval wait
+      bars. Build rejectionsByPhase map from RejectionFeedbackEntry[]. For each node
+      timing with approvalWaitMs, match by base phase name and consume in order.
+      Skip run:resumed markers when rejection was already shown inline.
+      Export renderPhaseTimings for testing.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'Rejection shown after approval wait bar of rejected phase'
+      - 'Phase-specific matching by base phase name'
+      - 'Legacy entries (no phase) handled via _legacy bucket'
+      - 'Consumed in order per phase key'
+      - 'run:resumed markers skipped when inline rejection shown'
+      - '"Review X" labels for waiting_approval'
+    tdd:
+      red:
+        - 'Test rejection appears after correct phase'
+        - 'Test cross-phase rejection does not leak'
+      green:
+        - 'Build rejectionsByPhase map'
+        - 'Add rejectionMessage to renderNodeTiming'
+      refactor:
+        - 'Export renderPhaseTimings for testability'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add unit tests for phase timing + rejection rendering'
+    description: >
+      Create show-phase-timing-rejections.test.ts with tests covering:
+      renderPhaseTimings with rejection feedback, phase-specific matching,
+      legacy fallback, multiple rejections per phase, and timing bar rendering.
+    state: Done
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - '279 lines of test coverage'
+      - 'Tests for phase-specific rejection matching'
+      - 'Tests for timing bar rendering with rejections'
+      - 'All tests pass'
+    tdd: null
+    estimatedEffort: '20min'
+
+totalEstimate: '1h 35min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  3 tasks in 1 phase. The feat ls rewrite and feat show update share consistent
+  labeling ("Review X") and are closely related. Tests verify the rendering logic.
