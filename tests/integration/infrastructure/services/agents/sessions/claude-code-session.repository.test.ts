@@ -93,7 +93,7 @@ describe('ClaudeCodeSessionRepository (integration)', () => {
       const sessions = await repo.list({ limit: 0 });
       const session002 = sessions.find((s) => s.id === 'session-002');
       expect(session002).toBeDefined();
-      expect(session002?.preview).toBe('Debug this TypeScript error');
+      expect(session002?.preview).toBe('Debug this TypeScript error\nAdditional context here');
     });
 
     it('should extract preview from string content for session-001', async () => {
@@ -161,7 +161,7 @@ describe('ClaudeCodeSessionRepository (integration)', () => {
     it('should extract array content blocks for session-002 messages', async () => {
       const session = await repo.findById('session-002', { messageLimit: 20 });
       const userMsg = session?.messages?.find((m) => m.role === 'user');
-      expect(userMsg?.content).toBe('Debug this TypeScript error');
+      expect(userMsg?.content).toBe('Debug this TypeScript error\nAdditional context here');
     });
 
     it('should return null for a non-existent session ID', async () => {
