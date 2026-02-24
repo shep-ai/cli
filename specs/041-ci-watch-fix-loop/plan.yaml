@@ -1,0 +1,209 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ci-watch-fix-loop
+summary: >
+  The CI watch/fix loop is implemented in four phases: TypeSpec domain updates come
+  first (CiFixRecord model, WorkflowConfig extensions, PullRequest updates) because
+  all downstream TypeScript depends on generated output.ts. Infrastructure follows
+  (getFailureLogs on IGitPrService/GitPrService, three new LangGraph state channels
+  in state.ts). Core logic is third (buildCiWatchFixPrompt, merge.node.ts inline
+  loop). Integration tests close the work. All code follows TDD with mocked
+  IGitPrService and getSettings() throughout the test suite.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (CiFixRecord value object, WorkflowConfig extensions, PullRequest updates)
+  - pnpm tsp:compile (regenerates packages/core/src/domain/generated/output.ts)
+  - LangGraph Annotation (three new state channels with append/replace reducers)
+  - gh CLI (gh run view --log-failed for log retrieval)
+  - IGitPrService / GitPrService (new getFailureLogs method)
+  - getSettings() singleton (WorkflowConfig fields consumed at call-site with defaults)
+  - retryExecute() from node-helpers (reused for executor calls inside fix loop)
+  - createNodeLogger() from node-helpers (INFO-level per-iteration logging)
+  - tsyringe (no new registrations — GitPrService already registered)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'TypeSpec Domain Foundation'
+    description: >
+      Define CiFixRecord as a TypeSpec value object, extend WorkflowConfig with three
+      optional CI settings fields, and add ciFixAttempts/ciFixHistory to PullRequest.
+      Compile via pnpm tsp:compile to regenerate output.ts. This phase must complete
+      first because all TypeScript implementation work imports generated types. No
+      other source files are touched here.
+    parallel: false
+
+  - id: phase-2
+    name: 'Infrastructure Layer'
+    description: >
+      Add getFailureLogs(runId, branch) to IGitPrService and implement it in
+      GitPrService using gh run view --log-failed with head-truncation. In parallel,
+      add the three new LangGraph Annotation channels (ciFixAttempts, ciFixHistory,
+      ciFixStatus) to state.ts using the append/replace reducer patterns already
+      established for messages and ciStatus. Both changes are independent and can be
+      worked on concurrently.
+    parallel: true
+
+  - id: phase-3
+    name: 'Core Merge Node Logic'
+    description: >
+      Implement buildCiWatchFixPrompt() in merge-prompts.ts and the inline CI
+      watch/fix loop in merge.node.ts. The prompt builder must exist before the
+      loop references it. The loop adds gitPrService to MergeNodeDeps, reads
+      WorkflowConfig defaults via getSettings(), and manages the bounded retry
+      state machine (idle → watching → fixing/success/exhausted/timeout).
+      Position: after Agent Call 1, before the merge approval gate interrupt().
+    parallel: false
+
+  - id: phase-4
+    name: 'Integration Test Validation'
+    description: >
+      Integration tests for GitPrService.getFailureLogs with mocked execFile
+      (simulating gh run view --log-failed output). Validates truncation behaviour,
+      the truncation notice format, and error propagation. Complements the unit
+      tests written in phase-2 and phase-3.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - tsp/domain/value-objects/ci-fix-record.tsp
+
+filesToModify:
+  - tsp/domain/value-objects/pull-request.tsp
+  - tsp/domain/value-objects/index.tsp
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/application/ports/output/services/git-pr-service.interface.ts
+  - packages/core/src/infrastructure/services/git/git-pr.service.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/state.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge.node.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-24
+
+  ## Architecture Overview
+
+  The feature extends the existing merge node's post-push phase with a bounded
+  CI watch/fix loop. The loop sits inside the existing
+  `if (!isResumeAfterInterrupt)` guard in `merge.node.ts`, running after Agent
+  Call 1 (commit/push/PR) and before the merge approval gate `interrupt()`. This
+  placement is correct by construction: the isResumeAfterInterrupt guard that
+  already skips Agent Call 1 on approval resume also skips the CI loop, requiring
+  zero additional routing logic.
+
+  The state machine extends `FeatureAgentAnnotation` in `state.ts` with three new
+  channels that survive LangGraph SQLite checkpointing:
+
+  - `ciFixAttempts: Annotation<number>` — replace reducer, tracks iteration count
+  - `ciFixHistory: Annotation<CiFixRecord[]>` — append reducer (same pattern as
+    `messages`), accumulates records across restarts without duplication
+  - `ciFixStatus: Annotation<string>` — replace reducer, tracks loop phase:
+    `'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'`
+
+  `CiFixRecord` is a TypeSpec-generated type (persisted to PullRequest in the
+  database), while `ciFixStatus` is a TypeScript string union (ephemeral runtime
+  state, never persisted to the application DB — consistent with the existing
+  `ciStatus: Annotation<string | null>` channel).
+
+  ## Key Design Decisions
+
+  ### Loop Placement — Inline in merge.node.ts
+
+  Chosen over a new LangGraph node or sub-graph. The merge node already owns the
+  post-push phase and has direct access to all required state and dependencies.
+  The bounded 3-iteration loop does not justify graph topology changes. Adding a
+  new node would require new edges, routing state channels, and changes to
+  feature-agent-graph.ts with no isolation benefit.
+
+  ### Run ID Extraction — Regex on CiStatusResult.runUrl
+
+  `CiStatusResult.runUrl` already contains the full GitHub Actions run URL
+  (`https://github.com/<owner>/<repo>/actions/runs/<id>`). A simple regex
+  `/\/runs\/(\d+)/` extracts the numeric run ID. This avoids extending
+  `CiStatusResult` or making a second `getCiStatus()` call after `watchCi()`.
+  Consistent with the existing `parseCommitHash` / `parsePrUrl` patterns in
+  `merge-output-parser.ts`.
+
+  ### MergeNodeDeps — Direct IGitPrService Reference
+
+  `gitPrService: IGitPrService` is added to `MergeNodeDeps`. Three cohesive
+  methods from the same service (`watchCi`, `getCiStatus`, `getFailureLogs`)
+  warrant a direct interface reference rather than three individual method props.
+  `MergeNodeDeps` already uses `featureRepository: Pick<IFeatureRepository, ...>`
+  as a direct interface reference — this follows the same precedent.
+
+  ### Settings Access — getSettings() Singleton
+
+  `ciMaxFixAttempts`, `ciWatchTimeoutMs`, and `ciLogMaxChars` are read via
+  `getSettings()` in the merge node, applying documented defaults when fields are
+  undefined (`?? 3`, `?? 600_000`, `?? 50_000`). This is the established pattern
+  throughout the codebase. No changes to the graph factory DI wiring are needed.
+
+  ### Log Truncation — Head (First N Chars)
+
+  `gh run view --log-failed` outputs only failed steps' logs ordered chronologically
+  from the first failing step. Failure content (TypeScript errors, lint violations,
+  test failures) consistently appears near the beginning. Keeping the first
+  `ciLogMaxChars` chars (default 50,000) preserves the primary failure signal.
+  A truncation notice is appended when truncation occurs:
+  `"\n[Log truncated at {N} chars — full log available via gh run view {runId}]"`
+
+  ### CiFixRecord — TypeSpec Value Object
+
+  CiFixRecord is persisted to `PullRequest` in the application database via
+  `featureRepository.update()`, making it a domain entity that MUST be
+  TypeSpec-generated per NFR-9 and FR-12. It lives in
+  `tsp/domain/value-objects/ci-fix-record.tsp` alongside `pull-request.tsp`,
+  `gantt.tsp`, etc., and is exported via `tsp/domain/value-objects/index.tsp`.
+
+  ### ciFixHistory Reducer — Append
+
+  Uses `(prev, next) => [...prev, ...next]` — the identical pattern used by the
+  `messages` channel (state.ts). This ensures CiFixRecord entries accumulate
+  correctly across worker restarts without duplication, satisfying NFR-2.
+
+  ## Implementation Strategy
+
+  Phase ordering is driven by the TypeSpec-first dependency: `output.ts` must be
+  regenerated before any TypeScript can import `CiFixRecord`. TypeSpec changes
+  compile in minutes and unblock all downstream work.
+
+  Phase 2 groups the two independent infrastructure changes (getFailureLogs and
+  state channels) for potential parallel execution. Neither depends on the other;
+  both depend only on the generated types from Phase 1.
+
+  Phase 3 implements the core logic. The prompt builder is written first since
+  the merge node imports it directly. The merge node loop follows, wiring all
+  Phase 1–2 outputs together.
+
+  Phase 4 adds integration tests that validate the gh CLI interaction layer
+  independently of the merge node business logic.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | TypeSpec compile breaks generated types | Run pnpm tsp:compile immediately after TypeSpec changes and verify output.ts compiles with pnpm typecheck before proceeding to Phase 2 |
+  | ciFixHistory append reducer causes duplicate records on resume | Test explicitly with a simulated checkpoint restore — write then restore state, assert no duplicate records |
+  | isResumeAfterInterrupt guard skips CI loop incorrectly | Unit test: when isResumeAfterInterrupt=true, assert watchCi() is never called |
+  | getFailureLogs called with undefined runUrl | FR-2 no-CI skip path exits before getFailureLogs is reached; add explicit assertion in unit test |
+  | Executor fix prompt causes unbounded commits | Loop counter checked before executor call (fail-fast on entry per NFR-3); NFR-6 commit prefix provides audit trail |
+  | WorkflowConfig optional fields break existing settings records | All three new fields are TypeSpec optional (?) with ?? defaults at call-site; no migration needed |
+
+  ---
+
+  _Plan complete — proceed with /shep-kit:implement_

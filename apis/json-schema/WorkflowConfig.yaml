@@ -9,6 +9,21 @@ properties:
   approvalGateDefaults:
     $ref: ApprovalGateDefaults.yaml
     description: Default approval gate preferences for new features
+  ciMaxFixAttempts:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Maximum number of CI fix/push/watch iterations before giving up (default: 3)"
+  ciWatchTimeoutMs:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Timeout in milliseconds for watching a CI run (default: 600000 = 10 minutes)"
+  ciLogMaxChars:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: "Maximum characters of CI failure logs to pass to the executor (default: 50000)"
 required:
   - openPrOnImplementationComplete
   - approvalGateDefaults

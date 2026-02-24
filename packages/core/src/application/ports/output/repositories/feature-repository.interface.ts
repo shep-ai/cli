@@ -76,6 +76,15 @@ export interface IFeatureRepository {
   update(feature: Feature): Promise<void>;
 
   /**
+   * Returns all direct (non-recursive) children of the given parent feature ID.
+   * Children are ordered by creation time ascending.
+   *
+   * @param parentId - The parent feature ID
+   * @returns Array of direct child features
+   */
+  findByParentId(parentId: string): Promise<Feature[]>;
+
+  /**
    * Delete a feature by ID.
    *
    * @param id - The feature ID to delete

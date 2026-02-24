@@ -26,6 +26,11 @@ import type { FeatureNodeState, FeatureLifecyclePhase } from './feature-node-sta
  * 6. No agent run → fall back to plan tasks / lifecycle
  */
 export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): FeatureNodeState {
+  // Blocked lifecycle takes priority — child waiting on parent regardless of agent run
+  if (feature.lifecycle === SdlcLifecycle.Blocked) {
+    return 'blocked';
+  }
+
   if (agentRun) {
     switch (agentRun.status) {
       case AgentRunStatus.waitingApproval:

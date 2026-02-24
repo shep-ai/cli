@@ -102,6 +102,16 @@ import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use
 import { AddRepositoryUseCase } from '../../application/use-cases/repositories/add-repository.use-case.js';
 import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
 import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
+import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
+import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
+
+// Session listing
+import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
+import { StubSessionRepository } from '../services/agents/sessions/stub-session.repository.js';
+import { AgentSessionRepositoryRegistry } from '../../application/services/agents/agent-session-repository.registry.js';
+import { ListAgentSessionsUseCase } from '../../application/use-cases/agents/list-agent-sessions.use-case.js';
+import { GetAgentSessionUseCase } from '../../application/use-cases/agents/get-agent-session.use-case.js';
+import { AgentType } from '../../domain/generated/output.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -295,6 +305,25 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(AddRepositoryUseCase);
   container.registerSingleton(ListRepositoriesUseCase);
   container.registerSingleton(DeleteRepositoryUseCase);
+  // CheckAndUnblockFeaturesUseCase must be registered before UpdateFeatureLifecycleUseCase
+  // because the latter injects the former via class token.
+  container.registerSingleton(CheckAndUnblockFeaturesUseCase);
+  container.registerSingleton(UpdateFeatureLifecycleUseCase);
+
+  // Session repositories (per-AgentType string tokens)
+  container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
+    useFactory: () => new ClaudeCodeSessionRepository(),
+  });
+  container.register(`IAgentSessionRepository:${AgentType.Cursor}`, {
+    useFactory: () => new StubSessionRepository(AgentType.Cursor),
+  });
+  container.register(`IAgentSessionRepository:${AgentType.GeminiCli}`, {
+    useFactory: () => new StubSessionRepository(AgentType.GeminiCli),
+  });
+
+  container.registerSingleton(AgentSessionRepositoryRegistry);
+  container.registerSingleton(ListAgentSessionsUseCase);
+  container.registerSingleton(GetAgentSessionUseCase);
 
   // String-token aliases for web routes (Turbopack can't resolve .js→.ts
   // imports inside @shepai/core, so routes use string tokens instead of class refs)
@@ -333,6 +362,12 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('DeleteRepositoryUseCase', {
     useFactory: (c) => c.resolve(DeleteRepositoryUseCase),
+  });
+  container.register('CheckAndUnblockFeaturesUseCase', {
+    useFactory: (c) => c.resolve(CheckAndUnblockFeaturesUseCase),
+  });
+  container.register('UpdateFeatureLifecycleUseCase', {
+    useFactory: (c) => c.resolve(UpdateFeatureLifecycleUseCase),
   });
 
   _initialized = true;

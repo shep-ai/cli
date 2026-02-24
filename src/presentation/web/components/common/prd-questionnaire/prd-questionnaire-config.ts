@@ -26,7 +26,9 @@ export interface PrdQuestionnaireProps {
   showHeader?: boolean;
 }
 
-export interface PrdQuestionnaireDrawerProps extends PrdQuestionnaireProps {
+export interface PrdQuestionnaireDrawerProps extends Omit<PrdQuestionnaireProps, 'data'> {
+  /** Questionnaire data — null while loading */
+  data: PrdQuestionnaireData | null;
   /** Whether the drawer is open */
   open: boolean;
   /** Callback when drawer should close */

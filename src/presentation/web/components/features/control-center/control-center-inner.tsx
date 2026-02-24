@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import { toast } from 'sonner';
 import type {
@@ -18,6 +18,7 @@ import type { TechDecisionsReviewData } from '@/components/common/tech-decisions
 import type { MergeReviewData } from '@/components/common/merge-review';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
+import type { FeatureNodeData } from '@/components/common/feature-node';
 import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
 import { PrdQuestionnaireDrawer } from '@/components/common/prd-questionnaire';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
@@ -54,7 +55,21 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteRepository,
     closeCreateDrawer,
     selectFeatureById,
+    pendingParentFeatureId,
   } = useControlCenterState(initialNodes, initialEdges);
+
+  // Extract feature list for the parent selector in the create drawer
+  const featureOptions = useMemo(
+    () =>
+      nodes
+        .filter((n) => n.type === 'featureNode')
+        .map((n) => {
+          const data = n.data as FeatureNodeData;
+          return { id: data.featureId, name: data.name };
+        })
+        .filter((f) => f.id && !f.id.startsWith('#')), // exclude optimistic temp nodes
+    [nodes]
+  );
 
   // Workflow defaults for the create-feature drawer
   const [workflowDefaults, setWorkflowDefaults] = useState<WorkflowDefaults | undefined>();
@@ -335,6 +350,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onSubmit={handleCreateFeatureSubmit}
           repositoryPath={pendingRepositoryPath}
           workflowDefaults={workflowDefaults}
+          features={featureOptions}
+          initialParentId={pendingParentFeatureId}
         />
       </>
     );
@@ -365,9 +382,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onDelete={handleDeleteFeature}
         isDeleting={isDeleting}
       />
-      {questionnaireData ? (
+      {showPrdDrawer ? (
         <PrdQuestionnaireDrawer
-          open={showPrdDrawer}
+          open
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
           featureDescription={selectedNode?.description}
@@ -386,9 +403,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           isProcessing={isLoadingQuestionnaire}
         />
       ) : null}
-      {techDecisionsData ? (
+      {showTechDecisionsDrawer ? (
         <TechDecisionsDrawer
-          open={showTechDecisionsDrawer}
+          open
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
           featureId={selectedNode?.featureId}
@@ -404,9 +421,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           isProcessing={isLoadingTechDecisions}
         />
       ) : null}
-      {mergeReviewData ? (
+      {showMergeReviewDrawer ? (
         <MergeReviewDrawer
-          open={showMergeReviewDrawer}
+          open
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
           featureId={selectedNode?.featureId}
@@ -428,6 +445,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onSubmit={handleCreateFeatureSubmit}
         repositoryPath={pendingRepositoryPath}
         workflowDefaults={workflowDefaults}
+        features={featureOptions}
+        initialParentId={pendingParentFeatureId}
       />
     </>
   );

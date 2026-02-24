@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: CiFixRecord.yaml
+type: object
+properties:
+  attempt:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: 1-based attempt number
+  startedAt:
+    type: string
+    description: ISO timestamp when this attempt started
+  failureSummary:
+    type: string
+    description: First 500 chars of failure logs for this attempt
+  outcome:
+    type: string
+    description: "Outcome of this attempt: fixed, failed, or timeout"
+required:
+  - attempt
+  - startedAt
+  - failureSummary
+  - outcome
+description: Record of one CI fix attempt in the watch/fix loop

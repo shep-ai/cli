@@ -1,0 +1,565 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: agent-session-listing
+summary: >
+  19 tasks across 6 phases. Domain foundation first (TypeSpec models + compile), then
+  application layer (port, registry, use cases, error), infrastructure (repositories +
+  executor update), DI wiring, CLI presentation, and final validation. Every code task
+  follows RED-GREEN-REFACTOR TDD.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - TypeSpec
+  - tsyringe (DI)
+  - Node.js fs/promises
+  - Commander.js
+  - vitest
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Domain Foundation ──────────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend AgentFeature TypeSpec enum with sessionListing'
+    description: >
+      Add 'sessionListing: "session-listing"' to tsp/agents/enums/agent-feature.tsp.
+      This must be the first change because supportsFeature() in the executor service
+      and the generated TypeScript types both depend on this enum value.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'tsp/agents/enums/agent-feature.tsp contains sessionListing: "session-listing" with a @doc annotation'
+      - 'pnpm tsp:compile runs without errors after this change'
+      - 'Generated output.ts includes the AgentFeature.sessionListing value'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create AgentSessionMessage TypeSpec model'
+    description: >
+      Create tsp/agents/agent-session-message.tsp defining the AgentSessionMessage model
+      with uuid, role ("user" | "assistant"), content (string, normalized), and timestamp
+      fields. One model per file per SRP convention.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'tsp/agents/agent-session-message.tsp exists with AgentSessionMessage model'
+      - 'Fields: uuid (string), role ("user" | "assistant" union), content (string), timestamp (utcDateTime)'
+      - '@doc annotations on all fields'
+      - 'pnpm tsp:compile succeeds'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Create AgentSession TypeSpec model'
+    description: >
+      Create tsp/agents/agent-session.tsp defining AgentSession extends BaseEntity with
+      agentType, projectPath, messageCount, optional preview, optional messages array,
+      optional firstMessageAt, and optional lastMessageAt. Add imports to
+      tsp/agents/index.tsp so both new models are included in compilation.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'tsp/agents/agent-session.tsp exists with AgentSession model extending BaseEntity'
+      - 'Fields match research decision: agentType (AgentType), projectPath (string), messageCount (int32), preview? (string), messages? (AgentSessionMessage[]), firstMessageAt? (utcDateTime), lastMessageAt? (utcDateTime)'
+      - 'tsp/agents/index.tsp imports both agent-session-message.tsp and agent-session.tsp'
+      - 'pnpm tsp:compile succeeds with no warnings'
+      - 'packages/core/src/domain/generated/output.ts contains AgentSession and AgentSessionMessage interfaces'
+    tdd: null
+    estimatedEffort: '30min'
+
+  # ── Phase 2: Application Layer ───────────────────────────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Define IAgentSessionRepository port interface'
+    description: >
+      Create packages/core/src/application/ports/output/agents/agent-session-repository.interface.ts
+      with the IAgentSessionRepository interface, ListSessionsOptions, and GetSessionOptions
+      types. Export from the agents/index.ts barrel. This interface is the sole contract
+      between use cases and infrastructure — no use case may bypass it.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Interface defines list(options?: ListSessionsOptions): Promise<AgentSession[]>'
+      - 'Interface defines findById(id: string, options?: GetSessionOptions): Promise<AgentSession | null>'
+      - 'Interface defines isSupported(): boolean'
+      - 'ListSessionsOptions has limit?: number'
+      - 'GetSessionOptions has messageLimit?: number'
+      - 'Exported from packages/core/src/application/ports/output/agents/index.ts'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create SessionNotFoundError domain error'
+    description: >
+      Create packages/core/src/domain/errors/session-not-found.error.ts with a
+      SessionNotFoundError class extending Error. Include the session ID in the message.
+      This is the first use of a domain errors directory — establish the pattern for
+      future domain errors.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'SessionNotFoundError extends Error'
+      - 'Constructor accepts sessionId: string parameter'
+      - 'Error message includes the session ID for debuggability (e.g. "Session not found: <id>")'
+      - 'Class is exported from its file'
+    tdd:
+      red:
+        - 'Write test: new SessionNotFoundError("abc123").message contains "abc123"'
+        - 'Write test: instanceof Error is true'
+      green:
+        - 'Create the error class with message template'
+      refactor:
+        - 'Ensure name property is set to "SessionNotFoundError" for stack trace clarity'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Create AgentSessionRepositoryRegistry application service'
+    description: >
+      Create packages/core/src/application/services/agents/agent-session-repository.registry.ts
+      as an @injectable() class that resolves "IAgentSessionRepository:${agentType}" tokens
+      from the DI container. Use cases inject this registry — never the concrete repos.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'AgentSessionRepositoryRegistry is decorated with @injectable()'
+      - 'getRepository(agentType: AgentType): IAgentSessionRepository resolves via container.resolve(`IAgentSessionRepository:${agentType}`)'
+      - 'Unit test verifies registry calls container.resolve with correct token'
+    tdd:
+      red:
+        - 'Write unit test that mocks the container and verifies getRepository("claude-code") calls container.resolve("IAgentSessionRepository:claude-code")'
+        - 'Write unit test that verifies getRepository returns the resolved repository'
+      green:
+        - 'Implement the class with container.resolve() call'
+      refactor:
+        - 'Add JSDoc explaining the token scheme'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Implement ListAgentSessionsUseCase with TDD'
+    description: >
+      Create packages/core/src/application/use-cases/agents/list-agent-sessions.use-case.ts.
+      Input: { agentType?: AgentType; limit?: number }. Resolves agentType from input or
+      getSettings().agent.type. Gets repository from registry. If !repo.isSupported() prints
+      warning to stderr and returns []. Otherwise calls repo.list({ limit: input.limit ?? 20 }).
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Class decorated @injectable() with @inject() on registry parameter'
+      - 'execute(input?) resolves agentType from input.agentType or settings default'
+      - 'When repo.isSupported() is false: writes warning to process.stderr and returns []'
+      - 'When repo.isSupported() is true: returns repo.list({ limit: input.limit ?? 20 }) result'
+      - 'Default limit of 20 is applied when input.limit is undefined'
+      - 'Unit tests cover: default agent type from settings, explicit override, unsupported provider warning, limit defaulting, limit override'
+    tdd:
+      red:
+        - 'Write test: execute() with no input uses getSettings().agent.type as agentType'
+        - 'Write test: execute({ agentType: "cursor-cli" }) when isSupported()=false writes stderr warning and returns []'
+        - 'Write test: execute({ agentType: "claude-code" }) calls repo.list({ limit: 20 }) by default'
+        - 'Write test: execute({ limit: 5 }) calls repo.list({ limit: 5 })'
+        - 'Write test: execute({ limit: 0 }) calls repo.list({ limit: 0 }) for all sessions'
+      green:
+        - 'Implement execute() with isSupported() check, settings fallback, and repo.list() call'
+      refactor:
+        - 'Extract agentType resolution into a private helper method'
+        - 'Ensure warning message matches NFR-7 (human-readable, identifies provider)'
+    estimatedEffort: '1h'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Implement GetAgentSessionUseCase with TDD'
+    description: >
+      Create packages/core/src/application/use-cases/agents/get-agent-session.use-case.ts.
+      Input: { id: string; agentType?: AgentType; messageLimit?: number }. Resolves agentType
+      from input or settings. Calls repo.findById(id, { messageLimit: input.messageLimit ?? 20 }).
+      Throws SessionNotFoundError if result is null.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'Class decorated @injectable() with @inject() on registry parameter'
+      - 'execute(input) resolves agentType from input or settings'
+      - 'Calls repo.findById(id, { messageLimit: input.messageLimit ?? 20 })'
+      - 'Throws SessionNotFoundError when findById returns null'
+      - 'Default messageLimit of 20 applied when not specified'
+      - 'Unit tests cover: found session returned, null triggers SessionNotFoundError, messageLimit defaulting and override'
+    tdd:
+      red:
+        - 'Write test: execute({ id: "abc" }) when findById returns a session — returns the session'
+        - 'Write test: execute({ id: "missing" }) when findById returns null — throws SessionNotFoundError with id "missing"'
+        - 'Write test: execute({ id: "abc" }) calls findById with messageLimit: 20 by default'
+        - 'Write test: execute({ id: "abc", messageLimit: 50 }) calls findById with messageLimit: 50'
+        - 'Write test: execute({ id: "abc", messageLimit: 0 }) calls findById with messageLimit: 0'
+      green:
+        - 'Implement execute() with findById call and null check'
+      refactor:
+        - 'Reuse private agentType resolution helper from or consistent with ListAgentSessionsUseCase pattern'
+    estimatedEffort: '45min'
+
+  # ── Phase 3: Infrastructure Layer ───────────────────────────────────────────
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Update ClaudeCodeExecutorService to support session-listing feature'
+    description: >
+      Add "session-listing" to the SUPPORTED_FEATURES set (or equivalent) in
+      packages/core/src/infrastructure/services/agents/common/executors/claude-code-executor.service.ts
+      so that supportsFeature("session-listing") returns true.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'supportsFeature("session-listing") returns true on ClaudeCodeExecutorService instance'
+      - 'supportsFeature("session-listing") returns false on other executor implementations (Cursor, Mock)'
+      - 'Existing supportsFeature tests continue to pass'
+    tdd:
+      red:
+        - 'Write test (or update existing): new ClaudeCodeExecutorService(...).supportsFeature("session-listing") === true'
+        - 'Verify existing mock/cursor executor tests still show false for session-listing'
+      green:
+        - 'Add "session-listing" to the supported features set in ClaudeCodeExecutorService'
+      refactor:
+        - 'No refactor needed — minimal change'
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Create test fixtures for ClaudeCodeSessionRepository integration tests'
+    description: >
+      Create JSONL fixture files in tests/fixtures/claude-sessions/ covering all test scenarios:
+      session-001 (valid with user + assistant messages, string content),
+      session-002 (valid with array content blocks),
+      session-003 (malformed — invalid JSON on one line),
+      session-004 (minimal — single user message only, in a second project dir).
+      These fixtures must be realistic enough to test all parsing branches.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'tests/fixtures/claude-sessions/-home-user-projects-foo/session-001.jsonl — valid JSONL with queue-operation, user (string content), assistant entries'
+      - 'tests/fixtures/claude-sessions/-home-user-projects-foo/session-002.jsonl — valid JSONL with user entry having content array with text block'
+      - 'tests/fixtures/claude-sessions/-home-user-projects-foo/session-003.jsonl — JSONL with one valid line then one invalid JSON line'
+      - 'tests/fixtures/claude-sessions/-home-user-projects-bar/session-004.jsonl — minimal JSONL with a single user entry'
+      - 'All valid entries include uuid, sessionId, timestamp, cwd, type fields'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Implement StubSessionRepository'
+    description: >
+      Create packages/core/src/infrastructure/services/agents/sessions/stub-session.repository.ts.
+      isSupported() returns false. list() returns []. findById() returns null. Constructor
+      accepts agentType for logging context. Decorated with @injectable().
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'StubSessionRepository implements IAgentSessionRepository'
+      - 'isSupported() returns false'
+      - 'list() returns Promise<[]>'
+      - 'findById() returns Promise<null>'
+      - 'Constructor accepts agentType: AgentType parameter'
+      - 'Unit tests verify all three methods'
+    tdd:
+      red:
+        - 'Write tests: isSupported() === false, list() resolves to [], findById("any") resolves to null'
+      green:
+        - 'Implement the three-method stub class'
+      refactor:
+        - 'No refactor needed — intentionally minimal'
+    estimatedEffort: '20min'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Implement ClaudeCodeSessionRepository with integration tests'
+    description: >
+      Create packages/core/src/infrastructure/services/agents/sessions/claude-code-session.repository.ts.
+      Implements IAgentSessionRepository. basePath is an injectable constructor parameter
+      defaulting to path.join(os.homedir(), ".claude", "projects"). list() uses Promise.allSettled()
+      for parallel stat calls, depth-1 .jsonl enumeration (skips subdirs), mtime sort, top-N slice,
+      then full parse of only top-N files. findById() reads a single targeted file. Per-file
+      try/catch with debug logging for malformed files. Content normalization: string content
+      as-is; array content extracts first text block.
+    state: Todo
+    dependencies:
+      - task-10
+      - task-11
+    acceptanceCriteria:
+      - 'isSupported() returns true'
+      - 'list() returns sessions sorted by mtime descending'
+      - 'list({ limit: 2 }) returns at most 2 sessions from fixture directory'
+      - 'list({ limit: 0 }) returns all valid sessions'
+      - 'Malformed JSONL file (session-003) is skipped silently — does not crash list()'
+      - 'Session with array content blocks (session-002) has preview extracted from first text block'
+      - 'Session projectPath uses tilde-abbreviated cwd from JSONL'
+      - 'findById("session-001") returns the correct session with messages populated (up to messageLimit)'
+      - 'findById("nonexistent") returns null'
+      - 'findById with messageLimit returns last N messages'
+      - 'findById with messageLimit: 0 returns all messages'
+      - 'Depth-1 enumeration: any subdirectory entries under a project dir are skipped'
+      - 'Integration tests pass using tests/fixtures/claude-sessions/ as basePath'
+    tdd:
+      red:
+        - 'Write integration test: new ClaudeCodeSessionRepository(fixturesPath).list() returns 4 sessions (3 from foo, 1 from bar, minus session-003 which is malformed — result is 3 valid sessions)'
+        - 'Write integration test: list({ limit: 2 }) returns exactly 2 sessions'
+        - 'Write integration test: list({ limit: 0 }) returns all valid sessions'
+        - 'Write integration test: session-002 preview is extracted from array content'
+        - 'Write integration test: findById("session-001", { messageLimit: 20 }) returns session with messages'
+        - 'Write integration test: findById("nonexistent") returns null'
+        - 'Write integration test: findById with messageLimit: 1 returns only last 1 message'
+        - 'Write integration test: session projectPath starts with ~ (tilde-abbreviated)'
+      green:
+        - 'Implement list(): readdir all project dirs, collect depth-1 .jsonl files, parallel stat, sort by mtime, slice top-N, parse each'
+        - 'Implement findById(): construct path from basePath/*/id.jsonl (scan dirs), read and parse all lines, slice last N messages'
+        - 'Implement content normalizer: string → as-is, array → find first text-type block text'
+        - 'Implement tilde abbreviation helper'
+      refactor:
+        - 'Extract parseJSONLFile() private helper'
+        - 'Extract extractPreview() private helper'
+        - 'Extract abbreviatePath() private helper'
+        - 'Ensure all helpers have clear JSDoc'
+    estimatedEffort: '3h'
+
+  # ── Phase 4: DI Wiring ───────────────────────────────────────────────────────
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Register session repositories, registry, and use cases in DI container'
+    description: >
+      Update packages/core/src/infrastructure/di/container.ts to register:
+      - "IAgentSessionRepository:claude-code" → ClaudeCodeSessionRepository (no basePath = production default)
+      - "IAgentSessionRepository:cursor-cli" → new StubSessionRepository("cursor-cli")
+      - "IAgentSessionRepository:gemini-cli" → new StubSessionRepository("gemini-cli")
+      - AgentSessionRepositoryRegistry as singleton
+      - ListAgentSessionsUseCase as singleton
+      - GetAgentSessionUseCase as singleton
+    state: Todo
+    dependencies:
+      - task-12
+      - task-8
+    acceptanceCriteria:
+      - 'container.resolve("IAgentSessionRepository:claude-code") returns a ClaudeCodeSessionRepository instance'
+      - 'container.resolve("IAgentSessionRepository:cursor-cli") returns a StubSessionRepository instance'
+      - 'container.resolve("IAgentSessionRepository:gemini-cli") returns a StubSessionRepository instance'
+      - 'container.resolve(ListAgentSessionsUseCase) succeeds after initializeContainer()'
+      - 'container.resolve(GetAgentSessionUseCase) succeeds after initializeContainer()'
+      - 'pnpm typecheck passes after container changes'
+    tdd:
+      red:
+        - 'Write smoke test: after initializeContainer(), container.resolve(ListAgentSessionsUseCase) does not throw'
+        - 'Write smoke test: container.resolve(GetAgentSessionUseCase) does not throw'
+      green:
+        - 'Add all registrations following the existing useFactory pattern in container.ts'
+      refactor:
+        - 'Group session repository registrations with a comment block consistent with existing grouping style'
+    estimatedEffort: '30min'
+
+  # ── Phase 5: CLI Presentation ────────────────────────────────────────────────
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Create session ls CLI command'
+    description: >
+      Create src/presentation/cli/commands/session/ls.command.ts implementing createLsCommand().
+      Options: --claude-code (flag), --cursor-cli (flag), --gemini-cli (flag) — mutually
+      exclusive; --limit/-n (number, default 20). Maps flags to AgentType, calls
+      ListAgentSessionsUseCase, renders a 5-column table using renderListView() matching
+      the agent ls visual style. Columns: ID (8), Path (35), Messages (10), Last Active (16), Preview (remaining).
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'createLsCommand() returns a Commander Command named "ls"'
+      - '--claude-code, --cursor-cli, --gemini-cli flags are mutually exclusive (validated in action)'
+      - '--limit / -n option with default 20 is accepted'
+      - 'When no provider flag given: uses default agent from settings (no agentType passed to use case)'
+      - 'Table rendered with 5 columns: ID (8 chars), Path (35), Messages (10), Last Active (16), Preview'
+      - 'Last Active column shows relative time (e.g. "2d ago")'
+      - 'Empty result renders empty message "No sessions found"'
+      - 'Errors caught and reported via messages.error(); exitCode set to 1'
+      - 'Stub provider response (empty list) renders empty table without error (warnings already on stderr from use case)'
+    tdd:
+      red:
+        - 'Write unit test: createLsCommand() is a Commander Command with name "ls"'
+        - 'Write unit test: --limit 5 option is parsed and passed to use case execute'
+        - 'Write unit test: --claude-code flag sets agentType to "claude-code" in use case input'
+        - 'Write unit test: no provider flag passes undefined agentType (settings default)'
+      green:
+        - 'Implement createLsCommand() with all options, container.resolve(ListAgentSessionsUseCase), renderListView() call'
+        - 'Implement formatRelativeTime() helper for Last Active column'
+      refactor:
+        - 'Extract formatRelativeTime() to a shared helper if it duplicates existing formatters'
+        - 'Extract provider flag → AgentType mapping to a shared utility usable by show command'
+    estimatedEffort: '1.5h'
+
+  - id: task-15
+    phaseId: phase-5
+    title: 'Create session show CLI command'
+    description: >
+      Create src/presentation/cli/commands/session/show.command.ts implementing createShowCommand().
+      Argument: <id>. Options: --claude-code, --cursor-cli, --gemini-cli (mutually exclusive),
+      --messages/-m (number, default 20). Calls GetAgentSessionUseCase. Renders metadata section
+      (ID, provider, path, message count, timestamps) then conversation messages alternating
+      user/assistant color styles. Shows footer "Showing last N of M messages" when truncated.
+      SessionNotFoundError → descriptive error + exitCode 1.
+    state: Todo
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'createShowCommand() returns a Commander Command named "show" with required argument <id>'
+      - '--messages / -m option with default 20 is accepted'
+      - '--messages 0 requests all messages (passes messageLimit: 0 to use case)'
+      - 'Metadata section displays: Session ID, Provider, Project Path, Message Count, First/Last Active timestamps'
+      - 'Messages rendered with alternating colors for user (info) and assistant (success/muted) roles'
+      - 'Footer shown when session.messages.length < session.messageCount: "Showing last N of M messages"'
+      - 'SessionNotFoundError is caught and printed as user-readable error; exitCode set to 1'
+      - 'Other errors caught by generic handler; exitCode set to 1'
+    tdd:
+      red:
+        - 'Write unit test: createShowCommand() is a Commander Command with name "show"'
+        - 'Write unit test: --messages 50 passes messageLimit: 50 to use case'
+        - 'Write unit test: --messages 0 passes messageLimit: 0 to use case'
+        - 'Write unit test: SessionNotFoundError causes exitCode 1 (mock process.exitCode)'
+      green:
+        - 'Implement createShowCommand() with argument, options, container.resolve(GetAgentSessionUseCase), display logic'
+      refactor:
+        - 'Extract renderSessionMetadata() and renderSessionMessages() as local helpers for readability'
+    estimatedEffort: '1.5h'
+
+  - id: task-16
+    phaseId: phase-5
+    title: 'Create session command group and register in CLI bootstrap'
+    description: >
+      Create src/presentation/cli/commands/session/index.ts exporting createSessionCommand()
+      which creates a "session" Command group and adds ls and show as subcommands.
+      Register createSessionCommand() in src/presentation/cli/index.ts alongside existing
+      command registrations.
+    state: Todo
+    dependencies:
+      - task-15
+    acceptanceCriteria:
+      - 'createSessionCommand() returns a Commander Command named "session" with description'
+      - '"session" command has two subcommands: "ls" and "show"'
+      - 'src/presentation/cli/index.ts imports and registers createSessionCommand()'
+      - 'shep session --help shows ls and show subcommands (manual verification)'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Write test: createSessionCommand().name() === "session"'
+        - 'Write test: createSessionCommand() has commands named "ls" and "show"'
+      green:
+        - 'Create index.ts with createSessionCommand() composing ls and show'
+        - 'Add import and program.addCommand(createSessionCommand()) in index.ts'
+      refactor:
+        - 'No refactor needed'
+    estimatedEffort: '20min'
+
+  # ── Phase 6: Validation & Cleanup ────────────────────────────────────────────
+
+  - id: task-17
+    phaseId: phase-6
+    title: 'Run pnpm validate and fix all lint/typecheck/tsp issues'
+    description: >
+      Run pnpm validate (lint + format:check + typecheck + tsp:compile). Fix any ESLint
+      rule violations, Prettier formatting issues, TypeScript type errors, or TypeSpec
+      compilation warnings. All checks must pass with zero errors before proceeding.
+    state: Todo
+    dependencies:
+      - task-16
+    acceptanceCriteria:
+      - 'pnpm lint exits 0 with no errors'
+      - 'pnpm format:check exits 0 with no formatting issues'
+      - 'pnpm typecheck exits 0 with no type errors'
+      - 'pnpm tsp:compile exits 0 with no warnings'
+      - 'pnpm validate exits 0'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-18
+    phaseId: phase-6
+    title: 'Run pnpm test and fix any test failures'
+    description: >
+      Run pnpm test to execute all unit and integration tests. Verify all new tests pass
+      and no existing tests regress. Fix any failures found — do not skip or mark tests
+      as pending to achieve green.
+    state: Todo
+    dependencies:
+      - task-17
+    acceptanceCriteria:
+      - 'pnpm test exits 0 with no test failures'
+      - 'All new unit tests for use cases pass'
+      - 'All new integration tests for ClaudeCodeSessionRepository pass'
+      - 'All pre-existing tests continue to pass (no regressions)'
+      - 'Test coverage for new use cases: all branches covered (supported/unsupported, limit, messageLimit)'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-19
+    phaseId: phase-6
+    title: 'Update feature.yaml status to Implementation'
+    description: >
+      Update specs/041-agent-session-listing/feature.yaml to reflect that planning is complete
+      and implementation is underway. Set phase to Implementation and update relevant status fields.
+    state: Todo
+    dependencies:
+      - task-18
+    acceptanceCriteria:
+      - 'feature.yaml phase is set to Implementation'
+      - 'feature.yaml reflects current task completion state'
+    tdd: null
+    estimatedEffort: '5min'
+
+totalEstimate: '11h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a strict bottom-up dependency order across 6 phases.
+
+  **Phase 1** establishes the TypeSpec domain foundation: extending the AgentFeature enum,
+  then defining AgentSessionMessage and AgentSession models. The phase ends with a
+  tsp:compile verification — nothing else can proceed until the generated output.ts
+  contains the new types.
+
+  **Phase 2** builds the application layer on top of the generated types. The IAgentSessionRepository
+  port interface is defined first (it's depended on by both use cases and the registry).
+  SessionNotFoundError is introduced as the first entry in the domain errors directory.
+  AgentSessionRepositoryRegistry wraps the DI container lookup, keeping use cases decoupled
+  from concrete repository classes. ListAgentSessionsUseCase and GetAgentSessionUseCase are
+  implemented TDD-first with full unit test coverage for all branches.
+
+  **Phase 3** handles infrastructure. Executor capability is updated first (a small change).
+  Fixture JSONL files are created to drive integration tests. StubSessionRepository is
+  implemented before ClaudeCodeSessionRepository because the latter's tests need a clean
+  contrast. ClaudeCodeSessionRepository is the most complex task: lazy mtime-sort with
+  Promise.allSettled parallelism, depth-1 .jsonl enumeration for subagent exclusion,
+  per-file error handling, and content normalization — all driven by integration tests
+  against the fixture directory.
+
+  **Phase 4** wires all layers together in container.ts using per-AgentType string tokens
+  ("IAgentSessionRepository:claude-code", etc.) and smoke tests verify the container
+  resolves correctly after initialization.
+
+  **Phase 5** delivers the CLI commands. The ls command is built first (simpler output),
+  the show command second (depends on the same provider-flag utilities established in ls).
+  The session group index ties everything together and is registered in the CLI bootstrap.
+
+  **Phase 6** runs the full validation suite and fixes any issues, ensuring zero regressions
+  before the feature is marked complete.

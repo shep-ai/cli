@@ -62,6 +62,9 @@ properties:
   pr:
     $ref: PullRequest.yaml
     description: Pull request data (null until PR created)
+  parentId:
+    $ref: UUID.yaml
+    description: Parent feature ID for dependency tracking (optional)
 required:
   - name
   - userQuery

@@ -176,7 +176,20 @@ export class GitPrService implements IGitPrService {
 
   async watchCi(cwd: string, branch: string, timeoutMs?: number): Promise<CiStatusResult> {
     try {
-      const args = ['run', 'watch', '--branch', branch];
+      // gh run watch requires a run ID — it does not support --branch.
+      // First, resolve the latest run ID for the branch via gh run list.
+      const { stdout: listOut } = await this.execFile(
+        'gh',
+        ['run', 'list', '--branch', branch, '--json', 'databaseId', '--limit', '1'],
+        { cwd }
+      );
+      const runs = JSON.parse(listOut) as { databaseId: number }[];
+      if (runs.length === 0 || !runs[0].databaseId) {
+        return { status: 'pending' };
+      }
+
+      const runId = String(runs[0].databaseId);
+      const args = ['run', 'watch', runId, '--exit-status'];
       const { stdout } = await this.execFile('gh', args, {
         cwd,
         ...(timeoutMs ? { timeout: timeoutMs } : {}),
@@ -192,6 +205,10 @@ export class GitPrService implements IGitPrService {
       const cause = error instanceof Error ? error : undefined;
       if (message.includes('timed out') || message.includes('timeout')) {
         throw new GitPrError(message, GitPrErrorCode.CI_TIMEOUT, cause);
+      }
+      // gh run watch --exit-status exits non-zero when the run fails
+      if (message.includes('exit code') || message.includes('exit status')) {
+        return { status: 'failure', logExcerpt: message };
       }
       throw new GitPrError(message, GitPrErrorCode.GIT_ERROR, cause);
     }
@@ -232,6 +249,25 @@ export class GitPrService implements IGitPrService {
     } catch {
       return false;
     }
+  }
+
+  async getFailureLogs(runId: string, _branch: string, logMaxChars = 50_000): Promise<string> {
+    try {
+      const { stdout } = await this.execFile('gh', ['run', 'view', runId, '--log-failed'], {
+        cwd: undefined,
+      });
+      return this.truncateLog(stdout, logMaxChars, runId);
+    } catch (error) {
+      throw this.parseGhError(error);
+    }
+  }
+
+  private truncateLog(output: string, maxChars: number, runId: string): string {
+    if (output.length <= maxChars) return output;
+    return `${output.slice(
+      0,
+      maxChars
+    )}\n[Log truncated at ${maxChars} chars — full log available via gh run view ${runId}]`;
   }
 
   private parseGitError(error: unknown): GitPrError {

@@ -27,6 +27,7 @@ interface CreateFeatureInput {
   };
   push?: boolean;
   openPr?: boolean;
+  parentId?: string;
 }
 
 function composeUserInput(
@@ -51,7 +52,8 @@ function composeUserInput(
 export async function createFeature(
   input: CreateFeatureInput
 ): Promise<{ feature?: Feature; error?: string }> {
-  const { name, description, repositoryPath, attachments, approvalGates, push, openPr } = input;
+  const { name, description, repositoryPath, attachments, approvalGates, push, openPr, parentId } =
+    input;
 
   if (!name?.trim()) {
     return { error: 'name is required' };
@@ -76,6 +78,7 @@ export async function createFeature(
       approvalGates: gates,
       push: push ?? false,
       openPr: openPr ?? false,
+      ...(parentId ? { parentId } : {}),
     });
     return { feature: result.feature };
   } catch (error: unknown) {

@@ -78,6 +78,7 @@ function createMockFeatureRepository(): IFeatureRepository {
     list: vi.fn(),
     update: vi.fn(),
     delete: vi.fn(),
+    findByParentId: vi.fn(),
   };
 }
 

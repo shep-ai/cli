@@ -1,0 +1,241 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: e2e-port-isolation
+number: 041
+branch: feat/041-e2e-port-isolation
+oneLiner: Fix E2E test port conflicts so tests pass reliably regardless of background shep ui state
+userQuery: >
+  Feature: fix tests port conflicts
+
+  when i have shep ui running in backgroun on 4050 default port, some e2e tests are falling, with shep down all green. another issue - some test opens chrome with localhost:14050
+summary: >
+  Three distinct bugs cause CLI E2E tests to fail when `shep ui` is already running on the host.
+  (1) The "default port" test asserts `server.port === 4050`, which fails when 4050 is occupied
+  and the CLI auto-increments to 4051. (2) `shep ui` calls `BrowserOpenerService.open()` by
+  default; tests that spawn the CLI without `--no-open` cause Chrome to open at the server URL
+  (e.g. localhost:14050). (3) The port-conflict test calls `blockPort(4050)`, which throws
+  EADDRINUSE when a background shep is already bound there, and then asserts the exact next port
+  (4051), which is fragile if 4051 is also occupied. All fixes are confined to test helpers and
+  test files — no production code changes are required.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Vitest (E2E CLI tests)
+  - Playwright (Web E2E tests)
+  - Node.js net module (port availability checking)
+  - TypeScript
+  - Vite / Next.js dev server
+  - Commander.js (--no-open flag)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should --no-open be injected automatically by startCliServer, or passed explicitly by each test?'
+    resolved: true
+    options:
+      - option: 'Inject in helper'
+        description: >
+          Add --no-open to the args assembled inside startCliServer so every caller gets it for
+          free. Tests never forget to pass it, the fix is in one place, and the helper becomes
+          the canonical "safe test spawn" wrapper. Minor downside: tests cannot exercise the
+          auto-open code path through this helper (acceptable because that path cannot be
+          meaningfully asserted in a headless CI environment anyway).
+        selected: true
+      - option: 'Explicit per-test'
+        description: >
+          Each test call site adds --no-open to its args string. More explicit but error-prone —
+          any new test that forgets will open a browser window. Requires a lint rule or convention
+          to enforce consistently.
+        selected: false
+    selectionRationale: >
+      Injecting --no-open inside startCliServer is safer and simpler. The helper is only used in
+      test contexts where browser opening is always undesirable, so making it the default
+      eliminates an entire class of future regressions without any real downside.
+    answer: 'Inject in helper'
+
+  - question: 'Should the "default port" test assert the exact port number (4050) or just that the server started?'
+    resolved: true
+    options:
+      - option: 'Assert any port (drop exact check)'
+        description: >
+          Remove expect(server.port).toBe(4050). The test verifies only that the server starts
+          and the /version page is reachable on whatever port was allocated. Port 4050 preference
+          is already covered by the dedicated "port conflict" test. This makes the test robust
+          regardless of host state.
+        selected: true
+      - option: 'Conditional assertion'
+        description: >
+          Check whether 4050 is free before the test; assert 4050 if it is, skip the assertion
+          if not. More complex, harder to read, and the port-preference behaviour is tested
+          better by the conflict test anyway.
+        selected: false
+    selectionRationale: >
+      The "default port behavior" test goal is to confirm the server starts and serves content —
+      not to pin the exact port number. The "port conflict handling" test already exercises port
+      preference. Dropping the exact assertion is the simplest, most robust fix.
+    answer: 'Assert any port (drop exact check)'
+
+  - question: 'How should the "port conflict" test obtain the base port and the blocked port?'
+    resolved: true
+    options:
+      - option: 'Dynamic free-port pair'
+        description: >
+          Before the test body, call findAvailablePort (or a Node net probe) to locate a free
+          port P. Block P with blockPort(P), spawn the server without --port (so it tries its
+          default, which we mock/override) — or alternatively, spawn with --port P so the test
+          is fully self-contained. Assert server.port === P+1 (or any port > P). This removes
+          any dependency on 4050 being free.
+        selected: true
+      - option: 'Skip if 4050 occupied'
+        description: >
+          Detect at test start whether 4050 is already bound; if so skip the blockPort call and
+          let the existing background process act as the blocker. Simpler code, but the test
+          outcome depends on external state and may behave differently between runs.
+        selected: false
+    selectionRationale: >
+      A self-contained dynamic port pair makes the test hermetic: it neither depends on 4050
+      being free nor on a background process being present. This satisfies the core goal of
+      making tests always-green regardless of host state.
+    answer: 'Dynamic free-port pair'
+
+  - question: 'Should the "custom port via --port flag" test use a hardcoded port (14050) or a dynamically-found free port?'
+    resolved: true
+    options:
+      - option: 'Dynamic free port'
+        description: >
+          Probe for a free port at test start (Node net or findAvailablePort), pass it via
+          --port, and assert server.port equals that dynamic value. The test is hermetic and
+          will not fail if 14050 happens to be in use on the host.
+        selected: true
+      - option: 'Keep hardcoded 14050'
+        description: >
+          14050 is a high, unusual port unlikely to be occupied. Simpler to read, but still
+          fragile in environments where the port is taken (e.g., a previous test run that
+          did not clean up, or a CI environment with port restrictions).
+        selected: false
+    selectionRationale: >
+      Dynamic port allocation makes the test fully hermetic. The marginal code complexity
+      (one findAvailablePort call) is worth the reliability gain, consistent with how the
+      port-conflict test will also be made hermetic.
+    answer: 'Dynamic free port'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When `shep ui` is already running on its default port 4050, several CLI E2E tests in
+  `tests/e2e/cli/ui.test.ts` fail. With shep stopped the full suite is green. Three distinct
+  root causes were identified through codebase analysis:
+
+  **Bug 1 – Hardcoded port assertion in "default port" test**
+  The test at line 86 asserts `expect(server.port).toBe(4050)`. `startCliServer` correctly
+  extracts the actual bound port from stdout, so `server.port` is accurate. But when 4050 is
+  occupied the CLI auto-increments to 4051 (or higher), and the hardcoded `4050` assertion fails.
+
+  **Bug 2 – Browser auto-open during tests (Chrome opens on localhost:14050)**
+  `ui.command.ts` calls `BrowserOpenerService.open(url)` by default unless `--no-open` is
+  passed. None of the test calls to `startTrackedServer` include `--no-open`, so every spawned
+  `shep ui` process attempts to open a real browser window at the server URL. The `--port 14050`
+  test triggers a Chrome window pointed at `http://localhost:14050`.
+
+  **Bug 3 – Port-conflict test breaks when 4050 is already occupied externally**
+  The conflict test calls `blockPort(4050)` to simulate a collision, then expects
+  `server.port === 4051`. If a background `shep ui` is already bound to 4050, `blockPort(4050)`
+  throws `EADDRINUSE` (cannot bind again), aborting the test before the CLI even starts. The
+  assertion `toBe(4051)` is also fragile if 4051 happens to be busy.
+
+  ## Success Criteria
+
+  - [ ] All E2E tests in `tests/e2e/cli/ui.test.ts` pass when `shep ui` is already running on port 4050
+  - [ ] All E2E tests pass when `shep ui` is NOT running (no regression)
+  - [ ] No test causes a browser window to open during automated test execution
+  - [ ] The "default port" test verifies server startup and /version content without asserting a specific port number
+  - [ ] The "custom port via --port flag" test uses a dynamically-found free port, not hardcoded 14050
+  - [ ] The "port conflict" test uses a dynamically-found free port pair; `blockPort` never fails due to external state
+  - [ ] `startCliServer` always appends `--no-open` to suppress browser launch in all test invocations
+
+  ## Functional Requirements
+
+  - **FR-1**: `startCliServer` in `tests/helpers/cli/server.ts` MUST automatically append
+    `--no-open` to the CLI args before spawning, ensuring no browser window is opened during
+    any test that uses this helper.
+
+  - **FR-2**: The "default port behavior" test MUST NOT assert `server.port === 4050`. It MUST
+    only assert that `server.port` is a valid port number and that `GET /version` returns HTTP
+    200 with the expected content.
+
+  - **FR-3**: The "custom port via --port flag" test MUST resolve a free port dynamically (using
+    Node `net` or `findAvailablePort`) before spawning the server, pass that port via `--port`,
+    and assert `server.port` equals the dynamically-resolved value.
+
+  - **FR-4**: The "port conflict handling" test MUST resolve a free port P dynamically before
+    the test body, pass `--port P` to `startTrackedServer` as the starting port, block P with
+    `blockPort(P)`, and assert that the server starts on a port greater than P (not hardcoded
+    to P+1, to tolerate multiple occupied ports in the range).
+
+  - **FR-5**: The `SERVER_READY_PATTERN` regex in `tests/helpers/cli/server.ts` MUST continue
+    to extract the actual bound port from the CLI stdout line
+    `✓ Server ready at http://localhost:<port>`, returning it as `ServerProcess.port`.
+
+  - **FR-6**: No production source file (`src/`, `packages/`) MAY be modified as part of this
+    fix. All changes are confined to `tests/`.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 – Hermeticity**: Each test case must be fully self-contained and must not rely on
+    any externally-running process (background `shep ui`, reserved ports, previous test state)
+    to pass or fail predictably.
+
+  - **NFR-2 – No browser side effects**: Automated test runs (local and CI) must never open
+    browser windows as a side effect of spawning `shep ui` in tests.
+
+  - **NFR-3 – Minimal scope**: Changes must be limited to `tests/helpers/cli/server.ts` and
+    `tests/e2e/cli/ui.test.ts`. No new test files, no new libraries, no production code changes.
+
+  - **NFR-4 – Timeout budget preserved**: The existing 120s per-test timeout is sufficient
+    (Next.js compilation dominates). Dynamic port resolution adds negligible overhead (<10ms)
+    and must not require adjusting existing timeouts.
+
+  - **NFR-5 – Backward compatibility**: `waitForServer` and the `ServerProcess` interface must
+    retain their existing signatures so any future test files using them are unaffected.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should `--no-open` be injected in the helper or passed explicitly by each test? | Inject in `startCliServer` helper | Single fix point; tests cannot forget it; helper is always used in headless test contexts |
+  | 2 | Should the "default port" test assert the exact port 4050? | No — assert any valid port | Port preference is already covered by the conflict test; exact assertion causes unnecessary fragility |
+  | 3 | How should the port-conflict test obtain its base port? | Dynamic free-port pair | Makes the test fully hermetic; no dependency on 4050 or any other fixed port |
+  | 4 | Should the "custom port" test use hardcoded 14050? | No — use dynamic free port | Eliminates fragility if 14050 is in use; consistent with the conflict test approach |
+
+  ## Affected Areas
+
+  | Area | Impact | Change Required |
+  | ---- | ------ | --------------- |
+  | `tests/helpers/cli/server.ts` | High | Append `--no-open` to CLI args before spawn |
+  | `tests/e2e/cli/ui.test.ts` | High | Remove hardcoded port assertions; use dynamic port allocation in conflict + custom-port tests |
+  | `playwright.config.ts` | None | Uses port 3001 for `dev:web` only; no changes needed |
+  | `packages/core/src/infrastructure/services/port.service.ts` | None | `findAvailablePort` already exists and is correct |
+  | `src/presentation/cli/commands/ui.command.ts` | None | `--no-open` flag already exists; no changes needed |
+
+  ## Dependencies
+
+  - `port.service.ts` `findAvailablePort` — already exists; can be called from test setup
+    to obtain a free port before spawning the server. Alternatively, a raw Node `net.createServer`
+    probe can be used inline in the test file to keep test helpers self-contained.
+  - `startCliServer` in `tests/helpers/cli/server.ts` — minor enhancement: append `--no-open`
+    to args before spawning.
+  - No new npm packages required.
+
+  ## Size Estimate
+
+  **S** — All changes are confined to two files under `tests/`. The port-availability logic
+  already exists in production code and can be trivially replicated or imported in tests.
+  The three bugs each require a small, targeted change: one helper tweak (FR-1) and two test
+  method rewrites (FR-2 through FR-4). Estimated implementation: 30–60 lines changed.

@@ -1,0 +1,90 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ci-watch-integration-test
+summary: >
+  1 task in 1 phase. Write the integration test file for GitPrService.watchCi with four
+  scenarios (success, failure, cancelled, timeout). No production code changes.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - vitest
+  - TypeScript
+  - reflect-metadata
+  - GitPrService
+  - ExecFunction
+  - GitPrError / GitPrErrorCode / CiStatusResult
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Write git-pr-ci-watch.test.ts integration test'
+    description: >
+      Create tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts with
+      one describe block containing four it cases: success (multi-line stdout containing
+      "success"), failure (no matching keyword), cancelled ("cancelled" in stdout), and
+      CI_TIMEOUT (exec rejection with "timed out" message). Assert command construction,
+      logExcerpt exact value, and timeout forwarding.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'File tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts exists'
+      - 'First import is `import "reflect-metadata"`'
+      - 'Exactly one describe block: describe("GitPrService.watchCi integration", ...)'
+      - 'Four it blocks: success, failure, cancelled, CI_TIMEOUT'
+      - 'success: multi-line stdout (≥3 lines) with "success" → result.status === "success" and result.logExcerpt === stdout.trim()'
+      - 'failure: multi-line stdout with no "success"/"completed" keyword → result.status === "failure"'
+      - 'cancelled: multi-line stdout with "cancelled" → result.status === "failure"'
+      - 'CI_TIMEOUT: exec rejects with Error("timed out") → thrown error is GitPrError with code === GitPrErrorCode.CI_TIMEOUT'
+      - 'At least one test asserts exec called with ("gh", ["run", "watch", "--branch", branch])'
+      - 'Timeout test asserts exec options equal { cwd: "/repo", timeout: timeoutMs } exactly'
+      - 'All @/ imports resolve without modification to any config file'
+      - 'File is ≤120 lines'
+      - 'No production source files modified'
+      - '`pnpm test:single tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts` exits 0'
+    tdd:
+      red:
+        - >
+          Create the test file with the full describe/it structure, all import statements,
+          and all assertion bodies. The file references GitPrService, GitPrError, GitPrErrorCode,
+          CiStatusResult, and ExecFunction — confirm the test runner can resolve them and all
+          four it blocks are recognized (they will fail if any import or type is wrong).
+        - >
+          Run `pnpm test:single tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts`
+          and observe test failures (RED) — not compile errors. If there are compile errors,
+          fix imports before calling this step complete.
+      green:
+        - >
+          Verify each assertion aligns with the actual watchCi implementation
+          (packages/core/src/infrastructure/services/git/git-pr.service.ts lines ~175-195):
+          confirm keyword checks, logExcerpt assignment, and timeout spread.
+        - >
+          Adjust fixture strings and assertion values so all four it blocks pass. The only
+          code to write is the test file itself — no production changes permitted.
+        - >
+          Run `pnpm test:single` again; all four tests must pass (GREEN).
+      refactor:
+        - 'Count lines; trim to ≤120 if over (consolidate fixture variable declarations)'
+        - 'Verify fixture variable names are descriptive (e.g., successStdout, failureStdout)'
+        - 'Confirm beforeEach resets mockExec and re-instantiates service (NFR-2)'
+        - 'Run `pnpm test:int` to confirm no other integration tests are broken'
+    estimatedEffort: '30min'
+
+totalEstimate: '30min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  A single task creates the only deliverable: the integration test file. The TDD cycle
+  starts by writing the complete test structure (imports, describe, four it blocks with
+  assertions) so the runner can parse and attempt execution. Once the file compiles cleanly
+  (no import errors), the RED phase is confirmed by seeing four failing assertions. The
+  GREEN phase verifies each assertion against the real watchCi implementation and adjusts
+  fixtures until all four pass. The REFACTOR phase trims line count, polishes naming, and
+  runs the full integration suite to confirm no regressions.
+
+  No other tasks exist because no production code changes, no new infrastructure, and no
+  configuration changes are required.

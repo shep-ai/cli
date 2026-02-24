@@ -1,4 +1,5 @@
 import "../../common/enums/workflow.tsp";
+import "./ci-fix-record.tsp";
 
 @doc("Pull request tracking data for a feature")
 model PullRequest {
@@ -16,4 +17,10 @@ model PullRequest {
 
   @doc("CI pipeline status")
   ciStatus?: CiStatus;
+
+  @doc("Number of CI fix attempts made")
+  ciFixAttempts?: int32;
+
+  @doc("History of CI fix attempts")
+  ciFixHistory?: CiFixRecord[];
 }

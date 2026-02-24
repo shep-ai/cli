@@ -1,0 +1,366 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: optimistic-node-clickability
+summary: >
+  The root cause is confirmed: createFeatureNode (line 175-291) closes over `edges` state
+  (line 192), causing it to be recreated on every edge change, which cascades through
+  handleAddFeatureToFeature → onNodeAction → enrichedNodes, making all nodes lose their
+  callback references during optimistic creation. The fix uses the setEdges functional updater
+  pattern (already used elsewhere in the file) to eliminate the edges closure dependency, plus
+  refactors the short-circuit spread in enrichedNodes to an explicit conditional. No new
+  libraries, no architectural changes, 2 files modified.
+
+relatedFeatures: []
+
+technologies:
+  - React 19 (useCallback, useMemo, functional setState)
+  - '@xyflow/react v12+ (React Flow)'
+  - TypeScript
+  - Vitest + React Testing Library
+
+relatedLinks: []
+
+decisions:
+  - title: 'Callback Stabilization Strategy for createFeatureNode'
+    chosen: 'Nested setEdges functional updater inside setNodes updater'
+    rejected:
+      - 'useRef to track latest edges — Introduces an additional ref plus a useEffect to
+        sync edges into the ref on every change. More complex, more moving parts, and the
+        ref pattern is better suited for reading state outside of setState (e.g. in event
+        handlers or timeouts), not inside a setState updater where the functional form is
+        the idiomatic solution. The codebase already uses nested functional updaters in
+        handleConnect (lines 148-172), establishing the pattern.'
+      - 'useSyncExternalStore or useReducer consolidation — Would require a significant
+        refactor of the entire state management in useControlCenterState, replacing
+        independent useState calls with a single reducer or store. Vastly disproportionate
+        to the bug fix scope and introduces risk of regressions across all canvas
+        interactions.'
+    rationale: >
+      The fix moves the edge-reading logic inside createFeatureNode from a closure capture
+      (`edges.filter(...)` at line 192) into a nested `setEdges` functional updater that
+      receives `currentEdges` as a parameter. This is the exact pattern already used in
+      `handleConnect` (lines 153-169) where `setEdges((currentEdges) => ...)` is called
+      inside a `setNodes` updater. The pattern is idiomatic React — the functional form of
+      setState guarantees access to the latest state without adding the state variable to
+      the dependency array. This eliminates `[edges]` from `createFeatureNode`'s useCallback
+      deps, making it stable across edge changes. The cascade stabilizes:
+      createFeatureNode (stable) → handleAddFeatureToFeature (stable) →
+      onNodeAction prop (stable) → enrichedNodes memo (not invalidated).
+
+  - title: 'Edge Reading Approach Inside createFeatureNode'
+    chosen: 'Read edges via setEdges functional updater, store in closure variable, use in subsequent setNodes call'
+    rejected:
+      - 'Accept edges as a parameter — Would require changing the function signature and
+        all call sites (handleCreateFeatureSubmit at line 301, handleAddFeatureToFeature
+        at line 372). Also does not solve the problem because the caller would still need
+        to capture edges from state, keeping the closure dependency.'
+      - 'Move sibling calculation before setNodes — Would still require reading edges from
+        the closure or a parameter, not eliminating the dependency. Also breaks the atomic
+        setNodes update pattern since the sibling calculation depends on currentNodes from
+        the updater.'
+    rationale: >
+      The edges are only needed to compute sibling node IDs (line 192: finding edges where
+      `e.source === sourceNodeId`). The cleanest approach: call
+      `setEdges((currentEdges) => { /* extract data */; return currentEdges })` before
+      `setNodes(...)` to read the latest edges without adding them to the dependency array.
+      The `setEdges` updater returns the same reference, so React will not re-render for
+      edges. Then the `setNodes` updater uses the extracted data from the local variable.
+      React 19 guarantees that state updaters within the same synchronous scope execute in
+      order, so the setEdges updater will run before the setNodes updater.
+
+  - title: 'enrichedNodes Conditional Pattern Refactor'
+    chosen: 'Explicit ternary with object spread for callback injection'
+    rejected:
+      - 'Helper function (e.g., getNodeCallbacks) — Adds indirection for a simple
+        conditional. The logic is only 3-4 lines and is specific to this useMemo.
+        A helper would need to accept onNodeAction, onNodeSettings, nodeId, and state
+        as parameters, creating more code than it saves. Not justified for a single
+        call site.'
+      - 'Leave the short-circuit spread as-is — The pattern `...(condition && { props })`
+        relies on spreading `false` being a no-op, which is non-obvious. The original
+        analysis initially misidentified this pattern as the root cause, proving it
+        confuses readers. The cost of changing it to an explicit conditional is minimal
+        (same number of lines) with significant readability improvement.'
+    rationale: >
+      Replace `...(node.type === "featureNode" && state !== "creating" && { callbacks })`
+      with an explicit ternary:
+      `...(isClickableFeatureNode ? { onAction: ..., onSettings: ... } : {})`.
+      The ternary makes it immediately clear that the intent is "inject callbacks if
+      clickable, inject nothing otherwise". The variable or inline condition documents
+      intent better than the triple-AND chain. This matches the codebase's preference for
+      clarity (CLAUDE.md NFR-4: Readability — must be immediately understandable). The same
+      ternary pattern can be applied to the repositoryNode and addRepositoryNode spreads
+      for consistency, though those are optional.
+
+  - title: 'handleLayout edges Closure (Bonus Observation)'
+    chosen: 'Note as pre-existing issue, do not fix in this PR'
+    rejected:
+      - 'Fix handleLayout in the same PR — handleLayout at line 377-391 also closes over
+        edges (line 380: const currentEdges = edges). However, handleLayout is not in
+        the callback chain that causes the optimistic clickability bug. Fixing it would
+        expand scope and mix a bug fix with a separate optimization.'
+      - 'Ignore entirely — Should at least be documented so it can be addressed in a
+        follow-up. The same pattern (closure over edges instead of functional updater)
+        exists and could cause similar staleness issues if handleLayout is called during
+        rapid edge changes.'
+    rationale: >
+      handleLayout at lines 377-391 has the same `edges` closure problem (it captures
+      `edges` at line 380 and also depends on `[edges]` at line 390), but it is triggered
+      by explicit user action (layout button click), not by the optimistic creation flow.
+      Including it would expand the change scope. Document for follow-up.
+
+  - title: 'Test Strategy for Callback Stability Verification'
+    chosen: 'Capture callback identity across renders via onStateChange and compare references'
+    rejected:
+      - 'Use renderHook from @testing-library/react-hooks — The project already uses a
+        custom HookTestHarness component pattern (use-control-center-state.test.tsx lines
+        82-162) that renders the hook and exposes state via an onStateChange callback.
+        Switching to renderHook would break consistency with the existing test suite and
+        require different mock setup.'
+      - 'Test only via integration test (full component render) — Would require rendering
+        ControlCenterInner + FeaturesCanvas + FeatureNode and checking DOM for button
+        presence. Much slower, more brittle, and does not directly verify callback identity
+        stability. Integration tests are valuable but should supplement, not replace, the
+        targeted callback identity check.'
+    rationale: >
+      The existing test harness at use-control-center-state.test.tsx uses an onStateChange
+      callback that captures the full ControlCenterState on every render. This allows
+      comparing `capturedState.handleAddFeatureToFeature` identity across two renders
+      that change edges. New tests will:
+      (1) Capture handleAddFeatureToFeature reference before an edge change,
+      (2) Trigger an edge change (e.g., via createFeatureNode which calls setEdges),
+      (3) Capture the reference again and assert Object.is equality.
+      For enrichedNodes, tests in features-canvas.test.tsx will render mixed
+      creating/non-creating nodes and verify that non-creating nodes get onAction
+      callbacks (via button presence in DOM) while creating nodes do not.
+
+openQuestions:
+  - question: 'Should the sibling position computation read edges inside setNodes via a nested setEdges call, or restructure to compute sibling IDs before the setNodes call?'
+    resolved: true
+    options:
+      - option: 'Nested setEdges inside setNodes updater'
+        description: >
+          Call setEdges((currentEdges) => { /* extract sibling IDs */ return currentEdges; })
+          from inside the setNodes updater to read the latest edges. This matches the
+          handleConnect pattern (lines 148-172) but the nesting direction is inverted.
+          Using setEdges as a read mechanism that returns the same reference is unusual
+          and could confuse readers.
+        selected: false
+      - option: 'Read edges via setEdges before setNodes, store in closure variable'
+        description: >
+          Call setEdges((currentEdges) => { siblingEdges = currentEdges.filter(...); return currentEdges; })
+          before the setNodes call, storing the result in a local let variable. Then use
+          that variable inside the subsequent setNodes updater. Clean and leverages React 19
+          batching guarantees (updaters run in order within the same synchronous scope).
+        selected: true
+      - option: 'Use useRef to cache edges and read from ref inside setNodes'
+        description: >
+          Store edges in a ref via useEffect, then read edgesRef.current inside the
+          setNodes updater in createFeatureNode. Avoids nesting setState calls but adds
+          a ref plus sync effect, increasing component complexity.
+        selected: false
+    selectionRationale: >
+      The "read via setEdges before setNodes" approach is the cleanest: it uses the
+      functional updater pattern idiomatically (reading current state), stores the result
+      in a local variable, and feeds it into the subsequent setNodes updater. React 19
+      guarantees that state updaters within the same synchronous scope execute in order,
+      so the setEdges updater will run before the setNodes updater. The setEdges call
+      returns the same edges reference (no-op), so React will not trigger an extra
+      re-render. This avoids confusing nesting and avoids extra refs.
+
+  - question: 'Should the enrichedNodes test cover mixed arrays (creating + non-creating nodes together) or test each state independently?'
+    resolved: true
+    options:
+      - option: 'Test mixed arrays (creating + non-creating together)'
+        description: >
+          Render FeaturesCanvas with both a creating node and a non-creating node in the
+          same nodes array. Verify that the non-creating node gets onAction/onSettings
+          (button present in DOM) while the creating node does not (button absent). This
+          directly reproduces the reported bug scenario.
+        selected: true
+      - option: 'Test each state independently'
+        description: >
+          Test creating nodes alone and non-creating nodes alone in separate renders.
+          Already partially covered by existing tests (features-canvas.test.tsx lines
+          97-138). Does not reproduce the specific bug scenario where the presence of one
+          creating node affects others.
+        selected: false
+      - option: 'Test via snapshot comparison of enrichedNodes output'
+        description: >
+          Extract enrichedNodes logic into a pure function, call it directly in tests,
+          and compare output. Would require refactoring the useMemo into an exported
+          function, changing the component structure. More invasive than needed.
+        selected: false
+    selectionRationale: >
+      The bug manifests specifically when creating and non-creating nodes coexist. Testing
+      them together in a mixed array directly reproduces the reported scenario. The existing
+      tests already cover individual states (creating-only, running-only) but not the mixed
+      case. Adding a mixed-array test fills this gap and serves as a regression test.
+
+  - question: 'Should the enrichedNodes refactor also change the repositoryNode and addRepositoryNode spread patterns for consistency?'
+    resolved: true
+    options:
+      - option: 'Yes — refactor all three spread patterns to ternaries'
+        description: >
+          Apply the same ternary pattern to the repositoryNode spread (line 86-88) and
+          addRepositoryNode spread (line 89-91). Creates consistent style across all
+          node type callback injections. Small additional change, no behavior change.
+        selected: false
+      - option: 'No — only refactor the featureNode spread'
+        description: >
+          The repositoryNode and addRepositoryNode spreads use simpler conditions
+          (just checking node.type, no state guard). They are less confusing than the
+          featureNode triple-AND pattern. Touching them adds scope with minimal clarity
+          gain.
+        selected: true
+      - option: 'Refactor all and extract to a helper function'
+        description: >
+          Create a helper that maps node type + state to the appropriate callback object.
+          Over-engineering for this scenario — each node type has different callback shapes
+          (onAction/onSettings vs onAdd vs onSelect).
+        selected: false
+    selectionRationale: >
+      The repositoryNode and addRepositoryNode spreads use simple single-condition patterns
+      (node.type === 'repositoryNode' && { onAdd: ... }) that are straightforward. The
+      featureNode pattern is the only one with a compound condition (type check + state
+      check) that caused confusion. Limiting the refactor to featureNode keeps scope minimal
+      and focused on the actual source of confusion.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Callback Stabilization Strategy for createFeatureNode
+
+  **Chosen:** Nested setEdges functional updater inside setNodes updater
+
+  **Rejected:**
+  - useRef to track latest edges — More complex, adds ref + sync effect, not idiomatic for reading state inside setState
+  - useSyncExternalStore/useReducer consolidation — Disproportionate refactor for a targeted bug fix
+
+  **Rationale:** The `createFeatureNode` useCallback (line 175-291) depends on `[edges]` because it reads `edges` directly from the closure at line 192. Every time edges change (including during optimistic creation at line 273 where `setEdges` adds the new edge), `createFeatureNode` gets a new identity. This cascades through `handleAddFeatureToFeature` (depends on `[createFeatureNode]`, line 374) to `onNodeAction` (passed as prop, line 203) to `enrichedNodes` (useMemo depends on `onNodeAction`, line 94).
+
+  The fix moves the edge-reading logic inside createFeatureNode from a closure capture (`edges.filter(...)` at line 192) into a `setEdges` functional updater that receives `currentEdges` as a parameter. This pattern is already established in the codebase: `handleConnect` (lines 153-169) uses `setEdges((currentEdges) => ...)` inside a `setNodes` updater. The pattern is idiomatic React — the functional form of setState guarantees access to the latest state without adding the state variable to the dependency array. This eliminates `[edges]` from `createFeatureNode`'s useCallback deps, making it stable across edge changes.
+
+  ### 2. Edge Reading Approach Inside createFeatureNode
+
+  **Chosen:** Read edges via setEdges functional updater, store in closure variable, use in subsequent setNodes call
+
+  **Rejected:**
+  - Accept edges as a parameter — Doesn't solve the closure dependency at call sites
+  - Move sibling calculation before setNodes — Still needs edges from closure
+
+  **Rationale:** The edges are only needed to compute which nodes are siblings of the parent (finding edges where `e.source === sourceNodeId`). The cleanest approach: call `setEdges((currentEdges) => { /* extract data */; return currentEdges })` before `setNodes(...)` to read the latest edges without adding them to the dependency array. The `setEdges` updater returns the same reference, so React will not re-render for edges. Then the `setNodes` updater uses the extracted data from the local variable.
+
+  ### 3. enrichedNodes Conditional Pattern Refactor
+
+  **Chosen:** Explicit ternary with object spread
+
+  **Rejected:**
+  - Helper function — Over-engineering for 3-4 lines at a single call site
+  - Leave as-is — Pattern has already caused misdiagnosis; readability cost is real
+
+  **Rationale:** Replace the triple-AND spread:
+  ```typescript
+  ...(node.type === 'featureNode' &&
+    (node.data as FeatureNodeData).state !== 'creating' && {
+      onAction: ..., onSettings: ...
+    })
+  ```
+  With an explicit ternary:
+  ```typescript
+  ...(node.type === 'featureNode' && (node.data as FeatureNodeData).state !== 'creating'
+    ? { onAction: ..., onSettings: ... }
+    : {})
+  ```
+  This makes the "inject or skip" intent obvious. The cost is zero (same line count), the readability improvement is significant.
+
+  ### 4. handleLayout edges Closure (Bonus Observation)
+
+  **Chosen:** Note as pre-existing issue, do not fix in this PR
+
+  **Rejected:**
+  - Fix in same PR — Expands scope, unrelated to optimistic clickability bug
+
+  **Rationale:** `handleLayout` at lines 377-391 also captures `edges` from closure (line 380) and depends on `[edges]` (line 390). It has the same class of staleness risk but is triggered by explicit user action, not by the optimistic creation flow. Document for follow-up.
+
+  ### 5. Test Strategy
+
+  **Chosen:** Capture callback identity across renders via onStateChange and compare references
+
+  **Rejected:**
+  - Use renderHook from testing-library — Breaks consistency with existing HookTestHarness pattern
+  - Integration-only testing — Too slow and doesn't directly verify callback identity stability
+
+  **Rationale:** The existing test harness captures ControlCenterState on every render. New tests will compare `handleAddFeatureToFeature` identity across renders that change edges to verify stability. For enrichedNodes, mixed-array tests with creating + non-creating nodes will verify correct callback injection via DOM button presence.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `react` (useCallback, useMemo) | Callback memoization | Use (existing) | Core React APIs already in use; functional setState updater pattern is the fix mechanism |
+  | `@xyflow/react` | Canvas rendering, node types | Use (existing) | No changes needed to React Flow usage or APIs |
+  | `vitest` | Unit testing | Use (existing) | Test framework already used for all unit tests in the project |
+  | `@testing-library/react` | DOM testing | Use (existing) | Already used in existing test files for render/screen/fireEvent |
+  | No new libraries | — | N/A | This fix uses only existing React primitives. No new dependencies needed. |
+
+  ## Security Considerations
+
+  **No security implications.** This is a purely client-side UI bug fix involving React callback memoization. No data flows, authentication, authorization, or external API calls are affected. The changes are limited to:
+  - Removing a stale closure dependency from a `useCallback` hook
+  - Refactoring a conditional spread pattern in a `useMemo` hook
+
+  No user input handling changes. No new data paths introduced.
+
+  ## Performance Implications
+
+  **Positive performance impact.** The fix *reduces* unnecessary re-renders:
+
+  1. **Before fix:** Every time `edges` changes (including during optimistic creation), `createFeatureNode` gets a new identity → `handleAddFeatureToFeature` gets a new identity → `onNodeAction` prop changes → `enrichedNodes` useMemo recomputes → all nodes re-render with new data objects.
+
+  2. **After fix:** `createFeatureNode` has a stable identity regardless of edge changes → `handleAddFeatureToFeature` is stable → `onNodeAction` prop is stable → `enrichedNodes` only recomputes when `nodes` or `edges.length` actually change.
+
+  This means fewer useMemo invalidations and fewer React reconciliation passes during optimistic creation.
+
+  **No negative performance impact.** The `setEdges` functional updater call that reads edges is a no-op (returns same reference). React will detect the same reference and skip re-rendering for edges.
+
+  ## Architecture Notes
+
+  ### Fit Within Existing Architecture
+
+  This fix operates entirely within the web UI presentation layer:
+  - `use-control-center-state.ts` — State management hook (callback stabilization)
+  - `features-canvas.tsx` — Component (conditional refactor)
+
+  No changes to:
+  - Domain layer or generated types
+  - Application layer use cases or ports
+  - Infrastructure layer services or repositories
+  - Server actions or API contracts
+  - DI container configuration
+
+  ### Existing Patterns Leveraged
+
+  1. **Functional setState pattern** — Already used extensively in the file:
+     - `onNodesChange` (line 118): `setNodes(ns => applyNodeChanges(changes, ns))`
+     - `handleConnect` (lines 148-172): Nested `setEdges` inside `setNodes` updater
+     - `createFeatureNode` already uses `setNodes((currentNodes) => ...)` (line 189)
+     - Rollback paths use `setNodes(prev => prev.filter(...))` (lines 317, 327, 351)
+
+  2. **Test harness pattern** — The `HookTestHarness` component with `onStateChange` callback (use-control-center-state.test.tsx lines 82-162) is the established pattern for testing hook state and callback identity.
+
+  3. **DOM assertion pattern** — features-canvas.test.tsx uses `screen.queryByTestId` to check button presence/absence as a proxy for callback injection.
+
+  ### Changes Summary
+
+  | File | Change | Lines Affected |
+  | ---- | ------ | -------------- |
+  | `use-control-center-state.ts` | Remove `edges` closure capture in `createFeatureNode`; read edges via `setEdges` functional updater; remove `edges` from dependency array | ~10 lines around lines 189-194, line 290 |
+  | `features-canvas.tsx` | Replace short-circuit spread with explicit ternary in `enrichedNodes` | ~5 lines around lines 81-85 |
+  | `use-control-center-state.test.tsx` | Add test: `createFeatureNode` callback stability across edge changes | ~20 lines new test |
+  | `use-control-center-state.test.tsx` | Add test: other nodes clickable during optimistic creation (integration-level via state capture) | ~25 lines new test |
+  | `features-canvas.test.tsx` | Add test: mixed creating/non-creating nodes both get correct callbacks | ~15 lines new test |
+
+  ---
+
+  _Research completed — proceed with planning phase_

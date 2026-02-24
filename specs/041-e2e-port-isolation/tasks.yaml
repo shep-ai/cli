@@ -1,0 +1,189 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: e2e-port-isolation
+summary: >
+  3 tasks across 2 phases. Phase 1 injects --no-open into the server helper (1 task, ~5min).
+  Phase 2 rewrites the three port-sensitive test cases to be hermetic (2 tasks, ~25min).
+  Total estimated effort: 30 minutes.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Vitest
+  - Node.js net module
+  - TypeScript
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Inject --no-open into startCliServer helper'
+    description: >
+      Append '--no-open' to the commandArgs array inside startCliServer (server.ts line 73)
+      before the spawn call. This ensures every test that uses startCliServer/startTrackedServer
+      suppresses browser launch automatically, with no per-call-site changes required.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'commandArgs includes "--no-open" for every startCliServer invocation'
+      - 'No other lines in server.ts are changed'
+      - 'ServerProcess interface, waitForServer, and SERVER_READY_PATTERN are unchanged'
+      - 'TypeScript compiles without errors after the change'
+    tdd:
+      red:
+        - >
+          The existing ui.test.ts suite is the regression test for this task. Before the fix,
+          running pnpm test:e2e with shep ui active on 4050 causes Chrome to open. Confirm
+          the bug is reproducible by inspecting that --no-open is absent from the spawned
+          command args (or trust the spec analysis — no new test file needed for a one-liner).
+      green:
+        - >
+          In server.ts, change line 73 from:
+            const commandArgs = ['tsx', CLI_PATH_DEV, 'ui', ...args.split(/\s+/).filter(Boolean)];
+          to:
+            const commandArgs = ['tsx', CLI_PATH_DEV, 'ui', '--no-open', ...args.split(/\s+/).filter(Boolean)];
+      refactor:
+        - >
+          No refactoring required. The change is a single token insertion that follows the
+          existing pattern of unconditional test-environment arguments.
+    estimatedEffort: '5min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add findFreePort helper and fix default-port test assertion'
+    description: >
+      Add a findFreePort() helper function directly below blockPort() in ui.test.ts. It uses
+      the same net.createServer port-0 pattern as blockPort but captures the OS-assigned port
+      and closes immediately, returning the free port number. Then update the "default port
+      behavior" test to remove expect(server.port).toBe(4050) and add
+      expect(server.port).toBeGreaterThan(0) instead (or just remove the port assertion
+      entirely and rely on the /version fetch to prove the server is up).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'findFreePort() is defined in ui.test.ts, colocated with blockPort()'
+      - 'findFreePort() returns a port number > 0 and closes the probe server before returning'
+      - 'The "default port behavior" test no longer asserts server.port === 4050'
+      - 'The "default port behavior" test still asserts response.status === 200 and HTML content'
+      - 'Test passes with shep ui running on port 4050 and also when shep ui is not running'
+    tdd:
+      red:
+        - >
+          Run the existing "default port behavior" test with shep ui active on 4050:
+            pnpm test:e2e -- --reporter=verbose
+          Observe failure: "expect(received).toBe(expected) — Expected: 4050, Received: 4051"
+          This confirms the test is currently port-sensitive.
+      green:
+        - >
+          Add findFreePort helper after blockPort() in ui.test.ts:
+
+            async function findFreePort(): Promise<number> {
+              return new Promise((resolve, reject) => {
+                const server = createServer();
+                server.listen(0, '127.0.0.1', () => {
+                  const address = server.address();
+                  const port = typeof address === 'object' && address ? address.port : 0;
+                  server.close(() => resolve(port));
+                });
+                server.on('error', reject);
+              });
+            }
+
+        - >
+          In the "default port behavior" test, replace:
+            expect(server.port).toBe(4050);
+          with:
+            expect(server.port).toBeGreaterThan(0);
+          (The /version fetch that follows already proves the server is reachable.)
+      refactor:
+        - >
+          Verify findFreePort follows the same style as blockPort (same indentation,
+          JSDoc comment, Promise-based pattern). No structural changes needed.
+    estimatedEffort: '10min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Rewrite custom-port and port-conflict tests to use dynamic ports'
+    description: >
+      Update the "custom port via --port flag" test to call findFreePort() before spawning,
+      pass the result via --port, and assert server.port equals the dynamic value. Update the
+      "port conflict handling" test to call findFreePort() to get port P, pass --port P to
+      startTrackedServer, block P with blockPort(P), and assert server.port > P (not === 4051).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'The "custom port" test uses findFreePort() instead of hardcoded 14050'
+      - 'The "custom port" test asserts server.port equals the dynamically-found port'
+      - 'The /version fetch in the "custom port" test uses the dynamic port, not localhost:14050'
+      - 'The "port conflict" test blocks a dynamically-found port P, not hardcoded 4050'
+      - 'The "port conflict" test asserts server.port > P (not === 4051)'
+      - 'The "port conflict" test no longer throws EADDRINUSE when shep ui is running on 4050'
+      - 'All three tests pass with shep ui running on 4050 AND with shep ui not running'
+    tdd:
+      red:
+        - >
+          Run the "custom port" test with 14050 already occupied (simulate with blockPort
+          or a prior stale run). Observe: "Server failed to start" or Chrome opens on 14050.
+        - >
+          Run the "port conflict" test with shep ui active on 4050. Observe: blockPort(4050)
+          throws EADDRINUSE and the test fails before the CLI even starts.
+      green:
+        - >
+          Rewrite "custom port via --port flag" test:
+
+            it('should start on the specified port', async () => {
+              const port = await findFreePort();
+              const server = await startTrackedServer(`--port ${port}`);
+              expect(server.port).toBe(port);
+              const response = await fetch(`http://localhost:${port}/version`);
+              expect(response.status).toBe(200);
+              const html = await response.text();
+              expect(html).toContain('@shepai/cli');
+            }, 120_000);
+
+        - >
+          Rewrite "port conflict handling" test:
+
+            it('should auto-increment to next port when default port is occupied', async () => {
+              const basePort = await findFreePort();
+              await blockPort(basePort);
+              const server = await startTrackedServer(`--port ${basePort}`);
+              expect(server.port).toBeGreaterThan(basePort);
+              const response = await fetch(`http://localhost:${server.port}/version`);
+              expect(response.status).toBe(200);
+            }, 120_000);
+
+      refactor:
+        - >
+          Remove any lingering reference to hardcoded ports 14050 and 4050 from the two
+          test bodies. Ensure test descriptions still accurately describe the behaviour
+          (no description changes needed — "custom port via --port flag" and
+          "port conflict handling" remain accurate with dynamic ports).
+        - >
+          Confirm blockingServers and servers cleanup in afterEach still covers all new
+          server handles. No changes needed — the existing afterEach already iterates
+          both arrays, and the new tests add to the same arrays via blockPort and
+          startTrackedServer.
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '30min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The work divides into two logical phases. Phase 1 (task-1) adds a one-line safety net
+  to the shared server helper so that no test can accidentally open a browser window.
+  Phase 2 (task-2, task-3) makes all three port-sensitive tests fully hermetic: task-2
+  adds the findFreePort utility and fixes the default-port assertion, task-3 rewrites
+  the two remaining tests to use dynamic port allocation. All three tasks can be completed
+  in a single editing session on two files, with the full E2E suite as the integration
+  test harness.

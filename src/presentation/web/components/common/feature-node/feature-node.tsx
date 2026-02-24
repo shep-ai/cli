@@ -100,7 +100,7 @@ export function FeatureNode({
             data-testid="feature-node-lifecycle-label"
             className={cn('text-[10px] font-semibold tracking-wider')}
           >
-            {lifecycleDisplayLabels[data.lifecycle]}
+            {data.state === 'blocked' ? 'BLOCKED' : lifecycleDisplayLabels[data.lifecycle]}
           </span>
           {data.onSettings ? (
             <button

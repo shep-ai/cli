@@ -1,0 +1,288 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ci-watch-fix-loop
+summary: >
+  6 tasks across 4 phases. Phase 1 establishes the TypeSpec domain foundation
+  (CiFixRecord, WorkflowConfig, PullRequest) and compiles generated types.
+  Phase 2 delivers two parallel infrastructure tasks (getFailureLogs and state
+  channels). Phase 3 implements the core merge node logic (prompt builder, then
+  the CI watch/fix loop). Phase 4 validates the gh CLI interaction layer with
+  integration tests.
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'TypeSpec: CiFixRecord model, WorkflowConfig extensions, PullRequest updates'
+    description: >
+      Create tsp/domain/value-objects/ci-fix-record.tsp defining the CiFixRecord
+      model (attempt, startedAt, failureSummary, outcome fields). Update
+      tsp/domain/value-objects/pull-request.tsp to add optional ciFixAttempts and
+      ciFixHistory fields to the PullRequest model. Update tsp/domain/entities/settings.tsp
+      to add optional ciMaxFixAttempts, ciWatchTimeoutMs, ciLogMaxChars to WorkflowConfig.
+      Export CiFixRecord from tsp/domain/value-objects/index.tsp. Run pnpm tsp:compile
+      to regenerate output.ts. Verify pnpm typecheck passes before proceeding.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'ci-fix-record.tsp defines CiFixRecord with: attempt (int32), startedAt (string), failureSummary (string), outcome (string)'
+      - 'pull-request.tsp PullRequest model has ciFixAttempts?: int32 and ciFixHistory?: CiFixRecord[]'
+      - 'settings.tsp WorkflowConfig has ciMaxFixAttempts?: int32, ciWatchTimeoutMs?: int32, ciLogMaxChars?: int32'
+      - 'index.tsp exports ci-fix-record.tsp'
+      - 'pnpm tsp:compile exits with code 0'
+      - 'packages/core/src/domain/generated/output.ts contains CiFixRecord interface'
+      - 'pnpm typecheck exits with code 0 after compile'
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'IGitPrService.getFailureLogs: interface + GitPrService implementation'
+    description: >
+      Add getFailureLogs(runId: string, branch: string): Promise<string> to the
+      IGitPrService interface in git-pr-service.interface.ts. Implement in
+      GitPrService via execFile running gh run view <runId> --log-failed. Apply
+      head-truncation at ciLogMaxChars (passed as a parameter, default 50_000)
+      and append the truncation notice when output is longer than the limit.
+      The method accepts logMaxChars as an optional third parameter so callers
+      can pass Settings.workflow.ciLogMaxChars ?? 50_000.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'IGitPrService has getFailureLogs(runId: string, branch: string, logMaxChars?: number): Promise<string>'
+      - 'GitPrService.getFailureLogs executes: gh run view <runId> --log-failed'
+      - 'Output shorter than logMaxChars is returned unchanged'
+      - 'Output longer than logMaxChars is truncated to first logMaxChars chars and appended with: "\n[Log truncated at {N} chars — full log available via gh run view {runId}]"'
+      - 'GitPrError is thrown with appropriate code when gh command fails'
+      - 'Unit tests cover: short log (no truncation), long log (truncation + notice), gh command failure'
+      - 'pnpm typecheck exits with code 0'
+    tdd:
+      red:
+        - 'Create tests/unit/infrastructure/services/git/git-pr.service.getFailureLogs.spec.ts'
+        - 'Write test: getFailureLogs returns full output when under logMaxChars limit'
+        - 'Write test: getFailureLogs truncates output and appends notice when over logMaxChars limit'
+        - 'Write test: getFailureLogs throws GitPrError when execFile rejects'
+        - 'All three tests fail because IGitPrService lacks getFailureLogs and GitPrService has no implementation'
+      green:
+        - 'Add getFailureLogs signature to IGitPrService interface'
+        - 'Implement GitPrService.getFailureLogs: execFile gh run view <runId> --log-failed, apply truncation, return result'
+        - 'All three tests pass'
+      refactor:
+        - 'Extract truncateLog(output, maxChars, runId) as a private helper to separate truncation logic from gh invocation'
+        - 'Verify no duplication with existing parseGhError error handling'
+    estimatedEffort: '1.5h'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'state.ts: Add ciFixAttempts, ciFixHistory, ciFixStatus Annotation channels'
+    description: >
+      Extend FeatureAgentAnnotation in state.ts with three new LangGraph channels.
+      ciFixAttempts uses a replace reducer with default 0. ciFixHistory uses an
+      append reducer (same pattern as messages) with default []. ciFixStatus uses
+      a replace reducer with default 'idle'. Import CiFixRecord from the generated
+      output.ts. The TypeScript type for ciFixStatus is the string union
+      'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'
+      (not a TypeSpec enum — consistent with existing ciStatus channel).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'FeatureAgentAnnotation has ciFixAttempts channel with replace reducer and default 0'
+      - 'FeatureAgentAnnotation has ciFixHistory channel with append reducer and default []'
+      - 'FeatureAgentAnnotation has ciFixStatus channel with replace reducer and default "idle"'
+      - 'ciFixHistory reducer produces [...prev, ...next] — accumulates without losing prior records'
+      - 'CiFixRecord is imported from @/domain/generated/output'
+      - 'Unit test verifies ciFixHistory append reducer accumulates records correctly across two state updates'
+      - 'Unit test verifies ciFixAttempts replace reducer overwrites on each update'
+      - 'pnpm typecheck exits with code 0'
+    tdd:
+      red:
+        - 'Create tests/unit/agents/feature-agent/state.spec.ts (or extend existing if present)'
+        - 'Write test: initial state has ciFixAttempts=0, ciFixHistory=[], ciFixStatus="idle"'
+        - 'Write test: updating ciFixHistory twice accumulates both records (append reducer)'
+        - 'Write test: updating ciFixAttempts twice keeps only the latest value (replace reducer)'
+        - 'Tests fail because channels do not exist in FeatureAgentAnnotation'
+      green:
+        - 'Add import for CiFixRecord from @/domain/generated/output'
+        - 'Add ciFixAttempts, ciFixHistory, ciFixStatus Annotation channels with correct reducers and defaults'
+        - 'All tests pass'
+      refactor:
+        - 'Group new CI fix channels together with a comment block // CI watch/fix loop state for readability'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'merge-prompts.ts: Add buildCiWatchFixPrompt function'
+    description: >
+      Implement buildCiWatchFixPrompt(failureLogs: string, attemptNumber: number,
+      maxAttempts: number, branch: string) in merge-prompts.ts. The prompt must
+      instruct the executor to: (1) read the truncated CI failure logs, (2) diagnose
+      the failure, (3) apply a targeted fix, (4) commit with conventional message
+      "fix(ci): attempt N/max — <short description>", (5) push to the same branch.
+      The prompt must make the commit message format requirement explicit to ensure
+      NFR-6 compliance.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'buildCiWatchFixPrompt is exported from merge-prompts.ts'
+      - 'Prompt includes the full failureLogs content'
+      - 'Prompt specifies the conventional commit format: fix(ci): attempt {N}/{max} — <description>'
+      - 'Prompt instructs executor to push to the same branch after committing'
+      - 'Prompt includes attempt number and max attempts for context'
+      - 'Unit test verifies prompt contains failure logs verbatim'
+      - 'Unit test verifies prompt contains the commit message format string'
+      - 'Unit test verifies prompt contains the branch name'
+    tdd:
+      red:
+        - 'Create tests/unit/agents/feature-agent/nodes/prompts/merge-prompts.ci-watch-fix.spec.ts'
+        - 'Write test: buildCiWatchFixPrompt includes failureLogs in output'
+        - 'Write test: buildCiWatchFixPrompt includes "fix(ci): attempt 1/3" format string'
+        - 'Write test: buildCiWatchFixPrompt includes branch name in push instruction'
+        - 'Tests fail because buildCiWatchFixPrompt does not exist'
+      green:
+        - 'Implement buildCiWatchFixPrompt with all required sections'
+        - 'All tests pass'
+      refactor:
+        - 'Ensure consistent formatting with existing prompt builders (buildCommitPushPrPrompt, buildMergeSquashPrompt)'
+        - 'Add JSDoc comment documenting parameters'
+    estimatedEffort: '1h'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'merge.node.ts: Add gitPrService to MergeNodeDeps and implement CI watch/fix loop'
+    description: >
+      Add gitPrService: IGitPrService to MergeNodeDeps. In the merge node function,
+      after Agent Call 1 and before interrupt(), add the CI watch/fix loop:
+      (1) skip if !state.push && !state.openPr; (2) read settings via getSettings()
+      with ?? defaults; (3) skip with debug log if getCiStatus returns no run;
+      (4) call watchCi(); (5) on success update ciFixStatus="success" and continue;
+      (6) on failure fetch logs via getFailureLogs, check attempt count against
+      ciMaxFixAttempts (fail-fast), build fix prompt, call retryExecute, push,
+      append CiFixRecord to ciFixHistory, increment ciFixAttempts, repeat;
+      (7) on exhaustion update Feature.pr.ciStatus=Failure, surface structured error.
+      Update feature-agent-graph.ts to pass gitPrService when constructing MergeNodeDeps.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'MergeNodeDeps has gitPrService: IGitPrService'
+      - 'When push=false && openPr=false, watchCi() is never called'
+      - 'When push=true and getCiStatus returns no run, debug log emitted and loop exits without error'
+      - 'When CI succeeds on first watch, ciFixStatus="success" and merge continues to interrupt()'
+      - 'When CI fails, getFailureLogs is called with runId extracted from runUrl via regex'
+      - 'Fix loop is bounded: ciFixAttempts check occurs BEFORE executor call'
+      - 'Each fix iteration appends a CiFixRecord to ciFixHistory with attempt, startedAt, failureSummary, outcome'
+      - 'ciWatchTimeoutMs from settings (with ?? 600_000 default) is passed to watchCi()'
+      - 'On max attempts exhausted: Feature.pr.ciStatus updated to Failure, error message lists all attempt outcomes'
+      - 'On timeout from watchCi: CiFixRecord appended with outcome="timeout", loop exits with structured error'
+      - 'isResumeAfterInterrupt=true causes CI loop to be completely skipped (existing guard covers it)'
+      - 'Unit test covers: CI success on first watch; CI failure→fix→success on second; max attempts exhausted; timeout; no-CI skip'
+      - 'feature-agent-graph.ts passes gitPrService when building MergeNodeDeps'
+      - 'pnpm typecheck exits with code 0'
+    tdd:
+      red:
+        - 'Create tests/unit/agents/feature-agent/nodes/merge.node.ci-watch.spec.ts'
+        - 'Write test: CI skipped when push=false && openPr=false (watchCi never called)'
+        - 'Write test: CI skipped with debug log when getCiStatus returns no runUrl (status=pending and no run)'
+        - 'Write test: CI success on first watch → ciFixStatus="success", no getFailureLogs called'
+        - 'Write test: CI fail on first watch → getFailureLogs called → retryExecute called → watchCi called again → success → ciFixHistory has one record with outcome="fixed"'
+        - 'Write test: CI fails all 3 attempts → ciFixHistory has 3 records, Feature.pr.ciStatus=Failure, error thrown'
+        - 'Write test: watchCi returns timeout → CiFixRecord with outcome="timeout", structured error thrown'
+        - 'Write test: isResumeAfterInterrupt=true → watchCi never called'
+        - 'All tests fail because loop does not exist'
+      green:
+        - 'Add gitPrService: IGitPrService to MergeNodeDeps'
+        - 'Implement CI watch/fix loop inside if (!isResumeAfterInterrupt) block after Agent Call 1'
+        - 'Update feature-agent-graph.ts to pass gitPrService in MergeNodeDeps construction'
+        - 'All tests pass'
+      refactor:
+        - 'Extract extractRunId(runUrl: string): string | undefined as a module-level helper for regex logic'
+        - 'Extract buildCiFixRecord(attempt, startedAt, logs, outcome): CiFixRecord as a helper'
+        - 'Ensure loop body is readable — add section comments (// Watch CI, // Fetch failure logs, // Run fix executor, // Record attempt)'
+    estimatedEffort: '3h'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Integration tests: GitPrService.getFailureLogs with mocked gh CLI'
+    description: >
+      Integration tests for GitPrService.getFailureLogs using a mocked execFile
+      that simulates gh run view --log-failed stdout/stderr. Validates the full
+      flow from gh invocation through truncation and returned string. These
+      tests complement the unit tests from task-2 by exercising the complete
+      GitPrService instance (not just the truncation helper) with realistic
+      gh CLI output formats.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Integration test file exists at tests/integration/services/git/git-pr.service.getFailureLogs.spec.ts'
+      - 'Test: gh command called with correct args (run view <runId> --log-failed)'
+      - 'Test: output under 50_000 chars returned as-is'
+      - 'Test: output over 50_000 chars truncated with correct notice format'
+      - 'Test: gh exit code 1 results in GitPrError with appropriate code'
+      - 'Test: gh exit code 0 with empty output returns empty string'
+      - 'pnpm test:int exits with code 0'
+    tdd:
+      red:
+        - 'Create tests/integration/services/git/git-pr.service.getFailureLogs.spec.ts'
+        - 'Mock execFile to capture gh invocation args and return controlled stdout'
+        - 'Write test: correct gh command arguments for a given runId'
+        - 'Write test: short output passthrough'
+        - 'Write test: long output truncation with notice'
+        - 'Write test: gh error propagation as GitPrError'
+        - 'Write test: empty output handling'
+        - 'Tests fail because they reference a test fixture directory or need test db setup that must be established'
+      green:
+        - 'Ensure tests pass against the implementation from task-2'
+        - 'Add any missing test fixtures or setup helpers'
+      refactor:
+        - 'Share mock execFile factory with existing integration tests if one exists'
+        - 'Use descriptive test data (representative CI log lines, realistic runId format)'
+    estimatedEffort: '1h'
+
+# Total effort estimate
+totalEstimate: '8h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  Six tasks deliver the CI watch/fix loop feature in strict dependency order.
+
+  The work begins with TypeSpec domain changes (task-1) because all TypeScript
+  implementation imports `CiFixRecord` from the generated `output.ts`. Once
+  types are generated and `pnpm typecheck` passes, Phase 2 opens two parallel
+  tracks: the `getFailureLogs` infrastructure method (task-2) and the new
+  LangGraph state channels (task-3). These are independent and can be worked
+  concurrently.
+
+  Phase 3 then builds the core application logic: the `buildCiWatchFixPrompt`
+  function (task-4) is implemented first because the merge node imports it
+  directly. The CI watch/fix loop itself (task-5) is the most complex task,
+  wiring all previous work together — it depends on tasks 2, 3, and 4 before
+  it can be implemented or tested.
+
+  Phase 4 (task-6) rounds out coverage with integration tests against the
+  real `GitPrService` instance, validating the gh CLI invocation contract
+  independently of the higher-level merge node tests.
+
+  Every code task follows the Red-Green-Refactor TDD cycle. Task-1 (TypeSpec
+  schema work) has no traditional unit tests but includes a required compile
+  verification gate before subsequent tasks begin.
+
+  ---
+
+  _Task breakdown for implementation tracking_

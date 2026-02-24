@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import { ReactFlow, Background, Controls, ReactFlowProvider } from '@xyflow/react';
+import { ReactFlow, Background, Controls, Panel, ReactFlowProvider } from '@xyflow/react';
 import type { Connection, Edge, NodeChange } from '@xyflow/react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,9 @@ import { FeatureNode } from '@/components/common/feature-node';
 import type { FeatureNodeType, FeatureNodeData } from '@/components/common/feature-node';
 import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
-import { AddRepositoryNode } from '@/components/common/add-repository-node';
+import { AddRepositoryButton, AddRepositoryNode } from '@/components/common/add-repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
+import { DependencyEdge } from './dependency-edge';
 
 export type CanvasNodeType = FeatureNodeType | RepositoryNodeType | AddRepositoryNodeType;
 
@@ -57,6 +58,13 @@ export function FeaturesCanvas({
     []
   );
 
+  const edgeTypes = useMemo(
+    () => ({
+      dependencyEdge: DependencyEdge,
+    }),
+    []
+  );
+
   // Prevent a feature from having more than one source repository
   const isValidConnection = useCallback(
     (connection: Edge | Connection) => {
@@ -80,11 +88,12 @@ export function FeaturesCanvas({
         data: {
           ...node.data,
           showHandles: edges.length > 0,
-          ...(node.type === 'featureNode' &&
-            (node.data as FeatureNodeData).state !== 'creating' && {
-              onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
-              onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
-            }),
+          ...(node.type === 'featureNode' && (node.data as FeatureNodeData).state !== 'creating'
+            ? {
+                onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
+                onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+              }
+            : {}),
           ...(node.type === 'repositoryNode' && {
             onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
             onDelete: onRepositoryDelete,
@@ -136,6 +145,7 @@ export function FeaturesCanvas({
           nodes={enrichedNodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           isValidConnection={isValidConnection}
           onConnect={onConnect}
           onNodesChange={onNodesChange}
@@ -148,6 +158,11 @@ export function FeaturesCanvas({
         >
           <Background />
           <Controls />
+          {onRepositorySelect ? (
+            <Panel position="top-right" className="mr-12">
+              <AddRepositoryButton onSelect={onRepositorySelect} />
+            </Panel>
+          ) : null}
           {toolbar}
         </ReactFlow>
       </ReactFlowProvider>

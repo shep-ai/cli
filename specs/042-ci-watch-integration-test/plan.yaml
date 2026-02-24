@@ -1,0 +1,94 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ci-watch-integration-test
+summary: >
+  Write one new integration test file for GitPrService.watchCi covering four scenarios:
+  success (multi-line stdout with "success"), failure (no matching keyword), cancelled
+  (stdout with "cancelled"), and CI_TIMEOUT (exec rejection). Uses direct instantiation
+  with a vi.fn() ExecFunction fake — no DI container, no production code changes.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - vitest
+  - TypeScript
+  - reflect-metadata
+  - GitPrService
+  - ExecFunction
+  - GitPrError / GitPrErrorCode / CiStatusResult
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Write Integration Test'
+    description: >
+      Create tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts with
+      all four scenarios (success, failure, cancelled, timeout) in a single describe block.
+      This is the only deliverable — the entire feature is one test file.
+    parallel: false
+
+filesToCreate:
+  - tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts
+
+filesToModify: []
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  `GitPrService.watchCi()` is a concrete infrastructure service living in
+  `packages/core/src/infrastructure/services/git/git-pr.service.ts`. It accepts an
+  `ExecFunction` at construction time (constructor-injected), calls it with the
+  `gh run watch --branch <branch>` command, inspects the stdout string for the keywords
+  `success`, `failure`, and `cancelled`, and either returns a `CiStatusResult` or throws
+  a `GitPrError` with `GitPrErrorCode.CI_TIMEOUT`.
+
+  The test targets the infrastructure layer boundary: it instantiates the concrete class
+  directly with a controlled vi.fn() fake, exactly as the existing unit tests do in
+  `tests/unit/infrastructure/services/git/git-pr.service.test.ts`. No application or
+  domain layer is involved.
+
+  The new file belongs in `tests/integration/infrastructure/services/git/` — mirroring
+  the source directory structure as required by CLAUDE.md — and is picked up automatically
+  by `pnpm test:int` (which globs `tests/integration/**`).
+
+  ## Key Design Decisions
+
+  **ExecFunction fake via vi.fn()**: Each test scenario configures the shared `mockExec`
+  via `mockResolvedValueOnce` (success, failure, cancelled) or `mockRejectedValueOnce`
+  (timeout). This matches the existing unit-test pattern and exercises real watchCi parsing
+  without any subprocess, filesystem, or network access.
+
+  **Direct instantiation, no DI container**: FR-2 mandates `new GitPrService(mockExec)`.
+  GitPrService has exactly one constructor parameter, so no container wiring is needed.
+
+  **beforeEach reset**: `mockExec = vi.fn()` and `service = new GitPrService(mockExec)` are
+  reassigned in `beforeEach` so each `it` block starts with zero recorded calls (NFR-2).
+
+  **Multi-line fixtures (≥3 lines)**: Template literal strings with at least three lines
+  are used for all stdout values, exercising both `stdout.includes(keyword)` and
+  `stdout.trim()` on real multi-line input.
+
+  **Exact timeout options assertion**: The timeout scenario asserts
+  `{ cwd: '/repo', timeout: timeoutMs }` exactly on the exec call options argument,
+  closing the gap left by existing unit tests that only check `expect.objectContaining({ cwd })`.
+
+  ## Implementation Strategy
+
+  There is a single phase because the entire feature is one file. The TDD cycle is:
+  RED — write the describe block with all four it bodies referencing types not yet
+  imported (file doesn't exist yet, so every run fails); GREEN — write the complete
+  file with correct imports and assertions so all four it blocks pass; REFACTOR —
+  verify line count ≤ 120, ensure consistent fixture naming, and confirm no production
+  file was touched.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | @/ alias not resolving in integration test directory | vitest.config.ts already maps @/ to packages/core/src for all tests; confirmed by existing tests/integration files |
+  | watchCi implementation details drift (e.g., keyword changes) | Test reads the source before writing assertions; no production changes permitted so drift is impossible within this feature |
+  | Line count exceeds 120 (NFR-1) | Plan targets ~90-110 lines; beforeEach is shared, fixtures are concise template literals |
+  | Test classified as unit (wrong runner) | File path is tests/integration/…; pnpm test:int glob covers it regardless of actual I/O |

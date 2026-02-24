@@ -1,0 +1,392 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-dependencies
+number: 041
+branch: feat/041-feature-dependencies
+oneLiner: Add parent/child feature dependencies with lifecycle-gated blocking and auto-unblocking
+summary: >
+  Introduce hierarchical feature dependencies so that a child feature can be created from
+  an existing feature. Child features enter a Blocked lifecycle state when the parent has
+  not yet reached Implementation, and are auto-unblocked (agents spawned) once the parent
+  satisfies the gate. A second gate prevents children from starting Implementation until
+  the parent reaches Maintain. Blocking cascades to grandchildren. The feature is exposed
+  via CLI (--parent flag), Web UI (parent selector in create drawer, dependency edges on
+  canvas), and a reactive unblocking mechanism hooked into lifecycle transitions.
+phase: Requirements
+sizeEstimate: L
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (tsp/) — domain model extension (parentId field, Blocked lifecycle)
+  - TypeScript (packages/core/src/domain/generated/output.ts) — generated types
+  - SQLite / better-sqlite3 — new migration for parent_id column
+  - tsyringe — DI container wiring for new use cases and services
+  - Commander.js — CLI flag --parent for feat new command
+  - React / React Flow (@xyflow/react) — canvas edge rendering for parent→child edges
+  - shadcn/ui + Tailwind CSS — web UI blocked-state indicators
+  - LangGraph — feature agent graph, agent spawn gating
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Which CLI flag name should be used to specify the parent feature?'
+    resolved: true
+    options:
+      - option: '--parent <fid>'
+        description: >
+          Short, concise flag that maps directly to the TypeSpec field name `parentId`.
+          Easier to type in practice. Follows the data-model naming convention.
+        selected: true
+      - option: '--depends-on <fid>'
+        description: >
+          More semantically descriptive flag that mirrors the task-level `dependsOn` pattern
+          already in the codebase. Slightly more verbose but self-documenting.
+        selected: false
+    selectionRationale: >
+      `--parent` is recommended because it is shorter, directly mirrors the domain model field
+      `parentId`, and is unambiguous in the context of feature creation. The `dependsOn` pattern
+      at the task level uses a different data structure (array of Task objects) and is not a
+      direct analog, so consistency with the field name is preferred over consistency with the
+      task pattern.
+    answer: '--parent <fid>'
+
+  - question: 'What lifecycle state should an unblocked child transition to when the parent reaches Implementation?'
+    resolved: true
+    options:
+      - option: 'Started'
+        description: >
+          Transition the child to Started (the very beginning of the SDLC). The agent runs
+          all phases in sequence: Analyze → Requirements → Research → Planning → Implementation.
+          This is the standard entry point for all new features and ensures no phases are skipped.
+        selected: true
+      - option: 'Analyze'
+        description: >
+          Skip Started and drop directly into the Analyze phase. Marginally faster but bypasses
+          the standard bootstrapping step and could break assumptions in the agent graph.
+        selected: false
+    selectionRationale: >
+      `Started` is recommended because it is the canonical entry point for feature execution.
+      Dropping into Analyze skips the Started handshake that initializes agent state, and could
+      cause subtle bugs in the agent graph. Consistency with normal feature creation is paramount.
+    answer: 'Started'
+
+  - question: 'How should the system handle deletion of a parent feature that has blocked children?'
+    resolved: true
+    options:
+      - option: 'Prevent deletion (guard)'
+        description: >
+          Block the deletion of a feature that currently has one or more blocked children.
+          Return a descriptive error listing the blocked children. The user must first remove
+          the dependency (re-parent or delete the children) before deleting the parent.
+          Safest option — no orphaned Blocked features.
+        selected: true
+      - option: 'Auto-unblock children'
+        description: >
+          When a parent is deleted, automatically unblock all its blocked children (transition
+          them to Started) and spawn their agents. Convenient but potentially surprising —
+          the user may not expect deletion to trigger agent spawning.
+        selected: false
+      - option: 'Orphan (leave blocked)'
+        description: >
+          Leave blocked children in the Blocked state with a now-invalid parent reference.
+          Simple to implement but creates a broken state that requires manual cleanup. Not recommended.
+        selected: false
+    selectionRationale: >
+      Preventing deletion is the safest default. Silently spawning agents on parent deletion
+      (option 2) is surprising and potentially expensive. Orphaning features (option 3) leaves
+      the database in an inconsistent state. A clear guard with a helpful error message is
+      consistent with how the rest of the system handles referential integrity and approval gates.
+    answer: 'Prevent deletion (guard)'
+
+  - question: 'Should a feature be allowed to depend on multiple parent features (DAG) or only a single parent?'
+    resolved: true
+    options:
+      - option: 'Single parent only (tree)'
+        description: >
+          Each feature may have at most one parent, forming a simple tree hierarchy. Schema
+          is a single nullable `parent_id` column. Simpler to implement, query, and reason about.
+          No risk of diamond dependency cycles. Can be extended to multi-parent in a future version.
+        selected: true
+      - option: 'Multiple parents (DAG)'
+        description: >
+          A feature may depend on N parents via a `feature_dependencies` join table. More
+          flexible for real-world team workflows where a feature waits on multiple parallel
+          work streams. Significantly more complex: cycle detection, unblock logic requires
+          ALL parents to satisfy their gate before the child unblocks.
+        selected: false
+    selectionRationale: >
+      Single parent is strongly recommended for v1. The DAG model introduces substantial
+      complexity (join table, cycle detection across a graph, ALL-parents-satisfied unblock
+      logic, UI edge rendering for N inputs). The tree model covers the primary use case
+      (sequential dependencies) and can be extended to multi-parent in a future feature once
+      the foundation is proven.
+    answer: 'Single parent only (tree)'
+
+  - question: 'How should dependency edges be rendered and created in the Web UI canvas?'
+    resolved: true
+    options:
+      - option: 'Read-only visualization (v1)'
+        description: >
+          Canvas renders parent→child dependency edges as read-only directed arrows. Users
+          create the dependency only at feature creation time (via the create drawer or CLI).
+          No drag-to-connect interaction in v1. Simpler, avoids re-parenting complexity.
+        selected: true
+      - option: 'Interactive drag-to-connect'
+        description: >
+          Users can draw a connection between two existing nodes to set a parent/child dependency
+          on an already-created feature. Requires a new use case for updating `parentId` on
+          an existing feature, handling re-parenting logic, and blocking/unblocking on the fly.
+          Better UX long-term but significantly larger scope.
+        selected: false
+    selectionRationale: >
+      Read-only visualization is recommended for v1. The canvas already has handle infrastructure
+      and connection validation, but re-parenting an existing feature requires a new `UpdateFeatureParentUseCase`
+      with its own gate checks, blocking transitions, and agent spawn/abort logic. That scope
+      belongs in a follow-on feature. The primary requirement is expressing the dependency at
+      creation time, which the drawer and CLI cover fully.
+    answer: 'Read-only visualization (v1)'
+
+  - question: 'Where should CheckAndUnblockFeaturesUseCase be invoked to trigger auto-unblocking?'
+    resolved: true
+    options:
+      - option: 'Inside UpdateFeatureLifecycleUseCase (reactive, single call site)'
+        description: >
+          Call CheckAndUnblockFeaturesUseCase at the end of every lifecycle transition persisted
+          through UpdateFeatureLifecycleUseCase. Since the feature agent always calls this use
+          case to advance lifecycle, all transitions are covered from one call site. Synchronous,
+          no polling, zero latency between parent transition and child unblock.
+        selected: true
+      - option: 'At every lifecycle write site (defensive multi-call)'
+        description: >
+          Call CheckAndUnblockFeaturesUseCase at every place that writes a lifecycle value
+          (create, update, agent callbacks). Catches more edge cases but requires N call sites
+          to stay in sync, increasing maintenance burden and the risk of duplicate spawning.
+        selected: false
+    selectionRationale: >
+      Single call site in UpdateFeatureLifecycleUseCase is strongly recommended. It is the
+      canonical path through which all lifecycle transitions flow from the agent. Centralizing
+      the unblock check here ensures it cannot be missed, is easy to test, and is idempotent
+      by design (only Blocked children are acted upon). Defensive multi-site invocation adds
+      complexity without additional safety if the primary path is already covered.
+    answer: 'Inside UpdateFeatureLifecycleUseCase (reactive, single call site)'
+
+content: |
+  ## Problem Statement
+
+  Currently, features in Shep are independent units of work — each branches from the repo's
+  default branch and runs its agent autonomously. There is no mechanism to model sequential
+  dependencies between features (e.g., "Feature B depends on Feature A being implemented first").
+  Teams working on related features cannot express that dependency, leading to integration
+  conflicts when a child feature starts implementation before the parent is complete.
+
+  This feature adds hierarchical parent/child feature dependencies with lifecycle-gated
+  blocking and automatic unblocking across all surfaces: CLI, Web UI, and agent execution.
+
+  ## Success Criteria
+
+  - [ ] A feature can be created with `shep feat new --parent <fid>` and the relationship is persisted in SQLite
+  - [ ] When parent lifecycle < `Implementation`, the child is created in `Blocked` state and no agent is spawned
+  - [ ] When parent lifecycle >= `Implementation` but < `Maintain`, the child is created in `Started` state and its agent is spawned (early phases allowed)
+  - [ ] When parent lifecycle reaches `Maintain`, any children blocked at the Implementation gate are automatically unblocked and their agents spawned
+  - [ ] When parent lifecycle transitions to `Implementation`, all directly-blocked children (blocked due to early-phase gate) transition to `Started` and agents are spawned
+  - [ ] Blocking cascades: a blocked feature's children are also blocked
+  - [ ] `feat ls` displays `Blocked` status correctly for blocked features
+  - [ ] Web UI `feature-create-drawer` includes a searchable parent feature selector
+  - [ ] Web UI canvas renders directed dependency edges from parent to child
+  - [ ] Deleting a feature with blocked children returns an error listing those children
+  - [ ] `CheckAndUnblockFeaturesUseCase` is idempotent (running it twice does not spawn duplicate agents)
+  - [ ] All new use cases have unit tests with mocked dependencies following RED-GREEN-REFACTOR
+  - [ ] Integration tests cover the SQLite migration and `findByParentId` repository method
+  - [ ] TypeSpec compiles cleanly with `parentId` field and `Blocked` lifecycle value
+  - [ ] `pnpm validate` passes (lint + typecheck + tsp:compile)
+  - [ ] Cycle detection prevents a feature from being set as its own ancestor
+
+  ## Functional Requirements
+
+  ### Domain Model
+
+  - **FR-1**: The `Feature` TypeSpec entity MUST include an optional `parentId?: UUID` field
+    representing a reference to the parent `Feature` aggregate.
+  - **FR-2**: The `SdlcLifecycle` enum MUST include a `Blocked` value that represents a feature
+    waiting for its parent to satisfy a lifecycle gate.
+  - **FR-3**: The `Blocked` lifecycle value MUST be treated as a non-progressing state — no agent
+    is spawned, no lifecycle transitions are made by the system while a feature is Blocked.
+
+  ### Data Layer
+
+  - **FR-4**: Database migration v19 MUST add a nullable `parent_id TEXT` column to the
+    `features` table and create an index on `(parent_id)` for efficient child lookups.
+  - **FR-5**: `IFeatureRepository` MUST expose a `findByParentId(parentId: string): Promise<Feature[]>`
+    method returning all direct children of the given parent feature.
+  - **FR-6**: `SQLiteFeatureRepository` MUST persist and hydrate the `parentId` field when
+    reading and writing feature records.
+
+  ### Feature Creation
+
+  - **FR-7**: `CreateFeatureInput` MUST accept an optional `parentId?: string` field.
+  - **FR-8**: `CreateFeatureUseCase` MUST validate the referenced parent exists; if not found,
+    return a descriptive error.
+  - **FR-9**: `CreateFeatureUseCase` MUST check the parent's lifecycle against two gates:
+    - If parent lifecycle is below `Implementation`: child is created in `Blocked` state; agent spawn is deferred.
+    - If parent lifecycle is `Implementation` or above but below `Maintain`: child is created in `Started` state; agent is spawned immediately (early phases allowed).
+    - If parent lifecycle is `Maintain` or above: child is created in `Started` state; agent is spawned immediately (all phases allowed, parent is complete).
+  - **FR-10**: Child features MUST always create their worktree from the repo default branch,
+    not from the parent feature's branch.
+  - **FR-11**: `CreateFeatureUseCase` MUST persist `parentId` on the created feature record.
+
+  ### Cascade Blocking
+
+  - **FR-12**: When a feature is created in `Blocked` state and a child of that feature is
+    subsequently created, the grandchild MUST also be created in `Blocked` state (cascade).
+  - **FR-13**: The cascade MUST work to arbitrary depth (no hardcoded depth limit).
+
+  ### Auto-Unblocking
+
+  - **FR-14**: A new `CheckAndUnblockFeaturesUseCase` MUST exist with a single `execute(parentId: string)` method.
+  - **FR-15**: `CheckAndUnblockFeaturesUseCase` MUST query all direct children of `parentId`
+    that are currently in `Blocked` state via `findByParentId`.
+  - **FR-16**: For each blocked child, the use case MUST evaluate the parent's current lifecycle
+    against the applicable gate and, if the gate is now satisfied, transition the child to
+    `Started` and invoke `IFeatureAgentProcessService.spawn()` for that child.
+  - **FR-17**: `CheckAndUnblockFeaturesUseCase.execute()` MUST be called inside `UpdateFeatureLifecycleUseCase`
+    after persisting the new lifecycle value, so that every parent lifecycle transition
+    automatically triggers child unblocking.
+  - **FR-18**: The unblocking logic MUST be idempotent: calling `execute()` on a parent whose
+    children are already unblocked MUST be a no-op.
+
+  ### Cycle Prevention
+
+  - **FR-19**: `CreateFeatureUseCase` MUST detect and reject cycles: a feature MUST NOT be
+    allowed to set a `parentId` that would make it an ancestor of its own lineage
+    (i.e., no feature may be its own ancestor at any depth).
+
+  ### CLI
+
+  - **FR-20**: `shep feat new` MUST accept a `--parent <fid>` option where `<fid>` is a full
+    or partial feature ID.
+  - **FR-21**: The CLI MUST resolve partial feature IDs for `--parent` using prefix matching
+    (consistent with how other feature IDs are resolved in the CLI).
+  - **FR-22**: If the partial ID is ambiguous (multiple matches) or not found, the CLI MUST
+    display a descriptive error and exit with a non-zero code.
+  - **FR-23**: `shep feat ls` MUST display the `Blocked` lifecycle state correctly (already partially
+    implemented; confirm the parent ID is surfaced in the output when relevant).
+
+  ### Web UI
+
+  - **FR-24**: The `feature-create-drawer` component MUST include a parent feature selector
+    (searchable dropdown/combobox) that lists existing features by name and ID.
+  - **FR-25**: When a parent is selected in the create drawer, the created feature MUST be
+    passed `parentId` to the server action and then to `CreateFeatureUseCase`.
+  - **FR-26**: The features canvas MUST render a directed edge from parent node to child node
+    for each parent/child relationship.
+  - **FR-27**: Dependency edges on the canvas MUST be visually distinct from any other edge
+    type (distinct color, style, or marker).
+  - **FR-28**: Canvas dependency edges MUST be read-only in v1 — no drag-to-create or
+    drag-to-remove interaction for dependency edges.
+
+  ### Deletion Guard
+
+  - **FR-29**: Any path that deletes a feature MUST check for blocked children. If blocked
+    children exist, the deletion MUST be rejected with an error listing the blocked child IDs.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: No new library dependencies. All functionality MUST be built on the existing
+    stack (better-sqlite3, tsyringe, @xyflow/react, shadcn/ui, LangGraph).
+  - **NFR-2**: The SQLite migration MUST be additive and backward-compatible: the new
+    `parent_id` column MUST be nullable with no default value required, preserving existing
+    feature records.
+  - **NFR-3**: `CheckAndUnblockFeaturesUseCase` MUST complete within the existing lifecycle
+    update flow without introducing observable latency (all SQLite operations, no network I/O).
+  - **NFR-4**: All new use cases MUST follow the Clean Architecture dependency rule: no
+    presentation or infrastructure imports in application layer code.
+  - **NFR-5**: All new use cases MUST be registered in the tsyringe DI container as singletons
+    before the feature is considered complete.
+  - **NFR-6**: TypeSpec-first rule MUST be observed: `parentId` and `Blocked` MUST originate
+    in `.tsp` files; `output.ts` MUST NOT be hand-edited.
+  - **NFR-7**: Every new use case and repository method MUST have unit tests (mocked deps)
+    following RED-GREEN-REFACTOR. The `Blocked` state transitions and cascade logic MUST
+    be covered by integration tests against a test SQLite database.
+  - **NFR-8**: Cycle detection MUST run in O(depth) time, walking the parent chain upward.
+    Given typical feature tree depths (< 10), no performance concern, but no O(N) full-table
+    scan is acceptable.
+  - **NFR-9**: The parent selector in `feature-create-drawer` MUST be accessible: keyboard
+    navigable, labeled, and compatible with shadcn/ui component conventions.
+  - **NFR-10**: `feat ls` output MUST NOT regress in rendering performance or layout for
+    features without a parent (the column MUST be omitted or empty, not break alignment).
+  - **NFR-11**: The `Blocked` lifecycle value MUST be handled in all existing lifecycle
+    switch/case or conditional blocks that enumerate `SdlcLifecycle` values, preventing
+    unhandled-enum exhaustiveness errors from TypeScript's strict mode.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | CLI flag name for parent | `--parent <fid>` | Concise, maps to domain field `parentId`, easier to type |
+  | 2 | Initial lifecycle when child unblocks | `Started` | Canonical entry point; skipping Started could break agent graph initialization |
+  | 3 | Behavior on parent deletion with blocked children | Prevent deletion (guard) | Safest option; avoids unexpected agent spawning or orphaned Blocked records |
+  | 4 | Single vs. multiple parents | Single parent only (tree) | DAG model is significantly more complex; tree covers primary use case; extend later |
+  | 5 | Canvas interaction model | Read-only visualization (v1) | Re-parenting existing features requires new use case scope; out of bounds for v1 |
+  | 6 | Where to call CheckAndUnblockFeaturesUseCase | Inside UpdateFeatureLifecycleUseCase | Single call site covers all agent-driven transitions; easy to test; idempotent by design |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `tsp/domain/entities/feature.tsp` | High | Add `parentId?: UUID` field |
+  | `tsp/common/enums/lifecycle.tsp` | High | Add `Blocked` enum value to `SdlcLifecycle` |
+  | `packages/core/src/domain/generated/output.ts` | High | Auto-regenerated via `pnpm tsp:compile` — DO NOT EDIT |
+  | `packages/core/src/infrastructure/persistence/sqlite/migrations.ts` | High | Migration v19: `ALTER TABLE features ADD COLUMN parent_id TEXT` + index |
+  | `packages/core/src/application/ports/output/repositories/feature-repository.interface.ts` | High | Add `findByParentId(parentId: string): Promise<Feature[]>` method |
+  | `packages/core/src/infrastructure/repositories/feature.repository.ts` | High | Implement new repo method; persist/map `parent_id` column |
+  | `packages/core/src/application/use-cases/features/create/create-feature.use-case.ts` | High | Accept `parentId?` in input; check parent lifecycle gates; set initial `Blocked` state; defer agent spawn; cycle detection |
+  | `packages/core/src/application/use-cases/features/create/types.ts` | Medium | Add `parentId?: string` to `CreateFeatureInput` |
+  | `packages/core/src/application/use-cases/features/` | High | New use case: `CheckAndUnblockFeaturesUseCase` |
+  | `packages/core/src/application/use-cases/features/update/update-feature-lifecycle.use-case.ts` | High | Call `CheckAndUnblockFeaturesUseCase` after persisting new lifecycle |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register `CheckAndUnblockFeaturesUseCase` and wire dependencies |
+  | `src/presentation/cli/commands/feat/new.command.ts` | Medium | Add `--parent <fid>` option; resolve partial feature ID; pass to use case |
+  | `src/presentation/cli/commands/feat/ls.command.ts` | Low | Confirm Blocked status display; consider parent ID column |
+  | `src/presentation/web/app/actions/create-feature.ts` | Medium | Accept `parentId?` parameter; pass to use case |
+  | `src/presentation/web/components/feature-create-drawer/` | Medium | Add searchable parent feature selector |
+  | `src/presentation/web/components/features-canvas/features-canvas.tsx` | Medium | Render read-only parent→child dependency edges |
+  | `src/presentation/web/components/feature-node/feature-node.tsx` | Low | Already has blocked state; possibly show parent indicator badge |
+  | Any feature deletion path | Medium | Add guard: reject if blocked children exist |
+
+  ## Dependencies
+
+  ### Existing Code Dependencies
+  - `IFeatureRepository` — must be extended with `findByParentId`
+  - `IFeatureAgentProcessService.spawn()` — called deferred (post-unblock) for blocked children
+  - `SdlcLifecycle` enum — must be extended with `Blocked` value
+  - `CreateFeatureUseCase` — primary entry point for all feature creation paths
+  - `UpdateFeatureLifecycleUseCase` — unblocking hook is injected here
+  - `getSettings()` singleton — already used in `CreateFeatureUseCase` for agent type resolution
+
+  ### Auto-Unblocking Mechanism
+  `CheckAndUnblockFeaturesUseCase` is called inside `UpdateFeatureLifecycleUseCase` after
+  persisting the new lifecycle. The feature agent already calls back to update lifecycle,
+  so this single hook point covers all agent-driven transitions with zero polling.
+
+  ### Library Dependencies
+  - `better-sqlite3` — already in use for all migrations
+  - `tsyringe` — already used for DI; no new library needed
+  - `@xyflow/react` — already used in features-canvas for edge rendering
+
+  ## Size Estimate
+
+  **L (week+)** — Unchanged from analysis. This feature touches every architecture layer:
+
+  1. **TypeSpec + generated types** (tsp compile cycle): ~half day
+  2. **Database migration + repository extension**: ~half day
+  3. **Domain logic** (parent gate rules, Blocked state, cascade, cycle detection): ~1 day
+  4. **`CreateFeatureUseCase` + `CheckAndUnblockFeaturesUseCase`**: ~1.5 days (includes TDD cycles)
+  5. **`UpdateFeatureLifecycleUseCase` hook + deletion guard**: ~0.5 days
+  6. **CLI flag + partial ID resolution**: ~half day
+  7. **Web UI** (canvas edges, create drawer parent selector): ~1 day
+  8. **Tests** (unit + integration across all layers): ~1.5 days
+
+  Total: ~7 work days. Classified as **L**.

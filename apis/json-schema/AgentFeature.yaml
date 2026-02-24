@@ -7,4 +7,5 @@ enum:
   - tool-scoping
   - structured-output
   - system-prompt
+  - session-listing
 description: Agent executor capability declarations
