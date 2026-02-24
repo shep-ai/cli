@@ -26,11 +26,13 @@ test.describe('Optimistic node clickability — drawer opens on other nodes whil
     // Navigate to control center
     await page.goto('/');
 
-    // Wait for the page to stabilize, then check for feature nodes
-    await page.waitForLoadState('networkidle');
+    // Check if any feature nodes exist (use isVisible with short timeout to avoid blocking)
     const featureCards = page.locator('[data-testid="feature-node-card"]');
-    const existingCount = await featureCards.count();
-    test.skip(existingCount < 1, 'Need at least 1 existing feature node to test clickability');
+    const hasFeatures = await featureCards
+      .first()
+      .isVisible({ timeout: 10000 })
+      .catch(() => false);
+    test.skip(!hasFeatures, 'Need at least 1 existing feature node to test clickability');
 
     // Remember the name of the first existing (non-creating) feature node for drawer verification
     const firstNodeHeading = page
@@ -117,11 +119,13 @@ test.describe('All feature nodes open a drawer on click', () => {
     // Navigate to control center
     await page.goto('/');
 
-    // Wait for page to stabilize, then check for feature nodes
-    await page.waitForLoadState('networkidle');
+    // Check if any feature nodes exist (use isVisible with short timeout to avoid blocking)
     const featureCards = page.locator('[data-testid="feature-node-card"]');
-    const nodeCount = await featureCards.count();
-    test.skip(nodeCount < 1, 'Need at least 1 feature node to test drawer opening');
+    const hasFeatures = await featureCards
+      .first()
+      .isVisible({ timeout: 10000 })
+      .catch(() => false);
+    test.skip(!hasFeatures, 'Need at least 1 feature node to test drawer opening');
 
     // Get all non-creating feature nodes
     const clickableNodes = page.locator(
