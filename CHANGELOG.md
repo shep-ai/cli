@@ -1,3 +1,13 @@
+# [1.50.0](https://github.com/shep-ai/cli/compare/v1.49.1...v1.50.0) (2026-02-24)
+
+### Bug Fixes
+
+- **agents:** suppress notification replay on watcher bootstrap ([#114](https://github.com/shep-ai/cli/issues/114)) ([8617365](https://github.com/shep-ai/cli/commit/8617365ffcc90e2ba5d1d7cd0b2973cbbffaa0d0))
+
+### Features
+
+- **cli:** improve feat ls view ([#115](https://github.com/shep-ai/cli/issues/115)) ([f45267d](https://github.com/shep-ai/cli/commit/f45267df4c6d9f97dc9cac230f39937285f39b4c))
+
 ## [1.49.1](https://github.com/shep-ai/cli/compare/v1.49.0...v1.49.1) (2026-02-24)
 
 ### Bug Fixes
