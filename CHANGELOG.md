@@ -1,3 +1,9 @@
+## [1.52.2](https://github.com/shep-ai/cli/compare/v1.52.1...v1.52.2) (2026-02-24)
+
+### Bug Fixes
+
+- **web:** externalize node builtins to prevent platform tree-shaking ([#127](https://github.com/shep-ai/cli/issues/127)) ([92d9076](https://github.com/shep-ai/cli/commit/92d9076bd1827e0ed34c9807ea122666a34188ee)), closes [#125](https://github.com/shep-ai/cli/issues/125)
+
 ## [1.52.1](https://github.com/shep-ai/cli/compare/v1.52.0...v1.52.1) (2026-02-24)
 
 ### Bug Fixes
