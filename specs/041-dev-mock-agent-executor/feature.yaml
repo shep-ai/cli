@@ -24,6 +24,7 @@ status:
     - phase-3
     - phase-4
     - phase-5
+    - merge
 validation:
   lastRun: null
   gatesPassed: []
@@ -39,4 +40,4 @@ checkpoints:
 errors:
   current: null
   history: []
-prUrl: 'https://github.com/shep-ai/cli/pull/117'
+prUrl: https://github.com/shep-ai/cli/pull/117

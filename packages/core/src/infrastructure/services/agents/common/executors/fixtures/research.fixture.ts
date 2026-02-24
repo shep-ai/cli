@@ -16,7 +16,7 @@ relatedFeatures: []
 
 technologies:
   - React 19 context API
-  - Tailwind CSS v4 (dark: modifier)
+  - 'Tailwind CSS v4 (dark: modifier)'
   - localStorage Web API
   - shadcn/ui Switch component
   - Next.js App Router root layout

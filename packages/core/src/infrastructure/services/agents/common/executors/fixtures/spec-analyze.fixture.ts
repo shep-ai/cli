@@ -6,7 +6,7 @@
  */
 
 export const SPEC_ANALYZE_FIXTURE = `name: dark-mode-toggle
-number: '042'
+number: 42
 branch: feat/042-dark-mode-toggle
 oneLiner: Add a dark-mode toggle to the Shep web UI settings panel
 summary: >
