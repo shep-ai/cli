@@ -82,6 +82,15 @@ export default async function HomePage() {
             lifecycleMap[feature.lifecycle] ??
             'requirements');
 
+      // Resolve blockedBy display name from parent feature
+      let blockedBy: string | undefined;
+      if (feature.parentId && feature.lifecycle === 'Blocked') {
+        const parentEntry = featuresWithRuns.find((e) => e.feature.id === feature.parentId);
+        if (parentEntry) {
+          blockedBy = parentEntry.feature.name;
+        }
+      }
+
       const nodeData: FeatureNodeData = {
         name: feature.name,
         description: feature.description ?? feature.slug,
@@ -94,6 +103,7 @@ export default async function HomePage() {
         progress: deriveProgress(feature),
         ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
         ...(run?.error && { errorMessage: run.error }),
+        ...(blockedBy && { blockedBy }),
       };
 
       const featureNodeId = `feat-${feature.id}`;
@@ -111,6 +121,23 @@ export default async function HomePage() {
         style: { strokeDasharray: '5 5' },
       });
     });
+  }
+
+  // Add parent→child dependency edges
+  for (const { feature } of featuresWithRuns) {
+    if (feature.parentId) {
+      const parentNodeId = `feat-${feature.parentId}`;
+      const childNodeId = `feat-${feature.id}`;
+      // Only add edge if both nodes exist on the canvas
+      if (nodes.some((n) => n.id === parentNodeId) && nodes.some((n) => n.id === childNodeId)) {
+        edges.push({
+          id: `dep-${parentNodeId}-${childNodeId}`,
+          source: parentNodeId,
+          target: childNodeId,
+          type: 'dependencyEdge',
+        });
+      }
+    }
   }
 
   // Use dagre LR layout for compact, automatic positioning

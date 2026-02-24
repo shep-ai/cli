@@ -111,6 +111,7 @@ function HookTestHarness({
       <div data-testid="edge-count">{state.edges.length}</div>
       <div data-testid="create-drawer-open">{String(state.isCreateDrawerOpen)}</div>
       <div data-testid="pending-repo-path">{state.pendingRepositoryPath}</div>
+      <div data-testid="pending-parent-feature-id">{state.pendingParentFeatureId ?? 'none'}</div>
       <div data-testid="is-deleting">{String(state.isDeleting)}</div>
       <button data-testid="add-feature" onClick={state.handleAddFeature}>
         Add Feature
@@ -377,67 +378,62 @@ describe('useControlCenterState', () => {
   });
 
   describe('handleAddFeatureToFeature', () => {
-    it('adds a child feature connected to the parent feature', () => {
+    it('opens the create drawer with parent feature pre-selected', () => {
       renderHook([mockFeatureNode] as CanvasNodeType[]);
 
       act(() => {
         fireEvent.click(screen.getByTestId('add-to-feature'));
       });
 
-      expect(screen.getByTestId('node-count')).toHaveTextContent('2');
-      expect(screen.getByTestId('edge-count')).toHaveTextContent('1');
-      expect(screen.getByTestId('selected-node')).toHaveTextContent('New Feature');
+      // Drawer should open with parent feature ID pre-selected
+      expect(screen.getByTestId('create-drawer-open')).toHaveTextContent('true');
+      // featureId extracted from node id "feat-1" → "1" (strip "feat-" prefix)
+      expect(screen.getByTestId('pending-parent-feature-id')).toHaveTextContent('1');
+      // No new node should be created yet
+      expect(screen.getByTestId('node-count')).toHaveTextContent('1');
     });
 
-    it('does not shift parent feature when adding first child at same Y', () => {
-      let capturedState: ControlCenterState | null = null;
-      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
-        capturedState = state;
-      });
-
-      const parentYBefore = mockFeatureNode.position.y;
+    it('clears pending parent feature ID when drawer is closed', () => {
+      renderHook([mockFeatureNode] as CanvasNodeType[]);
 
       act(() => {
         fireEvent.click(screen.getByTestId('add-to-feature'));
       });
 
-      const parentAfter = capturedState!.nodes.find((n) => n.id === 'feat-1')!;
-      // Parent feature should stay in place (not shift) when first child is at same Y
-      expect(parentAfter.position.y).toBe(parentYBefore);
+      expect(screen.getByTestId('pending-parent-feature-id')).toHaveTextContent('1');
+
+      act(() => {
+        fireEvent.click(screen.getByTestId('close-create-drawer'));
+      });
+
+      expect(screen.getByTestId('pending-parent-feature-id')).toHaveTextContent('none');
     });
 
-    it('keeps parent feature centered after adding multiple children', () => {
-      let capturedState: ControlCenterState | null = null;
-      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
-        capturedState = state;
-      });
+    it('resolves repo path from parent feature node', () => {
+      const repoNode: RepositoryNodeType = {
+        id: 'repo-r1',
+        type: 'repositoryNode',
+        position: { x: 0, y: 0 },
+        data: { name: 'my-repo', repositoryPath: '/home/user/my-repo' },
+      };
+      const repoEdge: Edge = {
+        id: 'edge-repo-r1-feat-1',
+        source: 'repo-r1',
+        target: 'feat-1',
+      };
+      renderHook([repoNode, mockFeatureNode] as CanvasNodeType[], [repoEdge]);
 
-      // Add two child features
       act(() => {
         fireEvent.click(screen.getByTestId('add-to-feature'));
       });
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-feature'));
-      });
 
-      const parent = capturedState!.nodes.find((n) => n.id === 'feat-1')!;
-      const childNodes = capturedState!.nodes.filter(
-        (n) =>
-          n.type === 'featureNode' &&
-          n.id !== 'feat-1' &&
-          capturedState!.edges.some((e) => e.source === 'feat-1' && e.target === n.id)
-      );
-
-      const childYs = childNodes.map((n) => n.position.y);
-      const groupCenter = (Math.min(...childYs) + Math.max(...childYs) + 140) / 2;
-      const parentCenter = parent.position.y + 140 / 2; // featureNode height = 140
-
-      expect(parentCenter).toBe(groupCenter);
+      // Should resolve the repo path from the parent feature's repo edge
+      expect(screen.getByTestId('pending-repo-path')).toHaveTextContent('/home/user/my-repo');
     });
   });
 
   describe('createFeatureNode state override and return value', () => {
-    it('returns the generated node ID when adding a feature to a feature', () => {
+    it('returns the generated node ID via createFeatureNode', () => {
       let capturedState: ControlCenterState | null = null;
       renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
         capturedState = state;
@@ -445,14 +441,17 @@ describe('useControlCenterState', () => {
 
       const nodeCountBefore = capturedState!.nodes.length;
 
+      // Use createFeatureNode directly (via add-to-feature-creating button which calls createFeatureNode)
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-feature'));
+        fireEvent.click(screen.getByTestId('add-to-feature-creating'));
       });
 
       // A new node should have been added
       expect(capturedState!.nodes.length).toBe(nodeCountBefore + 1);
       // The new node should have an ID matching the feature-{timestamp}-{counter} pattern
-      const newNode = capturedState!.nodes.find((n) => n.id !== 'feat-1');
+      const newNode = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).state === 'creating'
+      );
       expect(newNode).toBeDefined();
       expect(newNode!.id).toMatch(/^feature-\d+-\d+$/);
     });
@@ -463,14 +462,7 @@ describe('useControlCenterState', () => {
         capturedState = state;
       });
 
-      // Open drawer from repo, then submit to trigger optimistic creation
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-repo'));
-      });
-
-      // Use handleAddFeatureToFeature as proxy for createFeatureNode (default state)
-      act(() => {
-        // Add feature to repo through direct createFeatureNode via handleAddFeatureToFeature
         fireEvent.click(screen.getByTestId('add-to-feature-creating'));
       });
 
@@ -494,26 +486,9 @@ describe('useControlCenterState', () => {
       // selectedNode should remain null — creating nodes are not auto-selected
       expect(capturedState!.selectedNode).toBeNull();
     });
-
-    it('still sets selectedNode for default (running) state nodes', () => {
-      let capturedState: ControlCenterState | null = null;
-      renderHook([mockFeatureNode] as CanvasNodeType[], [], (state) => {
-        capturedState = state;
-      });
-
-      act(() => {
-        fireEvent.click(screen.getByTestId('add-to-feature'));
-      });
-
-      // selectedNode should be set to the new feature (default running state)
-      expect(capturedState!.selectedNode).not.toBeNull();
-      expect(capturedState!.selectedNode!.name).toBe('New Feature');
-    });
   });
 
-  describe('createFeatureNode positioning (via handleAddFeatureToFeature)', () => {
-    // These tests verify positioning logic using handleAddFeatureToFeature,
-    // which still creates local nodes directly via createFeatureNode.
+  describe('createFeatureNode positioning', () => {
     const parentFeature: FeatureNodeType = {
       id: 'feat-1',
       type: 'featureNode',
@@ -528,14 +503,16 @@ describe('useControlCenterState', () => {
         branch: 'feat/feature-a',
       },
     };
-    it('places new child feature to the right of the parent', () => {
+
+    it('places new child feature to the right of the parent via createFeatureNode', () => {
       let capturedState: ControlCenterState | null = null;
       renderHook([parentFeature] as CanvasNodeType[], [], (state) => {
         capturedState = state;
       });
 
+      // Use createFeatureNode directly
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-feature'));
+        capturedState!.createFeatureNode('feat-1');
       });
 
       const childNode = capturedState!.nodes.find(
@@ -546,7 +523,7 @@ describe('useControlCenterState', () => {
       expect(childNode!.position.x).toBeGreaterThan(parentFeature.position.x);
     });
 
-    it('places second child below the first child', () => {
+    it('places second child below the first child via createFeatureNode', () => {
       let capturedState: ControlCenterState | null = null;
       renderHook([parentFeature] as CanvasNodeType[], [], (state) => {
         capturedState = state;
@@ -554,7 +531,7 @@ describe('useControlCenterState', () => {
 
       // Add first child
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-feature'));
+        capturedState!.createFeatureNode('feat-1');
       });
       const firstChildId = capturedState!.nodes.find(
         (n) => n.type === 'featureNode' && n.id !== 'feat-1'
@@ -562,7 +539,7 @@ describe('useControlCenterState', () => {
 
       // Add second child
       act(() => {
-        fireEvent.click(screen.getByTestId('add-to-feature'));
+        capturedState!.createFeatureNode('feat-1');
       });
 
       const allChildren = capturedState!.nodes.filter(

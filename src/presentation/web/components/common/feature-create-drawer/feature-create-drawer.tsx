@@ -79,6 +79,8 @@ export interface FeatureCreateDrawerProps {
   workflowDefaults?: WorkflowDefaults;
   /** List of existing features available for selection as a parent. */
   features?: ParentFeatureOption[];
+  /** Pre-select a parent feature when the drawer opens (e.g. from (+) button on a feature node). */
+  initialParentId?: string;
 }
 
 export function FeatureCreateDrawer({
@@ -89,6 +91,7 @@ export function FeatureCreateDrawer({
   isSubmitting = false,
   workflowDefaults,
   features,
+  initialParentId,
 }: FeatureCreateDrawerProps) {
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
   const defaultPush = workflowDefaults?.push ?? false;
@@ -110,6 +113,13 @@ export function FeatureCreateDrawer({
       setOpenPr(workflowDefaults.openPr);
     }
   }, [workflowDefaults]);
+
+  // Pre-select parent when initialParentId changes (e.g. (+) button on feature node)
+  useEffect(() => {
+    if (open && initialParentId) {
+      setParentId(initialParentId);
+    }
+  }, [open, initialParentId]);
 
   const resetForm = useCallback(() => {
     setName('');

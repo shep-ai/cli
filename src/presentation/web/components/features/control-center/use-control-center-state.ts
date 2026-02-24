@@ -21,6 +21,8 @@ export interface ControlCenterState {
   selectedNode: FeatureNodeData | null;
   isCreateDrawerOpen: boolean;
   pendingRepositoryPath: string;
+  /** Parent feature ID pre-selected when (+) is clicked on a feature node. */
+  pendingParentFeatureId: string | undefined;
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
   clearSelection: () => void;
@@ -327,6 +329,7 @@ export function useControlCenterState(
       // 2. Close drawer and clear pending state immediately
       setIsCreateDrawerOpen(false);
       setPendingRepoNodeId(null);
+      setPendingParentFeatureId(undefined);
 
       // 3. Fire server action in the background
       createFeature(data)
@@ -353,6 +356,7 @@ export function useControlCenterState(
 
   const closeCreateDrawer = useCallback(() => {
     setIsCreateDrawerOpen(false);
+    setPendingParentFeatureId(undefined);
   }, []);
 
   const handleDeleteFeature = useCallback(
@@ -424,11 +428,25 @@ export function useControlCenterState(
     setIsCreateDrawerOpen(true);
   }, []);
 
+  const [pendingParentFeatureId, setPendingParentFeatureId] = useState<string | undefined>();
+
   const handleAddFeatureToFeature = useCallback(
     (featureNodeId: string) => {
-      createFeatureNode(featureNodeId);
+      // Extract feature ID from node ID (format: "feat-<uuid>")
+      const featureId = featureNodeId.startsWith('feat-') ? featureNodeId.slice(5) : featureNodeId;
+      // Find the repo path from the parent feature node
+      const featureNode = nodes.find((n) => n.id === featureNodeId);
+      const repoPath = featureNode ? (featureNode.data as FeatureNodeData).repositoryPath : '';
+      // Find the repo node that owns this feature
+      const repoEdge = edges.find((e) => e.target === featureNodeId);
+      const repoNodeId = repoEdge?.source ?? null;
+
+      setSelectedNode(null);
+      setPendingRepoNodeId(repoNodeId);
+      setPendingParentFeatureId(featureId);
+      setIsCreateDrawerOpen(true);
     },
-    [createFeatureNode]
+    [nodes, edges]
   );
 
   const handleLayout = useCallback(
@@ -564,6 +582,7 @@ export function useControlCenterState(
     selectedNode,
     isCreateDrawerOpen,
     pendingRepositoryPath,
+    pendingParentFeatureId,
     onNodesChange,
     handleConnect,
     clearSelection,

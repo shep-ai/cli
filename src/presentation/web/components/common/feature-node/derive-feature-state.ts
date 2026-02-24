@@ -38,6 +38,11 @@ export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): F
     }
   }
 
+  // Blocked lifecycle — child waiting on parent regardless of agent run
+  if (feature.lifecycle === SdlcLifecycle.Blocked) {
+    return 'blocked';
+  }
+
   // No agent run — fall back to plan tasks
   if (feature.lifecycle === SdlcLifecycle.Maintain) {
     return 'done';
