@@ -67,7 +67,7 @@ export async function runCiWatchFixLoop(
 
   let ciFixAttempts = params.existingAttempts;
   const ciFixHistory: CiFixRecord[] = [];
-  let ciFixStatus: CiFixStatusValue = 'idle';
+  let ciFixStatus: CiFixStatusValue;
 
   log.info(`Starting CI watch (maxAttempts=${maxAttempts}, timeout=${timeoutMs}ms)`);
 
@@ -79,7 +79,6 @@ export async function runCiWatchFixLoop(
   }
 
   let runUrl = initialCiStatus.runUrl;
-  ciFixStatus = 'watching';
 
   // Initial CI watch
   let watchResult;
@@ -115,7 +114,6 @@ export async function runCiWatchFixLoop(
     }
 
     // Fetch failure logs
-    ciFixStatus = 'fixing';
     const runId = extractRunId(runUrl) ?? '';
     const failureLogs = await gitPrService.getFailureLogs(runId, branch, logMaxChars);
     const startedAt = new Date().toISOString();
@@ -132,7 +130,6 @@ export async function runCiWatchFixLoop(
     if (updatedCiStatus.runUrl) runUrl = updatedCiStatus.runUrl;
 
     // Watch CI after fix
-    ciFixStatus = 'watching';
     let fixWatchResult;
     try {
       fixWatchResult = await gitPrService.watchCi(cwd, branch, timeoutMs);
