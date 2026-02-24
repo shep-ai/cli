@@ -1,186 +1,256 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: notification-replay-bug
-number: 040
+number: 40
 branch: feat/040-notification-replay-bug
 oneLiner: Fix desktop notifications replaying all historical events when shep ui starts
 userQuery: >
-  we have a bug with desktop notifications when i open shep ui (im on ubuntu), when i run shep ui, i see ALL desktop notifications for all existing feature in one wave, all old notifications
+  we have a bug with desktop notifications when i open shep ui (im on ubuntu),
+  when i run shep ui, i see ALL desktop notifications for all existing feature
+  in one wave, all old notifications
 summary: >
-  When `shep ui` launches, the NotificationWatcherService polls all agent runs from the database
-  with an empty in-memory tracking map, causing it to treat every active run as newly discovered
-  and fire notifications for each one — including all their already-completed phases. The fix adds
-  a bootstrap flag to the watcher that silently seeds existing state on first poll without emitting
-  notifications, then emits only for genuine state transitions on subsequent polls.
+  When `shep ui` launches, the NotificationWatcherService polls all agent runs
+  from the database with an empty in-memory tracking map, causing it to treat
+  every active run as newly discovered and fire notifications for each one —
+  including all their already-completed phases. The fix adds a bootstrap flag to
+  the watcher that silently seeds existing state on first poll without emitting
+  notifications, then emits only for genuine state transitions on subsequent
+  polls.
 phase: Requirements
 sizeEstimate: S
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - node-notifier (desktop notifications)
   - EventEmitter (NotificationBus pub/sub)
   - SSE (Server-Sent Events for web UI)
   - SQLite (agent_runs and phase_timings tables)
   - Next.js (web UI server)
-
 relatedLinks: []
-
-# Open questions (must be resolved before implementation)
 openQuestions:
-  - question: 'Should the bootstrap use a simple boolean flag or a more complex state machine?'
+  - question: >-
+      Should the bootstrap use a simple boolean flag or a more complex state
+      machine?
     resolved: true
     options:
-      - option: 'Simple boolean flag'
+      - option: Simple boolean flag
         description: >
-          Add a private `isBootstrapped: boolean` field to NotificationWatcherService. First poll
-          sets it to true after seeding trackedRuns. Minimal code change (~5 lines), easy to test,
-          easy to understand. Sufficient for the single transition (bootstrap → live).
+          Add a private `isBootstrapped: boolean` field to
+          NotificationWatcherService. First poll sets it to true after seeding
+          trackedRuns. Minimal code change (~5 lines), easy to test, easy to
+          understand. Sufficient for the single transition (bootstrap → live).
         selected: true
-      - option: 'State machine (bootstrap/live/stopped)'
+      - option: State machine (bootstrap/live/stopped)
         description: >
-          Replace the boolean with an enum-based lifecycle state. More extensible if future states
-          are needed (e.g., paused, reconnecting). Adds complexity and a new type for a single
-          boolean transition that has no foreseeable additional states.
+          Replace the boolean with an enum-based lifecycle state. More
+          extensible if future states are needed (e.g., paused, reconnecting).
+          Adds complexity and a new type for a single boolean transition that
+          has no foreseeable additional states.
         selected: false
     selectionRationale: >
-      A simple boolean flag is the right choice. The watcher has exactly one lifecycle transition
-      relevant to this bug (first poll → subsequent polls). A state machine adds unnecessary
-      abstraction for a single boolean condition. YAGNI applies — if future states are needed,
-      the boolean can be refactored then.
-    answer: 'Simple boolean flag'
-
-  - question: 'Should the first poll seed phase completions into trackedRuns or only run statuses?'
+      A simple boolean flag is the right choice. The watcher has exactly one
+      lifecycle transition relevant to this bug (first poll → subsequent polls).
+      A state machine adds unnecessary abstraction for a single boolean
+      condition. YAGNI applies — if future states are needed, the boolean can be
+      refactored then.
+    answer: Simple boolean flag
+  - question: >-
+      Should the first poll seed phase completions into trackedRuns or only run
+      statuses?
     resolved: true
     options:
-      - option: 'Seed both statuses and phase completions'
+      - option: Seed both statuses and phase completions
         description: >
-          On first poll, call checkPhaseCompletions() but suppress notification emission, recording
-          all completed phases into the WatcherState. This prevents both status replay AND phase
-          completion replay. Matches the full scope of the bug report.
+          On first poll, call checkPhaseCompletions() but suppress notification
+          emission, recording all completed phases into the WatcherState. This
+          prevents both status replay AND phase completion replay. Matches the
+          full scope of the bug report.
         selected: true
-      - option: 'Seed only run statuses'
+      - option: Seed only run statuses
         description: >
-          Only populate trackedRuns with run status on first poll. Phase completions would still
-          replay on the first poll since completedPhases starts empty. This only partially fixes
-          the bug — users would still see a wave of PhaseCompleted notifications.
+          Only populate trackedRuns with run status on first poll. Phase
+          completions would still replay on the first poll since completedPhases
+          starts empty. This only partially fixes the bug — users would still
+          see a wave of PhaseCompleted notifications.
         selected: false
     selectionRationale: >
-      The bug report explicitly mentions ALL notifications replaying, which includes phase completions.
-      The root cause analysis confirms checkPhaseCompletions() fires for every already-completed phase.
-      Both must be silently seeded to fully fix the bug.
-    answer: 'Seed both statuses and phase completions'
-
-  - question: 'Should the fix suppress all notification channels or only desktop notifications?'
+      The bug report explicitly mentions ALL notifications replaying, which
+      includes phase completions. The root cause analysis confirms
+      checkPhaseCompletions() fires for every already-completed phase. Both must
+      be silently seeded to fully fix the bug.
+    answer: Seed both statuses and phase completions
+  - question: >-
+      Should the fix suppress all notification channels or only desktop
+      notifications?
     resolved: true
     options:
-      - option: 'Suppress all channels during bootstrap'
+      - option: Suppress all channels during bootstrap
         description: >
-          The bootstrap flag prevents any call to notificationService.notify() on first poll.
-          This suppresses desktop, SSE/in-app, and browser notifications equally. Consistent
-          behavior — no channel sees stale replay data. SSE clients connecting after startup
-          get a clean slate, which matches the web UI behavior (it renders current state from
-          API, not from notification history).
+          The bootstrap flag prevents any call to notificationService.notify()
+          on first poll. This suppresses desktop, SSE/in-app, and browser
+          notifications equally. Consistent behavior — no channel sees stale
+          replay data. SSE clients connecting after startup get a clean slate,
+          which matches the web UI behavior (it renders current state from API,
+          not from notification history).
         selected: true
-      - option: 'Suppress only desktop notifications'
+      - option: Suppress only desktop notifications
         description: >
-          Allow SSE events to flow on first poll but suppress desktop. This would let the web UI
-          receive historical events, which could be useful for populating a notification feed.
-          However, the web UI already loads current state from REST APIs, so replay SSE events
-          would be redundant and potentially confusing (duplicate entries).
+          Allow SSE events to flow on first poll but suppress desktop. This
+          would let the web UI receive historical events, which could be useful
+          for populating a notification feed. However, the web UI already loads
+          current state from REST APIs, so replay SSE events would be redundant
+          and potentially confusing (duplicate entries).
         selected: false
     selectionRationale: >
-      Suppressing all channels is correct. The watcher's job is to detect *transitions*, not replay
-      history. The web UI loads current state from API endpoints, not from SSE event history.
-      Sending replay events through any channel is semantically wrong — they are not transitions.
-    answer: 'Suppress all channels during bootstrap'
-
-content: |
+      Suppressing all channels is correct. The watcher's job is to detect
+      *transitions*, not replay history. The web UI loads current state from API
+      endpoints, not from SSE event history. Sending replay events through any
+      channel is semantically wrong — they are not transitions.
+    answer: Suppress all channels during bootstrap
+content: >
   ## Problem Statement
 
-  When a user runs `shep ui`, ALL desktop notifications for every existing feature replay in a single wave.
-  This happens because the `NotificationWatcherService` starts with an empty in-memory `trackedRuns` map
-  and its first poll retrieves all agent runs from the database. Every run still in an active status
-  (`pending`, `running`, `waitingApproval`) is treated as newly discovered, triggering:
+
+  When a user runs `shep ui`, ALL desktop notifications for every existing
+  feature replay in a single wave.
+
+  This happens because the `NotificationWatcherService` starts with an empty
+  in-memory `trackedRuns` map
+
+  and its first poll retrieves all agent runs from the database. Every run still
+  in an active status
+
+  (`pending`, `running`, `waitingApproval`) is treated as newly discovered,
+  triggering:
+
 
   1. A status notification via `emitStatusEvent()` for each active run
-  2. A `PhaseCompleted` notification for every already-completed phase via `checkPhaseCompletions()`
 
-  There is no persistent "already notified" state — the server-side `trackedRuns` map resets on every
+  2. A `PhaseCompleted` notification for every already-completed phase via
+  `checkPhaseCompletions()`
+
+
+  There is no persistent "already notified" state — the server-side
+  `trackedRuns` map resets on every
+
   restart, and the client-side `processedRef` set resets on page load.
+
 
   ## Success Criteria
 
-  - [ ] Opening `shep ui` with pre-existing agent runs does NOT produce any desktop notifications
-  - [ ] Opening `shep ui` with pre-existing agent runs does NOT emit SSE events for historical state
-  - [ ] A new agent run started AFTER `shep ui` launch triggers an AgentStarted desktop notification
-  - [ ] A status change (e.g., running → waitingApproval) AFTER startup triggers the correct notification
-  - [ ] A phase completion that occurs AFTER startup triggers a PhaseCompleted notification
-  - [ ] An agent run that reaches terminal state (completed/failed) AFTER startup triggers the correct notification
-  - [ ] Existing notification settings (channel filters, event type filters) continue to work unchanged
-  - [ ] Unit tests cover: bootstrap poll suppresses notifications, second poll emits for new transitions
-  - [ ] No regression in notification delivery for the normal (non-bootstrap) polling path
+
+  - [ ] Opening `shep ui` with pre-existing agent runs does NOT produce any
+  desktop notifications
+
+  - [ ] Opening `shep ui` with pre-existing agent runs does NOT emit SSE events
+  for historical state
+
+  - [ ] A new agent run started AFTER `shep ui` launch triggers an AgentStarted
+  desktop notification
+
+  - [ ] A status change (e.g., running → waitingApproval) AFTER startup triggers
+  the correct notification
+
+  - [ ] A phase completion that occurs AFTER startup triggers a PhaseCompleted
+  notification
+
+  - [ ] An agent run that reaches terminal state (completed/failed) AFTER
+  startup triggers the correct notification
+
+  - [ ] Existing notification settings (channel filters, event type filters)
+  continue to work unchanged
+
+  - [ ] Unit tests cover: bootstrap poll suppresses notifications, second poll
+  emits for new transitions
+
+  - [ ] No regression in notification delivery for the normal (non-bootstrap)
+  polling path
+
 
   ## Functional Requirements
 
-  - **FR-1: Bootstrap flag on NotificationWatcherService** — Add a private `isBootstrapped` boolean field,
+
+  - **FR-1: Bootstrap flag on NotificationWatcherService** — Add a private
+  `isBootstrapped` boolean field,
     initialized to `false`. After the first `processRuns()` call completes, set it to `true`.
 
-  - **FR-2: Silent state seeding on first poll** — When `isBootstrapped` is `false`, the `processRuns()`
+  - **FR-2: Silent state seeding on first poll** — When `isBootstrapped` is
+  `false`, the `processRuns()`
     method must populate `trackedRuns` with all active runs (status and featureName) AND their completed
     phases, but must NOT call `notificationService.notify()` for any of them.
 
-  - **FR-3: Normal notification emission on subsequent polls** — When `isBootstrapped` is `true`,
+  - **FR-3: Normal notification emission on subsequent polls** — When
+  `isBootstrapped` is `true`,
     `processRuns()` behaves exactly as it does today: new runs trigger status events, status changes
     trigger status events, new phase completions trigger PhaseCompleted events.
 
-  - **FR-4: Terminal run tracking during bootstrap** — Terminal runs (completed/failed/cancelled/interrupted)
+  - **FR-4: Terminal run tracking during bootstrap** — Terminal runs
+  (completed/failed/cancelled/interrupted)
     that are not in `trackedRuns` must continue to be skipped during bootstrap, same as today. The bootstrap
     only seeds active runs.
 
-  - **FR-5: Post-bootstrap new run detection** — A run that appears in the database for the first time
+  - **FR-5: Post-bootstrap new run detection** — A run that appears in the
+  database for the first time
     AFTER bootstrap (i.e., on poll 2+) must be treated as a genuinely new run and trigger the appropriate
     notification, exactly as the current code does for newly discovered runs.
 
   ## Non-Functional Requirements
 
-  - **NFR-1: No additional database queries** — The fix must not add new SQL queries or modify existing
+
+  - **NFR-1: No additional database queries** — The fix must not add new SQL
+  queries or modify existing
     query patterns. The bootstrap uses the same `list()` and `findByRunId()` calls that already execute
     on every poll; it just suppresses the notification emission.
 
-  - **NFR-2: No schema changes** — No database migrations, no new tables, no new columns. The fix is
+  - **NFR-2: No schema changes** — No database migrations, no new tables, no new
+  columns. The fix is
     purely in-memory behavioral logic.
 
-  - **NFR-3: No public API changes** — The `NotificationWatcherService` public interface (`start()`,
+  - **NFR-3: No public API changes** — The `NotificationWatcherService` public
+  interface (`start()`,
     `stop()`, `isRunning()`) remains unchanged. The bootstrap flag is a private implementation detail.
 
-  - **NFR-4: Minimal code change** — The fix should be ~10-20 lines of production code. No new files,
+  - **NFR-4: Minimal code change** — The fix should be ~10-20 lines of
+  production code. No new files,
     no new classes, no architectural changes.
 
-  - **NFR-5: Test coverage** — Unit tests must verify both the bootstrap (silent) path and the
+  - **NFR-5: Test coverage** — Unit tests must verify both the bootstrap
+  (silent) path and the
     post-bootstrap (emitting) path. Tests should use the existing mock patterns for repositories
     and notification service.
 
-  - **NFR-6: No performance regression** — The first poll does the same DB queries as before; the only
+  - **NFR-6: No performance regression** — The first poll does the same DB
+  queries as before; the only
     difference is skipping `notify()` calls. Subsequent polls are completely unchanged.
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Simple boolean flag vs state machine? | Simple boolean flag | Single lifecycle transition; state machine is overengineering for a boolean condition |
-  | 2 | Seed phase completions during bootstrap? | Yes, seed both statuses and phases | Bug report covers all notification types; partial fix leaves phase replay unfixed |
-  | 3 | Suppress all channels or only desktop? | Suppress all channels | Watcher detects transitions, not history; web UI loads state from REST APIs already |
+
+  | 1 | Simple boolean flag vs state machine? | Simple boolean flag | Single
+  lifecycle transition; state machine is overengineering for a boolean condition
+  |
+
+  | 2 | Seed phase completions during bootstrap? | Yes, seed both statuses and
+  phases | Bug report covers all notification types; partial fix leaves phase
+  replay unfixed |
+
+  | 3 | Suppress all channels or only desktop? | Suppress all channels | Watcher
+  detects transitions, not history; web UI loads state from REST APIs already |
+
 
   ## Root Cause Analysis
 
-  **File**: `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts`
+
+  **File**:
+  `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts`
+
 
   The causal chain:
 
+
   ```
+
   shep ui starts
     → initializeNotificationWatcher() creates watcher (empty trackedRuns Map)
     → watcher.start() calls poll() immediately
@@ -193,32 +263,66 @@ content: |
                 → NotificationService.notify() → DesktopNotifier.send()
   ```
 
+
   The guard at line 131 only skips terminal runs not being tracked:
+
   ```typescript
+
   if (!ACTIVE_STATUSES.has(run.status) && !this.trackedRuns.has(run.id)) {
       continue; // Only skips completed/failed/cancelled/interrupted runs
   }
+
   ```
 
-  Active runs always pass through and trigger notifications on first observation.
+
+  Active runs always pass through and trigger notifications on first
+  observation.
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | High | Core bug location — `processRuns()` needs bootstrap-vs-live distinction |
-  | `tests/unit/` for notification-watcher | High | New/updated tests for the bootstrap behavior |
-  | `src/presentation/cli/commands/ui.command.ts` | None | No changes needed — the fix is entirely in the watcher |
+
+  |
+  `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts`
+  | High | Core bug location — `processRuns()` needs bootstrap-vs-live
+  distinction |
+
+  | `tests/unit/` for notification-watcher | High | New/updated tests for the
+  bootstrap behavior |
+
+  | `src/presentation/cli/commands/ui.command.ts` | None | No changes needed —
+  the fix is entirely in the watcher |
+
 
   ## Dependencies
 
+
   - `IAgentRunRepository.list()` — returns all runs; no changes needed
-  - `IPhaseTimingRepository.findByRunId()` — returns all phase timings for a run; no changes needed
+
+  - `IPhaseTimingRepository.findByRunId()` — returns all phase timings for a
+  run; no changes needed
+
   - `NotificationService.notify()` — downstream consumer, no changes needed
+
   - `DesktopNotifier.send()` — downstream consumer, no changes needed
+
 
   ## Size Estimate
 
-  **S** — The fix is a small, focused change to `NotificationWatcherService.processRuns()` adding a
-  bootstrap flag that suppresses notifications on the first poll. Approximately 10-20 lines of production
-  code plus corresponding unit tests. No schema changes, no new files, no architectural changes needed.
+
+  **S** — The fix is a small, focused change to
+  `NotificationWatcherService.processRuns()` adding a
+
+  bootstrap flag that suppresses notifications on the first poll. Approximately
+  10-20 lines of production
+
+  code plus corresponding unit tests. No schema changes, no new files, no
+  architectural changes needed.
+rejectionFeedback:
+  - iteration: 1
+    message: feature spec not commited
+    timestamp: '2026-02-24T13:25:33.084Z'
