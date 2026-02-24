@@ -1,0 +1,557 @@
+name: feature-dependencies
+summary: >
+  Technical research for 041-feature-dependencies confirms the feature is a clean addition
+  across all architecture layers with no new library dependencies. The single-parent tree model
+  using a nullable parent_id TEXT column in SQLite, a two-gate blocking model (Implementation
+  gate and Maintain gate), O(depth) cycle detection, and a single CheckAndUnblockFeaturesUseCase
+  hook inside UpdateFeatureLifecycleUseCase are the recommended approaches based on existing
+  codebase patterns and TypeSpec-first architecture requirements.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (tsp/) — domain model extension (parentId field, Blocked lifecycle value)
+  - TypeScript / better-sqlite3 — nullable parent_id column migration (v19), findByParentId method
+  - tsyringe — DI singleton registration for CheckAndUnblockFeaturesUseCase
+  - Commander.js — --parent <fid> option on feat new command
+  - React / @xyflow/react — read-only dependency edge rendering on features canvas
+  - shadcn/ui Combobox (Command + Popover) — searchable parent feature selector in create drawer
+  - Tailwind CSS — blocked state visual indicator on canvas nodes (already partially implemented)
+  - LangGraph — no changes to agent graph; spawn() called by CheckAndUnblockFeaturesUseCase
+
+relatedLinks:
+  - https://typespec.io/docs/language-basics/enums
+  - https://reactflow.dev/docs/api/edges/
+  - https://ui.shadcn.com/docs/components/combobox
+
+decisions:
+  - title: 'TypeSpec Extension Strategy for parentId and Blocked'
+    chosen: >
+      Add `parentId?: UUID` to feature.tsp entity and add `Blocked` value to the
+      SdlcLifecycle enum in tsp/common/enums/lifecycle.tsp, then regenerate output.ts
+      via `pnpm tsp:compile`. Hand-edit nothing in output.ts.
+    rejected:
+      - >
+        Hand-edit packages/core/src/domain/generated/output.ts directly — prohibited by
+        CLAUDE.md and NFR-6; generated files are overwritten on next tsp:compile and the
+        constraint is enforced by CI via `pnpm validate`.
+      - >
+        Add parentId as a separate value object or embedded model — unnecessary for a simple
+        scalar UUID reference. Wrapping it inflates the TypeSpec model and diverges from how
+        other optional scalar references (agentRunId, specPath) are modeled in the same entity.
+    rationale: >
+      The TypeSpec-first principle is non-negotiable per CLAUDE.md and NFR-6. The feature.tsp
+      entity already uses optional UUID scalars (agentRunId?: UUID, specPath?: string), so
+      `parentId?: UUID` follows the exact same pattern. Adding `Blocked` to the SdlcLifecycle
+      enum follows the same pattern as the existing 8 values. The tsp:compile step regenerates
+      output.ts atomically — no risk of inconsistency between .tsp source and generated types.
+      TypeScript's exhaustiveness checking will surface any switch/case blocks that need
+      to handle the new Blocked value, satisfying NFR-11.
+
+  - title: 'Database Schema Design for parent_id'
+    chosen: >
+      Migration v19: ALTER TABLE features ADD COLUMN parent_id TEXT; followed by
+      CREATE INDEX idx_features_parent_id ON features(parent_id). Nullable with no default.
+      Single TEXT column referencing features.id. Extends existing FeatureRow mapper interface
+      with a nullable parent_id field.
+    rejected:
+      - >
+        Separate feature_dependencies join table — only warranted for multi-parent DAG
+        relationships. The spec resolved single-parent tree for v1, making a join table
+        dead schema complexity that violates YAGNI.
+      - >
+        Store parent_id inside a JSON blob column — not queryable without full-table scan.
+        findByParentId requires efficient indexed lookup; the O(log n) index on a dedicated
+        TEXT column is consistent with how other queryable foreign references (repository_id)
+        are stored in the features table.
+    rationale: >
+      The existing migration pattern (migrations.ts tracked by PRAGMA user_version) uses
+      incremental ALTER TABLE for additive changes. Version 18 is the current head; v19 is
+      the next sequential version. A nullable TEXT column with a sparse index is the minimum
+      schema change and is backward-compatible (NFR-2). The index is critical because
+      findByParentId is called on every lifecycle transition (in CheckAndUnblockFeaturesUseCase)
+      and on every deletion check — O(log n) lookups are essential.
+
+  - title: 'Two-Gate Blocking Model Design'
+    chosen: >
+      Two lifecycle gates: Gate 1 at Implementation (child transitions from Blocked to Started,
+      allowing early phases Analyze through Planning); Gate 2 at Maintain (child's Implementation
+      phase is allowed). FR-9 maps directly to three creation conditions: parent < Implementation
+      → child Blocked; parent >= Implementation but < Maintain → child Started (early phases);
+      parent >= Maintain → child Started (all phases). CheckAndUnblockFeaturesUseCase handles
+      both gate transitions when parent lifecycle advances.
+    rejected:
+      - >
+        Single gate at Maintain — too aggressive. Blocks useful pre-work (Analyze, Requirements,
+        Research, Planning) that can safely proceed while the parent is in Implementation.
+        Increases total elapsed time on dependent features unnecessarily.
+      - >
+        No gates — defeats the feature's core purpose. A child could start Implementation
+        while parent is still in Analyze, causing the integration conflicts the feature
+        specifically exists to prevent.
+    rationale: >
+      The two-gate model matches the spec's FR-9 conditions exactly and reflects real team
+      workflows: plan and research dependent work while parent is being implemented, but
+      do not write code until parent code is complete. Both gate transitions are triggered
+      naturally by UpdateFeatureLifecycleUseCase calling CheckAndUnblockFeaturesUseCase.
+
+  - title: 'Cycle Detection Algorithm'
+    chosen: >
+      Iterative upward parent chain walk in CreateFeatureUseCase before persisting. Starting
+      from the proposed parentId, load that feature's parentId, then its parent's parentId, etc.
+      If the new feature's own ID appears at any point in the ancestor chain, reject with a
+      cycle detection error. O(depth) time using the parent_id index.
+    rejected:
+      - >
+        Full DFS/BFS downward through all descendants — O(subtree size), not O(depth). Unnecessary
+        because cycle detection only requires walking up the proposed parent's ancestry chain, not
+        down through all descendants of the new feature.
+      - >
+        SQLite database-level constraint or recursive CTE trigger — SQLite FK constraints are
+        disabled by default; enabling globally has side effects on other relationships. Application-layer
+        validation with a clear error message is consistent with all other invariant checks in the
+        use case layer.
+    rationale: >
+      NFR-8 requires O(depth) cycle detection. The upward walk makes at most depth database queries,
+      each O(log n) via the new parent_id index. At typical depths < 10, this is imperceptible.
+      Application-layer validation is the established pattern for invariant enforcement in this codebase.
+
+  - title: 'CheckAndUnblockFeaturesUseCase Integration Point'
+    chosen: >
+      Single call site: call CheckAndUnblockFeaturesUseCase.execute(feature.id) inside
+      UpdateFeatureLifecycleUseCase after persisting the new lifecycle value. Injected via
+      tsyringe constructor injection. Synchronous, no polling, zero latency.
+    rejected:
+      - >
+        Multiple call sites at every lifecycle write location (create, update, worker callbacks) —
+        requires N call sites to stay synchronized. Adding a new lifecycle write path without wiring
+        CheckAndUnblockFeaturesUseCase would silently break auto-unblocking. Higher maintenance burden.
+      - >
+        Background polling job scanning for blocked children periodically — introduces latency between
+        parent transition and child unblock, adds timer/cron infrastructure complexity, and is harder
+        to test deterministically.
+    rationale: >
+      UpdateFeatureLifecycleUseCase is the canonical path for all agent-driven lifecycle transitions.
+      A single hook here is zero-latency, synchronous, idempotent (only Blocked children are acted
+      upon), and covered by the existing test suite for UpdateFeatureLifecycleUseCase. This was the
+      explicitly selected answer to the spec's open question on this topic.
+
+  - title: 'Agent Spawn Deferral for Blocked Children'
+    chosen: >
+      In CreateFeatureUseCase, create the agent run record normally but skip spawn() when the child
+      lifecycle is Blocked. The Feature entity retains its agentRunId, repositoryPath, specPath,
+      and worktreePath fields. When CheckAndUnblockFeaturesUseCase unblocks the child, it calls
+      spawn() using these existing persistent fields.
+    rejected:
+      - >
+        Create no agent run record at feature creation; generate fresh run context at unblock time —
+        loses the persistent context (worktreePath, specPath) that was set up at creation time.
+        Requires re-hydrating all spawn parameters at unblock time from potentially stale data.
+      - >
+        Spawn agent immediately but have it detect Blocked state and self-terminate — wastes
+        process fork overhead and creates race conditions between spawn/terminate and the unblock
+        trigger. Cleaner to not spawn until the gate is satisfied.
+    rationale: >
+      All spawn() parameters are already stored as persistent fields on the Feature entity, set
+      at creation time regardless of blocking state. Reusing them at unblock time is the simplest
+      path. This is symmetric with the normal creation path and requires minimal changes to
+      CheckAndUnblockFeaturesUseCase.
+
+  - title: 'Web UI Parent Selector Component'
+    chosen: >
+      shadcn/ui Combobox (Command + Popover) inside feature-create-drawer, receiving the feature
+      list as a prop from the server-rendered parent page. Selection passes parentId to the
+      existing create-feature server action.
+    rejected:
+      - >
+        Plain HTML select element — no search capability, violates NFR-9's requirement for a
+        searchable, keyboard-navigable selector.
+      - >
+        Custom autocomplete from scratch — duplicates the solved functionality already available
+        in shadcn/ui's Combobox component; risks accessibility gaps compared to the Radix-based
+        implementation.
+    rationale: >
+      The feature-create-drawer already uses shadcn/ui components. Adding a Combobox follows the
+      existing component conventions, provides built-in fuzzy search, keyboard navigation, and ARIA
+      labels (satisfying NFR-9). The features page already fetches the feature list server-side;
+      passing it as a prop requires no new server actions. NFR-1 prohibits new library dependencies,
+      ruling out SWR or React Query for client-side fetching.
+
+  - title: 'Canvas Dependency Edge Rendering Strategy'
+    chosen: >
+      Compute parent→child edges from the feature list at render time in features-canvas.tsx.
+      For each feature with a non-null parentId, create a React Flow edge with id `dep-{parentId}-{childId}`,
+      a custom `dependencyEdge` type registered in the edgeTypes map, distinct color (amber/orange),
+      arrow marker, and non-interactive options (not deletable, not reconnectable).
+    rejected:
+      - >
+        Store edge data separately in the database as a distinct entity — edges are purely derived
+        from parent_id. Storing them redundantly adds schema complexity with no benefit.
+      - >
+        Use default React Flow edge type with CSS color override — not visually distinct enough
+        (FR-27); no forward-extensibility for tooltips, labels, or future interactivity without
+        touching other edge types.
+    rationale: >
+      React Flow's edgeTypes API (already used in features-canvas for custom node types) is the
+      correct way to create named, visually distinct edge variants. Computing edges from the
+      features list at render time is consistent with existing canvas data derivation patterns.
+      No additional database changes needed for edge rendering — parent_id already provides
+      all necessary relationship data.
+
+  - title: 'Deletion Guard Implementation'
+    chosen: >
+      Application-layer guard in DeleteFeatureUseCase: call findByParentId(feature.id), filter
+      for children in Blocked state, and if any exist, throw a descriptive error listing their IDs
+      and names before proceeding with deletion.
+    rejected:
+      - >
+        SQLite FOREIGN KEY constraint — disabled by default in SQLite; enabling globally could
+        affect other relationships. Application-layer guards are the established pattern here.
+      - >
+        Cascade-delete all blocked children on parent deletion — destructive, risks unintended
+        data loss, and was explicitly rejected by the spec's open question resolution in favor
+        of a safe guard.
+    rationale: >
+      Application-layer invariant enforcement is the consistent pattern throughout the codebase.
+      A clear error message listing blocked child IDs gives the user a recovery path (re-parent
+      or delete children first). This matches the spec's resolved decision on parent deletion handling.
+
+  - title: 'Cascade Blocking Logic Location'
+    chosen: >
+      Simple O(1) check in CreateFeatureUseCase: if parent.lifecycle === SdlcLifecycle.Blocked,
+      the child is also created in Blocked state. No recursive ancestor walk needed at creation time.
+    rejected:
+      - >
+        Separate CascadeBlockingUseCase with recursive downward walk — unnecessary; the cascade
+        is inherent in the system: blocked parent → blocked child at creation, and
+        CheckAndUnblockFeaturesUseCase naturally chains unblocking as parents progress through
+        lifecycle.
+      - >
+        Track a block_reason enum (PARENT_BLOCKED vs GATE_NOT_MET) on the Feature entity —
+        adds schema complexity and conditional branching without meaningful user-facing benefit
+        in v1. All blocked features behave the same way regardless of why they were blocked.
+    rationale: >
+      The cascade is inherent: if parent is Blocked, child is Blocked (O(1) check). When parent
+      eventually unblocks (transitions to Started), CheckAndUnblockFeaturesUseCase fires and checks
+      the child's gate conditions, naturally propagating the unblock chain down the tree over time.
+      No dedicated recursive traversal is needed.
+
+openQuestions:
+  - question: >
+      Should CheckAndUnblockFeaturesUseCase also evaluate grandchildren recursively when
+      unblocking a child (i.e., immediately walk the full subtree)?
+    resolved: true
+    options:
+      - option: 'No recursive unblock — only direct children of parentId are evaluated'
+        description: >
+          execute(parentId) queries and evaluates only direct children of parentId. Grandchildren
+          remain Blocked until their direct parent (now unblocked) progresses through its own
+          lifecycle gates, at which point UpdateFeatureLifecycleUseCase fires
+          CheckAndUnblockFeaturesUseCase again for the child's children. The chain propagates
+          naturally without any recursion in the use case itself.
+        selected: true
+      - option: 'Recursive unblock — walk full subtree immediately when any unblock occurs'
+        description: >
+          When unblocking a child, immediately call execute() recursively on the child's ID to
+          check grandchildren. Could cause a cascade of simultaneous agent spawns across multiple
+          levels, which may not be desired — the grandchild may have its own gate requirements
+          against the now-unblocked child, not the original grandparent.
+        selected: false
+      - option: 'Configurable depth parameter on execute() to control recursion depth'
+        description: >
+          Add a maxDepth parameter to execute() defaulting to 1 (direct children only), with an
+          option to recurse. Adds API surface and test complexity for a v1 feature without clear
+          user-facing benefit.
+        selected: false
+    selectionRationale: >
+      No recursive unblock is the correct design. The grandchild's blocking gate is against its
+      own direct parent, not the grandparent. Once the parent is unblocked and starts progressing,
+      UpdateFeatureLifecycleUseCase will call CheckAndUnblockFeaturesUseCase again when the parent
+      reaches Implementation. This naturally chains unblocking without recursion and correctly
+      enforces each feature's own gate requirements at the right lifecycle transition point.
+
+  - question: >
+      How should CheckAndUnblockFeaturesUseCase obtain the parameters needed to call
+      IFeatureAgentProcessService.spawn() when unblocking a child?
+    resolved: true
+    options:
+      - option: >
+          Load the full Feature entity from findByParentId results and use its existing persistent
+          fields (agentRunId, repositoryPath, specPath, worktreePath) to call spawn() directly
+        description: >
+          findByParentId returns full Feature entities including all fields set at creation time.
+          These fields contain all parameters needed by spawn(). No additional queries or context
+          reconstruction needed. The agent run record was created at feature creation and is reused.
+        selected: true
+      - option: >
+          Store spawn parameters in a separate pending_spawns table, processed by CheckAndUnblockFeaturesUseCase
+        description: >
+          At child creation (Blocked state), persist all spawn parameters to a pending_spawns table.
+          CheckAndUnblockFeaturesUseCase reads from pending_spawns at unblock time. More complex schema
+          but tolerant to Feature fields changing between creation and unblock time.
+        selected: false
+      - option: >
+          Re-generate fresh spawn context at unblock time (new agentRunId, new run record, re-derive
+          worktreePath and specPath from current feature state)
+        description: >
+          Treat the unblock as a completely fresh feature start: create a new agent run record with
+          a new ID, re-derive worktreePath and specPath. Avoids any stale-data concern but is more
+          complex and inconsistent with the existing deferred-spawn model.
+        selected: false
+    selectionRationale: >
+      The Feature entity's persistent fields (agentRunId, repositoryPath, specPath, worktreePath)
+      are set at creation time and do not change between creation and unblock. These are exactly
+      the fields needed by spawn(). findByParentId already returns full Feature entities, so no
+      additional queries are needed. Using them directly is the simplest approach and consistent
+      with the existing pattern where CreateFeatureUseCase creates the run record and spawns
+      using the same feature fields.
+
+  - question: >
+      In the web UI feature-create-drawer, how should the list of candidate parent features
+      be loaded and passed to the parent selector Combobox?
+    resolved: true
+    options:
+      - option: >
+          Pass the feature list as a prop to the drawer from the server-rendered parent page
+        description: >
+          The features page already fetches the feature list server-side via a server component.
+          The list is passed as a prop to feature-create-drawer. No additional network requests;
+          data is available immediately when the drawer opens. Consistent with Next.js App Router
+          server component patterns already used in the web package.
+        selected: true
+      - option: >
+          Fetch features in the drawer via a dedicated server action triggered on drawer open
+        description: >
+          feature-create-drawer calls a server action (or API route) when opened to fetch the
+          current feature list. Allows the list to be fresh at open time but adds a loading state,
+          network round-trip, and a new server action to implement and maintain.
+        selected: false
+      - option: >
+          Use a React Query or SWR hook in the drawer to fetch and cache features client-side
+        description: >
+          Add a data-fetching hook in the drawer for real-time feature list with caching. Provides
+          stale-while-revalidate behavior but introduces a new library dependency, which is
+          prohibited by NFR-1.
+        selected: false
+    selectionRationale: >
+      Passing the feature list as a prop is the simplest approach, requires no new server actions,
+      and is consistent with Next.js App Router server component patterns already used in the web
+      package. The features page server component can include the feature list in its initial data
+      fetch at negligible additional cost. NFR-1 prohibits new library dependencies, ruling out
+      React Query and SWR.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. TypeSpec Extension Strategy
+
+  **Chosen:** Add `parentId?: UUID` to `tsp/domain/entities/feature.tsp` and `Blocked` to
+  `tsp/common/enums/lifecycle.tsp`, then regenerate via `pnpm tsp:compile`.
+
+  **Rejected:**
+  - Hand-edit `output.ts` — prohibited by CLAUDE.md and NFR-6; overwritten on next compile
+  - Separate value object wrapper — unnecessary for a scalar UUID reference
+
+  **Rationale:** TypeSpec-first is non-negotiable. The optional UUID scalar pattern already
+  exists in feature.tsp (`agentRunId?`, `specPath?`). Adding `Blocked` to SdlcLifecycle follows
+  the same pattern as the existing 8 enum values. TypeScript's exhaustiveness checking will
+  surface any switch/case blocks that need to handle the new Blocked value (NFR-11).
+
+  ### 2. Database Schema Design
+
+  **Chosen:** Migration v19: `ALTER TABLE features ADD COLUMN parent_id TEXT;` +
+  `CREATE INDEX idx_features_parent_id ON features(parent_id);`
+
+  **Rejected:**
+  - Join table for multi-parent relationships — spec resolved to single-parent tree (v1)
+  - JSON blob storage — not queryable; defeats findByParentId
+
+  **Rationale:** v18 is the current migration head. Additive ALTER TABLE with a nullable
+  column is backward-compatible (NFR-2). The sparse index enables O(log n) child lookups
+  in findByParentId — critical for the unblocking check on every lifecycle transition.
+
+  ### 3. Two-Gate Blocking Model
+
+  **Chosen:** Gate 1 at Implementation (child transitions Blocked → Started, early phases
+  allowed); Gate 2 at Maintain (child's own Implementation allowed). Enforced at creation
+  time and in CheckAndUnblockFeaturesUseCase.
+
+  **Rejected:**
+  - Single gate at Maintain — too aggressive; blocks productive pre-work
+  - No gates — defeats the feature's core purpose
+
+  **Rationale:** The spec's FR-9 explicitly defines three creation conditions. The two-gate
+  model maps directly to these conditions and reflects real team workflows.
+
+  ### 4. Cycle Detection Algorithm
+
+  **Chosen:** O(depth) iterative upward walk from proposed parentId, checking if the current
+  feature's own ID appears in the ancestor chain.
+
+  **Rejected:**
+  - Full DFS downward through descendants — O(subtree size), unnecessary for cycle detection
+  - Database-level trigger/CTE — SQLite FK constraints are disabled by default; hard to test
+
+  **Rationale:** NFR-8 requires O(depth). At typical depths < 10 with the parent_id index,
+  the walk is imperceptible. Application-layer validation is the established pattern.
+
+  ### 5. CheckAndUnblockFeaturesUseCase Integration
+
+  **Chosen:** Single call site in UpdateFeatureLifecycleUseCase after persisting new lifecycle.
+
+  **Rejected:**
+  - Multiple call sites at every lifecycle write — maintenance burden, silent breakage risk
+  - Background polling job — latency, infrastructure complexity, non-deterministic in tests
+
+  **Rationale:** UpdateFeatureLifecycleUseCase is the canonical path for all agent-driven lifecycle
+  transitions. Single hook is zero-latency, synchronous, idempotent, and trivially testable.
+  Explicitly selected in the spec's open question resolution.
+
+  ### 6. Agent Spawn Deferral
+
+  **Chosen:** Create agent run record at feature creation; skip spawn() for Blocked children.
+  CheckAndUnblockFeaturesUseCase calls spawn() using existing Feature entity fields.
+
+  **Rejected:**
+  - No run record at creation; generate fresh context at unblock — loses persistent context
+  - Spawn immediately, agent self-terminates — wasteful, race condition risk
+
+  **Rationale:** All spawn() parameters are stored persistently on the Feature entity at creation.
+  Reusing them at unblock time is the simplest symmetric approach.
+
+  ### 7. Web UI Parent Selector
+
+  **Chosen:** shadcn/ui Combobox (Command + Popover) in feature-create-drawer, receiving
+  feature list as prop from server-rendered parent page.
+
+  **Rejected:**
+  - Plain HTML select — no search capability, violates NFR-9
+  - Custom autocomplete — duplicates solved work, accessibility risks
+  - Client-side fetch on drawer open — unnecessary network round-trip
+  - SWR/React Query — prohibited by NFR-1
+
+  **Rationale:** shadcn/ui Combobox provides built-in fuzzy search, keyboard navigation, and
+  ARIA labels. Prop-driven list from server component requires no new server actions.
+
+  ### 8. Canvas Dependency Edge Rendering
+
+  **Chosen:** Compute edges from feature list at render time. Custom `dependencyEdge` type
+  in edgeTypes map with distinct amber color, arrow marker, non-interactive options.
+
+  **Rejected:**
+  - Separate database edge storage — edges derived from parent_id, storing redundantly adds complexity
+  - Default edge type with CSS override — not visually distinct per FR-27; no forward-extensibility
+
+  **Rationale:** React Flow's edgeTypes API (already used for custom node types) is the correct
+  hook. Computing edges from feature list is consistent with existing canvas derivation patterns.
+
+  ### 9. Deletion Guard
+
+  **Chosen:** Application-layer guard in DeleteFeatureUseCase using findByParentId to check for
+  Blocked children before proceeding.
+
+  **Rejected:**
+  - SQLite FK constraint — disabled by default, side effects on enabling globally
+  - Cascade-delete blocked children — destructive, explicitly rejected in spec's open question
+
+  **Rationale:** Application-layer invariant enforcement is the established pattern. A clear error
+  listing blocked child IDs gives the user a recovery path.
+
+  ### 10. Cascade Blocking
+
+  **Chosen:** O(1) check in CreateFeatureUseCase: if parent.lifecycle === Blocked, child is Blocked.
+
+  **Rejected:**
+  - Dedicated CascadeBlockingUseCase with recursive walk — unnecessary; cascade is inherent in
+    the create+unblock mechanism
+  - block_reason enum (PARENT_BLOCKED vs GATE_NOT_MET) — schema complexity without v1 value
+
+  **Rationale:** Cascade is inherent: blocked parent → blocked child at creation. Unblocking
+  chains naturally as parents progress through lifecycle via CheckAndUnblockFeaturesUseCase.
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | better-sqlite3 | Migration v19 + parent_id column | Use (existing) | Established migration pattern via PRAGMA user_version; ALTER TABLE is additive and backward-compatible |
+  | tsyringe | DI for CheckAndUnblockFeaturesUseCase | Use (existing) | All use cases use tsyringe injection; no pattern change needed |
+  | @xyflow/react | Canvas dependency edge rendering | Use (existing) | edgeTypes API already used for custom node types; correct hook for named edge variants |
+  | shadcn/ui Command+Popover | Parent feature selector Combobox | Use (existing) | Already in component library; provides search + keyboard nav + ARIA accessibility |
+  | LangGraph | Feature agent execution | No changes needed | Agent graph is unchanged; spawn() called via existing IFeatureAgentProcessService interface |
+  | Any new library | N/A | Reject | NFR-1 prohibits new dependencies; all requirements met by existing stack |
+
+  ---
+
+  ## Security Considerations
+
+  **Cycle injection:** The O(depth) cycle detection in CreateFeatureUseCase prevents circular
+  parent references at the application write layer. better-sqlite3 uses prepared statements with
+  parameterized values throughout the repository layer — no SQL injection risk from the parentId
+  parameter flowing from CLI (--parent flag) or web UI (combobox selection).
+
+  **Agent spawn authorization:** CheckAndUnblockFeaturesUseCase spawns agents using the feature's
+  existing agentRunId and credentials validated at feature creation time. No new authorization
+  vectors are introduced.
+
+  **Deletion guard:** Prevents unintended data loss from accidental parent deletion. shep is a
+  local CLI tool; no multi-user authorization concerns apply beyond this guard.
+
+  ---
+
+  ## Performance Implications
+
+  **findByParentId:** O(log n) with the new index on parent_id. Called once per lifecycle
+  transition (CheckAndUnblockFeaturesUseCase) and once per deletion check. At typical feature
+  counts (< 100 per repo), this is microseconds.
+
+  **Cycle detection walk:** O(depth × log n). depth < 10 in practice → at most 10 × O(log n)
+  queries. Imperceptible to users.
+
+  **Canvas edge computation:** O(n) filter/map over the features array. React Flow handles
+  edge rendering efficiently; no performance concern for typical feature counts.
+
+  **CheckAndUnblockFeaturesUseCase:** Runs synchronously inside UpdateFeatureLifecycleUseCase.
+  Worst case: unblocks and spawns k blocked children (each spawn() is a process fork, not a
+  network call). SQLite operations are bounded by direct child count. Per NFR-3, no observable
+  latency.
+
+  **feat ls output:** Blocked features display using the existing lifecycle label rendering.
+  parent_id is not surfaced in ls output for v1 — no regression in rendering performance
+  or layout (NFR-10).
+
+  ---
+
+  ## Architecture Notes
+
+  Feature-dependencies is a clean cross-cutting addition that touches every architecture layer
+  while following the existing patterns at each layer:
+
+  **Domain (TypeSpec):** Additive extension of feature.tsp (parentId field) and lifecycle.tsp
+  (Blocked enum value). Regenerate output.ts via tsp:compile. No hand-edits to generated files.
+
+  **Data (Infrastructure):** Additive migration v19 (nullable parent_id TEXT + index). Feature
+  mapper (toDatabase/fromDatabase) extended with parent_id ↔ parentId conversion. Follows the
+  established FeatureRow pattern.
+
+  **Application:** Two new use cases: CheckAndUnblockFeaturesUseCase (new) and modifications
+  to CreateFeatureUseCase (parentId input, gate logic, cycle detection), UpdateFeatureLifecycleUseCase
+  (unblock hook), and DeleteFeatureUseCase (blocked child guard). All follow the @injectable()
+  class with execute() method pattern. Clean Architecture dependency rule enforced (NFR-4).
+
+  **Infrastructure DI:** CheckAndUnblockFeaturesUseCase registered as singleton in container.ts,
+  injected with IFeatureRepository and IFeatureAgentProcessService. UpdateFeatureLifecycleUseCase
+  gains an additional CheckAndUnblockFeaturesUseCase injection.
+
+  **Presentation (CLI):** --parent flag on feat new with prefix resolution consistent with
+  existing feature ID resolution patterns. feat ls confirmed to display Blocked via existing
+  lifecycle label rendering (no changes needed).
+
+  **Presentation (Web):** feature-create-drawer gains a Combobox parent selector (props-driven,
+  no new server actions). features-canvas gains computed dependency edges derived from
+  feature.parentId. feature-node already has Blocked state handling in place.
+
+  The feature introduces no new library dependencies, no new external API contracts, and no
+  changes to the agent execution graph. It is a self-contained, additive implementation across
+  all layers.

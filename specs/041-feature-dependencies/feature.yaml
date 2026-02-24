@@ -1,0 +1,48 @@
+feature:
+  id: 041-feature-dependencies
+  name: feature-dependencies
+  number: 41
+  branch: feat/041-feature-dependencies
+  lifecycle: review
+  createdAt: '2026-02-24T17:55:05Z'
+prUrl: https://github.com/shep-ai/cli/pull/122
+status:
+  phase: in-review
+  progress:
+    completed: 15
+    total: 15
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T19:15:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - phase-5
+    - phase-6
+    - phase-7
+    - merge
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-24T17:55:05Z'
+    completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-24T19:15:00.000Z'
+    completedBy: shep-kit:commit-pr
+errors:
+  current: null
+  history: []

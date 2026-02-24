@@ -37,6 +37,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         push, open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
         pr_url, pr_number, pr_status, commit_hash, ci_status,
         ci_fix_attempts, ci_fix_history,
+        parent_id,
         created_at, updated_at
       ) VALUES (
         @id, @name, @slug, @description, @user_query, @repository_path, @branch,
@@ -45,6 +46,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         @push, @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
         @pr_url, @pr_number, @pr_status, @commit_hash, @ci_status,
         @ci_fix_attempts, @ci_fix_history,
+        @parent_id,
         @created_at, @updated_at
       )
     `);
@@ -109,6 +111,14 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
     return rows.map(fromDatabase);
   }
 
+  async findByParentId(parentId: string): Promise<Feature[]> {
+    const stmt = this.db.prepare(
+      'SELECT * FROM features WHERE parent_id = ? ORDER BY created_at ASC'
+    );
+    const rows = stmt.all(parentId) as FeatureRow[];
+    return rows.map(fromDatabase);
+  }
+
   async update(feature: Feature): Promise<void> {
     const row = toDatabase(feature);
 
@@ -139,6 +149,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         ci_status = @ci_status,
         ci_fix_attempts = @ci_fix_attempts,
         ci_fix_history = @ci_fix_history,
+        parent_id = @parent_id,
         updated_at = @updated_at
       WHERE id = @id
     `);

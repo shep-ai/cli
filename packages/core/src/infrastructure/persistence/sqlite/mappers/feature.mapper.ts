@@ -53,6 +53,8 @@ export interface FeatureRow {
   ci_status: string | null;
   ci_fix_attempts: number | null;
   ci_fix_history: string | null;
+  // Feature dependency
+  parent_id: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -97,6 +99,8 @@ export function toDatabase(feature: Feature): FeatureRow {
     ci_status: feature.pr?.ciStatus ?? null,
     ci_fix_attempts: feature.pr?.ciFixAttempts ?? null,
     ci_fix_history: feature.pr?.ciFixHistory ? JSON.stringify(feature.pr.ciFixHistory) : null,
+    // Feature dependency
+    parent_id: feature.parentId ?? null,
     created_at: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
     updated_at: feature.updatedAt instanceof Date ? feature.updatedAt.getTime() : feature.updatedAt,
   };
@@ -149,5 +153,7 @@ export function fromDatabase(row: FeatureRow): Feature {
         ...(row.ci_fix_history !== null && { ciFixHistory: JSON.parse(row.ci_fix_history) }),
       },
     }),
+    // Feature dependency
+    ...(row.parent_id !== null && { parentId: row.parent_id }),
   };
 }

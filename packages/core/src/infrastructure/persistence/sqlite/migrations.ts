@@ -16,6 +16,8 @@ import type Database from 'better-sqlite3';
 interface Migration {
   version: number;
   sql: string;
+  /** Optional handler for migrations that need programmatic logic (e.g. conditional DDL). */
+  handler?: (db: Database.Database) => void;
 }
 
 /**
@@ -313,6 +315,20 @@ ALTER TABLE features ADD COLUMN ci_fix_attempts INTEGER;
 ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
 `,
   },
+  {
+    version: 20,
+    // Migration 020: Add parent_id to features for hierarchical feature dependencies
+    // Uses custom handler because the column may already exist from a pre-rebase migration 19.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'parent_id')) {
+        db.exec('ALTER TABLE features ADD COLUMN parent_id TEXT');
+      }
+      // CREATE INDEX IF NOT EXISTS is supported by SQLite
+      db.exec('CREATE INDEX IF NOT EXISTS idx_features_parent_id ON features(parent_id)');
+    },
+  },
 ];
 
 /**
@@ -342,7 +358,12 @@ export async function runSQLiteMigrations(db: Database.Database): Promise<void> 
       if (migration.version > currentVersion) {
         // Execute migration in a transaction
         db.transaction(() => {
-          db.exec(migration.sql);
+          if (migration.sql) {
+            db.exec(migration.sql);
+          }
+          if (migration.handler) {
+            migration.handler(db);
+          }
           db.prepare(`PRAGMA user_version = ${migration.version}`).run();
         })();
       }

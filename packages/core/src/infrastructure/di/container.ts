@@ -102,6 +102,8 @@ import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use
 import { AddRepositoryUseCase } from '../../application/use-cases/repositories/add-repository.use-case.js';
 import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
 import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
+import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
+import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 
 // Session listing
 import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
@@ -303,6 +305,10 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(AddRepositoryUseCase);
   container.registerSingleton(ListRepositoriesUseCase);
   container.registerSingleton(DeleteRepositoryUseCase);
+  // CheckAndUnblockFeaturesUseCase must be registered before UpdateFeatureLifecycleUseCase
+  // because the latter injects the former via class token.
+  container.registerSingleton(CheckAndUnblockFeaturesUseCase);
+  container.registerSingleton(UpdateFeatureLifecycleUseCase);
 
   // Session repositories (per-AgentType string tokens)
   container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
@@ -356,6 +362,12 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('DeleteRepositoryUseCase', {
     useFactory: (c) => c.resolve(DeleteRepositoryUseCase),
+  });
+  container.register('CheckAndUnblockFeaturesUseCase', {
+    useFactory: (c) => c.resolve(CheckAndUnblockFeaturesUseCase),
+  });
+  container.register('UpdateFeatureLifecycleUseCase', {
+    useFactory: (c) => c.resolve(UpdateFeatureLifecycleUseCase),
   });
 
   _initialized = true;

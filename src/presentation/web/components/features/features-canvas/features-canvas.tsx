@@ -12,6 +12,7 @@ import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import { AddRepositoryNode } from '@/components/common/add-repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
+import { DependencyEdge } from './dependency-edge';
 
 export type CanvasNodeType = FeatureNodeType | RepositoryNodeType | AddRepositoryNodeType;
 
@@ -53,6 +54,13 @@ export function FeaturesCanvas({
       featureNode: FeatureNode,
       repositoryNode: RepositoryNode,
       addRepositoryNode: AddRepositoryNode,
+    }),
+    []
+  );
+
+  const edgeTypes = useMemo(
+    () => ({
+      dependencyEdge: DependencyEdge,
     }),
     []
   );
@@ -137,6 +145,7 @@ export function FeaturesCanvas({
           nodes={enrichedNodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           isValidConnection={isValidConnection}
           onConnect={onConnect}
           onNodesChange={onNodesChange}
