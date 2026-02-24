@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { within, userEvent, fn } from '@storybook/test';
 import { FeatureCreateDrawer } from './feature-create-drawer';
-import type { FeatureCreatePayload, ParentFeatureOption } from './feature-create-drawer';
+import type { FeatureCreatePayload } from './feature-create-drawer';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import { Button } from '@/components/ui/button';
 
