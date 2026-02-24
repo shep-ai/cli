@@ -263,6 +263,10 @@ describe('createDefaultSettings', () => {
       expect(settings.notifications.events.waitingApproval).toBe(true);
       expect(settings.notifications.events.agentCompleted).toBe(true);
       expect(settings.notifications.events.agentFailed).toBe(true);
+      expect(settings.notifications.events.prMerged).toBe(true);
+      expect(settings.notifications.events.prClosed).toBe(true);
+      expect(settings.notifications.events.prChecksPassed).toBe(true);
+      expect(settings.notifications.events.prChecksFailed).toBe(true);
     });
 
     it('should match TypeSpec model defaults', () => {
@@ -280,6 +284,10 @@ describe('createDefaultSettings', () => {
           waitingApproval: true,
           agentCompleted: true,
           agentFailed: true,
+          prMerged: true,
+          prClosed: true,
+          prChecksPassed: true,
+          prChecksFailed: true,
         },
       });
     });
@@ -320,6 +328,10 @@ describe('createDefaultSettings', () => {
           waitingApproval: true,
           agentCompleted: true,
           agentFailed: true,
+          prMerged: true,
+          prClosed: true,
+          prChecksPassed: true,
+          prChecksFailed: true,
         },
       });
     });

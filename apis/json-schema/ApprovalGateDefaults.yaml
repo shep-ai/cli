@@ -1,0 +1,26 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ApprovalGateDefaults.yaml
+type: object
+properties:
+  allowPrd:
+    type: boolean
+    default: false
+    description: "Auto-approve requirements phase (default: false)"
+  allowPlan:
+    type: boolean
+    default: false
+    description: "Auto-approve planning phase (default: false)"
+  allowMerge:
+    type: boolean
+    default: false
+    description: "Auto-approve merge phase (default: false)"
+  pushOnImplementationComplete:
+    type: boolean
+    default: false
+    description: "Push branch to remote on implementation complete (default: false)"
+required:
+  - allowPrd
+  - allowPlan
+  - allowMerge
+  - pushOnImplementationComplete
+description: Default approval gate settings for new features

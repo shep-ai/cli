@@ -305,6 +305,16 @@ ALTER TABLE settings ADD COLUMN approval_gate_push_on_impl_complete INTEGER NOT 
 UPDATE settings SET onboarding_complete = 1 WHERE id IS NOT NULL;
 `,
   },
+  {
+    version: 19,
+    sql: `
+-- Migration 019: Add PR notification event type filters to settings
+ALTER TABLE settings ADD COLUMN notif_evt_pr_merged INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_evt_pr_closed INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_evt_pr_checks_passed INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE settings ADD COLUMN notif_evt_pr_checks_failed INTEGER NOT NULL DEFAULT 1;
+`,
+  },
 ];
 
 /**

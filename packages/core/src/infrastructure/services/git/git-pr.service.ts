@@ -12,6 +12,7 @@ import type {
   DiffSummary,
   MergeStrategy,
   PrCreateResult,
+  PrStatusInfo,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import {
   GitPrError,
@@ -19,6 +20,7 @@ import {
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
+import { PrStatus } from '../../../domain/generated/output.js';
 import type { ExecFunction } from './worktree.service.js';
 
 @injectable()
@@ -177,6 +179,30 @@ export class GitPrService implements IGitPrService {
     );
 
     return this.parseDiffStat(diffStat, logOutput);
+  }
+
+  async listPrStatuses(cwd: string): Promise<PrStatusInfo[]> {
+    try {
+      const { stdout } = await this.execFile(
+        'gh',
+        ['pr', 'list', '--json', 'number,state,url', '--state', 'all', '--limit', '100'],
+        { cwd }
+      );
+
+      const prs = JSON.parse(stdout) as { number: number; state: string; url: string }[];
+      return prs.map((pr) => ({
+        number: pr.number,
+        state: this.normalizeGhState(pr.state),
+        url: pr.url,
+      }));
+    } catch (error) {
+      throw this.parseGhError(error);
+    }
+  }
+
+  private normalizeGhState(state: string): PrStatus {
+    const normalized = state.charAt(0).toUpperCase() + state.slice(1).toLowerCase();
+    return normalized as PrStatus;
   }
 
   private parseGitError(error: unknown): GitPrError {

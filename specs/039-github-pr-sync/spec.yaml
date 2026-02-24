@@ -1,0 +1,298 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: github-pr-sync
+number: 039
+branch: feat/039-github-pr-sync
+oneLiner: Background service that polls GitHub PR status and syncs merged/closed PRs back to the feature database
+summary: >
+  Add a PrSyncWatcherService that polls GitHub every 3 seconds (via `gh pr list --json`)
+  for features in the Review lifecycle stage. When a PR's status changes (e.g., Open → Merged
+  or Open → Closed), the service updates the feature's PR data and transitions its lifecycle
+  to Maintain. Uses in-memory caching (last-polled timestamps per repository) to minimize
+  redundant GitHub API calls and groups features by repository for batch queries.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures:
+  - '036-repository-entity'
+  - '038-repo-cli-commands'
+
+technologies:
+  - 'GitHub CLI (gh) - PR status queries via gh pr list --json'
+  - 'better-sqlite3 - Feature persistence via SQLiteFeatureRepository'
+  - 'tsyringe - DI container for service registration'
+  - 'Node.js setInterval - 3-second polling loop'
+  - 'TypeSpec - Domain model updates (NotificationEventType enum)'
+  - 'EventEmitter - Notification bus for real-time UI updates via SSE'
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the watcher fetch PR status via IGitPrService methods or via direct `gh pr list` CLI calls?'
+    resolved: true
+    options:
+      - option: 'Extend IGitPrService'
+        description: >
+          Add a new method like `getPrStatus(cwd, prNumber): Promise<PrStatus>` to the existing
+          IGitPrService interface. Keeps all GitHub CLI interactions behind the same port abstraction.
+          Consistent with Clean Architecture — the watcher injects IGitPrService and never touches
+          `gh` directly. Easier to mock in unit tests.
+        selected: true
+      - option: 'Direct gh CLI subprocess'
+        description: >
+          Inject an ExecFunction directly into PrSyncWatcherService and run `gh pr list --json`
+          calls manually. Gives more control over the exact JSON fields requested and batching
+          strategy but duplicates the gh CLI abstraction already in GitPrService. Harder to test
+          because you need to mock exec rather than a typed interface.
+        selected: false
+    selectionRationale: >
+      Extending IGitPrService preserves the existing port abstraction and Clean Architecture
+      dependency rule. The watcher should not bypass the application layer's service interface
+      to call infrastructure directly. Adding a `listPrStatuses(cwd): Promise<PrStatusInfo[]>`
+      method keeps batch querying behind the same interface and makes testing straightforward
+      with a mock IGitPrService.
+    answer: 'Extend IGitPrService'
+
+  - question: 'What lifecycle transition should occur when a PR is closed without merging?'
+    resolved: true
+    options:
+      - option: 'Stay in Review'
+        description: >
+          Keep the feature in Review and only update pr.status to Closed. The user can re-open
+          the PR or create a new one. Avoids losing the Review state for features that might
+          be re-submitted. However, features could accumulate in Review with stale closed PRs.
+        selected: true
+      - option: 'Transition to Maintain'
+        description: >
+          Transition to Maintain like a merge. Simple and consistent but semantically incorrect —
+          Maintain implies the code was merged and is in production. A closed-without-merge PR
+          means the work was abandoned or needs rework, not maintenance.
+        selected: false
+      - option: 'Transition back to Implementation'
+        description: >
+          Move the feature back to Implementation to signal it needs rework. Logical for
+          abandoned PRs but the user may have closed intentionally (e.g., wrong branch).
+          Auto-transitioning backwards could be confusing without user confirmation.
+        selected: false
+    selectionRationale: >
+      Staying in Review is the safest default. A closed PR does not mean the feature is done or
+      needs rework — the user may reopen it, push fixes and re-create it, or close it intentionally.
+      The watcher updates pr.status to Closed so the UI reflects reality, but the lifecycle
+      decision is left to the user. This avoids surprising backward transitions.
+    answer: 'Stay in Review'
+
+  - question: 'Should the watcher also sync CI status changes (Pending → Success/Failure) in addition to PR status?'
+    resolved: true
+    options:
+      - option: 'Yes, sync both PR status and CI status'
+        description: >
+          Poll CI status alongside PR status using `getCiStatus()` from IGitPrService. Updates
+          feature.pr.ciStatus in real-time so the web UI shows current CI state. Adds one
+          additional `gh run list` call per feature per poll cycle, but provides a complete
+          picture of the PR's health. Notifications on CI completion are valuable user feedback.
+        selected: true
+      - option: 'No, only sync PR status (Open/Merged/Closed)'
+        description: >
+          Only track PR open/merged/closed state. Simpler implementation with fewer API calls.
+          CI status would remain stale at whatever value was set when the PR was created.
+          Users would need to check GitHub directly for CI results.
+        selected: false
+    selectionRationale: >
+      Syncing CI status provides significant UX value — users see live CI pass/fail in the Shep
+      UI without switching to GitHub. The getCiStatus() method already exists on IGitPrService,
+      so the implementation cost is low. The additional API call per feature per cycle is acceptable
+      given the 3-second interval and typical low count of features in Review at any time.
+    answer: 'Yes, sync both PR status and CI status'
+
+  - question: 'How should the watcher handle `gh` CLI errors (e.g., network failure, auth expiry)?'
+    resolved: true
+    options:
+      - option: 'Log and skip (silent retry next cycle)'
+        description: >
+          Catch errors in the poll loop, log a warning, and retry on the next 3-second cycle.
+          Matches the existing NotificationWatcherService pattern which uses console.warn and
+          continues. No notification emitted for transient errors. Simple and resilient — most
+          errors are transient network issues that resolve on the next poll.
+        selected: true
+      - option: 'Emit error notification after N consecutive failures'
+        description: >
+          Track consecutive failure count per repository. After 3+ failures, emit a notification
+          to alert the user. More informative but adds complexity. Risk of spamming the user
+          with notifications during extended offline periods.
+        selected: false
+    selectionRationale: >
+      The silent retry pattern matches the existing NotificationWatcherService and is the simplest
+      approach. GitHub CLI errors are almost always transient (network blips, rate limits). The
+      watcher runs every 3 seconds, so a missed cycle is invisible to the user. Avoid adding
+      error-tracking complexity that provides little value in practice.
+    answer: 'Log and skip (silent retry next cycle)'
+
+content: |
+  ## Problem Statement
+
+  When a feature reaches the Review lifecycle stage (implementation complete, PR created),
+  users may interact with the PR directly on GitHub — merging it manually, closing it,
+  or having it merged by CI automation. Currently, the Shep feature database has no way
+  to detect these external status changes, leaving features stuck in the Review state
+  even after their PRs have been merged or closed.
+
+  This feature adds a background polling service that periodically checks GitHub PR status
+  and CI status for all features in the Review stage and updates the feature database
+  accordingly. When a PR is merged, the feature automatically transitions to the Maintain
+  lifecycle stage. When a PR is closed, the status is updated but the lifecycle remains
+  in Review for the user to decide next steps.
+
+  ## Success Criteria
+
+  - [ ] PrSyncWatcherService polls every 3 seconds when the web UI is running
+  - [ ] Features in Review stage with a non-null `pr` field are checked for status changes
+  - [ ] When a PR is merged on GitHub, the feature's `pr.status` updates to `Merged` and `lifecycle` transitions to `Maintain`
+  - [ ] When a PR is closed on GitHub, the feature's `pr.status` updates to `Closed` (lifecycle stays `Review`)
+  - [ ] When CI status changes (Pending → Success or Pending → Failure), the feature's `pr.ciStatus` is updated
+  - [ ] In-memory state tracking detects transitions and avoids duplicate updates/notifications
+  - [ ] Features are grouped by `repositoryPath` for batch `gh pr list` queries (one CLI call per repo, not per feature)
+  - [ ] `NotificationEvent` emitted on PR status change (PrMerged, PrClosed) for real-time UI updates via SSE
+  - [ ] `NotificationEvent` emitted on CI status completion (PrChecksPassed, PrChecksFailed) for real-time UI updates
+  - [ ] Service starts/stops cleanly with the web server lifecycle (initialized in ui.command.ts)
+  - [ ] Graceful shutdown stops the polling interval (no leaked timers)
+  - [ ] Unit tests cover: polling logic, PR status change detection, CI status change detection, in-memory state tracking, error handling, lifecycle transitions, notification emission
+  - [ ] No impact on features in non-Review lifecycle stages
+  - [ ] `gh` CLI errors are caught and logged (console.warn), poll continues on next cycle
+
+  ## Functional Requirements
+
+  - **FR-1: PR Status Polling** — The `PrSyncWatcherService` SHALL poll GitHub PR status every 3 seconds (configurable via constructor parameter, default 3000ms) for all features whose `lifecycle` is `Review` and whose `pr` field is non-null.
+
+  - **FR-2: Batch PR Queries** — Features SHALL be grouped by `repositoryPath`. For each unique repository, a single `gh pr list --json number,state,url` call retrieves the status of all relevant PRs in that repository. The new `listPrStatuses(cwd)` method on `IGitPrService` encapsulates this batch query.
+
+  - **FR-3: PR Merged Transition** — When a feature's PR status changes from `Open` to `Merged`, the service SHALL update `feature.pr.status` to `Merged` and transition `feature.lifecycle` from `Review` to `Maintain`, then persist via `IFeatureRepository.update()`.
+
+  - **FR-4: PR Closed Update** — When a feature's PR status changes from `Open` to `Closed`, the service SHALL update `feature.pr.status` to `Closed` and persist via `IFeatureRepository.update()`. The `lifecycle` remains `Review` — no automatic lifecycle transition on close.
+
+  - **FR-5: CI Status Sync** — For each feature in Review with a PR, the service SHALL check CI status via `IGitPrService.getCiStatus()` and update `feature.pr.ciStatus` when it changes (Pending → Success or Pending → Failure). Persist changes via `IFeatureRepository.update()`.
+
+  - **FR-6: In-Memory State Tracking** — The service SHALL maintain an in-memory `Map<featureId, WatcherState>` tracking the last-known `pr.status` and `pr.ciStatus` per feature. Only transitions (state differs from last-known) trigger database updates and notifications. Features removed from the Review stage are cleaned from the map.
+
+  - **FR-7: Notification Events on PR Status Change** — When a PR status transition is detected (Open → Merged or Open → Closed), the service SHALL emit a `NotificationEvent` via `INotificationService.notify()` with the appropriate `NotificationEventType` (`PrMerged` or `PrClosed`), `featureName`, and severity.
+
+  - **FR-8: Notification Events on CI Status Change** — When CI status transitions to a terminal state (Success or Failure), the service SHALL emit a `NotificationEvent` with `NotificationEventType` (`PrChecksPassed` or `PrChecksFailed`), `featureName`, and appropriate severity (Success or Error).
+
+  - **FR-9: Lifecycle Management** — The service SHALL expose `start()`, `stop()`, and `isRunning()` methods. `start()` runs an immediate first poll then sets up the interval. `stop()` clears the interval. Calling `start()` when already running is a no-op.
+
+  - **FR-10: Singleton Pattern** — The module SHALL export `initializePrSyncWatcher()`, `getPrSyncWatcher()`, `hasPrSyncWatcher()`, and `resetPrSyncWatcher()` singleton accessor functions, mirroring the `NotificationWatcherService` pattern.
+
+  - **FR-11: Web Server Integration** — `ui.command.ts` SHALL initialize and start the `PrSyncWatcherService` alongside the `NotificationWatcherService`, and stop it during graceful shutdown (SIGINT/SIGTERM).
+
+  - **FR-12: TypeSpec Enum Extension** — Add `PrMerged`, `PrClosed`, `PrChecksPassed`, and `PrChecksFailed` to the `NotificationEventType` enum in `tsp/common/enums/notification.tsp`, with appropriate `@doc` annotations. Regenerate TypeScript types via `pnpm tsp:compile`.
+
+  - **FR-13: IGitPrService Extension** — Add a `listPrStatuses(cwd: string): Promise<PrStatusInfo[]>` method to `IGitPrService` that returns an array of `{ number: number; state: PrStatus; url: string }` for all open and recently-updated PRs in the repository. Implement in `GitPrService` using `gh pr list --json number,state,url --limit 100`.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Performance** — Each poll cycle SHALL complete within 5 seconds even with 10+ repositories. Batch queries (one `gh` call per repo) ensure linear scaling with repository count, not feature count.
+
+  - **NFR-2: Resilience** — `gh` CLI failures (network errors, auth expiry, rate limits) SHALL NOT crash the watcher. Errors are caught, logged via `console.warn`, and the poll continues on the next cycle. Matches existing `NotificationWatcherService` error handling.
+
+  - **NFR-3: Resource Efficiency** — The in-memory state map tracks only features currently in Review. Features that leave Review (via merge transition or manual lifecycle change) are pruned from the map on the next poll cycle. No unbounded memory growth.
+
+  - **NFR-4: Clean Architecture Compliance** — The watcher service lives in `infrastructure/services/`. It depends only on application-layer port interfaces (`IFeatureRepository`, `IGitPrService`, `INotificationService`). No direct imports of infrastructure implementations.
+
+  - **NFR-5: Testability** — Constructor injection of all dependencies (repositories, services, poll interval). No global state or side effects in the constructor. The `resetPrSyncWatcher()` function enables test isolation. All `gh` CLI interactions go through `IGitPrService`, which can be fully mocked.
+
+  - **NFR-6: Minimal API Calls** — Group features by `repositoryPath` and issue one `gh pr list` call per repository. For CI status, issue one `getCiStatus()` call per feature (unavoidable since CI is branch-specific). A typical poll with 3 features across 2 repos = 2 PR status calls + 3 CI status calls = 5 total.
+
+  - **NFR-7: No Polling When Idle** — If no features are in the Review lifecycle stage, the poll cycle returns immediately after the `IFeatureRepository.list()` query. No GitHub API calls are made.
+
+  - **NFR-8: Graceful Shutdown** — `stop()` clears the interval and prevents any in-flight poll from starting new work. No leaked timers or orphaned promises after shutdown.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | PR status fetch via IGitPrService vs direct `gh` CLI? | Extend IGitPrService | Preserves Clean Architecture port abstraction; easier to mock in tests |
+  | 2 | Lifecycle transition on PR closed without merge? | Stay in Review | Safest default; user decides next steps; avoids surprising backward transitions |
+  | 3 | Sync CI status alongside PR status? | Yes, sync both | High UX value; getCiStatus() already exists; low incremental implementation cost |
+  | 4 | Error handling strategy for `gh` CLI failures? | Log and skip (silent retry) | Matches existing NotificationWatcherService pattern; transient errors resolve on next 3s cycle |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The project follows Clean Architecture with four layers:
+
+  - **Domain** (`packages/core/src/domain/`) — Generated TypeSpec types including Feature,
+    PullRequest (value object with url, number, status, commitHash, ciStatus), PrStatus enum
+    (Open/Merged/Closed), and SdlcLifecycle enum (Started → ... → Review → Maintain).
+  - **Application** (`packages/core/src/application/`) — Port interfaces including
+    IFeatureRepository (with list(filters) supporting lifecycle filter), IGitPrService
+    (with getCiStatus, createPr, mergePr), and INotificationService.
+  - **Infrastructure** (`packages/core/src/infrastructure/`) — Implementations including
+    SQLiteFeatureRepository, GitPrService (uses `gh` CLI for GitHub operations),
+    NotificationWatcherService (existing 3-second polling pattern), and DI container setup.
+  - **Presentation** (`src/presentation/`) — CLI commands including ui.command.ts which
+    manages the web server lifecycle and initializes/starts/stops background watchers.
+
+  ### Architecture Patterns
+
+  **Existing Polling Pattern (NotificationWatcherService)**:
+  The codebase already has an identical polling pattern at 3-second intervals:
+  - `NotificationWatcherService` polls agent_runs table every 3 seconds
+  - Uses in-memory `Map<string, WatcherState>` to track last-seen state and avoid duplicate events
+  - Singleton accessor pattern: `initializeXxx()`, `getXxx()`, `hasXxx()`, `resetXxx()`
+  - Lifecycle methods: `start()`, `stop()`, `isRunning()`
+  - Initialized and started in `ui.command.ts` alongside the web server
+  - Stopped during graceful shutdown (SIGINT/SIGTERM handler)
+
+  **GitHub CLI Integration (GitPrService)**:
+  - Uses `gh` CLI subprocess calls for all GitHub operations
+  - Constructor-injected `ExecFunction` for testability
+  - Error handling with typed `GitPrError` and specific error codes
+  - Already has `getCiStatus()` method that calls `gh run list --branch`
+
+  **Repository Pattern**:
+  - `IFeatureRepository.list({ lifecycle: 'Review' })` can query all features in Review stage
+  - `IFeatureRepository.update(feature)` persists PR field changes
+  - Features store `repositoryPath` field for scoping to a specific repo
+
+  **Notification System**:
+  - `INotificationService.notify(event)` dispatches to SSE, desktop, and in-app channels
+  - `NotificationEventBus` (EventEmitter singleton) fans out to multiple listeners
+  - SSE route at `/api/agent-events` streams events to the web UI in real-time
+  - Events typed as `NotificationEvent` with eventType, severity, message, etc.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/pr-sync/` | High | New PrSyncWatcherService following NotificationWatcher pattern |
+  | `packages/core/src/application/ports/output/services/git-pr-service.interface.ts` | Medium | Add `listPrStatuses()` method to IGitPrService |
+  | `packages/core/src/infrastructure/services/git/git-pr-service.ts` | Medium | Implement `listPrStatuses()` in GitPrService |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | No new DI registration needed (watcher uses singleton pattern, not DI) |
+  | `src/presentation/cli/commands/ui.command.ts` | Low | Initialize and start/stop PR sync watcher alongside notification watcher |
+  | `tsp/common/enums/notification.tsp` | Low | Add PrMerged, PrClosed, PrChecksPassed, PrChecksFailed event types |
+  | `packages/core/src/domain/generated/output.ts` | Low | Auto-regenerated from TypeSpec after enum addition |
+  | `tests/unit/infrastructure/services/pr-sync/` | High | Unit tests for PrSyncWatcherService with mocked repos and services |
+
+  ## Dependencies
+
+  **Existing Code Dependencies:**
+  - `IFeatureRepository` — Query features by lifecycle stage (Review), update PR fields and lifecycle
+  - `IGitPrService` — New `listPrStatuses()` for batch PR queries, existing `getCiStatus()` for CI sync
+  - `INotificationService` — Emit PR and CI status change events for real-time UI updates
+  - `NotificationWatcherService` — Reference pattern for polling, singleton, and lifecycle management
+
+  **External Dependencies:**
+  - `gh` CLI must be installed and authenticated (already a project requirement)
+  - GitHub API rate limits apply — batching queries per repository mitigates (one `gh pr list` call per repository instead of one per feature)
+
+  ## Size Estimate
+
+  **M** — This feature closely mirrors the existing NotificationWatcherService pattern.
+  The main work is: (1) extending IGitPrService with `listPrStatuses()`, (2) the polling
+  service implementation with in-memory state tracking, (3) TypeSpec enum extension for
+  4 new notification event types, (4) lifecycle wiring in ui.command.ts, and (5)
+  comprehensive unit tests covering all state transitions and error paths. The patterns
+  are well-established in the codebase, reducing design risk.

@@ -23,12 +23,18 @@ import type { IWebServerService } from '@/application/ports/output/services/web-
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import { setVersionEnvVars } from '@/infrastructure/services/version.service.js';
 import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
 import {
   initializeNotificationWatcher,
   getNotificationWatcher,
 } from '@/infrastructure/services/notifications/notification-watcher.service.js';
+import {
+  initializePrSyncWatcher,
+  getPrSyncWatcher,
+} from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
 import { colors, fmt, messages } from '../ui/index.js';
 
@@ -81,6 +87,12 @@ Examples:
         initializeNotificationWatcher(runRepo, phaseTimingRepo, notificationService);
         getNotificationWatcher().start();
 
+        // Start PR sync watcher to detect PR/CI status transitions on GitHub
+        const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
+        const gitPrService = container.resolve<IGitPrService>('IGitPrService');
+        initializePrSyncWatcher(featureRepo, gitPrService, notificationService);
+        getPrSyncWatcher().start();
+
         const url = `http://localhost:${port}`;
         messages.success(`Server ready at ${fmt.code(url)}`);
         messages.info('Press Ctrl+C to stop');
@@ -105,6 +117,7 @@ Examples:
           const forceExit = setTimeout(() => process.exit(0), 5000);
           forceExit.unref();
 
+          getPrSyncWatcher().stop();
           getNotificationWatcher().stop();
           await service.stop();
           process.exit(0);

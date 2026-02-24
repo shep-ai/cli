@@ -1,0 +1,203 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: github-pr-sync
+summary: >
+  Implementation plan for a PrSyncWatcherService that polls GitHub PR and CI status every 3 seconds
+  for features in the Review lifecycle stage. Follows the established NotificationWatcherService
+  pattern (singleton lifecycle, in-memory state tracking, error-resilient polling). The plan is
+  structured in 5 phases: (1) TypeSpec domain model updates for 4 new notification event types
+  and settings fields, (2) IGitPrService extension with batch PR status query, (3) PrSyncWatcherService
+  core implementation with transition detection and notification emission, (4) notification service
+  integration for PR event type filtering, and (5) web server lifecycle wiring in ui.command.ts.
+
+relatedFeatures:
+  - '036-repository-entity'
+  - '038-repo-cli-commands'
+
+technologies:
+  - 'GitHub CLI (gh) — gh pr list --json for batch PR status queries'
+  - 'GitHub CLI (gh) — gh run list --json for CI status queries (existing getCiStatus())'
+  - 'better-sqlite3 — Feature persistence via SQLiteFeatureRepository'
+  - 'tsyringe — DI container for resolving IFeatureRepository, IGitPrService, INotificationService'
+  - 'Node.js setInterval/clearInterval — 3-second polling loop'
+  - 'TypeSpec — NotificationEventType enum extension (4 new values)'
+  - 'EventEmitter — NotificationEventBus for SSE real-time UI updates'
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'TypeSpec Domain Model Updates'
+    description: >
+      Extend the TypeSpec domain models with 4 new NotificationEventType enum values
+      (PrMerged, PrClosed, PrChecksPassed, PrChecksFailed) and 4 new boolean fields on
+      NotificationEventConfig for per-type filtering. Add a database migration (version 19)
+      for the 4 new settings columns. Regenerate TypeScript types via tsp:compile. This phase
+      comes first because all subsequent phases depend on the generated enum values and types.
+    parallel: false
+
+  - id: phase-2
+    name: 'IGitPrService Batch PR Status Query'
+    description: >
+      Add the PrStatusInfo type and listPrStatuses() method to IGitPrService interface,
+      then implement it in GitPrService using gh pr list --json number,state,url --state all
+      --limit 100. This phase is isolated from the watcher and can be tested independently
+      with mocked ExecFunction. Establishes the data-fetching contract the watcher depends on.
+    parallel: false
+
+  - id: phase-3
+    name: 'PrSyncWatcherService Core Implementation'
+    description: >
+      Build the PrSyncWatcherService following the NotificationWatcherService pattern exactly:
+      constructor injection, start/stop/isRunning lifecycle, in-memory Map<featureId, PrWatcherState>
+      for transition detection, batched PR queries grouped by repositoryPath, per-feature CI status
+      checks, notification emission on state transitions, and error-resilient polling with
+      console.warn. Includes module-scoped singleton accessors (initialize/get/has/reset).
+      This is the largest phase and the core of the feature.
+    parallel: false
+
+  - id: phase-4
+    name: 'Notification Service Integration'
+    description: >
+      Extend the EVENT_TYPE_TO_CONFIG_KEY map in NotificationService with the 4 new PR event
+      types mapping to the new NotificationEventConfig fields. This is a small change but
+      critical for the settings-driven per-type notification filtering to work correctly.
+    parallel: false
+
+  - id: phase-5
+    name: 'Web Server Lifecycle Wiring'
+    description: >
+      Wire PrSyncWatcherService initialization and start/stop into ui.command.ts alongside
+      the existing NotificationWatcherService. Resolve IFeatureRepository, IGitPrService
+      from the DI container, reuse the already-resolved INotificationService, and add
+      stop() call in the shutdown handler.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/infrastructure/services/pr-sync/pr-sync-watcher.service.ts
+  - tests/unit/infrastructure/services/pr-sync/pr-sync-watcher.service.test.ts
+
+filesToModify:
+  - tsp/common/enums/notification.tsp
+  - tsp/domain/entities/settings.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - packages/core/src/application/ports/output/services/git-pr-service.interface.ts
+  - packages/core/src/infrastructure/services/git/git-pr.service.ts
+  - packages/core/src/infrastructure/services/notifications/notification.service.ts
+  - src/presentation/cli/commands/ui.command.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The PrSyncWatcherService is a background polling service that mirrors the existing
+  NotificationWatcherService pattern in the infrastructure layer. Both services share
+  identical structural patterns:
+
+  - **Polling**: `setInterval` at 3-second intervals with immediate first poll
+  - **State tracking**: In-memory `Map` keyed by entity ID to detect transitions
+  - **Lifecycle**: `start()` / `stop()` / `isRunning()` methods
+  - **Singleton**: Module-scoped instance with `initialize/get/has/reset` accessors
+  - **Error handling**: `try/catch` around the poll body with `console.warn` on failure
+  - **Integration**: Initialized and started in `ui.command.ts`, stopped on SIGINT/SIGTERM
+
+  The watcher depends on three application-layer port interfaces:
+  - `IFeatureRepository` — query features by lifecycle (Review), update PR fields
+  - `IGitPrService` — new `listPrStatuses()` for batch PR queries, existing `getCiStatus()`
+  - `INotificationService` — emit PR and CI status change events
+
+  This satisfies NFR-4 (Clean Architecture Compliance) — no direct infrastructure imports.
+
+  ```
+  PrSyncWatcherService (infrastructure/services/pr-sync/)
+    ├── IFeatureRepository.list({ lifecycle: 'Review' })
+    ├── IFeatureRepository.update(feature)
+    ├── IGitPrService.listPrStatuses(cwd)
+    ├── IGitPrService.getCiStatus(cwd, branch)
+    └── INotificationService.notify(event)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Extend IGitPrService Rather Than Direct CLI Access
+
+  **Chosen**: Add `listPrStatuses(cwd): Promise<PrStatusInfo[]>` to IGitPrService.
+  **Rationale**: The codebase encapsulates all `gh` CLI interactions behind IGitPrService
+  (registered as singleton at container.ts:169). The watcher must not bypass this port
+  abstraction. The new method follows the same `this.execFile('gh', [...])` pattern as
+  getCiStatus (line 115 of git-pr.service.ts). Tests mock IGitPrService, not raw exec.
+
+  ### 2. Batch Queries With `--state all`
+
+  **Chosen**: `gh pr list --json number,state,url --state all --limit 100` per repository.
+  **Rationale**: Groups features by `repositoryPath` for one CLI call per repo (not per
+  feature). `--state all` includes recently-merged and recently-closed PRs so the watcher
+  detects Open→Merged and Open→Closed transitions. Individual `gh pr view` calls would
+  scale as O(N) features with 200-500ms subprocess overhead each.
+
+  ### 3. In-Memory State Map Keyed by Feature ID
+
+  **Chosen**: `Map<featureId, PrWatcherState>` with `{ prStatus, ciStatus, featureName }`.
+  **Rationale**: Mirrors `trackedRuns` Map in NotificationWatcherService (line 80). Keying
+  by featureId is natural since the watcher iterates features. Features leaving Review are
+  pruned from the map on the next poll cycle (NFR-3: no unbounded memory growth).
+
+  ### 4. PR Close Stays in Review
+
+  **Chosen**: Update `pr.status` to Closed; lifecycle remains Review.
+  **Rationale**: A closed PR does not mean the feature is done. The user may reopen,
+  re-create, or abandon. The watcher reflects GitHub reality without making workflow
+  decisions. A PrClosed notification alerts the user.
+
+  ### 5. Empty String for agentRunId on PR Events
+
+  **Chosen**: Pass `''` for `agentRunId` in NotificationEvent.
+  **Rationale**: The NotificationEvent TypeSpec model requires `agentRunId` as non-optional.
+  Making it optional would be a breaking change across all consumers. PR events are not
+  agent-initiated, so empty string is pragmatic. SSE/UI use `featureName` for display.
+
+  ### 6. Four Granular Notification Event Types
+
+  **Chosen**: PrMerged, PrClosed, PrChecksPassed, PrChecksFailed as separate enum values.
+  **Rationale**: Enables granular per-type filtering in notification settings. Users can
+  enable merge notifications but disable CI notifications. Matches the existing pattern
+  where each event type has a corresponding boolean in NotificationEventConfig.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency: TypeSpec types must exist before any code references
+  them (Phase 1), the batch query method must exist before the watcher calls it (Phase 2),
+  the watcher must exist before it's wired into the notification service (Phase 3-4) and
+  the web server (Phase 5).
+
+  Phase 1 (TypeSpec) is purely additive — new enum values and settings fields with defaults.
+  No existing behavior changes.
+
+  Phase 2 (IGitPrService) is also additive — a new method on the interface with a new
+  implementation method. No existing method signatures change.
+
+  Phase 3 (PrSyncWatcherService) is the bulk of the work — a new service file with
+  comprehensive unit tests covering all state transitions, batching, error handling,
+  and lifecycle management.
+
+  Phase 4 (NotificationService) is a small map extension — 4 new entries in
+  EVENT_TYPE_TO_CONFIG_KEY.
+
+  Phase 5 (ui.command.ts) is lightweight wiring — resolve deps from DI container,
+  initialize singleton, start/stop alongside the existing notification watcher.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | `gh pr list --state all` returns too many results | `--limit 100` cap; in-memory filter to tracked PR numbers only |
+  | Poll cycle exceeds 5-second budget with many repos | Sequential CLI calls with ~400ms each; 10 repos = ~4s worst case; parallelize if needed |
+  | GitHub rate limiting | Batch queries minimize API calls; 3-second interval with typical workloads stays under 5k/hr |
+  | `gh` auth expiry mid-session | Caught by try/catch in poll loop; logged with console.warn; retried next cycle |
+  | Database migration breaks existing settings | Migration uses ALTER TABLE ADD COLUMN with DEFAULT 1; existing rows get defaults automatically |
+  | TypeSpec enum changes break generated output | Additive-only change (new values); no existing values modified or removed |
+  | Feature leaves Review between poll cycles | Map pruning removes stale entries; no stale state accumulates |
+  | Concurrent database writes from watcher and agent | Watcher only writes PR-related fields during Review; agent writes during Implementation |

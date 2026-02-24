@@ -25,6 +25,10 @@ const EVENT_TYPE_TO_CONFIG_KEY: Record<NotificationEventType, keyof Notification
   [NotificationEventType.WaitingApproval]: 'waitingApproval',
   [NotificationEventType.AgentCompleted]: 'agentCompleted',
   [NotificationEventType.AgentFailed]: 'agentFailed',
+  [NotificationEventType.PrMerged]: 'prMerged',
+  [NotificationEventType.PrClosed]: 'prClosed',
+  [NotificationEventType.PrChecksPassed]: 'prChecksPassed',
+  [NotificationEventType.PrChecksFailed]: 'prChecksFailed',
 };
 
 export class NotificationService implements INotificationService {

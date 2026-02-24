@@ -22,10 +22,30 @@ properties:
     type: boolean
     default: true
     description: Notify when agent execution fails
+  prMerged:
+    type: boolean
+    default: true
+    description: Notify when a pull request is merged on GitHub
+  prClosed:
+    type: boolean
+    default: true
+    description: Notify when a pull request is closed without merging on GitHub
+  prChecksPassed:
+    type: boolean
+    default: true
+    description: Notify when pull request CI checks pass
+  prChecksFailed:
+    type: boolean
+    default: true
+    description: Notify when pull request CI checks fail
 required:
   - agentStarted
   - phaseCompleted
   - waitingApproval
   - agentCompleted
   - agentFailed
+  - prMerged
+  - prClosed
+  - prChecksPassed
+  - prChecksFailed
 description: Notification event type filters

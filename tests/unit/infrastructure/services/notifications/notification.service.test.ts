@@ -131,6 +131,10 @@ describe('NotificationService', () => {
           waitingApproval: true,
           agentCompleted: false, // disabled
           agentFailed: true,
+          prMerged: true,
+          prClosed: true,
+          prChecksPassed: true,
+          prChecksFailed: true,
         },
       });
       service = new NotificationService(getNotificationBus(), desktopNotifier);
@@ -151,6 +155,10 @@ describe('NotificationService', () => {
           waitingApproval: true,
           agentCompleted: true,
           agentFailed: true,
+          prMerged: true,
+          prClosed: true,
+          prChecksPassed: true,
+          prChecksFailed: true,
         },
       });
       service = new NotificationService(getNotificationBus(), desktopNotifier);

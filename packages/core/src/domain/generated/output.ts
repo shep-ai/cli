@@ -414,6 +414,22 @@ export type NotificationEventConfig = {
    * Notify when agent execution fails
    */
   agentFailed: boolean;
+  /**
+   * Notify when a pull request is merged on GitHub
+   */
+  prMerged: boolean;
+  /**
+   * Notify when a pull request is closed without merging on GitHub
+   */
+  prClosed: boolean;
+  /**
+   * Notify when pull request CI checks pass
+   */
+  prChecksPassed: boolean;
+  /**
+   * Notify when pull request CI checks fail
+   */
+  prChecksFailed: boolean;
 };
 
 /**
@@ -1251,6 +1267,10 @@ export enum NotificationEventType {
   WaitingApproval = 'waiting_approval',
   AgentCompleted = 'agent_completed',
   AgentFailed = 'agent_failed',
+  PrMerged = 'pr_merged',
+  PrClosed = 'pr_closed',
+  PrChecksPassed = 'pr_checks_passed',
+  PrChecksFailed = 'pr_checks_failed',
 }
 export enum NotificationSeverity {
   Info = 'info',

@@ -5,6 +5,8 @@
  * Implementations manage PR creation, merging, and CI status checks.
  */
 
+import type { PrStatus } from '../../../../domain/generated/output.js';
+
 /**
  * Error codes for git PR operations.
  */
@@ -73,6 +75,18 @@ export interface PrCreateResult {
   url: string;
   /** PR number */
   number: number;
+}
+
+/**
+ * PR status information returned by batch status queries.
+ */
+export interface PrStatusInfo {
+  /** PR number */
+  number: number;
+  /** Current PR state (Open, Merged, or Closed) */
+  state: PrStatus;
+  /** URL of the pull request */
+  url: string;
 }
 
 /**
@@ -183,4 +197,13 @@ export interface IGitPrService {
    * @throws GitPrError with GIT_ERROR code
    */
   getPrDiffSummary(cwd: string, baseBranch: string): Promise<DiffSummary>;
+
+  /**
+   * List PR statuses for all open and recently-updated PRs in a repository.
+   *
+   * @param cwd - Working directory path (repository root)
+   * @returns Array of PR status info with number, state, and URL
+   * @throws GitPrError with GH_NOT_FOUND, AUTH_FAILURE, or GIT_ERROR code
+   */
+  listPrStatuses(cwd: string): Promise<PrStatusInfo[]>;
 }
