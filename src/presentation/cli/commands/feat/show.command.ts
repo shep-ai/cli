@@ -34,14 +34,14 @@ const NODE_TO_PHASE: Record<string, string> = {
   merge: 'Merging',
 };
 
-/** Map graph node names to approval action labels. */
-const NODE_TO_APPROVE: Record<string, string> = {
-  analyze: 'Approve Analysis',
-  requirements: 'Approve PRD',
-  research: 'Approve Research',
-  plan: 'Approve Plan',
-  implement: 'Approve Implementation',
-  merge: 'Approve Merge',
+/** Map graph node names to review action labels. */
+const NODE_TO_REVIEW: Record<string, string> = {
+  analyze: 'Review Analysis',
+  requirements: 'Review Requirements',
+  research: 'Review Research',
+  plan: 'Review Plan',
+  implement: 'Review Merge',
+  merge: 'Review Merge',
 };
 
 /** Map lifecycle event phases to display labels and symbols. */
@@ -78,8 +78,8 @@ function formatStatus(feature: Feature, run: AgentRun | null): string {
     return `${colors.success(symbols.success)} ${colors.success('Completed')}`;
   if (run.status === 'failed') return `${colors.error(symbols.error)} ${colors.error('Failed')}`;
   if (run.status === 'waiting_approval') {
-    const action = nodeName ? (NODE_TO_APPROVE[nodeName] ?? phase) : phase;
-    return `${colors.warning(symbols.warning)} ${colors.warning(action)}`;
+    const action = nodeName ? (NODE_TO_REVIEW[nodeName] ?? phase) : phase;
+    return `${colors.brand(symbols.pointer)} ${colors.brand(action)}`;
   }
   if (run.status === 'interrupted')
     return `${colors.error(symbols.error)} ${colors.error('Interrupted')}`;
