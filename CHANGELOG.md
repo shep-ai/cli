@@ -1,3 +1,9 @@
+## [1.53.2](https://github.com/shep-ai/cli/compare/v1.53.1...v1.53.2) (2026-02-24)
+
+### Bug Fixes
+
+- **web:** increase panel right margin mr-12→mr-16 to clear theme toggle ([#131](https://github.com/shep-ai/cli/issues/131)) ([8c5534a](https://github.com/shep-ai/cli/commit/8c5534a7f260026326c06fbdc8d07e121c1eea11))
+
 ## [1.53.1](https://github.com/shep-ai/cli/compare/v1.53.0...v1.53.1) (2026-02-24)
 
 ### Bug Fixes
