@@ -1,0 +1,93 @@
+phases:
+  - id: phase-1
+    name: Domain Model & State Channels
+    parallel: false
+    taskIds: [task-1, task-2]
+  - id: phase-2
+    name: Error Classification & Fix Prompt
+    parallel: false
+    taskIds: [task-3, task-4]
+  - id: phase-3
+    name: Auto-Fix Wrapper Implementation
+    parallel: false
+    taskIds: [task-5]
+  - id: phase-4
+    name: Integration & Wiring
+    parallel: false
+    taskIds: [task-6, task-7]
+
+filesToCreate:
+  - path: tsp/domain/value-objects/node-fix-record.tsp
+    description: TypeSpec model for node fix attempt records
+  - path: packages/core/src/infrastructure/services/agents/feature-agent/nodes/auto-fix.ts
+    description: withAutoFix HOF, classifyNodeError, buildNodeFixPrompt
+  - path: tests/unit/infrastructure/services/agents/feature-agent/nodes/auto-fix.test.ts
+    description: Unit tests for auto-fix wrapper
+
+filesToModify:
+  - path: packages/core/src/infrastructure/services/agents/feature-agent/state.ts
+    description: Add nodeFixAttempts, nodeFixHistory, nodeFixStatus channels
+  - path: packages/core/src/infrastructure/services/agents/feature-agent/feature-agent-graph.ts
+    description: Wrap producer nodes with withAutoFix
+  - path: packages/core/src/infrastructure/services/agents/feature-agent/nodes/implement.node.ts
+    description: Integrate auto-fix into phase-level execution catch block
+  - path: packages/core/src/infrastructure/services/agents/feature-agent/nodes/node-helpers.ts
+    description: Export classifyNodeError (extend existing classifyError)
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  ```
+  Node function (analyze, requirements, etc.)
+       │
+       ▼
+  withAutoFix(nodeFn, executor, opts)
+       │
+       ├─ try: call nodeFn(state)
+       │       └─ success → return result
+       │
+       └─ catch: classifyNodeError(err)
+               │
+               ├─ non-fixable → rethrow
+               │
+               └─ fixable → buildNodeFixPrompt(err, nodeName, state)
+                            │
+                            ▼
+                       executor.execute(fixPrompt)
+                            │
+                            ├─ UNFIXABLE response → rethrow original error
+                            └─ fix applied → retry nodeFn(state)
+                                              │
+                                              └─ (loop up to maxAttempts)
+  ```
+
+  The `withAutoFix` wrapper is a pure higher-order function. It wraps any
+  `(state) => Promise<Partial<FeatureAgentState>>` node function. No graph topology
+  changes are needed — nodes are wrapped at creation time in `createFeatureAgentGraph()`.
+
+  ## Implementation Strategy
+
+  **Phase 1** lays the foundation: TypeSpec model for fix records and state channels.
+  **Phase 2** builds the intelligence: error classification and fix prompt builder.
+  **Phase 3** implements the core wrapper using the pieces from phases 1-2.
+  **Phase 4** wires everything into the graph and implement node.
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  - **Unit tests**: `withAutoFix` wrapper behavior (success passthrough, fix attempt,
+    max retries, non-fixable bypass, UNFIXABLE response handling)
+  - **Unit tests**: `classifyNodeError` for each error category
+  - **Unit tests**: `buildNodeFixPrompt` output format
+  - **Integration**: Covered by existing graph tests — no new integration tests needed
+    since the wrapper is transparent to graph execution
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  |------|------------|
+  | Fix loop makes failures slower | Low max attempts (2), non-fixable errors skip loop |
+  | Fix prompt causes unintended changes | Executor runs in worktree (isolated), fix is retried with same node |
+  | Nested fix loops with CI fix | Merge node excluded from auto-fix scope |
+  | State bloat from fix history | Bounded by max attempts × nodes, records are small |

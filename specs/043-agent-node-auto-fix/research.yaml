@@ -1,0 +1,122 @@
+summary: Generalize the CI watch/fix loop pattern into a reusable node-level auto-fix wrapper using existing executor and state infrastructure
+
+decisions:
+  - title: Auto-fix integration point
+    chosen: Wrap executeNode and implement node catch blocks with a fix loop
+    rejected:
+      - LangGraph error node (adds graph complexity, hard to pass error context)
+      - Middleware/interceptor pattern (LangGraph doesn't support node middleware)
+    rationale: |
+      The simplest approach is to add a `withAutoFix` higher-order function that wraps any node function.
+      When the inner node throws, `withAutoFix` catches it, classifies the error, and if fixable, calls
+      the executor with a diagnostic prompt. This mirrors exactly how `retryExecute` wraps `executor.execute`
+      but at the node level. No graph topology changes needed.
+
+  - title: Error classification for fixability
+    chosen: Extend existing classifyError with a new fixable category + dedicated classifyNodeError function
+    rejected:
+      - AI-only classification (too slow, costs an extra API call for every error)
+      - Allowlist of fixable error patterns (too brittle, misses novel errors)
+    rationale: |
+      Use a two-tier approach: (1) fast regex classification catches known non-fixable errors (auth, ENOENT,
+      LangGraph control-flow) and skips the fix loop entirely, (2) all other errors are assumed potentially
+      fixable and sent to the AI. The AI's fix prompt includes the error message and asks it to either fix
+      the issue or report that it cannot. This balances speed (skip obvious non-fixables) with intelligence
+      (AI decides for ambiguous cases).
+
+  - title: Fix prompt strategy
+    chosen: Send error context + last node prompt snippet to executor with explicit fix instructions
+    rejected:
+      - Re-run the same prompt (doesn't help if the error is in the environment/files)
+      - Interactive diagnostic chain (multiple AI calls to diagnose then fix — too slow and expensive)
+    rationale: |
+      A single executor call with the error message, node name, and working directory context is sufficient.
+      The AI agent (Claude Code, etc.) can read files, run commands, and fix issues in a single session.
+      The prompt explicitly tells the AI: "The previous step failed with this error. Diagnose and fix the
+      issue in the working directory. If unfixable, explain why." After the fix call, the original node
+      is retried.
+
+  - title: State tracking for fix attempts
+    chosen: New state channels (nodeFixAttempts, nodeFixHistory) mirroring CI fix pattern
+    rejected:
+      - Reuse CI fix channels (semantic confusion, different concerns)
+      - No tracking (loses observability)
+    rationale: |
+      Following the CI fix loop precedent, add dedicated state channels with an append reducer for history.
+      This keeps CI fixes and node fixes independently observable and avoids channel name collisions.
+
+  - title: Scope of auto-fix coverage
+    chosen: All producer nodes (analyze, requirements, research, plan) + implement node phases
+    rejected:
+      - All nodes including merge (merge already has CI fix loop, adding another layer creates confusion)
+      - Only implement node (misses failures in earlier phases)
+    rationale: |
+      Producer nodes use `executeNode` — wrapping that single function covers 4 nodes. The implement node
+      has its own error handling but can integrate the fix loop at the phase level. The merge node already
+      has the CI fix loop for its primary failure mode; adding auto-fix there would create nested fix loops.
+      Merge non-CI errors (auth, git) are typically non-fixable anyway.
+
+technologies:
+  - LangGraph StateGraph (existing — no new dependencies)
+  - TypeSpec (new NodeFixRecord value object)
+  - Vitest (unit tests for wrapper, classification, prompt builder)
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Integration Pattern: Higher-Order Node Wrapper
+
+  **Chosen**: `withAutoFix(nodeFn, executor, opts)` HOF that wraps any node function.
+
+  The wrapper:
+  1. Calls the inner node function
+  2. On error, classifies it via `classifyNodeError()`
+  3. If non-fixable: rethrows immediately (same behavior as today)
+  4. If potentially fixable: calls executor with `buildNodeFixPrompt()`
+  5. Retries the inner node function
+  6. Records attempt in `nodeFixHistory` state channel
+  7. After max attempts: rethrows the last error
+
+  This requires zero changes to graph topology — nodes are wrapped at creation time.
+
+  ### 2. Error Classification
+
+  **Non-fixable (bypass fix loop):**
+  - LangGraph control-flow (`isGraphBubbleUp`)
+  - Auth failures (`AUTH_FAILURE`, `EACCES`)
+  - Missing executor/binary (`ENOENT` for claude/cursor binary)
+  - Process crashes (`Process exited with code`)
+
+  **Potentially fixable (enter fix loop):**
+  - All other errors — the AI decides if it can fix them
+
+  ### 3. Fix Prompt Design
+
+  The prompt includes:
+  - Node name and what it was trying to do
+  - Full error message
+  - Working directory path
+  - Instructions: "Diagnose and fix the issue. If you cannot fix it, respond with UNFIXABLE: <reason>"
+
+  The executor runs with full tool access (not constrained like repair nodes) because
+  it may need to run git commands, install packages, fix file permissions, etc.
+
+  ### 4. Configuration
+
+  New setting: `workflow.nodeFixMaxAttempts` (default: 2)
+
+  Lower default than CI fix (3) because node-level fixes are more expensive (full node re-execution)
+  and less likely to succeed on repeated attempts.
+
+  ## Security Considerations
+
+  No security implications — the fix prompt runs through the same executor with the same permissions
+  as the original node. No new external access or elevated privileges.
+
+  ## Performance Implications
+
+  - **Happy path**: Zero overhead (try/catch is free in V8 when no exception)
+  - **Fix path**: One extra executor call + node re-execution per attempt. Bounded by max attempts.
+  - **Worst case**: 2 extra executor calls before failing (with default maxAttempts=2)

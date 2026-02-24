@@ -1,0 +1,205 @@
+tasks:
+  - id: task-1
+    title: Add NodeFixRecord TypeSpec model
+    description: |
+      Create a TypeSpec value object for tracking node fix attempts, mirroring CiFixRecord.
+      Compile TypeSpec to generate TypeScript types.
+    phaseId: phase-1
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - NodeFixRecord model exists in tsp/domain/value-objects/node-fix-record.tsp
+      - Fields include attempt (int32), nodeName (string), errorSummary (string), startedAt (string), outcome (string)
+      - pnpm tsp:compile succeeds and output.ts contains NodeFixRecord type
+    tdd:
+      red:
+        - Verify NodeFixRecord type is importable from generated output (compilation test)
+      green:
+        - Create node-fix-record.tsp with required fields
+        - Run pnpm tsp:compile
+      refactor:
+        - Ensure consistent naming with CiFixRecord pattern
+    estimatedEffort: S
+
+  - id: task-2
+    title: Add auto-fix state channels to FeatureAgentAnnotation
+    description: |
+      Add nodeFixAttempts (number), nodeFixHistory (NodeFixRecord[], append reducer),
+      and nodeFixStatus state channels to the graph state.
+    phaseId: phase-1
+    state: Todo
+    dependencies: [task-1]
+    acceptanceCriteria:
+      - nodeFixAttempts channel with last-write-wins reducer, default 0
+      - nodeFixHistory channel with append reducer, default []
+      - nodeFixStatus channel with values idle|fixing|success|exhausted, default idle
+      - TypeScript compiles without errors
+    tdd:
+      red:
+        - Test that initial state has nodeFixAttempts=0, nodeFixHistory=[], nodeFixStatus=idle
+      green:
+        - Add three channels to FeatureAgentAnnotation in state.ts
+      refactor:
+        - Verify reducer behavior matches CI fix channels pattern
+    estimatedEffort: S
+
+  - id: task-3
+    title: Implement classifyNodeError function
+    description: |
+      Create a function that classifies node errors as fixable or non-fixable.
+      Non-fixable: LangGraph control-flow, auth failures, missing binaries, process crashes.
+      Fixable: everything else.
+    phaseId: phase-2
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - classifyNodeError returns 'non-fixable' for isGraphBubbleUp errors
+      - classifyNodeError returns 'non-fixable' for AUTH_FAILURE, EACCES, ENOENT patterns
+      - classifyNodeError returns 'non-fixable' for 'Process exited with code' pattern
+      - classifyNodeError returns 'fixable' for all other errors
+      - Unit tests cover all classification categories
+    tdd:
+      red:
+        - Write tests for each error category (graph bubble-up, auth, ENOENT, process exit, generic)
+      green:
+        - Implement classifyNodeError with regex patterns
+      refactor:
+        - Extract regex constants, align with existing classifyError patterns
+    estimatedEffort: S
+
+  - id: task-4
+    title: Implement buildNodeFixPrompt function
+    description: |
+      Create a prompt builder that generates a diagnostic/fix prompt for the AI executor.
+      Includes error message, node name, working directory, and fix instructions.
+    phaseId: phase-2
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - Prompt includes node name, error message, working directory path
+      - Prompt instructs AI to diagnose and fix, or respond with UNFIXABLE prefix if cannot fix
+      - Prompt tells AI what the node was doing (brief context per node type)
+      - Unit tests verify prompt structure for different node names
+    tdd:
+      red:
+        - Test prompt contains error message, node name, cwd
+        - Test prompt contains UNFIXABLE instruction
+      green:
+        - Implement buildNodeFixPrompt(nodeName, error, state)
+      refactor:
+        - Extract node context descriptions to a map
+    estimatedEffort: S
+
+  - id: task-5
+    title: Implement withAutoFix higher-order wrapper
+    description: |
+      Create the core `withAutoFix` function that wraps a node function with auto-fix logic.
+      On error: classify → if fixable → prompt AI → retry node → record attempt.
+      Bounded by maxAttempts. Detects UNFIXABLE responses.
+    phaseId: phase-3
+    state: Todo
+    dependencies: [task-2, task-3, task-4]
+    acceptanceCriteria:
+      - Success passthrough — when inner node succeeds, returns result unchanged
+      - Fix attempt — when node fails with fixable error, calls executor with fix prompt
+      - Retry — after fix call, retries the original node function
+      - Max attempts — stops after configured max attempts and rethrows
+      - Non-fixable bypass — non-fixable errors rethrow immediately without fix attempt
+      - UNFIXABLE detection — if executor response starts with UNFIXABLE, rethrows without retry
+      - State updates — returns nodeFixAttempts, nodeFixHistory, nodeFixStatus in result
+      - Timing — records fix attempts in phase timing system
+      - LangGraph bubble-up — always rethrows graph control-flow errors
+    tdd:
+      red:
+        - Test success passthrough (mock node fn returns normally)
+        - Test fix attempt on fixable error (mock executor called with fix prompt)
+        - Test retry after fix (mock node fn fails then succeeds)
+        - Test max attempts exhaustion (node keeps failing)
+        - Test non-fixable bypass (error classified as non-fixable)
+        - Test UNFIXABLE response handling (executor returns UNFIXABLE prefix)
+        - Test nodeFixHistory recording (verify append with correct fields)
+      green:
+        - Implement withAutoFix function with try/catch loop
+        - Integrate classifyNodeError and buildNodeFixPrompt
+        - Add UNFIXABLE response detection
+        - Return merged state with fix tracking channels
+      refactor:
+        - Extract UNFIXABLE detection to helper
+        - Ensure consistent logging pattern with existing nodes
+    estimatedEffort: M
+
+  - id: task-6
+    title: Wire auto-fix into producer nodes via graph factory
+    description: |
+      In createFeatureAgentGraph, wrap the 4 producer nodes (analyze, requirements,
+      research, plan) with withAutoFix at creation time.
+    phaseId: phase-4
+    state: Todo
+    dependencies: [task-5]
+    acceptanceCriteria:
+      - analyze, requirements, research, plan nodes wrapped with withAutoFix
+      - merge node NOT wrapped (has its own CI fix loop)
+      - Graph compiles and existing tests pass
+      - Fix max attempts read from settings (workflow.nodeFixMaxAttempts)
+    tdd:
+      red:
+        - Test that graph creation succeeds with withAutoFix wrappers
+        - Test that a simulated node failure triggers auto-fix (mock executor)
+      green:
+        - Wrap producer nodes in createFeatureAgentGraph
+        - Pass executor and settings-driven maxAttempts to withAutoFix
+      refactor:
+        - Ensure clean dependency injection of settings
+    estimatedEffort: S
+
+  - id: task-7
+    title: Integrate auto-fix into implement node phase execution
+    description: |
+      Add auto-fix logic to the implement node's phase-level catch block.
+      When a phase fails, attempt AI-driven fix before failing the entire implementation.
+    phaseId: phase-4
+    state: Todo
+    dependencies: [task-5]
+    acceptanceCriteria:
+      - Phase-level failures trigger auto-fix before rethrowing
+      - Fix prompt includes phase context (phase name, task IDs)
+      - Max attempts respected per phase
+      - Fix attempts recorded in nodeFixHistory
+      - Existing phase skip-on-resume logic unaffected
+    tdd:
+      red:
+        - Test implement node retries phase after fixable error
+        - Test implement node rethrows after max fix attempts
+        - Test implement node skips fix for non-fixable errors
+      green:
+        - Add auto-fix try/catch around phase execution in implement.node.ts
+        - Build phase-specific fix prompt
+      refactor:
+        - Extract phase fix logic to helper if implementation is clean enough
+    estimatedEffort: M
+
+totalEstimate: M (7 tasks across 4 phases, ~2-3 hours implementation time)
+
+openQuestions: []
+
+content: |
+  ## Task Summary
+
+  7 tasks across 4 sequential phases:
+  - Phase 1: Foundation (TypeSpec model + state channels)
+  - Phase 2: Intelligence (error classification + fix prompt)
+  - Phase 3: Core wrapper (withAutoFix HOF)
+  - Phase 4: Integration (graph wiring + implement node)
+
+  ## Acceptance Checklist
+
+  - [ ] NodeFixRecord TypeSpec model compiled
+  - [ ] State channels added and reducers verified
+  - [ ] Error classification covers all non-fixable categories
+  - [ ] Fix prompt includes all required context
+  - [ ] withAutoFix wrapper handles all edge cases
+  - [ ] Producer nodes wrapped in graph factory
+  - [ ] Implement node phases use auto-fix
+  - [ ] All unit tests pass
+  - [ ] pnpm typecheck passes
+  - [ ] pnpm lint passes

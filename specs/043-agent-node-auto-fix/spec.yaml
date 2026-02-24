@@ -1,0 +1,68 @@
+name: Agent Node Auto-Fix
+number: 43
+branch: feat/043-agent-node-auto-fix
+oneLiner: Add intelligent auto-fix loop to feature agent graph nodes so failures are diagnosed and repaired by the AI before giving up
+summary: |
+  When a feature agent graph node fails (e.g., implement, merge, research), the agent currently crashes
+  and requires manual resume. This feature adds a generalized auto-fix wrapper that catches node errors,
+  sends the error context to the AI executor with a diagnostic/fix prompt, and retries the failed node.
+  The AI decides whether the error is fixable and attempts a repair — similar to the existing CI watch/fix
+  loop but applied to any graph node failure, not just CI failures.
+
+phase: Requirements
+sizeEstimate: M
+relatedFeatures:
+  - number: 41
+    name: CI Watch Fix Loop
+    relationship: Extends the auto-fix pattern from CI-only to all graph nodes
+
+technologies:
+  - LangGraph (StateGraph, conditional edges)
+  - TypeSpec (domain model for fix records)
+  - Vitest (unit + integration tests)
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The feature agent graph currently has no recovery mechanism for node-level failures. When a producer
+  node (analyze, requirements, research, plan) or the implement/merge node throws an error that isn't
+  a transient API/network issue (those are handled by `retryExecute`), the entire run fails. The user
+  must manually inspect logs, understand the failure, and resume — often for issues the AI could fix
+  itself (merge conflicts, lint errors, missing files, schema violations, rebase failures).
+
+  The CI watch/fix loop (spec 041) proved this pattern works: fetch error context → prompt AI to fix →
+  retry. This feature generalizes it to all node failures.
+
+  ## Success Criteria
+
+  1. When a node fails with a non-transient error, the auto-fix loop activates instead of immediately crashing
+  2. The AI receives error context (error message, node name, last executor output) and attempts a fix
+  3. The loop is bounded by a configurable max attempts setting (default: 2)
+  4. Fix attempts are recorded in state (node name, error summary, attempt number, outcome) for observability
+  5. Non-fixable errors (auth failures, missing executors, LangGraph control-flow) bypass the fix loop entirely
+  6. The fix loop integrates with existing phase timing and heartbeat systems
+  7. All new code has unit tests following TDD
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  |------|--------|-----------|
+  | `node-helpers.ts` | High | New `executeNodeWithAutoFix` wrapper or modification to `executeNode` |
+  | `state.ts` | Medium | New state channels for fix attempt tracking |
+  | `feature-agent-graph.ts` | Low | Wire nodes through the fix-aware executor |
+  | `implement.node.ts` | Medium | Integrate auto-fix into phase execution |
+  | `merge.node.ts` | Low | Merge already has CI fix loop; auto-fix covers non-CI failures |
+  | TypeSpec models | Low | New `NodeFixRecord` value object |
+  | Settings | Low | New `workflow.nodeFixMaxAttempts` setting |
+
+  ## Dependencies
+
+  - Spec 041 (CI Watch Fix Loop) — completed, provides the pattern to generalize
+  - Existing `retryExecute` — handles transient errors; auto-fix handles semantic/logic errors
+
+  ## Size Estimate
+
+  Medium — core logic is a ~100-line wrapper function plus state channels, prompt builder, and tests.
+  The pattern is well-established from the CI fix loop.

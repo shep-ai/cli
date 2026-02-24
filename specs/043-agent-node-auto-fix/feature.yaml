@@ -1,0 +1,42 @@
+feature:
+  id: '043-agent-node-auto-fix'
+  name: Agent Node Auto-Fix
+  number: 43
+  branch: 'feat/043-agent-node-auto-fix'
+  lifecycle: 'implementation'
+  createdAt: '2026-02-25T12:00:00.000Z'
+
+status:
+  phase: 'ready-to-implement'
+  progress:
+    completed: 0
+    total: 7
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-25T12:00:00.000Z'
+  lastUpdatedBy: 'shep-kit:new-feature-fast'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: 'feature-created'
+    completedAt: '2026-02-25T12:00:00.000Z'
+    completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'research-complete'
+    completedAt: '2026-02-25T12:00:00.000Z'
+    completedBy: 'shep-kit:new-feature-fast'
+  - phase: 'plan-complete'
+    completedAt: '2026-02-25T12:00:00.000Z'
+    completedBy: 'shep-kit:new-feature-fast'
+
+errors:
+  current: null
+  history: []
