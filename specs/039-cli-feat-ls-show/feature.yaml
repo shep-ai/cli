@@ -1,0 +1,38 @@
+feature:
+  id: 039-cli-feat-ls-show
+  name: cli-feat-ls-show
+  number: 39
+  branch: feat/realtime-feature-status
+  lifecycle: implementation
+  createdAt: '2026-02-23T00:00:00Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 3
+    total: 3
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T00:00:00.000Z'
+  lastUpdatedBy: retroactive-spec
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-23T00:00:00Z'
+    completedBy: retroactive-spec
+prUrl: https://github.com/shep-ai/cli/pull/115
+errors:
+  current: null
+  history: []

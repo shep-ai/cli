@@ -20,6 +20,14 @@ import path from 'node:path';
 import { initializeContainer, container } from '@/infrastructure/di/container.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
+import {
+  initializeNotificationWatcher,
+  getNotificationWatcher,
+} from '@/infrastructure/services/notifications/notification-watcher.service.js';
 
 const DEFAULT_PORT = 3000;
 
@@ -62,6 +70,14 @@ async function main() {
     const initSettingsUseCase = container.resolve(InitializeSettingsUseCase);
     const settings = await initSettingsUseCase.execute();
     initializeSettings(settings);
+
+    // Start notification watcher for real-time SSE events (same as shep ui)
+    const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
+    const phaseTimingRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
+    const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
+    const notificationService = container.resolve<INotificationService>('INotificationService');
+    initializeNotificationWatcher(runRepo, phaseTimingRepo, featureRepo, notificationService);
+    getNotificationWatcher().start();
   } catch (error) {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);
   }
@@ -104,6 +120,11 @@ async function main() {
     console.log('\n[dev-server] Shutting down...');
     const forceExit = setTimeout(() => process.exit(0), 2000);
     try {
+      try {
+        getNotificationWatcher().stop();
+      } catch {
+        /* not initialized */
+      }
       server.closeAllConnections();
       await Promise.all([
         new Promise<void>((resolve) => server.close(() => resolve())),

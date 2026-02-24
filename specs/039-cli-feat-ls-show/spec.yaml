@@ -1,0 +1,89 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+# Retroactive spec: documents work implemented without prior specification.
+
+name: cli-feat-ls-show
+number: 039
+branch: feat/realtime-feature-status
+oneLiner: Improve feat ls view with elapsed time, gates, status sorting, and feat show with phase-specific rejections
+userQuery: >
+  Improve the feat ls and feat show CLI views to show more useful information like
+  elapsed time from phase timings, approval gates, and rejection feedback per phase.
+summary: >
+  Major rewrite of the CLI `feat ls` command to show richer information: elapsed time
+  computed from phase timing sums (not just timestamps), approval gate checkboxes
+  (R P M push), status-priority sorting (running first, completed last), "Done" column
+  for completed features, and improved status labels ("Review X" instead of "Approve X").
+  Also updates `feat show` to display phase-specific rejection feedback inline after
+  approval wait bars (instead of at run:resumed lifecycle events), and renames approval
+  labels to "Review" consistently.
+phase: Implementation
+sizeEstimate: S
+
+relatedFeatures:
+  - 039-realtime-feature-status
+  - 036-drawer-approval-rejection
+
+technologies:
+  - Commander.js (CLI framework)
+  - chalk (terminal colors)
+  - cli-table3 (table rendering)
+  - IPhaseTimingRepository (phase timing data)
+  - RejectionFeedbackEntry (rejection context)
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The `feat ls` view was missing useful information:
+  - Time column showed either "running duration" or "X ago" but not accurate elapsed time
+    from phase timings (which sum all phase durations including live phases)
+  - No visibility into approval gates (PRD, plan, merge) or push flag
+  - Features listed in arbitrary order instead of by status priority
+  - No separate "Done" column for completed features
+
+  The `feat show` view displayed rejection feedback at `run:resumed` lifecycle events
+  rather than inline after the approval wait bar where it's most contextually relevant.
+
+  ## Success Criteria
+
+  - [x] feat ls shows elapsed time computed from phase timing sums
+  - [x] feat ls shows approval gate checkboxes (R P M push) as colored squares
+  - [x] feat ls sorts by status priority (running/pending > waiting > failed > completed)
+  - [x] feat ls shows separate "Done" column for completed features
+  - [x] feat ls truncates long names with ellipsis
+  - [x] feat ls renames "Approve X" to "Review X" labels
+  - [x] feat show displays rejection feedback inline after approval wait bars
+  - [x] feat show phase-specific rejection matching (by base phase name)
+  - [x] feat show renames "Approve X" to "Review X" labels
+  - [x] Unit tests for feat show phase timing + rejection rendering
+
+  ## Functional Requirements
+
+  - **FR-1: Phase Timing Elapsed** — feat ls resolves IPhaseTimingRepository and computes
+    total elapsed as sum of all phase durationMs values plus live delta for running phases.
+    Replaces the old timestamp-based time column.
+
+  - **FR-2: Approval Gate Display** — feat ls shows approval gates as compact colored
+    squares: R(equirements) P(lan) M(erge) push. Enabled = green filled, disabled = muted empty.
+
+  - **FR-3: Status Priority Sorting** — Features sorted by agent run status:
+    running/pending (0) > waiting_approval (1) > failed/interrupted (2) > completed (3) > no run (4).
+
+  - **FR-4: Inline Rejection Feedback** — feat show renders rejection messages after the
+    approval wait bar of the phase that was rejected, using phase-specific matching
+    (entry.phase matches base phase name). Consumes entries in order per phase.
+
+  - **FR-5: Review Label Consistency** — Both feat ls and feat show use "Review X" instead
+    of "Approve X" for waiting_approval status labels, with brand color instead of warning.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/feat/ls.command.ts` | High | Major rewrite: elapsed, gates, sorting, columns |
+  | `src/presentation/cli/commands/feat/show.command.ts` | High | Inline rejection feedback, review labels |
+  | `tests/unit/presentation/cli/commands/feat/show-phase-timing-rejections.test.ts` | High | New: 279 lines of test coverage |

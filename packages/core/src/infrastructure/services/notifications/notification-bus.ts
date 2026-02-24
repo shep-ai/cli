@@ -26,15 +26,26 @@ export interface NotificationEventMap {
 
 export type NotificationBus = EventEmitter<NotificationEventMap>;
 
-let busInstance: NotificationBus | null = null;
+/**
+ * Symbol key for storing the bus on globalThis.
+ * Using a symbol prevents accidental collisions and ensures the singleton
+ * is shared across module boundaries (e.g., Next.js Turbopack-bundled code
+ * vs. the dev-server process running via tsx).
+ */
+const GLOBAL_KEY = Symbol.for('shep:notification-bus');
 
 /**
  * Get the notification event bus singleton.
  * Lazily creates the bus on first access.
+ *
+ * Uses globalThis to ensure a single instance across all module contexts
+ * (critical for Next.js where bundled routes and the server process
+ * may each get their own copy of module-level variables).
  */
 export function getNotificationBus(): NotificationBus {
-  busInstance ??= new EventEmitter<NotificationEventMap>();
-  return busInstance;
+  const g = globalThis as Record<symbol, NotificationBus | undefined>;
+  g[GLOBAL_KEY] ??= new EventEmitter<NotificationEventMap>();
+  return g[GLOBAL_KEY];
 }
 
 /**
@@ -44,8 +55,10 @@ export function getNotificationBus(): NotificationBus {
  * @internal
  */
 export function resetNotificationBus(): void {
-  if (busInstance !== null) {
-    busInstance.removeAllListeners();
+  const g = globalThis as Record<symbol, NotificationBus | undefined>;
+  const bus = g[GLOBAL_KEY];
+  if (bus) {
+    bus.removeAllListeners();
   }
-  busInstance = null;
+  g[GLOBAL_KEY] = undefined;
 }

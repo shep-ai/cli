@@ -1,0 +1,216 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: realtime-feature-status
+summary: >
+  Build real-time agent event streaming from backend to web UI. Phase 1 creates the
+  notification infrastructure (NotificationBus, NotificationWatcherService) with tests.
+  Phase 2 rewrites the SSE endpoint to use DB polling with per-connection cache. Phase 3
+  adds the Service Worker and rewrites the React hook. Phase 4 integrates the watcher
+  into server startup (CLI + dev-server) and validates. Phase 5 adds the sound system
+  (useSound hook + WAV library + Storybook). Phase 6 wires sounds into notifications
+  with favicon and branding. Phase 7 adds optimistic UI updates and SoundToggle component.
+  Phase 8 adds featureId matching, periodic polling fallback, state-transition toasts,
+  UI action sounds, and the E2E showcase test.
+
+relatedFeatures: []
+
+technologies:
+  - 'Node.js EventEmitter (typed)'
+  - 'Server-Sent Events (ReadableStream)'
+  - 'Service Workers'
+  - 'React 19'
+  - 'Next.js 16+'
+  - 'tsyringe DI'
+  - 'Vitest'
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Notification Infrastructure (TDD)'
+    description: >
+      Create NotificationBus (typed EventEmitter singleton on globalThis) and
+      NotificationWatcherService (DB-polling status/phase change detector). Write
+      tests first for the watcher service covering status transitions, phase
+      completions, terminal run cleanup, and feature name resolution.
+    parallel: false
+
+  - id: phase-2
+    name: 'SSE Endpoint Rewrite (TDD)'
+    description: >
+      Rewrite GET /api/agent-events to poll the database directly instead of
+      subscribing to the event bus. Implement per-connection cache with delta
+      detection. Add heartbeat, runId filtering, and cleanup on disconnect.
+      Write integration tests for SSE streaming behavior.
+    parallel: false
+
+  - id: phase-3
+    name: 'Service Worker + React Hook'
+    description: >
+      Create agent-events-sw.js Service Worker for SSE connection multiplexing
+      across browser tabs. Rewrite useAgentEvents hook to use SW with direct
+      EventSource fallback. Both paths implement exponential backoff reconnection.
+      Write unit tests for the hook.
+    parallel: false
+
+  - id: phase-4
+    name: 'Server Startup Integration + Validation'
+    description: >
+      Integrate NotificationWatcherService into CLI ui command and dev-server
+      startup. Add graceful shutdown. Run full test suite, typecheck, and lint.
+    parallel: false
+
+  - id: phase-5
+    name: 'Sound System (useSound Hook + WAV Library)'
+    description: >
+      Create useSound React hook backed by HTMLAudioElement with preloaded WAV files.
+      Add 28 WAV sound files across 8 categories (UI Actions, Toggles, Transitions,
+      Alerts, Swipes, Taps, Typing, Loops). Create useSoundEnabled hook with localStorage
+      persistence for global mute/unmute. Build Storybook sound catalog story.
+    parallel: false
+
+  - id: phase-6
+    name: 'Notification Sound Integration + Branding'
+    description: >
+      Wire sound playback into useNotifications hook with severity-based mapping
+      (Success → celebration, Error → caution, Warning → notification). Info-severity
+      events silently skipped to reduce noise. Add event deduplication via
+      processedCountRef index counter. Update browser notifications to use
+      favicon-light.svg icon. Add shep:select-feature CustomEvent for notification→drawer
+      navigation on WaitingApproval toasts.
+    parallel: false
+
+  - id: phase-7
+    name: 'Optimistic UI + SoundToggle Component'
+    description: >
+      Add optimistic UI updates to control center feature nodes from SSE events.
+      Create mapEventTypeToState and mapPhaseNameToLifecycle helpers in derive-feature-state.
+      Wire SSE events into control-center-inner and use-control-center-state. Create
+      SoundToggle component with Volume2/VolumeOff icons and add to app shell header.
+    parallel: false
+
+  - id: phase-8
+    name: 'Hardening: featureId matching, polling fallback, E2E showcase'
+    description: >
+      Add featureId field to NotificationEvent TypeSpec model. Match features by featureId
+      (not featureName) in SSE route and optimistic UI. Add periodic 5s polling fallback
+      when features are in active state. Add fallback state-transition toasts from server
+      refresh when SSE missed events. Wire UI action sounds (click, create, delete, close)
+      into control center. Add health endpoint for E2E pipeline verification. Add shep:sound-toggle
+      cross-instance sync via CustomEvent. Create E2E showcase test with audio recording.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/infrastructure/services/notifications/notification-bus.ts
+  - packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts
+  - src/presentation/web/public/agent-events-sw.js
+  - src/presentation/web/hooks/use-sound.ts
+  - src/presentation/web/hooks/use-sound-enabled.ts
+  - src/presentation/web/hooks/use-sound.stories.tsx
+  - src/presentation/web/hooks/agent-events-provider.tsx
+  - src/presentation/web/public/sounds/*.wav (28 files)
+  - src/presentation/web/components/common/sound-toggle/sound-toggle.tsx
+  - src/presentation/web/components/common/sound-toggle/sound-toggle.stories.tsx
+  - src/presentation/web/components/common/sound-toggle/index.ts
+  - src/presentation/web/app/api/agent-events/health/route.ts
+  - tests/e2e/web/realtime-showcase.spec.ts
+  - tests/e2e/web/fixtures/audio-recording.ts
+  - tests/e2e/web/helpers/sse-mock.ts
+
+filesToModify:
+  - src/presentation/web/app/api/agent-events/route.ts
+  - src/presentation/web/hooks/use-agent-events.ts
+  - src/presentation/web/hooks/use-notifications.ts
+  - src/presentation/web/hooks/use-notifications.stories.tsx
+  - src/presentation/web/dev-server.ts
+  - src/presentation/cli/commands/ui.command.ts
+  - src/presentation/web/components/common/feature-node/derive-feature-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/layouts/app-shell/app-shell.tsx
+  - src/presentation/web/components/common/repository-node/repository-node.tsx
+  - src/presentation/web/app/layout.tsx
+  - tsp/domain/entities/notification-event.tsp
+  - apis/json-schema/NotificationEvent.yaml
+  - packages/core/src/domain/generated/output.ts
+  - playwright.config.ts
+  - tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts
+  - tests/unit/infrastructure/services/notifications/notification-bus.test.ts
+  - tests/unit/infrastructure/services/notifications/notification.service.test.ts
+  - tests/unit/presentation/web/hooks/use-agent-events.test.ts
+  - tests/unit/presentation/web/hooks/use-notifications.test.ts
+  - tests/unit/presentation/cli/commands/ui.command.test.ts
+  - tests/integration/api/agent-events-sse.test.ts
+  - tests/unit/presentation/web/common/feature-node/derive-feature-state.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Two independent paths deliver real-time events:
+
+  **Path 1: CLI/Backend notifications** (NotificationWatcherService → NotificationBus)
+  - Polls agent_runs table every 3 seconds
+  - Detects status changes and phase completions
+  - Emits NotificationEvents through INotificationService
+  - Used for desktop notifications, CLI output, etc.
+
+  **Path 2: Web UI streaming** (SSE route → Service Worker → React hook → UI)
+  - SSE route polls DB every 500ms per connection
+  - Per-connection cache ensures only deltas are sent
+  - Service Worker multiplexes single connection across tabs
+  - React hook provides { events, lastEvent, connectionStatus }
+  - useNotifications dispatches toast, browser notification, and severity-mapped sound
+  - Control center feature nodes update optimistically from SSE events
+
+  Both paths read from the same DB tables but operate independently to avoid
+  cross-module singleton issues with Next.js Turbopack.
+
+  ## Key Design Decisions
+
+  ### 1. DB Polling Over Event Bus in SSE Route
+  Next.js Turbopack creates separate module contexts for route handlers. An
+  EventEmitter singleton in one context is invisible to another. The SSE route
+  polls the DB directly, making it fully self-contained.
+
+  ### 2. Per-Connection Cache with Seed-Then-Delta
+  On first observation, a feature's state is cached without emitting an event.
+  Subsequent polls emit only when status changes or new phases complete. This
+  prevents initial event bursts when a client connects.
+
+  ### 3. Service Worker Over SharedWorker
+  Service Workers have broader browser support (including Safari iOS) and
+  persist across page navigations. The SW manages SSE lifecycle (subscribe/
+  unsubscribe) based on active tab count.
+
+  ### 4. globalThis Singleton for NotificationBus
+  Symbol.for() key on globalThis survives Turbopack module duplication.
+  Reset function provided for test isolation.
+
+  ### 5. useSound Hook with HTMLAudioElement
+  Simple Audio element per sound, preloaded. WAV format for zero decoding latency.
+  Global mute via useSoundEnabled + localStorage. SoundToggle in app shell header.
+
+  ### 6. Severity-Based Sound Mapping
+  Success → celebration, Error → caution, Warning → notification. Info events silently
+  skipped. 3 severity levels trigger sounds. Dedup via processedCountRef index counter.
+
+  ### 7. Optimistic UI Updates from SSE
+  mapEventTypeToState converts SSE events to FeatureNodeState directly in the client.
+  No data refetch needed for visual state changes. deriveNodeState provides the
+  initial state derivation matching CLI feat ls logic.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Turbopack module isolation breaks singletons | SSE route polls DB directly; NotificationBus uses globalThis |
+  | Multiple tabs create redundant SSE connections | Service Worker multiplexes to single connection |
+  | SSE connection drops silently | Heartbeat every 30s; exponential backoff reconnection |
+  | DB polling load from many connections | Single-user tool; SW reduces to 1 connection; 500ms interval acceptable |
+  | Service Worker not available (HTTP, old browser) | Graceful fallback to direct EventSource |
+  | Browser blocks autoplay audio | play().catch() silently ignores; user gesture unlocks |
+  | Sound files increase bundle size | WAV files in /public (not bundled), small (~5-15KB each) |
+  | Stale node state after SSE disconnect | deriveNodeState re-derives from Feature + AgentRun on reconnect; 5s periodic polling fallback for active features |

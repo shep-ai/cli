@@ -1,0 +1,39 @@
+feature:
+  id: 039-rejection-feedback-isolation
+  name: rejection-feedback-isolation
+  number: 39
+  branch: feat/realtime-feature-status
+  lifecycle: implementation
+  createdAt: '2026-02-23T00:00:00Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 4
+    total: 4
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T00:00:00.000Z'
+  lastUpdatedBy: retroactive-spec
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-23T00:00:00Z'
+    completedBy: retroactive-spec
+prUrl: https://github.com/shep-ai/cli/pull/111
+errors:
+  current: null
+  history: []

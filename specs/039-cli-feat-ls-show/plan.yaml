@@ -1,0 +1,49 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+# Retroactive spec: documents work implemented without prior specification.
+
+name: cli-feat-ls-show
+summary: >
+  Single phase implementing all feat ls and feat show improvements: elapsed time from
+  phase timings, approval gates, status sorting, review labels, and inline rejection
+  feedback rendering.
+
+relatedFeatures:
+  - 039-realtime-feature-status
+
+technologies:
+  - 'Commander.js'
+  - 'chalk'
+  - 'Vitest'
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'CLI feat ls/show Improvements'
+    description: >
+      Rewrite feat ls with elapsed time computation, approval gate display, status
+      priority sorting, truncation, and review labels. Update feat show to render
+      rejection feedback inline after approval wait bars with phase-specific matching.
+      Write unit tests for phase timing + rejection rendering.
+    parallel: false
+
+filesToCreate:
+  - tests/unit/presentation/cli/commands/feat/show-phase-timing-rejections.test.ts
+
+filesToModify:
+  - src/presentation/cli/commands/feat/ls.command.ts
+  - src/presentation/cli/commands/feat/show.command.ts
+
+openQuestions: []
+
+content: |
+  ## Implementation Approach
+
+  Single-phase implementation since both ls and show changes are closely related
+  (shared constants like NODE_TO_REVIEW, consistent "Review X" labeling).
+
+  Key changes:
+  - ls.command.ts: +148/-63 lines (phase timing integration, new columns, sorting)
+  - show.command.ts: +70/-30 lines (inline rejection, phase matching, exported renderPhaseTimings)
+  - New test file: 279 lines covering phase timing and rejection rendering

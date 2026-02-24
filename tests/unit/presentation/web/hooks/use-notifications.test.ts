@@ -47,6 +47,7 @@ function createEvent(overrides?: Partial<NotificationEvent>): NotificationEvent 
   return {
     eventType: NotificationEventType.AgentCompleted,
     agentRunId: 'run-123',
+    featureId: 'feat-456',
     featureName: 'Test Feature',
     message: 'Agent completed successfully',
     severity: NotificationSeverity.Success,
@@ -110,7 +111,7 @@ describe('useNotifications', () => {
     });
   });
 
-  it('waitingApproval event triggers toast.warning', () => {
+  it('waitingApproval event triggers toast.warning with Review action', () => {
     const event = createEvent({
       eventType: NotificationEventType.WaitingApproval,
       severity: NotificationSeverity.Warning,
@@ -124,10 +125,14 @@ describe('useNotifications', () => {
 
     expect(mockToast.warning).toHaveBeenCalledWith('Deploy Feature', {
       description: 'Waiting for user approval',
+      action: {
+        label: 'Review',
+        onClick: expect.any(Function),
+      },
     });
   });
 
-  it('agentStarted event triggers toast.info', () => {
+  it('agentStarted (Info) event does not trigger toast', () => {
     const event = createEvent({
       eventType: NotificationEventType.AgentStarted,
       severity: NotificationSeverity.Info,
@@ -139,12 +144,10 @@ describe('useNotifications', () => {
 
     renderHook(() => useNotifications());
 
-    expect(mockToast.info).toHaveBeenCalledWith('Search Feature', {
-      description: 'Agent started running',
-    });
+    expect(mockToast.info).not.toHaveBeenCalled();
   });
 
-  it('phaseCompleted event triggers toast.info', () => {
+  it('phaseCompleted (Info) event does not trigger toast', () => {
     const event = createEvent({
       eventType: NotificationEventType.PhaseCompleted,
       severity: NotificationSeverity.Info,
@@ -157,9 +160,7 @@ describe('useNotifications', () => {
 
     renderHook(() => useNotifications());
 
-    expect(mockToast.info).toHaveBeenCalledWith('API Feature', {
-      description: 'Completed analyze phase',
-    });
+    expect(mockToast.info).not.toHaveBeenCalled();
   });
 
   it('browser Notification created when permission granted', () => {
@@ -175,7 +176,7 @@ describe('useNotifications', () => {
     renderHook(() => useNotifications());
 
     expect(MockNotification.instances).toHaveLength(1);
-    expect(MockNotification.instances[0].title).toBe('Notify Feature');
+    expect(MockNotification.instances[0].title).toBe('Shep: Notify Feature');
     expect(MockNotification.instances[0].options?.body).toBe('Agent done');
   });
 

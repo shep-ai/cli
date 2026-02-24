@@ -41,6 +41,7 @@ vi.mock('@/infrastructure/di/container.js', () => ({
       if (
         token === 'IAgentRunRepository' ||
         token === 'IPhaseTimingRepository' ||
+        token === 'IFeatureRepository' ||
         token === 'INotificationService'
       ) {
         return {};

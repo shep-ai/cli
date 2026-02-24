@@ -1324,6 +1324,10 @@ export type NotificationEvent = {
    */
   agentRunId: string;
   /**
+   * ID of the feature that triggered this event
+   */
+  featureId: string;
+  /**
    * Human-readable feature name
    */
   featureName: string;

@@ -1,0 +1,259 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: realtime-feature-status
+number: 039
+branch: feat/realtime-feature-status
+oneLiner: Real-time agent event streaming to the web UI via DB-polling SSE, Service Worker, notification sounds, and optimistic UI
+userQuery: >
+  Feature: When feature status is updating real time update the UI.
+  We already have SSE we can reuse them.
+summary: >
+  Build the real-time notification infrastructure that streams agent lifecycle events
+  (status transitions, phase completions) from the backend to the web UI. The SSE route
+  polls the database directly (avoiding cross-module singleton issues with Next.js
+  Turbopack), a Service Worker multiplexes a single SSE connection across browser tabs,
+  and a React hook delivers events to UI components. Backend services (NotificationBus,
+  NotificationWatcherService) detect status transitions via DB polling and dispatch
+  NotificationEvent objects. Both the CLI `shep ui` command and the dev-server initialize
+  the watcher on startup.
+
+  Additionally: a sound system (useSound hook + 28 WAV sound files) provides audio
+  feedback on notification events, mapped by severity (success → celebration, error →
+  caution, warning → notification, info → button). A SoundToggle component with
+  localStorage persistence lets users mute/unmute globally. The control center applies
+  optimistic UI updates to feature nodes based on SSE events (state transitions, phase
+  progress) via mapEventTypeToState and mapPhaseNameToLifecycle helpers.
+phase: Implementation
+sizeEstimate: L
+
+relatedFeatures: []
+
+technologies:
+  - Next.js 16+ (App Router, route handlers, force-dynamic)
+  - React 19 (hooks, useCallback, useEffect, useRef, useState)
+  - Server-Sent Events (EventSource API, ReadableStream)
+  - Service Workers (message passing, lifecycle events)
+  - Node.js EventEmitter (typed, globalThis singleton)
+  - TypeSpec-generated NotificationEvent model
+  - tsyringe DI container
+  - SQLite (agent_runs, phase_timings tables)
+  - Web Audio API (HTMLAudioElement for sound playback)
+  - localStorage (sound-enabled preference persistence)
+  - lucide-react (Volume2, VolumeOff icons for SoundToggle)
+  - shadcn/ui Button (ghost variant for SoundToggle)
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  The web UI control center needs real-time updates when agent status changes (e.g.,
+  agent starts running, completes a phase, fails, or requires approval). Without
+  real-time events, users must manually refresh to see status changes.
+
+  **Key challenge**: Next.js Turbopack bundles route handlers and server-side code
+  into separate module contexts, breaking in-process EventEmitter singletons. An
+  event bus created in one module context is invisible to route handlers in another.
+
+  **Solution**: The SSE route polls the database directly instead of relying on an
+  in-process event bus for cross-module communication. A per-connection cache ensures
+  only deltas (status changes, new phase completions) are streamed to clients.
+  A Service Worker multiplexes a single SSE connection across all open browser tabs
+  to avoid redundant connections.
+
+  ## Success Criteria
+
+  - [x] SSE endpoint at GET /api/agent-events streams NotificationEvent objects
+  - [x] Per-connection cache tracks last-seen state; only deltas are emitted
+  - [x] Optional ?runId query parameter filters events to a specific agent run
+  - [x] Heartbeat comments sent every 30s to keep connection alive
+  - [x] Service Worker maintains single SSE connection shared across tabs
+  - [x] Service Worker broadcasts events and connection status to all tabs
+  - [x] React hook (useAgentEvents) uses SW with direct EventSource fallback
+  - [x] Exponential backoff reconnection with stable-connection reset
+  - [x] NotificationBus provides typed EventEmitter singleton via globalThis
+  - [x] NotificationWatcherService polls DB for status transitions and phase completions
+  - [x] CLI `shep ui` command initializes and starts the notification watcher
+  - [x] Dev-server initializes and starts the notification watcher
+  - [x] Graceful shutdown stops the watcher in both CLI and dev-server
+  - [x] Unit tests cover NotificationWatcherService status/phase detection
+  - [x] Unit tests cover useAgentEvents hook (SW path and fallback path)
+  - [x] Integration tests cover SSE endpoint streaming behavior
+  - [x] useSound hook plays WAV audio files with volume control and loop support
+  - [x] useSoundEnabled hook persists mute/unmute state in localStorage
+  - [x] SoundToggle component renders Volume2/VolumeOff icon button
+  - [x] useNotifications wires severity-mapped sounds to notification events
+  - [x] Browser notifications use favicon-light.svg icon
+  - [x] Storybook stories for useSound hook with full sound catalog
+  - [x] Storybook stories for SoundToggle component
+  - [x] Control center feature nodes update optimistically from SSE events
+  - [x] mapEventTypeToState maps NotificationEventType to FeatureNodeState
+  - [x] mapPhaseNameToLifecycle maps SSE phase names to lifecycle phases
+  - [x] deriveNodeState derives node state from Feature + AgentRun (mirrors CLI)
+  - [x] deriveProgress derives task completion percentage
+  - [x] NotificationEvent TypeSpec model includes featureId field
+  - [x] Features matched by featureId (not featureName) in optimistic updates
+  - [x] Debounced router.refresh() for background data reconciliation
+  - [x] Periodic 5s polling fallback when features are in active state
+  - [x] Fallback state-transition toasts from server refresh when SSE missed
+  - [x] Agent events health endpoint for E2E testing
+  - [x] AgentEventsProvider context shares event stream across consumers
+  - [x] shep:sound-toggle cross-instance sync via CustomEvent
+  - [x] shep:select-feature notification→drawer navigation via CustomEvent
+  - [x] ?sse=direct query parameter for debugging (bypasses Service Worker)
+  - [x] UI action sounds (click, create, delete, close) in control center
+  - [x] E2E showcase test with audio recording and live agent lifecycle
+
+  ## Functional Requirements
+
+  - **FR-1: SSE Endpoint** — GET /api/agent-events streams Server-Sent Events with
+    `event: notification` type. Each event data is a JSON-serialized NotificationEvent.
+    Uses DB polling (500ms interval) with per-connection cache to emit only deltas.
+
+  - **FR-2: Status Change Detection** — When an agent run's status changes (e.g.,
+    pending → running, running → completed), emit the corresponding NotificationEvent
+    with mapped eventType and severity.
+
+  - **FR-3: Phase Completion Detection** — When a phase timing record gains a
+    completedAt timestamp, emit a PhaseCompleted NotificationEvent with the phase name.
+
+  - **FR-4: Connection Management** — Heartbeat comments every 30s keep connections
+    alive. Client disconnect triggers cleanup of polling intervals and stream closure.
+
+  - **FR-5: Service Worker Multiplexing** — A Service Worker (agent-events-sw.js)
+    maintains a single SSE connection and broadcasts events to all connected tabs via
+    postMessage. Subscribers register via { type: 'subscribe', runId? } messages.
+    Connection starts on first subscriber, closes when last subscriber leaves.
+
+  - **FR-6: React Hook** — useAgentEvents() returns { events, lastEvent, connectionStatus }.
+    Uses Service Worker when available, falls back to direct EventSource. Both paths
+    implement exponential backoff reconnection (1s base, 30s max) with stable-connection
+    reset after 5 seconds. A `?sse=direct` query parameter bypasses the Service Worker
+    for debugging. An AgentEventsProvider React context wraps the hook so multiple consumers
+    (useControlCenterState, useNotifications) share a single event stream instance.
+
+  - **FR-7: Notification Watcher** — NotificationWatcherService polls agent_runs table,
+    tracks per-run state (status + completed phases), emits NotificationEvents through
+    INotificationService. Tracks active runs and cleans up terminal ones.
+
+  - **FR-8: Notification Bus** — Typed EventEmitter singleton stored on globalThis via
+    Symbol.for() to survive module boundary issues. Provides pub/sub for notification
+    fan-out (SSE, desktop notifications, etc.).
+
+  - **FR-9: Sound System** — useSound(name, options) hook preloads WAV audio files from
+    /sounds/*.wav. Supports volume control (0-1), loop mode, play/stop/isPlaying API.
+    28 sounds in 8 categories: UI Actions, Toggles, Transitions, Alerts, Swipes, Taps,
+    Typing, Loops. Respects global sound-enabled state via useSoundEnabled hook.
+
+  - **FR-10: Sound-Enabled Persistence** — useSoundEnabled() hook reads/writes boolean
+    state to localStorage key 'shep-sound-enabled'. Defaults to enabled. SoundToggle
+    component provides Volume2/VolumeOff icon button in the app shell header. A custom
+    `shep:sound-toggle` event synchronizes state across all useSoundEnabled instances
+    in the same tab (e.g., SoundToggle and useSound hooks share the same mute state).
+
+  - **FR-11: Notification Sound Integration** — useNotifications() maps notification
+    severity to sounds: Success → celebration, Error → caution, Warning → notification.
+    Info-severity events are silently skipped (no toast, notification, or sound) to reduce
+    noise from routine AgentStarted/PhaseCompleted events. Deduplication uses a
+    processedCountRef index counter (tracking how many events from the append-only array
+    have been processed) rather than a Set with compound keys — simpler and leverages the
+    append-only events array from useAgentEventsContext. Also dispatches toast (sonner) and
+    browser Notification. WaitingApproval toasts include a "Review" action button that fires
+    a `shep:select-feature` CustomEvent for notification→drawer navigation.
+
+  - **FR-12: Optimistic UI Updates** — Control center feature nodes update immediately
+    from SSE events without waiting for data refetch. Features are matched by
+    `event.featureId` (not featureName) for reliable identification. mapEventTypeToState
+    converts NotificationEventType to FeatureNodeState (AgentStarted/PhaseCompleted →
+    running, WaitingApproval → action-required, AgentCompleted → done, AgentFailed →
+    error). mapPhaseNameToLifecycle maps phase names (analyze, requirements, research,
+    plan, implement, merge) to lifecycle phases. A debounced `router.refresh()` fires 3s
+    after the last SSE event for background data reconciliation.
+
+  - **FR-13: Feature State Derivation** — deriveNodeState(feature, agentRun) derives the
+    visual node state from a Feature and its optional AgentRun, with priority: waiting_approval
+    → action-required, failed → error, interrupted/cancelled → blocked, completed → done,
+    running/pending → running, fallback to plan tasks. deriveProgress returns task completion %.
+
+  - **FR-14: Feature ID Matching** — NotificationEvent includes a `featureId` field (added
+    to the TypeSpec model) so the SSE endpoint and client can match events to features by
+    stable ID rather than the mutable featureName string.
+
+  - **FR-15: Fallback State-Transition Toasts** — When server-refresh detects a feature
+    state transition that SSE did not already deliver (e.g., SSE was disconnected), the
+    control center fires a fallback toast: done → success, action-required → warning with
+    "Review" action, error → error. Prevents duplicate toasts by checking the SSE events
+    array for a matching featureId + state.
+
+  - **FR-16: Periodic Polling Fallback** — When any feature is in an active state (running,
+    action-required, creating), the control center polls `router.refresh()` every 5 seconds
+    as a belt-and-suspenders approach alongside SSE. Stops when no features are active.
+
+  - **FR-17: Agent Events Health Endpoint** — GET /api/agent-events/health returns JSON
+    with the last-polled timestamp and event counts, used by E2E tests to verify the SSE
+    pipeline is operational.
+
+  - **FR-18: UI Action Sounds** — Control center wires sounds into interactive actions:
+    tap_01 for node clicks, transition_up for feature creation, transition_down for feature
+    deletion and drawer close, caution for rejection. These are separate from notification
+    sounds (FR-11) and play directly via useSound in use-control-center-state.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: No Cross-Module Singleton Issues** — SSE route polls DB directly instead
+    of relying on in-process event bus, avoiding Turbopack module boundary problems.
+
+  - **NFR-2: Tab Efficiency** — Service Worker ensures only one SSE connection per
+    browser regardless of how many tabs are open.
+
+  - **NFR-3: Resilient Connections** — Exponential backoff with jitter prevents
+    thundering herd on server restart. Stable-connection detection resets backoff.
+
+  - **NFR-4: Clean Architecture** — NotificationWatcherService depends on repository
+    interfaces (IAgentRunRepository, IPhaseTimingRepository, IFeatureRepository) and
+    INotificationService. No direct DB access.
+
+  - **NFR-5: Testability** — All services are constructor-injectable. NotificationBus
+    and NotificationWatcher have reset functions for test isolation.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/app/api/agent-events/route.ts` | High | Rewritten: DB-polling SSE with per-connection cache |
+  | `src/presentation/web/public/agent-events-sw.js` | High | New: Service Worker for SSE multiplexing across tabs |
+  | `src/presentation/web/hooks/use-agent-events.ts` | High | Rewritten: SW-first with EventSource fallback |
+  | `packages/core/src/infrastructure/services/notifications/notification-bus.ts` | High | New: typed EventEmitter singleton on globalThis |
+  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | High | New: DB-polling status/phase change detector |
+  | `src/presentation/cli/commands/ui.command.ts` | Medium | Modified: initializes notification watcher on startup |
+  | `src/presentation/web/dev-server.ts` | Medium | Modified: initializes notification watcher on startup |
+  | `src/presentation/web/hooks/use-sound.ts` | High | New: useSound hook with HTMLAudioElement preloading |
+  | `src/presentation/web/hooks/use-sound-enabled.ts` | Medium | New: localStorage-backed sound enabled state |
+  | `src/presentation/web/hooks/use-sound.stories.tsx` | Medium | New: Storybook sound catalog with all 28 sounds |
+  | `src/presentation/web/hooks/use-notifications.ts` | High | Modified: wired severity-mapped sounds + favicon branding |
+  | `src/presentation/web/public/sounds/*.wav` | High | New: 28 WAV sound files across 8 categories |
+  | `src/presentation/web/components/common/sound-toggle/` | Medium | New: SoundToggle component with stories |
+  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | High | Enhanced: optimistic UI state derivation + event mapping |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | High | Modified: wired SSE events + UI action sounds |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Extended: optimistic SSE updates, debounced reconciliation, periodic polling fallback, state-transition toasts |
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | Medium | Modified: integrated SoundToggle in header |
+  | `src/presentation/web/hooks/agent-events-provider.tsx` | High | New: AgentEventsProvider React context for shared event stream |
+  | `src/presentation/web/app/api/agent-events/health/route.ts` | Medium | New: health endpoint for E2E testing |
+  | `src/presentation/web/app/layout.tsx` | Low | Modified: added favicon meta tags |
+  | `tsp/domain/entities/notification-event.tsp` | Medium | Modified: added featureId field |
+  | `tests/e2e/web/realtime-showcase.spec.ts` | Medium | New: E2E test covering full real-time lifecycle |
+
+  ## Dependencies
+
+  **Existing infrastructure used**:
+  - NotificationEvent TypeSpec model (eventType, agentRunId, featureId, featureName, phaseName, severity)
+  - IAgentRunRepository, IPhaseTimingRepository, IFeatureRepository interfaces
+  - INotificationService interface
+  - tsyringe DI container
+  - AgentRunStatus, NotificationEventType, NotificationSeverity enums
+  - sonner toast library (for notification toasts)
+  - shadcn/ui Button component (for SoundToggle)
+  - lucide-react icons (Volume2, VolumeOff)

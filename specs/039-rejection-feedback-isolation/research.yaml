@@ -1,0 +1,84 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+# Retroactive spec: documents work implemented without prior specification.
+
+name: rejection-feedback-isolation
+summary: >
+  Technical research for fixing rejection feedback isolation by phase. Key decision:
+  tag each RejectionFeedbackEntry with a phase field and filter in prompts, rather than
+  using separate state arrays per phase. Merge node rewritten to consume feedback and
+  break the infinite approval loop.
+
+relatedFeatures:
+  - 036-drawer-approval-rejection
+
+technologies:
+  - 'LangGraph (state annotations, node functions)'
+  - 'tsyringe (DI container, injection tokens)'
+  - 'Vitest (unit + integration testing)'
+
+relatedLinks: []
+
+decisions:
+  - title: 'Rejection feedback isolation strategy'
+    chosen: 'Phase-tagged entries with filter-at-consumption'
+    rejected:
+      - >
+        Separate state arrays per phase (requirementsRejections, planRejections, etc.) —
+        Would require schema changes to the agent run state annotation and migration of
+        existing data. Fragile: adding new phases requires adding new arrays.
+      - >
+        Reset rejection array on phase transition — Loses historical context that may be
+        useful for debugging. Also doesn't solve the leakage problem if a phase is re-entered.
+    rationale: >
+      Adding a `phase` field to the existing RejectionFeedbackEntry model is minimally
+      invasive. Each prompt template filters by `entry.phase === currentPhase` before
+      including feedback. This preserves all historical data while ensuring each phase
+      only sees its own rejections. Backward compatible: entries without a phase field
+      fall into a '_legacy' bucket.
+
+  - title: 'Merge node infinite loop fix'
+    chosen: 'Rewrite merge node to read rejection feedback from state and incorporate into prompt'
+    rejected:
+      - >
+        Add a retry counter to break the loop — Masks the root cause. The loop happens
+        because the merge node ignores rejection feedback, so it would just fail after
+        N retries with the same bad output.
+    rationale: >
+      The merge node was re-requesting approval with identical content because it never
+      read the rejection feedback from state. The fix reads `state.rejectionFeedback`,
+      filters for merge-phase entries, and includes them in the merge prompt so the LLM
+      can adjust its output based on user feedback. This breaks the loop naturally because
+      the next approval request will contain different content.
+
+openQuestions: []
+
+content: |
+  ## Root Cause Analysis
+
+  ### Merge Node Infinite Loop
+  The merge node's approval request flow was:
+  1. User rejects merge → rejection stored in state
+  2. Graph routes back to merge node
+  3. Merge node re-runs WITHOUT reading rejection feedback
+  4. Produces identical output → requests same approval → user rejects again → loop
+
+  Fix: merge.node.ts now reads state.rejectionFeedback, filters for merge-phase entries,
+  and includes them in the merge prompt.
+
+  ### Cross-Phase Leakage
+  Rejection feedback was stored as a flat array. When plan prompt was constructed, it
+  included ALL rejections (including requirements-phase ones). The requirements rejection
+  context confused the plan LLM, causing it to re-address already-resolved issues.
+
+  Fix: Each prompt template filters by `entry.phase === currentPhase`. The reject use case
+  now stores the current graph node name as the phase field.
+
+  ## Test Coverage
+
+  - `reject-feedback-propagation.test.ts` — 485 lines, verifies phase-specific feedback routing
+  - `merge-flow.test.ts` — Extended for rejection handling
+  - `reject-flow.test.ts` — Extended for phase isolation
+  - `container-reject-token.test.ts` — Verifies DI registration
+  - `merge.node.test.ts` — Extended for feedback consumption
+  - `merge-prompts.test.ts` — Extended for filtered feedback
