@@ -253,7 +253,6 @@ export class GitPrService implements IGitPrService {
     )}\n[Log truncated at ${maxChars} chars — full log available via gh run view ${runId}]`;
   }
 
-
   private parseGitError(error: unknown): GitPrError {
     const message = error instanceof Error ? error.message : String(error);
     const cause = error instanceof Error ? error : undefined;
