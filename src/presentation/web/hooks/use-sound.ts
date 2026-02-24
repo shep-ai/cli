@@ -77,7 +77,7 @@ export function useSound(name: SoundName, options: UseSoundOptions = {}): UseSou
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = 0;
-    audio.play().catch(() => {
+    audio.play()?.catch(() => {
       // Browser may block autoplay without user gesture — silently ignore
     });
     isPlayingRef.current = true;

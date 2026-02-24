@@ -465,6 +465,8 @@ describe('NotificationWatcherService', () => {
 
   describe('feature name resolution', () => {
     it('should resolve actual feature name from repository', async () => {
+      await bootstrapWithEmptyRuns();
+
       const run = createMockAgentRun({
         id: 'run-1',
         status: AgentRunStatus.running,
@@ -477,8 +479,7 @@ describe('NotificationWatcherService', () => {
       vi.mocked(runRepo.list).mockResolvedValue([run]);
       vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
 
-      watcher.start();
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(3000);
 
       expect(featureRepo.findById).toHaveBeenCalledWith('feat-1');
       expect(notificationService.receivedEvents).toHaveLength(1);
@@ -506,6 +507,8 @@ describe('NotificationWatcherService', () => {
     });
 
     it('should fall back to agent id when feature repository throws', async () => {
+      await bootstrapWithEmptyRuns();
+
       const run = createMockAgentRun({
         id: 'run-1',
         status: AgentRunStatus.running,
@@ -516,8 +519,7 @@ describe('NotificationWatcherService', () => {
       vi.mocked(runRepo.list).mockResolvedValue([run]);
       vi.mocked(phaseRepo.findByRunId).mockResolvedValue([]);
 
-      watcher.start();
-      await vi.advanceTimersByTimeAsync(0);
+      await vi.advanceTimersByTimeAsync(3000);
 
       expect(notificationService.receivedEvents).toHaveLength(1);
       expect(notificationService.receivedEvents[0]!.featureName).toBe('Agent run-1');

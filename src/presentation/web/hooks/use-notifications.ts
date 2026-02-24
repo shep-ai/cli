@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { NotificationSeverity } from '@shepai/core/domain/generated/output';
@@ -49,12 +49,15 @@ export function useNotifications(): UseNotificationsResult {
   const warningSound = useSound('notification', { volume: 0.5 });
   const infoSound = useSound('button', { volume: 0.5 });
 
-  const soundsByName: Record<string, { play: () => void }> = {
-    celebration: successSound,
-    caution: errorSound,
-    notification: warningSound,
-    button: infoSound,
-  };
+  const soundsByName = useMemo<Record<string, { play: () => void }>>(
+    () => ({
+      celebration: successSound,
+      caution: errorSound,
+      notification: warningSound,
+      button: infoSound,
+    }),
+    [successSound, errorSound, warningSound, infoSound]
+  );
 
   const [browserPermissionState, setBrowserPermissionState] = useState<NotificationPermission>(
     () => {

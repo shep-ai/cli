@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
@@ -29,12 +29,15 @@ function NotificationDemo() {
   const warningSound = useSound('notification', { volume: 0.5 });
   const infoSound = useSound('button', { volume: 0.5 });
 
-  const soundsByName: Record<string, { play: () => void }> = {
-    celebration: successSound,
-    caution: errorSound,
-    notification: warningSound,
-    button: infoSound,
-  };
+  const soundsByName = useMemo<Record<string, { play: () => void }>>(
+    () => ({
+      celebration: successSound,
+      caution: errorSound,
+      notification: warningSound,
+      button: infoSound,
+    }),
+    [successSound, errorSound, warningSound, infoSound]
+  );
 
   const simulateNotification = useCallback(
     (event: DemoEvent) => {
