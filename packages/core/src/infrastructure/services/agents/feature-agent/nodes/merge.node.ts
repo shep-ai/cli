@@ -175,7 +175,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
             log.info('No CI run detected after push — skipping CI watch');
           } else {
             let runUrl = initialCiStatus.runUrl;
-            ciFixStatus = 'watching';
 
             // Initial CI watch
             let watchResult;
@@ -190,7 +189,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
                   failureSummary: 'CI watch timed out',
                   outcome: 'timeout',
                 });
-                ciFixStatus = 'timeout';
                 await handleCiTerminalFailure(
                   feature,
                   prUrl,
@@ -219,7 +217,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
                 }
 
                 // Fetch failure logs
-                ciFixStatus = 'fixing';
                 const runId = extractRunId(runUrl) ?? '';
                 const failureLogs = await deps.gitPrService.getFailureLogs(
                   runId,
@@ -245,7 +242,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
                 if (updatedCiStatus.runUrl) runUrl = updatedCiStatus.runUrl;
 
                 // Watch CI after fix
-                ciFixStatus = 'watching';
                 let fixWatchResult;
                 try {
                   fixWatchResult = await deps.gitPrService.watchCi(cwd, branch, timeoutMs);
@@ -287,7 +283,6 @@ export function createMergeNode(deps: MergeNodeDeps) {
 
               // Handle terminal failure states
               if (ciFixStatus === 'exhausted' || ciFixStatus === 'timeout') {
-                ciStatus = CiStatus.Failure as unknown as string;
                 await handleCiTerminalFailure(
                   feature,
                   prUrl,

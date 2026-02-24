@@ -5,7 +5,7 @@ feature:
   branch: feat/041-ci-watch-fix-loop
   lifecycle: review
   createdAt: '2026-02-24T15:44:27Z'
-prUrl: 'https://github.com/shep-ai/cli/pull/119'
+prUrl: https://github.com/shep-ai/cli/pull/119
 status:
   phase: in-review
   progress:

@@ -1,30 +1,26 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: ci-watch-fix-loop
-number: 041
+number: 41
 branch: feat/041-ci-watch-fix-loop
 oneLiner: Watch GitHub Actions after push and autonomously fix CI failures in a loop
-
 userQuery: >
   Feature: watch for gh actions after push
 
-  at merge step, if we have push or/and PR flag enabled, after push we must wait for gh actions using gh tool. this should be part of pr/push prompt step! Yes it may take a while, cicd may fail, agent will need to iteratere over - fix/push/watch cycle. we must track that in some efficient, scalable and robust way
-
+  at merge step, if we have push or/and PR flag enabled, after push we must wait
+  for gh actions using gh tool. this should be part of pr/push prompt step! Yes
+  it may take a while, cicd may fail, agent will need to iteratere over -
+  fix/push/watch cycle. we must track that in some efficient, scalable and
+  robust way
 summary: >
-  After the merge node pushes a branch or creates a PR, the agent must automatically
-  watch GitHub Actions CI via the `gh` CLI and iterate through a fix/push/watch cycle
-  if CI fails. The merge node's state machine is extended with CI polling, failure log
-  retrieval, bounded retry tracking, and a dedicated fix prompt so the agent can
-  self-heal CI failures autonomously. All iteration state persists through LangGraph
-  checkpointing, making the loop resumable after worker restarts.
-
+  After the merge node pushes a branch or creates a PR, the agent must
+  automatically watch GitHub Actions CI via the `gh` CLI and iterate through a
+  fix/push/watch cycle if CI fails. The merge node's state machine is extended
+  with CI polling, failure log retrieval, bounded retry tracking, and a
+  dedicated fix prompt so the agent can self-heal CI failures autonomously. All
+  iteration state persists through LangGraph checkpointing, making the loop
+  resumable after worker restarts.
 phase: Requirements
 sizeEstimate: M
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - LangGraph (state machine nodes, conditional edge routing)
   - gh CLI (gh run watch, gh run list, gh run view --log-failed)
@@ -33,140 +29,144 @@ technologies:
   - tsyringe (dependency injection for service resolution)
   - TypeSpec (domain model updates for CI iteration tracking)
   - Commander.js (no changes needed, flags already exist)
-  - WorkflowConfig (Settings.workflow — new ciMaxFixAttempts and ciWatchTimeoutMs fields)
-
+  - >-
+    WorkflowConfig (Settings.workflow — new ciMaxFixAttempts and
+    ciWatchTimeoutMs fields)
 relatedLinks: []
-
-# Open questions (must be resolved before implementation)
 openQuestions:
   - question: >
-      What is the maximum number of fix/push/watch iterations allowed before the agent
-      gives up and marks the feature as failed?
+      What is the maximum number of fix/push/watch iterations allowed before the
+      agent gives up and marks the feature as failed?
     id: oq-1
     resolved: true
     options:
-      - option: 'Fixed at 3 (not configurable)'
+      - option: Fixed at 3 (not configurable)
         description: >
-          Hardcode maxCiFixAttempts=3 with no user setting. Simplest implementation,
-          no WorkflowConfig changes needed. Downside: no flexibility for projects with
-          flaky tests or large CI pipelines that may legitimately need more attempts.
+          Hardcode maxCiFixAttempts=3 with no user setting. Simplest
+          implementation, no WorkflowConfig changes needed. Downside: no
+          flexibility for projects with flaky tests or large CI pipelines that
+          may legitimately need more attempts.
         selected: false
-      - option: 'Configurable via WorkflowConfig (default 3)'
+      - option: Configurable via WorkflowConfig (default 3)
         description: >
-          Add ciMaxFixAttempts to Settings.workflow with a default of 3. Users can
-          override globally. Aligns with how other bounded retries work in the codebase
-          (maxRetries pattern). Small extra effort to wire through WorkflowConfig but
-          provides meaningful flexibility without per-feature complexity.
+          Add ciMaxFixAttempts to Settings.workflow with a default of 3. Users
+          can override globally. Aligns with how other bounded retries work in
+          the codebase (maxRetries pattern). Small extra effort to wire through
+          WorkflowConfig but provides meaningful flexibility without per-feature
+          complexity.
         selected: true
-      - option: 'Per-feature override + global WorkflowConfig default'
+      - option: Per-feature override + global WorkflowConfig default
         description: >
-          Allow both a global default in WorkflowConfig and a per-run override at
-          feature invocation time. Maximum flexibility but significantly more complexity
-          — requires CLI flag changes, state channel, and merge node changes. Premature
-          for an initial implementation.
+          Allow both a global default in WorkflowConfig and a per-run override
+          at feature invocation time. Maximum flexibility but significantly more
+          complexity — requires CLI flag changes, state channel, and merge node
+          changes. Premature for an initial implementation.
         selected: false
     selectionRationale: >
-      Configurable via WorkflowConfig (default 3) is recommended because it follows the
-      existing maxRetries pattern in the codebase, provides flexibility for different
-      project CI environments without per-feature complexity, and requires minimal extra
-      implementation effort beyond the core feature work.
-    answer: 'Configurable via WorkflowConfig (default 3)'
-
+      Configurable via WorkflowConfig (default 3) is recommended because it
+      follows the existing maxRetries pattern in the codebase, provides
+      flexibility for different project CI environments without per-feature
+      complexity, and requires minimal extra implementation effort beyond the
+      core feature work.
+    answer: Configurable via WorkflowConfig (default 3)
   - question: >
       When CI fails, what failure context should the agent receive: full logs, a
       truncated excerpt, or a structured summary from gh run view --log-failed?
     id: oq-2
     resolved: true
     options:
-      - option: 'Full logs (no truncation)'
+      - option: Full logs (no truncation)
         description: >
-          Fetch complete `gh run view --log-failed` output and pass it verbatim to the
-          executor. Maximally informative but logs can easily exceed 100k+ characters,
-          burning context window and degrading fix quality on irrelevant noise.
+          Fetch complete `gh run view --log-failed` output and pass it verbatim
+          to the executor. Maximally informative but logs can easily exceed
+          100k+ characters, burning context window and degrading fix quality on
+          irrelevant noise.
         selected: false
-      - option: 'Truncated full logs (configurable limit, default 50k chars)'
+      - option: Truncated full logs (configurable limit, default 50k chars)
         description: >
-          Fetch full logs via `gh run view --log-failed` but truncate at a configurable
-          character limit (ciLogMaxChars in WorkflowConfig, default 50,000). Truncation
-          happens from the end — keep the first N chars (most failures surface early).
-          Balances detail with context window efficiency. Works for 95% of real CI
-          failures. A note is appended when truncation occurs so the executor knows.
+          Fetch full logs via `gh run view --log-failed` but truncate at a
+          configurable character limit (ciLogMaxChars in WorkflowConfig, default
+          50,000). Truncation happens from the end — keep the first N chars
+          (most failures surface early). Balances detail with context window
+          efficiency. Works for 95% of real CI failures. A note is appended when
+          truncation occurs so the executor knows.
         selected: true
-      - option: 'Structured summary only (step names + exit codes)'
+      - option: Structured summary only (step names + exit codes)
         description: >
-          Parse `gh run view --json` output to extract failing step names and exit codes,
-          producing a compact structured summary. Very token-efficient but loses the
-          actual error messages, stack traces, and test output that the executor needs
-          to produce a correct fix. Not recommended as the sole context source.
+          Parse `gh run view --json` output to extract failing step names and
+          exit codes, producing a compact structured summary. Very
+          token-efficient but loses the actual error messages, stack traces, and
+          test output that the executor needs to produce a correct fix. Not
+          recommended as the sole context source.
         selected: false
     selectionRationale: >
-      Truncated full logs with a configurable 50k char default is recommended because
-      real CI failures (lint errors, type errors, failing tests) require actual error
-      messages and stack traces to fix correctly — a structured summary loses too much
-      signal. The 50k limit covers the vast majority of real failures while protecting
-      the context window. The configurable limit via WorkflowConfig allows tuning without
-      code changes.
-    answer: 'Truncated full logs (configurable limit, default 50k chars)'
-
+      Truncated full logs with a configurable 50k char default is recommended
+      because real CI failures (lint errors, type errors, failing tests) require
+      actual error messages and stack traces to fix correctly — a structured
+      summary loses too much signal. The 50k limit covers the vast majority of
+      real failures while protecting the context window. The configurable limit
+      via WorkflowConfig allows tuning without code changes.
+    answer: Truncated full logs (configurable limit, default 50k chars)
   - question: >
-      Should CI watch timeout be configurable via global WorkflowConfig only, or also
-      overridable per-feature at invocation time?
+      Should CI watch timeout be configurable via global WorkflowConfig only, or
+      also overridable per-feature at invocation time?
     id: oq-3
     resolved: true
     options:
-      - option: 'Global WorkflowConfig only (ciWatchTimeoutMs, default 10 min)'
+      - option: Global WorkflowConfig only (ciWatchTimeoutMs, default 10 min)
         description: >
-          Add ciWatchTimeoutMs to Settings.workflow with a default of 600,000ms (10
-          minutes). All features share the same timeout. Simple to implement, consistent
-          behavior. Covers the common case — most CI pipelines run in under 10 minutes.
-          Per-feature overrides can be added later if a concrete need emerges.
+          Add ciWatchTimeoutMs to Settings.workflow with a default of 600,000ms
+          (10 minutes). All features share the same timeout. Simple to
+          implement, consistent behavior. Covers the common case — most CI
+          pipelines run in under 10 minutes. Per-feature overrides can be added
+          later if a concrete need emerges.
         selected: true
-      - option: 'Per-feature override + global default'
+      - option: Per-feature override + global default
         description: >
-          Allow a per-feature timeout override via CLI flag or feature config. Adds
-          complexity to CLI argument parsing, state channels, and merge node logic.
-          No current user need identified — premature optimization for an initial
-          implementation.
+          Allow a per-feature timeout override via CLI flag or feature config.
+          Adds complexity to CLI argument parsing, state channels, and merge
+          node logic. No current user need identified — premature optimization
+          for an initial implementation.
         selected: false
     selectionRationale: >
-      Global WorkflowConfig only is recommended for the initial implementation because
-      it satisfies the immediate need (configurable timeout) without adding CLI/state
-      complexity. The existing watchCi() already accepts a timeoutMs parameter, so
-      threading in the global setting is straightforward. Per-feature override is a
-      natural follow-on if needed.
-    answer: 'Global WorkflowConfig only (ciWatchTimeoutMs, default 10 min)'
-
+      Global WorkflowConfig only is recommended for the initial implementation
+      because it satisfies the immediate need (configurable timeout) without
+      adding CLI/state complexity. The existing watchCi() already accepts a
+      timeoutMs parameter, so threading in the global setting is
+      straightforward. Per-feature override is a natural follow-on if needed.
+    answer: Global WorkflowConfig only (ciWatchTimeoutMs, default 10 min)
   - question: >
-      Should the CI watch/fix loop skip watching entirely when no CI workflows are
-      detected on the repository (gh run list returns empty)?
+      Should the CI watch/fix loop skip watching entirely when no CI workflows
+      are detected on the repository (gh run list returns empty)?
     id: oq-4
     resolved: true
     options:
-      - option: 'Skip CI watch silently (log a debug message)'
+      - option: Skip CI watch silently (log a debug message)
         description: >
-          If getCiStatus() returns no runs after push, log a debug-level message and
-          proceed to the next phase without waiting. Avoids blocking on repos with no
-          CI configured. Clean UX for repos that don't use GitHub Actions.
+          If getCiStatus() returns no runs after push, log a debug-level message
+          and proceed to the next phase without waiting. Avoids blocking on
+          repos with no CI configured. Clean UX for repos that don't use GitHub
+          Actions.
         selected: true
-      - option: 'Wait with a short grace period then skip'
+      - option: Wait with a short grace period then skip
         description: >
-          After push, wait up to 30 seconds polling for a CI run to appear before
-          deciding to skip. Handles race conditions where GitHub Actions takes a moment
-          to register a new run. Adds complexity and latency for the common no-CI case.
+          After push, wait up to 30 seconds polling for a CI run to appear
+          before deciding to skip. Handles race conditions where GitHub Actions
+          takes a moment to register a new run. Adds complexity and latency for
+          the common no-CI case.
         selected: false
-      - option: 'Always require CI (block if no runs found)'
+      - option: Always require CI (block if no runs found)
         description: >
-          Treat missing CI runs as an error condition. Too strict — many valid repos
-          have no CI or only run on specific branch patterns. Would break the feature
-          for those users.
+          Treat missing CI runs as an error condition. Too strict — many valid
+          repos have no CI or only run on specific branch patterns. Would break
+          the feature for those users.
         selected: false
     selectionRationale: >
-      Silently skipping when no CI is detected is recommended because it makes the
-      feature non-breaking for repos without GitHub Actions CI. A debug log provides
-      observability without surfacing as a user-facing warning for intentional no-CI
-      repos. This is the graceful degradation pattern.
-    answer: 'Skip CI watch silently (log a debug message)'
-
+      Silently skipping when no CI is detected is recommended because it makes
+      the feature non-breaking for repos without GitHub Actions CI. A debug log
+      provides observability without surfacing as a user-facing warning for
+      intentional no-CI repos. This is the graceful degradation pattern.
+    answer: Skip CI watch silently (log a debug message)
   - question: >
       When the fix loop exhausts all attempts, should the feature be hard-failed
       (lifecycle → Failed) or soft-failed (loop exits, merge node marks partial
@@ -174,47 +174,62 @@ openQuestions:
     id: oq-5
     resolved: true
     options:
-      - option: 'Hard-fail the feature (lifecycle → Implementation with error state)'
+      - option: Hard-fail the feature (lifecycle → Implementation with error state)
         description: >
           Set ciFixStatus to "exhausted" in state, update Feature.pr.ciStatus to
-          Failure, surface a clear error message, and let the merge node exit with a
-          non-success result that halts further processing. The feature is not marked
-          as completed. The user is notified with a summary of all attempts. This is
-          the honest and observable outcome — CI is broken, the agent could not fix it.
+          Failure, surface a clear error message, and let the merge node exit
+          with a non-success result that halts further processing. The feature
+          is not marked as completed. The user is notified with a summary of all
+          attempts. This is the honest and observable outcome — CI is broken,
+          the agent could not fix it.
         selected: true
-      - option: 'Soft-fail (proceed to next phase, mark as warning)'
+      - option: Soft-fail (proceed to next phase, mark as warning)
         description: >
-          Continue to the merge/squash phase even when CI failed all attempts, but
-          attach a warning to the feature. Allows the workflow to "complete" on paper
-          even with broken CI. This is misleading and defeats the purpose of CI
-          enforcement — not recommended.
+          Continue to the merge/squash phase even when CI failed all attempts,
+          but attach a warning to the feature. Allows the workflow to "complete"
+          on paper even with broken CI. This is misleading and defeats the
+          purpose of CI enforcement — not recommended.
         selected: false
     selectionRationale: >
-      Hard-failing is recommended because CI failures are substantive quality gates.
-      Silently proceeding with a broken CI state would undermine the platform's
-      value proposition of autonomous, reliable delivery. A clear error with attempt
-      history gives the user actionable context to intervene.
-    answer: 'Hard-fail the feature (lifecycle → Implementation with error state)'
-
-# Markdown content (the actual spec)
-content: |
+      Hard-failing is recommended because CI failures are substantive quality
+      gates. Silently proceeding with a broken CI state would undermine the
+      platform's value proposition of autonomous, reliable delivery. A clear
+      error with attempt history gives the user actionable context to intervene.
+    answer: Hard-fail the feature (lifecycle → Implementation with error state)
+content: >
   ## Problem Statement
 
-  Currently, when the feature agent's merge node pushes a branch or opens a PR, it
-  stops after the git operations complete. It never monitors GitHub Actions CI, so the
-  agent has no awareness of whether CI passes or fails. If CI fails, a human must
+
+  Currently, when the feature agent's merge node pushes a branch or opens a PR,
+  it
+
+  stops after the git operations complete. It never monitors GitHub Actions CI,
+  so the
+
+  agent has no awareness of whether CI passes or fails. If CI fails, a human
+  must
+
   manually intervene — noticing the failure, diagnosing it, fixing the code, and
+
   re-pushing. This defeats the autonomous nature of the platform.
 
+
   The feature needs the merge node to:
+
   1. **Watch CI after push** — block on `gh run watch` until CI completes
-  2. **Detect failures** — capture truncated failure logs and pass them to the executor
-  3. **Iterate a fix loop** — the executor fixes the code, re-commits, re-pushes,
+
+  2. **Detect failures** — capture truncated failure logs and pass them to the
+  executor
+
+  3. **Iterate a fix loop** — the executor fixes the code, re-commits,
+  re-pushes,
      then watches CI again
-  4. **Track iterations robustly** — record each attempt with status, duration, and
+  4. **Track iterations robustly** — record each attempt with status, duration,
+  and
      failure context so the system is observable and bounded
 
   ## Success Criteria
+
 
   - [ ] When `state.push || state.openPr` is true, agent automatically calls
         `IGitPrService.watchCi()` after each push and does not proceed until CI
@@ -223,13 +238,15 @@ content: |
         debug log and proceeds to the next phase
   - [ ] On CI success (first try or after fixes), agent continues to the
         merge/squash phase (or completes normally)
-  - [ ] On CI failure, agent fetches truncated logs via `gh run view --log-failed`
+  - [ ] On CI failure, agent fetches truncated logs via `gh run view
+  --log-failed`
         (capped at `ciLogMaxChars`, default 50,000 chars) and enters the fix loop
   - [ ] Fix loop is bounded by `Settings.workflow.ciMaxFixAttempts` (default 3);
         the setting is respected at runtime without code changes
   - [ ] Each fix attempt is recorded in `ciFixHistory` with: attempt number,
         ISO timestamp, truncated failure summary, and outcome (fixed/failed/timeout)
-  - [ ] `Feature.pr.ciStatus` is updated to `Success` or `Failure` in the feature
+  - [ ] `Feature.pr.ciStatus` is updated to `Success` or `Failure` in the
+  feature
         domain record after the loop terminates
   - [ ] On exhausting max attempts, feature processing halts with a structured
         error message listing all attempt outcomes — feature is NOT marked complete
@@ -244,11 +261,14 @@ content: |
 
   ## Functional Requirements
 
-  - **FR-1**: The merge node MUST invoke `IGitPrService.watchCi(branch, { timeoutMs })` after
+
+  - **FR-1**: The merge node MUST invoke `IGitPrService.watchCi(branch, {
+  timeoutMs })` after
     any successful push operation when `state.push === true` or `state.openPr === true`.
     The timeout value is read from `Settings.workflow.ciWatchTimeoutMs` (default 600,000ms).
 
-  - **FR-2**: If `getCiStatus()` returns no runs immediately after push, the node MUST
+  - **FR-2**: If `getCiStatus()` returns no runs immediately after push, the
+  node MUST
     skip CI watching, emit a debug-level log message, and proceed to the next phase
     without error.
 
@@ -261,7 +281,8 @@ content: |
     `Settings.workflow.ciLogMaxChars` (default 50,000 chars) with a trailing note
     if truncation occurred.
 
-  - **FR-5**: After fetching failure logs, the merge node MUST invoke the agent executor
+  - **FR-5**: After fetching failure logs, the merge node MUST invoke the agent
+  executor
     with `buildCiWatchFixPrompt(failureLogs, attemptNumber, maxAttempts)` — a new prompt
     builder that instructs the executor to diagnose the CI failure, apply a targeted fix,
     commit the changes with a descriptive message, and push to the same branch.
@@ -272,21 +293,25 @@ content: |
     (ISO string), `failureSummary` (first 500 chars of logs), and `outcome`
     (`'fixed' | 'failed' | 'timeout'`).
 
-  - **FR-7**: The fix loop MUST repeat until one of: CI succeeds, `ciFixAttempts`
+  - **FR-7**: The fix loop MUST repeat until one of: CI succeeds,
+  `ciFixAttempts`
     reaches `Settings.workflow.ciMaxFixAttempts` (default 3), or `watchCi()` returns
     a timeout result.
 
-  - **FR-8**: When the fix loop terminates due to max attempts or timeout, the merge
+  - **FR-8**: When the fix loop terminates due to max attempts or timeout, the
+  merge
     node MUST update `Feature.pr.ciStatus` to `Failure`, halt further merge node
     processing, and surface a structured error message containing: total attempts made,
     per-attempt outcomes from `ciFixHistory`, and the final failure log excerpt.
 
-  - **FR-9**: `Settings.workflow` MUST gain three new optional fields with defaults:
+  - **FR-9**: `Settings.workflow` MUST gain three new optional fields with
+  defaults:
     `ciMaxFixAttempts: number = 3`, `ciWatchTimeoutMs: number = 600000`,
     `ciLogMaxChars: number = 50000`. All must be backward-compatible (undefined → use
     default at call site).
 
-  - **FR-10**: `IGitPrService` interface MUST gain a `getFailureLogs(runId: string,
+  - **FR-10**: `IGitPrService` interface MUST gain a `getFailureLogs(runId:
+  string,
     branch: string): Promise<string>` method. `GitPrService` MUST implement it via
     `gh run view <runId> --log-failed`.
 
@@ -295,41 +320,51 @@ content: |
     Annotation<CiFixRecord[]>` (reducer: append), `ciFixStatus: Annotation<'idle' |
     'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'>` (reducer: replace).
 
-  - **FR-12**: TypeSpec model `tsp/domain/entities/feature.tsp` MUST be updated to add
+  - **FR-12**: TypeSpec model `tsp/domain/entities/feature.tsp` MUST be updated
+  to add
     `ciFixAttempts?: int32` and `ciFixHistory?: CiFixRecord[]` to the `PullRequest`
     model. `CiFixRecord` is a new value object in TypeSpec.
 
-  - **FR-13**: The fix loop MUST NOT trigger an interrupt/human approval gate — it runs
+  - **FR-13**: The fix loop MUST NOT trigger an interrupt/human approval gate —
+  it runs
     fully autonomously within the merge node.
 
-  - **FR-14**: When `push === false` AND `openPr === false`, the CI watch logic MUST
+  - **FR-14**: When `push === false` AND `openPr === false`, the CI watch logic
+  MUST
     be completely bypassed. Existing merge node behavior for this case is unchanged.
 
   ## Non-Functional Requirements
 
-  - **NFR-1 (Observability)**: Every CI watch iteration and fix attempt MUST be logged
+
+  - **NFR-1 (Observability)**: Every CI watch iteration and fix attempt MUST be
+  logged
     at INFO level with: attempt number, branch, run ID (if available), and outcome.
     `ciFixHistory` stored in state provides a queryable audit trail.
 
-  - **NFR-2 (Resumability)**: All three new state channels MUST use LangGraph Annotation
+  - **NFR-2 (Resumability)**: All three new state channels MUST use LangGraph
+  Annotation
     reducers that produce correct merged state on checkpoint restore. `ciFixHistory`
     MUST use an append reducer so records accumulate across worker restarts without
     duplication.
 
-  - **NFR-3 (Bounded execution)**: The fix loop MUST be strictly bounded. Under no
+  - **NFR-3 (Bounded execution)**: The fix loop MUST be strictly bounded. Under
+  no
     circumstances may `ciFixAttempts` exceed `ciMaxFixAttempts`. The exit condition
     check MUST occur before invoking the executor (fail-fast on entry, not after).
 
-  - **NFR-4 (Context window efficiency)**: Failure logs passed to the executor MUST be
+  - **NFR-4 (Context window efficiency)**: Failure logs passed to the executor
+  MUST be
     truncated to `ciLogMaxChars`. Truncation MUST preserve the beginning of the log
     output (where failures typically surface) and append a human-readable notice:
     `"[Log truncated at {N} chars — full log available via gh run view {runId}]"`.
 
-  - **NFR-5 (Backward compatibility)**: All new `WorkflowConfig` fields MUST be optional
+  - **NFR-5 (Backward compatibility)**: All new `WorkflowConfig` fields MUST be
+  optional
     in TypeScript and TypeSpec. Existing settings records without these fields MUST
     receive the documented defaults at call site. No migration required.
 
-  - **NFR-6 (Atomic commits per fix)**: Each fix iteration MUST produce exactly one
+  - **NFR-6 (Atomic commits per fix)**: Each fix iteration MUST produce exactly
+  one
     commit with a conventional commit message of the form:
     `fix(ci): attempt {N}/{max} — {short description from executor}`. This keeps git
     history clean and traceable.
@@ -343,38 +378,82 @@ content: |
     `IGitPrService`. Integration tests MUST mock `gh` CLI responses. Target:
     100% branch coverage on the fix loop state machine.
 
-  - **NFR-9 (Type safety)**: `CiFixRecord` MUST be a TypeSpec-generated TypeScript
+  - **NFR-9 (Type safety)**: `CiFixRecord` MUST be a TypeSpec-generated
+  TypeScript
     interface (not a hand-written type). All state channel types MUST reference
     generated domain types.
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Max fix/push/watch iterations before giving up? | Configurable via WorkflowConfig, default 3 | Follows existing maxRetries pattern; flexible without per-feature complexity |
-  | 2 | What CI failure context to pass to executor? | Truncated full logs, 50k char limit | Real fixes require actual errors/stack traces; truncation protects context window |
-  | 3 | CI watch timeout configurable globally or per-feature? | Global WorkflowConfig only (default 10 min) | Covers common case; per-feature override is premature for initial implementation |
-  | 4 | Skip CI watch when no runs detected after push? | Skip silently with debug log | Graceful degradation for repos without GitHub Actions; non-breaking |
-  | 5 | How to handle exhausted fix attempts? | Hard-fail (halt processing, structured error) | CI failures are quality gates; proceeding with broken CI is misleading |
+
+  | 1 | Max fix/push/watch iterations before giving up? | Configurable via
+  WorkflowConfig, default 3 | Follows existing maxRetries pattern; flexible
+  without per-feature complexity |
+
+  | 2 | What CI failure context to pass to executor? | Truncated full logs, 50k
+  char limit | Real fixes require actual errors/stack traces; truncation
+  protects context window |
+
+  | 3 | CI watch timeout configurable globally or per-feature? | Global
+  WorkflowConfig only (default 10 min) | Covers common case; per-feature
+  override is premature for initial implementation |
+
+  | 4 | Skip CI watch when no runs detected after push? | Skip silently with
+  debug log | Graceful degradation for repos without GitHub Actions;
+  non-breaking |
+
+  | 5 | How to handle exhausted fix attempts? | Hard-fail (halt processing,
+  structured error) | CI failures are quality gates; proceeding with broken CI
+  is misleading |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `nodes/merge.node.ts` | High | Core logic change — add CI watch loop after push/PR phase |
-  | `nodes/prompts/merge-prompts.ts` | High | Add `buildCiWatchFixPrompt()` for fix iterations |
-  | `state.ts` | Medium | Add `ciFixAttempts`, `ciFixHistory`, `ciFixStatus` channels |
-  | `tsp/domain/entities/feature.tsp` | Medium | Add `ciFixAttempts`, `ciFixHistory`, `CiFixRecord` to PullRequest model |
-  | `packages/core/src/domain/generated/output.ts` | Medium | Regenerated from TypeSpec (DO NOT EDIT manually) |
-  | `application/ports/output/services/git-pr-service.interface.ts` | Low | Add `getFailureLogs(runId, branch)` method |
-  | `infrastructure/services/git/git-pr.service.ts` | Low | Implement `getFailureLogs()` via `gh run view --log-failed` |
-  | `domain/factories/settings.factory.ts` | Low | Add defaults for new WorkflowConfig fields |
-  | `tests/unit/agents/feature-agent/` | Medium | New unit tests for CI watch logic and fix loop |
-  | `tests/integration/agents/` | Low | Integration tests with mocked gh CLI responses |
+
+  | `nodes/merge.node.ts` | High | Core logic change — add CI watch loop after
+  push/PR phase |
+
+  | `nodes/prompts/merge-prompts.ts` | High | Add `buildCiWatchFixPrompt()` for
+  fix iterations |
+
+  | `state.ts` | Medium | Add `ciFixAttempts`, `ciFixHistory`, `ciFixStatus`
+  channels |
+
+  | `tsp/domain/entities/feature.tsp` | Medium | Add `ciFixAttempts`,
+  `ciFixHistory`, `CiFixRecord` to PullRequest model |
+
+  | `packages/core/src/domain/generated/output.ts` | Medium | Regenerated from
+  TypeSpec (DO NOT EDIT manually) |
+
+  | `application/ports/output/services/git-pr-service.interface.ts` | Low | Add
+  `getFailureLogs(runId, branch)` method |
+
+  | `infrastructure/services/git/git-pr.service.ts` | Low | Implement
+  `getFailureLogs()` via `gh run view --log-failed` |
+
+  | `domain/factories/settings.factory.ts` | Low | Add defaults for new
+  WorkflowConfig fields |
+
+  | `tests/unit/agents/feature-agent/` | Medium | New unit tests for CI watch
+  logic and fix loop |
+
+  | `tests/integration/agents/` | Low | Integration tests with mocked gh CLI
+  responses |
+
 
   ## Dependencies
 
-  - **`IGitPrService`** — Existing `watchCi()` and `getCiStatus()` methods are the
+
+  - **`IGitPrService`** — Existing `watchCi()` and `getCiStatus()` methods are
+  the
     primary infrastructure dependency. New `getFailureLogs(runId, branch)` method
     must be added to the interface and implemented in `GitPrService`.
   - **`gh` CLI** — Must be installed and authenticated. New usage: `gh run view
@@ -383,25 +462,45 @@ content: |
     reducers. `ciFixHistory` must use an append reducer for correct accumulation.
   - **Existing merge node phases** — CI loop runs after commit/push/PR phase and
     before optional merge/squash phase. Phase ordering must be preserved.
-  - **WorkflowConfig / Settings** — Three new optional fields: `ciMaxFixAttempts`,
+  - **WorkflowConfig / Settings** — Three new optional fields:
+  `ciMaxFixAttempts`,
     `ciWatchTimeoutMs`, `ciLogMaxChars`. TypeSpec update + settings factory defaults
     required.
-  - **TypeSpec compile** — `pnpm tsp:compile` must run after TypeSpec changes before
+  - **TypeSpec compile** — `pnpm tsp:compile` must run after TypeSpec changes
+  before
     any TypeScript implementation work begins.
 
   ## Size Estimate
 
-  **M** — Core infrastructure (watchCi, getCiStatus, CiStatus enum, state.ciStatus,
+
+  **M** — Core infrastructure (watchCi, getCiStatus, CiStatus enum,
+  state.ciStatus,
+
   domain model for ciStatus) already exists. Remaining work:
+
   1. Extending `merge.node.ts` with watch/fix loop state machine (~80 lines)
+
   2. New `buildCiWatchFixPrompt()` prompt builder (~60 lines)
+
   3. Three new state channels in `state.ts` (~20 lines)
+
   4. TypeSpec model updates + `pnpm tsp:compile` (~25 lines + compile)
+
   5. `getFailureLogs()` on IGitPrService + GitPrService (~30 lines)
+
   6. WorkflowConfig additions + settings factory defaults (~20 lines)
+
   7. Unit and integration tests (~120 lines)
+
   Total is achievable in 1-3 days with TDD, qualifying as **M**.
+
 
   ---
 
+
   _Requirements complete — proceed with /shep-kit:research_
+rejectionFeedback:
+  - iteration: 1
+    message: check pr comments there are a lot
+    phase: merge
+    timestamp: '2026-02-24T17:05:37.123Z'

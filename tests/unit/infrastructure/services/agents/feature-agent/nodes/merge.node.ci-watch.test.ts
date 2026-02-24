@@ -486,18 +486,9 @@ describe('createMergeNode — CI watch/fix loop', () => {
     });
 
     it('should have ciFixHistory with 3 records when maxAttempts=3 and all fail', async () => {
-      let capturedHistory: unknown[] = [];
-
-      // Capture the feature update call to see ciFixHistory in the thrown state
-      // We'll capture it from the featureRepository.update call
-      deps.featureRepository.update = vi.fn().mockImplementation(async (feature) => {
-        // This will be called before the throw
-        capturedHistory = (deps.gitPrService.getCiStatus as ReturnType<typeof vi.fn>).mock.calls;
-        return undefined;
-      });
+      deps.featureRepository.update = vi.fn().mockImplementation(async () => undefined);
 
       const node = createMergeNode(deps);
-      const result: Partial<FeatureAgentState> | null = null;
 
       try {
         await node(baseState({ push: true }));
@@ -629,11 +620,9 @@ describe('createMergeNode — CI watch/fix loop', () => {
         .fn()
         .mockResolvedValue({ status: 'failure', runUrl: SAMPLE_RUN_URL });
 
-      const capturedHistory: unknown[] = [];
       deps.featureRepository.update = vi.fn().mockImplementation(async () => undefined);
 
       const node = createMergeNode(deps);
-      const thrownResult: Partial<FeatureAgentState> | null = null;
 
       try {
         await node(baseState({ push: true }));
