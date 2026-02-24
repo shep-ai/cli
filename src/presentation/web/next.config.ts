@@ -37,8 +37,17 @@ const nextConfig: NextConfig = {
     root: resolve(import.meta.dirname, '../../..'),
   },
 
-  // Exclude native/DI packages from Next.js bundling
-  serverExternalPackages: ['tsyringe', 'reflect-metadata', 'better-sqlite3'],
+  // Exclude native/DI packages and Node.js builtins from Next.js bundling.
+  // Without this, Turbopack statically evaluates os.platform() at build time
+  // and tree-shakes platform-conditional branches (e.g., open-shell.ts).
+  serverExternalPackages: [
+    'tsyringe',
+    'reflect-metadata',
+    'better-sqlite3',
+    'node:os',
+    'node:child_process',
+    'node:fs',
+  ],
 
   // Enable typed routes (moved from experimental in Next.js 16)
   typedRoutes: true,
