@@ -23,3 +23,8 @@ export type {
   StructuredCallOptions,
 } from './structured-agent-caller.interface.js';
 export { StructuredCallError } from './structured-call-error.js';
+export type {
+  IAgentSessionRepository,
+  ListSessionsOptions,
+  GetSessionOptions,
+} from './agent-session-repository.interface.js';
