@@ -31,6 +31,7 @@ const NODE_TO_PHASE: Record<string, string> = {
   research: 'Researching',
   plan: 'Planning',
   implement: 'Implementing',
+  merge: 'Merging',
 };
 
 /** Map graph node names to review action labels. */
