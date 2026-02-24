@@ -1,0 +1,740 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-dependencies
+summary: >
+  15 tasks across 7 phases (~24h total). Bottom-up: TypeSpec foundation → data layer →
+  application core (CreateFeatureUseCase extension, CheckAndUnblockFeaturesUseCase,
+  UpdateFeatureLifecycleUseCase, deletion guard) → DI wiring → CLI → Web UI. Every code
+  task follows RED-GREEN-REFACTOR. TypeSpec and validation tasks have tdd: null.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # ──────────────────────────────────────────────────────────────
+  # PHASE 1: TypeSpec Foundation & Type Generation
+  # ──────────────────────────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Extend TypeSpec models (parentId + Blocked) and regenerate output.ts'
+    description: >
+      Add `parentId?: UUID` to `tsp/domain/entities/feature.tsp` following the existing
+      optional-scalar pattern (agentRunId?, specPath?). Add `Blocked` value to
+      `tsp/common/enums/lifecycle.tsp` alongside the existing 8 values. Run
+      `pnpm tsp:compile` to regenerate `packages/core/src/domain/generated/output.ts`.
+      Then run `pnpm typecheck` to expose exhaustiveness gaps in existing switch/case
+      blocks that enumerate SdlcLifecycle values; fix each one so the compiler is satisfied
+      before proceeding. This task has no TDD cycle — it is a type-generation step.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - '`pnpm tsp:compile` exits 0 with no TypeSpec errors'
+      - 'output.ts contains `parentId?: string` on the Feature interface'
+      - 'output.ts contains `Blocked = "Blocked"` (or equivalent) in the SdlcLifecycle enum'
+      - '`pnpm typecheck` exits 0 — all existing switch/case blocks handle Blocked explicitly or via default'
+      - 'No hand-edits to output.ts (only tsp:compile output)'
+    tdd: null
+    estimatedEffort: '1.5h'
+
+  # ──────────────────────────────────────────────────────────────
+  # PHASE 2: Data Layer — Migration, Repository Interface & Implementation
+  # ──────────────────────────────────────────────────────────────
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Add migration v19: parent_id column and index on features table'
+    description: >
+      Add migration version 19 to `migrations.ts` using the established PRAGMA user_version
+      pattern. The migration SQL must: (1) ALTER TABLE features ADD COLUMN parent_id TEXT;
+      (2) CREATE INDEX idx_features_parent_id ON features(parent_id). Column is nullable
+      with no default, preserving all existing feature records (NFR-2). Migration runs
+      inside a transaction per the existing pattern.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Migration v19 entry exists in migrations.ts array with version: 19'
+      - 'Migration SQL adds parent_id TEXT nullable column to features table'
+      - 'Migration SQL creates idx_features_parent_id index on features(parent_id)'
+      - 'Integration test verifies column and index exist after migration runs'
+      - 'Integration test verifies existing feature records are unaffected (parent_id = NULL)'
+      - 'Running migration twice (idempotency via PRAGMA user_version) does not error'
+    tdd:
+      red:
+        - >
+          Write integration test in tests/integration/infrastructure/repositories/feature-parent.repository.test.ts
+          that opens a real SQLite database, runs all migrations, and asserts
+          `PRAGMA table_info(features)` contains a `parent_id` column and
+          `SELECT name FROM sqlite_master WHERE type="index" AND name="idx_features_parent_id"`
+          returns one row
+      green:
+        - 'Add migration v19 entry to migrations.ts with the two SQL statements'
+      refactor:
+        - 'Verify the migration comment follows the pattern of existing migration comments'
+        - 'Confirm the SQL is wrapped in a single db.transaction() call per the established pattern'
+    estimatedEffort: '1h'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add findByParentId method to IFeatureRepository interface'
+    description: >
+      Add `findByParentId(parentId: string): Promise<Feature[]>` to the IFeatureRepository
+      interface in `application/ports/output/repositories/feature-repository.interface.ts`.
+      This is a contract change — all implementations (SQLite + any test mocks) must satisfy
+      the interface. The method returns all direct children of the given parent feature,
+      ordered by creation time (consistent with how `list()` returns features).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'IFeatureRepository interface has `findByParentId(parentId: string): Promise<Feature[]>` method'
+      - 'Method signature is documented with a brief JSDoc comment'
+      - '`pnpm typecheck` exits 0 — TypeScript confirms interface completeness'
+    tdd:
+      red:
+        - >
+          Create a simple mock in the existing unit test helper file (or inline) that implements
+          IFeatureRepository; confirm TypeScript errors because findByParentId is missing,
+          proving the interface extension is required
+      green:
+        - 'Add findByParentId method signature to IFeatureRepository interface'
+      refactor:
+        - 'Ensure return type is `Promise<Feature[]>` not `Promise<Feature | null>`'
+        - 'Add JSDoc: "Returns all direct (non-recursive) children of the given parent feature ID"'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement findByParentId in SQLiteFeatureRepository and extend feature mapper for parentId'
+    description: >
+      Two co-dependent changes: (1) In the SQLite feature repository, implement
+      `findByParentId` using a prepared SELECT statement `WHERE parent_id = ?`, returning
+      hydrated Feature objects via the mapper. (2) In `feature.mapper.ts`, extend
+      `toDatabase` to write `parent_id: feature.parentId ?? null` and extend `fromDatabase`
+      to read `...(row.parent_id && { parentId: row.parent_id })` following the optional
+      field pattern. Both changes are integration-tested against a real SQLite database.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'SQLiteFeatureRepository implements findByParentId using a parameterized prepared statement'
+      - 'findByParentId returns an array of fully-hydrated Feature objects (all fields, not partial)'
+      - 'findByParentId returns [] when no children exist for the given parentId'
+      - 'feature.mapper.ts toDatabase writes parent_id as NULL when parentId is undefined'
+      - 'feature.mapper.ts fromDatabase hydrates parentId when parent_id is non-null'
+      - 'feature.mapper.ts fromDatabase leaves parentId undefined when parent_id is NULL'
+      - >
+        Integration test creates a parent feature and two child features (with parentId set),
+        then asserts findByParentId(parent.id) returns exactly those two children
+      - 'Integration test asserts findByParentId on a feature with no children returns []'
+      - 'Integration test asserts parentId is round-tripped correctly through create → findById'
+    tdd:
+      red:
+        - >
+          In tests/integration/infrastructure/repositories/feature-parent.repository.test.ts,
+          add test: create parent feature (no parentId), create two child features (parentId = parent.id),
+          call findByParentId(parent.id), expect array of length 2 containing both child feature IDs
+        - >
+          Add test: create feature with parentId, call findById, expect feature.parentId to equal
+          the set parentId (round-trip mapper test)
+        - 'Add test: call findByParentId on feature with no children, expect []'
+      green:
+        - 'Add `parent_id?: string | null` to the FeatureRow interface in the mapper file'
+        - >
+          Extend toDatabase: add `parent_id: feature.parentId ?? null` to the INSERT parameter
+          object and the UPDATE SET clause
+        - >
+          Extend fromDatabase: add `...(row.parent_id && { parentId: row.parent_id })` to the
+          Feature object construction spread
+        - >
+          Implement findByParentId in SQLiteFeatureRepository:
+          `SELECT * FROM features WHERE parent_id = ? ORDER BY created_at ASC`
+          using a prepared statement, mapping results via fromDatabase
+      refactor:
+        - 'Verify NULL vs undefined handling is consistent with other optional fields in the mapper'
+        - 'Ensure the prepared statement is cached as a class property (consistent with existing patterns)'
+        - 'Confirm findByParentId result ordering matches list() ordering convention'
+    estimatedEffort: '2h'
+
+  # ──────────────────────────────────────────────────────────────
+  # PHASE 3: Application Core — CreateFeatureUseCase Extension
+  # ──────────────────────────────────────────────────────────────
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Add parentId to CreateFeatureInput type'
+    description: >
+      Add `parentId?: string` to the `CreateFeatureInput` interface in
+      `application/use-cases/features/create/types.ts`. This is a purely additive type
+      change with no runtime behavior. Optional so all existing call sites remain valid
+      without modification.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'CreateFeatureInput has `parentId?: string` field'
+      - 'Field is optional (existing call sites without parentId compile without changes)'
+      - '`pnpm typecheck` exits 0'
+    tdd:
+      red:
+        - >
+          In the existing CreateFeatureUseCase unit test file, add a test that constructs
+          CreateFeatureInput with a parentId field; TypeScript will error until the field exists
+      green:
+        - 'Add `parentId?: string` to the CreateFeatureInput interface'
+      refactor:
+        - 'Add JSDoc: "Optional ID of the parent feature. When set, child may be created in Blocked state."'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Extend CreateFeatureUseCase: parent validation, gate logic, cascade blocking, and deferred spawn'
+    description: >
+      Modify `CreateFeatureUseCase.execute()` to handle the optional parentId:
+      (1) If parentId is provided, load the parent feature via findById and throw a
+      descriptive error if not found (FR-8).
+      (2) Determine child lifecycle using the two-gate model (FR-9):
+          - parent.lifecycle in {Implementation, Review, Maintain} → Started (spawn now)
+          - parent.lifecycle === Blocked → Blocked (cascade, FR-12)
+          - otherwise → Blocked (early gate not met, defer spawn)
+      (3) Create AgentRun record and all feature fields normally regardless of blocking state.
+      (4) Only call agentProcess.spawn() if child lifecycle is Started.
+      (5) Persist parentId on the created Feature record.
+      Helper constant: `const POST_IMPLEMENTATION = new Set([SdlcLifecycle.Implementation,
+      SdlcLifecycle.Review, SdlcLifecycle.Maintain])`.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'CreateFeatureUseCase accepts input.parentId and passes it to the created Feature'
+      - 'When parentId references non-existent feature, throws "Parent feature not found: <id>"'
+      - 'When parent.lifecycle is Blocked, child lifecycle is Blocked and spawn() is NOT called'
+      - 'When parent.lifecycle is Planning (< Implementation), child lifecycle is Blocked and spawn() is NOT called'
+      - 'When parent.lifecycle is Implementation, child lifecycle is Started and spawn() IS called'
+      - 'When parent.lifecycle is Review, child lifecycle is Started and spawn() IS called'
+      - 'When parent.lifecycle is Maintain, child lifecycle is Started and spawn() IS called'
+      - 'Feature record is persisted with parentId equal to input.parentId'
+      - 'When input.parentId is undefined, existing behavior is unchanged (lifecycle = existing default)'
+      - 'Unit tests cover all six parent lifecycle conditions (Blocked, pre-gate, and three post-gate values)'
+    tdd:
+      red:
+        - >
+          In tests/unit/application/use-cases/features/create-feature.use-case.test.ts,
+          add test suite "with parentId" with mocked IFeatureRepository returning parent features
+          in each lifecycle state; assert spawn() call count and child lifecycle for each case
+        - >
+          Add test: parentId references non-existent feature → throws with "Parent feature not found"
+        - >
+          Add test: parent lifecycle = Blocked → child created with Blocked lifecycle, spawn not called
+        - >
+          Add test: parent lifecycle = Planning → child created with Blocked lifecycle, spawn not called
+        - >
+          Add test: parent lifecycle = Implementation → child created with Started lifecycle, spawn called once
+        - >
+          Add test: parent lifecycle = Maintain → child created with Started lifecycle, spawn called once
+      green:
+        - 'Add POST_IMPLEMENTATION constant: `new Set([SdlcLifecycle.Implementation, SdlcLifecycle.Review, SdlcLifecycle.Maintain])`'
+        - >
+          After resolving settings, add parentId validation block:
+          if input.parentId → load parent → throw if null → determine initialLifecycle and shouldSpawn
+          based on POST_IMPLEMENTATION.has(parent.lifecycle) vs parent.lifecycle === Blocked
+        - 'Set Feature.lifecycle to initialLifecycle (or existing default if no parentId)'
+        - 'Set Feature.parentId to input.parentId (undefined if absent)'
+        - 'Wrap agentProcess.spawn() call in `if (shouldSpawn)` guard'
+      refactor:
+        - 'Extract determineChildLifecycle(parentLifecycle: SdlcLifecycle): { lifecycle, shouldSpawn } helper function'
+        - 'Ensure helper is pure (no side effects) and unit-testable in isolation'
+        - 'Verify spawn is guarded for both parentId-with-Blocked AND parentId-absent cases remain correct'
+    estimatedEffort: '2.5h'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add O(depth) cycle detection to CreateFeatureUseCase'
+    description: >
+      After parent existence is validated (task-6), add an iterative upward ancestor walk:
+      starting from `parent.parentId`, load each ancestor feature until either the new
+      feature's own ID appears in the chain (cycle → reject with descriptive error including
+      the cycle path) or the chain terminates at null (no cycle → proceed). Uses findById
+      per step; O(depth × log n) total via the parent_id index. FR-19 compliance.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'A feature cannot set itself as its own parent (A → A rejected)'
+      - 'A two-node cycle is rejected (A → B → A rejected when creating B with parent=A already has A as ancestor)'
+      - 'A deep cycle is rejected at any depth (A → B → C → … → A)'
+      - 'Error message includes the cycle path for debugging (e.g., "Cycle detected: <newId> → <p1> → <p2> → <newId>")'
+      - 'Non-cyclic deep chains are allowed (A → B → C without looping back)'
+      - 'Cycle detection runs before feature/worktree/spec creation (fail fast)'
+      - 'Unit tests cover self-reference, depth-2 cycle, depth-5 cycle, and valid deep chain'
+    tdd:
+      red:
+        - >
+          In create-feature.use-case.test.ts, add test: feature A tries to create child B
+          where B's proposed parentId = A but A already has parentId = B (circular) → throws cycle error
+        - 'Add test: A → A (self-parent) → throws cycle error'
+        - 'Add test: A → B → C → D → A (depth-4 cycle) → throws cycle error'
+        - 'Add test: A → B → C (no cycle, deep chain) → succeeds'
+      green:
+        - >
+          After parent validation, add iterative cycle detection:
+          ```
+          let cursor = parent.parentId;
+          while (cursor !== null && cursor !== undefined) {
+            if (cursor === newFeatureId) throw new Error(`Cycle detected: ...`);
+            const ancestor = await featureRepo.findById(cursor);
+            cursor = ancestor?.parentId ?? null;
+          }
+          ```
+        - 'Also check: if input.parentId === newFeatureId throw immediately (self-reference fast path)'
+      refactor:
+        - 'Extract detectCycle(newFeatureId, proposedParentId, repo) as a standalone async helper'
+        - 'Accumulate visited IDs array for the cycle path error message'
+        - 'Ensure the helper is importable and independently testable'
+    estimatedEffort: '1.5h'
+
+  # ──────────────────────────────────────────────────────────────
+  # PHASE 4: Application Core — Auto-Unblocking, Lifecycle Hook & Deletion Guard
+  # ──────────────────────────────────────────────────────────────
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Create CheckAndUnblockFeaturesUseCase'
+    description: >
+      New use case: `CheckAndUnblockFeaturesUseCase` with method `execute(parentFeatureId: string)`.
+      Loads the parent feature via findById to get its current lifecycle. Loads all direct
+      children via findByParentId(parentFeatureId). For each child in Blocked lifecycle,
+      evaluates if the parent's lifecycle satisfies the gate (POST_IMPLEMENTATION set) and
+      if so: (1) updates child.lifecycle to Started via feature update; (2) calls
+      IFeatureAgentProcessService.spawn(child). No-op for children that are already Started or
+      beyond. Idempotent: calling execute() twice does not spawn duplicate agents (second call
+      finds no Blocked children after first unblocking). Inject: @inject('IFeatureRepository'),
+      @inject('IFeatureAgentProcessService').
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'CheckAndUnblockFeaturesUseCase exists as an @injectable() class in the correct directory'
+      - 'execute(parentId) loads parent lifecycle; no-ops if parent lifecycle is not in POST_IMPLEMENTATION'
+      - 'execute(parentId) calls findByParentId to get direct children only'
+      - 'For each Blocked child where gate is satisfied: lifecycle updated to Started, spawn() called'
+      - 'Non-Blocked children (e.g., already Started) are not modified and spawn() is not called for them'
+      - 'execute() is idempotent: called twice with same parentId, spawn() is called exactly once total per child'
+      - 'Unit tests cover: no children, all children already Started, mixed (some Blocked, some Started), gate not met'
+      - 'Unit test verifies spawn() is called with correct feature object (has agentRunId, worktreePath, etc.)'
+    tdd:
+      red:
+        - >
+          Create tests/unit/application/use-cases/features/check-and-unblock-features.use-case.test.ts
+          with mock IFeatureRepository and mock IFeatureAgentProcessService
+        - 'Add test: parent lifecycle = Planning (not in POST_IMPLEMENTATION) → spawn() never called'
+        - 'Add test: parent lifecycle = Implementation, no blocked children → spawn() never called'
+        - 'Add test: parent lifecycle = Implementation, two blocked children → spawn() called twice, both transitions to Started'
+        - 'Add test: parent lifecycle = Implementation, one blocked child + one already-Started child → spawn() called once only'
+        - 'Add test: idempotency — call execute() twice, mock returns 0 blocked children on second call → spawn() called once total'
+      green:
+        - >
+          Create `check-and-unblock-features.use-case.ts` with @injectable() class:
+          1. findById(parentId) → get parent lifecycle
+          2. If !POST_IMPLEMENTATION.has(parent.lifecycle) → return (gate not met)
+          3. findByParentId(parentId) → children array
+          4. For each child where child.lifecycle === Blocked:
+             - child.lifecycle = Started
+             - featureRepo.update(child)
+             - agentProcess.spawn(child)
+      refactor:
+        - 'Extract POST_IMPLEMENTATION constant to a shared domain/lifecycle-gates.ts utility file used by both CheckAndUnblockFeaturesUseCase and CreateFeatureUseCase'
+        - 'Ensure the use case imports only from domain and application/ports layers (NFR-4)'
+    estimatedEffort: '2.5h'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Create UpdateFeatureLifecycleUseCase with CheckAndUnblock hook'
+    description: >
+      Investigate all existing lifecycle write sites in the codebase (agent worker nodes,
+      direct feature.update() calls with lifecycle changes). Create `UpdateFeatureLifecycleUseCase`
+      with `execute({ featureId, lifecycle })` that: (1) loads feature by ID, (2) updates
+      feature.lifecycle, (3) calls featureRepo.update(feature), (4) calls
+      checkAndUnblock.execute(featureId). Route all existing lifecycle write sites through
+      this new use case. This ensures the unblock check fires on every lifecycle transition
+      without any site being missed. Register in DI container (task-11 finalizes container wiring).
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'UpdateFeatureLifecycleUseCase exists as @injectable() class with execute({ featureId, lifecycle }) method'
+      - 'execute() persists the new lifecycle value via featureRepo.update()'
+      - 'execute() calls CheckAndUnblockFeaturesUseCase.execute(featureId) after persisting'
+      - >
+        All existing lifecycle write sites in agent worker nodes (feature-agent/nodes/*.node.ts
+        or equivalent) are refactored to call UpdateFeatureLifecycleUseCase instead of
+        direct feature repository update
+      - 'Existing agent integration tests and unit tests remain green after the routing refactor'
+      - >
+        Unit test: UpdateFeatureLifecycleUseCase.execute() with mock CheckAndUnblockFeaturesUseCase
+        verifies checkAndUnblock.execute() is called with the correct featureId after persisting
+    tdd:
+      red:
+        - >
+          Create tests/unit/application/use-cases/features/update/update-feature-lifecycle.use-case.test.ts
+          with mocks for IFeatureRepository and CheckAndUnblockFeaturesUseCase
+        - >
+          Add test: execute({ featureId, lifecycle: Review }) → featureRepo.update() called with
+          feature.lifecycle = Review, then checkAndUnblock.execute(featureId) called
+        - >
+          Add test: execute() for feature that is already at the target lifecycle → still calls
+          checkAndUnblock.execute() (idempotent lifecycle writes are allowed)
+      green:
+        - >
+          Create `update/update-feature-lifecycle.use-case.ts` with @injectable():
+          1. featureRepo.findById(featureId) → feature
+          2. feature.lifecycle = input.lifecycle
+          3. featureRepo.update(feature)
+          4. checkAndUnblock.execute(featureId)
+        - 'Find all lifecycle write sites in agent workers via grep; replace with UpdateFeatureLifecycleUseCase.execute() calls'
+      refactor:
+        - 'Verify no lifecycle write sites remain that bypass UpdateFeatureLifecycleUseCase'
+        - 'Run pnpm test to ensure all existing tests pass after the routing refactor'
+        - 'Ensure the use case is in the update/ subdirectory following the existing use-case directory convention'
+    estimatedEffort: '2.5h'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Add blocked-child deletion guard to DeleteFeatureUseCase'
+    description: >
+      Modify `DeleteFeatureUseCase.execute()` to call `findByParentId(feature.id)` before
+      proceeding with deletion. Filter results to features in `Blocked` lifecycle. If any
+      blocked children exist, throw a descriptive error listing their IDs and names. The
+      deletion guard must run before any destructive steps (worktree removal, agent cancellation,
+      DB delete). FR-29 compliance.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'DeleteFeatureUseCase calls findByParentId before any destructive operations'
+      - 'If blocked children exist, throws error with message listing each blocked child ID and name'
+      - 'Deletion proceeds normally when no blocked children exist'
+      - 'Deletion proceeds normally when children exist but are all in non-Blocked states (e.g., Started)'
+      - 'Unit test: feature with two blocked children → throws with both child IDs in message'
+      - 'Unit test: feature with one Started child (no blocked) → deletion succeeds'
+      - 'Unit test: feature with no children → deletion succeeds'
+    tdd:
+      red:
+        - >
+          In tests/unit/application/use-cases/features/delete-feature.use-case.test.ts,
+          add test: mock findByParentId returns two Blocked children → execute() throws
+          containing both child IDs
+        - 'Add test: mock findByParentId returns one Started child → execute() succeeds (no throw)'
+        - 'Add test: mock findByParentId returns [] → execute() succeeds'
+      green:
+        - >
+          In DeleteFeatureUseCase.execute(), after loading the feature but before cancelling
+          agents or removing worktree:
+          const blockedChildren = (await featureRepo.findByParentId(feature.id))
+            .filter(c => c.lifecycle === SdlcLifecycle.Blocked);
+          if (blockedChildren.length > 0) {
+            throw new Error(`Cannot delete feature with blocked children: ${blockedChildren.map(c => c.id + ' (' + c.name + ')').join(', ')}`);
+          }
+      refactor:
+        - 'Verify error message is actionable: tells user to remove or re-parent blocked children first'
+        - 'Ensure findByParentId call is the first operation after feature loading (fail fast)'
+    estimatedEffort: '1h'
+
+  # ──────────────────────────────────────────────────────────────
+  # PHASE 5: Infrastructure Wiring — DI Container Registration
+  # ──────────────────────────────────────────────────────────────
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'Register new use cases in DI container and verify pnpm validate passes'
+    description: >
+      Register `CheckAndUnblockFeaturesUseCase` and `UpdateFeatureLifecycleUseCase` as
+      tsyringe singletons in `container.ts` following the existing `registerSingleton()` +
+      string-token alias pattern (Turbopack workaround). Inject `CheckAndUnblockFeaturesUseCase`
+      into `UpdateFeatureLifecycleUseCase` via constructor injection. Run `pnpm validate`
+      (lint + typecheck + tsp:compile) to confirm zero errors before proceeding to
+      presentation layers.
+    state: Todo
+    dependencies:
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - 'CheckAndUnblockFeaturesUseCase is registered as a singleton in container.ts'
+      - 'UpdateFeatureLifecycleUseCase is registered as a singleton in container.ts'
+      - 'String-token aliases are added: container.register("CheckAndUnblockFeaturesUseCase", ...) and similar'
+      - 'container.resolve(UpdateFeatureLifecycleUseCase) successfully resolves without errors at runtime'
+      - '`pnpm validate` exits 0 (lint + typecheck + tsp:compile all pass)'
+      - '`pnpm test:unit` exits 0 — all new and existing unit tests pass'
+    tdd:
+      red:
+        - >
+          Write a minimal container smoke test (or manually verify via CLI bootstrap):
+          container.resolve(UpdateFeatureLifecycleUseCase) before registration → throws
+          "Token not found" — this failing state proves registration is needed
+      green:
+        - >
+          In container.ts, after existing use case registrations, add:
+          container.registerSingleton(CheckAndUnblockFeaturesUseCase);
+          container.register('CheckAndUnblockFeaturesUseCase', { useFactory: (c) => c.resolve(CheckAndUnblockFeaturesUseCase) });
+          container.registerSingleton(UpdateFeatureLifecycleUseCase);
+          container.register('UpdateFeatureLifecycleUseCase', { useFactory: (c) => c.resolve(UpdateFeatureLifecycleUseCase) });
+      refactor:
+        - 'Verify registration ordering: CheckAndUnblockFeaturesUseCase before UpdateFeatureLifecycleUseCase (dependency ordering)'
+        - 'Run pnpm validate — fix any remaining lint/typecheck/tsp issues before proceeding'
+    estimatedEffort: '1h'
+
+  # ──────────────────────────────────────────────────────────────
+  # PHASE 6: CLI Integration
+  # ──────────────────────────────────────────────────────────────
+
+  - id: task-12
+    phaseId: phase-6
+    title: 'Add --parent <fid> option to feat new CLI command'
+    description: >
+      Modify `src/presentation/cli/commands/feat/new.command.ts` to add `.option("--parent <fid>",
+      "Parent feature ID (full or partial prefix)")`. In the action handler, if --parent is
+      provided: resolve the partial ID via `featureRepo.findByIdPrefix(parentId)`. Handle
+      three cases: (1) not found → `messages.error()` + exit 1; (2) found (ambiguous or
+      unique — findByIdPrefix returns first prefix match) → pass resolved `feature.id` to
+      `CreateFeatureInput.parentId`. Display a "blocked" indicator in the output when the
+      created feature returns with lifecycle === Blocked (e.g., "Feature created in Blocked
+      state — waiting for parent <name> to reach Implementation").
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - '`shep feat new "Description" --parent <full-id>` creates feature with parentId set'
+      - '`shep feat new "Description" --parent <prefix>` resolves to the matching feature'
+      - 'If --parent prefix is not found, CLI prints error and exits with code 1'
+      - 'If created feature has Blocked lifecycle, CLI output displays a clear blocked-state message referencing the parent name'
+      - 'If created feature has Started lifecycle (parent already at Implementation), output is unchanged from normal creation'
+      - 'If --parent is not provided, existing feat new behavior is unchanged'
+      - '`shep feat new --help` shows --parent option with description'
+    tdd:
+      red:
+        - >
+          In tests/unit (or integration CLI test), add test: mock findByIdPrefix returning null
+          → expect process.exitCode = 1 and messages.error called with "not found" message
+        - 'Add test: --parent not provided → CreateFeatureInput.parentId is undefined'
+        - 'Add test: --parent with valid prefix → parentId in input equals resolved feature.id'
+      green:
+        - 'Add `.option("--parent <fid>", "Parent feature ID (full or partial prefix)")` to new command'
+        - >
+          In action handler, after container resolution:
+          if (options.parent) {
+            const parentFeature = await featureRepo.findByIdPrefix(options.parent);
+            if (!parentFeature) { messages.error(...); process.exitCode = 1; return; }
+            input.parentId = parentFeature.id;
+          }
+        - >
+          After use case execution, add blocked-state message:
+          if (result.feature.lifecycle === SdlcLifecycle.Blocked) {
+            messages.info(`Feature created in Blocked state — waiting for parent to reach Implementation`);
+          }
+      refactor:
+        - 'Verify error message for not-found parent is consistent with other "not found" error messages in the feat commands'
+        - 'Confirm the --parent option description is concise and accurate'
+    estimatedEffort: '1.5h'
+
+  # ──────────────────────────────────────────────────────────────
+  # PHASE 7: Web UI — Create Drawer & Canvas Dependency Edges
+  # ──────────────────────────────────────────────────────────────
+
+  - id: task-13
+    phaseId: phase-7
+    title: 'Update create-feature server action to accept and pass parentId'
+    description: >
+      Modify `src/presentation/web/app/actions/create-feature.ts` to accept an optional
+      `parentId?: string` field in its input type and pass it through to `CreateFeatureInput`
+      when calling the use case. This is the thin server-action bridge between the web form
+      and the application layer. No validation logic here — validation is in CreateFeatureUseCase.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'create-feature server action input type includes `parentId?: string`'
+      - 'parentId is passed to CreateFeatureInput when constructing the use case input'
+      - 'When parentId is undefined, existing behavior is unchanged'
+      - '`pnpm typecheck:web` exits 0'
+    tdd:
+      red:
+        - >
+          In the server action file, add parentId to the input payload type; TypeScript
+          will surface any downstream type mismatches immediately — fix them
+      green:
+        - 'Add `parentId?: string` to the server action payload interface'
+        - 'Pass `parentId: payload.parentId` to CreateFeatureInput'
+      refactor:
+        - 'Verify no additional validation or transformation is needed (CreateFeatureUseCase handles validation)'
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-7
+    title: 'Add searchable parent feature selector Combobox to feature-create-drawer'
+    description: >
+      Extend `feature-create-drawer` with a shadcn/ui Combobox (Command + Popover) for
+      parent feature selection. The drawer receives the full feature list as a new prop
+      `features: Feature[]` from its server-component parent (no new server action needed).
+      The Combobox displays each feature as "{feature.name} ({feature.id.slice(0,8)})",
+      supports fuzzy search via the Command component's built-in filtering, and is keyboard
+      navigable (NFR-9). Selection stores the selected `feature.id` as `parentId` in local
+      form state and includes it in the submitted `FeatureCreatePayload`. A "No parent"
+      option or empty state allows clearing the selection. A Storybook story is mandatory
+      (CLAUDE.md requirement). Verify actual path of feature-create-drawer before modifying.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'feature-create-drawer accepts `features?: Feature[]` prop (optional for backward compatibility)'
+      - 'When features prop is provided, drawer renders a parent feature Combobox field'
+      - 'Combobox uses shadcn/ui Command + Popover components (no new libraries)'
+      - 'Search filters features by name and ID prefix'
+      - 'Selecting a parent updates local state with selected feature.id as parentId'
+      - '"No parent" / clear selection is possible'
+      - 'When drawer is submitted, parentId is included in the payload and passed to the server action'
+      - 'Combobox has a visible label ("Parent Feature") and is keyboard navigable (NFR-9)'
+      - 'Storybook story `feature-create-drawer.stories.tsx` updated with `withParentOptions` and `withoutParentOptions` variants'
+      - '`pnpm typecheck:web` exits 0'
+    tdd:
+      red:
+        - >
+          In feature-create-drawer.stories.tsx, add story `WithParentOptions` that passes a
+          features array prop — this will fail to render correctly until the Combobox is implemented
+        - 'Add story `WithoutParentOptions` (features = [] or undefined) to confirm backward compatibility'
+      green:
+        - 'Add `features?: Feature[]` to FeatureCreateDrawerProps'
+        - >
+          Add `parentId: string | undefined` to form state (useState)
+        - >
+          When features prop has length > 0, render:
+          <FormField label="Parent Feature">
+            <Popover><PopoverTrigger>...</PopoverTrigger>
+            <PopoverContent><Command>
+              <CommandInput placeholder="Search features..." />
+              <CommandList>
+                <CommandItem value="" onSelect={() => setParentId(undefined)}>No parent</CommandItem>
+                {features.map(f => <CommandItem key={f.id} value={f.id} onSelect={() => setParentId(f.id)}>
+                  {f.name} ({f.id.slice(0,8)})
+                </CommandItem>)}
+              </CommandList>
+            </Command></PopoverContent></Popover>
+          </FormField>
+        - 'Include parentId in the payload object passed to the create-feature server action'
+      refactor:
+        - 'Verify the Combobox trigger shows selected feature name or "Select parent feature..." placeholder'
+        - 'Ensure Combobox is wrapped in proper form field markup with accessible label (aria-label or htmlFor)'
+        - 'Check that no existing tests for the drawer fail after adding the optional prop'
+    estimatedEffort: '2.5h'
+
+  - id: task-15
+    phaseId: phase-7
+    title: 'Create DependencyEdge component and render parent→child dependency edges on features canvas'
+    description: >
+      Two sub-tasks: (1) Create `src/presentation/web/components/features-canvas/dependency-edge.tsx`
+      — a custom React Flow edge component registered as `dependencyEdge` in the edgeTypes map.
+      Renders as a non-interactive directed arrow in amber-500/orange-400 color with a distinct
+      dashed or solid style. The edge has `deletable: false`, `reconnectable: false`. Create
+      a colocated `dependency-edge.stories.tsx` Storybook story.
+      (2) Modify `features-canvas.tsx`: at render time, for each feature with a non-null
+      `parentId`, compute a React Flow edge `{ id: "dep-{parentId}-{childId}", source: parentId,
+      target: childId, type: "dependencyEdge", ...nonInteractiveOptions }`. Register
+      `dependencyEdge` in the edgeTypes map alongside existing edge types.
+      Feature node already has Blocked state support; also wire `blockedBy` to the parent
+      feature's name when `feature.lifecycle === Blocked` and `feature.parentId` is set.
+    state: Todo
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - 'dependency-edge.tsx exists as a custom React Flow edge component'
+      - 'DependencyEdge renders as a directed arrow in amber/orange color (distinct from existing edges)'
+      - 'DependencyEdge edges are not deletable and not reconnectable (read-only per FR-28)'
+      - 'dependency-edge.stories.tsx exists with at least one story showing the edge in context'
+      - 'features-canvas.tsx computes dependency edges from features array at render time'
+      - 'For each feature where parentId is non-null: one edge {id: dep-{parentId}-{childId}, source: parentId, target: childId, type: dependencyEdge} is included in the edges array'
+      - 'Features without parentId generate no dependency edges'
+      - '"dependencyEdge" is registered in the edgeTypes map of ReactFlow in features-canvas'
+      - 'Blocked feature nodes show blockedBy with parent feature name (from features array lookup)'
+      - '`pnpm typecheck:web` exits 0'
+      - 'Storybook stories render without errors'
+    tdd:
+      red:
+        - >
+          Create dependency-edge.stories.tsx with a story that renders a small ReactFlow canvas
+          with two nodes and one DependencyEdge; the story fails to render until the component exists
+        - >
+          In features-canvas.stories.tsx (or create new variant story), add story
+          `WithDependencyEdges` showing two connected features — it fails until edge computation
+          is added to features-canvas
+      green:
+        - >
+          Create dependency-edge.tsx:
+          import { BaseEdge, EdgeProps, getStraightPath } from '@xyflow/react';
+          export function DependencyEdge({ id, sourceX, sourceY, targetX, targetY }: EdgeProps) {
+            const [edgePath] = getStraightPath({ sourceX, sourceY, targetX, targetY });
+            return <BaseEdge id={id} path={edgePath} style={{ stroke: '#f59e0b', strokeWidth: 2 }} markerEnd="url(#arrow)" />;
+          }
+        - >
+          In features-canvas.tsx, add edge computation:
+          const dependencyEdges = features
+            .filter(f => f.parentId != null)
+            .map(f => ({
+              id: `dep-${f.parentId}-${f.id}`,
+              source: f.parentId!,
+              target: f.id,
+              type: 'dependencyEdge',
+              deletable: false,
+              reconnectable: false,
+            }));
+          Merge with existing edges: [...existingEdges, ...dependencyEdges]
+        - 'Register DependencyEdge in edgeTypes: `{ ..., dependencyEdge: DependencyEdge }`'
+        - >
+          For Blocked feature nodes, pass blockedBy: features.find(f => f.id === feature.parentId)?.name
+          to FeatureNodeData
+      refactor:
+        - 'Use getSmoothStepPath instead of getStraightPath if straight lines overlap node borders awkwardly'
+        - 'Verify amber-500 color is consistent with the design system (check existing color usage in Tailwind config)'
+        - 'Ensure the dependencyEdge type string is defined as a const to avoid typos'
+        - 'Run pnpm lint:web and fix any issues'
+    estimatedEffort: '2.5h'
+
+totalEstimate: '~24h (3 focused work days)'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The 15 tasks are ordered bottom-up through the architecture layers, ensuring each task's
+  tests can be written against stable dependencies already verified by previous tasks.
+
+  **Phase 1** (task-1) establishes the type vocabulary. Running tsp:compile first surfaces
+  every existing switch/case block that enumerates SdlcLifecycle, so Blocked handling is
+  fixed before any new code is written.
+
+  **Phase 2** (tasks 2–4) builds the data foundation: migration, interface contract, and
+  concrete implementation. The integration test file created in task-2 is extended through
+  task-4, building a comprehensive SQLite-level test suite for the parent_id column.
+
+  **Phase 3** (tasks 5–7) extends CreateFeatureUseCase incrementally: input type first
+  (task-5, trivial), then the gate logic and deferred spawn (task-6, the most complex
+  single task), then cycle detection as a separate, isolated concern (task-7). This ordering
+  allows task-6 to be code-reviewed and tested before cycle detection complexity is added.
+
+  **Phase 4** (tasks 8–10) completes the reactive loop: CheckAndUnblockFeaturesUseCase
+  (task-8) first because UpdateFeatureLifecycleUseCase (task-9) depends on it. Task-9 also
+  requires investigating existing lifecycle write sites in agent workers and routing them
+  through the new use case — this is the highest-risk task in the plan. Task-10 (deletion
+  guard) is independent of tasks 8–9 and can proceed in parallel if desired.
+
+  **Phase 5** (task-11) is a gateway: DI wiring and final validate gate. No presentation
+  layer work begins until validate passes.
+
+  **Phase 6** (task-12) and **Phase 7** (tasks 13–15) are independent of each other and
+  can proceed in parallel. Phase 7 is split into three tasks: server action bridge (task-13,
+  thin and fast), create drawer Combobox (task-14), and canvas edges + DependencyEdge
+  component (task-15). Both web tasks require Storybook stories (mandatory per CLAUDE.md).

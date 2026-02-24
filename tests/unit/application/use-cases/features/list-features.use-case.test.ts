@@ -24,6 +24,7 @@ describe('ListFeaturesUseCase', () => {
       findByIdPrefix: vi.fn(),
       findBySlug: vi.fn(),
       list: vi.fn().mockResolvedValue([]),
+      findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
       delete: vi.fn(),
     };

@@ -28,6 +28,7 @@ import type { ISpecInitializerService } from '../../../ports/output/services/spe
 import type { IRepositoryRepository } from '../../../ports/output/repositories/repository-repository.interface.js';
 import type { IGitPrService } from '../../../ports/output/services/git-pr-service.interface.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
+import { POST_IMPLEMENTATION } from '../../../../domain/lifecycle-gates.js';
 import { MetadataGenerator } from './metadata-generator.js';
 import { SlugResolver } from './slug-resolver.js';
 import type { CreateFeatureInput, CreateFeatureResult } from './types.js';
@@ -59,6 +60,44 @@ export class CreateFeatureUseCase {
     // Ensure the target directory is a git repository (auto-init if needed)
     // Must run before slug resolution which needs git commands
     await this.worktreeService.ensureGitRepository(input.repositoryPath);
+
+    // Resolve parent feature and determine child initial lifecycle (FR-8, FR-9, FR-12, FR-19)
+    let initialLifecycle: SdlcLifecycle = SdlcLifecycle.Requirements;
+    let shouldSpawn = true;
+
+    if (input.parentId) {
+      const parent = await this.featureRepo.findById(input.parentId);
+      if (!parent) {
+        throw new Error(`Parent feature not found: ${input.parentId}`);
+      }
+
+      // Cycle detection — O(depth) upward walk through ancestor chain (FR-19)
+      const visited = new Set<string>([input.parentId]);
+      let cursor = parent.parentId;
+      while (cursor) {
+        if (visited.has(cursor)) {
+          throw new Error(`Cycle detected in feature dependency chain at feature: ${cursor}`);
+        }
+        visited.add(cursor);
+        const ancestor = await this.featureRepo.findById(cursor);
+        cursor = ancestor?.parentId ?? undefined;
+      }
+
+      // Two-gate lifecycle logic (FR-9):
+      //   parent.lifecycle === Blocked → cascade block (FR-12)
+      //   parent.lifecycle not in POST_IMPLEMENTATION → early gate not met → Blocked
+      //   parent.lifecycle in POST_IMPLEMENTATION → gate satisfied → Started
+      if (
+        parent.lifecycle === SdlcLifecycle.Blocked ||
+        !POST_IMPLEMENTATION.has(parent.lifecycle)
+      ) {
+        initialLifecycle = SdlcLifecycle.Blocked;
+        shouldSpawn = false;
+      } else {
+        initialLifecycle = SdlcLifecycle.Started;
+        shouldSpawn = true;
+      }
+    }
 
     const metadata = await this.metadataGenerator.generateMetadata(input.userInput);
     const originalSlug = metadata.slug;
@@ -114,7 +153,7 @@ export class CreateFeatureUseCase {
       userQuery: input.userInput,
       repositoryPath: input.repositoryPath,
       branch,
-      lifecycle: SdlcLifecycle.Requirements,
+      lifecycle: initialLifecycle,
       messages: [],
       relatedArtifacts: [],
       push: input.push ?? false,
@@ -127,6 +166,7 @@ export class CreateFeatureUseCase {
       agentRunId: runId,
       specPath: specDir,
       repositoryId: repository.id,
+      ...(input.parentId ? { parentId: input.parentId } : {}),
       createdAt: now,
       updatedAt: now,
     };
@@ -150,12 +190,15 @@ export class CreateFeatureUseCase {
     };
     await this.runRepository.create(agentRun);
 
-    this.agentProcess.spawn(feature.id, runId, input.repositoryPath, specDir, worktreePath, {
-      ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
-      threadId: agentRun.threadId,
-      push: input.push ?? false,
-      openPr: input.openPr ?? false,
-    });
+    // Only spawn the agent immediately if the child is not blocked (FR-9, FR-16)
+    if (shouldSpawn) {
+      this.agentProcess.spawn(feature.id, runId, input.repositoryPath, specDir, worktreePath, {
+        ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
+        threadId: agentRun.threadId,
+        push: input.push ?? false,
+        openPr: input.openPr ?? false,
+      });
+    }
 
     return { feature, warning };
   }

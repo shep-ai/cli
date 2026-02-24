@@ -313,6 +313,14 @@ ALTER TABLE features ADD COLUMN ci_fix_attempts INTEGER;
 ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
 `,
   },
+  {
+    version: 20,
+    sql: `
+-- Migration 020: Add parent_id to features for hierarchical feature dependencies
+ALTER TABLE features ADD COLUMN parent_id TEXT;
+CREATE INDEX idx_features_parent_id ON features(parent_id);
+`,
+  },
 ];
 
 /**

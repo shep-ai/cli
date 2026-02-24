@@ -634,6 +634,7 @@ export enum SdlcLifecycle {
   Implementation = 'Implementation',
   Review = 'Review',
   Maintain = 'Maintain',
+  Blocked = 'Blocked',
 }
 
 /**
@@ -796,6 +797,10 @@ export type Feature = BaseEntity & {
    * Pull request data (null until PR created)
    */
   pr?: PullRequest;
+  /**
+   * Parent feature ID for dependency tracking (optional)
+   */
+  parentId?: UUID;
 };
 
 /**

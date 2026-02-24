@@ -14,7 +14,7 @@
 
 import { injectable, inject } from 'tsyringe';
 import type { Feature } from '../../../domain/generated/output.js';
-import { AgentRunStatus } from '../../../domain/generated/output.js';
+import { AgentRunStatus, SdlcLifecycle } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../ports/output/repositories/feature-repository.interface.js';
 import type { IWorktreeService } from '../../ports/output/services/worktree-service.interface.js';
 import type { IFeatureAgentProcessService } from '../../ports/output/agents/feature-agent-process.interface.js';
@@ -39,7 +39,19 @@ export class DeleteFeatureUseCase {
       throw new Error(`Feature not found: "${featureId}"`);
     }
 
-    // 2. Cancel running/pending agent run if present
+    // 2. Guard: reject deletion if blocked children exist (FR-29)
+    const blockedChildren = (await this.featureRepo.findByParentId(feature.id)).filter(
+      (child) => child.lifecycle === SdlcLifecycle.Blocked
+    );
+    if (blockedChildren.length > 0) {
+      const list = blockedChildren.map((c) => `${c.id} (${c.name})`).join(', ');
+      throw new Error(
+        `Cannot delete feature "${feature.name}" because it has blocked children: ${list}. ` +
+          `Remove or re-parent the blocked children before deleting this feature.`
+      );
+    }
+
+    // 3. Cancel running/pending agent run if present
     if (feature.agentRunId) {
       const run = await this.runRepo.findById(feature.agentRunId);
       if (run && (run.status === AgentRunStatus.running || run.status === AgentRunStatus.pending)) {
@@ -55,7 +67,7 @@ export class DeleteFeatureUseCase {
       }
     }
 
-    // 3. Remove worktree (ignore errors if already removed)
+    // 4. Remove worktree (ignore errors if already removed)
     const worktreePath = this.worktreeService.getWorktreePath(
       feature.repositoryPath,
       feature.branch
@@ -66,7 +78,7 @@ export class DeleteFeatureUseCase {
       // Worktree might already be removed - that's fine
     }
 
-    // 4. Delete feature record
+    // 5. Delete feature record
     await this.featureRepo.delete(feature.id);
 
     return feature;
