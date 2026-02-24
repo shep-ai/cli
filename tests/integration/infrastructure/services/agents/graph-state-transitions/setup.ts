@@ -91,6 +91,7 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
     }),
     hasRemote: vi.fn().mockResolvedValue(true),
     getDefaultBranch: vi.fn().mockResolvedValue('main'),
+    verifyMerge: vi.fn().mockResolvedValue(true),
     featureRepository: {
       findById: vi.fn().mockResolvedValue({
         id: featureId ?? 'feat-test',

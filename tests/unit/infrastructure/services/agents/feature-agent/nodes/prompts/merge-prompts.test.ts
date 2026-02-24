@@ -191,24 +191,47 @@ describe('buildMergeSquashPrompt', () => {
       expect(prompt).toContain('cd /tmp/repo');
     });
 
-    it('should include fetch/pull from origin when push or openPr is set', () => {
+    it('should include fetch/pull from origin when hasRemote=true', () => {
       const prompt = buildMergeSquashPrompt(
-        baseState({ prUrl: null, prNumber: null, push: true }),
+        baseState({ prUrl: null, prNumber: null }),
         'feat/test',
-        'main'
+        'main',
+        true
       );
       expect(prompt).toContain('git fetch origin');
       expect(prompt).toContain('git pull origin');
     });
 
-    it('should NOT include fetch/pull from origin when no remote (push=false, openPr=false)', () => {
+    it('should NOT include fetch/pull from origin when hasRemote=false', () => {
       const prompt = buildMergeSquashPrompt(
-        baseState({ prUrl: null, prNumber: null, push: false, openPr: false }),
+        baseState({ prUrl: null, prNumber: null }),
+        'feat/test',
+        'main',
+        false
+      );
+      expect(prompt).not.toContain('git fetch origin');
+      expect(prompt).not.toContain('git pull origin');
+    });
+
+    it('should NOT include fetch/pull when hasRemote defaults to false', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: null, prNumber: null }),
         'feat/test',
         'main'
       );
       expect(prompt).not.toContain('git fetch origin');
       expect(prompt).not.toContain('git pull origin');
+    });
+
+    it('should include worktree protection constraints', () => {
+      const prompt = buildMergeSquashPrompt(
+        baseState({ prUrl: null, prNumber: null }),
+        'feat/test',
+        'main'
+      );
+      expect(prompt).toContain('NEVER remove');
+      expect(prompt).toContain('worktree');
+      expect(prompt).not.toContain('git checkout feat/test');
     });
 
     it('should include branch names', () => {

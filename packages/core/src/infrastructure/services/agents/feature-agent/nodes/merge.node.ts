@@ -39,6 +39,11 @@ export interface MergeNodeDeps {
   hasRemote: (cwd: string) => Promise<boolean>;
   getDefaultBranch: (cwd: string) => Promise<string>;
   featureRepository: Pick<IFeatureRepository, 'findById' | 'update'>;
+  /**
+   * Verify that featureBranch has been merged into baseBranch.
+   * Returns true if baseBranch contains all commits from featureBranch.
+   */
+  verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) => Promise<boolean>;
 }
 
 /**
@@ -97,10 +102,11 @@ export function createMergeNode(deps: MergeNodeDeps) {
       let prNumber = state.prNumber;
       const ciStatus = state.ciStatus;
 
+      // --- Check for git remote (needed by both agent calls) ---
+      const remoteAvailable = await deps.hasRemote(cwd);
+
       // --- Agent Call 1: Commit + Push + PR (skip on approval resume) ---
       if (!isResumeAfterInterrupt) {
-        // --- Check for git remote ---
-        const remoteAvailable = await deps.hasRemote(cwd);
         if (!remoteAvailable) {
           log.info('No git remote configured — skipping push and PR, will merge locally');
         }
@@ -154,9 +160,26 @@ export function createMergeNode(deps: MergeNodeDeps) {
         const mergePrompt = buildMergeSquashPrompt(
           { ...state, prUrl, prNumber, commitHash },
           branch,
-          baseBranch
+          baseBranch,
+          remoteAvailable
         );
-        await retryExecute(executor, mergePrompt, options, { logger: log });
+        // Run merge in the ORIGINAL repo, not the worktree — the worktree IS
+        // the feature branch and must not be modified or removed during merge.
+        const mergeOptions = { ...options, cwd: state.repositoryPath };
+        await retryExecute(executor, mergePrompt, mergeOptions, { logger: log });
+
+        // Verify the merge actually succeeded (agent may report success without merging)
+        if (!prUrl) {
+          const mergeVerified = await deps.verifyMerge(state.repositoryPath, branch, baseBranch);
+          if (!mergeVerified) {
+            throw new Error(
+              `Merge verification failed: ${branch} was not merged into ${baseBranch}. ` +
+                `The agent may have encountered errors during the merge operation.`
+            );
+          }
+          log.info('Merge verified: feature branch is ancestor of base branch');
+        }
+
         messages.push(`[merge] Agent completed merge operation`);
         merged = true;
       }
