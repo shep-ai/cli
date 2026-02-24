@@ -453,6 +453,22 @@ export function createShowCommand(): Command {
           textBlocks.push({ title: 'Phase Timing', content: lines.join('\n') });
         }
 
+        if (feature.pr?.ciFixHistory && feature.pr.ciFixHistory.length > 0) {
+          const fixLines = feature.pr.ciFixHistory.map((r) => {
+            const outcomeColor =
+              r.outcome === 'fixed'
+                ? colors.success
+                : r.outcome === 'timeout'
+                  ? colors.warning
+                  : colors.error;
+            return `  #${r.attempt}  ${outcomeColor(r.outcome)}  ${colors.muted(r.startedAt)}  ${r.failureSummary.slice(0, 60)}`;
+          });
+          textBlocks.push({
+            title: 'CI Fix History',
+            content: fixLines.join('\n'),
+          });
+        }
+
         if (run?.status === 'waiting_approval') {
           const phase = run.result?.startsWith('node:')
             ? (NODE_TO_PHASE[run.result.slice(5)] ?? run.result.slice(5))
@@ -542,6 +558,13 @@ export function createShowCommand(): Command {
                               ? colors.error(`${feature.pr.ciStatus} \u2717`)
                               : colors.warning(feature.pr.ciStatus)
                           : null,
+                      },
+                      {
+                        label: 'CI Fixes',
+                        value:
+                          feature.pr.ciFixAttempts && feature.pr.ciFixAttempts > 0
+                            ? `${feature.pr.ciFixAttempts} attempt(s)`
+                            : null,
                       },
                     ],
                   },

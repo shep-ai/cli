@@ -305,6 +305,14 @@ ALTER TABLE settings ADD COLUMN approval_gate_push_on_impl_complete INTEGER NOT 
 UPDATE settings SET onboarding_complete = 1 WHERE id IS NOT NULL;
 `,
   },
+  {
+    version: 19,
+    sql: `
+-- Migration 019: Add CI fix tracking columns to features
+ALTER TABLE features ADD COLUMN ci_fix_attempts INTEGER;
+ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
+`,
+  },
 ];
 
 /**
