@@ -19,6 +19,15 @@ describe('GitPrService.watchCi integration', () => {
   let service: GitPrService;
   const cwd = '/repo';
   const branch = 'feat/my-branch';
+  const runId = 12345;
+
+  /** Helper: mock the gh run list call that resolves the latest run ID */
+  function mockRunList() {
+    vi.mocked(mockExec).mockResolvedValueOnce({
+      stdout: JSON.stringify([{ databaseId: runId }]),
+      stderr: '',
+    });
+  }
 
   beforeEach(() => {
     mockExec = vi.fn();
@@ -32,11 +41,23 @@ Run in progress...
 Run completed: success
 `.trim();
 
+    mockRunList();
     vi.mocked(mockExec).mockResolvedValueOnce({ stdout: successStdout, stderr: '' });
 
     const result = await service.watchCi(cwd, branch);
 
-    expect(mockExec).toHaveBeenCalledWith('gh', ['run', 'watch', '--branch', branch], { cwd });
+    expect(mockExec).toHaveBeenNthCalledWith(
+      1,
+      'gh',
+      ['run', 'list', '--branch', branch, '--json', 'databaseId', '--limit', '1'],
+      { cwd }
+    );
+    expect(mockExec).toHaveBeenNthCalledWith(
+      2,
+      'gh',
+      ['run', 'watch', String(runId), '--exit-status'],
+      { cwd }
+    );
     expect(result.status).toBe('success');
     expect(result.logExcerpt).toBe(successStdout.trim());
   });
@@ -48,6 +69,7 @@ Run in progress...
 Run concluded: failure
 `.trim();
 
+    mockRunList();
     vi.mocked(mockExec).mockResolvedValueOnce({ stdout: failureStdout, stderr: '' });
 
     const result = await service.watchCi(cwd, branch);
@@ -63,6 +85,7 @@ Run in progress...
 Run concluded: cancelled
 `.trim();
 
+    mockRunList();
     vi.mocked(mockExec).mockResolvedValueOnce({ stdout: cancelledStdout, stderr: '' });
 
     const result = await service.watchCi(cwd, branch);
@@ -72,6 +95,7 @@ Run concluded: cancelled
 
   it('CI_TIMEOUT: exec rejection with "timed out" throws GitPrError with CI_TIMEOUT code', async () => {
     const timeoutMs = 30000;
+    mockRunList();
     vi.mocked(mockExec).mockRejectedValueOnce(new Error('timed out waiting for run'));
 
     let thrown: unknown;
@@ -83,9 +107,26 @@ Run concluded: cancelled
 
     expect(thrown).toBeInstanceOf(GitPrError);
     expect((thrown as GitPrError).code).toBe(GitPrErrorCode.CI_TIMEOUT);
-    expect(mockExec).toHaveBeenCalledWith('gh', ['run', 'watch', '--branch', branch], {
-      cwd,
-      timeout: timeoutMs,
+    // First call: run list (no timeout). Second call: run watch (with timeout).
+    expect(mockExec).toHaveBeenNthCalledWith(
+      2,
+      'gh',
+      ['run', 'watch', String(runId), '--exit-status'],
+      {
+        cwd,
+        timeout: timeoutMs,
+      }
+    );
+  });
+
+  it('returns pending when no runs found for branch', async () => {
+    vi.mocked(mockExec).mockResolvedValueOnce({
+      stdout: JSON.stringify([]),
+      stderr: '',
     });
+
+    const result = await service.watchCi(cwd, branch);
+
+    expect(result.status).toBe('pending');
   });
 });
