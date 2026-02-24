@@ -124,7 +124,8 @@ ${steps.join('\n')}
 export function buildMergeSquashPrompt(
   state: FeatureAgentState,
   branch: string,
-  baseBranch: string
+  baseBranch: string,
+  hasRemote = false
 ): string {
   if (state.prUrl && state.prNumber) {
     // PR path: remote merge via GitHub CLI — no local merge needed
@@ -149,7 +150,6 @@ export function buildMergeSquashPrompt(
 
   // Non-PR path: local merge in the ORIGINAL repo (not the worktree)
   const originalRepo = state.repositoryPath;
-  const hasRemote = state.push || state.openPr;
 
   const fetchSteps = hasRemote
     ? `2. Fetch latest: \`git fetch origin\`
@@ -187,6 +187,8 @@ ${fetchSteps}
 
 - Use squash merge strategy to keep history clean
 - All commands MUST run in \`${originalRepo}\` (the original repo), NOT in the worktree
+- NEVER remove, modify, or prune git worktrees — they are managed by the system
+- Do NOT try to \`git checkout\` the feature branch — \`git merge --squash\` reads from it without checking it out
 - If conflicts arise during merge, attempt to resolve them intelligently
 - Do NOT modify any source code beyond what is needed for conflict resolution
 - Report the merge result clearly`;

@@ -202,4 +202,16 @@ export interface IGitPrService {
    * @throws GitPrError with GIT_ERROR code
    */
   getPrDiffSummary(cwd: string, baseBranch: string): Promise<DiffSummary>;
+
+  /**
+   * Verify that a feature branch has been merged into a base branch.
+   * Uses `git merge-base --is-ancestor` to check if featureBranch
+   * is an ancestor of baseBranch (meaning all its commits are reachable).
+   *
+   * @param cwd - Working directory path
+   * @param featureBranch - The branch that should have been merged
+   * @param baseBranch - The branch that should contain the merge
+   * @returns True if featureBranch is an ancestor of baseBranch
+   */
+  verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean>;
 }

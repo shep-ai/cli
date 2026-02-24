@@ -93,6 +93,8 @@ describe('Merge Flow (Graph-level)', () => {
   function buildGraphDeps(overrides?: {
     getDiffSummary?: MergeNodeDeps['getDiffSummary'];
     featureRepo?: MergeNodeDeps['featureRepository'];
+    hasRemote?: boolean;
+    verifyMerge?: boolean;
   }): {
     deps: FeatureAgentGraphDeps;
     getDiffSummary: MergeNodeDeps['getDiffSummary'];
@@ -104,8 +106,9 @@ describe('Merge Flow (Graph-level)', () => {
       executor: createMockExecutor(),
       mergeNodeDeps: {
         getDiffSummary,
-        hasRemote: vi.fn().mockResolvedValue(true),
+        hasRemote: vi.fn().mockResolvedValue(overrides?.hasRemote ?? true),
         getDefaultBranch: vi.fn().mockResolvedValue('main'),
+        verifyMerge: vi.fn().mockResolvedValue(overrides?.verifyMerge ?? true),
         featureRepository: featureRepo,
       },
     };
@@ -284,6 +287,56 @@ describe('Merge Flow (Graph-level)', () => {
           deletions: 30,
         })
       );
+    });
+  });
+
+  // --- No-remote local merge (the bug scenario) ---
+  describe('no-remote local merge flow', () => {
+    it('should override push/openPr to false and merge locally when no remote', async () => {
+      const { deps, featureRepo } = buildGraphDeps({ hasRemote: false });
+      const checkpointer = createCheckpointer(':memory:');
+      const graph = createFeatureAgentGraph(deps, checkpointer);
+      const config = { configurable: { thread_id: 'no-remote-merge-flow' } };
+
+      const result = await graph.invoke(
+        baseInput({
+          push: true,
+          openPr: true,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        }),
+        config
+      );
+
+      expect(getInterrupts(result)).toHaveLength(0);
+
+      // No PR URL (remote unavailable, push/openPr overridden)
+      expect(result.prUrl).toBeNull();
+
+      // Lifecycle = Maintain (local merge happened)
+      expect(featureRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycle: 'Maintain' })
+      );
+
+      // Verify merge was checked
+      expect(deps.mergeNodeDeps!.verifyMerge).toHaveBeenCalled();
+    });
+
+    it('should fail when merge verification detects merge did not happen', async () => {
+      const { deps } = buildGraphDeps({ hasRemote: false, verifyMerge: false });
+      const checkpointer = createCheckpointer(':memory:');
+      const graph = createFeatureAgentGraph(deps, checkpointer);
+      const config = { configurable: { thread_id: 'no-remote-verify-fail' } };
+
+      await expect(
+        graph.invoke(
+          baseInput({
+            push: false,
+            openPr: false,
+            approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+          }),
+          config
+        )
+      ).rejects.toThrow('Merge verification failed');
     });
   });
 
