@@ -78,9 +78,13 @@ export class RejectAgentRunUseCase {
         : [];
       iteration = existingFeedback.length + 1;
 
+      // Derive the rejected phase from the agent run's current node
+      const rejectedPhase = run.result?.startsWith('node:') ? run.result.slice(5) : undefined;
+
       const newEntry: RejectionFeedbackEntry = {
         iteration,
         message: feedback,
+        phase: rejectedPhase,
         timestamp: new Date().toISOString(),
       };
 

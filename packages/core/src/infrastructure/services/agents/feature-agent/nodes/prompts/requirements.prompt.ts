@@ -22,14 +22,20 @@ export function buildRequirementsPrompt(state: FeatureAgentState): string {
       | {
           iteration: number;
           message: string;
+          phase?: string;
           timestamp: string;
         }[]
       | undefined;
     if (rejectionFeedback && rejectionFeedback.length > 0) {
-      const entries = rejectionFeedback
-        .map((entry) => `- **Iteration ${entry.iteration}** (${entry.timestamp}): ${entry.message}`)
-        .join('\n');
-      rejectionFeedbackSection = `
+      // Filter to requirements-phase rejections (or legacy entries without phase)
+      const reqRejections = rejectionFeedback.filter((e) => !e.phase || e.phase === 'requirements');
+      if (reqRejections.length > 0) {
+        const entries = reqRejections
+          .map(
+            (entry) => `- **Iteration ${entry.iteration}** (${entry.timestamp}): ${entry.message}`
+          )
+          .join('\n');
+        rejectionFeedbackSection = `
 ## Previous Rejection Feedback
 
 The user has previously rejected this PRD with the following feedback. You MUST address these concerns in your revised output:
@@ -39,6 +45,7 @@ ${entries}
 Focus on the most recent feedback (highest iteration number) while ensuring earlier feedback is still addressed.
 
 `;
+      }
     }
   } catch {
     // If YAML parsing fails, continue without rejection feedback

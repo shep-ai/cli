@@ -10,6 +10,9 @@ properties:
   message:
     type: string
     description: User's feedback message explaining what needs to change
+  phase:
+    type: string
+    description: Which phase was rejected (e.g. 'requirements', 'plan')
   timestamp:
     type: string
     format: date-time
@@ -18,4 +21,4 @@ required:
   - iteration
   - message
   - timestamp
-description: Rejection feedback entry for PRD iteration tracking
+description: Rejection feedback entry for iteration tracking
