@@ -1,5 +1,6 @@
 'use client';
 
+import { Loader2 } from 'lucide-react';
 import { ReviewDrawerShell } from '@/components/common/review-drawer-shell';
 import { MergeReview } from './merge-review';
 import type { MergeReviewDrawerProps } from './merge-review-config';
@@ -14,6 +15,7 @@ export function MergeReviewDrawer({
   specPath,
   onDelete,
   isDeleting,
+  data,
   ...reviewProps
 }: MergeReviewDrawerProps) {
   return (
@@ -28,7 +30,13 @@ export function MergeReviewDrawer({
       onDelete={onDelete}
       isDeleting={isDeleting}
     >
-      <MergeReview {...reviewProps} />
+      {data ? (
+        <MergeReview data={data} {...reviewProps} />
+      ) : (
+        <div className="flex items-center justify-center p-8">
+          <Loader2 className="text-muted-foreground h-6 w-6 animate-spin" />
+        </div>
+      )}
     </ReviewDrawerShell>
   );
 }
