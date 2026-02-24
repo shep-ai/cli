@@ -43,8 +43,8 @@ Examples:
         let input: ConfigureAgentInput;
 
         if (isNonInteractive) {
-          // Non-interactive: require --auth when --agent is provided
-          if (!options.auth) {
+          // Non-interactive: require --auth when --agent is provided (dev type defaults to session)
+          if (!options.auth && options.agent !== 'dev') {
             messages.error('--auth is required when using --agent flag');
             process.exitCode = 1;
             return;
@@ -52,7 +52,7 @@ Examples:
 
           input = {
             type: options.agent,
-            authMethod: options.auth,
+            authMethod: options.auth ?? 'session',
             ...(options.token !== undefined && { token: options.token }),
           } as ConfigureAgentInput;
         } else {
