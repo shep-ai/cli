@@ -81,7 +81,3 @@ import "./phase-timing.tsp";
 
 // PRD approval/rejection DTOs
 import "./prd-approval.tsp";
-
-// Agent provider CLI session models
-import "./agent-session-message.tsp";
-import "./agent-session.tsp";

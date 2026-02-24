@@ -99,10 +99,6 @@ describe('GeminiCliExecutorService', () => {
     it('should NOT support system-prompt feature', () => {
       expect(executor.supportsFeature(AgentFeature.systemPrompt)).toBe(false);
     });
-
-    it('should NOT support session-listing feature', () => {
-      expect(executor.supportsFeature(AgentFeature.sessionListing)).toBe(false);
-    });
   });
 
   describe('execute', () => {

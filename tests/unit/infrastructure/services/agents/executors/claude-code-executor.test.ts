@@ -104,10 +104,6 @@ describe('ClaudeCodeExecutorService', () => {
       expect(executor.supportsFeature(AgentFeature.structuredOutput)).toBe(true);
     });
 
-    it('should support session-listing feature', () => {
-      expect(executor.supportsFeature(AgentFeature.sessionListing)).toBe(true);
-    });
-
     it('should NOT support tool-scoping feature', () => {
       expect(executor.supportsFeature(AgentFeature.toolScoping)).toBe(false);
     });

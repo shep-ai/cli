@@ -1,0 +1,153 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: claudemd-size-reduction
+summary: >
+  Pure editorial transformation of CLAUDE.md from 622 lines to ≤100 lines. No code changes,
+  no tests, no TypeSpec. Three ordered phases: pre-write link validation, the single-file
+  rewrite using the research-validated 52-line draft, and post-write verification of all
+  success criteria. The research phase resolved every open question and produced a complete
+  draft — this plan executes it with discipline.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Markdown (GitHub-Flavored)
+  - docs/ reference architecture
+relatedLinks:
+  - specs/042-claudemd-size-reduction/research.yaml
+  - docs/development/spec-driven-workflow.md
+  - docs/development/feature-yaml-protocol.md
+  - docs/development/tdd-guide.md
+  - docs/development/typespec-guide.md
+  - docs/development/building.md
+  - docs/development/testing.md
+  - docs/development/cicd.md
+  - docs/development/implementation-guide.md
+  - docs/architecture/overview.md
+  - docs/architecture/clean-architecture.md
+  - docs/architecture/repository-pattern.md
+  - docs/architecture/agent-system.md
+  - docs/api/domain-models.md
+  - AGENTS.md
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Pre-Write Validation'
+    description: >
+      Verify every docs/ path referenced in the research draft resolves to a non-empty file
+      before touching CLAUDE.md. Catches path drift or missing targets early. Ensures NFR-2
+      (all linked paths must be valid relative paths from repository root) is satisfied before
+      the rewrite begins. Exit criterion: all 17 link targets confirmed to exist and be non-empty.
+    parallel: false
+
+  - id: phase-2
+    name: 'Write Compressed CLAUDE.md'
+    description: >
+      Replace the 622-line CLAUDE.md with the 52-line research draft, applying all five content
+      decisions: rules-only inline, hybrid link format, ≤6 key commands, ≤4 architecture
+      principles, and trailing reference table for completely removed sections. This is the only
+      file change in the entire feature. Exit criterion: CLAUDE.md written and saved.
+    parallel: false
+
+  - id: phase-3
+    name: 'Post-Write Verification'
+    description: >
+      Verify all success criteria against the written file: line count ≤100, all six mandatory
+      rules present inline, all linked paths resolve, reference table complete and valid GFM
+      syntax. Read-only pass — no file changes unless a gate fails. Exit criterion: all FR and
+      NFR acceptance criteria confirmed.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+filesToModify:
+  - CLAUDE.md
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning (complete)
+  - **Updated:** 2026-02-24
+
+  ## Architecture Overview
+
+  CLAUDE.md is a top-level guidance file loaded by Claude Code at session start. It is not
+  part of the application's runtime architecture; it is a meta-document that configures AI
+  behavior. The transformation does not affect any code layer (domain, application,
+  infrastructure, presentation) and requires no DI wiring, no TypeSpec changes, and no tests.
+
+  The existing docs/ directory already contains comprehensive documentation for every section
+  being removed from CLAUDE.md. This feature does not add, remove, or modify any docs/ content
+  — it only rewrites CLAUDE.md to point to what already exists.
+
+  ## Key Design Decisions
+
+  ### Decision 1: Rules-Only Inline, Everything Else Linked
+
+  Only six behavioral constraints require top-level presence because Claude must apply them
+  without being told to look them up:
+
+  1. Spec-driven workflow sequence (order of shep-kit commands)
+  2. YAML-first rule (edit YAML only, never generated Markdown)
+  3. TDD mandate (RED → GREEN → REFACTOR, write failing test first)
+  4. TypeSpec-first rule (edit .tsp only, never hand-edit generated output.ts)
+  5. Storybook requirement (every web component needs a colocated .stories.tsx)
+  6. Commit format (Conventional Commits type/scope/subject + allowed types)
+  7. Agent resolution rule (always use IAgentExecutorProvider, never hardcode)
+
+  All reference material (domain model field lists, DI lifecycle steps, CI/CD stages, ASCII
+  directory trees) is only consulted on demand and is already fully documented in docs/.
+  Keeping it inline consumes tokens on every session without behavioral benefit.
+
+  ### Decision 2: Hybrid Link Format (Inline + Trailing Table)
+
+  Rules with a 1:1 docs/ companion get an inline link co-located with the rule bullet.
+  Sections removed entirely (Domain Models, Data Storage, pnpm Workspaces, CI/CD, etc.) get
+  a single entry in a trailing "## Reference" table.
+
+  This satisfies NFR-7 (every removed section must have a link) while keeping the rules section
+  clean and immediately parseable by an AI reading top-to-bottom.
+
+  ### Decision 3: ~52-Line Target With 48-Line Buffer
+
+  The research draft lands at 52 lines against a 100-line hard ceiling — 48 lines of headroom
+  for 2–3 future rule additions before requiring another refactor. Targeting the minimum viable
+  line count (rather than filling up to 100) is the only way to prevent the file from drifting
+  back to its current state over time.
+
+  ### Decision 4: Three Phases for Discipline, Not Complexity
+
+  The research already produced a complete, line-counted draft with all link targets verified.
+  There is no exploratory work left. The three phases (pre-write validation → write → post-write
+  verification) are not complexity-driven — they enforce a discipline: check before you write,
+  write from the draft, verify after you write.
+
+  ## Implementation Strategy
+
+  Phase 1 (pre-write validation) runs first to confirm all 17 link targets resolve. If any path
+  is wrong, the fix is to correct the draft path — not to proceed and create a file with broken
+  links.
+
+  Phase 2 (write) uses the exact 52-line draft from the research artifact verbatim. No ad-hoc
+  decisions are made during writing; the research phase resolved all open questions. The writer
+  copies the draft and applies it.
+
+  Phase 3 (verification) counts lines, checks for each mandatory rule by text match, and
+  validates all linked paths in the written file resolve. Pure read-only audit — no further
+  edits unless a gate fails, in which case the failing task is retried once.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | A docs/ link target has moved or does not exist | Phase 1 pre-validates all 17 targets before writing |
+  | Written file exceeds 100 lines | Phase 3 counts lines explicitly; ≤100 is a hard pass/fail gate |
+  | A mandatory rule is accidentally omitted | Phase 3 checks for each of the 6+ rule keywords explicitly |
+  | GFM table or link syntax breaks rendering | Phase 3 includes a GFM syntax review step |
+  | Future contributors re-expand the file | 52-line target provides 48-line buffer; spec captures the enforcement criterion |

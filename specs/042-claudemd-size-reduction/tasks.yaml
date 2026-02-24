@@ -1,0 +1,132 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: claudemd-size-reduction
+summary: >
+  3 tasks across 3 phases. Phase 1 validates all link targets before touching CLAUDE.md.
+  Phase 2 writes the compressed 52-line file from the research draft. Phase 3 verifies all
+  functional and non-functional requirements. No code, no tests — pure documentation edit.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Markdown (GitHub-Flavored)
+  - docs/ reference architecture
+relatedLinks:
+  - specs/042-claudemd-size-reduction/research.yaml
+  - specs/042-claudemd-size-reduction/plan.yaml
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Verify all docs/ link targets exist and are non-empty'
+    description: >
+      Before writing the compressed CLAUDE.md, confirm that every path referenced in the
+      research draft resolves to a real, non-empty file in the repository. This prevents
+      creating a CLAUDE.md with broken links. The 17 targets to check are listed in the
+      research artifact's relatedLinks section plus AGENTS.md.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'All 17 link targets confirmed to exist as files or directories'
+      - 'No linked path is empty or a 404 relative to repository root'
+      - 'AGENTS.md confirmed present at repository root'
+      - 'docs/development/ subdirectory files confirmed: spec-driven-workflow.md, feature-yaml-protocol.md, tdd-guide.md, typespec-guide.md, building.md, testing.md, cicd.md, implementation-guide.md'
+      - 'docs/architecture/ subdirectory files confirmed: overview.md, clean-architecture.md, repository-pattern.md, agent-system.md'
+      - 'docs/api/domain-models.md confirmed present'
+      - 'docs/cli/ and docs/ui/ and docs/tui/ confirmed present as directories'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Write compressed CLAUDE.md from research draft'
+    description: >
+      Replace the 622-line CLAUDE.md with the 52-line version produced in the research phase.
+      Apply verbatim from the research artifact draft — no ad-hoc decisions. Content structure:
+      header + one-line overview, mandatory workflow section (sequence + 6 inline rules with
+      co-located links), key commands block (6 commands + link to building.md), architecture
+      section (4 principles + links), trailing reference table (7 rows for removed sections).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'CLAUDE.md contains the project overview in 1 line'
+      - 'Spec-driven workflow sequence is present as a code block: /shep-kit:new-feature → /shep-kit:research → /shep-kit:plan → /shep-kit:implement → /shep-kit:commit-pr'
+      - 'YAML-first rule present inline with link to docs/development/feature-yaml-protocol.md'
+      - 'TDD mandate present inline (RED → GREEN → REFACTOR) with link to docs/development/tdd-guide.md'
+      - 'TypeSpec-first rule present inline with link to docs/development/typespec-guide.md'
+      - 'Storybook requirement present inline (every web UI component MUST have a colocated .stories.tsx)'
+      - 'Commit format present inline with allowed types list'
+      - 'Agent resolution rule present inline with link to AGENTS.md'
+      - 'Key commands section contains exactly 6 commands with a link to docs/development/building.md'
+      - 'Architecture section contains 4 numbered principles with links, no ASCII directory tree'
+      - 'Trailing reference table present with entries for: Domain models, Agent system, CLI patterns, Web UI, Testing strategy, CI/CD & Docker, Implementation patterns'
+      - 'No section from the original CLAUDE.md is present without either an inline rule or a link replacement'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-3
+    title: 'Verify all success criteria against the written file'
+    description: >
+      Read-only verification pass against the written CLAUDE.md. Check all FR and NFR gates:
+      line count ≤100, mandatory rules present by text match, all inline links resolve to
+      existing files/directories, reference table complete, valid GFM syntax (no broken link
+      syntax, no malformed tables). Fail this task if any criterion is not met — do not mark
+      complete until all gates pass.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'FR-1: Line count is ≤100 (count blank lines; hard ceiling, no exceptions)'
+      - 'FR-2: Spec-driven workflow sequence present inline as a code block'
+      - 'FR-3: TDD mandate (RED → GREEN → REFACTOR) present inline'
+      - 'FR-4: TypeSpec-first rule present inline referencing packages/core/src/domain/generated/output.ts'
+      - 'FR-5: Storybook .stories.tsx requirement present inline'
+      - 'FR-6: Conventional Commits format present inline with types list'
+      - 'FR-7: Every removed section has at least one inline link to docs/ or AGENTS.md'
+      - 'FR-8: Commands section has ≤6 entries with a link to full reference'
+      - 'FR-9: Architecture section has ≤4 principles with no ASCII directory tree'
+      - 'FR-10: Domain Models, DI, Key Patterns, Presentation Layer, pnpm Workspaces, CI/CD, and Maintaining sections are NOT present inline (replaced with links only)'
+      - 'NFR-1: File is valid GitHub-Flavored Markdown (no broken link syntax, no malformed tables)'
+      - 'NFR-2: All linked paths are relative and resolve from repository root'
+      - 'NFR-3: File is human-readable; no section heading is followed immediately by another heading with no content'
+      - 'NFR-4: No docs/ files were modified (git status shows only CLAUDE.md changed)'
+      - 'NFR-5: Net reduction confirmed: final line count < original 622 lines'
+    tdd: null
+    estimatedEffort: '10min'
+
+# Total effort estimate
+totalEstimate: '40min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Status
+
+  - **Phase:** Planning (complete)
+  - **Updated:** 2026-02-24
+
+  ## Summary
+
+  Three tasks in three sequential phases implement a pure documentation edit.
+
+  First, all 17 link targets referenced in the research draft are verified to exist and be
+  non-empty — this pre-flight check prevents writing a file with broken links.
+
+  Second, the 622-line CLAUDE.md is replaced with the 52-line version produced verbatim from
+  the research artifact draft. No new decisions are made at this step; all content choices
+  were resolved during research. The write applies the draft exactly as specified.
+
+  Third, a read-only verification pass checks every functional and non-functional requirement:
+  line count gate (≤100), presence of each mandatory rule keyword, validity of all linked
+  paths, and GFM syntax correctness. Only CLAUDE.md should appear in git status when this
+  task completes.
+
+  The work is small (S estimate, ~40 minutes) and entirely editorial. The research phase did
+  the hard analytical work of deciding what to keep vs. link; the implementation phase applies
+  those decisions with verification discipline.

@@ -15,7 +15,6 @@
 ### Features
 
 - **agents:** improve session ls/show with grouping and rich metadata ([#123](https://github.com/shep-ai/cli/issues/123)) ([8d2c3f3](https://github.com/shep-ai/cli/commit/8d2c3f3d15e2099f105806e228451f0c8a1f641f))
-
 ## [1.51.2](https://github.com/shep-ai/cli/compare/v1.51.1...v1.51.2) (2026-02-24)
 
 ### Bug Fixes
