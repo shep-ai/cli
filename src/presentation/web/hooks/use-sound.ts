@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef } from 'react';
+import { useSoundEnabled } from './use-sound-enabled';
 
 const SOUND_NAMES = [
   'button',
@@ -48,6 +49,7 @@ export interface UseSoundResult {
 
 export function useSound(name: SoundName, options: UseSoundOptions = {}): UseSoundResult {
   const { volume = 1, loop = false } = options;
+  const { enabled } = useSoundEnabled();
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const isPlayingRef = useRef(false);
 
@@ -71,6 +73,7 @@ export function useSound(name: SoundName, options: UseSoundOptions = {}): UseSou
   }, [name, loop, volume]);
 
   const play = useCallback(() => {
+    if (!enabled) return;
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = 0;
@@ -78,7 +81,7 @@ export function useSound(name: SoundName, options: UseSoundOptions = {}): UseSou
       // Browser may block autoplay without user gesture — silently ignore
     });
     isPlayingRef.current = true;
-  }, []);
+  }, [enabled]);
 
   const stop = useCallback(() => {
     const audio = audioRef.current;

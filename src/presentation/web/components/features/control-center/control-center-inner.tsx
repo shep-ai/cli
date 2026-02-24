@@ -24,6 +24,7 @@ import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire
 import { TechDecisionsDrawer } from '@/components/common/tech-decisions-review';
 import { MergeReviewDrawer } from '@/components/common/merge-review';
 import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
+import { useSound } from '@/hooks/use-sound';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -71,6 +72,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   // Reject state (shared by both drawers)
   const [isRejecting, setIsRejecting] = useState(false);
+  const rejectSound = useSound('caution', { volume: 0.5 });
 
   // Tech decisions drawer state
   const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
@@ -143,6 +145,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           return;
         }
 
+        rejectSound.play();
         toast.success(`${label} rejected — agent re-iterating (iteration ${result.iteration})`);
         if (result.iterationWarning) {
           toast.warning(
@@ -155,7 +158,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         setIsRejecting(false);
       }
     },
-    [selectedNode?.featureId, clearSelection]
+    [selectedNode?.featureId, clearSelection, rejectSound]
   );
 
   const handlePrdReject = useCallback(

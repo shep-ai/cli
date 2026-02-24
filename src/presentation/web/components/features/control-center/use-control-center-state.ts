@@ -14,6 +14,7 @@ import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
+import { useSound } from '@/hooks/use-sound';
 import {
   mapEventTypeToState,
   mapPhaseNameToLifecycle,
@@ -57,6 +58,9 @@ export function useControlCenterState(
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const deleteSound = useSound('transition_down', { volume: 0.5 });
+  const createSound = useSound('transition_up', { volume: 0.5 });
+  const clickSound = useSound('tap_01', { volume: 0.3 });
   const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
 
   // Sync server props into local state when router.refresh() delivers new data
@@ -163,18 +167,26 @@ export function useControlCenterState(
     setNodes((ns) => applyNodeChanges(changes, ns));
   }, []);
 
+  const closeSound = useSound('transition_down', { volume: 0.3 });
   const clearSelection = useCallback(() => {
-    setSelectedNode(null);
-  }, []);
+    setSelectedNode((prev) => {
+      if (prev) closeSound.play();
+      return null;
+    });
+  }, [closeSound]);
 
-  const handleNodeClick = useCallback((_event: React.MouseEvent, node: CanvasNodeType) => {
-    if (node.type === 'featureNode') {
-      const data = node.data as FeatureNodeData;
-      if (data.state === 'creating') return;
-      setIsCreateDrawerOpen(false);
-      setSelectedNode(data);
-    }
-  }, []);
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: CanvasNodeType) => {
+      if (node.type === 'featureNode') {
+        const data = node.data as FeatureNodeData;
+        if (data.state === 'creating') return;
+        clickSound.play();
+        setIsCreateDrawerOpen(false);
+        setSelectedNode(data);
+      }
+    },
+    [clickSound]
+  );
 
   // Keyboard shortcut: Escape to deselect
   useEffect(() => {
@@ -365,6 +377,7 @@ export function useControlCenterState(
             return;
           }
 
+          createSound.play();
           router.refresh();
         })
         .catch(() => {
@@ -374,12 +387,13 @@ export function useControlCenterState(
           toast.error('Failed to create feature');
         });
     },
-    [router, createFeatureNode, pendingRepoNodeId]
+    [router, createFeatureNode, pendingRepoNodeId, createSound]
   );
 
   const closeCreateDrawer = useCallback(() => {
+    closeSound.play();
     setIsCreateDrawerOpen(false);
-  }, []);
+  }, [closeSound]);
 
   const handleDeleteFeature = useCallback(
     async (featureId: string) => {
@@ -406,6 +420,7 @@ export function useControlCenterState(
           setEdges(result.edges);
           return result.nodes;
         });
+        deleteSound.play();
         toast.success('Feature deleted successfully');
         router.refresh();
       } catch {
@@ -414,7 +429,7 @@ export function useControlCenterState(
         setIsDeleting(false);
       }
     },
-    [router, edges]
+    [router, edges, deleteSound]
   );
 
   const handleDeleteRepository = useCallback(
@@ -434,6 +449,7 @@ export function useControlCenterState(
           return;
         }
 
+        deleteSound.play();
         toast.success('Repository removed');
         router.refresh();
       } catch {
@@ -441,7 +457,7 @@ export function useControlCenterState(
         router.refresh();
       }
     },
-    [router]
+    [router, deleteSound]
   );
 
   const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
@@ -561,6 +577,7 @@ export function useControlCenterState(
             }))
           );
 
+          createSound.play();
           router.refresh();
         })
         .catch(() => {
@@ -577,7 +594,7 @@ export function useControlCenterState(
           toast.error('Failed to add repository');
         });
     },
-    [router]
+    [router, createSound]
   );
 
   const pendingNode = pendingRepoNodeId ? nodes.find((n) => n.id === pendingRepoNodeId) : null;
