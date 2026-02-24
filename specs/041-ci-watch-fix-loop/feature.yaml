@@ -26,6 +26,7 @@ status:
     - phase-4
     - pr-created
     - review-fixes-applied-1
+    - merge
 validation:
   lastRun: null
   gatesPassed: []

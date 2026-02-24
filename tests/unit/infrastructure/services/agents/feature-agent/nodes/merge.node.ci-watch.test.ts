@@ -101,10 +101,13 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prom
   buildCiWatchFixPrompt: mockBuildCiWatchFixPrompt,
 }));
 
-vi.mock('@/infrastructure/services/agents/feature-agent/nodes/merge-output-parser.js', () => ({
-  parseCommitHash: mockParseCommitHash,
-  parsePrUrl: mockParsePrUrl,
-}));
+vi.mock(
+  '@/infrastructure/services/agents/feature-agent/nodes/merge/merge-output-parser.js',
+  () => ({
+    parseCommitHash: mockParseCommitHash,
+    parsePrUrl: mockParsePrUrl,
+  })
+);
 
 vi.mock('@/infrastructure/services/settings.service.js', () => ({
   getSettings: mockGetSettings,
@@ -114,7 +117,7 @@ vi.mock('@/infrastructure/services/settings.service.js', () => ({
 import {
   createMergeNode,
   type MergeNodeDeps,
-} from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
+} from '@/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
@@ -166,6 +169,7 @@ function createMockGitPrService(overrides: Partial<IGitPrService> = {}): IGitPrS
     getPrDiffSummary: vi
       .fn()
       .mockResolvedValue({ filesChanged: 1, additions: 5, deletions: 2, commitCount: 1 }),
+    verifyMerge: vi.fn().mockResolvedValue(true),
     ...overrides,
   } as IGitPrService;
 }
@@ -179,6 +183,7 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
     hasRemote: vi.fn().mockResolvedValue(true),
     getDefaultBranch: vi.fn().mockResolvedValue('main'),
     featureRepository: createMockFeatureRepo(),
+    verifyMerge: vi.fn().mockResolvedValue(true),
     gitPrService: createMockGitPrService(),
     ...overrides,
   };

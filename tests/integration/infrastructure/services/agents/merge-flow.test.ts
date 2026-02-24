@@ -25,7 +25,7 @@ import {
 import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { DiffSummary } from '@/application/ports/output/services/git-pr-service.interface.js';
-import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
+import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.js';
 import { initializeSettings, resetSettings } from '@/infrastructure/services/settings.service.js';
 import { createDefaultSettings } from '@/domain/factories/settings-defaults.factory.js';
 

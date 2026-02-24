@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   parseCommitHash,
   parsePrUrl,
-} from '../../../../../../../packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge-output-parser.js';
+} from '../../../../../../../packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge/merge-output-parser.js';
 
 describe('merge-output-parser', () => {
   describe('parseCommitHash', () => {
