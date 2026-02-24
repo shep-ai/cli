@@ -61,6 +61,9 @@ export function useControlCenterState(
   const deleteSound = useSound('transition_down', { volume: 0.5 });
   const createSound = useSound('transition_up', { volume: 0.5 });
   const clickSound = useSound('tap_01', { volume: 0.3 });
+  const warningSound = useSound('notification', { volume: 0.5 });
+  const errorSound = useSound('caution', { volume: 0.5 });
+  const celebrationSound = useSound('celebration', { volume: 0.5 });
   const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
 
   // Sync server props into local state when router.refresh() delivers new data
@@ -72,6 +75,45 @@ export function useControlCenterState(
     .map((e) => e.id)
     .sort()
     .join(',');
+
+  // Track previous feature states so we can detect transitions on server refresh
+  const prevFeatureStatesRef = useRef<Map<string, FeatureNodeData['state']>>(new Map());
+
+  // Stable key that changes when feature DATA changes (state/lifecycle), not just IDs.
+  // This drives the notification effect below so it fires on state transitions.
+  const initialDataKey = initialNodes
+    .filter((n) => n.type === 'featureNode')
+    .map((n) => {
+      const d = n.data as FeatureNodeData;
+      return `${n.id}:${d.state}:${d.lifecycle}`;
+    })
+    .sort()
+    .join(',');
+
+  // Detect state transitions from server data and fire actionable notifications.
+  // Separate from the node-sync effect because that one is keyed by IDs only.
+  useEffect(() => {
+    const prevStates = prevFeatureStatesRef.current;
+    for (const node of initialNodes) {
+      if (node.type !== 'featureNode') continue;
+      const data = node.data as FeatureNodeData;
+      const prev = prevStates.get(node.id);
+      // Only notify on transitions (not on first render)
+      if (prev !== undefined && prev !== data.state) {
+        if (data.state === 'done') {
+          toast.success(data.name, { description: 'Feature completed!' });
+          celebrationSound.play();
+        } else if (data.state === 'action-required') {
+          toast.warning(data.name, { description: 'Waiting for your approval' });
+          warningSound.play();
+        } else if (data.state === 'error') {
+          toast.error(data.name, { description: data.errorMessage ?? 'Agent failed' });
+          errorSound.play();
+        }
+      }
+      prevStates.set(node.id, data.state);
+    }
+  }, [initialDataKey, initialNodes, celebrationSound, warningSound, errorSound]);
 
   // Sync server props into local state — keyed by derived strings (initialNodeKey/initialEdgeKey)
   // to avoid infinite re-renders from unstable array references.
@@ -162,6 +204,24 @@ export function useControlCenterState(
     clearTimeout(reconcileTimerRef.current);
     reconcileTimerRef.current = setTimeout(() => router.refresh(), 3000);
   }, [lastEvent, router]);
+
+  // Periodic polling fallback: refresh server data every 5s when any feature
+  // is in an active state (running/action-required). This ensures the UI stays
+  // current even if the SSE connection drops — belt-and-suspenders alongside SSE.
+  useEffect(() => {
+    const hasActiveFeature = nodes.some((n) => {
+      if (n.type !== 'featureNode') return false;
+      const data = n.data as FeatureNodeData;
+      return (
+        data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
+      );
+    });
+
+    if (!hasActiveFeature) return;
+
+    const interval = setInterval(() => router.refresh(), 5_000);
+    return () => clearInterval(interval);
+  }, [nodes, router]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
@@ -348,9 +408,10 @@ export function useControlCenterState(
   );
 
   const handleAddFeature = useCallback(() => {
+    clickSound.play();
     setSelectedNode(null);
     setIsCreateDrawerOpen(true);
-  }, []);
+  }, [clickSound]);
 
   const handleCreateFeatureSubmit = useCallback(
     (data: FeatureCreatePayload) => {
@@ -460,11 +521,15 @@ export function useControlCenterState(
     [router, deleteSound]
   );
 
-  const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
-    setSelectedNode(null);
-    setPendingRepoNodeId(repoNodeId);
-    setIsCreateDrawerOpen(true);
-  }, []);
+  const handleAddFeatureToRepo = useCallback(
+    (repoNodeId: string) => {
+      clickSound.play();
+      setSelectedNode(null);
+      setPendingRepoNodeId(repoNodeId);
+      setIsCreateDrawerOpen(true);
+    },
+    [clickSound]
+  );
 
   const handleAddFeatureToFeature = useCallback(
     (featureNodeId: string) => {

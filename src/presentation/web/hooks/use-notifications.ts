@@ -77,6 +77,15 @@ export function useNotifications(): UseNotificationsResult {
     if (processedRef.current.has(key)) return;
     processedRef.current.add(key);
 
+    // Only notify for actionable events and completion celebrations
+    if (
+      lastEvent.severity !== NotificationSeverity.Error &&
+      lastEvent.severity !== NotificationSeverity.Warning &&
+      lastEvent.severity !== NotificationSeverity.Success
+    ) {
+      return;
+    }
+
     dispatchToast(lastEvent);
     dispatchBrowserNotification(lastEvent);
 
