@@ -1,3 +1,10 @@
+# [1.53.0](https://github.com/shep-ai/cli/compare/v1.52.2...v1.53.0) (2026-02-24)
+
+### Features
+
+- **domain:** add parent/child feature dependencies with lifecycle-gated blocking ([#122](https://github.com/shep-ai/cli/issues/122)) ([3b5ea2b](https://github.com/shep-ai/cli/commit/3b5ea2b873482fda69d8a6625cd2e764b6b751c8))
+- **agents:** watch CI and auto-fix failures after push in merge node ([#119](https://github.com/shep-ai/cli/issues/119)) ([c1ee951](https://github.com/shep-ai/cli/commit/c1ee951548cd6b9c3378d697788b7d1533901683))
+
 ## [1.52.2](https://github.com/shep-ai/cli/compare/v1.52.1...v1.52.2) (2026-02-24)
 
 ### Bug Fixes
