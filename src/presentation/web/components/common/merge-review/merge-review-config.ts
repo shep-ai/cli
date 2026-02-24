@@ -61,7 +61,9 @@ export interface MergeReviewProps {
 }
 
 /** Props for the merge review drawer (shell wrapper) */
-export interface MergeReviewDrawerProps extends MergeReviewProps {
+export interface MergeReviewDrawerProps extends Omit<MergeReviewProps, 'data'> {
+  /** Merge review data — null while loading */
+  data: MergeReviewData | null;
   /** Whether the drawer is open */
   open: boolean;
   /** Callback when drawer should close */

@@ -310,8 +310,8 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, mergeReviewNode);
       });
 
-      // FeatureDrawer should be suppressed — no feature-drawer-header
-      expect(screen.queryByTestId('feature-drawer-header')).not.toBeInTheDocument();
+      // FeatureDrawer should be suppressed — its unique delete section is absent
+      expect(screen.queryByTestId('feature-drawer-delete')).not.toBeInTheDocument();
     });
 
     it('calls getMergeReviewData when review + action-required node is clicked', async () => {

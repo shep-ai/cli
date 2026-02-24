@@ -22,7 +22,9 @@ export interface TechDecisionsReviewProps {
   isRejecting?: boolean;
 }
 
-export interface TechDecisionsDrawerProps extends TechDecisionsReviewProps {
+export interface TechDecisionsDrawerProps extends Omit<TechDecisionsReviewProps, 'data'> {
+  /** Tech decisions data — null while loading */
+  data: TechDecisionsReviewData | null;
   /** Whether the drawer is open */
   open: boolean;
   /** Callback when drawer should close */

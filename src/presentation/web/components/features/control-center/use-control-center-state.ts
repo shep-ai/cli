@@ -49,7 +49,19 @@ export function useControlCenterState(
 ): ControlCenterState {
   const router = useRouter();
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
-  const [edges, setEdges] = useState<Edge[]>(initialEdges);
+  // eslint-disable-next-line react/hook-use-state -- raw setter renamed; public setEdges wrapper keeps edgesRef in sync
+  const [edges, setEdgesRaw] = useState<Edge[]>(initialEdges);
+  const edgesRef = useRef<Edge[]>(initialEdges);
+
+  // Wrapper that keeps edgesRef in sync with edges state, allowing
+  // createFeatureNode to read current edges without a closure dependency.
+  const setEdges = useCallback((update: Edge[] | ((prev: Edge[]) => Edge[])) => {
+    setEdgesRaw((prev) => {
+      const next = typeof update === 'function' ? update(prev) : update;
+      edgesRef.current = next;
+      return next;
+    });
+  }, []);
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -103,7 +115,7 @@ export function useControlCenterState(
 
   useEffect(() => {
     setEdges(initialEdges);
-  }, [initialEdgeKey, initialEdges]);
+  }, [initialEdgeKey, initialEdges, setEdges]);
 
   // Refresh server data when SSE agent events arrive (status changes)
   const { lastEvent } = useAgentEventsContext();
@@ -145,35 +157,38 @@ export function useControlCenterState(
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [clearSelection]);
 
-  const handleConnect = useCallback((connection: Connection) => {
-    if (!connection.source || !connection.target) return;
+  const handleConnect = useCallback(
+    (connection: Connection) => {
+      if (!connection.source || !connection.target) return;
 
-    setNodes((currentNodes) => {
-      const sourceNode = currentNodes.find((n) => n.id === connection.source);
-      if (sourceNode?.type !== 'repositoryNode') return currentNodes;
+      setNodes((currentNodes) => {
+        const sourceNode = currentNodes.find((n) => n.id === connection.source);
+        if (sourceNode?.type !== 'repositoryNode') return currentNodes;
 
-      // Block if target feature already has a repo source
-      setEdges((currentEdges) => {
-        const targetAlreadyHasRepo = currentEdges.some((e) => {
-          const edgeSource = currentNodes.find((n) => n.id === e.source);
-          return edgeSource?.type === 'repositoryNode' && e.target === connection.target;
+        // Block if target feature already has a repo source
+        setEdges((currentEdges) => {
+          const targetAlreadyHasRepo = currentEdges.some((e) => {
+            const edgeSource = currentNodes.find((n) => n.id === e.source);
+            return edgeSource?.type === 'repositoryNode' && e.target === connection.target;
+          });
+          if (targetAlreadyHasRepo) return currentEdges;
+
+          return [
+            ...currentEdges,
+            {
+              id: `edge-${connection.source}-${connection.target}`,
+              source: connection.source,
+              target: connection.target,
+              style: { strokeDasharray: '5 5' },
+            },
+          ];
         });
-        if (targetAlreadyHasRepo) return currentEdges;
 
-        return [
-          ...currentEdges,
-          {
-            id: `edge-${connection.source}-${connection.target}`,
-            source: connection.source,
-            target: connection.target,
-            style: { strokeDasharray: '5 5' },
-          },
-        ];
+        return currentNodes;
       });
-
-      return currentNodes;
-    });
-  }, []);
+    },
+    [setEdges]
+  );
 
   const createFeatureNode = useCallback(
     (sourceNodeId: string | null, dataOverride?: Partial<FeatureNodeData>): string => {
@@ -190,9 +205,10 @@ export function useControlCenterState(
       };
 
       setNodes((currentNodes) => {
-        // Find siblings connected to the same parent
+        // Read edges from ref to avoid closure dependency on `edges` state.
+        // edgesRef is kept in sync by the setEdges wrapper.
         const siblingIds = sourceNodeId
-          ? new Set(edges.filter((e) => e.source === sourceNodeId).map((e) => e.target))
+          ? new Set(edgesRef.current.filter((e) => e.source === sourceNodeId).map((e) => e.target))
           : new Set<string>();
         const siblings = currentNodes.filter((n) => siblingIds.has(n.id));
 
@@ -290,7 +306,7 @@ export function useControlCenterState(
 
       return id;
     },
-    [edges]
+    [setEdges]
   );
 
   const handleAddFeature = useCallback(() => {
@@ -332,7 +348,7 @@ export function useControlCenterState(
           toast.error('Failed to create feature');
         });
     },
-    [router, createFeatureNode, pendingRepoNodeId]
+    [router, createFeatureNode, pendingRepoNodeId, setEdges]
   );
 
   const closeCreateDrawer = useCallback(() => {
@@ -372,7 +388,7 @@ export function useControlCenterState(
         setIsDeleting(false);
       }
     },
-    [router, edges]
+    [router, edges, setEdges]
   );
 
   const handleDeleteRepository = useCallback(
@@ -399,7 +415,7 @@ export function useControlCenterState(
         router.refresh();
       }
     },
-    [router]
+    [router, setEdges]
   );
 
   const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
@@ -428,7 +444,7 @@ export function useControlCenterState(
         return result.nodes;
       });
     },
-    [edges]
+    [edges, setEdges]
   );
 
   const handleAddRepository = useCallback(
@@ -535,7 +551,7 @@ export function useControlCenterState(
           toast.error('Failed to add repository');
         });
     },
-    [router]
+    [router, setEdges]
   );
 
   const pendingNode = pendingRepoNodeId ? nodes.find((n) => n.id === pendingRepoNodeId) : null;
