@@ -9,7 +9,7 @@ test.describe('Optimistic node clickability — drawer opens on other nodes whil
       const request = route.request();
       if (request.method() === 'POST' && request.headers()['next-action']) {
         const body = request.postData();
-        if (body && body.includes('E2E Optimistic Clickability Test')) {
+        if (body?.includes('E2E Optimistic Clickability Test')) {
           // Delay for 15 seconds — long enough to click other nodes
           await new Promise((resolve) => setTimeout(resolve, 15000));
           await route.fulfill({

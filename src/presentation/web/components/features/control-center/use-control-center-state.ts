@@ -388,7 +388,7 @@ export function useControlCenterState(
         setIsDeleting(false);
       }
     },
-    [router, edges]
+    [router, edges, setEdges]
   );
 
   const handleDeleteRepository = useCallback(
@@ -415,7 +415,7 @@ export function useControlCenterState(
         router.refresh();
       }
     },
-    [router]
+    [router, setEdges]
   );
 
   const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
@@ -551,7 +551,7 @@ export function useControlCenterState(
           toast.error('Failed to add repository');
         });
     },
-    [router]
+    [router, setEdges]
   );
 
   const pendingNode = pendingRepoNodeId ? nodes.find((n) => n.id === pendingRepoNodeId) : null;
