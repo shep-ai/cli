@@ -1,3 +1,9 @@
+## [1.49.1](https://github.com/shep-ai/cli/compare/v1.49.0...v1.49.1) (2026-02-24)
+
+### Bug Fixes
+
+- **agents:** isolate rejection feedback by phase for plan/merge prompts ([#113](https://github.com/shep-ai/cli/issues/113)) ([b9fafff](https://github.com/shep-ai/cli/commit/b9fafff82cdcdb6b37ac829e122ade279aad5938))
+
 # [1.49.0](https://github.com/shep-ai/cli/compare/v1.48.0...v1.49.0) (2026-02-23)
 
 ### Bug Fixes
