@@ -157,7 +157,8 @@ function renderNodeTiming(
   isRunTerminal: boolean,
   run: AgentRun | null,
   maxDurationMs: number,
-  maxBar: number
+  maxBar: number,
+  rejectionMessage?: string
 ): string[] {
   const lines: string[] = [];
   const isSubPhase = t.phase.includes(':');
@@ -233,13 +234,24 @@ function renderNodeTiming(
     lines.push(`${waitLabel} ${waitBar} ${waitSecs}s (waiting)`);
   }
 
+  // Show rejection feedback after approval wait (if this phase was rejected)
+  if (rejectionMessage) {
+    const maxLen = 60;
+    const msg =
+      rejectionMessage.length > maxLen
+        ? `${rejectionMessage.slice(0, maxLen)}\u2026`
+        : rejectionMessage;
+    lines.push(`  ${colors.error(`\u21a9 rejected: "${msg}"`)}`);
+  }
+
   return lines;
 }
 
 /**
  * Render the full phase timing section, grouped by agent run with lifecycle events.
+ * @internal Exported for testing only.
  */
-function renderPhaseTimings(
+export function renderPhaseTimings(
   timings: PhaseTiming[],
   currentRun: AgentRun | null,
   rejections: RejectionFeedbackEntry[] = []
@@ -289,7 +301,21 @@ function renderPhaseTimings(
 
     const isWaiting = isCurrentRun && currentRun?.status === 'waiting_approval';
 
-    let resumedIdx = 0;
+    // Build a map of phase timing IDs to rejection messages.
+    // A rejection belongs to the phase timing that has approvalWaitMs set
+    // and whose base phase matches the rejection's phase field.
+    // For each node timing with approvalWaitMs, find the next rejection
+    // for that base phase (consumed in order).
+    const rejectionsByPhase = new Map<string, RejectionFeedbackEntry[]>();
+    for (const r of rejections) {
+      const key = r.phase ?? '_legacy';
+      const list = rejectionsByPhase.get(key) ?? [];
+      list.push(r);
+      rejectionsByPhase.set(key, list);
+    }
+    // Track consumption index per phase
+    const rejectionIdx = new Map<string, number>();
+
     for (const [idx, t] of group.timings.entries()) {
       const isLast = isLastGroup && idx === group.timings.length - 1;
 
@@ -297,17 +323,15 @@ function renderPhaseTimings(
       if (isLifecycleEvent(t.phase)) {
         const event = LIFECYCLE_EVENTS[t.phase];
         if (event) {
-          // For resumed events, show rejection feedback if available
-          if (t.phase === 'run:resumed' && rejections.length > 0) {
-            const feedback = rejections[resumedIdx];
-            resumedIdx++;
-            if (feedback?.message) {
-              const maxLen = 60;
-              const msg =
-                feedback.message.length > maxLen
-                  ? `${feedback.message.slice(0, maxLen)}…`
-                  : feedback.message;
-              lines.push(`  ${colors.error(`↩ rejected: "${msg}"`)}`);
+          // For resumed events without a matching rejection, show as info marker
+          // (rejections are now rendered inline after approval wait)
+          if (t.phase === 'run:resumed') {
+            // Check if this resume was preceded by a rejection that we already rendered
+            // If so, skip the resumed marker to avoid visual duplication
+            const prevIdx = idx - 1;
+            const prevTiming = prevIdx >= 0 ? group.timings[prevIdx] : null;
+            if (prevTiming && !isLifecycleEvent(prevTiming.phase)) {
+              // The rejection was already shown inline, skip this marker
               continue;
             }
           }
@@ -324,6 +348,24 @@ function renderPhaseTimings(
         continue;
       }
 
+      // Determine if this phase timing was rejected (has approvalWaitMs and a matching rejection)
+      let rejectionMessage: string | undefined;
+      if (t.approvalWaitMs != null && Number(t.approvalWaitMs) > 0) {
+        const basePhase = t.phase.includes(':') ? t.phase.split(':')[0] : t.phase;
+        // Try phase-specific rejections first, then fall back to legacy (no phase)
+        for (const key of [basePhase, '_legacy']) {
+          const phaseRejections = rejectionsByPhase.get(key);
+          if (phaseRejections && phaseRejections.length > 0) {
+            const consumed = rejectionIdx.get(key) ?? 0;
+            if (consumed < phaseRejections.length) {
+              rejectionMessage = phaseRejections[consumed].message;
+              rejectionIdx.set(key, consumed + 1);
+              break;
+            }
+          }
+        }
+      }
+
       // Regular node phase
       const rendered = renderNodeTiming(
         t,
@@ -332,7 +374,8 @@ function renderPhaseTimings(
         isRunTerminal ?? false,
         isCurrentRun ? currentRun : null,
         maxDurationMs,
-        MAX_BAR
+        MAX_BAR,
+        rejectionMessage
       );
       lines.push(...rendered);
     }

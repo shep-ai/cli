@@ -7,6 +7,7 @@
  * The tasks cover concrete TDD work items.
  */
 
+import yaml from 'js-yaml';
 import { readSpecFile } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
@@ -14,7 +15,40 @@ export function buildPlanPrompt(state: FeatureAgentState): string {
   const specContent = readSpecFile(state.specDir, 'spec.yaml');
   const researchContent = readSpecFile(state.specDir, 'research.yaml');
 
+  // Extract plan-specific rejection feedback from spec.yaml
+  let rejectionFeedbackSection = '';
+  try {
+    const specData = yaml.load(specContent) as Record<string, unknown> | null;
+    const rejectionFeedback = specData?.rejectionFeedback as
+      | { iteration: number; message: string; phase?: string; timestamp: string }[]
+      | undefined;
+    if (rejectionFeedback && rejectionFeedback.length > 0) {
+      // Filter to plan-phase rejections only
+      const planRejections = rejectionFeedback.filter((e) => e.phase === 'plan');
+      if (planRejections.length > 0) {
+        const entries = planRejections
+          .map(
+            (entry) => `- **Iteration ${entry.iteration}** (${entry.timestamp}): ${entry.message}`
+          )
+          .join('\n');
+        rejectionFeedbackSection = `
+## Previous Plan Rejection Feedback
+
+The user has previously rejected this plan with the following feedback. You MUST address these concerns in your revised output:
+
+${entries}
+
+Focus on the most recent feedback (highest iteration number) while ensuring earlier feedback is still addressed.
+
+`;
+      }
+    }
+  } catch {
+    // If YAML parsing fails, continue without rejection feedback
+  }
+
   return `You are a software architect performing the PLANNING phase of feature development.
+${rejectionFeedbackSection}
 
 ## Your Task
 
