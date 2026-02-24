@@ -51,7 +51,7 @@
     "prelint": "pnpm generate",
     "build:cli": "tsc -p tsconfig.build.json && tsc-alias -p tsconfig.build.json --resolve-full-paths && mkdir -p dist/packages/core/src/infrastructure/services/tool-installer && cp -r packages/core/src/infrastructure/services/tool-installer/tools dist/packages/core/src/infrastructure/services/tool-installer/tools",
     "build": "pnpm build:cli && pnpm build:web:prod",
-    "build:web:prod": "pnpm build:web && rm -rf web && mkdir -p web && cp -r src/presentation/web/.next web/.next && cp -r src/presentation/web/public web/public && cp src/presentation/web/package.json web/ && node -e \"require('fs').writeFileSync('web/next.config.mjs','const c={typedRoutes:true,distDir:\\\".next\\\",serverExternalPackages:[\\\"tsyringe\\\",\\\"reflect-metadata\\\",\\\"better-sqlite3\\\"],output:\\\"standalone\\\"};export default c;\\n')\"",
+    "build:web:prod": "pnpm build:web && rm -rf web && mkdir -p web && cp -r src/presentation/web/.next web/.next && cp -r src/presentation/web/public web/public && cp src/presentation/web/package.json web/ && node -e \"require('fs').writeFileSync('web/next.config.mjs','const c={typedRoutes:true,distDir:\\\".next\\\",serverExternalPackages:[\\\"tsyringe\\\",\\\"reflect-metadata\\\",\\\"better-sqlite3\\\",\\\"node:os\\\",\\\"node:child_process\\\",\\\"node:fs\\\"]};export default c;\\n')\"",
     "build:web": "pnpm --filter @shepai/web build",
     "build:storybook": "storybook build",
     "test": "vitest run tests/unit tests/integration --passWithNoTests && pnpm run test:e2e",
