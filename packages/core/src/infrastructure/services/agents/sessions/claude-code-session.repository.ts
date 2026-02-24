@@ -47,11 +47,24 @@ interface JournalEntry {
   gitBranch?: string;
   version?: string;
   isSidechain?: boolean;
+  permissionMode?: string;
+  userType?: string;
   type: string;
   message?: {
     role?: string;
     content?: unknown;
   };
+}
+
+/** Extra metadata extracted from session JSONL that isn't in the domain type */
+export interface SessionMetadata {
+  cliVersion?: string;
+  gitBranch?: string;
+  permissionMode?: string;
+  userType?: string;
+  toolUsage: Record<string, number>;
+  userMessageCount: number;
+  assistantMessageCount: number;
 }
 
 @injectable()
@@ -88,12 +101,16 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
   async findById(id: string, options?: GetSessionOptions): Promise<AgentSession | null> {
     const messageLimit = options?.messageLimit ?? 20;
 
-    const filePath = await this.findSessionFile(id);
-    if (filePath === null) return null;
+    const match = await this.findSessionFile(id);
+    if (match === null) return null;
 
     try {
-      const stat = await fs.stat(filePath);
-      const fileInfo: SessionFileInfo = { id, filePath, mtime: stat.mtime };
+      const stat = await fs.stat(match.filePath);
+      const fileInfo: SessionFileInfo = {
+        id: match.resolvedId,
+        filePath: match.filePath,
+        mtime: stat.mtime,
+      };
       return await this.parseSessionFile(fileInfo, { includeMessages: true, messageLimit });
     } catch {
       return null;
@@ -149,8 +166,14 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
     return fileInfos;
   }
 
-  /** Find a session file by ID, scanning all project directories */
-  private async findSessionFile(id: string): Promise<string | null> {
+  /**
+   * Find a session file by exact or prefix ID match, scanning all project directories.
+   * Supports prefix matching so users can pass truncated IDs (e.g. first 8 chars).
+   * Returns the match info or null if not found / ambiguous.
+   */
+  private async findSessionFile(
+    id: string
+  ): Promise<{ filePath: string; resolvedId: string } | null> {
     let entries: Dirent[];
     try {
       entries = await fs.readdir(this.basePath, { withFileTypes: true, encoding: 'utf-8' });
@@ -162,16 +185,39 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
       .filter((e) => e.isDirectory())
       .map((e) => path.join(this.basePath, e.name));
 
+    // Try exact match first (fast path)
     for (const dir of projectDirs) {
       const filePath = path.join(dir, `${id}.jsonl`);
       try {
         await fs.access(filePath);
-        return filePath;
+        return { filePath, resolvedId: id };
       } catch {
-        // Not in this directory, continue scanning
+        // Not in this directory
       }
     }
 
+    // Fall back to prefix match
+    const matches: { filePath: string; resolvedId: string }[] = [];
+    for (const dir of projectDirs) {
+      let dirEntries: Dirent[];
+      try {
+        dirEntries = await fs.readdir(dir, { withFileTypes: true, encoding: 'utf-8' });
+      } catch {
+        continue;
+      }
+      for (const e of dirEntries) {
+        if (e.isFile() && e.name.endsWith('.jsonl') && e.name.startsWith(id)) {
+          const resolvedId = e.name.slice(0, -'.jsonl'.length);
+          matches.push({ filePath: path.join(dir, e.name), resolvedId });
+        }
+      }
+    }
+
+    if (matches.length === 1) {
+      return matches[0];
+    }
+
+    // No match or ambiguous (multiple matches)
     return null;
   }
 
@@ -194,6 +240,15 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
     let messageCount = 0;
     const messages: AgentSessionMessage[] = [];
 
+    // Extra metadata tracking
+    let cliVersion: string | undefined;
+    let gitBranch: string | undefined;
+    let permissionMode: string | undefined;
+    let userType: string | undefined;
+    const toolUsage: Record<string, number> = {};
+    let userMessageCount = 0;
+    let assistantMessageCount = 0;
+
     for (const line of lines) {
       // JSON.parse throws on invalid JSON — propagates to caller which skips the file
       const entry = JSON.parse(line) as JournalEntry;
@@ -201,12 +256,26 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
       if (!cwd && typeof entry.cwd === 'string') {
         cwd = entry.cwd;
       }
+      if (!cliVersion && typeof entry.version === 'string') {
+        cliVersion = entry.version;
+      }
+      if (!gitBranch && typeof entry.gitBranch === 'string') {
+        gitBranch = entry.gitBranch;
+      }
+      if (!permissionMode && typeof entry.permissionMode === 'string') {
+        permissionMode = entry.permissionMode;
+      }
+      if (!userType && typeof entry.userType === 'string') {
+        userType = entry.userType;
+      }
 
       if (entry.type === 'user' || entry.type === 'assistant') {
         const message = entry.message;
         const role = message?.role;
         if (role === 'user' || role === 'assistant') {
           messageCount++;
+          if (role === 'user') userMessageCount++;
+          if (role === 'assistant') assistantMessageCount++;
 
           const timestamp = entry.timestamp ? new Date(entry.timestamp) : fileInfo.mtime;
 
@@ -215,6 +284,15 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
 
           if (entry.type === 'user' && preview === undefined) {
             preview = this.extractTextContent(message?.content);
+          }
+
+          // Track tool usage from assistant messages
+          if (role === 'assistant' && Array.isArray(message?.content)) {
+            for (const block of message.content as Record<string, unknown>[]) {
+              if (block?.type === 'tool_use' && typeof block.name === 'string') {
+                toolUsage[block.name] = (toolUsage[block.name] ?? 0) + 1;
+              }
+            }
           }
 
           if (options.includeMessages) {
@@ -239,7 +317,7 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
       messagesToReturn = messages.slice(-options.messageLimit);
     }
 
-    const session: AgentSession = {
+    const session: AgentSession & { metadata?: SessionMetadata } = {
       id: fileInfo.id,
       agentType: 'claude-code' as AgentType,
       projectPath: this.abbreviatePath(cwd),
@@ -259,6 +337,15 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
     }
     if (options.includeMessages) {
       session.messages = messagesToReturn;
+      session.metadata = {
+        cliVersion,
+        gitBranch,
+        permissionMode,
+        userType,
+        toolUsage,
+        userMessageCount,
+        assistantMessageCount,
+      };
     }
 
     return session;
@@ -267,22 +354,33 @@ export class ClaudeCodeSessionRepository implements IAgentSessionRepository {
   /**
    * Extract plain text from message content.
    * - string content: returned as-is
-   * - array content: first text-type block's text is returned
+   * - array content: concatenates all text blocks; falls back to tool_use summary
    */
   private extractTextContent(content: unknown): string {
     if (typeof content === 'string') {
       return content;
     }
     if (Array.isArray(content)) {
-      const textBlock = content.find(
-        (block): block is { type: string; text: string } =>
-          typeof block === 'object' &&
-          block !== null &&
-          (block as { type?: unknown }).type === 'text' &&
-          typeof (block as { text?: unknown }).text === 'string'
-      );
-      if (textBlock) {
-        return textBlock.text;
+      // Collect all text blocks
+      const textParts: string[] = [];
+      const toolNames: string[] = [];
+
+      for (const block of content) {
+        if (typeof block !== 'object' || block === null) continue;
+        const b = block as Record<string, unknown>;
+        if (b.type === 'text' && typeof b.text === 'string') {
+          textParts.push(b.text);
+        } else if (b.type === 'tool_use' && typeof b.name === 'string') {
+          toolNames.push(b.name);
+        }
+      }
+
+      if (textParts.length > 0) {
+        return textParts.join('\n');
+      }
+      // No text blocks — summarize tool usage
+      if (toolNames.length > 0) {
+        return `[${toolNames.join(', ')}]`;
       }
     }
     return '';

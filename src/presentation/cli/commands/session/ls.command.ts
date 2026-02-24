@@ -2,7 +2,7 @@
  * Session List Command
  *
  * List agent provider CLI sessions for the configured or specified provider.
- * Displays session ID, project path, message count, last active time, and preview.
+ * Sessions are grouped by project path and sorted by last activity within each group.
  *
  * Usage:
  *   shep session ls
@@ -10,12 +10,14 @@
  *   shep session ls --cursor-cli
  *   shep session ls --gemini-cli
  *   shep session ls --limit 10
+ *   shep session ls --flat
  */
 
 import { Command } from 'commander';
 import { container } from '@/infrastructure/di/container.js';
 import { ListAgentSessionsUseCase } from '@/application/use-cases/agents/list-agent-sessions.use-case.js';
-import { colors, messages, renderListView } from '../../ui/index.js';
+import { colors, messages } from '../../ui/index.js';
+import { fmt } from '../../ui/formatters.js';
 import type { AgentSession } from '@/domain/generated/output.js';
 import { AgentType } from '@/domain/generated/output.js';
 
@@ -26,6 +28,7 @@ export function createLsCommand(): Command {
     .option('--cursor-cli', 'List sessions for Cursor CLI')
     .option('--gemini-cli', 'List sessions for Gemini CLI')
     .option('-n, --limit <n>', 'Maximum number of sessions to show (0 = all)', '20')
+    .option('--flat', 'Show flat list without grouping')
     .action(async (opts) => {
       try {
         // Validate mutual exclusivity of provider flags
@@ -42,32 +45,135 @@ export function createLsCommand(): Command {
         const useCase = container.resolve(ListAgentSessionsUseCase);
         const sessions = await useCase.execute({ agentType, limit });
 
-        const rows = sessions.map((session) => [
-          session.id.substring(0, 8),
-          session.projectPath,
-          String(session.messageCount),
-          formatRelativeTime(session.lastMessageAt ?? session.updatedAt),
-          session.preview ? truncate(session.preview, 50) : colors.muted('-'),
-        ]);
+        if (sessions.length === 0) {
+          messages.newline();
+          messages.info('No sessions found');
+          messages.newline();
+          return;
+        }
 
-        renderListView({
-          title: 'Agent Sessions',
-          columns: [
-            { label: 'ID', width: 10 },
-            { label: 'Path', width: 37 },
-            { label: 'Messages', width: 12 },
-            { label: 'Last Active', width: 18 },
-            { label: 'Preview', width: 52 },
-          ],
-          rows,
-          emptyMessage: 'No sessions found',
-        });
+        const providerLabel = sessions[0]?.agentType ?? 'agent';
+
+        if (opts.flat) {
+          renderFlat(sessions, providerLabel);
+        } else {
+          renderGrouped(sessions, providerLabel);
+        }
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
         messages.error('Failed to list sessions', err);
         process.exitCode = 1;
       }
     });
+}
+
+function renderGrouped(sessions: AgentSession[], provider: string): void {
+  const lines: string[] = [];
+
+  lines.push('');
+  lines.push(`  ${fmt.heading(`${provider} Sessions (${sessions.length})`)}`);
+
+  // Group by project path
+  const groups = new Map<string, AgentSession[]>();
+  for (const session of sessions) {
+    const key = session.projectPath;
+    const group = groups.get(key);
+    if (group) {
+      group.push(session);
+    } else {
+      groups.set(key, [session]);
+    }
+  }
+
+  // Sort groups by most recent session activity
+  const sortedGroups = [...groups.entries()].sort((a, b) => {
+    const aTime = getLatestTime(a[1]);
+    const bTime = getLatestTime(b[1]);
+    return bTime - aTime;
+  });
+
+  for (const [projectPath, groupSessions] of sortedGroups) {
+    lines.push('');
+    lines.push(`  📂 ${colors.brand(projectPath)}`);
+
+    // Column header
+    const header = `    ${pad('ID', 10)}  ${pad('Messages', 10)}  ${pad('Last Active', 14)}  Preview`;
+    lines.push(`  ${colors.muted(header.trimStart())}`);
+
+    for (const session of groupSessions) {
+      const active = isRecentlyActive(session.lastMessageAt ?? session.updatedAt);
+      const id = active ? colors.success(session.id.substring(0, 8)) : session.id.substring(0, 8);
+      const indicator = active ? colors.success('●') : ' ';
+      const msgCount = String(session.messageCount);
+      const lastActive = formatRelativeTime(session.lastMessageAt ?? session.updatedAt);
+      const preview = session.preview ? truncate(session.preview, 50) : colors.muted('-');
+
+      lines.push(
+        `   ${indicator} ${pad(id, 10)}  ${pad(msgCount, 10)}  ${pad(lastActive, 14)}  ${preview}`
+      );
+    }
+  }
+
+  lines.push('');
+  console.log(lines.join('\n'));
+}
+
+function renderFlat(sessions: AgentSession[], provider: string): void {
+  const lines: string[] = [];
+
+  lines.push('');
+  lines.push(`  ${fmt.heading(`${provider} Sessions (${sessions.length})`)}`);
+  lines.push('');
+
+  const header = `${pad('ID', 10)}  ${pad('Path', 40)}  ${pad('Msgs', 6)}  ${pad('Last Active', 14)}  Preview`;
+  lines.push(`  ${colors.muted(header)}`);
+
+  for (const session of sessions) {
+    const active = isRecentlyActive(session.lastMessageAt ?? session.updatedAt);
+    const id = active ? colors.success(session.id.substring(0, 8)) : session.id.substring(0, 8);
+    const indicator = active ? colors.success('●') : ' ';
+    const path = truncate(session.projectPath, 40);
+    const msgCount = String(session.messageCount);
+    const lastActive = formatRelativeTime(session.lastMessageAt ?? session.updatedAt);
+    const preview = session.preview ? truncate(session.preview, 50) : colors.muted('-');
+
+    lines.push(
+      `  ${indicator} ${pad(id, 10)}  ${pad(path, 40)}  ${pad(msgCount, 6)}  ${pad(lastActive, 14)}  ${preview}`
+    );
+  }
+
+  lines.push('');
+  console.log(lines.join('\n'));
+}
+
+/** Sessions active within the last 2 minutes are considered "probably active" */
+function isRecentlyActive(date: Date | string | undefined): boolean {
+  const ts = toTimestamp(date);
+  if (ts === 0) return false;
+  return Date.now() - ts < 2 * 60 * 1000;
+}
+
+function getLatestTime(sessions: AgentSession[]): number {
+  let latest = 0;
+  for (const s of sessions) {
+    const t = toTimestamp(s.lastMessageAt ?? s.updatedAt);
+    if (t > latest) latest = t;
+  }
+  return latest;
+}
+
+function toTimestamp(date: Date | string | undefined): number {
+  if (!date) return 0;
+  const d = date instanceof Date ? date : new Date(date);
+  return isNaN(d.getTime()) ? 0 : d.getTime();
+}
+
+function pad(text: string, width: number): string {
+  // Strip ANSI for measurement
+  // eslint-disable-next-line no-control-regex
+  const visible = text.replace(/\x1B\[[0-9;]*m/g, '').length;
+  if (visible >= width) return text;
+  return text + ' '.repeat(width - visible);
 }
 
 function resolveAgentType(opts: {
