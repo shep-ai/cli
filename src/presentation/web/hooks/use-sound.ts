@@ -77,11 +77,14 @@ export function useSound(name: SoundName, options: UseSoundOptions = {}): UseSou
     const audio = audioRef.current;
     if (!audio) return;
     audio.currentTime = 0;
-    audio.play()?.catch(() => {
-      // Browser may block autoplay without user gesture — silently ignore
+    audio.play()?.catch((err) => {
+      if (process.env.NODE_ENV === 'development') {
+        // eslint-disable-next-line no-console
+        console.warn(`[useSound] play("${name}") blocked:`, err.message);
+      }
     });
     isPlayingRef.current = true;
-  }, [enabled]);
+  }, [enabled, name]);
 
   const stop = useCallback(() => {
     const audio = audioRef.current;
