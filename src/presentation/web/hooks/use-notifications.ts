@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
-import { NotificationSeverity } from '@shepai/core/domain/generated/output';
+import { NotificationEventType, NotificationSeverity } from '@shepai/core/domain/generated/output';
 import { useAgentEventsContext } from './agent-events-provider';
 import { useSound } from './use-sound';
 
@@ -21,7 +21,20 @@ const SEVERITY_TO_TOAST: Record<NotificationSeverity, 'success' | 'error' | 'war
 
 function dispatchToast(event: NotificationEvent): void {
   const method = SEVERITY_TO_TOAST[event.severity] ?? 'info';
-  toast[method](event.featureName, { description: event.message });
+  const isActionable = event.eventType === NotificationEventType.WaitingApproval;
+  toast[method](event.featureName, {
+    description: event.message,
+    ...(isActionable && {
+      action: {
+        label: 'Review',
+        onClick: () => {
+          window.dispatchEvent(
+            new CustomEvent('shep:select-feature', { detail: { featureId: event.featureId } })
+          );
+        },
+      },
+    }),
+  });
 }
 
 function dispatchBrowserNotification(event: NotificationEvent): void {
@@ -42,7 +55,7 @@ const SEVERITY_TO_SOUND = {
 } as const;
 
 export function useNotifications(): UseNotificationsResult {
-  const { lastEvent } = useAgentEventsContext();
+  const { events } = useAgentEventsContext();
 
   const successSound = useSound('celebration', { volume: 0.5 });
   const errorSound = useSound('caution', { volume: 0.5 });
@@ -66,32 +79,34 @@ export function useNotifications(): UseNotificationsResult {
     }
   );
 
-  // Track which events we've already dispatched to avoid re-dispatching on re-render
-  const processedRef = useRef<Set<string>>(new Set());
+  // Track how many events from the array we've already processed.
+  // Using the array index (instead of lastEvent) prevents React batching
+  // from silently dropping events when multiple SSE messages arrive together.
+  const processedCountRef = useRef(0);
 
   useEffect(() => {
-    if (!lastEvent) return;
+    if (events.length <= processedCountRef.current) return;
 
-    // Create a key for deduplication
-    const key = `${lastEvent.agentRunId}-${lastEvent.eventType}-${lastEvent.timestamp}`;
-    if (processedRef.current.has(key)) return;
-    processedRef.current.add(key);
+    const newEvents = events.slice(processedCountRef.current);
+    processedCountRef.current = events.length;
 
-    // Only notify for actionable events and completion celebrations
-    if (
-      lastEvent.severity !== NotificationSeverity.Error &&
-      lastEvent.severity !== NotificationSeverity.Warning &&
-      lastEvent.severity !== NotificationSeverity.Success
-    ) {
-      return;
+    for (const event of newEvents) {
+      // Only notify for actionable events and completion celebrations
+      if (
+        event.severity !== NotificationSeverity.Error &&
+        event.severity !== NotificationSeverity.Warning &&
+        event.severity !== NotificationSeverity.Success
+      ) {
+        continue;
+      }
+
+      dispatchToast(event);
+      dispatchBrowserNotification(event);
+
+      const soundName = SEVERITY_TO_SOUND[event.severity];
+      soundsByName[soundName]?.play();
     }
-
-    dispatchToast(lastEvent);
-    dispatchBrowserNotification(lastEvent);
-
-    const soundName = SEVERITY_TO_SOUND[lastEvent.severity];
-    soundsByName[soundName]?.play();
-  }, [lastEvent, soundsByName]);
+  }, [events, soundsByName]);
 
   const requestBrowserPermission = useCallback(async () => {
     if (typeof globalThis.Notification === 'undefined') return;

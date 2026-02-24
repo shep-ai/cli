@@ -42,6 +42,7 @@ const TERMINAL_STATUSES = new Set<string>([
 interface WatcherState {
   status: AgentRunStatus;
   completedPhases: Set<string>;
+  featureId: string;
   featureName: string;
 }
 
@@ -143,10 +144,11 @@ export class NotificationWatcherService {
 
       if (!prevState) {
         // New run — track and emit initial status event
-        const featureName = await this.resolveFeatureName(run);
+        const { featureId, featureName } = await this.resolveFeatureIdentity(run);
         const newState: WatcherState = {
           status: run.status,
           completedPhases: new Set<string>(),
+          featureId,
           featureName,
         };
 
@@ -194,6 +196,7 @@ export class NotificationWatcherService {
     const event: NotificationEvent = {
       eventType: mapping.eventType,
       agentRunId: run.id,
+      featureId: state.featureId,
       featureName: state.featureName,
       message: EVENT_MESSAGES[mapping.eventType] ?? `Agent status: ${run.status}`,
       severity: mapping.severity,
@@ -214,6 +217,7 @@ export class NotificationWatcherService {
           const event: NotificationEvent = {
             eventType: NotificationEventType.PhaseCompleted,
             agentRunId: runId,
+            featureId: state.featureId,
             featureName: state.featureName,
             phaseName: timing.phase,
             message: `Completed ${timing.phase} phase`,
@@ -227,16 +231,18 @@ export class NotificationWatcherService {
     }
   }
 
-  private async resolveFeatureName(run: AgentRun): Promise<string> {
+  private async resolveFeatureIdentity(
+    run: AgentRun
+  ): Promise<{ featureId: string; featureName: string }> {
     if (run.featureId) {
       try {
         const feature = await this.featureRepository.findById(run.featureId);
-        if (feature) return feature.name;
+        if (feature) return { featureId: feature.id, featureName: feature.name };
       } catch {
         // Fall through to fallback
       }
     }
-    return `Agent ${run.id}`;
+    return { featureId: run.featureId ?? run.id, featureName: `Agent ${run.id}` };
   }
 }
 

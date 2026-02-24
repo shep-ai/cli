@@ -44,6 +44,7 @@ export interface ControlCenterState {
     sourceNodeId: string | null,
     dataOverride?: Partial<FeatureNodeData>
   ) => string;
+  selectFeatureById: (featureId: string) => void;
 }
 
 let nextFeatureId = 0;
@@ -61,9 +62,6 @@ export function useControlCenterState(
   const deleteSound = useSound('transition_down', { volume: 0.5 });
   const createSound = useSound('transition_up', { volume: 0.5 });
   const clickSound = useSound('tap_01', { volume: 0.3 });
-  const warningSound = useSound('notification', { volume: 0.5 });
-  const errorSound = useSound('caution', { volume: 0.5 });
-  const celebrationSound = useSound('celebration', { volume: 0.5 });
   const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
 
   // Sync server props into local state when router.refresh() delivers new data
@@ -80,7 +78,6 @@ export function useControlCenterState(
   const prevFeatureStatesRef = useRef<Map<string, FeatureNodeData['state']>>(new Map());
 
   // Stable key that changes when feature DATA changes (state/lifecycle), not just IDs.
-  // This drives the notification effect below so it fires on state transitions.
   const initialDataKey = initialNodes
     .filter((n) => n.type === 'featureNode')
     .map((n) => {
@@ -89,31 +86,6 @@ export function useControlCenterState(
     })
     .sort()
     .join(',');
-
-  // Detect state transitions from server data and fire actionable notifications.
-  // Separate from the node-sync effect because that one is keyed by IDs only.
-  useEffect(() => {
-    const prevStates = prevFeatureStatesRef.current;
-    for (const node of initialNodes) {
-      if (node.type !== 'featureNode') continue;
-      const data = node.data as FeatureNodeData;
-      const prev = prevStates.get(node.id);
-      // Only notify on transitions (not on first render)
-      if (prev !== undefined && prev !== data.state) {
-        if (data.state === 'done') {
-          toast.success(data.name, { description: 'Feature completed!' });
-          celebrationSound.play();
-        } else if (data.state === 'action-required') {
-          toast.warning(data.name, { description: 'Waiting for your approval' });
-          warningSound.play();
-        } else if (data.state === 'error') {
-          toast.error(data.name, { description: data.errorMessage ?? 'Agent failed' });
-          errorSound.play();
-        }
-      }
-      prevStates.set(node.id, data.state);
-    }
-  }, [initialDataKey, initialNodes, celebrationSound, warningSound, errorSound]);
 
   // Sync server props into local state — keyed by derived strings (initialNodeKey/initialEdgeKey)
   // to avoid infinite re-renders from unstable array references.
@@ -155,9 +127,56 @@ export function useControlCenterState(
     setEdges(initialEdges);
   }, [initialEdgeKey, initialEdges]);
 
-  // Targeted optimistic updates from SSE agent events + debounced reconciliation
-  const { lastEvent } = useAgentEventsContext();
-  const processedEventRef = useRef<string | null>(null);
+  // Fallback notifications from server-refresh state transitions.
+  // Fires only when SSE didn't already deliver the matching event for a feature,
+  // e.g. when the SSE connection was down or the event was seeded into the cache.
+  const { events } = useAgentEventsContext();
+
+  useEffect(() => {
+    const prevStates = prevFeatureStatesRef.current;
+
+    for (const node of initialNodes) {
+      if (node.type !== 'featureNode') continue;
+      const data = node.data as FeatureNodeData;
+      const prev = prevStates.get(node.id);
+
+      if (prev !== undefined && prev !== data.state) {
+        // Check if SSE already delivered a matching event for this feature
+        const sseAlreadyCovered = events.some(
+          (e) => e.featureId === data.featureId && mapEventTypeToState(e.eventType) === data.state
+        );
+
+        if (!sseAlreadyCovered) {
+          if (data.state === 'done') {
+            toast.success(data.name, { description: 'Feature completed!' });
+          } else if (data.state === 'action-required') {
+            toast.warning(data.name, {
+              description: 'Waiting for your approval',
+              action: {
+                label: 'Review',
+                onClick: () => {
+                  window.dispatchEvent(
+                    new CustomEvent('shep:select-feature', {
+                      detail: { featureId: data.featureId },
+                    })
+                  );
+                },
+              },
+            });
+          } else if (data.state === 'error') {
+            toast.error(data.name, { description: data.errorMessage ?? 'Agent failed' });
+          }
+        }
+      }
+
+      prevStates.set(node.id, data.state);
+    }
+  }, [initialDataKey, initialNodes, events]);
+
+  // Targeted optimistic updates from SSE agent events + debounced reconciliation.
+  // Uses `events` array (not `lastEvent`) so that React batching cannot silently
+  // drop events when multiple SSE messages arrive in the same tick.
+  const processedEventCountRef = useRef(0);
   const reconcileTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   useEffect(() => {
@@ -165,45 +184,47 @@ export function useControlCenterState(
   }, []);
 
   useEffect(() => {
-    if (!lastEvent) return;
-    const key = `${lastEvent.agentRunId}-${lastEvent.eventType}-${lastEvent.timestamp}`;
-    if (processedEventRef.current === key) return;
-    processedEventRef.current = key;
+    if (events.length <= processedEventCountRef.current) return;
 
-    const newState = mapEventTypeToState(lastEvent.eventType);
-    const newLifecycle = mapPhaseNameToLifecycle(lastEvent.phaseName);
+    const newEvents = events.slice(processedEventCountRef.current);
+    processedEventCountRef.current = events.length;
 
-    // Targeted node update — only clone the matched node
-    setNodes((prev) =>
-      prev.map((node) => {
-        if (node.type !== 'featureNode') return node;
-        const data = node.data as FeatureNodeData;
-        if (data.name !== lastEvent.featureName) return node;
+    for (const event of newEvents) {
+      const newState = mapEventTypeToState(event.eventType);
+      const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
+
+      // Targeted node update — only clone the matched node
+      setNodes((prev) =>
+        prev.map((node) => {
+          if (node.type !== 'featureNode') return node;
+          const data = node.data as FeatureNodeData;
+          if (data.featureId !== event.featureId) return node;
+          return {
+            ...node,
+            data: {
+              ...data,
+              state: newState,
+              ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
+            },
+          };
+        })
+      );
+
+      // Update drawer if it's showing the matched feature
+      setSelectedNode((prev) => {
+        if (prev?.featureId !== event.featureId) return prev;
         return {
-          ...node,
-          data: {
-            ...data,
-            state: newState,
-            ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
-          },
+          ...prev,
+          state: newState,
+          ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
         };
-      })
-    );
-
-    // Update drawer if it's showing the matched feature
-    setSelectedNode((prev) => {
-      if (prev?.name !== lastEvent.featureName) return prev;
-      return {
-        ...prev,
-        state: newState,
-        ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
-      };
-    });
+      });
+    }
 
     // Debounced background reconciliation (3s after last SSE event)
     clearTimeout(reconcileTimerRef.current);
     reconcileTimerRef.current = setTimeout(() => router.refresh(), 3000);
-  }, [lastEvent, router]);
+  }, [events, router]);
 
   // Periodic polling fallback: refresh server data every 5s when any feature
   // is in an active state (running/action-required). This ensures the UI stays
@@ -662,6 +683,23 @@ export function useControlCenterState(
     [router, createSound]
   );
 
+  // Ref keeps latest nodes so selectFeatureById has a stable identity
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+
+  const selectFeatureById = useCallback((featureId: string) => {
+    const node = nodesRef.current.find(
+      (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).featureId === featureId
+    );
+    if (node) {
+      const data = node.data as FeatureNodeData;
+      if (data.state !== 'creating') {
+        setIsCreateDrawerOpen(false);
+        setSelectedNode(data);
+      }
+    }
+  }, []);
+
   const pendingNode = pendingRepoNodeId ? nodes.find((n) => n.id === pendingRepoNodeId) : null;
   const pendingRepositoryPath =
     (pendingNode?.data as { repositoryPath?: string } | undefined)?.repositoryPath ?? '';
@@ -687,5 +725,6 @@ export function useControlCenterState(
     handleDeleteRepository,
     isDeleting,
     createFeatureNode,
+    selectFeatureById,
   };
 }

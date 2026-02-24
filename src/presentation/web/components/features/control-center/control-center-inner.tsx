@@ -53,6 +53,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteFeature,
     handleDeleteRepository,
     closeCreateDrawer,
+    selectFeatureById,
   } = useControlCenterState(initialNodes, initialEdges);
 
   // Workflow defaults for the create-feature drawer
@@ -312,6 +313,16 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     window.addEventListener('shep:open-create-drawer', handler);
     return () => window.removeEventListener('shep:open-create-drawer', handler);
   }, [handleAddFeature]);
+
+  // Listen for notification "Review" clicks to open the relevant drawer
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const featureId = (e as CustomEvent<{ featureId: string }>).detail.featureId;
+      selectFeatureById(featureId);
+    };
+    window.addEventListener('shep:select-feature', handler);
+    return () => window.removeEventListener('shep:select-feature', handler);
+  }, [selectFeatureById]);
 
   if (!hasRepositories) {
     return (

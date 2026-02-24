@@ -177,6 +177,7 @@ export function GET(request: Request): Response {
                 emitEvent({
                   eventType: mapping.eventType,
                   agentRunId: run.id,
+                  featureId: feature.id,
                   featureName: feature.name,
                   ...(phase && { phaseName: phase }),
                   message: `Agent status: ${run.status}`,
@@ -194,6 +195,7 @@ export function GET(request: Request): Response {
                 emitEvent({
                   eventType: NotificationEventType.PhaseCompleted,
                   agentRunId: run.id,
+                  featureId: feature.id,
                   featureName: feature.name,
                   phaseName: nodeName,
                   message: `Entered ${nodeName} phase`,
@@ -212,6 +214,7 @@ export function GET(request: Request): Response {
                   emitEvent({
                     eventType: NotificationEventType.PhaseCompleted,
                     agentRunId: run.id,
+                    featureId: feature.id,
                     featureName: feature.name,
                     phaseName: t.phase,
                     message: `Completed ${t.phase} phase`,
