@@ -7,6 +7,7 @@ const allAgentTypes: { type: AgentTypeValue; label: string }[] = [
   { type: 'gemini-cli', label: 'Gemini CLI' },
   { type: 'aider', label: 'Aider' },
   { type: 'continue', label: 'Continue' },
+  { type: 'dev', label: 'Dev (Mock)' },
 ];
 
 function AgentIconGallery({ size }: { size: number }) {
@@ -57,4 +58,19 @@ export const SmallIcons: Story = {
 
 export const LargeIcons: Story = {
   render: () => <AgentIconGallery size={16} />,
+};
+
+export const DevAgentIcon: Story = {
+  render: () => {
+    const Icon = getAgentTypeIcon('dev');
+    return (
+      <div className="flex flex-col items-center gap-2">
+        <div className="border-border bg-muted/30 rounded-md border p-3">
+          <Icon style={{ width: 40, height: 40 }} />
+        </div>
+        <span className="text-sm font-medium">Dev (Mock)</span>
+        <code className="text-muted-foreground text-xs">dev</code>
+      </div>
+    );
+  },
 };

@@ -223,6 +223,17 @@ export class GitPrService implements IGitPrService {
     return this.parseDiffStat(diffStat, logOutput);
   }
 
+  async verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean> {
+    try {
+      await this.execFile('git', ['merge-base', '--is-ancestor', featureBranch, baseBranch], {
+        cwd,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private parseGitError(error: unknown): GitPrError {
     const message = error instanceof Error ? error.message : String(error);
     const cause = error instanceof Error ? error : undefined;

@@ -1169,6 +1169,37 @@ describe('useControlCenterState', () => {
     });
   });
 
+  describe('callback stability', () => {
+    it('handleAddFeatureToFeature maintains stable identity when edges change', () => {
+      let capturedState: ControlCenterState | null = null;
+      render(
+        <HookTestHarness
+          initialNodes={[mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Capture the callback reference before any edge changes
+      const before = capturedState!.handleAddFeatureToFeature;
+
+      // Trigger createFeatureNode which calls setEdges internally (adds an edge)
+      act(() => {
+        capturedState!.createFeatureNode('feat-1');
+      });
+
+      // Capture the callback reference after edges have changed
+      const after = capturedState!.handleAddFeatureToFeature;
+
+      // The callback identity should be stable across edge changes.
+      // This test FAILS on the current code because createFeatureNode depends on [edges],
+      // causing handleAddFeatureToFeature (which depends on [createFeatureNode]) to be recreated.
+      expect(after).toBe(before);
+    });
+  });
+
   describe('handleDeleteFeature (optimistic)', () => {
     const featureNode: FeatureNodeType = {
       id: 'feat-1',

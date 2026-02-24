@@ -1,9 +1,10 @@
 import type { ComponentType, SVGProps } from 'react';
 import Image from 'next/image';
+import { Beaker } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 /** Agent type values mirroring the TypeSpec AgentType enum. */
-export type AgentTypeValue = 'claude-code' | 'cursor' | 'gemini-cli' | 'aider' | 'continue';
+export type AgentTypeValue = 'claude-code' | 'cursor' | 'gemini-cli' | 'aider' | 'continue' | 'dev';
 
 type IconProps = SVGProps<SVGSVGElement> & { className?: string };
 
@@ -34,12 +35,18 @@ export function DefaultAgentIcon(props: IconProps) {
   );
 }
 
+function DevAgentIcon({ className, ...props }: IconProps) {
+  return <Beaker className={cn('h-6 w-6', className)} {...(props as object)} />;
+}
+DevAgentIcon.displayName = 'DevAgentIcon';
+
 const agentTypeIconMap: Record<AgentTypeValue, ComponentType<IconProps>> = {
   'claude-code': createBrandIcon('/icons/agents/claude-ai-icon.svg', 'Claude Code'),
   cursor: createBrandIcon('/icons/agents/cursor.jpeg', 'Cursor'),
   'gemini-cli': createBrandIcon('/icons/agents/gemini-cli.jpeg', 'Gemini CLI'),
   aider: createBrandIcon('/icons/agents/aider.png', 'Aider'),
   continue: createBrandIcon('/icons/agents/continue.jpeg', 'Continue'),
+  dev: DevAgentIcon,
 };
 
 /** Resolve an agent type string to its corresponding icon component. */

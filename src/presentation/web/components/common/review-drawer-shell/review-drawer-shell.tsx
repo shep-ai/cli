@@ -62,7 +62,7 @@ export function ReviewDrawerShell({
         </button>
 
         {/* Header */}
-        <DrawerHeader>
+        <DrawerHeader data-testid="feature-drawer-header">
           <DrawerTitle>{featureName}</DrawerTitle>
           {featureDescription ? (
             <DrawerDescription>{featureDescription}</DrawerDescription>

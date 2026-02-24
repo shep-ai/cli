@@ -10,6 +10,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentExecutorFactory } from '@/infrastructure/services/agents/common/agent-executor-factory.service.js';
+import { DevAgentExecutorService } from '@/infrastructure/services/agents/common/executors/dev-executor.service.js';
 import type { SpawnFunction } from '@/infrastructure/services/agents/common/types.js';
 import { AgentType, AgentAuthMethod } from '@/domain/generated/output.js';
 import type { AgentConfig } from '@/domain/generated/output.js';
@@ -59,6 +60,31 @@ describe('AgentExecutorFactory', () => {
       expect(executor1).toBe(executor2);
     });
 
+    it('should create DevAgentExecutorService for dev type', () => {
+      const devConfig: AgentConfig = {
+        type: AgentType.Dev,
+        authMethod: AgentAuthMethod.Session,
+      };
+
+      const executor = factory.createExecutor(AgentType.Dev, devConfig);
+
+      expect(executor).toBeDefined();
+      expect(executor).toBeInstanceOf(DevAgentExecutorService);
+      expect(executor.agentType).toBe(AgentType.Dev);
+    });
+
+    it('should cache dev executor instances (singleton per type)', () => {
+      const devConfig: AgentConfig = {
+        type: AgentType.Dev,
+        authMethod: AgentAuthMethod.Session,
+      };
+
+      const executor1 = factory.createExecutor(AgentType.Dev, devConfig);
+      const executor2 = factory.createExecutor(AgentType.Dev, devConfig);
+
+      expect(executor1).toBe(executor2);
+    });
+
     it('should throw for aider agent type', () => {
       const aiderConfig: AgentConfig = {
         type: AgentType.Aider,
@@ -103,7 +129,8 @@ describe('AgentExecutorFactory', () => {
       expect(supported).toContain('claude-code');
       expect(supported).toContain('cursor');
       expect(supported).toContain('gemini-cli');
-      expect(supported).toHaveLength(3);
+      expect(supported).toContain('dev');
+      expect(supported).toHaveLength(4);
     });
 
     it('should not include unsupported agents', () => {

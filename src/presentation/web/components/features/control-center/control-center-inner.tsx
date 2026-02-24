@@ -349,9 +349,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onClose={clearSelection}
         onDelete={handleDeleteFeature}
       />
-      {questionnaireData ? (
+      {showPrdDrawer ? (
         <PrdQuestionnaireDrawer
-          open={showPrdDrawer}
+          open
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
           featureDescription={selectedNode?.description}
@@ -369,9 +369,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           isProcessing={isLoadingQuestionnaire}
         />
       ) : null}
-      {techDecisionsData ? (
+      {showTechDecisionsDrawer ? (
         <TechDecisionsDrawer
-          open={showTechDecisionsDrawer}
+          open
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
           featureId={selectedNode?.featureId}
@@ -386,9 +386,9 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           isProcessing={isLoadingTechDecisions}
         />
       ) : null}
-      {mergeReviewData ? (
+      {showMergeReviewDrawer ? (
         <MergeReviewDrawer
-          open={showMergeReviewDrawer}
+          open
           onClose={clearSelection}
           featureName={selectedNode?.name ?? ''}
           featureId={selectedNode?.featureId}

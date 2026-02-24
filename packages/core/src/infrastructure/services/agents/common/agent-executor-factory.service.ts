@@ -13,6 +13,7 @@ import type { IAgentExecutor } from '../../../../application/ports/output/agents
 import type { IAgentExecutorFactory } from '../../../../application/ports/output/agents/agent-executor-factory.interface.js';
 import { ClaudeCodeExecutorService } from './executors/claude-code-executor.service.js';
 import { CursorExecutorService } from './executors/cursor-executor.service.js';
+import { DevAgentExecutorService } from './executors/dev-executor.service.js';
 import { GeminiCliExecutorService } from './executors/gemini-cli-executor.service.js';
 import type { SpawnFunction } from './types.js';
 
@@ -51,6 +52,9 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
       case 'cursor':
         executor = new CursorExecutorService(this.spawn);
         break;
+      case 'dev':
+        executor = new DevAgentExecutorService();
+        break;
       case 'gemini-cli':
         executor = new GeminiCliExecutorService(this.spawn, _authConfig);
         break;
@@ -70,6 +74,11 @@ export class AgentExecutorFactory implements IAgentExecutorFactory {
    * @returns Array of supported agent types
    */
   getSupportedAgents(): AgentType[] {
-    return ['claude-code' as AgentType, 'cursor' as AgentType, 'gemini-cli' as AgentType];
+    return [
+      'claude-code' as AgentType,
+      'cursor' as AgentType,
+      'dev' as AgentType,
+      'gemini-cli' as AgentType,
+    ];
   }
 }

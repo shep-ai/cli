@@ -6,8 +6,44 @@
  * 2. buildMergeSquashPrompt — merge/squash PR or branch
  */
 
+import yaml from 'js-yaml';
 import { readSpecFile } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
+
+/**
+ * Extract merge-phase rejection feedback from spec.yaml.
+ */
+function getMergeRejectionFeedback(specContent: string): string {
+  try {
+    const specData = yaml.load(specContent) as Record<string, unknown> | null;
+    const rejectionFeedback = specData?.rejectionFeedback as
+      | { iteration: number; message: string; phase?: string; timestamp: string }[]
+      | undefined;
+    if (rejectionFeedback && rejectionFeedback.length > 0) {
+      const mergeRejections = rejectionFeedback.filter((e) => e.phase === 'merge');
+      if (mergeRejections.length > 0) {
+        const entries = mergeRejections
+          .map(
+            (entry) => `- **Iteration ${entry.iteration}** (${entry.timestamp}): ${entry.message}`
+          )
+          .join('\n');
+        return `
+## Previous Merge Rejection Feedback
+
+The user has previously rejected this merge with the following feedback. You MUST address these concerns in your revised output:
+
+${entries}
+
+Focus on the most recent feedback (highest iteration number) while ensuring earlier feedback is still addressed.
+
+`;
+      }
+    }
+  } catch {
+    // Continue without rejection feedback
+  }
+  return '';
+}
 
 /**
  * Build a prompt for the commit + push + PR agent call.
@@ -23,6 +59,7 @@ export function buildCommitPushPrPrompt(
   const specContent = readSpecFile(state.specDir, 'spec.yaml');
   const cwd = state.worktreePath || state.repositoryPath;
   const shouldPush = state.push || state.openPr;
+  const rejectionSection = getMergeRejectionFeedback(specContent);
 
   const steps: string[] = [];
 
@@ -49,7 +86,7 @@ export function buildCommitPushPrPrompt(
   }
 
   return `You are performing git operations in a feature worktree.
-
+${rejectionSection}
 ## Feature Specification Context
 
 \`\`\`yaml
@@ -87,7 +124,8 @@ ${steps.join('\n')}
 export function buildMergeSquashPrompt(
   state: FeatureAgentState,
   branch: string,
-  baseBranch: string
+  baseBranch: string,
+  hasRemote = false
 ): string {
   if (state.prUrl && state.prNumber) {
     // PR path: remote merge via GitHub CLI — no local merge needed
@@ -112,7 +150,6 @@ export function buildMergeSquashPrompt(
 
   // Non-PR path: local merge in the ORIGINAL repo (not the worktree)
   const originalRepo = state.repositoryPath;
-  const hasRemote = state.push || state.openPr;
 
   const fetchSteps = hasRemote
     ? `2. Fetch latest: \`git fetch origin\`
@@ -150,6 +187,8 @@ ${fetchSteps}
 
 - Use squash merge strategy to keep history clean
 - All commands MUST run in \`${originalRepo}\` (the original repo), NOT in the worktree
+- NEVER remove, modify, or prune git worktrees — they are managed by the system
+- Do NOT try to \`git checkout\` the feature branch — \`git merge --squash\` reads from it without checking it out
 - If conflicts arise during merge, attempt to resolve them intelligently
 - Do NOT modify any source code beyond what is needed for conflict resolution
 - Report the merge result clearly`;

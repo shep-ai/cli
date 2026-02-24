@@ -356,6 +356,7 @@ export enum AgentType {
   Aider = 'aider',
   Continue = 'continue',
   Cursor = 'cursor',
+  Dev = 'dev',
 }
 export enum AgentAuthMethod {
   Session = 'session',
@@ -856,7 +857,7 @@ export type TechDecision = {
 };
 
 /**
- * Rejection feedback entry for PRD iteration tracking
+ * Rejection feedback entry for iteration tracking
  */
 export type RejectionFeedbackEntry = {
   /**
@@ -867,6 +868,10 @@ export type RejectionFeedbackEntry = {
    * User's feedback message explaining what needs to change
    */
   message: string;
+  /**
+   * Which phase was rejected (e.g. 'requirements', 'plan')
+   */
+  phase?: string;
   /**
    * When the rejection occurred
    */

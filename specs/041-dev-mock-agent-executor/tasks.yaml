@@ -1,0 +1,367 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: dev-mock-agent-executor
+summary: >
+  11 tasks across 5 phases. Phase 1 establishes the TypeSpec foundation (1 task). Phase 2
+  builds the core executor: fixture data authoring + TDD-driven DevAgentExecutorService
+  implementation (2 tasks). Phase 3 wires the executor into the infrastructure: factory,
+  validator, use case (3 tasks). Phase 4 exposes the dev type in user-facing settings
+  surfaces: TUI prompt, CLI flag, web icon + Storybook (2 tasks). Phase 5 completes test
+  coverage and validates the full pipeline (3 tasks).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec
+  - TypeScript
+  - Vitest
+  - Node.js fs
+  - lucide-react
+  - Storybook
+  - Commander.js
+  - '@inquirer/prompts'
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add AgentType.Dev enum value and regenerate TypeScript types'
+    description: >
+      Add `Dev: "dev"` to the AgentType enum in tsp/common/enums/agent-config.tsp and run
+      pnpm tsp:compile to regenerate packages/core/src/domain/generated/output.ts. Verify
+      the new AgentType.Dev union member is present in output.ts and pnpm typecheck passes.
+      This is the prerequisite for all subsequent tasks.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'tsp/common/enums/agent-config.tsp contains a Dev: "dev" enum value'
+      - 'pnpm tsp:compile completes without errors'
+      - 'packages/core/src/domain/generated/output.ts contains the "dev" string literal in the AgentType union'
+      - 'pnpm typecheck passes after regeneration with no new type errors'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Author fixture constant files for all SDLC phases'
+    description: >
+      Create five TypeScript files in executors/fixtures/ exporting pre-serialized YAML
+      strings for the fictional "Add dark-mode toggle to Shep web UI" feature. Each file
+      exports one named string constant: SPEC_ANALYZE_FIXTURE, SPEC_REQUIREMENTS_FIXTURE,
+      RESEARCH_FIXTURE, PLAN_FIXTURE, TASKS_FIXTURE. Fixture content must satisfy FR-5
+      (>=3 tasks, >=2 action items, >=2 research entries, complete TDD plan) and NFR-1
+      (schema-valid, 0 repair iterations when processed by the feature-agent validate loop).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'All five fixture files exist under executors/fixtures/ with correct export names'
+      - 'Each file exports a named string constant containing valid YAML (parseable by js-yaml.load() without throwing)'
+      - 'SPEC_ANALYZE_FIXTURE includes required fields: phase, sizeEstimate, technologies, openQuestions array'
+      - 'SPEC_REQUIREMENTS_FIXTURE includes all spec fields plus resolved openQuestions'
+      - 'RESEARCH_FIXTURE includes >=2 decisions with chosen, rejected[], and rationale fields'
+      - 'PLAN_FIXTURE includes >=3 phases each with parallel flag, filesToCreate[], filesToModify[]'
+      - 'TASKS_FIXTURE includes >=3 tasks each with id, title, phaseId, state, acceptanceCriteria[], estimatedEffort'
+      - 'No fixture file exceeds 150 lines'
+      - 'Fixture content references recognizable Shep-platform technologies (React, Tailwind CSS v4, shadcn/ui)'
+    tdd: null
+    estimatedEffort: '3h'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Implement DevAgentExecutorService with phase detection and configurable delay'
+    description: >
+      Create dev-executor.service.ts implementing IAgentExecutor. The class reads
+      DEV_EXECUTOR_DELAY_MS from env (default 2000ms) in the constructor. execute() applies
+      the delay, then uses a prioritized if/else if chain to detect the SDLC phase from
+      prompt text via regex, extracts specDir from the embedded path in the prompt,
+      writes the appropriate fixture YAML to disk (mkdirSync + writeFileSync), and returns
+      the expected result string. executeStream() delegates to execute() as a single-chunk
+      async iterable. supportsFeature() returns false for all features. agentType is
+      AgentType.Dev. Phases covered: metadata, analyze, requirements, research, plan,
+      implement, merge-commit, merge-squash.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'dev-executor.service.ts implements IAgentExecutor (agentType, execute, executeStream, supportsFeature)'
+      - 'File is <=150 lines (fixture content lives in imported fixture constants)'
+      - 'execute() applies configurable delay (reads DEV_EXECUTOR_DELAY_MS env var, default 2000ms)'
+      - 'Phase detection covers all 8 patterns: metadata, analyze, requirements, research, plan, implement, merge-commit, merge-squash'
+      - 'YAML-producing phases (analyze, requirements, research, plan) extract specDir via regex and write files with mkdirSync + writeFileSync'
+      - 'specDir validation: must be absolute path without ".." segments; throws descriptive error if invalid'
+      - 'Metadata phase returns JSON string {slug, name, description} consistent with MockAgentExecutorService pattern'
+      - 'Implement phase returns a realistic success string (e.g., "Implementation complete. All tests pass.")'
+      - 'Merge phases return strings containing a plausible fake commit SHA and GitHub URL (satisfying merge-output-parser.ts patterns)'
+      - 'executeStream() yields a single AgentExecutionStreamEvent with the execute() result'
+      - 'No imports from MockAgentExecutorService, feature-agent nodes, or graph internals'
+      - 'Each regex pattern is commented with a reference to the node prompt file it originates from'
+    tdd:
+      red:
+        - 'Create tests/unit/infrastructure/services/agents/common/executors/dev-executor.service.spec.ts'
+        - 'For each of the 8 phase patterns: write a test that constructs a representative prompt excerpt, calls execute() with DEV_EXECUTOR_DELAY_MS=0 and a temp directory as cwd, and asserts the expected YAML file is written or expected string is returned'
+        - 'Write a negative test: an unrecognized prompt (no matching pattern) returns a defined fallback string or throws a descriptive error — not an unhandled exception'
+        - 'Write a test: specDir extracted from a prompt containing ".." throws an error with message containing "invalid"'
+        - 'Confirm all tests fail (file does not exist yet)'
+      green:
+        - 'Create dev-executor.service.ts with the if/else if phase dispatcher importing fixture constants'
+        - 'Implement specDir extraction regex and validation'
+        - 'Implement delay in constructor (parseInt env var) and at start of execute()'
+        - 'Implement executeStream() as single-chunk delegation to execute()'
+        - 'All unit tests pass'
+      refactor:
+        - 'Verify file line count is <=150; extract nothing if already under limit'
+        - 'Rename any single-letter regex match variables to descriptive names (e.g., "m" -> "match")'
+        - 'Confirm regex pattern comments accurately reference the source prompt file and line'
+        - 'Ensure delay-of-zero produces no observable timing overhead in tests'
+    estimatedEffort: '3h'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Wire DevAgentExecutorService into AgentExecutorFactory'
+    description: >
+      Add a case "dev" branch to AgentExecutorFactory.createExecutor() that instantiates
+      and returns DevAgentExecutorService. Add "dev" to the getSupportedAgents() return
+      array. Verify the factory cache (Map) works correctly for the dev type — second call
+      returns the cached instance.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'AgentExecutorFactory.createExecutor("dev", ...) returns an instance of DevAgentExecutorService'
+      - 'getSupportedAgents() includes "dev" in its return array'
+      - 'The factory cache returns the same DevAgentExecutorService instance on repeated calls with the same auth config'
+      - 'All existing factory tests pass without modification'
+    tdd:
+      red:
+        - 'Add test: AgentExecutorFactory.createExecutor("dev", mockAuthConfig) returns an instance where agentType === AgentType.Dev'
+        - 'Add test: getSupportedAgents() return value includes "dev"'
+        - 'Tests fail (no case for dev in switch yet)'
+      green:
+        - 'Add case "dev": instantiate and return (or cache-return) DevAgentExecutorService in the switch statement'
+        - 'Add "dev" to getSupportedAgents() array'
+        - 'Tests pass'
+      refactor:
+        - 'Confirm import of DevAgentExecutorService is placed with other executor imports in alphabetical order'
+        - 'Verify the cache key strategy for dev matches the pattern used for other types'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Bypass binary check in AgentValidatorService for dev type'
+    description: >
+      Add an early-return guard at the top of AgentValidatorService.isAvailable() before
+      the AGENT_BINARY_MAP lookup: if (agentType === "dev") return { available: true,
+      version: "dev" }. The binary map and all existing validation paths remain unchanged.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'AgentValidatorService.isAvailable("dev") resolves to { available: true, version: "dev" }'
+      - 'No binary execution (execFile/spawn) is triggered for the dev type'
+      - 'AGENT_BINARY_MAP does not contain a "dev" entry'
+      - 'Existing behavior for claude-code, cursor, gemini-cli is unchanged (all existing tests pass)'
+    tdd:
+      red:
+        - 'Write test: agentValidatorService.isAvailable("dev") resolves { available: true, version: "dev" } without any execFile mock being needed'
+        - 'Test fails (guard not yet present; hits binary map lookup and either throws or returns { available: false })'
+      green:
+        - 'Add the 2-line early-return guard as the first conditional in isAvailable(), before binary map lookup'
+        - 'Test passes'
+      refactor:
+        - 'Confirm the guard is the first conditional in the method and clearly self-documenting'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Skip binary validation in ConfigureAgentUseCase for dev type'
+    description: >
+      Add a conditional guard in ConfigureAgentUseCase.execute() that skips the
+      agentValidator.isAvailable() call and its error-throw path when input.type === "dev".
+      This is belt-and-suspenders alongside the validator bypass in task-5. All existing
+      validation logic for non-dev types remains unchanged.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'ConfigureAgentUseCase.execute({ type: "dev", ... }) succeeds without calling agentValidator.isAvailable()'
+      - 'Settings are persisted with agent.type = "dev" after the use case completes'
+      - 'Existing behavior for non-dev types is unchanged: validator is still called, error is still thrown if binary unavailable'
+    tdd:
+      red:
+        - 'Write test: spy on agentValidator.isAvailable; call ConfigureAgentUseCase.execute({ type: "dev", token: "" }); assert spy was NOT called'
+        - 'Test fails (use case still calls validator for all types)'
+      green:
+        - 'Add conditional guard before the validator call: if (input.type === "dev") skip validation and proceed directly to settings update'
+        - 'Test passes'
+      refactor:
+        - 'Ensure the guard reads clearly as "dev type requires no binary validation" with a brief inline comment'
+    estimatedEffort: '15min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Add "Dev (Mock)" to TUI agent-select prompt and verify CLI --agent flag'
+    description: >
+      Add a new enabled entry in agent-select.prompt.ts Inquirer choices array for
+      "Dev (Mock)" with value "dev" and description "Local development mock — no agent
+      binary required". The choice must not be disabled. Inspect agent.command.ts for any
+      Commander choices() validation on the --agent flag; if "dev" is not in the allowed
+      list, add it. Verify end-to-end: pnpm cli settings agent --agent dev succeeds and
+      persists agent.type = "dev" to settings.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'agent-select.prompt.ts includes a choice with value "dev" and name containing "Dev (Mock)"'
+      - 'The "Dev (Mock)" choice has description "Local development mock — no agent binary required"'
+      - 'The choice is enabled (no disabled: true flag or truthy disabled condition)'
+      - 'The choice appears before any "Coming Soon" / disabled entries in the list'
+      - 'agent.command.ts accepts "dev" as a valid --agent flag value (no Commander validation error)'
+      - 'Running pnpm cli settings agent --agent dev exits with code 0 and persists agent.type = "dev"'
+    tdd:
+      red:
+        - 'Write test: import the choices array from agent-select.prompt.ts; assert it includes an entry with value === "dev" that is not disabled'
+        - 'Test fails (no dev choice exists yet)'
+      green:
+        - 'Add the Dev (Mock) choice entry to the choices array in agent-select.prompt.ts'
+        - 'If agent.command.ts has a Commander choices() constraint, add "dev" to it'
+        - 'Test passes'
+      refactor:
+        - 'Verify choice ordering: enabled options first, disabled / coming-soon options last'
+    estimatedEffort: '30min'
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Add Beaker dev icon to agent-type-icons.tsx and update Storybook story'
+    description: >
+      Add a "dev" entry to the agentTypeIconMap in agent-type-icons.tsx using the Beaker
+      icon from lucide-react, rendered as an inline React component (consistent with the
+      DefaultAgentIcon pattern already used in the file). If AgentTypeValue is defined
+      locally as a string union in that file, add "dev" to it; if it is imported from
+      generated output.ts, no change needed. Create or update the .stories.tsx file for
+      agent-type-icons with a story that renders the dev agent icon.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'agentTypeIconMap contains a "dev" key mapping to a Beaker lucide-react icon component'
+      - 'getAgentTypeIcon("dev") returns a non-null, non-DefaultAgentIcon component'
+      - 'agent-type-icons.stories.tsx exists and includes a story for the "dev" agent type'
+      - 'The Storybook story renders without errors (no missing prop or import issues)'
+      - 'No new npm dependency is introduced (Beaker is from lucide-react, already a project dep)'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-5
+    title: 'Expand unit test coverage for DevAgentExecutorService to all phase patterns'
+    description: >
+      Verify and expand the tests written in the RED phase of task-3 to confirm >=90% branch
+      coverage on the phase-detection logic. Each of the 8 phase patterns must have a positive
+      test (correct file written or string returned) and the fallback / validation-error paths
+      must be covered. Use real filesystem writes to a temp directory (fs.mkdtempSync) with
+      DEV_EXECUTOR_DELAY_MS=0. Validate written YAML content with js-yaml.load(). Confirm
+      pnpm test:unit passes.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Tests cover all 8 phase patterns with at least one positive assertion each'
+      - 'Analyze, requirements, research, plan phase tests assert: expected file exists at correct path in tmp dir'
+      - 'Analyze, requirements, research, plan phase tests assert: written content is parseable YAML (js-yaml.load() does not throw)'
+      - 'Implement and merge phase tests assert: returned string contains expected substring (e.g., fake commit SHA, GitHub URL pattern)'
+      - 'Metadata phase test asserts: returned string parses as JSON with slug/name/description fields'
+      - 'Negative test: unrecognized prompt does not crash; returns a defined fallback or throws a typed error'
+      - 'Path validation test: specDir with ".." in extracted path throws descriptive error'
+      - 'All tests execute with DEV_EXECUTOR_DELAY_MS=0 (no timeout issues)'
+      - 'pnpm test:unit passes with no failures'
+    tdd: null
+    estimatedEffort: '1.5h'
+
+  - id: task-10
+    phaseId: phase-5
+    title: 'Write integration test for agent.type = "dev" settings persistence round-trip'
+    description: >
+      Add an integration test that exercises the complete settings round-trip for the dev
+      agent type using a real SQLite database in a temp directory: call ConfigureAgentUseCase
+      with type="dev", then LoadSettingsUseCase from the same database, and assert
+      settings.agent.type === "dev". Consistent with existing integration test patterns in
+      tests/integration/.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Integration test persists agent.type = "dev" via ConfigureAgentUseCase against a real SQLite db'
+      - 'LoadSettingsUseCase reads back agent.type === "dev" from the same database'
+      - 'Test uses a temp directory and cleans up after itself'
+      - 'pnpm test:int passes'
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'Run pnpm validate and pnpm test; fix any issues'
+    description: >
+      Run pnpm validate (lint + format:check + typecheck + tsp:compile) and pnpm test
+      (unit + integration) to confirm no regressions were introduced. Common issues to
+      watch for: missing type annotations, import ordering, Prettier formatting of YAML
+      template literals in fixture files, unused imports, missing Storybook story. Fix
+      all issues found. Confirm existing MockAgentExecutorService tests still pass.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - 'pnpm lint passes with no new errors or warnings on any changed file'
+      - 'pnpm format:check passes (no unformatted files)'
+      - 'pnpm typecheck passes with no new type errors'
+      - 'pnpm tsp:compile passes (enum was added in task-1)'
+      - 'pnpm test:unit passes — all new and existing unit tests green'
+      - 'pnpm test:int passes — all new and existing integration tests green'
+      - 'MockAgentExecutorService tests are unchanged and pass (NFR-7 backward compatibility)'
+      - 'SHEP_MOCK_EXECUTOR=1 env-var path behavior is unchanged (container.ts not modified)'
+    tdd: null
+    estimatedEffort: '1h'
+
+# Total effort estimate
+totalEstimate: '11h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The work is organized around a clear dependency chain from foundational type changes
+  outward to user-facing surfaces and test coverage.
+
+  Phase 1 establishes the single prerequisite that unlocks all subsequent TypeScript
+  compilation: adding AgentType.Dev to the TypeSpec enum and regenerating output.ts.
+  Everything downstream that references the new type value depends on this step completing
+  cleanly first.
+
+  Phase 2 is the largest phase and the heart of the feature. Fixture data authoring
+  (task-2) comes before the executor implementation (task-3) because the executor imports
+  the fixture constants directly — you cannot implement the phase dispatcher without the
+  fixtures it dispatches to. The TDD cycle in task-3 drives the implementation from the
+  outside in: representative prompt excerpts define the expected behavior for each phase
+  before a single line of executor code is written.
+
+  Phase 3 wires the new executor into three existing infrastructure files with minimal,
+  surgical changes: one switch case in the factory (task-4), a 2-line guard in the
+  validator (task-5), and a 2-line guard in the use case (task-6). Each change is
+  independently small but they are sequenced by dependency: task-6 requires task-5 to
+  be in place to avoid double-guarding.
+
+  Phase 4 surfaces the dev type to users: an always-enabled "Dev (Mock)" Inquirer choice
+  in the TUI (task-7) alongside verification that the CLI --agent flag accepts "dev",
+  and a Beaker icon entry in the web UI component (task-8) with a mandatory Storybook story.
+
+  Phase 5 completes the coverage picture: unit tests confirm all 8 phase detection
+  branches (task-9), a settings integration test confirms the end-to-end persistence
+  round-trip (task-10), and pnpm validate confirms no regressions in lint, types, or
+  build across the full changed surface area (task-11).

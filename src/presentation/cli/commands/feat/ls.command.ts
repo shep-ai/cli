@@ -16,7 +16,8 @@ import { Command } from 'commander';
 import { container } from '@/infrastructure/di/container.js';
 import { ListFeaturesUseCase } from '@/application/use-cases/features/list-features.use-case.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
-import type { Feature, AgentRun } from '@/domain/generated/output.js';
+import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import type { Feature, AgentRun, PhaseTiming } from '@/domain/generated/output.js';
 import { colors, symbols, messages, renderListView } from '../../ui/index.js';
 
 interface LsOptions {
@@ -32,13 +33,24 @@ const NODE_TO_PHASE: Record<string, string> = {
   implement: 'Implementing',
 };
 
-/** Map graph node names to approval action labels. */
-const NODE_TO_APPROVE: Record<string, string> = {
-  analyze: 'Approve Analysis',
-  requirements: 'Approve PRD',
-  research: 'Approve Research',
-  plan: 'Approve Plan',
-  implement: 'Approve Merge',
+/** Map graph node names to review action labels. */
+const NODE_TO_REVIEW: Record<string, string> = {
+  analyze: 'Review Analysis',
+  requirements: 'Review Requirements',
+  research: 'Review Research',
+  plan: 'Review Plan',
+  implement: 'Review Merge',
+  merge: 'Review Merge',
+};
+
+/** Status priority for sorting (lower = higher priority). */
+const STATUS_PRIORITY: Record<string, number> = {
+  running: 0,
+  pending: 0,
+  waiting_approval: 1,
+  failed: 2,
+  interrupted: 2,
+  completed: 3,
 };
 
 /**
@@ -47,7 +59,6 @@ const NODE_TO_APPROVE: Record<string, string> = {
  */
 function formatStatus(feature: Feature, run: AgentRun | null): string {
   if (!run) {
-    // No agent run — fall back to static lifecycle
     return `${colors.muted(symbols.dotEmpty)} ${colors.muted(feature.lifecycle)}`;
   }
 
@@ -56,9 +67,8 @@ function formatStatus(feature: Feature, run: AgentRun | null): string {
   const phase = nodeName ? (NODE_TO_PHASE[nodeName] ?? nodeName) : feature.lifecycle;
 
   if (isRunning) {
-    // Check PID liveness for running agents
     if (run.pid && !isProcessAlive(run.pid)) {
-      return `${colors.error(symbols.error)} ${colors.error('crashed')}`;
+      return `${colors.error(symbols.error)} ${colors.error('Crashed')}`;
     }
     return `${colors.info(symbols.spinner[0])} ${colors.info(phase)}`;
   }
@@ -70,8 +80,8 @@ function formatStatus(feature: Feature, run: AgentRun | null): string {
     return `${colors.error(symbols.error)} ${colors.error('Failed')}`;
   }
   if (run.status === 'waiting_approval') {
-    const action = nodeName ? (NODE_TO_APPROVE[nodeName] ?? phase) : phase;
-    return `${colors.warning(symbols.warning)} ${colors.warning(action)}`;
+    const action = nodeName ? (NODE_TO_REVIEW[nodeName] ?? phase) : phase;
+    return `${colors.brand(symbols.pointer)} ${colors.brand(action)}`;
   }
   if (run.status === 'interrupted') {
     return `${colors.error(symbols.error)} ${colors.error('Interrupted')}`;
@@ -89,6 +99,12 @@ function isProcessAlive(pid: number): boolean {
   }
 }
 
+/** Truncate a string to maxLen, appending ellipsis if needed. */
+function truncate(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  return text.slice(0, maxLen - 1) + symbols.ellipsis;
+}
+
 /** Format a duration in ms to a compact human-readable string. */
 function formatDuration(ms: number): string {
   const seconds = Math.floor(ms / 1000);
@@ -102,25 +118,56 @@ function formatDuration(ms: number): string {
   return `${days}d`;
 }
 
-/** Format the time column based on run status. */
-function formatTime(feature: Feature, run: AgentRun | null): string {
-  const now = Date.now();
+/** Compute total elapsed from phase timings (sum of all phases, including live delta). */
+function formatElapsed(run: AgentRun | null, phaseTimings: PhaseTiming[]): string {
+  if (phaseTimings.length > 0) {
+    const now = Date.now();
+    const totalMs = phaseTimings.reduce((sum, pt) => {
+      if (pt.durationMs != null) return sum + Number(pt.durationMs);
+      // Phase still running — add live delta
+      if (pt.startedAt) return sum + (now - new Date(pt.startedAt).getTime());
+      return sum;
+    }, 0);
 
-  if (run) {
-    const isRunning = run.status === 'running' || run.status === 'pending';
-    if (isRunning && run.startedAt) {
-      const started = new Date(run.startedAt).getTime();
-      return colors.info(formatDuration(now - started));
-    }
-    if (run.status === 'completed' && run.completedAt) {
-      const completed = new Date(run.completedAt).getTime();
-      return colors.muted(`${formatDuration(now - completed)} ago`);
-    }
+    const isRunning = run?.status === 'running' || run?.status === 'pending';
+    return isRunning ? colors.info(formatDuration(totalMs)) : colors.muted(formatDuration(totalMs));
   }
 
-  // Fallback to updatedAt
-  const updated = new Date(feature.updatedAt).getTime();
-  return colors.muted(`${formatDuration(now - updated)} ago`);
+  // Fallback to run timestamps if no phase timings
+  if (!run?.startedAt) return '';
+  const started = new Date(run.startedAt).getTime();
+  const isRunning = run.status === 'running' || run.status === 'pending';
+  const end = isRunning
+    ? Date.now()
+    : run.completedAt
+      ? new Date(run.completedAt).getTime()
+      : Date.now();
+
+  return isRunning
+    ? colors.info(formatDuration(end - started))
+    : colors.muted(formatDuration(end - started));
+}
+
+/** Format when the feature finished (only for completed runs). */
+function formatDone(run: AgentRun | null): string {
+  if (!run?.completedAt || run.status !== 'completed') return '';
+
+  const completed = new Date(run.completedAt).getTime();
+  return colors.muted(`${formatDuration(Date.now() - completed)} ago`);
+}
+
+/** Format approval gates and push flag as compact checkboxes: R P M ↑ */
+function formatGates(feature: Feature): string {
+  const { allowPrd, allowPlan, allowMerge } = feature.approvalGates;
+  const gate = (on: boolean) => (on ? colors.success('■') : colors.muted('□'));
+  const push = feature.push ? colors.accent('■') : colors.muted('□');
+  return `${gate(allowPrd)} ${gate(allowPlan)} ${gate(allowMerge)} ${push}`;
+}
+
+/** Get sort priority for a run status (lower = shown first). */
+function getStatusPriority(run: AgentRun | null): number {
+  if (!run) return 4;
+  return STATUS_PRIORITY[run.status] ?? 4;
 }
 
 export function createLsCommand(): Command {
@@ -131,29 +178,37 @@ export function createLsCommand(): Command {
       try {
         const useCase = container.resolve(ListFeaturesUseCase);
         const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
+        const phaseRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
 
         const filters = options.repo ? { repositoryPath: options.repo } : undefined;
         const features = await useCase.execute(filters);
 
-        // Load agent runs for all features in parallel
-        const runs = await Promise.all(
-          features.map((f) =>
-            f.agentRunId ? runRepo.findById(f.agentRunId) : Promise.resolve(null)
-          )
-        );
+        // Load agent runs and phase timings for all features in parallel
+        const [runs, timings] = await Promise.all([
+          Promise.all(
+            features.map((f) =>
+              f.agentRunId ? runRepo.findById(f.agentRunId) : Promise.resolve(null)
+            )
+          ),
+          Promise.all(features.map((f) => phaseRepo.findByFeatureId(f.id))),
+        ]);
 
-        const rows = features.map((feature, i) => {
-          const run = runs[i];
+        // Pair features with runs/timings and sort by status priority
+        const paired = features
+          .map((feature, i) => ({ feature, run: runs[i], phases: timings[i] }))
+          .sort((a, b) => getStatusPriority(a.run) - getStatusPriority(b.run));
+
+        const rows = paired.map(({ feature, run, phases }) => {
           const repo = path.basename(feature.repositoryPath);
-          const agent = run?.agentType ?? colors.muted('—');
 
           return [
             feature.id.slice(0, 8),
-            feature.name.slice(0, 30),
+            truncate(feature.name, 30),
             formatStatus(feature, run),
             colors.muted(repo),
-            agent,
-            formatTime(feature, run),
+            formatGates(feature),
+            formatElapsed(run, phases),
+            formatDone(run),
           ];
         });
 
@@ -162,10 +217,11 @@ export function createLsCommand(): Command {
           columns: [
             { label: 'ID', width: 10 },
             { label: 'Name', width: 32 },
-            { label: 'Status', width: 20 },
+            { label: 'Status', width: 21 },
             { label: 'Repo', width: 20 },
-            { label: 'Agent', width: 14 },
-            { label: 'Time', width: 12 },
+            { label: 'R P M ↑', width: 10 },
+            { label: 'Elapsed', width: 10 },
+            { label: 'Done', width: 12 },
           ],
           rows,
           emptyMessage: 'No features found',

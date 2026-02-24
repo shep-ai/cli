@@ -1,0 +1,99 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: notification-replay-bug
+summary: >
+  Add a private `isBootstrapped` boolean flag to NotificationWatcherService that suppresses
+  all notification emission during the first poll while still seeding trackedRuns with existing
+  run statuses and completed phases. Subsequent polls emit normally. ~10 lines of production
+  code plus test updates and a new bootstrap test block. No schema changes, no new files,
+  no architectural changes.
+
+relatedFeatures: []
+
+technologies:
+  - node-notifier (desktop notifications — unchanged)
+  - EventEmitter (NotificationBus — unchanged)
+  - vitest (unit testing)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Bootstrap Suppression Tests (RED)'
+    description: >
+      Write failing tests that define the expected bootstrap behavior: first poll with
+      pre-existing runs emits zero notifications, second poll with new runs emits correctly.
+      Also update existing tests that assume first-poll emission so they bootstrap first.
+    parallel: false
+
+  - id: phase-2
+    name: 'Implement Bootstrap Flag (GREEN + REFACTOR)'
+    description: >
+      Add the `isBootstrapped` field and gate `notify()` calls in processRuns() and
+      checkPhaseCompletions(). Flip the flag after the first complete poll. All tests
+      (new and updated) should pass. Refactor for clarity if needed.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts
+  - tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The fix is entirely within `NotificationWatcherService` in the infrastructure layer. No domain,
+  application, or presentation layer changes. The watcher's public API (`start()`, `stop()`,
+  `isRunning()`) is unchanged — the bootstrap flag is a private implementation detail.
+
+  The existing call chain remains intact:
+  ```
+  poll() → processRuns() → emitStatusEvent() → notificationService.notify()
+  poll() → processRuns() → checkPhaseCompletions() → notificationService.notify()
+  ```
+
+  The only change is gating both `notify()` call sites behind `this.isBootstrapped`.
+
+  ## Key Design Decisions
+
+  1. **Simple boolean flag over state machine** — The watcher has exactly one lifecycle transition
+     relevant to this bug (first poll → subsequent polls). A state machine is overengineering.
+     Research confirms this via YAGNI analysis.
+
+  2. **Suppress all channels during bootstrap** — The watcher detects transitions, not history.
+     The web UI loads current state from REST APIs, so replay SSE events are redundant. Suppressing
+     at the `notify()` call source is the cleanest approach (single fan-out point).
+
+  3. **Seed both statuses and phases** — The bug affects both `emitStatusEvent()` and
+     `checkPhaseCompletions()`. During bootstrap, `checkPhaseCompletions()` still populates
+     `completedPhases` in WatcherState but skips `notify()`. Zero additional DB queries (NFR-1).
+
+  4. **Direct flag check in processRuns() and checkPhaseCompletions()** — No event buffering,
+     no proxy wrappers. The flag is set AFTER the full loop completes, avoiding mid-iteration
+     state confusion. ~10 lines of production code.
+
+  ## Implementation Strategy
+
+  Phase 1 (RED) writes all tests first — both the new bootstrap describe block and updates to
+  existing tests that currently assume first-poll notification emission. These tests will fail
+  against the current code, confirming the bug exists and the tests capture it.
+
+  Phase 2 (GREEN + REFACTOR) adds the `isBootstrapped` field and gates. Because the production
+  change is ~10 lines and atomic, GREEN and REFACTOR are combined — there's nothing meaningful
+  to refactor after such a minimal change. All tests pass after this phase.
+
+  The two-phase approach is compressed because the fix is small (S-sized). A larger feature would
+  have separate GREEN and REFACTOR phases.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Existing tests break due to bootstrap-first-poll change | Update affected tests to bootstrap with empty runs first, then assert on second poll |
+  | Bootstrap flag never flips (infinite suppression) | Test explicitly verifies second poll emits notifications after bootstrap |
+  | Phase completions still replay after bootstrap | Test specifically covers pre-existing completed phases producing zero notifications |
+  | Regression in normal notification path | Existing tests (updated for bootstrap) continue to verify all status transitions and phase completions |
