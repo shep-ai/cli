@@ -1,3 +1,9 @@
+## [1.53.1](https://github.com/shep-ai/cli/compare/v1.53.0...v1.53.1) (2026-02-24)
+
+### Bug Fixes
+
+- **cli:** add missing merge phase label in feat ls ([#128](https://github.com/shep-ai/cli/issues/128)) ([5b3fd92](https://github.com/shep-ai/cli/commit/5b3fd922defcb60572637d9c83dc1301274c63a7))
+
 # [1.53.0](https://github.com/shep-ai/cli/compare/v1.52.2...v1.53.0) (2026-02-24)
 
 ### Features
