@@ -1,0 +1,40 @@
+feature:
+  id: 042-claudemd-size-reduction
+  name: claudemd-size-reduction
+  number: 42
+  branch: feat/042-claudemd-size-reduction
+  lifecycle: research
+  createdAt: '2026-02-24T20:14:28Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 3
+    total: 3
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T20:28:11.784Z'
+  lastUpdatedBy: feature-agent:implement
+  prUrl: https://github.com/shep-ai/cli/pull/126
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-24T20:14:28Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

@@ -1,0 +1,302 @@
+name: claudemd-size-reduction
+number: 42
+branch: feat/042-claudemd-size-reduction
+oneLiner: >-
+  Reduce CLAUDE.md from 622 lines to under 100 by extracting detail into docs/
+  and linking
+userQuery: >
+  Feature: agents and claude md — we must reduce the size of it, its huge, its
+  should not be more than 100 lines!
+summary: >
+  CLAUDE.md is currently 622 lines and serves as the primary AI guidance file
+  for the repository. The goal is to reduce it to under 100 lines by replacing
+  verbose inline documentation with concise pointers to the already-existing
+  docs/ directory, keeping only essential navigation rules and mandatory
+  workflow constraints that AI must have at the top level. No code changes, no
+  tests, no TypeSpec changes — this is a pure editorial transformation of a
+  single documentation file.
+phase: Requirements
+sizeEstimate: S
+relatedFeatures: []
+technologies:
+  - Markdown
+  - docs/ reference architecture
+relatedLinks: []
+openQuestions:
+  - question: What hard line count limit should CLAUDE.md target?
+    resolved: true
+    options:
+      - option: Strict ≤100 lines
+        description: >
+          Enforce exactly 100 lines maximum including blank lines and comments.
+          Matches the user requirement verbatim and creates a clear, objective
+          gate. Forces maximum compression.
+        selected: true
+      - option: Soft ~100 lines (±10%)
+        description: >
+          Allow up to ~110 lines if critical content cannot be further
+          compressed. Provides slight flexibility but risks "just one more line"
+          drift over time.
+        selected: false
+    selectionRationale: >
+      The user stated "no more than 100 lines" as a hard rule. A strict ≤100
+      line limit creates a clear, objective, enforceable success criterion with
+      no ambiguity. Soft limits invite incremental drift back to the original
+      problem.
+    answer: Strict ≤100 lines
+  - question: Which content categories must be preserved inline vs. replaced with links?
+    resolved: true
+    options:
+      - option: Rules-only inline, everything else linked
+        description: >
+          Preserve inline only: mandatory workflow order (shep-kit sequence),
+          TDD mandate, TypeSpec-first rule, Storybook requirement, commit
+          format, and top-level project overview (1-2 sentences). All detailed
+          reference material (domain models, architecture detail, DI patterns,
+          CI/CD, commands list, key patterns) is replaced with a link to docs/.
+        selected: true
+      - option: Keep all "how-to" sections as summaries
+        description: >
+          Retain condensed summaries of every major section (1-3 lines each) in
+          addition to rules. Results in a fuller but still compressed file.
+          Higher risk of exceeding 100 lines.
+        selected: false
+    selectionRationale: >
+      Only mandatory rules require top-level presence because Claude must apply
+      them without being told to look them up. "How-to" reference material
+      (architecture trees, domain model fields, DI usage examples) is only
+      consulted on demand and is already fully covered by docs/. Rules-only
+      inline minimizes token consumption while preserving all behavioral
+      constraints.
+    answer: Rules-only inline, everything else linked
+  - question: How should links to docs/ be formatted?
+    resolved: true
+    options:
+      - option: Inline Markdown links with descriptive anchors
+        description: >
+          Use `[Architecture →](docs/architecture/)` style inline links within
+          each section. Readable, scannable, tells Claude exactly where to go
+          for more detail without a separate reference block.
+        selected: true
+      - option: Trailing "See also" reference section
+        description: >
+          Collect all links in a "## References" section at the bottom. Keeps
+          the body clean but requires an additional section that adds lines and
+          interrupts reading flow.
+        selected: false
+    selectionRationale: >
+      Inline links co-locate the pointer with the relevant rule, making it
+      immediately clear where to find detail without requiring a separate
+      lookup. A trailing reference block adds ~15 lines and separates context
+      from its pointer. Inline links are more token-efficient for AI
+      consumption.
+    answer: Inline Markdown links with descriptive anchors
+  - question: >-
+      Should the Commands section be removed entirely or kept with a minimal
+      subset?
+    resolved: true
+    options:
+      - option: Keep 4-6 most-used commands only
+        description: >
+          Retain only the highest-frequency developer commands (pnpm test, pnpm
+          build, pnpm dev:cli, pnpm validate) with a link to the full list.
+          Provides quick access to the commands Claude most often needs without
+          listing all 20+.
+        selected: true
+      - option: Remove entirely, link to docs
+        description: >
+          Remove the commands section completely. Claude can read package.json
+          or docs to discover commands. Saves the most lines but removes a
+          genuinely useful quick-reference.
+        selected: false
+    selectionRationale: >
+      A minimal commands list (4-6 lines) meaningfully helps Claude without
+      requiring a docs lookup for the most common operations. Removing entirely
+      creates unnecessary friction. The full 43-line list is the problem, not
+      the concept of listing commands.
+    answer: Keep 4-6 most-used commands only
+  - question: Should the Architecture section include any directory tree?
+    resolved: true
+    options:
+      - option: No tree — 4 key principles + link only
+        description: >
+          Replace the 72-line architecture section (including ASCII tree) with 4
+          one-line principles and a link to docs/architecture/. Clean
+          Architecture is documented there; no tree needed.
+        selected: true
+      - option: Single-level directory tree only
+        description: >
+          Keep a minimal top-level directory tree (6-8 lines) showing
+          packages/core/src/ layout without subdirectory detail. Provides
+          orientation at a glance.
+        selected: false
+    selectionRationale: >
+      ASCII trees are space-expensive and already exist in docs/architecture/.
+      The 4 key principles (dependency rule, repository pattern, use case
+      pattern, DI) are what Claude needs to understand when making architectural
+      decisions — not the directory layout, which is discoverable.
+    answer: No tree — 4 key principles + link only
+content: >
+  ## Problem Statement
+
+
+  `CLAUDE.md` is 622 lines long. Claude Code loads this file into every
+  conversation context,
+
+  consuming significant tokens on content that is either redundant with `docs/`
+  files already
+
+  in the repository, or too verbose for what is actually needed as AI navigation
+  guidance.
+
+
+  The rule is clear: **no more than 100 lines**.
+
+
+  ## Success Criteria
+
+
+  - [ ] `CLAUDE.md` is ≤ 100 lines (hard limit, including blank lines)
+
+  - [ ] All five mandatory workflow rules are preserved inline: spec-driven dev
+  order, TDD mandate, TypeSpec-first rule, Storybook requirement, commit format
+
+  - [ ] Every removed section is replaced with a link to the corresponding
+  `docs/` file
+
+  - [ ] Project overview, key commands (≤6), and architecture principles (≤4)
+  remain scannable at top level
+
+  - [ ] No content from `docs/` is modified or created
+
+  - [ ] The resulting file can be read in under 60 seconds and still orient a
+  fresh Claude session
+
+
+  ## Functional Requirements
+
+
+  - **FR-1**: The rewritten `CLAUDE.md` MUST contain 100 lines or fewer (hard
+  ceiling, no exceptions).
+
+  - **FR-2**: The mandatory spec-driven workflow sequence
+  (`/shep-kit:new-feature → research → plan → implement → commit-pr`) MUST be
+  preserved inline as a single ordered list or command chain.
+
+  - **FR-3**: The TDD mandate (RED-GREEN-REFACTOR cycle, write tests first) MUST
+  remain as an inline rule, not a link.
+
+  - **FR-4**: The TypeSpec-first rule ("edit `.tsp` files, never hand-edit
+  generated output.ts") MUST remain inline.
+
+  - **FR-5**: The Storybook stories requirement ("every web UI component MUST
+  have a colocated `.stories.tsx` file") MUST remain inline.
+
+  - **FR-6**: The Conventional Commits format (`<type>(<scope>): <subject>`)
+  MUST remain inline with the allowed types list.
+
+  - **FR-7**: Each section that is condensed or removed MUST include at least
+  one inline Markdown link pointing to the relevant `docs/` path or named file.
+
+  - **FR-8**: The commands section MUST be reduced to ≤6 entries covering the
+  highest-frequency operations (test, build, dev, validate), with a link to the
+  full list.
+
+  - **FR-9**: The architecture section MUST be reduced to ≤4 key principles (no
+  ASCII directory tree), with a link to `docs/architecture/`.
+
+  - **FR-10**: Domain Models, Dependency Injection details, Key Patterns,
+  Presentation Layer Technologies, pnpm Workspaces, CI/CD & Docker, and
+  "Maintaining This Document" sections MUST be removed from inline content and
+  replaced with links only.
+
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1**: The final file MUST be valid GitHub-Flavored Markdown (no broken
+  links, no malformed syntax).
+
+  - **NFR-2**: All linked `docs/` paths MUST be relative paths that resolve
+  correctly from the repository root.
+
+  - **NFR-3**: The file MUST remain human-readable (logical section order, no
+  wall-of-text paragraphs over 3 lines).
+
+  - **NFR-4**: No existing `docs/` files or source code files MAY be modified as
+  part of this change.
+
+  - **NFR-5**: The transformation MUST be a net reduction: if any new content is
+  added, an equal or greater amount of existing content MUST be removed.
+
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Hard or soft 100-line limit? | Strict ≤100 lines | Hard limits create
+  objective, enforceable gates; soft limits drift |
+
+  | 2 | What stays inline vs. linked? | Rules-only inline, everything else
+  linked | Mandatory rules must be available without lookup; reference material
+  is on-demand |
+
+  | 3 | How to format doc links? | Inline Markdown links with descriptive
+  anchors | Co-locates pointer with rule; more token-efficient than a trailing
+  reference block |
+
+  | 4 | Keep a commands section? | Keep 4-6 most-used commands only |
+  Quick-reference for most common ops is genuinely useful; full 43-line list is
+  the problem |
+
+  | 5 | Include an architecture directory tree? | No tree — 4 key principles +
+  link only | Trees are space-expensive; already in docs/architecture/;
+  principles are what AI needs |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  |------|--------|-----------|
+
+  | `CLAUDE.md` | High | The only file being modified; must shrink from 622 →
+  ≤100 lines |
+
+  | `docs/` | None | Existing docs are already comprehensive; no new docs needed
+  |
+
+  | `AGENTS.md` | None | Already referenced by CLAUDE.md; no change needed |
+
+
+  ## Dependencies
+
+
+  - All detailed documentation already exists in `docs/` — no new files need to
+  be created
+
+  - `AGENTS.md` is already a dedicated agent architecture reference
+
+  - No code changes, no tests, no TypeSpec changes required
+
+
+  ## Size Estimate
+
+
+  **S** — Pure documentation edit. No code, no tests, no TypeSpec. Single file
+  change.
+
+  The work is entirely editorial: read 622 lines, identify what to keep vs.
+  link, rewrite.
+
+  10 functional requirements, 5 non-functional requirements, 5 resolved product
+  questions.
+rejectionFeedback:
+  - iteration: 1
+    message: cicd fails
+    phase: merge
+    timestamp: '2026-02-24T20:37:10.170Z'
