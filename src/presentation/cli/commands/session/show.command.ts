@@ -73,7 +73,6 @@ function resolveAgentType(opts: {
 
 function renderSessionDetail(session: AgentSession, _messageLimit: number): void {
   const sessionMessages = session.messages ?? [];
-  const displayedCount = sessionMessages.length;
   const totalCount = session.messageCount;
   const meta = (session as AgentSession & { metadata?: SessionMetadata }).metadata;
 

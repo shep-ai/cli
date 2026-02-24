@@ -100,19 +100,19 @@ describe('session show command', () => {
     expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ id: 'my-session-id' }));
   });
 
-  it('should pass default messageLimit 20 when no --messages flag is given', async () => {
+  it('should always fetch all messages (messageLimit 0) regardless of --messages flag', async () => {
     const cmd = createShowCommand();
     await cmd.parseAsync(['session-id'], { from: 'user' });
-    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ messageLimit: 20 }));
+    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ messageLimit: 0 }));
   });
 
-  it('should pass --messages value to use case as messageLimit', async () => {
+  it('should fetch all messages even when --messages is specified (client-side slicing)', async () => {
     const cmd = createShowCommand();
     await cmd.parseAsync(['session-id', '--messages', '50'], { from: 'user' });
-    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ messageLimit: 50 }));
+    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ messageLimit: 0 }));
   });
 
-  it('should pass messageLimit 0 when --messages 0 is given (all messages)', async () => {
+  it('should accept --messages 0 for all messages', async () => {
     const cmd = createShowCommand();
     await cmd.parseAsync(['session-id', '--messages', '0'], { from: 'user' });
     expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ messageLimit: 0 }));
@@ -121,7 +121,7 @@ describe('session show command', () => {
   it('should accept -m as alias for --messages', async () => {
     const cmd = createShowCommand();
     await cmd.parseAsync(['session-id', '-m', '30'], { from: 'user' });
-    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ messageLimit: 30 }));
+    expect(mockExecute).toHaveBeenCalledWith(expect.objectContaining({ messageLimit: 0 }));
   });
 
   it('should pass no agentType when no provider flag is given', async () => {
