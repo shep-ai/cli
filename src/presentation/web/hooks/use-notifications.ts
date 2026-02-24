@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { NotificationSeverity } from '@shepai/core/domain/generated/output';
 import { useAgentEventsContext } from './agent-events-provider';
+import { useSound } from './use-sound';
 
 export interface UseNotificationsResult {
   requestBrowserPermission: () => Promise<void>;
@@ -27,11 +28,33 @@ function dispatchBrowserNotification(event: NotificationEvent): void {
   if (globalThis.Notification?.permission !== 'granted') {
     return;
   }
-  new Notification(event.featureName, { body: event.message });
+  new Notification(`Shep: ${event.featureName}`, {
+    body: event.message,
+    icon: '/favicon-light.svg',
+  });
 }
+
+const SEVERITY_TO_SOUND = {
+  [NotificationSeverity.Success]: 'celebration',
+  [NotificationSeverity.Error]: 'caution',
+  [NotificationSeverity.Warning]: 'notification',
+  [NotificationSeverity.Info]: 'button',
+} as const;
 
 export function useNotifications(): UseNotificationsResult {
   const { lastEvent } = useAgentEventsContext();
+
+  const successSound = useSound('celebration', { volume: 0.5 });
+  const errorSound = useSound('caution', { volume: 0.5 });
+  const warningSound = useSound('notification', { volume: 0.5 });
+  const infoSound = useSound('button', { volume: 0.5 });
+
+  const soundsByName: Record<string, { play: () => void }> = {
+    celebration: successSound,
+    caution: errorSound,
+    notification: warningSound,
+    button: infoSound,
+  };
 
   const [browserPermissionState, setBrowserPermissionState] = useState<NotificationPermission>(
     () => {
@@ -53,7 +76,10 @@ export function useNotifications(): UseNotificationsResult {
 
     dispatchToast(lastEvent);
     dispatchBrowserNotification(lastEvent);
-  }, [lastEvent]);
+
+    const soundName = SEVERITY_TO_SOUND[lastEvent.severity];
+    soundsByName[soundName]?.play();
+  }, [lastEvent, soundsByName]);
 
   const requestBrowserPermission = useCallback(async () => {
     if (typeof globalThis.Notification === 'undefined') return;
