@@ -19,16 +19,26 @@ export default defineConfig({
   },
 
   projects: [
-    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
     {
-      name: 'showcase',
-      use: {
-        ...devices['Desktop Chrome'],
-        video: 'on',
-        launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
-      },
-      testMatch: 'realtime-showcase.spec.ts',
+      name: 'chromium',
+      use: { ...devices['Desktop Chrome'] },
+      testIgnore: '**/realtime-showcase*',
     },
+    // Showcase project — requires a live dev server (localhost:3000).
+    // Run explicitly: npx playwright test --project showcase
+    ...(process.env.SHOWCASE_URL
+      ? [
+          {
+            name: 'showcase',
+            use: {
+              ...devices['Desktop Chrome'],
+              video: 'on' as const,
+              launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
+            },
+            testMatch: 'realtime-showcase.spec.ts',
+          },
+        ]
+      : []),
   ],
 
   /* Run your local dev server before starting the tests */
