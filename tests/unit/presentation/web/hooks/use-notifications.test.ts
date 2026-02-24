@@ -175,7 +175,7 @@ describe('useNotifications', () => {
     renderHook(() => useNotifications());
 
     expect(MockNotification.instances).toHaveLength(1);
-    expect(MockNotification.instances[0].title).toBe('Notify Feature');
+    expect(MockNotification.instances[0].title).toBe('Shep: Notify Feature');
     expect(MockNotification.instances[0].options?.body).toBe('Agent done');
   });
 
