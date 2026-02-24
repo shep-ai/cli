@@ -29,6 +29,16 @@ export function createAgentSelectConfig() {
         description: 'Google Gemini CLI',
       },
       {
+        name: 'Cursor',
+        value: AgentType.Cursor,
+        description: 'Cursor AI coding agent',
+      },
+      {
+        name: 'Dev (Mock)',
+        value: AgentType.Dev,
+        description: 'Local development mock — no agent binary required',
+      },
+      {
         name: 'Aider',
         value: AgentType.Aider,
         disabled: '(Coming Soon)',
@@ -37,11 +47,6 @@ export function createAgentSelectConfig() {
         name: 'Continue',
         value: AgentType.Continue,
         disabled: '(Coming Soon)',
-      },
-      {
-        name: 'Cursor',
-        value: AgentType.Cursor,
-        description: 'Cursor AI coding agent',
       },
     ],
     theme: shepTheme,

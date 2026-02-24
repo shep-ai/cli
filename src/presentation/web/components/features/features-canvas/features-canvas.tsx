@@ -80,11 +80,12 @@ export function FeaturesCanvas({
         data: {
           ...node.data,
           showHandles: edges.length > 0,
-          ...(node.type === 'featureNode' &&
-            (node.data as FeatureNodeData).state !== 'creating' && {
-              onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
-              onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
-            }),
+          ...(node.type === 'featureNode' && (node.data as FeatureNodeData).state !== 'creating'
+            ? {
+                onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
+                onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+              }
+            : {}),
           ...(node.type === 'repositoryNode' && {
             onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
             onDelete: onRepositoryDelete,

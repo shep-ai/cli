@@ -1,0 +1,349 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: merge-review-drawer
+number: 036
+branch: feat/merge-review-drawer
+oneLiner: Add merge review drawer and feature node visualization for the Review lifecycle phase
+summary: >
+  When a feature reaches the merge approval gate (lifecycle=Review, state=action-required),
+  the feature node needs a distinct visual badge and a dedicated merge review drawer (following
+  the same pattern as the PRD questionnaire and Tech Decisions drawers). The drawer should
+  display the diff summary, PR information, CI status, and provide approve/reject actions.
+phase: Analysis
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19 (Next.js 16+ App Router)
+  - shadcn/ui (Radix + Tailwind CSS v4)
+  - React Flow (@xyflow/react)
+  - Storybook
+  - Vaul (drawer primitive)
+  - LangGraph (interrupt/resume for approval gates)
+  - Lucide React (GitMerge / GitPullRequest icons)
+
+relatedLinks: []
+
+# Open questions (resolved with AI recommendations)
+openQuestions:
+  - question: >
+      The merge interrupt payload (diffSummary, prUrl, prNumber) is stored only in the
+      LangGraph checkpoint, not persisted to the Feature or AgentRun entity. Should we
+      (A) add an interruptPayload field to AgentRun and persist it when status becomes
+      waitingApproval, or (B) create a use case that reads the checkpoint directly, or
+      (C) read the Feature.pr field (which is populated before the interrupt in merge.node.ts
+      lines 144-158) and generate the diff summary on demand via a new server action?
+    impact: Determines the data access architecture for the merge drawer content.
+    resolved: true
+    options:
+      - option: 'Persist interruptPayload on AgentRun'
+        description: >
+          Add a new interruptPayload JSON field to AgentRun and persist the merge interrupt
+          data when status becomes waitingApproval. Pros: single source of truth, no
+          recomputation. Cons: requires TypeSpec model change, migration, and changes to
+          the worker persistence layer — high blast radius for a display-only feature.
+        selected: false
+      - option: 'Read LangGraph checkpoint directly'
+        description: >
+          Create a use case that reads the LangGraph checkpoint to extract the interrupt
+          payload. Pros: no model changes. Cons: couples the UI data layer to LangGraph
+          internals, checkpoint format may change, adds complexity to the read path.
+        selected: false
+      - option: 'Read Feature.pr + regenerate diff summary'
+        description: >
+          Create a new server action that reads Feature.pr for PR metadata (url, number,
+          status, commitHash, ciStatus) and calls gitPrService.getPrDiffSummary() for
+          diff statistics. Pros: uses already-persisted data, no model changes, follows
+          existing server action patterns, diff summary is always fresh. Cons: requires
+          the worktree to still exist for diff computation (which it does during review).
+        selected: true
+    selectionRationale: >
+      Option C is recommended because Feature.pr is already populated before the interrupt
+      (merge.node.ts:144-158) and contains all PR metadata. The diff summary can be
+      regenerated on demand via the existing IGitPrService.getPrDiffSummary() method.
+      This avoids any domain model changes, follows the established server action pattern
+      (like get-feature-artifact.ts and get-research-artifact.ts), and keeps the diff
+      data fresh. The worktree is guaranteed to exist during the Review lifecycle phase.
+    answer: 'Read Feature.pr + regenerate diff summary'
+
+  - question: >
+      What color scheme and icon should the merge review badge use on the feature node
+      to distinguish it from requirements (amber/FileText) and implementation (indigo/Wrench)?
+    impact: Determines the visual identity of the merge review state in the canvas.
+    resolved: true
+    options:
+      - option: 'Green with GitMerge icon'
+        description: >
+          Use green (emerald) color scheme with the GitMerge icon from Lucide React.
+          Green conveys "ready to merge / success", GitMerge directly represents the
+          action. Consistent with GitHub's merge button color. Distinct from amber
+          (requirements) and indigo (implementation).
+        selected: true
+      - option: 'Purple with GitPullRequest icon'
+        description: >
+          Use purple/violet color scheme with GitPullRequest icon. Purple is visually
+          distinct but doesn't carry semantic meaning related to merging. GitPullRequest
+          represents the PR itself rather than the merge action.
+        selected: false
+      - option: 'Teal with GitMerge icon'
+        description: >
+          Use teal/cyan color scheme with GitMerge icon. Teal is distinct from existing
+          colors but less semantically meaningful than green for a merge action.
+        selected: false
+    selectionRationale: >
+      Green (emerald) with GitMerge is recommended because it creates an intuitive visual
+      language: green = ready to proceed/merge, matching GitHub's merge button convention.
+      The GitMerge icon directly communicates the action being reviewed. The three review
+      states form a clear progression: amber (requirements) → indigo (implementation) →
+      green (merge), each visually distinct and semantically meaningful.
+    answer: 'Green with GitMerge icon'
+
+  - question: >
+      Should the merge review drawer include a reject/request-changes action in addition
+      to approve, and if so what should happen on rejection?
+    impact: Determines the drawer action buttons and the rejection flow.
+    resolved: true
+    options:
+      - option: 'Approve only (with delete as escape hatch)'
+        description: >
+          Only show an Approve button. Users who don't want to merge can delete the
+          feature or close the drawer and leave it pending. Simple, matches the existing
+          PRD/Tech drawer pattern which only has approve. The ReviewDrawerShell already
+          provides a delete button for abandoning features.
+        selected: true
+      - option: 'Approve + Reject with agent feedback loop'
+        description: >
+          Add a Reject button that sends feedback to the agent, which would then revise
+          the PR. Requires new LangGraph interrupt response handling, new domain model
+          fields, and significant backend work. More complete UX but high implementation
+          cost and out of scope for an M-sized feature.
+        selected: false
+    selectionRationale: >
+      Approve-only is recommended to match the established pattern used by PRD and Tech
+      Decision drawers. The ReviewDrawerShell already provides delete as an escape hatch
+      for abandoning a feature. Adding rejection would require significant backend changes
+      to the LangGraph interrupt/resume flow, which is out of scope. A reject flow can be
+      added as a separate feature if needed.
+    answer: 'Approve only (with delete as escape hatch)'
+
+  - question: >
+      Should the merge review drawer content include a chat input for refinement feedback
+      (like PRD and Tech drawers) or only display read-only PR information with an approve action?
+    impact: Determines whether the drawer supports conversational refinement before approval.
+    resolved: true
+    options:
+      - option: 'Read-only display with approve action'
+        description: >
+          Show PR metadata, diff summary, and CI status as read-only content with an
+          approve button. No chat input. Merge review is a binary decision (approve or
+          not) — there's nothing to "refine" like requirements or tech decisions. Simpler
+          to implement and matches the nature of the merge gate.
+        selected: true
+      - option: 'Include chat input for feedback'
+        description: >
+          Include a chat input like the other drawers for consistency. Users could send
+          feedback that gets passed to the agent. However, the merge node doesn't currently
+          support feedback-based revision, so the chat input would be non-functional or
+          require backend changes.
+        selected: false
+    selectionRationale: >
+      Read-only is recommended because merge review is fundamentally a binary approval
+      decision, unlike requirements (where users select options) or tech decisions (where
+      users can request plan revisions). The merge node's interrupt flow doesn't support
+      feedback-based revision. Adding a non-functional chat input would be misleading.
+      The PR link provides an escape hatch for users who want to review code in detail
+      on GitHub.
+    answer: 'Read-only display with approve action'
+
+  - question: >
+      How should the drawer handle the case where the worktree has been deleted or the
+      git repository is unavailable, making diff summary regeneration impossible?
+    impact: Determines error handling and fallback behavior for the merge drawer.
+    resolved: true
+    options:
+      - option: 'Graceful degradation with PR-only fallback'
+        description: >
+          If diff summary fails, show PR metadata from Feature.pr (URL, number, status,
+          CI status) without diff stats. Display a subtle warning that diff stats are
+          unavailable. The approve action still works since it only needs the agentRunId.
+          Low implementation cost, good UX.
+        selected: true
+      - option: 'Block drawer with error state'
+        description: >
+          Show a full error state in the drawer when diff summary fails. Prevents users
+          from seeing partial data. However, blocking approval because of a display issue
+          would be frustrating — the user can always review the PR on GitHub.
+        selected: false
+    selectionRationale: >
+      Graceful degradation is recommended because the diff summary is supplementary
+      information — the core action (approve merge) doesn't depend on it. Feature.pr
+      data is already persisted and always available. Blocking the entire drawer because
+      of a transient git error would frustrate users unnecessarily. The PR URL provides
+      a direct link to review changes on GitHub regardless.
+    answer: 'Graceful degradation with PR-only fallback'
+
+content: |
+  ## Problem Statement
+
+  When a feature's agent reaches the merge phase and requires approval (`allowMerge=false`),
+  the agent interrupts and sets the feature to `lifecycle=Review` with
+  `agentRun.status=waiting_approval`. Currently, the web UI has no dedicated handling for
+  this state combination:
+
+  1. **Feature node**: The `getBadgeText()` function in `feature-node.tsx:51-54` has no
+     specific case for `lifecycle === 'review'` when `state === 'action-required'` — it falls
+     through to the generic "User action required" label.
+
+  2. **Feature node badge color**: The `getActionRequiredBadgeClasses()` function only handles
+     `implementation` (indigo) — `review` falls through to the default amber, making it
+     indistinguishable from PRD review.
+
+  3. **No merge drawer**: The `control-center-inner.tsx` only checks for `showPrdDrawer`
+     (requirements + action-required) and `showTechDecisionsDrawer` (implementation +
+     action-required). There is no `showMergeReviewDrawer` condition for `review +
+     action-required`.
+
+  4. **No merge drawer component**: Unlike `prd-questionnaire/` and `tech-decisions-review/`,
+     there is no `merge-review/` component directory.
+
+  5. **FeatureDrawer exclusion**: The standard `FeatureDrawer` already excludes PRD and Tech
+     drawers (`showPrdDrawer || showTechDecisionsDrawer ? null : selectedNode`) but does not
+     account for the merge review state.
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The web UI lives in `src/presentation/web/` following a four-tier component hierarchy:
+
+  ```
+  src/presentation/web/
+  ├── app/                          # Next.js App Router
+  │   ├── page.tsx                  # Main page — server component, lifecycle mapping, DAG layout
+  │   └── actions/                  # Server actions (approve-feature, get-feature-artifact, etc.)
+  ├── components/
+  │   ├── ui/                       # Tier 0 — shadcn/ui primitives (button, drawer, badge, etc.)
+  │   ├── common/                   # Tier 1 — Shared domain components
+  │   │   ├── feature-node/         # Feature node for React Flow canvas
+  │   │   ├── feature-drawer/       # Generic feature details drawer
+  │   │   ├── review-drawer-shell/  # Reusable shell for all review drawers
+  │   │   ├── prd-questionnaire/    # PRD review drawer (config → content → drawer → stories)
+  │   │   └── tech-decisions-review/# Tech decisions drawer (same pattern)
+  │   ├── layouts/                  # Tier 2 — Layout components
+  │   └── features/                 # Tier 3 — Page-level feature compositions
+  │       └── control-center/       # Main canvas orchestrator
+  └── lib/                          # Shared utilities
+      └── server-container.ts       # DI container accessor for server actions
+  ```
+
+  The backend domain layer lives in `packages/core/src/`:
+
+  ```
+  packages/core/src/
+  ├── domain/generated/output.ts          # TypeSpec-generated types (PullRequest, PrStatus, CiStatus, etc.)
+  ├── application/ports/output/
+  │   ├── repositories/feature-repository.interface.ts  # IFeatureRepository
+  │   └── services/git-pr-service.interface.ts          # IGitPrService + DiffSummary
+  └── infrastructure/services/agents/feature-agent/
+      └── nodes/merge.node.ts             # Merge node — populates Feature.pr, interrupts for approval
+  ```
+
+  ### Architecture Patterns
+
+  **Review Drawer Composition Pattern** — All review drawers follow an identical structure:
+  1. `*-config.ts` — TypeScript interfaces (data, props, drawer props)
+  2. `*.tsx` — Pure content component (renders data, handles user actions)
+  3. `*-drawer.tsx` — Thin wrapper composing `ReviewDrawerShell` + content component
+  4. `*.stories.tsx` — Storybook stories with multiple variants
+  5. `index.ts` — Barrel export
+
+  **Control Center Integration Pattern**:
+  - `showXxxDrawer` boolean derived from `selectedNode.lifecycle + selectedNode.state`
+  - `useEffect` with cancellation token fetches data via server action when drawer becomes visible
+  - Loading state flag gates rendering until data arrives
+  - `approveFeature()` server action handles approval with toast feedback
+  - FeatureDrawer excluded when any review drawer is active
+
+  **Server Action Pattern** (`'use server'`):
+  - DI resolution via `resolve<T>(token)` from `lib/server-container.ts`
+  - Input validation → fetch domain entity → transform to UI data → return result
+  - Error handling with `{ data?, error? }` result objects
+  - Graceful degradation on partial failures
+
+  **Feature Node State System**:
+  - `feature-node-state-config.ts` — Record-based configuration mapping `FeatureNodeState` → colors, icons, labels
+  - `derive-feature-state.ts` — Pure functions mapping domain model → UI state
+  - `feature-node.tsx` — Helper functions (`getBadgeText`, `getBadgeIcon`, `getActionRequiredBadgeClasses`) dispatch on lifecycle + state
+  - `page.tsx` — `nodeToLifecyclePhase` map converts agent graph node names to lifecycle phases
+
+  ### Relevant Technologies
+
+  | Technology | Version | Usage |
+  | ---------- | ------- | ----- |
+  | Next.js | 16+ | App Router, server actions, server components |
+  | React | 19 | Client components with 'use client' directive |
+  | React Flow | @xyflow/react | Canvas graph visualization with custom nodes |
+  | shadcn/ui | Latest | UI primitives (Drawer, Button, Badge, AlertDialog, Separator) |
+  | Vaul | - | Drawer primitive used by shadcn/ui Drawer component |
+  | Tailwind CSS | v4 | Utility-first styling with semantic color tokens |
+  | Lucide React | Latest | Icon library (GitMerge needed for merge badge) |
+  | Storybook | Latest | Component development and documentation |
+  | sonner | Latest | Toast notifications for approval feedback |
+  | tsyringe | Latest | DI container for server-side dependency resolution |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `components/common/feature-node/feature-node.tsx` (242 lines) | Medium | Add `review` lifecycle case to `getBadgeText()`, `getBadgeIcon()`, and `getActionRequiredBadgeClasses()` — three small additions (~5-10 lines each) |
+  | `components/common/merge-review/` (NEW) | High | New directory with 5 files: config (~30 lines), content component (~120 lines), drawer wrapper (~35 lines), stories (~150 lines), barrel export (~5 lines) |
+  | `components/features/control-center/control-center-inner.tsx` (262 lines) | Medium | Add `showMergeReviewDrawer` boolean, merge data state, `useEffect` for data fetch, approval handler, and conditional rendering — follows existing PRD/Tech pattern exactly |
+  | `app/actions/get-merge-review-data.ts` (NEW) | Medium | New server action (~50 lines) resolving Feature via DI, reading Feature.pr, calling `getPrDiffSummary()` with graceful fallback |
+  | `app/page.tsx` (144 lines) | Low | Add single entry `merge: 'review'` to `nodeToLifecyclePhase` map |
+  | `components/common/feature-node/feature-node.stories.tsx` | Low | Add story variant for review + action-required state |
+  | `components/features/control-center/control-center.stories.tsx` (302 lines) | Low | Add story variant showing merge review drawer open |
+  | `components/common/feature-node/feature-node-state-config.ts` (143 lines) | None | `review` lifecycle phase already defined — no changes needed |
+  | `components/common/feature-node/derive-feature-state.ts` (83 lines) | None | State derivation already handles review correctly — no changes needed |
+
+  ## Dependencies
+
+  **Existing components to reuse (no modifications needed):**
+  - `ReviewDrawerShell` (143 lines) — shared drawer shell with header, delete action, feature actions menu
+  - `useFeatureActions` hook (139 lines) — IDE/shell/folder actions, already used by ReviewDrawerShell
+  - `approveFeature()` server action (38 lines) — works for all approval gates including merge
+  - `resolve()` from `lib/server-container.ts` (36 lines) — DI resolution for server actions
+
+  **Domain types already available in `packages/core/src/domain/generated/output.ts`:**
+  - `PullRequest` — `{ url: string, number: number, status: PrStatus, commitHash?: string, ciStatus?: CiStatus }`
+  - `PrStatus` enum — `Open | Merged | Closed`
+  - `CiStatus` enum — `Pending | Success | Failure`
+  - `SdlcLifecycle` enum — includes `Review` value
+  - `ApprovalGates` — `{ allowPrd, allowPlan, allowMerge }`
+
+  **Service interfaces to use (read-only, no modifications):**
+  - `IFeatureRepository.findById(id)` — fetch Feature with populated `pr` field
+  - `IGitPrService.getPrDiffSummary(cwd, baseBranch)` — returns `DiffSummary { filesChanged, additions, deletions, commitCount }`
+
+  **Backend infrastructure (no changes needed):**
+  - `merge.node.ts` (194 lines) — sets `Feature.pr` before interrupt at lines 144-158, passes `diffSummary` in interrupt payload
+  - `feature-agent-worker.ts` — sets `AgentRunStatus.waitingApproval` on interrupt
+  - `ApproveAgentRunUseCase` — resumes the LangGraph agent from interrupt, works for merge gate
+
+  ## Size Estimate
+
+  **M (2-3 days)** — This feature is well-scoped and follows established patterns exactly:
+
+  - **New files (~5):** `merge-review-config.ts`, `merge-review.tsx`, `merge-review-drawer.tsx`, `merge-review.stories.tsx`, `index.ts` — all following the PRD/Tech drawer template
+  - **New server action (~1):** `get-merge-review-data.ts` — follows `get-feature-artifact.ts` pattern
+  - **Modified files (~3):** `feature-node.tsx` (3 small function additions), `control-center-inner.tsx` (drawer integration following existing pattern), `page.tsx` (1 map entry)
+  - **Story additions (~2):** Feature node review variant, control center merge drawer variant
+  - **No domain model changes**, no TypeSpec modifications, no migrations, no backend changes
+  - **Risk is low** because every pattern is already proven in PRD and Tech Decision drawers
+  - TDD cycles add ~30% overhead but all test boundaries are clear
+
+  ---
+
+  _Analysis completed — proceed with research_

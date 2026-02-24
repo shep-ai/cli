@@ -14,17 +14,21 @@ export interface PrdQuestionnaireProps {
   selections: Record<string, string>;
   /** Selection change callback */
   onSelect: (questionId: string, optionId: string) => void;
-  /** Chat refinement submit callback */
-  onRefine: (text: string) => void;
   /** Finalize requirements callback */
   onApprove: (actionId: string) => void;
+  /** Reject requirements callback — opens feedback dialog when provided; also used for inline text rejection */
+  onReject?: (feedback: string) => void;
   /** Controls disabled/animated state during refinement */
   isProcessing?: boolean;
+  /** Whether a reject operation is in flight */
+  isRejecting?: boolean;
   /** Show the goal/context header (default: false) */
   showHeader?: boolean;
 }
 
-export interface PrdQuestionnaireDrawerProps extends PrdQuestionnaireProps {
+export interface PrdQuestionnaireDrawerProps extends Omit<PrdQuestionnaireProps, 'data'> {
+  /** Questionnaire data — null while loading */
+  data: PrdQuestionnaireData | null;
   /** Whether the drawer is open */
   open: boolean;
   /** Callback when drawer should close */

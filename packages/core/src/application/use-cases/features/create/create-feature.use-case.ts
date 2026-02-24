@@ -26,6 +26,7 @@ import type { IFeatureAgentProcessService } from '../../../ports/output/agents/f
 import type { IAgentRunRepository } from '../../../ports/output/agents/agent-run-repository.interface.js';
 import type { ISpecInitializerService } from '../../../ports/output/services/spec-initializer.interface.js';
 import type { IRepositoryRepository } from '../../../ports/output/repositories/repository-repository.interface.js';
+import type { IGitPrService } from '../../../ports/output/services/git-pr-service.interface.js';
 import { getSettings } from '../../../../infrastructure/services/settings.service.js';
 import { MetadataGenerator } from './metadata-generator.js';
 import { SlugResolver } from './slug-resolver.js';
@@ -49,10 +50,16 @@ export class CreateFeatureUseCase {
     @inject(SlugResolver)
     private readonly slugResolver: SlugResolver,
     @inject('IRepositoryRepository')
-    private readonly repositoryRepo: IRepositoryRepository
+    private readonly repositoryRepo: IRepositoryRepository,
+    @inject('IGitPrService')
+    private readonly gitPrService: IGitPrService
   ) {}
 
   async execute(input: CreateFeatureInput): Promise<CreateFeatureResult> {
+    // Ensure the target directory is a git repository (auto-init if needed)
+    // Must run before slug resolution which needs git commands
+    await this.worktreeService.ensureGitRepository(input.repositoryPath);
+
     const metadata = await this.metadataGenerator.generateMetadata(input.userInput);
     const originalSlug = metadata.slug;
 
@@ -71,9 +78,10 @@ export class CreateFeatureUseCase {
     const now = new Date();
     const runId = randomUUID();
 
-    // Create git worktree for isolated development
+    // Create git worktree branching from the repo's default branch
+    const defaultBranch = await this.gitPrService.getDefaultBranch(input.repositoryPath);
     const worktreePath = this.worktreeService.getWorktreePath(input.repositoryPath, branch);
-    await this.worktreeService.create(input.repositoryPath, branch, worktreePath);
+    await this.worktreeService.create(input.repositoryPath, branch, worktreePath, defaultBranch);
 
     // Initialize spec directory — full user input goes into spec.yaml as-is
     const { specDir } = await this.specInitializer.initialize(

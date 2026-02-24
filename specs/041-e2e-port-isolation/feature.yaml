@@ -1,0 +1,39 @@
+feature:
+  id: 041-e2e-port-isolation
+  name: e2e-port-isolation
+  number: 41
+  branch: feat/041-e2e-port-isolation
+  lifecycle: research
+  createdAt: '2026-02-24T17:13:13Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 3
+    total: 3
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T17:25:19.143Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-24T17:13:13Z'
+    completedBy: feature-agent
+prUrl: https://github.com/shep-ai/cli/pull/121
+errors:
+  current: null
+  history: []

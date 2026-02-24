@@ -68,6 +68,8 @@ function createMockFeatureRepository(features: Feature[] = []): IFeatureReposito
 
 function createMockGitPrService(): IGitPrService {
   return {
+    hasRemote: vi.fn().mockResolvedValue(true),
+    getDefaultBranch: vi.fn().mockResolvedValue('main'),
     hasUncommittedChanges: vi.fn(),
     commitAll: vi.fn(),
     push: vi.fn(),
@@ -79,6 +81,7 @@ function createMockGitPrService(): IGitPrService {
     deleteBranch: vi.fn(),
     getPrDiffSummary: vi.fn(),
     listPrStatuses: vi.fn().mockResolvedValue([]),
+    verifyMerge: vi.fn().mockResolvedValue(false),
   };
 }
 

@@ -99,6 +99,25 @@ export type MergeStrategy = 'squash' | 'merge' | 'rebase';
  */
 export interface IGitPrService {
   /**
+   * Check if the repository has any configured git remotes.
+   *
+   * @param cwd - Working directory path
+   * @returns True if at least one remote is configured
+   */
+  hasRemote(cwd: string): Promise<boolean>;
+
+  /**
+   * Detect the repository's default branch with robust fallback chain:
+   * 1. Remote HEAD (git symbolic-ref refs/remotes/origin/HEAD)
+   * 2. Local branches named main or master (in that order)
+   * 3. Current branch (git symbolic-ref HEAD)
+   *
+   * @param cwd - Working directory path
+   * @returns The default branch name (e.g. "main", "master", "develop")
+   */
+  getDefaultBranch(cwd: string): Promise<string>;
+
+  /**
    * Check if the working directory has uncommitted changes.
    *
    * @param cwd - Working directory path
@@ -206,4 +225,16 @@ export interface IGitPrService {
    * @throws GitPrError with GH_NOT_FOUND, AUTH_FAILURE, or GIT_ERROR code
    */
   listPrStatuses(cwd: string): Promise<PrStatusInfo[]>;
+
+  /**
+   * Verify that a feature branch has been merged into a base branch.
+   * Uses `git merge-base --is-ancestor` to check if featureBranch
+   * is an ancestor of baseBranch (meaning all its commits are reachable).
+   *
+   * @param cwd - Working directory path
+   * @param featureBranch - The branch that should have been merged
+   * @param baseBranch - The branch that should contain the merge
+   * @returns True if featureBranch is an ancestor of baseBranch
+   */
+  verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean>;
 }

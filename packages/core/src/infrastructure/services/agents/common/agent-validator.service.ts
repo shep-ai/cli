@@ -53,6 +53,9 @@ export class AgentValidatorService implements IAgentValidator {
    * @returns Validation result with availability status and version
    */
   async isAvailable(agentType: AgentType): Promise<AgentValidationResult> {
+    // Dev type requires no binary — always available for local development
+    if (agentType === 'dev') return { available: true, version: 'dev' };
+
     const binary = AGENT_BINARY_MAP[agentType];
 
     if (!binary) {

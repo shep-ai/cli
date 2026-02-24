@@ -1,0 +1,209 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: delete-auto-relayout
+number: 036
+branch: feat/036-delete-auto-relayout
+oneLiner: Auto-relayout canvas after feature deletion to fill gaps
+summary: >
+  When a feature is deleted from the canvas, remaining nodes keep their absolute positions,
+  leaving gaps in the graph. This feature adds automatic Dagre relayout after successful
+  deletion so the graph re-flows cleanly without manual intervention.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - '@xyflow/react (React Flow v12)'
+  - '@dagrejs/dagre (layout algorithm)'
+  - Vitest (unit testing)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the relayout use animation/transition or snap instantly to new positions?'
+    resolved: true
+    options:
+      - option: 'Instant snap'
+        description: >
+          Immediately set new positions after layout calculation. Simplest implementation
+          — matches current handleLayout behavior. No additional dependencies or complexity.
+          layoutWithDagre returns new positions and they are applied in the same state update.
+        selected: true
+      - option: 'Animated transition'
+        description: >
+          Smoothly animate nodes from old positions to new positions using React Flow fitView
+          or CSS transitions. Better UX but adds complexity, requires additional state management,
+          and is out of scope for an S-sized fix. Can be added as a follow-up feature.
+        selected: false
+    selectionRationale: >
+      Instant snap matches the existing handleLayout behavior (lines 377-391) which already
+      snaps nodes without animation. Consistency with existing patterns keeps scope small and
+      avoids introducing animation infrastructure for a bug fix.
+    answer: 'Instant snap'
+
+  - question: 'Should relayout be applied when only one node remains after deletion?'
+    resolved: true
+    options:
+      - option: 'Always relayout'
+        description: >
+          Call layoutWithDagre unconditionally after every successful deletion, regardless
+          of remaining node count. Simpler logic with no conditional branching. layoutWithDagre
+          already handles edge cases (0 nodes returns empty, 1 node is a no-op effectively).
+        selected: true
+      - option: 'Skip for single/zero nodes'
+        description: >
+          Add a guard to skip relayout when fewer than 2 nodes remain, since there is nothing
+          to reposition. Saves a trivial amount of computation but adds a conditional branch
+          that must be tested and maintained.
+        selected: false
+    selectionRationale: >
+      layoutWithDagre already handles 0-node (returns empty) and 1-node cases gracefully.
+      Adding a guard would be premature optimization that adds branching complexity for no
+      user-visible benefit. Unconditional relayout is simpler and equally correct.
+    answer: 'Always relayout'
+
+  - question: 'What layout direction should be used for post-deletion relayout?'
+    resolved: true
+    options:
+      - option: 'LR (left-to-right)'
+        description: >
+          Use the same LR direction that the server-side initial layout uses in page.tsx
+          (line 111). This matches what users see on page load and ensures deletion does not
+          change the graph orientation unexpectedly.
+        selected: true
+      - option: 'Preserve last user-chosen direction'
+        description: >
+          Track the last direction the user selected via handleLayout and reuse it for
+          post-deletion relayout. More flexible but requires adding state to track the
+          current layout direction, increasing scope beyond S.
+        selected: false
+    selectionRationale: >
+      The server-side layout in page.tsx uses LR direction with ranksep=60 and nodesep=20.
+      handleLayout in the state hook is called with a direction parameter from the UI. Using
+      hardcoded LR matches the initial server layout and avoids adding direction-tracking state.
+      If direction tracking is desired later, it can be a separate enhancement.
+    answer: 'LR (left-to-right)'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  When a user deletes a feature from the Web UI canvas, the `handleDeleteFeature` handler
+  in `use-control-center-state.ts` (lines 339-362) removes the node and its connected edges
+  from React state, but **does not recalculate the layout** of the remaining nodes. Since node
+  positions are absolute `{x, y}` coordinates, deleting a node from the middle of a tree
+  leaves a visible gap — the surrounding nodes stay in their original positions rather than
+  collapsing to fill the space.
+
+  The layout algorithm (`layoutWithDagre` in `lib/layout-with-dagre.ts`) already exists and
+  is already wired into the state hook as `handleLayout` (lines 377-391), but it is never
+  called after deletion. The fix is to invoke the existing layout function on the updated
+  nodes/edges after a successful delete.
+
+  ## Success Criteria
+
+  - [ ] After deleting a feature, remaining canvas nodes are automatically repositioned via Dagre relayout
+  - [ ] No visible gaps remain where the deleted node was
+  - [ ] Disconnected nodes (orphaned by deletion) are positioned below the main graph per layoutWithDagre behavior
+  - [ ] Existing deletion behavior is fully preserved: node/edge removal, selectedNode clearing, toast notification, router.refresh(), isDeleting flag lifecycle
+  - [ ] Layout direction matches the initial server-side layout (LR with ranksep=60, nodesep=20)
+  - [ ] Error paths (server action error, network failure) do NOT trigger relayout — nodes remain unchanged
+  - [ ] Unit tests verify that node positions change after successful deletion
+  - [ ] Unit tests verify that node positions are unchanged after failed deletion
+  - [ ] No new dependencies are introduced
+
+  ## Functional Requirements
+
+  - **FR-1**: After a successful `deleteFeature` server action (no error returned), `handleDeleteFeature` MUST call `layoutWithDagre` on the filtered nodes and edges to recalculate positions before setting state.
+  - **FR-2**: The relayout MUST use LR direction with `ranksep: 60` and `nodesep: 20`, matching the server-side initial layout parameters used in `page.tsx`.
+  - **FR-3**: The relayout MUST be applied in the same state update as node/edge removal — not as a separate `setNodes`/`setEdges` call — to avoid a visual flash of the gap before repositioning.
+  - **FR-4**: On deletion error (server action returns `{ error }` or throws), the relayout MUST NOT be triggered. Nodes and edges must remain at their current positions.
+  - **FR-5**: Disconnected nodes (nodes with no remaining edges after deletion) MUST be positioned below the connected graph, following the existing `layoutWithDagre` behavior for disconnected nodes.
+  - **FR-6**: All existing side effects of successful deletion MUST be preserved: `setSelectedNode(null)`, `toast.success()`, `router.refresh()`.
+  - **FR-7**: The `isDeleting` flag lifecycle MUST remain unchanged: `true` before the server action, `false` in the `finally` block.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The relayout computation must complete synchronously and not introduce perceptible delay. `layoutWithDagre` is a pure CPU function operating on small node sets (typically <50 nodes) and already runs in <1ms for these sizes.
+  - **NFR-2**: No new npm dependencies may be added. The implementation must use only the existing `layoutWithDagre` function and `@dagrejs/dagre` package.
+  - **NFR-3**: The change must not alter the public `ControlCenterState` interface — no new properties or changed signatures.
+  - **NFR-4**: Test coverage for the deletion+relayout behavior must include: (a) positions change after successful delete, (b) positions unchanged after error, (c) disconnected node positioning, (d) correct node/edge counts post-relayout.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should relayout animate or snap? | Instant snap | Matches existing handleLayout behavior; animation adds scope |
+  | 2 | Relayout when ≤1 node remains? | Always relayout | layoutWithDagre handles edge cases; no guard needed |
+  | 3 | Which layout direction? | LR (left-to-right) | Matches server-side initial layout in page.tsx |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  Key directories for this feature:
+
+  ```
+  src/presentation/web/
+  ├── app/page.tsx                           # Server component — initial layout via layoutWithDagre
+  ├── lib/layout-with-dagre.ts               # Dagre layout algorithm (140 lines)
+  └── components/
+      └── features/
+          └── control-center/
+              ├── use-control-center-state.ts # Client-side state hook (handleDeleteFeature + handleLayout)
+              └── control-center-inner.tsx    # Wires state hook to canvas & drawers
+  tests/unit/presentation/web/features/control-center/
+  └── use-control-center-state.test.tsx       # Comprehensive tests for deletion (lines 1072-1324)
+  ```
+
+  ### Architecture Patterns
+
+  - **Clean Architecture**: Web UI is the outermost presentation layer. Deletion calls a
+    Next.js Server Action (`delete-feature.ts`) which delegates to `DeleteFeatureUseCase`.
+  - **Client state**: Canvas nodes and edges are managed in React state via `useState` hooks
+    inside `useControlCenterState`. Positions are not persisted — they are computed once on
+    page load (server-side in `page.tsx` line 111) and then mutated client-side.
+  - **Layout system**: `layoutWithDagre` is a pure function that takes `nodes[]` + `edges[]`
+    and returns repositioned copies. It uses Dagre's hierarchical graph layout with LR direction
+    and handles connected vs disconnected node separation.
+
+  ## Current Deletion Flow
+
+  1. User clicks "Delete feature" in `FeatureDrawer` → confirmation dialog
+  2. `handleDeleteFeature(featureId)` is called
+  3. Server Action `deleteFeature()` runs (cancels agent, removes worktree, deletes DB record)
+  4. On success: `setNodes(prev => prev.filter(...))` and `setEdges(prev => prev.filter(...))`
+  5. **Missing step**: relayout remaining nodes to fill the gap
+
+  ## Desired Behavior
+
+  After step 4, the filtered nodes and edges are passed through `layoutWithDagre` to
+  recalculate positions before being set in state. The remaining nodes re-flow into a
+  compact layout without gaps in a single state update.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | `handleDeleteFeature` needs to call `layoutWithDagre` after removing node/edges |
+  | `tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx` | Medium | New test cases verifying positions change after deletion |
+  | `src/presentation/web/lib/layout-with-dagre.ts` | None | Already exists, no changes needed |
+
+  ## Dependencies
+
+  - `layoutWithDagre` function (already imported in `use-control-center-state.ts`)
+  - `@dagrejs/dagre` package (already installed)
+  - Existing `handleLayout` callback as reference pattern for calling the layout function
+
+  ## Size Estimate
+
+  **S** — The layout function already exists and is already imported. The change is adding
+  a `layoutWithDagre()` call inside `handleDeleteFeature` after node/edge removal, plus
+  updating unit tests. Estimated at ~20 lines of production code changes and ~40 lines
+  of new test code.

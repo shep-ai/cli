@@ -1,0 +1,265 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: e2e-port-isolation
+summary: >
+  All three bugs are isolated to two test files and require only targeted changes.
+  The production --no-open flag and findAvailablePort utility already exist;
+  the fix wires them into the test helper and rewrites the three affected test cases
+  to be fully hermetic using dynamic port allocation via Node stdlib port-0 probing.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Vitest (E2E CLI tests — test runner, assertions, lifecycle hooks)
+  - Node.js net module (port availability probing — already used in port.service.ts)
+  - Commander.js (--no-open flag already implemented in ui.command.ts)
+  - TypeScript (test files are .ts, tsconfig paths already configured)
+  - tsx / npx (CLI spawn mechanism used by startCliServer helper)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'How to suppress browser auto-open in all test invocations'
+    chosen: >
+      Append --no-open unconditionally inside startCliServer before spawning, so
+      every caller gets the flag for free without any per-call change.
+    rejected:
+      - >
+        Pass --no-open explicitly at each call site — error-prone; any future test
+        that forgets will open a real browser window. Requires a lint rule or
+        code-review convention to enforce, adding ongoing maintenance burden.
+      - >
+        Mock BrowserOpenerService at the module level via vi.mock() — requires
+        importing production infrastructure into the test layer, couples tests to
+        internal implementation details rather than public CLI behavior, and
+        violates the integration nature of E2E tests.
+    rationale: >
+      The startCliServer helper (server.ts line 73) is the single controlled spawn
+      point for all E2E CLI tests. Injecting --no-open into commandArgs there is a
+      one-line change that eliminates the entire class of browser-open regressions.
+      The --no-open flag is already defined and handled in ui.command.ts (line 50),
+      so no production changes are needed. The helper is only ever used in headless
+      test contexts where browser opening is always undesirable.
+
+  - title: 'Port assertion strategy for the "default port" test'
+    chosen: >
+      Remove the expect(server.port).toBe(4050) assertion entirely. Assert only
+      that server.port is a positive integer and that GET /version returns HTTP 200
+      with the expected content.
+    rejected:
+      - >
+        Conditional assertion — check if 4050 is free before the test, assert 4050
+        if so and skip if not. Adds complexity, is harder to read, and splits
+        port-preference responsibility: the conflict test already covers that
+        behavior more precisely.
+      - >
+        Pre-claim port 4050 with findAvailablePort and fail the test if unavailable
+        — still couples the test to a specific port number and adds async setup
+        overhead without any behavioral benefit over simply removing the assertion.
+    rationale: >
+      The intent of the "default port behavior" test is to verify that shep ui
+      starts and serves content — not to pin the exact port number. Port preference
+      is already covered by the "port conflict handling" test. The existing
+      SERVER_READY_PATTERN regex (server.ts line 47) already extracts the actual
+      bound port from stdout, so server.port is always the correct live value
+      regardless of what port the CLI chose. Removing the .toBe(4050) line is
+      the minimal, most robust fix.
+
+  - title: 'Port resolution strategy for the "custom port via --port flag" test'
+    chosen: >
+      Resolve a free port dynamically at test setup using an inline Node
+      net.createServer probe (bind to port 0, record OS-assigned port, close),
+      pass it via --port, and assert server.port equals that value.
+    rejected:
+      - >
+        Keep hardcoded port 14050 — 14050 is unusual but not guaranteed free on all
+        hosts or CI environments. A stale previous test run or a Docker port mapping
+        can occupy it, causing flaky failures. The marginal simplicity is not worth
+        the fragility.
+      - >
+        Import findAvailablePort from packages/core/src/infrastructure/services/
+        port.service.ts — valid technically, but crosses the test/production boundary
+        that NFR-3 explicitly prohibits (changes confined to tests/ only). Also pulls
+        in the full port.service.ts module graph unnecessarily.
+    rationale: >
+      Binding to port 0 is the canonical OS-level atomic free-port discovery
+      mechanism with no TOCTOU race. It mirrors the exact pattern already used by
+      blockPort() (ui.test.ts lines 46-54) and isPortAvailable() (port.service.ts
+      lines 22-38). No new imports, no new packages, and the probe completes in
+      under 1ms, well within the 120s per-test timeout budget (NFR-4).
+
+  - title: 'Port resolution strategy for the "port conflict handling" test'
+    chosen: >
+      Resolve a free port P dynamically before the test body via port-0 probe,
+      pass --port P to the CLI, block P with blockPort(P), and assert
+      server.port > P (not === P+1) to tolerate multiple consecutive occupied ports.
+    rejected:
+      - >
+        Skip if 4050 is already occupied and use the background process as the
+        blocker — makes the test non-hermetic (NFR-1): it passes differently
+        depending on whether shep ui is running externally. CI with no background
+        process would never exercise the block path.
+      - >
+        Keep blockPort(4050) with toBe(4051) but wrap in try/catch for EADDRINUSE
+        — masks the root cause; the assertion toBe(4051) is still fragile if 4051
+        is also occupied (e.g., two ports blocked by prior test runs). The hardcoded
+        port dependency is not resolved.
+    rationale: >
+      A self-contained dynamic port pair makes the test fully hermetic. Blocking a
+      dynamically-found free port P gives full control over the collision scenario
+      without any external dependency. Passing --port P tells the CLI exactly where
+      to start scanning. Asserting server.port > P is more correct than === P+1
+      because the CLI may skip multiple occupied ports; the important invariant is
+      that the server found a free port above P, not that it is exactly P+1.
+
+  - title: 'Port availability probing method to use in test files'
+    chosen: >
+      Inline Node net.createServer probe (bind to port 0, capture assigned port,
+      close) — same pattern as the existing blockPort helper — extracted into a
+      small findFreePort helper at the top of ui.test.ts.
+    rejected:
+      - >
+        Import isPortAvailable or findAvailablePort from packages/core — crosses
+        the test/production boundary and violates NFR-3. Also pulls in the full
+        port.service.ts module graph into the test environment unnecessarily.
+      - >
+        Use a third-party npm package (get-port, portfinder) — adds a new
+        dependency explicitly prohibited by NFR-3 (no new libraries) for
+        functionality already implementable with one stdlib call. The existing
+        inline net pattern in the same file is simpler and has zero install overhead.
+    rationale: >
+      The port-0 binding pattern is already present in blockPort() in ui.test.ts
+      (lines 46-54) and in isPortAvailable() in port.service.ts (lines 22-38).
+      Extracting it into a findFreePort helper colocated with blockPort keeps the
+      test file self-contained and consistent with existing conventions. No new
+      imports beyond node:net (already imported at line 14 of ui.test.ts) and
+      no new packages are needed.
+
+# Open questions (should be resolved by end of research)
+openQuestions: []
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Suppress browser auto-open: inject --no-open in startCliServer helper
+
+  **Chosen:** Append `'--no-open'` unconditionally inside `startCliServer`
+  (server.ts line 73) before spawning the CLI process.
+
+  **Rejected:**
+  - Per-call-site `--no-open` — error-prone; any new test forgets and opens Chrome.
+  - Mock `BrowserOpenerService` via `vi.mock()` — couples tests to internal
+    implementation details; violates E2E test nature.
+
+  **Rationale:** Single-point fix. The flag is already implemented in
+  `ui.command.ts` (line 50: `.option('--no-open', 'Do not auto-open browser')`).
+  The helper is exclusively used in headless test contexts.
+
+  ---
+
+  ### 2. Default-port test: drop exact port assertion
+
+  **Chosen:** Remove `expect(server.port).toBe(4050)`. Assert `server.port` is a
+  positive integer and that `GET /version` returns 200 with expected content.
+
+  **Rejected:**
+  - Conditional assertion — splits port-preference responsibility across tests.
+  - Pre-claim 4050 and fail if unavailable — still couples to a fixed port number.
+
+  **Rationale:** `SERVER_READY_PATTERN` already extracts the live port from stdout.
+  The test's purpose is startup verification, not port-number pinning. Port
+  preference is covered by the conflict test.
+
+  ---
+
+  ### 3. Custom-port test: dynamic free port via port-0 probe
+
+  **Chosen:** Bind to port 0 (OS-assigned), close, capture the port, pass it via
+  `--port`, assert `server.port` equals the captured value.
+
+  **Rejected:**
+  - Hardcoded 14050 — fragile if port is in use on host or CI.
+  - Import `findAvailablePort` from `packages/core` — crosses production boundary
+    (NFR-3).
+
+  **Rationale:** Port-0 binding is the canonical atomic free-port probe, already
+  mirrored by `isPortAvailable()` (port.service.ts:22-38) and `blockPort()`
+  (ui.test.ts:46-54). Zero new dependencies.
+
+  ---
+
+  ### 4. Port-conflict test: dynamic port pair + broad assertion
+
+  **Chosen:** Find free port P via port-0 probe, pass `--port P` to CLI, block P
+  with `blockPort(P)`, assert `server.port > P`.
+
+  **Rejected:**
+  - Use background shep process as blocker (skip if 4050 free) — non-hermetic
+    (NFR-1).
+  - Try/catch EADDRINUSE on `blockPort(4050)` — masks root cause; `toBe(4051)`
+    still fragile.
+
+  **Rationale:** Fully hermetic test exercising auto-increment against a controlled
+  blocked port. Asserting `> P` tolerates multiple occupied ports in the scan
+  range, which is more correct than `=== P+1`.
+
+  ---
+
+  ## Library Analysis
+
+  | Library / Module              | Purpose                           | Decision | Reasoning                                                      |
+  | ----------------------------- | --------------------------------- | -------- | -------------------------------------------------------------- |
+  | `node:net` (stdlib)           | Port availability probing/blocking| **Use**  | Already imported in ui.test.ts (line 14); used by blockPort() |
+  | `get-port` (npm)              | Free-port discovery               | Reject   | New dependency (NFR-3); stdlib port-0 probe is simpler        |
+  | `portfinder` (npm)            | Free-port discovery               | Reject   | New dependency (NFR-3); not needed when stdlib suffices       |
+  | `packages/core port.service`  | Reuse findAvailablePort           | Reject   | Crosses test/production boundary; NFR-3 requires tests/ only |
+
+  ---
+
+  ## Security Considerations
+
+  All changes are confined to test infrastructure (`tests/`). No production
+  security surface is modified. Suppressing browser auto-open via `--no-open` is
+  a headless-CI hygiene concern, not a security issue. Dynamic port allocation
+  avoids predictable port numbers that could theoretically be targeted by a
+  race-condition attack in shared CI environments, though this risk is negligible
+  for a local dev tool.
+
+  ---
+
+  ## Performance Implications
+
+  Port-0 binding and close completes in <1ms on loopback. Dynamic port resolution
+  adds negligible overhead (<10ms per test) against a 120s Next.js compilation
+  budget (NFR-4). No timeouts need adjustment. The port-conflict test gains one
+  extra `findFreePort()` call but loses the `blockPort(4050)` EADDRINUSE failure
+  path, so overall reliability improves with no timeout impact.
+
+  ---
+
+  ## Architecture Notes
+
+  All three bugs are in the test layer only. The fix follows existing codebase
+  patterns:
+
+  - **server.ts line 73** — extend `commandArgs` array with `'--no-open'`; same
+    pattern as the existing `NO_COLOR`/`FORCE_COLOR` env injection at lines 79-81.
+  - **findFreePort helper** in ui.test.ts — identical pattern to existing
+    `blockPort()` using `node:net createServer`; colocated at top of file for
+    consistency.
+  - **ServerProcess interface**, `waitForServer`, and `SERVER_READY_PATTERN` are
+    unchanged (NFR-5 backward compatibility preserved).
+  - **Production files** (`ui.command.ts`, `port.service.ts`) are read-only for
+    this feature (NFR-6).
+
+  ### Change Surface Summary
+
+  | File                              | Change                                                        |
+  | --------------------------------- | ------------------------------------------------------------- |
+  | `tests/helpers/cli/server.ts`     | Append `'--no-open'` to `commandArgs` before spawn (1 line)  |
+  | `tests/e2e/cli/ui.test.ts`        | Add `findFreePort` helper; rewrite 3 test cases (~40 lines)  |
+  | All other files                   | No changes                                                    |

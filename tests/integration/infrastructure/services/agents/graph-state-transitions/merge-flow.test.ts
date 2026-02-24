@@ -112,6 +112,107 @@ describe('Graph State Transitions › Merge Flow', () => {
     expectNoInterrupts(r4);
   });
 
+  it('should reject merge once, re-execute, and interrupt again', async () => {
+    const config = ctx.newConfig();
+    const state = ctx.initialState(PRD_PLAN_ALLOWED); // only merge gated
+
+    // Invoke #1 — runs to merge, interrupts
+    const r1 = await ctx.graph.invoke(state, config);
+    expectInterruptAt(r1, 'merge');
+    // analyze + requirements + research + plan + implement + merge-commit = 6
+    expect(ctx.executor.callCount).toBe(6);
+
+    // Invoke #2 — reject merge → re-execute merge, interrupt again
+    const r2 = await ctx.graph.invoke(rejectCommand('fix the PR description'), config);
+    expectInterruptAt(r2, 'merge');
+
+    // merge-commit re-executed = 7
+    expect(ctx.executor.callCount).toBe(7);
+  });
+
+  it('should reject merge then approve: full iteration cycle', async () => {
+    const config = ctx.newConfig();
+    const state = ctx.initialState(PRD_PLAN_ALLOWED);
+
+    // Invoke #1 — runs to merge, interrupts
+    const r1 = await ctx.graph.invoke(state, config);
+    expectInterruptAt(r1, 'merge');
+
+    // Invoke #2 — reject → re-execute, interrupt again
+    const r2 = await ctx.graph.invoke(rejectCommand('update commit message'), config);
+    expectInterruptAt(r2, 'merge');
+
+    // Invoke #3 — approve → merge completes, graph ends
+    const r3 = await ctx.graph.invoke(approveCommand(), config);
+    expectNoInterrupts(r3);
+  });
+
+  it('should handle 7+ consecutive merge rejections then approve', async () => {
+    const config = ctx.newConfig();
+    const state = ctx.initialState(PRD_PLAN_ALLOWED);
+
+    // Invoke #1 — runs to merge, interrupts
+    const r1 = await ctx.graph.invoke(state, config);
+    expectInterruptAt(r1, 'merge');
+    // analyze + requirements + research + plan + implement + merge-commit = 6
+    expect(ctx.executor.callCount).toBe(6);
+
+    // 8 consecutive merge rejections
+    const rejectionMessages = [
+      'fix PR description formatting',
+      'add more context to commit message',
+      'squash WIP commits',
+      'update changelog entry',
+      'fix failing CI check',
+      'address linting warnings',
+      'add missing test coverage',
+      'update documentation links',
+    ];
+
+    for (let i = 0; i < rejectionMessages.length; i++) {
+      const result = await ctx.graph.invoke(rejectCommand(rejectionMessages[i]), config);
+      expectInterruptAt(result, 'merge');
+
+      // Each rejection re-executes merge-commit once
+      // initial(6) + rejections(i+1)
+      expect(ctx.executor.callCount).toBe(7 + i);
+    }
+
+    // Final call count: initial(6) + 8 re-execs = 14
+    expect(ctx.executor.callCount).toBe(14);
+
+    // Approve → merge completes, graph ends
+    const rApprove = await ctx.graph.invoke(approveCommand(), config);
+    expectNoInterrupts(rApprove);
+  });
+
+  it('should handle merge rejection mid-walkthrough: req → plan → merge reject → approve', async () => {
+    const config = ctx.newConfig();
+    const state = ctx.initialState(ALL_GATES_DISABLED);
+
+    // Step 1: interrupt at requirements
+    const r1 = await ctx.graph.invoke(state, config);
+    expectInterruptAt(r1, 'requirements');
+
+    // Step 2: approve → interrupt at plan
+    const r2 = await ctx.graph.invoke(approveCommand(), config);
+    expectInterruptAt(r2, 'plan');
+
+    // Step 3: approve → implement runs, interrupt at merge
+    const r3 = await ctx.graph.invoke(approveCommand(), config);
+    expectInterruptAt(r3, 'merge');
+
+    // Step 4: reject merge 3 times
+    for (let i = 0; i < 3; i++) {
+      const result = await ctx.graph.invoke(rejectCommand(`merge fix ${i + 1}`), config);
+      expectInterruptAt(result, 'merge');
+    }
+
+    // Step 5: approve → merge completes, graph ends
+    const rFinal = await ctx.graph.invoke(approveCommand(), config);
+    expectNoInterrupts(rFinal);
+  });
+
   it('should run fully without interrupts when gates are undefined (with merge node)', async () => {
     const config = ctx.newConfig();
     const state = ctx.initialState(); // no gates

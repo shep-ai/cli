@@ -1,0 +1,206 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-add-repo-position
+summary: >
+  6 tasks across 2 phases. Phase 1 has 4 test tasks (RED). Phase 2 has 2 source code tasks (GREEN).
+  No refactor phase needed — the change is minimal.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React 19
+  - '@xyflow/react'
+  - TypeScript
+  - Vitest
+  - '@testing-library/react'
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add addRepository server action mock to test file'
+    description: >
+      Add a vi.mock for @/app/actions/add-repository following the established pattern used
+      for createFeature and deleteFeature mocks (lines 36-45). This mock is required for
+      the error rollback test in task-4. The mock must expose a mockAddRepository function
+      that controls the server action's resolved/rejected value. Also add a vi.mock for
+      @/app/actions/delete-repository since it is imported but not yet mocked (currently
+      not needed for tests, but prevents import errors).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'mockAddRepository is declared as vi.fn() and wired via vi.mock'
+      - 'Mock follows the same pattern as mockCreateFeature/mockDeleteFeature'
+      - 'mockAddRepository is cleared in beforeEach via vi.clearAllMocks()'
+      - 'Existing tests still pass (mock has no effect unless explicitly configured)'
+    tdd:
+      red:
+        - 'No red step — this is test infrastructure setup. Verify existing tests still pass after adding the mock.'
+      green:
+        - 'Add const mockAddRepository = vi.fn() alongside existing action mocks'
+        - 'Add vi.mock for @/app/actions/add-repository matching the createFeature mock pattern'
+        - 'Add vi.mock for @/app/actions/delete-repository to prevent import errors'
+      refactor:
+        - 'None needed'
+    estimatedEffort: '5min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Update existing "shifts add-repo node down" test assertion'
+    description: >
+      The existing test at line 579-591 asserts addRepoAfter.position.y === 130, which validates
+      the BUGGY behavior (double shift). Update the expected value to 115 (addRepo's original Y 50
+      + repoHeight 50 + gap 15). This test must FAIL against the current source code, confirming
+      it now asserts correct behavior. Also update the comment explaining the value.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test asserts addRepoAfter.position.y === 115 (not 130)'
+      - 'Test FAILS when run against current (unfixed) source code'
+      - 'Comment explains the math: 50 (original Y) + 50 (repoHeight) + 15 (gap) = 115'
+    tdd:
+      red:
+        - 'Change assertion from toBe(130) to toBe(115) — test fails against buggy code'
+      green:
+        - 'Deferred to phase-2 task-5 (source fix)'
+      refactor:
+        - 'None needed'
+    estimatedEffort: '5min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Add test: new repo positioned at addRepoNode current Y'
+    description: >
+      Add a new test that verifies the new repo node is placed at the addRepositoryNode's
+      current Y position (50), not below existing repos. Also verify the new repo's X
+      matches the addRepoNode X (50). Test multi-add stacking: after two sequential adds,
+      verify second repo Y = 115 (first addRepo shift position) and addRepo Y = 180.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test verifies first repo node position is {x: 50, y: 50} (addRepoNode original position)'
+      - 'Test verifies after second add: second repo Y = 115, addRepo Y = 180'
+      - 'Tests FAIL against current (unfixed) source code'
+      - 'All assertions use concrete pixel values'
+    tdd:
+      red:
+        - 'Write test "places new repo at addRepositoryNode current Y position" — asserts repo position {x: 50, y: 50}'
+        - 'Write test "stacks multiple repos correctly with addRepo shifting down" — asserts second repo Y=115, addRepo Y=180'
+      green:
+        - 'Deferred to phase-2 task-5 (source fix)'
+      refactor:
+        - 'None needed'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Add test: error rollback restores addRepoNode position'
+    description: >
+      Add a test that verifies when the addRepository server action returns an error, the
+      rollback removes the temp repo node AND restores the addRepositoryNode to its original
+      Y position (50). Use mockAddRepository.mockResolvedValue({ error: '...' }) to trigger
+      the error path. Also add a test for the .catch() path using mockRejectedValue.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test configures mockAddRepository to return { error: "Test error" }'
+      - 'After rollback: temp repo node is removed (node count back to 1)'
+      - 'After rollback: addRepoNode.position.y is restored to 50 (original value)'
+      - 'Separate test for .catch() path (mockRejectedValue) with same position assertion'
+      - 'Tests FAIL against current source code (rollback currently does not restore position)'
+    tdd:
+      red:
+        - 'Write test "restores addRepoNode position on server action error" — asserts addRepo Y=50 after rollback'
+        - 'Write test "restores addRepoNode position on network failure" — asserts addRepo Y=50 after .catch()'
+      green:
+        - 'Deferred to phase-2 task-6 (rollback fix)'
+      refactor:
+        - 'None needed'
+    estimatedEffort: '15min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Fix position calculation in handleAddRepository()'
+    description: >
+      Change the Y-position logic in handleAddRepository() (lines 442-459) so that:
+      (1) The new repo node Y = addRepoNode.position.y (not lastRepoBottomY + gap),
+      (2) The new repo node X = repoX (unchanged — keep existing X logic),
+      (3) The addRepoNode Y = addRepoNode.position.y + repoHeight + gap (not newRepoY + repoHeight + gap).
+      This makes the new repo take addRepo's spot and addRepo shift down by exactly one slot.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - 'New repo Y = addRepoNode.position.y (was: lastRepoBottomY + gap)'
+      - 'addRepoNode new Y = addRepoNode.position.y + repoHeight + gap (was: position.y + repoHeight + gap where position.y was the NEW repo Y)'
+      - 'X-position logic is unchanged'
+      - 'Tests from task-2 and task-3 now PASS'
+      - 'All existing tests in the file continue to pass'
+    tdd:
+      red:
+        - 'Tests already written in task-2 and task-3 — they fail against current code'
+      green:
+        - 'Replace lastRepoBottomY calculation and position assignment with addRepoNode-based calculation'
+        - 'Remove the lastRepoBottomY variable entirely — it is no longer needed'
+        - 'Use addRepoNode.position.y directly for the new repo Y'
+        - 'Compute addRepoY as addRepoNode.position.y + repoHeight + gap'
+      refactor:
+        - 'Clean up any dead code (lastRepoBottomY variable and its conditional)'
+    estimatedEffort: '10min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Add error rollback for addRepoNode position'
+    description: >
+      Add a closure variable (let savedAddRepoY = 0) before the setNodes call. Inside the
+      setNodes updater, capture addRepoNode.position.y into savedAddRepoY before modifying it.
+      In the .then(error) rollback handler (line 472), add a setNodes call that restores
+      addRepoNode's Y to savedAddRepoY alongside the temp node removal. Do the same in
+      the .catch() handler (line 504).
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'savedAddRepoY is captured inside setNodes updater before position modification'
+      - '.then(error) handler restores addRepoNode Y to savedAddRepoY when removing temp node'
+      - '.catch() handler restores addRepoNode Y to savedAddRepoY when removing temp node'
+      - 'Tests from task-4 now PASS'
+      - 'All existing tests continue to pass'
+    tdd:
+      red:
+        - 'Tests already written in task-4 — they fail against current code'
+      green:
+        - 'Add let savedAddRepoY = 0 before the setNodes call'
+        - 'Inside setNodes updater, assign savedAddRepoY = addRepoNode.position.y before modifying addRepoNode'
+        - 'In .then(error) handler, update the setNodes filter to also restore addRepoNode Y'
+        - 'In .catch() handler, update the setNodes filter to also restore addRepoNode Y'
+      refactor:
+        - 'Combine temp node removal and position restoration into a single setNodes call per handler (avoid separate setNodes calls)'
+    estimatedEffort: '10min'
+
+totalEstimate: '1h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  This fix is implemented in 6 tasks across 2 phases following strict TDD.
+
+  Phase 1 (RED — 4 tasks) sets up the test infrastructure and writes all failing tests first:
+  add the addRepository server action mock, update the existing broken assertion from 130→115,
+  add new tests for repo positioning and multi-add stacking, and add error rollback position
+  restoration tests. All new/updated tests must fail against the current buggy source code.
+
+  Phase 2 (GREEN — 2 tasks) applies the source code fixes: change the position calculation
+  in handleAddRepository() so new repos take addRepo's current Y and addRepo shifts down by
+  one slot, then add the closure variable for saving and restoring addRepo's Y position on
+  error rollback. All tests from phase 1 must pass after these changes.
+
+  No REFACTOR phase is needed — the changes are minimal (approximately 10 lines of source
+  code changed/added) and the resulting code is already clean.

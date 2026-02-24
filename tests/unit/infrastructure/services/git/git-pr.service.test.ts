@@ -429,4 +429,27 @@ describe('GitPrService', () => {
       });
     });
   });
+
+  describe('verifyMerge', () => {
+    it('should return true when feature branch is ancestor of base branch', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '', stderr: '' });
+
+      const result = await service.verifyMerge('/repo', 'feat/test', 'main');
+
+      expect(result).toBe(true);
+      expect(mockExec).toHaveBeenCalledWith(
+        'git',
+        ['merge-base', '--is-ancestor', 'feat/test', 'main'],
+        { cwd: '/repo' }
+      );
+    });
+
+    it('should return false when feature branch is NOT ancestor of base branch', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('exit code 1'));
+
+      const result = await service.verifyMerge('/repo', 'feat/test', 'main');
+
+      expect(result).toBe(false);
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act, fireEvent } from '@testing-library/react';
+import { render, screen, act, fireEvent, waitFor } from '@testing-library/react';
 
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ refresh: vi.fn() }),
@@ -13,11 +13,23 @@ vi.mock('@/hooks/agent-events-provider', () => ({
   }),
 }));
 
+const mockGetMergeReviewData = vi.fn();
+vi.mock('@/app/actions/get-merge-review-data', () => ({
+  getMergeReviewData: (...args: unknown[]) => mockGetMergeReviewData(...args),
+}));
+
+const mockApproveFeature = vi.fn();
+vi.mock('@/app/actions/approve-feature', () => ({
+  approveFeature: (...args: unknown[]) => mockApproveFeature(...args),
+}));
+
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
 import type { FeaturesCanvasProps } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import { featureNodeStateConfig } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
+import type { MergeReviewData } from '@/components/common/merge-review';
+import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 
 // Capture FeaturesCanvas props so we can invoke callbacks (onNodeClick, onPaneClick)
 // without requiring ReactFlow to render interactive nodes in jsdom.
@@ -60,7 +72,7 @@ const featureNodeB: CanvasNodeType = {
     name: 'Payment Gateway',
     description: 'Stripe integration',
     featureId: '#fb02',
-    lifecycle: 'review',
+    lifecycle: 'research',
     state: 'action-required',
     progress: 80,
     repositoryPath: '/home/user/my-repo',
@@ -75,15 +87,46 @@ const repoNodeDefault: CanvasNodeType = {
   data: { name: 'my-repo', repositoryPath: '/home/user/my-repo', id: 'repo-default' },
 } as CanvasNodeType;
 
+const mergeReviewNode: CanvasNodeType = {
+  id: 'feature-merge',
+  type: 'featureNode',
+  position: { x: 100, y: 500 },
+  data: {
+    name: 'Merge Review Feature',
+    description: 'Feature awaiting merge approval',
+    featureId: '#fm01',
+    lifecycle: 'review',
+    state: 'action-required',
+    progress: 90,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/merge-review',
+  } as FeatureNodeData,
+};
+
 const initialNodes: CanvasNodeType[] = [repoNodeDefault, featureNodeA, featureNodeB];
 
 function renderControlCenter(nodes = initialNodes) {
   return render(<ControlCenterInner initialNodes={nodes} initialEdges={[]} />);
 }
 
+const mergeReviewDataFixture: MergeReviewData = {
+  pr: {
+    url: 'https://github.com/shep-ai/cli/pull/42',
+    number: 42,
+    status: PrStatus.Open,
+    commitHash: 'a1b2c3d',
+    ciStatus: CiStatus.Success,
+  },
+  diffSummary: { filesChanged: 5, additions: 100, deletions: 30, commitCount: 3 },
+};
+
 describe('ControlCenterInner + FeatureDrawer integration', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Default: server actions return a valid response so tests that don't
+    // care about the merge drawer aren't broken by unresolved promises.
+    mockGetMergeReviewData.mockResolvedValue(mergeReviewDataFixture);
+    mockApproveFeature.mockResolvedValue({ approved: true });
   });
 
   describe('drawer opens on node click', () => {
@@ -120,7 +163,7 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
         capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, featureNodeB);
       });
 
-      expect(screen.getByText('REVIEW')).toBeInTheDocument();
+      expect(screen.getByText('RESEARCH')).toBeInTheDocument();
     });
   });
 
@@ -254,6 +297,84 @@ describe('ControlCenterInner + FeatureDrawer integration', () => {
 
       // Drawer should remain closed — no drawer content visible
       expect(screen.queryByTestId('feature-drawer-header')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('merge review drawer', () => {
+    const nodesWithMerge: CanvasNodeType[] = [repoNodeDefault, featureNodeA, mergeReviewNode];
+
+    it('suppresses FeatureDrawer when review + action-required node is selected', async () => {
+      renderControlCenter(nodesWithMerge);
+
+      act(() => {
+        capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, mergeReviewNode);
+      });
+
+      // FeatureDrawer should be suppressed — its unique delete section is absent
+      expect(screen.queryByTestId('feature-drawer-delete')).not.toBeInTheDocument();
+    });
+
+    it('calls getMergeReviewData when review + action-required node is clicked', async () => {
+      renderControlCenter(nodesWithMerge);
+
+      act(() => {
+        capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, mergeReviewNode);
+      });
+
+      await waitFor(() => {
+        expect(mockGetMergeReviewData).toHaveBeenCalledWith('#fm01');
+      });
+    });
+
+    it('renders MergeReviewDrawer when merge review data is loaded', async () => {
+      renderControlCenter(nodesWithMerge);
+
+      act(() => {
+        capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, mergeReviewNode);
+      });
+
+      // Wait for the merge review content to appear (PR #42 link text)
+      await waitFor(() => {
+        expect(screen.getByText(/PR #42/)).toBeInTheDocument();
+      });
+    });
+
+    it('shows success toast and clears selection on merge approve', async () => {
+      renderControlCenter(nodesWithMerge);
+
+      act(() => {
+        capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, mergeReviewNode);
+      });
+
+      // Wait for merge review drawer to render
+      await waitFor(() => {
+        expect(screen.getByText(/PR #42/)).toBeInTheDocument();
+      });
+
+      // Click Approve Merge button
+      const approveButton = screen.getByRole('button', { name: /Approve Merge/ });
+      await act(async () => {
+        fireEvent.click(approveButton);
+      });
+
+      expect(mockApproveFeature).toHaveBeenCalledWith('#fm01');
+    });
+
+    it('shows error toast when getMergeReviewData returns error', async () => {
+      mockGetMergeReviewData.mockResolvedValue({ error: 'Feature not found' });
+
+      renderControlCenter(nodesWithMerge);
+
+      act(() => {
+        capturedCanvasProps.onNodeClick?.({} as React.MouseEvent, mergeReviewNode);
+      });
+
+      await waitFor(() => {
+        expect(mockGetMergeReviewData).toHaveBeenCalledWith('#fm01');
+      });
+
+      // MergeReviewDrawer should not render since data is an error
+      expect(screen.queryByText(/PR #42/)).not.toBeInTheDocument();
     });
   });
 });

@@ -95,13 +95,16 @@ model TechDecision {
  * Records a single rejection feedback entry for iteration tracking.
  * Appended to spec.yaml's rejectionFeedback array on each rejection.
  */
-@doc("Rejection feedback entry for PRD iteration tracking")
+@doc("Rejection feedback entry for iteration tracking")
 model RejectionFeedbackEntry {
   @doc("Iteration number (1-based)")
   iteration: int32;
 
   @doc("User's feedback message explaining what needs to change")
   message: string;
+
+  @doc("Which phase was rejected (e.g. 'requirements', 'plan')")
+  phase?: string;
 
   @doc("When the rejection occurred")
   timestamp: utcDateTime;

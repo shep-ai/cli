@@ -1,0 +1,367 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: notification-replay-bug
+summary: >
+  The fix requires adding a private `isBootstrapped` boolean to NotificationWatcherService that
+  suppresses all notification emission during the first poll while still seeding the trackedRuns
+  map with existing run statuses and completed phases. No new libraries, schema changes, or
+  architectural modifications needed — purely a behavioral guard in processRuns().
+
+relatedFeatures: []
+
+technologies:
+  - node-notifier
+  - EventEmitter (NotificationBus)
+  - SSE (Server-Sent Events)
+  - SQLite (agent_runs, phase_timings)
+  - vitest (unit testing)
+
+relatedLinks: []
+
+decisions:
+  - title: 'Bootstrap mechanism for suppressing first-poll notifications'
+    chosen: 'Private boolean flag (isBootstrapped) checked inside processRuns()'
+    rejected:
+      - >
+        Enum-based state machine (bootstrap/live/stopped) — Overengineering for a single boolean
+        transition. The watcher has exactly two relevant states for this bug: "has not yet
+        completed first poll" and "has completed first poll". A three-state enum adds a new type,
+        switch statements, and complexity with no benefit. YAGNI.
+      - >
+        Constructor parameter to pre-seed trackedRuns externally — Would require the caller
+        (initializeNotificationWatcher) to query the database and pass initial state, violating
+        encapsulation. The watcher already queries runs internally via poll(); duplicating that
+        logic externally creates a maintenance burden and couples the initialization site to
+        repository internals.
+    rationale: >
+      A private `isBootstrapped: boolean = false` field is the minimal, self-contained fix.
+      The processRuns() method already handles the "new run" vs "known run" branching — the
+      boolean simply gates whether the "new run" branch calls notificationService.notify()
+      or silently seeds state. After processRuns() completes its first iteration, the flag
+      flips to true and all subsequent polls behave identically to today. This matches the
+      codebase's preference for simple, focused solutions (CLAUDE.md: "avoid over-engineering").
+
+  - title: 'Notification suppression scope during bootstrap'
+    chosen: 'Suppress all channels (desktop, SSE/in-app, browser) during first poll'
+    rejected:
+      - >
+        Suppress only desktop notifications — The web UI loads current state from REST API
+        endpoints, not from SSE event history. Sending replay SSE events would create duplicate
+        data in the UI notification feed. The watcher's semantic contract is to detect
+        *transitions*, and replayed events are not transitions regardless of channel.
+      - >
+        Suppress notifications but still emit to SSE bus for "catch-up" — The web UI's
+        notification-sse route already streams real-time events. Historical state is served by
+        REST endpoints (agent-runs list, phase-timings). Adding a catch-up SSE mechanism would
+        duplicate existing REST functionality and complicate the event consumer's deduplication
+        logic in the processedRef set.
+    rationale: >
+      The NotificationService.notify() call is the single fan-out point that dispatches to all
+      channels (bus.emit for SSE/in-app/browser, desktopNotifier.send for OS notifications).
+      The cleanest fix suppresses at the source — skip the notify() call entirely during
+      bootstrap. This is semantically correct: the watcher's job is to detect state
+      *transitions*, and pre-existing state is not a transition. All channels benefit equally
+      from correct semantics.
+
+  - title: 'Bootstrap seeding depth (statuses only vs statuses + phases)'
+    chosen: 'Seed both run statuses and completed phases into WatcherState on first poll'
+    rejected:
+      - >
+        Seed only run statuses (skip checkPhaseCompletions on first poll) — This would prevent
+        status replay but leave phase completion replay unfixed. On the second poll,
+        checkPhaseCompletions() would find all already-completed phases missing from the empty
+        completedPhases set and emit PhaseCompleted events for each one. The bug report
+        explicitly mentions ALL notifications replaying, which includes phase completions.
+      - >
+        Query phase timings separately during bootstrap — Would add extra database queries
+        beyond what the normal poll path uses. The spec's NFR-1 prohibits additional queries.
+        The existing checkPhaseCompletions() call already fetches phase timings; we just need
+        to suppress the notify() call within it during bootstrap.
+    rationale: >
+      The root cause affects both emitStatusEvent() and checkPhaseCompletions() — both call
+      notificationService.notify() for pre-existing state on first poll. The fix must seed
+      the completedPhases set in WatcherState during bootstrap so that subsequent polls see
+      those phases as "already known". The implementation approach is: during bootstrap,
+      processRuns() still calls checkPhaseCompletions() to populate completedPhases, but
+      checkPhaseCompletions() skips the notify() call when isBootstrapped is false.
+
+  - title: 'Implementation approach for suppressing notify() calls'
+    chosen: 'Check this.isBootstrapped field directly in processRuns() and checkPhaseCompletions()'
+    rejected:
+      - >
+        Event buffering with conditional flush — Adds memory allocation for an array of events
+        that are ultimately discarded. Requires a flush step and is more complex than simply
+        gating the notify() call. Buffering is useful when you need to inspect or transform
+        events before dispatch, but here we just want to skip them entirely.
+      - >
+        Wrap NotificationService with a proxy that swallows events during bootstrap — Adds a
+        layer of indirection outside the watcher. The watcher owns the bootstrap lifecycle, so
+        the suppression logic belongs inside the watcher, not in a wrapper around its dependency.
+        This would also require changes to initializeNotificationWatcher() to inject the proxy.
+    rationale: >
+      The flag is set AFTER the full loop completes, so there's no mid-iteration state confusion.
+      The code change is approximately: (1) in processRuns(), wrap emitStatusEvent() calls with
+      `if (this.isBootstrapped)`, (2) in checkPhaseCompletions(), wrap notify() with
+      `if (this.isBootstrapped)`, (3) after the for-loop in processRuns(), set
+      `if (!this.isBootstrapped) this.isBootstrapped = true`. This is ~10 lines of production code.
+
+openQuestions:
+  - question: 'Should existing tests be updated or should new test cases be added separately?'
+    resolved: true
+    options:
+      - option: 'Add new describe block for bootstrap behavior'
+        description: >
+          Add a new `describe("bootstrap suppression")` block with dedicated test cases for
+          the bootstrap path. Keeps existing tests unchanged (they verify post-bootstrap
+          behavior implicitly since the first poll is now the bootstrap). Clear separation
+          of concerns in the test file.
+        selected: true
+      - option: 'Modify existing tests to account for bootstrap'
+        description: >
+          Update existing tests to perform two polls (bootstrap + real), adjusting assertions.
+          This risks breaking existing tests and makes them harder to read. The existing tests
+          are well-structured and their assertions about "first observation" behavior should
+          remain as regression tests for the post-bootstrap path.
+        selected: false
+      - option: 'Create a separate test file for bootstrap tests'
+        description: >
+          Create notification-watcher-bootstrap.test.ts alongside the existing file. Avoids
+          modifying the existing file but fragments the test suite. The existing file at 356
+          lines has room for additional tests and the bootstrap behavior is core watcher logic,
+          not a separate concern.
+        selected: false
+    selectionRationale: >
+      Adding a new describe block within the existing test file is the cleanest approach.
+      The existing tests will need minor adjustments because the first poll is now a bootstrap
+      poll (no notifications emitted), so tests that expect notifications on the first poll
+      must either bootstrap first with an empty-runs poll or add a second poll for the actual
+      assertion. A helper function encapsulates the bootstrap step.
+
+  - question: 'How should existing status transition tests handle the bootstrap poll?'
+    resolved: true
+    options:
+      - option: 'Add a bootstrap helper that runs the first poll silently'
+        description: >
+          Create a helper function like `bootstrapWatcher(watcher, runs)` that triggers the
+          first poll with given runs, advancing timers as needed, so each test starts from
+          a bootstrapped state. Reduces test boilerplate and makes the bootstrap-then-test
+          pattern explicit.
+        selected: true
+      - option: 'Manually trigger two polls in each test'
+        description: >
+          Each existing test adds an explicit first poll with empty runs to bootstrap, then
+          proceeds with the actual test scenario. Simple but repetitive — every test would
+          need 2-3 extra lines for the bootstrap setup.
+        selected: false
+      - option: 'Use beforeEach to auto-bootstrap with empty runs'
+        description: >
+          Move bootstrap into beforeEach so every test starts with an already-bootstrapped
+          watcher. This hides the bootstrap step and may confuse future developers. It also
+          prevents testing the bootstrap behavior itself since beforeEach runs unconditionally.
+        selected: false
+    selectionRationale: >
+      A bootstrap helper keeps existing tests clean while making the two-phase nature explicit.
+      The existing tests that verify "first observation triggers notification" need their first
+      poll to be the bootstrap (empty runs), then the second poll delivers the actual test
+      scenario. A helper like `async function bootstrapWithEmptyRuns()` that sets mock to
+      return [], calls watcher.start(), and advances timers encapsulates this one-time setup.
+
+  - question: 'Should the isBootstrapped flag be resettable for testing purposes?'
+    resolved: true
+    options:
+      - option: 'No — test via the public start()/stop() lifecycle and mock timing'
+        description: >
+          The flag is a private implementation detail. Tests verify behavior (no notifications
+          on first poll) rather than internal state. The existing test pattern of using fake
+          timers and mock repositories is sufficient. Exposing internal state for testing
+          violates encapsulation.
+        selected: true
+      - option: 'Add a resetForTesting() method that clears isBootstrapped'
+        description: >
+          The existing resetNotificationWatcher() already recreates the singleton. A per-instance
+          reset method would allow reusing a watcher instance across test scenarios. However,
+          creating a new watcher per test (as existing tests do) is cleaner.
+        selected: false
+      - option: 'Make isBootstrapped a constructor parameter defaulting to false'
+        description: >
+          Allows tests to create a pre-bootstrapped watcher. But this exposes an internal
+          concern in the public constructor API, and existing tests already create fresh
+          instances per test via beforeEach.
+        selected: false
+    selectionRationale: >
+      The existing test pattern creates a new NotificationWatcherService in beforeEach, giving
+      each test a fresh `isBootstrapped = false` state. Tests verify behavior through the
+      public interface: start the watcher, advance timers, check notificationService.notify()
+      call count. No internal state exposure needed.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Bootstrap Mechanism
+
+  **Chosen:** Private boolean flag (`isBootstrapped`) checked inside `processRuns()`
+
+  **Rejected:**
+  - Enum-based state machine — Overengineering for a single boolean transition. YAGNI.
+  - Constructor pre-seeding — Violates encapsulation, duplicates query logic outside the watcher.
+
+  **Rationale:** A `private isBootstrapped = false` field is the minimal fix. The first poll
+  seeds `trackedRuns` and `completedPhases` without calling `notify()`. After the loop,
+  `isBootstrapped` flips to `true`. All subsequent polls behave identically to current code.
+
+  ### 2. Suppression Scope
+
+  **Chosen:** Suppress all notification channels during first poll
+
+  **Rejected:**
+  - Desktop-only suppression — SSE replay events are semantically wrong (not transitions)
+  - SSE catch-up mechanism — Duplicates REST API functionality
+
+  **Rationale:** `NotificationService.notify()` is the single fan-out point. Skipping it
+  during bootstrap is the cleanest approach. The watcher detects transitions, not history.
+
+  ### 3. Seeding Depth
+
+  **Chosen:** Seed both run statuses AND completed phases into WatcherState
+
+  **Rejected:**
+  - Status-only seeding — Leaves phase completion replay unfixed
+  - Separate phase query — Violates NFR-1 (no additional DB queries)
+
+  **Rationale:** Both `emitStatusEvent()` and `checkPhaseCompletions()` trigger replay.
+  During bootstrap, `checkPhaseCompletions()` still populates `completedPhases` but skips
+  `notify()`. This uses the existing query path with zero additional DB calls.
+
+  ### 4. Implementation Approach
+
+  **Chosen:** Check `this.isBootstrapped` field directly in processRuns() and checkPhaseCompletions()
+
+  **Rejected:**
+  - Event buffering with conditional flush — Unnecessary complexity for discarded events
+  - NotificationService proxy wrapper — Suppression belongs in watcher, not in a dependency wrapper
+
+  **Rationale:** The flag is set AFTER the full processRuns() loop, so there's no mid-iteration
+  state confusion. Production code change is ~10 lines: gate `emitStatusEvent()` and
+  `checkPhaseCompletions().notify()` behind `if (this.isBootstrapped)`, then flip the flag.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | node-notifier | Desktop notifications | Keep (no changes) | Downstream of the fix; not affected |
+  | EventEmitter (NotificationBus) | SSE event dispatch | Keep (no changes) | Downstream of the fix; not affected |
+  | vitest | Unit testing | Keep (use existing) | Test file already uses vitest with fake timers; add new describe block |
+
+  No new libraries are needed. The fix is purely behavioral logic within existing code.
+
+  ## Security Considerations
+
+  **No security implications.** The fix modifies notification dispatch timing, not data access
+  or authentication. The `isBootstrapped` flag is a private field — no public API surface change.
+  No new inputs are accepted, no new data is exposed. The same database queries execute
+  regardless of the flag value.
+
+  ## Performance Implications
+
+  **No performance regression.** The first poll executes the same `list()` and `findByRunId()`
+  queries as before — the only difference is skipping `notify()` calls (which saves CPU cycles
+  for event construction and dispatch). Subsequent polls are completely unchanged. The boolean
+  check adds negligible overhead (single field read per iteration).
+
+  **Positive performance note:** For repositories with many historical runs, the first poll
+  currently fires N status notifications + M phase completion notifications, each triggering
+  `node-notifier` subprocesses. The fix eliminates all of these, reducing startup I/O.
+
+  ## Architecture Notes
+
+  The fix stays within `NotificationWatcherService` (infrastructure layer) and does not cross
+  architectural boundaries:
+
+  - **No domain changes** — No entity modifications, no new value objects
+  - **No application layer changes** — No port interface modifications, no new use cases
+  - **No presentation layer changes** — The `ui.command.ts` initialization code is unchanged
+  - **No DI changes** — Same constructor signature, same singleton pattern
+
+  The `processRuns()` → `emitStatusEvent()` → `notificationService.notify()` call chain and
+  the `processRuns()` → `checkPhaseCompletions()` → `notificationService.notify()` call chain
+  are both gated by the same boolean, maintaining the existing fan-out architecture through
+  `NotificationService` → `NotificationBus` + `DesktopNotifier`.
+
+  ## Implementation Sketch
+
+  ```typescript
+  // notification-watcher.service.ts — changes only
+
+  export class NotificationWatcherService {
+    // ... existing fields ...
+    private isBootstrapped = false;  // NEW
+
+    private async processRuns(runs: AgentRun[]): Promise<void> {
+      const currentRunIds = new Set<string>();
+
+      for (const run of runs) {
+        // ... existing skip-terminal logic ...
+
+        currentRunIds.add(run.id);
+        const prevState = this.trackedRuns.get(run.id);
+
+        if (!prevState) {
+          // Seed state (always)
+          const featureName = this.resolveFeatureName(run);
+          const newState: WatcherState = { status: run.status, completedPhases: new Set(), featureName };
+          this.trackedRuns.set(run.id, newState);
+
+          if (this.isBootstrapped) {           // CHANGED: gate emission
+            this.emitStatusEvent(run, newState);
+          }
+          await this.checkPhaseCompletions(run.id, newState);
+        } else if (prevState.status !== run.status) {
+          prevState.status = run.status;
+          this.emitStatusEvent(run, prevState);  // Always emit (post-bootstrap)
+          // ... rest unchanged ...
+        } else {
+          await this.checkPhaseCompletions(run.id, prevState);
+        }
+      }
+
+      // ... cleanup loop unchanged ...
+
+      if (!this.isBootstrapped) {               // NEW: flip after first complete poll
+        this.isBootstrapped = true;
+      }
+    }
+
+    private async checkPhaseCompletions(runId: string, state: WatcherState): Promise<void> {
+      const timings = await this.phaseTimingRepository.findByRunId(runId);
+      for (const timing of timings) {
+        if (timing.completedAt && !state.completedPhases.has(timing.phase)) {
+          state.completedPhases.add(timing.phase);  // Always seed
+          if (this.isBootstrapped) {                  // CHANGED: gate emission
+            // ... existing notify() call ...
+          }
+        }
+      }
+    }
+  }
+  ```
+
+  ## Test Strategy
+
+  **Existing tests:** Need minor updates — the first `watcher.start()` poll is now a bootstrap
+  poll. A helper function bootstraps with empty runs before each test's real scenario.
+
+  **New tests (bootstrap describe block):**
+  1. First poll with pre-existing active runs emits zero notifications
+  2. First poll with pre-existing completed phases emits zero notifications
+  3. Second poll with unchanged runs emits zero notifications
+  4. Second poll with a genuinely new run emits the correct notification
+  5. Second poll with a new phase completion emits PhaseCompleted
+  6. Bootstrap seeds trackedRuns (verified: second poll with same runs has no emissions)
+
+  ## Affected Files
+
+  | File | Change Type | Description |
+  | ---- | ----------- | ----------- |
+  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | Modify | Add `isBootstrapped` flag, gate `notify()` calls, set flag after first loop |
+  | `tests/unit/infrastructure/services/notifications/notification-watcher.service.test.ts` | Modify | Add bootstrap test block, update existing tests for bootstrap-first-poll |

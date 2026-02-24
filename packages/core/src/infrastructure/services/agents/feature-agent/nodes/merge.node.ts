@@ -19,6 +19,9 @@ import {
   shouldInterrupt,
   retryExecute,
   buildExecutorOptions,
+  getCompletedPhases,
+  clearCompletedPhase,
+  markPhaseComplete,
 } from './node-helpers.js';
 import { reportNodeStart } from '../heartbeat.js';
 import {
@@ -33,7 +36,14 @@ import { parseCommitHash, parsePrUrl } from './merge-output-parser.js';
 export interface MergeNodeDeps {
   executor: IAgentExecutor;
   getDiffSummary: (cwd: string, baseBranch: string) => Promise<DiffSummary>;
+  hasRemote: (cwd: string) => Promise<boolean>;
+  getDefaultBranch: (cwd: string) => Promise<string>;
   featureRepository: Pick<IFeatureRepository, 'findById' | 'update'>;
+  /**
+   * Verify that featureBranch has been merged into baseBranch.
+   * Returns true if baseBranch contains all commits from featureBranch.
+   */
+  verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) => Promise<boolean>;
 }
 
 /**
@@ -49,6 +59,28 @@ export function createMergeNode(deps: MergeNodeDeps) {
     log.info('Starting merge flow');
     reportNodeStart('merge');
     await updateNodeLifecycle('merge');
+
+    // --- Rejection detection on resume (same pattern as executeNode) ---
+    // On resume after interrupt, check if merge was already completed.
+    // Rejection: clear phase, schedule re-execution via conditional edge.
+    // Approval: fall through to post-interrupt work (lifecycle update, optional merge/squash).
+    const completedPhases = getCompletedPhases(state.specDir);
+    const isResumeAfterInterrupt =
+      completedPhases.includes('merge') && shouldInterrupt('merge', state.approvalGates);
+
+    if (isResumeAfterInterrupt && state._approvalAction === 'rejected') {
+      const feedback = state._rejectionFeedback ?? '(no feedback)';
+      log.info(`Merge rejected with feedback: "${feedback}" — scheduling re-execution`);
+      clearCompletedPhase(state.specDir, 'merge', log);
+      return {
+        currentNode: 'merge',
+        messages: [`[merge] Rejected — will re-execute`],
+        _approvalAction: null,
+        _rejectionFeedback: null,
+        _needsReexecution: true,
+      };
+    }
+
     const messages: string[] = [];
     const startTime = Date.now();
 
@@ -62,46 +94,63 @@ export function createMergeNode(deps: MergeNodeDeps) {
       // Resolve branch name from feature
       const feature = await deps.featureRepository.findById(state.featureId);
       const branch = feature?.branch ?? `feat/${state.featureId}`;
-      const baseBranch = 'main';
+      const baseBranch = await deps.getDefaultBranch(cwd);
       const options = buildExecutorOptions(state);
 
-      // --- Agent Call 1: Commit + Push + PR ---
-      log.info('Agent call 1: commit + push + PR');
-      const commitPushPrPrompt = buildCommitPushPrPrompt(state, branch, baseBranch);
-      const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
-        logger: log,
-      });
-
-      // Parse structured data from agent output
-      const commitHash = parseCommitHash(commitResult.result) ?? state.commitHash;
-      messages.push(`[merge] Agent completed commit/push/PR operations`);
-
+      let commitHash = state.commitHash;
       let prUrl = state.prUrl;
       let prNumber = state.prNumber;
       const ciStatus = state.ciStatus;
 
-      if (state.openPr) {
-        const prResult = parsePrUrl(commitResult.result);
-        if (prResult) {
-          prUrl = prResult.url;
-          prNumber = prResult.number;
-          messages.push(`[merge] PR created: ${prUrl}`);
-        }
-      }
+      // --- Check for git remote (needed by both agent calls) ---
+      const remoteAvailable = await deps.hasRemote(cwd);
 
-      // --- Merge approval gate ---
-      if (shouldInterrupt('merge', state.approvalGates)) {
-        log.info('Interrupting for merge approval');
-        await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
-        await recordApprovalWaitStart(mergeTimingId);
-        const diffSummary = await deps.getDiffSummary(cwd, baseBranch);
-        interrupt({
-          node: 'merge',
-          message: 'Merge approval required. Review the changes and approve to continue.',
-          diffSummary,
-          prUrl,
-          prNumber,
+      // --- Agent Call 1: Commit + Push + PR (skip on approval resume) ---
+      if (!isResumeAfterInterrupt) {
+        if (!remoteAvailable) {
+          log.info('No git remote configured — skipping push and PR, will merge locally');
+        }
+
+        // Override push/openPr when no remote is available
+        const effectiveState = remoteAvailable ? state : { ...state, push: false, openPr: false };
+
+        log.info('Agent call 1: commit + push + PR');
+        const commitPushPrPrompt = buildCommitPushPrPrompt(effectiveState, branch, baseBranch);
+        const commitResult = await retryExecute(executor, commitPushPrPrompt, options, {
+          logger: log,
         });
+
+        // Parse structured data from agent output
+        commitHash = parseCommitHash(commitResult.result) ?? state.commitHash;
+        messages.push(`[merge] Agent completed commit/push/PR operations`);
+
+        if (effectiveState.openPr) {
+          const prResult = parsePrUrl(commitResult.result);
+          if (prResult) {
+            prUrl = prResult.url;
+            prNumber = prResult.number;
+            messages.push(`[merge] PR created: ${prUrl}`);
+          }
+        }
+
+        // --- Merge approval gate ---
+        if (shouldInterrupt('merge', state.approvalGates)) {
+          log.info('Interrupting for merge approval');
+          markPhaseComplete(state.specDir, 'merge', log);
+          await recordPhaseEnd(mergeTimingId, Date.now() - startTime);
+          await recordApprovalWaitStart(mergeTimingId);
+          const diffSummary = await deps.getDiffSummary(cwd, baseBranch);
+          interrupt({
+            node: 'merge',
+            message: 'Merge approval required. Review the changes and approve to continue.',
+            diffSummary,
+            prUrl,
+            prNumber,
+          });
+        }
+      } else {
+        log.info('Merge approved — skipping commit/push/PR, continuing to post-merge');
+        messages.push(`[merge] Approved — continuing`);
       }
 
       // --- Agent Call 2: Merge (if enabled) ---
@@ -111,9 +160,26 @@ export function createMergeNode(deps: MergeNodeDeps) {
         const mergePrompt = buildMergeSquashPrompt(
           { ...state, prUrl, prNumber, commitHash },
           branch,
-          baseBranch
+          baseBranch,
+          remoteAvailable
         );
-        await retryExecute(executor, mergePrompt, options, { logger: log });
+        // Run merge in the ORIGINAL repo, not the worktree — the worktree IS
+        // the feature branch and must not be modified or removed during merge.
+        const mergeOptions = { ...options, cwd: state.repositoryPath };
+        await retryExecute(executor, mergePrompt, mergeOptions, { logger: log });
+
+        // Verify the merge actually succeeded (agent may report success without merging)
+        if (!prUrl) {
+          const mergeVerified = await deps.verifyMerge(state.repositoryPath, branch, baseBranch);
+          if (!mergeVerified) {
+            throw new Error(
+              `Merge verification failed: ${branch} was not merged into ${baseBranch}. ` +
+                `The agent may have encountered errors during the merge operation.`
+            );
+          }
+          log.info('Merge verified: feature branch is ancestor of base branch');
+        }
+
         messages.push(`[merge] Agent completed merge operation`);
         merged = true;
       }
@@ -152,6 +218,9 @@ export function createMergeNode(deps: MergeNodeDeps) {
         prUrl,
         prNumber,
         ciStatus,
+        _approvalAction: null,
+        _rejectionFeedback: null,
+        _needsReexecution: false,
       };
     } catch (err: unknown) {
       // Re-throw LangGraph control-flow exceptions (interrupt, etc.)

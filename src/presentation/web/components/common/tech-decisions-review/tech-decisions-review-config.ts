@@ -12,15 +12,19 @@ export interface TechDecisionsReviewData {
 export interface TechDecisionsReviewProps {
   /** Tech decisions data from the research artifact */
   data: TechDecisionsReviewData;
-  /** Chat refinement callback — sends user feedback to the agent */
-  onRefine: (text: string) => void;
   /** Approve plan callback */
   onApprove: () => void;
+  /** Reject plan callback — opens feedback dialog when provided; also used for inline text rejection */
+  onReject?: (feedback: string) => void;
   /** Controls disabled state during loading */
   isProcessing?: boolean;
+  /** Whether a reject operation is in flight */
+  isRejecting?: boolean;
 }
 
-export interface TechDecisionsDrawerProps extends TechDecisionsReviewProps {
+export interface TechDecisionsDrawerProps extends Omit<TechDecisionsReviewProps, 'data'> {
+  /** Tech decisions data — null while loading */
+  data: TechDecisionsReviewData | null;
   /** Whether the drawer is open */
   open: boolean;
   /** Callback when drawer should close */

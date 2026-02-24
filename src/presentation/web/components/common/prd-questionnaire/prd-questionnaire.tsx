@@ -1,25 +1,25 @@
 'use client';
 
-import { Send, Check, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Check, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { DrawerActionBar } from '@/components/common/drawer-action-bar';
 import type { PrdQuestionnaireProps } from './prd-questionnaire-config';
 
 export function PrdQuestionnaire({
   data,
   selections,
   onSelect,
-  onRefine,
   onApprove,
+  onReject,
   isProcessing = false,
+  isRejecting = false,
   showHeader = false,
 }: PrdQuestionnaireProps) {
   const { question, context, questions, finalAction } = data;
   const [currentStep, setCurrentStep] = useState(0);
-  const [chatInput, setChatInput] = useState('');
 
   const total = questions.length;
   const isFirstStep = currentStep === 0;
@@ -38,14 +38,6 @@ export function PrdQuestionnaire({
     },
     [onSelect, isLastStep]
   );
-
-  function handleSubmit(e: { preventDefault: () => void }) {
-    e.preventDefault();
-    const text = chatInput.trim();
-    if (!text) return;
-    onRefine(text);
-    setChatInput('');
-  }
 
   if (total === 0) return null;
 
@@ -143,17 +135,7 @@ export function PrdQuestionnaire({
             Previous
           </Button>
 
-          {isLastStep ? (
-            <Button
-              type="button"
-              size="sm"
-              disabled={isProcessing || answeredCount < total}
-              onClick={() => onApprove(finalAction.id)}
-            >
-              <Check className="mr-1 h-4 w-4" />
-              {finalAction.label}
-            </Button>
-          ) : (
+          {!isLastStep ? (
             <Button
               type="button"
               variant="ghost"
@@ -164,12 +146,19 @@ export function PrdQuestionnaire({
               {selections[currentQuestion.id] ? 'Next' : 'Skip'}
               <ChevronRight className="ml-1 h-4 w-4" />
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {/* Action Bar */}
-      <div className="border-border bg-background shrink-0 border-t">
+      <DrawerActionBar
+        onReject={onReject}
+        onApprove={() => onApprove(finalAction.id)}
+        approveLabel={finalAction.label}
+        approveIcon={<Check className="mr-1.5 h-4 w-4" />}
+        revisionPlaceholder="Ask AI to refine requirements..."
+        isProcessing={isProcessing}
+        isRejecting={isRejecting}
+      >
         <div
           className={cn(
             'bg-muted h-1.5 overflow-hidden',
@@ -190,27 +179,7 @@ export function PrdQuestionnaire({
             />
           )}
         </div>
-        <form onSubmit={handleSubmit} className="flex items-center gap-2 p-4">
-          <Input
-            type="text"
-            placeholder="Ask AI to refine requirements..."
-            aria-label="Ask AI to refine requirements"
-            disabled={isProcessing}
-            value={chatInput}
-            onChange={(e) => setChatInput(e.target.value)}
-            className="flex-1"
-          />
-          <Button
-            type="submit"
-            variant="secondary"
-            size="icon"
-            aria-label="Send"
-            disabled={isProcessing}
-          >
-            <Send />
-          </Button>
-        </form>
-      </div>
+      </DrawerActionBar>
     </div>
   );
 }

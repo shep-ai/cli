@@ -1,0 +1,138 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: auto-git-init
+summary: Task breakdown for auto git initialization feature
+
+# Relationships
+relatedFeatures:
+  - '036-repository-entity'
+technologies:
+  - TypeScript
+  - node:child_process
+  - Vitest
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    title: Add ensureGitRepository to IWorktreeService interface
+    description: >
+      Extend the IWorktreeService port interface with an `ensureGitRepository(repoPath: string)`
+      method that returns `Promise<void>`. This ensures the directory is a valid git repository
+      before any worktree operations.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - IWorktreeService interface has ensureGitRepository method signature
+      - Method accepts repoPath string parameter
+      - Method returns Promise<void>
+      - JSDoc documents the method behavior
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-2
+    title: Implement ensureGitRepository in WorktreeService
+    description: >
+      Implement the ensureGitRepository method in WorktreeService. Uses
+      `git rev-parse --is-inside-work-tree` to detect git repos. If not a repo,
+      runs `git init` followed by `git commit --allow-empty -m "Initial commit"`.
+      If already a repo, returns immediately (no-op).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - Detects non-git directories using git rev-parse
+      - Runs git init for non-git directories
+      - Creates an initial empty commit after git init
+      - No-ops for existing git repositories
+      - Throws WorktreeError on failure
+    tdd:
+      red:
+        - 'Test: ensureGitRepository no-ops for existing git repo (mock execFile returns success for rev-parse)'
+        - 'Test: ensureGitRepository calls git init + git commit for non-git dir (mock execFile throws for rev-parse, succeeds for init/commit)'
+        - 'Test: ensureGitRepository throws WorktreeError when git init fails'
+      green:
+        - Implement ensureGitRepository with git rev-parse check and conditional git init + commit
+      refactor:
+        - Extract git command helpers if method is too long
+    estimatedEffort: S
+
+  - id: task-3
+    title: Call ensureGitRepository in CreateFeatureUseCase
+    description: >
+      Add a call to `worktreeService.ensureGitRepository(input.repositoryPath)` in
+      CreateFeatureUseCase.execute() before the worktree creation step. This ensures
+      the repository is initialized before any git operations.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - ensureGitRepository is called before worktreeService.create
+      - Existing unit tests for CreateFeatureUseCase still pass (mock updated)
+      - Error from ensureGitRepository propagates correctly
+    tdd:
+      red:
+        - 'Test: execute calls ensureGitRepository before create (verify call order with mock)'
+        - 'Test: execute propagates ensureGitRepository errors'
+      green:
+        - Add ensureGitRepository call before worktreeService.create in execute()
+        - Update existing mock to include ensureGitRepository
+      refactor:
+        - Ensure error message is user-friendly
+    estimatedEffort: S
+
+  - id: task-4
+    title: Add integration tests with real git commands
+    description: >
+      Create integration test suite that exercises the full git initialization flow
+      using real git commands in isolated temporary directories. Tests validate that
+      WorktreeService.ensureGitRepository works correctly with actual git operations,
+      not mocks.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - Test creates isolated temp directory for each test case
+      - Test validates non-git dir is auto-initialized with git init + initial commit
+      - Test validates existing git repos are not re-initialized
+      - Test validates worktree creation succeeds after auto-initialization
+      - Tests clean up temp directories in afterEach
+      - Tests use real execFile (promisified), not mocks
+    tdd:
+      red:
+        - 'Test: ensureGitRepository initializes a non-git directory (real git)'
+        - 'Test: ensureGitRepository no-ops for an existing git repo (real git)'
+        - 'Test: worktree creation succeeds after auto-initialization (real git)'
+        - 'Test: ensureGitRepository creates initial commit (real git)'
+      green:
+        - Implementation already done in task-2, tests validate it with real git
+      refactor:
+        - Extract shared temp dir setup into helper if repeated
+    estimatedEffort: M
+
+# Total effort estimate
+totalEstimate: M
+
+# Open questions
+openQuestions: []
+
+# Markdown content
+content: |
+  ## Summary
+
+  Auto git initialization for non-git directories — 4 tasks across 3 phases.
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All tasks completed
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint`)
+  - [ ] Types valid (`pnpm typecheck`)
+  - [ ] PR created and reviewed
+
+  ---
+
+  _Task details are in the tasks[] array of tasks.yaml_

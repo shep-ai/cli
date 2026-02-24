@@ -23,6 +23,9 @@ vi.spyOn(process.stderr, 'write').mockImplementation(() => true);
 const {
   mockInterrupt,
   mockShouldInterrupt,
+  mockGetCompletedPhases,
+  mockClearCompletedPhase,
+  mockMarkPhaseComplete,
   mockRecordPhaseStart,
   mockRecordPhaseEnd,
   mockRecordApprovalWaitStart,
@@ -33,6 +36,9 @@ const {
 } = vi.hoisted(() => ({
   mockInterrupt: vi.fn(),
   mockShouldInterrupt: vi.fn().mockReturnValue(false),
+  mockGetCompletedPhases: vi.fn().mockReturnValue([]),
+  mockClearCompletedPhase: vi.fn(),
+  mockMarkPhaseComplete: vi.fn(),
   mockRecordPhaseStart: vi.fn().mockResolvedValue('timing-123'),
   mockRecordPhaseEnd: vi.fn().mockResolvedValue(undefined),
   mockRecordApprovalWaitStart: vi.fn().mockResolvedValue(undefined),
@@ -58,6 +64,9 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/node-helpers.js', 
   }),
   readSpecFile: vi.fn().mockReturnValue('name: Test Feature\ndescription: A test\n'),
   shouldInterrupt: mockShouldInterrupt,
+  getCompletedPhases: mockGetCompletedPhases,
+  clearCompletedPhase: mockClearCompletedPhase,
+  markPhaseComplete: mockMarkPhaseComplete,
   retryExecute: vi
     .fn()
     .mockImplementation(
@@ -138,7 +147,10 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
   return {
     executor: createMockExecutor(),
     getDiffSummary: createMockGetDiffSummary(),
+    hasRemote: vi.fn().mockResolvedValue(true),
+    getDefaultBranch: vi.fn().mockResolvedValue('main'),
     featureRepository: createMockFeatureRepo(),
+    verifyMerge: vi.fn().mockResolvedValue(true),
     ...overrides,
   };
 }
@@ -232,6 +244,39 @@ describe('createMergeNode (agent-driven)', () => {
       expect(deps.executor.execute).toHaveBeenCalledTimes(1);
       expect(mockBuildMergeSquashPrompt).not.toHaveBeenCalled();
     });
+
+    it('should pass hasRemote=false to merge prompt when no remote configured', async () => {
+      const noRemoteDeps = baseDeps({ hasRemote: vi.fn().mockResolvedValue(false) });
+      const node = createMergeNode(noRemoteDeps);
+      const state = baseState({
+        push: true,
+        openPr: true,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+      await node(state);
+
+      expect(mockBuildMergeSquashPrompt).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        'main',
+        false
+      );
+    });
+
+    it('should pass hasRemote=true to merge prompt when remote is configured', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+      await node(state);
+
+      expect(mockBuildMergeSquashPrompt).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.any(String),
+        'main',
+        true
+      );
+    });
   });
 
   // --- Conditional push/PR logic ---
@@ -270,6 +315,20 @@ describe('createMergeNode (agent-driven)', () => {
         expect.any(String),
         'main'
       );
+    });
+
+    it('should override push and openPr to false when no remote is configured', async () => {
+      const noRemoteDeps = baseDeps({ hasRemote: vi.fn().mockResolvedValue(false) });
+      const node = createMergeNode(noRemoteDeps);
+      const state = baseState({ push: true, openPr: true });
+      await node(state);
+
+      expect(mockBuildCommitPushPrPrompt).toHaveBeenCalledWith(
+        expect.objectContaining({ push: false, openPr: false }),
+        expect.any(String),
+        'main'
+      );
+      expect(mockParsePrUrl).not.toHaveBeenCalled();
     });
 
     it('should NOT parse prUrl when openPr=false', async () => {
@@ -379,6 +438,46 @@ describe('createMergeNode (agent-driven)', () => {
           }),
         })
       );
+    });
+  });
+
+  // --- Merge verification ---
+  describe('merge verification', () => {
+    it('should verify merge after local merge (no PR)', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+      // Ensure no PR URL is set so local merge path is taken
+      mockParsePrUrl.mockReturnValueOnce(null);
+      await node(state);
+
+      expect(deps.verifyMerge).toHaveBeenCalledWith('/tmp/repo', 'feat/test', 'main');
+    });
+
+    it('should throw when merge verification fails', async () => {
+      const failDeps = baseDeps({ verifyMerge: vi.fn().mockResolvedValue(false) });
+      const node = createMergeNode(failDeps);
+      const state = baseState({
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+      mockParsePrUrl.mockReturnValueOnce(null);
+
+      await expect(node(state)).rejects.toThrow('Merge verification failed');
+    });
+
+    it('should skip verification when PR exists (remote merge)', async () => {
+      const node = createMergeNode(deps);
+      const state = baseState({
+        openPr: true,
+        prUrl: 'https://github.com/test/repo/pull/99',
+        prNumber: 99,
+        approvalGates: { allowPrd: false, allowPlan: false, allowMerge: true },
+      });
+      await node(state);
+
+      // PR URL exists from state, so remote merge path is used — no local verification needed
+      expect(deps.verifyMerge).not.toHaveBeenCalled();
     });
   });
 

@@ -9,6 +9,13 @@
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+
+vi.mock('node:fs', async (importOriginal) => {
+  // eslint-disable-next-line @typescript-eslint/consistent-type-imports -- vi.mock factory requires runtime import()
+  const actual = (await importOriginal()) as typeof import('node:fs');
+  return { ...actual, mkdirSync: vi.fn() };
+});
+
 import { WorktreeService } from '@/infrastructure/services/git/worktree.service.js';
 import {
   WorktreeError,
@@ -255,6 +262,62 @@ describe('WorktreeService', () => {
       const result = await service.branchExists('/repo', 'feat/x');
 
       expect(result).toBe(false);
+    });
+  });
+
+  describe('ensureGitRepository', () => {
+    it('should no-op for an existing git repository', async () => {
+      mockExecFile.mockResolvedValueOnce({ stdout: 'true\n', stderr: '' });
+
+      await service.ensureGitRepository('/existing/repo');
+
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', '--is-inside-work-tree'], {
+        cwd: '/existing/repo',
+      });
+      expect(mockExecFile).toHaveBeenCalledTimes(1);
+    });
+
+    it('should create directory recursively and run git init for a non-git directory', async () => {
+      const { mkdirSync } = await import('node:fs');
+
+      mockExecFile
+        .mockRejectedValueOnce(new Error('fatal: not a git repository'))
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git init
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git config user.name
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }) // git config user.email
+        .mockResolvedValueOnce({ stdout: '', stderr: '' }); // git commit
+
+      await service.ensureGitRepository('/plain/dir');
+
+      expect(mkdirSync).toHaveBeenCalledWith('/plain/dir', { recursive: true });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['rev-parse', '--is-inside-work-tree'], {
+        cwd: '/plain/dir',
+      });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['init'], { cwd: '/plain/dir' });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['config', 'user.name', 'shep-ai[bot]'], {
+        cwd: '/plain/dir',
+      });
+      expect(mockExecFile).toHaveBeenCalledWith('git', ['config', 'user.email', 'bot@shep.bot'], {
+        cwd: '/plain/dir',
+      });
+      expect(mockExecFile).toHaveBeenCalledWith(
+        'git',
+        ['commit', '--allow-empty', '-m', 'Initial commit'],
+        { cwd: '/plain/dir' }
+      );
+    });
+
+    it('should throw WorktreeError when git init fails', async () => {
+      mockExecFile
+        .mockRejectedValueOnce(new Error('fatal: not a git repository'))
+        .mockRejectedValueOnce(new Error('permission denied'));
+
+      try {
+        await service.ensureGitRepository('/bad/dir');
+      } catch (e) {
+        expect(e).toBeInstanceOf(WorktreeError);
+        expect((e as WorktreeError).code).toBe(WorktreeErrorCode.GIT_ERROR);
+      }
     });
   });
 

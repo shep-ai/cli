@@ -52,12 +52,14 @@ export class ConfigureAgentUseCase {
    * @throws Error if agent is not available or settings not initialized
    */
   async execute(input: ConfigureAgentInput): Promise<Settings> {
-    // 1. Validate agent is available
-    const validation = await this.agentValidator.isAvailable(input.type);
-    if (!validation.available) {
-      throw new Error(
-        `Agent "${input.type}" is not available: ${validation.error ?? 'binary not found'}`
-      );
+    // 1. Validate agent is available (dev type requires no binary validation)
+    if (input.type !== 'dev') {
+      const validation = await this.agentValidator.isAvailable(input.type);
+      if (!validation.available) {
+        throw new Error(
+          `Agent "${input.type}" is not available: ${validation.error ?? 'binary not found'}`
+        );
+      }
     }
 
     // 2. Load current settings

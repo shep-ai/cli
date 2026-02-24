@@ -7,4 +7,5 @@ enum:
   - aider
   - continue
   - cursor
+  - dev
 description: AI coding agent tool selection

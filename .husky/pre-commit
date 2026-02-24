@@ -3,4 +3,5 @@
 # See: https://typicode.github.io/husky/
 
 pnpm generate
+git add apis/json-schema/ packages/core/src/domain/generated/
 pnpm exec lint-staged

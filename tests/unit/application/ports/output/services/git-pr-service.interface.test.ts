@@ -128,9 +128,11 @@ describe('PrCreateResult', () => {
 });
 
 describe('IGitPrService', () => {
-  it('should be implementable with all 11 methods', () => {
+  it('should be implementable with all methods', () => {
     // Compile-time check: a mock class implementing IGitPrService must provide all methods
     const mock: IGitPrService = {
+      hasRemote: async () => true,
+      getDefaultBranch: async () => 'main',
       hasUncommittedChanges: async () => false,
       commitAll: async () => 'abc123',
       push: async () => {
@@ -155,9 +157,10 @@ describe('IGitPrService', () => {
         commitCount: 0,
       }),
       listPrStatuses: async () => [],
+      verifyMerge: async () => true,
     };
 
-    // Verify all 11 methods exist
+    // Verify all methods exist
     const methodNames: (keyof IGitPrService)[] = [
       'hasUncommittedChanges',
       'commitAll',
@@ -170,9 +173,10 @@ describe('IGitPrService', () => {
       'deleteBranch',
       'getPrDiffSummary',
       'listPrStatuses',
+      'verifyMerge',
     ];
 
-    expect(methodNames).toHaveLength(11);
+    expect(methodNames).toHaveLength(12);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

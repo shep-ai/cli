@@ -93,6 +93,8 @@ describe('Merge Flow (Graph-level)', () => {
   function buildGraphDeps(overrides?: {
     getDiffSummary?: MergeNodeDeps['getDiffSummary'];
     featureRepo?: MergeNodeDeps['featureRepository'];
+    hasRemote?: boolean;
+    verifyMerge?: boolean;
   }): {
     deps: FeatureAgentGraphDeps;
     getDiffSummary: MergeNodeDeps['getDiffSummary'];
@@ -102,7 +104,13 @@ describe('Merge Flow (Graph-level)', () => {
     const featureRepo = overrides?.featureRepo ?? createMockFeatureRepo();
     const deps: FeatureAgentGraphDeps = {
       executor: createMockExecutor(),
-      mergeNodeDeps: { getDiffSummary, featureRepository: featureRepo },
+      mergeNodeDeps: {
+        getDiffSummary,
+        hasRemote: vi.fn().mockResolvedValue(overrides?.hasRemote ?? true),
+        getDefaultBranch: vi.fn().mockResolvedValue('main'),
+        verifyMerge: vi.fn().mockResolvedValue(overrides?.verifyMerge ?? true),
+        featureRepository: featureRepo,
+      },
     };
     return { deps, getDiffSummary, featureRepo };
   }
@@ -242,7 +250,13 @@ describe('Merge Flow (Graph-level)', () => {
       expect(interrupts2[0].value.diffSummary).toBeDefined();
 
       // Resume past merge → completes
-      const result3 = await graph.invoke(new Command({ resume: { approved: true } }), config);
+      const result3 = await graph.invoke(
+        new Command({
+          resume: { approved: true },
+          update: { _approvalAction: 'approved', _rejectionFeedback: null },
+        }),
+        config
+      );
       expect(getInterrupts(result3)).toHaveLength(0);
 
       // After resume, lifecycle should be updated to Review (allowMerge=false, no auto-merge)
@@ -273,6 +287,56 @@ describe('Merge Flow (Graph-level)', () => {
           deletions: 30,
         })
       );
+    });
+  });
+
+  // --- No-remote local merge (the bug scenario) ---
+  describe('no-remote local merge flow', () => {
+    it('should override push/openPr to false and merge locally when no remote', async () => {
+      const { deps, featureRepo } = buildGraphDeps({ hasRemote: false });
+      const checkpointer = createCheckpointer(':memory:');
+      const graph = createFeatureAgentGraph(deps, checkpointer);
+      const config = { configurable: { thread_id: 'no-remote-merge-flow' } };
+
+      const result = await graph.invoke(
+        baseInput({
+          push: true,
+          openPr: true,
+          approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+        }),
+        config
+      );
+
+      expect(getInterrupts(result)).toHaveLength(0);
+
+      // No PR URL (remote unavailable, push/openPr overridden)
+      expect(result.prUrl).toBeNull();
+
+      // Lifecycle = Maintain (local merge happened)
+      expect(featureRepo.update).toHaveBeenCalledWith(
+        expect.objectContaining({ lifecycle: 'Maintain' })
+      );
+
+      // Verify merge was checked
+      expect(deps.mergeNodeDeps!.verifyMerge).toHaveBeenCalled();
+    });
+
+    it('should fail when merge verification detects merge did not happen', async () => {
+      const { deps } = buildGraphDeps({ hasRemote: false, verifyMerge: false });
+      const checkpointer = createCheckpointer(':memory:');
+      const graph = createFeatureAgentGraph(deps, checkpointer);
+      const config = { configurable: { thread_id: 'no-remote-verify-fail' } };
+
+      await expect(
+        graph.invoke(
+          baseInput({
+            push: false,
+            openPr: false,
+            approvalGates: { allowPrd: true, allowPlan: true, allowMerge: true },
+          }),
+          config
+        )
+      ).rejects.toThrow('Merge verification failed');
     });
   });
 
