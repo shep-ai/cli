@@ -1,0 +1,328 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: condense-ai-context-docs
+summary: >
+  This is a pure documentation editing task with no code changes. The research confirms that
+  docs/ fully covers every topic being removed from CLAUDE.md and AGENTS.md, all docs/ link
+  targets exist and are valid, and the condensing strategy is to keep only mandatory rules,
+  essential commands, and architecture pointers while replacing all verbose sections with
+  single-line doc references. No libraries, schema changes, or API work required.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Markdown
+  - YAML
+
+relatedLinks:
+  - docs/architecture/clean-architecture.md
+  - docs/architecture/agent-system.md
+  - docs/architecture/settings-service.md
+  - docs/development/tdd-guide.md
+  - docs/development/spec-driven-workflow.md
+  - docs/development/typespec-guide.md
+  - docs/development/cicd.md
+  - docs/development/adding-agents.md
+  - docs/api/domain-models.md
+  - docs/cli/architecture.md
+  - docs/tui/architecture.md
+  - docs/ui/architecture.md
+
+# Structured technology decisions
+decisions:
+  - title: 'Content Prioritization Strategy for CLAUDE.md'
+    chosen: >
+      Keep only: project overview (2 lines), spec workflow chain (1 line), TDD mandate (2 lines),
+      essential commands table (~10 lines), 4-layer architecture directory tree with directory names
+      only (~10 lines), mandatory rules checklist (6 lines), commit format (4 lines), and doc
+      pointers replacing all removed sections. Target: ~65 lines with headroom below 100.
+    rejected:
+      - >
+        Trim prose in all existing sections without structural removal — Results in 300-400 lines
+        minimum even with aggressive trimming; impossible to close a 6x gap without removing entire
+        sections. The 16 H2 sections each contribute a structural minimum regardless of content size.
+      - >
+        Keep domain model field listings compressed to one line per model — Still adds ~15 lines for
+        8 models; violates single-source-of-truth since docs/api/domain-models.md already lists them
+        with full field coverage. Replaced by a single pointer line instead.
+    rationale: >
+      The 622-line CLAUDE.md has 16 H2 sections. The docs/ directory covers every section in detail
+      except the core rules, commands, and architecture tree. The condensing principle is: if detailed
+      coverage exists in docs/, the entry in CLAUDE.md becomes a one-line pointer. Only content with
+      no docs/ equivalent (mandatory rules, essential commands, 4-layer tree, commit format) is kept
+      inline. This produces a navigational reference, not a tutorial.
+
+  - title: 'Content Prioritization Strategy for AGENTS.md'
+    chosen: >
+      Keep only: directory structure tree (~10 lines), components table (~8 lines), settings-driven
+      resolution rule (6 lines — MANDATORY per spec), graph flow summary (4 lines), approval modes
+      table (~6 lines), supported agents table (~5 lines), and doc pointers. Delete lines 303-810
+      (planned architecture) entirely. Target: ~60 lines.
+    rejected:
+      - >
+        Keep per-node documentation sections inline — Verbose node-by-node descriptions duplicate
+        docs/architecture/agent-system.md and docs/development/adding-agents.md. The source files
+        in feature-agent/nodes/ are always more authoritative than prose descriptions in a context doc.
+      - >
+        Retain any TypeScript/code example blocks — Spec decision already resolved: no code examples.
+        All current TS blocks are either pseudocode (misleading) or duplicated from real source files
+        (stale risk). Source file paths are referenced directly instead.
+    rationale: >
+      AGENTS.md bloat comes from two sources: (a) the 507-line planned architecture section (lines
+      303-810) describing systems that do not exist, and (b) verbose TypeScript pseudocode that does
+      not match actual implementations. Removing those two categories alone reduces the file from 809
+      to approximately 90 lines. The remaining content (directory tree, component tables, mandatory
+      settings-driven resolution rule) fits within 100 lines with room to spare.
+
+  - title: 'Link Validation Approach'
+    chosen: >
+      Verify every docs/ path with Glob/LS before writing pointers into the condensed files.
+      Only use paths confirmed to exist. Research has validated all required docs/ files exist
+      (see relatedLinks above and the full docs/ tree mapped during research).
+    rejected:
+      - >
+        Use relative paths without pre-verification — Creates dead link risk (NFR-3 violation).
+        The spec explicitly requires every pointer to reference a real, existing file in docs/.
+        Unverified links undermine the entire purpose of the condensing exercise.
+      - >
+        Create new docs/ files for content that has no existing docs/ coverage — The spec states
+        docs/ remains unchanged; only CLAUDE.md and AGENTS.md are edited. If a topic lacks a
+        docs/ page, keep it inline rather than creating new files out of scope.
+    rationale: >
+      Research confirms docs/ comprehensively covers all topics being removed: domain models →
+      docs/api/domain-models.md; DI → docs/architecture/overview.md; TypeSpec →
+      docs/development/typespec-guide.md; CLI/TUI/Web → docs/cli/, docs/tui/, docs/ui/; CI/CD
+      → docs/development/cicd.md; testing → docs/development/tdd-guide.md; agents →
+      docs/architecture/agent-system.md + docs/development/adding-agents.md. No new docs files
+      are needed — all pointer targets exist.
+
+  - title: 'Handling the Settings-Driven Agent Resolution Rule'
+    chosen: >
+      Keep the full rule in AGENTS.md (canonical location). In condensed CLAUDE.md, add one
+      pointer line: "Agent resolution: see AGENTS.md". Satisfies FR-7 (no duplication) and
+      NFR-6 (single source of truth) while ensuring CLAUDE.md still surfaces the rule's location.
+    rejected:
+      - >
+        Duplicate the rule verbatim in both files — Violates NFR-6 (single source of truth) and
+        the spec's explicitly resolved decision. Two copies will diverge as the codebase evolves,
+        creating the exact consistency problem this feature aims to fix.
+      - >
+        Move the rule entirely to docs/architecture/agent-system.md with pointers from both files
+        — Adds a second indirection hop for the most critical agent architectural constraint. The
+        rule must be immediately visible when an AI opens AGENTS.md, not require a third file read.
+    rationale: >
+      The spec's open questions section already resolved this: AGENTS.md only, pointer from
+      CLAUDE.md. AGENTS.md is the natural home for agent architectural rules; CLAUDE.md is a
+      navigation document pointing to it. Single source of truth is maintained.
+
+  - title: 'Final Structure of Condensed CLAUDE.md'
+    chosen: >
+      Seven flat H2 sections with no H3 subsections: Overview, Spec Workflow, Commands, Architecture,
+      Mandatory Rules, Commit Format, Key Docs. Each section max 15 lines. No TypeScript code blocks.
+      One commands table only. Target ~65 lines total.
+    rejected:
+      - >
+        Preserve existing 16-section structure and trim each section — Preserving 16 H2 headings
+        with minimal content means minimum ~160 lines (10 lines per section average). Structural
+        consolidation is required to reach ≤100.
+      - >
+        Single prose paragraph format with no headings — Loses scannability critical for AI context
+        files. NFR-5 requires readability in under 60 seconds. Headings enable fast section location
+        without linear reading.
+    rationale: >
+      Seven sections directly satisfy FR-1 requirements: overview, workflow chain, commands, 4-layer
+      tree, mandatory rules, commit format, and doc pointers. Flat H2-only structure is scannable
+      and avoids the heading bloat that contributed to the original 622 lines. Each section maps
+      to a distinct cognitive task an AI performs when reading CLAUDE.md.
+
+  - title: 'Final Structure of Condensed AGENTS.md'
+    chosen: >
+      Six flat H2 sections: Overview (directory tree), Components, Settings-Driven Resolution,
+      Graph Flow, Approval Modes, Key Docs. No H3. No code blocks. No planned architecture.
+      Target ~60 lines total.
+    rejected:
+      - >
+        Keep per-agent sections with implementation details — Per-agent documentation belongs in
+        source files and docs/development/adding-agents.md. Including them adds 50+ lines per
+        documented agent type and creates stale-doc risk.
+      - >
+        Merge AGENTS.md content into CLAUDE.md as a section — AGENTS.md is separately referenced
+        in the AI system context. Merging would push CLAUDE.md over 100 lines and destroy the
+        file boundary that separates general codebase context from agent-specific context.
+    rationale: >
+      The six sections directly satisfy FR-2 requirements: directory structure, components table,
+      settings-driven resolution (MANDATORY), graph flow, approval modes, and supported agents.
+      Each section has clear value for an AI working with agent code and no single docs/ page that
+      provides equivalent at-a-glance coverage.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the 4-layer architecture tree in condensed CLAUDE.md include representative file examples or directory names only?'
+    resolved: true
+    options:
+      - option: Directory names only (4 layers, ~8 lines)
+        description: >
+          Show only the four layer directories (domain/, application/, infrastructure/, presentation/)
+          with one-line descriptions. Reduces tree to ~8 lines. An AI can run ls to see files.
+          Maximizes line budget for other mandatory content.
+        selected: true
+      - option: Directory names with representative file examples (~25 lines)
+        description: >
+          Include 1-2 example files per subdirectory as the current CLAUDE.md does. Shows concrete
+          structure at the cost of ~25 lines for the tree. Provides faster navigation context without
+          requiring a directory listing tool call.
+        selected: false
+      - option: Remove the tree entirely, pointer to docs/architecture/clean-architecture.md (~1 line)
+        description: >
+          Replace the entire tree with one pointer line. Maximum line savings (~30 lines saved).
+          Risk: the 4-layer tree is one of the most-used navigation aids for an AI working in this
+          codebase; removing it increases the number of file-hops needed for basic orientation.
+        selected: false
+    selectionRationale: >
+      FR-1 explicitly requires the "4-layer architecture tree still present in CLAUDE.md." Directory
+      names only satisfies that requirement in ~8 lines vs. ~25 lines for the full tree. The AI's
+      primary need is knowing which layer to look in (domain vs application vs infrastructure vs
+      presentation), not memorizing specific filenames that change over time.
+
+# Markdown content (the full research document)
+content: |
+  ## Research Summary
+
+  This is a pure documentation editing task. No code changes, no new libraries, no schema
+  modifications. The research confirms:
+
+  1. **docs/ provides complete coverage** of every topic being removed from CLAUDE.md/AGENTS.md
+  2. **All link targets exist** — validated via directory exploration during research
+  3. **No new docs/ files needed** — existing files cover all pointer destinations
+  4. **The condensing is structurally achievable** — removing planned architecture (AGENTS.md lines
+     303-810) alone cuts 63% of AGENTS.md; replacing verbose prose sections with pointers handles
+     the rest
+
+  ---
+
+  ## Technology Decisions
+
+  ### 1. CLAUDE.md Condensing Strategy
+
+  **Chosen:** Seven flat H2 sections; keep mandatory rules, commands, 4-layer tree (dir names only),
+  commit format; replace 13 other sections with one-line doc pointers.
+
+  **Rejected:**
+  - Prose trimming only — Cannot reach ≤100 lines from 622 without structural removal
+  - Compressed domain model listings — docs/api/domain-models.md is the SSOT; duplicating it violates NFR-6
+
+  **Rationale:** The 16-section structure of current CLAUDE.md has a structural line-count floor of
+  ~160 lines (10 lines × 16 sections). Reaching ≤100 requires consolidating to ≤7 sections with
+  aggressive pointer replacement.
+
+  ### 2. AGENTS.md Condensing Strategy
+
+  **Chosen:** Six flat H2 sections; delete lines 303-810 entirely; keep directory tree, components
+  table, mandatory settings-driven resolution rule, graph flow, approval modes, supported agents.
+
+  **Rejected:**
+  - Keep per-node documentation — Duplicates docs/architecture/agent-system.md and source files
+  - Keep any TypeScript code blocks — Spec-resolved decision; stale pseudocode misleads AI agents
+
+  **Rationale:** Lines 303-810 account for 507 lines (63%) of AGENTS.md and describe non-existent
+  planned systems. Their removal alone brings AGENTS.md to ~302 lines. Replacing verbose implementation
+  sections with pointers reaches the ≤100 target.
+
+  ### 3. Single Source of Truth for Settings-Driven Resolution Rule
+
+  **Chosen:** Rule stays in AGENTS.md (canonical); CLAUDE.md gets one pointer line.
+
+  **Rejected:**
+  - Duplicate in both files — NFR-6 violation; spec decision already resolved this
+  - Move to docs/ — Adds indirection for the most critical agent architectural constraint
+
+  ### 4. Link Validation
+
+  **Chosen:** Pre-verify all docs/ paths before writing pointers.
+
+  **Validated docs/ paths for all pointer replacements:**
+
+  | Removed Section | Pointer Target |
+  | --- | --- |
+  | Dependency Injection | docs/architecture/overview.md |
+  | Domain Models (field listings) | docs/api/domain-models.md |
+  | Agent System (verbose) | docs/architecture/agent-system.md |
+  | TypeSpec Domain Models | docs/development/typespec-guide.md |
+  | Key Patterns | docs/development/implementation-guide.md |
+  | Testing Strategy (verbose) | docs/development/tdd-guide.md |
+  | CLI Presentation Layer | docs/cli/architecture.md |
+  | TUI Presentation Layer | docs/tui/architecture.md |
+  | Web UI Presentation Layer | docs/ui/architecture.md |
+  | pnpm Workspaces | docs/development/setup.md |
+  | CI/CD & Docker | docs/development/cicd.md |
+  | Spec-Driven (verbose) | docs/development/spec-driven-workflow.md |
+  | AGENTS.md planned section | (deleted, no archive) |
+  | AGENTS.md node descriptions | docs/development/adding-agents.md |
+
+  ---
+
+  ## Proposed Final Structures
+
+  ### CLAUDE.md (~65 lines target)
+
+  ```
+  # CLAUDE.md
+  ## Project
+  ## Spec Workflow
+  ## Commands
+  ## Architecture
+  ## Mandatory Rules
+  ## Commit Format
+  ## Key Docs
+  ```
+
+  ### AGENTS.md (~60 lines target)
+
+  ```
+  # AGENTS.md
+  ## Overview (directory tree)
+  ## Components
+  ## Settings-Driven Agent Resolution  ← MANDATORY rule
+  ## Graph Flow
+  ## Approval Modes
+  ## Key Docs
+  ```
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | wc -l   | Line count verification (NFR-1) | Use (built-in) | Native Unix tool; no install needed |
+  | None    | N/A | N/A | Pure doc editing; no libraries required |
+
+  ---
+
+  ## Security Considerations
+
+  None. This is documentation-only. The only risk is accidentally dropping a security-relevant
+  mandatory rule. Mitigation: NFR-2 explicitly enumerates every rule that must survive — TDD,
+  TypeSpec-first, settings-driven agents, Storybook stories, Conventional Commits. Implementation
+  must verify each is present in the final files.
+
+  ---
+
+  ## Performance Implications
+
+  Positive only. Reducing CLAUDE.md from 622 to ~65 lines and AGENTS.md from 809 to ~60 lines
+  saves approximately 1,300 lines (~35,000–50,000 tokens) from every AI context window load.
+  This directly reduces cost and improves context utilization for all AI-assisted development
+  on this codebase. No negative performance implications exist.
+
+  ---
+
+  ## Architecture Notes
+
+  This change is purely presentational — it edits AI context documents, not source code. All
+  Clean Architecture layers, domain models, TypeSpec definitions, and agent implementations are
+  untouched. The condensed files become navigational indexes pointing into the docs/ tree.
+  `pnpm validate` runs lint + format + typecheck + tsp:compile on TypeScript/TypeSpec source
+  files only; Markdown files are not in scope and the validate command will pass unchanged.
