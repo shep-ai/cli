@@ -47,7 +47,10 @@ describe('FeatureAgentAnnotation', () => {
       expect(channelNames).toContain('ciFixAttempts');
       expect(channelNames).toContain('ciFixHistory');
       expect(channelNames).toContain('ciFixStatus');
-      expect(channelNames.length).toBe(23);
+      expect(channelNames).toContain('nodeFixAttempts');
+      expect(channelNames).toContain('nodeFixHistory');
+      expect(channelNames).toContain('nodeFixStatus');
+      expect(channelNames.length).toBe(26);
     });
   });
 

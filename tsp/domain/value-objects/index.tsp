@@ -43,3 +43,4 @@ import "./tool-install-command.tsp";
 import "./ci-fix-record.tsp";
 import "./pull-request.tsp";
 import "./feature-status-metadata.tsp";
+import "./node-fix-record.tsp";

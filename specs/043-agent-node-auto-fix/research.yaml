@@ -1,3 +1,4 @@
+name: Agent Node Auto-Fix
 summary: Generalize the CI watch/fix loop pattern into a reusable node-level auto-fix wrapper using existing executor and state infrastructure
 
 decisions:

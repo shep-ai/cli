@@ -57,6 +57,9 @@ function baseState(_overrides: Partial<FeatureAgentState> = {}): FeatureAgentSta
     ciFixAttempts: 0,
     ciFixHistory: [],
     ciFixStatus: 'idle',
+    nodeFixAttempts: 0,
+    nodeFixHistory: [],
+    nodeFixStatus: 'idle',
   } as FeatureAgentState;
 }
 

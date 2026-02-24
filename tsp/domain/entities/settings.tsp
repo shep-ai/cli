@@ -265,6 +265,9 @@ model WorkflowConfig {
 
   @doc("Maximum characters of CI failure logs to pass to the executor (default: 50000)")
   ciLogMaxChars?: int32;
+
+  @doc("Maximum number of node-level auto-fix attempts before giving up (default: 2)")
+  nodeFixMaxAttempts?: int32;
 }
 
 @doc("AI coding agent configuration")

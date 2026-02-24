@@ -13,6 +13,7 @@ import { validateSpecAnalyze, validateSpecRequirements } from './nodes/schemas/s
 import { validateResearch } from './nodes/schemas/research.schema.js';
 import { validatePlan, validateTasks } from './nodes/schemas/plan.schema.js';
 import { readSpecFile, safeYamlLoad, createNodeLogger } from './nodes/node-helpers.js';
+import { withAutoFix } from './nodes/auto-fix.js';
 
 // Re-export state types for consumers
 export { FeatureAgentAnnotation, type FeatureAgentState } from './state.js';
@@ -168,11 +169,14 @@ export function createFeatureAgentGraph(
   const { executor } = deps;
 
   const graph = new StateGraph(FeatureAgentAnnotation)
-    // --- Producer nodes ---
-    .addNode('analyze', createAnalyzeNode(executor))
-    .addNode('requirements', createRequirementsNode(executor))
-    .addNode('research', createResearchNode(executor))
-    .addNode('plan', createPlanNode(executor))
+    // --- Producer nodes (wrapped with auto-fix) ---
+    .addNode('analyze', withAutoFix('analyze', createAnalyzeNode(executor), executor))
+    .addNode(
+      'requirements',
+      withAutoFix('requirements', createRequirementsNode(executor), executor)
+    )
+    .addNode('research', withAutoFix('research', createResearchNode(executor), executor))
+    .addNode('plan', withAutoFix('plan', createPlanNode(executor), executor))
     .addNode('implement', createImplementNode(executor))
 
     // --- Validate nodes ---

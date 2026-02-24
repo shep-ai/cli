@@ -361,6 +361,10 @@ export type WorkflowConfig = {
    * Maximum characters of CI failure logs to pass to the executor (default: 50000)
    */
   ciLogMaxChars?: number;
+  /**
+   * Maximum number of node-level auto-fix attempts before giving up (default: 2)
+   */
+  nodeFixMaxAttempts?: number;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
@@ -1431,6 +1435,32 @@ export type ToolInstallCommand = {
    * Package manager identifier
    */
   packageManager: string;
+};
+
+/**
+ * Record of one node-level auto-fix attempt
+ */
+export type NodeFixRecord = {
+  /**
+   * 1-based attempt number
+   */
+  attempt: number;
+  /**
+   * Name of the graph node that failed
+   */
+  nodeName: string;
+  /**
+   * First 500 chars of error message for this attempt
+   */
+  errorSummary: string;
+  /**
+   * ISO timestamp when this attempt started
+   */
+  startedAt: string;
+  /**
+   * Outcome of this attempt: fixed, failed, unfixable, or non-fixable
+   */
+  outcome: string;
 };
 export enum AgentStatus {
   Idle = 'Idle',

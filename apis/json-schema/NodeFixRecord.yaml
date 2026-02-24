@@ -1,0 +1,28 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: NodeFixRecord.yaml
+type: object
+properties:
+  attempt:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: 1-based attempt number
+  nodeName:
+    type: string
+    description: Name of the graph node that failed
+  errorSummary:
+    type: string
+    description: First 500 chars of error message for this attempt
+  startedAt:
+    type: string
+    description: ISO timestamp when this attempt started
+  outcome:
+    type: string
+    description: "Outcome of this attempt: fixed, failed, unfixable, or non-fixable"
+required:
+  - attempt
+  - nodeName
+  - errorSummary
+  - startedAt
+  - outcome
+description: Record of one node-level auto-fix attempt

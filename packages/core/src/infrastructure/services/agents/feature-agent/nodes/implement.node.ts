@@ -37,6 +37,9 @@ import {
   type PhaseTask,
   type TasksYaml,
 } from './prompts/implement.prompt.js';
+import { classifyNodeError, buildNodeFixPrompt } from './auto-fix.js';
+import type { NodeFixRecord } from '@/domain/generated/output.js';
+import { getSettings } from '@/infrastructure/services/settings.service.js';
 
 /**
  * Update feature.yaml with current implementation progress.
@@ -122,6 +125,14 @@ export function createImplementNode(executor: IAgentExecutor) {
       // --- Check for completed phases (skip on resume) ---
       const completedPhaseIds = getCompletedPhases(state.specDir);
       const retryOpts = { logger: log };
+      let nodeFixMaxAttempts = 2;
+      try {
+        nodeFixMaxAttempts = getSettings().workflow?.nodeFixMaxAttempts ?? 2;
+      } catch {
+        // Settings not initialized (e.g., in tests); use default
+      }
+      const nodeFixHistory: NodeFixRecord[] = [];
+      let nodeFixAttempts = 0;
 
       // --- Execute phases in order ---
       for (let i = 0; i < totalPhases; i++) {
@@ -163,42 +174,111 @@ export function createImplementNode(executor: IAgentExecutor) {
         const phaseStartTime = Date.now();
         const phaseTimingId = await recordPhaseStart(`implement:${phase.id}`);
 
-        if (phase.parallel && phaseTasks.length > 1) {
-          // Parallel: one executor call per task
-          log.info(`Spawning ${phaseTasks.length} parallel executor calls`);
+        // Phase execution with auto-fix retry
+        let phaseAttempt = 0;
+        let phaseSucceeded = false;
+        let lastPhaseError: Error | undefined;
 
-          const results = await Promise.all(
-            phaseTasks.map((task) => {
-              const singleTaskPhase: PlanPhase = {
-                ...phase,
-                taskIds: [task.id],
-              };
-              const prompt = buildImplementPhasePrompt(
-                state,
-                singleTaskPhase,
-                [task],
-                promptContext
+        while (!phaseSucceeded) {
+          try {
+            if (phase.parallel && phaseTasks.length > 1) {
+              // Parallel: one executor call per task
+              log.info(`Spawning ${phaseTasks.length} parallel executor calls`);
+
+              const results = await Promise.all(
+                phaseTasks.map((task) => {
+                  const singleTaskPhase: PlanPhase = {
+                    ...phase,
+                    taskIds: [task.id],
+                  };
+                  const prompt = buildImplementPhasePrompt(
+                    state,
+                    singleTaskPhase,
+                    [task],
+                    promptContext
+                  );
+                  log.info(
+                    `  [parallel] Task ${task.id}: "${task.title}" — ${prompt.length} chars`
+                  );
+                  return retryExecute(executor, prompt, options, retryOpts);
+                })
               );
-              log.info(`  [parallel] Task ${task.id}: "${task.title}" — ${prompt.length} chars`);
-              return retryExecute(executor, prompt, options, retryOpts);
-            })
-          );
 
-          for (let j = 0; j < results.length; j++) {
+              for (let j = 0; j < results.length; j++) {
+                log.info(
+                  `  [parallel] Task ${phaseTasks[j].id} complete (${results[j].result.length} chars)`
+                );
+              }
+            } else {
+              // Sequential: single executor call with all phase tasks
+              const prompt = buildImplementPhasePrompt(state, phase, phaseTasks, promptContext);
+              log.info(`Executing phase prompt — ${prompt.length} chars`);
+              const result = await retryExecute(executor, prompt, options, retryOpts);
+              log.info(`Phase complete (${result.result.length} chars)`);
+            }
+            phaseSucceeded = true;
+          } catch (phaseErr: unknown) {
+            if (isGraphBubbleUp(phaseErr)) throw phaseErr;
+
+            lastPhaseError = phaseErr instanceof Error ? phaseErr : new Error(String(phaseErr));
+            const category = classifyNodeError(lastPhaseError.message);
+
+            if (category === 'non-fixable' || phaseAttempt >= nodeFixMaxAttempts) {
+              if (phaseAttempt >= nodeFixMaxAttempts) {
+                log.info(`Phase ${phase.id} auto-fix exhausted after ${phaseAttempt} attempt(s)`);
+              }
+              throw lastPhaseError;
+            }
+
+            // Attempt auto-fix
+            phaseAttempt++;
+            nodeFixAttempts++;
+            const startedAt = new Date().toISOString();
             log.info(
-              `  [parallel] Task ${phaseTasks[j].id} complete (${results[j].result.length} chars)`
+              `Phase ${phase.id} failed, attempting auto-fix ${phaseAttempt}/${nodeFixMaxAttempts}`
             );
+
+            const fixPrompt = buildNodeFixPrompt(
+              `implement:${phase.id}`,
+              lastPhaseError.message,
+              state
+            );
+            const fixResult = await executor.execute(fixPrompt, options);
+
+            if (fixResult.result.trimStart().startsWith('UNFIXABLE')) {
+              log.info(`Auto-fix reported UNFIXABLE for phase ${phase.id}`);
+              nodeFixHistory.push({
+                attempt: phaseAttempt,
+                nodeName: `implement:${phase.id}`,
+                errorSummary: lastPhaseError.message.slice(0, 500),
+                startedAt,
+                outcome: 'unfixable',
+              });
+              throw lastPhaseError;
+            }
+
+            nodeFixHistory.push({
+              attempt: phaseAttempt,
+              nodeName: `implement:${phase.id}`,
+              errorSummary: lastPhaseError.message.slice(0, 500),
+              startedAt,
+              outcome: 'retry',
+            });
+
+            log.info(`Auto-fix applied, retrying phase ${phase.id}`);
           }
-        } else {
-          // Sequential: single executor call with all phase tasks
-          const prompt = buildImplementPhasePrompt(state, phase, phaseTasks, promptContext);
-          log.info(`Executing phase prompt — ${prompt.length} chars`);
-          const result = await retryExecute(executor, prompt, options, retryOpts);
-          log.info(`Phase complete (${result.result.length} chars)`);
         }
 
         const phaseDurationMs = Date.now() - phaseStartTime;
         await recordPhaseEnd(phaseTimingId, phaseDurationMs);
+
+        // Update fix history outcome to 'fixed' if phase succeeded after fix
+        if (phaseAttempt > 0 && nodeFixHistory.length > 0) {
+          const lastRecord = nodeFixHistory[nodeFixHistory.length - 1];
+          if (lastRecord.outcome === 'retry') {
+            lastRecord.outcome = 'fixed';
+          }
+        }
 
         completedTasks += phaseTasks.length;
         markPhaseComplete(state.specDir, phase.id, log);
@@ -243,7 +323,13 @@ export function createImplementNode(executor: IAgentExecutor) {
         });
       }
 
-      return { currentNode: 'implement', messages };
+      const result: Partial<FeatureAgentState> = { currentNode: 'implement', messages };
+      if (nodeFixHistory.length > 0) {
+        result.nodeFixAttempts = nodeFixAttempts;
+        result.nodeFixHistory = nodeFixHistory;
+        result.nodeFixStatus = 'success';
+      }
+      return result;
     } catch (err: unknown) {
       if (isGraphBubbleUp(err)) throw err;
 

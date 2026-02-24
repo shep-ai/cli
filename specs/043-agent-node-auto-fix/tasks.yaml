@@ -1,3 +1,6 @@
+name: Agent Node Auto-Fix
+summary: 7 tasks across 4 phases implementing node-level auto-fix wrapper
+
 tasks:
   - id: task-1
     title: Add NodeFixRecord TypeSpec model

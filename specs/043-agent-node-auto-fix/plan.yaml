@@ -1,3 +1,6 @@
+name: Agent Node Auto-Fix
+summary: Higher-order withAutoFix wrapper that catches node errors, classifies fixability, prompts AI for fix, and retries
+
 phases:
   - id: phase-1
     name: Domain Model & State Channels

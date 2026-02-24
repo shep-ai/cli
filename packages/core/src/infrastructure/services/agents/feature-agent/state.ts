@@ -1,5 +1,5 @@
 import { Annotation } from '@langchain/langgraph';
-import type { ApprovalGates, CiFixRecord } from '@/domain/generated/output.js';
+import type { ApprovalGates, CiFixRecord, NodeFixRecord } from '@/domain/generated/output.js';
 
 /**
  * State annotation for the feature-agent graph.
@@ -87,6 +87,19 @@ export const FeatureAgentAnnotation = Annotation.Root({
     default: () => [],
   }),
   ciFixStatus: Annotation<'idle' | 'watching' | 'fixing' | 'success' | 'exhausted' | 'timeout'>({
+    reducer: (_prev, next) => next,
+    default: () => 'idle',
+  }),
+  // --- Node-level auto-fix state ---
+  nodeFixAttempts: Annotation<number>({
+    reducer: (_prev, next) => next,
+    default: () => 0,
+  }),
+  nodeFixHistory: Annotation<NodeFixRecord[]>({
+    reducer: (prev, next) => [...prev, ...next],
+    default: () => [],
+  }),
+  nodeFixStatus: Annotation<'idle' | 'fixing' | 'success' | 'exhausted'>({
     reducer: (_prev, next) => next,
     default: () => 'idle',
   }),
