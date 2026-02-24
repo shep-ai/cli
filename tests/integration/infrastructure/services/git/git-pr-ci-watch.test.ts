@@ -93,6 +93,17 @@ Run concluded: cancelled
     expect(result.status).toBe('failure');
   });
 
+  it('returns pending when no runs found for branch', async () => {
+    vi.mocked(mockExec).mockResolvedValueOnce({
+      stdout: JSON.stringify([]),
+      stderr: '',
+    });
+
+    const result = await service.watchCi(cwd, branch);
+
+    expect(result.status).toBe('pending');
+  });
+
   it('CI_TIMEOUT: exec rejection with "timed out" throws GitPrError with CI_TIMEOUT code', async () => {
     const timeoutMs = 30000;
     mockRunList();
@@ -117,16 +128,5 @@ Run concluded: cancelled
         timeout: timeoutMs,
       }
     );
-  });
-
-  it('returns pending when no runs found for branch', async () => {
-    vi.mocked(mockExec).mockResolvedValueOnce({
-      stdout: JSON.stringify([]),
-      stderr: '',
-    });
-
-    const result = await service.watchCi(cwd, branch);
-
-    expect(result.status).toBe('pending');
   });
 });

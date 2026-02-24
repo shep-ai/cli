@@ -1,0 +1,147 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: condense-ai-context-docs
+summary: >
+  Pure documentation editing plan: rewrite CLAUDE.md (622 → ≤100 lines) and AGENTS.md (809 → ≤100 lines)
+  by retaining only mandatory rules, essential commands, and architecture pointers, replacing all
+  verbose inline content with single-line references to existing docs/. Three sequential phases:
+  pre-flight link verification, file rewrites, post-edit validation.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Markdown
+  - YAML
+relatedLinks:
+  - docs/architecture/clean-architecture.md
+  - docs/architecture/agent-system.md
+  - docs/architecture/settings-service.md
+  - docs/development/tdd-guide.md
+  - docs/development/spec-driven-workflow.md
+  - docs/development/typespec-guide.md
+  - docs/development/cicd.md
+  - docs/development/adding-agents.md
+  - docs/api/domain-models.md
+  - docs/cli/architecture.md
+  - docs/tui/architecture.md
+  - docs/ui/architecture.md
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Pre-flight: Link Target Verification'
+    description: >
+      Before writing any pointers into the condensed files, verify that every docs/ path used as a
+      replacement target actually exists in the repository. NFR-3 requires zero dead links. This phase
+      is a blocking gate — if any target is missing, either find the correct path or keep the content
+      inline rather than creating a dead pointer.
+    parallel: false
+
+  - id: phase-2
+    name: 'Rewrite CLAUDE.md'
+    description: >
+      Replace the 622-line CLAUDE.md with a seven-section navigational index targeting ~65 lines.
+      Sections: Project, Spec Workflow, Commands, Architecture, Mandatory Rules, Commit Format,
+      Key Docs. All domain model field listings, DI details, TypeSpec guide, CI/CD details,
+      presentation layer details, and pnpm workspace documentation are replaced with one-line
+      pointers to verified docs/ paths. The 4-layer architecture tree is retained as directory
+      names only. All mandatory rules and essential commands are retained verbatim.
+    parallel: false
+
+  - id: phase-3
+    name: 'Rewrite AGENTS.md'
+    description: >
+      Replace the 809-line AGENTS.md with a six-section reference targeted at ~60 lines.
+      Sections: Overview (directory tree), Components, Settings-Driven Agent Resolution,
+      Graph Flow, Approval Modes, Key Docs. Lines 303–810 (planned architecture section)
+      are deleted entirely with no archival. All TypeScript/pseudocode blocks are removed.
+      The settings-driven agent resolution rule is retained in full as the canonical location —
+      CLAUDE.md will point here.
+    parallel: false
+
+  - id: phase-4
+    name: 'Validation'
+    description: >
+      Verify all success criteria: line counts ≤100 via wc -l, presence of all mandatory rules,
+      presence of all essential commands in CLAUDE.md, presence of settings-driven resolution rule
+      in AGENTS.md, no TypeScript code blocks in either file, no dead links, and pnpm validate
+      passes (lint + format + typecheck + tsp:compile on source files).
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - CLAUDE.md
+  - AGENTS.md
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature touches only AI context documents (`CLAUDE.md`, `AGENTS.md`) — no source code,
+  no TypeScript, no domain models, no tests. The condensed files become navigational indexes
+  that point into the existing `docs/` tree, which already provides comprehensive coverage of
+  every topic being removed. The repository's Clean Architecture layers and all other source
+  artifacts remain completely untouched.
+
+  `pnpm validate` runs ESLint, Prettier, TypeScript typecheck, and `tsp:compile` — all on
+  source files, not Markdown. The command will pass regardless of Markdown edits, but running
+  it after the rewrites confirms no inadvertent collateral damage.
+
+  ## Key Design Decisions
+
+  ### Single Source of Truth for Settings-Driven Resolution Rule
+  The rule stays exclusively in `AGENTS.md` (canonical agent architecture doc). `CLAUDE.md`
+  gets one pointer line. This follows the spec's resolved decision and NFR-6 (single source
+  of truth). Prevents future drift between two copies.
+
+  ### Flat Section Structure (No H3 Subsections)
+  Both condensed files use only H2 headings. The existing files' nested H2/H3 structure
+  contributed significantly to their line counts (headings + blank lines + minimal content
+  in each subsection). Flat structure eliminates that overhead while keeping the files
+  scannable per NFR-5.
+
+  ### No TypeScript/Code Blocks
+  Spec-resolved decision. All current code blocks in both files are either aspirational
+  pseudocode (misleading) or duplicated from real source files (stale risk). Source file
+  paths are referenced directly.
+
+  ### Delete Planned Architecture, No Archive
+  AGENTS.md lines 303–810 describe systems that do not exist. Archiving implies merit worth
+  preserving; deleting sends the correct signal. Future architectural plans belong in specs.
+
+  ### Directory Names Only for 4-Layer Tree
+  FR-1 requires the tree to be present. Directory names only (~8 lines) satisfies the
+  requirement vs. ~25 lines for the current file-listing version. The layer name is what
+  an AI needs for navigation; specific filenames change and belong in `ls` output.
+
+  ## Implementation Strategy
+
+  Phase ordering is strictly sequential because each phase is a prerequisite for the next:
+
+  1. **Verify links first** — Writing pointers to unverified paths risks dead links (NFR-3).
+     Completing verification before touching either file means the rewrite can proceed
+     confidently without inline lookup interruptions.
+
+  2. **CLAUDE.md before AGENTS.md** — CLAUDE.md is the primary context file and will contain
+     a pointer to AGENTS.md. Writing CLAUDE.md first establishes the pointer's target
+     expectation; writing AGENTS.md second confirms the settings-driven resolution section
+     is present at the referenced location.
+
+  3. **Validate last** — Post-edit validation is a single gate covering all NFR-1 through
+     NFR-4 criteria. Running it before both files are complete would produce partial results.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Dead links from replaced sections | Phase-1 pre-verifies every docs/ target path before any pointer is written |
+  | Mandatory rule silently dropped | Explicit checklist in task-5 covers all five mandatory rules individually |
+  | Line count creep past 100 | Each section has a stated line budget; task acceptance criteria enforce wc -l ≤100 |
+  | Planned section deletion too broad | Deletion is scoped to AGENTS.md lines 303-810; actual line range verified before delete |
+  | pnpm validate regression | Task-6 runs pnpm validate as final gate; any failure triggers investigation before closing |

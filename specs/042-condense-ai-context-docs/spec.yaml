@@ -1,0 +1,299 @@
+name: condense-ai-context-docs
+number: 42
+branch: feat/042-condense-ai-context-docs
+oneLiner: >-
+  Radically condense CLAUDE.md (622 lines) and AGENTS.md (809 lines) to 80-100
+  lines each using AI context doc best practices
+userQuery: >
+  our claude md and agents md files are ridiculous, we must use no more than
+  80-100 lines, do fast research using best preactices
+summary: >
+  CLAUDE.md (622 lines) and AGENTS.md (809 lines) are bloated AI context files
+  that overwhelm the context window with duplicated details already covered in
+  the docs/ directory. The goal is to ruthlessly condense both files to ≤100
+  lines each by keeping only mandatory rules, essential commands, and
+  architecture pointers — removing all verbose content and aspirational/planned
+  sections that belong in linked docs/.
+phase: Requirements
+sizeEstimate: S
+relatedFeatures: []
+technologies:
+  - Markdown
+  - YAML
+relatedLinks: []
+openQuestions:
+  - question: Should CLAUDE.md retain the full commands table or a minimal subset?
+    resolved: true
+    options:
+      - option: Full commands table
+        description: >
+          Keep every command currently listed (dev, build, test, lint, format,
+          typecheck, spec, tsp, docker). Ensures no command is ever forgotten
+          but adds ~30 lines.
+        selected: false
+      - option: Essential commands only
+        description: >
+          Keep only the commands an AI needs most frequently: build, test
+          (all/unit/int/e2e), lint:fix, validate, dev:cli, dev:web. Remove
+          one-off commands (docker, global link, storybook). Saves ~15 lines.
+          Rarely-used commands are discoverable from package.json.
+        selected: true
+    selectionRationale: >
+      The AI needs the most-used commands at a glance. Rarely-invoked commands
+      (global link, docker build, storybook) are easily found in package.json
+      and CLAUDE.md need not list them all. Essential-only keeps line count in
+      budget while covering 90% of daily usage.
+    answer: Essential commands only
+  - question: Should AGENTS.md retain any code/TypeScript examples at all?
+    resolved: true
+    options:
+      - option: No code examples
+        description: >
+          Remove all TypeScript blocks. Reference the actual source files
+          instead (e.g., "see state.ts"). Keeps the file maximally compact and
+          avoids stale pseudocode. Any AI reading AGENTS.md can open the real
+          files for implementation details.
+        selected: true
+      - option: One representative snippet
+        description: >
+          Keep a single canonical example showing the IAgentExecutorProvider
+          usage pattern (~10 lines). Provides a quick inline reference for the
+          most critical architectural rule without requiring a file hop.
+        selected: false
+    selectionRationale: >
+      AGENTS.md's primary bug is aspirational pseudocode that doesn't match
+      reality. Removing ALL code examples eliminates the risk of stale snippets
+      misleading the AI, and keeps AGENTS.md as a pure navigation/rule document.
+      The real source files are always authoritative.
+    answer: No code examples
+  - question: >-
+      Should the "Planned Architecture (Not Yet Implemented)" section be deleted
+      or archived?
+    resolved: true
+    options:
+      - option: Delete entirely
+        description: >
+          Remove lines 303–810 of AGENTS.md with no backup. Aspirational content
+          has no place in an AI context file. If future architecture decisions
+          need documentation, they belong in a spec or ADR.
+        selected: true
+      - option: Move to docs/architecture/agents-planned.md
+        description: >
+          Archive the section to docs/ so the thinking is not lost. Keeps the
+          ideas available for future reference while removing them from the AI
+          context window.
+        selected: false
+    selectionRationale: >
+      Aspirational pseudocode for systems that do not exist actively misleads AI
+      agents about the current state of the codebase. Archiving it suggests it
+      has merit worth preserving; deleting sends the correct signal that it was
+      premature. Future architectural plans should be created as specs, not
+      embedded in AGENTS.md.
+    answer: Delete entirely
+  - question: >-
+      Should cross-file duplicate content (settings-driven agent resolution) be
+      kept in one file or both?
+    resolved: true
+    options:
+      - option: AGENTS.md only, pointer from CLAUDE.md
+        description: >
+          Keep the canonical architectural rule in AGENTS.md (where it belongs
+          architecturally) and add a one-line pointer in CLAUDE.md: "Agent
+          resolution: see AGENTS.md". Eliminates duplication while ensuring
+          CLAUDE.md still surfaces the rule.
+        selected: true
+      - option: CLAUDE.md only, remove from AGENTS.md
+        description: >
+          Keep it in CLAUDE.md since that's the primary context file and remove
+          from AGENTS.md. Risk: AGENTS.md loses a critical architectural
+          constraint that is most relevant when working with agent code.
+        selected: false
+    selectionRationale: >
+      AGENTS.md is the authoritative document for agent architecture. The rule
+      lives there. CLAUDE.md only needs a reference pointer. This follows the
+      single-source-of-truth principle and avoids future drift where the two
+      copies diverge.
+    answer: AGENTS.md only, pointer from CLAUDE.md
+content: >
+  ## Problem Statement
+
+
+  `CLAUDE.md` is 622 lines and `AGENTS.md` is 809 lines. Both files are loaded
+  into every AI context
+
+  window, consuming enormous token budget on content that:
+
+  - Duplicates information already in `docs/` (architecture, domain models,
+  testing guides, CLI docs)
+
+  - Contains aspirational/planned architecture with fake code examples
+  (AGENTS.md lines 303–810)
+
+  - Repeats the same rules multiple times (e.g., settings-driven agent
+  resolution appears verbatim in both files)
+
+  - Includes exhaustive domain model field listings better suited for API docs
+
+  - Has verbose code snippets for patterns already described in
+  `docs/development/`
+
+
+  Best practices for AI context docs (CLAUDE.md, AGENTS.md) recommend: mandatory
+  rules only,
+
+  key commands, architecture pointers with links, and nothing duplicating linked
+  docs.
+
+
+  ## Success Criteria
+
+
+  - [ ] `CLAUDE.md` is ≤100 lines after condensing
+
+  - [ ] `AGENTS.md` is ≤100 lines after condensing
+
+  - [ ] The "Planned Architecture (Not Yet Implemented)" section (AGENTS.md
+  lines 303–810) is fully deleted
+
+  - [ ] No content from `docs/` is duplicated in either file — only
+  pointers/links
+
+  - [ ] Every section that was removed has a corresponding link to where the
+  detail now lives
+
+  - [ ] All mandatory rules still present: TDD mandate, TypeSpec-first,
+  settings-driven agents, Storybook stories, Conventional Commits
+
+  - [ ] All essential commands still present: build, test, dev:cli, dev:web,
+  lint:fix, validate
+
+  - [ ] Architecture 4-layer directory tree still present in CLAUDE.md
+
+  - [ ] Settings-driven agent resolution rule present in AGENTS.md (not
+  duplicated in CLAUDE.md)
+
+  - [ ] CLAUDE.md contains a one-line pointer to AGENTS.md for agent resolution
+  rule
+
+  - [ ] Both files contain zero TypeScript/code example blocks
+
+  - [ ] `pnpm validate` passes (no build or lint regressions from doc changes)
+
+
+  ## Functional Requirements
+
+
+  - **FR-1**: Rewrite `CLAUDE.md` to ≤100 lines, retaining project overview,
+  spec-driven workflow chain,
+    TDD mandate, essential commands, 4-layer architecture tree, mandatory rules, and commit format.
+  - **FR-2**: Rewrite `AGENTS.md` to ≤100 lines, retaining directory structure
+  tree, components table,
+    settings-driven resolution architectural rule, graph flow summary, approval modes table, and
+    supported agents table.
+  - **FR-3**: Delete the entire "Planned Architecture (Not Yet Implemented)"
+  section from `AGENTS.md`
+    (currently lines 303–810) with no archival.
+  - **FR-4**: Replace all inline domain model field listings in `CLAUDE.md` with
+  a single pointer line
+    referencing `docs/api/domain-models.md` (or equivalent).
+  - **FR-5**: Replace all verbose DI, TypeSpec, CI/CD, and Presentation layer
+  sections in `CLAUDE.md`
+    with one-line pointers to their respective `docs/` pages.
+  - **FR-6**: Remove all TypeScript/code example blocks from both files;
+  reference source files directly.
+
+  - **FR-7**: Eliminate duplicate content across files — the settings-driven
+  agent resolution rule
+    must appear only in `AGENTS.md`; `CLAUDE.md` must contain only a pointer to it.
+  - **FR-8**: All links/pointers added to replace removed sections must
+  reference real, existing files
+    in the `docs/` directory or the codebase.
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1 — Line budget**: Each file MUST be ≤100 lines when measured with `wc
+  -l`. This is a hard
+    constraint, not a target.
+  - **NFR-2 — Completeness of mandatory rules**: Every rule tagged as MANDATORY
+  in the current files
+    (TDD, TypeSpec-first, settings-driven agents, Storybook stories, Conventional Commits format) must
+    survive the condensing — none may be silently dropped.
+  - **NFR-3 — Link validity**: Every `docs/` pointer added in place of removed
+  content must reference
+    a path that actually exists in the repository. No dead links.
+  - **NFR-4 — No regressions**: `pnpm validate` (lint + format + typecheck +
+  tsp) must pass after changes,
+    confirming no inadvertent breakage from touching the root doc files.
+  - **NFR-5 — Readability**: The condensed files must be readable top-to-bottom
+  in under 60 seconds.
+    Sections should use consistent heading levels; no orphaned headings with no content.
+  - **NFR-6 — Single source of truth**: Any fact appearing in both files today
+  must exist in exactly one
+    file after the rewrite. The other file may point to it but must not restate it.
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Keep full commands table or essential subset? | Essential commands only
+  | Rarely-used commands discoverable from package.json; keeps budget |
+
+  | 2 | Code examples in AGENTS.md? | No code examples | Eliminates stale
+  pseudocode risk; source files are always authoritative |
+
+  | 3 | Delete or archive planned architecture section? | Delete entirely |
+  Aspirational pseudocode misleads AI; future plans belong in specs |
+
+  | 4 | Duplicate agent resolution rule — one file or both? | AGENTS.md only,
+  pointer from CLAUDE.md | Single source of truth; AGENTS.md is the canonical
+  agent doc |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | `CLAUDE.md` | High | Primary AI context file — needs ~85% reduction |
+
+  | `AGENTS.md` | High | Agent context file — needs ~88% reduction, remove
+  planned section entirely |
+
+  | `docs/` | None | Existing docs remain unchanged; CLAUDE.md/AGENTS.md will
+  link to them |
+
+
+  ## Dependencies
+
+
+  - `docs/` directory already exists with detailed coverage of all topics being
+  removed
+
+  - No code changes required — purely documentation editing
+
+  - Existing `docs/` links must be verified to exist before replacing inline
+  content with pointers
+
+
+  ## Size Estimate
+
+
+  **S** — Pure documentation editing with no code changes. Two files to rewrite
+  from scratch using
+
+  the existing content as source material. Target: CLAUDE.md ≤100 lines,
+  AGENTS.md ≤100 lines.
+
+  Primary challenge is ruthless prioritization of what an AI truly needs vs.
+  what belongs in docs/.
+rejectionFeedback:
+  - iteration: 1
+    message: rebase onto main
+    phase: merge
+    timestamp: '2026-02-24T22:01:51.941Z'
