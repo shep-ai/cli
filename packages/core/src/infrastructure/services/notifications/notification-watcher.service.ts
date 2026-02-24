@@ -79,6 +79,8 @@ export class NotificationWatcherService {
   private readonly pollIntervalMs: number;
   private readonly trackedRuns = new Map<string, WatcherState>();
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  // Suppresses notifications on the first poll to avoid replaying historical state
+  private isBootstrapped = false;
 
   constructor(
     runRepository: IAgentRunRepository,
@@ -146,7 +148,9 @@ export class NotificationWatcherService {
         };
 
         this.trackedRuns.set(run.id, newState);
-        this.emitStatusEvent(run, newState);
+        if (this.isBootstrapped) {
+          this.emitStatusEvent(run, newState);
+        }
 
         // Check for completed phases on first observation
         await this.checkPhaseCompletions(run.id, newState);
@@ -166,6 +170,10 @@ export class NotificationWatcherService {
         // Same status — just check for phase completions
         await this.checkPhaseCompletions(run.id, prevState);
       }
+    }
+
+    if (!this.isBootstrapped) {
+      this.isBootstrapped = true;
     }
 
     // Clean up tracking for runs that disappeared from the list
@@ -199,17 +207,19 @@ export class NotificationWatcherService {
       if (timing.completedAt && !state.completedPhases.has(timing.phase)) {
         state.completedPhases.add(timing.phase);
 
-        const event: NotificationEvent = {
-          eventType: NotificationEventType.PhaseCompleted,
-          agentRunId: runId,
-          featureName: state.featureName,
-          phaseName: timing.phase,
-          message: `Completed ${timing.phase} phase`,
-          severity: NotificationSeverity.Info,
-          timestamp: new Date().toISOString(),
-        };
+        if (this.isBootstrapped) {
+          const event: NotificationEvent = {
+            eventType: NotificationEventType.PhaseCompleted,
+            agentRunId: runId,
+            featureName: state.featureName,
+            phaseName: timing.phase,
+            message: `Completed ${timing.phase} phase`,
+            severity: NotificationSeverity.Info,
+            timestamp: new Date().toISOString(),
+          };
 
-        this.notificationService.notify(event);
+          this.notificationService.notify(event);
+        }
       }
     }
   }
