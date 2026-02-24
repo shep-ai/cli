@@ -150,36 +150,6 @@ export default async function HomePage() {
     nodesep: 15,
   });
 
-  // Position "+ Add Repository" below the last repo node (no-features case) or
-  // vertically centered with a bottom feature node (features case).
-  const repoNodes = laid.nodes.filter((n) => n.type === 'repositoryNode');
-  const featureNodes = laid.nodes.filter((n) => n.type === 'featureNode');
-  const repoX = repoNodes[0]?.position.x ?? 0;
-
-  let addRepoPosition: { x: number; y: number };
-  if (featureNodes.length > 0) {
-    // Mirror how dagre centers repo nodes with their connected features
-    const sortedFeatures = [...featureNodes].sort((a, b) => a.position.y - b.position.y);
-    const centerIdx = Math.floor(sortedFeatures.length / 2);
-    const targetFeature =
-      sortedFeatures[centerIdx + 1] ?? sortedFeatures[sortedFeatures.length - 1];
-    // Center the add-repo node (h=50) with the target feature node (h=140)
-    addRepoPosition = { x: repoX, y: targetFeature.position.y + 70 - 25 };
-  } else {
-    // No features — place below the bottom-most repo node with a gap
-    const lastRepoY = repoNodes.length > 0 ? Math.max(...repoNodes.map((n) => n.position.y)) : 0;
-    const repoHeight = 50;
-    const gap = 200;
-    addRepoPosition = { x: repoX, y: lastRepoY + repoHeight + gap };
-  }
-
-  laid.nodes.push({
-    id: 'add-repository',
-    type: 'addRepositoryNode',
-    position: addRepoPosition,
-    data: {},
-  } as CanvasNodeType);
-
   return (
     <div className="h-screen w-full">
       <ControlCenter initialNodes={laid.nodes} initialEdges={laid.edges} />
