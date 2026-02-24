@@ -306,6 +306,51 @@ describe('CreateFeatureUseCase', () => {
   });
 
   // -------------------------------------------------------------------------
+  // Child uses parent's repositoryPath, not caller's cwd
+  // -------------------------------------------------------------------------
+
+  describe('with parentId — repositoryPath resolution', () => {
+    it('should use parent repositoryPath instead of input repositoryPath', async () => {
+      const parent = makeParentFeature({
+        lifecycle: SdlcLifecycle.Implementation,
+        repositoryPath: '/original/repo',
+      });
+      mockFeatureRepo.findById = vi.fn().mockResolvedValue(parent);
+
+      const result = await useCase.execute({
+        ...baseInput,
+        repositoryPath: '/original/repo/wt/parent-feature', // caller is in a worktree
+        parentId: 'parent-id',
+      });
+
+      // The child feature should store the parent's repo path, not the worktree path
+      expect(result.feature.repositoryPath).toBe('/original/repo');
+
+      // Worktree and slug resolution should also use the original repo path
+      expect(mockWorktreeService.ensureGitRepository).toHaveBeenCalledWith('/original/repo');
+      expect(mockSlugResolver.resolveUniqueSlug).toHaveBeenCalledWith(
+        expect.any(String),
+        '/original/repo'
+      );
+      expect(mockGitPrService.getDefaultBranch).toHaveBeenCalledWith('/original/repo');
+      expect(mockWorktreeService.getWorktreePath).toHaveBeenCalledWith(
+        '/original/repo',
+        expect.any(String)
+      );
+    });
+
+    it('should use input repositoryPath when no parentId is given', async () => {
+      const result = await useCase.execute({
+        ...baseInput,
+        repositoryPath: '/my/repo',
+      });
+
+      expect(result.feature.repositoryPath).toBe('/my/repo');
+      expect(mockWorktreeService.ensureGitRepository).toHaveBeenCalledWith('/my/repo');
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // task-7: Cycle detection
   // -------------------------------------------------------------------------
 

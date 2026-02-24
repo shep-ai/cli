@@ -57,19 +57,22 @@ export class CreateFeatureUseCase {
   ) {}
 
   async execute(input: CreateFeatureInput): Promise<CreateFeatureResult> {
-    // Ensure the target directory is a git repository (auto-init if needed)
-    // Must run before slug resolution which needs git commands
-    await this.worktreeService.ensureGitRepository(input.repositoryPath);
-
     // Resolve parent feature and determine child initial lifecycle (FR-8, FR-9, FR-12, FR-19)
     let initialLifecycle: SdlcLifecycle = SdlcLifecycle.Requirements;
     let shouldSpawn = true;
+    // When creating a child feature, always use the parent's repositoryPath (the
+    // original repo root), not the caller's cwd which may be a worktree (FR-10).
+    let effectiveRepoPath = input.repositoryPath;
 
     if (input.parentId) {
       const parent = await this.featureRepo.findById(input.parentId);
       if (!parent) {
         throw new Error(`Parent feature not found: ${input.parentId}`);
       }
+
+      // Use the parent's repositoryPath so the child worktree branches from the
+      // original repo, not from inside another worktree.
+      effectiveRepoPath = parent.repositoryPath;
 
       // Cycle detection — O(depth) upward walk through ancestor chain (FR-19)
       const visited = new Set<string>([input.parentId]);
@@ -99,18 +102,22 @@ export class CreateFeatureUseCase {
       }
     }
 
+    // Ensure the target directory is a git repository (auto-init if needed)
+    // Must run before slug resolution which needs git commands
+    await this.worktreeService.ensureGitRepository(effectiveRepoPath);
+
     const metadata = await this.metadataGenerator.generateMetadata(input.userInput);
     const originalSlug = metadata.slug;
 
     // Find a unique slug — the branch may exist from a previous (deleted) feature
     const { slug, branch, warning } = await this.slugResolver.resolveUniqueSlug(
       originalSlug,
-      input.repositoryPath
+      effectiveRepoPath
     );
 
     // Determine next feature number for this repo
     const existingFeatures = await this.featureRepo.list({
-      repositoryPath: input.repositoryPath,
+      repositoryPath: effectiveRepoPath,
     });
     const featureNumber = existingFeatures.length + 1;
 
@@ -118,9 +125,9 @@ export class CreateFeatureUseCase {
     const runId = randomUUID();
 
     // Create git worktree branching from the repo's default branch
-    const defaultBranch = await this.gitPrService.getDefaultBranch(input.repositoryPath);
-    const worktreePath = this.worktreeService.getWorktreePath(input.repositoryPath, branch);
-    await this.worktreeService.create(input.repositoryPath, branch, worktreePath, defaultBranch);
+    const defaultBranch = await this.gitPrService.getDefaultBranch(effectiveRepoPath);
+    const worktreePath = this.worktreeService.getWorktreePath(effectiveRepoPath, branch);
+    await this.worktreeService.create(effectiveRepoPath, branch, worktreePath, defaultBranch);
 
     // Initialize spec directory — full user input goes into spec.yaml as-is
     const { specDir } = await this.specInitializer.initialize(
@@ -131,7 +138,7 @@ export class CreateFeatureUseCase {
     );
 
     // Resolve or create repository entity for this path
-    const normalizedPath = input.repositoryPath.replace(/\/+$/, '') || input.repositoryPath;
+    const normalizedPath = effectiveRepoPath.replace(/\/+$/, '') || effectiveRepoPath;
     let repository = await this.repositoryRepo.findByPath(normalizedPath);
     if (!repository) {
       const repoName = normalizedPath.split('/').pop() ?? normalizedPath;
@@ -151,7 +158,7 @@ export class CreateFeatureUseCase {
       slug,
       description: metadata.description,
       userQuery: input.userInput,
-      repositoryPath: input.repositoryPath,
+      repositoryPath: effectiveRepoPath,
       branch,
       lifecycle: initialLifecycle,
       messages: [],
@@ -183,7 +190,7 @@ export class CreateFeatureUseCase {
       prompt: input.userInput,
       threadId: randomUUID(),
       featureId: feature.id,
-      repositoryPath: input.repositoryPath,
+      repositoryPath: effectiveRepoPath,
       ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
       createdAt: now.toISOString(),
       updatedAt: now.toISOString(),
@@ -192,7 +199,7 @@ export class CreateFeatureUseCase {
 
     // Only spawn the agent immediately if the child is not blocked (FR-9, FR-16)
     if (shouldSpawn) {
-      this.agentProcess.spawn(feature.id, runId, input.repositoryPath, specDir, worktreePath, {
+      this.agentProcess.spawn(feature.id, runId, effectiveRepoPath, specDir, worktreePath, {
         ...(input.approvalGates ? { approvalGates: input.approvalGates } : {}),
         threadId: agentRun.threadId,
         push: input.push ?? false,
