@@ -1,0 +1,48 @@
+/**
+ * Get Agent Session Use Case
+ *
+ * Retrieves a single agent provider CLI session by ID, including its
+ * conversation messages (up to messageLimit). Throws SessionNotFoundError
+ * if the session does not exist.
+ */
+
+import { injectable, inject } from 'tsyringe';
+import type { AgentSession, AgentType } from '../../../domain/generated/output.js';
+import { getSettings } from '../../../infrastructure/services/settings.service.js';
+import { AgentSessionRepositoryRegistry } from '../../services/agents/agent-session-repository.registry.js';
+import { SessionNotFoundError } from '../../../domain/errors/session-not-found.error.js';
+
+export interface GetAgentSessionInput {
+  /** The session ID (provider-native filename without extension) */
+  id: string;
+  /** Agent type to query; falls back to configured default when omitted */
+  agentType?: AgentType;
+  /** Maximum number of messages to include (default 20, 0 = all) */
+  messageLimit?: number;
+}
+
+@injectable()
+export class GetAgentSessionUseCase {
+  constructor(
+    @inject(AgentSessionRepositoryRegistry)
+    private readonly registry: AgentSessionRepositoryRegistry
+  ) {}
+
+  async execute(input: GetAgentSessionInput): Promise<AgentSession> {
+    const agentType = this.resolveAgentType(input.agentType);
+    const repository = this.registry.getRepository(agentType);
+    const messageLimit = input.messageLimit ?? 20;
+
+    const session = await repository.findById(input.id, { messageLimit });
+
+    if (session === null) {
+      throw new SessionNotFoundError(input.id);
+    }
+
+    return session;
+  }
+
+  private resolveAgentType(agentType?: AgentType): AgentType {
+    return agentType ?? getSettings().agent.type;
+  }
+}
