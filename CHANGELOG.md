@@ -1,3 +1,13 @@
+# [1.51.0](https://github.com/shep-ai/cli/compare/v1.50.0...v1.51.0) (2026-02-24)
+
+### Bug Fixes
+
+- **agents:** prevent data loss in merge node for no-remote repos ([#118](https://github.com/shep-ai/cli/issues/118)) ([12816c5](https://github.com/shep-ai/cli/commit/12816c5553f7acbbb7c2ac094c8e319448f1b87d))
+
+### Features
+
+- **agents:** add dev mock agent executor with full SDLC fixture support ([#117](https://github.com/shep-ai/cli/issues/117)) ([77400ab](https://github.com/shep-ai/cli/commit/77400abe8d0a03d416f1b368f51f3037e7b8a2d2))
+
 # [1.50.0](https://github.com/shep-ai/cli/compare/v1.49.1...v1.50.0) (2026-02-24)
 
 ### Bug Fixes
