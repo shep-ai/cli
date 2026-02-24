@@ -18,7 +18,18 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
 
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    {
+      name: 'showcase',
+      use: {
+        ...devices['Desktop Chrome'],
+        video: 'on',
+        launchOptions: { args: ['--autoplay-policy=no-user-gesture-required'] },
+      },
+      testMatch: 'realtime-showcase.spec.ts',
+    },
+  ],
 
   /* Run your local dev server before starting the tests */
   webServer: {

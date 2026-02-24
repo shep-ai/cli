@@ -167,7 +167,7 @@ export function useControlCenterState(
     setNodes((ns) => applyNodeChanges(changes, ns));
   }, []);
 
-  const closeSound = useSound('transition_down', { volume: 0.3 });
+  const closeSound = useSound('transition_down', { volume: 0.01 });
   const clearSelection = useCallback(() => {
     setSelectedNode((prev) => {
       if (prev) closeSound.play();

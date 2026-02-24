@@ -39,7 +39,18 @@ self.addEventListener('install', () => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(self.clients.claim());
+  event.waitUntil(
+    self.clients.claim().then(async () => {
+      // After claiming clients, check if there are open tabs that need a connection.
+      // This handles the case where the SW updated via skipWaiting() and the old
+      // SW's EventSource was closed — we auto-start for existing clients.
+      const clients = await self.clients.matchAll({ type: 'window' });
+      if (clients.length > 0 && subscriberCount === 0) {
+        subscriberCount = clients.length;
+        connect();
+      }
+    })
+  );
 });
 
 // --- Client messaging ---

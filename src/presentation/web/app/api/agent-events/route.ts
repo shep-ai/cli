@@ -20,6 +20,7 @@ import type { IPhaseTimingRepository } from '@shepai/core/application/ports/outp
 import type { Feature, AgentRun } from '@shepai/core/domain/generated/output';
 import {
   AgentRunStatus,
+  SdlcLifecycle,
   NotificationEventType,
   NotificationSeverity,
 } from '@shepai/core/domain/generated/output';
@@ -34,9 +35,23 @@ const HEARTBEAT_INTERVAL_MS = 30_000;
 
 interface CachedFeatureState {
   status: AgentRunStatus | null;
+  lifecycle: string;
   completedPhases: Set<string>;
   featureName: string;
 }
+
+/**
+ * Maps SdlcLifecycle values to agent graph node names so the client
+ * can derive the correct FeatureLifecyclePhase via mapPhaseNameToLifecycle().
+ */
+const LIFECYCLE_TO_NODE: Partial<Record<SdlcLifecycle, string>> = {
+  [SdlcLifecycle.Analyze]: 'analyze',
+  [SdlcLifecycle.Requirements]: 'requirements',
+  [SdlcLifecycle.Research]: 'research',
+  [SdlcLifecycle.Planning]: 'plan',
+  [SdlcLifecycle.Implementation]: 'implement',
+  [SdlcLifecycle.Review]: 'merge',
+};
 
 const STATUS_TO_EVENT: Partial<
   Record<AgentRunStatus, { eventType: NotificationEventType; severity: NotificationSeverity }>
@@ -56,6 +71,14 @@ const STATUS_TO_EVENT: Partial<
   [AgentRunStatus.failed]: {
     eventType: NotificationEventType.AgentFailed,
     severity: NotificationSeverity.Error,
+  },
+  [AgentRunStatus.interrupted]: {
+    eventType: NotificationEventType.AgentFailed,
+    severity: NotificationSeverity.Warning,
+  },
+  [AgentRunStatus.cancelled]: {
+    eventType: NotificationEventType.AgentFailed,
+    severity: NotificationSeverity.Warning,
   },
 };
 
@@ -87,8 +110,14 @@ export function GET(request: Request): Response {
       }
 
       function emitEvent(event: NotificationEvent) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[SSE] emit: ${event.eventType} for "${event.featureName}"${event.phaseName ? ` (${event.phaseName})` : ''}`
+        );
         enqueue(`event: notification\ndata: ${JSON.stringify(event)}\n\n`);
       }
+
+      let pollErrorCount = 0;
 
       async function poll() {
         if (stopped) return;
@@ -132,6 +161,7 @@ export function GET(request: Request): Response {
 
               cache.set(feature.id, {
                 status: run.status,
+                lifecycle: feature.lifecycle,
                 completedPhases,
                 featureName: feature.name,
               });
@@ -151,6 +181,23 @@ export function GET(request: Request): Response {
                   ...(phase && { phaseName: phase }),
                   message: `Agent status: ${run.status}`,
                   severity: mapping.severity,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            }
+
+            // Check for lifecycle change (agent stays "running" but moves through phases)
+            if (prev.lifecycle !== feature.lifecycle) {
+              prev.lifecycle = feature.lifecycle;
+              const nodeName = LIFECYCLE_TO_NODE[feature.lifecycle as SdlcLifecycle];
+              if (nodeName) {
+                emitEvent({
+                  eventType: NotificationEventType.PhaseCompleted,
+                  agentRunId: run.id,
+                  featureName: feature.name,
+                  phaseName: nodeName,
+                  message: `Entered ${nodeName} phase`,
+                  severity: NotificationSeverity.Info,
                   timestamp: new Date().toISOString(),
                 });
               }
@@ -177,8 +224,17 @@ export function GET(request: Request): Response {
               // Ignore timing errors
             }
           }
-        } catch {
-          // Ignore poll errors
+          pollErrorCount = 0; // Reset on success
+        } catch (error) {
+          pollErrorCount++;
+          // Log first few errors, then throttle to avoid spamming
+          if (pollErrorCount <= 3 || pollErrorCount % 60 === 0) {
+            // eslint-disable-next-line no-console
+            console.error(
+              `[SSE /api/agent-events] poll error #${pollErrorCount}:`,
+              error instanceof Error ? error.message : error
+            );
+          }
         }
       }
 

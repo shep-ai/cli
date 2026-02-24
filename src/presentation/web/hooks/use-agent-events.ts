@@ -48,12 +48,39 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    // Fallback: direct EventSource when SW not supported
-    if (!navigator.serviceWorker) {
+    // ?sse=direct bypasses the Service Worker for debugging
+    const bypassSW =
+      typeof location !== 'undefined' && new URLSearchParams(location.search).has('sse');
+
+    // Fallback: direct EventSource when SW not supported or bypassed
+    if (!navigator.serviceWorker || bypassSW) {
       return connectDirectEventSource(runId, setEvents, setLastEvent, setConnectionStatus);
     }
 
     let cancelled = false;
+    const fallbackCleanupRef = { current: undefined as (() => void) | undefined };
+
+    function subscribeToWorker(worker: ServiceWorker) {
+      if (cancelled) return;
+      swRef.current = worker;
+      worker.postMessage({ type: 'subscribe', runId });
+      setConnectionStatus('connecting');
+    }
+
+    // Listen for messages from whatever SW controls this page
+    navigator.serviceWorker.addEventListener('message', onMessage);
+
+    // Re-subscribe when SW controller changes (e.g., after SW update via skipWaiting)
+    function handleControllerChange() {
+      if (cancelled) return;
+      const newController = navigator.serviceWorker.controller;
+      if (newController) {
+        swRef.current = newController;
+        newController.postMessage({ type: 'subscribe', runId });
+        setConnectionStatus('connecting');
+      }
+    }
+    navigator.serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
     navigator.serviceWorker
       .register(SW_PATH, { scope: '/' })
@@ -62,43 +89,41 @@ export function useAgentEvents(options?: UseAgentEventsOptions): UseAgentEventsR
 
         // Use the active worker, or wait for it to activate
         const sw = registration.active ?? registration.installing ?? registration.waiting;
-        if (!sw) return;
-
-        function activate(worker: ServiceWorker) {
-          if (cancelled) return;
-          swRef.current = worker;
-          navigator.serviceWorker.addEventListener('message', onMessage);
-          worker.postMessage({ type: 'subscribe', runId });
-          setConnectionStatus('connecting');
+        if (!sw) {
+          // No worker at all — fall back to direct EventSource
+          fallbackCleanupRef.current = connectDirectEventSource(
+            runId,
+            setEvents,
+            setLastEvent,
+            setConnectionStatus
+          );
+          return;
         }
 
         if (sw.state === 'activated') {
-          activate(sw);
+          subscribeToWorker(sw);
         } else {
           sw.addEventListener('statechange', () => {
-            if (sw.state === 'activated') activate(sw);
+            if (sw.state === 'activated') subscribeToWorker(sw);
           });
         }
       })
       .catch(() => {
         // SW registration failed — fall back to direct EventSource
         if (!cancelled) {
-          const cleanup = connectDirectEventSource(
+          fallbackCleanupRef.current = connectDirectEventSource(
             runId,
             setEvents,
             setLastEvent,
             setConnectionStatus
           );
-          // Store cleanup for when effect tears down
-          fallbackCleanupRef.current = cleanup;
         }
       });
-
-    const fallbackCleanupRef = { current: undefined as (() => void) | undefined };
 
     return () => {
       cancelled = true;
       navigator.serviceWorker.removeEventListener('message', onMessage);
+      navigator.serviceWorker.removeEventListener('controllerchange', handleControllerChange);
       swRef.current?.postMessage({ type: 'unsubscribe' });
       swRef.current = null;
       fallbackCleanupRef.current?.();
