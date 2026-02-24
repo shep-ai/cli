@@ -1,3 +1,9 @@
+## [1.51.1](https://github.com/shep-ai/cli/compare/v1.51.0...v1.51.1) (2026-02-24)
+
+### Bug Fixes
+
+- **web:** stabilize node clickability during optimistic feature creation ([#120](https://github.com/shep-ai/cli/issues/120)) ([641f4b8](https://github.com/shep-ai/cli/commit/641f4b85bbe64fa3c5e75f82642e6c8a623dc06c))
+
 # [1.51.0](https://github.com/shep-ai/cli/compare/v1.50.0...v1.51.0) (2026-02-24)
 
 ### Bug Fixes
