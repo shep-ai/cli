@@ -58,6 +58,11 @@ const STATUS_PRIORITY: Record<string, number> = {
  * Returns the current graph node as a phase label with an activity indicator.
  */
 function formatStatus(feature: Feature, run: AgentRun | null): string {
+  // Blocked features show "Waiting" — the parent relationship is conveyed by tree indentation
+  if (feature.lifecycle === 'Blocked') {
+    return `${colors.warning(symbols.dotEmpty)} ${colors.warning('Blocked')}`;
+  }
+
   if (!run) {
     return `${colors.muted(symbols.dotEmpty)} ${colors.muted(feature.lifecycle)}`;
   }
@@ -198,12 +203,46 @@ export function createLsCommand(): Command {
           .map((feature, i) => ({ feature, run: runs[i], phases: timings[i] }))
           .sort((a, b) => getStatusPriority(a.run) - getStatusPriority(b.run));
 
-        const rows = paired.map(({ feature, run, phases }) => {
+        // Build tree: group blocked children under their parent
+        type Entry = (typeof paired)[number];
+        const childrenByParent = new Map<string, Entry[]>();
+        const roots: Entry[] = [];
+        for (const entry of paired) {
+          const pid = entry.feature.parentId;
+          if (pid && entry.feature.lifecycle === 'Blocked') {
+            const list = childrenByParent.get(pid) ?? [];
+            list.push(entry);
+            childrenByParent.set(pid, list);
+          } else {
+            roots.push(entry);
+          }
+        }
+        // Flatten: parent then its blocked children
+        const ordered: { entry: Entry; indent: boolean }[] = [];
+        for (const entry of roots) {
+          ordered.push({ entry, indent: false });
+          const kids = childrenByParent.get(entry.feature.id);
+          if (kids) {
+            for (const kid of kids) {
+              ordered.push({ entry: kid, indent: true });
+            }
+            childrenByParent.delete(entry.feature.id);
+          }
+        }
+        // Append orphaned blocked children (parent not in current list)
+        for (const kids of childrenByParent.values()) {
+          for (const kid of kids) {
+            ordered.push({ entry: kid, indent: false });
+          }
+        }
+
+        const rows = ordered.map(({ entry: { feature, run, phases }, indent }) => {
           const repo = path.basename(feature.repositoryPath);
+          const prefix = indent ? `${colors.muted('└')} ` : '';
 
           return [
-            feature.id.slice(0, 8),
-            truncate(feature.name, 30),
+            prefix + feature.id.slice(0, 8),
+            prefix + truncate(feature.name, indent ? 28 : 30),
             formatStatus(feature, run),
             colors.muted(repo),
             formatGates(feature),
