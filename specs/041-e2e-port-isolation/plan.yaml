@@ -1,0 +1,122 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: e2e-port-isolation
+summary: >
+  Three targeted changes fix all E2E port-conflict failures. First, append --no-open to
+  commandArgs inside startCliServer so no test can accidentally open a browser. Second,
+  drop the exact-port assertion in the "default port" test and verify only that the server
+  started and /version is reachable. Third, add a findFreePort helper to ui.test.ts and
+  rewrite the "custom port" and "port conflict" tests to allocate ports dynamically via
+  port-0 binding — the same pattern already present in blockPort(). All changes are confined
+  to tests/helpers/cli/server.ts and tests/e2e/cli/ui.test.ts; no production code is touched.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - Vitest (E2E CLI test runner)
+  - Node.js net module (port-0 probing — already imported in ui.test.ts)
+  - Commander.js (--no-open flag already implemented in ui.command.ts)
+  - TypeScript
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Suppress Browser Auto-Open in Helper'
+    description: >
+      Append '--no-open' to the commandArgs array inside startCliServer before the spawn
+      call (server.ts line 73). This is a one-line change that makes the flag unconditional
+      for all current and future tests using the helper. No other code changes in this file.
+    parallel: false
+
+  - id: phase-2
+    name: 'Hermetic Test Rewrites in ui.test.ts'
+    description: >
+      Add a findFreePort() helper (port-0 probe pattern, same as existing blockPort()), then
+      rewrite the three affected test cases: (1) drop the .toBe(4050) assertion from the
+      default-port test, (2) use a dynamic free port instead of hardcoded 14050 in the
+      custom-port test, (3) use a dynamic free port P with blockPort(P) and assert
+      server.port > P in the port-conflict test. Logically depends on phase-1 because
+      --no-open must be injected before these tests are considered browser-safe.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - tests/helpers/cli/server.ts
+  - tests/e2e/cli/ui.test.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  All three bugs live entirely in the test layer. The fix applies two established
+  patterns already present in the codebase:
+
+  - **--no-open injection**: `startCliServer` (server.ts:73) assembles `commandArgs`
+    before calling `spawn`. Appending `'--no-open'` there mirrors how `NO_COLOR` /
+    `FORCE_COLOR` are injected via `env` at lines 79-81 — it is the canonical place
+    to set test-only CLI behaviour.
+
+  - **Port-0 probing**: `blockPort()` (ui.test.ts:45-54) already creates a
+    `net.createServer`, binds to a specific port, and resolves the server handle.
+    The `findFreePort` helper does the same but binds to port 0, letting the OS assign
+    a free port atomically. This is identical to the pattern in `isPortAvailable()`
+    (packages/core/src/infrastructure/services/port.service.ts:22-38). No new imports
+    or packages are required.
+
+  The `ServerProcess` interface, `waitForServer` signature, and `SERVER_READY_PATTERN`
+  regex are completely unchanged, preserving NFR-5 backward compatibility.
+
+  ## Key Design Decisions
+
+  **--no-open in helper vs per-call-site**
+  Injecting inside `startCliServer` is a single-point fix. The helper is exclusively
+  used in headless test contexts where browser opening is always undesirable. Any future
+  test that forgets to pass `--no-open` explicitly is protected automatically. The only
+  trade-off — inability to test the auto-open code path through this helper — is
+  acceptable because that behaviour cannot be asserted in a headless CI environment.
+
+  **Drop exact port assertion vs conditional check**
+  The "default port behavior" test goal is startup verification, not port-number pinning.
+  `SERVER_READY_PATTERN` already captures the actual bound port from stdout, so
+  `server.port` is always the live value. The `toBe(4050)` assertion adds no semantic
+  value beyond what the "port conflict" test already covers more precisely. Removing it
+  is the minimal, most robust fix.
+
+  **Port-0 probe vs importing findAvailablePort from packages/core**
+  NFR-3 explicitly restricts changes to `tests/` only. Importing from production
+  infrastructure crosses that boundary unnecessarily. The stdlib port-0 pattern is
+  already present in the same test file (blockPort), so a findFreePort helper is
+  consistent, self-contained, and adds zero dependencies.
+
+  **Assert server.port > P vs === P+1**
+  The CLI's auto-increment scans upward from the requested port. If P+1 is also
+  occupied (e.g., multiple stale processes), asserting `=== P+1` would be a false
+  failure. `> P` expresses the true invariant — the server found a free port above
+  the blocked one — without over-constraining the implementation.
+
+  ## Implementation Strategy
+
+  Phase 1 (server.ts) must come before phase 2 (ui.test.ts) logically because
+  the --no-open injection must be in place for the rewritten tests to be browser-safe.
+  In practice both files can be edited in the same commit since neither depends on
+  the other at compile time; the ordering is a logical dependency, not a build one.
+
+  The total change surface is approximately 40 lines across two files.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | findFreePort race condition (OS re-uses port before CLI starts) | Port-0 binding is the canonical atomic mechanism; the same timing window exists in blockPort() and is accepted practice for test infrastructure |
+  | --no-open breaks a test that intentionally exercises auto-open | No such test exists; the flag is already in Commander so no new code path is introduced |
+  | Dynamic port assertion (> P) too permissive | The test still verifies the server started and /version returns 200 on the auto-incremented port, which is the real behavioural guarantee |
+  | Next.js lock file collision between tests | Already handled by the existing beforeEach rmSync in ui.test.ts; unchanged |
