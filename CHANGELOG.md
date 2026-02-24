@@ -1,3 +1,9 @@
+## [1.51.2](https://github.com/shep-ai/cli/compare/v1.51.1...v1.51.2) (2026-02-24)
+
+### Bug Fixes
+
+- **ci:** make e2e ui tests hermetic and suppress browser auto-open ([#121](https://github.com/shep-ai/cli/issues/121)) ([f984b76](https://github.com/shep-ai/cli/commit/f984b765ba4094a238447ea82a46c95e28be216f))
+
 ## [1.51.1](https://github.com/shep-ai/cli/compare/v1.51.0...v1.51.1) (2026-02-24)
 
 ### Bug Fixes
