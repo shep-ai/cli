@@ -114,12 +114,15 @@ export default async function HomePage() {
         data: nodeData,
       });
 
-      edges.push({
-        id: `edge-${repoNodeId}-${featureNodeId}`,
-        source: repoNodeId,
-        target: featureNodeId,
-        style: { strokeDasharray: '5 5' },
-      });
+      // Child features connect via parent→child dependency edge, not directly to repo
+      if (!feature.parentId) {
+        edges.push({
+          id: `edge-${repoNodeId}-${featureNodeId}`,
+          source: repoNodeId,
+          target: featureNodeId,
+          style: { strokeDasharray: '5 5' },
+        });
+      }
     });
   }
 

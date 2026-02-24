@@ -193,7 +193,11 @@ export function useControlCenterState(
   );
 
   const createFeatureNode = useCallback(
-    (sourceNodeId: string | null, dataOverride?: Partial<FeatureNodeData>): string => {
+    (
+      sourceNodeId: string | null,
+      dataOverride?: Partial<FeatureNodeData>,
+      edgeType?: string
+    ): string => {
       const id = `feature-${Date.now()}-${nextFeatureId++}`;
       const newFeatureData: FeatureNodeData = {
         name: dataOverride?.name ?? 'New Feature',
@@ -294,10 +298,13 @@ export function useControlCenterState(
         setEdges((currentEdges) => [
           ...currentEdges,
           {
-            id: `edge-${sourceNodeId}-${id}`,
+            id:
+              edgeType === 'dependencyEdge'
+                ? `dep-${sourceNodeId}-${id}`
+                : `edge-${sourceNodeId}-${id}`,
             source: sourceNodeId,
             target: id,
-            style: { strokeDasharray: '5 5' },
+            ...(edgeType ? { type: edgeType } : { style: { strokeDasharray: '5 5' } }),
           },
         ]);
       }
@@ -316,15 +323,25 @@ export function useControlCenterState(
     setIsCreateDrawerOpen(true);
   }, []);
 
+  const [pendingParentFeatureId, setPendingParentFeatureId] = useState<string | undefined>();
+
   const handleCreateFeatureSubmit = useCallback(
     (data: FeatureCreatePayload) => {
       // 1. Insert optimistic node instantly
-      const tempId = createFeatureNode(pendingRepoNodeId, {
-        state: 'creating',
-        name: data.name,
-        description: data.description,
-        repositoryPath: data.repositoryPath,
-      });
+      // For child features, connect to the parent feature node instead of the repo node
+      const sourceNodeId = pendingParentFeatureId
+        ? `feat-${pendingParentFeatureId}`
+        : pendingRepoNodeId;
+      const tempId = createFeatureNode(
+        sourceNodeId,
+        {
+          state: 'creating',
+          name: data.name,
+          description: data.description,
+          repositoryPath: data.repositoryPath,
+        },
+        pendingParentFeatureId ? 'dependencyEdge' : undefined
+      );
 
       // 2. Close drawer and clear pending state immediately
       setIsCreateDrawerOpen(false);
@@ -351,7 +368,7 @@ export function useControlCenterState(
           toast.error('Failed to create feature');
         });
     },
-    [router, createFeatureNode, pendingRepoNodeId, setEdges]
+    [router, createFeatureNode, pendingRepoNodeId, pendingParentFeatureId, setEdges]
   );
 
   const closeCreateDrawer = useCallback(() => {
@@ -428,15 +445,10 @@ export function useControlCenterState(
     setIsCreateDrawerOpen(true);
   }, []);
 
-  const [pendingParentFeatureId, setPendingParentFeatureId] = useState<string | undefined>();
-
   const handleAddFeatureToFeature = useCallback(
     (featureNodeId: string) => {
       // Extract feature ID from node ID (format: "feat-<uuid>")
       const featureId = featureNodeId.startsWith('feat-') ? featureNodeId.slice(5) : featureNodeId;
-      // Find the repo path from the parent feature node
-      const featureNode = nodes.find((n) => n.id === featureNodeId);
-      const repoPath = featureNode ? (featureNode.data as FeatureNodeData).repositoryPath : '';
       // Find the repo node that owns this feature
       const repoEdge = edges.find((e) => e.target === featureNodeId);
       const repoNodeId = repoEdge?.source ?? null;
@@ -446,7 +458,7 @@ export function useControlCenterState(
       setPendingParentFeatureId(featureId);
       setIsCreateDrawerOpen(true);
     },
-    [nodes, edges]
+    [edges]
   );
 
   const handleLayout = useCallback(

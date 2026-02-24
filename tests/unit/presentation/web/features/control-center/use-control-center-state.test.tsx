@@ -1171,7 +1171,7 @@ describe('useControlCenterState', () => {
       // Capture the callback reference after edges have changed
       const after = capturedState!.handleAddFeatureToFeature;
 
-      // handleAddFeatureToFeature depends on [nodes, edges] so it will be
+      // handleAddFeatureToFeature depends on [edges] so it will be
       // recreated when edges change (e.g. after createFeatureNode adds an edge).
       // This is expected since it needs current edges to resolve repo paths.
       expect(after).not.toBe(before);

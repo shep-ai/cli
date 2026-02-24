@@ -5,7 +5,7 @@ import type { EdgeProps } from '@xyflow/react';
 
 /**
  * Custom React Flow edge for parent→child feature dependencies.
- * Renders an amber dashed line to distinguish from repo→feature edges.
+ * Uses the same dashed style as repo→feature edges for visual consistency.
  */
 export function DependencyEdge(props: EdgeProps) {
   const [edgePath] = getSmoothStepPath({
@@ -23,9 +23,7 @@ export function DependencyEdge(props: EdgeProps) {
       id={props.id}
       path={edgePath}
       style={{
-        stroke: '#f59e0b', // amber-500
-        strokeWidth: 2,
-        strokeDasharray: '6 4',
+        strokeDasharray: '5 5',
       }}
     />
   );

@@ -21,6 +21,11 @@ import type { FeatureNodeState } from './feature-node-state-config';
  * 6. No agent run → fall back to plan tasks / lifecycle
  */
 export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): FeatureNodeState {
+  // Blocked lifecycle takes priority — child waiting on parent regardless of agent run
+  if (feature.lifecycle === SdlcLifecycle.Blocked) {
+    return 'blocked';
+  }
+
   if (agentRun) {
     switch (agentRun.status) {
       case AgentRunStatus.waitingApproval:
@@ -36,11 +41,6 @@ export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): F
       case AgentRunStatus.pending:
         return 'running';
     }
-  }
-
-  // Blocked lifecycle — child waiting on parent regardless of agent run
-  if (feature.lifecycle === SdlcLifecycle.Blocked) {
-    return 'blocked';
   }
 
   // No agent run — fall back to plan tasks
