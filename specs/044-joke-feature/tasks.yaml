@@ -1,0 +1,221 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: joke-feature
+summary: >
+  6 tasks across 4 phases: domain data creation, application use case (TDD),
+  presentation command + wiring (TDD), and final validation.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - Commander.js
+  - tsyringe (DI)
+  - picocolors (via existing ui/formatters.ts)
+  - Vitest (testing)
+relatedLinks: []
+
+# Structured task list — this is the single source of truth for tasks.
+# The content field below is a summary only; it does NOT duplicate task details.
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create domain jokes data file'
+    description: >
+      Create packages/core/src/domain/jokes.ts containing a readonly string array
+      of 20–30 curated developer/programming jokes. This file has no imports outside
+      the domain layer and no business logic — it is a pure data constant following
+      the lifecycle-gates.ts precedent. No TDD cycle applies because there is no
+      executable logic to test; the use case tests in task-2 will indirectly exercise
+      the array by importing and indexing it.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'File exists at packages/core/src/domain/jokes.ts'
+      - 'Exports `export const JOKES: readonly string[]`'
+      - 'Array contains at least 20 entries (satisfies FR-4)'
+      - 'All jokes are developer/programming-themed'
+      - 'File imports nothing — no external or internal dependencies'
+      - '`pnpm typecheck` passes with the new file'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'TDD: GetJokeUseCase — RED → GREEN → REFACTOR'
+    description: >
+      Write the unit test file FIRST (RED), then implement GetJokeUseCase to make
+      it pass (GREEN), then refactor. The use case lives at
+      packages/core/src/application/use-cases/get-joke.use-case.ts and accepts an
+      injectable randomFn constructor parameter (default: Math.random) per NFR-3.
+      It imports JOKES from domain/jokes.ts and returns a synchronous string.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test file exists at tests/unit/application/use-cases/get-joke.use-case.test.ts'
+      - 'Use case file exists at packages/core/src/application/use-cases/get-joke.use-case.ts'
+      - '`new GetJokeUseCase(() => 0).execute()` returns `JOKES[0]`'
+      - '`new GetJokeUseCase(() => 0.9999).execute()` returns `JOKES[JOKES.length - 1]`'
+      - 'Default (no args) construction produces a string that is a member of JOKES'
+      - 'Test asserts `JOKES.length >= 20`'
+      - '`@injectable()` decorator is applied to the class'
+      - 'Use case imports only from domain/ — no presentation or infrastructure imports'
+      - '`execute()` return type is `string` (synchronous)'
+      - '`pnpm test:unit` passes with 100% statement coverage for the use case file'
+    tdd:
+      red:
+        - 'Create tests/unit/application/use-cases/get-joke.use-case.test.ts'
+        - 'Import GetJokeUseCase (does not exist yet — test fails at import/compile)'
+        - 'Write test: `new GetJokeUseCase(() => 0).execute()` equals `JOKES[0]`'
+        - 'Write test: `new GetJokeUseCase(() => 0.9999).execute()` equals `JOKES[JOKES.length - 1]`'
+        - 'Write test: default constructor (no args) returns a string in JOKES'
+        - 'Write test: `JOKES.length >= 20`'
+        - 'Confirm tests fail (red) — use case file does not exist'
+      green:
+        - 'Create packages/core/src/application/use-cases/get-joke.use-case.ts'
+        - 'Import JOKES from domain/jokes.ts'
+        - 'Add `@injectable()` decorator (import from tsyringe)'
+        - 'Implement constructor: `constructor(private readonly randomFn: () => number = Math.random)`'
+        - 'Implement `execute(): string` — return `JOKES[Math.floor(this.randomFn() * JOKES.length)]`'
+        - 'Run `pnpm test:unit` — all new tests pass'
+      refactor:
+        - 'Verify import paths use the project alias convention (e.g., @core/ or relative)'
+        - 'Confirm no unused imports'
+        - 'Run `pnpm validate` — lint and typecheck must pass'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Register GetJokeUseCase in DI container'
+    description: >
+      Add `container.registerSingleton(GetJokeUseCase)` to the `initializeContainer()`
+      function in src/infrastructure/di/container.ts. The constructor randomFn defaulting
+      to Math.random means no factory is required — registerSingleton with no options works
+      exactly as for other stateless use cases (e.g. ListToolsUseCase).
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - '`container.registerSingleton(GetJokeUseCase)` is present in initializeContainer()'
+      - 'GetJokeUseCase is imported at the top of container.ts'
+      - '`pnpm typecheck` passes'
+      - '`pnpm test:unit` continues to pass (no regressions)'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'TDD: joke.command.ts — RED → GREEN → REFACTOR'
+    description: >
+      Write the command unit test FIRST (RED), then implement createJokeCommand() to
+      make it pass (GREEN), then refactor. The command factory lives at
+      src/presentation/cli/commands/joke.command.ts. It resolves GetJokeUseCase from
+      the DI container, calls execute(), and prints the result wrapped in fmt.italic.
+      Tests use the vi.hoisted + vi.mock pattern established in other command tests.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Test file exists at tests/unit/presentation/cli/commands/joke.command.test.ts'
+      - 'Command file exists at src/presentation/cli/commands/joke.command.ts'
+      - '`createJokeCommand()` returns a Commander Command named `"joke"`'
+      - 'Invoking the command action calls `container.resolve(GetJokeUseCase)`'
+      - 'Invoking the command action calls `useCase.execute()`'
+      - 'Output is `console.log(fmt.italic(useCase.execute()))` — italic formatting applied'
+      - 'Command appears with a description in help text'
+      - 'No domain or application layer imports of Commander.js, fmt, or picocolors'
+      - '`pnpm test:unit` passes for the new test file'
+    tdd:
+      red:
+        - 'Create tests/unit/presentation/cli/commands/joke.command.test.ts'
+        - 'Use `vi.hoisted` to define mockResolve and mockExecute (returns a joke string)'
+        - 'Use `vi.mock` to mock the DI container: `container.resolve` returns the mock use case'
+        - 'Write test: `createJokeCommand().name()` equals `"joke"`'
+        - 'Write test: invoking the action calls `mockExecute` and `console.log` with `fmt.italic(result)`'
+        - 'Confirm tests fail (red) — command file does not exist'
+      green:
+        - 'Create src/presentation/cli/commands/joke.command.ts'
+        - 'Import Command from commander, container from DI, GetJokeUseCase from application'
+        - 'Import fmt from existing ui/formatters.ts (verify exact export path first)'
+        - 'Implement `createJokeCommand()`: new Command("joke").description(...).action(() => { const uc = container.resolve(GetJokeUseCase); console.log(fmt.italic(uc.execute())); })'
+        - 'Run `pnpm test:unit` — new tests pass'
+      refactor:
+        - 'Ensure command description is clear and appears in help text'
+        - 'Verify no leaking imports (domain data array should not be imported in command file)'
+        - 'Run `pnpm validate` — lint, format, and typecheck must pass'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Register joke command in CLI bootstrap'
+    description: >
+      Add `program.addCommand(createJokeCommand())` to the `bootstrap()` function in
+      src/presentation/cli/index.ts, alongside the existing top-level commands. Import
+      createJokeCommand at the top of the file. This is a one-line change plus one import.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - '`createJokeCommand` is imported in src/presentation/cli/index.ts'
+      - '`program.addCommand(createJokeCommand())` is present in `bootstrap()`'
+      - '`shep --help` output lists the `joke` command'
+      - '`shep joke --help` exits 0 and shows command description'
+      - '`pnpm test:unit` passes with no regressions'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Final validation: lint, typecheck, full test suite'
+    description: >
+      Run the full validation pipeline to confirm zero regressions and that all
+      acceptance criteria from the spec are satisfied before marking the feature ready.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - '`pnpm validate` exits 0 (lint, format, typecheck all pass)'
+      - '`pnpm test` exits 0 (no regressions in unit or integration tests)'
+      - '`shep joke` prints an italic-formatted joke and exits 0'
+      - 'Running `shep joke` multiple times produces varied output (manual check)'
+      - 'No new entries in root or package-level package.json (NFR-2)'
+      - 'Zero TypeSpec files modified (spec confirms no TypeSpec changes needed)'
+    tdd: null
+    estimatedEffort: '10min'
+
+# Total effort estimate
+totalEstimate: '1h 50min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content — summary and acceptance checklist only.
+# Individual task details live in the tasks[] array above (no duplication).
+content: |
+  ## Summary
+
+  Lightweight `shep joke` CLI easter egg — 6 tasks across 4 phases.
+
+  Domain data is created first (phase 1, no TDD needed for static arrays). The
+  application use case follows with a full TDD cycle and DI registration (phase 2).
+  The Commander.js command is built with TDD and wired into the CLI bootstrap (phase 3).
+  A final validation run confirms zero regressions (phase 4).
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All 6 tasks completed and marked Done in tasks.yaml
+  - [ ] `pnpm test` passes (`pnpm test:unit` + all suites)
+  - [ ] `pnpm validate` passes (lint, format, typecheck)
+  - [ ] `shep joke` prints an italic joke and exits 0
+  - [ ] `shep --help` lists the `joke` command
+  - [ ] No new npm dependencies added (package.json diff clean)
+  - [ ] No TypeSpec files modified
+  - [ ] PR created with commit message `feat(cli): add shep joke command`
+
+  ---
+
+  _Task details are in the tasks[] array of tasks.yaml_

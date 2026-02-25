@@ -1,0 +1,205 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: joke-feature
+number: 044
+branch: feat/044-joke-feature
+oneLiner: Add a `shep joke` CLI command that displays a random developer joke
+userQuery: >
+  Feature: add some joke
+
+  FAST!
+summary: >
+  Adds a lightweight `shep joke` CLI command that prints a random developer/programming joke
+  to the terminal. The feature uses a hardcoded curated list of jokes (no external API dependency),
+  follows Clean Architecture layering, and wires into the existing Commander.js command registry.
+  A GetJokeUseCase in the application layer selects a random joke from a domain-level jokes array
+  and returns it as a plain string. No new npm packages, no DB changes, no TypeSpec changes.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js
+  - tsyringe (DI)
+  - Vitest (testing)
+  - Node.js
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should jokes come from a hardcoded list, a local SQLite table, or an external API?'
+    resolved: true
+    options:
+      - option: 'Hardcoded list in domain layer'
+        description: >
+          A static array of curated developer jokes lives in packages/core/src/domain/.
+          Zero new dependencies, zero latency, works fully offline, trivially testable,
+          and aligns with the user's explicit "FAST!" constraint. New jokes require a
+          code change and deploy, but for a fun CLI Easter egg this is entirely acceptable.
+        selected: true
+      - option: 'Local SQLite table'
+        description: >
+          Jokes stored in the existing SQLite DB. Allows runtime joke additions without a
+          deploy, but adds schema migrations, repository boilerplate, and DB read latency
+          for a non-critical command. Significant over-engineering for this scope.
+        selected: false
+      - option: 'External API (e.g. JokeAPI)'
+        description: >
+          Fetches a joke from a third-party REST API at runtime. Enables an unlimited,
+          ever-fresh joke pool but introduces network latency, a runtime HTTP dependency,
+          error handling for offline/rate-limit scenarios, and a new npm package. Contradicts
+          the "FAST!" minimal-scope directive.
+        selected: false
+    selectionRationale: >
+      Hardcoded list is the only option consistent with the user's "FAST!" constraint.
+      It requires zero new dependencies, zero infrastructure changes, and is trivially
+      unit-testable by seeding Math.random. The joke corpus is small and stable enough
+      that a code-level list is maintainable indefinitely.
+    answer: 'Hardcoded list in domain layer'
+
+  - question: 'Should the command surface jokes in the Web UI as well as the CLI?'
+    resolved: true
+    options:
+      - option: 'CLI only'
+        description: >
+          The joke command lives exclusively in the CLI presentation layer. Minimal scope,
+          zero web changes, consistent with the "FAST!" request. Web UI integration can
+          be a follow-up if ever desired.
+        selected: true
+      - option: 'CLI + Web UI widget'
+        description: >
+          Exposes the same GetJokeUseCase via an API endpoint and renders jokes in the
+          Web UI (e.g., an empty-state widget). Requires an API route, a React component,
+          and a Storybook story — substantially more work for marginal value.
+        selected: false
+    selectionRationale: >
+      CLI-only matches the user's intent ("add some joke — FAST!"). Adding Web UI coverage
+      would multiply the file count and require Storybook stories, API endpoints, and
+      React components. That scope can be revisited if there is user demand.
+    answer: 'CLI only'
+
+  - question: 'Should the joke output include formatting (color, borders) or be plain text?'
+    resolved: true
+    options:
+      - option: 'Plain text only'
+        description: >
+          Print the joke as a raw string to stdout. Simple, scriptable, pipe-friendly,
+          and consistent with minimal scope. No chalk/picocolors dependency needed beyond
+          what already exists in the project.
+        selected: false
+      - option: 'Light formatting with existing chalk'
+        description: >
+          Use the project-level chalk (already a transitive dep) to italicize or colorize
+          the joke text, making it visually distinct from regular command output. Adds
+          personality without introducing new packages or complexity.
+        selected: true
+    selectionRationale: >
+      Light formatting costs nothing (chalk is already available in the codebase) and
+      meaningfully improves the "delight" factor — the whole point of the command. Plain
+      text would feel like a missed opportunity for a fun feature. The formatting logic
+      stays in the presentation layer so the use case stays pure.
+    answer: 'Light formatting with existing chalk'
+
+  - question: 'How many jokes should be in the initial hardcoded list?'
+    resolved: true
+    options:
+      - option: '10 jokes (minimal)'
+        description: >
+          A very small curated set. Fast to write, but repetition becomes noticeable
+          quickly if the user runs the command more than a few times per session.
+        selected: false
+      - option: '20–30 jokes (balanced)'
+        description: >
+          Enough variety that casual daily use rarely produces immediate repeats.
+          Takes ~10 minutes to curate, stays well within "S" size estimate, and
+          provides a satisfying corpus for a fun CLI easter egg.
+        selected: true
+      - option: '50+ jokes (extensive)'
+        description: >
+          Low repetition even for heavy users, but curating 50+ quality developer
+          jokes meaningfully increases authoring time and risks filler/low-quality
+          entries. Scope creep for an "S" feature.
+        selected: false
+    selectionRationale: >
+      20–30 jokes strikes the right balance: enough variety for daily use without
+      inflating authoring time or the file size. The list can always grow in a
+      follow-up commit with no architectural changes.
+    answer: '20–30 jokes (balanced)'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  The `shep` CLI is a powerful but serious tool. A `shep joke` command adds a moment of levity
+  for developers, improving CLI personality and user delight. The user explicitly requested this
+  feature to be implemented "FAST!" — indicating minimal scope and no over-engineering.
+
+  ## Success Criteria
+
+  - [ ] Running `shep joke` prints a developer/programming joke to stdout and exits 0
+  - [ ] Each invocation has a reasonable chance of returning a different joke (random selection)
+  - [ ] The command is registered and visible in `shep --help` output
+  - [ ] `GetJokeUseCase` unit tests achieve 100% statement coverage
+  - [ ] The command factory unit test verifies the use case is called and output is printed
+  - [ ] No new npm packages are added (`package.json` diff shows zero new dependencies)
+  - [ ] `pnpm validate` passes (lint, format, typecheck) after implementation
+  - [ ] `pnpm test` passes with no regressions
+
+  ## Functional Requirements
+
+  - **FR-1**: The CLI MUST expose a `joke` subcommand accessible as `shep joke`.
+  - **FR-2**: Invoking `shep joke` MUST print exactly one joke to stdout and exit with code 0.
+  - **FR-3**: The joke MUST be selected at random from a hardcoded curated list on every invocation.
+  - **FR-4**: The joke list MUST contain at least 20 developer/programming-themed jokes.
+  - **FR-5**: The command MUST appear in the help text produced by `shep --help` and `shep joke --help`.
+  - **FR-6**: The `GetJokeUseCase` MUST be injectable via tsyringe and resolved through the DI container.
+  - **FR-7**: The joke domain data MUST reside in `packages/core/src/domain/` with no presentation-layer imports.
+  - **FR-8**: The CLI command handler MUST be a thin adapter: resolve use case → call execute → print result.
+  - **FR-9**: Joke output SHOULD use light chalk formatting (e.g., italic or a distinct color) to visually differentiate it from command output.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 Performance**: The command MUST complete in under 100 ms (hardcoded list, no I/O).
+  - **NFR-2 No new dependencies**: Zero new entries in root or package-level `package.json` files.
+  - **NFR-3 Testability**: `GetJokeUseCase` MUST accept an injectable random source so tests can deterministically assert joke selection.
+  - **NFR-4 Maintainability**: Adding new jokes MUST require editing only the domain jokes array — no other files.
+  - **NFR-5 Clean Architecture compliance**: No domain or application layer file MAY import from Commander.js, chalk, or any presentation concern.
+  - **NFR-6 Conventional Commits**: The implementation commit MUST follow `feat(cli): add shep joke command` format.
+  - **NFR-7 Scriptability**: When stdout is not a TTY, chalk formatting MUST be suppressed (chalk handles this automatically via `chalk.level`).
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Joke source: hardcoded, SQLite, or external API? | Hardcoded list in domain layer | Zero deps, zero latency, fully offline, trivially testable. Matches "FAST!" directive. |
+  | 2 | CLI only or also Web UI? | CLI only | Web UI would require API route, React component, and Storybook story — out of scope. |
+  | 3 | Plain text or formatted output? | Light chalk formatting | Chalk already available; adds personality at zero cost. Formatting stays in presentation layer. |
+  | 4 | How many jokes? | 20–30 jokes | Enough variety to avoid repetition in daily use without inflating authoring scope. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/joke.command.ts` | Low | New file: thin Commander.js command factory |
+  | `src/presentation/cli/index.ts` | Low | One-line registration of `createJokeCommand()` |
+  | `packages/core/src/domain/jokes.ts` | Low | New file: hardcoded jokes array + `Joke` type alias |
+  | `packages/core/src/application/use-cases/get-joke.use-case.ts` | Low | New file: `GetJokeUseCase` with injectable random source |
+  | `tests/unit/application/use-cases/get-joke.use-case.test.ts` | Low | Unit tests for use case |
+  | `tests/unit/presentation/cli/commands/joke.command.test.ts` | Low | Unit tests for command factory |
+
+  ## Dependencies
+
+  - No new npm packages needed.
+  - Existing infrastructure: `tsyringe` DI container, `commander.js`, `chalk`, `vitest`.
+  - The random source injection (NFR-3) uses a simple `() => number` function type — no additional interface file needed.
+
+  ## Size Estimate
+
+  **S (hours)** — Six files touched (two new source files, two new test files, one domain data file,
+  one registration edit). No DB schema changes, no TypeSpec changes, no web UI, no new packages.
+  Fully consistent with the "FAST!" user request.

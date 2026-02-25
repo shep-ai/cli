@@ -1,0 +1,39 @@
+feature:
+  id: 044-joke-feature
+  name: joke-feature
+  number: 44
+  branch: feat/044-joke-feature
+  lifecycle: implementation
+  createdAt: '2026-02-25T15:20:44Z'
+status:
+  phase: ready-to-implement
+  progress:
+    completed: 0
+    total: 6
+    percentage: 0
+  currentTask: null
+  lastUpdated: '2026-02-25T15:30:00Z'
+  lastUpdatedBy: shep-kit:plan
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - planning
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-25T15:20:44Z'
+    completedBy: feature-agent
+  - phase: plan-complete
+    completedAt: '2026-02-25T15:30:00Z'
+    completedBy: shep-kit:plan
+errors:
+  current: null
+  history: []

@@ -1,0 +1,326 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: joke-feature
+summary: >
+  The joke feature is a lightweight CLI easter egg that fits cleanly into the existing
+  Commander.js + tsyringe + Clean Architecture stack. All open questions are resolved:
+  use a hardcoded domain array, picocolors (not chalk) for formatting via the existing
+  ui/formatters abstraction, and register GetJokeUseCase as a singleton in the DI
+  container following the same pattern as ListToolsUseCase.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js
+  - tsyringe (DI)
+  - picocolors (via existing ui/colors + ui/formatters modules)
+  - Vitest (testing)
+  - Node.js
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Color/Formatting Library'
+    chosen: 'picocolors via existing src/presentation/cli/ui/formatters.ts abstraction'
+    rejected:
+      - 'chalk directly — The spec mentions chalk but the codebase uses picocolors (pc from picocolors). Using chalk would introduce an inconsistency; the existing ui/colors.ts and ui/formatters.ts already wrap picocolors into a unified design system (colors.brand, fmt.italic, etc.).'
+      - 'ANSI escape codes manually — Would bypass the existing design system, risk incorrect TTY detection, and duplicate logic already handled by picocolors.'
+    rationale: >
+      Exploration revealed that the codebase uses picocolors (imported as `pc` from
+      "picocolors"), not chalk. The ui/formatters.ts module exposes `fmt.italic` and
+      ui/colors.ts exposes `colors.accent`, `colors.muted`, etc. The joke command
+      should use `fmt.italic` from these existing modules — zero new imports, full
+      TTY-awareness baked in, and consistent with every other command.
+
+  - title: 'Domain Data File Approach'
+    chosen: 'Plain TypeScript constant array in packages/core/src/domain/jokes.ts'
+    rejected:
+      - 'TypeSpec-defined model — TypeSpec is for persistent entities (Feature, AgentRun, etc.) that map to SQLite tables and API contracts. A static string array is not an entity; it has no id/createdAt/updatedAt and never hits the DB. Adding it to TypeSpec would generate useless output.ts boilerplate.'
+      - 'JSON file loaded at runtime — Adds a file read, error handling, and ESM path resolution complexity for zero benefit. A TS const array is statically typed, tree-shakeable, and zero-latency.'
+    rationale: >
+      The codebase already has hand-authored domain files outside of TypeSpec generation
+      (e.g. domain/lifecycle-gates.ts which exports plain Sets of enums). A jokes.ts file
+      with `export const JOKES: readonly string[]` follows exactly this precedent.
+      TypeSpec is strictly for entities that participate in DB migrations and API contracts.
+
+  - title: 'GetJokeUseCase Injectable Random Source'
+    chosen: 'Constructor parameter with default: randomFn: () => number = Math.random'
+    rejected:
+      - 'Global Math.random with vi.spyOn in tests — Spying on Math.random is fragile (global mutation, teardown risk) and couples tests to a global. The spec explicitly requires an injectable random source (NFR-3).'
+      - 'Separate IRandomService interface + DI token — Over-engineering for a single use case. A simple function type `() => number` with a default parameter achieves full testability with zero ceremony and no new DI token needed.'
+    rationale: >
+      The ListToolsUseCase pattern (direct constructor injection of services) is the right
+      model. For the random source, a default parameter `randomFn: () => number = Math.random`
+      lets the use case be constructed with no arguments in production (container.registerSingleton
+      works without a factory) while tests pass `() => 0` or `() => 0.9999` to assert
+      deterministic joke selection. This satisfies NFR-3 with minimal surface area.
+
+  - title: 'DI Container Registration Strategy'
+    chosen: 'container.registerSingleton(GetJokeUseCase) in initializeContainer()'
+    rejected:
+      - 'container.resolve() called fresh per command invocation — Would create a new instance per call. Stateless use cases are always registered as singletons in this codebase (see CreateFeatureUseCase, ListToolsUseCase); per-call resolution is never done for use cases.'
+      - 'Manual instantiation in command factory without DI — Bypasses the container entirely, making the command untestable with mocked dependencies and violating the established pattern where commands always resolve via container.'
+    rationale: >
+      Every existing use case (CreateFeatureUseCase, ListToolsUseCase, etc.) is registered
+      via `container.registerSingleton(UseCase)`. GetJokeUseCase is stateless so singleton
+      is correct. The command factory calls `container.resolve(GetJokeUseCase)` exactly as
+      version.command.ts resolves IVersionService.
+
+  - title: 'CLI Command Registration Point'
+    chosen: 'Top-level command registered directly in src/presentation/cli/index.ts'
+    rejected:
+      - 'Nested under a parent group command (e.g. shep fun joke) — Existing grouped commands (feat, tools, run) exist because they have multiple subcommands. A single joke command does not justify a parent group; shep joke is simpler and matches user intent.'
+      - 'Auto-discovery via filesystem scan — The codebase registers all commands explicitly in index.ts. Auto-discovery would be a new pattern with no precedent; the "FAST!" constraint rules it out.'
+    rationale: >
+      The cli/index.ts bootstrap function uses `program.addCommand()` for each top-level
+      command (version, tools, run, feat). joke is a single leaf command with no subcommands,
+      so it belongs at the top level alongside version — one line: `program.addCommand(createJokeCommand())`.
+
+  - title: 'execute() Return Type'
+    chosen: 'Synchronous: execute(): string'
+    rejected:
+      - 'Async: execute(): Promise<string> — Unnecessary async wrapper; there is no I/O, no await, and no future API call planned. Wrapping a synchronous array lookup in a Promise misleads callers about the operation nature.'
+      - 'execute(): { joke: string } result object — Adds structure with no benefit for a single scalar return. Every other use case returns the simplest type that satisfies its contract.'
+    rationale: >
+      Array index lookup is synchronous. The codebase does not enforce a universal async
+      interface on use cases — ListToolsUseCase is async because it calls async services;
+      GetJokeUseCase has no such dependency. Synchronous is more honest. If a future joke
+      source needs async, the interface change is a one-liner.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should GetJokeUseCase be decorated with @injectable() given it has no injected deps?'
+    resolved: true
+    options:
+      - option: 'Yes, always decorate with @injectable()'
+        description: >
+          Apply @injectable() even though tsyringe does not strictly require it for classes
+          with no injected constructor parameters. This is consistent style — all use cases
+          in the codebase carry @injectable() — and ensures the class works correctly if
+          dependencies are added later without forgetting the decorator.
+        selected: true
+      - option: 'No, skip @injectable() since there are no @inject() parameters'
+        description: >
+          tsyringe only requires @injectable() when the class has constructor parameters
+          that need injection. Without injected deps, the decorator is technically optional.
+          However, this creates a visual inconsistency with all other use cases.
+        selected: false
+      - option: 'Register via factory instead of registerSingleton to avoid the need for decorators'
+        description: >
+          Use `container.register(GetJokeUseCase, { useFactory: () => new GetJokeUseCase() })`
+          to bypass decorator requirements entirely. This is how repositories are registered
+          (because they need the DB instance). Factory registration is more verbose and is
+          reserved for deps that need runtime resolution — not appropriate here.
+        selected: false
+    selectionRationale: >
+      All use cases in the codebase apply @injectable() regardless of whether they have
+      @inject() parameters (e.g. ListToolsUseCase has @inject but a simpler use case might not).
+      Consistency and future-proofing both point to always including @injectable().
+
+  - question: 'Where should the JOKES array live within the domain layer?'
+    resolved: true
+    options:
+      - option: 'packages/core/src/domain/jokes.ts (domain root, alongside lifecycle-gates.ts)'
+        description: >
+          A new file at the domain layer root. Exports `export const JOKES: readonly string[]`.
+          Simple, discoverable, and follows the precedent of lifecycle-gates.ts which is a
+          plain TS constant file in domain/ with no TypeSpec involvement.
+        selected: true
+      - option: 'packages/core/src/domain/data/jokes.ts (data subdirectory)'
+        description: >
+          A data/ subdirectory to separate static data from business logic files.
+          Adds one level of nesting with no practical benefit; no existing data/ convention
+          exists in domain/.
+        selected: false
+      - option: 'Inline as a private static readonly property inside GetJokeUseCase'
+        description: >
+          Define JOKES as a private static readonly inside the use case class. Keeps data
+          and logic together but violates NFR-4 (adding jokes should only require editing
+          the domain array) since the jokes are now inside the use-case file.
+        selected: false
+    selectionRationale: >
+      The domain/ root already has lifecycle-gates.ts as a precedent for plain TypeScript
+      constant files. Putting jokes.ts alongside it is the most consistent approach and
+      fully satisfies NFR-4 (one file to edit for new jokes) and NFR-5 (domain file has
+      no presentation imports).
+
+  - question: 'How should the joke be formatted in the terminal output?'
+    resolved: true
+    options:
+      - option: 'fmt.italic() from existing ui/formatters.ts'
+        description: >
+          Use `fmt.italic` (maps to `pc.italic`) to italicize the joke string. Visually
+          distinct, uses the existing design system, zero new code. TTY-awareness is built
+          into picocolors — formatting suppressed when not a TTY (satisfies NFR-7).
+        selected: true
+      - option: 'colors.accent() from ui/colors.ts'
+        description: >
+          Use magenta (`pc.magenta`) to make the joke stand out. Color works but
+          `colors.accent` is semantically reserved for IDs and branch names across the
+          codebase; repurposing it for joke text would be inconsistent.
+        selected: false
+      - option: 'messages.info() from ui/messages.ts'
+        description: >
+          Use `messages.info()` which prepends an info symbol (ℹ) and blue color.
+          Incorrectly semanticizes the joke as operational information rather than a fun
+          aside. The info symbol is used for operational guidance, not jokes.
+        selected: false
+    selectionRationale: >
+      fmt.italic is the right semantic choice — jokes are more like quoted text than
+      operational messages or data identifiers. The design system already provides it,
+      TTY suppression is automatic via picocolors, and it differentiates the joke from
+      normal command output without overloading the color semantics used elsewhere.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-25
+
+  ## Technology Decisions
+
+  ### 1. Color/Formatting: picocolors via existing ui/formatters.ts (NOT chalk)
+
+  **Chosen:** `fmt.italic(joke)` from `src/presentation/cli/ui/formatters.ts`
+
+  **Rejected:**
+  - chalk directly — codebase uses picocolors, not chalk; introducing chalk would be inconsistent
+  - Raw ANSI codes — duplicates TTY-detection logic already in picocolors
+
+  **Rationale:** Codebase exploration revealed `ui/colors.ts` (uses `pc` from picocolors) and
+  `ui/formatters.ts` (exports `fmt.italic`, `fmt.bold`, `fmt.dim`, etc.). The joke command uses
+  `fmt.italic` for semantic correctness and full consistency with existing commands like
+  `version.command.ts` which uses `fmt.heading` and `fmt.version`.
+
+  ---
+
+  ### 2. Domain Data: Plain TS constant file (NOT TypeSpec)
+
+  **Chosen:** `packages/core/src/domain/jokes.ts` with `export const JOKES: readonly string[]`
+
+  **Rejected:**
+  - TypeSpec — for entities with DB persistence only; static arrays have no place in tsp/
+  - Runtime JSON file — adds path resolution and error handling overhead for no benefit
+
+  **Rationale:** The domain layer already has `lifecycle-gates.ts` as a precedent for plain
+  TypeScript constant files that are not TypeSpec-generated. The spec explicitly says "No
+  TypeSpec changes" and the architecture confirms TypeSpec is for domain entities that map
+  to DB schemas and API contracts.
+
+  ---
+
+  ### 3. Injectable Random: Default parameter pattern
+
+  **Chosen:** `constructor(private readonly randomFn: () => number = Math.random)`
+
+  **Rejected:**
+  - vi.spyOn(Math, 'random') — global mutation, fragile teardown
+  - IRandomService DI token — over-engineering for a `() => number` function
+
+  **Rationale:** A default parameter lets `container.registerSingleton(GetJokeUseCase)` work
+  with no factory while unit tests construct `new GetJokeUseCase(() => 0)` for deterministic
+  assertions. NFR-3 is fully satisfied with minimal ceremony.
+
+  ---
+
+  ### 4. execute() Return Type: Synchronous string
+
+  **Chosen:** `execute(): string` (synchronous)
+
+  **Rejected:**
+  - `execute(): Promise<string>` — unnecessary async wrapper; no I/O involved
+
+  **Rationale:** Array index lookup is synchronous. The codebase does not enforce a universal
+  async interface on use cases — each use case uses the return type that is honest about its
+  operation.
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | picocolors | Terminal colors/formatting | Use (already present) | Used via existing ui/formatters.ts and ui/colors.ts wrappers |
+  | chalk | Terminal colors | Reject | Not used in codebase; picocolors is the actual dependency |
+  | Commander.js | CLI framework | Use (already present) | All commands use it; `new Command('joke')` |
+  | tsyringe | Dependency injection | Use (already present) | `@injectable()` + `registerSingleton` |
+  | Vitest | Testing | Use (already present) | All unit tests use vitest |
+  | JokeAPI / any HTTP client | External jokes | Reject | Contradicts "FAST!" + NFR-2 (no new deps) |
+  | better-sqlite3 | DB for jokes | Reject | Massive over-engineering; jokes are static data |
+
+  ---
+
+  ## Security Considerations
+
+  - **No attack surface**: The command reads from a hardcoded in-memory array. There is no user
+    input, no file I/O, no network call, and no database interaction.
+  - **No injection risk**: The jokes array is a compile-time constant; runtime data never enters
+    the output path.
+  - **TTY safety**: picocolors automatically suppresses ANSI escape codes when stdout is not a
+    TTY (satisfies NFR-7), preventing corruption of piped output.
+
+  ---
+
+  ## Performance Implications
+
+  - **Latency**: Array index lookup is O(1) and sub-microsecond. The command will complete well
+    inside the 100 ms NFR-1 budget (likely under 10 ms including Node.js startup).
+  - **Memory**: 20–30 joke strings add negligible memory pressure.
+  - **Startup**: No new module imports beyond what is already in the CLI bundle. The jokes array
+    is tree-shakeable if the command is not registered.
+
+  ---
+
+  ## Architecture Notes
+
+  The feature maps to exactly six files, all following established patterns:
+
+  | File | Layer | Pattern Reference |
+  | ---- | ----- | ----------------- |
+  | `packages/core/src/domain/jokes.ts` | Domain | `domain/lifecycle-gates.ts` |
+  | `packages/core/src/application/use-cases/get-joke.use-case.ts` | Application | `use-cases/tools/list-tools.use-case.ts` |
+  | `src/presentation/cli/commands/joke.command.ts` | Presentation | `commands/version.command.ts` |
+  | `src/presentation/cli/index.ts` | Presentation | existing `program.addCommand()` calls |
+  | `tests/unit/application/use-cases/get-joke.use-case.test.ts` | Test | `tests/unit/application/use-cases/tools/list-tools.use-case.test.ts` |
+  | `tests/unit/presentation/cli/commands/joke.command.test.ts` | Test | `tests/unit/presentation/cli/commands/feat/new.command.test.ts` |
+
+  **Clean Architecture compliance:**
+  - `domain/jokes.ts` — imports nothing outside domain/
+  - `application/use-cases/get-joke.use-case.ts` — imports only from domain/
+  - `presentation/cli/commands/joke.command.ts` — imports from application/ and ui/ (presentation only)
+  - Commander.js, picocolors, and fmt.* never appear in application or domain layers
+
+  **DI registration** in `initializeContainer()`:
+  ```typescript
+  container.registerSingleton(GetJokeUseCase);
+  ```
+  No factory needed — the constructor's `randomFn` defaults to `Math.random`.
+
+  **Command registration** in `bootstrap()` in `src/presentation/cli/index.ts`:
+  ```typescript
+  program.addCommand(createJokeCommand());
+  ```
+
+  **Test pattern for command** (vi.hoisted + parseAsync):
+  ```typescript
+  const { mockResolve, mockExecute } = vi.hoisted(() => ({
+    mockResolve: vi.fn(),
+    mockExecute: vi.fn().mockReturnValue('Why do programmers prefer dark mode?'),
+  }));
+  vi.mock('@/infrastructure/di/container.js', () => ({
+    container: { resolve: (...args: unknown[]) => mockResolve(...args) },
+  }));
+  // assert console.log called with fmt.italic(mockExecute.returnValue)
+  ```
+
+  **Test pattern for use case** (direct instantiation with injected randomFn):
+  ```typescript
+  const useCase = new GetJokeUseCase(() => 0);        // always picks JOKES[0]
+  const useCase2 = new GetJokeUseCase(() => 0.9999);  // always picks JOKES[last]
+  expect(useCase.execute()).toBe(JOKES[0]);
+  ```

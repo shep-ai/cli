@@ -1,0 +1,251 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: joke-feature
+summary: >
+  Implement the `shep joke` CLI command using Clean Architecture layering.
+  Domain data (JOKES array) lives in packages/core/src/domain/jokes.ts.
+  GetJokeUseCase in the application layer selects a random joke via an injectable
+  random function (default: Math.random). The presentation layer wires a thin
+  Commander.js command using the existing tsyringe DI container and formats output
+  with fmt.italic from the existing ui/formatters.ts module. No new npm packages,
+  no TypeSpec changes, no DB migrations.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js
+  - tsyringe (DI)
+  - picocolors (via existing ui/formatters.ts)
+  - Vitest (testing)
+  - Node.js
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Domain Data Layer'
+    description: >
+      Create the static JOKES array in the domain layer. This is a pure data file
+      with no logic and no dependencies — it is the foundation every other layer
+      imports from. No TDD cycle applies here because there is no logic to test;
+      correctness is verified by the use case tests in phase 2.
+    parallel: false
+    taskIds:
+      - task-1
+
+  - id: phase-2
+    name: 'Application Use Case (TDD)'
+    description: >
+      Build GetJokeUseCase with a full RED-GREEN-REFACTOR cycle. Tests are written
+      first, asserting deterministic joke selection via an injected randomFn.
+      The use case is then registered in the tsyringe DI container as a singleton.
+    parallel: false
+    taskIds:
+      - task-2
+      - task-3
+
+  - id: phase-3
+    name: 'Presentation Layer (TDD)'
+    description: >
+      Build the Commander.js joke command with a full RED-GREEN-REFACTOR cycle,
+      then register it in the CLI bootstrap. This phase depends on phase 2 because
+      the command resolves GetJokeUseCase from the container.
+    parallel: false
+    taskIds:
+      - task-4
+      - task-5
+
+  - id: phase-4
+    name: 'Final Validation'
+    description: >
+      Run full validate pipeline (lint, format, typecheck) and all tests to confirm
+      zero regressions. Verify the command appears in help output.
+    parallel: false
+    taskIds:
+      - task-6
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/domain/jokes.ts
+  - packages/core/src/application/use-cases/get-joke.use-case.ts
+  - src/presentation/cli/commands/joke.command.ts
+  - tests/unit/application/use-cases/get-joke.use-case.test.ts
+  - tests/unit/presentation/cli/commands/joke.command.test.ts
+
+filesToModify:
+  - src/infrastructure/di/container.ts
+  - src/presentation/cli/index.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content — architecture, strategy, and risks only.
+# Task-level detail lives in tasks.yaml (no duplication).
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-25
+
+  ## Architecture Overview
+
+  ```
+  ┌──────────────────────────────────────────────────┐
+  │                 Presentation Layer                │
+  │  src/presentation/cli/commands/joke.command.ts   │
+  │  - createJokeCommand(): Command                  │
+  │  - container.resolve(GetJokeUseCase)             │
+  │  - console.log(fmt.italic(useCase.execute()))    │
+  │                                                  │
+  │  src/presentation/cli/index.ts                   │
+  │  - program.addCommand(createJokeCommand())       │
+  └────────────────────┬─────────────────────────────┘
+                       │ imports
+  ┌────────────────────▼─────────────────────────────┐
+  │                Application Layer                  │
+  │  packages/core/src/application/use-cases/        │
+  │    get-joke.use-case.ts                          │
+  │  @injectable() GetJokeUseCase                    │
+  │  - constructor(randomFn = Math.random)           │
+  │  - execute(): string                             │
+  └────────────────────┬─────────────────────────────┘
+                       │ imports
+  ┌────────────────────▼─────────────────────────────┐
+  │                  Domain Layer                     │
+  │  packages/core/src/domain/jokes.ts               │
+  │  - export const JOKES: readonly string[]         │
+  │    (20–30 developer/programming jokes)           │
+  └──────────────────────────────────────────────────┘
+
+  DI Container (src/infrastructure/di/container.ts):
+    container.registerSingleton(GetJokeUseCase)
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. picocolors via `fmt.italic` — not chalk
+
+  The spec references chalk, but codebase exploration revealed that picocolors is
+  the actual runtime dependency, exposed through `src/presentation/cli/ui/colors.ts`
+  and `src/presentation/cli/ui/formatters.ts`. The joke command uses `fmt.italic`
+  from formatters.ts — consistent with `version.command.ts` and other commands, zero
+  new imports, and automatic TTY suppression baked into picocolors (satisfies NFR-7).
+
+  ### 2. Plain TypeScript constant for domain data — not TypeSpec
+
+  `packages/core/src/domain/lifecycle-gates.ts` is the established precedent: a plain
+  TS constant file in the domain layer that is not TypeSpec-generated. TypeSpec is
+  reserved for entities that map to SQLite schemas and API contracts. A static string
+  array has no id, no createdAt, and never touches the DB. `jokes.ts` follows the
+  lifecycle-gates.ts pattern exactly.
+
+  ### 3. Injectable random via default parameter — not global spy
+
+  `constructor(private readonly randomFn: () => number = Math.random)` allows
+  `container.registerSingleton(GetJokeUseCase)` to work with no factory (the default
+  is used in production), while unit tests pass `() => 0` or `() => 0.9999` for
+  deterministic assertions. This satisfies NFR-3 with zero ceremony — no IRandomService
+  interface, no extra DI token, no global spy that requires teardown.
+
+  ### 4. Synchronous `execute(): string`
+
+  The operation is an array index lookup — no I/O, no await. Making it async would
+  mislead callers. The codebase does not enforce a universal async interface on use
+  cases; each use case uses the return type honest about its operation
+  (e.g. ListToolsUseCase is async because it awaits a repository call).
+
+  ### 5. Top-level command — not a subcommand group
+
+  Existing command groups (feat, tools, run) exist because they have multiple
+  subcommands. `joke` is a single leaf command with no subcommands; it belongs at
+  the top level alongside `version` — one line in index.ts.
+
+  ## Implementation Strategy
+
+  The four phases follow strict dependency order: domain data must exist before the
+  use case can import it; the use case must exist and be DI-registered before the
+  command can resolve it; the command must be created before it can be added to the
+  program.
+
+  **Phase 1** (Domain Data) is the only phase without a TDD cycle — the JOKES array
+  is a compile-time constant with no logic. Its correctness is implicitly verified by
+  phase 2 tests which import and index into it. This phase is a single file write.
+
+  **Phase 2** (Application, TDD) writes the failing test first: construct
+  `new GetJokeUseCase(() => 0)` and assert `execute()` returns `JOKES[0]`. The minimal
+  green implementation is a one-liner `execute()` body. Refactoring adds `@injectable()`
+  and verifies import conventions. DI registration (task-3) follows immediately so the
+  container is ready for phase 3.
+
+  **Phase 3** (Presentation, TDD) writes the failing command test first using the
+  established `vi.hoisted + vi.mock` pattern seen in other command tests. The green
+  implementation is the `createJokeCommand()` factory. CLI registration (task-5) is a
+  single `program.addCommand()` line.
+
+  **Phase 4** runs `pnpm validate` and `pnpm test` to confirm zero regressions, then
+  verifies `shep joke --help` output.
+
+  ## Files to Create/Modify
+
+  ### New Files
+
+  | File | Layer | Purpose |
+  | ---- | ----- | ------- |
+  | `packages/core/src/domain/jokes.ts` | Domain | Static `JOKES: readonly string[]` array (20–30 jokes) |
+  | `packages/core/src/application/use-cases/get-joke.use-case.ts` | Application | `@injectable() GetJokeUseCase` with injectable randomFn |
+  | `src/presentation/cli/commands/joke.command.ts` | Presentation | `createJokeCommand()` Commander.js factory |
+  | `tests/unit/application/use-cases/get-joke.use-case.test.ts` | Test | Unit tests for GetJokeUseCase (100% statement coverage) |
+  | `tests/unit/presentation/cli/commands/joke.command.test.ts` | Test | Unit tests for joke command factory |
+
+  ### Modified Files
+
+  | File | Changes |
+  | ---- | ------- |
+  | `src/infrastructure/di/container.ts` | Add `container.registerSingleton(GetJokeUseCase)` in `initializeContainer()` |
+  | `src/presentation/cli/index.ts` | Add `program.addCommand(createJokeCommand())` in `bootstrap()` |
+
+  ## Testing Strategy (TDD: Tests FIRST)
+
+  ### Unit Tests — Use Case (RED → GREEN → REFACTOR)
+
+  Written in `tests/unit/application/use-cases/get-joke.use-case.test.ts`:
+
+  - **RED**: Assert `new GetJokeUseCase(() => 0).execute()` returns `JOKES[0]`
+  - **RED**: Assert `new GetJokeUseCase(() => 0.9999).execute()` returns `JOKES[JOKES.length - 1]`
+  - **RED**: Assert default (no randomFn arg) produces a string that is an element of JOKES
+  - **GREEN**: Implement `execute()` — index JOKES by `Math.floor(randomFn() * JOKES.length)`
+  - **REFACTOR**: Ensure `@injectable()` decorator is present, verify import paths are correct
+
+  ### Unit Tests — Command (RED → GREEN → REFACTOR)
+
+  Written in `tests/unit/presentation/cli/commands/joke.command.test.ts`:
+
+  - **RED**: Using `vi.hoisted` + `vi.mock` on the DI container, assert the Command
+    is named `'joke'`, calls `useCase.execute()` on action, and passes result to
+    `console.log` wrapped in `fmt.italic`
+  - **GREEN**: Implement `createJokeCommand()` factory with Commander.js action handler
+  - **REFACTOR**: Verify no domain/application imports leak through the command file,
+    clean up mock structure to match project conventions
+
+  ### No Integration or E2E Tests
+
+  No DB interaction, no HTTP calls, no file I/O — integration and E2E tests are not
+  required for this feature.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | tsyringe requires `reflect-metadata` for `@injectable` | Already bootstrapped in container.ts; verify import order only |
+  | `fmt.italic` export name differs from assumed | Read ui/formatters.ts before writing command to confirm exact export |
+  | `registerSingleton` fails for class with required constructor params | `randomFn` has a default — no factory needed; confirmed by research |
+  | JOKES array empty edge case | FR-4 mandates ≥20 entries; test suite imports JOKES and asserts `length >= 20` |
+  | Naming conflict with an existing `joke` command | Verify no existing `joke` command in index.ts before registration |
+
+  ---
+
+  _Updated by `/shep-kit:plan` — see tasks.yaml for detailed task breakdown_
