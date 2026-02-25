@@ -27,6 +27,31 @@ vi.mock('@/components/common/repository-node/use-repository-actions', () => ({
   useRepositoryActions: () => mockHookReturn,
 }));
 
+// Mock the useDeployAction hook
+const mockDeploy = vi.fn();
+const mockStop = vi.fn();
+let mockDeployHookReturn = {
+  deploy: mockDeploy,
+  stop: mockStop,
+  deployLoading: false,
+  stopLoading: false,
+  deployError: null as string | null,
+  status: null as string | null,
+  url: null as string | null,
+};
+
+vi.mock('@/hooks/use-deploy-action', () => ({
+  useDeployAction: () => mockDeployHookReturn,
+}));
+
+// Mock DeploymentStatusBadge
+vi.mock('@/components/common/deployment-status-badge', () => ({
+  DeploymentStatusBadge: ({ status, url }: { status: string | null; url?: string | null }) =>
+    status ? (
+      <div data-testid="deployment-status-badge" data-status={status} data-url={url} />
+    ) : null,
+}));
+
 // Mock radix-ui tooltip — render trigger children directly, hide content to avoid DOM noise
 vi.mock('radix-ui', () => ({
   Tooltip: {
@@ -94,6 +119,8 @@ describe('RepositoryNode', () => {
   beforeEach(() => {
     mockOpenInIde.mockReset();
     mockOpenInShell.mockReset();
+    mockDeploy.mockReset();
+    mockStop.mockReset();
     mockHookReturn = {
       openInIde: mockOpenInIde,
       openInShell: mockOpenInShell,
@@ -101,6 +128,15 @@ describe('RepositoryNode', () => {
       shellLoading: false,
       ideError: null,
       shellError: null,
+    };
+    mockDeployHookReturn = {
+      deploy: mockDeploy,
+      stop: mockStop,
+      deployLoading: false,
+      stopLoading: false,
+      deployError: null,
+      status: null,
+      url: null,
     };
   });
 
@@ -276,6 +312,63 @@ describe('RepositoryNode', () => {
       fireEvent.click(screen.getByTestId('repository-node-delete-button'));
 
       expect(onClick).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deploy button', () => {
+    it('renders Deploy button when repositoryPath is provided', () => {
+      renderNode(dataWithRepoPath);
+
+      expect(screen.getByRole('button', { name: /start dev server/i })).toBeInTheDocument();
+    });
+
+    it('does not render Deploy button when repositoryPath is absent', () => {
+      renderNode(defaultData);
+
+      expect(screen.queryByRole('button', { name: /start dev server/i })).not.toBeInTheDocument();
+    });
+
+    it('clicking Deploy calls the deploy action', () => {
+      renderNode(dataWithRepoPath);
+
+      fireEvent.click(screen.getByRole('button', { name: /start dev server/i }));
+
+      expect(mockDeploy).toHaveBeenCalledOnce();
+    });
+
+    it('shows Stop button when deployment is active', () => {
+      mockDeployHookReturn = { ...mockDeployHookReturn, status: 'Booting' };
+      renderNode(dataWithRepoPath);
+
+      expect(screen.getByRole('button', { name: /stop dev server/i })).toBeInTheDocument();
+    });
+
+    it('clicking Stop calls the stop action', () => {
+      mockDeployHookReturn = { ...mockDeployHookReturn, status: 'Ready' };
+      renderNode(dataWithRepoPath);
+
+      fireEvent.click(screen.getByRole('button', { name: /stop dev server/i }));
+
+      expect(mockStop).toHaveBeenCalledOnce();
+    });
+
+    it('renders DeploymentStatusBadge when status is Booting or Ready', () => {
+      mockDeployHookReturn = {
+        ...mockDeployHookReturn,
+        status: 'Ready',
+        url: 'http://localhost:3000',
+      };
+      renderNode(dataWithRepoPath);
+
+      const badge = screen.getByTestId('deployment-status-badge');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveAttribute('data-status', 'Ready');
+    });
+
+    it('does not render DeploymentStatusBadge when status is null', () => {
+      renderNode(dataWithRepoPath);
+
+      expect(screen.queryByTestId('deployment-status-badge')).not.toBeInTheDocument();
     });
   });
 

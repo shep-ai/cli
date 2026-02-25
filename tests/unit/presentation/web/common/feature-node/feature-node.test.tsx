@@ -4,6 +4,31 @@ import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
 import { FeatureNode, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData, FeatureNodeType } from '@/components/common/feature-node';
 
+// Mock the useDeployAction hook
+const mockDeploy = vi.fn();
+const mockStop = vi.fn();
+const mockDeployHookReturn = {
+  deploy: mockDeploy,
+  stop: mockStop,
+  deployLoading: false,
+  stopLoading: false,
+  deployError: null as string | null,
+  status: null as string | null,
+  url: null as string | null,
+};
+
+vi.mock('@/hooks/use-deploy-action', () => ({
+  useDeployAction: () => mockDeployHookReturn,
+}));
+
+// Mock DeploymentStatusBadge
+vi.mock('@/components/common/deployment-status-badge', () => ({
+  DeploymentStatusBadge: ({ status, url }: { status: string | null; url?: string | null }) =>
+    status ? (
+      <div data-testid="deployment-status-badge" data-status={status} data-url={url} />
+    ) : null,
+}));
+
 const nodeTypes = { featureNode: FeatureNode };
 
 const defaultData: FeatureNodeData = {

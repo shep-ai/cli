@@ -1,0 +1,206 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-env-deploy
+summary: >
+  Implement deploy/start-dev-server actions for feature and repository nodes. The approach
+  builds bottom-up: first the infrastructure layer (DeploymentService with process spawning,
+  dev script detection, port parsing, and lifecycle management), then server actions to expose
+  the service to the web UI, then the client-side hook and UI components (badge + action button
+  integration). This layering ensures each phase is independently testable and follows the
+  codebase's Clean Architecture conventions. Key decisions: in-memory process registry
+  (no DB persistence), spawn with shell+detached for process group management, stdout parsing
+  for port detection, SIGTERM-then-SIGKILL graceful shutdown, and 3-second polling for status.
+
+relatedFeatures:
+  - '031-repo-node-actions'
+
+technologies:
+  - TypeScript
+  - 'Next.js (App Router, server actions)'
+  - 'React (@xyflow/react)'
+  - 'Node.js child_process.spawn'
+  - 'shadcn/ui (Badge, Button, Tooltip)'
+  - 'lucide-react (Play, Square, Loader2, ExternalLink)'
+  - 'Tailwind CSS v4'
+  - 'Vitest + React Testing Library'
+  - Storybook
+  - tsyringe
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Infrastructure — DeploymentService & Utilities'
+    description: >
+      Build the core infrastructure: dev script detection from package.json, stdout port
+      parsing, and the DeploymentService singleton that manages process spawning, state
+      tracking, and graceful shutdown. This phase has zero UI dependencies and can be
+      fully unit-tested in isolation. It establishes the foundation that all subsequent
+      phases depend on.
+    parallel: false
+
+  - id: phase-2
+    name: 'Application Layer — Interface & DI Wiring'
+    description: >
+      Define the IDeploymentService output port interface in the application layer and
+      register the DeploymentService implementation in the DI container. Wire up the
+      shutdown cleanup in the daemon's _serve command. This phase bridges infrastructure
+      to the rest of the system following Clean Architecture.
+    parallel: false
+
+  - id: phase-3
+    name: 'Server Actions — Deploy, Stop, Status'
+    description: >
+      Create four Next.js server actions (deployFeature, deployRepository, stopDeployment,
+      getDeploymentStatus) following the established open-ide/open-shell pattern. Each action
+      resolves the DeploymentService from DI, validates inputs, and returns typed results.
+      This phase makes the deployment service accessible to the web UI.
+    parallel: false
+
+  - id: phase-4
+    name: 'Web UI — Hook, Badge Component, Node Integration'
+    description: >
+      Build the client-side useDeployAction hook (with polling, loading/error states),
+      the DeploymentStatusBadge component (following CiStatusBadge pattern), and integrate
+      both into the existing FeatureNode and RepositoryNode components. Add deploy/stop
+      action buttons following the established ActionButton pattern. Create Storybook
+      stories for all new components.
+    parallel: false
+
+filesToCreate:
+  # Phase 1 — Infrastructure utilities and service
+  - packages/core/src/infrastructure/services/deployment/detect-dev-script.ts
+  - packages/core/src/infrastructure/services/deployment/detect-dev-script.test.ts
+  - packages/core/src/infrastructure/services/deployment/parse-port.ts
+  - packages/core/src/infrastructure/services/deployment/parse-port.test.ts
+  - packages/core/src/infrastructure/services/deployment/deployment.service.ts
+  - packages/core/src/infrastructure/services/deployment/deployment.service.test.ts
+
+  # Phase 2 — Application layer interface
+  - packages/core/src/application/ports/output/services/deployment-service.interface.ts
+
+  # Phase 3 — Server actions
+  - src/presentation/web/app/actions/deploy-feature.ts
+  - src/presentation/web/app/actions/deploy-repository.ts
+  - src/presentation/web/app/actions/stop-deployment.ts
+  - src/presentation/web/app/actions/get-deployment-status.ts
+
+  # Phase 4 — UI components and hook
+  - src/presentation/web/hooks/use-deploy-action.ts
+  - src/presentation/web/hooks/use-deploy-action.test.ts
+  - src/presentation/web/components/common/deployment-status-badge/deployment-status-badge.tsx
+  - src/presentation/web/components/common/deployment-status-badge/deployment-status-badge.stories.tsx
+  - src/presentation/web/components/common/deployment-status-badge/index.ts
+
+filesToModify:
+  # Phase 2 — DI registration and shutdown
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/_serve.command.ts
+
+  # Phase 4 — Node integration
+  - src/presentation/web/components/common/feature-node/feature-node.tsx
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/components/common/feature-node/feature-node.stories.tsx
+  - src/presentation/web/components/common/repository-node/repository-node.tsx
+  - src/presentation/web/components/common/repository-node/repository-node.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds local dev server deployment capabilities to the web UI canvas. It follows
+  the codebase's Clean Architecture layers: infrastructure -> application -> presentation.
+
+  **Domain Layer** — No changes needed. Existing TypeSpec models (Deployment, DeploymentState,
+  DeployMethod) in `tsp/deployment/` and `tsp/common/enums/deployment.tsp` are sufficient.
+  The DeploymentState enum (Booting, Ready, Stopped) maps directly to the UI states needed.
+  We use these generated types for type safety but don't need new domain entities since
+  deployments are ephemeral in-memory state (not persisted to SQLite).
+
+  **Infrastructure Layer** — New `DeploymentService` singleton in
+  `packages/core/src/infrastructure/services/deployment/` holds an in-memory
+  `Map<string, DeploymentEntry>` keyed by targetId. This mirrors the `WebServerService`
+  pattern (`packages/core/src/infrastructure/services/web-server.service.ts`) of in-memory
+  state management. Two pure utility functions (`detectDevScript`, `parsePort`) are extracted
+  into separate files for testability. The service uses `child_process.spawn()` with
+  `shell:true` and `detached:true` to create process groups, enabling clean tree-kill via
+  negative PID (`process.kill(-pid, signal)`).
+
+  **Application Layer** — New `IDeploymentService` output port interface in
+  `packages/core/src/application/ports/output/services/deployment-service.interface.ts`.
+  Follows the same pattern as `IWebServerService` and `IDaemonService`.
+
+  **Presentation Layer** — Four server actions in `src/presentation/web/app/actions/` follow
+  the `openIde`/`openShell` pattern. The `useDeployAction` hook follows the
+  `useRepositoryActions` pattern with added polling. The `DeploymentStatusBadge` follows
+  the `CiStatusBadge` pattern. Action buttons use the existing `ActionButton` component.
+
+  ## Key Design Decisions
+
+  ### 1. In-Memory Process Registry (not SQLite)
+  Deployments are child processes of the daemon — they die when the daemon stops. Persisting
+  to SQLite would create stale records on restart. An in-memory Map is the simplest correct
+  solution, matching WebServerService's pattern. O(1) lookups, automatic cleanup via process
+  'exit' event listeners. One entry per target enforced by Map key.
+
+  ### 2. spawn() with shell + detached
+  `shell:true` resolves npm/pnpm/yarn via PATH. `detached:true` creates a new process group
+  (pgid = child.pid), enabling `process.kill(-pid, signal)` to kill the entire tree — critical
+  because npm/pnpm spawn the actual dev server as a child process. This matches the patterns
+  in `open-shell.ts` and `feature-agent-process.service.ts`.
+
+  ### 3. Auto-detect from package.json
+  Zero-configuration: read `package.json`, check for scripts `dev` > `start` > `serve`.
+  Detect package manager via lockfile (`pnpm-lock.yaml` -> pnpm, `yarn.lock` -> yarn,
+  else npm). Deterministic, <1ms, handles 95%+ of Node.js projects.
+
+  ### 4. Port Detection via stdout Parsing
+  Every dev server prints its URL to stdout. Regex patterns cover Next.js, Vite, Express,
+  and generic `localhost:PORT` output. 30-second timeout handles edge cases.
+
+  ### 5. SIGTERM then SIGKILL Graceful Shutdown
+  Exact pattern from `stop.command.ts`: SIGTERM to process group, 200ms polling, SIGKILL
+  after 5 seconds. Negative PID ensures the full process tree is killed. The
+  DeploymentService exposes `stopAll()` called during daemon shutdown in `_serve.command.ts`.
+
+  ### 6. Direct Service (not Agent-based)
+  For script-only scope, a direct service is faster and simpler than routing through the
+  agent system. `npm run dev` doesn't need AI analysis. The service can be wrapped by
+  `LocalDeployAgent` later when Docker/K8s support is added.
+
+  ### 7. Client-side Polling (not SSE/WebSocket)
+  `getDeploymentStatus` server action does a Map.get() — O(1), no I/O. 3-second polling
+  balances responsiveness with simplicity. Polling starts on deploy(), stops when state
+  becomes Stopped or null. This is similar to the 5-second polling in `useControlCenterState`.
+
+  ## Implementation Strategy
+
+  The build order is bottom-up by dependency:
+
+  **Phase 1 (Infrastructure)** comes first because all other layers depend on it. The two
+  utility functions (`detectDevScript`, `parsePort`) are pure functions with zero
+  dependencies — ideal TDD targets. The `DeploymentService` is built on top of these.
+
+  **Phase 2 (Application + DI)** comes second to define the interface contract and wire
+  the service into the DI container. The shutdown integration in `_serve.command.ts` ensures
+  process cleanup even if the service is never used by the UI.
+
+  **Phase 3 (Server Actions)** comes third because the actions depend on the DI-registered
+  service. Each action follows the established pattern exactly — minimal innovation needed.
+
+  **Phase 4 (UI)** comes last because the hook depends on server actions, the badge depends
+  on DeploymentState types, and the node integration depends on both. Storybook stories are
+  created alongside each component.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Orphaned dev server processes on daemon crash | Register SIGTERM/SIGINT handlers in DeploymentService; integrate `stopAll()` into `_serve.command.ts` shutdown sequence |
+  | Port detection fails for non-standard dev servers | 30-second timeout with Booting state preserved; multiple regex patterns covering major frameworks; Ready state only set on successful URL detection |
+  | Feature node worktree path doesn't exist yet | Validate directory existence in `deployFeature` action before spawning; return clear error message to UI |
+  | Multiple rapid deploy clicks creating duplicate processes | One-deployment-per-target enforcement via Map key (stop existing before starting new); loading state in hook prevents double-click |
+  | Process group kill fails on specific OS | Test on macOS explicitly (NFR-7); `detached:true` creates proper process groups on both macOS and Linux |
+  | Polling overhead with many concurrent deployments | Polling only runs during Booting/Ready states; stops on Stopped; Map.get() is <1ms; ~0.33 requests/second per deployment |

@@ -1,0 +1,545 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-env-deploy
+summary: >
+  16 tasks across 4 phases. Phase 1 builds the infrastructure layer (dev script detection,
+  port parsing, DeploymentService). Phase 2 defines the IDeploymentService interface and
+  wires DI + shutdown cleanup. Phase 3 creates four server actions. Phase 4 builds the
+  useDeployAction hook, DeploymentStatusBadge component, and integrates into both node types
+  with Storybook stories.
+
+relatedFeatures:
+  - '031-repo-node-actions'
+technologies:
+  - TypeScript
+  - 'Next.js'
+  - React
+  - 'Node.js child_process'
+  - 'Vitest'
+  - 'React Testing Library'
+  - Storybook
+  - tsyringe
+relatedLinks: []
+
+tasks:
+  # ─────────────────────────────────────────────────
+  # Phase 1: Infrastructure — DeploymentService & Utilities
+  # ─────────────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Implement detectDevScript utility'
+    description: >
+      Create a pure utility function that reads package.json from a given directory path,
+      scans the scripts field for 'dev', 'start', 'serve' (in priority order), and detects
+      the package manager from lockfile presence (pnpm-lock.yaml -> pnpm, yarn.lock -> yarn,
+      default -> npm). Returns { packageManager, scriptName, command } or an error.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - "Given a directory with package.json containing a 'dev' script, returns { packageManager: 'npm', scriptName: 'dev', command: 'npm run dev' }"
+      - "Given a directory with pnpm-lock.yaml and a 'dev' script, returns { packageManager: 'pnpm', scriptName: 'dev', command: 'pnpm dev' }"
+      - "Given a directory with yarn.lock and only a 'start' script, returns { packageManager: 'yarn', scriptName: 'start', command: 'yarn start' }"
+      - 'Given a directory with package.json that has no matching scripts, returns an error result'
+      - 'Given a directory with no package.json, returns an error result'
+      - 'Script priority order is enforced: dev > start > serve'
+    tdd:
+      red:
+        - "Write test: detectDevScript returns correct result for directory with package.json containing 'dev' script"
+        - 'Write test: detectDevScript detects pnpm from pnpm-lock.yaml presence'
+        - 'Write test: detectDevScript detects yarn from yarn.lock presence'
+        - "Write test: detectDevScript falls back to 'start' when 'dev' is absent"
+        - "Write test: detectDevScript falls back to 'serve' when 'dev' and 'start' are absent"
+        - 'Write test: detectDevScript returns error when no matching scripts exist'
+        - 'Write test: detectDevScript returns error when package.json is missing'
+      green:
+        - 'Implement detectDevScript: read package.json, parse scripts, check lockfiles, return result'
+      refactor:
+        - 'Extract lockfile-to-package-manager mapping as a const array for clarity'
+        - 'Ensure error messages are descriptive and actionable'
+    estimatedEffort: '1h'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement parsePort utility'
+    description: >
+      Create a pure utility function that accepts a line of stdout/stderr output and
+      attempts to extract a localhost URL or port number. Returns the detected URL string
+      or null. Must handle common patterns from Next.js, Vite, Express, and generic servers.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - "Extracts URL from 'Local: http://localhost:3000' (Vite pattern)"
+      - "Extracts URL from '- Local: http://localhost:3000/' (Vite v5 pattern)"
+      - "Extracts URL from 'ready - started server on 0.0.0.0:3000, url: http://localhost:3000' (Next.js pattern)"
+      - "Extracts URL from 'Listening on port 3000' (Express pattern) and returns 'http://localhost:3000'"
+      - "Extracts URL from generic 'http://localhost:8080' in any line"
+      - 'Returns null for lines with no URL/port information'
+      - 'Returns null for empty strings'
+    tdd:
+      red:
+        - "Write test: parsePort extracts URL from Vite 'Local:' output"
+        - "Write test: parsePort extracts URL from Next.js 'ready' output"
+        - "Write test: parsePort extracts URL from Express 'listening on port' output"
+        - 'Write test: parsePort extracts generic localhost URL from arbitrary line'
+        - 'Write test: parsePort returns null for non-matching lines'
+        - 'Write test: parsePort returns null for empty string'
+      green:
+        - 'Implement parsePort with ordered regex matching: Vite Local pattern, Next.js ready pattern, Express listening pattern, generic localhost URL'
+      refactor:
+        - 'Consolidate regex patterns into a named array for readability'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Implement DeploymentService core (start, getStatus, stopAll)'
+    description: >
+      Create the DeploymentService class implementing the full deployment lifecycle: start
+      (spawn child process, attach stdout listener for port detection, track in Map), getStatus
+      (return current state and URL for a targetId), stop (SIGTERM process group, poll, SIGKILL
+      fallback), and stopAll (kill all tracked processes for shutdown). The service manages an
+      in-memory Map<string, DeploymentEntry> where each entry holds the ChildProcess reference,
+      pid, state (DeploymentState), url, and targetId. On start, if a deployment already exists
+      for the targetId, stop it first. Attach 'exit' event listener to clean up the Map entry
+      and transition state to Stopped.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'start() spawns a child process with shell:true, cwd:targetPath, detached:true'
+      - 'start() sets initial state to Booting and stores entry in the Map'
+      - 'start() stops any existing deployment for the same targetId before starting new one'
+      - 'start() attaches stdout listener that calls parsePort; on match, transitions state to Ready and stores URL'
+      - 'start() handles 30-second port detection timeout (state remains Booting with no error)'
+      - 'getStatus() returns { state, url } for existing deployments, null for unknown targetIds'
+      - "stop() sends SIGTERM to process group via process.kill(-pid, 'SIGTERM')"
+      - 'stop() polls at 200ms intervals and escalates to SIGKILL after 5 seconds'
+      - "stop() resolves after process exits (via 'exit' event)"
+      - 'stopAll() terminates all tracked deployments'
+      - "Process 'exit' event handler removes entry from Map and sets state to Stopped"
+    tdd:
+      red:
+        - 'Write test: start() calls spawn with correct args (shell, cwd, detached)'
+        - 'Write test: start() stores entry in Map with Booting state'
+        - 'Write test: start() stops existing deployment for same targetId before spawning new one'
+        - 'Write test: getStatus() returns state and url for tracked deployment'
+        - 'Write test: getStatus() returns null for unknown targetId'
+        - 'Write test: stop() sends SIGTERM to negative pid (process group)'
+        - 'Write test: stop() sends SIGKILL after timeout if process still alive'
+        - 'Write test: stopAll() calls stop for each tracked deployment'
+        - 'Write test: stdout data triggers state transition to Ready when parsePort matches'
+      green:
+        - 'Implement DeploymentService with Map, start/stop/getStatus/stopAll methods'
+        - 'Wire detectDevScript for command resolution in start()'
+        - 'Wire parsePort as stdout line parser'
+        - 'Implement SIGTERM/poll/SIGKILL stop sequence'
+      refactor:
+        - 'Extract poll-until-dead helper following stop.command.ts pattern'
+        - 'Ensure all event listeners are properly cleaned up on stop'
+    estimatedEffort: '2.5h'
+
+  # ─────────────────────────────────────────────────
+  # Phase 2: Application Layer — Interface & DI Wiring
+  # ─────────────────────────────────────────────────
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Define IDeploymentService interface'
+    description: >
+      Create the IDeploymentService output port interface in the application layer's
+      services directory. Defines the contract: start(targetId, targetPath), stop(targetId),
+      getStatus(targetId), and stopAll(). Return types use DeploymentState from generated
+      output. Follows the pattern of IWebServerService and IDaemonService.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Interface file exists at packages/core/src/application/ports/output/services/deployment-service.interface.ts'
+      - 'Defines start(targetId: string, targetPath: string): Promise<{ state: DeploymentState }>'
+      - 'Defines stop(targetId: string): Promise<void>'
+      - 'Defines getStatus(targetId: string): { state: DeploymentState; url: string } | null'
+      - 'Defines stopAll(): Promise<void>'
+      - 'Has JSDoc documentation on the interface and each method'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Register DeploymentService in DI container'
+    description: >
+      Add IDeploymentService registration to the initializeContainer() function in
+      container.ts. Use a factory registration that creates a singleton-like instance
+      (or registerSingleton if the class uses @injectable). Add the import for the
+      interface and implementation. Also add a string-token alias for web route resolution.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - "IDeploymentService is registered in the DI container with token 'IDeploymentService'"
+      - 'The registration creates a single shared instance (singleton behavior)'
+      - "resolve<IDeploymentService>('IDeploymentService') returns a functional DeploymentService"
+      - 'Import statements are added for both the interface and implementation'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Wire DeploymentService shutdown into _serve.command.ts'
+    description: >
+      Modify the _serve.command.ts shutdown handler to resolve IDeploymentService and call
+      stopAll() before process.exit(0). This ensures all child dev server processes are
+      killed when the daemon shuts down. Follows the existing pattern of calling
+      service.stop() and notificationWatcher.stop() in the shutdown sequence.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'The shutdown handler in _serve.command.ts resolves IDeploymentService from the container'
+      - 'stopAll() is called before process.exit(0) in the shutdown sequence'
+      - 'The import for IDeploymentService is added to _serve.command.ts'
+      - 'Shutdown still completes within the 5-second force-exit timeout'
+    tdd: null
+    estimatedEffort: '15min'
+
+  # ─────────────────────────────────────────────────
+  # Phase 3: Server Actions — Deploy, Stop, Status
+  # ─────────────────────────────────────────────────
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Create deployFeature server action'
+    description: >
+      Create a server action that accepts featureId, resolves IFeatureRepository to look
+      up the feature (for repositoryPath and branch), computes the worktree path via
+      computeWorktreePath(), validates the directory exists, then calls
+      deploymentService.start(featureId, worktreePath). Returns
+      { success: true, state: DeploymentState } or { success: false, error: string }.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Server action file exists at src/presentation/web/app/actions/deploy-feature.ts'
+      - "Has 'use server' directive"
+      - 'Resolves IDeploymentService and IFeatureRepository from DI via resolve<T>(token)'
+      - 'Looks up feature by featureId to get repositoryPath and branch'
+      - 'Computes worktree path via computeWorktreePath(repositoryPath, branch)'
+      - 'Validates worktree directory exists (returns error if not)'
+      - 'Calls deploymentService.start(featureId, worktreePath)'
+      - 'Returns { success: true, state } on success'
+      - 'Returns { success: false, error } on failure'
+    tdd:
+      red:
+        - 'Write test: deployFeature resolves feature, computes worktree path, calls service.start'
+        - 'Write test: deployFeature returns error when feature not found'
+        - 'Write test: deployFeature returns error when worktree directory does not exist'
+      green:
+        - 'Implement deployFeature server action following openIde pattern'
+      refactor:
+        - 'Ensure error messages match the pattern used in openIde/openShell'
+    estimatedEffort: '45min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Create deployRepository server action'
+    description: >
+      Create a server action that accepts repositoryPath, validates it's an absolute path
+      and exists, then calls deploymentService.start(repositoryPath, repositoryPath).
+      Uses the repositoryPath as both the targetId and the working directory since
+      repository deployments don't have a separate worktree.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Server action file exists at src/presentation/web/app/actions/deploy-repository.ts'
+      - "Has 'use server' directive"
+      - "Validates repositoryPath is an absolute path (starts with '/')"
+      - 'Resolves IDeploymentService from DI'
+      - 'Calls deploymentService.start(repositoryPath, repositoryPath)'
+      - 'Returns { success: true, state } or { success: false, error }'
+    tdd:
+      red:
+        - 'Write test: deployRepository validates absolute path'
+        - 'Write test: deployRepository calls service.start with repositoryPath as both targetId and path'
+        - 'Write test: deployRepository returns error for invalid path'
+      green:
+        - 'Implement deployRepository server action following openFolder pattern'
+      refactor:
+        - 'Ensure consistent error messaging with deployFeature'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create stopDeployment server action'
+    description: >
+      Create a server action that accepts targetId (featureId or repositoryPath) and calls
+      deploymentService.stop(targetId). Returns { success: true } or { success: false, error }.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Server action file exists at src/presentation/web/app/actions/stop-deployment.ts'
+      - "Has 'use server' directive"
+      - 'Resolves IDeploymentService from DI'
+      - 'Validates targetId is a non-empty string'
+      - 'Calls deploymentService.stop(targetId)'
+      - 'Returns { success: true } or { success: false, error }'
+    tdd:
+      red:
+        - 'Write test: stopDeployment calls service.stop with targetId'
+        - 'Write test: stopDeployment returns error for empty targetId'
+      green:
+        - 'Implement stopDeployment server action'
+      refactor:
+        - 'Verify error handling wraps unexpected exceptions'
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Create getDeploymentStatus server action'
+    description: >
+      Create a server action that accepts targetId and returns the current deployment
+      state by calling deploymentService.getStatus(targetId). Returns
+      { state: DeploymentState, url: string } or null. This is the action polled by
+      the useDeployAction hook.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Server action file exists at src/presentation/web/app/actions/get-deployment-status.ts'
+      - "Has 'use server' directive"
+      - 'Resolves IDeploymentService from DI'
+      - 'Returns { state, url } when deployment exists for targetId'
+      - 'Returns null when no deployment exists for targetId'
+    tdd:
+      red:
+        - 'Write test: getDeploymentStatus returns state and url for tracked deployment'
+        - 'Write test: getDeploymentStatus returns null for unknown targetId'
+      green:
+        - 'Implement getDeploymentStatus server action'
+      refactor:
+        - 'Verify the return type matches what useDeployAction expects'
+    estimatedEffort: '15min'
+
+  # ─────────────────────────────────────────────────
+  # Phase 4: Web UI — Hook, Badge, Node Integration
+  # ─────────────────────────────────────────────────
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Create useDeployAction hook'
+    description: >
+      Create a React hook following the useRepositoryActions pattern that manages deploy/stop
+      actions, deployment status polling, and loading/error states. Accepts { targetId,
+      targetType: 'feature' | 'repository', repositoryPath, branch? }. Returns
+      { deploy, stop, deployLoading, stopLoading, deployError, status, url }. Polling
+      (3s interval) starts when deploy() is called and stops when status becomes Stopped
+      or null. Uses 5-second error auto-clear timers. Cleanup on unmount.
+    state: Todo
+    dependencies:
+      - task-7
+      - task-8
+      - task-9
+      - task-10
+    acceptanceCriteria:
+      - 'Hook file exists at src/presentation/web/hooks/use-deploy-action.ts'
+      - 'deploy() calls deployFeature or deployRepository based on targetType'
+      - 'stop() calls stopDeployment with targetId'
+      - 'deploy() sets deployLoading, stop() sets stopLoading'
+      - 'Errors auto-clear after 5 seconds (ERROR_CLEAR_DELAY)'
+      - 'Polling starts on deploy() and calls getDeploymentStatus every 3 seconds'
+      - 'Polling stops when status is Stopped or null'
+      - 'All timers and intervals are cleaned up on unmount'
+      - 'Action callbacks are memoized with useCallback'
+    tdd:
+      red:
+        - 'Write test: deploy() calls deployFeature for feature targetType'
+        - 'Write test: deploy() calls deployRepository for repository targetType'
+        - 'Write test: stop() calls stopDeployment with correct targetId'
+        - 'Write test: deploy() starts polling interval'
+        - 'Write test: polling stops when status returns null'
+        - 'Write test: error auto-clears after 5 seconds'
+        - 'Write test: cleanup on unmount clears timers and intervals'
+      green:
+        - 'Implement useDeployAction with deploy/stop/polling/loading/error state management'
+      refactor:
+        - 'Extract polling logic into a clear start/stop pattern'
+        - 'Ensure all refs are properly typed'
+    estimatedEffort: '2h'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Create DeploymentStatusBadge component'
+    description: >
+      Create a shared component following the CiStatusBadge pattern. Renders a Badge from
+      shadcn/ui with: Booting state (blue background, Loader2 spinner, 'Starting...' text),
+      Ready state (green background, green dot, clickable URL with ExternalLink icon),
+      and returns null for Stopped/null state (badge not rendered). The Ready URL is an
+      anchor tag with target='_blank' rel='noopener noreferrer'.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Component file exists at src/presentation/web/components/common/deployment-status-badge/deployment-status-badge.tsx'
+      - 'Barrel export exists at deployment-status-badge/index.ts'
+      - "Booting state renders blue Badge with spinning Loader2 and 'Starting...' text"
+      - 'Ready state renders green Badge with clickable URL and ExternalLink icon'
+      - 'Stopped state and null status render nothing (return null)'
+      - "URL opens in new tab (target='_blank', rel='noopener noreferrer')"
+      - 'Component accepts { status: DeploymentState | null, url?: string }'
+    tdd:
+      red:
+        - 'Write test: renders spinning loader badge when status is Booting'
+        - 'Write test: renders green badge with clickable URL when status is Ready'
+        - 'Write test: renders nothing when status is Stopped'
+        - 'Write test: renders nothing when status is null'
+        - "Write test: URL link has target='_blank' and rel='noopener noreferrer'"
+      green:
+        - 'Implement DeploymentStatusBadge with switch on status'
+      refactor:
+        - 'Ensure Tailwind classes match CiStatusBadge color conventions'
+    estimatedEffort: '45min'
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Create DeploymentStatusBadge Storybook stories'
+    description: >
+      Create Storybook stories covering all visual states of DeploymentStatusBadge:
+      Booting, Ready with URL, Stopped (renders nothing), and null (renders nothing).
+      Follow the CiStatusBadge stories pattern.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Stories file exists at deployment-status-badge/deployment-status-badge.stories.tsx'
+      - 'Has stories for: Booting, Ready, Stopped, NoDeployment'
+      - 'Ready story includes a realistic URL (http://localhost:3000)'
+      - "Stories use the component's props directly (no mocked internals)"
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Integrate deploy action into RepositoryNode'
+    description: >
+      Add a deploy/stop ActionButton to the repository node's existing action toolbar
+      (alongside IDE, Shell, Folder buttons). Use the useDeployAction hook with
+      targetType='repository'. Show DeploymentStatusBadge when a deployment is active.
+      The deploy button uses Play icon; when deployment is active (Booting or Ready),
+      it switches to Square (stop) icon. Follow the exact same TooltipProvider/Tooltip
+      wrapping pattern used for existing buttons.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-12
+    acceptanceCriteria:
+      - 'Repository node shows a Deploy button (Play icon) when repositoryPath is available'
+      - 'Clicking Deploy triggers useDeployAction.deploy()'
+      - 'When deployment is active, button shows Square (stop) icon'
+      - 'Clicking stop button triggers useDeployAction.stop()'
+      - 'DeploymentStatusBadge is rendered when deployment status is Booting or Ready'
+      - 'Button follows the ActionButton pattern (iconOnly, ghost, icon-xs)'
+      - 'Button is wrapped in TooltipProvider/Tooltip with appropriate label'
+      - 'Loading and error states work correctly'
+    tdd:
+      red:
+        - 'Write test: renders Deploy button when repositoryPath is provided'
+        - 'Write test: clicking Deploy calls the deploy action'
+        - 'Write test: shows Stop button when deployment is active'
+        - 'Write test: renders DeploymentStatusBadge when status is Booting or Ready'
+      green:
+        - 'Add useDeployAction hook call to RepositoryNode'
+        - 'Add deploy/stop ActionButton to the action toolbar'
+        - 'Add DeploymentStatusBadge below the node card'
+      refactor:
+        - 'Ensure consistent spacing with existing action buttons'
+    estimatedEffort: '1h'
+
+  - id: task-15
+    phaseId: phase-4
+    title: 'Integrate deploy action into FeatureNode'
+    description: >
+      Add a deploy/stop action button area to the feature node. Since feature nodes
+      currently have no action toolbar, add a minimal action row in the bottom section
+      (after the state badge area) that shows the deploy/stop button and
+      DeploymentStatusBadge. Use the useDeployAction hook with targetType='feature'.
+      The FeatureNodeData already has repositoryPath and branch fields needed for
+      worktree path computation.
+    state: Todo
+    dependencies:
+      - task-11
+      - task-12
+    acceptanceCriteria:
+      - 'Feature node shows a Deploy button when feature is in a deployable state (done, action-required)'
+      - 'Deploy button uses Play icon with ActionButton pattern (iconOnly, ghost, icon-xs)'
+      - 'When deployment is active, button shows Square (stop) icon'
+      - 'DeploymentStatusBadge renders alongside the button when deployment is active'
+      - 'The action row does not increase the minimum node height (NFR-6)'
+      - 'FeatureNodeData interface is updated if any new callback props are needed'
+    tdd:
+      red:
+        - 'Write test: renders Deploy button for deployable feature states'
+        - 'Write test: does not render Deploy button during creating/running states'
+        - 'Write test: clicking Deploy calls the deploy action'
+        - 'Write test: shows Stop button when deployment is active'
+        - 'Write test: renders DeploymentStatusBadge when status is Booting or Ready'
+      green:
+        - 'Add useDeployAction hook call to FeatureNode'
+        - 'Add deploy/stop action row to the feature node bottom section'
+        - 'Add DeploymentStatusBadge in the action row'
+      refactor:
+        - "Ensure the action row layout is compact and doesn't affect node dimensions"
+    estimatedEffort: '1.5h'
+
+  - id: task-16
+    phaseId: phase-4
+    title: 'Update Storybook stories for RepositoryNode and FeatureNode'
+    description: >
+      Add new story variants to the existing repository-node.stories.tsx and
+      feature-node.stories.tsx files that showcase the deploy button and deployment
+      status badge in different states (no deployment, booting, ready with URL, error).
+      Update existing stories if the node data interface changed.
+    state: Todo
+    dependencies:
+      - task-14
+      - task-15
+    acceptanceCriteria:
+      - 'repository-node.stories.tsx has stories showing: default (with deploy button), deploying (booting), deployed (ready with URL)'
+      - 'feature-node.stories.tsx has stories showing: deployable feature with deploy button, feature with active deployment'
+      - 'All new stories render without errors'
+      - 'Story names follow existing naming conventions'
+    tdd: null
+    estimatedEffort: '45min'
+
+totalEstimate: '12h'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 16 tasks across 4 phases, building bottom-up from
+  infrastructure to UI.
+
+  **Phase 1 (Infrastructure)** starts with two independent pure utility functions — dev
+  script detection and port parsing — that have zero dependencies and are ideal TDD targets.
+  The DeploymentService is then built on top of these utilities, managing the full process
+  lifecycle with an in-memory Map registry.
+
+  **Phase 2 (Application + DI)** defines the IDeploymentService interface contract, registers
+  the service in the DI container, and wires the shutdown cleanup into the daemon's _serve
+  command. This is a thin wiring phase with no complex logic.
+
+  **Phase 3 (Server Actions)** creates four server actions following the established
+  openIde/openShell pattern. deployFeature and deployRepository are independent and can
+  potentially be worked in parallel. stopDeployment and getDeploymentStatus are simple
+  pass-through actions.
+
+  **Phase 4 (UI)** builds the useDeployAction hook (the most complex UI piece, with polling
+  and state management), the DeploymentStatusBadge component (following CiStatusBadge pattern),
+  and integrates both into FeatureNode and RepositoryNode. Storybook stories are created for
+  the badge component and added to existing node stories.
+
+  The dependency chain ensures each task builds on tested, working foundations. Pure utility
+  functions first, then the stateful service, then the DI wiring, then server actions, and
+  finally the UI components that tie everything together.

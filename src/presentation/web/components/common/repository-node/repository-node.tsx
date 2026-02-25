@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Github, Plus, Code2, Terminal, FolderOpen, Trash2 } from 'lucide-react';
+import { Github, Plus, Code2, Terminal, FolderOpen, Trash2, Play, Square } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
 import {
@@ -16,6 +16,8 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
+import { useDeployAction } from '@/hooks/use-deploy-action';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
 
@@ -24,6 +26,16 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
   const actions = useRepositoryActions(
     data.repositoryPath ? { repositoryPath: data.repositoryPath } : null
   );
+  const deployAction = useDeployAction(
+    data.repositoryPath
+      ? {
+          targetId: data.repositoryPath,
+          targetType: 'repository',
+          repositoryPath: data.repositoryPath,
+        }
+      : null
+  );
+  const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
 
   return (
     <div className="group relative">
@@ -169,6 +181,27 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                   <TooltipContent>Open Folder</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center">
+                      <ActionButton
+                        label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                        onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
+                        loading={deployAction.deployLoading || deployAction.stopLoading}
+                        error={!!deployAction.deployError}
+                        icon={isDeploymentActive ? Square : Play}
+                        iconOnly
+                        variant="ghost"
+                        size="icon-xs"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </>
           ) : null}
 
@@ -194,6 +227,12 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
           ) : null}
         </div>
       </div>
+
+      {isDeploymentActive ? (
+        <div className="flex justify-center pt-1">
+          <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
+        </div>
+      ) : null}
 
       {/* Source handle — invisible, for edge connections */}
       {data.onAdd || data.showHandles ? (

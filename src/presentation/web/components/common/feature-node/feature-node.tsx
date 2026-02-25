@@ -1,8 +1,21 @@
 'use client';
 
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus, FileText, Wrench, GitMerge, type LucideIcon } from 'lucide-react';
+import {
+  Settings,
+  Plus,
+  FileText,
+  Wrench,
+  GitMerge,
+  Play,
+  Square,
+  type LucideIcon,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { ActionButton } from '@/components/common/action-button';
+import { DeploymentStatusBadge } from '@/components/common/deployment-status-badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useDeployAction } from '@/hooks/use-deploy-action';
 import {
   featureNodeStateConfig,
   lifecycleDisplayLabels,
@@ -74,6 +87,19 @@ export function FeatureNode({
 }) {
   const config = featureNodeStateConfig[data.state];
   const Icon = config.icon;
+
+  const isDeployable = data.state === 'done' || data.state === 'action-required';
+  const deployAction = useDeployAction(
+    isDeployable && data.repositoryPath && data.branch
+      ? {
+          targetId: data.featureId,
+          targetType: 'feature',
+          repositoryPath: data.repositoryPath,
+          branch: data.branch,
+        }
+      : null
+  );
+  const isDeploymentActive = deployAction.status === 'Booting' || deployAction.status === 'Ready';
 
   return (
     <div className="group relative">
@@ -208,6 +234,37 @@ export function FeatureNode({
                 })()}
                 <span className="truncate">{getBadgeText(data)}</span>
               </div>
+
+              {/* Deploy action row — only for deployable states */}
+              {isDeployable && data.repositoryPath ? (
+                <div
+                  className="mt-1.5 flex items-center gap-1.5"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="flex items-center">
+                          <ActionButton
+                            label={isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                            onClick={isDeploymentActive ? deployAction.stop : deployAction.deploy}
+                            loading={deployAction.deployLoading || deployAction.stopLoading}
+                            error={!!deployAction.deployError}
+                            icon={isDeploymentActive ? Square : Play}
+                            iconOnly
+                            variant="ghost"
+                            size="icon-xs"
+                          />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        {isDeploymentActive ? 'Stop Dev Server' : 'Start Dev Server'}
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  <DeploymentStatusBadge status={deployAction.status} url={deployAction.url} />
+                </div>
+              ) : null}
             </>
           )}
         </div>

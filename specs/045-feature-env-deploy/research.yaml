@@ -1,0 +1,623 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-env-deploy
+summary: >
+  Technical research for adding deploy/start-dev-server actions to feature and repository nodes.
+  Key decisions: create a DeploymentService in infrastructure layer using Node.js child_process.spawn
+  for process management, add server actions following existing open-ide/open-shell patterns,
+  create useDeployAction hook mirroring useRepositoryActions, add DeploymentStatusBadge component
+  following CiStatusBadge pattern, use in-memory Map for deployment tracking (no DB persistence),
+  and poll for status via server actions at 3-second intervals.
+
+# Relationships
+relatedFeatures:
+  - '031-repo-node-actions'
+
+technologies:
+  - TypeScript
+  - 'Next.js (App Router, server actions)'
+  - 'React (@xyflow/react for canvas nodes)'
+  - 'Node.js child_process.spawn'
+  - 'shadcn/ui (Badge, Button, Tooltip)'
+  - 'lucide-react (Play, Square, Loader2, ExternalLink)'
+  - 'Tailwind CSS v4'
+  - 'Vitest + React Testing Library'
+  - Storybook
+  - tsyringe
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'DeploymentService Architecture — In-Memory Process Registry'
+    chosen: 'In-memory Map<string, DeploymentEntry> in a singleton DeploymentService, keyed by targetId (featureId or repositoryId)'
+    rejected:
+      - "SQLite-persisted deployment records — Deployments are ephemeral local processes that don't survive app restart. Persisting to SQLite adds schema migration overhead and stale-record cleanup complexity for no benefit since processes die when the daemon stops."
+      - "Agent-based deployment via LocalDeployAgent — The agent system adds AI call latency, IPC overhead, and requires graph compilation for what is ultimately a deterministic 'spawn npm run dev' operation. Agent wrapping can be added later when Docker/K8s support needs intelligent analysis."
+    rationale: >
+      Deployments are inherently transient — they're child processes of the daemon that die when
+      the daemon stops. An in-memory Map is the simplest correct solution: O(1) lookup by targetId,
+      automatic cleanup when the process exits (via ChildProcess 'exit' event listener), and no
+      schema migration. The DeploymentService is registered as a singleton in the DI container,
+      ensuring a single source of truth. This follows the same ephemeral-state pattern used by
+      the WebServerService (which tracks its http.Server instance in memory, not in the DB).
+      The Map stores entries with: pid, ChildProcess reference, state (DeploymentState enum),
+      url (detected from stdout), and targetId.
+
+  - title: 'Process Spawning Strategy — spawn with shell option'
+    chosen: 'Use child_process.spawn() with { shell: true, cwd: targetPath, detached: true } to run the package manager script command'
+    rejected:
+      - 'child_process.fork() — fork() is designed for Node.js IPC worker processes. Dev servers are arbitrary shell commands (npm run dev, pnpm dev) that need shell interpretation for script resolution, not Node.js module execution.'
+      - 'child_process.exec() — exec() buffers all output in memory and has a maxBuffer limit. Dev servers produce continuous streaming output that must be parsed line-by-line for port detection. exec() is unsuitable for long-running processes.'
+    rationale: >
+      spawn() with shell:true is the correct primitive for running package manager scripts.
+      The shell:true option ensures npm/pnpm/yarn are resolved via PATH and script arguments
+      are handled correctly. detached:true creates a new process group (pgid = child.pid),
+      enabling clean group termination via process.kill(-pid, signal) which kills the entire
+      process tree (the package manager + the actual dev server it spawns). This matches the
+      existing pattern in open-shell.ts and open-folder.ts which use spawn() for launching
+      external processes. Unlike those fire-and-forget spawns, the DeploymentService keeps
+      a reference to the ChildProcess for lifecycle management (stdout parsing, stop, cleanup).
+
+  - title: 'Dev Script Detection — package.json scanning'
+    chosen: "Read and parse package.json from the target directory, check for scripts named 'dev', 'start', 'serve' in priority order, detect package manager from lockfile presence"
+    rejected:
+      - "AI-based repository analysis via LocalDeployAgent Analyze operation — Adds 2-5 seconds of AI call latency for a deterministic lookup. The 'dev' script convention is near-universal in Node.js projects. AI analysis is warranted for Docker/K8s detection but not for script detection."
+      - "User configuration in .shep/config — Adds friction for zero benefit in the common case. Convention-over-configuration: if package.json has a 'dev' script, that's what the user wants to run. A config file can be added later as an override mechanism."
+    rationale: >
+      Reading package.json is deterministic, fast (<1ms), and handles 95%+ of Node.js projects.
+      Priority order (dev > start > serve) matches community conventions: 'dev' is the standard
+      development script name across Next.js, Vite, Create React App, and most frameworks.
+      'start' is the fallback (Express convention). 'serve' is rare but used by some static
+      file servers. Package manager detection via lockfile (pnpm-lock.yaml → pnpm, yarn.lock →
+      yarn, package-lock.json/default → npm) ensures the correct runner is used. The detection
+      function returns { packageManager: string, scriptName: string, command: string } or
+      an error if no script is found.
+
+  - title: 'Port Detection — stdout/stderr line parsing with regex'
+    chosen: 'Attach line-buffered listeners on child.stdout and child.stderr, match each line against a set of common URL/port patterns, extract the first match as the deployment URL'
+    rejected:
+      - 'Static port from package.json or framework config files — Many frameworks use dynamic ports or random available ports. Config file parsing is framework-specific and fragile (Next.js config differs from Vite config differs from Express).'
+      - 'Assign a forced PORT env variable — Not all frameworks respect the PORT env var. This breaks frameworks that use their own port configuration. Also prevents running the dev server with the same settings the user normally uses.'
+    rationale: >
+      Every dev server framework prints its URL to stdout on startup — this is the universal
+      signal. The regex patterns to match are well-known and cover major frameworks:
+      /https?:\/\/localhost:\d+/ (generic), /Local:\s+(https?:\/\/.+)/ (Vite),
+      /ready.*https?:\/\/localhost:\d+/ (Next.js), /listening on.*port\s*(\d+)/i (Express).
+      A 30-second timeout (NFR-2) handles the edge case where output doesn't match any pattern.
+      The detection transitions the deployment state from Booting to Ready and stores the URL.
+      Line buffering is achieved by splitting on newlines from the data chunks, accumulating
+      partial lines in a buffer string.
+
+  - title: 'Process Lifecycle — SIGTERM with SIGKILL fallback'
+    chosen: 'Send SIGTERM to the process group (-pid), poll for exit every 200ms, escalate to SIGKILL after 5 seconds'
+    rejected:
+      - 'SIGKILL immediately — Does not give the dev server time to clean up (close file handles, release ports, flush buffers). Port may remain in TIME_WAIT state longer.'
+      - 'SIGTERM only with no fallback — Some processes ignore or mishandle SIGTERM. Without SIGKILL fallback, the deployment could become a zombie that blocks the port indefinitely.'
+    rationale: >
+      This follows the exact pattern established in the codebase's stop.command.ts (daemon stop):
+      SIGTERM first for graceful shutdown, 200ms polling interval, 5-second timeout, SIGKILL
+      escalation. Using process.kill(-pid, signal) with the negative PID sends the signal to
+      the entire process group, which is critical because npm/pnpm spawn the actual dev server
+      as a child process — killing only the package manager leaves the dev server orphaned.
+      The detached:true spawn option ensures the child gets its own process group (pgid = pid).
+      On process exit (via the 'exit' event listener), the deployment state transitions to Stopped
+      and the entry is cleaned up from the in-memory Map.
+
+  - title: 'Server Actions Design — Four dedicated server actions'
+    chosen: 'Create four server actions: deployFeature(featureId), deployRepository(repositoryPath), stopDeployment(targetId), getDeploymentStatus(targetId) in src/presentation/web/app/actions/'
+    rejected:
+      - 'Single deployAction server action with discriminated union input — Overloaded action with complex input validation. Separate actions are more discoverable, easier to test, and follow the existing pattern (openIde, openShell, openFolder are separate files).'
+      - 'API routes (/api/deploy/start, /api/deploy/stop, /api/deploy/status) — The codebase has migrated from API routes to server actions for new functionality (spec 031 moved from /api/ide/open route to openIde server action). Server actions provide type-safe contracts and eliminate fetch boilerplate.'
+    rationale: >
+      Four actions map cleanly to the four operations: start feature deployment, start repo
+      deployment, stop any deployment, query status. Each action follows the established pattern:
+      'use server' directive, resolve service from DI container via resolve<T>(token), validate
+      input, call service method, return { success, error?, ...data }. The deployFeature action
+      needs to compute the worktree path from repositoryPath + branch (using computeWorktreePath),
+      while deployRepository uses the repositoryPath directly — this difference justifies
+      separate actions rather than a combined one. getDeploymentStatus is called by the polling
+      hook and returns { state, url } or null if no deployment exists.
+
+  - title: 'UI Hook Design — useDeployAction following useRepositoryActions pattern'
+    chosen: 'Create useDeployAction hook accepting { targetId, targetType, repositoryPath, branch? } that manages deploy/stop actions, deployment status polling, loading/error states'
+    rejected:
+      - 'Extend useRepositoryActions with deploy capability — Violates single-responsibility. Repository actions (IDE, shell, folder) are fire-and-forget operations. Deploy is a stateful lifecycle with ongoing polling. Mixing them creates a complex hook with unrelated concerns.'
+      - "Use React context for deployment state — Adds provider boilerplate and prop-drilling avoidance overhead that isn't needed. Each node manages its own deployment independently. No cross-node deployment coordination is required."
+    rationale: >
+      The hook follows useRepositoryActions conventions: per-action loading/error states,
+      5-second error auto-clear, useCallback-memoized action functions, timer cleanup on
+      unmount. Additionally, it manages a polling interval (3 seconds) that calls
+      getDeploymentStatus server action when a deployment is active (Booting or Ready state).
+      The hook returns { deploy, stop, deployLoading, stopLoading, deployError, status, url }
+      where status is DeploymentState | null. Polling starts when status transitions to
+      Booting and stops when it transitions to Stopped or null. The hook is used identically
+      on both feature nodes and repository nodes with different targetType values.
+
+  - title: 'Status Badge Component — DeploymentStatusBadge'
+    chosen: 'Create a DeploymentStatusBadge component following the CiStatusBadge pattern with colored dot/spinner + optional clickable URL'
+    rejected:
+      - 'Inline status rendering in each node component — Duplicates rendering logic between FeatureNode and RepositoryNode. A shared component ensures visual consistency and reduces maintenance.'
+      - 'Full deployment panel in feature drawer — Adds significant UI complexity for the initial release. A compact badge on the node provides immediate visibility. Drawer details can be added as a follow-up enhancement.'
+    rationale: >
+      CiStatusBadge (ci-status-badge.tsx) establishes the exact pattern: a Badge component
+      from shadcn/ui with an icon, text, and color-coded background. DeploymentStatusBadge
+      follows this pattern with three states: Booting (blue background, Loader2 spinner,
+      'Starting...' text), Ready (green background, green dot, clickable URL text), and
+      Stopped (not rendered — badge disappears when deployment stops). The Ready state URL
+      is rendered as an anchor tag with target='_blank' and an ExternalLink icon, matching
+      the PR URL pattern in PrInfoSection. The badge fits within the existing node layout
+      without increasing node height (NFR-6) by rendering in the metadata row area.
+
+  - title: 'Deploy Button Placement — Action toolbar alongside existing buttons'
+    chosen: 'Add deploy/stop button to the existing action button row on both feature nodes and repository nodes, using the same ActionButton component with iconOnly variant'
+    rejected:
+      - "Separate floating action button — Breaks the established visual pattern. Action buttons live in the node's action toolbar (spec 031). A floating button would be inconsistent and harder to position."
+      - 'Context menu entry — No existing context menu pattern in the codebase. Adding one for a single action is unjustified overhead. Context menus are less discoverable than always-visible buttons.'
+    rationale: >
+      Spec 031 established the pattern: icon-only ActionButton components with ghost variant
+      and icon-xs size, wrapped in Tooltip, rendered in a flex row on the node. The deploy
+      button (Play icon) fits naturally alongside the existing IDE (Code2), Shell (Terminal),
+      and Folder (FolderOpen) buttons on repository nodes. On feature nodes, it's the first
+      action button since feature nodes currently have no action toolbar buttons (only settings
+      gear and add-dependency plus). When a deployment is active, the Play icon is replaced
+      with a Square (stop) icon. The button uses the same ActionButton component ensuring
+      consistent loading spinner, error styling, and click isolation (stopPropagation).
+
+  - title: 'Worktree Path Resolution for Feature Deployments'
+    chosen: 'Compute worktree path on-demand in the deployFeature server action using computeWorktreePath(repositoryPath, branch), matching the existing pattern in openIde and openShell'
+    rejected:
+      - "Add worktreePath to FeatureNodeData and pass it through from the server component — The Feature entity's worktreePath field is optional and typically null (not populated during creation). Adding it to FeatureNodeData creates a field that's usually undefined and requires changes to the server component data mapping."
+      - 'Store worktreePath on the Deployment entity in the database — The worktree path is deterministically computed from repositoryPath + branch. Storing it adds redundancy and a potential consistency issue if the computation algorithm changes.'
+    rationale: >
+      The codebase consistently computes worktree paths on-demand rather than persisting them.
+      Both openIde and openShell server actions receive { repositoryPath, branch } and call
+      computeWorktreePath() internally. The deployFeature action follows this exact pattern.
+      The computeWorktreePath() function is deterministic (SHA256 hash + slug), fast (<1ms),
+      and is the single source of truth for path computation. For repository deployments,
+      the repositoryPath is used directly (no worktree computation needed), matching the
+      branch-optional pattern from spec 031.
+
+  - title: 'Deployment Status Polling Strategy'
+    chosen: 'Client-side polling via setInterval in useDeployAction hook, calling getDeploymentStatus server action every 3 seconds, active only when deployment is in Booting or Ready state'
+    rejected:
+      - "Extend existing SSE /api/agent-events route with deployment events — The SSE route is tightly coupled to agent run events (feature lifecycle, phase transitions). Adding deployment events requires modifying the polling logic, event types, and client-side event handling. The deployment lifecycle is simpler and doesn't benefit from the SSE infrastructure's delta-based caching."
+      - "WebSocket connection for real-time updates — No existing WebSocket infrastructure in the codebase. Adding one for deployment status is over-engineering when polling at 3-second intervals provides sufficient responsiveness for 'dev server is ready' updates."
+    rationale: >
+      Polling is the simplest approach that meets the requirements. The getDeploymentStatus
+      server action is lightweight (Map lookup, no DB query), so frequent polling has negligible
+      server cost. 3-second interval balances responsiveness (user sees 'Ready' within 3s of
+      port detection) with resource usage. The poll starts when deploy() is called (optimistic
+      Booting state) and stops when status returns Stopped or null, preventing unnecessary
+      background polling. This pattern is similar to the 5-second polling in
+      useControlCenterState for active features, and simpler than the SSE approach which
+      would require extending the event schema and client-side event processing.
+
+  - title: 'Application Shutdown Cleanup'
+    chosen: "Register process.on('SIGTERM') and process.on('SIGINT') handlers in DeploymentService that iterate the in-memory Map and kill all child processes"
+    rejected:
+      - 'Rely on OS process group cleanup — When the daemon process exits, detached child processes survive. Without explicit cleanup, dev servers become orphaned processes consuming ports and resources.'
+      - "Register cleanup in the DI container dispose pattern — tsyringe doesn't have a built-in dispose lifecycle. Adding one would require infrastructure changes across the container setup."
+    rationale: >
+      The daemon's _serve.command.ts already registers SIGTERM/SIGINT handlers that call
+      service.stop(). The DeploymentService can register its own signal handlers during
+      construction (singleton, so handlers are registered once). On signal, iterate the Map
+      and call process.kill(-entry.pid, 'SIGKILL') for immediate cleanup (graceful shutdown
+      not needed when the whole daemon is stopping). This matches the pattern in
+      feature-agent-worker.ts which registers its own SIGTERM handler for cleanup.
+      Alternative: the _serve.command.ts shutdown function can explicitly call
+      deploymentService.stopAll() before process.exit(0), following the same pattern as
+      notificationWatcher.stop() and service.stop() in the existing shutdown sequence.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'Should the DeploymentService be registered in the DI container or instantiated directly in server actions?'
+    resolved: true
+    options:
+      - option: 'Register as singleton in DI container'
+        description: >
+          Register DeploymentService with container.registerSingleton() in the container
+          initialization function. Resolve it in server actions via resolve<IDeploymentService>().
+          Follows the established pattern for all infrastructure services. Enables testability
+          via interface-based mocking.
+        selected: true
+      - option: 'Module-level singleton (globalThis)'
+        description: >
+          Store instance on globalThis similar to Settings. Simpler setup, no DI overhead.
+          But breaks the established pattern and makes testing harder without DI-based mocking.
+        selected: false
+      - option: 'Instantiate per-request in server actions'
+        description: >
+          Create a new DeploymentService in each server action call. Simple but loses the
+          in-memory process Map between calls — each action would see an empty Map.
+          Fundamentally broken for stateful service.
+        selected: false
+    selectionRationale: >
+      The DeploymentService MUST be a singleton because it holds the in-memory Map of active
+      deployments. Per-request instantiation would lose state between calls. DI container
+      registration (container.registerSingleton) is the established pattern for singleton
+      services in this codebase — IVersionService, WebServerService, and all use cases use
+      this pattern. The service implements IDeploymentService interface defined in the
+      application layer's output ports, enabling test doubles via container.register overrides.
+
+  - question: 'How should the deploy button coexist with other action buttons on feature nodes?'
+    resolved: true
+    options:
+      - option: 'Add to a new action toolbar row below the feature card content'
+        description: >
+          Create a dedicated action toolbar row at the bottom of the feature node card,
+          similar to the repository node's action button area. Provides clear visual
+          separation and room for multiple actions. May increase node height.
+        selected: true
+      - option: 'Integrate into the existing header area next to the settings gear'
+        description: >
+          Place the deploy button next to the settings gear icon in the feature node header.
+          Minimal layout change but limited space — header already has lifecycle badge,
+          state indicator, and settings button.
+        selected: false
+      - option: 'Add to the feature drawer only'
+        description: >
+          Keep the feature node card unchanged and only add the deploy button in the
+          feature drawer detail view. Less discoverable, requires opening the drawer
+          to access deployment.
+        selected: false
+    selectionRationale: >
+      Feature nodes currently have no action toolbar. Repository nodes have a well-established
+      action toolbar pattern (IDE, Shell, Folder buttons in a flex row). Adding a similar
+      toolbar row to feature nodes with the deploy button (and potentially IDE/Shell/Folder
+      in the future) creates consistency across node types. The toolbar renders below the
+      description/metadata area, positioned to avoid increasing the node's visual weight.
+      The deploy status badge renders in the same toolbar area when a deployment is active.
+
+  - question: 'Should multiple deployments per target (feature/repo) be allowed or enforced as one-at-a-time?'
+    resolved: true
+    options:
+      - option: 'One deployment per target (enforce single active deployment)'
+        description: >
+          The Map key is the targetId. Starting a new deployment for the same target first
+          stops the existing one. Simple, prevents port conflicts and resource waste.
+          Matches user expectation — clicking 'deploy' when already deployed restarts.
+        selected: true
+      - option: 'Multiple deployments per target (append to list)'
+        description: >
+          Allow stacking deployments for the same target. More flexible but complicates
+          the UI (which deployment to show?), wastes resources, and creates port conflicts.
+          No clear use case for running the same dev server twice.
+        selected: false
+      - option: 'Error when deployment already exists'
+        description: >
+          Return an error if trying to deploy a target that already has an active deployment.
+          Forces explicit stop before re-deploy. Safer but adds friction — user must click
+          stop then deploy instead of just deploy.
+        selected: false
+    selectionRationale: >
+      One deployment per target is the most intuitive behavior. The FR-10 requirement says
+      "one per feature or repository" — meaning each target can have one deployment, but
+      different targets can run concurrently. The Map key being targetId naturally enforces
+      this: set() overwrites any existing entry after stopping the previous process.
+      The UI shows a single deploy/stop toggle per node, which maps cleanly to one
+      deployment per target.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. DeploymentService Architecture — In-Memory Process Registry
+
+  **Chosen:** In-memory `Map<string, DeploymentEntry>` in a singleton DeploymentService, keyed by
+  targetId (featureId or repositoryId).
+
+  **Rejected:**
+  - SQLite-persisted deployment records — Deployments are ephemeral local processes that don't
+    survive app restart. Persisting to SQLite adds migration overhead for no benefit.
+  - Agent-based deployment via LocalDeployAgent — Adds AI call latency and IPC overhead for
+    what is a deterministic `spawn npm run dev` operation.
+
+  **Rationale:** Deployments are transient child processes of the daemon. An in-memory Map is
+  the simplest correct solution with O(1) lookup, automatic cleanup via 'exit' event listeners,
+  and no schema migration. Follows the WebServerService pattern of in-memory state tracking.
+  The service is registered as a singleton in the DI container.
+
+  ### 2. Process Spawning Strategy — spawn with shell option
+
+  **Chosen:** `child_process.spawn()` with `{ shell: true, cwd: targetPath, detached: true }`.
+
+  **Rejected:**
+  - `fork()` — Designed for Node.js IPC workers, not arbitrary shell commands like `npm run dev`.
+  - `exec()` — Buffers all output in memory; unsuitable for long-running streaming processes.
+
+  **Rationale:** `spawn()` with `shell:true` resolves package managers via PATH. `detached:true`
+  creates a new process group (pgid = child.pid) enabling clean group termination via
+  `process.kill(-pid, signal)` which kills the entire process tree. Matches patterns in
+  open-shell.ts and open-folder.ts.
+
+  ### 3. Dev Script Detection — package.json scanning
+
+  **Chosen:** Read package.json, check scripts named 'dev' > 'start' > 'serve' in priority order,
+  detect package manager from lockfile.
+
+  **Rejected:**
+  - AI-based analysis — 2-5s latency for a deterministic lookup.
+  - User configuration — Adds friction for zero benefit in the common case.
+
+  **Rationale:** Deterministic, fast (<1ms), handles 95%+ of Node.js projects. Package manager
+  detection: pnpm-lock.yaml → pnpm, yarn.lock → yarn, default → npm. Returns
+  `{ packageManager, scriptName, command }` or error.
+
+  ### 4. Port Detection — stdout/stderr line parsing with regex
+
+  **Chosen:** Line-buffered listeners on child.stdout/stderr, regex matching for URL/port patterns.
+
+  **Rejected:**
+  - Static port from config files — Framework-specific and fragile.
+  - Forced PORT env variable — Not universally respected; breaks user's normal config.
+
+  **Rationale:** Every dev server prints its URL to stdout. Patterns to match:
+  - `/https?:\/\/localhost:\d+/` (generic)
+  - `/Local:\s+(https?:\/\/.+)/` (Vite)
+  - `/ready.*https?:\/\/localhost:\d+/` (Next.js)
+  - `/listening on.*port\s*(\d+)/i` (Express)
+
+  30-second timeout (NFR-2) handles edge cases. Line buffering via newline splitting with
+  partial-line buffer accumulation.
+
+  ### 5. Process Lifecycle — SIGTERM with SIGKILL fallback
+
+  **Chosen:** SIGTERM to process group (-pid), 200ms poll, SIGKILL after 5 seconds.
+
+  **Rejected:**
+  - SIGKILL immediately — No graceful cleanup; port may remain in TIME_WAIT.
+  - SIGTERM only — Some processes ignore SIGTERM; no fallback leaves zombies.
+
+  **Rationale:** Exact pattern from stop.command.ts (daemon stop). Negative PID kills entire
+  process group, critical because npm/pnpm spawn the actual dev server as a child.
+
+  ### 6. Server Actions Design — Four dedicated server actions
+
+  **Chosen:** `deployFeature(featureId)`, `deployRepository(repositoryPath)`,
+  `stopDeployment(targetId)`, `getDeploymentStatus(targetId)`.
+
+  **Rejected:**
+  - Single action with discriminated union — Overloaded, harder to test.
+  - API routes — Codebase has migrated to server actions for new features (spec 031).
+
+  **Rationale:** Four operations = four actions. Each follows the established pattern:
+  'use server', resolve from DI, validate, call service, return `{ success, error?, data }`.
+  deployFeature computes worktree path via `computeWorktreePath(repositoryPath, branch)`;
+  deployRepository uses repositoryPath directly.
+
+  ### 7. UI Hook Design — useDeployAction
+
+  **Chosen:** New `useDeployAction` hook with deploy/stop actions, status polling, loading/error states.
+
+  **Rejected:**
+  - Extend useRepositoryActions — Violates single-responsibility; deploy is stateful lifecycle.
+  - React context — Unnecessary; each node manages its own deployment independently.
+
+  **Rationale:** Follows useRepositoryActions conventions (per-action loading/error, 5s auto-clear,
+  useCallback memoization, timer cleanup). Additionally manages 3-second polling interval for
+  deployment status. Returns `{ deploy, stop, deployLoading, stopLoading, deployError, status, url }`.
+
+  ### 8. Status Badge Component — DeploymentStatusBadge
+
+  **Chosen:** Shared component following CiStatusBadge pattern with colored dot/spinner + URL.
+
+  **Rejected:**
+  - Inline rendering in each node — Duplicates logic between FeatureNode and RepositoryNode.
+  - Full deployment panel in drawer — Too complex for initial release.
+
+  **Rationale:** CiStatusBadge establishes the pattern: Badge from shadcn/ui with icon, text,
+  color-coded background. Three visual states: Booting (blue, Loader2 spinner, 'Starting...'),
+  Ready (green, dot, clickable URL with ExternalLink icon), Stopped (badge not rendered).
+  Fits within existing node layout without increasing height (NFR-6).
+
+  ### 9. Deploy Button Placement
+
+  **Chosen:** Add to action toolbar row on both node types, using ActionButton with iconOnly.
+
+  **Rejected:**
+  - Floating action button — Breaks established visual pattern.
+  - Context menu — No existing pattern; less discoverable.
+
+  **Rationale:** Spec 031 established the pattern: icon-only ActionButton with ghost variant
+  and icon-xs size in a flex row. Deploy button (Play icon) fits alongside existing buttons
+  on repo nodes. Feature nodes get a new action toolbar row. Active deployment swaps Play
+  for Square (stop) icon.
+
+  ### 10. Worktree Path Resolution
+
+  **Chosen:** Compute on-demand in deployFeature server action via `computeWorktreePath()`.
+
+  **Rejected:**
+  - Add worktreePath to FeatureNodeData — Field is usually null; adds prop-drilling.
+  - Store on Deployment entity — Redundant; path is deterministically computed.
+
+  **Rationale:** Matches openIde and openShell pattern. Both receive `{ repositoryPath, branch }`
+  and compute path internally. `computeWorktreePath()` is deterministic, fast, and is the
+  single source of truth.
+
+  ### 11. Deployment Status Polling Strategy
+
+  **Chosen:** Client-side setInterval in useDeployAction, 3-second polling via getDeploymentStatus
+  server action, active only during Booting/Ready states.
+
+  **Rejected:**
+  - Extend SSE /api/agent-events — Tightly coupled to agent lifecycle; modification is risky.
+  - WebSocket — No existing infrastructure; over-engineering for this use case.
+
+  **Rationale:** Polling is simplest. getDeploymentStatus is a Map lookup (no DB query), so
+  frequent polling has negligible cost. 3s interval balances responsiveness with resource
+  usage. Poll starts on deploy(), stops on Stopped/null state.
+
+  ### 12. Application Shutdown Cleanup
+
+  **Chosen:** DeploymentService registers SIGTERM/SIGINT handlers to kill all child processes.
+
+  **Rejected:**
+  - Rely on OS process group cleanup — Detached children survive parent exit.
+  - DI container dispose pattern — tsyringe has no built-in dispose lifecycle.
+
+  **Rationale:** The daemon's shutdown sequence already calls service.stop(). DeploymentService
+  exposes a `stopAll()` method called during shutdown, iterating the Map and sending SIGKILL
+  to all process groups for immediate cleanup.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | Node.js child_process | Process spawning & management | Use (built-in) | spawn() is the correct primitive; already used in open-shell.ts, open-folder.ts |
+  | Node.js fs | package.json reading, lockfile detection | Use (built-in) | readFileSync for sync package.json parse; existsSync for lockfile detection |
+  | @xyflow/react | Canvas node rendering | Use (existing) | Already in use for FeatureNode and RepositoryNode |
+  | shadcn/ui Badge | Status badge rendering | Use (existing) | CiStatusBadge pattern; already available |
+  | shadcn/ui Button | Action button rendering | Use (existing) | ActionButton component wraps this; already used |
+  | shadcn/ui Tooltip | Accessible labels for icon buttons | Use (existing) | Already used on repository node action buttons |
+  | lucide-react | Play, Square, Loader2, ExternalLink icons | Use (existing) | Already used throughout the codebase |
+  | tsyringe | DI container registration | Use (existing) | Singleton service registration pattern |
+  | tree-kill (npm) | Cross-platform process tree killing | Reject | process.kill(-pid) with detached:true handles process groups on macOS/Linux (NFR-7). tree-kill adds a dependency for Windows support we don't need. |
+  | pm2 | Process manager | Reject | Full-featured process manager is massive overkill for managing a few dev server processes. Would add 20MB+ dependency. |
+  | concurrently | Multi-process runner | Reject | Designed for running multiple npm scripts in parallel from CLI. Not suitable for programmatic process lifecycle management with status tracking. |
+  | detect-port (npm) | Port availability checking | Reject | We detect ports from stdout output, not by scanning. Port scanning would not know which port the dev server will use. |
+
+  ## Security Considerations
+
+  ### Path Validation
+  - **repositoryPath validation:** All server actions validate that repositoryPath is an absolute
+    path (starts with '/') before use. This prevents path traversal attacks.
+  - **existsSync check:** Before spawning a process, verify the target directory exists to
+    prevent cryptic spawn errors.
+  - **No shell injection:** The spawn command is constructed programmatically (`['run', scriptName']`
+    for npm, `[scriptName]` for pnpm/yarn). Script names come from package.json keys which are
+    validated JSON property names — no user-controlled strings are interpolated into shell commands.
+
+  ### Process Isolation
+  - Each deployment runs in its own process group (detached:true). Processes cannot interfere
+    with each other or the daemon.
+  - The DeploymentService enforces one deployment per target, preventing resource exhaustion
+    from duplicate deployments.
+
+  ### URL Trust
+  - The deployment URL is extracted from the dev server's stdout output. Since the dev server
+    runs locally, the URL is always a localhost URL. The UI renders it as a clickable link with
+    `target='_blank'` and `rel='noopener noreferrer'`.
+
+  ### No Credential Exposure
+  - Environment variables from the daemon process are inherited by child processes. If the
+    user's shell environment contains sensitive variables, they will be available to the dev
+    server — but this is expected behavior (same as running `npm run dev` manually). No
+    additional environment variables are exposed beyond what the user already has.
+
+  ## Performance Implications
+
+  ### Process Spawning
+  - spawn() call completes in <10ms. The 500ms NFR-1 target is easily met.
+  - Dev server startup time depends on the project (typically 1-10 seconds for Next.js/Vite).
+
+  ### Polling Overhead
+  - getDeploymentStatus is a Map.get() call — O(1), no I/O, <1ms.
+  - 3-second polling interval = ~0.33 requests/second per active deployment.
+  - With 5 concurrent deployments: ~1.7 requests/second total — negligible.
+  - Polling stops automatically when deployment is stopped.
+
+  ### Memory Usage
+  - Each DeploymentEntry stores: pid (number), ChildProcess reference, state (string),
+    url (string), targetId (string). ~200 bytes per entry.
+  - stdout/stderr buffers: line buffer accumulates partial lines, clears on newline.
+    Typical buffer size: <1KB.
+  - No unbounded growth: entries are removed on process exit.
+
+  ### Node Re-rendering
+  - Status changes (Booting → Ready → Stopped) trigger React state updates in the hook.
+  - Only the affected node re-renders (React Flow handles node-level granularity).
+  - No full canvas re-render on status change.
+
+  ## Architecture Notes
+
+  ### Component Hierarchy (New Files)
+
+  ```
+  packages/core/src/
+  ├── application/
+  │   └── ports/output/services/
+  │       └── deployment-service.interface.ts    # NEW — IDeploymentService interface
+  ├── infrastructure/
+  │   └── services/
+  │       └── deployment/
+  │           ├── deployment.service.ts          # NEW — DeploymentService implementation
+  │           ├── detect-dev-script.ts           # NEW — package.json script detection
+  │           └── parse-port.ts                  # NEW — stdout port/URL parsing
+  │   └── di/
+  │       └── container.ts                       # MODIFIED — register DeploymentService
+
+  src/presentation/web/
+  ├── app/actions/
+  │   ├── deploy-feature.ts                      # NEW — server action
+  │   ├── deploy-repository.ts                   # NEW — server action
+  │   ├── stop-deployment.ts                     # NEW — server action
+  │   └── get-deployment-status.ts               # NEW — server action
+  ├── components/common/
+  │   ├── deployment-status-badge/
+  │   │   ├── deployment-status-badge.tsx         # NEW — status badge component
+  │   │   ├── deployment-status-badge.stories.tsx # NEW — Storybook stories
+  │   │   └── index.ts                           # NEW — barrel export
+  │   ├── feature-node/
+  │   │   └── feature-node.tsx                   # MODIFIED — add deploy button + badge
+  │   └── repository-node/
+  │       └── repository-node.tsx                # MODIFIED — add deploy button + badge
+  ├── hooks/
+  │   └── use-deploy-action.ts                   # NEW — deploy action hook
+  ```
+
+  ### Data Flow
+
+  ```
+  User clicks "Deploy" on FeatureNode
+    → useDeployAction.deploy()
+      → deployFeature(featureId) server action
+        → resolve<IDeploymentService>('IDeploymentService')
+        → resolve<IFeatureRepository>('IFeatureRepository')
+        → feature = featureRepo.findById(featureId)
+        → worktreePath = computeWorktreePath(feature.repositoryPath, feature.branch)
+        → deploymentService.start(featureId, worktreePath)
+          → detectDevScript(worktreePath)  // reads package.json
+          → spawn(command, args, { shell: true, cwd: worktreePath, detached: true })
+          → register in Map<string, DeploymentEntry>
+          → attach stdout listener for port detection
+        → return { success: true, state: 'Booting' }
+
+  Polling (every 3 seconds while Booting/Ready):
+    → getDeploymentStatus(targetId) server action
+      → deploymentService.getStatus(targetId)
+        → Map.get(targetId)
+        → return { state, url } or null
+
+  Port detected in stdout:
+    → DeploymentEntry.state = 'Ready'
+    → DeploymentEntry.url = detected URL
+    → Next poll picks up the state change
+
+  User clicks "Stop":
+    → useDeployAction.stop()
+      → stopDeployment(targetId) server action
+        → deploymentService.stop(targetId)
+          → process.kill(-pid, 'SIGTERM')
+          → poll for exit (200ms intervals, 5s timeout)
+          → if still alive: process.kill(-pid, 'SIGKILL')
+          → remove from Map on 'exit' event
+        → return { success: true }
+  ```
+
+  ### Integration with Existing Patterns
+
+  | Pattern | Existing Example | New Implementation |
+  | ------- | ---------------- | ------------------ |
+  | Server action | openIde, openShell, openFolder | deployFeature, deployRepository, stopDeployment, getDeploymentStatus |
+  | DI registration | IVersionService, WebServerService | IDeploymentService |
+  | Action button | ActionButton (icon-only, ghost, icon-xs) | Same component, Play/Square icons |
+  | Status badge | CiStatusBadge (green/yellow/red) | DeploymentStatusBadge (green/blue/hidden) |
+  | Hook pattern | useRepositoryActions (loading, error, auto-clear) | useDeployAction (same + polling + status) |
+  | Process management | FeatureAgentProcessService (spawn, isAlive) | DeploymentService (spawn, stop, status) |
+  | Graceful shutdown | stop.command.ts (SIGTERM → poll → SIGKILL) | Same pattern in DeploymentService.stop() |
+
+  ---
+
+  _Research complete — ready for planning phase_
