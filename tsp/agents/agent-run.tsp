@@ -32,7 +32,7 @@ model AgentRun extends BaseEntity {
   @doc("Executor session ID for resumption (optional)")
   sessionId?: string;
 
-  @doc("LangGraph thread_id for checkpoint lookup and crash resume")
+  @doc("LangGraph thread_id for checkpoint lookup and crash retry")
   threadId: string;
 
   @doc("Process ID for crash recovery (optional)")

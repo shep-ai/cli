@@ -122,7 +122,7 @@ export async function recordPhaseEnd(timingId: string | null, durationMs: number
  * These are phase timing records with zero duration, used to mark events in the timeline.
  *
  * Can be called with explicit runId and repository (for use outside the worker context,
- * e.g., from use cases like StopAgentRunUseCase or ResumeFeatureUseCase).
+ * e.g., from use cases like StopAgentRunUseCase or RetryFeatureUseCase).
  */
 export async function recordLifecycleEvent(
   phase: string,

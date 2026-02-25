@@ -45,7 +45,7 @@ describe('DevAgentExecutorService', () => {
 
   describe('supportsFeature', () => {
     it('should return false for all features', () => {
-      expect(executor.supportsFeature(AgentFeature.sessionResume)).toBe(false);
+      expect(executor.supportsFeature(AgentFeature.sessionRetry)).toBe(false);
       expect(executor.supportsFeature(AgentFeature.streaming)).toBe(false);
     });
   });

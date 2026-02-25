@@ -220,7 +220,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   setLifecycleContext(args.featureId, updateLifecycleUseCase);
 
   // Record lifecycle event
-  await recordLifecycleEvent(args.resume ? 'run:resumed' : 'run:started');
+  await recordLifecycleEvent(args.resume ? 'run:retried' : 'run:started');
 
   try {
     const graphConfig = { configurable: { thread_id: checkpointId } };

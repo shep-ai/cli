@@ -47,7 +47,7 @@ const NODE_TO_REVIEW: Record<string, string> = {
 /** Map lifecycle event phases to display labels and symbols. */
 const LIFECYCLE_EVENTS: Record<string, { label: string; color: (s: string) => string }> = {
   'run:started': { label: 'started', color: colors.info },
-  'run:resumed': { label: 'resumed', color: colors.info },
+  'run:retried': { label: 'retried', color: colors.info },
   'run:completed': { label: 'completed', color: colors.success },
   'run:failed': { label: 'failed', color: colors.error },
   'run:stopped': { label: 'stopped', color: colors.warning },
@@ -279,8 +279,8 @@ export function renderPhaseTimings(
       const runLabel = `Run #${groupIdx + 1}`;
       // Check if this run started with a resume event
       const firstEvent = group.timings[0];
-      const isResumed = firstEvent && firstEvent.phase === 'run:resumed';
-      const suffix = isResumed ? ' (resumed)' : '';
+      const isRetried = firstEvent && firstEvent.phase === 'run:retried';
+      const suffix = isRetried ? ' (retried)' : '';
       lines.push(colors.muted(`  ${runLabel}${suffix}`));
     }
 
@@ -325,7 +325,7 @@ export function renderPhaseTimings(
         if (event) {
           // For resumed events without a matching rejection, show as info marker
           // (rejections are now rendered inline after approval wait)
-          if (t.phase === 'run:resumed') {
+          if (t.phase === 'run:retried') {
             // Check if this resume was preceded by a rejection that we already rendered
             // If so, skip the resumed marker to avoid visual duplication
             const prevIdx = idx - 1;

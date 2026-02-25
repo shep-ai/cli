@@ -363,13 +363,13 @@ flowchart LR
 
 #### Execution Phases
 
-| Phase | Name               | Description                                                |
-| ----- | ------------------ | ---------------------------------------------------------- |
-| **1** | Validation Gate    | 3-tier quality check before any code is written            |
-| **2** | Session Resumption | Read `feature.yaml`, verify previous work, auto-resume     |
-| **3** | Task Execution     | Sequential TDD execution with verification after each task |
-| **4** | Error Handling     | Systematic debug with max 3 retries per task               |
-| **5** | Completion         | Final status update, summary, next steps                   |
+| Phase | Name            | Description                                                |
+| ----- | --------------- | ---------------------------------------------------------- |
+| **1** | Validation Gate | 3-tier quality check before any code is written            |
+| **2** | Session Retry   | Read `feature.yaml`, verify previous work, auto-retry      |
+| **3** | Task Execution  | Sequential TDD execution with verification after each task |
+| **4** | Error Handling  | Systematic debug with max 3 retries per task               |
+| **5** | Completion      | Final status update, summary, next steps                   |
 
 #### Validation Gate Detail
 

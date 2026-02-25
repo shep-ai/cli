@@ -1,14 +1,14 @@
 /**
- * ResumeFeatureUseCase Unit Tests
+ * RetryFeatureUseCase Unit Tests
  *
- * Tests for resuming interrupted/failed feature agent runs.
+ * Tests for retrying interrupted/failed feature agent runs.
  *
  * TDD Phase: RED
  */
 
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { ResumeFeatureUseCase } from '@/application/use-cases/features/resume-feature.use-case.js';
+import { RetryFeatureUseCase } from '@/application/use-cases/features/retry-feature.use-case.js';
 import { AgentRunStatus, SdlcLifecycle } from '@/domain/generated/output.js';
 import type { AgentRun, Feature } from '@/domain/generated/output.js';
 
@@ -92,8 +92,8 @@ function createTestRun(overrides?: Partial<AgentRun>): AgentRun {
   };
 }
 
-describe('ResumeFeatureUseCase', () => {
-  let useCase: ResumeFeatureUseCase;
+describe('RetryFeatureUseCase', () => {
+  let useCase: RetryFeatureUseCase;
   let featureRepo: ReturnType<typeof createMockFeatureRepo>;
   let runRepo: ReturnType<typeof createMockRunRepo>;
   let processService: ReturnType<typeof createMockProcessService>;
@@ -104,7 +104,7 @@ describe('ResumeFeatureUseCase', () => {
     runRepo = createMockRunRepo();
     processService = createMockProcessService();
     worktreeService = createMockWorktreeService();
-    useCase = new ResumeFeatureUseCase(
+    useCase = new RetryFeatureUseCase(
       featureRepo as any,
       runRepo as any,
       processService as any,

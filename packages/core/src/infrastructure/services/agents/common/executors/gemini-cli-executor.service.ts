@@ -22,7 +22,7 @@ import type {
 import type { SpawnFunction } from '../types.js';
 
 /** Features supported by Gemini CLI */
-const SUPPORTED_FEATURES = new Set<string>(['session-resume', 'streaming', 'tool-scoping']);
+const SUPPORTED_FEATURES = new Set<string>(['session-retry', 'streaming', 'tool-scoping']);
 
 /**
  * Executor service for Gemini CLI agent.

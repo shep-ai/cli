@@ -94,7 +94,7 @@ import { SlugResolver } from '../../application/use-cases/features/create/slug-r
 import { ListFeaturesUseCase } from '../../application/use-cases/features/list-features.use-case.js';
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
-import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
+import { RetryFeatureUseCase } from '../../application/use-cases/features/retry-feature.use-case.js';
 import { GetFeatureArtifactUseCase } from '../../application/use-cases/features/get-feature-artifact.use-case.js';
 import { GetResearchArtifactUseCase } from '../../application/use-cases/features/get-research-artifact.use-case.js';
 import { GetPlanArtifactUseCase } from '../../application/use-cases/features/get-plan-artifact.use-case.js';
@@ -300,7 +300,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ListFeaturesUseCase);
   container.registerSingleton(ShowFeatureUseCase);
   container.registerSingleton(DeleteFeatureUseCase);
-  container.registerSingleton(ResumeFeatureUseCase);
+  container.registerSingleton(RetryFeatureUseCase);
   container.registerSingleton(GetFeatureArtifactUseCase);
   container.registerSingleton(GetResearchArtifactUseCase);
   container.registerSingleton(GetPlanArtifactUseCase);

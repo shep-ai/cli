@@ -2,7 +2,7 @@
  * Stop Agent Run Use Case
  *
  * Sends SIGTERM to a running agent's worker process and marks it as interrupted.
- * Using "interrupted" (not "cancelled") so the run is resumable via `shep feat resume`.
+ * Using "interrupted" (not "cancelled") so the run is retryable via `shep feat retry`.
  */
 
 import { injectable, inject } from 'tsyringe';

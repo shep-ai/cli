@@ -2,7 +2,7 @@ $schema: https://json-schema.org/draft/2020-12/schema
 $id: AgentFeature.yaml
 type: string
 enum:
-  - session-resume
+  - session-retry
   - streaming
   - tool-scoping
   - structured-output

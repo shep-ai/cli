@@ -88,8 +88,8 @@ describe('ClaudeCodeExecutorService', () => {
   });
 
   describe('supportsFeature', () => {
-    it('should support session-resume feature', () => {
-      expect(executor.supportsFeature(AgentFeature.sessionResume)).toBe(true);
+    it('should support session-retry feature', () => {
+      expect(executor.supportsFeature(AgentFeature.sessionRetry)).toBe(true);
     });
 
     it('should support streaming feature', () => {

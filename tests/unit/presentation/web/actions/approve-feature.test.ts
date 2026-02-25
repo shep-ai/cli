@@ -45,7 +45,7 @@ describe('approveFeature server action', () => {
 
   it('calls use case without payload when none provided', async () => {
     mockFindById.mockResolvedValue({ id: 'feat-1', agentRunId: 'run-1' });
-    mockExecute.mockResolvedValue({ approved: true, reason: 'Approved and resumed' });
+    mockExecute.mockResolvedValue({ approved: true, reason: 'Approved and retrying' });
 
     const result = await approveFeature('feat-1');
 
@@ -55,7 +55,7 @@ describe('approveFeature server action', () => {
 
   it('forwards payload to use case when provided', async () => {
     mockFindById.mockResolvedValue({ id: 'feat-1', agentRunId: 'run-1' });
-    mockExecute.mockResolvedValue({ approved: true, reason: 'Approved and resumed' });
+    mockExecute.mockResolvedValue({ approved: true, reason: 'Approved and retrying' });
 
     const payload = {
       approved: true,

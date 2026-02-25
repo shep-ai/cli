@@ -118,6 +118,6 @@ export class ApproveAgentRunUseCase {
       }
     );
 
-    return { approved: true, reason: 'Approved and resumed' };
+    return { approved: true, reason: 'Approved and retrying' };
   }
 }

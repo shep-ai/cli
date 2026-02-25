@@ -55,7 +55,7 @@ describe('createApproveCommand', () => {
       result: 'node:requirements',
     };
     (resolveWaitingFeature as ReturnType<typeof vi.fn>).mockResolvedValue({ feature, run });
-    mockApproveExecute.mockResolvedValue({ approved: true, reason: 'Approved and resumed' });
+    mockApproveExecute.mockResolvedValue({ approved: true, reason: 'Approved and retrying' });
 
     const cmd = createApproveCommand();
     await cmd.parseAsync([], { from: 'user' });

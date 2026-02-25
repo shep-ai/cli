@@ -1713,7 +1713,7 @@ export type AgentRun = BaseEntity & {
    */
   sessionId?: string;
   /**
-   * LangGraph thread_id for checkpoint lookup and crash resume
+   * LangGraph thread_id for checkpoint lookup and crash retry
    */
   threadId: string;
   /**
@@ -2046,7 +2046,7 @@ export type PrdQuestionnaireData = {
   finalAction: PrdFinalAction;
 };
 export enum AgentFeature {
-  sessionResume = 'session-resume',
+  sessionRetry = 'session-retry',
   streaming = 'streaming',
   toolScoping = 'tool-scoping',
   structuredOutput = 'structured-output',

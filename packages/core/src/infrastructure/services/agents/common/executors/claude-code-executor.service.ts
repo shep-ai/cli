@@ -20,7 +20,7 @@ import type { SpawnFunction } from '../types.js';
 
 /** Features supported by Claude Code CLI */
 const SUPPORTED_FEATURES = new Set<string>([
-  'session-resume',
+  'session-retry',
   'streaming',
   'system-prompt',
   'structured-output',

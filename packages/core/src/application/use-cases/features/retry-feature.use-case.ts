@@ -1,8 +1,9 @@
 /**
- * Resume Feature Use Case
+ * Retry Feature Use Case
  *
- * Resumes an interrupted, failed, or waiting_approval feature agent run.
- * Creates a new AgentRun record and spawns a worker with --resume flag.
+ * Retries an interrupted, failed, or waiting_approval feature agent run
+ * from the last checkpoint. Creates a new AgentRun record and spawns a
+ * worker with --resume flag to continue from where the previous run left off.
  */
 
 import { injectable, inject } from 'tsyringe';
@@ -20,13 +21,13 @@ const RESUMABLE_STATUSES = new Set<string>([
   AgentRunStatus.waitingApproval,
 ]);
 
-export interface ResumeFeatureResult {
+export interface RetryFeatureResult {
   feature: Feature;
   newRun: AgentRun;
 }
 
 @injectable()
-export class ResumeFeatureUseCase {
+export class RetryFeatureUseCase {
   constructor(
     @inject('IFeatureRepository')
     private readonly featureRepo: IFeatureRepository,
@@ -38,7 +39,7 @@ export class ResumeFeatureUseCase {
     private readonly worktreeService: IWorktreeService
   ) {}
 
-  async execute(featureId: string): Promise<ResumeFeatureResult> {
+  async execute(featureId: string): Promise<RetryFeatureResult> {
     // Resolve feature by exact ID or prefix
     const feature =
       (await this.featureRepo.findById(featureId)) ??

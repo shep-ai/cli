@@ -19,7 +19,7 @@ import type {
 import type { SpawnFunction } from '../types.js';
 
 /** Features supported by Cursor CLI */
-const SUPPORTED_FEATURES = new Set<string>(['session-resume', 'streaming']);
+const SUPPORTED_FEATURES = new Set<string>(['session-retry', 'streaming']);
 
 /**
  * Executor service for Cursor agent.

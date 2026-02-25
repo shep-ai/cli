@@ -45,7 +45,7 @@ export function createApproveCommand(): Command {
         messages.newline();
         messages.success(`Approved: ${feature.name}`);
         console.log(`  ${colors.muted('Phase:')}    ${colors.success(phase)} approved`);
-        console.log(`  ${colors.muted('Agent:')}    resumed`);
+        console.log(`  ${colors.muted('Agent:')}    retrying`);
         messages.newline();
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));

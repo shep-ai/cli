@@ -7,8 +7,8 @@
  */
 @doc("Agent executor capability declarations")
 enum AgentFeature {
-  @doc("Supports session resumption from checkpoint")
-  sessionResume: "session-resume",
+  @doc("Supports session retry from checkpoint")
+  sessionRetry: "session-retry",
 
   @doc("Supports streaming output events")
   streaming: "streaming",

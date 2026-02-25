@@ -63,7 +63,7 @@ Manage features.
 | `shep feat ls`           | List features        |
 | `shep feat show <id>`    | Show feature details |
 | `shep feat logs <id>`    | View feature logs    |
-| `shep feat resume <id>`  | Resume a feature     |
+| `shep feat retry <id>`   | Retry a feature      |
 | `shep feat review <id>`  | Review a feature     |
 | `shep feat approve <id>` | Approve a feature    |
 | `shep feat reject <id>`  | Reject a feature     |

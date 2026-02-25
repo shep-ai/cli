@@ -60,9 +60,9 @@ export interface IAgent {
   pause(): Promise<void>;
 
   /**
-   * Resume agent execution.
+   * Retry agent execution from last checkpoint.
    */
-  resume(): Promise<void>;
+  retry(): Promise<void>;
 
   /**
    * Shutdown the agent gracefully.

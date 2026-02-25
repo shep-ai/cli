@@ -22,7 +22,7 @@ properties:
     description: Executor session ID for resumption (optional)
   threadId:
     type: string
-    description: LangGraph thread_id for checkpoint lookup and crash resume
+    description: LangGraph thread_id for checkpoint lookup and crash retry
   pid:
     type: integer
     minimum: -2147483648
