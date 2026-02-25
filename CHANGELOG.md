@@ -1,3 +1,9 @@
+# [1.59.0](https://github.com/shep-ai/cli/compare/v1.58.0...v1.59.0) (2026-02-25)
+
+### Features
+
+- **web:** display pr metadata in feature drawer with shared ci-status-badge ([#142](https://github.com/shep-ai/cli/issues/142)) ([5880d33](https://github.com/shep-ai/cli/commit/5880d33c1519634d7ad34207219cb3e2c39005e1))
+
 # [1.58.0](https://github.com/shep-ai/cli/compare/v1.57.0...v1.58.0) (2026-02-25)
 
 ### Features
