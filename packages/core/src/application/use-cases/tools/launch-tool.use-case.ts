@@ -14,6 +14,8 @@ import { TOOL_METADATA } from '../../../infrastructure/services/tool-installer/t
 export interface LaunchToolInput {
   toolId: string;
   directoryPath: string;
+  /** When true, CLI agents open in a new terminal window instead of inheriting stdio. */
+  headless?: boolean;
 }
 
 export type LaunchToolResult =
@@ -36,7 +38,7 @@ export class LaunchToolUseCase {
     private readonly ideLauncherService: IIdeLauncherService
   ) {}
 
-  async execute({ toolId, directoryPath }: LaunchToolInput): Promise<LaunchToolResult> {
+  async execute({ toolId, directoryPath, headless }: LaunchToolInput): Promise<LaunchToolResult> {
     const metadata = TOOL_METADATA[toolId];
     if (!metadata) {
       return { ok: false, code: 'tool_not_found', message: `Tool '${toolId}' not found` };
@@ -51,7 +53,7 @@ export class LaunchToolUseCase {
       };
     }
 
-    const result = await this.ideLauncherService.launch(toolId, directoryPath);
+    const result = await this.ideLauncherService.launch(toolId, directoryPath, { headless });
     if (!result.ok) {
       return { ok: false, code: 'launch_failed', message: result.message };
     }

@@ -57,7 +57,11 @@ export interface IIdeLauncherService {
    * @param directoryPath - Absolute path to open in the editor
    * @returns Launch result indicating success or failure with error details
    */
-  launch(editorId: string, directoryPath: string): Promise<LaunchIdeResult>;
+  launch(
+    editorId: string,
+    directoryPath: string,
+    options?: { headless?: boolean }
+  ): Promise<LaunchIdeResult>;
 
   /**
    * Check whether an editor's binary is available on the system PATH.

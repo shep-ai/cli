@@ -3,6 +3,7 @@
   "summary": "Lightweight but powerful source code editor",
   "description": "Microsoft Visual Studio Code is a free, open-source code editor with built-in support for debugging, version control, and extensions for enhanced development workflows.",
   "tags": ["ide"],
+  "iconUrl": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg",
   "binary": "code",
   "packageManager": "apt",
   "commands": {

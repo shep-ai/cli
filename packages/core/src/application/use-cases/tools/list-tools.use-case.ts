@@ -18,8 +18,10 @@ export interface ToolItem {
   name: string;
   summary: string;
   description: string;
-  tags: ('ide' | 'cli-agent')[];
+  tags: ('ide' | 'cli-agent' | 'vcs')[];
+  iconUrl: string | undefined;
   autoInstall: boolean;
+  required: boolean;
   openDirectory: string | undefined;
   documentationUrl: string;
   installCommand: string | undefined;
@@ -63,7 +65,9 @@ export class ListToolsUseCase {
           summary: metadata.summary,
           description: metadata.description,
           tags: metadata.tags,
+          iconUrl: metadata.iconUrl,
           autoInstall: metadata.autoInstall ?? true,
+          required: metadata.required ?? false,
           openDirectory: resolvePlatformString(metadata.openDirectory, currentPlatform),
           documentationUrl: metadata.documentationUrl,
           installCommand: metadata.commands[currentPlatform],

@@ -10,7 +10,9 @@ const mockTools: ToolItem[] = [
     description:
       'Cursor is an AI-first code editor that integrates AI models deeply into the development workflow.',
     tags: ['ide'],
+    iconUrl: 'https://cdn.simpleicons.org/cursor',
     autoInstall: false,
+    required: false,
     openDirectory: '/usr/bin/cursor',
     documentationUrl: 'https://cursor.sh',
     installCommand: 'brew install --cask cursor',
@@ -23,7 +25,9 @@ const mockTools: ToolItem[] = [
     description:
       'Visual Studio Code is a lightweight but powerful source code editor from Microsoft with support for debugging, Git, syntax highlighting, and intelligent code completion.',
     tags: ['ide'],
+    iconUrl: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg',
     autoInstall: false,
+    required: false,
     openDirectory: '/usr/bin/code',
     documentationUrl: 'https://code.visualstudio.com',
     installCommand: 'brew install --cask visual-studio-code',
@@ -36,7 +40,9 @@ const mockTools: ToolItem[] = [
     description:
       'Claude Code is an agentic coding tool by Anthropic that lives in your terminal, understands your codebase, and helps you ship features faster.',
     tags: ['cli-agent'],
+    iconUrl: 'https://cdn.simpleicons.org/claude',
     autoInstall: true,
+    required: false,
     openDirectory: undefined,
     documentationUrl: 'https://claude.ai/code',
     installCommand: 'npm install -g @anthropic-ai/claude-code',
@@ -49,7 +55,9 @@ const mockTools: ToolItem[] = [
     description:
       'Aider lets you pair program with LLMs to edit code in your local git repository. It works best with Claude 3.5 Sonnet and GPT-4o.',
     tags: ['cli-agent'],
+    iconUrl: undefined,
     autoInstall: true,
+    required: false,
     openDirectory: undefined,
     documentationUrl: 'https://aider.chat',
     installCommand: 'pip install aider-chat',
@@ -62,7 +70,9 @@ const mockTools: ToolItem[] = [
     description:
       'Goose is a developer agent by Block that autonomously handles complex engineering tasks through conversation and code execution.',
     tags: ['cli-agent'],
+    iconUrl: undefined,
     autoInstall: true,
+    required: false,
     openDirectory: undefined,
     documentationUrl: 'https://block.github.io/goose',
     installCommand: 'pip install goose-ai',

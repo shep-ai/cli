@@ -20,6 +20,7 @@ interface IdeEntry {
   name: string;
   binary: string | Record<string, string>;
   openDirectory: string | Record<string, string>;
+  terminalCommand?: string | Record<string, string>;
   spawnOptions?: {
     shell?: boolean;
     stdio?: 'ignore' | 'inherit' | 'pipe';
@@ -50,13 +51,18 @@ export class JsonDrivenIdeLauncherService implements IIdeLauncherService {
           name: meta.name,
           binary: meta.binary,
           openDirectory: meta.openDirectory,
+          terminalCommand: meta.terminalCommand,
           spawnOptions: meta.spawnOptions,
         });
       }
     }
   }
 
-  async launch(editorId: string, directoryPath: string): Promise<LaunchIdeResult> {
+  async launch(
+    editorId: string,
+    directoryPath: string,
+    options?: { headless?: boolean }
+  ): Promise<LaunchIdeResult> {
     const entry = this.editors.get(editorId);
     if (!entry) {
       const available = [...this.editors.keys()].join(', ');
@@ -67,7 +73,12 @@ export class JsonDrivenIdeLauncherService implements IIdeLauncherService {
       };
     }
 
-    const openCmd = resolvePlatformValue(entry.openDirectory);
+    // In headless mode (web UI), use terminalCommand to open CLI agents
+    // in a new terminal window instead of inheriting the server's stdio.
+    const useTerminal = options?.headless === true && entry.terminalCommand != null;
+    const cmdSource = useTerminal ? entry.terminalCommand! : entry.openDirectory;
+    const openCmd = resolvePlatformValue(cmdSource);
+
     if (!openCmd.includes('{dir}')) {
       return {
         ok: false,
@@ -77,10 +88,15 @@ export class JsonDrivenIdeLauncherService implements IIdeLauncherService {
     }
 
     const resolved = openCmd.replace('{dir}', directoryPath);
-    const useShell = entry.spawnOptions?.shell === true;
+
+    // Terminal commands always use shell mode and detach
+    const useShell = useTerminal || entry.spawnOptions?.shell === true;
     const opts = {
-      detached: entry.spawnOptions?.detached ?? !useShell,
-      stdio: (entry.spawnOptions?.stdio ?? 'ignore') as 'ignore' | 'inherit' | 'pipe',
+      detached: useTerminal ? true : (entry.spawnOptions?.detached ?? !useShell),
+      stdio: (useTerminal ? 'ignore' : (entry.spawnOptions?.stdio ?? 'ignore')) as
+        | 'ignore'
+        | 'inherit'
+        | 'pipe',
       shell: useShell,
     };
 

@@ -12,12 +12,13 @@ export interface ToolsPageClientProps {
   className?: string;
 }
 
-type TabValue = 'all' | 'ide' | 'cli-agent';
+type TabValue = 'all' | 'ide' | 'cli-agent' | 'vcs';
 
 const TAB_FILTER: Record<TabValue, (tool: ToolItem) => boolean> = {
   all: () => true,
   ide: (tool) => tool.tags.includes('ide'),
   'cli-agent': (tool) => tool.tags.includes('cli-agent'),
+  vcs: (tool) => tool.tags.includes('vcs'),
 };
 
 export function ToolsPageClient({ tools: initialTools, className }: ToolsPageClientProps) {
@@ -39,15 +40,14 @@ export function ToolsPageClient({ tools: initialTools, className }: ToolsPageCli
   const filtered = tools.filter(TAB_FILTER[activeTab]);
 
   return (
-    <div data-testid="tools-page-client" className={cn('space-y-6', className)}>
-      <div className="flex items-center gap-3">
-        <Wrench className="text-primary h-6 w-6" />
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Tools</h1>
-          <p className="text-muted-foreground text-sm">
-            Manage the IDEs and CLI agents used by Shep.
-          </p>
-        </div>
+    <div data-testid="tools-page-client" className={cn('space-y-4', className)}>
+      {/* Compact header */}
+      <div className="flex items-center gap-2">
+        <Wrench className="text-muted-foreground h-4 w-4" />
+        <h1 className="text-sm font-bold tracking-tight">Tools</h1>
+        <span className="text-muted-foreground text-[10px]">
+          {tools.filter((t) => t.status.status === 'available').length}/{tools.length} installed
+        </span>
       </div>
 
       <Tabs
@@ -55,31 +55,38 @@ export function ToolsPageClient({ tools: initialTools, className }: ToolsPageCli
         onValueChange={(value) => setActiveTab(value as TabValue)}
         data-testid="tools-page-tabs"
       >
-        <TabsList>
-          <TabsTrigger value="all" data-testid="tools-tab-all">
-            All ({tools.length})
+        <TabsList className="h-7">
+          <TabsTrigger value="all" data-testid="tools-tab-all" className="px-2.5 text-xs">
+            All
           </TabsTrigger>
-          <TabsTrigger value="ide" data-testid="tools-tab-ide">
-            IDEs ({tools.filter(TAB_FILTER.ide).length})
+          <TabsTrigger value="ide" data-testid="tools-tab-ide" className="px-2.5 text-xs">
+            IDEs
           </TabsTrigger>
-          <TabsTrigger value="cli-agent" data-testid="tools-tab-cli-agent">
-            CLI Agents ({tools.filter(TAB_FILTER['cli-agent']).length})
+          <TabsTrigger
+            value="cli-agent"
+            data-testid="tools-tab-cli-agent"
+            className="px-2.5 text-xs"
+          >
+            CLI Agents
+          </TabsTrigger>
+          <TabsTrigger value="vcs" data-testid="tools-tab-vcs" className="px-2.5 text-xs">
+            Version Control
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value={activeTab} className="mt-4">
+        <TabsContent value={activeTab} className="mt-3">
           {filtered.length === 0 ? (
             <div
               data-testid="tools-page-empty"
-              className="text-muted-foreground flex flex-col items-center justify-center py-16 text-center"
+              className="text-muted-foreground flex flex-col items-center justify-center py-12 text-center"
             >
-              <Wrench className="mb-3 h-10 w-10 opacity-30" />
-              <p className="text-sm">No tools found in this category.</p>
+              <Wrench className="mb-2 h-6 w-6 opacity-20" />
+              <p className="text-xs">No tools in this category.</p>
             </div>
           ) : (
             <div
               data-testid="tools-page-grid"
-              className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+              className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
             >
               {filtered.map((tool) => (
                 <ToolCard key={tool.id} tool={tool} onRefresh={refreshTools} />

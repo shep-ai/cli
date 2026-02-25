@@ -84,7 +84,9 @@ describe('LaunchToolUseCase', () => {
         editorName: 'Visual Studio Code',
         path: '/my/project',
       });
-      expect(mockService.launch).toHaveBeenCalledWith('vscode', '/my/project');
+      expect(mockService.launch).toHaveBeenCalledWith('vscode', '/my/project', {
+        headless: undefined,
+      });
     });
   });
 

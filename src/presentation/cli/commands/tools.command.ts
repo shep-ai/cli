@@ -15,7 +15,7 @@ import { ListToolsUseCase } from '@/application/use-cases/tools/list-tools.use-c
  * Create the tools command group
  */
 export function createToolsCommand(): Command {
-  const tools = new Command('tools').description('Manage development tools (IDEs and CLI agents)');
+  const tools = new Command('tools').description('Manage development tools');
 
   tools
     .command('list')

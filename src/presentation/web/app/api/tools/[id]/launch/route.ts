@@ -16,6 +16,7 @@ export async function POST(
     const result: LaunchToolResult = await useCase.execute({
       toolId: id,
       directoryPath: process.cwd(),
+      headless: true,
     });
 
     if (result.ok) {
