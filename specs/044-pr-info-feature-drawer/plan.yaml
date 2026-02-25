@@ -1,0 +1,149 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pr-info-feature-drawer
+summary: >
+  Extract CiStatusBadge into a shared component, extend FeatureNodeData with an optional PR
+  field, pipe PR data through the server component, and render a PR metadata card in the
+  feature drawer. Implementation follows three phases: shared component extraction, data
+  plumbing, and UI rendering with tests and stories at each step.
+
+relatedFeatures: []
+technologies:
+  - React (Next.js App Router, server components)
+  - TypeScript
+  - Tailwind CSS
+  - shadcn/ui (Badge component)
+  - lucide-react (ExternalLink, GitCommitHorizontal, CheckCircle2, Loader2, XCircle icons)
+  - Vitest + React Testing Library (unit tests)
+  - Storybook (component stories)
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Extract CiStatusBadge to shared component'
+    description: >
+      Move CiStatusBadge from merge-review.tsx into a new shared directory at
+      components/common/ci-status-badge/ with barrel export, unit tests, and Storybook stories.
+      Update merge-review.tsx to import from the shared location and clean up unused imports.
+      This phase comes first because the feature-drawer PR section depends on this shared
+      component, and extracting it first ensures merge-review is not regressed before adding
+      the new consumer.
+    parallel: false
+
+  - id: phase-2
+    name: 'Data plumbing — extend FeatureNodeData and map PR data'
+    description: >
+      Add the optional pr field to the FeatureNodeData interface in feature-node-state-config.ts
+      and map feature.pr into FeatureNodeData in page.tsx using a conditional spread. This phase
+      establishes the data pipeline from domain to presentation before building the UI, following
+      the data-down pattern.
+    parallel: false
+
+  - id: phase-3
+    name: 'Render PrInfoSection in feature drawer'
+    description: >
+      Add the PrInfoSection sub-component to feature-drawer.tsx that renders a bordered PR
+      metadata card (number link, status badge, CI status, commit hash) between the Status and
+      Details sections. Add comprehensive unit tests and Storybook stories covering all PR state
+      combinations and edge cases.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/components/common/ci-status-badge/ci-status-badge.tsx
+  - src/presentation/web/components/common/ci-status-badge/index.ts
+  - src/presentation/web/components/common/ci-status-badge/ci-status-badge.stories.tsx
+  - tests/unit/presentation/web/components/common/ci-status-badge/ci-status-badge.test.tsx
+
+filesToModify:
+  - src/presentation/web/components/common/merge-review/merge-review.tsx
+  - src/presentation/web/components/common/feature-node/feature-node-state-config.ts
+  - src/presentation/web/app/page.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+  - tests/unit/presentation/web/components/common/feature-drawer/feature-drawer.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature is entirely within the presentation layer. The data flow is:
+
+  ```
+  Domain Feature.pr (PullRequest)
+    → page.tsx server component (maps to FeatureNodeData.pr subset)
+    → ControlCenter → FeatureDrawer (receives via selectedNode prop)
+    → PrInfoSection sub-component (renders PR card)
+    → CiStatusBadge shared component (renders CI status)
+  ```
+
+  No domain, application, or infrastructure changes are needed. The PullRequest type, PrStatus
+  enum, and CiStatus enum already exist in the domain generated output. The implementation
+  adds one new shared component (CiStatusBadge extraction), one new type field (FeatureNodeData.pr),
+  one mapping line (page.tsx), and one new sub-component (PrInfoSection in feature-drawer.tsx).
+
+  The feature-drawer.tsx file currently contains 4 private sub-components (StateBadge,
+  DetailsSection, DetailRow, DrawerActions) across 233 lines. Adding PrInfoSection (~50-60 lines)
+  keeps the file under 300 lines and follows the established colocated sub-component pattern.
+
+  ## Key Design Decisions
+
+  **1. CiStatusBadge extraction to `components/common/ci-status-badge/`**
+  All 28 existing shared components under `components/common/` use the directory-per-component
+  pattern with a barrel `index.ts`. CiStatusBadge is a ~25-line pure function mapping CiStatus
+  to a styled Badge — ideal for extraction. Both merge-review and feature-drawer import from
+  the same shared location, eliminating duplication. After extraction, merge-review.tsx drops
+  its CheckCircle2 and XCircle icon imports (only used by CiStatusBadge) and its CiStatus enum
+  import, but retains Loader2 (used by DrawerActionBar approve icon).
+
+  **2. Inline PR type on FeatureNodeData (not reusing MergeReviewPr)**
+  FeatureNodeData already uses inline optional types for its fields (agentType, blockedBy, etc.).
+  Defining `pr?: { url: string; number: number; status: PrStatus; ciStatus?: CiStatus;
+  commitHash?: string }` inline keeps the type colocated and avoids coupling feature-drawer
+  to merge-review. The shape is identical to MergeReviewPr but independently defined.
+
+  **3. PrInfoSection as private sub-component in feature-drawer.tsx**
+  Matches the existing pattern where StateBadge, DetailsSection, DetailRow, and DrawerActions
+  are all private functions in the same file. The section is guarded by
+  `if (!selectedNode.pr) return null`, matching the conditional rendering used by DetailsSection
+  (hasAnyDetail guard) and the progress bar (progress > 0 guard). Positioned between Status
+  and Details, separated by Separator components.
+
+  **4. PR status badge as inline switch in PrInfoSection**
+  With 3 PrStatus values and one consumer, extracting a shared PrStatusBadge would be premature.
+  A switch/map inline in PrInfoSection maps: Open → blue (bg-blue-50 text-blue-700),
+  Merged → purple (bg-purple-50 text-purple-700), Closed → red (bg-red-50 text-red-700).
+  This uses the same `bg-{color}-50 text-{color}-700` pattern established by CiStatusBadge.
+
+  **5. Conditional spread for PR data mapping in page.tsx**
+  Follows the existing pattern at lines 104-106 of page.tsx:
+  `...(feature.pr && { pr: { url, number, status, ciStatus, commitHash } })`. Only
+  display-relevant fields are extracted, excluding ciFixAttempts and ciFixHistory.
+
+  **6. data-testid="feature-drawer-pr" for the PR section**
+  Follows the existing `feature-drawer-{section}` naming convention (header, status, progress,
+  details, delete). Content within the section is queried by text/role as done elsewhere.
+
+  ## Implementation Strategy
+
+  Phase 1 (CiStatusBadge extraction) comes first because it is the foundation that both
+  merge-review and the new feature-drawer PR section depend on. Extracting and testing it
+  in isolation catches regressions early before adding a second consumer.
+
+  Phase 2 (data plumbing) adds the type and mapping. It has no visual impact and is a small,
+  safe change. The type must exist before the UI can consume it.
+
+  Phase 3 (UI rendering) builds the PrInfoSection last, when the shared component and data
+  pipeline are both in place. Tests and stories are written alongside the component, following
+  TDD red-green-refactor cycles.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Merge-review regression after CiStatusBadge extraction | Run existing merge-review tests/stories after extraction; TypeScript compiler catches broken imports |
+  | Unused imports left in merge-review after extraction | Research identified exact cleanup: remove CheckCircle2, XCircle, CiStatus; keep Loader2 |
+  | PR data undefined for features without PRs | Conditional render `if (!pr) return null` ensures zero DOM when no PR; all existing tests pass unchanged |
+  | Badge color inconsistency across light/dark themes | Using the same `bg-{color}-50 text-{color}-700` pattern as CiStatusBadge ensures consistency |
+  | Feature-drawer.tsx growing too large | Adding ~50-60 lines keeps file under 300 total, well within acceptable range |

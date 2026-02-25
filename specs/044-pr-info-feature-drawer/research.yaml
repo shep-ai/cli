@@ -1,0 +1,379 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pr-info-feature-drawer
+summary: >
+  Technical research for displaying PR metadata in the feature drawer. The implementation
+  leverages existing domain types (PullRequest, PrStatus, CiStatus), extracts the CiStatusBadge
+  from merge-review into a shared component, extends FeatureNodeData with an optional pr field,
+  and adds a PrInfoSection sub-component to feature-drawer.tsx following established codebase
+  patterns for conditional rendering, styling, and testing.
+
+relatedFeatures: []
+
+technologies:
+  - React 19 (Next.js App Router, server components)
+  - TypeScript 5
+  - Tailwind CSS 4
+  - shadcn/ui (Badge component)
+  - lucide-react (ExternalLink, GitCommitHorizontal, CheckCircle2, Loader2, XCircle icons)
+  - Vitest + React Testing Library (unit tests)
+  - Storybook 8 (component stories)
+
+relatedLinks: []
+
+decisions:
+  - title: 'CiStatusBadge extraction location'
+    chosen: 'New file at components/common/ci-status-badge/ci-status-badge.tsx with index.ts barrel export'
+    rejected:
+      - >
+        Flat file at components/common/ci-status-badge.tsx (no directory) — rejected because every
+        existing shared component in components/common/ follows the directory-with-index pattern
+        (e.g., drawer-action-bar/, elapsed-time/, empty-state/). A flat file would break the
+        established convention and make it harder to add tests or stories colocated later.
+      - >
+        Keep CiStatusBadge in merge-review and re-export from merge-review/index.ts — rejected
+        because it couples a generic presentational component to the merge-review feature. The
+        feature-drawer would import from merge-review, creating an unnatural dependency between
+        two peer components. Shared components should live in their own directory under common/.
+    rationale: >
+      The codebase consistently uses directory-per-component under components/common/ with an
+      index.ts barrel export. Confirmed by examining 28 existing directories (action-button/,
+      drawer-action-bar/, elapsed-time/, empty-state/, feature-drawer/, merge-review/, etc.).
+      Creating ci-status-badge/ follows this exact pattern. The CiStatusBadge is a ~25-line pure
+      presentational component with no hooks or state — it takes a CiStatus enum and returns a
+      styled Badge. Both merge-review.tsx and feature-drawer.tsx will import from
+      @/components/common/ci-status-badge.
+
+  - title: 'PR data type for FeatureNodeData'
+    chosen: 'Inline optional type on FeatureNodeData with a presentation-layer subset: { url: string; number: number; status: PrStatus; ciStatus?: CiStatus; commitHash?: string }'
+    rejected:
+      - >
+        Reuse domain PullRequest type directly — rejected because domain PullRequest includes
+        ciFixAttempts and ciFixHistory fields that are irrelevant to the drawer display. Importing
+        the full domain type into a presentation-layer interface creates an unnecessary coupling
+        and exposes implementation details (fix attempt history) to the UI layer.
+      - >
+        Create a new FeatureNodePr interface in feature-node-state-config.ts — rejected because
+        while it would be slightly more reusable, there is currently only one consumer (feature
+        drawer) and the type is small (5 fields). Creating a separate named interface adds
+        indirection with no current benefit. If a second consumer needs the same shape, extraction
+        is trivial later.
+    rationale: >
+      The existing pattern in the codebase is to define field types inline on FeatureNodeData
+      (see agentType?: AgentTypeValue, blockedBy?: string). The PR data is a small subset of
+      the domain PullRequest type, specifically excluding ciFixAttempts and ciFixHistory which
+      are operational data not displayed in the drawer. This keeps the presentation layer
+      decoupled from domain internals. The MergeReviewPr type in merge-review-config.ts uses
+      the same subset pattern (url, number, status, commitHash?, ciStatus?) confirming this
+      approach is consistent with codebase conventions.
+
+  - title: 'PR status badge styling approach'
+    chosen: 'Map PrStatus enum values to Badge variant/className combinations inline in the PrInfoSection component'
+    rejected:
+      - >
+        Create a dedicated PrStatusBadge shared component (similar to CiStatusBadge) — rejected
+        because the PR status badge has only 3 cases, each is a single Badge with different
+        className props, and there is currently only one consumer (feature drawer). The merge-review
+        component renders PR status as a simple Badge variant="outline" without color coding.
+        Extracting a shared component for 3 inline badges would be premature abstraction.
+      - >
+        Use Badge variants (default, secondary, destructive) to represent PR statuses — rejected
+        because shadcn/ui's built-in Badge variants don't include a purple variant for "Merged"
+        status. Custom className overrides are needed regardless, so using variants provides no
+        benefit over direct className styling. The CiStatusBadge already uses the className
+        pattern (bg-green-50 text-green-700, etc.) establishing the precedent.
+    rationale: >
+      The CiStatusBadge pattern uses a switch statement with inline Badge + className for each
+      status. PR status is simpler (3 values, no icons needed) and has only one consumer in the
+      drawer. A switch or object map inline in PrInfoSection keeps the code colocated with its
+      only consumer. PrStatus color mapping: Open → blue (bg-blue-50 text-blue-700), Merged →
+      purple (bg-purple-50 text-purple-700), Closed → red (bg-red-50 text-red-700). This matches
+      the semantic color scale pattern used throughout the codebase.
+
+  - title: 'PrInfoSection placement and rendering strategy'
+    chosen: 'Render PrInfoSection as a sub-component inside feature-drawer.tsx, positioned between Status section and DetailsSection, guarded by if (selectedNode.pr)'
+    rejected:
+      - >
+        Create PrInfoSection as a separate file in the feature-drawer/ directory — rejected
+        because the existing pattern is to define sub-components (StateBadge, DetailsSection,
+        DetailRow, DrawerActions) as private functions within feature-drawer.tsx. The file is
+        currently 233 lines; adding ~50-60 lines for PrInfoSection keeps it under 300 lines
+        which is reasonable for a component file with related sub-components.
+      - >
+        Render PR info as DetailRow entries inside the existing DetailsSection — rejected because
+        the spec explicitly requires a bordered card visual treatment matching merge-review, and
+        DetailRow renders simple label-value text pairs without card styling. Mixing card-styled
+        PR info with plain text details would be visually inconsistent and conflate conceptually
+        different information (PR metadata vs feature implementation details).
+    rationale: >
+      Following the established pattern in feature-drawer.tsx where StateBadge, DetailsSection,
+      DetailRow, and DrawerActions are all private sub-components in the same file. The
+      PrInfoSection renders only when pr data exists (conditional render, not CSS hidden),
+      matching the pattern used by DetailsSection (hasAnyDetail guard) and the progress bar
+      (progress > 0 guard). Position between Status and Details follows the information hierarchy
+      specified in the requirements: state → PR → details.
+
+  - title: 'PR data mapping in page.tsx server component'
+    chosen: 'Conditional spread pattern: ...(feature.pr && { pr: { url, number, status, ciStatus, commitHash } })'
+    rejected:
+      - >
+        Map all PullRequest fields wholesale with spread: ...(feature.pr && { pr: feature.pr }) —
+        rejected because this would pass ciFixAttempts and ciFixHistory to the presentation layer.
+        While harmless at runtime (React ignores unknown props, FeatureNodeData has [key: string]:
+        unknown), it leaks domain implementation details and increases the serialized data size
+        sent from server component to client component unnecessarily.
+      - >
+        Use a separate mapPrData() helper function — rejected because the mapping is a simple
+        5-field destructure. The existing pattern in page.tsx uses inline conditional spreads
+        for optional fields (agentType, errorMessage, blockedBy). A helper function for such a
+        small mapping adds indirection without benefit.
+    rationale: >
+      The existing page.tsx already uses this exact pattern for 3 other optional fields:
+      ...(run?.agentType && { agentType: ... }), ...(run?.error && { errorMessage: ... }),
+      ...(blockedBy && { blockedBy }). Adding ...(feature.pr && { pr: { ... } }) is perfectly
+      consistent. The destructured subset ensures only display-relevant fields reach the client.
+
+  - title: 'Test data-testid strategy for PR section'
+    chosen: 'Use data-testid="feature-drawer-pr" on the PR section container, matching the existing naming convention'
+    rejected:
+      - >
+        Use role-based queries only (getByRole, getByText) — rejected because the existing test
+        file consistently uses data-testid for section-level containers (feature-drawer-header,
+        feature-drawer-status, feature-drawer-progress, feature-drawer-details, feature-drawer-delete).
+        Role-based queries are used for interactive elements (buttons, links) but sections use testids.
+      - >
+        Use more granular testids for each PR field (feature-drawer-pr-number, feature-drawer-pr-status,
+        etc.) — rejected because the existing pattern uses a single testid per section and then queries
+        content within. The PR section has enough distinct text content (PR number, status text, commit
+        hash) to be testable without additional testids.
+    rationale: >
+      The existing test file uses a consistent naming convention: feature-drawer-{section}. Adding
+      feature-drawer-pr follows this pattern. Tests can then use getByTestId('feature-drawer-pr')
+      for visibility checks and getByText/getByRole for content assertions within the section.
+      This matches the approach used for feature-drawer-details and feature-drawer-delete.
+
+openQuestions:
+  - question: 'Should the MergeReviewPr type be reused or should a new type be defined?'
+    resolved: true
+    options:
+      - option: Define inline type on FeatureNodeData
+        description: >
+          Add the pr field as an inline optional type directly on the FeatureNodeData interface.
+          Keeps the type colocated with its consumer, avoids cross-component imports, and follows
+          the existing pattern where FeatureNodeData fields use inline types or simple type aliases.
+          The 5-field type is small enough not to warrant a separate interface.
+        selected: true
+      - option: Reuse MergeReviewPr from merge-review-config.ts
+        description: >
+          Import MergeReviewPr type which has the exact same shape (url, number, status,
+          commitHash?, ciStatus?). Avoids type duplication but creates a dependency from
+          feature-node-state-config.ts to merge-review-config.ts. Since these are sibling
+          components, this coupling is undesirable and would make merge-review a prerequisite
+          for feature-drawer compilation.
+        selected: false
+      - option: Create a shared FeatureNodePr interface in a separate types file
+        description: >
+          Extract the PR type into a shared types file (e.g., components/common/types.ts) that
+          both feature-drawer and merge-review could reference. More formal but adds a new file
+          and abstraction layer for a 5-field type with only two consumers. Premature for the
+          current scope.
+        selected: false
+    selectionRationale: >
+      Inline type definition is the simplest approach and follows the existing FeatureNodeData
+      pattern. The type is 5 fields — small enough to define inline. MergeReviewPr reuse would
+      create an undesirable dependency between sibling components. A shared types file is
+      premature when there are only two consumers and the type is trivial. If a third consumer
+      emerges, extraction is trivial.
+
+  - question: 'How should the feature-drawer Storybook stories be structured for PR variations?'
+    resolved: true
+    options:
+      - option: Add new story fixtures and per-variant stories to the existing stories file
+        description: >
+          Add PR data fixtures (doneWithPrData, doneWithPartialPrData) alongside existing fixtures
+          and add new stories (DoneWithPr, DoneWithPartialPr, PrStatusMerged, PrStatusOpen, etc.)
+          following the same DrawerTrigger pattern. Keeps all feature-drawer stories in one file
+          and follows the existing organization.
+        selected: true
+      - option: Create a separate feature-drawer-pr.stories.tsx file
+        description: >
+          Isolate PR-specific stories in their own file. Keeps the existing stories file untouched
+          but creates a second stories file in the same directory. This is unusual in the codebase —
+          no existing component has multiple .stories.tsx files.
+        selected: false
+      - option: Add an interactive matrix story that cycles through PrStatus values
+        description: >
+          Create an AllPrStatuses interactive story similar to AllStates/AllLifecycles. While
+          comprehensive, PR status is a simpler dimension (3 values) and the interactive approach
+          is heavier than needed. Individual per-status stories with DrawerTrigger are clearer
+          for documentation purposes.
+        selected: false
+    selectionRationale: >
+      Adding to the existing stories file follows the established pattern — every component has
+      exactly one .stories.tsx file in the codebase. New fixtures and stories slot into the
+      existing file structure naturally. The DrawerTrigger wrapper component is already available
+      for reuse. An interactive matrix is overkill for 3 PR status values.
+
+  - question: 'Should the CiStatusBadge shared component have its own Storybook story?'
+    resolved: true
+    options:
+      - option: Yes, create a ci-status-badge.stories.tsx in the new shared component directory
+        description: >
+          Follow the MANDATORY Storybook stories rule. Every web UI component MUST have a
+          colocated .stories.tsx file. CiStatusBadge is a new shared component, so it needs
+          stories. Stories document all 3 CiStatus variants (Success, Pending, Failure) and
+          serve as living documentation. This is also useful for the component library.
+        selected: true
+      - option: No, rely on consumer stories (merge-review and feature-drawer stories)
+        description: >
+          The component is already visually tested through merge-review stories and will be
+          tested through new feature-drawer stories. However, this violates the MANDATORY rule
+          that every web UI component must have colocated stories. It also makes it harder to
+          review the component in isolation.
+        selected: false
+      - option: Add stories later as a follow-up task
+        description: >
+          Defer story creation to avoid scope creep. However, the CLAUDE.md rules state
+          "Commits without stories will be rejected" — deferral risks blocking the PR.
+        selected: false
+    selectionRationale: >
+      CLAUDE.md states "MANDATORY — Storybook stories: Every web UI component MUST have a
+      colocated .stories.tsx file. Commits without stories will be rejected." Since CiStatusBadge
+      is being extracted into a new shared component directory, it becomes a first-class component
+      that requires its own stories. The stories are trivial (~30 lines for 3 variants) and
+      provide valuable isolated documentation.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. CiStatusBadge Extraction Location
+
+  **Chosen:** New directory at `components/common/ci-status-badge/` with `ci-status-badge.tsx` and `index.ts` barrel export.
+
+  **Rejected:**
+  - Flat file at `components/common/ci-status-badge.tsx` — breaks the directory-per-component convention used by all 28 existing shared components under `common/`.
+  - Re-export from `merge-review/index.ts` — creates unnatural dependency; shared components should live independently.
+
+  **Rationale:** Codebase convention is directory-per-component with barrel export. The component is a ~25-line pure function mapping CiStatus enum to styled Badge. Both merge-review and feature-drawer import from `@/components/common/ci-status-badge`.
+
+  ### 2. PR Data Type for FeatureNodeData
+
+  **Chosen:** Inline optional type on `FeatureNodeData` — `pr?: { url: string; number: number; status: PrStatus; ciStatus?: CiStatus; commitHash?: string }`.
+
+  **Rejected:**
+  - Reuse domain `PullRequest` directly — leaks `ciFixAttempts` and `ciFixHistory` to presentation layer.
+  - Reuse `MergeReviewPr` — creates cross-component dependency between sibling components.
+
+  **Rationale:** Follows existing pattern where FeatureNodeData fields use inline types. The 5-field subset is the same shape as MergeReviewPr but defined independently for decoupling.
+
+  ### 3. PR Status Badge Styling
+
+  **Chosen:** Inline switch/map in PrInfoSection with Badge + className overrides per PrStatus value.
+
+  **Rejected:**
+  - Dedicated PrStatusBadge shared component — premature abstraction for 3 simple Badge renders with one consumer.
+  - Badge variant props — shadcn/ui lacks a purple variant for Merged; className overrides needed regardless.
+
+  **Rationale:** Follows CiStatusBadge pattern (switch + inline className). Color mapping: Open → blue, Merged → purple, Closed → red.
+
+  ### 4. PrInfoSection Placement
+
+  **Chosen:** Private sub-component inside `feature-drawer.tsx`, positioned between Status and DetailsSection, guarded by `if (selectedNode.pr)`.
+
+  **Rejected:**
+  - Separate file — breaks the existing pattern of colocated sub-components in feature-drawer.tsx.
+  - DetailRow entries — cannot achieve bordered card visual treatment matching merge-review.
+
+  **Rationale:** Matches StateBadge, DetailsSection, DetailRow, DrawerActions pattern. File stays under 300 lines.
+
+  ### 5. Server Component Data Mapping
+
+  **Chosen:** Conditional spread: `...(feature.pr && { pr: { url, number, status, ciStatus, commitHash } })`.
+
+  **Rejected:**
+  - Wholesale spread `{ pr: feature.pr }` — leaks operational domain fields.
+  - Helper function — unnecessary for 5-field inline destructure.
+
+  **Rationale:** Matches existing page.tsx pattern for agentType, errorMessage, blockedBy optional fields.
+
+  ### 6. Test Data-TestID Strategy
+
+  **Chosen:** `data-testid="feature-drawer-pr"` on PR section container.
+
+  **Rejected:**
+  - Role-based queries only — inconsistent with existing section-level testid pattern.
+  - Granular per-field testids — unnecessary given distinct text content within section.
+
+  **Rationale:** Follows `feature-drawer-{section}` convention (header, status, progress, details, delete → pr).
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `@shepai/core/domain/generated/output` (PrStatus, CiStatus) | Enum types for PR and CI status | Use | Already generated by TypeSpec, already imported in merge-review. Provides type-safe exhaustive switch. |
+  | `shadcn/ui Badge` | Status badge rendering | Use | Already used in merge-review for CiStatusBadge. Provides consistent styling foundation. |
+  | `lucide-react` (ExternalLink, GitCommitHorizontal, CheckCircle2, Loader2, XCircle) | Icons for PR link, commit hash, CI status | Use | Already installed and used in merge-review.tsx. Same icon set, same size patterns (h-3.5 w-3.5). |
+  | `shadcn/ui Separator` | Visual divider between sections | Use | Already used between Status/Details sections in feature-drawer.tsx. |
+  | No new libraries needed | — | — | All required dependencies already exist in the project. |
+
+  ## Security Considerations
+
+  - **External link safety:** PR URL renders as an `<a>` tag with `target="_blank"` and `rel="noopener noreferrer"`. This matches the exact pattern in merge-review.tsx (line 127) and prevents the opened page from accessing `window.opener`. No changes needed.
+  - **XSS via PR data:** PR number is rendered as a number, PR status as an enum value (not arbitrary string), commit hash is sliced to 7 chars and rendered in a `<code>` tag. All values come from the domain model which is populated by the GitHub API adapter. React's JSX escaping prevents injection. No additional sanitization needed.
+  - **URL validation:** The PR URL comes from GitHub's API via the domain layer and is not user-editable in the UI. It's rendered as an href in an anchor tag. React does not execute `javascript:` URIs in href attributes by default, but the domain adapter already validates URLs. No additional validation needed in the presentation layer.
+
+  ## Performance Implications
+
+  - **Zero cost when no PR data:** The PrInfoSection uses conditional rendering (`if (!pr) return null`), meaning zero DOM nodes are created for features without PR data. This is the same pattern used by DetailsSection and the progress bar.
+  - **Minimal data transfer:** The pr field adds ~100-150 bytes to FeatureNodeData serialization for features with PRs (url + number + status + optional ciStatus + optional commitHash). This is negligible compared to existing feature data.
+  - **No new network requests:** PR data is already fetched as part of the Feature domain model in the server component. The mapping is a simple object spread, not an additional query.
+  - **CiStatusBadge extraction:** Moving the component to a shared file has zero runtime cost — it's the same code, just imported from a different path. Tree-shaking remains effective.
+
+  ## Architecture Notes
+
+  ### Data Flow
+  ```
+  Domain Feature (with pr?: PullRequest)
+    → page.tsx server component (maps to FeatureNodeData.pr subset)
+    → ControlCenter client component (passes as node data)
+    → FeatureDrawer (receives via selectedNode prop)
+    → PrInfoSection sub-component (renders PR card)
+  ```
+
+  ### Files Modified (9 total)
+
+  1. **`feature-node-state-config.ts`** — Add optional `pr` field to FeatureNodeData interface (~5 lines). Import PrStatus, CiStatus from domain.
+  2. **`page.tsx`** — Add conditional spread for feature.pr mapping (~3 lines).
+  3. **`ci-status-badge/ci-status-badge.tsx`** (new) — Extract CiStatusBadge from merge-review (~25 lines moved).
+  4. **`ci-status-badge/index.ts`** (new) — Barrel export (~1 line).
+  5. **`ci-status-badge/ci-status-badge.stories.tsx`** (new) — Stories for all 3 CiStatus variants (~30-40 lines).
+  6. **`merge-review.tsx`** — Replace local CiStatusBadge with import from shared component. Remove unused icon imports.
+  7. **`feature-drawer.tsx`** — Add PrInfoSection sub-component with bordered card layout (~50-60 lines).
+  8. **`feature-drawer.stories.tsx`** — Add PR data fixtures and 4+ new stories (~50-60 lines).
+  9. **`feature-drawer.test.tsx`** — Add PR section test suite with 8+ test cases (~80-100 lines).
+
+  ### Key Patterns to Follow
+
+  - **Conditional rendering:** `{condition ? <Component /> : null}` (not `{condition && <Component />}`)
+  - **Badge styling:** `border-transparent bg-{color}-50 text-{color}-700 hover:bg-{color}-50`
+  - **Icon sizing:** `h-3.5 w-3.5` for inline badge icons, `h-4 w-4` for section header icons
+  - **Section spacing:** `space-y-3 px-4 py-3` inside bordered cards
+  - **Card borders:** `border-border rounded-lg border`
+  - **Label text:** `text-muted-foreground text-xs font-medium`
+  - **Test organization:** `describe('PR info section', () => { ... })` nested under main describe
+  - **Story organization:** PR fixtures near existing fixtures, stories grouped with a comment header
+
+  ### Merge-Review Import Cleanup
+
+  After extracting CiStatusBadge, merge-review.tsx needs import cleanup:
+  - `CheckCircle2` — ONLY used in CiStatusBadge → remove from merge-review imports
+  - `Loader2` — used in CiStatusBadge AND DrawerActionBar approve icon → keep in merge-review imports
+  - `XCircle` — ONLY used in CiStatusBadge → remove from merge-review imports
+  - `CiStatus` enum import — ONLY used for CiStatusBadge prop type → remove from merge-review imports
+
+  The merge-review.tsx file will add an import for CiStatusBadge from `@/components/common/ci-status-badge`.
+
+  ---
+
+  _Research completed — proceed with planning phase_

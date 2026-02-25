@@ -1,6 +1,7 @@
 'use client';
 
-import { XIcon, Loader2, Trash2 } from 'lucide-react';
+import { XIcon, Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
+import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import {
@@ -11,6 +12,7 @@ import {
   DrawerDescription,
 } from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { CometSpinner } from '@/components/ui/comet-spinner';
 import {
@@ -24,6 +26,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { CiStatusBadge } from '@/components/common/ci-status-badge';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import { useFeatureActions } from './use-feature-actions';
@@ -107,6 +110,14 @@ export function FeatureDrawer({
                 </div>
               ) : null}
             </div>
+
+            {/* PR info */}
+            {selectedNode.pr ? (
+              <>
+                <Separator />
+                <PrInfoSection pr={selectedNode.pr} />
+              </>
+            ) : null}
 
             <Separator />
 
@@ -209,6 +220,55 @@ function DetailRow({ label, value }: { label: string; value: string }) {
     <div className="flex flex-col gap-0.5">
       <span className="text-muted-foreground text-xs font-medium">{label}</span>
       <span className="text-sm">{value}</span>
+    </div>
+  );
+}
+
+const prStatusStyles: Record<PrStatus, string> = {
+  [PrStatus.Open]: 'border-transparent bg-blue-50 text-blue-700 hover:bg-blue-50',
+  [PrStatus.Merged]: 'border-transparent bg-purple-50 text-purple-700 hover:bg-purple-50',
+  [PrStatus.Closed]: 'border-transparent bg-red-50 text-red-700 hover:bg-red-50',
+};
+
+function PrInfoSection({ pr }: { pr: NonNullable<FeatureNodeData['pr']> }) {
+  return (
+    <div data-testid="feature-drawer-pr" className="border-border mx-4 rounded-lg border">
+      <div className="space-y-3 px-4 py-3">
+        {/* PR number + link */}
+        <div className="flex items-center justify-between">
+          <a
+            href={pr.url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-primary flex items-center gap-1.5 text-sm font-semibold underline underline-offset-2"
+          >
+            PR #{pr.number}
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+          <Badge className={prStatusStyles[pr.status]}>{pr.status}</Badge>
+        </div>
+
+        {/* CI status */}
+        {pr.ciStatus ? (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs font-medium">CI Status</span>
+            <CiStatusBadge status={pr.ciStatus} />
+          </div>
+        ) : null}
+
+        {/* Commit hash */}
+        {pr.commitHash ? (
+          <div className="flex items-center justify-between">
+            <span className="text-muted-foreground text-xs font-medium">Commit</span>
+            <div className="flex items-center gap-1.5">
+              <GitCommitHorizontal className="text-muted-foreground h-3.5 w-3.5" />
+              <code className="bg-muted text-foreground rounded-md px-1.5 py-0.5 font-mono text-[11px]">
+                {pr.commitHash.slice(0, 7)}
+              </code>
+            </div>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }
