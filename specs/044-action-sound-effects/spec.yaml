@@ -1,11 +1,8 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: action-sound-effects
-number: 044
+number: 44
 branch: feat/044-action-sound-effects
 oneLiner: Add sound effects to all interactive UI actions in the Web UI
-userQuery: >
+userQuery: |
   Feature: Use sounds for all of the action
 summary: >
   Expand the existing Web UI sound system to cover all interactive actions —
@@ -18,22 +15,18 @@ summary: >
   actionable UI element — approximately 15 components.
 phase: Requirements
 sizeEstimate: M
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - React (Next.js 16 — presentation/web layer)
   - useSound custom hook (src/presentation/web/hooks/use-sound.ts)
-  - useSoundEnabled global toggle (src/presentation/web/hooks/use-sound-enabled.ts)
+  - >-
+    useSoundEnabled global toggle
+    (src/presentation/web/hooks/use-sound-enabled.ts)
   - Web Audio API (HTMLAudioElement via useSound)
   - Sonner (toast notifications with sound integration)
   - shadcn/ui components (Button, Drawer, Dialog, Toggle, etc.)
   - Storybook (mandatory .stories.tsx for every component)
-
 relatedLinks: []
-
-# Open questions (resolved with AI recommendations)
 openQuestions:
   - question: >
       Should sounds play for every single button click (including navigation
@@ -41,143 +34,139 @@ openQuestions:
       reject, delete, create, toggle)?
     resolved: true
     options:
-      - option: 'Every click gets a sound'
+      - option: Every click gets a sound
         description: >
           Every interactive element plays a sound on interaction. Provides
           maximum audio coverage and a fully immersive experience. Risk: can
-          feel overwhelming and annoying, especially during rapid navigation
-          or repeated actions.
+          feel overwhelming and annoying, especially during rapid navigation or
+          repeated actions.
         selected: false
-      - option: 'Curated by action category'
+      - option: Curated by action category
         description: >
           Define semantic action categories (e.g. navigate, toggle, approve,
-          reject, open-drawer, close-drawer, submit, select, delete) and
-          assign sounds per category. Navigation and subtle actions get
-          quieter/shorter sounds (taps), while significant actions get
-          distinct feedback (celebration, caution, transitions). Balances
-          audio presence with usability.
+          reject, open-drawer, close-drawer, submit, select, delete) and assign
+          sounds per category. Navigation and subtle actions get quieter/shorter
+          sounds (taps), while significant actions get distinct feedback
+          (celebration, caution, transitions). Balances audio presence with
+          usability.
         selected: true
-      - option: 'Significant actions only'
+      - option: Significant actions only
         description: >
           Sounds only for high-impact actions like approve, reject, delete,
           create. Navigation, toggles, and drawer open/close remain silent.
-          Minimal but may feel incomplete since the sound infrastructure
-          already exists and users expect consistency.
+          Minimal but may feel incomplete since the sound infrastructure already
+          exists and users expect consistency.
         selected: false
     selectionRationale: >
-      A curated-by-category approach gives the best UX balance. It ensures
-      every interaction has appropriate feedback without becoming annoying.
-      Navigation gets subtle taps (volume 0.2), toggles get dedicated
-      toggle_on/off sounds, drawers get transition sounds, and significant
-      actions (approve/reject/delete) get prominent feedback. This matches
-      the existing control-center pattern where different action types already
-      use different sounds at different volumes.
-    answer: 'Curated by action category'
-
+      A curated-by-category approach gives the best UX balance. It ensures every
+      interaction has appropriate feedback without becoming annoying. Navigation
+      gets subtle taps (volume 0.2), toggles get dedicated toggle_on/off sounds,
+      drawers get transition sounds, and significant actions
+      (approve/reject/delete) get prominent feedback. This matches the existing
+      control-center pattern where different action types already use different
+      sounds at different volumes.
+    answer: Curated by action category
   - question: >
       Should a centralized sound-action mapping be created (e.g. a
       `useSoundAction` hook) or should each component call `useSound` directly?
     resolved: true
     options:
-      - option: 'Centralized useSoundAction hook'
+      - option: Centralized useSoundAction hook
         description: >
           Create a new `useSoundAction(action)` hook backed by a
-          `SOUND_ACTION_MAP` constant that maps semantic action names
-          (e.g. "approve", "drawer-open", "navigate") to specific sound
-          names and volumes. Components call `useSoundAction("approve")`
-          instead of `useSound("celebration", { volume: 0.5 })`. Enables
-          global sound reassignment by editing one file. Ensures consistency
-          across all 15+ components.
+          `SOUND_ACTION_MAP` constant that maps semantic action names (e.g.
+          "approve", "drawer-open", "navigate") to specific sound names and
+          volumes. Components call `useSoundAction("approve")` instead of
+          `useSound("celebration", { volume: 0.5 })`. Enables global sound
+          reassignment by editing one file. Ensures consistency across all 15+
+          components.
         selected: true
-      - option: 'Direct useSound in each component'
+      - option: Direct useSound in each component
         description: >
-          Each component continues to call `useSound` directly with
-          hardcoded sound names and volumes, following the existing
-          control-center pattern. Simpler to implement initially but
-          leads to sound choices scattered across 15+ files with no
-          single source of truth. Changing a sound mapping requires
-          editing every component that uses it.
+          Each component continues to call `useSound` directly with hardcoded
+          sound names and volumes, following the existing control-center
+          pattern. Simpler to implement initially but leads to sound choices
+          scattered across 15+ files with no single source of truth. Changing a
+          sound mapping requires editing every component that uses it.
         selected: false
     selectionRationale: >
       A centralized mapping provides a single source of truth for
-      sound-to-action assignments. With 15+ components being wired, having
-      one `SOUND_ACTION_MAP` constant makes it trivial to adjust sounds
-      globally, ensures no component accidentally uses the wrong sound,
-      and reduces the cognitive overhead for future developers. The existing
-      scattered approach in control-center already shows the pain of
-      decentralized sound assignments. The new hook wraps `useSound`
-      internally, so it's additive — not a rewrite.
-    answer: 'Centralized useSoundAction hook'
-
+      sound-to-action assignments. With 15+ components being wired, having one
+      `SOUND_ACTION_MAP` constant makes it trivial to adjust sounds globally,
+      ensures no component accidentally uses the wrong sound, and reduces the
+      cognitive overhead for future developers. The existing scattered approach
+      in control-center already shows the pain of decentralized sound
+      assignments. The new hook wraps `useSound` internally, so it's additive —
+      not a rewrite.
+    answer: Centralized useSoundAction hook
   - question: >
-      Are the existing 27 WAV files sufficient, or do we need additional
-      sounds for new action types (e.g. a "whoosh" for drawer open/close)?
+      Are the existing 27 WAV files sufficient, or do we need additional sounds
+      for new action types (e.g. a "whoosh" for drawer open/close)?
     resolved: true
     options:
-      - option: 'Existing sounds are sufficient'
+      - option: Existing sounds are sufficient
         description: >
-          The 27 WAV files already cover all needed action categories:
-          taps for navigation, toggle_on/off for switches,
-          transition_up/down for drawers, select for option picking,
-          celebration for approvals, caution for rejections, button for
-          general clicks. No gaps in coverage for the planned action
-          categories.
+          The 27 WAV files already cover all needed action categories: taps for
+          navigation, toggle_on/off for switches, transition_up/down for
+          drawers, select for option picking, celebration for approvals, caution
+          for rejections, button for general clicks. No gaps in coverage for the
+          planned action categories.
         selected: true
-      - option: 'Add new sound files'
+      - option: Add new sound files
         description: >
-          Commission or source additional WAV files for actions that
-          don't have a perfect match (e.g. a "whoosh" for drawer
-          animations, a "send" for form submissions, a "pop" for menu
-          open). Increases scope, requires sourcing/licensing audio
-          assets, and may delay implementation.
+          Commission or source additional WAV files for actions that don't have
+          a perfect match (e.g. a "whoosh" for drawer animations, a "send" for
+          form submissions, a "pop" for menu open). Increases scope, requires
+          sourcing/licensing audio assets, and may delay implementation.
         selected: false
     selectionRationale: >
-      The existing 27 WAV files provide excellent coverage for every
-      planned action category. transition_up/down map naturally to
-      drawer open/close, toggle_on/off handle switches perfectly,
-      tap variants provide subtle navigation feedback, and select
-      works for form interactions. Adding new sounds would increase
-      scope without meaningfully improving UX, and can always be
-      done in a follow-up if specific gaps are identified during
-      user testing.
-    answer: 'Existing sounds are sufficient'
-
+      The existing 27 WAV files provide excellent coverage for every planned
+      action category. transition_up/down map naturally to drawer open/close,
+      toggle_on/off handle switches perfectly, tap variants provide subtle
+      navigation feedback, and select works for form interactions. Adding new
+      sounds would increase scope without meaningfully improving UX, and can
+      always be done in a follow-up if specific gaps are identified during user
+      testing.
+    answer: Existing sounds are sufficient
   - question: >
-      Should the existing control-center sound calls be refactored to use
-      the new centralized `useSoundAction` hook?
+      Should the existing control-center sound calls be refactored to use the
+      new centralized `useSoundAction` hook?
     resolved: true
     options:
-      - option: 'Refactor existing to use useSoundAction'
+      - option: Refactor existing to use useSoundAction
         description: >
           Migrate the 5 existing `useSound` calls in control-center
-          (use-control-center-state.ts and control-center-inner.tsx) and
-          the 4 calls in use-notifications.ts to use the new
-          `useSoundAction` hook. Achieves full consistency — every sound
-          in the app flows through one mapping. Small additional scope
-          but ensures the old code doesn't drift from the new pattern.
+          (use-control-center-state.ts and control-center-inner.tsx) and the 4
+          calls in use-notifications.ts to use the new `useSoundAction` hook.
+          Achieves full consistency — every sound in the app flows through one
+          mapping. Small additional scope but ensures the old code doesn't drift
+          from the new pattern.
         selected: true
-      - option: 'Leave existing code unchanged'
+      - option: Leave existing code unchanged
         description: >
           Only wire new components with `useSoundAction`. Existing
           control-center and notification sounds stay as-is with direct
-          `useSound` calls. Reduces scope but creates two patterns in
-          the codebase — new components use the centralized hook while
-          old ones use direct calls.
+          `useSound` calls. Reduces scope but creates two patterns in the
+          codebase — new components use the centralized hook while old ones use
+          direct calls.
         selected: false
     selectionRationale: >
-      Refactoring existing calls ensures one consistent pattern across
-      the entire codebase. The migration is low-risk (9 call sites,
-      same underlying hook) and eliminates the maintenance burden of
-      two coexisting patterns. It also validates that the new
-      SOUND_ACTION_MAP covers all existing sound assignments correctly.
-    answer: 'Refactor existing to use useSoundAction'
-
-content: |
+      Refactoring existing calls ensures one consistent pattern across the
+      entire codebase. The migration is low-risk (9 call sites, same underlying
+      hook) and eliminates the maintenance burden of two coexisting patterns. It
+      also validates that the new SOUND_ACTION_MAP covers all existing sound
+      assignments correctly.
+    answer: Refactor existing to use useSoundAction
+content: >
   ## Problem Statement
 
+
   The Web UI has a sound infrastructure (`useSound` hook, `useSoundEnabled`
+
   toggle, 27 WAV files) but sounds are only connected to a small subset of
+
   interactions:
+
 
   - **Notification events** (via `useNotifications`): celebration, caution,
     notification, button — triggered by agent lifecycle SSE events
@@ -185,42 +174,83 @@ content: |
     transition_up for create, transition_down for delete/close, caution for reject
 
   Many interactive elements have **no sound feedback**:
-  - Drawer open/close (feature-drawer, review-drawer-shell, feature-create-drawer)
+
+  - Drawer open/close (feature-drawer, review-drawer-shell,
+  feature-create-drawer)
+
   - Action buttons (open-action-menu items: IDE, shell, folder, specs)
+
   - Approve/reject flows in drawer-action-bar
+
   - Feature create drawer submission
+
   - Theme toggle, sidebar collapse toggle
+
   - Navigation clicks (sidebar-nav-item)
+
   - Dialog confirmations (alert-dialog actions)
+
   - Form submissions (reject-feedback-dialog, drawer-revision-input)
-  - Questionnaire interactions (prd-questionnaire option selection, step navigation)
+
+  - Questionnaire interactions (prd-questionnaire option selection, step
+  navigation)
+
   - Tech decisions review (alternatives expand/collapse)
+
   - Merge review (approve/reject via drawer-action-bar)
 
+
   Additionally, the existing sound wiring is decentralized — each component
+
   chooses its own sound name and volume with no shared mapping, making it
+
   hard to maintain consistency or change sound assignments globally.
+
 
   ## Success Criteria
 
-  - [ ] A `SOUND_ACTION_MAP` constant exists mapping semantic action names to sound names and volumes
-  - [ ] A `useSoundAction` hook exists that wraps `useSound` using the centralized mapping
-  - [ ] All 15 previously-silent components play appropriate sounds on user interaction
-  - [ ] Existing control-center and notification sounds are migrated to use `useSoundAction`
-  - [ ] All sounds respect the global `useSoundEnabled` toggle (sounds off = silence)
-  - [ ] Every modified component has an updated `.stories.tsx` file demonstrating sound behavior
-  - [ ] Every modified component has unit tests verifying that `play()` is called on the correct action
+
+  - [ ] A `SOUND_ACTION_MAP` constant exists mapping semantic action names to
+  sound names and volumes
+
+  - [ ] A `useSoundAction` hook exists that wraps `useSound` using the
+  centralized mapping
+
+  - [ ] All 15 previously-silent components play appropriate sounds on user
+  interaction
+
+  - [ ] Existing control-center and notification sounds are migrated to use
+  `useSoundAction`
+
+  - [ ] All sounds respect the global `useSoundEnabled` toggle (sounds off =
+  silence)
+
+  - [ ] Every modified component has an updated `.stories.tsx` file
+  demonstrating sound behavior
+
+  - [ ] Every modified component has unit tests verifying that `play()` is
+  called on the correct action
+
   - [ ] No new npm dependencies are introduced
+
   - [ ] No new sound files are required — all sounds use existing 27 WAV files
-  - [ ] Sound volume levels follow the category hierarchy: navigation (0.2), toggles (0.3), drawers (0.4), actions (0.5), significant actions (0.5)
+
+  - [ ] Sound volume levels follow the category hierarchy: navigation (0.2),
+  toggles (0.3), drawers (0.4), actions (0.5), significant actions (0.5)
+
   - [ ] `pnpm validate` passes with no errors
+
   - [ ] `pnpm test` passes with no regressions
+
 
   ## Functional Requirements
 
+
   ### Centralized Sound Mapping
 
-  - **FR-1**: Create a `SOUND_ACTION_MAP` constant (in a new file `use-sound-action.ts`
+
+  - **FR-1**: Create a `SOUND_ACTION_MAP` constant (in a new file
+  `use-sound-action.ts`
     alongside `use-sound.ts`) that maps semantic action names to `{ sound: SoundName,
     volume: number }` pairs. Action categories:
     - `navigate` → `tap_01` at volume 0.2
@@ -246,7 +276,8 @@ content: |
     - `notification-warning` → `notification` at volume 0.5
     - `notification-info` → `button` at volume 0.5
 
-  - **FR-2**: Create a `useSoundAction(action: SoundAction)` hook that looks up the
+  - **FR-2**: Create a `useSoundAction(action: SoundAction)` hook that looks up
+  the
     action in `SOUND_ACTION_MAP` and returns `{ play, stop, isPlaying }` — the same
     interface as `useSound`. Internally delegates to `useSound`.
 
@@ -255,7 +286,9 @@ content: |
 
   ### Component Sound Wiring
 
-  - **FR-4**: `drawer-action-bar` — play `approve` sound when the approve button is
+
+  - **FR-4**: `drawer-action-bar` — play `approve` sound when the approve button
+  is
     clicked; play `reject` sound when the reject dialog is opened.
 
   - **FR-5**: `action-button` — play `click` sound on button click. (Generic
@@ -267,15 +300,19 @@ content: |
   - **FR-7**: `feature-create-drawer` — play `drawer-open` on open; play
     `drawer-close` on close/cancel; play `create` on successful form submission.
 
-  - **FR-8**: `theme-toggle` — play `toggle-on` when switching to dark mode; play
+  - **FR-8**: `theme-toggle` — play `toggle-on` when switching to dark mode;
+  play
     `toggle-off` when switching to light mode.
 
   - **FR-9**: `sidebar-collapse-toggle` — play `collapse` when collapsing the
     sidebar; play `expand` when expanding the sidebar.
 
-  - **FR-10**: `sidebar-nav-item` — play `navigate` sound on navigation link click.
+  - **FR-10**: `sidebar-nav-item` — play `navigate` sound on navigation link
+  click.
 
-  - **FR-11**: `open-action-menu` — play `menu-open` when the dropdown menu opens;
+
+  - **FR-11**: `open-action-menu` — play `menu-open` when the dropdown menu
+  opens;
     play `menu-item` on each menu item click (IDE, terminal, specs folder); play
     `copy` on copy-path action.
 
@@ -299,6 +336,7 @@ content: |
 
   ### Existing Code Migration
 
+
   - **FR-18**: Migrate `use-control-center-state.ts` to use `useSoundAction` for
     its 4 sound calls (deleteSound → `delete`, createSound → `create`,
     clickSound → `click`, closeSound → `drawer-close`).
@@ -312,6 +350,7 @@ content: |
     `notification-info`).
 
   ## Non-Functional Requirements
+
 
   - **NFR-1 — Performance**: Adding `useSoundAction` calls must not increase
     component render time. The hook must not trigger re-renders when the sound
@@ -352,68 +391,149 @@ content: |
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Should sounds play for every click or only significant actions? | Curated by action category | Balances audio presence with usability — navigation gets subtle taps, significant actions get prominent feedback |
-  | 2 | Centralized mapping or direct useSound calls? | Centralized useSoundAction hook | Single source of truth for 15+ components; trivial to adjust globally; eliminates scattered sound logic |
-  | 3 | Are existing 27 WAV files sufficient? | Yes, existing sounds are sufficient | Full coverage for all action categories; new sounds can be added in follow-up if user testing reveals gaps |
-  | 4 | Should existing control-center sounds be migrated? | Yes, refactor to useSoundAction | Ensures one consistent pattern; low-risk migration of 9 call sites; validates the mapping covers all cases |
+
+  | 1 | Should sounds play for every click or only significant actions? |
+  Curated by action category | Balances audio presence with usability —
+  navigation gets subtle taps, significant actions get prominent feedback |
+
+  | 2 | Centralized mapping or direct useSound calls? | Centralized
+  useSoundAction hook | Single source of truth for 15+ components; trivial to
+  adjust globally; eliminates scattered sound logic |
+
+  | 3 | Are existing 27 WAV files sufficient? | Yes, existing sounds are
+  sufficient | Full coverage for all action categories; new sounds can be added
+  in follow-up if user testing reveals gaps |
+
+  | 4 | Should existing control-center sounds be migrated? | Yes, refactor to
+  useSoundAction | Ensures one consistent pattern; low-risk migration of 9 call
+  sites; validates the mapping covers all cases |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `hooks/use-sound-action.ts` (NEW) | High | New centralized hook and action map — core of the feature |
+
+  | `hooks/use-sound-action.ts` (NEW) | High | New centralized hook and action
+  map — core of the feature |
+
   | `hooks/use-sound.ts` | None | Unchanged — useSoundAction wraps it |
-  | `components/common/action-button/` | Medium | Add click sound on button press |
-  | `components/common/drawer-action-bar/` | Medium | Add approve/reject sounds — used by merge-review, tech-decisions-review, prd-questionnaire |
-  | `components/common/feature-drawer/` | Medium | Add drawer open/close sounds |
-  | `components/common/feature-create-drawer/` | Medium | Add drawer open/close and create sounds |
-  | `components/common/open-action-menu/` | Medium | Add menu-open, menu-item, and copy sounds |
+
+  | `components/common/action-button/` | Medium | Add click sound on button
+  press |
+
+  | `components/common/drawer-action-bar/` | Medium | Add approve/reject sounds
+  — used by merge-review, tech-decisions-review, prd-questionnaire |
+
+  | `components/common/feature-drawer/` | Medium | Add drawer open/close sounds
+  |
+
+  | `components/common/feature-create-drawer/` | Medium | Add drawer open/close
+  and create sounds |
+
+  | `components/common/open-action-menu/` | Medium | Add menu-open, menu-item,
+  and copy sounds |
+
   | `components/common/theme-toggle/` | Low | Add toggle-on/toggle-off sounds |
-  | `components/common/sidebar-collapse-toggle/` | Low | Add expand/collapse sounds |
+
+  | `components/common/sidebar-collapse-toggle/` | Low | Add expand/collapse
+  sounds |
+
   | `components/common/sidebar-nav-item/` | Low | Add navigate sound |
-  | `components/common/reject-feedback-dialog/` | Low | Add reject confirmation sound |
+
+  | `components/common/reject-feedback-dialog/` | Low | Add reject confirmation
+  sound |
+
   | `components/common/drawer-revision-input/` | Low | Add submit sound |
-  | `components/common/review-drawer-shell/` | Low | Add drawer open/close sounds |
-  | `components/common/prd-questionnaire/` | Low | Add select and navigate sounds |
-  | `components/common/tech-decisions-review/` | Low | Add expand/collapse sounds |
-  | `components/common/merge-review/` | None | Inherits sounds from drawer-action-bar — no direct changes |
-  | `components/features/control-center/use-control-center-state.ts` | Low | Migrate 4 useSound calls to useSoundAction |
-  | `components/features/control-center/control-center-inner.tsx` | Low | Migrate 1 useSound call to useSoundAction |
-  | `hooks/use-notifications.ts` | Low | Migrate 4 useSound calls to useSoundAction |
-  | `*.stories.tsx` (all affected) | Medium | Every modified component needs Storybook story updates |
+
+  | `components/common/review-drawer-shell/` | Low | Add drawer open/close
+  sounds |
+
+  | `components/common/prd-questionnaire/` | Low | Add select and navigate
+  sounds |
+
+  | `components/common/tech-decisions-review/` | Low | Add expand/collapse
+  sounds |
+
+  | `components/common/merge-review/` | None | Inherits sounds from
+  drawer-action-bar — no direct changes |
+
+  | `components/features/control-center/use-control-center-state.ts` | Low |
+  Migrate 4 useSound calls to useSoundAction |
+
+  | `components/features/control-center/control-center-inner.tsx` | Low |
+  Migrate 1 useSound call to useSoundAction |
+
+  | `hooks/use-notifications.ts` | Low | Migrate 4 useSound calls to
+  useSoundAction |
+
+  | `*.stories.tsx` (all affected) | Medium | Every modified component needs
+  Storybook story updates |
+
 
   ## Dependencies
 
+
   **Existing infrastructure (no new libraries needed)**:
+
   - `useSound` hook — already handles audio element lifecycle, preloading,
     volume control, loop, and error handling
   - `useSoundEnabled` — global toggle with localStorage persistence and
     cross-tab sync
   - 27 WAV sound files — already present in `/public/sounds/`
+
   - Sound toggle component — already in the header UI
+
 
   **No new npm dependencies required.** All sound infrastructure exists.
 
+
   **Internal dependency order**:
+
   1. `use-sound-action.ts` (hook + map) must be created first
+
   2. Component wiring can proceed in parallel after the hook exists
+
   3. Existing code migration can happen in parallel with new wiring
+
 
   ## Size Estimate
 
+
   **M (days)** — The sound infrastructure is fully built. The work is:
+
   1. Create `useSoundAction` hook + `SOUND_ACTION_MAP` (~1 file, ~60 lines)
+
   2. Wire sounds into ~15 components (each is 5-15 lines of change)
+
   3. Migrate 9 existing sound calls to the new hook
+
   4. Update ~15 Storybook stories
+
   5. Write unit tests for the new hook and each component's sound behavior
 
+
   No architectural changes, no new dependencies, no backend work. The
+
   repetitive nature makes it medium rather than small, but each individual
+
   component change is straightforward.
+
 
   ---
 
+
   _Generated by requirements agent — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      There are multiple icons and multiple tap sounds, can we utlize all the
+      taps for the different actions?
+    phase: merge
+    timestamp: '2026-02-25T17:43:02.352Z'
