@@ -4,7 +4,7 @@ feature:
   number: 43
   branch: feat/043-tools-management-ui
   lifecycle: review
-  prUrl: 'https://github.com/shep-ai/cli/pull/133'
+  prUrl: https://github.com/shep-ai/cli/pull/133
   createdAt: '2026-02-25T11:46:35Z'
 status:
   phase: in-review
@@ -13,7 +13,7 @@ status:
     total: 15
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-25T12:40:00.000Z'
+  lastUpdated: '2026-02-25T14:35:00.000Z'
   lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
@@ -24,6 +24,7 @@ status:
     - phase-2
     - phase-3
     - phase-4
+    - merge
 validation:
   lastRun: null
   gatesPassed: []
