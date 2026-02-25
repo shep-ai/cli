@@ -23,10 +23,10 @@ describe('AppSidebar', () => {
     expect(screen.getByText('Control Center')).toBeInTheDocument();
   });
 
-  it('renders Memory nav item in header', () => {
+  it('renders Tools nav item in header', () => {
     renderWithSidebar(<AppSidebar features={mockFeatures} />);
 
-    expect(screen.getByText('Memory')).toBeInTheDocument();
+    expect(screen.getByText('Tools')).toBeInTheDocument();
   });
 
   it('renders Features label in content', () => {

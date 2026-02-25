@@ -6,6 +6,15 @@ import { spawn } from 'node:child_process';
 import { getSettings } from '@shepai/core/infrastructure/services/settings.service';
 import { computeWorktreePath } from '@shepai/core/infrastructure/services/ide-launchers/compute-worktree-path';
 
+// Use a record lookup instead of if/else to prevent the bundler from
+// tree-shaking platform branches at build time. Turbopack evaluates
+// os.platform() during the build and dead-code-eliminates unused branches,
+// baking in the CI platform (linux) and breaking macOS/Windows installs.
+const SHELL_COMMANDS: Record<string, { cmd: string; args: (path: string) => string[] }> = {
+  darwin: { cmd: 'open', args: (p) => ['-a', 'Terminal', p] },
+  linux: { cmd: 'x-terminal-emulator', args: (p) => [`--working-directory=${p}`] },
+};
+
 interface OpenShellInput {
   repositoryPath: string;
   branch?: string;
@@ -29,26 +38,20 @@ export async function openShell(
       return { success: false, error: `Path does not exist: ${targetPath}` };
     }
 
-    const currentPlatform = platform();
-
-    if (currentPlatform === 'darwin') {
-      const child = spawn('open', ['-a', 'Terminal', targetPath], {
-        detached: true,
-        stdio: 'ignore',
-      });
-      child.unref();
-    } else if (currentPlatform === 'linux') {
-      const child = spawn('x-terminal-emulator', [`--working-directory=${targetPath}`], {
-        detached: true,
-        stdio: 'ignore',
-      });
-      child.unref();
-    } else {
+    const entry = SHELL_COMMANDS[platform()];
+    if (!entry) {
       return {
         success: false,
-        error: `Unsupported platform: ${currentPlatform}. Shell launch is supported on macOS and Linux only.`,
+        error: `Unsupported platform: ${platform()}. Shell launch is supported on macOS and Linux only.`,
       };
     }
+
+    const child = spawn(entry.cmd, entry.args(targetPath), {
+      detached: true,
+      stdio: 'ignore',
+    });
+    child.on('error', () => undefined); // Prevent uncaught exception on spawn failure
+    child.unref();
 
     return { success: true, path: targetPath, shell };
   } catch (error: unknown) {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { FeatureDrawer } from '@/components/common/feature-drawer';
 import type { FeatureDrawerProps } from '@/components/common/feature-drawer';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
@@ -365,6 +366,125 @@ describe('FeatureDrawer', () => {
       closeButton.click();
       expect(mockDrawerClosePlay).toHaveBeenCalledOnce();
       expect(onClose).toHaveBeenCalledOnce();
+    });
+  });
+
+  describe('PR info section', () => {
+    const prData: FeatureNodeData['pr'] = {
+      url: 'https://github.com/org/repo/pull/42',
+      number: 42,
+      status: PrStatus.Merged,
+      ciStatus: CiStatus.Success,
+      commitHash: 'abc1234567890',
+    };
+
+    it('renders PR section when pr data is provided', () => {
+      renderDrawer({ ...defaultData, state: 'done', progress: 100, pr: prData });
+      expect(screen.getByTestId('feature-drawer-pr')).toBeInTheDocument();
+    });
+
+    it('hides PR section when pr is undefined', () => {
+      renderDrawer({ ...defaultData, pr: undefined });
+      expect(screen.queryByTestId('feature-drawer-pr')).not.toBeInTheDocument();
+    });
+
+    it('displays PR number as link with correct href and text', () => {
+      renderDrawer({ ...defaultData, pr: prData });
+      const link = screen.getByRole('link', { name: /PR #42/i });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute('href', 'https://github.com/org/repo/pull/42');
+    });
+
+    it('PR link opens in new tab with noopener noreferrer', () => {
+      renderDrawer({ ...defaultData, pr: prData });
+      const link = screen.getByRole('link', { name: /PR #42/i });
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('displays blue badge for PrStatus.Open', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, status: PrStatus.Open },
+      });
+      const prSection = screen.getByTestId('feature-drawer-pr');
+      const badge = prSection.querySelector('[class*="bg-blue-50"]');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveTextContent('Open');
+    });
+
+    it('displays purple badge for PrStatus.Merged', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, status: PrStatus.Merged },
+      });
+      const badge = screen.getByText('Merged');
+      expect(badge).toBeInTheDocument();
+      expect(badge.className).toContain('bg-purple-50');
+    });
+
+    it('displays red badge for PrStatus.Closed', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, status: PrStatus.Closed },
+      });
+      const badge = screen.getByText('Closed');
+      expect(badge).toBeInTheDocument();
+      expect(badge.className).toContain('bg-red-50');
+    });
+
+    it('renders CiStatusBadge with "Passing" for CiStatus.Success', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, ciStatus: CiStatus.Success },
+      });
+      expect(screen.getByText('Passing')).toBeInTheDocument();
+    });
+
+    it('renders CiStatusBadge with "Pending" for CiStatus.Pending', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, ciStatus: CiStatus.Pending },
+      });
+      expect(screen.getByText('Pending')).toBeInTheDocument();
+    });
+
+    it('renders CiStatusBadge with "Failing" for CiStatus.Failure', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, ciStatus: CiStatus.Failure },
+      });
+      expect(screen.getByText('Failing')).toBeInTheDocument();
+    });
+
+    it('omits CI badge when ciStatus is undefined', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, ciStatus: undefined },
+      });
+      expect(screen.queryByText('Passing')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+      expect(screen.queryByText('Failing')).not.toBeInTheDocument();
+      expect(screen.queryByText('CI Status')).not.toBeInTheDocument();
+    });
+
+    it('displays first 7 chars of commit hash with font-mono', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, commitHash: 'abc1234567890' },
+      });
+      const code = screen.getByText('abc1234');
+      expect(code).toBeInTheDocument();
+      expect(code.tagName.toLowerCase()).toBe('code');
+      expect(code.className).toContain('font-mono');
+    });
+
+    it('omits commit hash when commitHash is undefined', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, commitHash: undefined },
+      });
+      expect(screen.queryByText('Commit')).not.toBeInTheDocument();
     });
   });
 });

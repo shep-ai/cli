@@ -1,0 +1,263 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: global-skills-page
+summary: >
+  Implementation plan for a /skills web UI page that displays all Claude Code skills installed
+  in the project's .claude/skills/ directory and the user's global ~/.claude/skills/ directory.
+  Uses the established server-to-client component data flow pattern (matching the version page),
+  a Sheet-based drawer for skill detail view, and a pure-function skill reader/parser with
+  category derivation. Five phases: foundation utilities with tests, presentational UI components,
+  interactive drawer and page client, route/navigation wiring, and Storybook stories.
+
+relatedFeatures: []
+
+technologies:
+  - Next.js 16 (App Router, server components)
+  - React 19
+  - shadcn/ui (Card, Badge, Input, Sheet, ScrollArea, Separator, Button)
+  - Tailwind CSS v4 (theme tokens for dark mode)
+  - Lucide React (Puzzle, Search, FolderOpen, FileText, ChevronRight, X, Blocks)
+  - Storybook (colocated .stories.tsx files, autodocs)
+  - js-yaml (YAML frontmatter parsing — already in root package.json)
+  - Node.js fs/promises (server-side directory/file reading)
+  - Vitest + React Testing Library (unit tests)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Skill Reader Utility & Types'
+    description: >
+      Build the foundational server-side utility (lib/skills.ts) that reads skill directories,
+      parses SKILL.md frontmatter, detects resource subdirectories, and derives categories.
+      This is the data layer that all UI components depend on. TDD-first with unit tests for
+      the pure functions (deriveCategory, parseFrontmatter, getSkills) against a temporary
+      filesystem. This phase has zero UI dependencies and can be fully validated with unit
+      tests alone.
+    parallel: false
+
+  - id: phase-2
+    name: 'Presentational UI Components'
+    description: >
+      Build the Tier 3 feature components that render skill data: SkillCard (individual skill
+      display with badges/metadata), CategoryFilter (filter chip row), and SkillList
+      (category-grouped responsive grid). All are presentational with typed props — no state
+      management or side effects. Depends on SkillData type from phase 1.
+    parallel: false
+
+  - id: phase-3
+    name: 'Skill Detail Drawer & Page Client'
+    description: >
+      Build the SkillDetailDrawer (Sheet-based right-side panel for skill detail) and the
+      SkillsPageClient orchestrator that manages search query, category filter state, and
+      drawer open/close state. The page client is the main interactive container receiving
+      skill data as props and composing all phase 2 components with client-side filtering.
+    parallel: false
+
+  - id: phase-4
+    name: 'Route, Navigation & Server Wiring'
+    description: >
+      Create the /skills route server component (app/skills/page.tsx), add the Skills
+      SidebarNavItem to AppSidebar navigation, and add js-yaml as an explicit web package
+      dependency. This phase integrates all prior work into a navigable, functional page.
+    parallel: false
+
+  - id: phase-5
+    name: 'Storybook Stories'
+    description: >
+      Create colocated Storybook stories for all five new components: SkillCard, CategoryFilter,
+      SkillList, SkillDetailDrawer, and SkillsPageClient. Each story file covers representative
+      variants (default, empty, filtered, drawer states, dark mode). Stories are last because
+      they exercise fully-built components and serve as visual regression documentation.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/web/lib/skills.ts
+  - src/presentation/web/app/skills/page.tsx
+  - src/presentation/web/components/features/skills/index.ts
+  - src/presentation/web/components/features/skills/skills-page-client.tsx
+  - src/presentation/web/components/features/skills/skill-card.tsx
+  - src/presentation/web/components/features/skills/skill-list.tsx
+  - src/presentation/web/components/features/skills/category-filter.tsx
+  - src/presentation/web/components/features/skills/skill-detail-drawer.tsx
+  - src/presentation/web/components/features/skills/skills-page-client.stories.tsx
+  - src/presentation/web/components/features/skills/skill-card.stories.tsx
+  - src/presentation/web/components/features/skills/skill-list.stories.tsx
+  - src/presentation/web/components/features/skills/category-filter.stories.tsx
+  - src/presentation/web/components/features/skills/skill-detail-drawer.stories.tsx
+  - tests/unit/presentation/web/lib/skills.test.ts
+  - tests/unit/presentation/web/features/skills/skills-page-client.test.tsx
+  - tests/unit/presentation/web/features/skills/skill-card.test.tsx
+
+filesToModify:
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+  - src/presentation/web/package.json
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The Global Skills Page follows the established server-to-client component pattern used by
+  the version page (`app/version/page.tsx` → `VersionPageClient`). A Next.js server component
+  at `app/skills/page.tsx` calls `getSkills()` from `lib/skills.ts` to read skill data from
+  the filesystem, then passes the typed skill array as props to `SkillsPageClient` — a
+  `'use client'` component that handles all interactivity (search, category filtering,
+  drawer state).
+
+  ### Data Flow
+
+  ```
+  app/skills/page.tsx (server)
+    → getSkills()                         [lib/skills.ts — server-side only]
+      → Read .claude/skills/ (project)    [process.cwd() + '.claude/skills/']
+      → Read ~/.claude/skills/ (global)   [os.homedir() + '/.claude/skills/']
+      → For each subdirectory:
+        → Read SKILL.md, parse frontmatter (js-yaml), extract body
+        → Detect resource subdirs (references/, examples/, templates/, etc.)
+        → deriveCategory(name) → SkillCategory
+      → Return SkillData[] (sorted alphabetically)
+    → <SkillsPageClient skills={skills} />
+      → Client state: searchQuery, activeCategory, selectedSkill
+      → Filtered skills = match(search) ∩ match(category)
+      → Render: PageHeader → Search → CategoryFilter → SkillList → SkillDetailDrawer
+  ```
+
+  ### Component Hierarchy
+
+  ```
+  SkillsPageClient ('use client' — Tier 3 feature)
+  ├── PageHeader (Tier 1 common — reuse existing)
+  ├── Input + Search icon (Tier 0 ui — reuse existing)
+  ├── CategoryFilter (Tier 3 feature — new)
+  ├── SkillList (Tier 3 feature — new)
+  │   └── SkillCard[] (Tier 3 feature — new)
+  ├── SkillDetailDrawer (Tier 3 feature — new, Sheet-based)
+  └── EmptyState (Tier 1 common — reuse existing)
+  ```
+
+  ### Type Definitions (lib/skills.ts)
+
+  ```typescript
+  type SkillCategory = 'Workflow' | 'Code Generation' | 'Analysis' | 'Reference';
+  type SkillSource = 'project' | 'global';
+
+  interface SkillResource {
+    name: string;      // e.g., 'references'
+    fileCount: number;
+  }
+
+  interface SkillData {
+    name: string;           // Full skill name (e.g., 'shep-kit:implement')
+    displayName: string;    // Prefix-stripped (e.g., 'implement')
+    description: string;
+    context?: string;       // e.g., 'fork'
+    allowedTools?: string;  // e.g., 'Read, Write, Bash, Edit, Glob'
+    category: SkillCategory;
+    source: SkillSource;
+    body: string;           // Markdown body after frontmatter
+    resources: SkillResource[];
+  }
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. Sheet for Skill Detail Drawer (Not vaul Drawer)
+
+  The codebase has two drawer-like primitives: `Sheet` (radix-ui Dialog-based, at
+  `components/ui/sheet.tsx`) and `Drawer` (vaul-based, at `components/ui/drawer.tsx`).
+  The existing `FeatureDrawer` uses the vaul `Drawer` with `direction="right"` and
+  `modal={false}`. For skill detail, we use **Sheet** because:
+
+  - Sheet has built-in CSS slide animations (no drag-to-dismiss needed)
+  - Skill detail is read-only content — vaul's swipe interactions add no value
+  - Sheet provides `side="right"` with overlay, close button, header/description
+  - Sheet is the lighter primitive for a non-interactive detail panel
+
+  The Sheet component at `components/ui/sheet.tsx` already supports: `SheetContent`
+  (side prop), `SheetHeader`, `SheetTitle`, `SheetDescription`, `SheetClose`,
+  `showCloseButton` toggle, overlay, and portal rendering.
+
+  ### 2. Dual Source (Project + Global) with Source Badge
+
+  The spec resolved this to "Both project and global skills with visual distinction."
+  The reader reads from two directories:
+  - Project: `process.cwd() + '/.claude/skills/'`
+  - Global: `os.homedir() + '/.claude/skills/'`
+
+  Each skill gets a `source: 'project' | 'global'` field shown as a Badge on the card.
+  Duplicate skill names across sources are shown separately (not deduplicated).
+  Missing directories gracefully return empty arrays.
+
+  ### 3. Frontmatter Parsing: js-yaml with Delimiter Splitting
+
+  SKILL.md frontmatter uses `---` delimiters. Implementation:
+  1. Read file content as string
+  2. Find first `---` (must be at line 0 or after leading whitespace)
+  3. Find second `---`
+  4. `yaml.load()` the content between delimiters (js-yaml 4.x DEFAULT_SCHEMA — safe)
+  5. Everything after second `---` is the markdown body
+
+  Fields extracted: `name` (required), `description` (required), `context` (optional),
+  `allowed-tools` (optional). Some SKILL.md files have additional fields (`license`,
+  `metadata`) — these are ignored. Skills missing `name` or `description` are skipped
+  with `console.warn`.
+
+  ### 4. Category Derivation: Ordered Rules Array
+
+  A pure function `deriveCategory(name: string): SkillCategory` with rules:
+  1. Name starts with `shep-kit:` → **Workflow** (covers: implement, commit-pr, merged,
+     new-feature, new-feature-fast, parallel-task, plan, research)
+  2. Name starts with `shep:` → **Code Generation** (covers: ui-component)
+  3. Name contains `review`, `validate`, or `cross-validate` → **Analysis** (covers:
+     architecture-reviewer, cross-validate-artifacts)
+  4. Fallback → **Reference** (covers: mermaid-diagrams, react-flow, shadcn-ui, tsp-model,
+     vercel-react-best-practices, find-skills, lsp-code-analysis, remotion-best-practices)
+
+  Rules array is a single constant — adding a category is one array entry.
+
+  ### 5. Display Name Formatting
+
+  Strip `shep-kit:` and `shep:` prefixes for the display title. Show full name as a
+  muted subtitle below the title. This produces cleaner card titles (e.g., "implement"
+  instead of "shep-kit:implement") while preserving the full invocation name.
+
+  ### 6. process.cwd() for Project Root
+
+  Both `shep ui` (CLI) and `pnpm dev:web` (development) run from the project root.
+  `process.cwd()` gives the correct path for `.claude/skills/`. `os.homedir()` gives
+  `~/.claude/skills/`. No environment variables or configuration needed.
+
+  ### 7. Plain Text Body Display (V1)
+
+  The SKILL.md markdown body is rendered in a whitespace-preserving container (`<pre>`
+  with prose styling). No markdown rendering library needed for V1. The spec explicitly
+  allows this: "plain text display is acceptable for V1" (FR-9).
+
+  ## Implementation Strategy
+
+  **Phase ordering rationale**: The skill reader utility (phase 1) is the foundation — all
+  UI components depend on its types and data shape. It is also the most testable piece
+  (pure functions against filesystem). UI components (phase 2) are built next as isolated,
+  presentational components — they accept typed props and render UI. The drawer and page
+  client (phase 3) compose those components with state management (search, filter, drawer
+  open/close). Route and navigation wiring (phase 4) integrates everything into a working
+  page — this is the smallest phase (two small file changes + one new file). Storybook
+  stories (phase 5) come last because they exercise fully-built components.
+
+  Each phase produces testable, reviewable output before proceeding. Phase 1 is validated
+  with unit tests only (no browser). Phases 2-3 are validated with unit tests and can be
+  previewed in Storybook once phase 5 is complete. Phase 4 produces the navigable page.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | js-yaml not resolvable from web package | Add as explicit dependency in web package.json. js-yaml is pure JS — no native module issues. |
+  | SKILL.md frontmatter variations (extra fields like license, metadata) | Parser extracts only known fields, ignores extras. Uses js-yaml DEFAULT_SCHEMA (safe). |
+  | Global skills directory doesn't exist | getSkillsFromDirectory() wraps fs.readdir in try/catch — returns empty array. |
+  | Symlinks in skill directories (observed in vercel-react-best-practices) | fs.readFile follows symlinks by default. Source directories are system-controlled, safe to follow. |
+  | Large SKILL.md body content in drawer | ScrollArea inside Sheet with max-height. Body displayed in pre with overflow handling. |
+  | Category derivation for future skill naming patterns | Rules array is ordered — new patterns insert before fallback. Unit tests cover all 16 project + 4 global skills. |
+  | Resource subdirectory detection misses new resource types | Detection checks known names (references/, examples/, templates/, scripts/, validation/, rules/). Unknown subdirs are ignored. Adding new types is one array entry change. |

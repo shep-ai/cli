@@ -23,7 +23,10 @@ export interface ToolMetadata {
   description: string;
 
   /** Tool tags for grouping in listings. A tool can belong to multiple categories. */
-  tags: ('ide' | 'cli-agent')[];
+  tags: ('ide' | 'cli-agent' | 'vcs')[];
+
+  /** URL to the tool's icon/logo image */
+  iconUrl?: string;
 
   /** Binary name to check with 'which' command (string or per-platform map) */
   binary: string | Record<string, string>;
@@ -46,6 +49,9 @@ export interface ToolMetadata {
   /** Whether the tool supports automated installation (default: true) */
   autoInstall?: boolean;
 
+  /** Whether this tool is required for the platform to function (default: false) */
+  required?: boolean;
+
   /** Command to open a directory in this tool.
    * String format: "code {dir}" — single command for all platforms.
    * Object format: { "linux": "antigravity {dir}", "darwin": "agy {dir}" } — per-platform commands. */
@@ -59,6 +65,13 @@ export interface ToolMetadata {
     stdio?: 'ignore' | 'inherit' | 'pipe';
     detached?: boolean;
   };
+
+  /** Platform-specific command to launch this tool in a new terminal window.
+   * Used when launching from the web UI where no terminal is available.
+   * When set, the launcher spawns a new terminal window with this command.
+   * Supports {dir} placeholder like openDirectory.
+   * Example: "x-terminal-emulator -e bash -c 'cd {dir} && claude'" */
+  terminalCommand?: string | Record<string, string>;
 }
 
 const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [

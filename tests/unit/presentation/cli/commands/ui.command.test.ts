@@ -37,12 +37,13 @@ vi.mock('@/infrastructure/di/container.js', () => ({
       if (token === 'IWebServerService') {
         return mockWebServerService;
       }
-      // Return empty stubs for notification-related services
+      // Return empty stubs for notification-related and PR sync services
       if (
         token === 'IAgentRunRepository' ||
         token === 'IPhaseTimingRepository' ||
+        token === 'INotificationService' ||
         token === 'IFeatureRepository' ||
-        token === 'INotificationService'
+        token === 'IGitPrService'
       ) {
         return {};
       }
@@ -68,6 +69,15 @@ vi.mock('@/infrastructure/services/web-server.service.js', () => ({
 vi.mock('@/infrastructure/services/notifications/notification-watcher.service.js', () => ({
   initializeNotificationWatcher: vi.fn(),
   getNotificationWatcher: vi.fn().mockReturnValue({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
+}));
+
+// Mock PR sync watcher service (requires start/stop methods)
+vi.mock('@/infrastructure/services/pr-sync/pr-sync-watcher.service.js', () => ({
+  initializePrSyncWatcher: vi.fn(),
+  getPrSyncWatcher: vi.fn().mockReturnValue({
     start: vi.fn(),
     stop: vi.fn(),
   }),

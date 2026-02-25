@@ -12,6 +12,7 @@ import type {
   DiffSummary,
   MergeStrategy,
   PrCreateResult,
+  PrStatusInfo,
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import {
   GitPrError,
@@ -19,6 +20,7 @@ import {
 } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import { readFileSync } from 'node:fs';
 import yaml from 'js-yaml';
+import { PrStatus } from '../../../domain/generated/output.js';
 import type { ExecFunction } from './worktree.service.js';
 
 @injectable()
@@ -240,6 +242,40 @@ export class GitPrService implements IGitPrService {
     return this.parseDiffStat(diffStat, logOutput);
   }
 
+  async listPrStatuses(cwd: string): Promise<PrStatusInfo[]> {
+    try {
+      const { stdout } = await this.execFile(
+        'gh',
+        [
+          'pr',
+          'list',
+          '--json',
+          'number,state,url,headRefName',
+          '--state',
+          'all',
+          '--limit',
+          '100',
+        ],
+        { cwd }
+      );
+
+      const prs = JSON.parse(stdout) as {
+        number: number;
+        state: string;
+        url: string;
+        headRefName: string;
+      }[];
+      return prs.map((pr) => ({
+        number: pr.number,
+        state: this.normalizeGhState(pr.state),
+        url: pr.url,
+        headRefName: pr.headRefName,
+      }));
+    } catch (error) {
+      throw this.parseGhError(error);
+    }
+  }
+
   async verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean> {
     try {
       await this.execFile('git', ['merge-base', '--is-ancestor', featureBranch, baseBranch], {
@@ -268,6 +304,11 @@ export class GitPrService implements IGitPrService {
       0,
       maxChars
     )}\n[Log truncated at ${maxChars} chars — full log available via gh run view ${runId}]`;
+  }
+
+  private normalizeGhState(state: string): PrStatus {
+    const normalized = state.charAt(0).toUpperCase() + state.slice(1).toLowerCase();
+    return normalized as PrStatus;
   }
 
   private parseGitError(error: unknown): GitPrError {

@@ -60,6 +60,10 @@ describe('SQLiteSettingsRepository', () => {
         waitingApproval: true,
         agentCompleted: true,
         agentFailed: true,
+        prMerged: true,
+        prClosed: true,
+        prChecksPassed: true,
+        prChecksFailed: true,
       },
     },
     workflow: {

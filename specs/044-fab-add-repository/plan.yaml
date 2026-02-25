@@ -1,0 +1,185 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fab-add-repository
+summary: >
+  Restyle the AddRepositoryButton from a dashed-border pill to a circular blue FAB
+  positioned at bottom-right of the ReactFlow canvas. The change is purely presentational —
+  same props interface, same pickFolder logic, same loading state. Two source files change
+  (add-repository-button.tsx and features-canvas.tsx), one test updates its class assertion,
+  and stories are updated to showcase the new FAB design. A shadcn/ui Tooltip wraps the
+  button for discoverability. No new dependencies, no schema changes, no API changes.
+
+# Relationships
+relatedFeatures:
+  - '043-add-repo-button-position'
+  - '038-control-center-empty-state'
+  - '016-control-center'
+
+technologies:
+  - React 19
+  - '@xyflow/react (Panel component)'
+  - Tailwind CSS 4
+  - shadcn/ui Tooltip
+  - lucide-react (Plus, Loader2)
+  - Storybook 8
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'FAB Component Restyling'
+    description: >
+      Restyle AddRepositoryButton from dashed pill to circular blue FAB with tooltip.
+      This phase covers the core visual change: updating the button's Tailwind classes,
+      removing the text label, scaling the icon, wrapping in a Tooltip, and adding
+      aria-label. The button keeps its existing props interface and logic untouched.
+      This comes first because it's the foundational change that everything else
+      (positioning, tests, stories) depends on.
+    parallel: false
+
+  - id: phase-2
+    name: 'Canvas Positioning & Test Updates'
+    description: >
+      Move the Panel from top-right to bottom-right, replace the mr-16 ThemeToggle
+      clearance class with mb-4 edge spacing, and update the existing test assertion
+      that validates the Panel class. This phase depends on phase-1 because the
+      positioning change completes the functional requirement alongside the restyled FAB.
+    parallel: false
+
+  - id: phase-3
+    name: 'Story Updates'
+    description: >
+      Update add-repository-node.stories.tsx to showcase the FAB in a Panel context
+      (default and loading states). Update the AddRepositoryButtonClearanceCheck story
+      in features-canvas.stories.tsx to verify bottom-right positioning instead of
+      top-right ThemeToggle clearance. This phase comes last because stories document
+      the final result and depend on both the restyling and positioning being complete.
+    parallel: false
+
+# File change tracking
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/common/add-repository-node/add-repository-button.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - tests/unit/presentation/web/features/features-canvas/features-canvas.test.tsx
+  - src/presentation/web/components/common/add-repository-node/add-repository-node.stories.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This is a purely presentational change within the presentation/web layer. No domain,
+  application, or infrastructure layers are affected. The change modifies two components
+  in the existing component hierarchy:
+
+  ```
+  ControlCenterInner
+    └── FeaturesCanvas
+          ├── Panel position="bottom-right"  ← position change (was top-right)
+          │     └── AddRepositoryButton      ← restyled to FAB
+          ├── ReactFlow nodes (FeatureNode, RepositoryNode, etc.)
+          └── Controls (bottom-left, unchanged)
+  ```
+
+  The AddRepositoryButton keeps its existing props interface (`{ onSelect }`) and internal
+  logic (`pickFolder()`, `loading` state). Only the JSX markup and CSS classes change.
+  The ControlCenterEmptyState component is completely untouched (FR-8).
+
+  ## Key Design Decisions
+
+  ### 1. Plain `<button>` with Tailwind (not shadcn/ui Button variant)
+
+  The existing AddRepositoryButton and the feature-node blue button both use plain
+  `<button>` elements with Tailwind utility classes. Creating a shadcn/ui Button "fab"
+  variant would add unnecessary abstraction for a one-off button style. Following the
+  established pattern keeps the change minimal and consistent.
+
+  **Reference:** feature-node.tsx line 231 uses `bg-blue-500 rounded-full shadow-md
+  hover:bg-blue-600` on a plain `<button>`.
+
+  ### 2. Tooltip pattern from repository-node.tsx
+
+  The repository-node component (lines 43-59) demonstrates the exact tooltip pattern
+  used throughout the codebase: `TooltipProvider > Tooltip > TooltipTrigger asChild >
+  button + TooltipContent`. This is a proven, accessible pattern using the already-installed
+  shadcn/ui Tooltip component at `components/ui/tooltip.tsx`. No new dependencies needed.
+
+  ### 3. Bottom-right Panel with mb-4 spacing
+
+  The FAB moves from `Panel position="top-right" className="mr-16"` to
+  `Panel position="bottom-right" className="mb-4"`. The `mr-16` class existed solely
+  to clear the ThemeToggle at top-right — irrelevant at bottom-right. The ReactFlow
+  Controls render at bottom-left (default position per features-canvas.tsx line 160),
+  so bottom-right is clear. A `mb-4` (16px) margin provides clean edge spacing.
+
+  ### 4. Color-only hover effect (no scale transform)
+
+  The spec mentions "scale or brightness effect" (FR-6) but the feature-node blue button
+  only uses `hover:bg-blue-600`. No other button in the codebase uses scale transforms.
+  Following the established pattern (bg-blue-500 → hover:bg-blue-600) keeps visual
+  consistency across the canvas.
+
+  ### 5. Test strategy: update class assertion only
+
+  The only test affected is the Panel class assertion at features-canvas.test.tsx:86-92,
+  which checks for `mr-16`. Since the button's behavior is unchanged (same props, same
+  pickFolder logic, same loading state), no behavioral tests need updating. The assertion
+  changes to verify the new bottom-right positioning class instead.
+
+  ## Implementation Strategy
+
+  The implementation follows a bottom-up approach across 3 phases:
+
+  **Phase 1 (FAB Restyling)** comes first because it's the core change. The button
+  component is self-contained — restyling it doesn't affect the canvas or any other
+  component. TDD validates the new rendered output (circular classes, icon size, tooltip
+  presence, aria-label, removal of text label).
+
+  **Phase 2 (Positioning)** depends on phase 1. Moving the Panel to bottom-right and
+  updating the test assertion completes the functional change. The test update is
+  straightforward: change the class selector from `mr-16` to `mb-4`.
+
+  **Phase 3 (Stories)** comes last because stories document the final result. They need
+  both the restyled button and the new positioning to be in place. The existing
+  AddRepositoryButtonClearanceCheck story is updated to verify bottom-right FAB
+  positioning instead of top-right ThemeToggle clearance.
+
+  ## Button Class Transformation
+
+  From (dashed pill):
+  ```
+  border-muted-foreground/30 flex cursor-pointer items-center gap-2 rounded-full
+  border-2 border-dashed px-3 py-1.5 text-xs transition-colors
+  hover:border-blue-500 hover:text-blue-500 disabled:cursor-wait disabled:opacity-60
+  ```
+
+  To (circular FAB):
+  ```
+  flex h-12 w-12 cursor-pointer items-center justify-center rounded-full
+  bg-blue-500 text-white shadow-lg transition-colors
+  hover:bg-blue-600 disabled:cursor-wait disabled:opacity-60
+  ```
+
+  The `<span>` text label is removed (icon-only). The Plus/Loader2 icons scale from
+  `h-3.5 w-3.5` to `h-6 w-6`. The button is wrapped in TooltipProvider/Tooltip/TooltipTrigger.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | FAB overlaps ReactFlow Controls | Controls are at bottom-left (line 160). FAB at bottom-right with mb-4 provides ample clearance. Verified via updated story. |
+  | Tooltip breaks in Panel context | TooltipProvider wraps the button locally (same pattern as repository-node tooltips inside ReactFlow nodes). Tooltip uses Radix portal, rendering above all canvas elements. |
+  | Test regression from class change | Single test assertion changes from mr-16 to mb-4. Run full test suite to verify no other tests rely on mr-16. |
+  | Empty state shows FAB | The Panel is already conditionally rendered: `{onRepositorySelect ? <Panel>...</Panel> : null}`. Empty state uses ControlCenterEmptyState with its own button. No change needed. |
+  | Breaking existing AddRepositoryNode | AddRepositoryNode (the canvas node component) is separate from AddRepositoryButton (the Panel button). Only AddRepositoryButton changes. |
+
+  ---
+
+  _Plan complete — proceed with task breakdown_

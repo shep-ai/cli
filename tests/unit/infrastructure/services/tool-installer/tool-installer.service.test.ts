@@ -64,7 +64,8 @@ describe('ToolInstallerServiceImpl', () => {
     it('should return "missing" status with suggestions when binary is not found', async () => {
       mockExecFile.mockImplementation(
         (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(new Error('not found'));
+          // `which` exits with code 1 when binary is not in PATH — no `.code` string property
+          cb(new Error('Command failed: which code'));
         }
       );
 
@@ -82,7 +83,9 @@ describe('ToolInstallerServiceImpl', () => {
     it('should return "error" status on unexpected failure', async () => {
       mockExecFile.mockImplementation(
         (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(new Error('Permission denied'));
+          // Genuine OS error — has a string `.code` like EACCES
+          const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
+          cb(err);
         }
       );
 

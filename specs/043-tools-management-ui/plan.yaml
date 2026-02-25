@@ -1,0 +1,227 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: tools-management-ui
+summary: >
+  Additive feature adding two thin use cases (ListToolsUseCase, LaunchToolUseCase), three
+  Next.js API route handlers, a full Tools page with client-component grid, a sidebar swap
+  (Brain→Wrench, /memory→/tools), and a new `shep tools` Commander subcommand group. All data
+  flows exclusively through use cases resolved from the DI container. The established codebase
+  patterns (HomePage server component, install-tool use case, string-token DI aliases, Commander
+  subcommand groups) are reused throughout; no new architectural patterns are introduced.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Next.js 14 (App Router — Server Components + Route Handlers)
+  - React 18 (useTransition for in-flight states)
+  - shadcn/ui (Card, Badge, Button, Tabs, Dialog)
+  - Tailwind CSS
+  - tsyringe (registerSingleton + string-token alias two-step pattern)
+  - Commander.js (nested subcommand group)
+  - Storybook (mandatory colocated .stories.tsx per component)
+  - Vitest (unit tests — TDD RED→GREEN→REFACTOR)
+  - Lucide React (Wrench replaces Brain)
+  - Node.js os module (platform resolution in ListToolsUseCase)
+
+relatedLinks:
+  - 'https://ui.shadcn.com/docs/components/tabs'
+  - 'https://ui.shadcn.com/docs/components/dialog'
+  - 'https://ui.shadcn.com/docs/components/badge'
+  - 'https://nextjs.org/docs/app/building-your-application/routing/route-handlers'
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Application Layer — Use Cases + DI Registration'
+    description: >
+      Write Vitest tests first (TDD RED), then implement ListToolsUseCase and LaunchToolUseCase,
+      then register both in the DI container with the two-step singleton + string-token alias
+      pattern. This phase must complete before all downstream consumers (API routes, server
+      components, CLI commands) because they all depend on the use cases being resolvable from
+      the container.
+    parallel: false
+
+  - id: phase-2
+    name: 'API Layer — Next.js Route Handlers'
+    description: >
+      Add three Next.js App Router route handlers: GET /api/tools, POST /api/tools/[id]/install,
+      and POST /api/tools/[id]/launch. Each resolves its use case via the server-container.ts
+      resolve() helper, executes it, and maps the typed discriminated-union result to HTTP
+      status codes (200/404/422/500). Depends on phase-1 (use cases registered in container).
+    parallel: false
+
+  - id: phase-3
+    name: 'Web UI — Tools Page + Components + Storybook'
+    description: >
+      Build the Tools page server component and all client components: ToolsPageClient (shadcn
+      Tabs + ToolCard grid), ToolCard (metadata + action buttons), and InstallInstructions
+      Dialog. Each component ships with a colocated .stories.tsx covering installed, missing,
+      and loading states. The server component resolves ListToolsUseCase directly (not via fetch)
+      following the established HomePage pattern. Depends on phase-2 so client components can
+      make real API calls for install/launch.
+    parallel: false
+
+  - id: phase-4
+    name: 'Integration — Sidebar Swap + CLI Subcommand + Final Validation'
+    description: >
+      Replace the Memory sidebar nav item with Tools (Brain→Wrench, /memory→/tools). Register
+      the new `shep tools` Commander subcommand group (with `list` sub-command) in the CLI
+      index. Run pnpm validate + pnpm test to confirm zero regressions. These are small targeted
+      changes that touch existing files and need all new pieces in place first.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/application/use-cases/tools/list-tools.use-case.ts
+  - packages/core/src/application/use-cases/tools/list-tools.use-case.test.ts
+  - packages/core/src/application/use-cases/tools/launch-tool.use-case.ts
+  - packages/core/src/application/use-cases/tools/launch-tool.use-case.test.ts
+  - src/presentation/web/app/tools/page.tsx
+  - src/presentation/web/app/api/tools/route.ts
+  - src/presentation/web/app/api/tools/[id]/install/route.ts
+  - src/presentation/web/app/api/tools/[id]/launch/route.ts
+  - src/presentation/web/components/features/tools/tools-page-client.tsx
+  - src/presentation/web/components/features/tools/tools-page-client.stories.tsx
+  - src/presentation/web/components/features/tools/tool-card.tsx
+  - src/presentation/web/components/features/tools/tool-card.stories.tsx
+  - src/presentation/web/components/features/tools/install-instructions.tsx
+  - src/presentation/web/components/features/tools/install-instructions.stories.tsx
+  - src/presentation/cli/commands/tools.command.ts
+
+filesToModify:
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx
+  - src/presentation/cli/index.ts
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Status
+
+  - **Phase:** Planning
+  - **Updated:** 2026-02-25
+
+  ## Architecture Overview
+
+  This feature is entirely additive. No domain TypeSpec models change; no existing service
+  interfaces are extended. The work slots into the four Clean Architecture layers as follows:
+
+  **Application layer** gains two new use cases in `packages/core/src/application/use-cases/tools/`,
+  joining the existing `install-tool.use-case.ts` and `validate-tool-availability.use-case.ts`.
+  Both new use cases follow the same single-responsibility wrapper pattern: inject one or two
+  services via `@inject('ITokenName')`, validate inputs, delegate to services, return a typed result.
+
+  **Infrastructure layer** requires only DI registration in `container.ts`. No new service
+  implementations, no new ports. `TOOL_METADATA` and both service implementations
+  (`ToolInstallerServiceImpl`, `JsonDrivenIdeLauncherService`) already exist and are registered.
+
+  **Presentation — Web** adds a server component at `app/tools/page.tsx` (resolves
+  `ListToolsUseCase` directly via `resolve()`, identical to `app/page.tsx`), three Route
+  Handlers under `app/api/tools/`, and a client component tree under
+  `components/features/tools/`.
+
+  **Presentation — CLI** gains a `shep tools` subcommand group registered in `index.ts` via
+  `program.addCommand(createToolsCommand())`, mirroring `createFeatCommand()`.
+
+  The sidebar modification is a one-line icon/label/href swap in `app-sidebar.tsx`.
+
+  ---
+
+  ## Key Design Decisions
+
+  ### 1. LaunchToolUseCase — New Thin Use Case (Not Reusing LaunchIdeUseCase)
+
+  A dedicated `LaunchToolUseCase` is created rather than reusing `LaunchIdeUseCase`. The existing
+  use case is tightly coupled to the feature/branch/worktree resolution workflow. The new use
+  case accepts `(toolId: string, directoryPath: string)`, looks up the tool in `TOOL_METADATA`,
+  validates `openDirectory` is defined, then calls `IIdeLauncherService.launch(toolId, directoryPath)`.
+  The API route passes `process.cwd()` as `directoryPath`.
+
+  Result type is a discriminated union matching the `LaunchIdeResult` idiom:
+  `{ ok: true; editorName: string; path: string } | { ok: false; code: 'tool_not_found' |
+  'not_launchable' | 'launch_failed'; message: string }`.
+
+  ### 2. ListToolsUseCase — TOOL_METADATA + Parallel checkAvailability
+
+  `ListToolsUseCase` imports `TOOL_METADATA` directly (the established convention in every
+  tool-related file) and calls `IToolInstallerService.checkAvailability()` for each entry in
+  parallel via `Promise.all()`. No new service methods added. The use case pre-resolves
+  platform-specific fields (`openDirectory`, `installCommand`) using `os.platform()` so
+  `ToolItem` is a clean, fully serialisable interface with `string | undefined` values.
+
+  ### 3. ToolItem DTO — Colocated Plain TypeScript Interface
+
+  `ToolItem` and `ListToolsResult` are exported from `list-tools.use-case.ts`. No TypeSpec
+  changes. TypeSpec is reserved for domain entities; application-layer DTOs stay colocated
+  with their use cases — the established convention.
+
+  Fields: `id, name, summary, description, tags, autoInstall, openDirectory (pre-resolved
+  platform string), documentationUrl, installCommand (pre-resolved platform string), status`.
+
+  ### 4. Tools Page — Server Component Direct Resolution (HomePage Pattern)
+
+  `app/tools/page.tsx` follows the identical pattern to `app/page.tsx`:
+  `export const dynamic = 'force-dynamic'`, resolve `ListToolsUseCase` via `resolve()`,
+  await `execute()`, pass serialisable `ToolItem[]` as props to `ToolsPageClient`.
+  No internal `fetch()` call to `/api/tools` from the server component.
+
+  ### 5. DI Registration — Two-Step registerSingleton + String-Token Alias
+
+  Both use cases follow the established two-step pattern in `container.ts`:
+  1. `container.registerSingleton(ListToolsUseCase)` — class-token, satisfies `@inject` decorators
+  2. `container.register('ListToolsUseCase', { useFactory: (c) => c.resolve(ListToolsUseCase) })`
+     — string-token alias for Turbopack-safe web route resolution
+
+  The container.ts comment explicitly documents: "String-token aliases for web routes
+  (Turbopack can't resolve .js→.ts imports inside @shepai/core, so routes use string tokens)."
+
+  ### 6. InstallInstructions — shadcn/ui Dialog with Copy-to-Clipboard
+
+  Manual-install tools show a Dialog containing the pre-resolved `installCommand` string and a
+  `navigator.clipboard.writeText()` copy button. Dialog is already in the shadcn/ui stack.
+  The install command is a plain string in `ToolItem`, so the component receives no union types.
+
+  ### 7. Status Refresh — Optimistic Update + Re-fetch (No Polling)
+
+  After a successful install API call, `ToolsPageClient` calls `GET /api/tools` once to refresh
+  the tool list. `useTransition` provides in-flight loading state. NFR-8 explicitly prohibits
+  background polling.
+
+  ### 8. Tab Filtering — Tag-Driven Client State
+
+  `ToolsPageClient` uses `useState` for the active tab ('all' | 'ide' | 'cli-agent'). Displayed
+  cards are a `.filter()` on `ToolItem.tags`. No server round-trip for tab switching.
+
+  ---
+
+  ## Implementation Strategy
+
+  Phase ordering is strictly dependency-driven:
+
+  1. **Use cases + DI first** — all consumers require the use cases to be resolvable. Writing
+     Vitest tests first (TDD) locks in the contract before wiring begins.
+  2. **API routes second** — client components need working endpoints for mutations; the GET
+     route enables post-install re-fetch.
+  3. **Web UI third** — once data flows end-to-end, components can be built with real data shapes.
+     Storybook stories ship alongside each component.
+  4. **Integration last** — sidebar and CLI changes are minimal; doing them last keeps diffs
+     clean and makes final validation straightforward.
+
+  ---
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | DI container not initialised in test environment | Tests mock services using tsyringe `container.registerInstance()` directly — same pattern as existing use-case tests |
+  | Platform resolution differs in CI (Linux) vs dev (macOS) | ListToolsUseCase calls `os.platform()` at call time; Vitest tests mock the resolved string directly rather than asserting platform-specific values |
+  | Turbopack breaking new use-case imports in API routes | Follow exact two-step DI pattern; import types as `import type` in route handlers; resolve via string token only |
+  | Storybook build failing on missing shadcn component | All required components (Card, Badge, Button, Tabs, Dialog) already installed; confirmed by research phase |
+  | shep tools list resolving container outside CLI bootstrap | CLI commands use `container.resolve()` — `index.ts` bootstrap ensures container is initialised before any action handler runs |
+  | ToolCard layout shift from varying description lengths | Use `line-clamp-3` Tailwind class on description; fixed-height card body prevents grid jitter |
+  | install.command.ts not delegating through InstallToolUseCase | Research confirmed it already resolves `InstallToolUseCase` via `container.resolve()`; no change required |

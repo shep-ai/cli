@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { ReactFlowProvider, ReactFlow } from '@xyflow/react';
 import { AddRepositoryNode } from './add-repository-node';
+import { AddRepositoryButton } from './add-repository-button';
 import type { AddRepositoryNodeData, AddRepositoryNodeType } from './add-repository-node-config';
 
 const nodeTypes = { addRepositoryNode: AddRepositoryNode };
@@ -55,4 +56,15 @@ export const WithCallback: Story = {
     onSelect: () => undefined,
   },
   render: (args) => <AddRepositoryNodeCanvas data={args} />,
+};
+
+// --- Add Repository Button (top bar icon) stories ---
+
+/** Add Repository button as it appears in the top bar alongside other toggles */
+export const TopBarButton: StoryObj = {
+  render: () => (
+    <div className="flex gap-1">
+      <AddRepositoryButton onSelect={() => undefined} />
+    </div>
+  ),
 };

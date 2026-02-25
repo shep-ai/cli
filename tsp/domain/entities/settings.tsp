@@ -334,6 +334,18 @@ model NotificationEventConfig {
 
   @doc("Notify when agent execution fails")
   agentFailed: boolean = true;
+
+  @doc("Notify when a pull request is merged on GitHub")
+  prMerged: boolean = true;
+
+  @doc("Notify when a pull request is closed without merging on GitHub")
+  prClosed: boolean = true;
+
+  @doc("Notify when pull request CI checks pass")
+  prChecksPassed: boolean = true;
+
+  @doc("Notify when pull request CI checks fail")
+  prChecksFailed: boolean = true;
 }
 
 /**

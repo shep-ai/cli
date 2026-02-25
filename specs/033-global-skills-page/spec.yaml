@@ -1,0 +1,486 @@
+name: global-skills-page
+number: 33
+branch: feat/033-global-skills-page
+oneLiner: >-
+  Web UI page for browsing and viewing Claude Code skills installed in the
+  project
+userQuery: |
+  Feature: Global Skills Page
+summary: >
+  Add a new /skills route to the web UI that displays all Claude Code skills
+  installed in the project's .claude/skills/ directory. The page lists each
+  skill with its name, description, context mode, and any bundled
+  references/resources. Users can browse, search/filter, and expand skill
+  details inline — all in a consistent layout matching existing pages.
+phase: Requirements
+sizeEstimate: M
+relatedFeatures: []
+technologies:
+  - Next.js 16 (App Router, server components)
+  - React 19
+  - shadcn/ui (Card, Badge, Input, ScrollArea, Accordion, Separator)
+  - Tailwind CSS v4
+  - Lucide React (icons)
+  - Storybook (mandatory stories)
+  - js-yaml (already a transitive dependency — for SKILL.md frontmatter parsing)
+relatedLinks: []
+openQuestions:
+  - question: >-
+      How deep should skill detail view go — inline expand, drawer, or separate
+      /skills/[name] route?
+    resolved: true
+    options:
+      - option: Inline expand (accordion-style)
+        description: >
+          Clicking a skill card expands it in-place to reveal full details
+          (instructions body, resource list, metadata). Uses shadcn/ui Accordion
+          or a simple expand/collapse toggle. No routing change, instant
+          feedback, stays on single page. Simpler to implement and matches the
+          "browse a directory" mental model.
+        selected: false
+      - option: Drawer (Sheet slide-out panel)
+        description: >
+          Clicking a skill opens a side Sheet/Drawer showing full details. Keeps
+          the skill list visible behind the overlay. More complex state
+          management but gives more screen real estate for the detail view.
+          shadcn/ui Sheet is already installed.
+        selected: true
+      - option: Separate /skills/[name] route
+        description: >
+          Each skill gets its own dedicated page at /skills/[name]. Full page
+          for detail content. Requires dynamic routing, adds navigation
+          complexity (back buttons), and is overkill for the amount of detail
+          data available (frontmatter + short markdown body + resource list).
+        selected: false
+    selectionRationale: >
+      Inline expand is the simplest approach that matches the "directory
+      browsing" UX. Skill data is lightweight (name, description, context,
+      allowed-tools, resource count, markdown body) — a full page or drawer is
+      overkill. Accordion expand keeps all skills visible for comparison and
+      avoids routing complexity. This pattern is also the fastest to implement
+      and test. If future requirements demand richer skill detail (e.g., live
+      execution, configuration), the pattern can be upgraded to a drawer or
+      route later.
+    answer: Drawer (Sheet slide-out panel)
+  - question: >-
+      Should the page show only project-level skills (.claude/skills/) or also
+      global/user-level skills (~/.claude/skills/)?
+    resolved: true
+    options:
+      - option: Project-level only (.claude/skills/)
+        description: >
+          Read skills exclusively from the project's .claude/skills/ directory.
+          Simple, predictable, and scoped to what the current project actually
+          uses. No cross-directory concerns.
+        selected: false
+      - option: Both project and global skills with visual distinction
+        description: >
+          Read from both .claude/skills/ and ~/.claude/skills/, showing a
+          "Source" badge (Project vs Global) on each skill card. More complete
+          picture but requires resolving the home directory path on the server,
+          handling potential duplicates, and adds UX complexity with source
+          filtering.
+        selected: true
+      - option: >-
+          Configurable via settings (default project-only, toggle to include
+          global)
+        description: >
+          Add a toggle on the skills page to optionally include global skills.
+          Most flexible but adds settings state, persistence questions, and UI
+          complexity for a V1 feature.
+        selected: false
+    selectionRationale: >
+      Project-level only is the right V1 scope. The Shep CLI operates in the
+      context of a single repository, and .claude/skills/ is the project's
+      installed skill set. Global skills at ~/.claude/skills/ are a Claude Code
+      concern outside Shep's repo scope. Starting with project-only keeps
+      implementation simple (single directory read) and avoids the UX problem of
+      showing skills that may not be relevant to the current project. Global
+      skill support can be added later as an enhancement with a source
+      badge/filter.
+    answer: Both project and global skills with visual distinction
+  - question: >-
+      Should skill files be read at server startup and cached, or read fresh on
+      each page load?
+    resolved: true
+    options:
+      - option: Read fresh on each page load (server component)
+        description: >
+          The server component reads .claude/skills/ on every request to
+          /skills. Simple, always up-to-date, no cache invalidation concerns.
+          With 18 skills, the filesystem read is ~5-10ms total — negligible
+          overhead.
+        selected: true
+      - option: Read at server startup and cache in memory
+        description: >
+          Read all skills once when the web server starts and serve from memory.
+          Faster subsequent loads but requires cache invalidation strategy when
+          skills change. Adds startup latency and a global cache singleton.
+        selected: false
+      - option: Read with time-based cache (e.g., 60s TTL)
+        description: >
+          Cache skill data with a TTL. Balances freshness and performance. Adds
+          caching infrastructure (TTL timer, invalidation) for a marginal
+          performance gain on a fast filesystem read.
+        selected: false
+    selectionRationale: >
+      Reading fresh on each page load is the right approach. With only 18 skill
+      directories, each containing a small SKILL.md file (~1-5KB), the total
+      filesystem read is under 10ms. This is negligible compared to network
+      latency. Fresh reads guarantee the UI always reflects the current state of
+      .claude/skills/ — no stale cache, no invalidation bugs, no startup
+      overhead. This matches how the Version page reads version info fresh on
+      each load. Caching can be added later if skill count grows significantly
+      (100+).
+    answer: Read fresh on each page load (server component)
+content: >
+  ## Problem Statement
+
+
+  Shep AI ships with 18 Claude Code skills in `.claude/skills/` that automate
+  development workflows
+
+  (spec creation, research, planning, implementation, architecture review, UI
+  component scaffolding, etc.).
+
+  Currently, there is **no web UI for discovering or browsing these skills**.
+  Users must manually
+
+  explore the `.claude/skills/` directory to understand what skills are
+  available, what they do,
+
+  and what resources they include.
+
+
+  The web UI has only two content pages today (`/` Control Center, `/version`
+  Version Info) plus a
+
+  placeholder `/memory` nav item. Adding a **Global Skills Page** at `/skills`
+  provides a central
+
+  directory for users to discover installed skills, understand their purpose,
+  and see their metadata
+
+  — without leaving the browser.
+
+
+  ## Success Criteria
+
+
+  - [ ] `/skills` route is accessible and renders the skills page
+
+  - [ ] Navigation sidebar includes "Skills" link with appropriate icon between
+  existing nav items
+
+  - [ ] Page displays a header with title "Skills" and description text
+
+  - [ ] All skills from `.claude/skills/` are listed with name and description
+
+  - [ ] Each skill card displays: name, description, context mode badge (if
+  present), allowed-tools badge (if present), and resource subdirectory count
+
+  - [ ] Skills are visually grouped by category (Workflow, Code Generation,
+  Analysis, Reference)
+
+  - [ ] Category is derived from skill name prefix (`shep-kit:*` → Workflow,
+  `shep:*` → Code Generation) with a fallback heuristic
+
+  - [ ] A search input filters skills by name or description (client-side,
+  case-insensitive)
+
+  - [ ] Category filter chips allow filtering to a single category or showing
+  all
+
+  - [ ] Clicking a skill card expands it inline to show the full SKILL.md body
+  content and list of resource subdirectories
+
+  - [ ] Expanded skill detail lists resource subdirectories (references/,
+  examples/, templates/, scripts/, validation/, rules/) with file counts
+
+  - [ ] Empty state is shown with appropriate message when no skills are found
+
+  - [ ] Empty state is shown when search/filter yields no results (with "clear
+  filters" action)
+
+  - [ ] Page is responsive — works with sidebar collapsed and expanded
+
+  - [ ] Dark mode renders correctly via existing theme system
+
+  - [ ] Storybook stories exist for all new components (skill card, skill list,
+  skills page client, category filter)
+
+  - [ ] Unit tests cover the skill filesystem reader/parser utility
+
+  - [ ] Unit tests cover the category derivation logic
+
+
+  ## Functional Requirements
+
+
+  - **FR-1: Skills Route** — A new route at `/skills` renders a server component
+  that reads skill data from the filesystem and passes it to a client component
+  for interactive display.
+
+
+  - **FR-2: Navigation Entry** — A "Skills" item is added to the `AppSidebar`
+  navigation using the existing `SidebarNavItem` pattern with a Lucide icon
+  (e.g., `Puzzle` or `Blocks`). The item highlights when the current path is
+  `/skills`.
+
+
+  - **FR-3: Skill Data Reader** — A server-side utility function `getSkills()`
+  in `src/presentation/web/lib/skills.ts` reads all subdirectories of
+  `.claude/skills/`, parses each `SKILL.md` frontmatter (name, description,
+  context, allowed-tools), counts resource subdirectories, and returns a typed
+  array of skill objects sorted alphabetically by name.
+
+
+  - **FR-4: Frontmatter Parsing** — The skill reader parses YAML frontmatter
+  from SKILL.md files by splitting on `---` delimiters and parsing with
+  `js-yaml`. It extracts: `name` (string, required), `description` (string,
+  required), `context` (string, optional), `allowed-tools` (string, optional).
+  Missing optional fields default to `undefined`.
+
+
+  - **FR-5: Resource Directory Detection** — For each skill, the reader detects
+  the presence and file count of known resource subdirectories: `references/`,
+  `examples/`, `templates/`, `scripts/`, `validation/`, `rules/`. The result is
+  an array of `{ name: string; fileCount: number }` objects.
+
+
+  - **FR-6: Category Derivation** — Skills are categorized using a deterministic
+  rule set:
+    - Name starts with `shep-kit:` → **Workflow**
+    - Name starts with `shep:` → **Code Generation**
+    - Name contains `review`, `validate`, or `cross-validate` → **Analysis**
+    - All others → **Reference**
+
+    The category is computed at read time and included in the skill data object.
+
+  - **FR-7: Skill List Display** — The skills page client component renders
+  skills grouped by category. Each category section has a heading with skill
+  count. Within each section, skills are displayed as cards in a responsive grid
+  (1 column on mobile, 2 on medium, 3 on large viewports).
+
+
+  - **FR-8: Skill Card** — Each skill card shows:
+    - Skill name as the card title (formatted: strip `shep-kit:` or `shep:` prefix for display, show full name as subtitle)
+    - Description text (truncated to 2 lines when collapsed)
+    - Context badge (e.g., "fork") — only shown if the skill has a `context` field
+    - Allowed-tools badge — only shown if the skill has an `allowed-tools` field
+    - Resource count indicator (e.g., "3 resources") — only shown if resource directories exist
+    - Expand/collapse toggle affordance
+
+  - **FR-9: Skill Detail Expand** — Clicking a skill card (or its expand toggle)
+  expands the card inline to reveal:
+    - Full description text (no truncation)
+    - The markdown body of the SKILL.md (rendered as formatted text, not raw markdown — plain text display is acceptable for V1)
+    - A list of resource subdirectories with name and file count (e.g., "references/ — 7 files")
+    - A collapse toggle to return to the summary view
+
+  - **FR-10: Search** — A search input at the top of the page filters the
+  visible skill list by matching the query against skill `name` and
+  `description` fields (case-insensitive substring match). Filtering is
+  client-side and instant (no debounce needed for 18 items). The search input
+  uses the existing shadcn/ui `Input` component with a search icon.
+
+
+  - **FR-11: Category Filter** — Below the search input, a row of category
+  filter chips (All, Workflow, Code Generation, Analysis, Reference) allows
+  filtering to a single category. "All" is the default. Active chip has a
+  distinct visual style. Filter combines with search (both must match).
+
+
+  - **FR-12: Empty States** — Two empty state scenarios are handled using the
+  existing `EmptyState` common component:
+    - **No skills installed**: "No skills found" with description pointing to `.claude/skills/` directory
+    - **No search/filter results**: "No matching skills" with a "Clear filters" button action that resets search and category
+
+  - **FR-13: Page Header** — The page uses the existing `PageHeader` common
+  component with title "Skills" and description "Claude Code skills installed in
+  this project" (or similar). No action buttons in V1.
+
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1: Performance** — The skills page must load in under 200ms
+  server-side (filesystem read + render). With 18 skills at ~1-5KB each, total
+  I/O is under 100KB — well within budget.
+
+
+  - **NFR-2: Error Resilience** — If `.claude/skills/` does not exist or is
+  empty, the page renders the "no skills" empty state rather than crashing. If
+  an individual SKILL.md is malformed (missing frontmatter, invalid YAML), that
+  skill is skipped with a console warning — the remaining skills still render.
+
+
+  - **NFR-3: Accessibility** — Skill cards are keyboard-navigable. The
+  expand/collapse toggle is focusable and operable with Enter/Space. Search
+  input is labeled. Category filter chips are keyboard-navigable. Color alone is
+  not used to convey category (text labels are always present).
+
+
+  - **NFR-4: Dark Mode** — All new components use Tailwind CSS theme tokens (not
+  hardcoded colors) to ensure correct rendering in both light and dark modes. No
+  additional dark mode logic is needed beyond what the existing theme system
+  provides.
+
+
+  - **NFR-5: Responsive Layout** — The skill grid adapts from 1 column
+  (mobile/narrow) to 2 columns (medium) to 3 columns (large). The page works
+  correctly with the sidebar both collapsed and expanded. No horizontal
+  scrolling occurs at any supported viewport width.
+
+
+  - **NFR-6: Component Architecture** — All new components follow the four-tier
+  hierarchy:
+    - Tier 3 (`features/skills/`): SkillsPageClient, SkillCard, SkillList, CategoryFilter
+    - Tier 1 (`common/`): No new common components expected (reuse PageHeader, EmptyState, existing UI primitives)
+    - Each component has a colocated `.stories.tsx` file with representative variants
+
+  - **NFR-7: Testability** — The skill reader utility (`lib/skills.ts`) is a
+  pure function that takes a directory path and returns skill data. This makes
+  it easily testable with a mock filesystem (temp directory with test SKILL.md
+  files). Category derivation is a pure function testable with unit assertions.
+
+
+  - **NFR-8: Maintainability** — The category derivation rules are defined in a
+  single constant/config object, not scattered across components. Adding a new
+  category or changing the rule for a prefix is a one-line change.
+
+
+  - **NFR-9: Security** — The skill reader only reads from the project's
+  `.claude/skills/` directory. It does not follow symlinks outside the project
+  root. File paths are not user-controlled (server reads a fixed directory). No
+  user input is passed to filesystem operations.
+
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | How deep should skill detail view go? | Inline expand (accordion-style)
+  | Skill data is lightweight — full page/drawer is overkill. Inline expand
+  keeps all skills visible for comparison and avoids routing complexity. Can
+  upgrade later. |
+
+  | 2 | Project-only or also global skills? | Project-level only
+  (.claude/skills/) | V1 scope should match Shep's repo-scoped model. Global
+  skills are a Claude Code concern. Simple single-directory read. Can add global
+  later with source badge. |
+
+  | 3 | Fresh read or cached? | Read fresh on each page load | 18 small files =
+  ~10ms read. No cache invalidation bugs. Matches version page pattern. Cache
+  only needed at 100+ skills. |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | `src/presentation/web/app/skills/` | High | New route directory with
+  `page.tsx` server component |
+
+  | `src/presentation/web/components/features/skills/` | High | New Tier 3
+  feature components (SkillsPageClient, SkillCard, SkillList, CategoryFilter) |
+
+  | `src/presentation/web/components/layouts/app-sidebar/` | Low | Add one
+  `SidebarNavItem` entry for "Skills" |
+
+  | `src/presentation/web/lib/skills.ts` | Medium | New utility to read/parse
+  skill directories and SKILL.md frontmatter |
+
+  | `tests/unit/presentation/web/lib/` | Medium | Unit tests for skill
+  reader/parser and category derivation |
+
+  | Storybook | Medium | Mandatory stories for SkillCard, SkillList,
+  SkillsPageClient, CategoryFilter |
+
+
+  ## Dependencies
+
+
+  **Existing code this feature builds on:**
+
+  - `AppSidebar` component and `SidebarNavItem` pattern for navigation
+
+  - `PageHeader` common component for page title/description
+
+  - `EmptyState` common component for empty/no-results states
+
+  - shadcn/ui primitives: Card, Badge, Input, ScrollArea, Separator (all already
+  installed)
+
+  - Next.js App Router server/client component pattern (established in version
+  page)
+
+  - Tailwind CSS v4 design tokens and dark mode theming
+
+
+  **Filesystem dependency:**
+
+  - `.claude/skills/*/SKILL.md` files with YAML frontmatter
+
+  - Node.js `fs` module for reading skill directories (server-side only)
+
+
+  **No new npm packages required** — existing shadcn/ui components and Node.js
+  `fs` suffice.
+
+  YAML frontmatter parsing uses `js-yaml` (already a transitive dependency via
+  the project)
+
+  with a simple split-on-`---`-delimiters approach.
+
+
+  ## Size Estimate
+
+
+  **M (days)** — This is a well-scoped UI feature that:
+
+  - Follows established page patterns (server component → client component)
+
+  - Uses existing UI primitives (no new shadcn/ui components needed to install)
+
+  - Requires a simple filesystem reader (read directories, parse frontmatter)
+
+  - Needs ~6 new component/utility files + stories + tests
+
+  - Navigation change is a one-line addition to AppSidebar
+
+  - No database changes, no new domain models, no API routes needed
+
+
+  The main effort is in the skill reader utility, component implementation with
+  stories,
+
+  and the search/filter client-side interactivity.
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      when running in the UI the nextjs shows an error, also as its a new
+      feature lets hide it behind feature flag (use env variable)
+    phase: merge
+    timestamp: '2026-02-24T18:52:24.922Z'
+  - iteration: 2
+    message: >-
+      when going to skills page there is an error Encountered two children with
+      the same key, `vercel-react-best-practices`. Keys should be unique so that
+      components maintain their identity across updates. Non-unique keys may
+      cause children to be duplicated and/or omitted — the behavior is
+      unsupported and could change in a future version.
+      src/presentation/web/components/features/skills/skill-list.tsx (40:17) @
+      <unknown>     38 |             <div className="grid grid-cols-1 gap-4
+      md:grid-cols-2 lg:grid-cols-3">   39 |              
+      {categorySkills.map((skill) => ( > 40 |                 <SkillCard
+      key={skill.name} skill={skill} onSelect={onSkillSelect} />     
+      |                 ^   41 |               ))}   42 |             </div>  
+      43 |           </section>
+    timestamp: '2026-02-25T15:33:34.447Z'

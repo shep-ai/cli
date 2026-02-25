@@ -1,5 +1,6 @@
 import { Loader2, CircleAlert, CircleCheck, Ban, CircleX, type LucideIcon } from 'lucide-react';
 import type { Node } from '@xyflow/react';
+import type { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import type { AgentTypeValue } from './agent-type-icons';
 
 export type FeatureNodeState =
@@ -60,6 +61,14 @@ export interface FeatureNodeData {
   errorMessage?: string;
   /** Agent executor type (e.g. "claude-code", "cursor"). */
   agentType?: AgentTypeValue;
+  /** PR metadata for features with an associated pull request */
+  pr?: {
+    url: string;
+    number: number;
+    status: PrStatus;
+    ciStatus?: CiStatus;
+    commitHash?: string;
+  };
   onAction?: () => void;
   onSettings?: () => void;
   showHandles?: boolean;

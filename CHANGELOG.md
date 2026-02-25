@@ -1,3 +1,39 @@
+# [1.60.0](https://github.com/shep-ai/cli/compare/v1.59.0...v1.60.0) (2026-02-25)
+
+### Features
+
+- **web:** add global skills page with feature flag ([#143](https://github.com/shep-ai/cli/issues/143)) ([76e8e7e](https://github.com/shep-ai/cli/commit/76e8e7e4caf6912e79f75172a59a11d70e8436c5))
+
+# [1.59.0](https://github.com/shep-ai/cli/compare/v1.58.0...v1.59.0) (2026-02-25)
+
+### Features
+
+- **web:** display pr metadata in feature drawer with shared ci-status-badge ([#142](https://github.com/shep-ai/cli/issues/142)) ([5880d33](https://github.com/shep-ai/cli/commit/5880d33c1519634d7ad34207219cb3e2c39005e1))
+
+# [1.58.0](https://github.com/shep-ai/cli/compare/v1.57.0...v1.58.0) (2026-02-25)
+
+### Features
+
+- **web:** replace add-repository pill button with floating action button ([#139](https://github.com/shep-ai/cli/issues/139)) ([ed07f63](https://github.com/shep-ai/cli/commit/ed07f63c8ca21d87c0478d01a07a014b3899edd1))
+
+# [1.57.0](https://github.com/shep-ai/cli/compare/v1.56.0...v1.57.0) (2026-02-25)
+
+### Features
+
+- **domain:** add pr sync watcher service with github pr/ci status polling ([#116](https://github.com/shep-ai/cli/issues/116)) ([2ba9e93](https://github.com/shep-ai/cli/commit/2ba9e93f41b89fb4502c7ef22dfaf7b00b1dc486))
+
+# [1.56.0](https://github.com/shep-ai/cli/compare/v1.55.3...v1.56.0) (2026-02-25)
+
+### Features
+
+- **web,cli,api:** add tools management ui ([#043](https://github.com/shep-ai/cli/issues/043)) ([#133](https://github.com/shep-ai/cli/issues/133)) ([aecddd3](https://github.com/shep-ai/cli/commit/aecddd3b88e142d8f166e14aec290c4f69321848))
+
+## [1.55.3](https://github.com/shep-ai/cli/compare/v1.55.2...v1.55.3) (2026-02-25)
+
+### Bug Fixes
+
+- **web:** use record lookup to prevent platform branch tree-shaking ([#137](https://github.com/shep-ai/cli/issues/137)) ([6814b8b](https://github.com/shep-ai/cli/commit/6814b8b5ed845a3ade6e4f9ce2c5463d2d8b7416))
+
 ## [1.55.2](https://github.com/shep-ai/cli/compare/v1.55.1...v1.55.2) (2026-02-25)
 
 ### Bug Fixes

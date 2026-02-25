@@ -102,7 +102,13 @@ export function mapEventTypeToState(eventType: NotificationEventType): FeatureNo
     case NotificationEventType.AgentCompleted:
       return 'done';
     case NotificationEventType.AgentFailed:
+    case NotificationEventType.PrChecksFailed:
       return 'error';
+    case NotificationEventType.PrMerged:
+    case NotificationEventType.PrChecksPassed:
+      return 'done';
+    case NotificationEventType.PrClosed:
+      return 'action-required';
   }
 }
 

@@ -28,6 +28,11 @@ import {
   initializeNotificationWatcher,
   getNotificationWatcher,
 } from '@/infrastructure/services/notifications/notification-watcher.service.js';
+import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
+import {
+  initializePrSyncWatcher,
+  getPrSyncWatcher,
+} from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 
 const DEFAULT_PORT = 3000;
 
@@ -78,6 +83,11 @@ async function main() {
     const notificationService = container.resolve<INotificationService>('INotificationService');
     initializeNotificationWatcher(runRepo, phaseTimingRepo, featureRepo, notificationService);
     getNotificationWatcher().start();
+
+    // Start PR sync watcher to detect PR/CI status transitions on GitHub
+    const gitPrService = container.resolve<IGitPrService>('IGitPrService');
+    initializePrSyncWatcher(featureRepo, runRepo, gitPrService, notificationService);
+    getPrSyncWatcher().start();
   } catch (error) {
     console.warn('[dev-server] DI initialization failed — features will be empty:', error);
   }
@@ -122,6 +132,11 @@ async function main() {
     try {
       try {
         getNotificationWatcher().stop();
+      } catch {
+        /* not initialized */
+      }
+      try {
+        getPrSyncWatcher().stop();
       } catch {
         /* not initialized */
       }

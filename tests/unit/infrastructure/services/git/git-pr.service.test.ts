@@ -11,6 +11,7 @@ import {
   GitPrError,
   GitPrErrorCode,
 } from '@/application/ports/output/services/git-pr-service.interface';
+import { PrStatus } from '@/domain/generated/output';
 import type { ExecFunction } from '@/infrastructure/services/git/worktree.service';
 
 vi.mock('node:fs', async () => {
@@ -427,6 +428,112 @@ describe('GitPrService', () => {
       expect(result.additions).toBe(8);
       expect(result.deletions).toBe(4);
       expect(result.commitCount).toBe(3);
+    });
+  });
+
+  describe('listPrStatuses', () => {
+    it('should call gh pr list with correct arguments including headRefName', async () => {
+      const ghOutput = JSON.stringify([
+        {
+          number: 42,
+          state: 'OPEN',
+          url: 'https://github.com/org/repo/pull/42',
+          headRefName: 'feat/test',
+        },
+      ]);
+      vi.mocked(mockExec).mockResolvedValue({ stdout: ghOutput, stderr: '' });
+
+      await service.listPrStatuses('/repo');
+
+      expect(mockExec).toHaveBeenCalledWith(
+        'gh',
+        [
+          'pr',
+          'list',
+          '--json',
+          'number,state,url,headRefName',
+          '--state',
+          'all',
+          '--limit',
+          '100',
+        ],
+        { cwd: '/repo' }
+      );
+    });
+
+    it('should normalize state from UPPERCASE to PrStatus enum values', async () => {
+      const ghOutput = JSON.stringify([
+        {
+          number: 1,
+          state: 'OPEN',
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/a',
+        },
+        {
+          number: 2,
+          state: 'MERGED',
+          url: 'https://github.com/org/repo/pull/2',
+          headRefName: 'feat/b',
+        },
+        {
+          number: 3,
+          state: 'CLOSED',
+          url: 'https://github.com/org/repo/pull/3',
+          headRefName: 'feat/c',
+        },
+      ]);
+      vi.mocked(mockExec).mockResolvedValue({ stdout: ghOutput, stderr: '' });
+
+      const result = await service.listPrStatuses('/repo');
+
+      expect(result).toEqual([
+        {
+          number: 1,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/a',
+        },
+        {
+          number: 2,
+          state: PrStatus.Merged,
+          url: 'https://github.com/org/repo/pull/2',
+          headRefName: 'feat/b',
+        },
+        {
+          number: 3,
+          state: PrStatus.Closed,
+          url: 'https://github.com/org/repo/pull/3',
+          headRefName: 'feat/c',
+        },
+      ]);
+    });
+
+    it('should return empty array when no PRs exist', async () => {
+      vi.mocked(mockExec).mockResolvedValue({ stdout: '[]', stderr: '' });
+
+      const result = await service.listPrStatuses('/repo');
+
+      expect(result).toEqual([]);
+    });
+
+    it('should throw GitPrError on gh CLI failure', async () => {
+      const error = new Error('gh: not found');
+      (error as NodeJS.ErrnoException).code = 'ENOENT';
+      vi.mocked(mockExec).mockRejectedValue(error);
+
+      await expect(service.listPrStatuses('/repo')).rejects.toThrow(GitPrError);
+      await expect(service.listPrStatuses('/repo')).rejects.toMatchObject({
+        code: GitPrErrorCode.GH_NOT_FOUND,
+      });
+    });
+
+    it('should throw GitPrError with AUTH_FAILURE on auth errors', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('Authentication failed'));
+
+      await expect(service.listPrStatuses('/repo')).rejects.toThrow(GitPrError);
+      await expect(service.listPrStatuses('/repo')).rejects.toMatchObject({
+        code: GitPrErrorCode.AUTH_FAILURE,
+      });
     });
   });
 

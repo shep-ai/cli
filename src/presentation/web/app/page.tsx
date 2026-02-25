@@ -104,6 +104,15 @@ export default async function HomePage() {
         ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
         ...(run?.error && { errorMessage: run.error }),
         ...(blockedBy && { blockedBy }),
+        ...(feature.pr && {
+          pr: {
+            url: feature.pr.url,
+            number: feature.pr.number,
+            status: feature.pr.status,
+            ciStatus: feature.pr.ciStatus,
+            commitHash: feature.pr.commitHash,
+          },
+        }),
       };
 
       const featureNodeId = `feat-${feature.id}`;
