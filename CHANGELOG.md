@@ -1,3 +1,9 @@
+# [1.56.0](https://github.com/shep-ai/cli/compare/v1.55.3...v1.56.0) (2026-02-25)
+
+### Features
+
+- **web,cli,api:** add tools management ui ([#043](https://github.com/shep-ai/cli/issues/043)) ([#133](https://github.com/shep-ai/cli/issues/133)) ([aecddd3](https://github.com/shep-ai/cli/commit/aecddd3b88e142d8f166e14aec290c4f69321848))
+
 ## [1.55.3](https://github.com/shep-ai/cli/compare/v1.55.2...v1.55.3) (2026-02-25)
 
 ### Bug Fixes
