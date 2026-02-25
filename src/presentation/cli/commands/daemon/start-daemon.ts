@@ -22,7 +22,7 @@ import http from 'node:http';
 import { container } from '@/infrastructure/di/container.js';
 import { findAvailablePort, DEFAULT_PORT } from '@/infrastructure/services/port.service.js';
 import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
-import { colors, fmt, messages, spinner } from '../../ui/index.js';
+import { fmt, messages, spinner } from '../../ui/index.js';
 import type { IDaemonService } from '@/application/ports/output/services/daemon-service.interface.js';
 
 /** How long to wait (ms) after spawn to verify the child is still alive. */
