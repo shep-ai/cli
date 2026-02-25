@@ -36,8 +36,12 @@ interface ControlCenterInnerProps {
 }
 
 export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenterInnerProps) {
-  const { fitView } = useReactFlow();
+  const { fitView, getViewport } = useReactFlow();
   const onFitView = useCallback(() => fitView({ duration: 300, padding: 0.2 }), [fitView]);
+  const onRecenter = useCallback(() => {
+    const { zoom } = getViewport();
+    fitView({ duration: 300, padding: 0.2, minZoom: zoom, maxZoom: zoom });
+  }, [fitView, getViewport]);
 
   const {
     nodes,
@@ -60,7 +64,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     closeCreateDrawer,
     selectFeatureById,
     pendingParentFeatureId,
-  } = useControlCenterState(initialNodes, initialEdges, { onFitView });
+  } = useControlCenterState(initialNodes, initialEdges, { onFitView, onRecenter });
 
   // Extract feature list for the parent selector in the create drawer
   const featureOptions = useMemo(

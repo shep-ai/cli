@@ -54,7 +54,7 @@ let nextFeatureId = 0;
 export function useControlCenterState(
   initialNodes: CanvasNodeType[],
   initialEdges: Edge[],
-  options?: { onFitView?: () => void }
+  options?: { onFitView?: () => void; onRecenter?: () => void }
 ): ControlCenterState {
   const router = useRouter();
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
@@ -63,6 +63,8 @@ export function useControlCenterState(
   const edgesRef = useRef<Edge[]>(initialEdges);
   const onFitViewRef = useRef(options?.onFitView);
   onFitViewRef.current = options?.onFitView;
+  const onRecenterRef = useRef(options?.onRecenter);
+  onRecenterRef.current = options?.onRecenter;
 
   // Wrapper that keeps edgesRef in sync with edges state, allowing
   // createFeatureNode to read current edges without a closure dependency.
@@ -565,9 +567,25 @@ export function useControlCenterState(
     async (repositoryId: string) => {
       const repoNodeId = `repo-${repositoryId}`;
 
-      // Optimistic: remove node and its edges immediately
-      setNodes((prev) => prev.filter((n) => n.id !== repoNodeId));
-      setEdges((prev) => prev.filter((e) => e.source !== repoNodeId && e.target !== repoNodeId));
+      // Remove node and relayout remaining nodes
+      setNodes((currentNodes) => {
+        const remainingNodes = currentNodes.filter((n) => n.id !== repoNodeId);
+        const remainingEdges = edgesRef.current.filter(
+          (e) => e.source !== repoNodeId && e.target !== repoNodeId
+        );
+        const result = layoutWithDagre(remainingNodes, remainingEdges, {
+          direction: 'LR',
+          ranksep: 200,
+          nodesep: 60,
+        });
+        setEdges(result.edges);
+
+        if (result.nodes.length > 0 && onRecenterRef.current) {
+          setTimeout(onRecenterRef.current, 0);
+        }
+
+        return result.nodes;
+      });
 
       try {
         const result = await deleteRepository(repositoryId);

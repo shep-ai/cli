@@ -1,226 +1,334 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: feature-delete-relayout
-number: 044
+number: 44
 branch: feat/044-feature-delete-relayout
 oneLiner: Fix stale-edges bug in post-delete relayout and add smooth animated transition
 summary: >
-  The handleDeleteFeature callback in useControlCenterState calls layoutWithDagre
-  after removing a feature node, but reads the edges state from a stale closure instead
-  of using edgesRef.current. Additionally, the relayout snaps nodes instantly to new
-  positions without animation or viewport adjustment. This feature fixes the stale-edges
-  bug, adds a fitView call after deletion relayout to re-center the viewport, and keeps
-  scope minimal by deferring animation to a future enhancement.
+  The handleDeleteFeature callback in useControlCenterState calls
+  layoutWithDagre after removing a feature node, but reads the edges state from
+  a stale closure instead of using edgesRef.current. Additionally, the relayout
+  snaps nodes instantly to new positions without animation or viewport
+  adjustment. This feature fixes the stale-edges bug, adds a fitView call after
+  deletion relayout to re-center the viewport, and keeps scope minimal by
+  deferring animation to a future enhancement.
 phase: Requirements
 sizeEstimate: S
-
-# Relationships
 relatedFeatures: []
-
 technologies:
   - React (hooks, useCallback, useRef)
   - '@xyflow/react (ReactFlow, useReactFlow, fitView)'
   - '@dagrejs/dagre (hierarchical graph layout)'
   - Next.js (server actions, router.refresh)
   - Vitest + React Testing Library (unit tests)
-
 relatedLinks: []
-
-# Open questions (must be resolved before implementation)
 openQuestions:
-  - question: 'Should the relayout animate node positions smoothly, or is an instant snap with fitView acceptable?'
+  - question: >-
+      Should the relayout animate node positions smoothly, or is an instant snap
+      with fitView acceptable?
     resolved: true
     options:
-      - option: 'Instant snap with fitView'
+      - option: Instant snap with fitView
         description: >
-          Keep the current instant relayout but add a fitView call to re-center the viewport.
-          Simplest change, no new dependencies, no CSS transition complexity. The fitView call
-          already supports a duration option for a smooth viewport pan. This gives a polished
-          feel without per-node animation complexity.
+          Keep the current instant relayout but add a fitView call to re-center
+          the viewport. Simplest change, no new dependencies, no CSS transition
+          complexity. The fitView call already supports a duration option for a
+          smooth viewport pan. This gives a polished feel without per-node
+          animation complexity.
         selected: true
-      - option: 'CSS transition animation'
+      - option: CSS transition animation
         description: >
-          Add CSS transitions on node position changes for smooth movement. Requires adding
-          transition styles to all node types and careful coordination with React Flow's internal
-          positioning. Risk of conflicting with drag behavior and React Flow re-renders.
+          Add CSS transitions on node position changes for smooth movement.
+          Requires adding transition styles to all node types and careful
+          coordination with React Flow's internal positioning. Risk of
+          conflicting with drag behavior and React Flow re-renders.
         selected: false
-      - option: 'requestAnimationFrame interpolation'
+      - option: requestAnimationFrame interpolation
         description: >
-          Manually interpolate node positions using rAF loop. Most control over easing/timing
-          but significantly more complex, harder to test, and potential performance issues
-          with many nodes.
+          Manually interpolate node positions using rAF loop. Most control over
+          easing/timing but significantly more complex, harder to test, and
+          potential performance issues with many nodes.
         selected: false
     selectionRationale: >
-      Instant snap with fitView is recommended because the core UX problem is disorientation
-      after deletion — the user is left staring at empty space. A smooth fitView pan (using
-      its built-in duration parameter) solves this with zero animation complexity. Per-node
-      animation is a nice-to-have that can be added later without architectural changes.
-    answer: 'Instant snap with fitView'
-
-  - question: 'Should fitView be called after relayout to re-center the viewport on remaining nodes?'
+      Instant snap with fitView is recommended because the core UX problem is
+      disorientation after deletion — the user is left staring at empty space. A
+      smooth fitView pan (using its built-in duration parameter) solves this
+      with zero animation complexity. Per-node animation is a nice-to-have that
+      can be added later without architectural changes.
+    answer: Instant snap with fitView
+  - question: >-
+      Should fitView be called after relayout to re-center the viewport on
+      remaining nodes?
     resolved: true
     options:
-      - option: 'Yes, call fitView with duration'
+      - option: Yes, call fitView with duration
         description: >
-          Call fitView with a short duration (e.g. 300-500ms) after relayout. This smoothly
-          pans and zooms the viewport to show all remaining nodes. Requires access to the
-          useReactFlow hook, which is only available inside ReactFlowProvider. The hook call
-          must be lifted into a component rendered within the provider.
+          Call fitView with a short duration (e.g. 300-500ms) after relayout.
+          This smoothly pans and zooms the viewport to show all remaining nodes.
+          Requires access to the useReactFlow hook, which is only available
+          inside ReactFlowProvider. The hook call must be lifted into a
+          component rendered within the provider.
         selected: true
-      - option: 'No fitView, keep current behavior'
+      - option: No fitView, keep current behavior
         description: >
-          Rely on the user to manually adjust the viewport. Simplest approach but leaves the
-          core UX problem unsolved — after deletion the user may be looking at empty space.
+          Rely on the user to manually adjust the viewport. Simplest approach
+          but leaves the core UX problem unsolved — after deletion the user may
+          be looking at empty space.
         selected: false
     selectionRationale: >
-      fitView with duration is recommended because it directly solves the viewport disorientation
-      problem. React Flow's fitView already supports a duration parameter for smooth transitions.
-      The implementation requires passing a fitView callback from the canvas into the state hook,
-      or calling it after state updates via a ref/effect.
-    answer: 'Yes, call fitView with duration'
-
-  - question: 'Should the relayout also handle the case where deleting a parent feature orphans child features?'
+      fitView with duration is recommended because it directly solves the
+      viewport disorientation problem. React Flow's fitView already supports a
+      duration parameter for smooth transitions. The implementation requires
+      passing a fitView callback from the canvas into the state hook, or calling
+      it after state updates via a ref/effect.
+    answer: Yes, call fitView with duration
+  - question: >-
+      Should the relayout also handle the case where deleting a parent feature
+      orphans child features?
     resolved: true
     options:
-      - option: 'Out of scope — edges are already removed correctly'
+      - option: Out of scope — edges are already removed correctly
         description: >
-          The current implementation already filters out edges connected to the deleted node.
-          Orphaned children become disconnected nodes, which layoutWithDagre already handles
-          by placing them below the connected graph. This is correct behavior — the children
-          still exist, they just lose their parent relationship. No additional logic needed.
+          The current implementation already filters out edges connected to the
+          deleted node. Orphaned children become disconnected nodes, which
+          layoutWithDagre already handles by placing them below the connected
+          graph. This is correct behavior — the children still exist, they just
+          lose their parent relationship. No additional logic needed.
         selected: true
-      - option: 'Re-parent orphaned children to grandparent'
+      - option: Re-parent orphaned children to grandparent
         description: >
-          When a parent is deleted, reconnect its children to the grandparent (if any).
-          More complex, requires traversing the edge graph, and the product semantics are
-          unclear — does the grandparent relationship even make sense for all cases?
+          When a parent is deleted, reconnect its children to the grandparent
+          (if any). More complex, requires traversing the edge graph, and the
+          product semantics are unclear — does the grandparent relationship even
+          make sense for all cases?
         selected: false
-      - option: 'Cascade delete children'
+      - option: Cascade delete children
         description: >
-          Delete all descendant features when a parent is deleted. Destructive and likely
-          not what users expect. Would also require recursive server-side deletion.
+          Delete all descendant features when a parent is deleted. Destructive
+          and likely not what users expect. Would also require recursive
+          server-side deletion.
         selected: false
     selectionRationale: >
-      Out of scope is recommended because layoutWithDagre already handles disconnected nodes
-      correctly by placing them below the graph. The existing test suite verifies this behavior
-      ("positions disconnected nodes below connected graph after deletion"). Re-parenting or
-      cascade deletion are separate product decisions with larger implications.
-    answer: 'Out of scope — edges are already removed correctly'
-
-  - question: 'Should the same stale-edges fix also be applied to handleLayout and handleAddFeatureToFeature which have the same pattern?'
+      Out of scope is recommended because layoutWithDagre already handles
+      disconnected nodes correctly by placing them below the graph. The existing
+      test suite verifies this behavior ("positions disconnected nodes below
+      connected graph after deletion"). Re-parenting or cascade deletion are
+      separate product decisions with larger implications.
+    answer: Out of scope — edges are already removed correctly
+  - question: >-
+      Should the same stale-edges fix also be applied to handleLayout and
+      handleAddFeatureToFeature which have the same pattern?
     resolved: true
     options:
-      - option: 'Yes, fix all stale-edges references'
+      - option: Yes, fix all stale-edges references
         description: >
-          handleLayout (line 611) and handleAddFeatureToFeature (line 597) also read `edges`
-          from the closure rather than edgesRef.current. Fixing all three at once is consistent
-          and prevents the same class of bug from manifesting in those callbacks. The fix is
-          mechanical (same 2-line pattern) and low risk.
+          handleLayout (line 611) and handleAddFeatureToFeature (line 597) also
+          read `edges` from the closure rather than edgesRef.current. Fixing all
+          three at once is consistent and prevents the same class of bug from
+          manifesting in those callbacks. The fix is mechanical (same 2-line
+          pattern) and low risk.
         selected: true
-      - option: 'No, only fix handleDeleteFeature'
+      - option: No, only fix handleDeleteFeature
         description: >
-          Minimize scope to only the deletion callback. Leaves known bugs in other callbacks
-          that could surface later. Not recommended since the fix is trivial and the bug
-          pattern is identical.
+          Minimize scope to only the deletion callback. Leaves known bugs in
+          other callbacks that could surface later. Not recommended since the
+          fix is trivial and the bug pattern is identical.
         selected: false
     selectionRationale: >
-      Fixing all stale-edges references is recommended because the pattern is identical across
-      all three callbacks, the fix is mechanical (use edgesRef.current, remove edges from deps),
-      and leaving known bugs unfixed goes against good engineering practice. The incremental
-      effort is near-zero.
-    answer: 'Yes, fix all stale-edges references'
-
-# Markdown content (the actual spec)
-content: |
+      Fixing all stale-edges references is recommended because the pattern is
+      identical across all three callbacks, the fix is mechanical (use
+      edgesRef.current, remove edges from deps), and leaving known bugs unfixed
+      goes against good engineering practice. The incremental effort is
+      near-zero.
+    answer: Yes, fix all stale-edges references
+content: >
   ## Problem Statement
 
-  When a feature node is deleted from the canvas, the remaining nodes are re-laid out
+
+  When a feature node is deleted from the canvas, the remaining nodes are
+  re-laid out
+
   using `layoutWithDagre`. However, two bugs degrade the experience:
 
-  1. **Stale closure bug**: `handleDeleteFeature` (use-control-center-state.ts:531)
+
+  1. **Stale closure bug**: `handleDeleteFeature`
+  (use-control-center-state.ts:531)
      reads `edges` from the React state closure instead of `edgesRef.current`. Since
      edges can change between callback creation and execution (e.g., from SSE events
      or server refresh), the relayout may operate on stale edge data, producing an
      incorrect layout. The same bug exists in `handleLayout` (line 611) and
      `handleAddFeatureToFeature` (line 597).
 
-  2. **No viewport adjustment**: After relayout, nodes snap to new positions but the
+  2. **No viewport adjustment**: After relayout, nodes snap to new positions but
+  the
      viewport remains unchanged. If the deleted node was in view and remaining nodes
      shift significantly, the user may be left staring at empty space with no visual
      cue about where the nodes went.
 
   ## Success Criteria
 
-  - [ ] `handleDeleteFeature` uses `edgesRef.current` instead of closure-captured `edges`
+
+  - [ ] `handleDeleteFeature` uses `edgesRef.current` instead of
+  closure-captured `edges`
+
   - [ ] `edges` is removed from `handleDeleteFeature`'s dependency array
-  - [ ] `handleLayout` uses `edgesRef.current` instead of closure-captured `edges`
+
+  - [ ] `handleLayout` uses `edgesRef.current` instead of closure-captured
+  `edges`
+
   - [ ] `edges` is removed from `handleLayout`'s dependency array
-  - [ ] `handleAddFeatureToFeature` uses `edgesRef.current` instead of closure-captured `edges`
+
+  - [ ] `handleAddFeatureToFeature` uses `edgesRef.current` instead of
+  closure-captured `edges`
+
   - [ ] `edges` is removed from `handleAddFeatureToFeature`'s dependency array
-  - [ ] After deletion relayout, `fitView` is called to re-center viewport on remaining nodes
-  - [ ] The `fitView` call uses a duration parameter (300-500ms) for a smooth viewport transition
+
+  - [ ] After deletion relayout, `fitView` is called to re-center viewport on
+  remaining nodes
+
+  - [ ] The `fitView` call uses a duration parameter (300-500ms) for a smooth
+  viewport transition
+
   - [ ] Existing "post-deletion relayout" tests continue to pass
-  - [ ] A new test verifies that stale edges are not used during deletion relayout
+
+  - [ ] A new test verifies that stale edges are not used during deletion
+  relayout
+
   - [ ] All existing unit tests pass (`pnpm test:unit`)
+
   - [ ] Build succeeds (`pnpm build`)
+
   - [ ] Lint passes (`pnpm validate`)
+
 
   ## Functional Requirements
 
-  - **FR-1**: Replace `edges` closure reference with `edgesRef.current` in `handleDeleteFeature`
+
+  - **FR-1**: Replace `edges` closure reference with `edgesRef.current` in
+  `handleDeleteFeature`
     so that the relayout always operates on the latest edge state.
-  - **FR-2**: Remove `edges` from the `handleDeleteFeature` dependency array to prevent
+  - **FR-2**: Remove `edges` from the `handleDeleteFeature` dependency array to
+  prevent
     unnecessary callback re-creation on every edge change.
-  - **FR-3**: Apply the same stale-edges fix (edgesRef.current + remove from deps) to
+  - **FR-3**: Apply the same stale-edges fix (edgesRef.current + remove from
+  deps) to
     `handleLayout` and `handleAddFeatureToFeature`.
-  - **FR-4**: After `handleDeleteFeature` completes the relayout, call `fitView` with a
+  - **FR-4**: After `handleDeleteFeature` completes the relayout, call `fitView`
+  with a
     duration of 300-500ms to smoothly re-center the viewport on the remaining nodes.
-  - **FR-5**: The `fitView` callback must be provided to `useControlCenterState` from a
+  - **FR-5**: The `fitView` callback must be provided to `useControlCenterState`
+  from a
     component rendered inside `ReactFlowProvider`, since `useReactFlow()` is only available
     within the provider context.
-  - **FR-6**: Add a unit test that verifies `handleDeleteFeature` reads edges from
+  - **FR-6**: Add a unit test that verifies `handleDeleteFeature` reads edges
+  from
     `edgesRef.current` (or equivalent), not from a stale closure capture.
 
   ## Non-Functional Requirements
 
-  - **NFR-1**: The fitView transition must complete within 500ms to avoid feeling sluggish.
-  - **NFR-2**: No new runtime dependencies may be added — use only existing @xyflow/react APIs.
-  - **NFR-3**: The fix must not break drag, connect, or other canvas interactions.
-  - **NFR-4**: The fitView call must be safe when zero nodes remain (no-op, no errors).
-  - **NFR-5**: Test coverage for the post-deletion relayout must be maintained or increased.
+
+  - **NFR-1**: The fitView transition must complete within 500ms to avoid
+  feeling sluggish.
+
+  - **NFR-2**: No new runtime dependencies may be added — use only existing
+  @xyflow/react APIs.
+
+  - **NFR-3**: The fix must not break drag, connect, or other canvas
+  interactions.
+
+  - **NFR-4**: The fitView call must be safe when zero nodes remain (no-op, no
+  errors).
+
+  - **NFR-5**: Test coverage for the post-deletion relayout must be maintained
+  or increased.
+
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | Should relayout animate node positions? | Instant snap + fitView with duration | The core UX issue is viewport disorientation, not node movement. fitView with duration provides a smooth pan at zero complexity cost. |
-  | 2 | Should fitView be called after relayout? | Yes, with 300-500ms duration | Directly solves the empty-space problem. Built-in React Flow API, no custom code needed. |
-  | 3 | Should orphaned children be re-parented? | Out of scope | layoutWithDagre already positions disconnected nodes correctly. Re-parenting is a separate product decision. |
-  | 4 | Should stale-edges fix apply to other callbacks? | Yes, fix handleLayout and handleAddFeatureToFeature too | Same bug pattern, trivial fix, prevents future issues. |
+
+  | 1 | Should relayout animate node positions? | Instant snap + fitView with
+  duration | The core UX issue is viewport disorientation, not node movement.
+  fitView with duration provides a smooth pan at zero complexity cost. |
+
+  | 2 | Should fitView be called after relayout? | Yes, with 300-500ms duration
+  | Directly solves the empty-space problem. Built-in React Flow API, no custom
+  code needed. |
+
+  | 3 | Should orphaned children be re-parented? | Out of scope |
+  layoutWithDagre already positions disconnected nodes correctly. Re-parenting
+  is a separate product decision. |
+
+  | 4 | Should stale-edges fix apply to other callbacks? | Yes, fix handleLayout
+  and handleAddFeatureToFeature too | Same bug pattern, trivial fix, prevents
+  future issues. |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Fix stale `edges` references in `handleDeleteFeature`, `handleLayout`, and `handleAddFeatureToFeature`; use `edgesRef.current` instead. Remove `edges` from dependency arrays. Add `fitView` call after deletion relayout. |
-  | `src/presentation/web/components/features/features-canvas/features-canvas.tsx` | Low-Medium | May need to expose a `fitView` callback or use an inner component with `useReactFlow()` to provide fitView to the parent state hook. |
-  | `src/presentation/web/components/features/control-center/` | Low | The orchestrator component may need to wire the fitView callback between canvas and state hook. |
-  | `tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx` | Medium | Add test for stale-edge scenario. Verify existing relayout tests still pass. |
+
+  |
+  `src/presentation/web/components/features/control-center/use-control-center-state.ts`
+  | High | Fix stale `edges` references in `handleDeleteFeature`,
+  `handleLayout`, and `handleAddFeatureToFeature`; use `edgesRef.current`
+  instead. Remove `edges` from dependency arrays. Add `fitView` call after
+  deletion relayout. |
+
+  |
+  `src/presentation/web/components/features/features-canvas/features-canvas.tsx`
+  | Low-Medium | May need to expose a `fitView` callback or use an inner
+  component with `useReactFlow()` to provide fitView to the parent state hook. |
+
+  | `src/presentation/web/components/features/control-center/` | Low | The
+  orchestrator component may need to wire the fitView callback between canvas
+  and state hook. |
+
+  |
+  `tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx`
+  | Medium | Add test for stale-edge scenario. Verify existing relayout tests
+  still pass. |
+
 
   ## Dependencies
 
+
   - `@dagrejs/dagre` — already installed and used for layout computation
-  - `@xyflow/react` — already installed; `useReactFlow().fitView()` available inside ReactFlowProvider
-  - Existing test infrastructure (Vitest, RTL) — comprehensive test harness already exists
+
+  - `@xyflow/react` — already installed; `useReactFlow().fitView()` available
+  inside ReactFlowProvider
+
+  - Existing test infrastructure (Vitest, RTL) — comprehensive test harness
+  already exists
+
 
   ## Size Estimate
 
-  **S** — The core bug fix is a mechanical 2-line change repeated across 3 callbacks.
-  The fitView integration requires threading a callback from inside ReactFlowProvider
-  to the state hook, which is a small plumbing change. Tests already cover most of
+
+  **S** — The core bug fix is a mechanical 2-line change repeated across 3
+  callbacks.
+
+  The fitView integration requires threading a callback from inside
+  ReactFlowProvider
+
+  to the state hook, which is a small plumbing change. Tests already cover most
+  of
+
   the relayout behavior; one new stale-edge test is needed.
+
 
   ---
 
+
   _Generated by requirements agent — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      when deleting a node, it also move the canvas and changes the zoom it
+      should it should only relayout
+    phase: merge
+    timestamp: '2026-02-25T15:32:13.992Z'

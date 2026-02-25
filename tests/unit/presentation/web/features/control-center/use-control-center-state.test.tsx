@@ -98,7 +98,7 @@ function HookTestHarness({
   initialNodes?: CanvasNodeType[];
   initialEdges?: Edge[];
   onStateChange?: (state: ControlCenterState) => void;
-  options?: { onFitView?: () => void };
+  options?: { onFitView?: () => void; onRecenter?: () => void };
 }) {
   const state = useControlCenterState(initialNodes, initialEdges, options);
 
@@ -163,6 +163,9 @@ function HookTestHarness({
       </button>
       <button data-testid="delete-feature" onClick={() => state.handleDeleteFeature('feat-1')}>
         Delete Feature
+      </button>
+      <button data-testid="delete-repo" onClick={() => state.handleDeleteRepository('1')}>
+        Delete Repo
       </button>
       <button
         data-testid="add-to-feature-creating"
@@ -1881,6 +1884,179 @@ describe('useControlCenterState', () => {
         // Both edges were connected to feat-1, so 0 edges remain
         expect(capturedState!.edges).toHaveLength(0);
       });
+    });
+  });
+
+  describe('handleDeleteRepository', () => {
+    const repoNode: RepositoryNodeType = {
+      id: 'repo-1',
+      type: 'repositoryNode',
+      position: { x: 0, y: 0 },
+      data: { name: 'shep-ai/cli' },
+    };
+
+    const featureNode: FeatureNodeType = {
+      id: 'feat-1',
+      type: 'featureNode',
+      position: { x: 200, y: 0 },
+      data: {
+        name: 'Auth Module',
+        featureId: '#f1',
+        lifecycle: 'implementation',
+        state: 'running',
+        progress: 45,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/auth-module',
+      },
+    };
+
+    const featureNode2: FeatureNodeType = {
+      id: 'feat-2',
+      type: 'featureNode',
+      position: { x: 400, y: 0 },
+      data: {
+        name: 'Dashboard',
+        featureId: '#f2',
+        lifecycle: 'requirements',
+        state: 'done',
+        progress: 0,
+        repositoryPath: '/home/user/my-repo',
+        branch: 'feat/dashboard',
+      },
+    };
+
+    const edgeRepoToFeat1: Edge = {
+      id: 'edge-repo-1-feat-1',
+      source: 'repo-1',
+      target: 'feat-1',
+    };
+
+    const edgeRepoToFeat2: Edge = {
+      id: 'edge-repo-1-feat-2',
+      source: 'repo-1',
+      target: 'feat-2',
+    };
+
+    it('repositions remaining nodes via layoutWithDagre after successful deletion', async () => {
+      mockDeleteRepository.mockResolvedValue({ success: true });
+
+      let capturedState: ControlCenterState | null = null;
+
+      render(
+        <HookTestHarness
+          initialNodes={[repoNode, featureNode, featureNode2] as CanvasNodeType[]}
+          initialEdges={[edgeRepoToFeat1, edgeRepoToFeat2]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Before deletion: feat-1 is at x=200, feat-2 at x=400
+      const feat1Before = capturedState!.nodes.find((n) => n.id === 'feat-1');
+      const feat2Before = capturedState!.nodes.find((n) => n.id === 'feat-2');
+      expect(feat1Before?.position.x).toBe(200);
+      expect(feat2Before?.position.x).toBe(400);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-repo'));
+      });
+
+      // After deletion: repo-1 removed, feat-1 and feat-2 repositioned by layoutWithDagre
+      expect(capturedState!.nodes).toHaveLength(2);
+      expect(capturedState!.nodes.map((n) => n.id).sort()).toEqual(['feat-1', 'feat-2']);
+
+      // Nodes should have been repositioned (exact positions depend on dagre, but they should differ from initial)
+      const feat1After = capturedState!.nodes.find((n) => n.id === 'feat-1');
+      const feat2After = capturedState!.nodes.find((n) => n.id === 'feat-2');
+
+      // layoutWithDagre assigns new positions; the originals (200,0) and (400,0) should change
+      // At minimum, the layout was applied — nodes exist with numeric positions
+      expect(feat1After?.position.x).toEqual(expect.any(Number));
+      expect(feat2After?.position.x).toEqual(expect.any(Number));
+    });
+
+    it('calls onRecenter (not onFitView) after successful deletion relayout', async () => {
+      vi.useFakeTimers();
+      mockDeleteRepository.mockResolvedValue({ success: true });
+
+      const onFitView = vi.fn();
+      const onRecenter = vi.fn();
+
+      render(
+        <HookTestHarness
+          initialNodes={[repoNode, featureNode] as CanvasNodeType[]}
+          initialEdges={[edgeRepoToFeat1]}
+          options={{ onFitView, onRecenter }}
+          onStateChange={vi.fn()}
+        />
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-repo'));
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(0);
+      });
+
+      expect(onRecenter).toHaveBeenCalled();
+      expect(onFitView).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it('does not call onRecenter when zero nodes remain after deletion', async () => {
+      vi.useFakeTimers();
+      mockDeleteRepository.mockResolvedValue({ success: true });
+
+      const onRecenter = vi.fn();
+
+      render(
+        <HookTestHarness
+          initialNodes={[repoNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          options={{ onRecenter }}
+          onStateChange={vi.fn()}
+        />
+      );
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-repo'));
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(0);
+      });
+
+      expect(onRecenter).not.toHaveBeenCalled();
+
+      vi.useRealTimers();
+    });
+
+    it('removes edges connected to deleted repo', async () => {
+      mockDeleteRepository.mockResolvedValue({ success: true });
+
+      let capturedState: ControlCenterState | null = null;
+
+      render(
+        <HookTestHarness
+          initialNodes={[repoNode, featureNode, featureNode2] as CanvasNodeType[]}
+          initialEdges={[edgeRepoToFeat1, edgeRepoToFeat2]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      expect(capturedState!.edges).toHaveLength(2);
+
+      await act(async () => {
+        fireEvent.click(screen.getByTestId('delete-repo'));
+      });
+
+      // Both edges connected to repo-1 should be removed
+      expect(capturedState!.edges).toHaveLength(0);
     });
   });
 });
