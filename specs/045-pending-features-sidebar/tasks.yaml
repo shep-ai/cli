@@ -1,0 +1,337 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pending-features-sidebar
+summary: >
+  9 tasks across 4 phases. Builds the SidebarFeaturesContext foundation first, threads
+  timing data through FeatureNodeData, updates the sidebar interface, then wires everything
+  together. Each task follows TDD with explicit red-green-refactor cycles.
+
+relatedFeatures: []
+technologies:
+  - React Context
+  - TypeScript
+  - CustomEvent
+  - Vitest
+  - React Testing Library
+  - Storybook
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Pure mapping function + context foundation ──
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create mapNodeStateToSidebarStatus pure mapping function'
+    description: >
+      Create the pure function that converts FeatureNodeState (6-state) to FeatureStatus
+      (3-state) or null. This is the core mapping logic used by the context publisher.
+      Lives in a new file: src/presentation/web/hooks/sidebar-features-context.tsx.
+      The function is exported so it can be tested independently.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'action-required maps to action-needed'
+      - 'running maps to in-progress'
+      - 'done maps to done'
+      - 'blocked maps to in-progress'
+      - 'error maps to in-progress'
+      - 'creating maps to null (excluded from sidebar)'
+      - 'Function is pure with no side effects'
+      - 'Function is exported from sidebar-features-context.tsx'
+    tdd:
+      red:
+        - 'Create test file tests/unit/presentation/web/hooks/sidebar-features-context.test.tsx'
+        - 'Write table-driven test: for each FeatureNodeState input, assert the expected FeatureStatus output'
+        - 'Include test case for creating → null'
+        - 'Tests fail because the function does not exist yet'
+      green:
+        - 'Create src/presentation/web/hooks/sidebar-features-context.tsx'
+        - 'Implement mapNodeStateToSidebarStatus with a switch/Record mapping'
+        - 'Import FeatureNodeState from feature-node-state-config and FeatureStatus from feature-status-config'
+        - 'All tests pass'
+      refactor:
+        - 'Ensure the mapping is expressed as a const Record for clarity if using switch'
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create SidebarFeaturesContext and provider'
+    description: >
+      Add the React context, provider component, and useSidebarFeaturesContext hook to the
+      same file as the mapping function. Follows the AgentEventsProvider pattern: createContext
+      with null default, provider holds useState<FeatureItem[]>, hook throws if used outside
+      provider. The FeatureItem type is imported from app-sidebar.tsx (will gain featureId in
+      a later task — for now the context types match the current FeatureItem shape).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'SidebarFeaturesProvider component renders children'
+      - 'useSidebarFeaturesContext returns { features, setFeatures } when inside provider'
+      - 'useSidebarFeaturesContext throws when used outside provider'
+      - 'Initial features state is an empty array'
+      - 'setFeatures updates the features array and consumers re-render'
+    tdd:
+      red:
+        - 'Add tests to sidebar-features-context.test.tsx:'
+        - 'Test that useSidebarFeaturesContext throws when called outside provider'
+        - 'Test that provider renders children and initial features is []'
+        - 'Test that setFeatures updates features and consumer re-renders with new data'
+        - 'Tests fail because context/provider do not exist yet'
+      green:
+        - 'Add createContext, SidebarFeaturesProvider, useSidebarFeaturesContext to sidebar-features-context.tsx'
+        - 'Context value shape: { features: FeatureItem[]; setFeatures: (features: FeatureItem[]) => void }'
+        - 'Provider uses useState<FeatureItem[]>([]) internally'
+        - 'All tests pass'
+      refactor:
+        - 'Ensure context value is memoized with useMemo to avoid unnecessary re-renders from provider re-renders'
+    estimatedEffort: '25min'
+
+  # ── Phase 2: Data threading — FeatureNodeData + page.tsx ──
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add startedAt field to FeatureNodeData interface'
+    description: >
+      Extend the FeatureNodeData interface in feature-node-state-config.ts with an optional
+      startedAt field (startedAt?: number). This carries the agent run start timestamp
+      needed for the sidebar's elapsed-time counter. The interface already has a
+      [key: string]: unknown index signature, so this is additive and backward-compatible.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'FeatureNodeData has startedAt?: number field'
+      - 'Existing code continues to compile (no breaking changes)'
+      - 'TypeScript recognizes startedAt as a typed optional field (not just via index signature)'
+    tdd:
+      red:
+        - 'Write a type-level test or assertion: create a FeatureNodeData object with startedAt: 123 and verify TypeScript accepts it as a typed field (not just index signature)'
+        - 'Verify the field shows up in IDE autocomplete (manual check, not automated)'
+      green:
+        - 'Add startedAt?: number to FeatureNodeData interface in feature-node-state-config.ts, above the runtime field'
+        - 'Add JSDoc comment: /** Epoch ms when the current agent run started (for elapsed-time in sidebar) */'
+      refactor:
+        - 'Group timing fields together: startedAt and runtime adjacent with related comments'
+    estimatedEffort: '5min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Populate startedAt and runtime in page.tsx node construction'
+    description: >
+      In page.tsx where FeatureNodeData is constructed for each feature, add startedAt from
+      AgentRun.startedAt (converted to epoch ms) for non-done features, and runtime computed
+      from AgentRun.startedAt + completedAt for done features using formatElapsed from the
+      existing elapsed-time utility. This threads the timing data through to the canvas nodes.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'FeatureNodeData includes startedAt (epoch ms) when AgentRun.startedAt is available and feature is not done'
+      - 'FeatureNodeData includes runtime (human-readable string like "05:30" or "2h") when feature is done and both startedAt and completedAt are available'
+      - 'Missing AgentRun timestamps result in undefined startedAt/runtime (graceful degradation)'
+      - 'Existing node construction logic is unchanged beyond the new field additions'
+    tdd:
+      red:
+        - 'This is a server component (page.tsx) — test manually by verifying the FeatureNodeData shape in the browser devtools or via a snapshot test if feasible'
+        - 'Alternatively, extract the node construction into a pure function and unit test the startedAt/runtime population logic'
+      green:
+        - 'Add startedAt spread: ...(run?.startedAt && state !== "done" && { startedAt: new Date(run.startedAt).getTime() })'
+        - 'Add runtime computation for done features: ...(state === "done" && run?.startedAt && run?.completedAt && { runtime: formatElapsed(new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime()) })'
+        - 'Import formatElapsed from @/components/common/elapsed-time/elapsed-time'
+        - 'Place these spreads alongside existing ...(run?.agentType && { ... }) pattern'
+      refactor:
+        - 'Ensure the state variable is available before the nodeData construction (it already is via deriveNodeState call)'
+    estimatedEffort: '15min'
+
+  # ── Phase 3: Interface changes — FeatureItem + onFeatureClick ──
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Add featureId to FeatureItem and change onFeatureClick signature'
+    description: >
+      Extend the FeatureItem interface in app-sidebar.tsx with featureId: string. Change
+      onFeatureClick callback from (name: string) => void to (featureId: string) => void.
+      Update the onClick closure in AppSidebar's feature rendering to pass feature.featureId
+      instead of feature.name. Export the FeatureItem interface so the context can import it.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'FeatureItem interface has featureId: string field'
+      - 'FeatureItem interface is exported from app-sidebar.tsx'
+      - 'onFeatureClick signature is (featureId: string) => void'
+      - 'onClick closure passes feature.featureId to onFeatureClick'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Update app-sidebar.test.tsx: add featureId to each mock feature object'
+        - 'Add test: when a feature is clicked, onFeatureClick is called with the featureId (not name)'
+        - 'Tests fail because FeatureItem lacks featureId and onFeatureClick expects name'
+      green:
+        - 'Add featureId: string to FeatureItem interface'
+        - 'Export FeatureItem from app-sidebar.tsx'
+        - 'Change AppSidebarProps.onFeatureClick to (featureId: string) => void'
+        - 'Update onClick closure: onFeatureClick ? () => onFeatureClick(feature.featureId) : undefined'
+        - 'All tests pass'
+      refactor:
+        - 'Verify FeatureListItem key uses feature.featureId instead of feature.name for uniqueness'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Update Storybook stories with featureId field'
+    description: >
+      Add featureId (UUID strings) to all mock feature data in app-sidebar.stories.tsx.
+      This ensures Storybook stories continue to render correctly with the updated
+      FeatureItem interface. Each mock feature gets a unique featureId string.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'All mock features in stories have a featureId field with unique UUID-like strings'
+      - 'All existing stories (Default, Collapsed, Empty, AllInProgress, AllDone) render without errors'
+      - 'Storybook TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Run Storybook build or TypeScript check — stories fail because mock data lacks featureId'
+      green:
+        - 'Add featureId to each mock feature in mockFeatures array and inline story feature arrays'
+        - 'Use descriptive UUIDs like "feat-auth-001", "feat-dashboard-002", etc.'
+      refactor:
+        - 'Ensure consistent featureId naming convention across all story variants'
+    estimatedEffort: '10min'
+
+  # ── Phase 4: Integration — wire context through component tree ──
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Wrap AppShellInner with SidebarFeaturesProvider'
+    description: >
+      In app-shell.tsx, import SidebarFeaturesProvider and wrap AppShellInner with it
+      inside the AgentEventsProvider. Import useSidebarFeaturesContext and consume the
+      features array in AppShellInner, passing it to AppSidebar instead of the hardcoded
+      features={[]}. Implement the onFeatureClick handler that dispatches
+      shep:select-feature CustomEvent with the featureId.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'SidebarFeaturesProvider wraps AppShellInner inside AgentEventsProvider'
+      - 'AppShellInner consumes useSidebarFeaturesContext() and passes features to AppSidebar'
+      - 'onFeatureClick dispatches window.dispatchEvent(new CustomEvent("shep:select-feature", { detail: { featureId } }))'
+      - 'features={[]} hardcode is removed'
+      - 'Existing tests still pass (updated with context provider wrapper if needed)'
+    tdd:
+      red:
+        - 'Add test to app-shell.test.tsx: verify AppShell renders with SidebarFeaturesProvider in the tree'
+        - 'Add test: when onFeatureClick fires from sidebar, shep:select-feature CustomEvent is dispatched with featureId'
+        - 'Tests fail because AppShell does not yet use the provider or dispatch events'
+      green:
+        - 'Import SidebarFeaturesProvider and useSidebarFeaturesContext in app-shell.tsx'
+        - 'Wrap AppShellInner: <SidebarFeaturesProvider><AppShellInner>...</AppShellInner></SidebarFeaturesProvider>'
+        - 'In AppShellInner: const { features } = useSidebarFeaturesContext()'
+        - 'Replace features={[]} with features={features}'
+        - 'Add handleFeatureClick callback that dispatches shep:select-feature'
+        - 'Pass onFeatureClick={handleFeatureClick} to AppSidebar'
+        - 'All tests pass'
+      refactor:
+        - 'Wrap handleFeatureClick in useCallback for stable reference'
+    estimatedEffort: '25min'
+
+  - id: task-8
+    phaseId: phase-4
+    title: 'Publish sidebar features from ControlCenterInner'
+    description: >
+      In control-center-inner.tsx, import useSidebarFeaturesContext. Add a useEffect that
+      maps feature nodes to FeatureItem[] using mapNodeStateToSidebarStatus and publishes
+      them via setFeatures. Use a useMemo-derived serialized key as the effect dependency
+      to avoid re-running on position-only changes. This is the final connection — after
+      this task, the sidebar displays real feature data with real-time SSE updates.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'ControlCenterInner imports and uses useSidebarFeaturesContext'
+      - 'useEffect derives FeatureItem[] from feature nodes using mapNodeStateToSidebarStatus'
+      - 'creating-state features are excluded (null from mapping function)'
+      - 'FeatureItem.name, featureId, status, startedAt, duration are correctly mapped from FeatureNodeData'
+      - 'useEffect dependency is a serialized string of sidebar-relevant fields, not the nodes array reference'
+      - 'Sidebar updates when SSE events change node states'
+      - 'Sidebar does not update on position-only node changes (drag)'
+    tdd:
+      red:
+        - 'Write integration-style test: render ControlCenterInner with mock nodes inside SidebarFeaturesProvider, verify context features match expected sidebar items'
+        - 'Test that creating-state nodes are excluded'
+        - 'Test that state mapping is correct (action-required node → action-needed sidebar item)'
+        - 'Tests fail because ControlCenterInner does not yet publish to context'
+      green:
+        - 'Import useSidebarFeaturesContext and mapNodeStateToSidebarStatus in control-center-inner.tsx'
+        - 'Add useMemo for serialized sidebar key: featureNodes.map(n => featureId:state:runtime:startedAt).join(",")'
+        - 'Add useEffect with sidebarKey dependency that maps nodes to FeatureItem[] and calls setFeatures'
+        - 'Mapping logic: filter featureNodes, map each to FeatureItem using mapNodeStateToSidebarStatus, filter out nulls'
+        - 'All tests pass'
+      refactor:
+        - 'Extract the node-to-FeatureItem mapping into a named helper function within the file for clarity'
+        - 'Ensure the useMemo and useEffect are placed near the top of the component with other derived state'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'End-to-end verification and test cleanup'
+    description: >
+      Run the full test suite, fix any remaining test failures, verify Storybook builds,
+      and do a manual smoke test with pnpm dev:web to confirm the sidebar displays features,
+      groups them correctly, shows elapsed time, and click-to-drawer works. Clean up any
+      test helper imports or mock patterns that need updating.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'pnpm test passes with zero failures'
+      - 'pnpm validate passes (lint + format + typecheck + tsp)'
+      - 'Storybook stories render correctly (pnpm storybook or build-storybook)'
+      - 'Manual verification: sidebar shows grouped features, elapsed time ticks, click opens drawer'
+      - 'No regressions in existing functionality'
+    tdd:
+      red:
+        - 'Run pnpm test — identify any failing tests from the integration changes'
+        - 'Run pnpm validate — identify any TypeScript or lint errors'
+      green:
+        - 'Fix all test failures (likely: tests that render AppShell or ControlCenterInner need SidebarFeaturesProvider in their test wrapper)'
+        - 'Fix all lint/type errors'
+        - 'Ensure all acceptance criteria from the spec are met'
+      refactor:
+        - 'Extract common test wrapper (renderWithProviders) if multiple test files need SidebarFeaturesProvider wrapping'
+        - 'Remove any temporary debug code or console.logs'
+    estimatedEffort: '20min'
+
+totalEstimate: '2h 50min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is structured in 4 phases with 9 tasks totaling approximately 2h 50min.
+
+  First, we establish the foundation: a pure mapping function that converts 6-state canvas
+  FeatureNodeState to 3-state sidebar FeatureStatus (or null for creating), and the
+  SidebarFeaturesContext with its provider and consumer hook following the AgentEventsProvider
+  pattern.
+
+  Next, we thread timing data through the existing data pipeline: adding startedAt to
+  FeatureNodeData and populating both startedAt and runtime in page.tsx from AgentRun
+  timestamps.
+
+  Then, we update the sidebar interface: FeatureItem gains featureId, onFeatureClick
+  changes to accept featureId instead of name, and Storybook stories are updated.
+
+  Finally, we wire everything together: SidebarFeaturesProvider wraps AppShellInner in
+  app-shell.tsx, ControlCenterInner publishes derived sidebar features to the context via
+  useEffect, AppShellInner consumes the context and passes features to AppSidebar, and the
+  onFeatureClick handler dispatches the existing shep:select-feature CustomEvent.
+
+  The end result is a sidebar that shows real features grouped by status, updates in
+  real-time via SSE, and opens the correct review drawer on click — all without any new
+  network requests or changes to the ControlCenter's drawer routing logic.

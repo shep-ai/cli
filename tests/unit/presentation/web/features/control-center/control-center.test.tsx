@@ -14,6 +14,7 @@ vi.mock('@/hooks/agent-events-provider', () => ({
 }));
 
 import { ControlCenter } from '@/components/features/control-center';
+import { SidebarFeaturesProvider } from '@/hooks/sidebar-features-context';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
 import type { FeatureNodeType } from '@/components/common/feature-node';
 
@@ -51,12 +52,20 @@ const mockFeatureNode2: FeatureNodeType = {
 
 describe('ControlCenter', () => {
   it('renders the control-center container', () => {
-    render(<ControlCenter initialNodes={[]} initialEdges={[]} />);
+    render(
+      <SidebarFeaturesProvider>
+        <ControlCenter initialNodes={[]} initialEdges={[]} />
+      </SidebarFeaturesProvider>
+    );
     expect(screen.getByTestId('control-center')).toBeInTheDocument();
   });
 
   it('shows empty state when no nodes provided', () => {
-    render(<ControlCenter initialNodes={[]} initialEdges={[]} />);
+    render(
+      <SidebarFeaturesProvider>
+        <ControlCenter initialNodes={[]} initialEdges={[]} />
+      </SidebarFeaturesProvider>
+    );
     expect(screen.getByTestId('control-center-empty-state')).toBeInTheDocument();
     expect(screen.getByText('Add Repository')).toBeInTheDocument();
   });
@@ -70,14 +79,16 @@ describe('ControlCenter', () => {
     } as CanvasNodeType;
 
     render(
-      <ControlCenter
-        initialNodes={[
-          repoNode,
-          mockFeatureNode as CanvasNodeType,
-          mockFeatureNode2 as CanvasNodeType,
-        ]}
-        initialEdges={[]}
-      />
+      <SidebarFeaturesProvider>
+        <ControlCenter
+          initialNodes={[
+            repoNode,
+            mockFeatureNode as CanvasNodeType,
+            mockFeatureNode2 as CanvasNodeType,
+          ]}
+          initialEdges={[]}
+        />
+      </SidebarFeaturesProvider>
     );
     expect(screen.getByText('Test Feature')).toBeInTheDocument();
     expect(screen.getByText('Another Feature')).toBeInTheDocument();

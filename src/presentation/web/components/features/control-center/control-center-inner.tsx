@@ -10,6 +10,10 @@ import type { RepositoryNodeData } from '@/components/common/repository-node';
 import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
 import { getWorkflowDefaults } from '@/app/actions/get-workflow-defaults';
 import type { WorkflowDefaults } from '@/app/actions/get-workflow-defaults';
+import {
+  useSidebarFeaturesContext,
+  mapNodeStateToSidebarStatus,
+} from '@/hooks/sidebar-features-context';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -41,6 +45,46 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     selectFeatureById,
     pendingParentFeatureId,
   } = useControlCenterState(initialNodes, initialEdges);
+
+  // Publish sidebar features to context whenever feature node data changes
+  const { setFeatures: setSidebarFeatures } = useSidebarFeaturesContext();
+
+  const sidebarKey = useMemo(() => {
+    return nodes
+      .filter((n) => n.type === 'featureNode')
+      .map((n) => {
+        const d = n.data as FeatureNodeData;
+        return `${d.featureId}:${d.state}:${d.runtime ?? ''}:${d.startedAt ?? ''}`;
+      })
+      .sort()
+      .join(',');
+  }, [nodes]);
+
+  useEffect(() => {
+    const sidebarItems = nodes
+      .filter((n) => n.type === 'featureNode')
+      .map((n) => {
+        const d = n.data as FeatureNodeData;
+        const status = mapNodeStateToSidebarStatus(d.state);
+        if (!status) return null;
+        return {
+          featureId: d.featureId,
+          name: d.name,
+          status,
+          ...(d.startedAt != null && { startedAt: d.startedAt }),
+          ...(d.runtime != null && { duration: d.runtime }),
+        };
+      })
+      .filter(Boolean) as {
+      featureId: string;
+      name: string;
+      status: 'action-needed' | 'in-progress' | 'done';
+      startedAt?: number;
+      duration?: string;
+    }[];
+
+    setSidebarFeatures(sidebarItems);
+  }, [sidebarKey, nodes, setSidebarFeatures]);
 
   // Feature list for the parent selector in the create drawer
   const featureOptions = useMemo(
