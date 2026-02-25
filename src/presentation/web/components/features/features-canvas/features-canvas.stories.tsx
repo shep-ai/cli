@@ -608,16 +608,3 @@ export const InteractiveWithRepository: Story = {
     onRepositoryAdd: () => undefined,
   },
 };
-
-// Story to visually verify the Add Repository FAB at bottom-right has proper spacing
-// from the canvas edges. The FAB is positioned via Panel position="bottom-right" with
-// mb-4 spacing, separate from the ReactFlow Controls at bottom-left.
-export const AddRepositoryButtonPositionCheck: Story = {
-  args: {
-    nodes: repoFeatureNodes,
-    edges: repoFeatureEdges,
-    onNodeAction: () => undefined,
-    onNodeSettings: () => undefined,
-    onRepositorySelect: () => undefined,
-  },
-};

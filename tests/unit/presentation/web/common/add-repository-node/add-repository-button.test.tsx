@@ -28,17 +28,17 @@ describe('AddRepositoryButton', () => {
     expect(screen.queryByText('Opening...')).not.toBeInTheDocument();
   });
 
-  it('renders Plus icon with h-6 w-6 classes', () => {
+  it('renders FolderPlus icon with h-5 w-5 classes', () => {
     const { container } = render(<AddRepositoryButton />);
-    const svg = container.querySelector('svg.lucide-plus');
+    const svg = container.querySelector('svg.lucide-folder-plus');
     expect(svg).toBeInTheDocument();
-    expect(svg).toHaveClass('h-6', 'w-6');
+    expect(svg).toHaveClass('h-5', 'w-5');
   });
 
-  it('renders as a circular FAB with blue styling', () => {
+  it('renders as a ghost icon button', () => {
     render(<AddRepositoryButton />);
     const button = screen.getByTestId('add-repository-button');
-    expect(button).toHaveClass('h-12', 'w-12', 'rounded-full', 'bg-blue-500', 'shadow-lg');
+    expect(button.tagName).toBe('BUTTON');
   });
 
   it('renders tooltip trigger', () => {
@@ -61,7 +61,7 @@ describe('AddRepositoryButton', () => {
     });
   });
 
-  it('shows Loader2 spinner with h-6 w-6 during loading', async () => {
+  it('shows Loader2 spinner with h-5 w-5 during loading', async () => {
     let resolvePickFolder: (value: string | null) => void;
     mockPickFolder.mockImplementation(
       () =>
@@ -77,7 +77,7 @@ describe('AddRepositoryButton', () => {
     await waitFor(() => {
       const loader = container.querySelector('svg.lucide-loader-circle');
       expect(loader).toBeInTheDocument();
-      expect(loader).toHaveClass('h-6', 'w-6', 'animate-spin');
+      expect(loader).toHaveClass('h-5', 'w-5', 'animate-spin');
     });
 
     resolvePickFolder!(null);

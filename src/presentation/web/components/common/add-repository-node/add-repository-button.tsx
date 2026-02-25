@@ -1,7 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { Loader2, Plus } from 'lucide-react';
+import { FolderPlus, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { pickFolder } from './pick-folder';
 
@@ -29,16 +30,20 @@ export function AddRepositoryButton({ onSelect }: AddRepositoryButtonProps) {
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <button
-            type="button"
+          <Button
+            variant="ghost"
+            size="icon"
             aria-label="Add Repository"
             data-testid="add-repository-button"
             onClick={handleClick}
             disabled={loading}
-            className="flex h-12 w-12 cursor-pointer items-center justify-center rounded-full bg-blue-500 text-white shadow-lg transition-colors hover:bg-blue-600 disabled:cursor-wait disabled:opacity-60"
           >
-            {loading ? <Loader2 className="h-6 w-6 animate-spin" /> : <Plus className="h-6 w-6" />}
-          </button>
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <FolderPlus className="h-5 w-5" />
+            )}
+          </Button>
         </TooltipTrigger>
         <TooltipContent>Add Repository</TooltipContent>
       </Tooltip>
