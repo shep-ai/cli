@@ -84,6 +84,7 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
         role="button"
         tabIndex={0}
         data-testid="repository-node-card"
+        data-repo-name={data.name}
         onClick={(e) => {
           e.stopPropagation();
           data.onClick?.();

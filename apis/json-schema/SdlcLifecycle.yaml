@@ -10,4 +10,5 @@ enum:
   - Implementation
   - Review
   - Maintain
+  - Blocked
 description: Software Development Lifecycle stages for feature progression

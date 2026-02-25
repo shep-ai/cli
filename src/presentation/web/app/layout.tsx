@@ -11,6 +11,20 @@ export const metadata: Metadata = {
   title: 'Shep AI',
   description:
     'Autonomous AI Native SDLC Platform - Automate the development cycle from idea to deploy',
+  icons: [
+    {
+      rel: 'icon',
+      url: '/favicon-light.svg',
+      type: 'image/svg+xml',
+      media: '(prefers-color-scheme: light)',
+    },
+    {
+      rel: 'icon',
+      url: '/favicon-dark.svg',
+      type: 'image/svg+xml',
+      media: '(prefers-color-scheme: dark)',
+    },
+  ],
 };
 
 export default function RootLayout({

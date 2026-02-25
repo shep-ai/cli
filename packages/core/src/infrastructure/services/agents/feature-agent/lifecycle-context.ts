@@ -5,16 +5,29 @@
  * SDLC lifecycle as they execute, following the same pattern as
  * phase-timing-context.ts.
  *
- * The worker calls setLifecycleContext() once after DI init.
- * Nodes call updateNodeLifecycle() at the start of execution.
- * Errors are swallowed so lifecycle updates never block graph execution.
+ * The worker calls setLifecycleContext() once after DI init, passing an
+ * UpdateFeatureLifecycleUseCase instance. Nodes call updateNodeLifecycle()
+ * at the start of execution. Errors are swallowed so lifecycle updates
+ * never block graph execution.
+ *
+ * Routing lifecycle updates through UpdateFeatureLifecycleUseCase ensures
+ * that CheckAndUnblockFeaturesUseCase fires on every transition,
+ * automatically unblocking blocked children that are now eligible to start.
  */
 
-import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { SdlcLifecycle } from '@/domain/generated/output.js';
 
+/**
+ * Minimal interface satisfied by UpdateFeatureLifecycleUseCase.
+ * Using a structural interface avoids a concrete import between infrastructure
+ * and application layer classes.
+ */
+interface LifecycleUpdater {
+  execute(input: { featureId: string; lifecycle: SdlcLifecycle }): Promise<void>;
+}
+
 let contextFeatureId: string | undefined;
-let contextRepository: IFeatureRepository | undefined;
+let contextUpdater: LifecycleUpdater | undefined;
 
 /** Map graph node names to their corresponding SDLC lifecycle stage. */
 const NODE_TO_LIFECYCLE: Record<string, SdlcLifecycle> = {
@@ -28,10 +41,13 @@ const NODE_TO_LIFECYCLE: Record<string, SdlcLifecycle> = {
 
 /**
  * Set the lifecycle context. Called once by the worker after DI init.
+ *
+ * @param featureId - The feature being processed.
+ * @param updater   - An UpdateFeatureLifecycleUseCase instance (or compatible updater).
  */
-export function setLifecycleContext(featureId: string, repository: IFeatureRepository): void {
+export function setLifecycleContext(featureId: string, updater: LifecycleUpdater): void {
   contextFeatureId = featureId;
-  contextRepository = repository;
+  contextUpdater = updater;
 }
 
 /**
@@ -39,28 +55,23 @@ export function setLifecycleContext(featureId: string, repository: IFeatureRepos
  */
 export function clearLifecycleContext(): void {
   contextFeatureId = undefined;
-  contextRepository = undefined;
+  contextUpdater = undefined;
 }
 
 /**
  * Update the feature's lifecycle to match the current graph node.
+ * Routes through UpdateFeatureLifecycleUseCase so that
+ * CheckAndUnblockFeaturesUseCase fires on every transition.
  * No-op if context is not set or the node name has no lifecycle mapping.
  */
 export async function updateNodeLifecycle(nodeName: string): Promise<void> {
-  if (!contextFeatureId || !contextRepository) return;
+  if (!contextFeatureId || !contextUpdater) return;
 
   const lifecycle = NODE_TO_LIFECYCLE[nodeName];
   if (!lifecycle) return;
 
   try {
-    const feature = await contextRepository.findById(contextFeatureId);
-    if (!feature) return;
-
-    await contextRepository.update({
-      ...feature,
-      lifecycle,
-      updatedAt: new Date(),
-    });
+    await contextUpdater.execute({ featureId: contextFeatureId, lifecycle });
   } catch {
     // Swallow — lifecycle update failure is non-fatal
   }

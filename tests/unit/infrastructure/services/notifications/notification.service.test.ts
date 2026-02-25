@@ -24,6 +24,7 @@ function createTestEvent(overrides?: Partial<NotificationEvent>): NotificationEv
   return {
     eventType: NotificationEventType.AgentCompleted,
     agentRunId: 'run-123',
+    featureId: 'feat-456',
     featureName: 'Test Feature',
     message: 'Agent completed successfully',
     severity: NotificationSeverity.Success,

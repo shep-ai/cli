@@ -1,0 +1,363 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: realtime-feature-status
+summary: >
+  Technical research for building the real-time agent event streaming infrastructure.
+  Key decisions: DB-polling SSE route (avoids Turbopack singleton issues), Service Worker
+  for tab multiplexing, globalThis-based EventEmitter singleton, NotificationWatcherService
+  for status/phase change detection, exponential backoff reconnection, WAV-based sound
+  library with useSound hook, severity-mapped notification sounds, localStorage sound
+  preference, and optimistic UI updates for control center feature nodes.
+
+relatedFeatures: []
+
+technologies:
+  - 'Node.js EventEmitter (typed via generics)'
+  - 'Server-Sent Events (ReadableStream + TextEncoder)'
+  - 'Service Workers (postMessage broadcast)'
+  - 'React 19 (useState, useEffect, useRef, useCallback)'
+  - 'Next.js 16+ (route handlers, force-dynamic)'
+  - 'tsyringe (DI for repository injection)'
+  - 'Vitest (unit + integration testing)'
+  - 'Web Audio API (HTMLAudioElement for sound playback)'
+  - 'localStorage (sound preference persistence)'
+  - 'sonner (toast notifications)'
+  - 'lucide-react (Volume2, VolumeOff icons)'
+
+relatedLinks: []
+
+decisions:
+  - title: 'SSE route implementation strategy'
+    chosen: 'DB-polling with per-connection cache inside the route handler'
+    rejected:
+      - >
+        In-process event bus subscription in route handler — Next.js Turbopack bundles
+        route handlers into separate module contexts. An EventEmitter singleton created
+        in the dev-server process is invisible to the route handler's module scope.
+        This was the original approach and it silently produced zero events.
+      - >
+        WebSocket instead of SSE — Over-engineered for unidirectional server→client
+        events. SSE is simpler, works with HTTP/2 multiplexing, auto-reconnects natively,
+        and requires no additional server infrastructure.
+    rationale: >
+      The route handler polls the database directly (features + agent_runs + phase_timings)
+      every 500ms using a per-connection cache (Map<featureId, CachedFeatureState>). On each
+      poll, it compares current state against cached state and emits only deltas. This avoids
+      the cross-module singleton problem entirely — the route handler is self-contained with
+      no dependency on shared in-process state. The cache seeds on first observation (no
+      initial event burst) and tracks status + completedPhases per feature.
+
+  - title: 'Service Worker for SSE connection multiplexing'
+    chosen: 'Dedicated Service Worker (agent-events-sw.js) that maintains one SSE connection and broadcasts to all tabs'
+    rejected:
+      - >
+        SharedWorker — Less browser support (no Safari on iOS). Service Workers have
+        broader support and also survive page navigations, providing better connection
+        persistence.
+      - >
+        One EventSource per tab — Wasteful: N tabs = N SSE connections = N×polling load
+        on the server. The SSE route polls the DB on each connection independently.
+    rationale: >
+      The Service Worker subscribes/unsubscribes based on client messages. It opens the
+      SSE connection on first subscriber and closes it when the last subscriber leaves.
+      Events are broadcast to all tabs via clients.matchAll(). Connection status (connected,
+      connecting, disconnected) is also broadcast so the UI can show connection indicators.
+      The SW handles its own reconnection with exponential backoff.
+
+  - title: 'NotificationBus singleton strategy'
+    chosen: 'globalThis with Symbol.for() key'
+    rejected:
+      - >
+        Module-level singleton (let bus: EventEmitter) — Fails in Next.js where Turbopack
+        may create multiple copies of the module. Each copy gets its own singleton.
+      - >
+        Dependency injection via tsyringe — The bus needs to be accessible from both
+        bundled route handlers and the dev-server process. DI container resolution may
+        not cross module boundaries in the same way.
+    rationale: >
+      Symbol.for('shep:notification-bus') creates a global, cross-module-boundary key on
+      globalThis. This survives Turbopack's module isolation because globalThis is shared
+      across all JS execution contexts in the same process. The bus is lazily created on
+      first access. A resetNotificationBus() function is provided for test isolation.
+
+  - title: 'NotificationWatcherService polling approach'
+    chosen: 'Poll agent_runs table, track per-run state, emit via INotificationService'
+    rejected:
+      - >
+        File system watching (e.g., chokidar on SQLite file) — SQLite WAL mode makes
+        file change detection unreliable. Would need to re-query anyway after detecting
+        a change.
+      - >
+        IPC from worker process — The feature agent worker is spawned detached with IPC
+        disconnected (for background execution). No IPC channel available.
+    rationale: >
+      The watcher polls every 3 seconds (configurable), listing all agent runs. It tracks
+      active runs (pending, running, waiting_approval) in a Map<runId, WatcherState>.
+      Status changes emit mapped NotificationEvents. Phase completions are detected by
+      comparing phase_timings.completedAt against the cached completedPhases set. Terminal
+      runs (completed, failed, cancelled, interrupted) are emitted once then cleaned up.
+      Feature names are resolved via IFeatureRepository.
+
+  - title: 'React hook architecture'
+    chosen: 'Service Worker primary with direct EventSource fallback'
+    rejected:
+      - >
+        EventSource only — Works but creates redundant connections when multiple tabs
+        are open. No connection sharing possible with raw EventSource.
+      - >
+        Polling from React (useEffect + fetch) — Higher latency, no streaming, wastes
+        bandwidth re-fetching unchanged data.
+    rationale: >
+      useAgentEvents() first attempts to register a Service Worker. If SW is available,
+      events arrive via navigator.serviceWorker.onmessage. If SW registration fails
+      (e.g., HTTPS requirement, browser restriction), it falls back to a direct
+      EventSource connection with the same backoff/reconnection logic. Both paths
+      provide the same { events, lastEvent, connectionStatus } interface.
+
+  - title: 'Sound system implementation'
+    chosen: 'useSound React hook with HTMLAudioElement and preloaded WAV files'
+    rejected:
+      - >
+        Web Audio API (AudioContext + AudioBuffer) — More powerful but significantly
+        more complex. Requires decoding audio data, managing AudioContext lifecycle
+        (resume after user gesture), and doesn't add value for simple notification sounds.
+      - >
+        Howler.js library — Adds an external dependency for functionality achievable
+        with native HTMLAudioElement. WAV files don't need format negotiation (no
+        codec fallbacks needed).
+    rationale: >
+      HTMLAudioElement with preload='auto' is the simplest approach for short notification
+      sounds. The useSound hook creates an Audio element per sound name, manages lifecycle
+      (play/stop/cleanup), and respects the global sound-enabled state via useSoundEnabled.
+      WAV format chosen for zero-latency playback (no decoding overhead). 28 sounds
+      organized into 8 categories provide comprehensive UI audio feedback.
+
+  - title: 'Sound preference persistence'
+    chosen: 'localStorage with useSoundEnabled hook'
+    rejected:
+      - >
+        Server-side settings (SQLite) — Over-engineered for a client-only UI preference.
+        Would require API roundtrip and Settings model changes.
+      - >
+        Cookie-based — No advantage over localStorage for same-origin preference.
+    rationale: >
+      localStorage key 'shep-sound-enabled' stores boolean state. Defaults to enabled.
+      The useSoundEnabled hook provides { enabled, toggle } and is consumed by both
+      useSound (to gate playback) and SoundToggle (to render icon state). Simple,
+      client-only, no server dependencies.
+
+  - title: 'Notification sound mapping strategy'
+    chosen: 'Severity-based mapping in useNotifications hook (Info events silently skipped)'
+    rejected:
+      - >
+        Event-type-based mapping — Too many event types (AgentStarted, WaitingApproval,
+        AgentCompleted, AgentFailed, PhaseCompleted). Would require maintaining a large
+        mapping table. Severity provides a natural 4-level grouping.
+      - >
+        Mapping all 4 severities to sounds — Info events (AgentStarted, PhaseCompleted)
+        fire frequently and produce noise. Only actionable/notable events (Error, Warning,
+        Success) warrant audio and toast attention.
+    rationale: >
+      NotificationSeverity maps to sounds: Success → celebration, Error → caution,
+      Warning → notification. Info-severity events are silently skipped. Each severity
+      gets its own useSound instance in useNotifications. Deduplication uses a
+      processedCountRef index counter (tracking how many events from the append-only
+      array have been processed) rather than a Set with compound keys — simpler and
+      leverages the append-only events array from useAgentEventsContext.
+
+  - title: 'Feature matching strategy in optimistic UI'
+    chosen: 'Match by event.featureId (stable UUID)'
+    rejected:
+      - >
+        Match by featureName — Feature names can change (user can rename). Names are also
+        not guaranteed unique across repositories. Using name matching caused missed updates.
+    rationale: >
+      Added featureId field to the NotificationEvent TypeSpec model. The SSE route populates
+      featureId from the feature's stable UUID. The client matches nodes by comparing
+      event.featureId to the node's featureId property, which is deterministic and immutable.
+
+  - title: 'Optimistic UI for control center feature nodes'
+    chosen: 'Client-side event-to-state mapping with SSE-driven updates'
+    rejected:
+      - >
+        Poll-and-refetch — Higher latency. User would see stale state for seconds
+        between refetch intervals.
+      - >
+        Full state replacement from SSE — SSE events are lightweight notifications,
+        not full Feature objects. Would require the SSE endpoint to serialize full
+        Feature state on every change.
+    rationale: >
+      mapEventTypeToState converts SSE NotificationEventType directly to FeatureNodeState
+      (AgentStarted/PhaseCompleted → running, WaitingApproval → action-required,
+      AgentCompleted → done, AgentFailed → error). mapPhaseNameToLifecycle maps phase
+      names to lifecycle phases for progress display. This gives instant visual feedback
+      without waiting for a data refetch. deriveNodeState provides the initial state
+      derivation from Feature + AgentRun with the same priority logic as CLI feat ls.
+
+openQuestions: []
+
+content: |
+  ## Technology Decisions
+
+  ### 1. DB-Polling SSE Route (not event bus subscription)
+
+  **Chosen:** Route handler polls DB directly with per-connection cache
+
+  **Rejected:**
+  - In-process event bus subscription — Fails due to Turbopack module isolation
+  - WebSocket — Over-engineered for unidirectional events
+
+  **Rationale:** Self-contained route handler with no cross-module dependencies. Polls
+  every 500ms, compares against cached state, emits only deltas. Seeds cache on first
+  observation to avoid initial event burst.
+
+  ### 2. Service Worker for Tab Multiplexing
+
+  **Chosen:** Dedicated SW that broadcasts SSE events to all tabs
+
+  **Rejected:**
+  - SharedWorker — Less browser support (no Safari iOS)
+  - One EventSource per tab — Wasteful redundant connections
+
+  **Rationale:** One SSE connection per browser, shared via postMessage. Opens on first
+  subscriber, closes on last unsubscribe. Handles reconnection with exponential backoff.
+
+  ### 3. globalThis Singleton for NotificationBus
+
+  **Chosen:** Symbol.for() key on globalThis
+
+  **Rejected:**
+  - Module-level singleton — Breaks with Turbopack module duplication
+  - DI container — May not cross module boundaries
+
+  **Rationale:** globalThis is shared across all JS contexts in a process. Symbol.for()
+  prevents key collisions. Reset function provided for tests.
+
+  ### 4. NotificationWatcherService for Status Detection
+
+  **Chosen:** Poll agent_runs table, track per-run state
+
+  **Rejected:**
+  - File system watching — Unreliable with SQLite WAL
+  - IPC from worker — Worker spawned detached, no IPC channel
+
+  **Rationale:** 3-second polling with in-memory state tracking. Detects status changes
+  and phase completions. Emits through INotificationService for fan-out.
+
+  ## Architecture Notes
+
+  ### Event Flow
+
+  ```
+  Agent worker updates DB (agent_runs, phase_timings)
+    → NotificationWatcherService polls DB every 3s
+    → Detects status change or phase completion
+    → Emits NotificationEvent via INotificationService
+    → NotificationBus fans out to listeners
+
+  Meanwhile (independent path for web UI):
+    SSE route polls DB every 500ms
+    → Per-connection cache detects deltas
+    → Streams NotificationEvent via SSE
+    → Service Worker receives event
+    → Broadcasts to all open tabs
+    → useAgentEvents hook delivers to React components
+  ```
+
+  ### Status-to-Event Mapping
+
+  | AgentRunStatus    | NotificationEventType | NotificationSeverity |
+  | ----------------- | --------------------- | -------------------- |
+  | running           | AgentStarted          | Info                 |
+  | waitingApproval   | WaitingApproval       | Warning              |
+  | completed         | AgentCompleted        | Success              |
+  | failed            | AgentFailed           | Error                |
+
+  ### Files Changed
+
+  | File | Change | Type |
+  | ---- | ------ | ---- |
+  | `packages/core/src/infrastructure/services/notifications/notification-bus.ts` | New typed EventEmitter singleton | New |
+  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | New DB-polling status detector | New |
+  | `src/presentation/web/app/api/agent-events/route.ts` | Rewritten: DB polling with per-connection cache | Rewrite |
+  | `src/presentation/web/public/agent-events-sw.js` | New Service Worker for SSE multiplexing | New |
+  | `src/presentation/web/hooks/use-agent-events.ts` | Rewritten: SW-first with EventSource fallback | Rewrite |
+  | `src/presentation/web/dev-server.ts` | Initialize notification watcher on startup | Modified |
+  | `src/presentation/cli/commands/ui.command.ts` | Initialize notification watcher on startup | Modified |
+
+  ### 5. Sound System (useSound + WAV Library)
+
+  **Chosen:** useSound React hook with HTMLAudioElement and preloaded WAV files
+
+  **Rejected:**
+  - Web Audio API (AudioContext) — Over-complex for notification sounds
+  - Howler.js — External dependency not needed for simple playback
+
+  **Rationale:** HTMLAudioElement with preload='auto' is simplest for short sounds. WAV
+  format for zero-latency (no decoding). 28 sounds in 8 categories. useSoundEnabled
+  hook + localStorage for mute persistence. SoundToggle component in app shell header.
+
+  ### 6. Notification Sound Mapping
+
+  **Chosen:** Severity-based mapping (Success → celebration, Error → caution, Warning → notification). Info silently skipped.
+
+  **Rejected:**
+  - Event-type-based mapping — Too many event types, severity provides natural grouping
+  - Mapping all 4 severities — Info events fire too frequently, produce noise
+
+  **Rationale:** 3 actionable severity levels trigger sounds and toasts. Info events silently skipped.
+  Deduplication via processedCountRef index counter (not a Set).
+
+  ### 7. Optimistic UI for Feature Nodes
+
+  **Chosen:** Client-side event-to-state mapping from SSE events
+
+  **Rejected:**
+  - Poll-and-refetch — Higher latency
+  - Full state from SSE — Events are lightweight, not full Feature objects
+
+  **Rationale:** mapEventTypeToState converts SSE events directly to FeatureNodeState.
+  deriveNodeState provides initial state from Feature + AgentRun. Instant visual feedback.
+
+  ### Files Changed (Updated)
+
+  | File | Change | Type |
+  | ---- | ------ | ---- |
+  | `packages/core/src/infrastructure/services/notifications/notification-bus.ts` | New typed EventEmitter singleton | New |
+  | `packages/core/src/infrastructure/services/notifications/notification-watcher.service.ts` | New DB-polling status detector | New |
+  | `src/presentation/web/app/api/agent-events/route.ts` | Rewritten: DB polling with per-connection cache | Rewrite |
+  | `src/presentation/web/public/agent-events-sw.js` | New Service Worker for SSE multiplexing | New |
+  | `src/presentation/web/hooks/use-agent-events.ts` | Rewritten: SW-first with EventSource fallback | Rewrite |
+  | `src/presentation/web/hooks/use-sound.ts` | New useSound hook with HTMLAudioElement | New |
+  | `src/presentation/web/hooks/use-sound-enabled.ts` | New localStorage-backed sound state | New |
+  | `src/presentation/web/hooks/use-sound.stories.tsx` | New Storybook sound catalog | New |
+  | `src/presentation/web/hooks/use-notifications.ts` | Wired severity-mapped sounds + favicon | Modified |
+  | `src/presentation/web/public/sounds/*.wav` | 28 WAV sound files | New |
+  | `src/presentation/web/components/common/sound-toggle/` | SoundToggle component with stories | New |
+  | `src/presentation/web/components/common/feature-node/derive-feature-state.ts` | Optimistic UI state derivation + event mapping | Enhanced |
+  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | Wired SSE events + UI action sounds | Modified |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | Optimistic SSE updates, polling fallback, state-transition toasts | Extended |
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | SoundToggle in header | Modified |
+  | `src/presentation/web/hooks/agent-events-provider.tsx` | AgentEventsProvider React context | New |
+  | `src/presentation/web/app/api/agent-events/health/route.ts` | Health endpoint for E2E | New |
+  | `tsp/domain/entities/notification-event.tsp` | Added featureId field | Modified |
+  | `src/presentation/web/dev-server.ts` | Initialize notification watcher | Modified |
+  | `src/presentation/cli/commands/ui.command.ts` | Initialize notification watcher | Modified |
+
+  ## Security Considerations
+
+  - SSE endpoint is read-only (GET), no mutation surface
+  - No authentication changes (inherits existing session model)
+  - Service Worker scoped to '/' — same-origin only
+  - No user input in DB queries (repository pattern with parameterized queries)
+  - Sound files are static assets served from /public, no user-uploaded content
+
+  ## Performance Implications
+
+  - SSE route polls every 500ms per connection — acceptable for single-user tool
+  - Service Worker reduces N tab connections to 1
+  - NotificationWatcherService polls every 3s — minimal DB load
+  - Per-connection cache ensures only deltas are serialized and sent
+  - WAV files preloaded via Audio.preload='auto' — instant playback, small files (~5-15KB each)
+  - Sound playback gated by useSoundEnabled — no audio processing when muted

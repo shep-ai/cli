@@ -11,24 +11,12 @@ import {
   clearLifecycleContext,
   updateNodeLifecycle,
 } from '@/infrastructure/services/agents/feature-agent/lifecycle-context.js';
-import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { SdlcLifecycle } from '@/domain/generated/output.js';
 
-function createMockFeatureRepo(feature: Record<string, unknown> | null = null): IFeatureRepository {
+function createMockUpdater() {
   return {
-    findById: vi.fn().mockResolvedValue(
-      feature ?? {
-        id: 'feat-1',
-        lifecycle: SdlcLifecycle.Requirements,
-        updatedAt: new Date(),
-      }
-    ),
-    update: vi.fn().mockResolvedValue(undefined),
-    save: vi.fn().mockResolvedValue(undefined),
-    list: vi.fn().mockResolvedValue([]),
-    delete: vi.fn().mockResolvedValue(undefined),
-    findBySlug: vi.fn().mockResolvedValue(null),
-  } as unknown as IFeatureRepository;
+    execute: vi.fn().mockResolvedValue(undefined),
+  };
 }
 
 describe('LifecycleContext', () => {
@@ -38,81 +26,83 @@ describe('LifecycleContext', () => {
 
   describe('setLifecycleContext / clearLifecycleContext', () => {
     it('should allow setting and clearing context', () => {
-      const repo = createMockFeatureRepo();
-      setLifecycleContext('feat-1', repo);
+      const updater = createMockUpdater();
+      setLifecycleContext('feat-1', updater);
       clearLifecycleContext();
     });
   });
 
   describe('updateNodeLifecycle', () => {
     it('should update feature lifecycle to Analyze for analyze node', async () => {
-      const repo = createMockFeatureRepo();
-      setLifecycleContext('feat-1', repo);
+      const updater = createMockUpdater();
+      setLifecycleContext('feat-1', updater);
 
       await updateNodeLifecycle('analyze');
 
-      expect(repo.findById).toHaveBeenCalledWith('feat-1');
-      expect(repo.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          lifecycle: SdlcLifecycle.Analyze,
-          updatedAt: expect.any(Date),
-        })
-      );
+      expect(updater.execute).toHaveBeenCalledWith({
+        featureId: 'feat-1',
+        lifecycle: SdlcLifecycle.Analyze,
+      });
     });
 
     it('should update feature lifecycle to Requirements for requirements node', async () => {
-      const repo = createMockFeatureRepo();
-      setLifecycleContext('feat-1', repo);
+      const updater = createMockUpdater();
+      setLifecycleContext('feat-1', updater);
 
       await updateNodeLifecycle('requirements');
 
-      expect(repo.update).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycle: SdlcLifecycle.Requirements })
-      );
+      expect(updater.execute).toHaveBeenCalledWith({
+        featureId: 'feat-1',
+        lifecycle: SdlcLifecycle.Requirements,
+      });
     });
 
     it('should update feature lifecycle to Research for research node', async () => {
-      const repo = createMockFeatureRepo();
-      setLifecycleContext('feat-1', repo);
+      const updater = createMockUpdater();
+      setLifecycleContext('feat-1', updater);
 
       await updateNodeLifecycle('research');
 
-      expect(repo.update).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycle: SdlcLifecycle.Research })
-      );
+      expect(updater.execute).toHaveBeenCalledWith({
+        featureId: 'feat-1',
+        lifecycle: SdlcLifecycle.Research,
+      });
     });
 
     it('should update feature lifecycle to Planning for plan node', async () => {
-      const repo = createMockFeatureRepo();
-      setLifecycleContext('feat-1', repo);
+      const updater = createMockUpdater();
+      setLifecycleContext('feat-1', updater);
 
       await updateNodeLifecycle('plan');
 
-      expect(repo.update).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycle: SdlcLifecycle.Planning })
-      );
+      expect(updater.execute).toHaveBeenCalledWith({
+        featureId: 'feat-1',
+        lifecycle: SdlcLifecycle.Planning,
+      });
     });
 
     it('should update feature lifecycle to Implementation for implement node', async () => {
-      const repo = createMockFeatureRepo();
-      setLifecycleContext('feat-1', repo);
+      const updater = createMockUpdater();
+      setLifecycleContext('feat-1', updater);
 
       await updateNodeLifecycle('implement');
 
-      expect(repo.update).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycle: SdlcLifecycle.Implementation })
-      );
+      expect(updater.execute).toHaveBeenCalledWith({
+        featureId: 'feat-1',
+        lifecycle: SdlcLifecycle.Implementation,
+      });
     });
 
     it('should update feature lifecycle to Review for merge node', async () => {
-      const repo = createMockFeatureRepo();
-      setLifecycleContext('feat-1', repo);
+      const updater = createMockUpdater();
+      setLifecycleContext('feat-1', updater);
 
       await updateNodeLifecycle('merge');
 
-      expect(repo.update).toHaveBeenCalledWith(
-        expect.objectContaining({ lifecycle: SdlcLifecycle.Review })
-      );
+      expect(updater.execute).toHaveBeenCalledWith({
+        featureId: 'feat-1',
+        lifecycle: SdlcLifecycle.Review,
+      });
     });
 
     it('should be a no-op when context is not set', async () => {
@@ -121,30 +111,18 @@ describe('LifecycleContext', () => {
     });
 
     it('should be a no-op for unknown node names', async () => {
-      const repo = createMockFeatureRepo();
-      setLifecycleContext('feat-1', repo);
+      const updater = createMockUpdater();
+      setLifecycleContext('feat-1', updater);
 
       await updateNodeLifecycle('validate_spec_analyze');
 
-      expect(repo.findById).not.toHaveBeenCalled();
-      expect(repo.update).not.toHaveBeenCalled();
+      expect(updater.execute).not.toHaveBeenCalled();
     });
 
-    it('should be a no-op when feature is not found', async () => {
-      const repo = createMockFeatureRepo(null);
-      (repo.findById as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-      setLifecycleContext('feat-missing', repo);
-
-      await updateNodeLifecycle('analyze');
-
-      expect(repo.findById).toHaveBeenCalledWith('feat-missing');
-      expect(repo.update).not.toHaveBeenCalled();
-    });
-
-    it('should not throw when repository update fails', async () => {
-      const repo = createMockFeatureRepo();
-      (repo.update as ReturnType<typeof vi.fn>).mockRejectedValue(new Error('DB error'));
-      setLifecycleContext('feat-1', repo);
+    it('should not throw when updater execute fails', async () => {
+      const updater = createMockUpdater();
+      updater.execute.mockRejectedValue(new Error('DB error'));
+      setLifecycleContext('feat-1', updater);
 
       // Should not throw
       await updateNodeLifecycle('analyze');

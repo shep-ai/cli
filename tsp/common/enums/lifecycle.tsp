@@ -80,4 +80,12 @@ enum SdlcLifecycle {
    */
   @doc("Terminal state — feature merged, agent permanently inactive")
   Maintain,
+
+  /**
+   * Blocked state. The feature is waiting for its parent feature to
+   * satisfy a lifecycle gate before agent execution can begin.
+   * No agent is spawned and no lifecycle transitions occur while blocked.
+   */
+  @doc("Waiting for parent feature to satisfy a lifecycle gate — agent not yet spawned")
+  Blocked,
 }

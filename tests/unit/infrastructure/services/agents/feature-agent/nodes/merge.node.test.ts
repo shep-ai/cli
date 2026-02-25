@@ -101,15 +101,25 @@ vi.mock('@/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prom
 }));
 
 // Mock output parser
-vi.mock('@/infrastructure/services/agents/feature-agent/nodes/merge-output-parser.js', () => ({
-  parseCommitHash: mockParseCommitHash,
-  parsePrUrl: mockParsePrUrl,
+vi.mock(
+  '@/infrastructure/services/agents/feature-agent/nodes/merge/merge-output-parser.js',
+  () => ({
+    parseCommitHash: mockParseCommitHash,
+    parsePrUrl: mockParsePrUrl,
+  })
+);
+
+// Mock settings service — required by CI watch/fix loop when push || openPr is true
+vi.mock('@/infrastructure/services/settings.service.js', () => ({
+  getSettings: vi.fn().mockReturnValue({
+    workflow: { ciMaxFixAttempts: 3, ciWatchTimeoutMs: 600_000, ciLogMaxChars: 50_000 },
+  }),
 }));
 
 import {
   createMergeNode,
   type MergeNodeDeps,
-} from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
+} from '@/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.js';
 import type { FeatureAgentState } from '@/infrastructure/services/agents/feature-agent/state.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { DiffSummary } from '@/application/ports/output/services/git-pr-service.interface.js';
@@ -151,6 +161,11 @@ function baseDeps(overrides?: Partial<MergeNodeDeps>): MergeNodeDeps {
     getDefaultBranch: vi.fn().mockResolvedValue('main'),
     featureRepository: createMockFeatureRepo(),
     verifyMerge: vi.fn().mockResolvedValue(true),
+    gitPrService: {
+      getCiStatus: vi.fn().mockResolvedValue({ status: 'success', runUrl: null }),
+      watchCi: vi.fn().mockResolvedValue({ status: 'success' }),
+      getFailureLogs: vi.fn().mockResolvedValue(''),
+    } as any,
     ...overrides,
   };
 }

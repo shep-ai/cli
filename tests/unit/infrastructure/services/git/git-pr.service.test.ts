@@ -313,27 +313,90 @@ describe('GitPrService', () => {
   });
 
   describe('watchCi', () => {
-    it('should return success CiStatusResult on pass', async () => {
-      vi.mocked(mockExec).mockResolvedValue({
-        stdout: 'Run completed: success\nhttps://github.com/org/repo/actions/runs/789\n',
-        stderr: '',
-      });
+    it('should resolve run ID via gh run list then watch it', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          // gh run list --branch ... --json databaseId --limit 1
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          // gh run watch 789 --exit-status
+          stdout: 'Run completed: success\nhttps://github.com/org/repo/actions/runs/789\n',
+          stderr: '',
+        });
 
       const result = await service.watchCi('/repo', 'feat/branch');
 
-      expect(mockExec).toHaveBeenCalledWith(
+      expect(mockExec).toHaveBeenNthCalledWith(
+        1,
         'gh',
-        expect.arrayContaining(['run', 'watch']),
+        ['run', 'list', '--branch', 'feat/branch', '--json', 'databaseId', '--limit', '1'],
+        { cwd: '/repo' }
+      );
+      expect(mockExec).toHaveBeenNthCalledWith(
+        2,
+        'gh',
+        ['run', 'watch', '789', '--exit-status'],
         expect.objectContaining({ cwd: '/repo' })
       );
       expect(result.status).toBe('success');
     });
 
+    it('should return pending when no runs exist for the branch', async () => {
+      vi.mocked(mockExec).mockResolvedValueOnce({
+        stdout: '[]',
+        stderr: '',
+      });
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('pending');
+      expect(mockExec).toHaveBeenCalledTimes(1);
+    });
+
+    it('should return failure when gh run watch exits non-zero', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(new Error('exit code 1'));
+
+      const result = await service.watchCi('/repo', 'feat/branch');
+
+      expect(result.status).toBe('failure');
+    });
+
     it('should throw GitPrError with CI_TIMEOUT on timeout', async () => {
-      vi.mocked(mockExec).mockRejectedValue(new Error('timed out waiting for run'));
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockRejectedValueOnce(new Error('timed out waiting for run'));
 
       await expect(service.watchCi('/repo', 'feat/branch', 5000)).rejects.toMatchObject({
         code: GitPrErrorCode.CI_TIMEOUT,
+      });
+    });
+
+    it('should pass timeout option to exec', async () => {
+      vi.mocked(mockExec)
+        .mockResolvedValueOnce({
+          stdout: JSON.stringify([{ databaseId: 789 }]),
+          stderr: '',
+        })
+        .mockResolvedValueOnce({
+          stdout: 'completed success',
+          stderr: '',
+        });
+
+      await service.watchCi('/repo', 'feat/branch', 30000);
+
+      expect(mockExec).toHaveBeenNthCalledWith(2, 'gh', ['run', 'watch', '789', '--exit-status'], {
+        cwd: '/repo',
+        timeout: 30000,
       });
     });
   });

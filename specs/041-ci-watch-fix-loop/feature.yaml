@@ -1,0 +1,54 @@
+feature:
+  id: 041-ci-watch-fix-loop
+  name: ci-watch-fix-loop
+  number: 41
+  branch: feat/041-ci-watch-fix-loop
+  lifecycle: review
+  createdAt: '2026-02-24T15:44:27Z'
+prUrl: https://github.com/shep-ai/cli/pull/119
+status:
+  phase: in-review
+  progress:
+    completed: 6
+    total: 6
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T20:40:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+    - pr-created
+    - review-fixes-applied-1
+    - review-fixes-applied-2
+    - merge
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-24T15:44:27Z'
+    completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-24T16:50:00.000Z'
+    completedBy: shep-kit:commit-pr
+  - phase: review-fixes-applied-1
+    completedAt: '2026-02-24T19:10:00.000Z'
+    completedBy: shep-kit:commit-pr
+  - phase: review-fixes-applied-2
+    completedAt: '2026-02-24T20:40:00.000Z'
+    completedBy: shep-kit:commit-pr
+errors:
+  current: null
+  history: []

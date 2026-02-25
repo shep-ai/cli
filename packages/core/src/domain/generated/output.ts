@@ -349,6 +349,18 @@ export type WorkflowConfig = {
    * Default approval gate preferences for new features
    */
   approvalGateDefaults: ApprovalGateDefaults;
+  /**
+   * Maximum number of CI fix/push/watch iterations before giving up (default: 3)
+   */
+  ciMaxFixAttempts?: number;
+  /**
+   * Timeout in milliseconds for watching a CI run (default: 600000 = 10 minutes)
+   */
+  ciWatchTimeoutMs?: number;
+  /**
+   * Maximum characters of CI failure logs to pass to the executor (default: 50000)
+   */
+  ciLogMaxChars?: number;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
@@ -638,6 +650,7 @@ export enum SdlcLifecycle {
   Implementation = 'Implementation',
   Review = 'Review',
   Maintain = 'Maintain',
+  Blocked = 'Blocked',
 }
 
 /**
@@ -669,6 +682,28 @@ export enum CiStatus {
 }
 
 /**
+ * Record of one CI fix attempt in the watch/fix loop
+ */
+export type CiFixRecord = {
+  /**
+   * 1-based attempt number
+   */
+  attempt: number;
+  /**
+   * ISO timestamp when this attempt started
+   */
+  startedAt: string;
+  /**
+   * First 500 chars of failure logs for this attempt
+   */
+  failureSummary: string;
+  /**
+   * Outcome of this attempt: fixed, failed, or timeout
+   */
+  outcome: string;
+};
+
+/**
  * Pull request tracking data for a feature
  */
 export type PullRequest = {
@@ -692,6 +727,14 @@ export type PullRequest = {
    * CI pipeline status
    */
   ciStatus?: CiStatus;
+  /**
+   * Number of CI fix attempts made
+   */
+  ciFixAttempts?: number;
+  /**
+   * History of CI fix attempts
+   */
+  ciFixHistory?: CiFixRecord[];
 };
 
 /**
@@ -770,6 +813,10 @@ export type Feature = BaseEntity & {
    * Pull request data (null until PR created)
    */
   pr?: PullRequest;
+  /**
+   * Parent feature ID for dependency tracking (optional)
+   */
+  parentId?: UUID;
 };
 
 /**
@@ -1296,6 +1343,10 @@ export type NotificationEvent = {
    * ID of the agent run that triggered this event
    */
   agentRunId: string;
+  /**
+   * ID of the feature that triggered this event
+   */
+  featureId: string;
   /**
    * Human-readable feature name
    */
@@ -1842,6 +1893,62 @@ export type PrdReviewResult = {
 };
 
 /**
+ * A single message within an agent provider CLI session
+ */
+export type AgentSessionMessage = {
+  /**
+   * Provider-native message UUID
+   */
+  uuid: string;
+  /**
+   * Message role — user turn or assistant turn
+   */
+  role: 'user' | 'assistant';
+  /**
+   * Normalized message content as plain text (tool calls and thinking blocks excluded)
+   */
+  content: string;
+  /**
+   * Timestamp when the message was recorded
+   */
+  timestamp: any;
+};
+
+/**
+ * An agent provider CLI session (conversation record read from provider local storage)
+ */
+export type AgentSession = BaseEntity & {
+  /**
+   * Agent executor type that owns this session (e.g. claude-code)
+   */
+  agentType: AgentType;
+  /**
+   * Tilde-abbreviated working directory path for the session (e.g. ~/repos/my-project)
+   */
+  projectPath: string;
+  /**
+   * Total number of user and assistant messages in the session
+   */
+  messageCount: number;
+  /**
+   * Truncated first user message text used as a session summary preview (optional)
+   */
+  preview?: string;
+  /**
+   * Conversation messages — populated only in the detail view (shep session show)
+   */
+  messages?: AgentSessionMessage[];
+  /**
+   * Timestamp of the first message in the session (optional)
+   */
+  firstMessageAt?: any;
+  /**
+   * Timestamp of the most recent message in the session (optional)
+   */
+  lastMessageAt?: any;
+};
+
+/**
  * A selectable option within a PRD questionnaire question
  */
 export type PrdOption = {
@@ -1934,6 +2041,7 @@ export enum AgentFeature {
   toolScoping = 'tool-scoping',
   structuredOutput = 'structured-output',
   systemPrompt = 'system-prompt',
+  sessionListing = 'session-listing',
 }
 export type DeployTarget = DeployTargetActionItem | DeployTargetTask | DeployTargetTasks;
 

@@ -19,6 +19,16 @@ properties:
   ciStatus:
     $ref: CiStatus.yaml
     description: CI pipeline status
+  ciFixAttempts:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Number of CI fix attempts made
+  ciFixHistory:
+    type: array
+    items:
+      $ref: CiFixRecord.yaml
+    description: History of CI fix attempts
 required:
   - url
   - number

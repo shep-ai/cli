@@ -3,7 +3,57 @@ import { renderHook, act } from '@testing-library/react';
 import { NotificationSeverity, NotificationEventType } from '@/domain/generated/output.js';
 import type { NotificationEvent } from '@/domain/generated/output.js';
 
-// --- Mock EventSource ---
+// --- Mock Service Worker API ---
+
+type MessageHandler = (event: MessageEvent) => void;
+
+let swMessageHandlers: MessageHandler[] = [];
+let swPostMessage: ReturnType<typeof vi.fn>;
+let mockRegistration: {
+  active: {
+    state: string;
+    postMessage: ReturnType<typeof vi.fn>;
+    addEventListener: ReturnType<typeof vi.fn>;
+  } | null;
+  installing: null;
+  waiting: null;
+};
+
+function setupServiceWorkerMock() {
+  swMessageHandlers = [];
+  swPostMessage = vi.fn();
+  mockRegistration = {
+    active: {
+      state: 'activated',
+      postMessage: swPostMessage,
+      addEventListener: vi.fn(),
+    },
+    installing: null,
+    waiting: null,
+  };
+
+  Object.defineProperty(navigator, 'serviceWorker', {
+    value: {
+      register: vi.fn().mockResolvedValue(mockRegistration),
+      addEventListener: vi.fn((_event: string, handler: MessageHandler) => {
+        swMessageHandlers.push(handler);
+      }),
+      removeEventListener: vi.fn((_event: string, handler: MessageHandler) => {
+        swMessageHandlers = swMessageHandlers.filter((h) => h !== handler);
+      }),
+    },
+    writable: true,
+    configurable: true,
+  });
+}
+
+/** Simulate the Service Worker sending a message to the page */
+function simulateSWMessage(data: unknown) {
+  const event = { data } as MessageEvent;
+  swMessageHandlers.forEach((h) => h(event));
+}
+
+// --- Mock EventSource (for fallback tests) ---
 
 type EventSourceListener = (event: MessageEvent) => void;
 
@@ -11,7 +61,7 @@ class MockEventSource {
   static instances: MockEventSource[] = [];
 
   url: string;
-  readyState = 0; // CONNECTING
+  readyState = 0;
   onopen: (() => void) | null = null;
   onerror: (() => void) | null = null;
   listeners = new Map<string, EventSourceListener[]>();
@@ -41,7 +91,6 @@ class MockEventSource {
 
   close = vi.fn();
 
-  // Test helpers
   simulateOpen() {
     this.readyState = MockEventSource.OPEN;
     this.onopen?.();
@@ -59,13 +108,13 @@ class MockEventSource {
   }
 }
 
-// Replace global EventSource
 const originalEventSource = globalThis.EventSource;
 
 function createSampleEvent(overrides?: Partial<NotificationEvent>): NotificationEvent {
   return {
     eventType: NotificationEventType.AgentCompleted,
     agentRunId: 'run-123',
+    featureId: 'feat-456',
     featureName: 'Test Feature',
     message: 'Agent completed successfully',
     severity: NotificationSeverity.Success,
@@ -82,8 +131,8 @@ describe('useAgentEvents', () => {
     vi.useFakeTimers();
     MockEventSource.instances = [];
     (globalThis as any).EventSource = MockEventSource;
+    setupServiceWorkerMock();
 
-    // Fresh import to avoid stale module state
     const mod = await import('../../../../../src/presentation/web/hooks/use-agent-events.js');
     useAgentEvents = mod.useAgentEvents;
   });
@@ -94,208 +143,183 @@ describe('useAgentEvents', () => {
     (globalThis as any).EventSource = originalEventSource;
   });
 
-  it('creates EventSource connection to /api/agent-events', () => {
-    renderHook(() => useAgentEvents());
+  describe('Service Worker mode', () => {
+    it('registers the service worker on mount', async () => {
+      renderHook(() => useAgentEvents());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
 
-    expect(MockEventSource.instances).toHaveLength(1);
-    expect(MockEventSource.instances[0].url).toBe('/api/agent-events');
-  });
-
-  it('connectionStatus starts as connecting', () => {
-    const { result } = renderHook(() => useAgentEvents());
-
-    expect(result.current.connectionStatus).toBe('connecting');
-  });
-
-  it('connectionStatus transitions to connected on open', () => {
-    const { result } = renderHook(() => useAgentEvents());
-
-    act(() => {
-      MockEventSource.instances[0].simulateOpen();
+      expect(navigator.serviceWorker.register).toHaveBeenCalledWith('/agent-events-sw.js', {
+        scope: '/',
+      });
     });
 
-    expect(result.current.connectionStatus).toBe('connected');
-  });
+    it('sends subscribe message to active worker', async () => {
+      renderHook(() => useAgentEvents());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
 
-  it('received SSE event is parsed into typed NotificationEvent', () => {
-    const { result } = renderHook(() => useAgentEvents());
-    const event = createSampleEvent();
-
-    act(() => {
-      MockEventSource.instances[0].simulateOpen();
-      MockEventSource.instances[0].simulateEvent('notification', JSON.stringify(event));
+      expect(swPostMessage).toHaveBeenCalledWith({ type: 'subscribe', runId: undefined });
     });
 
-    expect(result.current.events).toHaveLength(1);
-    expect(result.current.events[0]).toEqual(event);
-    expect(result.current.lastEvent).toEqual(event);
-  });
+    it('sends subscribe with runId when provided', async () => {
+      renderHook(() => useAgentEvents({ runId: 'run-abc' }));
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
 
-  it('accumulates multiple events', () => {
-    const { result } = renderHook(() => useAgentEvents());
-
-    const event1 = createSampleEvent({
-      eventType: NotificationEventType.AgentStarted,
-    });
-    const event2 = createSampleEvent({
-      eventType: NotificationEventType.AgentCompleted,
+      expect(swPostMessage).toHaveBeenCalledWith({ type: 'subscribe', runId: 'run-abc' });
     });
 
-    act(() => {
-      MockEventSource.instances[0].simulateOpen();
-      MockEventSource.instances[0].simulateEvent('notification', JSON.stringify(event1));
-      MockEventSource.instances[0].simulateEvent('notification', JSON.stringify(event2));
-    });
-
-    expect(result.current.events).toHaveLength(2);
-    expect(result.current.lastEvent).toEqual(event2);
-  });
-
-  it('EventSource is closed on unmount', () => {
-    const { unmount } = renderHook(() => useAgentEvents());
-    const es = MockEventSource.instances[0];
-
-    unmount();
-
-    expect(es.close).toHaveBeenCalled();
-  });
-
-  it('reconnection attempted with increasing delay after error', async () => {
-    renderHook(() => useAgentEvents());
-
-    // First connection errors
-    act(() => {
-      MockEventSource.instances[0].simulateError();
-    });
-
-    expect(MockEventSource.instances).toHaveLength(1);
-
-    // After 1s backoff, new connection
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-
-    expect(MockEventSource.instances).toHaveLength(2);
-
-    // Second connection errors
-    act(() => {
-      MockEventSource.instances[1].simulateError();
-    });
-
-    // After 2s backoff, new connection
-    act(() => {
-      vi.advanceTimersByTime(2000);
-    });
-
-    expect(MockEventSource.instances).toHaveLength(3);
-
-    // Third connection errors
-    act(() => {
-      MockEventSource.instances[2].simulateError();
-    });
-
-    // After 4s backoff, new connection
-    act(() => {
-      vi.advanceTimersByTime(4000);
-    });
-
-    expect(MockEventSource.instances).toHaveLength(4);
-  });
-
-  it('backoff resets on successful connection', () => {
-    renderHook(() => useAgentEvents());
-
-    // First error + reconnect
-    act(() => {
-      MockEventSource.instances[0].simulateError();
-    });
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(MockEventSource.instances).toHaveLength(2);
-
-    // Second connection opens successfully
-    act(() => {
-      MockEventSource.instances[1].simulateOpen();
-    });
-
-    // Wait for connection to be considered stable (5s)
-    act(() => {
-      vi.advanceTimersByTime(5000);
-    });
-
-    // Then errors again
-    act(() => {
-      MockEventSource.instances[1].simulateError();
-    });
-
-    // Should reconnect after 1s again (backoff was reset after stable connection)
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-
-    expect(MockEventSource.instances).toHaveLength(3);
-  });
-
-  it('backoff does NOT reset if connection closes quickly', () => {
-    renderHook(() => useAgentEvents());
-
-    // First error → backoff becomes 2s
-    act(() => {
-      MockEventSource.instances[0].simulateError();
-    });
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(MockEventSource.instances).toHaveLength(2);
-
-    // Second connection opens but errors before stable threshold
-    act(() => {
-      MockEventSource.instances[1].simulateOpen();
-    });
-    act(() => {
-      MockEventSource.instances[1].simulateError();
-    });
-
-    // Backoff was NOT reset — should need 2s (not 1s) to reconnect
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(MockEventSource.instances).toHaveLength(2); // no new connection yet
-
-    act(() => {
-      vi.advanceTimersByTime(1000);
-    });
-    expect(MockEventSource.instances).toHaveLength(3); // now reconnected after 2s
-  });
-
-  it('runId parameter adds query string to EventSource URL', () => {
-    renderHook(() => useAgentEvents({ runId: 'abc-456' }));
-
-    expect(MockEventSource.instances[0].url).toBe('/api/agent-events?runId=abc-456');
-  });
-
-  it('connectionStatus is disconnected after error before reconnect', () => {
-    const { result } = renderHook(() => useAgentEvents());
-
-    act(() => {
-      MockEventSource.instances[0].simulateError();
-    });
-
-    expect(result.current.connectionStatus).toBe('disconnected');
-  });
-
-  it('handles missing EventSource gracefully', () => {
-    const original = (globalThis as any).EventSource;
-    delete (globalThis as any).EventSource;
-
-    try {
+    it('connectionStatus starts as disconnected then transitions to connecting', async () => {
       const { result } = renderHook(() => useAgentEvents());
-      // No EventSource instances created
-      expect(MockEventSource.instances).toHaveLength(0);
+
       expect(result.current.connectionStatus).toBe('disconnected');
-    } finally {
-      (globalThis as any).EventSource = original;
-    }
+
+      // Flush the SW registration promise + React state updates
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.connectionStatus).toBe('connecting');
+    });
+
+    it('updates connectionStatus when SW sends status message', async () => {
+      const { result } = renderHook(() => useAgentEvents());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      act(() => {
+        simulateSWMessage({ type: 'status', status: 'connected' });
+      });
+
+      expect(result.current.connectionStatus).toBe('connected');
+    });
+
+    it('receives notification events from SW', async () => {
+      const { result } = renderHook(() => useAgentEvents());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      const event = createSampleEvent();
+      act(() => {
+        simulateSWMessage({ type: 'notification', data: event });
+      });
+
+      expect(result.current.events).toHaveLength(1);
+      expect(result.current.events[0]).toEqual(event);
+      expect(result.current.lastEvent).toEqual(event);
+    });
+
+    it('accumulates multiple events from SW', async () => {
+      const { result } = renderHook(() => useAgentEvents());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      const event1 = createSampleEvent({ eventType: NotificationEventType.AgentStarted });
+      const event2 = createSampleEvent({ eventType: NotificationEventType.AgentCompleted });
+
+      act(() => {
+        simulateSWMessage({ type: 'notification', data: event1 });
+        simulateSWMessage({ type: 'notification', data: event2 });
+      });
+
+      expect(result.current.events).toHaveLength(2);
+      expect(result.current.lastEvent).toEqual(event2);
+    });
+
+    it('sends unsubscribe and removes listener on unmount', async () => {
+      const { unmount } = renderHook(() => useAgentEvents());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      unmount();
+
+      expect(swPostMessage).toHaveBeenCalledWith({ type: 'unsubscribe' });
+      expect(navigator.serviceWorker.removeEventListener).toHaveBeenCalled();
+    });
+
+    it('ignores messages with invalid shape', async () => {
+      const { result } = renderHook(() => useAgentEvents());
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+
+      act(() => {
+        simulateSWMessage(null);
+        simulateSWMessage('garbage');
+        simulateSWMessage({ type: 'unknown' });
+      });
+
+      expect(result.current.events).toHaveLength(0);
+      expect(result.current.lastEvent).toBeNull();
+    });
+  });
+
+  describe('EventSource fallback', () => {
+    beforeEach(() => {
+      // Remove serviceWorker to trigger fallback
+      Object.defineProperty(navigator, 'serviceWorker', {
+        value: undefined,
+        writable: true,
+        configurable: true,
+      });
+    });
+
+    it('falls back to direct EventSource when SW not available', () => {
+      renderHook(() => useAgentEvents());
+
+      expect(MockEventSource.instances).toHaveLength(1);
+      expect(MockEventSource.instances[0].url).toBe('/api/agent-events');
+    });
+
+    it('receives events via direct EventSource', () => {
+      const { result } = renderHook(() => useAgentEvents());
+      const event = createSampleEvent();
+
+      act(() => {
+        MockEventSource.instances[0].simulateOpen();
+        MockEventSource.instances[0].simulateEvent('notification', JSON.stringify(event));
+      });
+
+      expect(result.current.events).toHaveLength(1);
+      expect(result.current.lastEvent).toEqual(event);
+    });
+
+    it('EventSource is closed on unmount', () => {
+      const { unmount } = renderHook(() => useAgentEvents());
+      const es = MockEventSource.instances[0];
+
+      unmount();
+
+      expect(es.close).toHaveBeenCalled();
+    });
+
+    it('reconnects with exponential backoff on error', async () => {
+      renderHook(() => useAgentEvents());
+
+      act(() => {
+        MockEventSource.instances[0].simulateError();
+      });
+      expect(MockEventSource.instances).toHaveLength(1);
+
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+      expect(MockEventSource.instances).toHaveLength(2);
+
+      act(() => {
+        MockEventSource.instances[1].simulateError();
+      });
+      act(() => {
+        vi.advanceTimersByTime(2000);
+      });
+      expect(MockEventSource.instances).toHaveLength(3);
+    });
   });
 });

@@ -8,6 +8,9 @@ properties:
   agentRunId:
     type: string
     description: ID of the agent run that triggered this event
+  featureId:
+    type: string
+    description: ID of the feature that triggered this event
   featureName:
     type: string
     description: Human-readable feature name
@@ -27,6 +30,7 @@ properties:
 required:
   - eventType
   - agentRunId
+  - featureId
   - featureName
   - message
   - severity

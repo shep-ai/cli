@@ -206,6 +206,113 @@ describe('createShowCommand - phase timing & approval', () => {
     });
   });
 
+  describe('CI fix display', () => {
+    it('should show CI fix attempts count in PR section', async () => {
+      const feature = makeFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          ciStatus: 'Failure' as any,
+          ciFixAttempts: 2,
+        },
+      });
+      const run = makeRun({ status: AgentRunStatus.completed });
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByFeatureId.mockResolvedValue([]);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).toMatch(/CI Fixes/);
+      expect(output).toMatch(/2 attempt/);
+    });
+
+    it('should not show CI fix attempts when zero', async () => {
+      const feature = makeFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          ciStatus: 'Success' as any,
+        },
+      });
+      const run = makeRun({ status: AgentRunStatus.completed });
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByFeatureId.mockResolvedValue([]);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).not.toMatch(/CI Fixes/);
+    });
+
+    it('should display CI fix history text block with per-attempt details', async () => {
+      const feature = makeFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          ciStatus: 'Failure' as any,
+          ciFixAttempts: 2,
+          ciFixHistory: [
+            {
+              attempt: 1,
+              startedAt: '2025-06-01T10:00:00Z',
+              failureSummary: 'Test suite failed: 3 tests in auth module',
+              outcome: 'failed',
+            },
+            {
+              attempt: 2,
+              startedAt: '2025-06-01T10:05:00Z',
+              failureSummary: 'Lint error in utils.ts line 42',
+              outcome: 'fixed',
+            },
+          ],
+        },
+      });
+      const run = makeRun({ status: AgentRunStatus.completed });
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByFeatureId.mockResolvedValue([]);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).toMatch(/CI Fix History/);
+      expect(output).toMatch(/#1/);
+      expect(output).toMatch(/failed/);
+      expect(output).toMatch(/#2/);
+      expect(output).toMatch(/fixed/);
+    });
+
+    it('should not show CI fix history when no history exists', async () => {
+      const feature = makeFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          ciStatus: 'Success' as any,
+        },
+      });
+      const run = makeRun({ status: AgentRunStatus.completed });
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByFeatureId.mockResolvedValue([]);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).not.toMatch(/CI Fix History/);
+    });
+  });
+
   describe('approval context', () => {
     it('should show approval instructions when waiting for approval', async () => {
       const feature = makeFeature();

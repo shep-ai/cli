@@ -115,6 +115,50 @@ ${steps.join('\n')}
 }
 
 /**
+ * Build a prompt for the CI watch/fix agent call.
+ *
+ * Instructs the executor to diagnose CI failure logs, apply a targeted fix,
+ * commit with the prescribed conventional message format, and push to the branch.
+ *
+ * @param failureLogs - Truncated CI failure log output
+ * @param attemptNumber - 1-based current attempt number
+ * @param maxAttempts - Maximum allowed attempts
+ * @param branch - Feature branch name to push to after fixing
+ */
+export function buildCiWatchFixPrompt(
+  failureLogs: string,
+  attemptNumber: number,
+  maxAttempts: number,
+  branch: string
+): string {
+  return `You are fixing a CI failure on branch \`${branch}\` (attempt ${attemptNumber}/${maxAttempts}).
+
+## CI Failure Logs
+
+The following logs were retrieved from the failed GitHub Actions run:
+
+\`\`\`
+${failureLogs}
+\`\`\`
+
+## Instructions
+
+1. Analyze the CI failure logs above to diagnose the root cause
+2. Apply a targeted fix to resolve the failure — change only what is necessary
+3. Stage all changes: \`git add -A\`
+4. Commit with this exact conventional commit message format:
+   \`fix(ci): attempt ${attemptNumber}/${maxAttempts} — <short description of what you fixed>\`
+5. Push the fix to the branch: \`git push origin ${branch}\`
+
+## Constraints
+
+- Fix ONLY the issue(s) causing the CI failure — do not refactor unrelated code
+- The commit message MUST start with \`fix(ci): attempt ${attemptNumber}/${maxAttempts} — \`
+- Do NOT create a new branch — push directly to \`${branch}\`
+- If the failure is unclear, make your best diagnosis and explain your reasoning in the commit message`;
+}
+
+/**
  * Build a prompt for the merge/squash agent call.
  *
  * When a PR exists, uses `gh pr merge` (remote operation — no local merge needed).

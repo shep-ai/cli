@@ -1,0 +1,64 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+# Retroactive spec: documents work implemented without prior specification.
+
+name: rejection-feedback-isolation
+summary: >
+  Two-phase fix: Phase 1 rewrites the merge node to consume rejection feedback and break
+  the infinite loop. Phase 2 adds phase-tagging to rejection entries and filters feedback
+  in all prompt templates.
+
+relatedFeatures:
+  - 036-drawer-approval-rejection
+
+technologies:
+  - 'LangGraph'
+  - 'tsyringe'
+  - 'Vitest'
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Fix Merge Node Rejection Loop'
+    description: >
+      Rewrite merge.node.ts to read rejection feedback from state and include it
+      in the merge prompt. Update merge-prompts.ts to accept and format rejection
+      context. Write integration tests for the merge flow with rejection.
+    parallel: false
+
+  - id: phase-2
+    name: 'Isolate Rejection Feedback by Phase'
+    description: >
+      Add phase field to reject-agent-run use case. Register REJECT_FEEDBACK_TOKEN
+      in DI container. Update plan.prompt.ts, requirements.prompt.ts, and
+      merge-prompts.ts to filter rejections by phase. Write integration tests for
+      phase-specific feedback propagation.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge.node.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/plan.prompt.ts
+  - packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/requirements.prompt.ts
+  - packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - tests/integration/infrastructure/services/agents/graph-state-transitions/merge-flow.test.ts
+  - tests/integration/infrastructure/services/agents/graph-state-transitions/reject-flow.test.ts
+  - tests/integration/infrastructure/services/agents/graph-state-transitions/reject-feedback-propagation.test.ts
+  - tests/unit/infrastructure/di/container-reject-token.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/merge.node.test.ts
+  - tests/unit/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.test.ts
+
+openQuestions: []
+
+content: |
+  ## Implementation Approach
+
+  **Phase 1** addresses the immediate infinite loop by making the merge node
+  feedback-aware. **Phase 2** addresses the broader phase isolation issue.
+
+  Both fixes are backward-compatible: entries without a phase field fall into a
+  '_legacy' bucket that prompts can still consume.

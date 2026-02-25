@@ -158,6 +158,7 @@ describe('IGitPrService', () => {
       }),
       listPrStatuses: async () => [],
       verifyMerge: async () => true,
+      getFailureLogs: async () => '',
     };
 
     // Verify all methods exist
@@ -174,6 +175,7 @@ describe('IGitPrService', () => {
       'getPrDiffSummary',
       'listPrStatuses',
       'verifyMerge',
+      'getFailureLogs',
     ];
 
     expect(methodNames).toHaveLength(12);

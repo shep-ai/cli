@@ -1,0 +1,211 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ui-daemon-lifecycle
+summary: >
+  Thin orchestration layer over existing services to add daemon lifecycle management.
+  The implementation follows Clean Architecture patterns already established in the codebase:
+  a new IDaemonService output port, DaemonPidService infrastructure implementation, four
+  new CLI command files (start, stop, status, _serve), a shared startDaemon() helper to
+  avoid duplication between the default action and shep start, and a surgical change to
+  index.ts to replace the help fallback with the daemon auto-start. All decisions from the
+  research phase are finalized — no new runtime npm dependencies, ps shell-out (injection-safe
+  via separate argument array, not string interpolation) for metrics, atomic daemon.json writes,
+  and SIGTERM + SIGKILL two-stage shutdown.
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Commander.js (CLI framework — existing, .hidden() for _serve)
+  - Node.js child_process.spawn (detached daemon spawn with stdio ignore + unref)
+  - Node.js child_process.execFile (ps metrics shell-out, injection-safe via arg array)
+  - Node.js fs/promises (atomic daemon.json writes via writeFile + rename)
+  - Node.js process (PID liveness via process.kill with signal 0)
+  - ps POSIX binary (CPU/RSS metrics, called via execFile arg array)
+  - picocolors (terminal styling — existing)
+  - tsyringe (DI container — existing)
+  - BrowserOpenerService (existing)
+  - WebServerService (existing)
+  - findAvailablePort / DEFAULT_PORT (existing port.service)
+  - getShepHomeDir / ensureShepDirectory (existing shep-directory.service)
+  - onboardingWizard / CheckOnboardingStatusUseCase (existing)
+  - Vitest (unit tests — existing)
+  - Playwright (E2E tests — existing)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Foundation — Directory Helper, IDaemonService Port & DaemonPidService'
+    description: >
+      Establish the infrastructure base that all four new CLI commands will depend on.
+      Add getDaemonStatePath() to the existing shep-directory.service so daemon tests
+      can use SHEP_HOME isolation. Define the IDaemonService output port interface with
+      the DaemonState shape. Implement DaemonPidService with atomic JSON write, read,
+      delete, and PID liveness check. Register the service as a singleton in container.ts.
+      This phase produces fully-tested, isolated infrastructure with no CLI changes.
+    parallel: false
+
+  - id: phase-2
+    name: 'Daemon Spawn — _serve Command & startDaemon() Shared Helper'
+    description: >
+      Implement the two components that make the daemon actually run: the hidden _serve
+      CLI subcommand (which runs in the child process and starts WebServerService with the
+      standard SIGTERM/SIGINT shutdown pattern from ui.command.ts), and the startDaemon()
+      shared helper function (which handles the parent-side logic: port resolution, daemon
+      already-running idempotency check, child spawn + unref, daemon.json write, URL print,
+      and browser open). The helper is extracted to prevent duplication between the default
+      index.ts action and shep start. This phase establishes the core daemon lifecycle
+      without yet wiring it to any user-visible commands.
+    parallel: false
+
+  - id: phase-3
+    name: 'CLI Commands — start, stop, status'
+    description: >
+      Implement the three user-facing daemon lifecycle commands as thin orchestration
+      wrappers over the foundation from phases 1-2. start.command.ts delegates entirely
+      to the startDaemon() helper. stop.command.ts reads daemon.json, sends SIGTERM,
+      polls for exit, falls back to SIGKILL, and deletes daemon.json. status.command.ts
+      reads daemon.json, verifies PID liveness, runs ps for CPU/RSS, computes uptime from
+      startedAt, and renders the result with renderDetailView. All three commands follow
+      the existing one-file-per-command pattern with createXxxCommand() factories.
+      Unit tests mock IDaemonService and child_process.
+    parallel: false
+
+  - id: phase-4
+    name: 'CLI Integration — Wire Commands & Change Default Action in index.ts'
+    description: >
+      Register all new commands (start, stop, status, _serve) in index.ts via
+      program.addCommand(). Change the root command default action from outputHelp() to
+      calling the shared startDaemon() helper. The onboarding gate already exists at
+      lines 82-89 of index.ts — the only change is replacing the fall-through (which
+      causes Commander to print help) with an explicit .action() on the root command.
+      Integration tests verify the full default action flow with mocked DI services.
+    parallel: false
+
+  - id: phase-5
+    name: 'Documentation & E2E Test'
+    description: >
+      Rewrite the README Quick Start section to the 3-step install to shep to done flow
+      and update the CLI reference table to include start/stop/status. Write the Playwright
+      E2E test that exercises the full lifecycle: shep start (with SHEP_HOME isolation) to
+      poll until shep status reports running to shep stop to verify daemon.json is deleted.
+      The E2E test uses process.env.SHEP_HOME pointing to a temp directory to prevent
+      writing to the real ~/.shep/ and uses the compiled CLI binary (pnpm build first).
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/application/ports/output/services/daemon-service.interface.ts
+  - packages/core/src/infrastructure/services/daemon/daemon-pid.service.ts
+  - packages/core/src/infrastructure/services/daemon/__tests__/daemon-pid.service.test.ts
+  - src/presentation/cli/commands/daemon/start-daemon.ts
+  - src/presentation/cli/commands/start.command.ts
+  - src/presentation/cli/commands/stop.command.ts
+  - src/presentation/cli/commands/status.command.ts
+  - src/presentation/cli/commands/_serve.command.ts
+  - tests/unit/commands/start.command.test.ts
+  - tests/unit/commands/stop.command.test.ts
+  - tests/unit/commands/status.command.test.ts
+  - tests/e2e/cli/daemon-lifecycle.spec.ts
+
+filesToModify:
+  - packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/index.ts
+  - README.md
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The daemon lifecycle feature is a thin orchestration layer that sits entirely in the CLI
+  presentation layer and calls existing infrastructure services via the DI container:
+
+  ```
+  CLI Commands (start / stop / status / _serve)
+    |-- IDaemonService (new) -> DaemonPidService -> ~/.shep/daemon.json
+    |-- IWebServerService (existing) -> WebServerService  [_serve child only]
+    |-- BrowserOpenerService (existing, direct)          [start parent only]
+    |-- findAvailablePort / DEFAULT_PORT (existing)      [start parent only]
+    +-- getDaemonStatePath (new helper, existing file)   [DaemonPidService only]
+  ```
+
+  Clean Architecture layer boundaries are respected:
+  - IDaemonService output port lives in application/ports/output/services/
+  - DaemonPidService implementation lives in infrastructure/services/daemon/
+  - CLI commands live in presentation/cli/commands/ and are thin orchestration wrappers
+  - No new domain entities are needed — DaemonState is a plain interface, not a domain model
+
+  ## Key Design Decisions
+
+  ### 1. Shared startDaemon() Helper
+  Both `shep` (default action) and `shep start` need identical daemon-spawn logic. Rather
+  than duplicating it or reaching across command files, extract a startDaemon(opts) function
+  to src/presentation/cli/commands/daemon/start-daemon.ts. Both index.ts and start.command.ts
+  import this function. This is the single most important DRY decision in the feature.
+
+  ### 2. Hidden _serve Subcommand as Daemon Entry Point
+  The daemon child runs process.execPath with args ['_serve', '--port', N] and spawn options
+  {detached: true, stdio: 'ignore'} plus child.unref(). This is the canonical Node.js daemon
+  pattern (already used by BrowserOpenerService). Using process.execPath ensures the child
+  runs the same compiled CLI binary with full DI container bootstrap — no extra files to ship,
+  no shell scripting. The _serve command is hidden via Commander .hidden(true).
+
+  ### 3. Atomic daemon.json via Write-Temp + Rename
+  fs.writeFile(tmpPath) then fs.rename(tmpPath, finalPath). POSIX rename is atomic on the
+  same filesystem, preventing half-written JSON from corrupting subsequent shep start calls.
+  This is the same conceptual pattern used by npm and many config systems. Zero dependencies.
+
+  ### 4. DaemonPidService as Injectable Singleton
+  Follows the exact pattern of WebServerService, BrowserOpenerService: class with @injectable()
+  decorator, implements the output port interface, registered in container.ts as a singleton.
+  Allows mocking in tests via container.register('IDaemonService', { useValue: mockService }).
+
+  ### 5. Injection-Safe ps Shell-Out for Metrics
+  child_process.execFile('ps', ['-o', 'pid=,pcpu=,rss=', '-p', pidStr]) passes the PID as a
+  separate array argument — the argument is never interpolated into a shell string, so no
+  shell injection is possible. This mirrors the BrowserOpenerService pattern. Works identically
+  on macOS and Linux via POSIX -o column syntax. No new npm dependencies.
+
+  ### 6. SIGTERM + 5s Poll + SIGKILL in shep stop
+  Symmetric with the daemon's own 5s forceExit timer in ui.command.ts. The daemon's shutdown
+  handler drains HTTP connections and stops the notification watcher — this needs up to 5s.
+  After 5s, SIGKILL prevents zombie processes. daemon.json is always deleted regardless of
+  how termination occurred.
+
+  ### 7. getDaemonStatePath() in shep-directory.service
+  Follows the existing getShepDbPath() pattern: a simple one-liner that respects the
+  SHEP_HOME environment variable. This is critical for test isolation — daemon integration
+  and E2E tests set SHEP_HOME to a temp directory to avoid writing to the real ~/.shep/.
+
+  ### 8. Full Container Bootstrap in _serve Child
+  The _serve command calls the same bootstrap sequence as index.ts. Skipping migrations
+  would risk schema errors if the user upgraded shep between daemon restarts. The parent
+  exits within 2s via child.unref() regardless of how long the child's bootstrap takes.
+
+  ## Implementation Strategy
+
+  Phases are ordered by dependency:
+  - Phase 1 first because all commands depend on DaemonPidService
+  - Phase 2 second because the spawn helper is needed by start.command.ts (phase 3)
+  - Phase 3 third because commands can now be fully implemented and tested in isolation
+  - Phase 4 fourth because wiring requires all commands to exist first
+  - Phase 5 last because E2E requires a fully integrated CLI, and README is lowest risk
+
+  Each phase builds on the previous with no circular dependencies. The TDD discipline is
+  enforced at every task: no implementation file is written before its test file exists.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Stale daemon.json after unclean exit | shep start checks PID liveness (process.kill with signal 0) and treats ESRCH as no daemon |
+  | Partial daemon.json write on crash | Atomic write-temp + rename prevents partial files |
+  | _serve child keeps parent alive | {stdio: 'ignore'} + child.unref() — verified by the NFR-1 parent-exits-within-2s E2E assertion |
+  | SHEP_HOME env var missing in tests | getDaemonStatePath() uses resolveShepHomeDir() which already handles SHEP_HOME — covered in existing pattern |
+  | ps not available on test host | execFile has 2s timeout; status command wraps ps call in try/catch, shows metrics unavailable on failure |
+  | onboarding gate change breaks CI | TTY check (process.stdin.isTTY) prevents the onboarding/daemon path from running in CI non-TTY environments |
+  | Commander default action conflicts with subcommands | Commander only fires root action when zero subcommands match — existing behavior is preserved for shep start, shep stop etc. |
+  | daemon.json PID integer validation | shep stop validates PID is a positive finite integer before calling process.kill() to prevent NaN/edge case issues |

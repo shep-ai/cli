@@ -1,0 +1,228 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ci-watch-integration-test
+summary: >
+  The integration test requires no new libraries or infrastructure — only vitest primitives and
+  direct instantiation of GitPrService with a vi.fn() ExecFunction fake. The four-scenario
+  structure (success, failure, cancelled, timeout) maps exactly to the three output-parsing
+  branches in watchCi plus the timeout throw path. Import patterns and mock conventions are
+  established by the existing git-pr.service.test.ts and worktree-git-init.test.ts.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - vitest (vi.fn, vi.mocked, mockResolvedValueOnce, beforeEach, describe, it, expect)
+  - TypeScript
+  - reflect-metadata
+  - GitPrService (packages/core/src/infrastructure/services/git/git-pr.service.ts)
+  - ExecFunction (packages/core/src/infrastructure/services/git/worktree.service.ts)
+  - GitPrError / GitPrErrorCode / CiStatusResult (packages/core/src/application/ports/output/services/git-pr-service.interface.ts)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'ExecFunction Fake Strategy'
+    chosen: 'vi.fn() with per-call mockResolvedValueOnce / mockRejectedValueOnce'
+    rejected:
+      - 'Real gh CLI invocation — requires gh auth, network access, and an actual GitHub repo; violates NFR-4 (< 100 ms) and is non-hermetic'
+      - 'Module-level vi.mock() replacing the ExecFunction module — unnecessary indirection for a constructor-injected dependency; direct vi.fn() injection is simpler and already used in git-pr.service.test.ts (line 28)'
+    rationale: >
+      GitPrService is constructor-injected with an ExecFunction (git-pr.service.ts line 26).
+      The existing unit test pattern (git-pr.service.test.ts lines 24-29) creates `mockExec =
+      vi.fn()` then passes it directly to `new GitPrService(mockExec)`. Each scenario uses
+      mockResolvedValueOnce or mockRejectedValueOnce to control what the fake returns.
+      This is the least-ceremony approach that exercises the real watchCi parsing logic.
+
+  - title: 'Service Instantiation Approach'
+    chosen: 'Direct new GitPrService(mockExec) — no DI container'
+    rejected:
+      - 'container.resolve(GitPrService) with DI container setup — requires initializeContainer() which opens a SQLite connection and registers all infrastructure; wasteful for a test that only exercises one method and contradicts FR-2'
+      - 'Interface-typed variable as IGitPrService — valid but adds unnecessary abstraction; the test targets concrete implementation behaviour, and direct instantiation makes the dependency graph obvious'
+    rationale: >
+      FR-2 is explicit: instantiate via `new GitPrService(mockExec)`. The existing
+      unit tests confirm this pattern works without container setup. GitPrService's only
+      constructor parameter is ExecFunction (git-pr.service.ts line 26), so no other
+      dependencies need resolution.
+
+  - title: 'Test File Location Classification'
+    chosen: 'tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts'
+    rejected:
+      - 'tests/unit/infrastructure/services/git/ — technically valid since no real I/O occurs, but the spec success criteria and NFR-5 name the integration path explicitly; test:int covers tests/integration/**'
+      - 'New tests/contract/ directory — non-standard for this codebase; introduces a third test tier not reflected in existing pnpm scripts (test:unit, test:int)'
+    rationale: >
+      The spec success criteria name the exact path in tests/integration/. The test exercises
+      the full watchCi contract (command construction → exec call → stdout parsing → return
+      value / error throw) in one describe block rather than isolating a single branch.
+      pnpm test:int already covers tests/integration/**, so no script changes are needed.
+
+  - title: 'Multi-line Fixture Content Format'
+    chosen: 'Template literal strings, minimum 3 lines, with realistic gh run watch keyword placement'
+    rejected:
+      - 'Single-line strings (e.g., "success") — violates spec ≥3-line requirement and does not exercise stdout.trim() on real multi-line output'
+      - 'ANSI escape-encoded strings matching real terminal output — brittle, not representative of the parsed text watchCi receives, and overly complex for a controlled fake'
+    rationale: >
+      The watchCi implementation calls `stdout.includes('success')` and `stdout.trim()` (lines
+      185-188 of git-pr.service.ts). Multi-line fixtures verify that includes() scans the full
+      buffer and that trim() only strips surrounding whitespace. Three-line fixtures satisfy
+      the spec constraint while keeping test data readable.
+
+  - title: 'Timeout Forwarding Assertion Precision'
+    chosen: 'Exact { cwd, timeout: timeoutMs } object match on exec call options'
+    rejected:
+      - 'expect.objectContaining({ timeout: timeoutMs }) — already used in the unit test (line 327); the integration test should add precision rather than repeat the same loose matcher'
+      - 'Skip the forwarding assertion — the CI_TIMEOUT throw only proves the error message was matched, not that timeoutMs was forwarded to exec; this gap is exactly what open question 3 resolved to close'
+    rationale: >
+      The implementation spreads timeoutMs conditionally: `...(timeoutMs ? { timeout: timeoutMs }
+      : {})` (git-pr.service.ts line 182). An exact options assertion is the only way to confirm
+      the spread fires when timeoutMs is defined. The existing unit test (lines 322-328) only
+      checks `expect.objectContaining({ cwd })` and does NOT assert timeout forwarding —
+      confirmed by direct inspection. FR-8 mandates this assertion.
+
+  - title: 'beforeEach Reset Strategy'
+    chosen: 'Reassign mockExec = vi.fn() and re-instantiate service in beforeEach'
+    rejected:
+      - 'vi.clearAllMocks() without re-instantiation — clears recorded calls but leaves the same mock reference; re-instantiation is safer and matches the existing unit test pattern (git-pr.service.test.ts lines 27-30)'
+      - 'No beforeEach, declare mockExec const per-test — verbose and repeats instantiation boilerplate four times; NFR-2 explicitly requires shared state to live only in beforeEach'
+    rationale: >
+      The existing unit test pattern (git-pr.service.test.ts lines 23-30) assigns
+      `mockExec = vi.fn()` and `service = new GitPrService(mockExec)` inside beforeEach.
+      This guarantees each it block starts with a fresh mock with zero recorded calls,
+      satisfying NFR-2 (independently self-contained tests).
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the integration test use @/ path alias or relative paths for imports?'
+    resolved: true
+    options:
+      - option: '@/ alias import (e.g., @/infrastructure/services/git/git-pr.service)'
+        description: >
+          Matches the project convention established in git-pr.service.test.ts (line 9) and
+          all other test files. The vitest config already resolves @/ to packages/core/src
+          for all tests in the root workspace.
+        selected: true
+      - option: 'Relative path import (e.g., ../../../../../packages/core/src/...)'
+        description: >
+          Works without alias configuration but produces fragile deep-relative paths and
+          diverges from all existing test files in the codebase. More error-prone to maintain.
+        selected: false
+      - option: '@shepai/core package import'
+        description: >
+          Valid for the @shepai/web package but not for tests in the root workspace, which
+          already resolve @/ directly to packages/core/src via vitest config.
+        selected: false
+    selectionRationale: >
+      Every test file under tests/ uses the @/ alias (confirmed in git-pr.service.test.ts
+      lines 9, 13-14). FR-10 of the spec mandates @/ alias consistency. The vitest config
+      already resolves this alias, so no configuration changes are needed.
+    answer: '@/ alias import'
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-24
+
+  ## Technology Decisions
+
+  ### 1. ExecFunction Fake Strategy
+
+  **Chosen:** `vi.fn()` with per-call `mockResolvedValueOnce` / `mockRejectedValueOnce`
+
+  **Rejected:**
+  - Real gh CLI invocation — non-hermetic, requires auth, violates < 100 ms constraint
+  - `vi.mock()` module replacement — unnecessary indirection for a constructor-injected dep
+
+  **Rationale:** GitPrService takes ExecFunction as a constructor argument (git-pr.service.ts:26).
+  The existing unit tests (git-pr.service.test.ts:24-29) pass `vi.fn()` directly — this is the
+  established pattern. Each scenario chains mockResolvedValueOnce/mockRejectedValueOnce to
+  control what the fake exec returns on each call.
+
+  ### 2. Service Instantiation
+
+  **Chosen:** `new GitPrService(mockExec)` — no DI container
+
+  **Rejected:**
+  - `container.resolve(GitPrService)` — opens SQLite, registers all infra; completely
+    unnecessary for a test that has no persistence concern
+  - Typed as `IGitPrService` — fine but obscures that we're testing the concrete class
+
+  **Rationale:** FR-2 is unambiguous. GitPrService has exactly one constructor dependency.
+  Direct instantiation is used throughout the unit test suite.
+
+  ### 3. Test File Location
+
+  **Chosen:** `tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts`
+
+  **Rejected:**
+  - `tests/unit/` — technically valid since no real I/O, but spec and NFR-5 dictate the path
+  - New `tests/contract/` directory — non-standard, conflicts with pnpm script structure
+
+  **Rationale:** The spec's success criteria name the path explicitly. `pnpm test:int` covers
+  `tests/integration/**`. The test exercises the full watchCi contract end-to-end with a
+  controlled fake, distinguishing it from unit tests that mock individual methods.
+
+  ### 4. Multi-line Fixture Format
+
+  **Chosen:** Template literal strings, ≥3 lines, with realistic keyword placement
+
+  **Rejected:**
+  - Single-line strings — violates spec ≥3-line requirement; doesn't exercise trim()
+  - ANSI-encoded strings — brittle, not representative of parsed exec output
+
+  **Rationale:** `stdout.includes('success')` must scan the full buffer. `stdout.trim()` must
+  remove leading/trailing whitespace from multi-line output. Three-line fixtures hit both.
+
+  ### 5. Timeout Assertion Precision
+
+  **Chosen:** Exact `{ cwd: '/repo', timeout: timeoutMs }` match on exec options argument
+
+  **Rejected:**
+  - `expect.objectContaining` — already used in unit test; integration test should add precision
+  - Skip assertion — leaves the forwarding wiring unverified (the gap this test closes)
+
+  **Rationale:** The implementation uses a conditional spread (git-pr.service.ts:182). An exact
+  options assertion is the only way to confirm the spread fires when timeoutMs is defined. The
+  unit test (lines 322-328) only checks `expect.objectContaining({ cwd })` and does NOT assert
+  timeout — confirmed by direct inspection. FR-8 mandates this assertion.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | vitest (vi, describe, it, expect, beforeEach) | Test framework + mocking | Use | Already installed; all needed primitives available |
+  | reflect-metadata | tsyringe decorator metadata | Use (import only) | Required as first import per CLAUDE.md and all existing test files |
+  | GitPrService | Service under test | Use | Direct instantiation, no wrapper |
+  | GitPrError, GitPrErrorCode, CiStatusResult | Error types + result type | Use | Exported from git-pr-service.interface.ts |
+  | ExecFunction | Constructor argument type | Use (type import only) | Defined in worktree.service.ts |
+  | Any new npm package | N/A | Reject | NFR-3 prohibits new dependencies |
+
+  ## Security Considerations
+
+  None. This is a pure test file with no production side effects. The vi.fn() fake never
+  executes real subprocesses, so there is no injection risk, no filesystem writes, and no
+  network access.
+
+  ## Performance Implications
+
+  All four scenarios resolve or reject synchronously via vi.fn() mocks. No timers, no
+  filesystem, no network. Total execution time is well under 100 ms (NFR-4).
+
+  ## Architecture Notes
+
+  - **No production code changes**: `watchCi` is already fully implemented. This test is
+    purely additive coverage.
+  - **Gaps being closed**: The unit tests (git-pr.service.test.ts:314-338) verify:
+    (1) success string triggers status=success and (2) timeout error throws CI_TIMEOUT.
+    They do NOT verify: (a) cancelled conclusion maps to failure, (b) logExcerpt equals
+    `stdout.trim()` exactly, (c) timeoutMs is forwarded as `{ timeout: timeoutMs }` in exec
+    options. All three gaps are closed by this integration test.
+  - **Test mirror structure**: `tests/integration/infrastructure/services/git/` mirrors
+    `packages/core/src/infrastructure/services/git/` — consistent with the CLAUDE.md
+    convention.
+  - **Clean Architecture compliance**: The test operates at the infrastructure layer boundary.
+    It instantiates a concrete infrastructure service and exercises it through a fake port
+    (ExecFunction). No application or domain layer changes needed.

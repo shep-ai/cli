@@ -256,6 +256,15 @@ model WorkflowConfig {
    */
   @doc("Default approval gate preferences for new features")
   approvalGateDefaults: ApprovalGateDefaults;
+
+  @doc("Maximum number of CI fix/push/watch iterations before giving up (default: 3)")
+  ciMaxFixAttempts?: int32;
+
+  @doc("Timeout in milliseconds for watching a CI run (default: 600000 = 10 minutes)")
+  ciWatchTimeoutMs?: int32;
+
+  @doc("Maximum characters of CI failure logs to pass to the executor (default: 50000)")
+  ciLogMaxChars?: int32;
 }
 
 @doc("AI coding agent configuration")

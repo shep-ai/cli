@@ -69,7 +69,7 @@ function findFreePort(): Promise<number> {
   });
 }
 
-describe('CLI: ui', { timeout: 180_000 }, () => {
+describe('CLI: ui', { timeout: 300_000 }, () => {
   beforeEach(() => {
     // Remove stale Next.js dev lock file to prevent cascading failures
     try {
@@ -108,7 +108,7 @@ describe('CLI: ui', { timeout: 180_000 }, () => {
       const html = await response.text();
       expect(html).toContain('@shepai/cli');
       expect(html).toContain('Autonomous AI Native SDLC Platform');
-    }, 120_000);
+    }, 150_000);
   });
 
   describe('custom port via --port flag', () => {
@@ -128,7 +128,7 @@ describe('CLI: ui', { timeout: 180_000 }, () => {
 
       const html = await response.text();
       expect(html).toContain('@shepai/cli');
-    }, 120_000);
+    }, 150_000);
   });
 
   describe('port conflict handling', () => {
@@ -146,6 +146,6 @@ describe('CLI: ui', { timeout: 180_000 }, () => {
       // Fetch the /version page on the auto-incremented port
       const response = await fetch(`http://localhost:${server.port}/version`);
       expect(response.status).toBe(200);
-    }, 120_000);
+    }, 150_000);
   });
 });

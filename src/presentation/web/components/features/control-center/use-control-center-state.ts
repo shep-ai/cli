@@ -14,6 +14,11 @@ import { deleteFeature } from '@/app/actions/delete-feature';
 import { addRepository } from '@/app/actions/add-repository';
 import { deleteRepository } from '@/app/actions/delete-repository';
 import { useAgentEventsContext } from '@/hooks/agent-events-provider';
+import { useSound } from '@/hooks/use-sound';
+import {
+  mapEventTypeToState,
+  mapPhaseNameToLifecycle,
+} from '@/components/common/feature-node/derive-feature-state';
 
 export interface ControlCenterState {
   nodes: CanvasNodeType[];
@@ -21,6 +26,8 @@ export interface ControlCenterState {
   selectedNode: FeatureNodeData | null;
   isCreateDrawerOpen: boolean;
   pendingRepositoryPath: string;
+  /** Parent feature ID pre-selected when (+) is clicked on a feature node. */
+  pendingParentFeatureId: string | undefined;
   onNodesChange: (changes: NodeChange<CanvasNodeType>[]) => void;
   handleConnect: (connection: Connection) => void;
   clearSelection: () => void;
@@ -39,6 +46,7 @@ export interface ControlCenterState {
     sourceNodeId: string | null,
     dataOverride?: Partial<FeatureNodeData>
   ) => string;
+  selectFeatureById: (featureId: string) => void;
 }
 
 let nextFeatureId = 0;
@@ -65,6 +73,9 @@ export function useControlCenterState(
   const [selectedNode, setSelectedNode] = useState<FeatureNodeData | null>(null);
   const [isCreateDrawerOpen, setIsCreateDrawerOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const deleteSound = useSound('transition_down', { volume: 0.5 });
+  const createSound = useSound('transition_up', { volume: 0.5 });
+  const clickSound = useSound('tap_01', { volume: 0.3 });
   const [pendingRepoNodeId, setPendingRepoNodeId] = useState<string | null>(null);
 
   // Sync server props into local state when router.refresh() delivers new data
@@ -74,6 +85,19 @@ export function useControlCenterState(
     .join(',');
   const initialEdgeKey = initialEdges
     .map((e) => e.id)
+    .sort()
+    .join(',');
+
+  // Track previous feature states so we can detect transitions on server refresh
+  const prevFeatureStatesRef = useRef<Map<string, FeatureNodeData['state']>>(new Map());
+
+  // Stable key that changes when feature DATA changes (state/lifecycle), not just IDs.
+  const initialDataKey = initialNodes
+    .filter((n) => n.type === 'featureNode')
+    .map((n) => {
+      const d = n.data as FeatureNodeData;
+      return `${n.id}:${d.state}:${d.lifecycle}`;
+    })
     .sort()
     .join(',');
 
@@ -117,34 +141,147 @@ export function useControlCenterState(
     setEdges(initialEdges);
   }, [initialEdgeKey, initialEdges, setEdges]);
 
-  // Refresh server data when SSE agent events arrive (status changes)
-  const { lastEvent } = useAgentEventsContext();
-  const processedEventRef = useRef<string | null>(null);
+  // Fallback notifications from server-refresh state transitions.
+  // Fires only when SSE didn't already deliver the matching event for a feature,
+  // e.g. when the SSE connection was down or the event was seeded into the cache.
+  const { events } = useAgentEventsContext();
 
   useEffect(() => {
-    if (!lastEvent) return;
-    const key = `${lastEvent.agentRunId}-${lastEvent.eventType}-${lastEvent.timestamp}`;
-    if (processedEventRef.current === key) return;
-    processedEventRef.current = key;
-    router.refresh();
-  }, [lastEvent, router]);
+    const prevStates = prevFeatureStatesRef.current;
+
+    for (const node of initialNodes) {
+      if (node.type !== 'featureNode') continue;
+      const data = node.data as FeatureNodeData;
+      const prev = prevStates.get(node.id);
+
+      if (prev !== undefined && prev !== data.state) {
+        // Check if SSE already delivered a matching event for this feature
+        const sseAlreadyCovered = events.some(
+          (e) => e.featureId === data.featureId && mapEventTypeToState(e.eventType) === data.state
+        );
+
+        if (!sseAlreadyCovered) {
+          if (data.state === 'done') {
+            toast.success(data.name, { description: 'Feature completed!' });
+          } else if (data.state === 'action-required') {
+            toast.warning(data.name, {
+              description: 'Waiting for your approval',
+              action: {
+                label: 'Review',
+                onClick: () => {
+                  window.dispatchEvent(
+                    new CustomEvent('shep:select-feature', {
+                      detail: { featureId: data.featureId },
+                    })
+                  );
+                },
+              },
+            });
+          } else if (data.state === 'error') {
+            toast.error(data.name, { description: data.errorMessage ?? 'Agent failed' });
+          }
+        }
+      }
+
+      prevStates.set(node.id, data.state);
+    }
+  }, [initialDataKey, initialNodes, events]);
+
+  // Targeted optimistic updates from SSE agent events + debounced reconciliation.
+  // Uses `events` array (not `lastEvent`) so that React batching cannot silently
+  // drop events when multiple SSE messages arrive in the same tick.
+  const processedEventCountRef = useRef(0);
+  const reconcileTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
+
+  useEffect(() => {
+    return () => clearTimeout(reconcileTimerRef.current);
+  }, []);
+
+  useEffect(() => {
+    if (events.length <= processedEventCountRef.current) return;
+
+    const newEvents = events.slice(processedEventCountRef.current);
+    processedEventCountRef.current = events.length;
+
+    for (const event of newEvents) {
+      const newState = mapEventTypeToState(event.eventType);
+      const newLifecycle = mapPhaseNameToLifecycle(event.phaseName);
+
+      // Targeted node update — only clone the matched node
+      setNodes((prev) =>
+        prev.map((node) => {
+          if (node.type !== 'featureNode') return node;
+          const data = node.data as FeatureNodeData;
+          if (data.featureId !== event.featureId) return node;
+          return {
+            ...node,
+            data: {
+              ...data,
+              state: newState,
+              ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
+            },
+          };
+        })
+      );
+
+      // Update drawer if it's showing the matched feature
+      setSelectedNode((prev) => {
+        if (prev?.featureId !== event.featureId) return prev;
+        return {
+          ...prev,
+          state: newState,
+          ...(newLifecycle !== undefined && { lifecycle: newLifecycle }),
+        };
+      });
+    }
+
+    // Debounced background reconciliation (3s after last SSE event)
+    clearTimeout(reconcileTimerRef.current);
+    reconcileTimerRef.current = setTimeout(() => router.refresh(), 3000);
+  }, [events, router]);
+
+  // Periodic polling fallback: refresh server data every 5s when any feature
+  // is in an active state (running/action-required). This ensures the UI stays
+  // current even if the SSE connection drops — belt-and-suspenders alongside SSE.
+  useEffect(() => {
+    const hasActiveFeature = nodes.some((n) => {
+      if (n.type !== 'featureNode') return false;
+      const data = n.data as FeatureNodeData;
+      return (
+        data.state === 'running' || data.state === 'action-required' || data.state === 'creating'
+      );
+    });
+
+    if (!hasActiveFeature) return;
+
+    const interval = setInterval(() => router.refresh(), 5_000);
+    return () => clearInterval(interval);
+  }, [nodes, router]);
 
   const onNodesChange = useCallback((changes: NodeChange<CanvasNodeType>[]) => {
     setNodes((ns) => applyNodeChanges(changes, ns));
   }, []);
 
+  const closeSound = useSound('transition_down', { volume: 0.01 });
   const clearSelection = useCallback(() => {
-    setSelectedNode(null);
-  }, []);
+    setSelectedNode((prev) => {
+      if (prev) closeSound.play();
+      return null;
+    });
+  }, [closeSound]);
 
-  const handleNodeClick = useCallback((_event: React.MouseEvent, node: CanvasNodeType) => {
-    if (node.type === 'featureNode') {
-      const data = node.data as FeatureNodeData;
-      if (data.state === 'creating') return;
-      setIsCreateDrawerOpen(false);
-      setSelectedNode(data);
-    }
-  }, []);
+  const handleNodeClick = useCallback(
+    (_event: React.MouseEvent, node: CanvasNodeType) => {
+      if (node.type === 'featureNode') {
+        const data = node.data as FeatureNodeData;
+        if (data.state === 'creating') return;
+        clickSound.play();
+        setIsCreateDrawerOpen(false);
+        setSelectedNode(data);
+      }
+    },
+    [clickSound]
+  );
 
   // Keyboard shortcut: Escape to deselect
   useEffect(() => {
@@ -191,7 +328,11 @@ export function useControlCenterState(
   );
 
   const createFeatureNode = useCallback(
-    (sourceNodeId: string | null, dataOverride?: Partial<FeatureNodeData>): string => {
+    (
+      sourceNodeId: string | null,
+      dataOverride?: Partial<FeatureNodeData>,
+      edgeType?: string
+    ): string => {
       const id = `feature-${Date.now()}-${nextFeatureId++}`;
       const newFeatureData: FeatureNodeData = {
         name: dataOverride?.name ?? 'New Feature',
@@ -292,10 +433,13 @@ export function useControlCenterState(
         setEdges((currentEdges) => [
           ...currentEdges,
           {
-            id: `edge-${sourceNodeId}-${id}`,
+            id:
+              edgeType === 'dependencyEdge'
+                ? `dep-${sourceNodeId}-${id}`
+                : `edge-${sourceNodeId}-${id}`,
             source: sourceNodeId,
             target: id,
-            style: { strokeDasharray: '5 5' },
+            ...(edgeType ? { type: edgeType } : { style: { strokeDasharray: '5 5' } }),
           },
         ]);
       }
@@ -310,23 +454,35 @@ export function useControlCenterState(
   );
 
   const handleAddFeature = useCallback(() => {
+    clickSound.play();
     setSelectedNode(null);
     setIsCreateDrawerOpen(true);
-  }, []);
+  }, [clickSound]);
+
+  const [pendingParentFeatureId, setPendingParentFeatureId] = useState<string | undefined>();
 
   const handleCreateFeatureSubmit = useCallback(
     (data: FeatureCreatePayload) => {
       // 1. Insert optimistic node instantly
-      const tempId = createFeatureNode(pendingRepoNodeId, {
-        state: 'creating',
-        name: data.name,
-        description: data.description,
-        repositoryPath: data.repositoryPath,
-      });
+      // For child features, connect to the parent feature node instead of the repo node
+      const sourceNodeId = pendingParentFeatureId
+        ? `feat-${pendingParentFeatureId}`
+        : pendingRepoNodeId;
+      const tempId = createFeatureNode(
+        sourceNodeId,
+        {
+          state: 'creating',
+          name: data.name,
+          description: data.description,
+          repositoryPath: data.repositoryPath,
+        },
+        pendingParentFeatureId ? 'dependencyEdge' : undefined
+      );
 
       // 2. Close drawer and clear pending state immediately
       setIsCreateDrawerOpen(false);
       setPendingRepoNodeId(null);
+      setPendingParentFeatureId(undefined);
 
       // 3. Fire server action in the background
       createFeature(data)
@@ -339,6 +495,7 @@ export function useControlCenterState(
             return;
           }
 
+          createSound.play();
           router.refresh();
         })
         .catch(() => {
@@ -348,12 +505,14 @@ export function useControlCenterState(
           toast.error('Failed to create feature');
         });
     },
-    [router, createFeatureNode, pendingRepoNodeId, setEdges]
+    [router, createFeatureNode, pendingRepoNodeId, createSound, pendingParentFeatureId, setEdges]
   );
 
   const closeCreateDrawer = useCallback(() => {
+    closeSound.play();
     setIsCreateDrawerOpen(false);
-  }, []);
+    setPendingParentFeatureId(undefined);
+  }, [closeSound]);
 
   const handleDeleteFeature = useCallback(
     async (featureId: string) => {
@@ -380,6 +539,7 @@ export function useControlCenterState(
           setEdges(result.edges);
           return result.nodes;
         });
+        deleteSound.play();
         toast.success('Feature deleted successfully');
         router.refresh();
       } catch {
@@ -388,7 +548,7 @@ export function useControlCenterState(
         setIsDeleting(false);
       }
     },
-    [router, edges, setEdges]
+    [router, edges, deleteSound, setEdges]
   );
 
   const handleDeleteRepository = useCallback(
@@ -408,6 +568,7 @@ export function useControlCenterState(
           return;
         }
 
+        deleteSound.play();
         toast.success('Repository removed');
         router.refresh();
       } catch {
@@ -415,20 +576,33 @@ export function useControlCenterState(
         router.refresh();
       }
     },
-    [router, setEdges]
+    [router, deleteSound, setEdges]
   );
 
-  const handleAddFeatureToRepo = useCallback((repoNodeId: string) => {
-    setSelectedNode(null);
-    setPendingRepoNodeId(repoNodeId);
-    setIsCreateDrawerOpen(true);
-  }, []);
+  const handleAddFeatureToRepo = useCallback(
+    (repoNodeId: string) => {
+      clickSound.play();
+      setSelectedNode(null);
+      setPendingRepoNodeId(repoNodeId);
+      setIsCreateDrawerOpen(true);
+    },
+    [clickSound]
+  );
 
   const handleAddFeatureToFeature = useCallback(
     (featureNodeId: string) => {
-      createFeatureNode(featureNodeId);
+      // Extract feature ID from node ID (format: "feat-<uuid>")
+      const featureId = featureNodeId.startsWith('feat-') ? featureNodeId.slice(5) : featureNodeId;
+      // Find the repo node that owns this feature
+      const repoEdge = edges.find((e) => e.target === featureNodeId);
+      const repoNodeId = repoEdge?.source ?? null;
+
+      setSelectedNode(null);
+      setPendingRepoNodeId(repoNodeId);
+      setPendingParentFeatureId(featureId);
+      setIsCreateDrawerOpen(true);
     },
-    [createFeatureNode]
+    [edges]
   );
 
   const handleLayout = useCallback(
@@ -535,6 +709,7 @@ export function useControlCenterState(
             }))
           );
 
+          createSound.play();
           router.refresh();
         })
         .catch(() => {
@@ -551,8 +726,25 @@ export function useControlCenterState(
           toast.error('Failed to add repository');
         });
     },
-    [router, setEdges]
+    [router, createSound, setEdges]
   );
+
+  // Ref keeps latest nodes so selectFeatureById has a stable identity
+  const nodesRef = useRef(nodes);
+  nodesRef.current = nodes;
+
+  const selectFeatureById = useCallback((featureId: string) => {
+    const node = nodesRef.current.find(
+      (n) => n.type === 'featureNode' && (n.data as FeatureNodeData).featureId === featureId
+    );
+    if (node) {
+      const data = node.data as FeatureNodeData;
+      if (data.state !== 'creating') {
+        setIsCreateDrawerOpen(false);
+        setSelectedNode(data);
+      }
+    }
+  }, []);
 
   const pendingNode = pendingRepoNodeId ? nodes.find((n) => n.id === pendingRepoNodeId) : null;
   const pendingRepositoryPath =
@@ -564,6 +756,7 @@ export function useControlCenterState(
     selectedNode,
     isCreateDrawerOpen,
     pendingRepositoryPath,
+    pendingParentFeatureId,
     onNodesChange,
     handleConnect,
     clearSelection,
@@ -579,5 +772,6 @@ export function useControlCenterState(
     handleDeleteRepository,
     isDeleting,
     createFeatureNode,
+    selectFeatureById,
   };
 }

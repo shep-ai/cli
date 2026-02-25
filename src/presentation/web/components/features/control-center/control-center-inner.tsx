@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { Edge } from '@xyflow/react';
 import { toast } from 'sonner';
 import type {
@@ -18,12 +18,14 @@ import type { TechDecisionsReviewData } from '@/components/common/tech-decisions
 import type { MergeReviewData } from '@/components/common/merge-review';
 import { FeaturesCanvas } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
+import type { FeatureNodeData } from '@/components/common/feature-node';
 import { FeatureDrawer, FeatureCreateDrawer } from '@/components/common';
 import { PrdQuestionnaireDrawer } from '@/components/common/prd-questionnaire';
 import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire';
 import { TechDecisionsDrawer } from '@/components/common/tech-decisions-review';
 import { MergeReviewDrawer } from '@/components/common/merge-review';
 import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
+import { useSound } from '@/hooks/use-sound';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -52,7 +54,22 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     handleDeleteFeature,
     handleDeleteRepository,
     closeCreateDrawer,
+    selectFeatureById,
+    pendingParentFeatureId,
   } = useControlCenterState(initialNodes, initialEdges);
+
+  // Extract feature list for the parent selector in the create drawer
+  const featureOptions = useMemo(
+    () =>
+      nodes
+        .filter((n) => n.type === 'featureNode')
+        .map((n) => {
+          const data = n.data as FeatureNodeData;
+          return { id: data.featureId, name: data.name };
+        })
+        .filter((f) => f.id && !f.id.startsWith('#')), // exclude optimistic temp nodes
+    [nodes]
+  );
 
   // Workflow defaults for the create-feature drawer
   const [workflowDefaults, setWorkflowDefaults] = useState<WorkflowDefaults | undefined>();
@@ -71,6 +88,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   // Reject state (shared by both drawers)
   const [isRejecting, setIsRejecting] = useState(false);
+  const rejectSound = useSound('caution', { volume: 0.5 });
 
   // Tech decisions drawer state
   const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
@@ -143,6 +161,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           return;
         }
 
+        rejectSound.play();
         toast.success(`${label} rejected — agent re-iterating (iteration ${result.iteration})`);
         if (result.iterationWarning) {
           toast.warning(
@@ -155,7 +174,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         setIsRejecting(false);
       }
     },
-    [selectedNode?.featureId, clearSelection]
+    [selectedNode?.featureId, clearSelection, rejectSound]
   );
 
   const handlePrdReject = useCallback(
@@ -310,6 +329,16 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => window.removeEventListener('shep:open-create-drawer', handler);
   }, [handleAddFeature]);
 
+  // Listen for notification "Review" clicks to open the relevant drawer
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const featureId = (e as CustomEvent<{ featureId: string }>).detail.featureId;
+      selectFeatureById(featureId);
+    };
+    window.addEventListener('shep:select-feature', handler);
+    return () => window.removeEventListener('shep:select-feature', handler);
+  }, [selectFeatureById]);
+
   if (!hasRepositories) {
     return (
       <>
@@ -321,6 +350,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
           onSubmit={handleCreateFeatureSubmit}
           repositoryPath={pendingRepositoryPath}
           workflowDefaults={workflowDefaults}
+          features={featureOptions}
+          initialParentId={pendingParentFeatureId}
         />
       </>
     );
@@ -414,6 +445,8 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
         onSubmit={handleCreateFeatureSubmit}
         repositoryPath={pendingRepositoryPath}
         workflowDefaults={workflowDefaults}
+        features={featureOptions}
+        initialParentId={pendingParentFeatureId}
       />
     </>
   );

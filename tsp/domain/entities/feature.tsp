@@ -385,4 +385,18 @@ model Feature extends BaseEntity {
 
   @doc("Pull request data (null until PR created)")
   pr?: PullRequest;
+
+  // ── Feature Dependencies ────────────────────────────────────
+
+  /**
+   * Optional reference to the parent feature in a dependency hierarchy.
+   *
+   * When set, this feature is a child of the referenced parent feature.
+   * Child features may be created in a Blocked state when the parent
+   * has not yet reached the Implementation lifecycle stage.
+   *
+   * @example "550e8400-e29b-41d4-a716-446655440000"
+   */
+  @doc("Parent feature ID for dependency tracking (optional)")
+  parentId?: UUID;
 }

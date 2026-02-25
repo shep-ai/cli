@@ -237,4 +237,17 @@ export interface IGitPrService {
    * @returns True if featureBranch is an ancestor of baseBranch
    */
   verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean>;
+
+  /**
+   * Retrieve failure logs for a CI run via `gh run view --log-failed`.
+   * Output is truncated to the first `logMaxChars` characters (head truncation).
+   * A notice is appended when truncation occurs.
+   *
+   * @param runId - GitHub Actions run ID (numeric string)
+   * @param branch - Branch name (informational, used in truncation notice)
+   * @param logMaxChars - Maximum characters to return (default 50_000)
+   * @returns Truncated failure log output
+   * @throws GitPrError with GH_NOT_FOUND or GIT_ERROR code on failure
+   */
+  getFailureLogs(runId: string, branch: string, logMaxChars?: number): Promise<string>;
 }

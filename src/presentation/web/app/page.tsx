@@ -82,6 +82,15 @@ export default async function HomePage() {
             lifecycleMap[feature.lifecycle] ??
             'requirements');
 
+      // Resolve blockedBy display name from parent feature
+      let blockedBy: string | undefined;
+      if (feature.parentId && feature.lifecycle === 'Blocked') {
+        const parentEntry = featuresWithRuns.find((e) => e.feature.id === feature.parentId);
+        if (parentEntry) {
+          blockedBy = parentEntry.feature.name;
+        }
+      }
+
       const nodeData: FeatureNodeData = {
         name: feature.name,
         description: feature.description ?? feature.slug,
@@ -94,6 +103,7 @@ export default async function HomePage() {
         progress: deriveProgress(feature),
         ...(run?.agentType && { agentType: run.agentType as FeatureNodeData['agentType'] }),
         ...(run?.error && { errorMessage: run.error }),
+        ...(blockedBy && { blockedBy }),
       };
 
       const featureNodeId = `feat-${feature.id}`;
@@ -104,13 +114,33 @@ export default async function HomePage() {
         data: nodeData,
       });
 
-      edges.push({
-        id: `edge-${repoNodeId}-${featureNodeId}`,
-        source: repoNodeId,
-        target: featureNodeId,
-        style: { strokeDasharray: '5 5' },
-      });
+      // Child features connect via parent→child dependency edge, not directly to repo
+      if (!feature.parentId) {
+        edges.push({
+          id: `edge-${repoNodeId}-${featureNodeId}`,
+          source: repoNodeId,
+          target: featureNodeId,
+          style: { strokeDasharray: '5 5' },
+        });
+      }
     });
+  }
+
+  // Add parent→child dependency edges
+  for (const { feature } of featuresWithRuns) {
+    if (feature.parentId) {
+      const parentNodeId = `feat-${feature.parentId}`;
+      const childNodeId = `feat-${feature.id}`;
+      // Only add edge if both nodes exist on the canvas
+      if (nodes.some((n) => n.id === parentNodeId) && nodes.some((n) => n.id === childNodeId)) {
+        edges.push({
+          id: `dep-${parentNodeId}-${childNodeId}`,
+          source: parentNodeId,
+          target: childNodeId,
+          type: 'dependencyEdge',
+        });
+      }
+    }
   }
 
   // Use dagre LR layout for compact, automatic positioning
@@ -119,36 +149,6 @@ export default async function HomePage() {
     ranksep: 200,
     nodesep: 15,
   });
-
-  // Position "+ Add Repository" below the last repo node (no-features case) or
-  // vertically centered with a bottom feature node (features case).
-  const repoNodes = laid.nodes.filter((n) => n.type === 'repositoryNode');
-  const featureNodes = laid.nodes.filter((n) => n.type === 'featureNode');
-  const repoX = repoNodes[0]?.position.x ?? 0;
-
-  let addRepoPosition: { x: number; y: number };
-  if (featureNodes.length > 0) {
-    // Mirror how dagre centers repo nodes with their connected features
-    const sortedFeatures = [...featureNodes].sort((a, b) => a.position.y - b.position.y);
-    const centerIdx = Math.floor(sortedFeatures.length / 2);
-    const targetFeature =
-      sortedFeatures[centerIdx + 1] ?? sortedFeatures[sortedFeatures.length - 1];
-    // Center the add-repo node (h=50) with the target feature node (h=140)
-    addRepoPosition = { x: repoX, y: targetFeature.position.y + 70 - 25 };
-  } else {
-    // No features — place below the bottom-most repo node with a gap
-    const lastRepoY = repoNodes.length > 0 ? Math.max(...repoNodes.map((n) => n.position.y)) : 0;
-    const repoHeight = 50;
-    const gap = 200;
-    addRepoPosition = { x: repoX, y: lastRepoY + repoHeight + gap };
-  }
-
-  laid.nodes.push({
-    id: 'add-repository',
-    type: 'addRepositoryNode',
-    position: addRepoPosition,
-    data: {},
-  } as CanvasNodeType);
 
   return (
     <div className="h-screen w-full">

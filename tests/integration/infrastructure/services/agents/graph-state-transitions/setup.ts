@@ -20,7 +20,7 @@ import {
   createFeatureAgentGraph,
   type FeatureAgentGraphDeps,
 } from '@/infrastructure/services/agents/feature-agent/feature-agent-graph.js';
-import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge.node.js';
+import type { MergeNodeDeps } from '@/infrastructure/services/agents/feature-agent/nodes/merge/merge.node.js';
 import { createCheckpointer } from '@/infrastructure/services/agents/common/checkpointer.js';
 import type { IAgentExecutor } from '@/application/ports/output/agents/agent-executor.interface.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
@@ -101,6 +101,27 @@ export function createStubMergeNodeDeps(featureId?: string): Omit<MergeNodeDeps,
         repositoryPath: '/tmp',
       }),
       update: vi.fn().mockResolvedValue(undefined),
+    },
+    gitPrService: {
+      hasRemote: vi.fn().mockResolvedValue(true),
+      getDefaultBranch: vi.fn().mockResolvedValue('main'),
+      hasUncommittedChanges: vi.fn().mockResolvedValue(false),
+      commitAll: vi.fn().mockResolvedValue('abc1234'),
+      push: vi.fn().mockResolvedValue(undefined),
+      createPr: vi
+        .fn()
+        .mockResolvedValue({ url: 'https://github.com/test/repo/pull/1', number: 1 }),
+      mergePr: vi.fn().mockResolvedValue(undefined),
+      mergeBranch: vi.fn().mockResolvedValue(undefined),
+      getCiStatus: vi.fn().mockResolvedValue({ status: 'success', runId: undefined }),
+      watchCi: vi.fn().mockResolvedValue({ status: 'success', runId: undefined }),
+      deleteBranch: vi.fn().mockResolvedValue(undefined),
+      getPrDiffSummary: vi
+        .fn()
+        .mockResolvedValue({ filesChanged: 0, additions: 0, deletions: 0, commitCount: 0 }),
+      getFailureLogs: vi.fn().mockResolvedValue(''),
+      listPrStatuses: vi.fn().mockResolvedValue([]),
+      verifyMerge: vi.fn().mockResolvedValue(true),
     },
   };
 }

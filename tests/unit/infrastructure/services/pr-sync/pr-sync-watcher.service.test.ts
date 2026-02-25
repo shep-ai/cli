@@ -60,6 +60,7 @@ function createMockFeatureRepository(features: Feature[] = []): IFeatureReposito
     findById: vi.fn(),
     findByIdPrefix: vi.fn(),
     findBySlug: vi.fn(),
+    findByParentId: vi.fn().mockResolvedValue([]),
     list: vi.fn().mockResolvedValue(features),
     update: vi.fn(),
     delete: vi.fn(),
@@ -81,6 +82,7 @@ function createMockGitPrService(): IGitPrService {
     deleteBranch: vi.fn(),
     getPrDiffSummary: vi.fn(),
     listPrStatuses: vi.fn().mockResolvedValue([]),
+    getFailureLogs: vi.fn().mockResolvedValue(''),
     verifyMerge: vi.fn().mockResolvedValue(false),
   };
 }

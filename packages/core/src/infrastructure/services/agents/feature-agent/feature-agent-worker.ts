@@ -28,6 +28,7 @@ import { setHeartbeatContext } from './heartbeat.js';
 import { setPhaseTimingContext, recordLifecycleEvent } from './phase-timing-context.js';
 import { setLifecycleContext } from './lifecycle-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
+import { UpdateFeatureLifecycleUseCase } from '@/application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 
 import type { ApprovalGates } from '@/domain/generated/output.js';
 
@@ -176,6 +177,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) =>
         gitPrService.verifyMerge(cwd, featureBranch, baseBranch),
       featureRepository,
+      gitPrService,
     },
   };
 
@@ -211,8 +213,11 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   runRepoForSignal = runRepository;
   timingRepoForSignal = timingRepository;
 
-  // Set lifecycle context so nodes update the feature lifecycle as they execute
-  setLifecycleContext(args.featureId, featureRepository);
+  // Set lifecycle context so nodes update the feature lifecycle as they execute.
+  // Route through UpdateFeatureLifecycleUseCase so CheckAndUnblockFeaturesUseCase
+  // fires on every transition, automatically unblocking eligible blocked children.
+  const updateLifecycleUseCase = container.resolve(UpdateFeatureLifecycleUseCase);
+  setLifecycleContext(args.featureId, updateLifecycleUseCase);
 
   // Record lifecycle event
   await recordLifecycleEvent(args.resume ? 'run:resumed' : 'run:started');

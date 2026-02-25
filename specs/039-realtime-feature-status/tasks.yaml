@@ -1,0 +1,480 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: realtime-feature-status
+summary: >
+  16 tasks across 8 phases. Phase 1 builds the notification infrastructure (bus + watcher)
+  with tests. Phase 2 rewrites the SSE endpoint with DB polling. Phase 3 adds the Service
+  Worker and rewrites the React hook. Phase 4 integrates into server startup and validates.
+  Phase 5 adds the sound system (useSound hook + WAV library + Storybook). Phase 6 wires
+  sounds into notifications with favicon branding. Phase 7 adds optimistic UI updates and
+  SoundToggle component. Phase 8 adds featureId matching, polling fallback, state-transition
+  toasts, UI action sounds, and E2E showcase.
+
+relatedFeatures: []
+technologies:
+  - 'Node.js EventEmitter'
+  - 'Server-Sent Events'
+  - 'Service Workers'
+  - 'React 19'
+  - 'Next.js 16+'
+  - 'tsyringe'
+  - 'Vitest'
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create NotificationBus typed EventEmitter singleton'
+    description: >
+      Create notification-bus.ts with a typed EventEmitter singleton stored on globalThis
+      via Symbol.for(). Exports getNotificationBus() for lazy access and
+      resetNotificationBus() for test isolation.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'NotificationBus type exported as EventEmitter<NotificationEventMap>'
+      - 'getNotificationBus() returns the same instance across calls'
+      - 'globalThis storage via Symbol.for() survives module duplication'
+      - 'resetNotificationBus() removes all listeners and clears instance'
+    tdd:
+      red:
+        - 'Test getNotificationBus() returns same instance across multiple calls'
+        - 'Test resetNotificationBus() clears the singleton'
+      green:
+        - 'Implement globalThis-based singleton with Symbol.for key'
+      refactor:
+        - 'Ensure JSDoc comments describe the cross-module singleton pattern'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Create NotificationWatcherService with tests'
+    description: >
+      Create notification-watcher.service.ts that polls agent_runs table, tracks per-run
+      state (status + completed phases), and emits NotificationEvents through
+      INotificationService. Includes singleton accessors (initialize/get/has/reset).
+      Write comprehensive tests covering status transitions, phase completions,
+      terminal run cleanup, and feature name resolution.
+    state: Done
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Polls via setInterval with configurable interval'
+      - 'Tracks active runs (pending, running, waitingApproval) in Map'
+      - 'Emits status events on AgentRunStatus transitions'
+      - 'Emits PhaseCompleted events on new phase_timings.completedAt'
+      - 'Cleans up terminal runs after emitting final event'
+      - 'resolveFeatureName falls back to Agent ${id} on error'
+      - 'Singleton pattern: initialize/get/has/reset functions'
+      - 'start()/stop() lifecycle with isRunning() check'
+      - 'Unit tests cover all status transitions and phase detection'
+    tdd:
+      red:
+        - 'Test status change detection (running → completed, etc.)'
+        - 'Test phase completion detection via completedAt'
+        - 'Test terminal run cleanup'
+        - 'Test feature name resolution with fallback'
+        - 'Test singleton lifecycle (initialize, get, reset)'
+      green:
+        - 'Implement polling loop with per-run state tracking'
+        - 'Implement STATUS_TO_EVENT mapping and emitStatusEvent'
+        - 'Implement checkPhaseCompletions'
+        - 'Implement singleton accessors'
+      refactor:
+        - 'Extract constants (ACTIVE_STATUSES, TERMINAL_STATUSES, EVENT_MESSAGES)'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Rewrite SSE endpoint with DB polling and per-connection cache'
+    description: >
+      Rewrite GET /api/agent-events to poll the database directly using
+      ListFeaturesUseCase, IAgentRunRepository, and IPhaseTimingRepository.
+      Implement per-connection cache (Map<featureId, CachedFeatureState>) that
+      seeds on first observation and emits only deltas. Add heartbeat, runId
+      filtering, and abort signal cleanup.
+    state: Done
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Route handler creates ReadableStream with DB polling'
+      - 'Per-connection cache seeds on first feature observation (no initial burst)'
+      - 'Status changes emit mapped NotificationEvent with correct eventType/severity'
+      - 'Phase completions emit PhaseCompleted events'
+      - 'Optional ?runId query parameter filters events'
+      - 'Heartbeat comments every 30s'
+      - 'Cleanup on request.signal abort'
+      - 'Integration tests verify SSE streaming behavior'
+    tdd:
+      red:
+        - 'Integration test: SSE connection receives notification events'
+        - 'Integration test: runId filtering works correctly'
+      green:
+        - 'Implement ReadableStream with poll loop and cache'
+        - 'Implement STATUS_TO_EVENT mapping and resultToPhase helper'
+      refactor:
+        - 'Remove debug logging (dbg helper)'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Create Service Worker for SSE multiplexing'
+    description: >
+      Create agent-events-sw.js that maintains a single EventSource connection
+      and broadcasts events to all open tabs via clients.matchAll(). Handles
+      subscribe/unsubscribe messages from tabs. Opens connection on first
+      subscriber, closes on last. Implements exponential backoff reconnection.
+    state: Done
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'SW registers with skipWaiting and clients.claim()'
+      - 'Opens EventSource on first subscribe message'
+      - 'Closes EventSource when subscriber count reaches 0'
+      - 'Broadcasts { type: notification, data } to all tabs'
+      - 'Broadcasts { type: status, status } on connection changes'
+      - 'Exponential backoff: 1s base, 30s max, reset after 5s stable'
+      - 'Sends current status to new subscribers immediately'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Rewrite useAgentEvents hook with SW support and fallback'
+    description: >
+      Rewrite useAgentEvents to use the Service Worker as primary transport.
+      Falls back to direct EventSource when SW is unavailable. Both paths
+      implement exponential backoff reconnection. Returns { events, lastEvent,
+      connectionStatus }. Write unit tests for both paths.
+    state: Done
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Attempts SW registration first'
+      - 'Falls back to direct EventSource on SW failure'
+      - 'SW path: subscribe/unsubscribe via postMessage'
+      - 'Fallback path: exponential backoff (1s base, 30s max)'
+      - 'Returns { events, lastEvent, connectionStatus }'
+      - 'Cleanup on unmount (unsubscribe SW or close EventSource)'
+      - 'Unit tests cover SW path and fallback path'
+    tdd:
+      red:
+        - 'Test hook returns disconnected initially'
+        - 'Test SW registration and subscription'
+        - 'Test EventSource fallback when SW unavailable'
+        - 'Test event accumulation and lastEvent tracking'
+      green:
+        - 'Implement SW registration with activate/statechange handling'
+        - 'Implement connectDirectEventSource fallback'
+      refactor:
+        - 'Extract backoff constants to module level'
+    estimatedEffort: '30min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Integrate notification watcher into CLI and dev-server startup'
+    description: >
+      Add NotificationWatcherService initialization to both the CLI ui command
+      and the dev-server. Resolve repositories from DI container, initialize
+      and start the watcher. Add graceful shutdown (stop watcher on SIGINT/SIGTERM).
+      Update existing tests to account for new initialization.
+    state: Done
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'CLI ui command initializes and starts watcher after web server starts'
+      - 'Dev-server initializes and starts watcher after DI container setup'
+      - 'Both stop the watcher on graceful shutdown'
+      - 'ui.command.test.ts updated for watcher initialization'
+    tdd:
+      red:
+        - 'Test ui command initializes notification watcher'
+        - 'Test shutdown stops the watcher'
+      green:
+        - 'Add watcher initialization after container.resolve calls'
+        - 'Add getNotificationWatcher().stop() to shutdown handlers'
+      refactor:
+        - 'Ensure consistent initialization pattern between CLI and dev-server'
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-4
+    title: 'Validate: run tests, typecheck, and lint'
+    description: >
+      Run the full test suite, type checker, and linter to verify no regressions.
+      Confirm all new and existing tests pass.
+    state: Done
+    dependencies:
+      - task-3
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'pnpm test passes — all unit and integration tests green'
+      - 'pnpm typecheck passes'
+      - 'pnpm typecheck:web passes'
+      - 'pnpm lint passes'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-8
+    phaseId: phase-5
+    title: 'Create useSound hook and useSoundEnabled hook'
+    description: >
+      Create useSound(name, options) hook that creates an HTMLAudioElement per sound name,
+      preloads WAV from /sounds/*.wav, and provides play/stop/isPlaying API with volume
+      and loop options. Create useSoundEnabled() hook that reads/writes 'shep-sound-enabled'
+      localStorage key, defaulting to enabled. useSound gates playback via useSoundEnabled.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - 'useSound preloads Audio element with preload=auto'
+      - 'play() respects enabled state and resets currentTime'
+      - 'stop() pauses and resets audio'
+      - 'Cleanup on unmount removes src and refs'
+      - 'useSoundEnabled defaults to true, persists via localStorage'
+      - 'toggle() flips state and writes to localStorage'
+      - 'SoundName type union covers all 28 sounds'
+    tdd:
+      red:
+        - 'Test useSound creates Audio element on mount'
+        - 'Test play respects enabled state'
+        - 'Test useSoundEnabled defaults and persistence'
+      green:
+        - 'Implement useSound with useRef + useEffect'
+        - 'Implement useSoundEnabled with useState + localStorage'
+      refactor:
+        - 'Extract SOUND_NAMES as const array for type safety'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-5
+    title: 'Add WAV sound library and Storybook stories'
+    description: >
+      Add 28 WAV sound files to /public/sounds/ across 8 categories: UI Actions (button,
+      select, disabled), Toggles (toggle_on, toggle_off), Transitions (transition_up,
+      transition_down), Alerts (notification, caution, celebration), Swipes (6 variants),
+      Taps (5 variants), Typing (5 variants), Loops (progress_loop, ringtone_loop).
+      Create Storybook stories with interactive sound catalog.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - '28 WAV files present in /public/sounds/'
+      - 'Storybook story renders all sounds by category with play buttons'
+      - 'Volume control via Storybook argType range slider'
+      - 'Loop sounds support start/stop toggle'
+    tdd: null
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-6
+    title: 'Wire sounds into notifications with favicon and branding'
+    description: >
+      Update useNotifications hook to play severity-mapped sounds on notification events.
+      Mapping: Success → celebration, Error → caution, Warning → notification. Info-severity
+      events are silently skipped (no toast, notification, or sound) to reduce noise from
+      routine AgentStarted/PhaseCompleted events. Add event deduplication via
+      processedCountRef index counter (tracking array position, not a Set with compound keys).
+      Update browser notifications to use /favicon-light.svg icon. Add shep:select-feature
+      CustomEvent on WaitingApproval toasts for notification→drawer navigation.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'useNotifications creates 4 useSound instances (one per severity)'
+      - 'Only Error/Warning/Success events trigger sounds and toasts (Info skipped)'
+      - 'Deduplication via processedCountRef prevents replay on re-render'
+      - 'Browser Notification uses favicon-light.svg icon'
+      - 'Toast dispatched via sonner with severity method'
+      - 'WaitingApproval toast includes Review action with shep:select-feature event'
+    tdd:
+      red:
+        - 'Test notification event plays correct sound for severity'
+        - 'Test Info events are silently skipped'
+        - 'Test deduplication prevents double-dispatch'
+      green:
+        - 'Add SEVERITY_TO_SOUND mapping and useSound instances'
+        - 'Add processedCountRef deduplication'
+        - 'Add shep:select-feature dispatch on WaitingApproval'
+      refactor:
+        - 'Extract severity mapping constants'
+    estimatedEffort: '20min'
+
+  - id: task-11
+    phaseId: phase-7
+    title: 'Add optimistic UI updates to control center feature nodes'
+    description: >
+      Create mapEventTypeToState(eventType) and mapPhaseNameToLifecycle(phaseName) helpers
+      in derive-feature-state.ts. Wire SSE events into control-center-inner.tsx and
+      use-control-center-state.ts to update feature node state/phase optimistically
+      without waiting for data refetch. Extend deriveNodeState and deriveProgress functions.
+    state: Done
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'mapEventTypeToState maps all NotificationEventTypes to FeatureNodeState'
+      - 'mapPhaseNameToLifecycle maps phase names to lifecycle phases'
+      - 'SSE events trigger immediate node state updates in control center'
+      - 'deriveNodeState priority: waiting_approval > failed > interrupted > completed > running'
+      - 'deriveProgress returns task completion percentage'
+      - 'Unit tests cover all event type and phase mappings'
+    tdd:
+      red:
+        - 'Test mapEventTypeToState for each NotificationEventType'
+        - 'Test mapPhaseNameToLifecycle for each phase name'
+        - 'Test deriveNodeState priority order'
+        - 'Test deriveProgress calculation'
+      green:
+        - 'Implement mapEventTypeToState switch statement'
+        - 'Implement phaseNameToLifecycle record'
+        - 'Wire events into use-control-center-state'
+      refactor:
+        - 'Extract phase mapping record as const'
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-7
+    title: 'Create SoundToggle component and integrate into app shell'
+    description: >
+      Create SoundToggle component using shadcn/ui Button (ghost, icon size) with
+      lucide-react Volume2/VolumeOff icons. Component reads useSoundEnabled to display
+      current state and toggle on click. Add to app-shell.tsx header. Create Storybook
+      stories for SoundToggle.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'SoundToggle renders Volume2 when enabled, VolumeOff when muted'
+      - 'Click toggles sound state via useSoundEnabled'
+      - 'Accessible: aria-label and sr-only text'
+      - 'Integrated in app shell header'
+      - 'Storybook stories cover both states'
+    tdd:
+      red:
+        - 'Test renders Volume2 icon when enabled'
+        - 'Test renders VolumeOff icon when muted'
+        - 'Test click toggles state'
+      green:
+        - 'Implement SoundToggle with useSoundEnabled'
+        - 'Add to app-shell header'
+      refactor:
+        - 'Ensure consistent icon sizing with other header buttons'
+    estimatedEffort: '15min'
+
+  - id: task-13
+    phaseId: phase-8
+    title: 'Add featureId to NotificationEvent and match by ID'
+    description: >
+      Add featureId field to the NotificationEvent TypeSpec model. Update the SSE route
+      to populate featureId on emitted events. Update use-control-center-state.ts to match
+      features by event.featureId (not featureName) for reliable identification. Update
+      tests to include featureId in event fixtures.
+    state: Done
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'NotificationEvent TypeSpec model includes featureId: string'
+      - 'SSE route populates featureId from feature.id'
+      - 'Optimistic UI matches nodes by featureId'
+      - 'Generated output.ts includes featureId field'
+    tdd:
+      red:
+        - 'Test optimistic update matches by featureId'
+      green:
+        - 'Add featureId to TypeSpec model'
+        - 'Update SSE route event construction'
+        - 'Update setNodes matcher in use-control-center-state'
+      refactor: null
+    estimatedEffort: '20min'
+
+  - id: task-14
+    phaseId: phase-8
+    title: 'Add periodic polling fallback and state-transition toasts'
+    description: >
+      Add periodic 5s router.refresh() polling when any feature is in an active state
+      (running, action-required, creating) as belt-and-suspenders alongside SSE. Add
+      fallback state-transition toasts from server refresh that fire only when SSE did not
+      already deliver the matching event (checks events array for matching featureId+state).
+      Toasts: done → success, action-required → warning with Review action, error → error.
+    state: Done
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - '5s interval polls router.refresh() when active features exist'
+      - 'Interval stops when no features are active'
+      - 'State-transition toasts fire on server refresh state changes'
+      - 'Duplicate prevention: SSE-covered transitions do not re-toast'
+    tdd:
+      red:
+        - 'Test polling interval starts with active features'
+        - 'Test polling stops with no active features'
+      green:
+        - 'Add useEffect with setInterval based on active feature detection'
+        - 'Add prevFeatureStatesRef tracking and transition detection'
+      refactor: null
+    estimatedEffort: '25min'
+
+  - id: task-15
+    phaseId: phase-8
+    title: 'Wire UI action sounds and cross-instance sound sync'
+    description: >
+      Wire useSound into control-center-state and control-center-inner for interactive
+      actions: tap_01 for node clicks, transition_up for create, transition_down for
+      delete/close, caution for reject. Add shep:sound-toggle CustomEvent in
+      useSoundEnabled so all hook instances in the same tab sync their mute state
+      immediately when toggled.
+    state: Done
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Node click plays tap_01 sound'
+      - 'Feature creation plays transition_up sound'
+      - 'Feature deletion plays transition_down sound'
+      - 'Drawer close plays transition_down sound'
+      - 'Rejection plays caution sound'
+      - 'shep:sound-toggle event syncs all useSoundEnabled instances'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-16
+    phaseId: phase-8
+    title: 'Add health endpoint and E2E showcase test'
+    description: >
+      Create GET /api/agent-events/health endpoint returning last-polled timestamp and
+      event counts for E2E pipeline verification. Create realtime-showcase.spec.ts E2E
+      test covering the full real-time lifecycle with audio recording fixture, SSE mock
+      helper, and live agent event simulation.
+    state: Done
+    dependencies:
+      - task-14
+    acceptanceCriteria:
+      - 'Health endpoint returns JSON with timestamp and counts'
+      - 'E2E test verifies SSE events reach the UI'
+      - 'Audio recording fixture captures sound playback'
+      - 'SSE mock helper simulates agent events'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '6h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a bottom-up approach across 8 phases and 16 tasks. Phases 1-4
+  build the core real-time infrastructure: notification bus + watcher service, SSE endpoint
+  rewrite, Service Worker + React hook, and server startup integration. Phase 5 adds the
+  sound system (useSound hook, 28 WAV files, Storybook). Phase 6 wires sounds into
+  notifications with favicon branding. Phase 7 adds optimistic UI updates for control center
+  feature nodes and the SoundToggle component. Phase 8 hardens the pipeline with featureId
+  matching, periodic polling fallback, state-transition toasts, UI action sounds, cross-instance
+  sound sync, a health endpoint, and a full E2E showcase test.
+
+  Files created: 18 (notification-bus, notification-watcher, agent-events-sw, use-sound,
+  use-sound-enabled, use-sound.stories, agent-events-provider, sound-toggle/*, health/route,
+  realtime-showcase.spec, audio-recording fixture, sse-mock helper, 28 WAV files)
+  Files modified: 17 (route.ts, use-agent-events.ts, use-notifications.ts, dev-server.ts,
+  ui.command.ts, derive-feature-state.ts, control-center-inner.tsx, use-control-center-state.ts,
+  app-shell.tsx, layout.tsx, repository-node.tsx, notification-event.tsp, playwright.config.ts,
+  + test files)

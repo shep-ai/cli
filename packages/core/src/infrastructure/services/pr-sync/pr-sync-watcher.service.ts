@@ -239,6 +239,7 @@ export class PrSyncWatcherService {
   ): void {
     const event: NotificationEvent = {
       eventType,
+      featureId: '',
       agentRunId: '',
       featureName,
       message,

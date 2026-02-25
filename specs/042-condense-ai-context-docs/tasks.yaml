@@ -1,0 +1,202 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: condense-ai-context-docs
+summary: >
+  6 tasks across 4 phases. Phases: link verification → CLAUDE.md rewrite → AGENTS.md rewrite →
+  validation. All tasks are documentation editing; tdd: null throughout (no code changes).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Markdown
+  - YAML
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Verify all docs/ link targets exist'
+    description: >
+      Before any pointer is written into the condensed files, confirm that every docs/ path
+      listed as a replacement target in the research exists in the repository. This is a
+      blocking gate for NFR-3 (no dead links). Check each path from the research link table:
+      docs/architecture/overview.md, docs/api/domain-models.md, docs/architecture/agent-system.md,
+      docs/development/typespec-guide.md, docs/development/implementation-guide.md,
+      docs/development/tdd-guide.md, docs/cli/architecture.md, docs/tui/architecture.md,
+      docs/ui/architecture.md, docs/development/setup.md, docs/development/cicd.md,
+      docs/development/spec-driven-workflow.md, docs/development/adding-agents.md.
+      For any path that does not exist, identify the correct path or decide to keep the
+      content inline rather than writing a dead pointer.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Every docs/ path intended for use as a pointer target has been verified to exist (Glob or ls confirms each path)'
+      - 'Any missing path has a documented resolution: correct path found or decision made to keep content inline'
+      - 'Final verified path list is confirmed before proceeding to task-2'
+    tdd: null
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Rewrite CLAUDE.md to ≤100 lines'
+    description: >
+      Replace the 622-line CLAUDE.md with a seven-section navigational index. Structure:
+      (1) ## Project — 2-line overview; (2) ## Spec Workflow — one-line chain
+      (new-feature → research → plan → implement → commit-pr); (3) ## Commands — essential
+      commands only table (build, test, test:unit, test:int, test:e2e, lint:fix, validate,
+      dev:cli, dev:web); (4) ## Architecture — 4-layer tree directory names only
+      (domain/, application/, infrastructure/, presentation/) with one-line descriptions;
+      (5) ## Mandatory Rules — TDD mandate, TypeSpec-first, settings-driven agents pointer
+      to AGENTS.md, Storybook stories requirement, spec-driven workflow mandate;
+      (6) ## Commit Format — type/scope table and Conventional Commits format example;
+      (7) ## Key Docs — one-line pointers replacing every removed section.
+      Remove all domain model field listings, DI details, TypeSpec build flow details,
+      CI/CD details, presentation layer details, pnpm workspace details, key patterns,
+      and testing strategy details. All TypeScript code blocks removed.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - '`wc -l CLAUDE.md` reports ≤100'
+      - 'File contains exactly seven H2 sections: Project, Spec Workflow, Commands, Architecture, Mandatory Rules, Commit Format, Key Docs'
+      - 'Essential commands present: build, test, test:unit, test:int, test:e2e, lint:fix, validate, dev:cli, dev:web'
+      - '4-layer architecture tree present with directory names only (domain/, application/, infrastructure/, presentation/)'
+      - 'TDD mandate present and marked MANDATORY'
+      - 'TypeSpec-first rule present and marked MANDATORY'
+      - 'Settings-driven agent resolution surfaced as pointer to AGENTS.md (not duplicated inline)'
+      - 'Storybook stories requirement present and marked MANDATORY'
+      - 'Conventional Commits format present with type/scope examples'
+      - 'Zero TypeScript/code blocks in the file'
+      - 'Every removed section has a corresponding docs/ pointer line using a verified path from task-1'
+    tdd: null
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-3
+    title: 'Rewrite AGENTS.md to ≤100 lines'
+    description: >
+      Replace the 809-line AGENTS.md with a six-section reference file. Structure:
+      (1) ## Overview — directory tree of agents/ subdirectories (common/, feature-agent/,
+      analyze-repo/, streaming/) with one-line descriptions; (2) ## Components — table of
+      key components (AgentRunnerService, AgentExecutorFactory, IAgentExecutorProvider,
+      ClaudeCodeExecutorService, CursorExecutorService, checkpointer) with locations;
+      (3) ## Settings-Driven Agent Resolution — full mandatory rule: no hardcoding,
+      IAgentExecutorProvider.getExecutor() flow, five numbered rules;
+      (4) ## Graph Flow — 3-4 line summary of feature agent graph execution flow;
+      (5) ## Approval Modes — existing approval modes table;
+      (6) ## Key Docs — pointers to docs/architecture/agent-system.md and
+      docs/development/adding-agents.md.
+      Delete lines 303–810 (Planned Architecture section) entirely — no archival.
+      Remove all TypeScript/pseudocode code blocks. Remove all per-node documentation.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - '`wc -l AGENTS.md` reports ≤100'
+      - 'File contains exactly six H2 sections: Overview, Components, Settings-Driven Agent Resolution, Graph Flow, Approval Modes, Key Docs'
+      - 'Settings-driven agent resolution rule present in full with all five numbered constraints'
+      - 'Zero TypeScript/code blocks in the file'
+      - 'Planned architecture section (old lines 303-810) is completely absent — no trace'
+      - 'agents/ directory tree present showing subdirectory structure'
+      - 'Components table present with source file paths for each component'
+      - 'Approval modes table present'
+      - 'Pointers to docs/architecture/agent-system.md and docs/development/adding-agents.md present'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-4
+    title: 'Verify line counts meet ≤100 hard constraint'
+    description: >
+      Run `wc -l CLAUDE.md AGENTS.md` and confirm both files are within the ≤100 line
+      hard budget (NFR-1). If either file exceeds 100 lines, identify which sections
+      are over-budget and trim until the constraint is met. Do not remove mandatory rules
+      or essential commands to meet line budget — trim verbose prose or pointer descriptions
+      instead.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-3
+    acceptanceCriteria:
+      - '`wc -l CLAUDE.md` ≤ 100'
+      - '`wc -l AGENTS.md` ≤ 100'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-5
+    phaseId: phase-4
+    title: 'Verify mandatory rules completeness'
+    description: >
+      Check each mandatory rule individually in the final condensed files to confirm
+      none were silently dropped (NFR-2). Required rules:
+      (1) TDD mandate — present in CLAUDE.md Mandatory Rules section;
+      (2) TypeSpec-first — present in CLAUDE.md Mandatory Rules section;
+      (3) Settings-driven agent resolution — full rule present in AGENTS.md, pointer
+          present in CLAUDE.md;
+      (4) Storybook stories requirement — present in CLAUDE.md Mandatory Rules section;
+      (5) Conventional Commits format — present in CLAUDE.md Commit Format section;
+      (6) Spec-driven workflow — present in CLAUDE.md Spec Workflow section.
+      Also verify essential commands: build, test, test:unit, test:int, test:e2e,
+      lint:fix, validate, dev:cli, dev:web all appear in CLAUDE.md Commands section.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'TDD mandate found in CLAUDE.md (Grep confirms presence)'
+      - 'TypeSpec-first rule found in CLAUDE.md (Grep confirms presence)'
+      - 'Settings-driven agent resolution rule found in AGENTS.md (all 5 numbered constraints present)'
+      - 'One-line agent resolution pointer found in CLAUDE.md pointing to AGENTS.md'
+      - 'Storybook stories requirement found in CLAUDE.md'
+      - 'Conventional Commits format found in CLAUDE.md'
+      - 'Spec-driven workflow chain found in CLAUDE.md'
+      - 'All 9 essential commands found in CLAUDE.md Commands section'
+      - 'Zero TypeScript/code blocks in CLAUDE.md (Grep for triple-backtick returns no results)'
+      - 'Zero TypeScript/code blocks in AGENTS.md (Grep for triple-backtick returns no results)'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Run pnpm validate and confirm no regressions'
+    description: >
+      Run `pnpm validate` (which executes lint + format check + typecheck + tsp:compile)
+      to confirm that editing the root Markdown files caused no inadvertent collateral
+      damage to any source files or configuration. NFR-4 requires this to pass.
+      pnpm validate does not lint Markdown files, so a clean run confirms the source
+      files are unaffected. If validate fails for any reason unrelated to this feature's
+      changes, document the pre-existing failure and note it as out-of-scope.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - '`pnpm validate` exits with code 0'
+      - 'If validate fails, failure is confirmed pre-existing (unrelated to CLAUDE.md/AGENTS.md edits) and documented'
+    tdd: null
+    estimatedEffort: '5min'
+
+# Total effort estimate
+totalEstimate: '~2h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  Six tasks across four phases implement a pure documentation editing workflow. The first phase
+  (task-1) is a blocking gate that pre-verifies every docs/ link target before any pointer is
+  written — preventing dead links and enabling the rewrites to proceed confidently.
+
+  The second and third phases (task-2, task-3) execute independently of each other (both depend
+  only on task-1) but are ordered sequentially: CLAUDE.md first because it contains the pointer
+  to AGENTS.md, establishing the expected canonical location before AGENTS.md confirms it.
+
+  The final phase (task-4, task-5, task-6) validates all hard constraints in order: line count
+  budget (NFR-1), mandatory rules completeness (NFR-2), then pnpm validate for source regressions
+  (NFR-4). All three validation tasks must pass before the feature is considered complete.
+
+  No TDD cycles are defined — this is documentation-only work with no code, no tests, and no
+  interfaces. The acceptance criteria for each task serve the same quality-gate function.

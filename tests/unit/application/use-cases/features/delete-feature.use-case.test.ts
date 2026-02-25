@@ -66,6 +66,7 @@ describe('DeleteFeatureUseCase', () => {
       findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn(),
       list: vi.fn(),
+      findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
       delete: vi.fn(),
     };
@@ -212,5 +213,77 @@ describe('DeleteFeatureUseCase', () => {
 
     expect(result.name).toBe('My Feature');
     expect(result.branch).toBe('feat/test-feature');
+  });
+
+  // -------------------------------------------------------------------------
+  // Deletion guard — blocked children
+  // -------------------------------------------------------------------------
+
+  it('should throw when the feature has blocked children', async () => {
+    const feature = createMockFeature();
+    const blockedChild1 = createMockFeature({
+      id: 'child-001',
+      name: 'Child One',
+      lifecycle: SdlcLifecycle.Blocked,
+    });
+    const blockedChild2 = createMockFeature({
+      id: 'child-002',
+      name: 'Child Two',
+      lifecycle: SdlcLifecycle.Blocked,
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild1, blockedChild2]);
+
+    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow('child-001');
+    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow('child-002');
+  });
+
+  it('should include the blocked child names in the error message', async () => {
+    const feature = createMockFeature();
+    const blockedChild = createMockFeature({
+      id: 'child-abc',
+      name: 'My Blocked Child',
+      lifecycle: SdlcLifecycle.Blocked,
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild]);
+
+    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow('My Blocked Child');
+  });
+
+  it('should not call delete when blocked children exist', async () => {
+    const feature = createMockFeature();
+    const blockedChild = createMockFeature({ id: 'child-001', lifecycle: SdlcLifecycle.Blocked });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([blockedChild]);
+
+    await expect(useCase.execute('feat-123-full-uuid')).rejects.toThrow();
+    expect(mockFeatureRepo.delete).not.toHaveBeenCalled();
+  });
+
+  it('should succeed when children exist but none are Blocked (all Started)', async () => {
+    const feature = createMockFeature();
+    const startedChild = createMockFeature({
+      id: 'child-001',
+      lifecycle: SdlcLifecycle.Started,
+    });
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([startedChild]);
+
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
+  });
+
+  it('should succeed when there are no children at all', async () => {
+    const feature = createMockFeature();
+    mockFeatureRepo.findById = vi.fn().mockResolvedValue(feature);
+    mockFeatureRepo.findByParentId = vi.fn().mockResolvedValue([]);
+
+    const result = await useCase.execute('feat-123-full-uuid');
+
+    expect(result.id).toBe('feat-123-full-uuid');
+    expect(mockFeatureRepo.delete).toHaveBeenCalledWith('feat-123-full-uuid');
   });
 });
