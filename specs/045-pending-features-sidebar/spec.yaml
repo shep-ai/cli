@@ -1,22 +1,20 @@
-# Feature Specification (YAML)
-# This is the source of truth. Markdown is auto-generated from this file.
-
 name: pending-features-sidebar
-number: 045
+number: 45
 branch: feat/045-pending-features-sidebar
-oneLiner: Populate the AppSidebar with real feature data and wire click-to-open for action-needed drawers
+oneLiner: >-
+  Populate the AppSidebar with real feature data and wire click-to-open for
+  action-needed drawers
 summary: >
-  The AppSidebar currently receives an empty features array (features={[]}) from AppShell,
-  so no features ever appear in the sidebar. This feature wires real feature data into the
-  sidebar, shows features grouped by status (action-needed, in-progress, done), and makes
-  action-needed items clickable — opening the correct review drawer (PRD questionnaire,
-  tech decisions, or merge review) based on the feature's lifecycle phase. It also ensures
-  sidebar features update in real-time via SSE events.
+  The AppSidebar currently receives an empty features array (features={[]}) from
+  AppShell, so no features ever appear in the sidebar. This feature wires real
+  feature data into the sidebar, shows features grouped by status
+  (action-needed, in-progress, done), and makes action-needed items clickable —
+  opening the correct review drawer (PRD questionnaire, tech decisions, or merge
+  review) based on the feature's lifecycle phase. It also ensures sidebar
+  features update in real-time via SSE events.
 phase: Requirements
 sizeEstimate: S
-
 relatedFeatures: []
-
 technologies:
   - React (Next.js App Router, server components)
   - TypeScript
@@ -24,226 +22,412 @@ technologies:
   - SSE (server-sent events for real-time updates)
   - CustomEvent (cross-component communication pattern)
   - React Context (shared feature state between ControlCenter and AppShell)
-
 relatedLinks: []
-
 openQuestions:
-  - question: 'How should feature data be shared between ControlCenter and AppSidebar?'
+  - question: How should feature data be shared between ControlCenter and AppSidebar?
     resolved: true
     options:
-      - option: 'React Context provider'
+      - option: React Context provider
         description: >
-          Create a SidebarFeaturesContext that ControlCenterInner publishes to and AppShellInner
-          consumes. This is a standard React pattern, enables real-time updates (SSE changes in
-          ControlCenter automatically propagate), avoids prop drilling, and is easily testable.
-          Requires wrapping both components in a shared provider — AppShell already wraps
+          Create a SidebarFeaturesContext that ControlCenterInner publishes to
+          and AppShellInner consumes. This is a standard React pattern, enables
+          real-time updates (SSE changes in ControlCenter automatically
+          propagate), avoids prop drilling, and is easily testable. Requires
+          wrapping both components in a shared provider — AppShell already wraps
           ControlCenter, so the provider slots in naturally.
         selected: true
-      - option: 'CustomEvent on window'
+      - option: CustomEvent on window
         description: >
-          ControlCenterInner dispatches a custom event with sidebar features whenever nodes change.
-          AppShellInner listens and updates local state. Follows the existing CustomEvent pattern
-          used for shep:select-feature and shep:open-create-drawer. Downside: requires manual
-          event dispatch on every node change, initial state requires a separate mechanism, and
+          ControlCenterInner dispatches a custom event with sidebar features
+          whenever nodes change. AppShellInner listens and updates local state.
+          Follows the existing CustomEvent pattern used for shep:select-feature
+          and shep:open-create-drawer. Downside: requires manual event dispatch
+          on every node change, initial state requires a separate mechanism, and
           events can be missed if listener isn't mounted yet.
         selected: false
-      - option: 'Duplicate server fetch in layout'
+      - option: Duplicate server fetch in layout
         description: >
-          Fetch features separately at the layout level (or a layout-adjacent server component)
-          and pass to AppShell as props. Cleanest data flow but duplicates the server fetch
-          already in page.tsx, requires restructuring the client/server boundary since AppShell
-          is "use client", and does not get real-time SSE updates without additional plumbing.
+          Fetch features separately at the layout level (or a layout-adjacent
+          server component) and pass to AppShell as props. Cleanest data flow
+          but duplicates the server fetch already in page.tsx, requires
+          restructuring the client/server boundary since AppShell is "use
+          client", and does not get real-time SSE updates without additional
+          plumbing.
         selected: false
     selectionRationale: >
-      React Context is recommended because it leverages standard React patterns, integrates
-      cleanly with the existing component hierarchy (AppShell wraps ControlCenter), and gets
-      real-time SSE updates for free since ControlCenterInner already reacts to SSE events.
-      The context provider can be placed inside AgentEventsProvider in AppShell, and
-      ControlCenterInner publishes derived sidebar features into it.
-    answer: 'React Context provider'
-
-  - question: 'How should blocked and error canvas states map to the sidebar 3-state model?'
+      React Context is recommended because it leverages standard React patterns,
+      integrates cleanly with the existing component hierarchy (AppShell wraps
+      ControlCenter), and gets real-time SSE updates for free since
+      ControlCenterInner already reacts to SSE events. The context provider can
+      be placed inside AgentEventsProvider in AppShell, and ControlCenterInner
+      publishes derived sidebar features into it.
+    answer: React Context provider
+  - question: >-
+      How should blocked and error canvas states map to the sidebar 3-state
+      model?
     resolved: true
     options:
-      - option: 'Map to in-progress'
+      - option: Map to in-progress
         description: >
-          Treat blocked and error as sub-states of in-progress in the sidebar. Rationale:
-          these features are still "active" from the user's perspective — they haven't completed
-          and don't require the specific "review drawer" action that action-needed implies.
-          Keeps the sidebar simple with 3 states. The canvas provides full state detail.
+          Treat blocked and error as sub-states of in-progress in the sidebar.
+          Rationale: these features are still "active" from the user's
+          perspective — they haven't completed and don't require the specific
+          "review drawer" action that action-needed implies. Keeps the sidebar
+          simple with 3 states. The canvas provides full state detail.
         selected: true
-      - option: 'Add blocked/error as new sidebar states'
+      - option: Add blocked/error as new sidebar states
         description: >
-          Extend FeatureStatus to include "blocked" and "error" with their own icons and colors.
-          Provides more granular information in the sidebar but increases UI complexity, requires
-          new featureStatusConfig entries, new Storybook stories, and changes the existing
-          3-state grouping UI.
+          Extend FeatureStatus to include "blocked" and "error" with their own
+          icons and colors. Provides more granular information in the sidebar
+          but increases UI complexity, requires new featureStatusConfig entries,
+          new Storybook stories, and changes the existing 3-state grouping UI.
         selected: false
-      - option: 'Map to action-needed'
+      - option: Map to action-needed
         description: >
-          Treat blocked/error as action-needed since the user may need to intervene. However,
-          this conflates different user actions — blocked/error features don't have a review
-          drawer to open, so clicking them would open the generic FeatureDrawer, which is
-          confusing if they appear in the "Action Needed" group.
+          Treat blocked/error as action-needed since the user may need to
+          intervene. However, this conflates different user actions —
+          blocked/error features don't have a review drawer to open, so clicking
+          them would open the generic FeatureDrawer, which is confusing if they
+          appear in the "Action Needed" group.
         selected: false
     selectionRationale: >
-      Mapping blocked and error to in-progress keeps the sidebar's 3-state model simple and
-      avoids confusing users by placing non-reviewable features in the "Action Needed" group.
-      The canvas already shows full state detail, so the sidebar serves as a quick overview.
-      The creating state (optimistic UI) is also mapped to in-progress for consistency.
-    answer: 'Map to in-progress'
-
-  - question: 'Should the onFeatureClick callback signature change from name to featureId?'
+      Mapping blocked and error to in-progress keeps the sidebar's 3-state model
+      simple and avoids confusing users by placing non-reviewable features in
+      the "Action Needed" group. The canvas already shows full state detail, so
+      the sidebar serves as a quick overview. The creating state (optimistic UI)
+      is also mapped to in-progress for consistency.
+    answer: Map to in-progress
+  - question: >-
+      Should the onFeatureClick callback signature change from name to
+      featureId?
     resolved: true
     options:
-      - option: 'Pass featureId only'
+      - option: Pass featureId only
         description: >
-          Change onFeatureClick from (name: string) => void to (featureId: string) => void.
-          The shep:select-feature CustomEvent requires a featureId (UUID), not a name. This is
-          the minimal change needed. The FeatureItem interface gains a featureId field, and the
-          callback passes it. Storybook stories and tests need updating for the new signature.
+          Change onFeatureClick from (name: string) => void to (featureId:
+          string) => void. The shep:select-feature CustomEvent requires a
+          featureId (UUID), not a name. This is the minimal change needed. The
+          FeatureItem interface gains a featureId field, and the callback passes
+          it. Storybook stories and tests need updating for the new signature.
         selected: true
-      - option: 'Pass full FeatureItem object'
+      - option: Pass full FeatureItem object
         description: >
-          Change onFeatureClick to receive the entire FeatureItem. More flexible for future use
-          cases but over-engineers the callback — the only consumer dispatches shep:select-feature
-          which only needs featureId. Also couples the callback to the FeatureItem shape.
+          Change onFeatureClick to receive the entire FeatureItem. More flexible
+          for future use cases but over-engineers the callback — the only
+          consumer dispatches shep:select-feature which only needs featureId.
+          Also couples the callback to the FeatureItem shape.
         selected: false
     selectionRationale: >
-      Passing featureId only is the minimal change needed to wire the shep:select-feature
-      CustomEvent. The existing selectFeatureById() in ControlCenterInner only needs the
-      featureId, and expanding the callback beyond what's needed would be over-engineering.
-    answer: 'Pass featureId only'
-
-  - question: 'How should elapsed time (startedAt) be sourced for in-progress sidebar features?'
+      Passing featureId only is the minimal change needed to wire the
+      shep:select-feature CustomEvent. The existing selectFeatureById() in
+      ControlCenterInner only needs the featureId, and expanding the callback
+      beyond what's needed would be over-engineering.
+    answer: Pass featureId only
+  - question: >-
+      How should elapsed time (startedAt) be sourced for in-progress sidebar
+      features?
     resolved: true
     options:
-      - option: 'Use AgentRun.startedAt from FeatureNodeData'
+      - option: Use AgentRun.startedAt from FeatureNodeData
         description: >
-          The sidebar context mapping function derives startedAt from the agent run's started
-          timestamp. The FeatureNodeData currently lacks a startedAt field, but the domain
-          Feature model has createdAt and the AgentRun has startedAt. The mapping layer in the
-          context provider can source this from the existing node data or add a startedAt field
-          to FeatureNodeData during the page.tsx construction. This is the most accurate approach.
+          The sidebar context mapping function derives startedAt from the agent
+          run's started timestamp. The FeatureNodeData currently lacks a
+          startedAt field, but the domain Feature model has createdAt and the
+          AgentRun has startedAt. The mapping layer in the context provider can
+          source this from the existing node data or add a startedAt field to
+          FeatureNodeData during the page.tsx construction. This is the most
+          accurate approach.
         selected: true
-      - option: 'Omit elapsed time initially'
+      - option: Omit elapsed time initially
         description: >
-          Ship without elapsed time for in-progress features. The sidebar would show the feature
-          name and status icon but no timer. Simpler to implement but degrades the UI compared
-          to the existing Storybook design which shows elapsed time.
+          Ship without elapsed time for in-progress features. The sidebar would
+          show the feature name and status icon but no timer. Simpler to
+          implement but degrades the UI compared to the existing Storybook
+          design which shows elapsed time.
         selected: false
     selectionRationale: >
-      Including startedAt is important because the existing Storybook design shows elapsed time
-      for in-progress features, and omitting it would be a visible UX regression. The data is
-      available from the domain model — it just needs to be threaded through FeatureNodeData
-      and into the sidebar context mapping.
-    answer: 'Use AgentRun.startedAt from FeatureNodeData'
-
-content: |
+      Including startedAt is important because the existing Storybook design
+      shows elapsed time for in-progress features, and omitting it would be a
+      visible UX regression. The data is available from the domain model — it
+      just needs to be threaded through FeatureNodeData and into the sidebar
+      context mapping.
+    answer: Use AgentRun.startedAt from FeatureNodeData
+content: >
   ## Problem Statement
 
-  The `AppSidebar` component has full UI support for displaying features grouped by status
-  (action-needed, in-progress, done) — including Storybook stories that demonstrate the
-  design. However, the `AppShell` layout component hardcodes `features={[]}`, so the sidebar
+
+  The `AppSidebar` component has full UI support for displaying features grouped
+  by status
+
+  (action-needed, in-progress, done) — including Storybook stories that
+  demonstrate the
+
+  design. However, the `AppShell` layout component hardcodes `features={[]}`, so
+  the sidebar
+
   is always empty in production.
 
-  Meanwhile, `page.tsx` fetches features with their agent runs and derives node state via
-  `deriveNodeState()`, but this data is only passed to the `ControlCenter` canvas — never
+
+  Meanwhile, `page.tsx` fetches features with their agent runs and derives node
+  state via
+
+  `deriveNodeState()`, but this data is only passed to the `ControlCenter`
+  canvas — never
+
   to the sidebar.
 
-  Additionally, when a user clicks an action-needed feature in the sidebar, it should open
-  the relevant review drawer (PRD questionnaire, tech decisions, or merge review), just like
-  clicking a feature node on the canvas does. The existing `shep:select-feature` CustomEvent
-  pattern already supports this — it just needs to be dispatched from sidebar click handlers.
+
+  Additionally, when a user clicks an action-needed feature in the sidebar, it
+  should open
+
+  the relevant review drawer (PRD questionnaire, tech decisions, or merge
+  review), just like
+
+  clicking a feature node on the canvas does. The existing `shep:select-feature`
+  CustomEvent
+
+  pattern already supports this — it just needs to be dispatched from sidebar
+  click handlers.
+
 
   ## Success Criteria
 
-  - [ ] Sidebar displays real features grouped by status (action-needed, in-progress, done)
-  - [ ] Feature count badges in each status group reflect the actual number of features
+
+  - [ ] Sidebar displays real features grouped by status (action-needed,
+  in-progress, done)
+
+  - [ ] Feature count badges in each status group reflect the actual number of
+  features
+
   - [ ] In-progress features show a live elapsed-time counter
+
   - [ ] Done features show their total duration
-  - [ ] Features update in real-time when SSE events change state (e.g., running → action-required)
-  - [ ] Clicking an action-needed feature opens the correct review drawer (PRD, tech decisions, or merge review) based on lifecycle
-  - [ ] Clicking an in-progress or done feature opens the standard feature info drawer
+
+  - [ ] Features update in real-time when SSE events change state (e.g., running
+  → action-required)
+
+  - [ ] Clicking an action-needed feature opens the correct review drawer (PRD,
+  tech decisions, or merge review) based on lifecycle
+
+  - [ ] Clicking an in-progress or done feature opens the standard feature info
+  drawer
+
   - [ ] Features in creating state (optimistic UI) do not appear in the sidebar
-  - [ ] Empty state: sidebar shows no features groups when there are zero features
-  - [ ] Sidebar features remain in sync when features are added or deleted on the canvas
-  - [ ] Existing Storybook stories still render correctly (updated for new FeatureItem interface)
-  - [ ] Unit tests cover: context provider, state mapping, click dispatch, real-time updates
+
+  - [ ] Empty state: sidebar shows no features groups when there are zero
+  features
+
+  - [ ] Sidebar features remain in sync when features are added or deleted on
+  the canvas
+
+  - [ ] Existing Storybook stories still render correctly (updated for new
+  FeatureItem interface)
+
+  - [ ] Unit tests cover: context provider, state mapping, click dispatch,
+  real-time updates
+
 
   ## Functional Requirements
 
-  - **FR-1**: Create a `SidebarFeaturesContext` React context that holds an array of sidebar-formatted features (FeatureItem[]) and exposes a setter function for the ControlCenter to publish updates.
-  - **FR-2**: Add a `SidebarFeaturesProvider` that wraps both `AppShellInner` and `ControlCenter`, placed inside the existing `AgentEventsProvider` in `AppShell`.
-  - **FR-3**: In `ControlCenterInner`, derive sidebar features from `nodes` state by mapping each `featureNode`'s `FeatureNodeData` to a sidebar `FeatureItem` with the correct `FeatureStatus`, and publish them to `SidebarFeaturesContext` whenever nodes change.
-  - **FR-4**: Implement a pure mapping function `mapNodeStateToSidebarStatus(state: FeatureNodeState): FeatureStatus | null` that converts canvas 6-state to sidebar 3-state: `action-required` → `action-needed`, `running` → `in-progress`, `done` → `done`, `blocked` → `in-progress`, `error` → `in-progress`, `creating` → `null` (excluded from sidebar).
-  - **FR-5**: In `AppShellInner`, consume `SidebarFeaturesContext` and pass the features array to `AppSidebar` instead of the hardcoded `features={[]}`.
-  - **FR-6**: Extend the `FeatureItem` interface with a `featureId: string` field to carry the UUID needed for event dispatch.
-  - **FR-7**: Change `AppSidebarProps.onFeatureClick` callback signature from `(name: string) => void` to `(featureId: string) => void`.
-  - **FR-8**: In `AppShellInner`, implement `onFeatureClick` handler that dispatches `window.dispatchEvent(new CustomEvent('shep:select-feature', { detail: { featureId } }))` — reusing the existing event that `ControlCenterInner` already listens for.
-  - **FR-9**: Map `FeatureNodeData.runtime` to sidebar `FeatureItem.duration` for done features.
-  - **FR-10**: Add a `startedAt` field to `FeatureNodeData` interface, populated from `AgentRun.startedAt` in `page.tsx` during node construction.
-  - **FR-11**: Map `FeatureNodeData.startedAt` to sidebar `FeatureItem.startedAt` for in-progress features so the `ElapsedTime` component renders a live counter.
-  - **FR-12**: Ensure the sidebar context updates automatically when SSE events trigger node state changes in `useControlCenterState`, since the mapping derives from the same `nodes` state array.
+
+  - **FR-1**: Create a `SidebarFeaturesContext` React context that holds an
+  array of sidebar-formatted features (FeatureItem[]) and exposes a setter
+  function for the ControlCenter to publish updates.
+
+  - **FR-2**: Add a `SidebarFeaturesProvider` that wraps both `AppShellInner`
+  and `ControlCenter`, placed inside the existing `AgentEventsProvider` in
+  `AppShell`.
+
+  - **FR-3**: In `ControlCenterInner`, derive sidebar features from `nodes`
+  state by mapping each `featureNode`'s `FeatureNodeData` to a sidebar
+  `FeatureItem` with the correct `FeatureStatus`, and publish them to
+  `SidebarFeaturesContext` whenever nodes change.
+
+  - **FR-4**: Implement a pure mapping function
+  `mapNodeStateToSidebarStatus(state: FeatureNodeState): FeatureStatus | null`
+  that converts canvas 6-state to sidebar 3-state: `action-required` →
+  `action-needed`, `running` → `in-progress`, `done` → `done`, `blocked` →
+  `in-progress`, `error` → `in-progress`, `creating` → `null` (excluded from
+  sidebar).
+
+  - **FR-5**: In `AppShellInner`, consume `SidebarFeaturesContext` and pass the
+  features array to `AppSidebar` instead of the hardcoded `features={[]}`.
+
+  - **FR-6**: Extend the `FeatureItem` interface with a `featureId: string`
+  field to carry the UUID needed for event dispatch.
+
+  - **FR-7**: Change `AppSidebarProps.onFeatureClick` callback signature from
+  `(name: string) => void` to `(featureId: string) => void`.
+
+  - **FR-8**: In `AppShellInner`, implement `onFeatureClick` handler that
+  dispatches `window.dispatchEvent(new CustomEvent('shep:select-feature', {
+  detail: { featureId } }))` — reusing the existing event that
+  `ControlCenterInner` already listens for.
+
+  - **FR-9**: Map `FeatureNodeData.runtime` to sidebar `FeatureItem.duration`
+  for done features.
+
+  - **FR-10**: Add a `startedAt` field to `FeatureNodeData` interface, populated
+  from `AgentRun.startedAt` in `page.tsx` during node construction.
+
+  - **FR-11**: Map `FeatureNodeData.startedAt` to sidebar
+  `FeatureItem.startedAt` for in-progress features so the `ElapsedTime`
+  component renders a live counter.
+
+  - **FR-12**: Ensure the sidebar context updates automatically when SSE events
+  trigger node state changes in `useControlCenterState`, since the mapping
+  derives from the same `nodes` state array.
+
 
   ## Non-Functional Requirements
 
-  - **NFR-1**: The sidebar feature list must update within 1 render cycle of the canvas nodes updating (no stale data between canvas and sidebar).
-  - **NFR-2**: The mapping function (FR-4) must be a pure function with no side effects, suitable for unit testing in isolation.
-  - **NFR-3**: The context provider must not cause unnecessary re-renders of components that don't consume sidebar features — use a dedicated context (not overloading an existing one).
-  - **NFR-4**: The `FeatureItem` interface change (FR-6, FR-7) must maintain backward compatibility with existing Storybook stories by updating story data to include the new `featureId` field.
-  - **NFR-5**: No new network requests — sidebar data is derived entirely from already-fetched canvas node state.
-  - **NFR-6**: Click-to-drawer latency must be imperceptible (<100ms from click to drawer open), as it reuses existing in-memory state via CustomEvent.
-  - **NFR-7**: All new code must have colocated unit tests following the project's TDD approach (red → green → refactor).
+
+  - **NFR-1**: The sidebar feature list must update within 1 render cycle of the
+  canvas nodes updating (no stale data between canvas and sidebar).
+
+  - **NFR-2**: The mapping function (FR-4) must be a pure function with no side
+  effects, suitable for unit testing in isolation.
+
+  - **NFR-3**: The context provider must not cause unnecessary re-renders of
+  components that don't consume sidebar features — use a dedicated context (not
+  overloading an existing one).
+
+  - **NFR-4**: The `FeatureItem` interface change (FR-6, FR-7) must maintain
+  backward compatibility with existing Storybook stories by updating story data
+  to include the new `featureId` field.
+
+  - **NFR-5**: No new network requests — sidebar data is derived entirely from
+  already-fetched canvas node state.
+
+  - **NFR-6**: Click-to-drawer latency must be imperceptible (<100ms from click
+  to drawer open), as it reuses existing in-memory state via CustomEvent.
+
+  - **NFR-7**: All new code must have colocated unit tests following the
+  project's TDD approach (red → green → refactor).
+
 
   ## Product Questions & AI Recommendations
 
+
   | # | Question | AI Recommendation | Rationale |
+
   | - | -------- | ----------------- | --------- |
-  | 1 | How should feature data be shared between ControlCenter and AppSidebar? | React Context provider | Standard React pattern, integrates with existing hierarchy, gets SSE updates for free |
-  | 2 | How should blocked and error canvas states map to the sidebar 3-state model? | Map to in-progress | Keeps sidebar simple, avoids confusing "action needed" for non-reviewable features |
-  | 3 | Should the onFeatureClick callback change from name to featureId? | Pass featureId only | Minimal change needed for shep:select-feature dispatch |
-  | 4 | How should elapsed time (startedAt) be sourced for in-progress sidebar features? | Use AgentRun.startedAt from FeatureNodeData | Matches Storybook design, data available from domain model |
+
+  | 1 | How should feature data be shared between ControlCenter and AppSidebar?
+  | React Context provider | Standard React pattern, integrates with existing
+  hierarchy, gets SSE updates for free |
+
+  | 2 | How should blocked and error canvas states map to the sidebar 3-state
+  model? | Map to in-progress | Keeps sidebar simple, avoids confusing "action
+  needed" for non-reviewable features |
+
+  | 3 | Should the onFeatureClick callback change from name to featureId? | Pass
+  featureId only | Minimal change needed for shep:select-feature dispatch |
+
+  | 4 | How should elapsed time (startedAt) be sourced for in-progress sidebar
+  features? | Use AgentRun.startedAt from FeatureNodeData | Matches Storybook
+  design, data available from domain model |
+
 
   ## Affected Areas
 
+
   | Area | Impact | Reasoning |
+
   | ---- | ------ | --------- |
-  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | High | Consumes SidebarFeaturesContext, passes features to AppSidebar, implements onFeatureClick |
-  | `src/presentation/web/components/features/control-center/control-center-inner.tsx` | High | Publishes sidebar features to context whenever nodes change |
-  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` | Medium | FeatureItem interface gains featureId, onFeatureClick signature changes to featureId |
-  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Low | FeatureNodeData gains optional startedAt field |
-  | `src/presentation/web/app/page.tsx` | Low | Populates startedAt from AgentRun when constructing FeatureNodeData |
-  | `src/presentation/web/components/common/feature-list-item/feature-list-item.tsx` | None | No changes — already receives onClick as a closure |
-  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.stories.tsx` | Low | Update mock data to include featureId |
-  | `tests/unit/presentation/web/layouts/app-sidebar.test.tsx` | Medium | Update mock data and test click behavior with featureId |
-  | `tests/unit/presentation/web/layouts/app-shell.test.tsx` | Medium | Test context consumption and onFeatureClick dispatch |
+
+  | `src/presentation/web/components/layouts/app-shell/app-shell.tsx` | High |
+  Consumes SidebarFeaturesContext, passes features to AppSidebar, implements
+  onFeatureClick |
+
+  |
+  `src/presentation/web/components/features/control-center/control-center-inner.tsx`
+  | High | Publishes sidebar features to context whenever nodes change |
+
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` |
+  Medium | FeatureItem interface gains featureId, onFeatureClick signature
+  changes to featureId |
+
+  |
+  `src/presentation/web/components/common/feature-node/feature-node-state-config.ts`
+  | Low | FeatureNodeData gains optional startedAt field |
+
+  | `src/presentation/web/app/page.tsx` | Low | Populates startedAt from
+  AgentRun when constructing FeatureNodeData |
+
+  |
+  `src/presentation/web/components/common/feature-list-item/feature-list-item.tsx`
+  | None | No changes — already receives onClick as a closure |
+
+  |
+  `src/presentation/web/components/layouts/app-sidebar/app-sidebar.stories.tsx`
+  | Low | Update mock data to include featureId |
+
+  | `tests/unit/presentation/web/layouts/app-sidebar.test.tsx` | Medium | Update
+  mock data and test click behavior with featureId |
+
+  | `tests/unit/presentation/web/layouts/app-shell.test.tsx` | Medium | Test
+  context consumption and onFeatureClick dispatch |
+
 
   ## Dependencies
 
-  - `deriveNodeState()` from `feature-node/derive-feature-state.ts` — maps domain state to UI state
+
+  - `deriveNodeState()` from `feature-node/derive-feature-state.ts` — maps
+  domain state to UI state
+
   - `FeatureStatus` type and `featureStatusConfig` — sidebar's 3-state model
+
   - `FeatureNodeState` type and `FeatureNodeData` interface — canvas state model
-  - `shep:select-feature` CustomEvent — existing pattern for opening feature drawers
-  - `selectFeatureById()` in `useControlCenterState` — existing function that selects a feature and triggers drawer logic
-  - `useAgentEventsContext()` — SSE event stream for real-time state updates (consumed by useControlCenterState)
+
+  - `shep:select-feature` CustomEvent — existing pattern for opening feature
+  drawers
+
+  - `selectFeatureById()` in `useControlCenterState` — existing function that
+  selects a feature and triggers drawer logic
+
+  - `useAgentEventsContext()` — SSE event stream for real-time state updates
+  (consumed by useControlCenterState)
+
   - `AgentRun.startedAt` — domain model field for elapsed time calculation
+
 
   ## Size Estimate
 
-  **S** — The UI components already exist and work in Storybook. The main work is:
+
+  **S** — The UI components already exist and work in Storybook. The main work
+  is:
+
   1. Creating a SidebarFeaturesContext with provider (~1 new file, ~40 lines)
-  2. Pure mapping function FeatureNodeState → FeatureStatus (~1 function, ~15 lines)
+
+  2. Pure mapping function FeatureNodeState → FeatureStatus (~1 function, ~15
+  lines)
+
   3. ControlCenterInner publishes sidebar features via useEffect (~10 lines)
+
   4. AppShellInner consumes context and passes to AppSidebar (~5 lines)
+
   5. FeatureItem interface + onFeatureClick signature change (~5 lines each)
+
   6. onFeatureClick dispatches shep:select-feature (~5 lines)
+
   7. Add startedAt to FeatureNodeData + populate in page.tsx (~5 lines)
+
   8. Update Storybook stories with featureId (~5 lines)
+
   9. Unit tests for mapping function, context, click dispatch (~3 test files)
 
-  The mapping from FeatureNodeState to FeatureStatus and the drawer routing logic already exist.
+
+  The mapping from FeatureNodeState to FeatureStatus and the drawer routing
+  logic already exist.
+
 
   ---
 
+
   _Generated by requirements phase — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: Show only action needed
+    phase: merge
+    timestamp: '2026-02-25T21:35:59.630Z'
