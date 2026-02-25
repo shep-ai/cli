@@ -1,0 +1,40 @@
+feature:
+  id: 043-tools-management-ui
+  name: tools-management-ui
+  number: 43
+  branch: feat/043-tools-management-ui
+  lifecycle: research
+  createdAt: '2026-02-25T11:46:35Z'
+status:
+  phase: implementation-complete
+  progress:
+    completed: 15
+    total: 15
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-25T12:35:26.764Z'
+  lastUpdatedBy: feature-agent:implement
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+    - phase-4
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-25T11:46:35Z'
+    completedBy: feature-agent
+errors:
+  current: null
+  history: []

@@ -98,6 +98,8 @@ import { GetResearchArtifactUseCase } from '../../application/use-cases/features
 import { GetPlanArtifactUseCase } from '../../application/use-cases/features/get-plan-artifact.use-case.js';
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
+import { ListToolsUseCase } from '../../application/use-cases/tools/list-tools.use-case.js';
+import { LaunchToolUseCase } from '../../application/use-cases/tools/launch-tool.use-case.js';
 import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use-case.js';
 import { AddRepositoryUseCase } from '../../application/use-cases/repositories/add-repository.use-case.js';
 import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
@@ -301,6 +303,8 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(GetPlanArtifactUseCase);
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
+  container.registerSingleton(ListToolsUseCase);
+  container.registerSingleton(LaunchToolUseCase);
   container.registerSingleton(LaunchIdeUseCase);
   container.registerSingleton(AddRepositoryUseCase);
   container.registerSingleton(ListRepositoriesUseCase);
@@ -350,6 +354,15 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('GetPlanArtifactUseCase', {
     useFactory: (c) => c.resolve(GetPlanArtifactUseCase),
+  });
+  container.register('InstallToolUseCase', {
+    useFactory: (c) => c.resolve(InstallToolUseCase),
+  });
+  container.register('ListToolsUseCase', {
+    useFactory: (c) => c.resolve(ListToolsUseCase),
+  });
+  container.register('LaunchToolUseCase', {
+    useFactory: (c) => c.resolve(LaunchToolUseCase),
   });
   container.register('LaunchIdeUseCase', {
     useFactory: (c) => c.resolve(LaunchIdeUseCase),

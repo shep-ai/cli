@@ -1,0 +1,377 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: tools-management-ui
+number: 043
+branch: feat/043-tools-management-ui
+oneLiner: Add a Tools management page in the Web UI (replacing Memory button) backed by JSON-sourced tool metadata, new use cases for listing/launching, and aligned CLI commands.
+summary: >
+  Adds a sleek Tools page to the web UI that replaces the current Memory button in the sidebar.
+  Tool JSON files remain the single source of truth for all metadata and actions (install, open,
+  verify). New use cases (ListTools, LaunchTool) join the existing install/validate ones, and
+  CLI commands are aligned to reuse those same use cases so CLI and Web share identical behaviour.
+phase: Requirements
+sizeEstimate: M
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Next.js 14 (App Router, Server + Client Components)
+  - React
+  - shadcn/ui (Card, Badge, Button, Tabs, Dialog, ScrollArea, Tooltip)
+  - Tailwind CSS
+  - tsyringe (DI container)
+  - Commander.js (CLI)
+  - Storybook (mandatory colocated .stories.tsx)
+  - Vitest (unit tests)
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'How should LaunchToolUseCase handle the directory argument when launched from the Tools page (no active feature context)?'
+    resolved: true
+    options:
+      - option: 'Use process CWD of dev server'
+        description: >
+          LaunchToolUseCase passes the current working directory of the running shep dev-server
+          process as the launch directory. Mirrors how the existing IIdeLauncherService works and
+          requires no additional user input. Works well when the user runs `shep dev` from their
+          project root. Simple to implement and consistent with the IDE-open flow.
+        selected: true
+      - option: 'Require user to input a directory path'
+        description: >
+          Presents a Dialog or text input asking for a directory before launching. More flexible
+          but adds friction; unnecessary in most cases since the user is already in their project.
+        selected: false
+      - option: 'Default to home directory'
+        description: >
+          Always launches the tool opening the OS home directory (~). Safe fallback but less
+          useful — developers usually want to open their project root, not home.
+        selected: false
+    selectionRationale: >
+      Using process CWD of the dev server matches the existing `launch-ide.use-case.ts` convention
+      and requires no new UI surface. Since `shep dev` is always run from the project root, CWD
+      is the correct default 95% of the time. This keeps the Tools page interaction friction-free
+      (one click to launch) while reusing IIdeLauncherService without modification.
+    answer: 'Use process CWD of dev server'
+
+  - question: 'What UX should be shown when the user clicks "Install" on a tool that is not auto-installable (manual install required)?'
+    resolved: true
+    options:
+      - option: 'Dialog with copy-to-clipboard instructions'
+        description: >
+          Opens a shadcn/ui Dialog containing the platform-appropriate install command(s) and a
+          copy-to-clipboard button. Can also show the documentation URL as a link. Clear, contextual,
+          and avoids cluttering the card layout with lengthy shell strings.
+        selected: true
+      - option: 'Inline expand on the card'
+        description: >
+          Expands the ToolCard in place to show install instructions below the card metadata.
+          No modal overlay — keeps the user on the page. Slightly harder to read dense instructions
+          and may push layout around.
+        selected: false
+      - option: 'Open documentation URL directly'
+        description: >
+          Clicking "Install" opens the tool's `documentationUrl` in a new browser tab. Minimal
+          implementation but sends the user away from the UI and doesn't surface the shell command.
+        selected: false
+    selectionRationale: >
+      A Dialog provides a focused, readable surface for multi-line install commands without
+      disrupting the grid layout of tool cards. The copy-to-clipboard affordance dramatically
+      reduces friction. Since shadcn/ui Dialog is already in the stack, implementation cost is low.
+      Inline expansion risks layout shift and is harder to implement cleanly in a card grid.
+    answer: 'Dialog with copy-to-clipboard instructions'
+
+  - question: 'How should tool installation status be refreshed after a user action (install/launch)?'
+    resolved: true
+    options:
+      - option: 'Optimistic update + manual refresh button'
+        description: >
+          After triggering an install the UI updates the card state optimistically (e.g. shows
+          a spinner/pending badge). A "Refresh" button or automatic re-fetch on tab focus
+          re-validates actual status. No background polling. Low complexity, low server load.
+        selected: true
+      - option: 'Client-side polling every N seconds'
+        description: >
+          After an install action the client polls GET /api/tools every few seconds until the
+          status changes. Provides real-time feedback without user interaction. Adds complexity
+          (polling logic, abort controllers) and continuous server load.
+        selected: false
+      - option: 'Server-Sent Events (SSE) stream'
+        description: >
+          Extends the existing SSE infrastructure to emit tool-status events. Fully real-time
+          but highest implementation cost; SSE is already used for agent events but wiring tool
+          status into that stream adds significant scope.
+        selected: false
+    selectionRationale: >
+      Optimistic updates paired with a manual refresh/re-fetch on tab focus give excellent UX
+      with minimal complexity. Tool installs are not instantaneous — the user will wait and
+      then verify. Full polling or SSE would be over-engineered for this use case and inconsistent
+      with how other pages in the app behave. This also keeps the API routes stateless and simple.
+    answer: 'Optimistic update + manual refresh button'
+
+  - question: 'Should new CLI tool commands be introduced as a `shep tools` subcommand group or extend existing top-level commands?'
+    resolved: true
+    options:
+      - option: 'New `shep tools` subcommand group'
+        description: >
+          Adds a `tools` Commander subcommand with `shep tools list` (and optionally
+          `shep tools launch <id>`). Groups tool-related operations under a clear namespace.
+          Existing `shep install` and `shep ide` commands remain unchanged. Cleanest discoverability
+          and mirrors how the web page organises the feature.
+        selected: true
+      - option: 'Extend existing `shep install` command'
+        description: >
+          Adds a `shep install --list` flag and ensures `shep install <id>` strictly delegates
+          through InstallToolUseCase. No new subcommand; minimal CLI surface change. Harder to
+          discover and conflates listing with installing.
+        selected: false
+      - option: 'Top-level `shep list-tools` command'
+        description: >
+          Adds a standalone `shep list-tools` top-level command. Simple but pollutes the top-level
+          namespace and doesn't scale if more tool sub-operations are added later.
+        selected: false
+    selectionRationale: >
+      A `shep tools` subcommand group is the most extensible and discoverable approach. It mirrors
+      the web page structure, creates a clear namespace for future tool operations, and avoids
+      overloading existing commands. The Commander.js pattern already supports nested subcommands.
+      `shep tools list` as a first command gives the web and CLI feature parity at launch.
+    answer: 'New `shep tools` subcommand group'
+
+  - question: 'How should tools be categorised and filtered in the Tools page UI?'
+    resolved: true
+    options:
+      - option: 'Tabs for All / IDEs / CLI Agents driven by JSON tags'
+        description: >
+          Renders three shadcn/ui Tabs at the top of the page — "All", "IDEs", and "CLI Agents" —
+          derived from the `tags` array in each tool JSON. Clean, predictable, and the categories
+          map directly to existing tag values. No fuzzy search complexity.
+        selected: true
+      - option: 'Search input with real-time filtering'
+        description: >
+          A text input filters tools by name/summary as the user types. More flexible for large
+          tool sets but adds client-side state complexity and feels heavyweight for 7 tools.
+        selected: false
+      - option: 'Flat ungrouped list, no filtering'
+        description: >
+          All tools displayed in a single grid with no tabs or search. Simplest to build. Acceptable
+          for the current tool count (~7) but provides no structure when more tools are added.
+        selected: false
+    selectionRationale: >
+      Tag-driven tabs mirror the natural mental model developers use (IDEs vs. CLI tools) and require
+      no additional UI state machinery. With only ~7 tools currently, full-text search would be
+      over-engineered. The `tags` field already exists in every JSON file, so the tab rendering
+      logic is a trivial filter. This also gives the UI a polished, purposeful feel without clutter.
+    answer: 'Tabs for All / IDEs / CLI Agents driven by JSON tags'
+
+  - question: 'Should ListToolsUseCase include live availability status (binary check) or return metadata only?'
+    resolved: true
+    options:
+      - option: 'Include live availability status via IToolInstallerService'
+        description: >
+          ListToolsUseCase calls IToolInstallerService.checkAvailability() for each tool and
+          returns enriched results with installation status. The page always shows accurate
+          installed/missing state on load. Slightly slower (N binary checks) but these are
+          fast `which` calls and the list is small (~7 tools).
+        selected: true
+      - option: 'Metadata only; client fetches status separately'
+        description: >
+          ListToolsUseCase returns raw metadata only. A separate API route (or client-side call)
+          fetches status per tool. Adds a second network round-trip and extra client state for
+          minimal benefit given the small tool count.
+        selected: false
+    selectionRationale: >
+      Enriching the list result with live status is the right default because it delivers a complete,
+      accurate UI on first paint with a single use-case call. The ~7 binary checks are near-instant
+      (all are `which <binary>` calls). A split approach would add API surface complexity and
+      introduce a loading flash for status badges — poor UX for what amounts to microseconds of
+      extra server work.
+    answer: 'Include live availability status via IToolInstallerService'
+
+content: |
+  ## Problem Statement
+
+  The web UI currently has a "Memory" navigation item that leads to an empty / stub page, while
+  the real developer need is visibility into which tools (IDEs and CLI agents) are available,
+  which are missing, and the ability to install or launch them without leaving the UI.
+
+  On the CLI side, tool operations exist but are spread across `install` and `ide` commands and
+  do not map 1-to-1 to what the UI needs. The core constraint from the user is: **tool JSON
+  files must be the single source of truth** for all data and actions, and every interaction
+  (web or CLI) must go through dedicated **use cases**—no direct service calls from the
+  presentation layer.
+
+  ## Success Criteria
+
+  - [ ] Navigating to `/tools` in the web UI renders a Tools page with all tools from the JSON files
+  - [ ] Each tool card displays name, summary, tags (as Badges), and an accurate installed/missing status badge
+  - [ ] Installed tools with `openDirectory` defined show an active "Launch" button; clicking it opens the tool at process CWD
+  - [ ] Missing auto-installable tools show an "Install" button that triggers `POST /api/tools/[id]/install`
+  - [ ] Missing manual-only tools show an "Install" button that opens a Dialog with the platform-appropriate command and a copy-to-clipboard button
+  - [ ] The sidebar "Memory" nav item is replaced by a "Tools" item (Wrench icon) pointing to `/tools`
+  - [ ] `shep tools list` prints all tools with their id, name, and installed status to stdout
+  - [ ] `ListToolsUseCase` has ≥80% unit test coverage (Vitest)
+  - [ ] `LaunchToolUseCase` has ≥80% unit test coverage (Vitest)
+  - [ ] Every new React component has a colocated `.stories.tsx` with at least one story per meaningful state
+  - [ ] `pnpm validate` passes (lint, format, typecheck, tsp) with no new errors
+  - [ ] `pnpm test` passes with no regressions
+  - [ ] All new API routes return appropriate HTTP status codes (200/201/400/404/500)
+  - [ ] Tabs in the Tools page correctly filter to "All", "IDEs", and "CLI Agents" based on tool tags
+  - [ ] No presentation layer component calls a service directly (all interactions via use cases / API routes)
+
+  ## Functional Requirements
+
+  - **FR-1**: The system MUST expose a `ListToolsUseCase` that returns all tools from the JSON source
+    of truth, each enriched with live `ToolInstallationStatus` (installed/missing) via
+    `IToolInstallerService.checkAvailability()`.
+
+  - **FR-2**: The system MUST expose a `LaunchToolUseCase` that accepts a tool ID and a directory path,
+    then delegates to `IIdeLauncherService.launch()` using the tool's `openDirectory` template.
+    It MUST return a typed result indicating success or failure (tool not found, not launchable,
+    launch error).
+
+  - **FR-3**: Both `ListToolsUseCase` and `LaunchToolUseCase` MUST be registered in the tsyringe
+    DI container with string tokens (`'ListToolsUseCase'`, `'LaunchToolUseCase'`).
+
+  - **FR-4**: A Next.js server component at `src/presentation/web/app/tools/page.tsx` MUST resolve
+    `ListToolsUseCase` via `server-container.ts` and pass the result as plain serialisable props
+    to the client component. No `fetch()` calls in the server component itself.
+
+  - **FR-5**: A `ToolsPageClient` client component MUST render a tab bar with "All", "IDEs", and
+    "CLI Agents" tabs. Active tab selection MUST filter the displayed `ToolCard` grid. Default
+    tab is "All".
+
+  - **FR-6**: A `ToolCard` component MUST display: tool name, summary, description (truncated),
+    tags as `Badge` components, and an installation status badge ("Installed" / "Missing").
+
+  - **FR-7**: `ToolCard` MUST conditionally render action buttons:
+    - If installed AND `openDirectory` is defined: a "Launch" button that calls
+      `POST /api/tools/[id]/launch`.
+    - If missing AND `autoInstall: true`: an "Install" button that calls
+      `POST /api/tools/[id]/install` and shows a loading spinner while in-flight.
+    - If missing AND `autoInstall` is falsy: an "Install" button that opens an
+      `InstallInstructions` Dialog.
+
+  - **FR-8**: An `InstallInstructions` Dialog MUST show the platform-appropriate install command
+    string from the tool JSON, a "Copy" button that writes it to the clipboard, and a link to
+    `documentationUrl` if present.
+
+  - **FR-9**: A `GET /api/tools` route handler MUST resolve and execute `ListToolsUseCase`, returning
+    the tool list as JSON. Status 200 on success; 500 with `{ error: string }` on failure.
+
+  - **FR-10**: A `POST /api/tools/[id]/install` route handler MUST resolve and execute
+    `InstallToolUseCase` for the given tool ID. Returns 200 on success, 404 if tool not found,
+    500 on install error.
+
+  - **FR-11**: A `POST /api/tools/[id]/launch` route handler MUST resolve and execute
+    `LaunchToolUseCase` with the tool ID and `process.cwd()` as the directory. Returns 200 on
+    success, 404 if tool not found, 422 if tool has no `openDirectory`, 500 on launch error.
+
+  - **FR-12**: The sidebar navigation in `app-sidebar.tsx` MUST replace the "Memory" item
+    (Brain icon, `/memory` route) with a "Tools" item (Wrench icon, `/tools` route). The old
+    `memory/` route may remain as a redirect or be removed.
+
+  - **FR-13**: A `shep tools` Commander subcommand group MUST be registered in
+    `src/presentation/cli/index.ts`. It MUST include a `list` sub-command that resolves and
+    executes `ListToolsUseCase` and prints each tool as `[installed|missing] <id>  <name>` to
+    stdout, one line per tool.
+
+  - **FR-14**: The existing `shep install <tool>` command MUST continue to work unchanged.
+    If it does not already delegate through `InstallToolUseCase`, it MUST be updated to do so.
+
+  - **FR-15**: All tool data (name, summary, description, tags, binary, commands, autoInstall,
+    openDirectory, documentationUrl) MUST be sourced exclusively from the JSON files under
+    `infrastructure/services/tool-installer/tools/`. No hardcoded strings in use cases,
+    API routes, or components.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1 — Architecture compliance**: No presentation layer file (web component, API route,
+    CLI command) may import from or instantiate infrastructure services directly. All data
+    access MUST flow through use cases resolved via the DI container.
+
+  - **NFR-2 — Type safety**: All use case inputs and outputs MUST be fully typed TypeScript
+    interfaces. No `any` types in new code. `ListToolsResult` DTO to be defined as a plain
+    TypeScript interface (not TypeSpec-generated, as it is a presentation-layer concern).
+
+  - **NFR-3 — Test coverage**: Every new use case MUST have Vitest unit tests covering the
+    happy path, tool-not-found error, and service-error scenarios before implementation
+    (TDD: RED → GREEN → REFACTOR).
+
+  - **NFR-4 — Storybook stories**: Every new React component MUST have a colocated
+    `.stories.tsx` file with stories for at minimum: default/installed state, missing/uninstalled
+    state, and loading/in-flight state where applicable.
+
+  - **NFR-5 — Page load performance**: The Tools page initial server render MUST complete in
+    under 2 seconds on localhost. Binary availability checks for ~7 tools are expected to be
+    near-instant (`which` calls); no caching layer is required.
+
+  - **NFR-6 — Accessibility**: Interactive elements (buttons, tabs) MUST have accessible labels.
+    Status badges MUST use colour AND text (not colour alone) to convey meaning. shadcn/ui
+    primitives satisfy this by default; custom deviations must maintain ARIA compliance.
+
+  - **NFR-7 — Error handling**: API routes MUST return structured JSON error objects
+    `{ error: string }` on failure, never plain text or unhandled exceptions. Client components
+    MUST display a user-facing error state when an API call fails.
+
+  - **NFR-8 — No polling**: The Tools page MUST NOT implement background polling for status
+    updates. Status is refreshed on page load (server render) and optionally on a manual user
+    action (e.g., after install completes the component re-fetches to confirm).
+
+  - **NFR-9 — Single source of truth**: Adding or modifying a tool (any metadata, commands,
+    or capabilities) MUST require only editing the corresponding JSON file. No other code
+    changes should be required for the change to appear correctly in both web UI and CLI.
+
+  - **NFR-10 — No regressions**: `pnpm test` and `pnpm validate` MUST pass in CI with no new
+    failures after implementation.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should LaunchToolUseCase handle the directory when launched from the Tools page? | Use process CWD of dev server | Mirrors existing IIdeLauncherService convention; zero friction for the user; correct default when `shep dev` is run from project root |
+  | 2 | UX for manual-install tools | Dialog with copy-to-clipboard | Focused, readable, no layout disruption; copy affordance removes the main friction |
+  | 3 | How to refresh tool status after an action | Optimistic update + manual refresh | Avoids polling complexity; tool installs are non-instant; manual confirm is natural UX |
+  | 4 | CLI command structure | New `shep tools` subcommand group | Clean namespace, discoverable, extensible; mirrors web page structure |
+  | 5 | Tools page filtering UI | Tabs: All / IDEs / CLI Agents (tag-driven) | Maps to existing `tags` values; no extra state machinery; polished without complexity |
+  | 6 | ListToolsUseCase include live status? | Yes — include via IToolInstallerService | Single round-trip; ~7 `which` checks are microsecond-fast; avoids loading flash for badges |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/application/use-cases/tools/` | High | Add `ListToolsUseCase`, `LaunchToolUseCase`; register both in DI container |
+  | `packages/core/src/application/ports/output/services/` | Medium | May need to extend `IToolInstallerService` with `listTools()` or add a dedicated port |
+  | `packages/core/src/infrastructure/di/container.ts` | Medium | Register new use cases with their tokens |
+  | `packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts` | Low | Possibly expose a `listTools()` helper used by the new use case |
+  | `src/presentation/web/app/tools/` | High | New page route; create `page.tsx` + `ToolsPageClient` component |
+  | `src/presentation/web/app/api/tools/` | High | New API routes: `GET /api/tools`, `POST /api/tools/[id]/install`, `POST /api/tools/[id]/launch` |
+  | `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` | Medium | Replace `Brain`/Memory nav item with `Wrench`/Tools pointing to `/tools` |
+  | `src/presentation/web/components/features/tools/` | High | New component tree: `ToolsPageClient`, `ToolCard`, `InstallInstructions`, `LaunchButton` |
+  | `src/presentation/cli/commands/install.command.ts` | Low | Ensure it delegates through `InstallToolUseCase` (already does; verify alignment) |
+  | `src/presentation/cli/commands/ide-open.command.ts` | Low | Evaluate whether `LaunchToolUseCase` can replace the inline launch logic |
+  | `src/presentation/cli/index.ts` | Low | Register new `shep tools` subcommand group with `list` sub-command |
+
+  ## Dependencies
+
+  - **Existing**: `TOOL_METADATA` / `ToolMetadata` from `tool-metadata.ts` — all display data lives there already.
+  - **Existing**: `IToolInstallerService` — `checkAvailability` and `executeInstall` methods already exist.
+  - **Existing**: `IIdeLauncherService` — `launch(editorId, directoryPath)` handles the open-in-directory flow; `LaunchToolUseCase` wraps this using `process.cwd()` as the directory.
+  - **Existing**: shadcn/ui component library — all required UI primitives are already installed.
+  - **Existing**: `resolve<T>()` server-container helper — no new infrastructure needed.
+  - **New domain types**: `ListToolsResult` (array of `ToolMetadata` with id and `ToolInstallationStatus`) defined as a plain TypeScript interface in the application layer. No TypeSpec changes required.
+  - **New DI tokens**: `'ListToolsUseCase'` and `'LaunchToolUseCase'` registered in `container.ts`.
+
+  ## Size Estimate
+
+  **M (days)** — The pattern is well-established and all dependencies exist. The work breaks into
+  four clear tracks:
+
+  1. **Use cases** (2 new: `ListToolsUseCase`, `LaunchToolUseCase`) + DI registration + Vitest tests — ~1–2h each, TDD.
+  2. **API routes** (`/api/tools`, `/api/tools/[id]/install`, `/api/tools/[id]/launch`) — straightforward Next.js Route Handlers, ~half day.
+  3. **Web UI** (Tools page + ToolCard + InstallInstructions Dialog + Storybook stories) — the bulk of the work given design and story requirements; ~1–2 days.
+  4. **Sidebar update + CLI `shep tools` subcommand** — minor changes; ~half day.
+
+  Total: approximately 3–4 developer days, qualifying as **M**.

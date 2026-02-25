@@ -41,6 +41,7 @@ import { createSessionCommand } from './commands/session/index.js';
 import { createIdeOpenCommand } from './commands/ide-open.command.js';
 import { createInstallCommand } from './commands/install.command.js';
 import { createUpgradeCommand } from './commands/upgrade.command.js';
+import { createToolsCommand } from './commands/tools.command.js';
 import { messages } from './ui/index.js';
 
 // DI container and settings
@@ -111,6 +112,7 @@ async function bootstrap() {
     program.addCommand(createSessionCommand());
     program.addCommand(createIdeOpenCommand());
     program.addCommand(createInstallCommand());
+    program.addCommand(createToolsCommand());
     program.addCommand(createUpgradeCommand());
 
     // Parse arguments (parseAsync needed for async command actions like init)
