@@ -1,0 +1,359 @@
+name: fab-add-repository
+number: 44
+branch: feat/044-fab-add-repository
+oneLiner: >-
+  Replace the dashed-border "Add Repository" button with a floating action
+  button (FAB) in the control center canvas
+userQuery: |
+  Feature: In control center change add repository to floating action button
+summary: >
+  Replace the current dashed-border pill-shaped "Add Repository" button in the
+  control center's ReactFlow canvas with a proper floating action button (FAB).
+  The FAB should use the existing blue circular button pattern already
+  established in feature-node action buttons, positioned at bottom-right of the
+  canvas for prominent, always-visible access. The empty state retains its own
+  dedicated "Add Repository" button unchanged.
+phase: Requirements
+sizeEstimate: S
+relatedFeatures:
+  - 043-add-repo-button-position
+  - 038-control-center-empty-state
+  - 016-control-center
+technologies:
+  - React 19
+  - Next.js 16
+  - Tailwind CSS 4
+  - '@xyflow/react (ReactFlow Panel component)'
+  - shadcn/ui
+  - lucide-react
+  - Storybook
+relatedLinks: []
+openQuestions:
+  - question: >-
+      Should the FAB also appear on the empty state, or only on the canvas when
+      repositories already exist?
+    resolved: true
+    options:
+      - option: Canvas only
+        description: >
+          The FAB only appears on the ReactFlow canvas when at least one
+          repository exists. The empty state already has its own prominent,
+          centered "Add Repository" button with explanatory text and CLI
+          instructions. Showing a FAB there would be redundant and visually
+          confusing — two competing add-repository affordances on the same
+          screen.
+        selected: true
+      - option: Both canvas and empty state
+        description: >
+          Show the FAB on the empty state as well, providing a consistent
+          position for the action regardless of state. However, this creates
+          visual redundancy since the empty state already centers around the
+          add-repository action with a large button.
+        selected: false
+      - option: Replace empty state button with FAB
+        description: >
+          Remove the existing empty state add-repository button and use only the
+          FAB. This would reduce discoverability in the empty state since a
+          small corner FAB is less obvious than the centered layout with
+          instructions.
+        selected: false
+    selectionRationale: >
+      The empty state (ControlCenterEmptyState) already has a dedicated,
+      prominent "Add Repository" button centered on screen with supporting text
+      and CLI instructions. Adding a FAB there would create two competing
+      add-repository affordances. The FAB should only appear on the canvas view
+      where the current dashed-border button lives.
+    answer: Canvas only
+  - question: Should the FAB include a tooltip on hover?
+    resolved: true
+    options:
+      - option: Yes, show tooltip
+        description: >
+          Display a tooltip with "Add Repository" text on hover. This improves
+          accessibility and discoverability since the FAB is icon-only (no text
+          label). Users unfamiliar with the Plus icon meaning get a clear text
+          hint. Minimal implementation cost using the existing shadcn/ui Tooltip
+          component.
+        selected: true
+      - option: No tooltip
+        description: >
+          Rely on the aria-label alone for accessibility. The Plus icon is
+          universally understood and doesn't need a tooltip. Keeps the UI
+          cleaner but sacrifices discoverability for first-time users.
+        selected: false
+    selectionRationale: >
+      Since the FAB removes the "Add Repository" text label, a tooltip provides
+      essential context for users who may not immediately recognize the Plus
+      icon's purpose. The existing shadcn/ui Tooltip component makes this
+      trivial to implement with no additional dependencies.
+    answer: Yes, show tooltip
+  - question: What size should the FAB be?
+    resolved: true
+    options:
+      - option: h-12 w-12 (48px)
+        description: >
+          Large enough to be a clear primary action, prominent against the
+          canvas. Follows Material Design FAB sizing conventions. The Plus icon
+          inside would be h-6 w-6 (24px), providing good visual weight. Clearly
+          differentiated from the smaller h-6 w-6 inline action buttons on
+          feature nodes.
+        selected: true
+      - option: h-10 w-10 (40px)
+        description: >
+          Slightly smaller, more subtle. Still visible but less dominant. May
+          feel more proportional on smaller screens but less discoverable on
+          larger canvases.
+        selected: false
+      - option: h-14 w-14 (56px)
+        description: >
+          Full Material Design FAB size. Very prominent but may feel oversized
+          relative to the existing UI elements in the control center canvas.
+        selected: false
+    selectionRationale: >
+      48px (h-12 w-12) is the sweet spot — large enough to be clearly a primary
+      action FAB, but not so large as to feel disproportionate with the existing
+      canvas UI. It creates clear visual hierarchy over the h-6 w-6 inline
+      action buttons on feature nodes.
+    answer: h-12 w-12 (48px)
+  - question: >-
+      How should the FAB be positioned relative to the ReactFlow Controls (zoom
+      buttons)?
+    resolved: true
+    options:
+      - option: Bottom-right with margin above Controls
+        description: >
+          Place the FAB in the bottom-right Panel position with sufficient
+          bottom margin (e.g., mb-14) to sit above the default ReactFlow
+          Controls (which also render at bottom-right by default). This keeps
+          both controls accessible without overlap.
+        selected: true
+      - option: Bottom-right, move Controls to bottom-left
+        description: >
+          Place FAB at bottom-right and relocate ReactFlow Controls to
+          bottom-left. Avoids any margin coordination but changes the existing
+          Controls position, potentially surprising users familiar with the
+          current layout.
+        selected: false
+      - option: Bottom-left
+        description: >
+          Place FAB at bottom-left instead, avoiding the Controls entirely. Less
+          conventional for a primary action FAB (typically bottom-right in
+          Material Design) and may be less discoverable.
+        selected: false
+    selectionRationale: >
+      Bottom-right is the conventional FAB position. Adding a bottom margin to
+      clear the ReactFlow Controls is the simplest approach — it requires only a
+      CSS class change and avoids relocating existing UI elements.
+    answer: Bottom-right with margin above Controls
+content: >
+  ## Problem Statement
+
+
+  The current "Add Repository" button in the control center canvas is a small,
+  dashed-border
+
+  pill-shaped element positioned at `top-right` via a ReactFlow `<Panel>`. It
+  uses muted
+
+  styling (`border-muted-foreground/30`, `text-xs`, dashed border) that makes it
+  easy to
+
+  overlook. The button blends in rather than standing out as a primary action.
+
+
+  A floating action button (FAB) — circular, prominent, always visible — would
+  make the
+
+  "Add Repository" action more discoverable and consistent with the existing
+  blue circular
+
+  action buttons used on feature nodes.
+
+
+  ## Success Criteria
+
+
+  - [ ] AddRepositoryButton renders as a circular FAB (icon-only, no text label)
+
+  - [ ] FAB uses the established blue brand color (`bg-blue-500`,
+  `hover:bg-blue-600`)
+
+  - [ ] FAB is sized at `h-12 w-12` (48px) for prominence as a primary action
+
+  - [ ] FAB is positioned at bottom-right of the canvas via `<Panel
+  position="bottom-right">`
+
+  - [ ] FAB has vertical margin to avoid overlapping ReactFlow Controls
+
+  - [ ] FAB has elevated shadow (`shadow-lg`) for depth and floating appearance
+
+  - [ ] FAB displays a tooltip ("Add Repository") on hover
+
+  - [ ] Loading state replaces Plus icon with Loader2 spinner
+
+  - [ ] FAB has `aria-label="Add Repository"` for screen readers
+
+  - [ ] FAB only appears on the canvas view (not on the empty state)
+
+  - [ ] Empty state's existing "Add Repository" button remains unchanged
+
+  - [ ] Storybook stories updated to showcase new FAB design
+
+  - [ ] All existing tests pass without modification or with minimal updates
+
+
+  ## Functional Requirements
+
+
+  - **FR-1**: The AddRepositoryButton component SHALL render as a circular
+  button with
+    `rounded-full` styling, `h-12 w-12` dimensions, `bg-blue-500` background, and white
+    `Plus` icon (`h-6 w-6`).
+
+  - **FR-2**: The FAB SHALL be positioned at `bottom-right` of the ReactFlow
+  canvas using
+    the `<Panel position="bottom-right">` component, with sufficient bottom margin
+    (e.g. `mb-14`) to avoid overlapping the ReactFlow Controls.
+
+  - **FR-3**: The FAB SHALL display a tooltip with text "Add Repository" on
+  hover, using
+    the existing shadcn/ui `Tooltip` component.
+
+  - **FR-4**: When clicked, the FAB SHALL invoke `pickFolder()` to open the
+  native directory
+    picker and call `onSelect(path)` with the selected path — preserving existing behavior.
+
+  - **FR-5**: While the folder picker is loading, the FAB SHALL replace the
+  `Plus` icon with
+    a `Loader2` spinning animation and disable pointer events to prevent double-clicks.
+
+  - **FR-6**: On hover, the FAB SHALL transition to `bg-blue-600` with a scale
+  or brightness
+    effect to indicate interactivity.
+
+  - **FR-7**: The FAB SHALL NOT appear on the `ControlCenterEmptyState` view. It
+  only
+    renders when the canvas is active (repositories exist).
+
+  - **FR-8**: The `ControlCenterEmptyState` component's existing "Add
+  Repository" button
+    SHALL remain unchanged — no visual or behavioral modifications.
+
+  ## Non-Functional Requirements
+
+
+  - **NFR-1 — Accessibility**: The FAB SHALL include `aria-label="Add
+  Repository"` and
+    be keyboard-focusable with visible focus ring styling consistent with shadcn/ui patterns.
+
+  - **NFR-2 — Visual consistency**: The FAB SHALL follow the established blue
+  circular
+    button pattern from `feature-node.tsx` (bg-blue-500, rounded-full, shadow, Plus icon)
+    while being proportionally larger (h-12 vs h-6) to denote a primary canvas-level action.
+
+  - **NFR-3 — Responsiveness**: The FAB SHALL remain visible and accessible at
+  all
+    canvas zoom levels and viewport sizes. It is positioned via ReactFlow's `<Panel>`
+    which is fixed relative to the canvas container, not the canvas content.
+
+  - **NFR-4 — Performance**: No new dependencies shall be introduced. All
+  styling uses
+    existing Tailwind utilities. The tooltip uses the already-installed shadcn/ui Tooltip.
+
+  - **NFR-5 — Maintainability**: The button component remains self-contained in
+    `add-repository-button.tsx` with the same props interface (`{ onSelect }`). The
+    change is purely presentational — no prop changes, no new state, no new data flow.
+
+  - **NFR-6 — Storybook coverage**: Updated stories SHALL demonstrate the FAB in
+    default state, hover state (via Storybook interactions or visual), and loading state.
+
+  ## Product Questions & AI Recommendations
+
+
+  | # | Question | AI Recommendation | Rationale |
+
+  | - | -------- | ----------------- | --------- |
+
+  | 1 | Should the FAB appear on the empty state? | Canvas only | Empty state
+  already has a dedicated, prominent add-repository button. A FAB there would be
+  redundant. |
+
+  | 2 | Should the FAB include a tooltip? | Yes, show tooltip | Icon-only FAB
+  needs text context for discoverability. Trivial to implement with existing
+  shadcn/ui Tooltip. |
+
+  | 3 | What size should the FAB be? | h-12 w-12 (48px) | Large enough for
+  primary action prominence, clearly differentiated from h-6 inline action
+  buttons. |
+
+  | 4 | How to avoid overlapping ReactFlow Controls? | Bottom-right with margin
+  | Conventional FAB position. Simple CSS margin avoids relocating existing UI.
+  |
+
+
+  ## Affected Areas
+
+
+  | Area | Impact | Reasoning |
+
+  | ---- | ------ | --------- |
+
+  | `components/common/add-repository-node/add-repository-button.tsx` | High |
+  Restyle from dashed pill to circular FAB, remove text label, increase size,
+  add tooltip |
+
+  | `components/features/features-canvas/features-canvas.tsx` | Medium | Change
+  Panel position from `top-right` to `bottom-right`, adjust margin classes |
+
+  | `components/common/add-repository-node/add-repository-node.stories.tsx` |
+  Medium | Update stories to showcase new FAB design in default and loading
+  states |
+
+  | `components/features/control-center/control-center.stories.tsx` | Low |
+  Verify FAB renders correctly in full control center stories |
+
+
+  ## Dependencies
+
+
+  - `@xyflow/react` `Panel` component — already in use, just needs position
+  change
+
+  - `lucide-react` `Plus` and `Loader2` icons — already imported
+
+  - `shadcn/ui` `Tooltip` component — already installed, needs import in button
+  component
+
+  - Existing blue brand color tokens (`bg-blue-500`, `hover:bg-blue-600`) —
+  established pattern
+
+  - `pickFolder()` utility — no changes needed, purely a styling change
+
+
+  ## Size Estimate
+
+
+  **S** — This is a styling-focused change affecting 2 source files (button
+  component +
+
+  canvas positioning), plus story updates. No new components, no logic changes,
+  no backend
+
+  impact. The only addition beyond pure restyling is wrapping in a Tooltip
+  component.
+
+  The existing feature-node FAB pattern provides a clear reference
+  implementation to follow.
+
+
+  ---
+
+
+  _Requirements complete — proceed with research_
+rejectionFeedback:
+  - iteration: 1
+    message: >-
+      after thinking about it again, I want it to be action button like the
+      theme toggle and the sound (put it on the left to the sound toggle)
+    phase: merge
+    timestamp: '2026-02-25T15:30:25.832Z'

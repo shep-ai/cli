@@ -1,7 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { FolderPlus, Loader2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { pickFolder } from './pick-folder';
 
 interface AddRepositoryButtonProps {
@@ -25,19 +27,26 @@ export function AddRepositoryButton({ onSelect }: AddRepositoryButtonProps) {
   }
 
   return (
-    <button
-      type="button"
-      data-testid="add-repository-button"
-      onClick={handleClick}
-      disabled={loading}
-      className="border-muted-foreground/30 flex cursor-pointer items-center gap-2 rounded-full border-2 border-dashed px-3 py-1.5 text-xs transition-colors hover:border-blue-500 hover:text-blue-500 disabled:cursor-wait disabled:opacity-60"
-    >
-      {loading ? (
-        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
-      ) : (
-        <Plus className="h-3.5 w-3.5 shrink-0" />
-      )}
-      <span className="font-medium">{loading ? 'Opening...' : 'Add Repository'}</span>
-    </button>
+    <TooltipProvider>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Add Repository"
+            data-testid="add-repository-button"
+            onClick={handleClick}
+            disabled={loading}
+          >
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin" />
+            ) : (
+              <FolderPlus className="h-5 w-5" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Add Repository</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }

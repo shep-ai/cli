@@ -1,0 +1,209 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fab-add-repository
+summary: >
+  5 tasks across 3 phases. Phase 1 restyles the AddRepositoryButton component to a
+  circular blue FAB with tooltip. Phase 2 repositions the Panel and updates the test.
+  Phase 3 updates stories to showcase the new FAB design.
+
+# Relationships
+relatedFeatures:
+  - '043-add-repo-button-position'
+  - '038-control-center-empty-state'
+  - '016-control-center'
+
+technologies:
+  - React 19
+  - '@xyflow/react (Panel component)'
+  - Tailwind CSS 4
+  - shadcn/ui Tooltip
+  - lucide-react (Plus, Loader2)
+  - Storybook 8
+
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Restyle AddRepositoryButton to circular blue FAB'
+    description: >
+      Replace the dashed-border pill styling with a circular blue FAB. Change the button
+      classes from border-dashed/muted to bg-blue-500/rounded-full/shadow-lg. Remove the
+      text span (icon-only). Scale Plus and Loader2 icons from h-3.5 w-3.5 to h-6 w-6.
+      Add aria-label="Add Repository" for accessibility. Keep the existing props interface
+      and pickFolder logic unchanged.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'Button renders with classes: h-12 w-12 rounded-full bg-blue-500 text-white shadow-lg'
+      - 'Hover state applies bg-blue-600'
+      - 'Plus icon renders at h-6 w-6 (default state)'
+      - 'Loader2 icon renders at h-6 w-6 with animate-spin (loading state)'
+      - 'No text label rendered (span removed)'
+      - 'aria-label="Add Repository" present on button element'
+      - "data-testid='add-repository-button' preserved"
+      - 'disabled:cursor-wait disabled:opacity-60 preserved'
+    tdd:
+      red:
+        - "Write test asserting button has aria-label='Add Repository'"
+        - "Write test asserting button does NOT render text content 'Add Repository' or 'Opening...'"
+        - 'Write test asserting Plus icon renders with h-6 w-6 classes (not h-3.5 w-3.5)'
+      green:
+        - 'Update button className from dashed-pill classes to FAB classes (h-12 w-12 bg-blue-500 rounded-full shadow-lg text-white)'
+        - 'Remove <span> text label element'
+        - 'Scale Plus icon from h-3.5 w-3.5 to h-6 w-6'
+        - 'Scale Loader2 icon from h-3.5 w-3.5 to h-6 w-6'
+        - "Add aria-label='Add Repository' to button element"
+      refactor:
+        - 'Verify className ordering follows project convention (layout → visual → interaction)'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Wrap AddRepositoryButton in shadcn/ui Tooltip'
+    description: >
+      Wrap the button element in TooltipProvider > Tooltip > TooltipTrigger asChild >
+      button + TooltipContent, following the exact pattern from repository-node.tsx
+      (lines 43-59). The TooltipContent displays "Add Repository". Import Tooltip
+      components from components/ui/tooltip.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'TooltipProvider wraps the Tooltip component'
+      - 'TooltipTrigger uses asChild prop to render the button directly'
+      - "TooltipContent displays text 'Add Repository'"
+      - 'Tooltip appears on hover (handled by Radix, no custom logic needed)'
+      - 'Button behavior (click, loading) unchanged after tooltip wrapping'
+    tdd:
+      red:
+        - 'Write test asserting TooltipTrigger is rendered (check for tooltip trigger role or data attribute)'
+        - 'Write test asserting button still fires pickFolder on click after tooltip wrapping'
+      green:
+        - "Import Tooltip, TooltipContent, TooltipProvider, TooltipTrigger from '@/components/ui/tooltip'"
+        - 'Wrap button in TooltipProvider > Tooltip > TooltipTrigger asChild > button structure'
+        - 'Add <TooltipContent>Add Repository</TooltipContent> after TooltipTrigger'
+      refactor:
+        - 'Ensure imports are alphabetically ordered per project convention'
+    estimatedEffort: '20min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Move Panel to bottom-right and update test'
+    description: >
+      In features-canvas.tsx, change the Panel from position="top-right" className="mr-16"
+      to position="bottom-right" className="mb-4". Then update the test at
+      features-canvas.test.tsx:86-92 to check for the new class (mb-4) instead of mr-16.
+      The test should also verify mr-16 is no longer present.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Panel renders with position="bottom-right"'
+      - "Panel has className='mb-4' (not mr-16)"
+      - "Test asserts container.querySelector('.mb-4') is in document"
+      - "Test asserts container.querySelector('.mr-16') is NOT in document"
+      - 'All existing tests pass without modification beyond the class assertion'
+    tdd:
+      red:
+        - 'Update the test at features-canvas.test.tsx:86-92 to assert .mb-4 is present and .mr-16 is absent (test fails because source still has mr-16)'
+      green:
+        - "Change Panel position from 'top-right' to 'bottom-right' in features-canvas.tsx:162"
+        - "Change Panel className from 'mr-16' to 'mb-4' in features-canvas.tsx:162"
+      refactor:
+        - "Update test description from 'Panel has mr-16 right margin to clear the ThemeToggle zone' to 'Panel has mb-4 bottom margin at bottom-right position'"
+        - 'Run full test suite to verify no regressions'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Update add-repository-node stories for FAB'
+    description: >
+      Update add-repository-node.stories.tsx to showcase the AddRepositoryButton as a FAB
+      inside a Panel. Add stories for default state and loading state. The stories should
+      render the button inside a minimal ReactFlow + Panel setup to show it in context
+      at bottom-right position.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Story exists showing FAB in default state inside a ReactFlow Panel at bottom-right'
+      - 'Story exists showing FAB in loading state (Loader2 spinner visible)'
+      - 'Stories render correctly in Storybook without errors'
+      - 'Existing AddRepositoryNode stories remain functional'
+    tdd:
+      red:
+        - "Write FAB default story that renders AddRepositoryButton inside Panel position='bottom-right' within a ReactFlow canvas"
+        - 'Write FAB loading story (Storybook play function or args to simulate loading)'
+      green:
+        - 'Add FABDefault story with ReactFlow + Panel + AddRepositoryButton setup'
+        - 'Add FABLoading story (may require a wrapper that sets loading state)'
+      refactor:
+        - 'Ensure story metadata and naming follows existing conventions in the file'
+        - 'Verify stories render properly in Storybook'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Update AddRepositoryButtonClearanceCheck story'
+    description: >
+      Update the AddRepositoryButtonClearanceCheck story in features-canvas.stories.tsx
+      (line 615) to verify bottom-right FAB positioning instead of top-right ThemeToggle
+      clearance. Remove or update the red ThemeToggle overlay since the FAB is no longer
+      near the ThemeToggle zone. The story should demonstrate the FAB at bottom-right
+      with proper spacing from canvas edges.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Story renamed or updated to reflect bottom-right FAB positioning context'
+      - 'Red ThemeToggle overlay removed or replaced with bottom-right context'
+      - 'Story visually demonstrates the FAB at bottom-right with mb-4 spacing'
+      - 'Story renders correctly in Storybook without errors'
+    tdd:
+      red:
+        - 'Update story to reference bottom-right positioning (story initially fails if still rendering top-right overlay)'
+      green:
+        - 'Remove the red ThemeToggle overlay decorator (no longer relevant)'
+        - 'Update story name and description to reflect bottom-right FAB verification'
+        - 'Ensure onRepositorySelect prop is still passed to show the FAB'
+      refactor:
+        - 'Simplify the story if the ThemeToggle clearance concern is fully eliminated'
+        - 'Verify story renders properly in Storybook'
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '1h 50min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is split across 3 phases with 5 tasks totaling ~2 hours of work.
+
+  First, the AddRepositoryButton component is restyled from a dashed-border pill to a
+  circular blue FAB (task-1), then wrapped in a shadcn/ui Tooltip for discoverability
+  (task-2). These two tasks are the core visual change and happen in the button component
+  file alone.
+
+  Next, the Panel in features-canvas.tsx is repositioned from top-right to bottom-right
+  with updated margin classes, and the corresponding test assertion is updated to match
+  (task-3). This completes the functional implementation.
+
+  Finally, stories are updated to showcase the new FAB design: the add-repository-node
+  stories get new FAB-specific stories (task-4), and the clearance check story in
+  features-canvas is updated to verify bottom-right positioning instead of top-right
+  ThemeToggle clearance (task-5). Tasks 4 and 5 are independent of each other and
+  could be done in parallel.
+
+  The entire change is presentational — no props, state, data flow, or behavior changes.
+  The button keeps its `{ onSelect }` interface and `pickFolder()` logic untouched.
+
+  ---
+
+  _Task breakdown complete — ready for implementation_

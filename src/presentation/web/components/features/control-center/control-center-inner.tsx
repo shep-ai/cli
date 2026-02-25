@@ -329,6 +329,16 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     return () => window.removeEventListener('shep:open-create-drawer', handler);
   }, [handleAddFeature]);
 
+  // Listen for global "add repository" events from the top bar button
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const path = (e as CustomEvent<{ path: string }>).detail.path;
+      handleAddRepository(path);
+    };
+    window.addEventListener('shep:add-repository', handler);
+    return () => window.removeEventListener('shep:add-repository', handler);
+  }, [handleAddRepository]);
+
   // Listen for notification "Review" clicks to open the relevant drawer
   useEffect(() => {
     const handler = (e: Event) => {
