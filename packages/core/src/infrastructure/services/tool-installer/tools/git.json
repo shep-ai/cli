@@ -1,0 +1,18 @@
+{
+  "name": "Git",
+  "summary": "Distributed version control system",
+  "description": "Git is a free and open-source distributed version control system designed to handle everything from small to very large projects with speed and efficiency.",
+  "tags": ["vcs"],
+  "iconUrl": "https://cdn.simpleicons.org/git",
+  "binary": "git",
+  "packageManager": "apt",
+  "commands": {
+    "linux": "sudo apt-get update && sudo apt-get install -y git",
+    "darwin": "xcode-select --install"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://git-scm.com/doc",
+  "verifyCommand": "git --version",
+  "autoInstall": true,
+  "required": true
+}

@@ -22,30 +22,21 @@ interface InstallOptions {
 }
 
 function printToolsList(): void {
-  const tools = Object.entries(TOOL_METADATA);
-  const ides = tools.filter(([, meta]) => meta.tags.includes('ide'));
-  const cliAgents = tools.filter(([, meta]) => meta.tags.includes('cli-agent'));
+  const tools = Object.entries(TOOL_METADATA).sort(([a], [b]) => a.localeCompare(b));
 
-  console.log(fmt.heading('IDEs:'));
-  for (const [key, meta] of ides) {
-    console.log(`  ${colors.accent(key.padEnd(16))}${meta.name} - ${colors.muted(meta.summary)}`);
-  }
-  console.log();
-
-  console.log(fmt.heading('CLI Agents:'));
-  for (const [key, meta] of cliAgents) {
-    console.log(`  ${colors.accent(key.padEnd(16))}${meta.name} - ${colors.muted(meta.summary)}`);
+  for (const [key, meta] of tools) {
+    const tags = meta.tags.map((t) => t).join(', ');
+    console.log(
+      `  ${colors.accent(key.padEnd(16))}${meta.name} - ${colors.muted(meta.summary)}  ${colors.muted(`[${tags}]`)}`
+    );
   }
   console.log();
 }
 
 export function createInstallCommand(): Command {
   return new Command('install')
-    .description('Install a development tool (IDE or CLI agent)')
-    .argument(
-      '[tool]',
-      'Tool to install (vscode, cursor, windsurf, zed, antigravity, cursor-cli, claude-code)'
-    )
+    .description('Install a development tool')
+    .argument('[tool]', `Tool to install (${Object.keys(TOOL_METADATA).sort().join(', ')})`)
     .option('--how', 'Show installation instructions without executing')
     .action(async (tool: string | undefined, options: InstallOptions) => {
       try {

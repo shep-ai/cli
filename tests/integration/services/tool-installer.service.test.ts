@@ -253,7 +253,9 @@ describe('ToolInstallerServiceImpl - Integration Tests', () => {
     it('should handle checkAvailability errors gracefully', async () => {
       mockExecFile.mockImplementation(
         (_cmd: string, _args: string[], cb: (err: Error | null) => void) => {
-          cb(new Error('Permission denied'));
+          // Genuine OS error — has a string `.code` like EACCES
+          const err = Object.assign(new Error('Permission denied'), { code: 'EACCES' });
+          cb(err);
         }
       );
 

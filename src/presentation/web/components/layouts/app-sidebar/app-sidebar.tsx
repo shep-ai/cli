@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Brain, Plus } from 'lucide-react';
+import { Home, Wrench, Plus } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -82,10 +82,10 @@ export function AppSidebar({
 
           <SidebarNavItem icon={Home} label="Control Center" href="/" active={pathname === '/'} />
           <SidebarNavItem
-            icon={Brain}
-            label="Memory"
-            href="/memory"
-            active={pathname === '/memory'}
+            icon={Wrench}
+            label="Tools"
+            href="/tools"
+            active={pathname === '/tools'}
           />
         </SidebarMenu>
       </SidebarHeader>

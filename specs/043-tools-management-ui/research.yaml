@@ -1,0 +1,532 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: tools-management-ui
+summary: >
+  All required infrastructure for Tools management already exists: TOOL_METADATA loaded from JSON
+  files, IToolInstallerService with checkAvailability/executeInstall, IIdeLauncherService with
+  launch(), and the tsyringe DI container pattern. The work is primarily additive — two new thin
+  use cases (ListToolsUseCase, LaunchToolUseCase), three new Next.js API routes, a new Tools page
+  with client components, a sidebar swap, and a new shep tools Commander subcommand group.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - Next.js 14 (App Router, Server + Client Components)
+  - React 18
+  - shadcn/ui (Card, Badge, Button, Tabs, Dialog, ScrollArea, Tooltip)
+  - Tailwind CSS
+  - tsyringe (DI container)
+  - Commander.js (CLI)
+  - Storybook (mandatory colocated .stories.tsx)
+  - Vitest (unit tests)
+  - Lucide React (icons — Wrench replaces Brain)
+
+relatedLinks:
+  - 'https://ui.shadcn.com/docs/components/tabs'
+  - 'https://ui.shadcn.com/docs/components/dialog'
+  - 'https://ui.shadcn.com/docs/components/badge'
+  - 'https://nextjs.org/docs/app/building-your-application/routing/route-handlers'
+  - 'https://commander.js/docs/guide/commands'
+
+# Structured technology decisions
+decisions:
+  - title: 'LaunchToolUseCase vs. Reuse LaunchIdeUseCase'
+    chosen: >
+      Create a new LaunchToolUseCase that accepts (toolId, directoryPath) and delegates to
+      IIdeLauncherService.launch(). It does NOT reuse LaunchIdeUseCase because that use case
+      is scoped to features with optional branch/worktree resolution. LaunchToolUseCase is simpler:
+      it takes a raw directory, looks up the tool from TOOL_METADATA, verifies openDirectory exists,
+      and calls IIdeLauncherService.launch(toolId, directoryPath) directly.
+    rejected:
+      - >
+        Reuse LaunchIdeUseCase directly from the Tools page API route — rejected because
+        LaunchIdeUseCase is tightly coupled to the feature/branch workflow (it resolves worktree
+        paths from feature branches). Calling it without a featureId requires awkward optional-param
+        hacks and violates single-responsibility.
+      - >
+        Extend LaunchIdeUseCase with an optional rawDirectory override — rejected because this
+        adds branching complexity to an already cohesive use case and muddies its contract. A
+        dedicated LaunchToolUseCase keeps responsibilities clear and is consistent with how
+        InstallToolUseCase and ValidateToolAvailabilityUseCase are narrow wrappers.
+    rationale: >
+      Existing use cases (InstallToolUseCase, ValidateToolAvailabilityUseCase) are deliberately
+      thin single-responsibility wrappers — each one delegates to a single service method.
+      LaunchToolUseCase follows the same pattern: inject IIdeLauncherService, look up the tool
+      in TOOL_METADATA, validate openDirectory is defined, call launch(toolId, directoryPath).
+      This keeps both use cases independently testable and the API route POST /api/tools/[id]/launch
+      can pass process.cwd() as the directory without needing any feature context.
+
+  - title: 'ListToolsUseCase Data Source — TOOL_METADATA vs. IToolInstallerService Extension'
+    chosen: >
+      ListToolsUseCase reads directly from TOOL_METADATA (the in-memory Record imported from
+      tool-metadata.ts) to build the base list, then calls IToolInstallerService.checkAvailability()
+      for each tool via Promise.all() to enrich with live status. No new method is added to
+      IToolInstallerService.
+    rejected:
+      - >
+        Add a listTools() method to IToolInstallerService — rejected because this pushes
+        presentation-concern logic (assembling an enriched list for the UI) into the service port.
+        IToolInstallerService's responsibility is installation mechanics, not listing. The use case
+        layer is the correct place to orchestrate the join between static metadata and live status.
+      - >
+        Add IToolRepository port backed by a database — rejected because tool definitions are
+        static JSON files, not database records. Adding a repository abstraction and migration
+        would over-engineer a simple read-from-disk pattern. The spec explicitly states JSON files
+        are the single source of truth.
+    rationale: >
+      TOOL_METADATA is already the established single source of truth — imported directly in
+      ToolInstallerServiceImpl, getIdeEntries(), and all CLI commands. ListToolsUseCase follows
+      the same read-TOOL_METADATA pattern while adding the enrichment step. Since TOOL_METADATA
+      is loaded at module load time (synchronous readdirSync), the use case only needs to import
+      it directly and iterate. The ~7 parallel which calls complete in microseconds, well within
+      the 2-second server render NFR.
+
+  - title: 'ToolItem DTO Type — Plain TypeScript Interface vs. TypeSpec-Generated'
+    chosen: >
+      Define ListToolsResult and ToolItem as plain TypeScript interfaces colocated with
+      ListToolsUseCase in the application layer. No TypeSpec changes required. Fields include:
+      id, name, summary, description, tags, autoInstall, openDirectory (pre-resolved string),
+      documentationUrl, installCommand (pre-resolved string), and status (ToolInstallationStatus).
+    rejected:
+      - >
+        Define via TypeSpec in tsp/domain/ — rejected because this is a presentation-layer DTO
+        that aggregates domain data for the web/CLI output surface. TypeSpec is reserved for core
+        domain value objects and entities. Mixing in application-layer DTOs would pollute the
+        domain model with UI concerns.
+      - >
+        Reuse raw ToolMetadata as the return type — rejected because ToolMetadata includes
+        internal fields (binary, packageManager, commands, timeout, spawnOptions) that are
+        implementation details not needed by the UI. Returning them leaks infrastructure knowledge
+        through the API boundary.
+    rationale: >
+      The spec explicitly states "ListToolsResult DTO to be defined as a plain TypeScript interface
+      in the application layer." ToolItem is a focused projection of ToolMetadata enriched with
+      live status. Platform-specific fields (openDirectory, installCommand) are pre-resolved by
+      the use case so client components receive simple string | undefined values, keeping the DTO
+      fully serialisable and free of union types that complicate rendering logic.
+
+  - title: 'Tools Page Data Fetching — Server Component Direct Resolution vs. API Route Fetch'
+    chosen: >
+      The Next.js server component (app/tools/page.tsx) resolves ListToolsUseCase directly via
+      the server-container.ts resolve() helper and awaits execute(), passing the result as
+      serialisable props to the client component. No fetch() call to /api/tools from the server
+      component itself.
+    rejected:
+      - >
+        Server component fetches /api/tools internally — rejected because Next.js server components
+        have direct access to the DI container (established pattern in app/page.tsx which calls
+        resolve('ListFeaturesUseCase') directly). An internal HTTP round-trip from the server
+        component to its own API route adds latency and complexity for no benefit.
+      - >
+        Client component fetches /api/tools on mount (fully client-side data fetch) — rejected
+        because this eliminates server-side rendering of the tool list, causing a loading flash
+        on every page visit. The spec requires server rendering for the initial state (NFR-5,
+        under 2 seconds); a client-only fetch would show a spinner before tools appear.
+    rationale: >
+      The existing HomePage (app/page.tsx) sets the pattern: export const dynamic = 'force-dynamic',
+      resolve use cases via server-container, await execute(), pass props to client components.
+      ToolsPage follows identical structure. The /api/tools GET route still exists for client-side
+      re-fetches after install completes, but the initial render uses direct resolution.
+
+  - title: 'DI Registration — registerSingleton + String-Token Alias (Two-Step Pattern)'
+    chosen: >
+      Register both new use cases via container.registerSingleton(ListToolsUseCase) then add
+      string-token aliases via container.register('ListToolsUseCase', { useFactory: (c) =>
+      c.resolve(ListToolsUseCase) }). Same two-step pattern for LaunchToolUseCase.
+    rejected:
+      - >
+        String token only, skip class-token registration — rejected because tsyringe @inject
+        decorators on constructor parameters require the class to be registered with its own
+        token first. String-only registration cannot resolve constructor dependencies.
+      - >
+        Non-singleton useFactory registration — rejected because all existing use cases are
+        registered as singletons (container.ts comment: "singletons for performance"). Creating
+        a new instance per resolve would be inconsistent and waste initialization overhead for
+        stateless use cases.
+    rationale: >
+      The container.ts file has an explicit comment: "String-token aliases for web routes
+      (Turbopack can't resolve .js→.ts imports inside @shepai/core, so routes use string tokens
+      instead of class refs)." Every use case exposed to web routes follows this exact two-step
+      pattern. LaunchIdeUseCase is the direct precedent: registerSingleton(LaunchIdeUseCase) then
+      register('LaunchIdeUseCase', { useFactory: (c) => c.resolve(LaunchIdeUseCase) }).
+
+  - title: 'CLI Command Structure — shep tools Subcommand Group vs. Extending Existing Commands'
+    chosen: >
+      Register a new Commander tools subcommand group in src/presentation/cli/index.ts containing
+      a list sub-command. shep tools list resolves ListToolsUseCase from the container and prints
+      "[installed|missing] <id>  <name>" per tool. Existing shep install and shep ide commands
+      remain unchanged.
+    rejected:
+      - >
+        Add --list flag to existing shep install command — rejected because install and list are
+        semantically different operations. Conflating them creates a confusing interface and makes
+        --list feel like an afterthought. The spec openQuestion 4 resolved in favour of a subcommand
+        group.
+      - >
+        Top-level shep list-tools command — rejected because it pollutes the top-level namespace
+        and does not scale. If shep tools launch <id> is added later, a top-level command cannot
+        be grouped with it. Commander.js nested subcommands already support this cleanly.
+    rationale: >
+      Commander.js nested subcommands are already used in the CLI (shep feat subcommand group).
+      A shep tools group mirrors that precedent, creates a clean namespace, and aligns with the
+      web page structure. Implementation requires one new file tools.command.ts with a
+      createToolsCommand() factory following the same pattern as other command files.
+
+  - title: 'IToolInstallerService Interface — No Extension Required'
+    chosen: >
+      Do NOT extend IToolInstallerService. ListToolsUseCase imports TOOL_METADATA directly
+      from tool-metadata.ts and calls checkAvailability() for each entry. The use case
+      orchestrates the join between static metadata and live status.
+    rejected:
+      - >
+        Add checkAllAvailability(): Promise<Record<string, ToolInstallationStatus>> for batching —
+        rejected because batching is a minor optimization for ~7 tools and adds surface area to a
+        port interface that should stay minimal. Individual parallel calls via Promise.all() achieve
+        the same result with negligible overhead.
+      - >
+        Add listTools(): Promise<ToolItem[]> to IToolInstallerService — rejected because assembling
+        UI-layer DTOs is a use-case concern, not a service concern. The service interface would
+        need to import application-layer types, creating an inverted dependency that violates
+        Clean Architecture.
+    rationale: >
+      Clean Architecture requires port interfaces to remain minimal and free of outer-layer
+      concerns. IToolInstallerService already provides exactly the building blocks needed:
+      checkAvailability() for live status and getInstallCommand() for the install command string.
+      ListToolsUseCase combines TOOL_METADATA iteration with parallel checkAvailability calls —
+      this is precisely what a use case is for.
+
+  - title: 'InstallInstructions Dialog — shadcn Dialog vs. Inline Accordion vs. Tooltip'
+    chosen: >
+      Use shadcn/ui Dialog component to show platform-appropriate install command with a
+      copy-to-clipboard Button and a link to documentationUrl. Triggered by the Install button
+      on ToolCard when autoInstall is false or undefined.
+    rejected:
+      - >
+        Collapsible accordion within ToolCard — rejected because card grid layouts suffer from
+        layout shift when cards expand inline. An accordion in a CSS grid column pushes adjacent
+        cards unpredictably and is harder to implement cleanly.
+      - >
+        Tooltip popover showing the install command — rejected because tooltips are not suitable
+        for multi-line content requiring user interaction (copy button, doc link). Tooltips dismiss
+        on blur and have accessibility issues for keyboard users interacting with their content.
+    rationale: >
+      The spec openQuestion 2 explicitly selected Dialog with copy-to-clipboard. shadcn/ui Dialog
+      is already installed and used elsewhere in the UI. The copy-to-clipboard affordance is the
+      primary UX win — developers need to paste install commands into a terminal. The Dialog
+      provides a focused, accessible surface that does not disrupt the card grid layout.
+
+# Open questions (should be resolved by end of research)
+openQuestions:
+  - question: 'Should the openDirectory field in ToolItem DTO be pre-resolved to the current platform string, or returned as-is (string | Record<string, string>)?'
+    resolved: true
+    options:
+      - option: 'Pre-resolve to current platform string in ListToolsUseCase'
+        description: >
+          ListToolsUseCase calls os.platform() and resolves openDirectory to a single string
+          (or undefined) before including it in ToolItem. Client components receive a simple
+          string and never need to handle platform branching. The resolution logic mirrors what
+          JsonDrivenIdeLauncherService already does internally.
+        selected: true
+      - option: 'Return raw openDirectory value (string | Record<string, string> | undefined)'
+        description: >
+          ToolItem includes openDirectory as the raw JSON value. Client components or the API
+          route would then resolve the platform-specific string when needed. This pushes
+          platform-resolution into the presentation layer, violating the principle that
+          business logic stays in use cases.
+        selected: false
+      - option: 'Return a boolean hasLaunchCapability flag only'
+        description: >
+          ToolItem omits the openDirectory string entirely and only indicates whether the tool
+          can be launched (boolean). The actual command is resolved server-side when the launch
+          API route is called. Simpler DTO, but the UI loses the ability to show contextual
+          information about launch capability.
+        selected: false
+    selectionRationale: >
+      Pre-resolving to the current platform string keeps ToolItem a clean serialisable DTO with
+      no union types. The platform resolution logic is a one-liner (typeof openDirectory === 'string'
+      ? openDirectory : openDirectory?.[os.platform()]) and is already duplicated between
+      ToolInstallerServiceImpl and JsonDrivenIdeLauncherService — a small utility in tool-metadata.ts
+      would centralize it. Similarly, the installCommand field is pre-resolved via
+      metadata.commands[os.platform()]. Client components receive plain string | undefined values,
+      making conditional rendering straightforward with no platform logic in the presentation layer.
+
+  - question: 'Should LaunchToolUseCase return a typed discriminated union result or throw on failure?'
+    resolved: true
+    options:
+      - option: 'Return typed discriminated union: { ok: true } | { ok: false; code: string; message: string }'
+        description: >
+          LaunchToolUseCase.execute() returns a plain result object. Callers (API routes) check
+          result.ok and map to appropriate HTTP status codes (200, 404, 422, 500). Matches the
+          pattern of IIdeLauncherService.launch() which already returns LaunchIdeSuccess |
+          LaunchIdeFailed. Type-safe, no try/catch in caller.
+        selected: true
+      - option: 'Throw typed errors (ToolNotFoundError, ToolNotLaunchableError, LaunchError)'
+        description: >
+          LaunchToolUseCase throws domain-specific errors for each failure mode. API route wraps
+          in try/catch and maps error types to HTTP status codes. Requires defining error classes
+          and adds try/catch boilerplate to every caller.
+        selected: false
+      - option: 'Return Promise<void> and throw only on unexpected errors'
+        description: >
+          LaunchToolUseCase returns void on success and throws a generic Error on any failure.
+          API route catches all errors and returns 500. Simple to implement but loses the ability
+          to distinguish 404 (tool not found) from 422 (not launchable) from 500 (launch failed) —
+          the spec requires different HTTP status codes for these cases.
+        selected: false
+    selectionRationale: >
+      The discriminated union result pattern is already used by IIdeLauncherService
+      (LaunchIdeSuccess | LaunchIdeFailed with an ok boolean discriminant) making it the idiomatic
+      choice in this codebase. The API route can pattern-match on result.ok and result.code to
+      return 200, 404, 422, or 500 cleanly. This avoids throw/catch overhead and keeps control
+      flow explicit. It also makes the use case fully testable without expecting thrown exceptions.
+
+  - question: 'Where should the ToolItem DTO interface be defined — colocated with the use case or in a shared types file?'
+    resolved: true
+    options:
+      - option: 'Colocated with ListToolsUseCase in list-tools.use-case.ts'
+        description: >
+          ToolItem and ListToolsResult are exported from the same file as ListToolsUseCase.
+          The use case file is the authoritative owner. This matches how ToolInstallationStatus
+          factory functions are colocated with their type definitions. No extra file needed.
+        selected: true
+      - option: 'Shared application/types/tools.types.ts file'
+        description: >
+          Create a dedicated types file in the application layer for all tool-related DTOs.
+          Useful if many components import these types independently. With only 2 new use cases
+          this is premature — easy to extract later if needed.
+        selected: false
+      - option: 'Export from packages/core index barrel'
+        description: >
+          Add ToolItem and ListToolsResult to the @shepai/core package public index.ts export.
+          Makes types available to the presentation layer without direct imports into core internals.
+          But the barrel export is thin by design (only generated types) and adding application DTOs
+          there conflates layers unnecessarily.
+        selected: false
+    selectionRationale: >
+      Colocation is the established convention in this codebase. TypeScript named exports make it
+      clean to export both the class and its DTO interfaces from a single file. LaunchToolUseCase
+      will similarly export its result union types colocated. This avoids premature abstraction
+      and keeps each use case file self-contained. Types can be re-exported from an index barrel
+      later if the codebase grows to warrant it.
+
+# Markdown content (the full research document)
+content: |
+  ## Status
+
+  - **Phase:** Research
+  - **Updated:** 2026-02-25
+
+  ## Technology Decisions
+
+  ### 1. LaunchToolUseCase — New Thin Use Case (Not Reusing LaunchIdeUseCase)
+
+  **Chosen:** New `LaunchToolUseCase` in `packages/core/src/application/use-cases/tools/`
+
+  **Rejected:**
+  - Reuse LaunchIdeUseCase directly — tightly coupled to feature/branch/worktree workflow
+  - Extend LaunchIdeUseCase with optional rawDirectory — adds branching complexity, violates SRP
+
+  **Rationale:** LaunchIdeUseCase resolves worktree paths from feature branches — entirely absent
+  from the Tools page context. A thin dedicated use case that takes (toolId, directoryPath),
+  validates openDirectory exists, and calls IIdeLauncherService.launch() is the correct granularity.
+  Follows the same single-responsibility wrapper pattern as InstallToolUseCase.
+
+  ---
+
+  ### 2. ListToolsUseCase — Direct TOOL_METADATA Access + Parallel checkAvailability
+
+  **Chosen:** Import TOOL_METADATA directly, call IToolInstallerService.checkAvailability() per
+  tool in parallel via Promise.all()
+
+  **Rejected:**
+  - Add listTools() to IToolInstallerService — pushes UI DTO concern into service port
+  - Add IToolRepository backed by database — over-engineers a static JSON source of truth
+
+  **Rationale:** TOOL_METADATA is already the authoritative source used by every tool-related
+  component. The use case layer orchestrates "get all tools, check each, return enriched ToolItem
+  list." ~7 parallel which calls complete in microseconds, well under the 2-second server render NFR.
+
+  ---
+
+  ### 3. ToolItem DTO — Plain TypeScript Interface, Colocated with Use Case
+
+  **Chosen:**
+  ```typescript
+  export interface ToolItem {
+    id: string;
+    name: string;
+    summary: string;
+    description: string;
+    tags: ('ide' | 'cli-agent')[];
+    autoInstall: boolean;
+    openDirectory: string | undefined;   // pre-resolved for current platform
+    documentationUrl: string;
+    installCommand: string | undefined;  // pre-resolved platform-specific command
+    status: ToolInstallationStatus;
+  }
+  export type ListToolsResult = ToolItem[];
+  ```
+
+  **Rejected:**
+  - TypeSpec-generated types — application-layer DTOs should not be in domain TypeSpec model
+  - Return raw ToolMetadata — leaks internal fields (binary, commands, spawnOptions, timeout)
+
+  ---
+
+  ### 4. Tools Page — Server Component Direct Resolution (Established HomePage Pattern)
+
+  **Chosen:** `app/tools/page.tsx` uses `export const dynamic = 'force-dynamic'`, resolves
+  ListToolsUseCase via `resolve()`, passes serialisable ToolItem[] as props to `ToolsPageClient`.
+
+  **Rejected:**
+  - Server component fetches /api/tools internally — pointless HTTP round-trip from server to self
+  - Client-only fetch on mount — loading flash, violates server-render NFR
+
+  ---
+
+  ### 5. DI Registration — Two-Step registerSingleton + String-Token Alias
+
+  **Chosen:** `container.registerSingleton(ListToolsUseCase)` then
+  `container.register('ListToolsUseCase', { useFactory: (c) => c.resolve(ListToolsUseCase) })`
+
+  **Rejected:**
+  - String token only — breaks tsyringe @inject decorator resolution
+  - Non-singleton factory — inconsistent with all other use cases
+
+  ---
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | shadcn/ui Tabs | Category filtering | Use | Already installed; maps to All/IDEs/CLI Agents |
+  | shadcn/ui Dialog | Manual install instructions modal | Use | Already installed; spec selected this pattern |
+  | shadcn/ui Badge | Status badges + tag chips | Use | Already installed; accessible (text + colour) |
+  | shadcn/ui Card | ToolCard container | Use | Already installed |
+  | shadcn/ui Button | Launch/Install CTAs | Use | Already installed |
+  | Lucide Wrench | Tools sidebar icon | Use | Already installed; replaces Brain |
+  | Lucide Brain | Current Memory icon | Replace | Replaced by Wrench per spec FR-12 |
+  | os (Node stdlib) | Platform resolution in use case | Use | Built-in; resolve binary/openDirectory per platform |
+  | React useTransition | In-flight loading state | Use | Built-in React 18; no extra state library needed |
+  | react-query / SWR | Data fetching | Reject | Over-engineered for one page; inconsistent with codebase |
+  | Polling library | Status refresh | Reject | NFR-8 explicitly prohibits polling |
+  | SSE for tool status | Real-time install progress | Reject | Spec resolved against SSE; adds significant scope |
+
+  ---
+
+  ## Security Considerations
+
+  1. **Tool ID validation in API routes**: POST /api/tools/[id]/install and POST /api/tools/[id]/launch
+     MUST validate that `id` is a key in TOOL_METADATA before proceeding. Unknown IDs return 404
+     `{ error: 'Tool not found' }`. Prevents arbitrary strings from reaching service layer.
+
+  2. **process.cwd() as launch directory**: LaunchToolUseCase passes process.cwd() of the dev server
+     as directoryPath. This is the project root where `shep dev` was run — the same directory shep
+     already operates on. No additional path validation needed beyond IIdeLauncherService.
+
+  3. **Install command execution**: executeInstall() spawns commands from bundled JSON files (not
+     user-provided). No change in security posture from existing install flow.
+
+  4. **API route authentication**: The web server is a local dev server on localhost. New tool routes
+     follow the same local-only trust model as existing routes.
+
+  5. **Copy-to-clipboard**: Uses Web Clipboard API (navigator.clipboard.writeText()) in the browser
+     only. Strings sourced from trusted JSON metadata — no injection risk.
+
+  ---
+
+  ## Performance Implications
+
+  1. **Parallel availability checks**: Promise.all() over ~7 checkAvailability() calls. Each which
+     call resolves in <10ms. Total blocking time ~10-20ms. Well within 2-second NFR.
+
+  2. **No caching layer**: Checked on every page load (server render). ~7 tools is negligible.
+     Spec explicitly states "no caching layer required" in NFR-5.
+
+  3. **TOOL_METADATA loading**: Already loaded synchronously at module startup via readdirSync.
+     Module-level constant — zero overhead for subsequent calls.
+
+  4. **Dynamic rendering**: force-dynamic required (DI container is runtime concern). Acceptable
+     for a local dev server.
+
+  5. **Client re-fetch after install**: One GET /api/tools request after user action. Not background
+     polling. Negligible performance impact.
+
+  ---
+
+  ## Architecture Notes
+
+  ### Affected Files Summary
+
+  **New files:**
+  - `packages/core/src/application/use-cases/tools/list-tools.use-case.ts` — ListToolsUseCase + ToolItem DTO
+  - `packages/core/src/application/use-cases/tools/launch-tool.use-case.ts` — LaunchToolUseCase + result types
+  - `packages/core/src/application/use-cases/tools/list-tools.use-case.test.ts` — Vitest TDD
+  - `packages/core/src/application/use-cases/tools/launch-tool.use-case.test.ts` — Vitest TDD
+  - `src/presentation/web/app/tools/page.tsx` — Server component
+  - `src/presentation/web/app/api/tools/route.ts` — GET /api/tools
+  - `src/presentation/web/app/api/tools/[id]/install/route.ts` — POST install
+  - `src/presentation/web/app/api/tools/[id]/launch/route.ts` — POST launch
+  - `src/presentation/web/components/features/tools/tools-page-client.tsx` + `.stories.tsx`
+  - `src/presentation/web/components/features/tools/tool-card.tsx` + `.stories.tsx`
+  - `src/presentation/web/components/features/tools/install-instructions.tsx` + `.stories.tsx`
+  - `src/presentation/cli/commands/tools.command.ts` — shep tools list
+
+  **Modified files:**
+  - `packages/core/src/infrastructure/di/container.ts` — register new use cases
+  - `src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx` — Brain→Wrench, /memory→/tools
+  - `src/presentation/cli/index.ts` — register tools subcommand group
+
+  **Verified unchanged:**
+  - `packages/core/src/infrastructure/services/tool-installer/tool-metadata.ts` — already public
+  - `packages/core/src/application/ports/output/services/tool-installer.service.ts` — interface unchanged
+  - `packages/core/src/application/ports/output/services/ide-launcher-service.interface.ts` — unchanged
+  - `src/presentation/cli/commands/install.command.ts` — already delegates through InstallToolUseCase
+
+  ### Component Hierarchy
+
+  ```
+  app/tools/page.tsx (Server Component)
+    └── ToolsPageClient (Client Component — receives ToolItem[] as props)
+          ├── Tabs (All | IDEs | CLI Agents)
+          └── ToolCard[] (filtered by active tab)
+                ├── Badge[] (tags)
+                ├── Badge (status: installed/missing)
+                ├── LaunchButton (if installed && openDirectory)
+                └── InstallButton (if missing)
+                      ├── → POST /api/tools/[id]/install (if autoInstall)
+                      └── → InstallInstructions Dialog (if !autoInstall)
+  ```
+
+  ### API Route Contracts
+
+  **GET /api/tools**
+  - 200: `ToolItem[]`
+  - 500: `{ error: string }`
+
+  **POST /api/tools/[id]/install**
+  - 200: `{ status: ToolInstallationStatus }`
+  - 404: `{ error: 'Tool not found' }`
+  - 500: `{ error: string }`
+
+  **POST /api/tools/[id]/launch**
+  - 200: `{ editorName: string; path: string }`
+  - 404: `{ error: 'Tool not found' }`
+  - 422: `{ error: 'Tool has no openDirectory command' }`
+  - 500: `{ error: string }`
+
+  ### TDD Cycle Plan
+
+  **ListToolsUseCase (RED → GREEN → REFACTOR):**
+  1. Returns all tools with live status (happy path, all available)
+  2. Handles partial failures (one tool returns error status, rest succeed)
+  3. Returns empty array when TOOL_METADATA is empty
+
+  **LaunchToolUseCase (RED → GREEN → REFACTOR):**
+  1. Returns ok:true when tool found, has openDirectory, launch succeeds
+  2. Returns ok:false code:'tool_not_found' when tool ID not in TOOL_METADATA
+  3. Returns ok:false code:'not_launchable' when tool has no openDirectory
+  4. Returns ok:false code:'launch_failed' when IIdeLauncherService returns ok:false

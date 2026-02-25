@@ -1,0 +1,454 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: tools-management-ui
+summary: >
+  15 tasks across 4 phases covering: 2 new use cases with TDD (phase 1),
+  3 API route handlers (phase 2), Tools page + 3 components + Storybook stories (phase 3),
+  and sidebar swap + CLI subcommand + final validation (phase 4).
+
+# Relationships
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ─── PHASE 1: Application Layer ───────────────────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Define ToolItem DTO and write ListToolsUseCase Vitest tests (RED)'
+    description: >
+      Export the ToolItem interface and ListToolsResult type alias from
+      list-tools.use-case.ts (initially just the types file). Write failing Vitest tests
+      that assert the three behaviours: happy path returns all tools with live status,
+      partial-failure returns remaining tools with error status, empty TOOL_METADATA
+      returns empty array. Tests must import the not-yet-implemented class and fail (RED).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'ToolItem interface exported with fields: id, name, summary, description, tags, autoInstall, openDirectory (string|undefined), documentationUrl, installCommand (string|undefined), status'
+      - 'ListToolsResult type alias exported as ToolItem[]'
+      - 'Three Vitest tests written and failing (RED): happy path, partial failure, empty metadata'
+      - 'Test file at packages/core/src/application/use-cases/tools/list-tools.use-case.test.ts'
+    tdd:
+      red:
+        - 'Write test: execute() returns ToolItem[] with status populated from checkAvailability() for all entries in TOOL_METADATA'
+        - 'Write test: when one checkAvailability() rejects, that tool gets status { status: "error" } and others succeed'
+        - 'Write test: when TOOL_METADATA is empty, execute() returns []'
+      green:
+        - 'Create list-tools.use-case.ts with ToolItem interface, ListToolsResult type, and empty ListToolsUseCase class stub to satisfy imports'
+      refactor:
+        - 'Ensure ToolItem fields match the pre-resolved pattern documented in research (openDirectory and installCommand as string | undefined, not raw union types)'
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement ListToolsUseCase (GREEN → REFACTOR)'
+    description: >
+      Implement ListToolsUseCase so all three tests pass. The class imports TOOL_METADATA,
+      injects IToolInstallerService via @inject, and in execute() iterates all entries,
+      calls checkAvailability() in parallel via Promise.all(), and pre-resolves
+      openDirectory and installCommand using os.platform(). Returns ToolItem[].
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Class decorated with @injectable(); constructor injects IToolInstallerService via @inject("IToolInstallerService")'
+      - 'execute() calls Promise.all() over all TOOL_METADATA entries calling checkAvailability() for each'
+      - 'openDirectory pre-resolved: if string use as-is; if Record<string,string> use entry[os.platform()]; otherwise undefined'
+      - 'installCommand pre-resolved from metadata.commands[os.platform()] ?? undefined'
+      - 'All three Vitest tests pass (GREEN)'
+      - 'No any types; all parameters and return types are fully typed TypeScript'
+    tdd:
+      red:
+        - 'Tests already written in task-1 and currently failing'
+      green:
+        - 'Implement the full execute() method to make all three tests pass'
+        - 'Add @injectable() decorator and @inject("IToolInstallerService") constructor parameter'
+      refactor:
+        - 'Extract platform resolution logic into a private helper resolvePlatformString(value: string | Record<string,string> | undefined): string | undefined'
+        - 'Verify coverage >= 80% with pnpm test:unit --coverage'
+    estimatedEffort: '1h'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Write LaunchToolUseCase Vitest tests (RED)'
+    description: >
+      Write failing Vitest tests for LaunchToolUseCase covering all four result codes:
+      ok:true (success), tool_not_found (unknown ID), not_launchable (no openDirectory),
+      and launch_failed (IIdeLauncherService returns ok:false). Export the LaunchToolResult
+      discriminated union type from the (stub) use-case file.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'LaunchToolResult type exported: { ok: true; editorName: string; path: string } | { ok: false; code: "tool_not_found" | "not_launchable" | "launch_failed"; message: string }'
+      - 'Four Vitest tests written and failing (RED)'
+      - 'Test file at packages/core/src/application/use-cases/tools/launch-tool.use-case.test.ts'
+    tdd:
+      red:
+        - 'Write test: execute({toolId: "<valid-id>", directoryPath: "/foo"}) returns { ok: true, editorName, path } when launch succeeds'
+        - 'Write test: execute({toolId: "nonexistent", directoryPath: "/foo"}) returns { ok: false, code: "tool_not_found" }'
+        - 'Write test: execute({toolId: "<id-without-openDirectory>", directoryPath: "/foo"}) returns { ok: false, code: "not_launchable" }'
+        - 'Write test: when IIdeLauncherService.launch() returns ok:false, execute() returns { ok: false, code: "launch_failed" }'
+      green:
+        - 'Create launch-tool.use-case.ts with LaunchToolResult type and empty LaunchToolUseCase class stub'
+      refactor:
+        - 'Ensure test fixtures use a real entry from TOOL_METADATA that has openDirectory defined (e.g. "vscode" or "cursor")'
+    estimatedEffort: '30min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Implement LaunchToolUseCase (GREEN → REFACTOR)'
+    description: >
+      Implement LaunchToolUseCase so all four tests pass. The class injects IIdeLauncherService,
+      looks up the tool in TOOL_METADATA using the provided toolId, validates openDirectory
+      is defined (after platform resolution), then calls IIdeLauncherService.launch(). Returns
+      typed LaunchToolResult.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Class decorated with @injectable(); constructor injects IIdeLauncherService via @inject("IIdeLauncherService")'
+      - 'Returns { ok: false, code: "tool_not_found" } when toolId not in TOOL_METADATA'
+      - 'Returns { ok: false, code: "not_launchable" } when platform-resolved openDirectory is undefined'
+      - 'Returns { ok: false, code: "launch_failed" } when IIdeLauncherService returns ok:false'
+      - 'Returns { ok: true, editorName, path: directoryPath } on success'
+      - 'All four Vitest tests pass (GREEN)'
+      - 'No any types'
+    tdd:
+      red:
+        - 'Tests already written in task-3 and currently failing'
+      green:
+        - 'Implement execute({ toolId, directoryPath }) with the four guard clauses and the launch() delegation'
+      refactor:
+        - 'Reuse the resolvePlatformString helper from list-tools.use-case.ts if extractable, or duplicate inline (DRY not mandatory for two callers)'
+        - 'Verify coverage >= 80% with pnpm test:unit --coverage'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-1
+    title: 'Register ListToolsUseCase and LaunchToolUseCase in DI container'
+    description: >
+      Add both new use cases to packages/core/src/infrastructure/di/container.ts following
+      the established two-step pattern: registerSingleton (class token) then register
+      (string-token alias via useFactory). Position registrations in the same sections as
+      the existing InstallToolUseCase and ValidateToolAvailabilityUseCase entries.
+    state: Todo
+    dependencies:
+      - task-2
+      - task-4
+    acceptanceCriteria:
+      - 'container.registerSingleton(ListToolsUseCase) added in the use-case singleton section'
+      - 'container.register("ListToolsUseCase", { useFactory: (c) => c.resolve(ListToolsUseCase) }) added in the string-token alias section'
+      - 'container.registerSingleton(LaunchToolUseCase) added in the use-case singleton section'
+      - 'container.register("LaunchToolUseCase", { useFactory: (c) => c.resolve(LaunchToolUseCase) }) added in the string-token alias section'
+      - 'pnpm build succeeds after this change'
+    tdd: null
+    estimatedEffort: '15min'
+
+  # ─── PHASE 2: API Layer ───────────────────────────────────────────────────
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Implement GET /api/tools route handler'
+    description: >
+      Create src/presentation/web/app/api/tools/route.ts. The handler resolves ListToolsUseCase
+      via resolve<ListToolsUseCase>("ListToolsUseCase"), calls execute(), and returns the
+      ToolItem[] as JSON with status 200. Returns { error: string } with status 500 on failure.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'File at src/presentation/web/app/api/tools/route.ts exporting named GET handler'
+      - 'Resolves ListToolsUseCase via string token "ListToolsUseCase"'
+      - 'Returns NextResponse.json(tools) with status 200 on success'
+      - 'Returns NextResponse.json({ error: string }, { status: 500 }) on thrown error'
+      - 'No import of any service class directly; only string-token resolution'
+    tdd:
+      red:
+        - 'No unit test required for route handlers (integration concern); verify manually via pnpm dev:web + curl'
+      green:
+        - 'Implement the GET handler with try/catch, resolve, execute, return JSON'
+      refactor:
+        - 'Ensure error message does not expose stack traces in the response body'
+    estimatedEffort: '20min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Implement POST /api/tools/[id]/install route handler'
+    description: >
+      Create src/presentation/web/app/api/tools/[id]/install/route.ts. The handler extracts
+      `id` from params, resolves InstallToolUseCase, calls execute(id). Returns 200 on success,
+      404 if tool not found, 500 on install error. The "tool not found" check should be done
+      by looking up TOOL_METADATA[id] before delegating to avoid calling the use case with
+      an invalid id.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'File at src/presentation/web/app/api/tools/[id]/install/route.ts exporting named POST handler'
+      - 'Returns 404 { error: "Tool not found" } when id is not in TOOL_METADATA'
+      - 'Returns 200 { status: ToolInstallationStatus } on successful install'
+      - 'Returns 500 { error: string } on install failure'
+      - 'No direct service imports; resolves InstallToolUseCase via string token'
+    tdd:
+      red:
+        - 'No unit test required for route handler; verify manually'
+      green:
+        - 'Implement POST handler with id validation, use case resolution, execute(), and response mapping'
+      refactor:
+        - 'Ensure params are correctly typed with Next.js 14 { params: Promise<{ id: string }> } pattern'
+    estimatedEffort: '20min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Implement POST /api/tools/[id]/launch route handler'
+    description: >
+      Create src/presentation/web/app/api/tools/[id]/launch/route.ts. Resolves LaunchToolUseCase,
+      calls execute({ toolId: id, directoryPath: process.cwd() }). Maps discriminated union
+      result to HTTP codes: ok:true → 200, tool_not_found → 404, not_launchable → 422,
+      launch_failed → 500.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'File at src/presentation/web/app/api/tools/[id]/launch/route.ts exporting named POST handler'
+      - 'Passes process.cwd() as directoryPath'
+      - 'Returns 200 { editorName, path } on ok:true'
+      - 'Returns 404 { error: "Tool not found" } on code: "tool_not_found"'
+      - 'Returns 422 { error: "Tool has no openDirectory command" } on code: "not_launchable"'
+      - 'Returns 500 { error: string } on code: "launch_failed" or thrown error'
+      - 'Resolves LaunchToolUseCase via string token "LaunchToolUseCase"'
+    tdd:
+      red:
+        - 'No unit test required for route handler; verify manually'
+      green:
+        - 'Implement POST handler with result.ok check and code-based status mapping'
+      refactor:
+        - 'Extract HTTP status mapping to a small switch/if block with exhaustive handling'
+    estimatedEffort: '20min'
+
+  # ─── PHASE 3: Web UI ──────────────────────────────────────────────────────
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create Tools page server component (app/tools/page.tsx)'
+    description: >
+      Create the Next.js server component at src/presentation/web/app/tools/page.tsx.
+      Export `dynamic = "force-dynamic"`, resolve ListToolsUseCase, await execute(), and
+      render <ToolsPageClient tools={tools} />. Mirrors the exact structure of app/page.tsx.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'File at src/presentation/web/app/tools/page.tsx'
+      - 'export const dynamic = "force-dynamic"'
+      - 'Resolves ListToolsUseCase via resolve<ListToolsUseCase>("ListToolsUseCase")'
+      - 'Awaits use case execute() and passes result as tools prop to ToolsPageClient'
+      - 'No fetch() calls; no service imports; no client-side data fetching in this file'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Create the file with just the server component shell to unblock ToolsPageClient development'
+      green:
+        - 'Wire resolve() + execute() + render ToolsPageClient'
+      refactor:
+        - 'Add appropriate page-level metadata (title) if other pages do so'
+    estimatedEffort: '20min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Implement ToolCard component + Storybook stories'
+    description: >
+      Create src/presentation/web/components/features/tools/tool-card.tsx. Displays a single
+      ToolItem as a shadcn Card with: name (heading), summary (subheading), description
+      (truncated, line-clamp-3), tags as Badge components, status badge (green "Installed" /
+      red "Missing"), and conditional action buttons (Launch, Install, or Install dialog trigger).
+      Create colocated tool-card.stories.tsx with stories for: installed+launchable,
+      installed+no-launch, missing+autoInstall, missing+manual, loading.
+    state: Todo
+    dependencies:
+      - task-9
+    acceptanceCriteria:
+      - 'ToolCard accepts ToolItem as prop and renders all fields'
+      - 'Status badge shows "Installed" (green) when status.status === "available", "Missing" (amber/red) otherwise'
+      - 'Launch button renders only when status.status === "available" && openDirectory is defined'
+      - 'Install button renders only when status.status !== "available"'
+      - 'Install button for autoInstall tools calls POST /api/tools/[id]/install with useTransition loading state'
+      - 'Install button for manual tools opens InstallInstructions Dialog'
+      - 'After successful install, component re-fetches via GET /api/tools to update the parent list'
+      - 'tool-card.stories.tsx has at least 5 named stories covering key states'
+      - 'No direct service or use-case imports; only API fetch calls'
+    tdd:
+      red:
+        - 'Write stories first to define expected visual states before implementing the component'
+      green:
+        - 'Implement ToolCard to match the stories, using shadcn Card, Badge, Button'
+        - 'Add useTransition for install in-flight state'
+      refactor:
+        - 'Extract LaunchButton and InstallButton as local sub-components within tool-card.tsx if logic is complex'
+        - 'Verify all interactive elements have accessible labels (aria-label or visible text)'
+    estimatedEffort: '2h'
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Implement InstallInstructions Dialog component + Storybook stories'
+    description: >
+      Create src/presentation/web/components/features/tools/install-instructions.tsx.
+      A shadcn Dialog that receives a ToolItem and shows: tool name in the title, the
+      pre-resolved installCommand in a <code> block, a "Copy" button using
+      navigator.clipboard.writeText(), and a link to documentationUrl if present.
+      Create colocated install-instructions.stories.tsx with stories for: with install command,
+      without install command, with documentation URL, without documentation URL.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'InstallInstructions accepts { tool: ToolItem; open: boolean; onOpenChange: (open: boolean) => void } props'
+      - 'Renders shadcn Dialog with tool name as title'
+      - 'Shows installCommand in a formatted <code> block when defined'
+      - 'Copy button calls navigator.clipboard.writeText(installCommand) and shows brief "Copied!" feedback'
+      - 'Shows documentation link when tool.documentationUrl is truthy'
+      - 'install-instructions.stories.tsx has at least 4 named stories'
+      - 'Dialog is accessible: focus-trapped when open, Escape closes it'
+    tdd:
+      red:
+        - 'Write stories covering all meaningful prop combinations before implementing'
+      green:
+        - 'Implement using shadcn Dialog, a pre tag for the command, and the Clipboard API for copy'
+      refactor:
+        - 'Add copied state (useState<boolean>) with a 2-second timeout to reset the "Copied!" label'
+    estimatedEffort: '1h'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Implement ToolsPageClient component + Storybook stories'
+    description: >
+      Create src/presentation/web/components/features/tools/tools-page-client.tsx. A "use client"
+      component that receives ToolItem[] as props, renders shadcn Tabs (All / IDEs / CLI Agents),
+      and displays the filtered ToolCard grid for the active tab. Manages its own tools state so
+      it can update after installs. Create colocated tools-page-client.stories.tsx with stories
+      for: all tools mix, IDEs tab active, CLI Agents tab active, empty state.
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - '"use client" directive at top of file'
+      - 'Accepts { tools: ToolItem[] } as props; initialises useState with the server-provided tools'
+      - 'Three tabs: "All" (all tools), "IDEs" (tools with "ide" in tags), "CLI Agents" (tools with "cli-agent" in tags)'
+      - 'Default active tab is "All"'
+      - 'ToolCard grid uses CSS grid layout (responsive: 1 col mobile, 2 col tablet, 3 col desktop)'
+      - 'After ToolCard calls install and succeeds, ToolsPageClient re-fetches GET /api/tools and updates tools state'
+      - 'Shows empty-state message when filtered list is empty'
+      - 'tools-page-client.stories.tsx has at least 4 named stories'
+    tdd:
+      red:
+        - 'Write stories first to define tab switching and grid layout expectations'
+      green:
+        - 'Implement ToolsPageClient with useState, tab filter logic, and ToolCard[] render'
+        - 'Add refreshTools() callback passed to ToolCard for post-install re-fetch'
+      refactor:
+        - 'Ensure the tab value-to-tag mapping is a simple const map, not scattered conditionals'
+        - 'Verify responsive grid classes work at all breakpoints'
+    estimatedEffort: '1.5h'
+
+  # ─── PHASE 4: Integration ─────────────────────────────────────────────────
+
+  - id: task-13
+    phaseId: phase-4
+    title: 'Replace Memory sidebar nav item with Tools (Brain→Wrench, /memory→/tools)'
+    description: >
+      Modify src/presentation/web/components/layouts/app-sidebar/app-sidebar.tsx to replace
+      the Brain icon + "Memory" label + /memory href with Wrench icon + "Tools" label + /tools
+      href. Import Wrench from lucide-react; remove the Brain import if unused elsewhere.
+    state: Todo
+    dependencies:
+      - task-12
+    acceptanceCriteria:
+      - 'Wrench icon imported from lucide-react in app-sidebar.tsx'
+      - 'SidebarNavItem renders Wrench, label "Tools", href "/tools"'
+      - 'Brain icon and /memory reference removed (or Brain import kept only if used elsewhere)'
+      - 'Clicking the Tools sidebar item navigates to /tools in the running dev server'
+      - 'pnpm build and pnpm validate pass'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-14
+    phaseId: phase-4
+    title: 'Add shep tools CLI subcommand group with list sub-command'
+    description: >
+      Create src/presentation/cli/commands/tools.command.ts exporting createToolsCommand().
+      The tools Command has one sub-command: list, which resolves ListToolsUseCase from the
+      container and prints each tool as "[installed|missing] <id>  <name>" to stdout. Register
+      createToolsCommand() in src/presentation/cli/index.ts alongside existing addCommand() calls.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'tools.command.ts exports createToolsCommand() returning a Commander Command named "tools"'
+      - '"list" sub-command resolves ListToolsUseCase and calls execute()'
+      - 'Each tool printed as "[installed|missing] <id>  <name>" (two spaces between id and name)'
+      - 'Uses "installed" when status.status === "available", "missing" otherwise'
+      - 'createToolsCommand() added to program.addCommand() in index.ts'
+      - 'shep tools list outputs correct lines when run via pnpm dev:cli'
+      - 'shep tools --help shows the subcommand'
+    tdd:
+      red:
+        - 'No Vitest test required for CLI output formatting; verify manually via pnpm dev:cli tools list'
+      green:
+        - 'Implement createToolsCommand() with the list sub-command action resolving ListToolsUseCase'
+        - 'Register in index.ts'
+      refactor:
+        - 'Format output with padEnd() for aligned columns if names vary significantly in length'
+    estimatedEffort: '30min'
+
+  - id: task-15
+    phaseId: phase-4
+    title: 'Run pnpm validate and pnpm test; fix any regressions'
+    description: >
+      Run pnpm validate (lint + format + typecheck + tsp) and pnpm test (all test suites).
+      Fix any new failures introduced by this feature. This is the final gate before the PR.
+    state: Todo
+    dependencies:
+      - task-13
+      - task-14
+    acceptanceCriteria:
+      - 'pnpm validate passes with no new errors or warnings'
+      - 'pnpm test passes with no regressions (all existing tests still pass)'
+      - 'New use-case tests (task-1 through task-4) pass in CI'
+      - 'No TypeScript any types in new files (confirmed by typecheck)'
+      - 'All new .stories.tsx files are picked up by Storybook build without errors'
+    tdd: null
+    estimatedEffort: '30min'
+
+totalEstimate: '10h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation flows in four dependency-ordered phases. First, the application layer
+  establishes the foundation: tests are written first (RED), then ListToolsUseCase and
+  LaunchToolUseCase are implemented to pass them (GREEN → REFACTOR), and both are registered
+  in the DI container with the two-step singleton + string-token alias pattern. Nothing else
+  can begin until the container can resolve these tokens.
+
+  Second, three Next.js Route Handlers are added under `app/api/tools/`. Each is a thin
+  adapter that resolves a use case, executes it, and maps the typed result to HTTP status codes.
+  These are straightforward and unblock client-side mutations.
+
+  Third — the largest phase — the web UI is built bottom-up: ToolCard first (the atomic unit),
+  then InstallInstructions Dialog (a dependency of ToolCard's manual-install path), then
+  ToolsPageClient (the container that houses the tab bar and card grid), and finally the
+  server-component page that ties it all together via direct use-case resolution. Every
+  component ships with a colocated .stories.tsx.
+
+  Fourth and finally, two small integration changes land: the sidebar Memory item is swapped
+  for Tools, and the `shep tools list` CLI command is wired up. A full `pnpm validate` +
+  `pnpm test` run confirms zero regressions before the PR is opened.
