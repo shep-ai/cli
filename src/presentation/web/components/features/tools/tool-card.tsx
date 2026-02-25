@@ -132,11 +132,12 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
           {isInstalled && canLaunch ? (
             <Button
               size="sm"
+              variant="ghost"
               onClick={handleLaunch}
               disabled={isPending}
               aria-label={`Launch ${tool.name}`}
               data-testid="tool-card-launch-button"
-              className="h-7 cursor-pointer rounded-md px-3 text-xs"
+              className="hover:bg-primary hover:text-primary-foreground h-7 cursor-pointer rounded-md px-3 text-xs"
             >
               {isPending ? (
                 <Loader2 className="mr-1 h-3 w-3 animate-spin" />
@@ -148,7 +149,6 @@ export function ToolCard({ tool, onRefresh, className }: ToolCardProps) {
           ) : !isInstalled && !isError && tool.autoInstall ? (
             <Button
               size="sm"
-              variant="secondary"
               onClick={handleAutoInstall}
               disabled={isPending}
               aria-label={`Install ${tool.name}`}
