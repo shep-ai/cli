@@ -173,6 +173,7 @@ export function FeatureCreateDrawer({
         openPr,
         ...(parentId ? { parentId } : {}),
       });
+      resetForm();
     },
     [
       name,
@@ -185,6 +186,7 @@ export function FeatureCreateDrawer({
       openPr,
       parentId,
       createSound,
+      resetForm,
     ]
   );
 

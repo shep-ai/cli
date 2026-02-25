@@ -1,0 +1,175 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: clear-form-on-submit
+number: 045
+branch: feat/045-clear-form-on-submit
+oneLiner: Reset the feature-create form fields after successful submission
+userQuery: >
+  Feature: After submiting new feature, clear the new feature form
+summary: >
+  The FeatureCreateDrawer component does not reset its form fields after submission.
+  A `resetForm()` callback already exists but is only called on drawer close, not after submit.
+  The fix is to call `resetForm()` inside `handleSubmit` after invoking `onSubmit`, ensuring the
+  form starts fresh the next time the drawer opens.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19 (useState, useCallback)
+  - Next.js 16 (App Router, Server Actions)
+  - Vaul (Drawer component)
+  - Vitest + Testing Library (unit tests)
+  - Storybook 8 (component stories)
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should resetForm() be called before or after onSubmit(data)?'
+    resolved: true
+    options:
+      - option: 'After onSubmit'
+        description: >
+          Call resetForm() immediately after onSubmit(data) returns. This ensures the
+          payload is dispatched with the current form values before they are cleared.
+          Since onSubmit is synchronous (fire-and-forget to parent), there is no risk
+          of losing data. This is the simplest and safest ordering.
+        selected: true
+      - option: 'Before onSubmit'
+        description: >
+          Capture payload into a local variable, call resetForm(), then call onSubmit
+          with the captured payload. Functionally equivalent but adds unnecessary
+          complexity since the payload is already constructed before either call.
+        selected: false
+    selectionRationale: >
+      The payload object is already constructed before the onSubmit call (line 149-162),
+      so calling resetForm() after onSubmit() is safe — the data is captured in the local
+      variable and passed by reference. After-submit ordering is more readable and
+      conventional (submit then clean up).
+    answer: 'After onSubmit'
+
+  - question: 'Should the existing test at line 487 that uses unmount/remount be updated or kept alongside the new test?'
+    resolved: true
+    options:
+      - option: 'Keep existing, add new test'
+        description: >
+          The existing unmount/remount test validates a different scenario (component
+          lifecycle reset). Add a new test that verifies form clears without unmounting,
+          which catches the actual bug. Both tests provide complementary coverage.
+        selected: true
+      - option: 'Replace existing test'
+        description: >
+          Remove the unmount/remount test and replace with one that tests the real behavior.
+          Simpler test suite but loses coverage of the unmount scenario.
+        selected: false
+    selectionRationale: >
+      The unmount/remount test covers React lifecycle correctness (state is fresh on remount),
+      which is a valid separate concern. The new test covers the actual bug: form state persists
+      when the drawer stays mounted but is re-opened. Both tests are valuable and non-redundant.
+    answer: 'Keep existing, add new test'
+
+  - question: 'Does resetForm need to handle the initialParentId prop resync after submit?'
+    resolved: true
+    options:
+      - option: 'No special handling needed'
+        description: >
+          resetForm() sets parentId to undefined. The useEffect at line 118-122 re-syncs
+          parentId from initialParentId when `open` transitions to true AND initialParentId
+          is set. Since the parent closes the drawer (open=false) after submit, the next open
+          will trigger the effect correctly. No extra logic needed in resetForm.
+        selected: true
+      - option: 'Add initialParentId resync in resetForm'
+        description: >
+          Explicitly set parentId to initialParentId (or undefined) inside resetForm. This
+          would be defensive but redundant with the existing useEffect, adding unnecessary
+          coupling between resetForm and the prop.
+        selected: false
+    selectionRationale: >
+      The existing useEffect (line 118-122) already handles re-applying initialParentId when
+      the drawer opens. Adding redundant logic in resetForm would violate DRY and create a
+      second source of truth for the initial parent behavior. The current architecture
+      correctly separates "reset to defaults" from "apply initial props on open".
+    answer: 'No special handling needed'
+
+# Markdown content (the actual spec)
+content: |
+  ## Problem Statement
+
+  After submitting a new feature via the FeatureCreateDrawer, the form fields (name, description,
+  attachments, approval gates, git options, parent feature) retain their values. If the user opens
+  the drawer again before the component unmounts, they see stale data from the previous submission.
+
+  The component already has a `resetForm()` function (line 124-132) that clears all seven state
+  variables back to defaults. However, it is only wired to `handleOpenChange` (triggered on
+  Vaul-initiated drawer close), not to `handleSubmit`.
+
+  The submit handler at line 144-175 calls `onSubmit(data)` but never resets state. The parent
+  component (`use-control-center-state.ts` line 483) closes the drawer after submit via
+  `setIsCreateDrawerOpen(false)`, which sets the `open` prop to `false` but does not trigger
+  Vaul's `onOpenChange` callback — it simply hides the drawer without resetting form state.
+
+  The existing test at line 487 ("clears form data on submit so next open starts fresh") masks
+  the bug by using `rerender(<div />)` which fully unmounts the component, destroying all React
+  state. In production, the component stays mounted and retains stale values.
+
+  ## Success Criteria
+
+  - [ ] After submitting the form, all form fields (name, description, attachments, approval gates, push, openPr, parentId) are reset to their default values
+  - [ ] The reset occurs without unmounting the component (i.e., the drawer can stay in the DOM)
+  - [ ] A new test verifies form fields are cleared after submit without component unmount/remount
+  - [ ] All existing 31 tests continue to pass without modification
+  - [ ] The existing `resetForm()` function is reused (no new reset logic)
+  - [ ] `pnpm validate` passes (lint, format, typecheck, tsp)
+  - [ ] `pnpm test:unit` passes with no regressions
+
+  ## Functional Requirements
+
+  - **FR-1**: The `handleSubmit` callback in `FeatureCreateDrawer` MUST call `resetForm()` after calling `onSubmit(data)`, clearing all form state (name, description, attachments, approvalGates, push, openPr, parentId) to their default values.
+  - **FR-2**: The `handleSubmit` `useCallback` dependency array MUST include `resetForm` to ensure the callback uses the current version of the reset function.
+  - **FR-3**: The form MUST be visually empty (all fields at defaults) when the drawer is re-opened after a previous submission, regardless of whether the component was unmounted between uses.
+  - **FR-4**: A new unit test MUST verify that form fields are cleared after submission without unmounting the component — the test should submit, then assert all field values are at defaults while the component remains mounted.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The fix MUST NOT change the component's public API (`FeatureCreateDrawerProps`). No new props or callbacks are introduced.
+  - **NFR-2**: The fix MUST NOT alter the submission payload — `onSubmit` must still receive the correct data before the reset occurs.
+  - **NFR-3**: The fix MUST NOT introduce any new dependencies or libraries.
+  - **NFR-4**: The fix MUST reuse the existing `resetForm()` function without duplicating reset logic.
+  - **NFR-5**: No changes to the parent component (`use-control-center-state.ts`) are required — the drawer component owns its own form state lifecycle.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should resetForm() be called before or after onSubmit(data)? | After onSubmit | The payload is already captured in a local object before either call. After-submit ordering is more readable and conventional. |
+  | 2 | Should the existing unmount/remount test be updated or kept alongside the new test? | Keep existing, add new test | Both tests cover complementary scenarios: React lifecycle reset vs. same-mount state reset. |
+  | 3 | Does resetForm need to handle initialParentId resync after submit? | No special handling needed | The existing useEffect at line 118-122 already re-syncs parentId from initialParentId when the drawer opens. |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx` | High | Add `resetForm()` call inside `handleSubmit` after `onSubmit(data)` and add `resetForm` to `useCallback` deps |
+  | `tests/unit/presentation/web/components/common/feature-create-drawer/feature-create-drawer.test.tsx` | Medium | Add new test case verifying form clears after submit without unmount; keep existing test at line 487 |
+
+  ## Dependencies
+
+  - The existing `resetForm()` callback (line 124-132) already handles clearing all seven state variables.
+  - No new dependencies or libraries needed.
+  - No changes needed in the parent component (`use-control-center-state.ts`), as the form
+    component owns its own state reset.
+
+  ## Size Estimate
+
+  **S** — The fix is a single line (`resetForm()` after `onSubmit(data)`) plus adding `resetForm`
+  to the `handleSubmit` dependency array, plus one new test case. The `resetForm` function already
+  exists and is tested via the close-and-reopen flow. Total changes: ~3 lines in the component,
+  ~25 lines for the new test.
+
+  ---
+
+  _Generated by requirements agent_
