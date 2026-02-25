@@ -432,9 +432,14 @@ describe('GitPrService', () => {
   });
 
   describe('listPrStatuses', () => {
-    it('should call gh pr list with correct arguments', async () => {
+    it('should call gh pr list with correct arguments including headRefName', async () => {
       const ghOutput = JSON.stringify([
-        { number: 42, state: 'OPEN', url: 'https://github.com/org/repo/pull/42' },
+        {
+          number: 42,
+          state: 'OPEN',
+          url: 'https://github.com/org/repo/pull/42',
+          headRefName: 'feat/test',
+        },
       ]);
       vi.mocked(mockExec).mockResolvedValue({ stdout: ghOutput, stderr: '' });
 
@@ -442,25 +447,64 @@ describe('GitPrService', () => {
 
       expect(mockExec).toHaveBeenCalledWith(
         'gh',
-        ['pr', 'list', '--json', 'number,state,url', '--state', 'all', '--limit', '100'],
+        [
+          'pr',
+          'list',
+          '--json',
+          'number,state,url,headRefName',
+          '--state',
+          'all',
+          '--limit',
+          '100',
+        ],
         { cwd: '/repo' }
       );
     });
 
     it('should normalize state from UPPERCASE to PrStatus enum values', async () => {
       const ghOutput = JSON.stringify([
-        { number: 1, state: 'OPEN', url: 'https://github.com/org/repo/pull/1' },
-        { number: 2, state: 'MERGED', url: 'https://github.com/org/repo/pull/2' },
-        { number: 3, state: 'CLOSED', url: 'https://github.com/org/repo/pull/3' },
+        {
+          number: 1,
+          state: 'OPEN',
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/a',
+        },
+        {
+          number: 2,
+          state: 'MERGED',
+          url: 'https://github.com/org/repo/pull/2',
+          headRefName: 'feat/b',
+        },
+        {
+          number: 3,
+          state: 'CLOSED',
+          url: 'https://github.com/org/repo/pull/3',
+          headRefName: 'feat/c',
+        },
       ]);
       vi.mocked(mockExec).mockResolvedValue({ stdout: ghOutput, stderr: '' });
 
       const result = await service.listPrStatuses('/repo');
 
       expect(result).toEqual([
-        { number: 1, state: PrStatus.Open, url: 'https://github.com/org/repo/pull/1' },
-        { number: 2, state: PrStatus.Merged, url: 'https://github.com/org/repo/pull/2' },
-        { number: 3, state: PrStatus.Closed, url: 'https://github.com/org/repo/pull/3' },
+        {
+          number: 1,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/a',
+        },
+        {
+          number: 2,
+          state: PrStatus.Merged,
+          url: 'https://github.com/org/repo/pull/2',
+          headRefName: 'feat/b',
+        },
+        {
+          number: 3,
+          state: PrStatus.Closed,
+          url: 'https://github.com/org/repo/pull/3',
+          headRefName: 'feat/c',
+        },
       ]);
     });
 

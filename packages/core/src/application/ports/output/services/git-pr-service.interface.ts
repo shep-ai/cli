@@ -87,6 +87,8 @@ export interface PrStatusInfo {
   state: PrStatus;
   /** URL of the pull request */
   url: string;
+  /** Head branch name of the PR */
+  headRefName: string;
 }
 
 /**

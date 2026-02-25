@@ -246,15 +246,30 @@ export class GitPrService implements IGitPrService {
     try {
       const { stdout } = await this.execFile(
         'gh',
-        ['pr', 'list', '--json', 'number,state,url', '--state', 'all', '--limit', '100'],
+        [
+          'pr',
+          'list',
+          '--json',
+          'number,state,url,headRefName',
+          '--state',
+          'all',
+          '--limit',
+          '100',
+        ],
         { cwd }
       );
 
-      const prs = JSON.parse(stdout) as { number: number; state: string; url: string }[];
+      const prs = JSON.parse(stdout) as {
+        number: number;
+        state: string;
+        url: string;
+        headRefName: string;
+      }[];
       return prs.map((pr) => ({
         number: pr.number,
         state: this.normalizeGhState(pr.state),
         url: pr.url,
+        headRefName: pr.headRefName,
       }));
     } catch (error) {
       throw this.parseGhError(error);

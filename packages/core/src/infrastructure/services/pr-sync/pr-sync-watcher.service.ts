@@ -91,8 +91,8 @@ export class PrSyncWatcherService {
     try {
       const allFeatures = await this.featureRepo.list({ lifecycle: SdlcLifecycle.Review });
 
-      // Filter to features with a PR and a valid repositoryPath
-      const features = allFeatures.filter((f) => f.pr && f.repositoryPath);
+      // Include features with a valid repositoryPath (with or without PR data)
+      const features = allFeatures.filter((f) => f.repositoryPath);
 
       if (features.length === 0) {
         // Prune all tracked features since none are in Review
@@ -136,22 +136,64 @@ export class PrSyncWatcherService {
       return;
     }
 
-    // Build lookup by PR number
+    // Build lookups by PR number and by head branch name
     const statusByNumber = new Map<number, PrStatusInfo>();
+    const statusByBranch = new Map<string, PrStatusInfo>();
     for (const pr of prStatuses) {
       statusByNumber.set(pr.number, pr);
+      if (pr.headRefName) {
+        statusByBranch.set(pr.headRefName, pr);
+      }
     }
 
     for (const feature of features) {
-      await this.processFeature(feature, statusByNumber);
+      await this.processFeature(feature, statusByNumber, statusByBranch);
     }
   }
 
   private async processFeature(
     feature: Feature,
-    statusByNumber: Map<number, PrStatusInfo>
+    statusByNumber: Map<number, PrStatusInfo>,
+    statusByBranch: Map<string, PrStatusInfo>
   ): Promise<void> {
-    const pr = feature.pr!;
+    // If feature has no PR data, try to discover a PR by matching branch name
+    if (!feature.pr) {
+      const matchedPr = statusByBranch.get(feature.branch);
+      if (!matchedPr) return; // No matching PR found on GitHub
+
+      // Populate the feature's PR data from the discovered GitHub PR
+      feature.pr = {
+        url: matchedPr.url,
+        number: matchedPr.number,
+        status: matchedPr.state,
+      };
+
+      // Initialize tracking with the discovered state
+      this.trackedFeatures.set(feature.id, {
+        prStatus: matchedPr.state,
+        ciStatus: undefined,
+        featureName: feature.name,
+      });
+
+      // If already merged, transition immediately
+      if (matchedPr.state === PrStatus.Merged) {
+        feature.lifecycle = SdlcLifecycle.Maintain;
+        await this.completeAgentRun(feature);
+        this.emitNotification(
+          NotificationEventType.PrMerged,
+          feature.id,
+          feature.agentRunId ?? '',
+          feature.name,
+          `PR #${matchedPr.number} merged for ${feature.name}`,
+          NotificationSeverity.Success
+        );
+      }
+
+      await this.featureRepo.update(feature);
+      return;
+    }
+
+    const pr = feature.pr;
     const prStatusInfo = statusByNumber.get(pr.number);
 
     let needsUpdate = false;
@@ -177,19 +219,7 @@ export class PrSyncWatcherService {
 
       if (newPrStatus === PrStatus.Merged) {
         feature.lifecycle = SdlcLifecycle.Maintain;
-
-        // Mark associated agent run as completed so UI reflects "done" state
-        if (feature.agentRunId) {
-          try {
-            await this.agentRunRepo.updateStatus(feature.agentRunId, AgentRunStatus.completed);
-          } catch (error) {
-            // eslint-disable-next-line no-console
-            console.warn(
-              `PrSyncWatcherService: failed to update agent run ${feature.agentRunId}:`,
-              error
-            );
-          }
-        }
+        await this.completeAgentRun(feature);
 
         this.emitNotification(
           NotificationEventType.PrMerged,
@@ -255,6 +285,20 @@ export class PrSyncWatcherService {
 
     if (needsUpdate) {
       await this.featureRepo.update(feature);
+    }
+  }
+
+  /** Mark associated agent run as completed so the UI reflects "done" state. */
+  private async completeAgentRun(feature: Feature): Promise<void> {
+    if (!feature.agentRunId) return;
+    try {
+      await this.agentRunRepo.updateStatus(feature.agentRunId, AgentRunStatus.completed);
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.warn(
+        `PrSyncWatcherService: failed to update agent run ${feature.agentRunId}:`,
+        error
+      );
     }
   }
 

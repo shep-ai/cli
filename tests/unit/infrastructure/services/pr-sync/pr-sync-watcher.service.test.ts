@@ -234,7 +234,12 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Merged, url: 'https://github.com/org/repo/pull/1' },
+        {
+          number: 1,
+          state: PrStatus.Merged,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+        },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -261,7 +266,12 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Merged, url: 'https://github.com/org/repo/pull/1' },
+        {
+          number: 1,
+          state: PrStatus.Merged,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+        },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -283,7 +293,12 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 2, state: PrStatus.Closed, url: 'https://github.com/org/repo/pull/2' },
+        {
+          number: 2,
+          state: PrStatus.Closed,
+          url: 'https://github.com/org/repo/pull/2',
+          headRefName: 'feat/closed',
+        },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -310,7 +325,12 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 3, state: PrStatus.Open, url: 'https://github.com/org/repo/pull/3' },
+        {
+          number: 3,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/3',
+          headRefName: 'feat/test',
+        },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -342,8 +362,8 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature1, feature2, feature3]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Open, url: '' },
-        { number: 2, state: PrStatus.Open, url: '' },
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
+        { number: 2, state: PrStatus.Open, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -367,7 +387,7 @@ describe('PrSyncWatcherService', () => {
         .mockResolvedValueOnce([feature]) // first poll: feature in Review
         .mockResolvedValueOnce([]); // second poll: feature no longer in Review
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Open, url: '' },
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -391,7 +411,12 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Merged, url: 'https://github.com/org/repo/pull/1' },
+        {
+          number: 1,
+          state: PrStatus.Merged,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+        },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -419,7 +444,12 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Closed, url: 'https://github.com/org/repo/pull/1' },
+        {
+          number: 1,
+          state: PrStatus.Closed,
+          url: 'https://github.com/org/repo/pull/1',
+          headRefName: 'feat/test',
+        },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -436,6 +466,98 @@ describe('PrSyncWatcherService', () => {
       expect(prEvents[0]!.severity).toBe(NotificationSeverity.Warning);
     });
 
+    it('should discover merged PR by branch name when feature has no PR data', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'Externally Merged',
+        repositoryPath: '/repo/path',
+        branch: 'feat/external',
+        agentRunId: 'run-1',
+        pr: undefined, // No PR data on the feature
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        {
+          number: 42,
+          state: PrStatus.Merged,
+          url: 'https://github.com/org/repo/pull/42',
+          headRefName: 'feat/external',
+        },
+      ]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Feature should be updated with discovered PR data and lifecycle → Maintain
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+      const updatedFeature = vi.mocked(featureRepo.update).mock.calls[0][0];
+      expect(updatedFeature.pr!.url).toBe('https://github.com/org/repo/pull/42');
+      expect(updatedFeature.pr!.number).toBe(42);
+      expect(updatedFeature.pr!.status).toBe(PrStatus.Merged);
+      expect(updatedFeature.lifecycle).toBe(SdlcLifecycle.Maintain);
+
+      // Agent run should be marked as completed
+      expect(agentRunRepo.updateStatus).toHaveBeenCalledWith('run-1', AgentRunStatus.completed);
+
+      // PrMerged notification should be emitted
+      const prEvents = notificationService.receivedEvents.filter(
+        (e) => e.eventType === NotificationEventType.PrMerged
+      );
+      expect(prEvents).toHaveLength(1);
+      expect(prEvents[0]!.featureId).toBe('feat-1');
+    });
+
+    it('should discover open PR by branch name and populate feature PR data', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'External PR',
+        repositoryPath: '/repo/path',
+        branch: 'feat/external',
+        pr: undefined,
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        {
+          number: 10,
+          state: PrStatus.Open,
+          url: 'https://github.com/org/repo/pull/10',
+          headRefName: 'feat/external',
+        },
+      ]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      // Feature should be updated with discovered PR data (stays in Review since Open)
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+      const updatedFeature = vi.mocked(featureRepo.update).mock.calls[0][0];
+      expect(updatedFeature.pr!.url).toBe('https://github.com/org/repo/pull/10');
+      expect(updatedFeature.pr!.number).toBe(10);
+      expect(updatedFeature.pr!.status).toBe(PrStatus.Open);
+      expect(updatedFeature.lifecycle).toBe(SdlcLifecycle.Review); // stays Review
+    });
+
+    it('should not update feature when no matching PR found by branch', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        repositoryPath: '/repo/path',
+        branch: 'feat/no-match',
+        pr: undefined,
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        { number: 1, state: PrStatus.Open, url: '', headRefName: 'feat/other-branch' },
+      ]);
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(featureRepo.update).not.toHaveBeenCalled();
+    });
+
     it('should not emit duplicate notification on subsequent polls with same status', async () => {
       const feature = createMockFeature({
         id: 'feat-1',
@@ -449,7 +571,7 @@ describe('PrSyncWatcherService', () => {
         .mockResolvedValueOnce([{ ...feature, lifecycle: SdlcLifecycle.Maintain }])
         .mockResolvedValueOnce([]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Merged, url: '' },
+        { number: 1, state: PrStatus.Merged, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -484,7 +606,7 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Open, url: '' },
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'success' });
 
@@ -511,7 +633,7 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Open, url: '' },
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'failure' });
 
@@ -539,7 +661,7 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Open, url: '' },
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'success' });
 
@@ -570,7 +692,7 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Open, url: '' },
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'failure' });
 
@@ -600,7 +722,7 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Open, url: '' },
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -630,8 +752,8 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature1, feature2]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Merged, url: '' },
-        { number: 2, state: PrStatus.Open, url: '' },
+        { number: 1, state: PrStatus.Merged, url: '', headRefName: '' },
+        { number: 2, state: PrStatus.Open, url: '', headRefName: '' },
       ]);
       vi.mocked(gitPrService.getCiStatus)
         .mockRejectedValueOnce(new Error('Network error'))
@@ -660,18 +782,21 @@ describe('PrSyncWatcherService', () => {
       expect(gitPrService.getCiStatus).not.toHaveBeenCalled();
     });
 
-    it('should skip features with no PR', async () => {
+    it('should still poll GitHub for features without PR data (for branch-based discovery)', async () => {
       const featureNoPr = createMockFeature({
         id: 'feat-no-pr',
+        branch: 'feat/no-pr',
         pr: undefined,
       });
 
       vi.mocked(featureRepo.list).mockResolvedValue([featureNoPr]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([]);
 
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      expect(gitPrService.listPrStatuses).not.toHaveBeenCalled();
+      // Should poll GitHub to discover PRs by branch
+      expect(gitPrService.listPrStatuses).toHaveBeenCalledWith('/repo/path');
     });
 
     it('should skip features with missing repositoryPath', async () => {
@@ -703,7 +828,7 @@ describe('PrSyncWatcherService', () => {
 
       vi.mocked(featureRepo.list).mockResolvedValue([feature]);
       vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
-        { number: 1, state: PrStatus.Open, url: '' }, // PR 99 not in response
+        { number: 1, state: PrStatus.Open, url: '', headRefName: '' }, // PR 99 not in response
       ]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
@@ -732,7 +857,7 @@ describe('PrSyncWatcherService', () => {
       vi.mocked(featureRepo.list).mockResolvedValue([feature1, feature2]);
       vi.mocked(gitPrService.listPrStatuses)
         .mockRejectedValueOnce(new Error('Auth failure for repo a'))
-        .mockResolvedValueOnce([{ number: 1, state: PrStatus.Merged, url: '' }]);
+        .mockResolvedValueOnce([{ number: 1, state: PrStatus.Merged, url: '', headRefName: '' }]);
       vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
 
       watcher.start();
