@@ -114,12 +114,18 @@ export async function startDaemon(opts: StartDaemonOptions = {}): Promise<void> 
   messages.newline();
 
   // Poll until the server responds, with a spinner on stderr.
-  const ready = await spinner('Starting server', () => waitForServer(url, READY_TIMEOUT_MS));
-
-  if (ready) {
-    messages.success(`Server ready at ${fmt.code(url)}`);
+  // Skip readiness check in E2E / CI environments where the daemon child
+  // cannot actually start a Next.js server within the test's time window.
+  if (process.env.SHEP_SKIP_READINESS_CHECK) {
+    messages.success(`Daemon spawned at ${fmt.code(url)}`);
   } else {
-    messages.warning(`Server may still be starting at ${fmt.code(url)}`);
+    const ready = await spinner('Starting server', () => waitForServer(url, READY_TIMEOUT_MS));
+
+    if (ready) {
+      messages.success(`Server ready at ${fmt.code(url)}`);
+    } else {
+      messages.warning(`Server may still be starting at ${fmt.code(url)}`);
+    }
   }
   messages.newline();
 

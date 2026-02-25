@@ -127,7 +127,9 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       const temp = makeTempShepHome();
       shepHome = temp.shepHome;
       cleanup = temp.cleanup;
-      runCli = createCliRunner({ env: { SHEP_HOME: shepHome } }).run;
+      runCli = createCliRunner({
+        env: { SHEP_HOME: shepHome, SHEP_SKIP_READINESS_CHECK: '1' },
+      }).run;
     });
 
     afterAll(async () => {
@@ -190,7 +192,9 @@ describe('CLI: daemon lifecycle', { timeout: TEST_TIMEOUT }, () => {
       const temp = makeTempShepHome();
       shepHome = temp.shepHome;
       cleanup = temp.cleanup;
-      runCli = createCliRunner({ env: { SHEP_HOME: shepHome } }).run;
+      runCli = createCliRunner({
+        env: { SHEP_HOME: shepHome, SHEP_SKIP_READINESS_CHECK: '1' },
+      }).run;
 
       // Spawn a harmless long-running process to act as our fake daemon
       fakeProcess = spawn('sleep', ['60'], { detached: true, stdio: 'ignore' });

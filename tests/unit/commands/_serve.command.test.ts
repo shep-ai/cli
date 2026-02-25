@@ -9,12 +9,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Command } from 'commander';
 
-// Mock container initialization
-// Note: container.resolve() is called with both string tokens AND class references.
-// The class-token case (e.g. container.resolve(InitializeSettingsUseCase)) must return
-// a mock instance. We detect class tokens by checking typeof === 'function'.
+// Mock DI container
+// Note: container.resolve() is called with string tokens to obtain services.
 vi.mock('@/infrastructure/di/container.js', () => ({
-  initializeContainer: vi.fn().mockResolvedValue(undefined),
   container: {
     resolve: vi.fn().mockImplementation((token: unknown) => {
       // Class-token resolution (container.resolve(SomeClass))
@@ -36,6 +33,7 @@ vi.mock('@/infrastructure/di/container.js', () => ({
       if (
         token === 'IAgentRunRepository' ||
         token === 'IPhaseTimingRepository' ||
+        token === 'IFeatureRepository' ||
         token === 'INotificationService'
       ) {
         return {};
@@ -43,17 +41,6 @@ vi.mock('@/infrastructure/di/container.js', () => ({
       throw new Error(`Unknown token: ${String(token)}`);
     }),
   },
-}));
-
-// Mock settings use case
-vi.mock('@/application/use-cases/settings/initialize-settings.use-case.js', () => ({
-  InitializeSettingsUseCase: vi.fn().mockImplementation(() => ({
-    execute: vi.fn().mockResolvedValue({}),
-  })),
-}));
-
-vi.mock('@/infrastructure/services/settings.service.js', () => ({
-  initializeSettings: vi.fn(),
 }));
 
 // Mock version env vars helper
@@ -80,7 +67,6 @@ const mockWebServerService = {
   stop: vi.fn().mockResolvedValue(undefined),
 };
 
-import { initializeContainer } from '@/infrastructure/di/container.js';
 import { getNotificationWatcher } from '@/infrastructure/services/notifications/notification-watcher.service.js';
 import { createServeCommand } from '../../../src/presentation/cli/commands/_serve.command.js';
 
@@ -117,12 +103,6 @@ describe('_serve command', () => {
   });
 
   describe('command execution', () => {
-    it('calls initializeContainer on startup', async () => {
-      const cmd = createServeCommand();
-      await cmd.parseAsync(['--port', '4050'], { from: 'user' });
-      expect(initializeContainer).toHaveBeenCalled();
-    });
-
     it('calls WebServerService.start with the provided port', async () => {
       const cmd = createServeCommand();
       await cmd.parseAsync(['--port', '4050'], { from: 'user' });

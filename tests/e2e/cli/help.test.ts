@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { runCli } from '../../helpers/cli/index.js';
+import { runCli, createCliRunner } from '../../helpers/cli/index.js';
 
 describe('CLI: help', () => {
   it('should display help with --help flag', () => {
@@ -28,7 +28,9 @@ describe('CLI: help', () => {
   it('shep (no args) starts the daemon instead of printing help', () => {
     // The default action is now startDaemon(), not outputHelp().
     // In a non-TTY test environment, onboarding is skipped and the daemon spawns.
-    const result = runCli('');
+    // Skip readiness check since the daemon child can't start a real server in E2E.
+    const runner = createCliRunner({ env: { SHEP_SKIP_READINESS_CHECK: '1' } });
+    const result = runner.run('');
 
     expect(result.exitCode).toBe(0);
     expect(result.success).toBe(true);
