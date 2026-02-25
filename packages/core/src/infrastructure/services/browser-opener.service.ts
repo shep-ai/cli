@@ -8,6 +8,7 @@ export interface BrowserOpenerDeps {
     callback: (error: Error | null) => void
   ) => ChildProcess;
   warn: (msg: string) => void;
+  isTTY: boolean;
 }
 
 const defaultDeps: BrowserOpenerDeps = {
@@ -15,6 +16,7 @@ const defaultDeps: BrowserOpenerDeps = {
   execFile: cpExecFile as unknown as BrowserOpenerDeps['execFile'],
   // eslint-disable-next-line no-console
   warn: (msg) => console.warn(msg),
+  isTTY: !!process.stdout.isTTY,
 };
 
 const PLATFORM_COMMANDS: Record<string, { cmd: string; args: (url: string) => string[] }> = {
@@ -31,6 +33,9 @@ export class BrowserOpenerService {
   }
 
   open(url: string): void {
+    // Skip browser opening in non-interactive environments (tests, CI, piped output).
+    if (!this.deps.isTTY) return;
+
     const entry = PLATFORM_COMMANDS[this.deps.platform];
     if (!entry) return;
 

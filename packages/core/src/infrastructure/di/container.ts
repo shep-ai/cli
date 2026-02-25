@@ -42,6 +42,8 @@ import type { IGitPrService } from '../../application/ports/output/services/git-
 import { GitPrService } from '../services/git/git-pr.service.js';
 import type { IIdeLauncherService } from '../../application/ports/output/services/ide-launcher-service.interface.js';
 import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
+import type { IDaemonService } from '../../application/ports/output/services/daemon-service.interface.js';
+import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
@@ -182,6 +184,7 @@ export async function initializeContainer(): Promise<typeof container> {
     'IIdeLauncherService',
     JsonDrivenIdeLauncherService
   );
+  container.registerSingleton<IDaemonService>('IDaemonService', DaemonPidService);
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {

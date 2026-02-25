@@ -23,7 +23,7 @@ function createService(platform: NodeJS.Platform, execFileError?: Error) {
       }
     );
   const warn = vi.fn();
-  const service = new BrowserOpenerService({ platform, execFile, warn });
+  const service = new BrowserOpenerService({ platform, execFile, warn, isTTY: true });
   return { service, execFile, warn, child };
 }
 
@@ -102,6 +102,23 @@ describe('BrowserOpenerService', () => {
       const error = new Error('command not found');
       const { service } = createService('darwin', error);
       expect(() => service.open(testUrl)).not.toThrow();
+    });
+  });
+
+  describe('non-TTY environment', () => {
+    it('does not open browser when isTTY is false', () => {
+      const child = createMockChild();
+      const execFile = vi
+        .fn<BrowserOpenerDeps['execFile']>()
+        .mockReturnValue(child as unknown as ReturnType<BrowserOpenerDeps['execFile']>);
+      const service = new BrowserOpenerService({
+        platform: 'linux',
+        execFile,
+        isTTY: false,
+        warn: vi.fn(),
+      });
+      service.open(testUrl);
+      expect(execFile).not.toHaveBeenCalled();
     });
   });
 

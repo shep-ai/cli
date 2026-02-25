@@ -1,0 +1,492 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ui-daemon-lifecycle
+summary: >
+  12 tasks across 5 phases. Foundation (phase 1, 3 tasks) establishes the IDaemonService
+  port and DaemonPidService. Daemon spawn (phase 2, 2 tasks) builds the _serve child command
+  and the shared startDaemon() helper. CLI commands (phase 3, 3 tasks) wire start/stop/status.
+  CLI integration (phase 4, 2 tasks) connects everything in index.ts. Documentation (phase 5,
+  2 tasks) covers README and E2E tests.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  # PHASE 1: Foundation
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add getDaemonStatePath() to shep-directory.service'
+    description: >
+      Add a single exported function getDaemonStatePath(): string to
+      packages/core/src/infrastructure/services/filesystem/shep-directory.service.ts
+      that returns path.join(resolveShepHomeDir(), 'daemon.json'). This respects the
+      SHEP_HOME environment variable used for test isolation. Follow the exact pattern
+      of the existing getShepDbPath() function.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'getDaemonStatePath() is exported from shep-directory.service.ts'
+      - 'Return value is path.join(resolveShepHomeDir(), "daemon.json")'
+      - 'When SHEP_HOME=/tmp/test, getDaemonStatePath() returns /tmp/test/daemon.json'
+      - 'Unit test verifies both default path and SHEP_HOME override'
+    tdd:
+      red:
+        - 'In the existing shep-directory.service test file, write a test that imports getDaemonStatePath and asserts it returns join(homedir(), ".shep", "daemon.json") when SHEP_HOME is unset'
+        - 'Write a second test that sets process.env.SHEP_HOME to a temp path and asserts getDaemonStatePath returns that path + "/daemon.json"'
+        - 'Run tests — they fail because getDaemonStatePath does not exist yet'
+      green:
+        - 'Add export function getDaemonStatePath(): string { return join(resolveShepHomeDir(), "daemon.json"); } to shep-directory.service.ts'
+        - 'Run tests — they pass'
+      refactor:
+        - 'Verify the function is colocated with getShepDbPath() for consistency'
+        - 'Ensure the env var teardown in tests uses afterEach to restore SHEP_HOME'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Define IDaemonService output port interface'
+    description: >
+      Create packages/core/src/application/ports/output/services/daemon-service.interface.ts
+      with the IDaemonService interface and the DaemonState type. DaemonState has fields:
+      pid (number), port (number), startedAt (string, ISO 8601). IDaemonService has methods:
+      read(): Promise<DaemonState | null>, write(data: DaemonState): Promise<void>,
+      delete(): Promise<void>, isAlive(pid: number): boolean.
+      Export from the services barrel index if one exists.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'daemon-service.interface.ts is created with IDaemonService and DaemonState types'
+      - 'IDaemonService has read, write, delete, and isAlive method signatures'
+      - 'DaemonState has pid: number, port: number, startedAt: string'
+      - 'Interface is exported (barrel index updated if applicable)'
+      - 'TypeScript compilation succeeds (pnpm validate passes)'
+    tdd:
+      red:
+        - 'Write a TypeScript import test that asserts the interface can be imported and a mock object satisfies it'
+        - 'Verify pnpm tsc --noEmit fails before the file exists'
+      green:
+        - 'Create daemon-service.interface.ts with IDaemonService and DaemonState'
+        - 'Export from services barrel index if it exists'
+        - 'pnpm tsc --noEmit passes'
+      refactor:
+        - 'Add JSDoc comments to each interface method explaining behavior (read returns null if file absent, isAlive uses signal-0 check)'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Implement DaemonPidService and register in DI container'
+    description: >
+      Create packages/core/src/infrastructure/services/daemon/daemon-pid.service.ts
+      implementing IDaemonService. read() uses fs.readFile + JSON.parse, returns null on
+      ENOENT. write() uses the atomic write-temp + rename pattern (writeFile to daemon.json.tmp,
+      then rename to daemon.json). delete() uses fs.unlink with ENOENT swallowing.
+      isAlive(pid) uses process.kill(pid, 0) returning true on no error, false on ESRCH.
+      Register as singleton in container.ts following the existing registerSingleton pattern.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+    acceptanceCriteria:
+      - 'DaemonPidService implements IDaemonService'
+      - 'write() uses atomic writeFile-then-rename (never direct writeFile to daemon.json)'
+      - 'read() returns null when daemon.json does not exist (ENOENT caught, returns null)'
+      - 'delete() swallows ENOENT (safe to call when file absent)'
+      - 'isAlive(pid) returns false for dead PID (ESRCH) and true for live PID'
+      - 'isAlive() validates pid is a positive finite integer before calling process.kill'
+      - 'Registered as IDaemonService singleton in container.ts'
+      - 'Unit tests cover: write + read roundtrip, write atomicity (spy on rename), read when absent, delete when absent, isAlive true/false'
+      - 'Tests use SHEP_HOME env var for file isolation'
+    tdd:
+      red:
+        - 'Create packages/core/src/infrastructure/services/daemon/__tests__/daemon-pid.service.test.ts'
+        - 'Write test: write() then read() returns the same DaemonState object'
+        - 'Write test: read() on non-existent path returns null'
+        - 'Write test: delete() on non-existent path does not throw'
+        - 'Write test: isAlive(process.pid) returns true (current process is alive)'
+        - 'Write test: isAlive(999999999) returns false (non-existent PID)'
+        - 'Write test: write() calls fs.rename (spy assertion) proving atomicity'
+        - 'Run — all fail because DaemonPidService does not exist'
+      green:
+        - 'Create daemon-pid.service.ts with @injectable() and all four methods'
+        - 'Implement read() with fs.readFile + JSON.parse + ENOENT catch returning null'
+        - 'Implement write() with fs.writeFile to .tmp path then fs.rename to final path'
+        - 'Implement delete() with fs.unlink + ENOENT catch returning void'
+        - 'Implement isAlive() with process.kill(pid, 0) in try/catch'
+        - 'Add container.registerSingleton to container.ts'
+        - 'Run tests — all pass'
+      refactor:
+        - 'Extract the atomic write helper as a private method writeDaemonFile() to keep write() readable'
+        - 'Extract PID validation (positive finite integer check) as a private helper validatePid()'
+        - 'Ensure the temp path is daemon.json.tmp in the same directory (not /tmp) to guarantee same-filesystem rename'
+    estimatedEffort: '2h'
+
+  # PHASE 2: Daemon Spawn
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create hidden _serve command (daemon child entry point)'
+    description: >
+      Create src/presentation/cli/commands/_serve.command.ts exporting
+      createServeCommand() factory. The command is hidden (.hidden(true)), accepts
+      --port <number> (required), bootstraps the full DI container (same sequence as
+      index.ts: initializeContainer, InitializeSettingsUseCase), starts WebServerService,
+      initializes the notification watcher, and registers SIGTERM/SIGINT handlers
+      following the identical pattern in ui.command.ts (isShuttingDown flag, 5s forceExit
+      timer with timer.unref(), stop watcher, stop service). The onboarding gate is
+      intentionally omitted — _serve always runs post-onboarding.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - '_serve command is hidden from --help output'
+      - 'Accepts --port <number> option'
+      - 'Bootstraps DI container and settings before starting WebServerService'
+      - 'SIGTERM handler: sets isShuttingDown flag, starts 5s forceExit timer (unref), stops watcher, stops service, exits 0'
+      - 'SIGINT handler: same as SIGTERM handler'
+      - 'isShuttingDown flag prevents double-shutdown (idempotent handler)'
+      - 'Unit test verifies SIGTERM triggers graceful shutdown sequence'
+      - 'Unit test verifies --port option is passed to WebServerService.start()'
+    tdd:
+      red:
+        - 'Create tests/unit/commands/_serve.command.test.ts'
+        - 'Write test: createServeCommand() returns a Commander Command with name "_serve" and hidden true'
+        - 'Write test: invoking the command action with --port 4050 calls WebServerService.start with port 4050'
+        - 'Write test: SIGTERM triggers service.stop() and process.exit(0)'
+        - 'Mock container.resolve to return a mock IWebServerService'
+        - 'Run — fail because _serve.command.ts does not exist'
+      green:
+        - 'Create _serve.command.ts with createServeCommand() factory'
+        - 'Implement .hidden(true), --port option, bootstrap call, WebServerService.start'
+        - 'Copy SIGTERM/SIGINT shutdown pattern from ui.command.ts verbatim'
+        - 'Run tests — pass'
+      refactor:
+        - 'Add a startup log line to stderr indicating daemon is ready on port N — useful for E2E readiness polling'
+        - 'Verify shutdown handler is identical to ui.command.ts — note for potential future extraction'
+    estimatedEffort: '1.5h'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Create shared startDaemon() helper'
+    description: >
+      Create src/presentation/cli/commands/daemon/start-daemon.ts exporting
+      startDaemon(opts?: { port?: number }): Promise<void>. The function:
+      (1) resolves port via findAvailablePort(opts.port ?? DEFAULT_PORT),
+      (2) checks for an already-running daemon via IDaemonService.read() + isAlive(),
+          printing the existing URL and returning early if alive (idempotent),
+      (3) spawns the daemon using child_process.spawn with args
+          [process.execPath, '_serve', '--port', String(port)] and options
+          {detached: true, stdio: 'ignore'}, then immediately calls child.unref(),
+      (4) writes daemon.json atomically via IDaemonService.write({pid, port, startedAt}),
+      (5) prints a formatted URL block using colors/fmt helpers,
+      (6) opens the browser via BrowserOpenerService.
+    state: Todo
+    dependencies:
+      - task-3
+      - task-4
+    acceptanceCriteria:
+      - 'Returns early (exit 0) if daemon is already alive, printing "already running at URL"'
+      - 'Uses findAvailablePort for port resolution'
+      - 'Spawns with detached: true and stdio: ignore'
+      - 'Calls child.unref() immediately after spawn'
+      - 'Writes daemon.json with pid, port, startedAt (ISO string)'
+      - 'Prints formatted URL to stdout'
+      - 'Opens browser via BrowserOpenerService'
+      - 'Supports --port override option'
+      - 'Unit tests cover: already-running path (no spawn), fresh-start path (spawn called), port override respected'
+    tdd:
+      red:
+        - 'Create tests/unit/commands/daemon/start-daemon.test.ts'
+        - 'Write test: when IDaemonService.read() returns a live PID, spawn is NOT called'
+        - 'Write test: when no daemon running, spawn is called with correct args array'
+        - 'Write test: spawn is called with {detached: true, stdio: ignore}'
+        - 'Write test: child.unref() is called after spawn'
+        - 'Write test: IDaemonService.write() is called with correct {pid, port, startedAt} shape'
+        - 'Write test: BrowserOpenerService.open() is called with the correct URL'
+        - 'Mock child_process.spawn, IDaemonService, BrowserOpenerService, findAvailablePort'
+        - 'Run — fail because start-daemon.ts does not exist'
+      green:
+        - 'Create start-daemon.ts with startDaemon() function'
+        - 'Implement the 6-step flow using child_process.spawn (not exec) for injection safety'
+        - 'Use container.resolve to get IDaemonService and BrowserOpenerService'
+        - 'Run tests — pass'
+      refactor:
+        - 'Extract URL formatting block into a printDaemonUrl(port) helper within the same file'
+        - 'Ensure startedAt is set AFTER spawn returns so the timestamp is accurate'
+    estimatedEffort: '2h'
+
+  # PHASE 3: CLI Commands
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Implement shep start command'
+    description: >
+      Create src/presentation/cli/commands/start.command.ts exporting createStartCommand()
+      factory. The command accepts optional -p, --port <number> option (same validation as
+      shep ui: 1024-65535). The action simply calls startDaemon({ port: opts.port }).
+      This command is intentionally thin — all logic lives in the startDaemon() helper.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Command name is "start"'
+      - 'Accepts --port / -p option with 1024-65535 validation'
+      - 'Action calls startDaemon() with port option forwarded'
+      - 'No business logic in the command file itself — pure delegation to startDaemon()'
+      - 'Unit test verifies the command is created with correct name and options'
+      - 'Unit test verifies action calls startDaemon with the port option'
+    tdd:
+      red:
+        - 'Create tests/unit/commands/start.command.test.ts'
+        - 'Write test: createStartCommand() returns Command with name "start"'
+        - 'Write test: invoking action with --port 5000 calls startDaemon({ port: 5000 })'
+        - 'Write test: invoking action without --port calls startDaemon({ port: undefined })'
+        - 'Mock the startDaemon module'
+        - 'Run — fail because start.command.ts does not exist'
+      green:
+        - 'Create start.command.ts with createStartCommand() factory'
+        - 'Add port option with validation matching shep ui pattern'
+        - 'Action handler calls startDaemon with forwarded options'
+        - 'Run tests — pass'
+      refactor:
+        - 'Verify port validation error message is consistent with the existing shep ui --port validation message'
+    estimatedEffort: '45min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Implement shep stop command'
+    description: >
+      Create src/presentation/cli/commands/stop.command.ts exporting createStopCommand()
+      factory. The action: (1) reads daemon.json via IDaemonService.read(),
+      (2) if null or PID not alive, prints "No Shep daemon is running" and returns,
+      (3) validates pid is a positive finite integer,
+      (4) sends SIGTERM via process.kill(pid, "SIGTERM"),
+      (5) polls process.kill(pid, 0) every 200ms for up to 5000ms,
+      (6) if still alive after 5s, sends SIGKILL via process.kill(pid, "SIGKILL"),
+      (7) always calls IDaemonService.delete() regardless of termination path,
+      (8) prints success message.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'When no daemon running: prints clear message, exits 0, does NOT call process.kill'
+      - 'SIGTERM is sent first before polling'
+      - 'Polling interval is 200ms, max wait is 5000ms'
+      - 'SIGKILL is sent only if process still alive after 5s'
+      - 'daemon.json is deleted in all exit paths (SIGTERM success, SIGKILL, already dead)'
+      - 'PID is validated as positive finite integer before kill call'
+      - 'Unit tests cover: no daemon, SIGTERM-success path, SIGKILL-fallback path, already-dead-PID path'
+    tdd:
+      red:
+        - 'Create tests/unit/commands/stop.command.test.ts'
+        - 'Write test: when read() returns null, process.kill is never called and message printed'
+        - 'Write test: when PID is alive, SIGTERM is sent'
+        - 'Write test: when PID dies before 5s timeout, SIGKILL is NOT sent'
+        - 'Write test: when PID survives 5s, SIGKILL is sent'
+        - 'Write test: IDaemonService.delete() is always called regardless of kill path'
+        - 'Write test: invalid PID (NaN) does not call process.kill and prints error'
+        - 'Mock IDaemonService, process.kill, timers with vi.useFakeTimers'
+        - 'Run — fail because stop.command.ts does not exist'
+      green:
+        - 'Create stop.command.ts with createStopCommand() factory'
+        - 'Implement polling loop with setInterval or recursive setTimeout'
+        - 'Implement PID validation guard'
+        - 'Implement SIGTERM then poll then SIGKILL sequence'
+        - 'Always call IDaemonService.delete() in finally block'
+        - 'Run tests — pass'
+      refactor:
+        - 'Extract pollUntilDead(pid, maxMs, intervalMs) as a standalone async function for testability'
+        - 'Use the colors/messages helpers for consistent output formatting'
+    estimatedEffort: '2h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Implement shep status command with ps metrics'
+    description: >
+      Create src/presentation/cli/commands/status.command.ts exporting createStatusCommand()
+      factory. The action: (1) reads daemon.json via IDaemonService.read(), (2) if null or PID
+      not alive, prints "Shep daemon is not running. Run shep start to launch it." and returns,
+      (3) invokes ps with args ["-o", "pid=,pcpu=,rss=", "-p", String(pid)] using
+      child_process.execFile (pass PID as separate array element, NOT string interpolation)
+      with a 2000ms timeout, (4) parses output: trim, split on whitespace, index 1 = CPU%,
+      index 2 = RSS in KB (convert to MB), (5) computes uptime from startedAt to Date.now(),
+      (6) renders all fields using renderDetailView with label/value pairs.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'When no daemon running: prints not-running message with hint to shep start'
+      - 'ps is invoked with PID as a separate array argument (injection-safe)'
+      - 'ps timeout is 2000ms; timeout expiry results in "metrics unavailable" graceful fallback'
+      - 'CPU% is parsed from ps output index 1'
+      - 'RSS is converted from KB to MB'
+      - 'Uptime is computed as Date.now() minus Date.parse(startedAt)'
+      - 'Output uses renderDetailView for consistent label/value layout'
+      - 'Unit tests cover: not-running path, running path with mock ps output, ps timeout fallback'
+    tdd:
+      red:
+        - 'Create tests/unit/commands/status.command.test.ts'
+        - 'Write test: when read() returns null, prints not-running hint, no ps invocation'
+        - 'Write test: when daemon running, ps is called with correct args array (PID as separate element)'
+        - 'Write test: ps output "12345  1.2  45678" parses to CPU 1.2% and RSS 44.6MB'
+        - 'Write test: ps timeout triggers fallback (metrics unavailable message shown)'
+        - 'Write test: renderDetailView is called with pid, port, url, uptime, cpu, rss fields'
+        - 'Mock IDaemonService, child_process, renderDetailView'
+        - 'Run — fail because status.command.ts does not exist'
+      green:
+        - 'Create status.command.ts with createStatusCommand() factory'
+        - 'Invoke ps via child_process (arg array, injection-safe) with timeout option'
+        - 'Implement output parsing: trim, split on whitespace pattern, extract indices 1 and 2'
+        - 'Implement RSS KB to MB conversion'
+        - 'Implement uptime computation: humanizeMs(Date.now() - Date.parse(startedAt))'
+        - 'Call renderDetailView with all fields'
+        - 'Run tests — pass'
+      refactor:
+        - 'Extract parsePs(output: string): { cpu: number; rssMb: number } as a pure helper for easy unit testing'
+        - 'Extract humanizeUptime(ms: number): string as a pure helper (e.g., "2h 14m 3s")'
+        - 'Ensure the timeout guard uses the timeout option in child_process options (not a manual setTimeout race)'
+    estimatedEffort: '2h'
+
+  # PHASE 4: CLI Integration
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Register new commands in index.ts'
+    description: >
+      Import createStartCommand, createStopCommand, createStatusCommand, createServeCommand
+      from their respective command files and register them with program.addCommand() in
+      src/presentation/cli/index.ts. This is pure plumbing — no logic changes, just registration.
+      Verify that shep --help shows start, stop, and status but NOT _serve.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-6
+      - task-7
+      - task-8
+    acceptanceCriteria:
+      - 'shep start is registered and reachable from the CLI'
+      - 'shep stop is registered and reachable from the CLI'
+      - 'shep status is registered and reachable from the CLI'
+      - 'shep _serve is registered but hidden from --help output'
+      - 'pnpm build succeeds without TypeScript errors'
+      - 'shep --help does not list _serve'
+    tdd:
+      red:
+        - 'Write a smoke test that builds the CLI and runs shep --help, asserting start/stop/status appear and _serve does not'
+        - 'Run pnpm build — TypeScript errors before wiring'
+      green:
+        - 'Add four import statements at the top of index.ts'
+        - 'Add four program.addCommand() calls in the command registration section'
+        - 'Run pnpm build — succeeds'
+      refactor:
+        - 'Group the new command registrations together with a comment "# Daemon lifecycle" for discoverability'
+    estimatedEffort: '30min'
+
+  - id: task-10
+    phaseId: phase-4
+    title: 'Change default shep action to startDaemon() in index.ts'
+    description: >
+      In src/presentation/cli/index.ts, add an explicit .action() to the root program
+      command that calls startDaemon(). The existing onboarding gate (lines 82-89) already
+      runs the wizard when needed — after the gate, startDaemon() is called directly.
+      Remove or bypass any existing outputHelp() fallback. The TTY check already prevents
+      this action from running in non-interactive environments (CI, piped input).
+    state: Todo
+    dependencies:
+      - task-5
+      - task-9
+    acceptanceCriteria:
+      - 'Running shep with no args in a TTY context triggers startDaemon() not help text'
+      - 'Running shep with no args after incomplete onboarding runs wizard then startDaemon()'
+      - 'Running shep with no args in non-TTY environment (CI) still outputs help or exits cleanly'
+      - 'Running shep start (subcommand) still works — root action does not fire for subcommands'
+      - 'Integration test verifies default action calls startDaemon with mocked services'
+    tdd:
+      red:
+        - 'Write an integration test: mock startDaemon and verify it is called when program.parseAsync([]) is invoked with TTY'
+        - 'Write a test for the onboarding-incomplete path: mock CheckOnboardingStatusUseCase to return isComplete: false, mock onboardingWizard, verify wizard is called then startDaemon is called'
+        - 'Run — fail because default action still prints help'
+      green:
+        - 'Add program.action(async (options) => { await startDaemon({ port: options.port }); }) to the root command in index.ts'
+        - 'Ensure the .action() is added AFTER the command registration block and BEFORE program.parseAsync()'
+        - 'Import startDaemon from the daemon/start-daemon module'
+        - 'Run tests — pass'
+      refactor:
+        - 'Verify the onboarding gate code does not need changes — the existing flow already falls through to the root action'
+        - 'Add a comment above the root .action() explaining why startDaemon is called here'
+    estimatedEffort: '1h'
+
+  # PHASE 5: Documentation and E2E
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'Update README.md — Quick Start rewrite and CLI reference table'
+    description: >
+      Rewrite the Quick Start section to exactly 3 steps: (1) npm install -g @shepai/cli,
+      (2) run shep, (3) browser opens. Add a brief "Daemon Management" section explaining
+      shep start/stop/status in 3-4 sentences. Update the CLI reference table to include
+      shep start (with --port option), shep stop, and shep status with accurate descriptions.
+      Do NOT rewrite sections unrelated to onboarding or daemon lifecycle.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'Quick Start section is 3 steps or fewer'
+      - 'Quick Start references shep (not shep ui) as the entry point'
+      - 'CLI reference table has rows for start, stop, and status'
+      - 'Daemon Management section explains background service concept in plain English'
+      - 'README renders correctly (no broken Markdown)'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-12
+    phaseId: phase-5
+    title: 'Write E2E test for full daemon lifecycle'
+    description: >
+      Create tests/e2e/cli/daemon-lifecycle.spec.ts using Playwright test runner.
+      The test sets SHEP_HOME to a temp directory (os.tmpdir() + unique suffix), runs
+      the compiled shep binary, and exercises the full lifecycle:
+      (1) shep start: assert exit code 0, assert stdout contains localhost URL,
+          assert daemon.json is written in SHEP_HOME,
+      (2) shep status: assert exit code 0, assert stdout contains PID and port,
+      (3) shep stop: assert exit code 0, assert daemon.json is deleted,
+      (4) shep status again: assert output contains "not running".
+      Also assert that shep start when already running exits 0 and prints "already running".
+    state: Todo
+    dependencies:
+      - task-11
+    acceptanceCriteria:
+      - 'E2E test file exists at tests/e2e/cli/daemon-lifecycle.spec.ts'
+      - 'Tests use isolated SHEP_HOME temp directory, not real ~/.shep/'
+      - 'shep start exit code 0 and URL printed to stdout'
+      - 'daemon.json is written with correct shape after start'
+      - 'shep status exit code 0 and contains PID and port'
+      - 'shep stop exit code 0 and daemon.json deleted'
+      - 'shep status after stop shows not-running message'
+      - 'Idempotent start (already-running) exits 0'
+      - 'Parent process exits within 5s of running shep start (proxy for NFR-1 parent-exits-within-2s)'
+      - 'Temp directory is cleaned up in afterAll'
+    tdd: null
+    estimatedEffort: '2h'
+
+totalEstimate: '14h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation proceeds in strict dependency order across five phases. Phase 1 establishes
+  the service foundation (directory helper, interface, and DaemonPidService implementation)
+  that every command depends on. Phase 2 builds the two components that make the daemon actually
+  run: the hidden _serve child entry point and the shared startDaemon() helper that is the
+  heart of the feature. Phase 3 implements the three user-facing commands as thin wrappers:
+  start delegates to the helper, stop handles the SIGTERM/SIGKILL sequence, and status runs
+  ps and renders the metrics table. Phase 4 wires everything into index.ts in two steps:
+  first register the new commands, then change the default action. Phase 5 closes with a
+  targeted README update and the E2E test that validates the entire lifecycle end-to-end.
+
+  TDD is applied throughout every code task: tests are written first (RED), then the minimal
+  implementation to pass them (GREEN), then cleanup (REFACTOR). Non-code tasks (README, E2E)
+  are marked tdd: null as they are validation artifacts rather than production code.
