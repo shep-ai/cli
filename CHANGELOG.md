@@ -1,3 +1,9 @@
+# [1.54.0](https://github.com/shep-ai/cli/compare/v1.53.2...v1.54.0) (2026-02-25)
+
+### Features
+
+- **web:** real-time feature status via SSE, sound system, and optimistic UI ([#112](https://github.com/shep-ai/cli/issues/112)) ([744b4c4](https://github.com/shep-ai/cli/commit/744b4c421c4e78b4220dbdc3fbb9004f22f958f3))
+
 ## [1.53.2](https://github.com/shep-ai/cli/compare/v1.53.1...v1.53.2) (2026-02-24)
 
 ### Bug Fixes
