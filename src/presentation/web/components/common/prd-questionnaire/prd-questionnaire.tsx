@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import type { PrdQuestionnaireProps } from './prd-questionnaire-config';
 
 export function PrdQuestionnaire({
@@ -20,6 +21,8 @@ export function PrdQuestionnaire({
 }: PrdQuestionnaireProps) {
   const { question, context, questions, finalAction } = data;
   const [currentStep, setCurrentStep] = useState(0);
+  const selectSound = useSoundAction('select');
+  const navigateSound = useSoundAction('navigate');
 
   const total = questions.length;
   const isFirstStep = currentStep === 0;
@@ -30,13 +33,14 @@ export function PrdQuestionnaire({
 
   const handleSelect = useCallback(
     (questionId: string, optionId: string) => {
+      selectSound.play();
       onSelect(questionId, optionId);
       // Auto-advance to the next step after selection (unless last step)
       if (!isLastStep) {
         setTimeout(() => setCurrentStep((s) => s + 1), 250);
       }
     },
-    [onSelect, isLastStep]
+    [onSelect, isLastStep, selectSound]
   );
 
   if (total === 0) return null;
@@ -73,7 +77,10 @@ export function PrdQuestionnaire({
                     idx !== currentStep && selections[q.id] ? 'bg-primary/50' : '',
                     idx !== currentStep && !selections[q.id] ? 'bg-muted-foreground/25' : ''
                   )}
-                  onClick={() => setCurrentStep(idx)}
+                  onClick={() => {
+                    navigateSound.play();
+                    setCurrentStep(idx);
+                  }}
                 />
               ))}
             </div>
@@ -129,7 +136,10 @@ export function PrdQuestionnaire({
             variant="ghost"
             size="sm"
             disabled={isFirstStep || isProcessing}
-            onClick={() => setCurrentStep((s) => s - 1)}
+            onClick={() => {
+              navigateSound.play();
+              setCurrentStep((s) => s - 1);
+            }}
           >
             <ChevronLeft className="mr-1 h-4 w-4" />
             Previous
@@ -141,7 +151,10 @@ export function PrdQuestionnaire({
               variant="ghost"
               size="sm"
               disabled={isProcessing}
-              onClick={() => setCurrentStep((s) => s + 1)}
+              onClick={() => {
+                navigateSound.play();
+                setCurrentStep((s) => s + 1);
+              }}
             >
               {selections[currentQuestion.id] ? 'Next' : 'Skip'}
               <ChevronRight className="ml-1 h-4 w-4" />

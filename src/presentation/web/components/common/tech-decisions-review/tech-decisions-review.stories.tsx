@@ -63,7 +63,7 @@ const meta: Meta<typeof TechDecisionsReview> = {
 export default meta;
 type Story = StoryObj<typeof TechDecisionsReview>;
 
-/** Default — scrollable list of decisions taken. */
+/** Default — scrollable list of decisions taken. "Other Options Considered" toggle plays expand/collapse sounds. */
 export const Default: Story = {
   args: {
     data: mockData,

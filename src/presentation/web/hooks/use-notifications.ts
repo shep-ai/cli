@@ -5,7 +5,8 @@ import { toast } from 'sonner';
 import type { NotificationEvent } from '@shepai/core/domain/generated/output';
 import { NotificationEventType, NotificationSeverity } from '@shepai/core/domain/generated/output';
 import { useAgentEventsContext } from './agent-events-provider';
-import { useSound } from './use-sound';
+import { useSoundAction } from './use-sound-action';
+import type { SoundAction } from './use-sound-action';
 
 export interface UseNotificationsResult {
   requestBrowserPermission: () => Promise<void>;
@@ -47,27 +48,27 @@ function dispatchBrowserNotification(event: NotificationEvent): void {
   });
 }
 
-const SEVERITY_TO_SOUND = {
-  [NotificationSeverity.Success]: 'celebration',
-  [NotificationSeverity.Error]: 'caution',
-  [NotificationSeverity.Warning]: 'notification',
-  [NotificationSeverity.Info]: 'button',
-} as const;
+const SEVERITY_TO_ACTION: Record<NotificationSeverity, SoundAction> = {
+  [NotificationSeverity.Success]: 'notification-success',
+  [NotificationSeverity.Error]: 'notification-error',
+  [NotificationSeverity.Warning]: 'notification-warning',
+  [NotificationSeverity.Info]: 'notification-info',
+};
 
 export function useNotifications(): UseNotificationsResult {
   const { events } = useAgentEventsContext();
 
-  const successSound = useSound('celebration', { volume: 0.5 });
-  const errorSound = useSound('caution', { volume: 0.5 });
-  const warningSound = useSound('notification', { volume: 0.5 });
-  const infoSound = useSound('button', { volume: 0.5 });
+  const successSound = useSoundAction('notification-success');
+  const errorSound = useSoundAction('notification-error');
+  const warningSound = useSoundAction('notification-warning');
+  const infoSound = useSoundAction('notification-info');
 
-  const soundsByName = useMemo<Record<string, { play: () => void }>>(
+  const soundsByAction = useMemo<Record<string, { play: () => void }>>(
     () => ({
-      celebration: successSound,
-      caution: errorSound,
-      notification: warningSound,
-      button: infoSound,
+      'notification-success': successSound,
+      'notification-error': errorSound,
+      'notification-warning': warningSound,
+      'notification-info': infoSound,
     }),
     [successSound, errorSound, warningSound, infoSound]
   );
@@ -103,10 +104,10 @@ export function useNotifications(): UseNotificationsResult {
       dispatchToast(event);
       dispatchBrowserNotification(event);
 
-      const soundName = SEVERITY_TO_SOUND[event.severity];
-      soundsByName[soundName]?.play();
+      const actionName = SEVERITY_TO_ACTION[event.severity];
+      soundsByAction[actionName]?.play();
     }
-  }, [events, soundsByName]);
+  }, [events, soundsByAction]);
 
   const requestBrowserPermission = useCallback(async () => {
     if (typeof globalThis.Notification === 'undefined') return;

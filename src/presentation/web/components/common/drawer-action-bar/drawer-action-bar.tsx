@@ -5,6 +5,7 @@ import { X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RejectFeedbackDialog } from '@/components/common/reject-feedback-dialog';
 import { DrawerRevisionInput } from '@/components/common/drawer-revision-input';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import type { DrawerActionBarProps } from './drawer-action-bar-config';
 
 export function DrawerActionBar({
@@ -20,6 +21,8 @@ export function DrawerActionBar({
   children,
 }: DrawerActionBarProps) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const approveSound = useSoundAction('approve');
+  const rejectSound = useSoundAction('reject');
   const disabled = isProcessing || isRejecting;
 
   return (
@@ -40,7 +43,10 @@ export function DrawerActionBar({
               variant="outline"
               className="text-destructive hover:text-destructive"
               disabled={disabled}
-              onClick={() => setRejectDialogOpen(true)}
+              onClick={() => {
+                rejectSound.play();
+                setRejectDialogOpen(true);
+              }}
             >
               <X className="mr-1.5 h-4 w-4" />
               Reject
@@ -54,7 +60,15 @@ export function DrawerActionBar({
             />
           </>
         ) : null}
-        <Button type="button" className="flex-1" disabled={disabled} onClick={onApprove}>
+        <Button
+          type="button"
+          className="flex-1"
+          disabled={disabled}
+          onClick={() => {
+            approveSound.play();
+            onApprove();
+          }}
+        >
           {approveIcon}
           {approveLabel}
         </Button>

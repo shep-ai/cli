@@ -1,0 +1,629 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: action-sound-effects
+summary: >
+  20 tasks across 4 phases. Phase 1 builds the useSoundAction foundation (3 tasks).
+  Phase 2 wires sounds into 7 high-impact components (7 tasks). Phase 3 wires
+  6 low-impact components (6 tasks). Phase 4 migrates 9 existing call sites and
+  runs final validation (4 tasks).
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - React (Next.js 16)
+  - useSound hook
+  - Vitest + React Testing Library
+  - Storybook
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # =========================================================================
+  # PHASE 1 — Foundation
+  # =========================================================================
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create SOUND_ACTION_MAP constant and useSoundAction hook'
+    description: >
+      Create use-sound-action.ts in src/presentation/web/hooks/ with the
+      SOUND_ACTION_MAP constant (22 action-to-sound mappings from FR-1) and
+      the useSoundAction(action) hook that wraps useSound. Export the
+      SoundAction type (derived via keyof typeof) and the map constant.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'SOUND_ACTION_MAP contains all 22 actions defined in FR-1 with correct sound names and volumes'
+      - 'SoundAction type is a union of all 22 action keys'
+      - 'useSoundAction returns { play, stop, isPlaying } matching UseSoundResult interface'
+      - 'useSoundAction delegates to useSound with the mapped sound name and volume'
+      - 'File is at src/presentation/web/hooks/use-sound-action.ts'
+      - 'Exports: useSoundAction, SoundAction, SOUND_ACTION_MAP'
+    tdd:
+      red:
+        - 'Write test: useSoundAction("approve") calls useSound("celebration", { volume: 0.5 })'
+        - 'Write test: useSoundAction("navigate") calls useSound("tap_01", { volume: 0.2 })'
+        - 'Write test: play() delegates to the underlying useSound play()'
+        - 'Write test: SOUND_ACTION_MAP has exactly 22 entries'
+        - 'Write test: every SOUND_ACTION_MAP entry references a valid SoundName'
+      green:
+        - 'Create use-sound-action.ts with SOUND_ACTION_MAP as const satisfies Record'
+        - 'Implement useSoundAction that reads the map and calls useSound'
+        - 'Export SoundAction type, SOUND_ACTION_MAP, and useSoundAction'
+      refactor:
+        - 'Ensure volume hierarchy is documented: navigate(0.2) < toggles(0.3) < drawers(0.4) < actions(0.5)'
+        - 'Group map entries by category with comments for readability'
+    estimatedEffort: '45min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Write comprehensive unit tests for useSoundAction hook'
+    description: >
+      Create use-sound-action.test.ts with full coverage: every action maps
+      to the correct sound/volume, play/stop/isPlaying delegate correctly,
+      and the map is complete and type-safe.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Test file at tests/unit/presentation/web/hooks/use-sound-action.test.ts'
+      - 'Tests mock useSound via vi.mock and verify delegation for each action category'
+      - 'Test verifies SOUND_ACTION_MAP key count matches SoundAction union'
+      - 'Test verifies volume levels follow the category hierarchy'
+      - 'All tests pass with pnpm test:unit'
+    tdd:
+      red:
+        - 'Write parameterized tests for all 22 actions verifying sound name and volume'
+        - 'Write test: hook returns stable play/stop callbacks across re-renders'
+      green:
+        - 'Implement mock setup following existing vi.mock pattern from use-notifications.test.ts'
+        - 'Use describe.each or it.each for parameterized action tests'
+      refactor:
+        - 'Extract mock setup into beforeEach for DRY test structure'
+        - 'Group tests by category: navigation, toggles, drawers, actions, notifications'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Create useSoundAction Storybook catalog story'
+    description: >
+      Create use-sound-action.stories.tsx following the existing use-sound.stories.tsx
+      pattern. Renders an interactive catalog of all 22 sound actions grouped by
+      category, with buttons that play each action's sound.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Story file at src/presentation/web/hooks/use-sound-action.stories.tsx'
+      - 'Follows the SoundButton/SoundCatalog pattern from use-sound.stories.tsx'
+      - 'All 22 actions are displayed grouped by category (Navigation, Toggles, Drawers, Actions, Notifications)'
+      - 'Each button plays the corresponding sound on click'
+      - 'Story has autodocs tag and volume control arg'
+    tdd: null
+    estimatedEffort: '20min'
+
+  # =========================================================================
+  # PHASE 2 — High-Impact Component Wiring
+  # =========================================================================
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Wire sounds into drawer-action-bar + create stories'
+    description: >
+      Add useSoundAction("approve") and useSoundAction("reject") to
+      drawer-action-bar. Play approve sound on approve button click, reject
+      sound when reject dialog opens. Create drawer-action-bar.stories.tsx
+      (currently missing — mandatory per CLAUDE.md).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Approve button click plays "approve" sound before calling onApprove'
+      - 'Reject button click plays "reject" sound when opening reject dialog'
+      - 'drawer-action-bar.stories.tsx exists with interactive stories demonstrating both sounds'
+      - 'Unit test verifies play() calls on correct interactions'
+      - 'prd-questionnaire, tech-decisions-review, and merge-review inherit sounds automatically'
+    tdd:
+      red:
+        - 'Write test: clicking approve button calls approveSound.play()'
+        - 'Write test: clicking reject button calls rejectSound.play()'
+        - 'Write test: sounds do not play when buttons are disabled'
+      green:
+        - 'Import useSoundAction in drawer-action-bar.tsx'
+        - 'Add approveSound and rejectSound hooks'
+        - 'Call play() inside onClick handlers before delegating to props'
+      refactor:
+        - 'Verify that consumer components (prd-questionnaire, merge-review) get sounds without changes'
+    estimatedEffort: '30min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Wire sounds into feature-drawer + update stories'
+    description: >
+      Add drawer-open and drawer-close sounds to feature-drawer. Play
+      drawer-open when the Drawer opens (onOpenChange → true), drawer-close
+      when it closes or close button is clicked.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Drawer opening plays "drawer-open" sound'
+      - 'Drawer closing (via onOpenChange or close button) plays "drawer-close" sound'
+      - 'feature-drawer.stories.tsx updated to demonstrate sound behavior'
+      - 'Unit test verifies play() on open/close transitions'
+    tdd:
+      red:
+        - 'Write test: opening drawer plays drawer-open sound'
+        - 'Write test: closing drawer via onOpenChange plays drawer-close sound'
+        - 'Write test: clicking close button plays drawer-close sound'
+      green:
+        - 'Add useSoundAction("drawer-open") and useSoundAction("drawer-close") hooks'
+        - 'Play drawer-open in onOpenChange when open=true'
+        - 'Play drawer-close in onOpenChange when open=false and in close button onClick'
+      refactor:
+        - 'Ensure sound only plays once per transition (not on every render)'
+    estimatedEffort: '25min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Wire sounds into feature-create-drawer + update stories'
+    description: >
+      Add drawer-open, drawer-close, and create sounds to feature-create-drawer.
+      Play drawer-open on open, drawer-close on close/cancel, create on form
+      submission. Max 3 hooks per NFR-1.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Drawer opening plays "drawer-open" sound'
+      - 'Drawer closing or cancel plays "drawer-close" sound'
+      - 'Form submission plays "create" sound'
+      - 'feature-create-drawer.stories.tsx updated'
+      - 'Unit test verifies all 3 sound triggers'
+    tdd:
+      red:
+        - 'Write test: opening drawer plays drawer-open sound'
+        - 'Write test: cancel/close plays drawer-close sound'
+        - 'Write test: form submit plays create sound'
+      green:
+        - 'Add 3 useSoundAction hooks (drawer-open, drawer-close, create)'
+        - 'Play in handleOpenChange, close button onClick, and handleSubmit'
+      refactor:
+        - 'Verify the create sound plays before onSubmit is called (optimistic feedback)'
+    estimatedEffort: '25min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Wire sounds into review-drawer-shell + update stories'
+    description: >
+      Add drawer-open and drawer-close sounds to review-drawer-shell. Similar
+      pattern to feature-drawer but for the review drawer variant.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Drawer opening plays "drawer-open" sound'
+      - 'Drawer closing plays "drawer-close" sound'
+      - 'review-drawer-shell.stories.tsx updated'
+      - 'Unit test verifies play() on open/close'
+    tdd:
+      red:
+        - 'Write test: opening drawer plays drawer-open sound'
+        - 'Write test: closing drawer plays drawer-close sound'
+      green:
+        - 'Add useSoundAction("drawer-open") and useSoundAction("drawer-close")'
+        - 'Play in onOpenChange and close button onClick'
+      refactor:
+        - 'Ensure pattern is consistent with feature-drawer implementation'
+    estimatedEffort: '20min'
+
+  - id: task-8
+    phaseId: phase-2
+    title: 'Wire sounds into open-action-menu + update stories'
+    description: >
+      Add menu-open, menu-item, and copy sounds to open-action-menu. Play
+      menu-open when dropdown opens, menu-item on each action click (IDE,
+      terminal, specs), copy on copy-path. Max 3 hooks per NFR-1.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Dropdown menu opening plays "menu-open" sound'
+      - 'Each menu item click (IDE, terminal, specs) plays "menu-item" sound'
+      - 'Copy path action plays "copy" sound'
+      - 'open-action-menu.stories.tsx updated'
+      - 'Unit test verifies all sound triggers'
+    tdd:
+      red:
+        - 'Write test: opening dropdown plays menu-open sound'
+        - 'Write test: clicking IDE/terminal/specs items plays menu-item sound'
+        - 'Write test: clicking copy path plays copy sound'
+      green:
+        - 'Add 3 useSoundAction hooks (menu-open, menu-item, copy)'
+        - 'Play menu-open via onOpenChange on DropdownMenu'
+        - 'Wrap each DropdownMenuItem onClick to play menu-item before action'
+        - 'Play copy in handleCopyPath'
+      refactor:
+        - 'Ensure menu-item sound plays before the action handler (not after)'
+    estimatedEffort: '25min'
+
+  - id: task-9
+    phaseId: phase-2
+    title: 'Wire sounds into reject-feedback-dialog + update stories'
+    description: >
+      Add reject sound to reject-feedback-dialog. Play when the "Confirm Reject"
+      button is clicked.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Clicking "Confirm Reject" plays "reject" sound'
+      - 'reject-feedback-dialog.stories.tsx updated'
+      - 'Unit test verifies play() on confirm click'
+    tdd:
+      red:
+        - 'Write test: clicking confirm reject button calls reject sound play()'
+        - 'Write test: sound does not play when button is disabled'
+      green:
+        - 'Add useSoundAction("reject") hook'
+        - 'Play in AlertDialogAction onClick alongside onConfirm'
+      refactor:
+        - 'Verify no duplicate reject sound from drawer-action-bar (drawer-action-bar plays on dialog open, this plays on confirm)'
+    estimatedEffort: '15min'
+
+  - id: task-10
+    phaseId: phase-2
+    title: 'Wire sounds into drawer-revision-input + create stories'
+    description: >
+      Add submit sound to drawer-revision-input. Play when a non-empty message
+      is submitted. Create drawer-revision-input.stories.tsx (currently missing).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Submitting a message plays "submit" sound'
+      - 'Sound does not play when input is empty (submission is blocked)'
+      - 'drawer-revision-input.stories.tsx exists with interactive story'
+      - 'Unit test verifies play() on valid form submit'
+    tdd:
+      red:
+        - 'Write test: submitting non-empty text calls submit sound play()'
+        - 'Write test: submitting empty text does not call play()'
+      green:
+        - 'Add useSoundAction("submit") hook'
+        - 'Play in handleSubmit after the empty-text guard but before onSubmit'
+      refactor:
+        - 'Create drawer-revision-input.stories.tsx following existing story patterns'
+    estimatedEffort: '20min'
+
+  # =========================================================================
+  # PHASE 3 — Low-Impact & Navigation Component Wiring
+  # =========================================================================
+
+  - id: task-11
+    phaseId: phase-3
+    title: 'Wire sounds into theme-toggle + update stories'
+    description: >
+      Add toggle-on and toggle-off sounds to theme-toggle. Play toggle-on
+      when switching to dark mode, toggle-off when switching to light mode.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Switching to dark mode plays "toggle-on" sound'
+      - 'Switching to light mode plays "toggle-off" sound'
+      - 'theme-toggle.stories.tsx updated'
+      - 'Unit test verifies correct sound per theme direction'
+    tdd:
+      red:
+        - 'Write test: toggling to dark mode calls toggle-on play()'
+        - 'Write test: toggling to light mode calls toggle-off play()'
+      green:
+        - 'Add useSoundAction("toggle-on") and useSoundAction("toggle-off")'
+        - 'Determine target theme in toggleTheme and play appropriate sound'
+      refactor:
+        - 'Ensure sound plays before setTheme call for immediate feedback'
+    estimatedEffort: '15min'
+
+  - id: task-12
+    phaseId: phase-3
+    title: 'Wire sounds into sidebar-collapse-toggle + update stories'
+    description: >
+      Add expand and collapse sounds to sidebar-collapse-toggle. Play
+      collapse when sidebar is open and being collapsed, expand when being
+      expanded.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Collapsing sidebar plays "collapse" sound'
+      - 'Expanding sidebar plays "expand" sound'
+      - 'sidebar-collapse-toggle.stories.tsx updated'
+      - 'Unit test verifies correct sound per toggle direction'
+    tdd:
+      red:
+        - 'Write test: clicking when sidebar is open calls collapse sound play()'
+        - 'Write test: clicking when sidebar is closed calls expand sound play()'
+      green:
+        - 'Add useSoundAction("expand") and useSoundAction("collapse")'
+        - 'Read current open state from useSidebar() to determine which sound to play'
+        - 'Wrap toggleSidebar onClick to play sound before toggling'
+      refactor:
+        - 'Ensure the sound choice is based on current state (before toggle)'
+    estimatedEffort: '15min'
+
+  - id: task-13
+    phaseId: phase-3
+    title: 'Wire sounds into sidebar-nav-item + update stories'
+    description: >
+      Add navigate sound to sidebar-nav-item. Play on navigation link click.
+      Since sidebar-nav-item renders a Link (not a button with onClick), the
+      sound must be triggered via an onClick handler on the wrapping element.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Clicking a nav item plays "navigate" sound'
+      - 'sidebar-nav-item.stories.tsx updated'
+      - 'Unit test verifies play() on click'
+    tdd:
+      red:
+        - 'Write test: clicking nav item calls navigate sound play()'
+      green:
+        - 'Add useSoundAction("navigate") hook'
+        - 'Add onClick handler to SidebarMenuButton or its wrapper to call play()'
+      refactor:
+        - 'Verify Link navigation is not blocked by the onClick handler'
+    estimatedEffort: '15min'
+
+  - id: task-14
+    phaseId: phase-3
+    title: 'Wire sounds into prd-questionnaire + update stories'
+    description: >
+      Add select and navigate sounds to prd-questionnaire. Play select on
+      option button click, navigate on previous/next step navigation. Note:
+      approve/reject sounds are inherited from drawer-action-bar (task-4).
+    state: Todo
+    dependencies:
+      - task-1
+      - task-4
+    acceptanceCriteria:
+      - 'Clicking an option plays "select" sound'
+      - 'Clicking previous/next/skip buttons plays "navigate" sound'
+      - 'Clicking step indicator dots plays "navigate" sound'
+      - 'prd-questionnaire.stories.tsx updated'
+      - 'Unit test verifies select and navigate sound triggers'
+      - 'Approve/reject sounds come from drawer-action-bar — no duplicate wiring'
+    tdd:
+      red:
+        - 'Write test: clicking option button calls select sound play()'
+        - 'Write test: clicking Previous button calls navigate sound play()'
+        - 'Write test: clicking Next/Skip button calls navigate sound play()'
+        - 'Write test: clicking step dot calls navigate sound play()'
+      green:
+        - 'Add useSoundAction("select") and useSoundAction("navigate")'
+        - 'Play select in handleSelect callback'
+        - 'Play navigate in Previous/Next button onClick and step dot onClick'
+      refactor:
+        - 'Verify no interference with the 250ms auto-advance setTimeout'
+    estimatedEffort: '20min'
+
+  - id: task-15
+    phaseId: phase-3
+    title: 'Wire sounds into tech-decisions-review + update stories'
+    description: >
+      Add expand and collapse sounds to tech-decisions-review. Play when
+      the "Other Options Considered" alternatives section is toggled open/closed
+      in DecisionCard. Approve/reject sounds inherited from drawer-action-bar.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-4
+    acceptanceCriteria:
+      - 'Opening alternatives section plays "expand" sound'
+      - 'Closing alternatives section plays "collapse" sound'
+      - 'tech-decisions-review.stories.tsx updated'
+      - 'Unit test verifies expand/collapse sound triggers'
+    tdd:
+      red:
+        - 'Write test: toggling alternatives open calls expand sound play()'
+        - 'Write test: toggling alternatives closed calls collapse sound play()'
+      green:
+        - 'Add useSoundAction("expand") and useSoundAction("collapse") to DecisionCard'
+        - 'Determine direction from current alternativesOpen state before toggling'
+        - 'Play appropriate sound in the toggle button onClick'
+      refactor:
+        - 'Verify sound plays based on pre-toggle state (not post-toggle)'
+    estimatedEffort: '15min'
+
+  - id: task-16
+    phaseId: phase-3
+    title: 'Wire sounds into action-button + update stories'
+    description: >
+      Add click sound to action-button. Play on button click as generic
+      feedback for all action buttons across the UI.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Clicking action button plays "click" sound'
+      - 'Sound does not play when button is disabled/loading'
+      - 'action-button.stories.tsx updated'
+      - 'Unit test verifies play() on click'
+    tdd:
+      red:
+        - 'Write test: clicking action button calls click sound play()'
+        - 'Write test: sound does not play when button is disabled'
+      green:
+        - 'Add useSoundAction("click") hook'
+        - 'Play in onClick handler before delegating to the prop onClick'
+      refactor:
+        - 'Wrap onClick to call sound play first, then original handler'
+    estimatedEffort: '15min'
+
+  # =========================================================================
+  # PHASE 4 — Migration & Validation
+  # =========================================================================
+
+  - id: task-17
+    phaseId: phase-4
+    title: 'Migrate use-control-center-state.ts to useSoundAction'
+    description: >
+      Replace 3 useSound calls with useSoundAction equivalents: deleteSound →
+      useSoundAction("delete"), createSound → useSoundAction("create"),
+      clickSound → useSoundAction("click"). Remove the silent closeSound
+      (volume 0.01) entirely. Update the existing test file to mock
+      use-sound-action instead of use-sound.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'deleteSound replaced with useSoundAction("delete")'
+      - 'createSound replaced with useSoundAction("create")'
+      - 'clickSound replaced with useSoundAction("click")'
+      - 'closeSound (volume 0.01) removed — clearSelection no longer plays sound'
+      - 'use-control-center-state.ts no longer imports useSound directly'
+      - 'Existing test updated and passing'
+    tdd:
+      red:
+        - 'Update existing test to mock use-sound-action module instead of use-sound'
+        - 'Verify test expectations still match: delete plays on feature deletion, create on creation, click on node click'
+      green:
+        - 'Replace 4 useSound calls with 3 useSoundAction calls'
+        - 'Remove closeSound and its play() call in clearSelection'
+        - 'Update imports: remove useSound, add useSoundAction'
+      refactor:
+        - 'Verify all test cases pass after migration'
+        - 'Confirm no other files in control-center import useSound'
+    estimatedEffort: '20min'
+
+  - id: task-18
+    phaseId: phase-4
+    title: 'Migrate control-center-inner.tsx to useSoundAction'
+    description: >
+      Replace 1 useSound call: rejectSound → useSoundAction("reject").
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'rejectSound replaced with useSoundAction("reject")'
+      - 'control-center-inner.tsx no longer imports useSound directly'
+      - 'Reject sound still plays on feature rejection success'
+    tdd:
+      red:
+        - 'Write test: feature rejection plays reject sound via useSoundAction'
+      green:
+        - 'Replace useSound("caution", { volume: 0.5 }) with useSoundAction("reject")'
+        - 'Update import from useSound to useSoundAction'
+      refactor:
+        - 'Verify the reject sound behavior is identical (caution at 0.5)'
+    estimatedEffort: '10min'
+
+  - id: task-19
+    phaseId: phase-4
+    title: 'Migrate use-notifications.ts to useSoundAction'
+    description: >
+      Replace 4 useSound calls with useSoundAction equivalents:
+      successSound → useSoundAction("notification-success"),
+      errorSound → useSoundAction("notification-error"),
+      warningSound → useSoundAction("notification-warning"),
+      infoSound → useSoundAction("notification-info"). Simplify the
+      soundsByName map to use action names instead of sound names.
+      Update the existing test file.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - '4 useSound calls replaced with 4 useSoundAction calls'
+      - 'SEVERITY_TO_SOUND mapping updated to use SoundAction names'
+      - 'use-notifications.ts no longer imports useSound directly'
+      - 'Existing test updated: mocks use-sound-action instead of use-sound'
+      - 'All notification test cases pass'
+    tdd:
+      red:
+        - 'Update use-notifications.test.ts to mock use-sound-action'
+        - 'Verify: success event plays notification-success, error plays notification-error, etc.'
+      green:
+        - 'Replace 4 useSound calls with useSoundAction calls'
+        - 'Update SEVERITY_TO_SOUND values to SoundAction names'
+        - 'Simplify soundsByName to map severity → useSoundAction result'
+      refactor:
+        - 'Rename SEVERITY_TO_SOUND to SEVERITY_TO_ACTION for clarity'
+        - 'Verify all existing test assertions still pass'
+    estimatedEffort: '20min'
+
+  - id: task-20
+    phaseId: phase-4
+    title: 'Final validation — pnpm validate + pnpm test'
+    description: >
+      Run the full validation and test suites to ensure zero regressions.
+      Fix any lint, type, or test failures introduced by the feature.
+    state: Todo
+    dependencies:
+      - task-1
+      - task-2
+      - task-3
+      - task-4
+      - task-5
+      - task-6
+      - task-7
+      - task-8
+      - task-9
+      - task-10
+      - task-11
+      - task-12
+      - task-13
+      - task-14
+      - task-15
+      - task-16
+      - task-17
+      - task-18
+      - task-19
+    acceptanceCriteria:
+      - 'pnpm validate passes with no errors (lint + format + typecheck + tsp)'
+      - 'pnpm test passes with no regressions'
+      - 'No new npm dependencies introduced'
+      - 'All modified components have updated .stories.tsx files'
+      - 'drawer-action-bar and drawer-revision-input have new .stories.tsx files'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '~6.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation follows a strict dependency chain: first build the
+  useSoundAction foundation (hook, map, tests, story), then wire sounds
+  into components from highest-impact to lowest, and finally migrate
+  existing scattered useSound calls to the centralized pattern.
+
+  Phase 1 creates the single file that every subsequent task depends on —
+  use-sound-action.ts with its SOUND_ACTION_MAP (22 entries) and the
+  useSoundAction hook. This is validated immediately with comprehensive
+  tests and a Storybook catalog.
+
+  Phase 2 prioritizes drawer-action-bar first because it provides inherited
+  approve/reject sounds to prd-questionnaire, tech-decisions-review, and
+  merge-review. The remaining 6 components in this phase are the more
+  complex ones with drawer open/close lifecycles, dropdown menus with
+  multiple interaction types, and form submission flows. This phase also
+  creates the 2 missing .stories.tsx files.
+
+  Phase 3 handles 6 simpler components — toggles, navigation items,
+  expand/collapse, and the generic action button. Each needs only 1-2
+  hooks and minimal test changes.
+
+  Phase 4 migrates the 9 existing useSound call sites across 3 files,
+  updates their tests, and runs the full validation suite as the final
+  quality gate.
+
+  ---
+
+  _Task breakdown generated 2026-02-25_

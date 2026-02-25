@@ -6,6 +6,7 @@ import Markdown from 'react-markdown';
 import { Check, ChevronRight, GitCompareArrows, Layers } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { DrawerActionBar } from '@/components/common/drawer-action-bar';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import type { TechDecisionsReviewProps, TechDecision } from './tech-decisions-review-config';
 
 const markdownComponents: Components = {
@@ -46,6 +47,18 @@ const markdownComponents: Components = {
 
 function DecisionCard({ decision, index }: { decision: TechDecision; index: number }) {
   const [alternativesOpen, setAlternativesOpen] = useState(false);
+  const expandSound = useSoundAction('expand');
+  const collapseSound = useSoundAction('collapse');
+
+  const handleToggleAlternatives = () => {
+    // Play sound based on current state (before toggle)
+    if (alternativesOpen) {
+      collapseSound.play();
+    } else {
+      expandSound.play();
+    }
+    setAlternativesOpen((prev) => !prev);
+  };
 
   return (
     <div className="border-border rounded-lg border">
@@ -82,7 +95,7 @@ function DecisionCard({ decision, index }: { decision: TechDecision; index: numb
         <div className="border-border border-t">
           <button
             type="button"
-            onClick={() => setAlternativesOpen((prev) => !prev)}
+            onClick={handleToggleAlternatives}
             className="text-muted-foreground hover:bg-muted/50 flex w-full items-center gap-1.5 px-4 py-3 text-xs font-medium transition-colors"
           >
             <ChevronRight

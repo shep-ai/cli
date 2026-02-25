@@ -14,6 +14,7 @@ import {
   CheckIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import {
   Drawer,
   DrawerContent,
@@ -93,6 +94,9 @@ export function FeatureCreateDrawer({
   features,
   initialParentId,
 }: FeatureCreateDrawerProps) {
+  const drawerOpenSound = useSoundAction('drawer-open');
+  const drawerCloseSound = useSoundAction('drawer-close');
+  const createSound = useSoundAction('create');
   const defaultGates = workflowDefaults?.approvalGates ?? EMPTY_GATES;
   const defaultPush = workflowDefaults?.push ?? false;
   const defaultOpenPr = workflowDefaults?.openPr ?? false;
@@ -104,6 +108,13 @@ export function FeatureCreateDrawer({
   const [push, setPush] = useState(defaultPush);
   const [openPr, setOpenPr] = useState(defaultOpenPr);
   const [parentId, setParentId] = useState<string | undefined>(undefined);
+
+  // Play drawer-open sound when the drawer opens
+  useEffect(() => {
+    if (open) {
+      drawerOpenSound.play();
+    }
+  }, [open, drawerOpenSound]);
 
   // Sync state when workflowDefaults load asynchronously
   useEffect(() => {
@@ -134,17 +145,19 @@ export function FeatureCreateDrawer({
   const handleOpenChange = useCallback(
     (nextOpen: boolean) => {
       if (!nextOpen) {
+        drawerCloseSound.play();
         resetForm();
         onClose();
       }
     },
-    [onClose, resetForm]
+    [onClose, resetForm, drawerCloseSound]
   );
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
       if (!name.trim()) return;
+      createSound.play();
       const trimmedDescription = description.trim() || undefined;
       onSubmit({
         name: name.trim(),
@@ -171,6 +184,7 @@ export function FeatureCreateDrawer({
       push,
       openPr,
       parentId,
+      createSound,
     ]
   );
 
@@ -198,7 +212,10 @@ export function FeatureCreateDrawer({
         <button
           type="button"
           aria-label="Close"
-          onClick={onClose}
+          onClick={() => {
+            drawerCloseSound.play();
+            onClose();
+          }}
           className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
         >
           <XIcon className="size-4" />
@@ -357,7 +374,14 @@ export function FeatureCreateDrawer({
         {/* Footer */}
         <Separator />
         <DrawerFooter className="flex-row justify-end gap-2">
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              drawerCloseSound.play();
+              onClose();
+            }}
+            disabled={isSubmitting}
+          >
             Cancel
           </Button>
           <Button type="submit" form="create-feature-form" disabled={!name.trim() || isSubmitting}>
