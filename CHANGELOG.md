@@ -1,3 +1,9 @@
+# [1.62.0](https://github.com/shep-ai/cli/compare/v1.61.0...v1.62.0) (2026-02-25)
+
+### Features
+
+- **web:** reset feature-create form fields after successful submission ([#146](https://github.com/shep-ai/cli/issues/146)) ([e4a75cf](https://github.com/shep-ai/cli/commit/e4a75cf684ab40a36d220316d99a44553e61c3db))
+
 # [1.61.0](https://github.com/shep-ai/cli/compare/v1.60.0...v1.61.0) (2026-02-25)
 
 ### Features
