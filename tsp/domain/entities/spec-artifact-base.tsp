@@ -2,8 +2,8 @@
  * @module Shep.Domain.Entities.SpecArtifactBase
  *
  * Defines the base entity for all spec artifact types in the YAML-first spec system.
- * All spec artifacts (FeatureSpec, ResearchSpec, PlanSpec, TasksSpec) extend this
- * base model to inherit common metadata fields.
+ * All spec artifacts (FeatureArtifact, ResearchArtifact, TechnicalPlanArtifact,
+ * TasksArtifact) extend this base model to inherit common metadata fields.
  *
  * ## Spec Artifact System
  *
@@ -27,7 +27,7 @@
  * ```typespec
  * import "./spec-artifact-base.tsp";
  *
- * model FeatureSpec extends SpecArtifactBase {
+ * model FeatureArtifact extends SpecArtifactBase {
  *   number: int32;
  *   branch: string;
  *   // ... additional feature-specific fields

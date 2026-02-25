@@ -39,12 +39,28 @@ function resolveBinary(metadata: ToolMetadata): string {
 
 /**
  * Check if a binary exists in the system PATH using 'which' command.
- * Returns both availability status and any error for detailed reporting.
+ *
+ * `which` exits with code 1 when the binary is simply not in PATH.
+ * Node's execFile wraps that as an Error, but it's a normal "not found"
+ * result. Only truly unexpected failures (ENOENT for `which` itself,
+ * EACCES, signals, etc.) are surfaced via the `error` field.
  */
-const checkBinaryExists = (binary: string): Promise<{ found: boolean; error?: Error }> => {
+const checkBinaryExists = (
+  binary: string
+): Promise<{ found: boolean; notInPath?: boolean; error?: Error }> => {
   return new Promise((resolve) => {
     execFile('which', [binary], (err) => {
-      resolve(err ? { found: false, error: err } : { found: true });
+      if (!err) return resolve({ found: true });
+
+      // execFile errors from a non-zero exit code have a numeric `code` property.
+      // That's the normal "binary not found in PATH" case.
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code === undefined || typeof code === 'number') {
+        return resolve({ found: false, notInPath: true });
+      }
+
+      // Anything else (ENOENT for `which` itself, EACCES, etc.) is a real error.
+      resolve({ found: false, error: err });
     });
   });
 };
@@ -68,16 +84,14 @@ export class ToolInstallerServiceImpl implements IToolInstallerService {
         return createAvailableStatus(toolName);
       }
 
-      // Check if it's just "not found" or another error
-      if (result.error?.message.includes('not found')) {
-        // Binary doesn't exist in PATH - create suggestions for installation
+      if (result.notInPath) {
         const suggestions = this.createInstallationSuggestions(metadata);
         return createMissingStatus(toolName, suggestions);
       }
 
-      // Some other error occurred
+      // Genuine error (e.g. `which` binary missing, permission denied)
       const errorMessage = result.error?.message ?? 'Unknown error checking availability';
-      return createErrorStatus(toolName, `Failed to check availability: ${errorMessage}`);
+      return createErrorStatus(toolName, errorMessage);
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
       return createErrorStatus(toolName, `Failed to check availability: ${errorMessage}`);

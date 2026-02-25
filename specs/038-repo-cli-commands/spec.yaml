@@ -1,0 +1,194 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repo-cli-commands
+number: 038
+branch: feat/038-repo-cli-commands
+oneLiner: Add `shep repo ls` and `shep repo show <id>` CLI commands for repository management
+summary: >
+  Add two new CLI commands under a `shep repo` command group: `repo ls` to list all tracked
+  repositories in a table view, and `repo show <id>` to display detailed information about a
+  specific repository. Follows the same patterns as existing `feat ls/show` and `agent ls/show`
+  commands, using a `resolveRepository` helper for ID prefix matching (matching the `resolve-run.ts`
+  pattern) and the existing `ListRepositoriesUseCase`.
+phase: Requirements
+sizeEstimate: S
+
+relatedFeatures:
+  - 'feat/038 - Repository promoted to first-class entity'
+
+technologies:
+  - Commander.js (CLI framework)
+  - tsyringe (dependency injection)
+  - better-sqlite3 (repository persistence)
+  - picocolors (terminal colors via cli/ui)
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'How should `repo show` resolve short IDs — via a new `findByIdPrefix` repository method or an in-memory filter like `resolve-run.ts`?'
+    resolved: true
+    options:
+      - option: 'In-memory filter (resolve helper)'
+        description: >
+          Follow the `resolve-run.ts` pattern: try exact `findById` first, then `list()` + filter
+          by `startsWith`. No interface or SQLite changes needed. Simpler, consistent with the
+          agent show command pattern. Sufficient for the expected repository count (tens, not thousands).
+        selected: true
+      - option: 'New findByIdPrefix repository method'
+        description: >
+          Add `findByIdPrefix(prefix: string)` to `IRepositoryRepository` and implement with
+          SQL `LIKE` query. More efficient at scale but requires interface change, SQLite
+          implementation change, and mock updates in all tests. Follows the feature repository
+          pattern but overkill for repository counts.
+        selected: false
+    selectionRationale: >
+      The in-memory filter approach matches the existing `resolve-run.ts` pattern used by agent
+      commands, requires zero changes to the repository interface or SQLite layer, and is perfectly
+      adequate for the expected number of tracked repositories (typically <50). This keeps the
+      change surface minimal and avoids modifying shared interfaces.
+    answer: 'In-memory filter (resolve helper)'
+
+  - question: 'Should `repo ls` display soft-deleted repositories?'
+    resolved: true
+    options:
+      - option: 'Exclude soft-deleted (default)'
+        description: >
+          The existing `list()` method already filters out soft-deleted repositories (WHERE
+          deleted_at IS NULL). This matches user expectations — deleted repos are hidden.
+        selected: true
+      - option: 'Include with --all flag'
+        description: >
+          Add a `--all` flag to show soft-deleted repositories with a visual indicator.
+          Adds complexity and scope. Can be added later if needed.
+        selected: false
+    selectionRationale: >
+      The existing `list()` already excludes soft-deleted repositories. Adding a flag for
+      deleted repos is unnecessary scope for this feature and can be added later. Users
+      who soft-delete a repo expect it to disappear from the list.
+    answer: 'Exclude soft-deleted (default)'
+
+  - question: 'What columns should `repo ls` display?'
+    resolved: true
+    options:
+      - option: 'ID, Name, Path, Created'
+        description: >
+          Four columns covering identity, human-readable name, filesystem location, and
+          when it was tracked. Matches the information density of `feat ls` (6 columns)
+          scaled down for the simpler Repository entity.
+        selected: true
+      - option: 'ID, Name, Path, Created, Updated'
+        description: >
+          Five columns including last-updated timestamp. Adds marginal value since
+          repositories rarely change after creation, and wider tables risk wrapping
+          on narrow terminals.
+        selected: false
+    selectionRationale: >
+      Repository entities are rarely updated after creation (the path and name are set once).
+      The `updatedAt` column adds clutter without value. Four columns keep the table clean
+      and readable. The `show` command will display all timestamps for users who need them.
+    answer: 'ID, Name, Path, Created'
+
+  - question: 'Should `repo show` display a feature count for the repository?'
+    resolved: true
+    options:
+      - option: 'No — keep it simple'
+        description: >
+          Display only the Repository entity fields. Adding feature counts requires resolving
+          an additional use case and coupling repo commands to the feature domain. Can be
+          added as a follow-up enhancement.
+        selected: true
+      - option: 'Yes — show linked feature count'
+        description: >
+          Query features filtered by repository path and display count. Provides useful
+          context but increases scope and cross-domain coupling.
+        selected: false
+    selectionRationale: >
+      This feature is scoped as S (small). Adding feature counts introduces cross-domain
+      coupling and additional DI resolution. The Repository entity fields (id, name, path,
+      timestamps) provide sufficient information. Feature count can be a follow-up if users
+      request it.
+    answer: 'No — keep it simple'
+
+content: |
+  ## Problem Statement
+
+  Repository was recently promoted to a first-class entity (feat #92 / commit f98c4859), with
+  domain model, persistence layer, and use cases for add/list/delete. However, there are no CLI
+  commands to view repositories. Users need `shep repo ls` and `shep repo show <id>` commands
+  to inspect tracked repositories, matching the UX patterns already established by `feat` and
+  `agent` command groups.
+
+  ## Success Criteria
+
+  - [ ] `shep repo ls` lists all tracked repositories in a table with columns: ID (8-char prefix), Name, Path, Created
+  - [ ] `shep repo ls` with no repositories shows "No repositories found" info message
+  - [ ] `shep repo show <id>` displays full repository details (all fields) when given a full UUID
+  - [ ] `shep repo show <id>` resolves short ID prefixes (e.g., `shep repo show a1b2`) to the matching repository
+  - [ ] `shep repo show <id>` shows an error when no repository matches the given ID
+  - [ ] `shep repo show <id>` shows an error listing matches when multiple repositories match a prefix
+  - [ ] Error handling follows existing command patterns (`try/catch`, `messages.error()`, `process.exitCode = 1`)
+  - [ ] `repo` command group is registered in CLI bootstrap (`src/presentation/cli/index.ts`)
+  - [ ] Unit tests for `resolveRepository` helper (exact match, prefix match, multiple matches, no match)
+  - [ ] Unit tests for `ls.command.ts` (table rendering, empty state)
+  - [ ] Unit tests for `show.command.ts` (detail rendering, error states)
+  - [ ] All existing tests continue to pass (`pnpm test`)
+  - [ ] Lint, format, and typecheck pass (`pnpm validate`)
+
+  ## Functional Requirements
+
+  - **FR-1**: The CLI SHALL provide a `shep repo` command group with description "Manage tracked repositories"
+  - **FR-2**: `shep repo ls` SHALL resolve `ListRepositoriesUseCase` from the DI container and list all non-deleted repositories
+  - **FR-3**: `shep repo ls` SHALL render results using `renderListView` with columns: ID (width: 10, 8-char prefix), Name (width: 32), Path (width: 40), Created (width: 12)
+  - **FR-4**: `shep repo ls` SHALL display "No repositories found" via `messages.info()` when the list is empty
+  - **FR-5**: `shep repo show` SHALL accept a required `<id>` argument (Commander `.argument()`)
+  - **FR-6**: `shep repo show` SHALL resolve the repository by first trying exact `findById`, then falling back to prefix matching over the full list (following the `resolve-run.ts` pattern)
+  - **FR-7**: `shep repo show` SHALL render repository details using `renderDetailView` with sections for: basic info (ID, Name, Path) and timestamps (Created, Updated, Deleted if present)
+  - **FR-8**: `shep repo show` SHALL display an error message when no repository matches the given ID
+  - **FR-9**: `shep repo show` SHALL display an error message listing ambiguous matches when multiple repositories match a prefix
+  - **FR-10**: Both commands SHALL follow the existing error handling pattern: `try/catch` wrapping, `messages.error()` for user-facing errors, `process.exitCode = 1` on failure
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Commands SHALL follow the same file and directory conventions as `feat/` and `agent/` command groups (index.ts + action.command.ts files)
+  - **NFR-2**: All new code SHALL have corresponding unit tests following TDD (Red-Green-Refactor)
+  - **NFR-3**: The `resolveRepository` helper SHALL be extracted into a separate file (`resolve-repository.ts`) in the repo commands directory, matching the `resolve-run.ts` pattern
+  - **NFR-4**: No changes SHALL be made to the `IRepositoryRepository` interface — prefix resolution is done in-memory
+  - **NFR-5**: Date formatting in list and detail views SHALL use the same formatting utilities as existing commands (relative time for list, ISO for detail)
+  - **NFR-6**: All new files SHALL follow the project's import conventions (`@/` path alias, `reflect-metadata` at entry points)
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How should short ID resolution work? | In-memory filter (resolve helper) | Matches `resolve-run.ts` pattern, no interface changes needed, sufficient for expected repo counts |
+  | 2 | Should soft-deleted repos appear in `ls`? | No (existing `list()` excludes them) | Matches user expectations, existing behavior is correct, `--all` flag can be added later |
+  | 3 | What columns for `repo ls`? | ID, Name, Path, Created | Repos rarely update after creation, 4 columns keeps table clean, `show` has full details |
+  | 4 | Should `show` display feature count? | No — keep it simple | Avoids cross-domain coupling, keeps scope small, can be a follow-up |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/cli/commands/repo/` | High | New directory: `index.ts`, `ls.command.ts`, `show.command.ts`, `resolve-repository.ts` |
+  | `src/presentation/cli/index.ts` | Low | Add `createRepoCommand()` to bootstrap |
+  | `tests/unit/presentation/cli/commands/repo/` | Medium | New `ls.command.test.ts`, `show.command.test.ts`, `resolve-repository.test.ts` |
+
+  ## Dependencies
+
+  - **Existing**: `ListRepositoriesUseCase` (already implemented and registered in DI)
+  - **Existing**: `IRepositoryRepository` interface with `findById` and `list` methods
+  - **Existing**: `SQLiteRepositoryRepository` implementation
+  - **Existing**: CLI UI utilities (`renderListView`, `renderDetailView`, `colors`, `messages`)
+  - **Existing**: DI container with repository interface registered as `'IRepositoryRepository'`
+
+  ## Size Estimate
+
+  **S** — Reduced from original analysis. By using the in-memory resolve pattern (no interface
+  changes needed) and leveraging existing use cases, the scope is: ~5 new files (command group
+  index, ls command, show command, resolve helper, and their tests) plus 1 modified file (CLI
+  bootstrap). All follow established conventions closely.
+
+  ---
+
+  _Requirements complete — proceed with research_

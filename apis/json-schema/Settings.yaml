@@ -1,0 +1,41 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Settings.yaml
+type: object
+properties:
+  models:
+    $ref: ModelConfiguration.yaml
+    description: AI model configuration for different agents
+  user:
+    $ref: UserProfile.yaml
+    description: User profile information
+  environment:
+    $ref: EnvironmentConfig.yaml
+    description: Environment and tooling preferences
+  system:
+    $ref: SystemConfig.yaml
+    description: System-level parameters
+  agent:
+    $ref: AgentConfig.yaml
+    description: AI coding agent selection and authentication
+  notifications:
+    $ref: NotificationPreferences.yaml
+    description: Notification preferences for agent lifecycle events
+  workflow:
+    $ref: WorkflowConfig.yaml
+    description: Global workflow configuration defaults
+  onboardingComplete:
+    type: boolean
+    default: false
+    description: "Whether first-run onboarding has been completed (default: false)"
+required:
+  - models
+  - user
+  - environment
+  - system
+  - agent
+  - notifications
+  - workflow
+  - onboardingComplete
+allOf:
+  - $ref: BaseEntity.yaml
+description: Global Shep platform settings (singleton)

@@ -31,8 +31,23 @@ function loadDevFallbacks(): Record<string, string> {
 }
 
 const nextConfig: NextConfig = {
-  // Exclude native/DI packages from Next.js bundling
-  serverExternalPackages: ['tsyringe', 'reflect-metadata', 'better-sqlite3'],
+  // Pin turbopack root to the monorepo root so it doesn't infer a wrong
+  // workspace root from unrelated lockfiles higher in the filesystem.
+  turbopack: {
+    root: resolve(import.meta.dirname, '../../..'),
+  },
+
+  // Exclude native/DI packages and Node.js builtins from Next.js bundling.
+  // Without this, Turbopack statically evaluates os.platform() at build time
+  // and tree-shakes platform-conditional branches (e.g., open-shell.ts).
+  serverExternalPackages: [
+    'tsyringe',
+    'reflect-metadata',
+    'better-sqlite3',
+    'node:os',
+    'node:child_process',
+    'node:fs',
+  ],
 
   // Enable typed routes (moved from experimental in Next.js 16)
   typedRoutes: true,

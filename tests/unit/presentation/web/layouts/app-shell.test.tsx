@@ -18,14 +18,14 @@ describe('AppShell', () => {
     expect(screen.getByText('Test content')).toBeInTheDocument();
   });
 
-  it('renders sidebar with Control Center and Memory nav items', () => {
+  it('renders sidebar with Control Center and Tools nav items', () => {
     render(
       <AppShell>
         <div>Content</div>
       </AppShell>
     );
     expect(screen.getByText('Control Center')).toBeInTheDocument();
-    expect(screen.getByText('Memory')).toBeInTheDocument();
+    expect(screen.getByText('Tools')).toBeInTheDocument();
   });
 
   it('renders Shep logo in sidebar', () => {

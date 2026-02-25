@@ -9,9 +9,7 @@
 import 'reflect-metadata';
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
-  initializeNotificationBus,
   getNotificationBus,
-  hasNotificationBus,
   resetNotificationBus,
 } from '@/infrastructure/services/notifications/notification-bus.js';
 import { NotificationEventType, NotificationSeverity } from '@/domain/generated/output.js';
@@ -21,6 +19,7 @@ function createTestEvent(overrides?: Partial<NotificationEvent>): NotificationEv
   return {
     eventType: NotificationEventType.AgentCompleted,
     agentRunId: 'run-123',
+    featureId: 'feat-456',
     featureName: 'Test Feature',
     message: 'Agent completed successfully',
     severity: NotificationSeverity.Success,
@@ -35,44 +34,22 @@ describe('NotificationBus', () => {
   });
 
   describe('getNotificationBus', () => {
-    it('should throw when not initialized', () => {
-      expect(() => getNotificationBus()).toThrow(
-        'Notification bus not initialized. Call initializeNotificationBus() during CLI bootstrap.'
-      );
-    });
-  });
-
-  describe('hasNotificationBus', () => {
-    it('should return false when not initialized', () => {
-      expect(hasNotificationBus()).toBe(false);
-    });
-
-    it('should return true after initialization', () => {
-      initializeNotificationBus();
-      expect(hasNotificationBus()).toBe(true);
-    });
-  });
-
-  describe('initializeNotificationBus', () => {
-    it('should create the singleton and allow getNotificationBus to return it', () => {
-      initializeNotificationBus();
+    it('should lazily create the singleton on first access', () => {
       const bus = getNotificationBus();
       expect(bus).toBeDefined();
       expect(typeof bus.on).toBe('function');
       expect(typeof bus.emit).toBe('function');
     });
 
-    it('should throw if called twice', () => {
-      initializeNotificationBus();
-      expect(() => initializeNotificationBus()).toThrow(
-        'Notification bus already initialized. Cannot re-initialize.'
-      );
+    it('should return the same instance on subsequent calls', () => {
+      const bus1 = getNotificationBus();
+      const bus2 = getNotificationBus();
+      expect(bus1).toBe(bus2);
     });
   });
 
   describe('event emission', () => {
     it('should deliver notification event to listener', () => {
-      initializeNotificationBus();
       const bus = getNotificationBus();
       const received: NotificationEvent[] = [];
 
@@ -88,7 +65,6 @@ describe('NotificationBus', () => {
     });
 
     it('should fan out to multiple listeners', () => {
-      initializeNotificationBus();
       const bus = getNotificationBus();
       const listener1: NotificationEvent[] = [];
       const listener2: NotificationEvent[] = [];
@@ -110,7 +86,6 @@ describe('NotificationBus', () => {
     });
 
     it('should support listener removal', () => {
-      initializeNotificationBus();
       const bus = getNotificationBus();
       const received: NotificationEvent[] = [];
 
@@ -129,15 +104,11 @@ describe('NotificationBus', () => {
   });
 
   describe('resetNotificationBus', () => {
-    it('should clear the singleton so it can be re-initialized', () => {
-      initializeNotificationBus();
-      expect(hasNotificationBus()).toBe(true);
-
+    it('should clear the singleton so a new one is created on next access', () => {
+      const bus1 = getNotificationBus();
       resetNotificationBus();
-      expect(hasNotificationBus()).toBe(false);
-
-      initializeNotificationBus();
-      expect(hasNotificationBus()).toBe(true);
+      const bus2 = getNotificationBus();
+      expect(bus1).not.toBe(bus2);
     });
   });
 });

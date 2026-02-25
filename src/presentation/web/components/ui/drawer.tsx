@@ -53,8 +53,8 @@ function DrawerContent({
           'bg-background fixed z-50 flex flex-col shadow-lg',
           direction === 'bottom' && 'inset-x-0 bottom-0 mb-24 rounded-t-lg border-t',
           direction === 'top' && 'inset-x-0 top-0 mt-24 rounded-b-lg border-b',
-          direction === 'right' && 'inset-y-0 right-0 h-full w-3/4 border-l sm:max-w-sm',
-          direction === 'left' && 'inset-y-0 left-0 h-full w-3/4 border-r sm:max-w-sm',
+          direction === 'right' && 'inset-y-0 right-0 h-full w-3/4 border-l',
+          direction === 'left' && 'inset-y-0 left-0 h-full w-3/4 border-r',
           className
         )}
         style={
@@ -67,6 +67,8 @@ function DrawerContent({
                   : direction === 'top'
                     ? 'calc(-100% - 8px)'
                     : 'calc(100% + 8px)',
+            // Override vaul's user-select:none on [data-vaul-drawer] so text is selectable
+            userSelect: 'text',
             ...((props.style as React.CSSProperties) ?? {}),
           } as React.CSSProperties
         }

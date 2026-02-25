@@ -21,6 +21,7 @@ import {
 } from '../../../domain/generated/output.js';
 import type { IAgentRunRepository } from '../../../application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '../../../application/ports/output/agents/phase-timing-repository.interface.js';
+import type { IFeatureRepository } from '../../../application/ports/output/repositories/feature-repository.interface.js';
 import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
 
 const DEFAULT_POLL_INTERVAL_MS = 3000;
@@ -41,6 +42,7 @@ const TERMINAL_STATUSES = new Set<string>([
 interface WatcherState {
   status: AgentRunStatus;
   completedPhases: Set<string>;
+  featureId: string;
   featureName: string;
 }
 
@@ -75,19 +77,24 @@ const EVENT_MESSAGES: Partial<Record<NotificationEventType, string>> = {
 export class NotificationWatcherService {
   private readonly runRepository: IAgentRunRepository;
   private readonly phaseTimingRepository: IPhaseTimingRepository;
+  private readonly featureRepository: IFeatureRepository;
   private readonly notificationService: INotificationService;
   private readonly pollIntervalMs: number;
   private readonly trackedRuns = new Map<string, WatcherState>();
   private intervalId: ReturnType<typeof setInterval> | null = null;
+  // Suppresses notifications on the first poll to avoid replaying historical state
+  private isBootstrapped = false;
 
   constructor(
     runRepository: IAgentRunRepository,
     phaseTimingRepository: IPhaseTimingRepository,
+    featureRepository: IFeatureRepository,
     notificationService: INotificationService,
     pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS
   ) {
     this.runRepository = runRepository;
     this.phaseTimingRepository = phaseTimingRepository;
+    this.featureRepository = featureRepository;
     this.notificationService = notificationService;
     this.pollIntervalMs = pollIntervalMs;
   }
@@ -118,9 +125,8 @@ export class NotificationWatcherService {
     try {
       const runs = await this.runRepository.list();
       await this.processRuns(runs);
-    } catch (error) {
-      // eslint-disable-next-line no-console
-      console.warn('NotificationWatcherService poll failed:', error);
+    } catch {
+      // DB not ready or query failed — skip this poll cycle
     }
   }
 
@@ -138,15 +144,18 @@ export class NotificationWatcherService {
 
       if (!prevState) {
         // New run — track and emit initial status event
-        const featureName = this.resolveFeatureName(run);
+        const { featureId, featureName } = await this.resolveFeatureIdentity(run);
         const newState: WatcherState = {
           status: run.status,
           completedPhases: new Set<string>(),
+          featureId,
           featureName,
         };
 
         this.trackedRuns.set(run.id, newState);
-        this.emitStatusEvent(run, newState);
+        if (this.isBootstrapped) {
+          this.emitStatusEvent(run, newState);
+        }
 
         // Check for completed phases on first observation
         await this.checkPhaseCompletions(run.id, newState);
@@ -168,6 +177,10 @@ export class NotificationWatcherService {
       }
     }
 
+    if (!this.isBootstrapped) {
+      this.isBootstrapped = true;
+    }
+
     // Clean up tracking for runs that disappeared from the list
     for (const trackedId of this.trackedRuns.keys()) {
       if (!currentRunIds.has(trackedId)) {
@@ -183,6 +196,7 @@ export class NotificationWatcherService {
     const event: NotificationEvent = {
       eventType: mapping.eventType,
       agentRunId: run.id,
+      featureId: state.featureId,
       featureName: state.featureName,
       message: EVENT_MESSAGES[mapping.eventType] ?? `Agent status: ${run.status}`,
       severity: mapping.severity,
@@ -199,29 +213,36 @@ export class NotificationWatcherService {
       if (timing.completedAt && !state.completedPhases.has(timing.phase)) {
         state.completedPhases.add(timing.phase);
 
-        const event: NotificationEvent = {
-          eventType: NotificationEventType.PhaseCompleted,
-          agentRunId: runId,
-          featureName: state.featureName,
-          phaseName: timing.phase,
-          message: `Completed ${timing.phase} phase`,
-          severity: NotificationSeverity.Info,
-          timestamp: new Date().toISOString(),
-        };
+        if (this.isBootstrapped) {
+          const event: NotificationEvent = {
+            eventType: NotificationEventType.PhaseCompleted,
+            agentRunId: runId,
+            featureId: state.featureId,
+            featureName: state.featureName,
+            phaseName: timing.phase,
+            message: `Completed ${timing.phase} phase`,
+            severity: NotificationSeverity.Info,
+            timestamp: new Date().toISOString(),
+          };
 
-        this.notificationService.notify(event);
+          this.notificationService.notify(event);
+        }
       }
     }
   }
 
-  private resolveFeatureName(run: AgentRun): string {
-    // Feature name resolution from featureId would require IFeatureRepository.
-    // For now, use the agentName or a fallback. The NotificationService or
-    // a higher layer can enrich with the actual feature name if needed.
+  private async resolveFeatureIdentity(
+    run: AgentRun
+  ): Promise<{ featureId: string; featureName: string }> {
     if (run.featureId) {
-      return `Feature ${run.featureId}`;
+      try {
+        const feature = await this.featureRepository.findById(run.featureId);
+        if (feature) return { featureId: feature.id, featureName: feature.name };
+      } catch {
+        // Fall through to fallback
+      }
     }
-    return `Agent ${run.id}`;
+    return { featureId: run.featureId ?? run.id, featureName: `Agent ${run.id}` };
   }
 }
 
@@ -238,6 +259,7 @@ let watcherInstance: NotificationWatcherService | null = null;
 export function initializeNotificationWatcher(
   runRepository: IAgentRunRepository,
   phaseTimingRepository: IPhaseTimingRepository,
+  featureRepository: IFeatureRepository,
   notificationService: INotificationService,
   pollIntervalMs?: number
 ): void {
@@ -248,6 +270,7 @@ export function initializeNotificationWatcher(
   watcherInstance = new NotificationWatcherService(
     runRepository,
     phaseTimingRepository,
+    featureRepository,
     notificationService,
     pollIntervalMs
   );

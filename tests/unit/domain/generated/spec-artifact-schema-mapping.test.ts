@@ -5,10 +5,10 @@
  * and that all source YAML fields are mapped to the generated TypeScript types.
  *
  * Coverage:
- * - spec.yaml    → FeatureSpec
- * - research.yaml → ResearchSpec
- * - plan.yaml    → PlanSpec
- * - tasks.yaml   → TasksSpec
+ * - spec.yaml    → FeatureArtifact
+ * - research.yaml → ResearchArtifact
+ * - plan.yaml    → TechnicalPlanArtifact
+ * - tasks.yaml   → TasksArtifact
  * - feature.yaml → FeatureStatus
  * - Value objects: OpenQuestion, QuestionOption, TechDecision, PlanPhase,
  *                  SpecTask, TddCycle, FeatureIdentity, FeatureStatusInfo,
@@ -18,10 +18,10 @@
 
 import { describe, it, expect } from 'vitest';
 import type {
-  FeatureSpec,
-  ResearchSpec,
-  PlanSpec,
-  TasksSpec,
+  FeatureArtifact,
+  ResearchArtifact,
+  TechnicalPlanArtifact,
+  TasksArtifact,
   FeatureStatus,
   SpecArtifactBase,
   OpenQuestion,
@@ -63,9 +63,9 @@ function buildSpecArtifactBaseSample(): SpecArtifactBase {
 }
 
 // ===========================================================================
-// 1. spec.yaml → FeatureSpec
+// 1. spec.yaml → FeatureArtifact
 // ===========================================================================
-describe('spec.yaml → FeatureSpec mapping', () => {
+describe('spec.yaml → FeatureArtifact mapping', () => {
   /** YAML source fields for spec.yaml (top-level keys from real specs). */
   const SPEC_YAML_FIELDS = [
     'name',
@@ -82,7 +82,7 @@ describe('spec.yaml → FeatureSpec mapping', () => {
     'content',
   ] as const;
 
-  function buildFeatureSpecSample(): FeatureSpec {
+  function buildFeatureArtifactSample(): FeatureArtifact {
     return {
       ...buildSpecArtifactBaseSample(),
       number: 31,
@@ -93,18 +93,18 @@ describe('spec.yaml → FeatureSpec mapping', () => {
     };
   }
 
-  it('should have a generated FeatureSpec type', () => {
-    const sample: FeatureSpec = buildFeatureSpecSample();
+  it('should have a generated FeatureArtifact type', () => {
+    const sample: FeatureArtifact = buildFeatureArtifactSample();
     expect(sample).toBeDefined();
   });
 
-  it.each(SPEC_YAML_FIELDS)('should map spec.yaml field "%s" to FeatureSpec', (field) => {
-    const sample = buildFeatureSpecSample();
+  it.each(SPEC_YAML_FIELDS)('should map spec.yaml field "%s" to FeatureArtifact', (field) => {
+    const sample = buildFeatureArtifactSample();
     expect(sample).toHaveProperty(field);
   });
 
   it('should include all spec.yaml YAML fields', () => {
-    const sample = buildFeatureSpecSample();
+    const sample = buildFeatureArtifactSample();
     const sampleKeys = Object.keys(sample);
     for (const field of SPEC_YAML_FIELDS) {
       expect(sampleKeys).toContain(field);
@@ -113,9 +113,9 @@ describe('spec.yaml → FeatureSpec mapping', () => {
 });
 
 // ===========================================================================
-// 2. research.yaml → ResearchSpec
+// 2. research.yaml → ResearchArtifact
 // ===========================================================================
-describe('research.yaml → ResearchSpec mapping', () => {
+describe('research.yaml → ResearchArtifact mapping', () => {
   const RESEARCH_YAML_FIELDS = [
     'name',
     'summary',
@@ -127,7 +127,7 @@ describe('research.yaml → ResearchSpec mapping', () => {
     'content',
   ] as const;
 
-  function buildResearchSpecSample(): ResearchSpec {
+  function buildResearchArtifactSample(): ResearchArtifact {
     return {
       ...buildSpecArtifactBaseSample(),
       decisions: [
@@ -141,21 +141,24 @@ describe('research.yaml → ResearchSpec mapping', () => {
     };
   }
 
-  it('should have a generated ResearchSpec type', () => {
-    const sample: ResearchSpec = buildResearchSpecSample();
+  it('should have a generated ResearchArtifact type', () => {
+    const sample: ResearchArtifact = buildResearchArtifactSample();
     expect(sample).toBeDefined();
   });
 
-  it.each(RESEARCH_YAML_FIELDS)('should map research.yaml field "%s" to ResearchSpec', (field) => {
-    const sample = buildResearchSpecSample();
-    expect(sample).toHaveProperty(field);
-  });
+  it.each(RESEARCH_YAML_FIELDS)(
+    'should map research.yaml field "%s" to ResearchArtifact',
+    (field) => {
+      const sample = buildResearchArtifactSample();
+      expect(sample).toHaveProperty(field);
+    }
+  );
 });
 
 // ===========================================================================
-// 3. plan.yaml → PlanSpec
+// 3. plan.yaml → TechnicalPlanArtifact
 // ===========================================================================
-describe('plan.yaml → PlanSpec mapping', () => {
+describe('plan.yaml → TechnicalPlanArtifact mapping', () => {
   const PLAN_YAML_FIELDS = [
     'name',
     'summary',
@@ -169,7 +172,7 @@ describe('plan.yaml → PlanSpec mapping', () => {
     'content',
   ] as const;
 
-  function buildPlanSpecSample(): PlanSpec {
+  function buildTechnicalPlanArtifactSample(): TechnicalPlanArtifact {
     return {
       ...buildSpecArtifactBaseSample(),
       phases: [
@@ -186,21 +189,21 @@ describe('plan.yaml → PlanSpec mapping', () => {
     };
   }
 
-  it('should have a generated PlanSpec type', () => {
-    const sample: PlanSpec = buildPlanSpecSample();
+  it('should have a generated TechnicalPlanArtifact type', () => {
+    const sample: TechnicalPlanArtifact = buildTechnicalPlanArtifactSample();
     expect(sample).toBeDefined();
   });
 
-  it.each(PLAN_YAML_FIELDS)('should map plan.yaml field "%s" to PlanSpec', (field) => {
-    const sample = buildPlanSpecSample();
+  it.each(PLAN_YAML_FIELDS)('should map plan.yaml field "%s" to TechnicalPlanArtifact', (field) => {
+    const sample = buildTechnicalPlanArtifactSample();
     expect(sample).toHaveProperty(field);
   });
 });
 
 // ===========================================================================
-// 4. tasks.yaml → TasksSpec
+// 4. tasks.yaml → TasksArtifact
 // ===========================================================================
-describe('tasks.yaml → TasksSpec mapping', () => {
+describe('tasks.yaml → TasksArtifact mapping', () => {
   const TASKS_YAML_FIELDS = [
     'name',
     'summary',
@@ -213,7 +216,7 @@ describe('tasks.yaml → TasksSpec mapping', () => {
     'content',
   ] as const;
 
-  function buildTasksSpecSample(): TasksSpec {
+  function buildTasksArtifactSample(): TasksArtifact {
     return {
       ...buildSpecArtifactBaseSample(),
       tasks: [
@@ -232,13 +235,13 @@ describe('tasks.yaml → TasksSpec mapping', () => {
     };
   }
 
-  it('should have a generated TasksSpec type', () => {
-    const sample: TasksSpec = buildTasksSpecSample();
+  it('should have a generated TasksArtifact type', () => {
+    const sample: TasksArtifact = buildTasksArtifactSample();
     expect(sample).toBeDefined();
   });
 
-  it.each(TASKS_YAML_FIELDS)('should map tasks.yaml field "%s" to TasksSpec', (field) => {
-    const sample = buildTasksSpecSample();
+  it.each(TASKS_YAML_FIELDS)('should map tasks.yaml field "%s" to TasksArtifact', (field) => {
+    const sample = buildTasksArtifactSample();
     expect(sample).toHaveProperty(field);
   });
 });
@@ -561,8 +564,8 @@ describe('TechDecision value object mapping', () => {
 // 16. PlanPhase value object (plan.yaml → phases[])
 // ===========================================================================
 describe('PlanPhase value object mapping', () => {
-  const PLAN_PHASE_FIELDS_REQUIRED = ['id', 'name', 'parallel', 'taskIds'] as const;
-  const PLAN_PHASE_FIELDS_OPTIONAL = ['description'] as const;
+  const PLAN_PHASE_FIELDS_REQUIRED = ['id', 'name', 'parallel'] as const;
+  const PLAN_PHASE_FIELDS_OPTIONAL = ['description', 'taskIds'] as const;
 
   function buildSample(): PlanPhase {
     return {
@@ -582,14 +585,14 @@ describe('PlanPhase value object mapping', () => {
     expect(buildSample()).toHaveProperty(field);
   });
 
-  it('should work without description (optional)', () => {
+  it('should work without description and taskIds (both optional)', () => {
     const sample: PlanPhase = {
       id: 'phase-1',
       name: 'Phase One',
       parallel: false,
-      taskIds: ['task-1'],
     };
     expect(sample.description).toBeUndefined();
+    expect(sample.taskIds).toBeUndefined();
   });
 });
 
@@ -738,8 +741,8 @@ describe('SpecArtifactBase shared fields', () => {
 // 20. Cross-validation: every spec type extends SpecArtifactBase
 // ===========================================================================
 describe('spec artifact type hierarchy', () => {
-  it('FeatureSpec should include all SpecArtifactBase fields plus own fields', () => {
-    const sample: FeatureSpec = {
+  it('FeatureArtifact should include all SpecArtifactBase fields plus own fields', () => {
+    const sample: FeatureArtifact = {
       ...buildSpecArtifactBaseSample(),
       number: 1,
       branch: 'feat/test',
@@ -759,8 +762,8 @@ describe('spec artifact type hierarchy', () => {
     expect(sample).toHaveProperty('sizeEstimate');
   });
 
-  it('ResearchSpec should include all SpecArtifactBase fields plus decisions', () => {
-    const sample: ResearchSpec = {
+  it('ResearchArtifact should include all SpecArtifactBase fields plus decisions', () => {
+    const sample: ResearchArtifact = {
       ...buildSpecArtifactBaseSample(),
       decisions: [],
     };
@@ -769,8 +772,8 @@ describe('spec artifact type hierarchy', () => {
     expect(sample).toHaveProperty('decisions');
   });
 
-  it('PlanSpec should include all SpecArtifactBase fields plus phases and file lists', () => {
-    const sample: PlanSpec = {
+  it('TechnicalPlanArtifact should include all SpecArtifactBase fields plus phases and file lists', () => {
+    const sample: TechnicalPlanArtifact = {
       ...buildSpecArtifactBaseSample(),
       phases: [],
       filesToCreate: [],
@@ -783,8 +786,8 @@ describe('spec artifact type hierarchy', () => {
     expect(sample).toHaveProperty('filesToModify');
   });
 
-  it('TasksSpec should include all SpecArtifactBase fields plus tasks and totalEstimate', () => {
-    const sample: TasksSpec = {
+  it('TasksArtifact should include all SpecArtifactBase fields plus tasks and totalEstimate', () => {
+    const sample: TasksArtifact = {
       ...buildSpecArtifactBaseSample(),
       tasks: [],
       totalEstimate: '12h',

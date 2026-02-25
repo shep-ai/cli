@@ -7,9 +7,10 @@
 import 'reflect-metadata';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
-const { mockResolve, mockCreateExecute } = vi.hoisted(() => ({
+const { mockResolve, mockCreateExecute, mockFindByIdPrefix } = vi.hoisted(() => ({
   mockResolve: vi.fn(),
   mockCreateExecute: vi.fn(),
+  mockFindByIdPrefix: vi.fn(),
 }));
 
 vi.mock('@/infrastructure/di/container.js', () => ({
@@ -59,6 +60,12 @@ function makeSettings(overrides: { openPr?: boolean } = {}) {
   return {
     workflow: {
       openPrOnImplementationComplete: overrides.openPr ?? false,
+      approvalGateDefaults: {
+        allowPrd: false,
+        allowPlan: false,
+        allowMerge: false,
+        pushOnImplementationComplete: false,
+      },
     },
   };
 }
@@ -71,6 +78,7 @@ describe('createNewCommand', () => {
     mockResolve.mockImplementation((token: unknown) => {
       const key = typeof token === 'string' ? token : (token as { name?: string })?.name;
       if (key === 'CreateFeatureUseCase') return { execute: mockCreateExecute };
+      if (key === 'IFeatureRepository') return { findByIdPrefix: mockFindByIdPrefix };
       return {};
     });
     mockCreateExecute.mockResolvedValue({
@@ -263,5 +271,90 @@ describe('createNewCommand', () => {
     await cmd.parseAsync(['Add feature'], { from: 'user' });
 
     expect(process.exitCode).toBe(1);
+  });
+
+  describe('--parent flag', () => {
+    const parentFeature = {
+      id: 'parent-feature-uuid-001',
+      name: 'Parent Feature',
+      lifecycle: 'Implementation',
+    };
+
+    it('should not pass parentId when --parent is not provided', async () => {
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature'], { from: 'user' });
+
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.not.objectContaining({ parentId: expect.anything() })
+      );
+    });
+
+    it('should resolve parent ID prefix and pass parentId to use case', async () => {
+      mockFindByIdPrefix.mockResolvedValue(parentFeature);
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--parent', 'parent-fe'], { from: 'user' });
+
+      expect(mockFindByIdPrefix).toHaveBeenCalledWith('parent-fe');
+      expect(mockCreateExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ parentId: 'parent-feature-uuid-001' })
+      );
+    });
+
+    it('should display error and set exit code 1 when parent prefix is not found', async () => {
+      mockFindByIdPrefix.mockResolvedValue(null);
+      const { messages: mockMessages } = await import(
+        '../../../../../../src/presentation/cli/ui/index.js'
+      );
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--parent', 'nonexistent'], { from: 'user' });
+
+      expect(process.exitCode).toBe(1);
+      expect(mockMessages.error).toHaveBeenCalledWith(expect.stringContaining('nonexistent'));
+      expect(mockCreateExecute).not.toHaveBeenCalled();
+    });
+
+    it('should show blocked-state message when created feature has Blocked lifecycle', async () => {
+      mockFindByIdPrefix.mockResolvedValue(parentFeature);
+      mockCreateExecute.mockResolvedValue({
+        feature: {
+          id: 'child-feat-001',
+          name: 'Child Feature',
+          slug: 'child-feature',
+          branch: 'feat/child-feature',
+          lifecycle: 'Blocked',
+          agentRunId: null,
+          specPath: null,
+        },
+      });
+      const { messages: mockMessages } = await import(
+        '../../../../../../src/presentation/cli/ui/index.js'
+      );
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Child feature', '--parent', 'parent-fe'], { from: 'user' });
+
+      expect(mockMessages.info).toHaveBeenCalledWith(expect.stringContaining('Blocked'));
+    });
+
+    it('should not show blocked-state message when created feature has non-Blocked lifecycle', async () => {
+      mockFindByIdPrefix.mockResolvedValue(parentFeature);
+      const { messages: mockMessages } = await import(
+        '../../../../../../src/presentation/cli/ui/index.js'
+      );
+
+      const cmd = createNewCommand();
+      await cmd.parseAsync(['Add feature', '--parent', 'parent-fe'], { from: 'user' });
+
+      expect(mockMessages.info).not.toHaveBeenCalled();
+    });
+
+    it('should expose --parent option in command help', () => {
+      const cmd = createNewCommand();
+      const parentOption = cmd.options.find((o) => o.long === '--parent');
+      expect(parentOption).toBeDefined();
+      expect(parentOption?.description).toBeTruthy();
+    });
   });
 });

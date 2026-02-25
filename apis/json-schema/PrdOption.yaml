@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PrdOption.yaml
+type: object
+properties:
+  id:
+    type: string
+    description: Unique identifier for this option
+  label:
+    type: string
+    description: Display label for this option
+  rationale:
+    type: string
+    description: Explanation of why this option is relevant
+  recommended:
+    type: boolean
+    description: Whether this option is recommended by AI analysis
+  isNew:
+    type: boolean
+    description: Whether this option was newly added after refinement
+required:
+  - id
+  - label
+  - rationale
+description: A selectable option within a PRD questionnaire question

@@ -6,15 +6,11 @@ export interface CreateFeatureInput {
   approvalGates?: ApprovalGates;
   push?: boolean;
   openPr?: boolean;
+  /** Optional ID of the parent feature. When set, child may be created in Blocked state. */
+  parentId?: string;
 }
 
 export interface CreateFeatureResult {
   feature: Feature;
   warning?: string;
-}
-
-export interface FeatureMetadata {
-  slug: string;
-  name: string;
-  description: string;
 }

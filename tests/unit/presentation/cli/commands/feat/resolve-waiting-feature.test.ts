@@ -43,6 +43,7 @@ function makeFeature(overrides?: Partial<Feature>): Feature {
     name: 'Test Feature',
     slug: 'test-feature',
     description: 'A test feature',
+    userQuery: 'test user query',
     repositoryPath: '/repo',
     branch: 'feat/test-feature',
     lifecycle: 'Requirements' as any,

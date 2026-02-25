@@ -1,0 +1,32 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ActionItem.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Short name describing the action (verb-noun pattern recommended)
+  description:
+    type: string
+    description: Detailed description of the work to be performed
+  branch:
+    type: string
+    description: Git branch name where this action item's work is performed
+  dependsOn:
+    type: array
+    items:
+      $ref: ActionItem.yaml
+    description: Action items that must complete before this one can start
+  acceptanceCriteria:
+    type: array
+    items:
+      $ref: AcceptanceCriteria.yaml
+    description: Acceptance criteria for verifying completion of this action item
+required:
+  - name
+  - description
+  - branch
+  - dependsOn
+  - acceptanceCriteria
+allOf:
+  - $ref: BaseEntity.yaml
+description: Granular, atomic step within a Task representing a single unit of work

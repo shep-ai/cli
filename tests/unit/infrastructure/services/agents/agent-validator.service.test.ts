@@ -81,18 +81,43 @@ describe('AgentValidatorService', () => {
     });
   });
 
-  describe('isAvailable - unsupported agents', () => {
-    it('should return not available for gemini-cli', async () => {
-      // Act
+  describe('isAvailable - gemini-cli', () => {
+    it('should return available with version when binary is found', async () => {
+      vi.mocked(mockExec).mockResolvedValue({
+        stdout: '0.29.2\n',
+        stderr: '',
+      });
+
       const result = await service.isAvailable(AgentType.GeminiCli);
 
-      // Assert
-      expect(result.available).toBe(false);
-      expect(result.error).toContain('not supported yet');
-      expect(result.error).toContain('gemini-cli');
-      expect(mockExec).not.toHaveBeenCalled();
+      expect(result.available).toBe(true);
+      expect(result.version).toBe('0.29.2');
+      expect(mockExec).toHaveBeenCalledWith('gemini', ['--version']);
     });
 
+    it('should return not available when binary is not found', async () => {
+      vi.mocked(mockExec).mockRejectedValue(new Error('spawn gemini ENOENT'));
+
+      const result = await service.isAvailable(AgentType.GeminiCli);
+
+      expect(result.available).toBe(false);
+      expect(result.error).toContain('gemini');
+      expect(result.error).toContain('not found or not executable');
+    });
+  });
+
+  describe('isAvailable - dev type', () => {
+    it('should return available: true with version "dev" without calling execFn', async () => {
+      const result = await service.isAvailable(AgentType.Dev);
+
+      expect(result.available).toBe(true);
+      expect(result.version).toBe('dev');
+      expect(result.error).toBeUndefined();
+      expect(mockExec).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('isAvailable - unsupported agents', () => {
     it('should return not available for aider', async () => {
       // Act
       const result = await service.isAvailable(AgentType.Aider);

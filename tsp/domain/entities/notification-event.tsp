@@ -26,6 +26,9 @@ model NotificationEvent {
   @doc("ID of the agent run that triggered this event")
   agentRunId: string;
 
+  @doc("ID of the feature that triggered this event")
+  featureId: string;
+
   @doc("Human-readable feature name")
   featureName: string;
 

@@ -32,6 +32,8 @@ const config: StorybookConfig = {
       '@/lib': resolve(__dirname, '../src/presentation/web/lib'),
       '@/hooks': resolve(__dirname, '../src/presentation/web/hooks'),
       '@/types': resolve(__dirname, '../src/presentation/web/types'),
+      // Mock server actions (Node.js/DI deps unavailable in Storybook)
+      '@/app/actions': resolve(__dirname, 'mocks/app/actions'),
       // Mock Next.js in Storybook (no Next runtime; avoids process is not defined)
       'next/navigation': resolve(__dirname, 'next-navigation-mock.ts'),
       'next/link': resolve(__dirname, 'next-link-mock.tsx'),

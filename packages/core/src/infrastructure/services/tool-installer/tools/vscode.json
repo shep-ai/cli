@@ -2,7 +2,8 @@
   "name": "Visual Studio Code",
   "summary": "Lightweight but powerful source code editor",
   "description": "Microsoft Visual Studio Code is a free, open-source code editor with built-in support for debugging, version control, and extensions for enhanced development workflows.",
-  "category": "ide",
+  "tags": ["ide"],
+  "iconUrl": "https://cdn.jsdelivr.net/gh/devicons/devicon/icons/vscode/vscode-original.svg",
   "binary": "code",
   "packageManager": "apt",
   "commands": {
@@ -13,5 +14,5 @@
   "documentationUrl": "https://code.visualstudio.com/docs/setup/linux",
   "verifyCommand": "code --version --no-sandbox --user-data-dir=/tmp/vscode-test",
   "autoInstall": true,
-  "openDirectory": "code ."
+  "openDirectory": "code {dir}"
 }

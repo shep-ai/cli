@@ -1,0 +1,38 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: NotificationEvent.yaml
+type: object
+properties:
+  eventType:
+    $ref: NotificationEventType.yaml
+    description: Type of lifecycle event
+  agentRunId:
+    type: string
+    description: ID of the agent run that triggered this event
+  featureId:
+    type: string
+    description: ID of the feature that triggered this event
+  featureName:
+    type: string
+    description: Human-readable feature name
+  phaseName:
+    type: string
+    description: Phase name (only for phaseCompleted events)
+  message:
+    type: string
+    description: Human-readable event description
+  severity:
+    $ref: NotificationSeverity.yaml
+    description: Display severity for notification rendering
+  timestamp:
+    type: string
+    format: date-time
+    description: When the event occurred
+required:
+  - eventType
+  - agentRunId
+  - featureId
+  - featureName
+  - message
+  - severity
+  - timestamp
+description: Notification event emitted for agent lifecycle transitions

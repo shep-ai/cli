@@ -1,0 +1,403 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: prd-review-questionnaire
+summary: >
+  14 tasks across 5 phases implementing the PrdQuestionnaire multi-step wizard, ReviewDrawerShell,
+  OpenActionMenu, TechDecisionsReview enhancements, and FeatureDrawer refactoring. All work
+  stays within the presentation layer with TypeSpec foundation first.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec
+  - React 19
+  - shadcn/ui
+  - Tailwind CSS v4
+  - Storybook
+  - Vitest
+  - react-markdown
+  - lucide-react
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 1: TypeSpec Foundation
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create tsp/ui/ module with PrdQuestionnaire value object models'
+    description: >
+      Create the `tsp/ui/` directory with `index.tsp` barrel and `prd-questionnaire.tsp` defining
+      four value object models: `PrdOption`, `PrdQuestion`, `PrdFinalAction`, `PrdQuestionnaireData`.
+      Wire the module into `tsp/main.tsp` via `import "./ui/index.tsp"`.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - '`tsp/ui/index.tsp` exists with import for `prd-questionnaire.tsp`'
+      - '`tsp/ui/prd-questionnaire.tsp` defines all 4 value objects'
+      - '`tsp/main.tsp` imports `"./ui/index.tsp"`'
+      - '`pnpm tsp:compile` succeeds'
+      - 'Generated types appear in `packages/core/src/domain/generated/output.ts`'
+    tdd:
+      red:
+        - 'Verify generated `output.ts` does NOT contain `PrdOption`/`PrdQuestion` types yet'
+      green:
+        - 'Create `tsp/ui/index.tsp` and `tsp/ui/prd-questionnaire.tsp`'
+        - 'Add `import "./ui/index.tsp"` to `tsp/main.tsp`'
+        - 'Run `pnpm tsp:compile` — verify success and generated types'
+      refactor:
+        - 'Run `pnpm tsp:format` for formatting'
+    estimatedEffort: '30min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 2: Shared Infrastructure
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Install shadcn/ui DropdownMenu primitive'
+    description: >
+      Add the DropdownMenu component from shadcn/ui at `components/ui/dropdown-menu.tsx`.
+      This is a prerequisite for the OpenActionMenu component.
+    state: Done
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - '`components/ui/dropdown-menu.tsx` exists with DropdownMenu exports'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Import from `@/components/ui/dropdown-menu` fails'
+      green:
+        - 'Create dropdown-menu.tsx with Radix primitives'
+      refactor:
+        - 'Verify exports match shadcn/ui convention'
+    estimatedEffort: '10min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Create OpenActionMenu component with TDD'
+    description: >
+      Build the `OpenActionMenu` dropdown at `components/common/open-action-menu/` with
+      IDE/Terminal/Specs Folder/Copy Path items. Uses `FeatureActionsState` from `useFeatureActions`.
+      Each item shows loading/error/default icon states.
+    state: Done
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Component renders DropdownMenu with 4 items + separator'
+      - 'IDE, Terminal, Specs Folder items call respective action functions'
+      - 'Specs Folder disabled when `showSpecs=false`'
+      - 'Copy Path copies repositoryPath to clipboard with 2s feedback'
+      - 'Trigger disabled when any action loading'
+      - 'Loading/error states shown per item'
+      - 'Storybook stories created'
+    tdd:
+      red:
+        - 'Write tests for menu items, loading states, disabled states'
+      green:
+        - 'Create config.ts, open-action-menu.tsx, index.ts, stories'
+      refactor:
+        - 'Extract COPY_FEEDBACK_DELAY constant'
+    estimatedEffort: '1h'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Create ReviewDrawerShell component with TDD'
+    description: >
+      Build the reusable `ReviewDrawerShell` at `components/common/review-drawer-shell/`.
+      Right-slide drawer (non-modal, w-xl) with close button, header, OpenActionMenu,
+      inline delete button with AlertDialog confirmation, and children slot.
+    state: Done
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Right-slide drawer renders with featureName and featureId'
+      - 'Close button (X icon) at top-right calls onClose'
+      - 'OpenActionMenu shown when repositoryPath + branch provided'
+      - 'Delete button shown when onDelete + featureId provided'
+      - 'AlertDialog confirmation for delete with feature name/ID'
+      - 'Spinner during delete (isDeleting state)'
+      - 'Children rendered in content slot below separator'
+      - 'Storybook stories created'
+    tdd:
+      red:
+        - 'Write tests for drawer rendering, close, actions, delete confirmation'
+      green:
+        - 'Create config.ts, review-drawer-shell.tsx, index.ts, stories'
+      refactor:
+        - 'Verify delete AlertDialog matches FeatureDrawer pattern'
+    estimatedEffort: '1.5h'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 3: PrdQuestionnaire Component
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Create PrdQuestionnaire config types'
+    description: >
+      Create `prd-questionnaire-config.ts` with `PrdQuestionnaireProps` and `PrdQuestionnaireDrawerProps`.
+      Re-export generated TypeSpec types. Compose data types with React callback props.
+    state: Done
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Re-exports PrdOption, PrdQuestion, PrdFinalAction, PrdQuestionnaireData from generated output'
+      - 'PrdQuestionnaireProps includes data, selections, onSelect, onRefine, onApprove, isProcessing, showHeader'
+      - 'PrdQuestionnaireDrawerProps extends with drawer props (open, onClose, featureName, etc.)'
+    tdd:
+      red:
+        - 'Import test fails because file does not exist'
+      green:
+        - 'Create config file with all interfaces'
+      refactor:
+        - 'Ensure JSDoc comments on callback props'
+    estimatedEffort: '15min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add option-highlight CSS animation to globals.css'
+    description: >
+      Add `@keyframes option-highlight` animation and `--animate-option-highlight` theme variable
+      to globals.css. Background-color pulse from emerald-50 to transparent over 1.5s.
+    state: Done
+    dependencies: []
+    acceptanceCriteria:
+      - '`@keyframes option-highlight` defined in globals.css'
+      - '`--animate-option-highlight` theme variable defined'
+      - 'Existing animations not affected'
+    tdd:
+      red:
+        - 'Verify globals.css does not contain option-highlight'
+      green:
+        - 'Add keyframe and theme variable'
+      refactor:
+        - 'Verify keyframe ordering is logical'
+    estimatedEffort: '5min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Implement PrdQuestionnaire multi-step wizard with TDD'
+    description: >
+      Build the PrdQuestionnaire component as a multi-step wizard showing one question at a time.
+      Uses shadcn/ui Button, Input, Badge. Internal state for currentStep and chatInput.
+      Controlled selections via props. Auto-advance after selection (250ms). Step indicator dots.
+      Previous/Next/Skip/Approve navigation. Progress bar in bottom action bar.
+    state: Done
+    dependencies:
+      - task-5
+      - task-6
+    acceptanceCriteria:
+      - 'Shows one question at a time with step indicator dots'
+      - 'Step dots clickable with aria-labels, active dot wider, answered dots half-opacity'
+      - 'Options as <button> elements with letter prefix (A, B, C, D)'
+      - 'AI Recommended Badge on recommended options'
+      - 'New Badge (emerald) on isNew options with animate-option-highlight'
+      - 'Selected option highlighted with border-primary bg-primary/5'
+      - 'Auto-advance to next step 250ms after selection'
+      - 'Previous button disabled on first step'
+      - 'Next/Skip button or Approve button on last step'
+      - 'Approve enabled only when all questions answered'
+      - 'Progress bar visible when partially answered or processing'
+      - 'isProcessing disables all interactive elements, shows indeterminate progress'
+      - 'Chat input fires onRefine, clears after submit'
+      - 'Returns null if questions empty'
+      - 'Component is ~217 lines'
+      - '63+ unit test cases passing'
+    tdd:
+      red:
+        - 'Write 63+ tests covering rendering, navigation, selection, badges, progress, processing, accessibility'
+      green:
+        - 'Create prd-questionnaire.tsx with multi-step wizard implementation'
+      refactor:
+        - 'Verify component stays under 220 lines'
+        - 'Ensure useCallback for handleSelect'
+    estimatedEffort: '3h'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Create PrdQuestionnaireDrawer wrapper'
+    description: >
+      Create `prd-questionnaire-drawer.tsx` wrapping PrdQuestionnaire inside ReviewDrawerShell.
+      Spreads questionnaire props to inner component, passes drawer props to shell.
+    state: Done
+    dependencies:
+      - task-4
+      - task-7
+    acceptanceCriteria:
+      - 'Wraps PrdQuestionnaire in ReviewDrawerShell'
+      - 'Passes drawer props (open, onClose, featureName, etc.) to shell'
+      - 'Spreads remaining props to PrdQuestionnaire'
+      - 'Delete button tests pass (6 test cases)'
+    tdd:
+      red:
+        - 'Write tests for drawer rendering and delete behavior'
+      green:
+        - 'Create prd-questionnaire-drawer.tsx'
+      refactor:
+        - 'Verify prop spreading is clean'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Create PrdQuestionnaire and drawer Storybook stories'
+    description: >
+      Create 5 PrdQuestionnaire story variants (Default, WithSelections, AllAnswered, Refining,
+      MinimalData) using InteractiveQuestionnaire wrapper, plus 4 PrdQuestionnaireDrawer stories
+      (InDrawer, InDrawerWithSelections, WithDeleteButton, DeletingState) using DrawerTemplate.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - '5 PrdQuestionnaire stories with interactive selection and auto-advance'
+      - '4 PrdQuestionnaireDrawer stories with drawer open/close'
+      - 'Meta titles: Composed/PrdQuestionnaire and Composed/PrdQuestionnaireDrawer'
+      - 'Mock data: 6 questions with realistic content'
+      - 'Storybook builds without errors'
+    tdd:
+      red:
+        - 'Verify no stories file exists yet'
+      green:
+        - 'Create stories with interactive wrappers and mock data'
+      refactor:
+        - 'Extract mock data constants'
+    estimatedEffort: '45min'
+
+  - id: task-10
+    phaseId: phase-3
+    title: 'Create barrel export for prd-questionnaire'
+    description: >
+      Create `index.ts` re-exporting PrdQuestionnaire, PrdQuestionnaireDrawer, and all types.
+    state: Done
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Exports both components and all type interfaces'
+    tdd:
+      red:
+        - 'Import from barrel fails'
+      green:
+        - 'Create index.ts with re-exports'
+      refactor: null
+    estimatedEffort: '5min'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 4: Review Integration & Refactoring
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-11
+    phaseId: phase-4
+    title: 'Refactor TechDecisionsReview with markdown and collapsed alternatives'
+    description: >
+      Enhance TechDecisionsReview to render rationale as Markdown via react-markdown with custom
+      component overrides. Extract DecisionCard sub-component. Add collapsible "Other Options
+      Considered" section. Refactor TechDecisionsDrawer to use ReviewDrawerShell. Update config
+      with TechDecisionsDrawerProps extending with drawer props.
+    state: Done
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Rationale rendered as Markdown with custom components'
+      - 'DecisionCard extracted as sub-component within same file'
+      - 'Collapsed "Other Options Considered (N)" section with toggle'
+      - 'TechDecisionsDrawer uses ReviewDrawerShell'
+      - 'TechDecisionsDrawerProps extends TechDecisionsReviewProps with drawer props'
+      - 'Updated Storybook stories'
+    tdd:
+      red:
+        - 'Write tests for markdown rendering, collapsed section toggle'
+      green:
+        - 'Implement markdown rendering, collapsed section, drawer refactor'
+      refactor:
+        - 'Verify consistent typography with custom markdown components'
+    estimatedEffort: '1.5h'
+
+  - id: task-12
+    phaseId: phase-4
+    title: 'Refactor FeatureDrawer to use OpenActionMenu'
+    description: >
+      Replace inline action buttons in FeatureDrawer with OpenActionMenu dropdown.
+      Extract DrawerActions sub-component that uses useFeatureActions hook.
+    state: Done
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'FeatureDrawer uses OpenActionMenu for IDE/Shell/Specs actions'
+      - 'DrawerActions sub-component extracted'
+      - 'useFeatureActions hook provides action state'
+      - 'Updated feature-drawer.stories.tsx'
+      - 'Updated feature-drawer.test.tsx'
+    tdd:
+      red:
+        - 'Write tests for OpenActionMenu integration'
+      green:
+        - 'Refactor FeatureDrawer with OpenActionMenu and DrawerActions'
+      refactor:
+        - 'Verify no unused imports remain'
+    estimatedEffort: '1h'
+
+  # ═══════════════════════════════════════════════════════════════
+  # Phase 5: Integration & Validation
+  # ═══════════════════════════════════════════════════════════════
+
+  - id: task-13
+    phaseId: phase-5
+    title: 'Run full validation suite'
+    description: >
+      Run the complete validation pipeline: lint, format, typecheck, TypeSpec compile, unit tests.
+    state: Done
+    dependencies:
+      - task-9
+      - task-10
+      - task-11
+      - task-12
+    acceptanceCriteria:
+      - '`pnpm lint` and `pnpm lint:web` pass'
+      - '`pnpm format:check` passes'
+      - '`pnpm typecheck` and `pnpm typecheck:web` pass'
+      - '`pnpm tsp:compile` succeeds'
+      - '`pnpm test:unit` passes all tests including 63+ PrdQuestionnaire tests'
+    tdd: null
+    estimatedEffort: '30min'
+
+  - id: task-14
+    phaseId: phase-5
+    title: 'Verify production build and Storybook build'
+    description: >
+      Run production builds for web and Storybook. Verify new components and stories included.
+    state: Done
+    dependencies:
+      - task-13
+    acceptanceCriteria:
+      - '`pnpm build:web` succeeds'
+      - '`pnpm build:storybook` succeeds'
+      - 'PrdQuestionnaire and drawer stories visible in Storybook'
+      - 'ReviewDrawerShell and OpenActionMenu stories visible'
+    tdd: null
+    estimatedEffort: '15min'
+
+# Total effort estimate
+totalEstimate: '~10h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  14 tasks across 5 phases deliver the PrdQuestionnaire multi-step wizard, ReviewDrawerShell,
+  OpenActionMenu, TechDecisionsReview enhancements, and FeatureDrawer refactoring.
+
+  Phase 1 establishes the TypeSpec foundation. Phase 2 builds shared infrastructure
+  (ReviewDrawerShell + OpenActionMenu + DropdownMenu primitive). Phase 3 implements the
+  PrdQuestionnaire multi-step wizard with drawer wrapper and 9 story variants. Phase 4
+  refactors TechDecisionsReview (markdown, collapsed alternatives, ReviewDrawerShell) and
+  FeatureDrawer (OpenActionMenu). Phase 5 runs the full validation pipeline and builds.
+
+  All tasks are marked Done — implementation is complete with 63+ unit tests passing,
+  all lint/typecheck/build gates cleared.

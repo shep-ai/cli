@@ -21,4 +21,7 @@ enum AgentFeature {
 
   @doc("Supports custom system prompts")
   systemPrompt: "system-prompt",
+
+  @doc("Supports listing agent provider CLI sessions")
+  sessionListing: "session-listing",
 }

@@ -1,0 +1,43 @@
+feature:
+  id: 036-optimistic-node-clickability
+  name: optimistic-node-clickability
+  number: 36
+  branch: feat/optimistic-node-clickability
+  lifecycle: review
+  createdAt: '2026-02-22T17:29:57Z'
+status:
+  phase: in-review
+  progress:
+    completed: 5
+    total: 5
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-24T12:00:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+prUrl: https://github.com/shep-ai/cli/pull/120
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+tasks:
+  current: null
+  blocked: []
+  failed: []
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-22T17:29:57Z'
+    completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-24T12:00:00.000Z'
+    completedBy: shep-kit:commit-pr
+errors:
+  current: null
+  history: []

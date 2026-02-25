@@ -31,6 +31,10 @@ const sharedResolve = {
   ],
 };
 
+// Ensure React loads its development bundle (which exports `act`) even when
+// the shell environment has NODE_ENV=production (e.g. after a build step).
+(process.env as Record<string, string>).NODE_ENV = 'test';
+
 export default defineConfig({
   plugins: [react()],
   test: {

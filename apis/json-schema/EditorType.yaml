@@ -1,0 +1,10 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: EditorType.yaml
+type: string
+enum:
+  - vscode
+  - cursor
+  - windsurf
+  - zed
+  - antigravity
+description: Supported IDE/editor type

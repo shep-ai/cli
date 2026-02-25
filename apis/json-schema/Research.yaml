@@ -1,0 +1,26 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Research.yaml
+type: object
+properties:
+  topic:
+    type: string
+    description: The topic or subject being researched
+  state:
+    $ref: ResearchState.yaml
+    description: Current state of the research activity (NotStarted, Running, Finished)
+  summary:
+    type: string
+    description: Summary of research findings and recommendations
+  artifacts:
+    type: array
+    items:
+      $ref: Artifact.yaml
+    description: Artifacts produced during the research activity
+required:
+  - topic
+  - state
+  - summary
+  - artifacts
+allOf:
+  - $ref: BaseEntity.yaml
+description: A research topic exploration for gathering technical information

@@ -97,6 +97,26 @@ const allStatesData: FeatureNodeData[] = [
     branch: 'feat/api-rate-limiting',
   },
   {
+    name: 'Data Pipeline',
+    description: 'ETL pipeline for analytics dashboard',
+    featureId: '#bi2',
+    lifecycle: 'implementation' as FeatureLifecyclePhase,
+    state: 'action-required',
+    progress: 40,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/data-pipeline',
+  },
+  {
+    name: 'Merge Review',
+    description: 'PR ready for merge approval',
+    featureId: '#bi3',
+    lifecycle: 'review' as FeatureLifecyclePhase,
+    state: 'action-required',
+    progress: 90,
+    repositoryPath: '/home/user/my-repo',
+    branch: 'feat/merge-review',
+  },
+  {
     name: 'Payment Gateway',
     description: 'Stripe integration for subscriptions',
     featureId: '#f3',
@@ -135,7 +155,7 @@ export const AllStates: Story = {
   render: () => (
     <div className="flex flex-wrap gap-6">
       {allStatesData.map((data) => (
-        <FeatureNodeCanvas key={data.state} style={{ width: 500, height: 350 }} data={data} />
+        <FeatureNodeCanvas key={data.featureId} style={{ width: 500, height: 350 }} data={data} />
       ))}
     </div>
   ),
@@ -302,6 +322,18 @@ export const Creating: Story = {
     lifecycle: 'requirements',
     state: 'creating',
     progress: 0,
+  },
+  render: (args) => <FeatureNodeCanvas data={args} />,
+};
+
+export const MergeReviewActionRequired: Story = {
+  args: {
+    name: 'Merge Review',
+    description: 'PR ready for merge approval',
+    featureId: '#bi3',
+    lifecycle: 'review',
+    state: 'action-required',
+    progress: 90,
   },
   render: (args) => <FeatureNodeCanvas data={args} />,
 };

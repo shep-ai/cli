@@ -1,10 +1,10 @@
 # Adding New Agent Nodes
 
-> **IMPORTANT: Implementation Status**
+> **Implementation Status**
 >
-> This guide describes how to extend the **planned LangGraph-based agent system** which is **not yet implemented**. The `src/infrastructure/agents/langgraph/` directory, node functions, graph definitions, and tool bindings described below do not exist in the codebase. This document is retained as architectural planning documentation for future implementation.
+> The **FeatureAgent LangGraph graph** is implemented at `packages/core/src/infrastructure/services/agents/feature-agent/`. This guide describes how to extend the agent system with new nodes. The code examples below use import paths referencing the feature-agent directory.
 >
-> The current agent system handles configuration and execution of external AI coding tools (Claude Code, Cursor currently available; Gemini CLI, Aider, Continue planned). See [AGENTS.md](../../AGENTS.md#current-implementation) for what is currently implemented.
+> See [AGENTS.md](../../AGENTS.md#current-implementation) for the full current implementation details.
 
 ---
 
@@ -14,9 +14,9 @@
 
 ---
 
-## Planned Architecture (Not Yet Implemented)
+## Extending the Agent System
 
-Guide to extending Shep's planned LangGraph-based agent system with new nodes.
+Guide to extending Shep's LangGraph-based agent system with new nodes.
 
 ## Overview
 
@@ -220,7 +220,7 @@ Follow Red-Green-Refactor:
 // tests/unit/agents/nodes/my-node.node.test.ts
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { myNode } from '@/infrastructure/agents/langgraph/nodes/my-node.node';
+import { myNode } from '@/infrastructure/services/agents/feature-agent/nodes/my-node.node';
 
 describe('myNode', () => {
   beforeEach(() => {
@@ -286,7 +286,7 @@ describe('myNode', () => {
 // tests/integration/agents/graphs/feature.graph.test.ts
 
 import { describe, it, expect } from 'vitest';
-import { createFeatureGraph } from '@/infrastructure/agents/langgraph/graphs/feature.graph';
+import { createFeatureGraph } from '@/infrastructure/services/agents/feature-agent/graphs/feature.graph';
 
 describe('FeatureGraph with myNode', () => {
   it('should execute myNode in correct order', async () => {
@@ -451,24 +451,21 @@ export async function parallelNode(state: FeatureStateType) {
 ## File Organization
 
 ```
-src/infrastructure/agents/langgraph/
+src/infrastructure/services/agents/feature-agent/
 ├── state.ts                    # State schema (modify for new fields)
 ├── nodes/
-│   ├── index.ts               # Export all nodes
+│   ├── node-helpers.ts         # Shared node utilities
 │   ├── analyze.node.ts
 │   ├── requirements.node.ts
+│   ├── research.node.ts
 │   ├── plan.node.ts
 │   ├── implement.node.ts
+│   ├── schemas/                # Validation schemas for nodes
 │   └── my-node.node.ts        # NEW: Your node
-├── graphs/
-│   ├── feature.graph.ts       # Main workflow graph
-│   └── supervisor.graph.ts    # Multi-agent graph
-└── tools/
-    ├── index.ts               # Export all tools
-    ├── context-query.tool.ts
-    ├── file-system.tool.ts
-    ├── code-exec.tool.ts
-    └── my-tool.tool.ts        # NEW: Your tool
+├── feature-agent-graph.ts      # Graph factory (wires nodes)
+├── feature-agent-process.service.ts # Background process management
+├── feature-agent-worker.ts     # Detached worker entry point
+└── heartbeat.ts                # Node heartbeat reporting
 ```
 
 ## Checklist

@@ -30,7 +30,7 @@ The Repository Pattern abstracts data access, providing a collection-like interf
 
 ## Repository Interfaces
 
-Defined in `src/application/ports/output/`:
+Defined in `packages/core/src/application/ports/output/`:
 
 ### IFeatureRepository
 
@@ -197,7 +197,7 @@ CREATE INDEX idx_features_repo_path ON features(repo_path);
 Mappers translate between domain entities and persistence format:
 
 ```typescript
-// src/infrastructure/repositories/mappers/feature.mapper.ts
+// packages/core/src/infrastructure/repositories/mappers/feature.mapper.ts
 export class FeatureMapper {
   static toDomain(row: FeatureRow): Feature {
     return new Feature(
@@ -226,7 +226,7 @@ export class FeatureMapper {
 ### Repository Implementation Example
 
 ```typescript
-// src/infrastructure/repositories/sqlite/feature.repository.ts
+// packages/core/src/infrastructure/repositories/sqlite/feature.repository.ts
 export class SqliteFeatureRepository implements IFeatureRepository {
   constructor(
     private readonly db: Database,
@@ -309,7 +309,7 @@ async function createFeatureWithPlan(
 
 ## Migrations
 
-Migrations live in `src/infrastructure/persistence/migrations/`:
+Migrations live in `packages/core/src/infrastructure/persistence/migrations/`:
 
 ```
 migrations/

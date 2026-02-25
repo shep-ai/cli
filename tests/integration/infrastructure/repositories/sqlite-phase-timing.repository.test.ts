@@ -177,6 +177,57 @@ describe('SQLitePhaseTimingRepository', () => {
     });
   });
 
+  describe('updateApprovalWait()', () => {
+    it('should update waitingApprovalAt', async () => {
+      const timing = createTestPhaseTiming();
+      await repository.save(timing);
+
+      const waitingAt = new Date('2025-01-01T00:00:30Z');
+      await repository.updateApprovalWait('timing-001', { waitingApprovalAt: waitingAt });
+
+      const row = db
+        .prepare('SELECT * FROM phase_timings WHERE id = ?')
+        .get('timing-001') as Record<string, unknown>;
+      expect(row.waiting_approval_at).toBe(waitingAt.getTime());
+      expect(row.approval_wait_ms).toBeNull();
+    });
+
+    it('should update both waitingApprovalAt and approvalWaitMs', async () => {
+      const timing = createTestPhaseTiming();
+      await repository.save(timing);
+
+      const waitingAt = new Date('2025-01-01T00:00:30Z');
+      await repository.updateApprovalWait('timing-001', {
+        waitingApprovalAt: waitingAt,
+        approvalWaitMs: BigInt(45000),
+      });
+
+      const row = db
+        .prepare('SELECT * FROM phase_timings WHERE id = ?')
+        .get('timing-001') as Record<string, unknown>;
+      expect(row.waiting_approval_at).toBe(waitingAt.getTime());
+      expect(row.approval_wait_ms).toBe(45000);
+    });
+
+    it('should return new fields via findByRunId', async () => {
+      const timing = createTestPhaseTiming();
+      await repository.save(timing);
+
+      const waitingAt = new Date('2025-01-01T00:00:30Z');
+      await repository.updateApprovalWait('timing-001', {
+        waitingApprovalAt: waitingAt,
+        approvalWaitMs: BigInt(45000),
+      });
+
+      const timings = await repository.findByRunId('run-001');
+
+      expect(timings).toHaveLength(1);
+      expect(timings[0].waitingApprovalAt).toBeInstanceOf(Date);
+      expect((timings[0].waitingApprovalAt as Date).toISOString()).toBe('2025-01-01T00:00:30.000Z');
+      expect(timings[0].approvalWaitMs).toBe(BigInt(45000));
+    });
+  });
+
   describe('findByFeatureId()', () => {
     it('should find timings via agent_runs join', async () => {
       // Create an agent run with feature reference

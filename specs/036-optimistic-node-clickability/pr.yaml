@@ -1,0 +1,9 @@
+title: 'feat: optimistic-node-clickability'
+body: |+
+  ## Summary
+
+baseBranch: main
+headBranch: feat/optimistic-node-clickability
+labels:
+  - feature
+draft: false

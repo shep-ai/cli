@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentRunEvent.yaml
+type: object
+properties:
+  type:
+    anyOf:
+      - type: string
+        const: progress
+      - type: string
+        const: result
+      - type: string
+        const: error
+    description: "Event type: progress, result, or error"
+  content:
+    type: string
+    description: Event content
+  timestamp:
+    type: string
+    format: date-time
+    description: Event timestamp
+required:
+  - type
+  - content
+  - timestamp
+description: Streaming event emitted during agent execution

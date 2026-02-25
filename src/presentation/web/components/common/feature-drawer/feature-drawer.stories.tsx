@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
+import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { FeatureDrawer } from './feature-drawer';
 import type { FeatureNodeData } from '@/components/common/feature-node';
 import type { FeatureLifecyclePhase, FeatureNodeState } from '@/components/common/feature-node';
@@ -352,4 +353,56 @@ export const DeletingState: Story = {
 /** FeatureDrawer with a running agent showing the running-agent warning in the AlertDialog. */
 export const DeleteRunningAgent: Story = {
   render: () => <DrawerTriggerWithDelete data={runningData} label="Open Running Agent Delete" />,
+};
+
+/* ---------------------------------------------------------------------------
+ * PR info stories
+ * ------------------------------------------------------------------------- */
+
+const doneWithPrData: FeatureNodeData = {
+  ...doneData,
+  pr: {
+    url: 'https://github.com/org/repo/pull/42',
+    number: 42,
+    status: PrStatus.Merged,
+    ciStatus: CiStatus.Success,
+    commitHash: 'abc1234567890def',
+  },
+};
+
+const doneWithPartialPrData: FeatureNodeData = {
+  ...doneData,
+  pr: {
+    url: 'https://github.com/org/repo/pull/99',
+    number: 99,
+    status: PrStatus.Merged,
+  },
+};
+
+/** Done feature with full PR card — number, status, CI, commit hash. */
+export const DoneWithPr: Story = {
+  render: () => <DrawerTrigger data={doneWithPrData} label="Open Done + PR" />,
+};
+
+/** Done feature with partial PR data — no CI status, no commit hash. */
+export const DoneWithPartialPr: Story = {
+  render: () => <DrawerTrigger data={doneWithPartialPrData} label="Open Done + Partial PR" />,
+};
+
+/** PR with Open status — blue badge. */
+export const PrStatusOpen: Story = {
+  render: () => (
+    <DrawerTrigger
+      data={{
+        ...doneWithPrData,
+        pr: { ...doneWithPrData.pr!, status: PrStatus.Open, ciStatus: CiStatus.Pending },
+      }}
+      label="Open PR Status: Open"
+    />
+  ),
+};
+
+/** PR with Merged status — purple badge. */
+export const PrStatusMerged: Story = {
+  render: () => <DrawerTrigger data={doneWithPrData} label="Open PR Status: Merged" />,
 };

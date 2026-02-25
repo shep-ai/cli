@@ -12,7 +12,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest';
 import type { NotificationEvent, NotificationPreferences } from '@/domain/generated/output.js';
 import { NotificationEventType, NotificationSeverity } from '@/domain/generated/output.js';
 import {
-  initializeNotificationBus,
   getNotificationBus,
   resetNotificationBus,
 } from '@/infrastructure/services/notifications/notification-bus.js';
@@ -25,6 +24,7 @@ function createTestEvent(overrides?: Partial<NotificationEvent>): NotificationEv
   return {
     eventType: NotificationEventType.AgentCompleted,
     agentRunId: 'run-123',
+    featureId: 'feat-456',
     featureName: 'Test Feature',
     message: 'Agent completed successfully',
     severity: NotificationSeverity.Success,
@@ -56,7 +56,6 @@ describe('NotificationService', () => {
   beforeEach(() => {
     resetNotificationBus();
     resetSettings();
-    initializeNotificationBus();
 
     busEvents = [];
     const bus = getNotificationBus();
@@ -133,6 +132,10 @@ describe('NotificationService', () => {
           waitingApproval: true,
           agentCompleted: false, // disabled
           agentFailed: true,
+          prMerged: true,
+          prClosed: true,
+          prChecksPassed: true,
+          prChecksFailed: true,
         },
       });
       service = new NotificationService(getNotificationBus(), desktopNotifier);
@@ -153,6 +156,10 @@ describe('NotificationService', () => {
           waitingApproval: true,
           agentCompleted: true,
           agentFailed: true,
+          prMerged: true,
+          prClosed: true,
+          prChecksPassed: true,
+          prChecksFailed: true,
         },
       });
       service = new NotificationService(getNotificationBus(), desktopNotifier);

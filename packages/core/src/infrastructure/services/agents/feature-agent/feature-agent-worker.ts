@@ -25,9 +25,10 @@ import { AgentRunStatus } from '@/domain/generated/output.js';
 import { initializeSettings } from '@/infrastructure/services/settings.service.js';
 import { InitializeSettingsUseCase } from '@/application/use-cases/settings/initialize-settings.use-case.js';
 import { setHeartbeatContext } from './heartbeat.js';
-import { setPhaseTimingContext } from './phase-timing-context.js';
+import { setPhaseTimingContext, recordLifecycleEvent } from './phase-timing-context.js';
+import { setLifecycleContext } from './lifecycle-context.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
-import { generatePrYaml } from './nodes/pr-yaml-generator.js';
+import { UpdateFeatureLifecycleUseCase } from '@/application/use-cases/features/update/update-feature-lifecycle.use-case.js';
 
 import type { ApprovalGates } from '@/domain/generated/output.js';
 
@@ -43,6 +44,7 @@ export interface WorkerArgs {
   resumeFromInterrupt?: boolean;
   push?: boolean;
   openPr?: boolean;
+  resumePayload?: string;
 }
 
 /**
@@ -81,6 +83,12 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
   const threadId =
     threadIdx !== -1 && threadIdx + 1 < args.length ? args[threadIdx + 1] : undefined;
 
+  const resumePayloadIdx = args.indexOf('--resume-payload');
+  const resumePayload =
+    resumePayloadIdx !== -1 && resumePayloadIdx + 1 < args.length
+      ? args[resumePayloadIdx + 1]
+      : undefined;
+
   return {
     featureId: getArg('feature-id'),
     runId: getArg('run-id'),
@@ -93,6 +101,7 @@ export function parseWorkerArgs(args: string[]): WorkerArgs {
     resumeFromInterrupt,
     push,
     openPr,
+    resumePayload,
   };
 }
 
@@ -161,9 +170,14 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const graphDeps: FeatureAgentGraphDeps = {
     executor,
     mergeNodeDeps: {
-      gitPrService,
-      generatePrYaml,
+      getDiffSummary: (cwd: string, baseBranch: string) =>
+        gitPrService.getPrDiffSummary(cwd, baseBranch),
+      hasRemote: (cwd: string) => gitPrService.hasRemote(cwd),
+      getDefaultBranch: (cwd: string) => gitPrService.getDefaultBranch(cwd),
+      verifyMerge: (cwd: string, featureBranch: string, baseBranch: string) =>
+        gitPrService.verifyMerge(cwd, featureBranch, baseBranch),
       featureRepository,
+      gitPrService,
     },
   };
 
@@ -195,14 +209,57 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
   const timingRepository = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
   setPhaseTimingContext(args.runId, timingRepository);
 
+  // Capture repos for SIGTERM handler
+  runRepoForSignal = runRepository;
+  timingRepoForSignal = timingRepository;
+
+  // Set lifecycle context so nodes update the feature lifecycle as they execute.
+  // Route through UpdateFeatureLifecycleUseCase so CheckAndUnblockFeaturesUseCase
+  // fires on every transition, automatically unblocking eligible blocked children.
+  const updateLifecycleUseCase = container.resolve(UpdateFeatureLifecycleUseCase);
+  setLifecycleContext(args.featureId, updateLifecycleUseCase);
+
+  // Record lifecycle event
+  await recordLifecycleEvent(args.resume ? 'run:resumed' : 'run:started');
+
   try {
     const graphConfig = { configurable: { thread_id: checkpointId } };
 
     let result: Record<string, unknown>;
     if (args.resume && args.resumeFromInterrupt) {
       // Resume from an interrupt (human-in-the-loop approval)
+      let resumeValue: unknown = { approved: true }; // default backward-compatible
+      if (args.resumePayload) {
+        try {
+          resumeValue = JSON.parse(args.resumePayload);
+          log(`Resuming with typed payload: ${args.resumePayload.slice(0, 200)}`);
+        } catch (e) {
+          log(`Warning: Failed to parse --resume-payload, using default approval: ${e}`);
+        }
+      }
+
+      // Derive state updates from the resume payload so executeNode() can
+      // read _approvalAction from state instead of from interrupt() return
+      // value (fixes the dual-interrupt stale replay bug).
+      const stateUpdate: Record<string, unknown> = {};
+      if (
+        typeof resumeValue === 'object' &&
+        resumeValue !== null &&
+        'rejected' in resumeValue &&
+        (resumeValue as Record<string, unknown>).rejected === true
+      ) {
+        stateUpdate._approvalAction = 'rejected';
+        stateUpdate._rejectionFeedback = (resumeValue as Record<string, unknown>).feedback ?? null;
+      } else {
+        stateUpdate._approvalAction = 'approved';
+        stateUpdate._rejectionFeedback = null;
+      }
+
       log('Resuming graph from interrupt checkpoint...');
-      result = await graph.invoke(new Command({ resume: { approved: true } }), graphConfig);
+      result = await graph.invoke(
+        new Command({ resume: resumeValue, update: stateUpdate }),
+        graphConfig
+      );
     } else if (args.resume) {
       // Resume from error — re-invoke with initial state; LangGraph continues
       // from the last successfully checkpointed node.
@@ -258,6 +315,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
         completedAt: failedAt,
         updatedAt: failedAt,
       });
+      await recordLifecycleEvent('run:failed');
       log(`Run marked as failed: ${result.error}`);
       return;
     }
@@ -268,6 +326,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       completedAt,
       updatedAt: completedAt,
     });
+    await recordLifecycleEvent('run:completed');
     log('Run marked as completed');
   } catch (error: unknown) {
     stopHeartbeat();
@@ -279,6 +338,7 @@ export async function runWorker(args: WorkerArgs): Promise<void> {
       completedAt: failedAt,
       updatedAt: failedAt,
     });
+    await recordLifecycleEvent('run:failed');
     log('Run marked as failed');
   }
 }
@@ -302,6 +362,7 @@ process.on('disconnect', () => {
 // Handle SIGTERM for graceful shutdown
 let runIdForSignal: string | undefined;
 let runRepoForSignal: IAgentRunRepository | undefined;
+let timingRepoForSignal: IPhaseTimingRepository | undefined;
 
 process.on('SIGTERM', async () => {
   log('Received SIGTERM, shutting down...');
@@ -312,6 +373,7 @@ process.on('SIGTERM', async () => {
       completedAt: now,
       updatedAt: now,
     });
+    await recordLifecycleEvent('run:stopped', runIdForSignal, timingRepoForSignal);
   }
   process.exit(0);
 });

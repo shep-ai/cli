@@ -1,14 +1,26 @@
 'use client';
 
+import { useState } from 'react';
 import { Handle, Position } from '@xyflow/react';
-import { Github, Plus, Code2, Terminal } from 'lucide-react';
+import { Github, Plus, Code2, Terminal, FolderOpen, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { ActionButton } from '@/components/common/action-button';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import type { RepositoryNodeData } from './repository-node-config';
 import { useRepositoryActions } from './use-repository-actions';
 
 export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: string]: unknown }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
   const actions = useRepositoryActions(
     data.repositoryPath ? { repositoryPath: data.repositoryPath } : null
   );
@@ -24,10 +36,55 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
         />
       ) : null}
 
+      {/* Delete button — visible on hover, positioned to the left */}
+      {data.onDelete && data.id ? (
+        <>
+          <div className="absolute top-1/2 -left-10 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    aria-label="Remove repository"
+                    data-testid="repository-node-delete-button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmOpen(true);
+                    }}
+                    className="bg-card text-muted-foreground hover:border-destructive hover:text-destructive flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border shadow-sm transition-colors"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>Remove repository</TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+
+          <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+            <AlertDialogContent size="sm">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Remove repository?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will remove <strong>{data.name}</strong> from your workspace. The repository
+                  files on disk won&apos;t be affected.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction variant="destructive" onClick={() => data.onDelete?.(data.id!)}>
+                  Remove
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      ) : null}
+
       <div
         role="button"
         tabIndex={0}
         data-testid="repository-node-card"
+        data-repo-name={data.name}
         onClick={(e) => {
           e.stopPropagation();
           data.onClick?.();
@@ -91,6 +148,25 @@ export function RepositoryNode({ data }: { data: RepositoryNodeData; [key: strin
                     </span>
                   </TooltipTrigger>
                   <TooltipContent>Open in Shell</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="flex items-center">
+                      <ActionButton
+                        label="Open Folder"
+                        onClick={actions.openFolder}
+                        loading={actions.folderLoading}
+                        error={!!actions.folderError}
+                        icon={FolderOpen}
+                        iconOnly
+                        variant="ghost"
+                        size="icon-xs"
+                      />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent>Open Folder</TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </>

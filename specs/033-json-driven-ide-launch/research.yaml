@@ -1,0 +1,359 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: json-driven-ide-launch
+summary: >
+  Technical analysis for replacing hard-coded IDE launcher classes with a JSON-driven service.
+  Key decisions: single JsonDrivenIdeLauncherService reading from TOOL_METADATA, IIdeLauncherService
+  port interface, LaunchIdeUseCase wrapping all IDE interactions, string-token DI registration,
+  and preserving the existing LaunchIdeResult discriminated union in the application layer.
+
+relatedFeatures: []
+
+technologies:
+  - TypeScript
+  - tsyringe (Dependency Injection)
+  - Commander.js (CLI framework)
+  - Next.js (Web API routes)
+  - Node.js spawn (process spawning without shell)
+  - Vitest (testing)
+  - os.platform() (platform detection)
+
+relatedLinks: []
+
+decisions:
+  - title: 'IDE Launcher Service Architecture'
+    chosen: 'Single JsonDrivenIdeLauncherService reading from the existing TOOL_METADATA record'
+    rejected:
+      - 'Keep individual launcher classes but generate them from JSON — adds unnecessary indirection and code generation complexity for 5 trivially identical classes'
+      - 'Strategy pattern with per-IDE strategy objects loaded from JSON — over-engineered for what is effectively a data lookup and string substitution'
+      - 'Dynamic class generation via factory at module load — opaque, hard to debug, no real benefit over a single service with a map lookup'
+    rationale: >
+      The existing 5 launcher classes are structurally identical. The only varying data
+      (binary name, display name, open command) already exists in the JSON tool metadata files loaded
+      into TOOL_METADATA. A single service class that filters by category "ide" and performs
+      {dir} substitution is the simplest correct solution, achieving zero-config extensibility.
+
+  - title: 'Port Interface Design (IIdeLauncherService)'
+    chosen: 'Two-method interface: launch(editorId, directoryPath) and checkAvailability(editorId)'
+    rejected:
+      - 'Single launch() method with baked-in availability check — violates SRP; CLI skips the check'
+      - 'Three methods adding listAvailableEditors() — YAGNI per spec resolution'
+    rationale: >
+      CLI never checks availability before launch; web route always does. The two-method
+      interface preserves this flexibility. Follows existing port patterns like IWorktreeService.
+      Return types: launch() returns Promise<LaunchIdeResult> (preserving the discriminated union),
+      checkAvailability() returns Promise<boolean>.
+
+  - title: 'LaunchIdeResult Type Location'
+    chosen: 'Move LaunchIdeResult types to the port interface file in application layer'
+    rejected:
+      - 'Keep in infrastructure launch-ide.ts — application use case cannot import from infrastructure'
+      - 'Domain layer — these are application DTOs, not domain entities'
+      - 'Separate types file — unnecessary; co-location with port is the established pattern'
+    rationale: >
+      Existing pattern co-locates result/error types with port interfaces (see WorktreeError in
+      worktree-service.interface.ts, GitPrError in git-pr-service.interface.ts). This allows both
+      use case and service implementation to share types without violating the dependency rule.
+
+  - title: 'DI Registration Pattern'
+    chosen: 'String token "IIdeLauncherService" for service, class-ref + string alias "LaunchIdeUseCase" for use case'
+    rejected:
+      - 'Symbol tokens — not used anywhere in the codebase; would be inconsistent'
+      - 'Class-ref only (no string alias for use case) — web routes cannot import class refs due to Turbopack constraints'
+    rationale: >
+      Matches established patterns exactly. Service tokens follow "IXxxService" naming
+      (e.g., "IWorktreeService", "IToolInstallerService"). Web routes use
+      resolve<T>('TokenString') from server-container.ts (see features/create/route.ts).
+
+  - title: 'Platform Binary Resolution Strategy'
+    chosen: 'Resolve at launch time via os.platform() with fallback to first value in the record'
+    rejected:
+      - 'Resolve at service construction time — inconsistent with existing tool-installer resolveBinary() pattern'
+      - 'Add a platform parameter to interface methods — leaks platform concerns into port contract'
+    rationale: >
+      The existing resolveBinary() helper in tool-installer.service.ts implements this exact
+      pattern: typeof binary === 'string' ? binary : binary[platform()] ?? Object.values(binary)[0].
+      The JSON-driven launcher should reuse this logic for consistency.
+
+  - title: 'openDirectory Placeholder Format'
+    chosen: 'String "{dir}" placeholder with runtime substitution via string.replace()'
+    rejected:
+      - 'Template literal syntax "${dir}" — could conflict with shell variable expansion'
+      - 'Regex-based placeholder like %DIR% — non-standard, less intuitive'
+      - 'Split openDirectory into separate binary and args fields — more complex schema change'
+    rationale: >
+      Spec mandates {dir}. Simple, human-readable, unambiguous. Validation ensures {dir} is present;
+      missing placeholder produces a clear error per FR-2.
+
+  - title: 'TOOL_METADATA Key to EditorType Mapping'
+    chosen: 'Direct string match — TOOL_METADATA keys (filename stems) already equal EditorType enum values'
+    rejected:
+      - 'Maintain a separate mapping table — unnecessary indirection since keys already match'
+      - 'Match on JSON name field — display strings require normalization'
+    rationale: >
+      TOOL_METADATA keys ("vscode", "cursor", etc.) already match EditorType values exactly.
+      TOOL_METADATA[editorId] works directly. This is a documented coupling assumption.
+
+  - title: 'Web Route Resolution Pattern'
+    chosen: 'Use existing resolve() from @/lib/server-container with string token'
+    rejected:
+      - 'Import container directly from @shepai/core — server-container wrapper handles Turbopack compatibility'
+      - 'Keep direct launchIde() import — the Clean Architecture violation being fixed'
+    rationale: >
+      Follows the exact pattern of features/create/route.ts which uses
+      resolve<CreateFeatureUseCase>('CreateFeatureUseCase').
+
+openQuestions:
+  - question: 'Should openDirectory support per-platform values (object format) like binary does?'
+    resolved: true
+    answer: >
+      Yes. The spec requires it for future extensibility (FR-3). The ToolMetadata interface should
+      update openDirectory to string | Record<string, string>. Currently only antigravity needs it
+      (different binaries per platform). Resolution logic mirrors binary resolution.
+
+  - question: 'How should antigravity.json openDirectory be fixed?'
+    resolved: true
+    answer: >
+      Current value "agy ." only works on macOS. Change to per-platform object:
+      { "linux": "antigravity {dir}", "darwin": "agy {dir}" }. This is consistent with how
+      the binary field already works for antigravity.
+
+  - question: 'Should {dir} validation happen at metadata load time or at launch time?'
+    resolved: true
+    answer: >
+      At launch time in the JsonDrivenIdeLauncherService. The tool-metadata.ts loader should not
+      know about IDE-specific requirements. Non-IDE tools do not have openDirectory at all.
+
+  - question: 'Should the service extract the binary from openDirectory or use the separate binary field?'
+    resolved: true
+    answer: >
+      Use the separate binary field for availability checking (which) and openDirectory for the
+      actual spawn command. After {dir} substitution, split on whitespace to get [command, ...args]
+      and pass to spawn(). This naturally supports IDEs with additional flags.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. IDE Launcher Service Architecture
+
+  **Chosen:** Single `JsonDrivenIdeLauncherService` reading from the existing `TOOL_METADATA` record
+
+  **Rejected:**
+  - Keep individual launcher classes but generate them from JSON — adds unnecessary indirection
+  - Strategy pattern with per-IDE strategy objects — over-engineered for a data lookup
+  - Dynamic class generation at module load — opaque, hard to debug
+
+  **Rationale:** The 5 existing launcher classes are structurally identical. The only varying data
+  (binary name, display name, open command) already exists in the JSON tool metadata files loaded
+  into `TOOL_METADATA`. A single service class that filters by `category: "ide"` and performs
+  `{dir}` substitution is the simplest correct solution, achieving zero-config extensibility.
+
+  ### 2. Port Interface Design (IIdeLauncherService)
+
+  **Chosen:** Two-method interface: `launch(editorId, directoryPath)` and `checkAvailability(editorId)`
+
+  **Rejected:**
+  - Single `launch()` with baked-in availability check — violates SRP; CLI skips the check
+  - Three methods adding `listAvailableEditors()` — YAGNI per spec resolution
+
+  **Rationale:** CLI never checks availability before launch; web route always does. The two-method
+  interface preserves this flexibility. Follows existing port patterns: `IWorktreeService`, etc.
+
+  ### 3. LaunchIdeResult Type Location
+
+  **Chosen:** Move `LaunchIdeResult` types to the port interface file in the application layer
+
+  **Rejected:**
+  - Keep in infrastructure `launch-ide.ts` — application use case cannot import from infrastructure
+  - Domain layer — these are application DTOs, not domain entities
+  - Separate types file — unnecessary; co-location with port is the established pattern
+
+  **Rationale:** Existing pattern co-locates result/error types with port interfaces (see
+  `WorktreeError` in `worktree-service.interface.ts`). This allows both use case and service
+  implementation to share types without violating the dependency rule.
+
+  ### 4. DI Registration Pattern
+
+  **Chosen:** String token `"IIdeLauncherService"` for service, class-ref + string alias `"LaunchIdeUseCase"` for use case
+
+  **Rejected:**
+  - Symbol tokens — not used in codebase
+  - Class-ref only — web routes need string tokens due to Turbopack constraints
+
+  **Rationale:** Matches established patterns exactly. Web routes use `resolve<T>('TokenString')` from
+  `server-container.ts` (see `features/create/route.ts`).
+
+  ### 5. Platform Binary Resolution
+
+  **Chosen:** Resolve at launch time via `os.platform()` with fallback to first record value
+
+  **Rejected:**
+  - Resolve at construction time — inconsistent with existing `resolveBinary()` pattern
+  - Platform parameter on interface — leaks platform concerns into port contract
+
+  **Rationale:** Mirrors the existing `resolveBinary()` in `tool-installer.service.ts`. The fallback
+  to `Object.values(binary)[0]` handles unknown platforms gracefully.
+
+  ### 6. openDirectory Placeholder Format
+
+  **Chosen:** `{dir}` placeholder with `string.replace()` at runtime
+
+  **Rejected:**
+  - `${dir}` — conflicts with shell variable expansion
+  - `%DIR%` — non-standard
+  - Separate binary + args fields — more complex, breaks natural command format
+
+  **Rationale:** Spec mandates `{dir}`. Simple, human-readable, unambiguous. Validation ensures
+  `{dir}` is present; missing placeholder produces a clear error per FR-2.
+
+  ### 7. TOOL_METADATA Key to EditorType Mapping
+
+  **Chosen:** Direct string match — keys already equal EditorType enum values
+
+  **Rejected:**
+  - Separate mapping table — unnecessary indirection
+  - Match on JSON `name` field — display strings require normalization
+
+  **Rationale:** TOOL_METADATA keys (`"vscode"`, `"cursor"`, etc.) already match EditorType values
+  exactly. `TOOL_METADATA[editorId]` works directly.
+
+  ### 8. Web Route Resolution Pattern
+
+  **Chosen:** Use existing `resolve()` from `@/lib/server-container` with string token
+
+  **Rejected:**
+  - Import container directly — server-container wrapper handles Turbopack compatibility
+  - Keep direct `launchIde()` import — the Clean Architecture violation we are fixing
+
+  **Rationale:** Follows the exact pattern of `features/create/route.ts`:
+  `resolve<LaunchIdeUseCase>('LaunchIdeUseCase')`.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `tsyringe` | DI container | Use (existing) | Already used for all service/use-case registration |
+  | `Node.js spawn` | Process spawning | Use (existing) | spawn() for detached IDE launch (no shell invocation) |
+  | `os.platform()` | Platform detection | Use (existing) | Already used by tool-installer for binary resolution |
+  | `Vitest` | Testing | Use (existing) | Project standard test framework |
+
+  No new libraries are needed. This feature is purely a refactoring using existing infrastructure.
+
+  ## Security Considerations
+
+  - **Command injection prevention:** The openDirectory string is split on whitespace and passed
+    to `spawn()` (not `exec()`). Since `spawn()` does NOT invoke a shell, arguments cannot be subject
+    to shell injection. Directory paths with spaces are handled correctly as a single array element.
+
+  - **Path traversal:** The web route already validates `repositoryPath` via `validateToolbarInput()`
+    (must be absolute, no `..` traversal, no null bytes). No additional validation needed.
+
+  - **JSON file integrity:** Tool metadata JSON files are loaded from the package at build/install time
+    via `readdirSync` from a hardcoded `tools/` directory. Not user-modifiable at runtime.
+
+  - **Detached process:** IDE processes spawned detached with `child.unref()`. Existing behavior, correct.
+
+  ## Performance Implications
+
+  - **No additional file I/O:** `TOOL_METADATA` is already loaded at module init time. The service reads
+    from this in-memory record. No additional I/O introduced (satisfies NFR-2).
+
+  - **Singleton improvement:** Current implementation recreates the launcher registry on every call.
+    The new DI singleton builds its internal map once at construction and reuses it.
+
+  - **String operations:** `{dir}` substitution and whitespace splitting are negligible cost.
+
+  ## Architecture Notes
+
+  ### File Layout (New/Modified)
+
+  ```
+  packages/core/src/
+  ├── application/
+  │   ├── ports/output/services/
+  │   │   ├── ide-launcher-service.interface.ts  # NEW — IIdeLauncherService + LaunchIdeResult types
+  │   │   └── index.ts                           # MODIFIED — add exports
+  │   └── use-cases/
+  │       └── ide/
+  │           └── launch-ide.use-case.ts          # NEW — LaunchIdeUseCase
+  ├── infrastructure/
+  │   ├── di/
+  │   │   └── container.ts                        # MODIFIED — register service + use case
+  │   └── services/
+  │       ├── ide-launchers/
+  │       │   ├── json-driven-ide-launcher.service.ts  # NEW
+  │       │   ├── compute-worktree-path.ts             # UNCHANGED
+  │       │   ├── vscode.launcher.ts                   # DELETE
+  │       │   ├── cursor.launcher.ts                   # DELETE
+  │       │   ├── windsurf.launcher.ts                 # DELETE
+  │       │   ├── zed.launcher.ts                      # DELETE
+  │       │   ├── antigravity.launcher.ts              # DELETE
+  │       │   ├── ide-launcher.interface.ts            # DELETE
+  │       │   ├── ide-launcher.registry.ts             # DELETE
+  │       │   └── launch-ide.ts                        # DELETE
+  │       └── tool-installer/tools/
+  │           ├── vscode.json                          # MODIFIED — "code ." → "code {dir}"
+  │           ├── cursor.json                          # MODIFIED — "cursor ." → "cursor {dir}"
+  │           ├── windsurf.json                        # MODIFIED — "windsurf ." → "windsurf {dir}"
+  │           ├── zed.json                             # MODIFIED — "zed ." → "zed {dir}"
+  │           └── antigravity.json                     # MODIFIED — per-platform openDirectory
+  src/
+  └── presentation/
+      ├── cli/commands/
+      │   └── ide-open.command.ts                      # MODIFIED — use LaunchIdeUseCase
+      └── web/app/api/ide/open/
+          └── route.ts                                 # MODIFIED — use resolve<LaunchIdeUseCase>
+  ```
+
+  ### Data Flow (After Refactoring)
+
+  ```
+  CLI: shep ide <feat-id> [--cursor]
+    └─ resolveEditorId() → EditorType (unchanged)
+    └─ container.resolve(LaunchIdeUseCase)
+    └─ useCase.execute({ editorId, repositoryPath, branch })
+         └─ computeWorktreePath(repositoryPath, branch) → worktreePath
+         └─ IIdeLauncherService.launch(editorId, worktreePath)
+              └─ TOOL_METADATA[editorId] → ToolMetadata
+              └─ resolvePlatformValue(metadata.openDirectory) → "code {dir}"
+              └─ replace("{dir}", worktreePath) → "code /path/to/wt"
+              └─ split on whitespace → ["code", "/path/to/wt"]
+              └─ spawn("code", ["/path/to/wt"], { detached, stdio: ignore }) + unref()
+              └─ return { ok: true, editorName, worktreePath }
+
+  Web: POST /api/ide/open
+    └─ validateToolbarInput(body) (unchanged)
+    └─ resolve<LaunchIdeUseCase>('LaunchIdeUseCase')
+    └─ useCase.execute({ editorId, repositoryPath, branch, checkAvailability: true })
+         └─ IIdeLauncherService.checkAvailability(editorId) → boolean
+         └─ IIdeLauncherService.launch(editorId, worktreePath) → LaunchIdeResult
+  ```
+
+  ### Key Coupling: TOOL_METADATA Keys = EditorType Values
+
+  | JSON File | TOOL_METADATA Key | EditorType Value |
+  | --------- | ----------------- | ---------------- |
+  | vscode.json | "vscode" | EditorType.VsCode = "vscode" |
+  | cursor.json | "cursor" | EditorType.Cursor = "cursor" |
+  | windsurf.json | "windsurf" | EditorType.Windsurf = "windsurf" |
+  | zed.json | "zed" | EditorType.Zed = "zed" |
+  | antigravity.json | "antigravity" | EditorType.Antigravity = "antigravity" |
+
+  ### antigravity.json openDirectory Fix
+
+  Current: `"openDirectory": "agy ."` (macOS-only binary)
+
+  Fixed:
+  ```json
+  "openDirectory": {
+    "linux": "antigravity {dir}",
+    "darwin": "agy {dir}"
+  }
+  ```
+
+  Requires `ToolMetadata.openDirectory` type change from `string` to `string | Record<string, string>`.
+
+  ---
+
+  _Research completed — ready for planning phase_

@@ -2,7 +2,8 @@
   "name": "Claude Code",
   "summary": "AI-powered code assistant from Anthropic",
   "description": "Claude Code is an AI-powered code assistant from Anthropic that helps you write, understand, and debug code with advanced AI capabilities.",
-  "category": "cli-agent",
+  "tags": ["ide", "cli-agent"],
+  "iconUrl": "https://cdn.simpleicons.org/claude",
   "binary": "claude",
   "packageManager": "curl",
   "commands": {
@@ -12,5 +13,15 @@
   "timeout": 300000,
   "documentationUrl": "https://code.claude.com/docs/en/overview",
   "verifyCommand": "claude --version",
-  "autoInstall": true
+  "autoInstall": true,
+  "openDirectory": "cd {dir} && exec claude",
+  "spawnOptions": {
+    "shell": true,
+    "stdio": "inherit",
+    "detached": false
+  },
+  "terminalCommand": {
+    "linux": "x-terminal-emulator -e bash -c 'cd {dir} && exec claude'",
+    "darwin": "open -a Terminal.app bash -c 'cd {dir} && exec claude'"
+  }
 }

@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AskResponse.yaml
+type: object
+properties:
+  content:
+    type: string
+    description: The AI-generated response content (typically Markdown-formatted)
+  success:
+    type: boolean
+    description: Whether the operation completed successfully
+required:
+  - content
+  - success
+description: Response model for conversational AI interactions

@@ -7,12 +7,20 @@
  * Usage: shep feat show <id>
  */
 
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { Command } from 'commander';
+import yaml from 'js-yaml';
 import { container } from '@/infrastructure/di/container.js';
 import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
-import type { Feature, AgentRun } from '@/domain/generated/output.js';
+import type {
+  Feature,
+  AgentRun,
+  PhaseTiming,
+  RejectionFeedbackEntry,
+} from '@/domain/generated/output.js';
 import { colors, symbols, messages, renderDetailView } from '../../ui/index.js';
 import { computeWorktreePath } from '@/infrastructure/services/ide-launchers/compute-worktree-path.js';
 
@@ -26,15 +34,30 @@ const NODE_TO_PHASE: Record<string, string> = {
   merge: 'Merging',
 };
 
-/** Map graph node names to approval action labels. */
-const NODE_TO_APPROVE: Record<string, string> = {
-  analyze: 'Approve Analysis',
-  requirements: 'Approve PRD',
-  research: 'Approve Research',
-  plan: 'Approve Plan',
-  implement: 'Approve Implementation',
-  merge: 'Approve Merge',
+/** Map graph node names to review action labels. */
+const NODE_TO_REVIEW: Record<string, string> = {
+  analyze: 'Review Analysis',
+  requirements: 'Review Requirements',
+  research: 'Review Research',
+  plan: 'Review Plan',
+  implement: 'Review Merge',
+  merge: 'Review Merge',
 };
+
+/** Map lifecycle event phases to display labels and symbols. */
+const LIFECYCLE_EVENTS: Record<string, { label: string; color: (s: string) => string }> = {
+  'run:started': { label: 'started', color: colors.info },
+  'run:resumed': { label: 'resumed', color: colors.info },
+  'run:completed': { label: 'completed', color: colors.success },
+  'run:failed': { label: 'failed', color: colors.error },
+  'run:stopped': { label: 'stopped', color: colors.warning },
+  'run:crashed': { label: 'crashed', color: colors.error },
+};
+
+/** Check if a phase is a lifecycle event (run:*). */
+function isLifecycleEvent(phase: string): boolean {
+  return phase.startsWith('run:');
+}
 
 function formatStatus(feature: Feature, run: AgentRun | null): string {
   if (!run) {
@@ -55,8 +78,8 @@ function formatStatus(feature: Feature, run: AgentRun | null): string {
     return `${colors.success(symbols.success)} ${colors.success('Completed')}`;
   if (run.status === 'failed') return `${colors.error(symbols.error)} ${colors.error('Failed')}`;
   if (run.status === 'waiting_approval') {
-    const action = nodeName ? (NODE_TO_APPROVE[nodeName] ?? phase) : phase;
-    return `${colors.warning(symbols.warning)} ${colors.warning(action)}`;
+    const action = nodeName ? (NODE_TO_REVIEW[nodeName] ?? phase) : phase;
+    return `${colors.brand(symbols.pointer)} ${colors.brand(action)}`;
   }
   if (run.status === 'interrupted')
     return `${colors.error(symbols.error)} ${colors.error('Interrupted')}`;
@@ -69,6 +92,18 @@ function formatLifecycle(lifecycle: string): string {
   return colors.info(lifecycle);
 }
 
+function formatDuration(ms: number): string {
+  const secs = ms / 1000;
+  const totalSecs = Math.round(secs);
+  const mins = Math.floor(totalSecs / 60);
+  const remSecs = totalSecs % 60;
+  const secsStr = secs.toFixed(1);
+  if (mins > 0) {
+    return `${secsStr}s (${mins}m ${remSecs}s)`;
+  }
+  return `${secsStr}s`;
+}
+
 function isProcessAlive(pid: number): boolean {
   try {
     process.kill(pid, 0);
@@ -76,6 +111,296 @@ function isProcessAlive(pid: number): boolean {
   } catch {
     return false;
   }
+}
+
+/**
+ * Load rejection feedback entries from spec.yaml (best-effort).
+ */
+function loadRejectionFeedback(specPath: string | undefined | null): RejectionFeedbackEntry[] {
+  if (!specPath) return [];
+  try {
+    const content = readFileSync(join(specPath, 'spec.yaml'), 'utf-8');
+    const spec = yaml.load(content) as Record<string, unknown>;
+    return Array.isArray(spec?.rejectionFeedback)
+      ? (spec.rejectionFeedback as RejectionFeedbackEntry[])
+      : [];
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Group timings by agentRunId, preserving order.
+ */
+function groupTimingsByRun(timings: PhaseTiming[]): { runId: string; timings: PhaseTiming[] }[] {
+  const groups: { runId: string; timings: PhaseTiming[] }[] = [];
+  let current: { runId: string; timings: PhaseTiming[] } | null = null;
+
+  for (const t of timings) {
+    // eslint-disable-next-line @typescript-eslint/prefer-optional-chain
+    if (!current || current.runId !== t.agentRunId) {
+      current = { runId: t.agentRunId, timings: [] };
+      groups.push(current);
+    }
+    current.timings.push(t);
+  }
+  return groups;
+}
+
+/**
+ * Render a single timing entry (node phase, not lifecycle event).
+ */
+function renderNodeTiming(
+  t: PhaseTiming,
+  isLast: boolean,
+  isWaiting: boolean,
+  isRunTerminal: boolean,
+  run: AgentRun | null,
+  maxDurationMs: number,
+  maxBar: number,
+  rejectionMessage?: string
+): string[] {
+  const lines: string[] = [];
+  const isSubPhase = t.phase.includes(':');
+  const label = isSubPhase
+    ? `  \u21b3 rev ${t.phase.split(':')[1]}`.padEnd(16)
+    : (NODE_TO_PHASE[t.phase] ?? t.phase).padEnd(16);
+
+  // Completed phase - green bar with duration
+  if (t.completedAt && t.durationMs != null) {
+    const ms = Number(t.durationMs);
+    const secs = (ms / 1000).toFixed(1);
+    const barLen =
+      maxDurationMs > 0
+        ? Math.min(maxBar, Math.max(1, Math.round((ms / maxDurationMs) * maxBar)))
+        : 1;
+    const bar = `${colors.success('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(maxBar - barLen))}`;
+    lines.push(`${label} ${bar} ${secs}s`);
+  }
+  // Waiting for approval - only the LAST timing
+  else if (isLast && isWaiting) {
+    lines.push(`${label} ${colors.warning('awaiting review')}`);
+  }
+  // Crashed/stopped phase - red bar with frozen duration
+  else if (isRunTerminal) {
+    const endTime = run?.updatedAt
+      ? new Date(run.updatedAt as string | number).getTime()
+      : Date.now();
+    const elapsedMs = Math.max(0, endTime - new Date(t.startedAt).getTime());
+    const secs = (elapsedMs / 1000).toFixed(1);
+    const barLen =
+      maxDurationMs > 0
+        ? Math.min(maxBar, Math.max(1, Math.round((elapsedMs / maxDurationMs) * maxBar)))
+        : 1;
+    const bar = `${colors.error('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(maxBar - barLen))}`;
+    lines.push(`${label} ${bar} ${secs}s (crashed)`);
+  }
+  // Running phase - blue bar with elapsed time
+  else {
+    const elapsedMs = Math.max(0, Date.now() - new Date(t.startedAt).getTime());
+    const secs = (elapsedMs / 1000).toFixed(1);
+    const barLen =
+      maxDurationMs > 0
+        ? Math.min(maxBar, Math.max(1, Math.round((elapsedMs / maxDurationMs) * maxBar)))
+        : 1;
+    const bar = `${colors.info('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(maxBar - barLen))}`;
+    lines.push(`${label} ${bar} ${secs}s (running)`);
+  }
+
+  // Show approval wait time under gated phases
+  if (t.approvalWaitMs != null && Number(t.approvalWaitMs) > 0) {
+    const waitMs = Number(t.approvalWaitMs);
+    const waitSecs = (waitMs / 1000).toFixed(1);
+    const waitLabel = '  \u21b3 approval'.padEnd(16);
+    const waitBarLen =
+      maxDurationMs > 0
+        ? Math.min(maxBar, Math.max(1, Math.round((waitMs / maxDurationMs) * maxBar)))
+        : 1;
+    const waitBar = `${colors.warning('\u2588'.repeat(waitBarLen))}${colors.muted('\u2591'.repeat(maxBar - waitBarLen))}`;
+    lines.push(`${waitLabel} ${waitBar} ${waitSecs}s`);
+  } else if (isLast && isWaiting && t.waitingApprovalAt) {
+    const waitStart =
+      t.waitingApprovalAt instanceof Date
+        ? t.waitingApprovalAt.getTime()
+        : Number(t.waitingApprovalAt);
+    const waitElapsedMs = Math.max(0, Date.now() - waitStart);
+    const waitSecs = (waitElapsedMs / 1000).toFixed(1);
+    const waitLabel = '  \u21b3 approval'.padEnd(16);
+    const waitBarLen =
+      maxDurationMs > 0
+        ? Math.min(maxBar, Math.max(1, Math.round((waitElapsedMs / maxDurationMs) * maxBar)))
+        : 1;
+    const waitBar = `${colors.warning('\u2588'.repeat(waitBarLen))}${colors.muted('\u2591'.repeat(maxBar - waitBarLen))}`;
+    lines.push(`${waitLabel} ${waitBar} ${waitSecs}s (waiting)`);
+  }
+
+  // Show rejection feedback after approval wait (if this phase was rejected)
+  if (rejectionMessage) {
+    const maxLen = 60;
+    const msg =
+      rejectionMessage.length > maxLen
+        ? `${rejectionMessage.slice(0, maxLen)}\u2026`
+        : rejectionMessage;
+    lines.push(`  ${colors.error(`\u21a9 rejected: "${msg}"`)}`);
+  }
+
+  return lines;
+}
+
+/**
+ * Render the full phase timing section, grouped by agent run with lifecycle events.
+ * @internal Exported for testing only.
+ */
+export function renderPhaseTimings(
+  timings: PhaseTiming[],
+  currentRun: AgentRun | null,
+  rejections: RejectionFeedbackEntry[] = []
+): string[] {
+  const groups = groupTimingsByRun(timings);
+  const multiRun = groups.length > 1;
+
+  // Compute max duration across ALL timings for consistent bar scaling
+  const nodeTimings = timings.filter((t) => !isLifecycleEvent(t.phase));
+  const maxDurationMs = Math.max(
+    ...nodeTimings.map((t) => (t.durationMs != null ? Number(t.durationMs) : 0)),
+    0
+  );
+  const MAX_BAR = 20;
+
+  const lines: string[] = [];
+
+  for (const [groupIdx, group] of groups.entries()) {
+    const isCurrentRun = group.runId === currentRun?.id;
+    const isLastGroup = groupIdx === groups.length - 1;
+
+    // Run header for multi-run display
+    if (multiRun) {
+      if (groupIdx > 0) lines.push('');
+      const runLabel = `Run #${groupIdx + 1}`;
+      // Check if this run started with a resume event
+      const firstEvent = group.timings[0];
+      const isResumed = firstEvent && firstEvent.phase === 'run:resumed';
+      const suffix = isResumed ? ' (resumed)' : '';
+      lines.push(colors.muted(`  ${runLabel}${suffix}`));
+    }
+
+    // Determine if this run is in a terminal state (for the crashed bar display)
+    const isCrashed =
+      isCurrentRun &&
+      currentRun &&
+      (currentRun.status === 'running' || currentRun.status === 'pending') &&
+      currentRun.pid != null &&
+      !isProcessAlive(currentRun.pid);
+    // For non-current runs, they are always terminal (otherwise they'd be current)
+    const isRunTerminal =
+      !isCurrentRun ||
+      isCrashed ||
+      currentRun?.status === 'interrupted' ||
+      currentRun?.status === 'failed' ||
+      currentRun?.status === 'cancelled';
+
+    const isWaiting = isCurrentRun && currentRun?.status === 'waiting_approval';
+
+    // Build a map of phase timing IDs to rejection messages.
+    // A rejection belongs to the phase timing that has approvalWaitMs set
+    // and whose base phase matches the rejection's phase field.
+    // For each node timing with approvalWaitMs, find the next rejection
+    // for that base phase (consumed in order).
+    const rejectionsByPhase = new Map<string, RejectionFeedbackEntry[]>();
+    for (const r of rejections) {
+      const key = r.phase ?? '_legacy';
+      const list = rejectionsByPhase.get(key) ?? [];
+      list.push(r);
+      rejectionsByPhase.set(key, list);
+    }
+    // Track consumption index per phase
+    const rejectionIdx = new Map<string, number>();
+
+    for (const [idx, t] of group.timings.entries()) {
+      const isLast = isLastGroup && idx === group.timings.length - 1;
+
+      // Lifecycle event - render as a marker line
+      if (isLifecycleEvent(t.phase)) {
+        const event = LIFECYCLE_EVENTS[t.phase];
+        if (event) {
+          // For resumed events without a matching rejection, show as info marker
+          // (rejections are now rendered inline after approval wait)
+          if (t.phase === 'run:resumed') {
+            // Check if this resume was preceded by a rejection that we already rendered
+            // If so, skip the resumed marker to avoid visual duplication
+            const prevIdx = idx - 1;
+            const prevTiming = prevIdx >= 0 ? group.timings[prevIdx] : null;
+            if (prevTiming && !isLifecycleEvent(prevTiming.phase)) {
+              // The rejection was already shown inline, skip this marker
+              continue;
+            }
+          }
+          const sym =
+            t.phase === 'run:completed'
+              ? symbols.success
+              : t.phase === 'run:failed' || t.phase === 'run:crashed'
+                ? symbols.error
+                : t.phase === 'run:stopped'
+                  ? symbols.warning
+                  : symbols.info;
+          lines.push(`  ${event.color(`${sym} ${event.label}`)}`);
+        }
+        continue;
+      }
+
+      // Determine if this phase timing was rejected (has approvalWaitMs and a matching rejection)
+      let rejectionMessage: string | undefined;
+      if (t.approvalWaitMs != null && Number(t.approvalWaitMs) > 0) {
+        const basePhase = t.phase.includes(':') ? t.phase.split(':')[0] : t.phase;
+        // Try phase-specific rejections first, then fall back to legacy (no phase)
+        for (const key of [basePhase, '_legacy']) {
+          const phaseRejections = rejectionsByPhase.get(key);
+          if (phaseRejections && phaseRejections.length > 0) {
+            const consumed = rejectionIdx.get(key) ?? 0;
+            if (consumed < phaseRejections.length) {
+              rejectionMessage = phaseRejections[consumed].message;
+              rejectionIdx.set(key, consumed + 1);
+              break;
+            }
+          }
+        }
+      }
+
+      // Regular node phase
+      const rendered = renderNodeTiming(
+        t,
+        isLast,
+        isWaiting ?? false,
+        isRunTerminal ?? false,
+        isCurrentRun ? currentRun : null,
+        maxDurationMs,
+        MAX_BAR,
+        rejectionMessage
+      );
+      lines.push(...rendered);
+    }
+  }
+
+  // Summary totals (across all runs, excluding lifecycle events)
+  const totalExecMs = nodeTimings.reduce(
+    (sum, t) => sum + (t.durationMs != null ? Number(t.durationMs) : 0),
+    0
+  );
+  const totalWaitMs = nodeTimings.reduce(
+    (sum, t) => sum + (t.approvalWaitMs != null ? Number(t.approvalWaitMs) : 0),
+    0
+  );
+
+  if (totalExecMs > 0) {
+    lines.push('');
+    lines.push(`${'Total execution'.padEnd(16)} ${formatDuration(totalExecMs)}`);
+    if (totalWaitMs > 0) {
+      lines.push(`${'Total wait'.padEnd(16)} ${formatDuration(totalWaitMs)}`);
+      lines.push(`${'Total wall-clock'.padEnd(16)} ${formatDuration(totalExecMs + totalWaitMs)}`);
+    }
+  }
+
+  return lines;
 }
 
 export function createShowCommand(): Command {
@@ -89,7 +414,8 @@ export function createShowCommand(): Command {
         const timingRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
         const feature = await useCase.execute(featureId);
         const run = feature.agentRunId ? await runRepo.findById(feature.agentRunId) : null;
-        const timings = feature.agentRunId ? await timingRepo.findByRunId(feature.agentRunId) : [];
+        // Fetch timings across ALL runs for the feature (not just the current run)
+        const timings = await timingRepo.findByFeatureId(feature.id);
 
         const worktreePath =
           feature.worktreePath ?? computeWorktreePath(feature.repositoryPath, feature.branch);
@@ -122,45 +448,25 @@ export function createShowCommand(): Command {
         }
 
         if (timings.length > 0) {
-          const isWaiting = run?.status === 'waiting_approval';
-          const maxDurationMs = Math.max(
-            ...timings.map((t) => (t.durationMs != null ? Number(t.durationMs) : 0))
-          );
-          const MAX_BAR = 20;
-
-          const lines = timings.map((t, idx) => {
-            const isLast = idx === timings.length - 1;
-            const isSubPhase = t.phase.includes(':');
-            const label = isSubPhase
-              ? `  \u21b3 ${t.phase.split(':')[1]}`.padEnd(16)
-              : (NODE_TO_PHASE[t.phase] ?? t.phase).padEnd(16);
-
-            // Completed phase - green bar with duration
-            if (t.completedAt && t.durationMs != null) {
-              const ms = Number(t.durationMs);
-              const secs = (ms / 1000).toFixed(1);
-              const barLen =
-                maxDurationMs > 0 ? Math.max(1, Math.round((ms / maxDurationMs) * MAX_BAR)) : 1;
-              const bar = `${colors.success('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(MAX_BAR - barLen))}`;
-              return `${label} ${bar} ${secs}s`;
-            }
-
-            // Waiting for approval - only the LAST timing
-            if (isLast && isWaiting) {
-              return `${label} ${colors.warning('awaiting review')}`;
-            }
-
-            // Running phase - blue bar with elapsed time
-            const elapsedMs = Math.max(0, Date.now() - new Date(t.startedAt).getTime());
-            const secs = (elapsedMs / 1000).toFixed(1);
-            const barLen =
-              maxDurationMs > 0
-                ? Math.min(MAX_BAR, Math.max(1, Math.round((elapsedMs / maxDurationMs) * MAX_BAR)))
-                : 1;
-            const bar = `${colors.info('\u2588'.repeat(barLen))}${colors.muted('\u2591'.repeat(MAX_BAR - barLen))}`;
-            return `${label} ${bar} ${secs}s (running)`;
-          });
+          const rejections = loadRejectionFeedback(feature.specPath);
+          const lines = renderPhaseTimings(timings, run, rejections);
           textBlocks.push({ title: 'Phase Timing', content: lines.join('\n') });
+        }
+
+        if (feature.pr?.ciFixHistory && feature.pr.ciFixHistory.length > 0) {
+          const fixLines = feature.pr.ciFixHistory.map((r) => {
+            const outcomeColor =
+              r.outcome === 'fixed'
+                ? colors.success
+                : r.outcome === 'timeout'
+                  ? colors.warning
+                  : colors.error;
+            return `  #${r.attempt}  ${outcomeColor(r.outcome)}  ${colors.muted(r.startedAt)}  ${r.failureSummary.slice(0, 60)}`;
+          });
+          textBlocks.push({
+            title: 'CI Fix History',
+            content: fixLines.join('\n'),
+          });
         }
 
         if (run?.status === 'waiting_approval') {
@@ -172,8 +478,8 @@ export function createShowCommand(): Command {
             content: [
               `${phase} is waiting for your review.`,
               '',
-              `  ${colors.accent('shep feat approve')}  Resume the agent`,
-              `  ${colors.accent('shep feat reject')}   Cancel with feedback`,
+              `  ${colors.accent(`shep feat approve ${feature.id.slice(0, 8)}`)}  Resume the agent`,
+              `  ${colors.accent(`shep feat reject ${feature.id.slice(0, 8)}`)}   Cancel with feedback`,
             ].join('\n'),
           });
         }
@@ -186,6 +492,7 @@ export function createShowCommand(): Command {
                 { label: 'ID', value: feature.id },
                 { label: 'Slug', value: feature.slug },
                 { label: 'Description', value: feature.description },
+                { label: 'User Query', value: feature.userQuery },
                 { label: 'Repository', value: feature.repositoryPath },
                 { label: 'Branch', value: colors.accent(feature.branch) },
                 { label: 'Status', value: formatStatus(feature, run) },
@@ -251,6 +558,13 @@ export function createShowCommand(): Command {
                               ? colors.error(`${feature.pr.ciStatus} \u2717`)
                               : colors.warning(feature.pr.ciStatus)
                           : null,
+                      },
+                      {
+                        label: 'CI Fixes',
+                        value:
+                          feature.pr.ciFixAttempts && feature.pr.ciFixAttempts > 0
+                            ? `${feature.pr.ciFixAttempts} attempt(s)`
+                            : null,
                       },
                     ],
                   },

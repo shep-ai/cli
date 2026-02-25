@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: QuestionSelectionChange.yaml
+type: object
+properties:
+  questionId:
+    type: string
+    description: ID of the open question being changed (the question text)
+  selectedOption:
+    type: string
+    description: The option text that the user selected
+required:
+  - questionId
+  - selectedOption
+description: Change to a question's selected option during PRD review

@@ -20,6 +20,8 @@ import type { ISettingsRepository } from '../../application/ports/output/reposit
 import { SQLiteSettingsRepository } from '../repositories/sqlite-settings.repository.js';
 import type { IFeatureRepository } from '../../application/ports/output/repositories/feature-repository.interface.js';
 import { SQLiteFeatureRepository } from '../repositories/sqlite-feature.repository.js';
+import type { IRepositoryRepository } from '../../application/ports/output/repositories/repository-repository.interface.js';
+import { SQLiteRepositoryRepository } from '../repositories/sqlite-repository.repository.js';
 
 // Validator interfaces and implementations
 import type { IAgentValidator } from '../../application/ports/output/agents/agent-validator.interface.js';
@@ -38,10 +40,15 @@ import type { IToolInstallerService } from '../../application/ports/output/servi
 import { ToolInstallerServiceImpl } from '../services/tool-installer/tool-installer.service.js';
 import type { IGitPrService } from '../../application/ports/output/services/git-pr-service.interface.js';
 import { GitPrService } from '../services/git/git-pr.service.js';
+import type { IIdeLauncherService } from '../../application/ports/output/services/ide-launcher-service.interface.js';
+import { JsonDrivenIdeLauncherService } from '../services/ide-launchers/json-driven-ide-launcher.service.js';
+import type { IDaemonService } from '../../application/ports/output/services/daemon-service.interface.js';
+import { DaemonPidService } from '../services/daemon/daemon-pid.service.js';
 
 // Agent infrastructure interfaces and implementations
 import type { IAgentExecutorFactory } from '../../application/ports/output/agents/agent-executor-factory.interface.js';
 import type { IAgentExecutorProvider } from '../../application/ports/output/agents/agent-executor-provider.interface.js';
+import type { IStructuredAgentCaller } from '../../application/ports/output/agents/structured-agent-caller.interface.js';
 import type { IAgentRegistry } from '../../application/ports/output/agents/agent-registry.interface.js';
 import type { IAgentRunner } from '../../application/ports/output/agents/agent-runner.interface.js';
 import type { IAgentRunRepository } from '../../application/ports/output/agents/agent-run-repository.interface.js';
@@ -51,6 +58,7 @@ import type { ISpecInitializerService } from '../../application/ports/output/ser
 import type { INotificationService } from '../../application/ports/output/services/notification-service.interface.js';
 import { AgentExecutorFactory } from '../services/agents/common/agent-executor-factory.service.js';
 import { AgentExecutorProvider } from '../services/agents/common/agent-executor-provider.service.js';
+import { StructuredAgentCallerService } from '../services/agents/common/structured-agent-caller.service.js';
 import { MockAgentExecutorFactory } from '../services/agents/common/executors/mock-executor-factory.service.js';
 import { AgentRegistryService } from '../services/agents/common/agent-registry.service.js';
 import { AgentRunnerService } from '../services/agents/common/agent-runner.service.js';
@@ -60,10 +68,7 @@ import { FeatureAgentProcessService } from '../services/agents/feature-agent/fea
 import { SpecInitializerService } from '../services/spec/spec-initializer.service.js';
 import { DesktopNotifier } from '../services/notifications/desktop-notifier.js';
 import { NotificationService } from '../services/notifications/notification.service.js';
-import {
-  initializeNotificationBus,
-  getNotificationBus,
-} from '../services/notifications/notification-bus.js';
+import { getNotificationBus } from '../services/notifications/notification-bus.js';
 import { createCheckpointer } from '../services/agents/common/checkpointer.js';
 import type { BaseCheckpointSaver } from '@langchain/langgraph';
 import { spawn } from 'node:child_process';
@@ -72,6 +77,7 @@ import { spawn } from 'node:child_process';
 import { InitializeSettingsUseCase } from '../../application/use-cases/settings/initialize-settings.use-case.js';
 import { LoadSettingsUseCase } from '../../application/use-cases/settings/load-settings.use-case.js';
 import { UpdateSettingsUseCase } from '../../application/use-cases/settings/update-settings.use-case.js';
+import { CompleteOnboardingUseCase } from '../../application/use-cases/settings/complete-onboarding.use-case.js';
 import { ConfigureAgentUseCase } from '../../application/use-cases/agents/configure-agent.use-case.js';
 import { ValidateAgentAuthUseCase } from '../../application/use-cases/agents/validate-agent-auth.use-case.js';
 import { RunAgentUseCase } from '../../application/use-cases/agents/run-agent.use-case.js';
@@ -81,6 +87,7 @@ import { StopAgentRunUseCase } from '../../application/use-cases/agents/stop-age
 import { DeleteAgentRunUseCase } from '../../application/use-cases/agents/delete-agent-run.use-case.js';
 import { ApproveAgentRunUseCase } from '../../application/use-cases/agents/approve-agent-run.use-case.js';
 import { RejectAgentRunUseCase } from '../../application/use-cases/agents/reject-agent-run.use-case.js';
+import { ReviewFeatureUseCase } from '../../application/use-cases/agents/review-feature.use-case.js';
 import { CreateFeatureUseCase } from '../../application/use-cases/features/create/create-feature.use-case.js';
 import { MetadataGenerator } from '../../application/use-cases/features/create/metadata-generator.js';
 import { SlugResolver } from '../../application/use-cases/features/create/slug-resolver.js';
@@ -88,8 +95,27 @@ import { ListFeaturesUseCase } from '../../application/use-cases/features/list-f
 import { ShowFeatureUseCase } from '../../application/use-cases/features/show-feature.use-case.js';
 import { DeleteFeatureUseCase } from '../../application/use-cases/features/delete-feature.use-case.js';
 import { ResumeFeatureUseCase } from '../../application/use-cases/features/resume-feature.use-case.js';
+import { GetFeatureArtifactUseCase } from '../../application/use-cases/features/get-feature-artifact.use-case.js';
+import { GetResearchArtifactUseCase } from '../../application/use-cases/features/get-research-artifact.use-case.js';
+import { GetPlanArtifactUseCase } from '../../application/use-cases/features/get-plan-artifact.use-case.js';
 import { ValidateToolAvailabilityUseCase } from '../../application/use-cases/tools/validate-tool-availability.use-case.js';
 import { InstallToolUseCase } from '../../application/use-cases/tools/install-tool.use-case.js';
+import { ListToolsUseCase } from '../../application/use-cases/tools/list-tools.use-case.js';
+import { LaunchToolUseCase } from '../../application/use-cases/tools/launch-tool.use-case.js';
+import { LaunchIdeUseCase } from '../../application/use-cases/ide/launch-ide.use-case.js';
+import { AddRepositoryUseCase } from '../../application/use-cases/repositories/add-repository.use-case.js';
+import { ListRepositoriesUseCase } from '../../application/use-cases/repositories/list-repositories.use-case.js';
+import { DeleteRepositoryUseCase } from '../../application/use-cases/repositories/delete-repository.use-case.js';
+import { CheckAndUnblockFeaturesUseCase } from '../../application/use-cases/features/check-and-unblock-features.use-case.js';
+import { UpdateFeatureLifecycleUseCase } from '../../application/use-cases/features/update/update-feature-lifecycle.use-case.js';
+
+// Session listing
+import { ClaudeCodeSessionRepository } from '../services/agents/sessions/claude-code-session.repository.js';
+import { StubSessionRepository } from '../services/agents/sessions/stub-session.repository.js';
+import { AgentSessionRepositoryRegistry } from '../../application/services/agents/agent-session-repository.registry.js';
+import { ListAgentSessionsUseCase } from '../../application/use-cases/agents/list-agent-sessions.use-case.js';
+import { GetAgentSessionUseCase } from '../../application/use-cases/agents/get-agent-session.use-case.js';
+import { AgentType } from '../../domain/generated/output.js';
 
 // Database connection
 import { getSQLiteConnection } from '../persistence/sqlite/connection.js';
@@ -133,6 +159,13 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
 
+  container.register<IRepositoryRepository>('IRepositoryRepository', {
+    useFactory: (c) => {
+      const database = c.resolve<Database.Database>('Database');
+      return new SQLiteRepositoryRepository(database);
+    },
+  });
+
   // Register external dependencies as tokens
   const execFileAsync = promisify(execFile);
   container.registerInstance('ExecFunction', execFileAsync);
@@ -149,6 +182,11 @@ export async function initializeContainer(): Promise<typeof container> {
     ToolInstallerServiceImpl
   );
   container.registerSingleton<IGitPrService>('IGitPrService', GitPrService);
+  container.registerSingleton<IIdeLauncherService>(
+    'IIdeLauncherService',
+    JsonDrivenIdeLauncherService
+  );
+  container.registerSingleton<IDaemonService>('IDaemonService', DaemonPidService);
 
   // Register agent infrastructure
   container.register<IAgentRunRepository>('IAgentRunRepository', {
@@ -188,6 +226,13 @@ export async function initializeContainer(): Promise<typeof container> {
     },
   });
 
+  container.register<IStructuredAgentCaller>('IStructuredAgentCaller', {
+    useFactory: (c) => {
+      const provider = c.resolve<IAgentExecutorProvider>('IAgentExecutorProvider');
+      return new StructuredAgentCallerService(provider);
+    },
+  });
+
   container.register<IAgentRegistry>('IAgentRegistry', {
     useFactory: () => new AgentRegistryService(),
   });
@@ -218,7 +263,6 @@ export async function initializeContainer(): Promise<typeof container> {
   });
 
   // Register notification services
-  initializeNotificationBus();
   const notificationBus = getNotificationBus();
 
   container.registerInstance('NotificationEventBus', notificationBus);
@@ -239,6 +283,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(InitializeSettingsUseCase);
   container.registerSingleton(LoadSettingsUseCase);
   container.registerSingleton(UpdateSettingsUseCase);
+  container.registerSingleton(CompleteOnboardingUseCase);
   container.registerSingleton(ConfigureAgentUseCase);
   container.registerSingleton(ValidateAgentAuthUseCase);
   container.registerSingleton(RunAgentUseCase);
@@ -248,6 +293,7 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(DeleteAgentRunUseCase);
   container.registerSingleton(ApproveAgentRunUseCase);
   container.registerSingleton(RejectAgentRunUseCase);
+  container.registerSingleton(ReviewFeatureUseCase);
   container.registerSingleton(MetadataGenerator);
   container.registerSingleton(SlugResolver);
   container.registerSingleton(CreateFeatureUseCase);
@@ -255,8 +301,36 @@ export async function initializeContainer(): Promise<typeof container> {
   container.registerSingleton(ShowFeatureUseCase);
   container.registerSingleton(DeleteFeatureUseCase);
   container.registerSingleton(ResumeFeatureUseCase);
+  container.registerSingleton(GetFeatureArtifactUseCase);
+  container.registerSingleton(GetResearchArtifactUseCase);
+  container.registerSingleton(GetPlanArtifactUseCase);
   container.registerSingleton(ValidateToolAvailabilityUseCase);
   container.registerSingleton(InstallToolUseCase);
+  container.registerSingleton(ListToolsUseCase);
+  container.registerSingleton(LaunchToolUseCase);
+  container.registerSingleton(LaunchIdeUseCase);
+  container.registerSingleton(AddRepositoryUseCase);
+  container.registerSingleton(ListRepositoriesUseCase);
+  container.registerSingleton(DeleteRepositoryUseCase);
+  // CheckAndUnblockFeaturesUseCase must be registered before UpdateFeatureLifecycleUseCase
+  // because the latter injects the former via class token.
+  container.registerSingleton(CheckAndUnblockFeaturesUseCase);
+  container.registerSingleton(UpdateFeatureLifecycleUseCase);
+
+  // Session repositories (per-AgentType string tokens)
+  container.register(`IAgentSessionRepository:${AgentType.ClaudeCode}`, {
+    useFactory: () => new ClaudeCodeSessionRepository(),
+  });
+  container.register(`IAgentSessionRepository:${AgentType.Cursor}`, {
+    useFactory: () => new StubSessionRepository(AgentType.Cursor),
+  });
+  container.register(`IAgentSessionRepository:${AgentType.GeminiCli}`, {
+    useFactory: () => new StubSessionRepository(AgentType.GeminiCli),
+  });
+
+  container.registerSingleton(AgentSessionRepositoryRegistry);
+  container.registerSingleton(ListAgentSessionsUseCase);
+  container.registerSingleton(GetAgentSessionUseCase);
 
   // String-token aliases for web routes (Turbopack can't resolve .js→.ts
   // imports inside @shepai/core, so routes use string tokens instead of class refs)
@@ -268,6 +342,48 @@ export async function initializeContainer(): Promise<typeof container> {
   });
   container.register('DeleteFeatureUseCase', {
     useFactory: (c) => c.resolve(DeleteFeatureUseCase),
+  });
+  container.register('ApproveAgentRunUseCase', {
+    useFactory: (c) => c.resolve(ApproveAgentRunUseCase),
+  });
+  container.register('RejectAgentRunUseCase', {
+    useFactory: (c) => c.resolve(RejectAgentRunUseCase),
+  });
+  container.register('GetFeatureArtifactUseCase', {
+    useFactory: (c) => c.resolve(GetFeatureArtifactUseCase),
+  });
+  container.register('GetResearchArtifactUseCase', {
+    useFactory: (c) => c.resolve(GetResearchArtifactUseCase),
+  });
+  container.register('GetPlanArtifactUseCase', {
+    useFactory: (c) => c.resolve(GetPlanArtifactUseCase),
+  });
+  container.register('InstallToolUseCase', {
+    useFactory: (c) => c.resolve(InstallToolUseCase),
+  });
+  container.register('ListToolsUseCase', {
+    useFactory: (c) => c.resolve(ListToolsUseCase),
+  });
+  container.register('LaunchToolUseCase', {
+    useFactory: (c) => c.resolve(LaunchToolUseCase),
+  });
+  container.register('LaunchIdeUseCase', {
+    useFactory: (c) => c.resolve(LaunchIdeUseCase),
+  });
+  container.register('AddRepositoryUseCase', {
+    useFactory: (c) => c.resolve(AddRepositoryUseCase),
+  });
+  container.register('ListRepositoriesUseCase', {
+    useFactory: (c) => c.resolve(ListRepositoriesUseCase),
+  });
+  container.register('DeleteRepositoryUseCase', {
+    useFactory: (c) => c.resolve(DeleteRepositoryUseCase),
+  });
+  container.register('CheckAndUnblockFeaturesUseCase', {
+    useFactory: (c) => c.resolve(CheckAndUnblockFeaturesUseCase),
+  });
+  container.register('UpdateFeatureLifecycleUseCase', {
+    useFactory: (c) => c.resolve(UpdateFeatureLifecycleUseCase),
   });
 
   _initialized = true;

@@ -1,0 +1,256 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-dependencies
+summary: >
+  Bottom-up, strictly-layered implementation: TypeSpec domain extension first, then data
+  layer (migration + repository), then application layer (CreateFeatureUseCase extension,
+  CheckAndUnblockFeaturesUseCase, UpdateFeatureLifecycleUseCase, deletion guard), then
+  DI wiring, then CLI and Web UI. Every phase builds on a stable foundation below it.
+  All open questions resolved; no new library dependencies required.
+
+relatedFeatures: []
+
+technologies:
+  - TypeSpec (tsp/) — parentId optional UUID field and Blocked lifecycle enum value
+  - TypeScript / better-sqlite3 — migration v19 (parent_id TEXT + index), findByParentId
+  - tsyringe — DI singleton registration for two new use cases
+  - Commander.js — --parent <fid> option on feat new command
+  - React / @xyflow/react — custom dependencyEdge type, read-only canvas edges
+  - shadcn/ui Command + Popover (Combobox) — searchable parent feature selector
+
+relatedLinks:
+  - https://typespec.io/docs/language-basics/enums
+  - https://reactflow.dev/docs/api/edges/
+  - https://ui.shadcn.com/docs/components/combobox
+
+phases:
+  - id: phase-1
+    name: TypeSpec Foundation & Type Generation
+    description: >
+      Extend the TypeSpec domain model with parentId?: UUID on the Feature entity and
+      Blocked on the SdlcLifecycle enum, then regenerate output.ts via pnpm tsp:compile.
+      Must come first because all downstream TypeScript code depends on the generated types.
+      TypeScript exhaustiveness checking will immediately surface any switch/case blocks that
+      need to handle the new Blocked value, satisfying NFR-11 before implementation begins.
+    parallel: false
+
+  - id: phase-2
+    name: Data Layer — Migration, Repository Interface & Implementation
+    description: >
+      Three sequential data-layer steps: (1) migration v19 adds nullable parent_id TEXT
+      column with an index to the features table; (2) IFeatureRepository interface gains
+      findByParentId; (3) SQLiteFeatureRepository implements findByParentId and the feature
+      mapper is extended for parentId persistence and hydration. Integration-tested against
+      a real SQLite database. This layer is the dependency that all application-layer use
+      cases build upon.
+    parallel: false
+
+  - id: phase-3
+    name: Application Core — CreateFeatureUseCase Extension
+    description: >
+      Extends CreateFeatureUseCase with: optional parentId in CreateFeatureInput, parent
+      existence validation, two-gate lifecycle blocking (Implementation gate and Maintain gate),
+      cascade blocking (parent Blocked → child Blocked), deferred agent spawn for Blocked
+      children, parentId persistence, and O(depth) cycle detection. The most complex single
+      phase; unit-tested exhaustively with mocked repositories.
+    parallel: false
+
+  - id: phase-4
+    name: Application Core — Auto-Unblocking, Lifecycle Hook & Deletion Guard
+    description: >
+      Three application-layer additions: (1) CheckAndUnblockFeaturesUseCase — idempotent,
+      direct-children-only evaluation that transitions Blocked children to Started and calls
+      spawn(); (2) UpdateFeatureLifecycleUseCase — new use case that persists a lifecycle
+      transition and then calls CheckAndUnblockFeaturesUseCase; existing agent worker lifecycle
+      write sites are routed through it; (3) deletion guard in DeleteFeatureUseCase that
+      rejects deletion when Blocked children exist. Completes the reactive unblocking loop.
+    parallel: false
+
+  - id: phase-5
+    name: Infrastructure Wiring — DI Container Registration
+    description: >
+      Register CheckAndUnblockFeaturesUseCase and UpdateFeatureLifecycleUseCase as tsyringe
+      singletons in container.ts, wiring their injected dependencies (IFeatureRepository,
+      IFeatureAgentProcessService, IAgentRunRepository). UpdateFeatureLifecycleUseCase also
+      receives a CheckAndUnblockFeaturesUseCase injection. String-token aliases added for
+      web route compatibility (Turbopack workaround pattern already in container.ts).
+      DI must be complete before presentation layers can resolve use cases.
+    parallel: false
+
+  - id: phase-6
+    name: CLI Integration
+    description: >
+      Adds --parent <fid> option to the feat new command. Implements partial feature ID
+      resolution via the existing findByIdPrefix pattern. Handles ambiguous-match and
+      not-found errors with descriptive CLI messages. Passes resolved parentId to
+      CreateFeatureInput. Confirms feat ls displays Blocked lifecycle correctly (no
+      rendering changes expected; visual regression check only).
+    parallel: false
+
+  - id: phase-7
+    name: Web UI — Create Drawer & Canvas Dependency Edges
+    description: >
+      Two parallel Web UI additions: (1) feature-create-drawer gains a searchable Combobox
+      (shadcn/ui Command + Popover) for parent feature selection, receiving the feature list
+      as a prop from the server component; the create-feature server action is updated to
+      pass parentId; (2) features-canvas gains a custom DependencyEdge component registered
+      in edgeTypes, with parent→child edges computed from feature.parentId at render time in
+      amber/orange color as read-only directed arrows. Storybook stories required for both.
+    parallel: false
+
+filesToCreate:
+  - packages/core/src/application/use-cases/features/check-and-unblock-features.use-case.ts
+  - packages/core/src/application/use-cases/features/update/update-feature-lifecycle.use-case.ts
+  - src/presentation/web/components/features-canvas/dependency-edge.tsx
+  - src/presentation/web/components/features-canvas/dependency-edge.stories.tsx
+  - tests/unit/application/use-cases/features/check-and-unblock-features.use-case.test.ts
+  - tests/unit/application/use-cases/features/update/update-feature-lifecycle.use-case.test.ts
+  - tests/integration/infrastructure/repositories/feature-parent.repository.test.ts
+
+filesToModify:
+  - tsp/domain/entities/feature.tsp
+  - tsp/common/enums/lifecycle.tsp
+  - packages/core/src/domain/generated/output.ts
+  - packages/core/src/infrastructure/persistence/sqlite/migrations.ts
+  - packages/core/src/application/ports/output/repositories/feature-repository.interface.ts
+  - packages/core/src/infrastructure/repositories/feature.repository.ts
+  - packages/core/src/infrastructure/persistence/sqlite/mappers/feature.mapper.ts
+  - packages/core/src/application/use-cases/features/create/types.ts
+  - packages/core/src/application/use-cases/features/create/create-feature.use-case.ts
+  - packages/core/src/application/use-cases/features/delete-feature.use-case.ts
+  - packages/core/src/infrastructure/di/container.ts
+  - src/presentation/cli/commands/feat/new.command.ts
+  - src/presentation/web/app/actions/create-feature.ts
+  - src/presentation/web/components/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/components/features-canvas/features-canvas.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  Feature-dependencies is a clean cross-cutting addition across all five architecture
+  layers with no new library dependencies. Each layer follows the established patterns
+  exactly:
+
+  **TypeSpec layer** — `feature.tsp` gains `parentId?: UUID` (identical pattern to the
+  existing `agentRunId?` and `specPath?` optional scalars). `lifecycle.tsp` gains `Blocked`
+  as a non-progressing off-ramp value alongside the existing 8 progression values.
+
+  **Data layer** — Migration v19 adds a nullable `parent_id TEXT` column (additive,
+  backward-compatible per NFR-2) with a sparse index for O(log n) child lookups. Feature
+  mapper handles `parentId ↔ parent_id` conversion following the optional-field pattern
+  (`...(row.parent_id && { parentId: row.parent_id })`).
+
+  **Application layer** — Two new use cases (`CheckAndUnblockFeaturesUseCase`,
+  `UpdateFeatureLifecycleUseCase`) follow the `@injectable()` class with `execute()` method
+  pattern. `CreateFeatureUseCase` and `DeleteFeatureUseCase` are modified. Clean Architecture
+  dependency rule enforced throughout (NFR-4): no infrastructure imports in application code.
+
+  **Infrastructure** — Two new tsyringe singletons in `container.ts` following the existing
+  `registerSingleton` + string-token alias pattern. Agent worker lifecycle update call sites
+  routed through `UpdateFeatureLifecycleUseCase`.
+
+  **Presentation (CLI)** — `--parent <fid>` on `feat new` uses the existing `findByIdPrefix`
+  prefix-resolution pattern. `feat ls` already renders Blocked via lifecycle label mapping.
+
+  **Presentation (Web)** — `feature-create-drawer` gains a shadcn/ui Combobox (props-driven
+  from server component, no new server action). `features-canvas` gains a custom `dependencyEdge`
+  registered in `edgeTypes` (already used for custom node types). `feature-node` already has
+  full `blocked` state and `blockedBy` field support — no changes needed.
+
+  ## Key Design Decisions
+
+  ### Two-Gate Blocking Model (FR-9)
+  Three creation conditions based on parent lifecycle ordinal:
+
+  | Parent Lifecycle | Child Initial State | Agent Spawn |
+  | ---------------- | ------------------- | ----------- |
+  | < Implementation | Blocked | Deferred |
+  | >= Implementation, < Maintain | Started | Immediate |
+  | >= Maintain | Started | Immediate |
+
+  SdlcLifecycle ordinal order: Started(0) → Analyze(1) → Requirements(2) → Research(3)
+  → Planning(4) → Implementation(5) → Review(6) → Maintain(7). `Blocked` is a non-ordinal
+  off-ramp value. Implemented as two Set<SdlcLifecycle> membership checks:
+  `postImplementation = {Implementation, Review, Maintain}` and `atMaintain = {Maintain}`.
+
+  ### Cascade Blocking (FR-12/13)
+  O(1) check: `parent.lifecycle === Blocked → child lifecycle = Blocked`. No recursive
+  downward walk. The cascade is inherent in the create+unblock mechanism: when a blocked
+  parent eventually unblocks and advances to Implementation, `CheckAndUnblockFeaturesUseCase`
+  evaluates its direct children — naturally propagating the unblock chain one level at a time.
+
+  ### Cycle Detection (FR-19)
+  Iterative upward walk from proposed `parentId`. Each iteration loads `feature.parentId` until
+  either the new feature's own ID appears (cycle → reject with descriptive error) or the chain
+  terminates at null (no cycle → allow). O(depth) using the parent_id index; O(log n) per
+  lookup. Maximum practical depth < 10 per NFR-8.
+
+  ### Auto-Unblocking — Direct Children Only
+  `CheckAndUnblockFeaturesUseCase.execute(parentId)` evaluates only direct children of
+  `parentId`, not the full subtree. Grandchildren remain Blocked until their own parent
+  (now-unblocked) progresses through its lifecycle gates, at which point
+  `UpdateFeatureLifecycleUseCase` triggers another `CheckAndUnblockFeaturesUseCase` call.
+  This ensures each feature enforces its own gate against its immediate parent — not its
+  grandparent — which is the semantically correct behavior.
+
+  ### Agent Spawn Deferral
+  `CreateFeatureUseCase` creates the `AgentRun` record and sets all feature fields
+  (`worktreePath`, `specPath`, `repositoryPath`) for Blocked children. Only `spawn()` is
+  skipped. When `CheckAndUnblockFeaturesUseCase` unblocks a child, it calls `spawn(feature)`
+  using the feature's pre-existing persistent fields — no context reconstruction needed.
+  This is symmetric with the normal creation path.
+
+  ### UpdateFeatureLifecycleUseCase
+  Investigation may reveal that lifecycle updates currently happen directly in agent worker
+  nodes (inline feature update calls). If so, `UpdateFeatureLifecycleUseCase` is a new
+  extraction that centralizes lifecycle persistence + unblock hook. All existing lifecycle
+  write sites in the agent graph nodes should be routed through this use case to guarantee
+  the unblock check fires on every transition.
+
+  ### Canvas Edge Computation
+  Dependency edges are purely derived from `feature.parentId` — no separate storage needed.
+  At render time in `features-canvas.tsx`, for each feature with a non-null `parentId`, emit
+  a React Flow edge `{ id: 'dep-{parentId}-{childId}', source: parentId, target: childId,
+  type: 'dependencyEdge' }`. The custom `DependencyEdge` component renders as a non-interactive
+  directed arrow in amber/orange to be visually distinct from repository edges.
+
+  ## Implementation Strategy
+
+  Bottom-up by architectural layer ensures each layer's tests can be written against
+  stable, already-tested dependencies:
+
+  Phase 1 (TypeSpec) must come before all code: generated types are the shared vocabulary.
+  Exhaustiveness gaps are caught immediately by the TypeScript compiler after adding Blocked.
+
+  Phase 2 (Data) before Phase 3+ (Application): use cases depend on the repository interface
+  and mapper. The `findByParentId` integration test verifies the SQL index before gate logic
+  relies on efficient child lookup.
+
+  Phase 3 (CreateFeatureUseCase) is the most complex single phase. Gate logic, cascade
+  blocking, deferred spawn, and cycle detection are all co-located in one use case and
+  best tested together with focused unit tests using mocked repositories.
+
+  Phase 4 (Auto-Unblocking) builds on Phase 2 (`findByParentId`) and Phase 3 (Blocked
+  semantics). `UpdateFeatureLifecycleUseCase` creation requires understanding existing
+  lifecycle update call sites in agent workers — this is the primary investigation risk.
+
+  Phase 5 (DI Wiring) is a gate for Phases 6 and 7: CLI and Web cannot resolve the new
+  use cases from the container until they are registered.
+
+  Phases 6 and 7 (CLI and Web) are independent of each other and can proceed in parallel
+  once Phase 5 is complete.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | UpdateFeatureLifecycleUseCase does not exist; lifecycle updates may be inline in agent workers | Phase 4 task includes an investigation step to find all lifecycle write sites before creating the use case; existing tests must remain green after routing refactor |
+  | TypeScript exhaustiveness errors after adding Blocked to SdlcLifecycle | Phase 1 task runs tsp:compile, then tsc, and fixes all unreachable/unhandled enum cases before proceeding to Phase 2 |
+  | Cycle detection edge cases (self-reference, immediate parent loop) | Task-7 explicitly tests A→A, A→B→A, and deep A→B→…→A cycles |
+  | Feature mapper path may differ from spec.yaml (explore found sqlite/ subdirectory layout) | Task-4 verifies actual path via glob before modifying; plan paths are best-effort and will be confirmed during implementation |
+  | feature-create-drawer path in filesystem may differ from spec.yaml path | Task-14 verifies actual component path before modifying |
+  | DependencyEdge source/target Handle conflicts with existing feature-node handles | Phase 7 task checks existing Handle placements; dependency edges use bottom/top handles to avoid visual conflicts with repo connection edges |
+  | pnpm validate may fail on lint/typecheck after Blocked enum propagation | Phase 5 includes a validate gate task before closing out implementation |

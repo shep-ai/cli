@@ -16,6 +16,8 @@ import type Database from 'better-sqlite3';
 interface Migration {
   version: number;
   sql: string;
+  /** Optional handler for migrations that need programmatic logic (e.g. conditional DDL). */
+  handler?: (db: Database.Database) => void;
 }
 
 /**
@@ -217,7 +219,166 @@ ALTER TABLE features ADD COLUMN worktree_path TEXT;
 ALTER TABLE features ADD COLUMN push INTEGER NOT NULL DEFAULT 0;
 `,
   },
+  {
+    version: 13,
+    sql: `
+-- Migration 013: Add user_query to features for preserving verbatim user input
+ALTER TABLE features ADD COLUMN user_query TEXT NOT NULL DEFAULT '';
+`,
+  },
+  {
+    version: 14,
+    sql: `
+-- Migration 014: Add approval wait timing columns to phase_timings
+ALTER TABLE phase_timings ADD COLUMN waiting_approval_at INTEGER;
+ALTER TABLE phase_timings ADD COLUMN approval_wait_ms INTEGER;
+`,
+  },
+  {
+    version: 15,
+    sql: `
+-- Migration 015: Create Repositories Table and backfill from features
+
+-- 1. Create repositories table
+CREATE TABLE repositories (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  path TEXT NOT NULL UNIQUE,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE INDEX idx_repositories_path ON repositories(path);
+
+-- 2. Extract unique repository_path values from features into repositories
+INSERT INTO repositories (id, name, path, created_at, updated_at)
+SELECT
+  lower(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)),2) || '-' || substr('89ab', abs(random()) % 4 + 1, 1) || substr(hex(randomblob(2)),2) || '-' || hex(randomblob(6))) AS id,
+  CASE
+    WHEN instr(repository_path, '/') > 0
+    THEN replace(repository_path, rtrim(repository_path, replace(repository_path, '/', '')), '')
+    ELSE repository_path
+  END AS name,
+  repository_path AS path,
+  MIN(created_at) AS created_at,
+  MAX(updated_at) AS updated_at
+FROM features
+WHERE repository_path IS NOT NULL AND repository_path != ''
+GROUP BY repository_path;
+
+-- 3. Add repository_id column to features
+ALTER TABLE features ADD COLUMN repository_id TEXT;
+
+-- 4. Backfill repository_id on all existing features
+UPDATE features SET repository_id = (
+  SELECT r.id FROM repositories r WHERE r.path = features.repository_path
+);
+`,
+  },
+  {
+    version: 16,
+    sql: `
+-- Migration 016: Add soft delete support to repositories
+ALTER TABLE repositories ADD COLUMN deleted_at INTEGER;
+`,
+  },
+  {
+    version: 17,
+    sql: `
+-- Migration 017: Fix repository names backfilled incorrectly in migration 015
+-- The original substr formula extracted from the wrong position.
+-- Correct approach: strip the last path segment using rtrim trick.
+UPDATE repositories
+SET name = replace(path, rtrim(path, replace(path, '/', '')), '')
+WHERE instr(path, '/') > 0;
+`,
+  },
+  {
+    version: 18,
+    sql: `
+-- Migration 018: Add onboarding and approval gate default columns
+ALTER TABLE settings ADD COLUMN onboarding_complete INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_prd INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_plan INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_allow_merge INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE settings ADD COLUMN approval_gate_push_on_impl_complete INTEGER NOT NULL DEFAULT 0;
+
+-- Existing users should NOT be forced through onboarding
+UPDATE settings SET onboarding_complete = 1 WHERE id IS NOT NULL;
+`,
+  },
+  {
+    version: 19,
+    sql: `
+-- Migration 019: Add CI fix tracking columns to features
+ALTER TABLE features ADD COLUMN ci_fix_attempts INTEGER;
+ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
+`,
+  },
+  {
+    version: 20,
+    // Migration 020: Add parent_id to features for hierarchical feature dependencies
+    // Uses custom handler because the column may already exist from a pre-rebase migration 19.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      // Backfill ci_fix columns for users whose old migration 19 added parent_id
+      // instead of ci_fix_attempts/ci_fix_history (pre-rebase ordering).
+      if (!columns.some((c) => c.name === 'ci_fix_attempts')) {
+        db.exec('ALTER TABLE features ADD COLUMN ci_fix_attempts INTEGER');
+      }
+      if (!columns.some((c) => c.name === 'ci_fix_history')) {
+        db.exec('ALTER TABLE features ADD COLUMN ci_fix_history TEXT');
+      }
+      if (!columns.some((c) => c.name === 'parent_id')) {
+        db.exec('ALTER TABLE features ADD COLUMN parent_id TEXT');
+      }
+      // CREATE INDEX IF NOT EXISTS is supported by SQLite
+      db.exec('CREATE INDEX IF NOT EXISTS idx_features_parent_id ON features(parent_id)');
+    },
+  },
+  {
+    version: 21,
+    // Migration 021: Backfill columns that may be missing due to migration 19 rebase reordering.
+    // If the old migration 19 (parent_id) ran before the rebase, ci_fix_attempts/ci_fix_history
+    // were never added. Migration 20's handler now covers fresh installs; this covers
+    // databases that already ran migration 20 with the old handler.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'ci_fix_attempts')) {
+        db.exec('ALTER TABLE features ADD COLUMN ci_fix_attempts INTEGER');
+      }
+      if (!columns.some((c) => c.name === 'ci_fix_history')) {
+        db.exec('ALTER TABLE features ADD COLUMN ci_fix_history TEXT');
+      }
+    },
+  },
+  {
+    version: 22,
+    // Migration 022: Add PR notification event type filters to settings.
+    // Uses handler because these columns may already exist from the pre-rebase migration 19.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      const add = (col: string) => {
+        if (!columns.some((c) => c.name === col)) {
+          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER NOT NULL DEFAULT 1`);
+        }
+      };
+      add('notif_evt_pr_merged');
+      add('notif_evt_pr_closed');
+      add('notif_evt_pr_checks_passed');
+      add('notif_evt_pr_checks_failed');
+    },
+  },
 ];
+
+/**
+ * The latest schema version (highest migration version number).
+ * Exported for test assertions so they don't hardcode version numbers.
+ */
+export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1].version;
 
 /**
  * Runs all pending database migrations.
@@ -240,7 +401,12 @@ export async function runSQLiteMigrations(db: Database.Database): Promise<void> 
       if (migration.version > currentVersion) {
         // Execute migration in a transaction
         db.transaction(() => {
-          db.exec(migration.sql);
+          if (migration.sql) {
+            db.exec(migration.sql);
+          }
+          if (migration.handler) {
+            migration.handler(db);
+          }
           db.prepare(`PRAGMA user_version = ${migration.version}`).run();
         })();
       }

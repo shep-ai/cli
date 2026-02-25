@@ -54,10 +54,16 @@ export interface IWorktreeService {
    * @param repoPath - Path to the git repository
    * @param branch - Branch name to create
    * @param worktreePath - Path for the new worktree directory
+   * @param startPoint - Optional commit/branch to start from (defaults to HEAD)
    * @returns Information about the created worktree
    * @throws WorktreeError with appropriate code
    */
-  create(repoPath: string, branch: string, worktreePath: string): Promise<WorktreeInfo>;
+  create(
+    repoPath: string,
+    branch: string,
+    worktreePath: string,
+    startPoint?: string
+  ): Promise<WorktreeInfo>;
 
   /**
    * Remove an existing worktree.
@@ -85,6 +91,15 @@ export interface IWorktreeService {
   exists(repoPath: string, branch: string): Promise<boolean>;
 
   /**
+   * Check if a git branch exists in the repository.
+   *
+   * @param repoPath - Path to the git repository
+   * @param branch - Branch name to check
+   * @returns True if the branch exists
+   */
+  branchExists(repoPath: string, branch: string): Promise<boolean>;
+
+  /**
    * Get the conventional worktree path for a branch.
    *
    * @param repoPath - Path to the git repository
@@ -92,4 +107,14 @@ export interface IWorktreeService {
    * @returns Computed worktree path (e.g., /repo/.worktrees/branch-name)
    */
   getWorktreePath(repoPath: string, branch: string): string;
+
+  /**
+   * Ensure a directory is a valid git repository with at least one commit.
+   * If the directory is not a git repo, initializes it with `git init`
+   * and creates an empty initial commit. No-ops for existing repos.
+   *
+   * @param repoPath - Path to the directory to check/initialize
+   * @throws WorktreeError if git initialization fails
+   */
+  ensureGitRepository(repoPath: string): Promise<void>;
 }

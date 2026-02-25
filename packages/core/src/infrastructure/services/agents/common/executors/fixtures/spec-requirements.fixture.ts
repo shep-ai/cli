@@ -1,0 +1,132 @@
+/**
+ * Spec (Requirements Phase) Fixture
+ *
+ * Realistic fixture for the fictional "Add dark-mode toggle to Shep Web UI" feature.
+ * Passes validateSpecRequirements() with zero repair iterations.
+ */
+
+export const SPEC_REQUIREMENTS_FIXTURE = `name: dark-mode-toggle
+number: 42
+branch: feat/042-dark-mode-toggle
+oneLiner: Add a dark-mode toggle to the Shep web UI settings panel
+summary: >
+  Introduce a persistent dark-mode toggle to the Shep web UI settings panel that
+  applies a CSS class-based theme via Tailwind dark: variants, stores the user
+  preference in localStorage, and is surfaced as a shadcn/ui Switch component
+  with full Storybook coverage and TDD-driven unit tests.
+phase: Requirements
+sizeEstimate: M
+
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - Tailwind CSS v4
+  - shadcn/ui
+  - Storybook
+  - TypeScript
+  - localStorage Web API
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'Where should the dark-mode preference be persisted?'
+    resolved: true
+    options:
+      - option: 'localStorage only'
+        description: >
+          Store the theme preference in localStorage. Zero backend changes,
+          instant read on page load, and no need for a settings schema migration.
+          The ThemeProvider reads the key on mount and writes on toggle.
+        selected: true
+      - option: 'SQLite settings via backend API'
+        description: >
+          Persist the preference in the Shep SQLite settings store alongside
+          other settings. Syncs across devices but requires API changes and a
+          settings migration — out of scope for this feature.
+        selected: false
+    selectionRationale: >
+      localStorage is the conventional approach for client-side theme preferences
+      and requires no backend changes. The Shep settings API is out of scope for
+      this feature; localStorage ships the value faster with zero migration risk.
+    answer: 'localStorage only'
+
+  - question: 'How should the CSS dark-mode implementation be applied?'
+    resolved: true
+    options:
+      - option: 'Tailwind CSS class-based dark mode (dark: modifier)'
+        description: >
+          Add the dark class to the html element and use Tailwind dark: modifier
+          on all themed elements. Supported natively in Tailwind CSS v4 and fully
+          compatible with the shadcn/ui component library.
+        selected: true
+      - option: 'CSS custom properties via a custom ThemeProvider stylesheet'
+        description: >
+          Define a set of CSS custom properties (--color-bg, --color-text, etc.)
+          and swap them by toggling a data attribute. More flexible but requires
+          redefining all existing color tokens — a large change surface.
+        selected: false
+    selectionRationale: >
+      Tailwind CSS v4 with dark: modifier is already the standard in this codebase.
+      All shadcn/ui components are built to accept Tailwind dark: variants. Using
+      the dark class on html is the minimal, zero-extra-dependency approach.
+    answer: 'Tailwind CSS class-based dark mode (dark: modifier)'
+
+content: |
+  ## Problem Statement
+
+  The Shep web UI currently renders only in light mode. Developers working in dark
+  environments or those who prefer dark themes have no way to switch the UI appearance.
+
+  ## Success Criteria
+
+  - [ ] A ThemeProvider wraps the root layout and provides a useTheme hook
+  - [ ] A ThemeToggle component renders in the settings panel with a Switch and label
+  - [ ] Clicking the toggle switches the html element class between light and dark
+  - [ ] The preference persists across page refreshes via localStorage
+  - [ ] All new components have Storybook stories with light and dark variants
+  - [ ] pnpm validate passes with no new errors
+
+  ## Functional Requirements
+
+  - **FR-1**: A ThemeProvider component must wrap the root Next.js App Router layout
+    and provide theme state to the component tree via React context.
+  - **FR-2**: A useTheme hook must expose { theme, toggleTheme } to any component.
+  - **FR-3**: A ThemeToggle component must render a Switch and a label (Dark mode).
+  - **FR-4**: Toggling the Switch must apply the dark CSS class to the html element.
+  - **FR-5**: The selected theme must be persisted to localStorage and restored on load.
+  - **FR-6**: ThemeToggle must appear in the settings panel (features/settings/).
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: Theme switch must complete within one animation frame (no FOUC).
+  - **NFR-2**: All new components must have Storybook stories per project conventions.
+  - **NFR-3**: No new npm dependencies may be added; use existing React, Tailwind, shadcn/ui.
+  - **NFR-4**: Each new file must stay within the 150-line project guideline.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Persistence layer? | localStorage | Zero backend changes required |
+  | 2 | CSS implementation? | Tailwind dark: class | Already standard in the codebase |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | src/presentation/web/components/features/settings/ | High | Toggle component added here |
+  | src/presentation/web/app/layout.tsx | Medium | ThemeProvider wrapper added |
+  | src/presentation/web/components/common/ | Medium | ThemeToggle and ThemeProvider created |
+
+  ## Dependencies
+
+  - shadcn/ui Switch and Label components (already installed)
+  - React context API (built-in)
+  - localStorage Web API (built-in)
+
+  ## Size Estimate
+
+  **M (days)** — 3 phases: context + provider, toggle component, settings integration.
+`;

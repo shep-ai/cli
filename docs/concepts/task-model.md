@@ -7,87 +7,116 @@ Tasks and ActionItems represent the executable work breakdown structure within a
 ```typescript
 export class Task {
   readonly id: string;
-  readonly featureId: string;
   readonly createdAt: Date;
+  readonly updatedAt: Date;
 
-  title: string;
-  description: string;
-  status: TaskStatus;
-  orderIndex: number;
+  title?: string;
+  description?: string;
+  state: TaskState;
+  baseBranch: string;
+  branch: string;
 
-  dependsOn: string[]; // Task IDs
+  dependsOn: Task[];
   actionItems: ActionItem[];
 }
 ```
 
 ### Properties
 
-| Property      | Type           | Description                           |
-| ------------- | -------------- | ------------------------------------- |
-| `id`          | `string`       | Unique identifier (UUID)              |
-| `featureId`   | `string`       | Parent feature reference              |
-| `title`       | `string`       | Concise task title                    |
-| `description` | `string`       | Detailed task description             |
-| `status`      | `TaskStatus`   | Current execution status              |
-| `orderIndex`  | `number`       | Display/execution order hint          |
-| `dependsOn`   | `string[]`     | IDs of tasks that must complete first |
-| `actionItems` | `ActionItem[]` | Granular steps within task            |
+| Property      | Type           | Description                          |
+| ------------- | -------------- | ------------------------------------ |
+| `id`          | `string`       | Unique identifier (UUID)             |
+| `title`       | `string?`      | Concise task title (optional)        |
+| `description` | `string?`      | Detailed task description (optional) |
+| `state`       | `TaskState`    | Current execution state              |
+| `baseBranch`  | `string`       | Base branch for the task             |
+| `branch`      | `string`       | Working branch for the task          |
+| `dependsOn`   | `Task[]`       | Tasks that must complete first       |
+| `actionItems` | `ActionItem[]` | Granular steps within task           |
+| `createdAt`   | `Date`         | Creation timestamp                   |
+| `updatedAt`   | `Date`         | Last update timestamp                |
 
 ## ActionItem Entity
 
 ```typescript
 export class ActionItem {
   readonly id: string;
-  readonly taskId: string;
   readonly createdAt: Date;
+  readonly updatedAt: Date;
 
-  title: string;
-  status: TaskStatus;
-  orderIndex: number;
+  name: string;
+  description: string;
+  branch: string;
 
-  dependsOn: string[]; // ActionItem IDs (within same task)
+  dependsOn: ActionItem[];
+  acceptanceCriteria: AcceptanceCriteria[];
 }
 ```
 
 ### Properties
 
-| Property     | Type         | Description                                  |
-| ------------ | ------------ | -------------------------------------------- |
-| `id`         | `string`     | Unique identifier (UUID)                     |
-| `taskId`     | `string`     | Parent task reference                        |
-| `title`      | `string`     | Action description                           |
-| `status`     | `TaskStatus` | Current status                               |
-| `orderIndex` | `number`     | Execution order within task                  |
-| `dependsOn`  | `string[]`   | IDs of action items that must complete first |
+| Property             | Type                   | Description                           |
+| -------------------- | ---------------------- | ------------------------------------- |
+| `id`                 | `string`               | Unique identifier (UUID)              |
+| `name`               | `string`               | Action item name                      |
+| `description`        | `string`               | Detailed description                  |
+| `branch`             | `string`               | Working branch for the action item    |
+| `dependsOn`          | `ActionItem[]`         | Action items that must complete first |
+| `acceptanceCriteria` | `AcceptanceCriteria[]` | Criteria for completion               |
+| `createdAt`          | `Date`                 | Creation timestamp                    |
+| `updatedAt`          | `Date`                 | Last update timestamp                 |
 
-## TaskStatus Enum
+## AcceptanceCriteria Entity
 
 ```typescript
-export enum TaskStatus {
-  Pending = 'pending',
-  InProgress = 'in_progress',
-  Completed = 'completed',
-  Blocked = 'blocked',
+export class AcceptanceCriteria {
+  readonly id: string;
+
+  description: string;
+  met: boolean;
 }
 ```
 
-### Status Transitions
+### Properties
+
+| Property      | Type      | Description                  |
+| ------------- | --------- | ---------------------------- |
+| `id`          | `string`  | Unique identifier (UUID)     |
+| `description` | `string`  | Criterion description        |
+| `met`         | `boolean` | Whether the criterion is met |
+
+## TaskState Enum
+
+```typescript
+export enum TaskState {
+  Todo = 'Todo',
+  WIP = 'WIP',
+  Done = 'Done',
+  Review = 'Review',
+}
+```
+
+### State Transitions
 
 ```
-┌─────────┐
-│ Pending │
-└────┬────┘
-     │ start
-     ▼
-┌────────────┐     block     ┌─────────┐
-│ InProgress │ ────────────► │ Blocked │
-└─────┬──────┘               └────┬────┘
-      │                           │ unblock
-      │ complete                  │
-      ▼                           ▼
-┌───────────┐              ┌────────────┐
-│ Completed │              │ InProgress │
-└───────────┘              └────────────┘
+┌──────┐
+│ Todo │
+└──┬───┘
+   │ start
+   ▼
+┌──────┐
+│ WIP  │
+└──┬───┘
+   │ submit for review
+   ▼
+┌────────┐
+│ Review │
+└──┬─────┘
+   │ approve
+   ▼
+┌──────┐
+│ Done │
+└──────┘
 ```
 
 ## Dependency Model
@@ -144,12 +173,12 @@ export class DependencyValidator {
     // Check all dependencies exist
     const taskIds = new Set(tasks.map((t) => t.id));
     for (const task of tasks) {
-      for (const depId of task.dependsOn) {
-        if (!taskIds.has(depId)) {
+      for (const dep of task.dependsOn) {
+        if (!taskIds.has(dep.id)) {
           errors.push({
             type: 'missing_dependency',
             taskId: task.id,
-            dependencyId: depId,
+            dependencyId: dep.id,
           });
         }
       }
@@ -211,8 +240,7 @@ export class ExecutionGraph {
   getExecutable(): Task[] {
     return Array.from(this.tasks.values()).filter(
       (task) =>
-        task.status === TaskStatus.Pending &&
-        task.dependsOn.every((depId) => this.completed.has(depId))
+        task.state === TaskState.Todo && task.dependsOn.every((dep) => this.completed.has(dep.id))
     );
   }
 
@@ -230,13 +258,15 @@ class Task {
   get progress(): TaskProgress {
     if (this.actionItems.length === 0) {
       return {
-        completed: this.status === TaskStatus.Completed ? 1 : 0,
+        completed: this.state === TaskState.Done ? 1 : 0,
         total: 1,
-        percentage: this.status === TaskStatus.Completed ? 100 : 0,
+        percentage: this.state === TaskState.Done ? 100 : 0,
       };
     }
 
-    const completed = this.actionItems.filter((ai) => ai.status === TaskStatus.Completed).length;
+    const completed = this.actionItems.filter((ai) =>
+      ai.acceptanceCriteria.every((c) => c.met)
+    ).length;
 
     return {
       completed,
@@ -268,24 +298,40 @@ From the inspiration screenshot, tasks are displayed hierarchically:
 ```typescript
 // Create tasks during planning
 const setupTask = new Task({
-  featureId: feature.id,
   title: 'Setup project structure',
   description: 'Initialize directories and configs',
+  state: TaskState.Todo,
+  baseBranch: 'main',
+  branch: 'feat/setup',
   dependsOn: [],
 });
 
 const implementTask = new Task({
-  featureId: feature.id,
   title: 'Implement core logic',
   description: 'Build the main functionality',
-  dependsOn: [setupTask.id],
+  state: TaskState.Todo,
+  baseBranch: 'main',
+  branch: 'feat/core',
+  dependsOn: [setupTask],
 });
 
 // Add action items
 setupTask.actionItems = [
-  new ActionItem({ taskId: setupTask.id, title: 'Create src directory' }),
-  new ActionItem({ taskId: setupTask.id, title: 'Add tsconfig.json' }),
-  new ActionItem({ taskId: setupTask.id, title: 'Configure ESLint' }),
+  new ActionItem({
+    name: 'Create src directory',
+    description: 'Initialize source directory',
+    branch: 'feat/setup',
+  }),
+  new ActionItem({
+    name: 'Add tsconfig.json',
+    description: 'Configure TypeScript',
+    branch: 'feat/setup',
+  }),
+  new ActionItem({
+    name: 'Configure ESLint',
+    description: 'Setup linting rules',
+    branch: 'feat/setup',
+  }),
 ];
 
 // Check executability

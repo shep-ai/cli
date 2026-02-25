@@ -57,6 +57,20 @@ export class ResumeFeatureUseCase {
       throw new Error(`No agent run found for feature "${feature.name}"`);
     }
 
+    // Detect crashed processes: if DB says "running" but the process is dead,
+    // mark it as interrupted so it becomes resumable
+    if (
+      (lastRun.status === AgentRunStatus.running || lastRun.status === AgentRunStatus.pending) &&
+      feature.agentRunId
+    ) {
+      await this.processService.checkAndMarkCrashed(feature.agentRunId);
+      // Re-read after potential status change
+      const refreshed = await this.runRepo.findById(feature.agentRunId);
+      if (refreshed) {
+        Object.assign(lastRun, refreshed);
+      }
+    }
+
     // Validate the run is in a resumable state
     if (lastRun.status === AgentRunStatus.running) {
       throw new Error('Agent is still running — stop it first before resuming');

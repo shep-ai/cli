@@ -1,3 +1,294 @@
+# [1.58.0](https://github.com/shep-ai/cli/compare/v1.57.0...v1.58.0) (2026-02-25)
+
+### Features
+
+- **web:** replace add-repository pill button with floating action button ([#139](https://github.com/shep-ai/cli/issues/139)) ([ed07f63](https://github.com/shep-ai/cli/commit/ed07f63c8ca21d87c0478d01a07a014b3899edd1))
+
+# [1.57.0](https://github.com/shep-ai/cli/compare/v1.56.0...v1.57.0) (2026-02-25)
+
+### Features
+
+- **domain:** add pr sync watcher service with github pr/ci status polling ([#116](https://github.com/shep-ai/cli/issues/116)) ([2ba9e93](https://github.com/shep-ai/cli/commit/2ba9e93f41b89fb4502c7ef22dfaf7b00b1dc486))
+
+# [1.56.0](https://github.com/shep-ai/cli/compare/v1.55.3...v1.56.0) (2026-02-25)
+
+### Features
+
+- **web,cli,api:** add tools management ui ([#043](https://github.com/shep-ai/cli/issues/043)) ([#133](https://github.com/shep-ai/cli/issues/133)) ([aecddd3](https://github.com/shep-ai/cli/commit/aecddd3b88e142d8f166e14aec290c4f69321848))
+
+## [1.55.3](https://github.com/shep-ai/cli/compare/v1.55.2...v1.55.3) (2026-02-25)
+
+### Bug Fixes
+
+- **web:** use record lookup to prevent platform branch tree-shaking ([#137](https://github.com/shep-ai/cli/issues/137)) ([6814b8b](https://github.com/shep-ai/cli/commit/6814b8b5ed845a3ade6e4f9ce2c5463d2d8b7416))
+
+## [1.55.2](https://github.com/shep-ai/cli/compare/v1.55.1...v1.55.2) (2026-02-25)
+
+### Bug Fixes
+
+- **domain:** backfill ci_fix columns missing after migration rebase ([#136](https://github.com/shep-ai/cli/issues/136)) ([16206b0](https://github.com/shep-ai/cli/commit/16206b0f7181518db62ca2e863607e6f9b1ae89f))
+
+## [1.55.1](https://github.com/shep-ai/cli/compare/v1.55.0...v1.55.1) (2026-02-25)
+
+### Bug Fixes
+
+- **domain:** use loose null checks in feature mapper for sqlite compat ([#134](https://github.com/shep-ai/cli/issues/134)) ([df812dd](https://github.com/shep-ai/cli/commit/df812dd4dde7badc688e94e58192fd919bd20849))
+
+# [1.55.0](https://github.com/shep-ai/cli/compare/v1.54.0...v1.55.0) (2026-02-25)
+
+### Features
+
+- **cli:** add daemon lifecycle commands and onboarding handoff ([#043](https://github.com/shep-ai/cli/issues/043)) ([#132](https://github.com/shep-ai/cli/issues/132)) ([ce2f22e](https://github.com/shep-ai/cli/commit/ce2f22e6bbe29291777eaf53484d94ea97c2c910))
+
+# [1.54.0](https://github.com/shep-ai/cli/compare/v1.53.2...v1.54.0) (2026-02-25)
+
+### Features
+
+- **web:** real-time feature status via SSE, sound system, and optimistic UI ([#112](https://github.com/shep-ai/cli/issues/112)) ([744b4c4](https://github.com/shep-ai/cli/commit/744b4c421c4e78b4220dbdc3fbb9004f22f958f3))
+
+## [1.53.2](https://github.com/shep-ai/cli/compare/v1.53.1...v1.53.2) (2026-02-24)
+
+### Bug Fixes
+
+- **web:** increase panel right margin mr-12→mr-16 to clear theme toggle ([#131](https://github.com/shep-ai/cli/issues/131)) ([8c5534a](https://github.com/shep-ai/cli/commit/8c5534a7f260026326c06fbdc8d07e121c1eea11))
+
+## [1.53.1](https://github.com/shep-ai/cli/compare/v1.53.0...v1.53.1) (2026-02-24)
+
+### Bug Fixes
+
+- **cli:** add missing merge phase label in feat ls ([#128](https://github.com/shep-ai/cli/issues/128)) ([5b3fd92](https://github.com/shep-ai/cli/commit/5b3fd922defcb60572637d9c83dc1301274c63a7))
+
+# [1.53.0](https://github.com/shep-ai/cli/compare/v1.52.2...v1.53.0) (2026-02-24)
+
+### Features
+
+- **domain:** add parent/child feature dependencies with lifecycle-gated blocking ([#122](https://github.com/shep-ai/cli/issues/122)) ([3b5ea2b](https://github.com/shep-ai/cli/commit/3b5ea2b873482fda69d8a6625cd2e764b6b751c8))
+- **agents:** watch CI and auto-fix failures after push in merge node ([#119](https://github.com/shep-ai/cli/issues/119)) ([c1ee951](https://github.com/shep-ai/cli/commit/c1ee951548cd6b9c3378d697788b7d1533901683))
+
+## [1.52.2](https://github.com/shep-ai/cli/compare/v1.52.1...v1.52.2) (2026-02-24)
+
+### Bug Fixes
+
+- **web:** externalize node builtins to prevent platform tree-shaking ([#127](https://github.com/shep-ai/cli/issues/127)) ([92d9076](https://github.com/shep-ai/cli/commit/92d9076bd1827e0ed34c9807ea122666a34188ee)), closes [#125](https://github.com/shep-ai/cli/issues/125)
+
+## [1.52.1](https://github.com/shep-ai/cli/compare/v1.52.0...v1.52.1) (2026-02-24)
+
+### Bug Fixes
+
+- **web:** include serverExternalPackages in production next config ([#125](https://github.com/shep-ai/cli/issues/125)) ([87f5cf4](https://github.com/shep-ai/cli/commit/87f5cf4874a18add12a19e8cc70b5ca94ee57ad0))
+
+# [1.52.0](https://github.com/shep-ai/cli/compare/v1.51.2...v1.52.0) (2026-02-24)
+
+### Features
+
+- **agents:** improve session ls/show with grouping and rich metadata ([#123](https://github.com/shep-ai/cli/issues/123)) ([8d2c3f3](https://github.com/shep-ai/cli/commit/8d2c3f3d15e2099f105806e228451f0c8a1f641f))
+
+## [1.51.2](https://github.com/shep-ai/cli/compare/v1.51.1...v1.51.2) (2026-02-24)
+
+### Bug Fixes
+
+- **ci:** make e2e ui tests hermetic and suppress browser auto-open ([#121](https://github.com/shep-ai/cli/issues/121)) ([f984b76](https://github.com/shep-ai/cli/commit/f984b765ba4094a238447ea82a46c95e28be216f))
+
+## [1.51.1](https://github.com/shep-ai/cli/compare/v1.51.0...v1.51.1) (2026-02-24)
+
+### Bug Fixes
+
+- **web:** stabilize node clickability during optimistic feature creation ([#120](https://github.com/shep-ai/cli/issues/120)) ([641f4b8](https://github.com/shep-ai/cli/commit/641f4b85bbe64fa3c5e75f82642e6c8a623dc06c))
+
+# [1.51.0](https://github.com/shep-ai/cli/compare/v1.50.0...v1.51.0) (2026-02-24)
+
+### Bug Fixes
+
+- **agents:** prevent data loss in merge node for no-remote repos ([#118](https://github.com/shep-ai/cli/issues/118)) ([12816c5](https://github.com/shep-ai/cli/commit/12816c5553f7acbbb7c2ac094c8e319448f1b87d))
+
+### Features
+
+- **agents:** add dev mock agent executor with full SDLC fixture support ([#117](https://github.com/shep-ai/cli/issues/117)) ([77400ab](https://github.com/shep-ai/cli/commit/77400abe8d0a03d416f1b368f51f3037e7b8a2d2))
+
+# [1.50.0](https://github.com/shep-ai/cli/compare/v1.49.1...v1.50.0) (2026-02-24)
+
+### Bug Fixes
+
+- **agents:** suppress notification replay on watcher bootstrap ([#114](https://github.com/shep-ai/cli/issues/114)) ([8617365](https://github.com/shep-ai/cli/commit/8617365ffcc90e2ba5d1d7cd0b2973cbbffaa0d0))
+
+### Features
+
+- **cli:** improve feat ls view ([#115](https://github.com/shep-ai/cli/issues/115)) ([f45267d](https://github.com/shep-ai/cli/commit/f45267df4c6d9f97dc9cac230f39937285f39b4c))
+
+## [1.49.1](https://github.com/shep-ai/cli/compare/v1.49.0...v1.49.1) (2026-02-24)
+
+### Bug Fixes
+
+- **agents:** isolate rejection feedback by phase for plan/merge prompts ([#113](https://github.com/shep-ai/cli/issues/113)) ([b9fafff](https://github.com/shep-ai/cli/commit/b9fafff82cdcdb6b37ac829e122ade279aad5938))
+
+# [1.49.0](https://github.com/shep-ai/cli/compare/v1.48.0...v1.49.0) (2026-02-23)
+
+### Bug Fixes
+
+- **agents:** handle merge node rejection loop ([#111](https://github.com/shep-ai/cli/issues/111)) ([fd1fff3](https://github.com/shep-ai/cli/commit/fd1fff33ca2dc88bf06fbdebafb83115cbec340a))
+
+### Features
+
+- **web:** add approval/rejection flows to control center drawers ([#109](https://github.com/shep-ai/cli/issues/109)) ([8ca3a89](https://github.com/shep-ai/cli/commit/8ca3a898cf23fc0a75325adbd8c4d96af1b87d3c))
+
+# [1.48.0](https://github.com/shep-ai/cli/compare/v1.47.0...v1.48.0) (2026-02-23)
+
+### Bug Fixes
+
+- **web:** correct add-repo node position shifting in control center ([#039](https://github.com/shep-ai/cli/issues/039)) ([#108](https://github.com/shep-ai/cli/issues/108)) ([3612c55](https://github.com/shep-ai/cli/commit/3612c559142133c8eefd5ad1af57ea3e6fb14e5e))
+
+### Features
+
+- **domain:** auto-init git repos for feature creation ([#101](https://github.com/shep-ai/cli/issues/101)) ([41c3969](https://github.com/shep-ai/cli/commit/41c39696d834d72c643867496ed82eb3eb782fca))
+- **web:** auto-relayout canvas after feature deletion ([#107](https://github.com/shep-ai/cli/issues/107)) ([ff2df01](https://github.com/shep-ai/cli/commit/ff2df01cc78b80c1fa3c63fcc8cb6bcb8e15baf9))
+- **web:** enhance merge review with branch info, phases, and chat input ([#106](https://github.com/shep-ai/cli/issues/106)) ([ae1899c](https://github.com/shep-ai/cli/commit/ae1899cef740c4977315bffd5bede76aa402057e))
+
+# [1.47.0](https://github.com/shep-ai/cli/compare/v1.46.0...v1.47.0) (2026-02-23)
+
+### Features
+
+- **web:** add push and open-pr checkbox controls to feature create drawer ([#103](https://github.com/shep-ai/cli/issues/103)) ([dc9003c](https://github.com/shep-ai/cli/commit/dc9003cd1c639cdb5933c647ec7cfd9d894f55ce))
+
+# [1.46.0](https://github.com/shep-ai/cli/compare/v1.45.0...v1.46.0) (2026-02-23)
+
+### Features
+
+- **web:** show empty state when no repositories in control center ([#100](https://github.com/shep-ai/cli/issues/100)) ([62a5033](https://github.com/shep-ai/cli/commit/62a503344b65729a57037038a435902db2e06089)), closes [#038](https://github.com/shep-ai/cli/issues/038)
+
+# [1.45.0](https://github.com/shep-ai/cli/compare/v1.44.2...v1.45.0) (2026-02-23)
+
+### Features
+
+- **cli:** add repo ls and repo show commands for repository management ([#99](https://github.com/shep-ai/cli/issues/99)) ([85a6d9b](https://github.com/shep-ai/cli/commit/85a6d9b3cd8a6aae52e42eb3fcdc3eba62f04f1f))
+
+## [1.44.2](https://github.com/shep-ai/cli/compare/v1.44.1...v1.44.2) (2026-02-23)
+
+### Bug Fixes
+
+- **domain:** resolve branch detection and schema path bugs ([#98](https://github.com/shep-ai/cli/issues/98)) ([1dd3976](https://github.com/shep-ai/cli/commit/1dd3976c7811562c4c371eb623928e421a491c5a))
+
+## [1.44.1](https://github.com/shep-ai/cli/compare/v1.44.0...v1.44.1) (2026-02-23)
+
+### Bug Fixes
+
+- **web:** add missing storybook mock and ci build check ([#97](https://github.com/shep-ai/cli/issues/97)) ([343bc77](https://github.com/shep-ai/cli/commit/343bc77a2dede6d80019730f8ed4e02d305c88cf))
+
+# [1.44.0](https://github.com/shep-ai/cli/compare/v1.43.0...v1.44.0) (2026-02-23)
+
+### Features
+
+- **domain:** promote repository to first-class entity ([#92](https://github.com/shep-ai/cli/issues/92)) ([f98c485](https://github.com/shep-ai/cli/commit/f98c4859eb80df95521f568c4bb097b1bfeaaf86))
+
+# [1.43.0](https://github.com/shep-ai/cli/compare/v1.42.0...v1.43.0) (2026-02-23)
+
+### Features
+
+- **cli:** auto-open browser when `shep ui` starts ([#95](https://github.com/shep-ai/cli/issues/95)) ([9ef0781](https://github.com/shep-ai/cli/commit/9ef0781222cbe19f72552a0784b8face5a27f62d))
+
+# [1.42.0](https://github.com/shep-ai/cli/compare/v1.41.1...v1.42.0) (2026-02-23)
+
+### Features
+
+- **cli:** add first-run onboarding wizard ([#93](https://github.com/shep-ai/cli/issues/93)) ([7cde82a](https://github.com/shep-ai/cli/commit/7cde82a4a78c08f88a3caf9a7d7aaf899c067646))
+
+## [1.41.1](https://github.com/shep-ai/cli/compare/v1.41.0...v1.41.1) (2026-02-23)
+
+### Bug Fixes
+
+- **web:** use os.platform() instead of process.platform for runtime evaluation ([#94](https://github.com/shep-ai/cli/issues/94)) ([57e0893](https://github.com/shep-ai/cli/commit/57e0893e2bf2e78d51465ef763d4e62df6566c23))
+
+# [1.41.0](https://github.com/shep-ai/cli/compare/v1.40.2...v1.41.0) (2026-02-23)
+
+### Features
+
+- **agents:** replace direct git service calls with agent-driven merge ([#91](https://github.com/shep-ai/cli/issues/91)) ([5f8a13d](https://github.com/shep-ai/cli/commit/5f8a13de3dc6cb6d2c90b74e736f811ba118f143))
+
+## [1.40.2](https://github.com/shep-ai/cli/compare/v1.40.1...v1.40.2) (2026-02-22)
+
+### Bug Fixes
+
+- **domain:** add ajv-formats for date-time validation ([#90](https://github.com/shep-ai/cli/issues/90)) ([4ff5ed5](https://github.com/shep-ai/cli/commit/4ff5ed50f2a069e56876b20a751d142217e0b654))
+
+## [1.40.1](https://github.com/shep-ai/cli/compare/v1.40.0...v1.40.1) (2026-02-22)
+
+### Bug Fixes
+
+- **tsp:** regenerate types and json schemas from current typespec models ([#89](https://github.com/shep-ai/cli/issues/89)) ([e4d96e9](https://github.com/shep-ai/cli/commit/e4d96e94424cd54248fdb5e5220abddd7b64a67b))
+
+# [1.40.0](https://github.com/shep-ai/cli/compare/v1.39.0...v1.40.0) (2026-02-22)
+
+### Features
+
+- **agents:** add gemini cli executor with streaming and token auth ([#88](https://github.com/shep-ai/cli/issues/88)) ([dc8a3ca](https://github.com/shep-ai/cli/commit/dc8a3ca7a8b39557776b78a874a8acdebbb41e64))
+
+# [1.39.0](https://github.com/shep-ai/cli/compare/v1.38.0...v1.39.0) (2026-02-22)
+
+### Features
+
+- **agents:** add prd approval iterations with interactive tui review ([#86](https://github.com/shep-ai/cli/issues/86)) ([c574d1b](https://github.com/shep-ai/cli/commit/c574d1b5a7ebba2b81431089300b54a79677aac8))
+
+# [1.38.0](https://github.com/shep-ai/cli/compare/v1.37.3...v1.38.0) (2026-02-22)
+
+### Features
+
+- **web:** add prd questionnaire component and folder open api ([#79](https://github.com/shep-ai/cli/issues/79)) ([17f26f6](https://github.com/shep-ai/cli/commit/17f26f6a16fdd69631ca25efa7e015ba5b417528))
+
+## [1.37.3](https://github.com/shep-ai/cli/compare/v1.37.2...v1.37.3) (2026-02-22)
+
+### Bug Fixes
+
+- **cli:** include feature short id in approve/reject hints ([#87](https://github.com/shep-ai/cli/issues/87)) ([c803bd9](https://github.com/shep-ai/cli/commit/c803bd962b76733b46822e0b02f618dee2a53e54))
+
+## [1.37.2](https://github.com/shep-ai/cli/compare/v1.37.1...v1.37.2) (2026-02-22)
+
+### Bug Fixes
+
+- **agents:** detect crashed processes on resume and fix timing display ([#85](https://github.com/shep-ai/cli/issues/85)) ([7074929](https://github.com/shep-ai/cli/commit/7074929588401b3e27a7ca54620c75d5544c0e93))
+
+## [1.37.1](https://github.com/shep-ai/cli/compare/v1.37.0...v1.37.1) (2026-02-19)
+
+### Bug Fixes
+
+- **agents:** correct approval wait timing attribution and bar overflow ([#84](https://github.com/shep-ai/cli/issues/84)) ([7ff5748](https://github.com/shep-ai/cli/commit/7ff57482a404b21fe5f2b8e926c525f047639a88))
+
+# [1.37.0](https://github.com/shep-ai/cli/compare/v1.36.0...v1.37.0) (2026-02-19)
+
+### Features
+
+- **api:** replace per-ide launcher classes with json-driven launcher ([#83](https://github.com/shep-ai/cli/issues/83)) ([a8b73b5](https://github.com/shep-ai/cli/commit/a8b73b5fb8b6ef5352fcbd84ac3d3d33348dee09))
+
+# [1.36.0](https://github.com/shep-ai/cli/compare/v1.35.3...v1.36.0) (2026-02-19)
+
+### Features
+
+- **agents:** track and display approval wait times in phase timings ([#82](https://github.com/shep-ai/cli/issues/82)) ([33e66d3](https://github.com/shep-ai/cli/commit/33e66d363a47eebef68e8da010c5c5a5fb2b93d3))
+
+## [1.35.3](https://github.com/shep-ai/cli/compare/v1.35.2...v1.35.3) (2026-02-19)
+
+### Bug Fixes
+
+- **agents:** record phase timing on failure and update lifecycle per node ([#81](https://github.com/shep-ai/cli/issues/81)) ([a59c949](https://github.com/shep-ai/cli/commit/a59c949cc18b020014b778b263d7200bd2b8e661))
+
+## [1.35.2](https://github.com/shep-ai/cli/compare/v1.35.1...v1.35.2) (2026-02-19)
+
+### Bug Fixes
+
+- **agents:** add missing phase timing for implement/merge nodes and fix pr creation ([#80](https://github.com/shep-ai/cli/issues/80)) ([1d97df9](https://github.com/shep-ai/cli/commit/1d97df996466bc61991350b2571b082fc85c9f8b))
+
+## [1.35.1](https://github.com/shep-ai/cli/compare/v1.35.0...v1.35.1) (2026-02-19)
+
+# [1.35.0](https://github.com/shep-ai/cli/compare/v1.34.0...v1.35.0) (2026-02-19)
+
+### Features
+
+- **cli:** add `shep feat logs` command ([#78](https://github.com/shep-ai/cli/issues/78)) ([27c62e8](https://github.com/shep-ai/cli/commit/27c62e8872bee0a15618b94b9e7eb45cbae4a3d9))
+
+# [1.34.0](https://github.com/shep-ai/cli/compare/v1.33.1...v1.34.0) (2026-02-19)
+
+### Features
+
+- **agents:** add structured agent caller for agent-agnostic structured output ([#77](https://github.com/shep-ai/cli/issues/77)) ([b5e527c](https://github.com/shep-ai/cli/commit/b5e527c781cb3049a3f3d4f8fa89972322bd49b3))
+
 ## [1.33.1](https://github.com/shep-ai/cli/compare/v1.33.0...v1.33.1) (2026-02-19)
 
 # [1.33.0](https://github.com/shep-ai/cli/compare/v1.32.1...v1.33.0) (2026-02-19)

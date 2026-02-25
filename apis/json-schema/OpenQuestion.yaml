@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: OpenQuestion.yaml
+type: object
+properties:
+  question:
+    type: string
+    description: The question text that needs to be answered
+  resolved:
+    type: boolean
+    description: Whether this question has been resolved (false = blocking)
+  options:
+    type: array
+    items:
+      $ref: QuestionOption.yaml
+    description: Structured options for resolving this question (spec.yaml pattern)
+  selectionRationale:
+    type: string
+    description: Rationale explaining which option was selected and why
+  answer:
+    type: string
+    description: Free-text answer or resolution (research.yaml pattern)
+required:
+  - question
+  - resolved
+description: Open question with resolution via options or direct answer

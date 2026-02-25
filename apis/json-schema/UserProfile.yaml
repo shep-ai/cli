@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: UserProfile.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: User's display name (optional)
+  email:
+    type: string
+    description: User's email address (optional)
+  githubUsername:
+    type: string
+    description: GitHub username (optional, for PR attribution)
+description: User profile information

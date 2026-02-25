@@ -1,0 +1,243 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: dev-mock-agent-executor
+summary: >
+  Implement the "Dev" mock agent executor as a first-class, settings-selectable agent type
+  following the existing executor pattern: add AgentType.Dev to TypeSpec, create
+  DevAgentExecutorService in the executors/ directory with realistic fixture YAML data
+  in a fixtures/ subdirectory, wire it through AgentExecutorFactory, bypass binary validation
+  in AgentValidatorService and ConfigureAgentUseCase, add TUI/CLI/web settings surfaces,
+  and add the Beaker icon to agent-type-icons.tsx. No interface changes required; the
+  dev executor is entirely self-contained and plugs into the existing resolution chain.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - TypeSpec (tsp/common/enums/agent-config.tsp — AgentType enum extension)
+  - TypeScript (packages/core/src/)
+  - tsyringe (DI container — no new registrations, only factory case addition)
+  - Node.js fs (mkdirSync, writeFileSync for fixture YAML writing)
+  - lucide-react (Beaker icon for web UI agent-type-icons component)
+  - Vitest (unit + integration tests with real-fs temp directories)
+  - Storybook (stories update for agent-type-icons)
+  - Commander.js (CLI settings agent command — verify --agent dev acceptance)
+  - '@inquirer/prompts (TUI agent-select wizard — add Dev (Mock) choice)'
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'TypeSpec Foundation'
+    description: >
+      Add AgentType.Dev ("dev") to the TypeSpec enum in tsp/common/enums/agent-config.tsp
+      and run pnpm tsp:compile to regenerate packages/core/src/domain/generated/output.ts.
+      This is the prerequisite for all subsequent tasks — the new type value must exist in
+      the generated TypeScript union before any code that references AgentType.Dev can compile.
+      Verify pnpm typecheck passes immediately after regeneration.
+    parallel: false
+
+  - id: phase-2
+    name: 'Dev Executor Core'
+    description: >
+      Create the fixture constant files for each SDLC phase (spec-analyze, spec-requirements,
+      research, plan, tasks) in a fixtures/ subdirectory, then implement DevAgentExecutorService
+      with regex-based phase detection, specDir path extraction, configurable delay, and disk
+      writes. Fixture authoring is the dominant effort. The executor is TDD-driven: unit tests
+      asserting correct file output for each phase pattern are written first (RED), then the
+      minimal implementation is added (GREEN), then the code is cleaned up (REFACTOR).
+    parallel: false
+
+  - id: phase-3
+    name: 'Infrastructure Wiring'
+    description: >
+      Wire DevAgentExecutorService into the existing infrastructure with minimal, targeted
+      changes: add case "dev" to AgentExecutorFactory.createExecutor(), add an early-return
+      guard in AgentValidatorService.isAvailable(), and add a validation-skip guard in
+      ConfigureAgentUseCase.execute(). Each change is 2–4 lines and covered by its own
+      RED-GREEN-REFACTOR TDD cycle. The SHEP_MOCK_EXECUTOR env-var branch in container.ts
+      remains completely untouched.
+    parallel: false
+
+  - id: phase-4
+    name: 'Settings Surface'
+    description: >
+      Expose the Dev executor in user-facing settings: add "Dev (Mock)" as an always-enabled
+      choice in the TUI agent-select Inquirer prompt, verify the CLI --agent dev flag works
+      end-to-end without binary validation errors, and add the Beaker icon entry to
+      agent-type-icons.tsx with an updated Storybook story.
+    parallel: false
+
+  - id: phase-5
+    name: 'Test Coverage and Validation'
+    description: >
+      Complete unit test coverage for DevAgentExecutorService (all 8 phase patterns, positive
+      and negative), confirm the AgentValidatorService dev bypass test, and add an integration
+      test for the settings persistence round-trip (agent.type = "dev" via use case → SQLite →
+      LoadSettings). Run pnpm validate (lint + format + typecheck + tsp) and pnpm test to
+      confirm no regressions.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - packages/core/src/infrastructure/services/agents/common/executors/dev-executor.service.ts
+  - packages/core/src/infrastructure/services/agents/common/executors/fixtures/spec-analyze.fixture.ts
+  - packages/core/src/infrastructure/services/agents/common/executors/fixtures/spec-requirements.fixture.ts
+  - packages/core/src/infrastructure/services/agents/common/executors/fixtures/research.fixture.ts
+  - packages/core/src/infrastructure/services/agents/common/executors/fixtures/plan.fixture.ts
+  - packages/core/src/infrastructure/services/agents/common/executors/fixtures/tasks.fixture.ts
+  - tests/unit/infrastructure/services/agents/common/executors/dev-executor.service.spec.ts
+
+filesToModify:
+  - tsp/common/enums/agent-config.tsp
+  - packages/core/src/domain/generated/output.ts # auto-regenerated via pnpm tsp:compile
+  - packages/core/src/infrastructure/services/agents/common/agent-executor-factory.service.ts
+  - packages/core/src/infrastructure/services/agents/common/agent-validator.service.ts
+  - packages/core/src/application/use-cases/agents/configure-agent.use-case.ts
+  - src/presentation/tui/prompts/agent-select.prompt.ts
+  - src/presentation/cli/commands/settings/agent.command.ts # verify/accept --agent dev
+  - src/presentation/web/components/common/feature-node/agent-type-icons.tsx
+  - src/presentation/web/components/common/feature-node/agent-type-icons.stories.tsx # create or update
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  The Dev executor slots into the existing settings-driven executor resolution chain
+  without architectural changes. Adding AgentType.Dev and DevAgentExecutorService follows
+  the exact same path as claude-code, cursor, and gemini-cli:
+
+  ```
+  settings.agent.type = "dev"
+      ↓
+  AgentExecutorProvider.getExecutor()             [unchanged]
+      ↓
+  AgentExecutorFactory.createExecutor("dev", ...) [+case 'dev']
+      ↓
+  DevAgentExecutorService.execute(prompt, opts)   [NEW]
+      ↓
+  Phase detection via regex on prompt text
+      ↓
+  Extract specDir from embedded path | Write fixture YAML | Return mock string
+  ```
+
+  DevAgentExecutorService lives in `executors/` alongside existing executors and implements
+  only `IAgentExecutor` — no imports of node/graph internals, no shared state with
+  MockAgentExecutorService. SHEP_MOCK_EXECUTOR=1 continues to activate MockAgentExecutorFactory
+  with the existing MockAgentExecutorService, completely unchanged.
+
+  ### Phase-to-Prompt Mapping
+
+  Each of the 8 distinct call patterns is detectable by unique substrings already in the
+  node prompts (derived from embedded specDir paths and distinctive node-specific text):
+
+  | Phase            | Distinctive Prompt Substring                                  | Response Type                      |
+  | ---------------- | ------------------------------------------------------------- | ---------------------------------- |
+  | Metadata         | `User request:\n"`                                            | JSON {slug, name, description}     |
+  | Analyze          | `Write your analysis to:`                                     | Write spec.yaml analyze fixture    |
+  | Requirements     | `Update the file at:`                                         | Write spec.yaml requirements fix.  |
+  | Research         | `Write your research to:`                                     | Write research.yaml fixture        |
+  | Plan             | `Write to BOTH`                                               | Write plan.yaml + tasks.yaml       |
+  | Implement        | `performing autonomous implementation`                        | Return success string              |
+  | Merge commit     | `performing git operations in a feature worktree`             | Return mock commit/PR output       |
+  | Merge squash     | `merging a pull request` OR `performing a local merge`        | Return merge success string        |
+
+  Detection uses a prioritized if/else if chain — most specific patterns first to prevent
+  false matches between phases.
+
+  ### Fixture File Layout
+
+  ```
+  packages/core/src/infrastructure/services/agents/common/executors/
+  ├── dev-executor.service.ts              ← Phase dispatcher (~90 lines)
+  └── fixtures/
+      ├── spec-analyze.fixture.ts          ← SPEC_ANALYZE_FIXTURE string constant
+      ├── spec-requirements.fixture.ts     ← SPEC_REQUIREMENTS_FIXTURE string constant
+      ├── research.fixture.ts              ← RESEARCH_FIXTURE string constant
+      ├── plan.fixture.ts                  ← PLAN_FIXTURE string constant
+      └── tasks.fixture.ts                 ← TASKS_FIXTURE string constant
+  ```
+
+  Five TypeScript files export pre-serialized YAML strings. The executor imports them and
+  writes them verbatim — no runtime serialization. Each file is ~60-120 lines (within the
+  ≤150 line guideline), keeping dev-executor.service.ts readable as a thin dispatcher.
+
+  ### Fictional Feature: "Add Dark-Mode Toggle to Shep Web UI"
+
+  A self-referential fictional feature that exercises all Shep UI panels with recognizable,
+  production-looking data. References technologies already in the codebase (React, Tailwind
+  CSS v4, shadcn/ui, Storybook), making it look authentic rather than contrived.
+
+  - **spec fixture**: phase=Requirements, sizeEstimate=M, 2 resolved openQuestions,
+    technologies referencing React/Next.js/Tailwind CSS v4/shadcn/ui
+  - **research fixture**: 3 decisions (Theme State Management, CSS Implementation,
+    Persistence Layer) each with chosen/rejected[2]/rationale fields
+  - **plan fixture**: 3 phases (parallel: false), filesToCreate: 4 files,
+    filesToModify: 2 files
+  - **tasks fixture**: 8 tasks across 3 phases, each with id, title, phaseId, state: Todo,
+    acceptanceCriteria[2-3], tdd or null, estimatedEffort
+
+  ## Key Design Decisions
+
+  **1. Phase Detection via Prompt Regex (not interface extension)**
+  Distinctive substrings in each node's prompt provide unambiguous phase identification.
+  Zero interface changes, zero node modifications, fully self-contained executor. Consistent
+  with the spec's selected answer for this open question.
+
+  **2. specDir Extraction from Prompt Text**
+  Each YAML-producing prompt embeds the absolute specDir path (injected from state.specDir
+  at prompt-build time). A regex captures the directory component. Validated: must be
+  absolute, no ".." segments. Avoids any IAgentExecutor interface extension.
+
+  **3. Fixture Data in Separate Constant Files**
+  Pre-serialized YAML strings in a fixtures/ subdirectory. No runtime serialization
+  overhead. Each file is ~60-120 lines, keeping the executor file as a thin dispatcher.
+  Mirrors the project's pattern of grouping related files into subdirectories (nodes/schemas/,
+  nodes/prompts/).
+
+  **4. Configurable Delay**
+  `parseInt(process.env.DEV_EXECUTOR_DELAY_MS ?? '2000', 10)` parsed once in the constructor.
+  A single await at the start of execute(). DEV_EXECUTOR_DELAY_MS=0 makes tests instant.
+  Default 2000ms means a 6-phase run completes in ~12 seconds — within the 30s NFR-6 budget.
+
+  **5. Validator Bypass at the Validator**
+  Early-return guard at the top of AgentValidatorService.isAvailable() ensures every
+  caller — use case, CLI, future code — gets the correct result. Belt-and-suspenders guard
+  in ConfigureAgentUseCase makes the intent explicit at the business-logic layer.
+
+  **6. SHEP_MOCK_EXECUTOR Branch Untouched**
+  The env-var branch in container.ts (MockAgentExecutorFactory) remains completely unchanged.
+  DevAgentExecutorService is only reachable through deliberate settings selection, not any
+  environment variable. Preserves all existing CI/test pipelines.
+
+  ## Implementation Strategy
+
+  Phase 1 (TypeSpec) is a strict prerequisite: all subsequent TypeScript files reference
+  AgentType.Dev which must exist in the generated union before they can compile.
+
+  Phase 2 (core executor) is the largest phase. Fixture authoring (task-2) precedes the
+  executor implementation (task-3) because the executor imports the fixture constants
+  directly. TDD drives task-3: tests defining the contract for each phase pattern are
+  written before the implementation.
+
+  Phases 3–4 (wiring + surface) are small targeted changes to existing files, each
+  covered by their own TDD cycles. They can be done in parallel across files but are
+  logically grouped here for clarity.
+
+  Phase 5 completes coverage and verifies the full pipeline. pnpm validate confirms
+  lint + typecheck + tsp all pass with no new errors.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Fixture YAML fails schema validation, triggering repair loops | Author fixtures against the exact schema validator files in nodes/schemas/; unit-test schema validity by calling js-yaml.load() on each fixture in tests |
+  | Prompt regex false-matches across phases (e.g., analyze vs requirements both touch spec.yaml) | Use prioritized if/else if chain with most-specific patterns first; unit-test each pattern with a representative prompt excerpt |
+  | DevAgentExecutorService file exceeds 150-line limit | Five separate fixture constant files keep the executor as a thin dispatcher; measure line count before committing |
+  | tsp:compile breaks downstream TypeScript (type union change) | Run pnpm typecheck immediately after tsp:compile in task-1; fix any type errors before proceeding to phase-2 |
+  | Storybook story missing for modified agent-type-icons component | Explicitly included in task-8 acceptance criteria and filesToModify list; CI rejects commits without stories |
+  | merge-output-parser.ts fails to extract commit SHA / PR URL from mock strings | Inspect merge-output-parser.ts regex patterns before writing merge phase fixture strings; mock strings must match the expected patterns |
+  | CLI --agent flag rejects "dev" due to hardcoded choices array in agent.command.ts | Inspect agent.command.ts for Commander choices() validation; update if needed (included in filesToModify) |

@@ -1,7 +1,7 @@
 'use client';
 
 import { Handle, Position } from '@xyflow/react';
-import { Settings, Plus } from 'lucide-react';
+import { Settings, Plus, FileText, Wrench, GitMerge, type LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
   featureNodeStateConfig,
@@ -16,6 +16,31 @@ function AgentIcon({ agentType, className }: { agentType?: string; className?: s
   return <IconComponent className={className} />;
 }
 
+function getBadgeIcon(data: FeatureNodeData): LucideIcon {
+  const config = featureNodeStateConfig[data.state];
+  if (data.state === 'action-required') {
+    if (data.lifecycle === 'requirements') return FileText;
+    if (data.lifecycle === 'implementation') return Wrench;
+    if (data.lifecycle === 'review') return GitMerge;
+  }
+  return config.icon;
+}
+
+/** Returns override badge classes for action-required based on lifecycle phase. */
+function getActionRequiredBadgeClasses(data: FeatureNodeData): {
+  badgeClass: string;
+  badgeBgClass: string;
+} | null {
+  if (data.state !== 'action-required') return null;
+  if (data.lifecycle === 'implementation') {
+    return { badgeClass: 'text-indigo-700', badgeBgClass: 'bg-indigo-50' };
+  }
+  if (data.lifecycle === 'review') {
+    return { badgeClass: 'text-emerald-700', badgeBgClass: 'bg-emerald-50' };
+  }
+  return null; // requirements stays amber (default)
+}
+
 function getBadgeText(data: FeatureNodeData): string {
   const config = featureNodeStateConfig[data.state];
   switch (data.state) {
@@ -27,6 +52,11 @@ function getBadgeText(data: FeatureNodeData): string {
       return data.runtime ? `Completed in ${data.runtime}` : 'Completed';
     case 'blocked':
       return data.blockedBy ? `Waiting on ${data.blockedBy}` : 'Blocked';
+    case 'action-required':
+      if (data.lifecycle === 'requirements') return 'Review Product Requirements';
+      if (data.lifecycle === 'implementation') return 'Review Technical Planning';
+      if (data.lifecycle === 'review') return 'Review Merge Request';
+      return config.label;
     case 'error':
       return data.errorMessage ?? 'Something went wrong';
     default:
@@ -70,7 +100,7 @@ export function FeatureNode({
             data-testid="feature-node-lifecycle-label"
             className={cn('text-[10px] font-semibold tracking-wider')}
           >
-            {lifecycleDisplayLabels[data.lifecycle]}
+            {data.state === 'blocked' ? 'BLOCKED' : lifecycleDisplayLabels[data.lifecycle]}
           </span>
           {data.onSettings ? (
             <button
@@ -163,13 +193,19 @@ export function FeatureNode({
               {/* State badge */}
               <div
                 data-testid="feature-node-badge"
-                className={cn(
-                  'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
-                  config.badgeBgClass,
-                  config.badgeClass
-                )}
+                className={(() => {
+                  const override = getActionRequiredBadgeClasses(data);
+                  return cn(
+                    'mt-1.5 flex items-center justify-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium',
+                    override?.badgeBgClass ?? config.badgeBgClass,
+                    override?.badgeClass ?? config.badgeClass
+                  );
+                })()}
               >
-                <Icon className="h-3.5 w-3.5 shrink-0" />
+                {(() => {
+                  const BadgeIcon = getBadgeIcon(data);
+                  return <BadgeIcon className="h-3.5 w-3.5 shrink-0" />;
+                })()}
                 <span className="truncate">{getBadgeText(data)}</span>
               </div>
             </>

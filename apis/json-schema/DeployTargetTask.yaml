@@ -1,0 +1,15 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: DeployTargetTask.yaml
+type: object
+properties:
+  kind:
+    type: string
+    const: task
+    description: Discriminator indicating this is a task target
+  task:
+    $ref: Task.yaml
+    description: The task to deploy - includes all action items within the task
+required:
+  - kind
+  - task
+description: Deployment target wrapping a single Task for task-level deployments

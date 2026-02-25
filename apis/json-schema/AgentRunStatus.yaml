@@ -1,0 +1,12 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentRunStatus.yaml
+type: string
+enum:
+  - pending
+  - running
+  - completed
+  - failed
+  - interrupted
+  - cancelled
+  - waiting_approval
+description: Agent run execution status

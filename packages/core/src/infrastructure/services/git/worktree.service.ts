@@ -7,8 +7,12 @@
  */
 
 import { createHash } from 'node:crypto';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { injectable, inject } from 'tsyringe';
+
+const GIT_AUTO_INIT_USER = 'shep-ai[bot]';
+const GIT_AUTO_INIT_EMAIL = 'bot@shep.bot';
 import type {
   IWorktreeService,
   WorktreeInfo,
@@ -33,11 +37,16 @@ export type ExecFunction = (
 export class WorktreeService implements IWorktreeService {
   constructor(@inject('ExecFunction') private readonly execFile: ExecFunction) {}
 
-  async create(repoPath: string, branch: string, worktreePath: string): Promise<WorktreeInfo> {
+  async create(
+    repoPath: string,
+    branch: string,
+    worktreePath: string,
+    startPoint?: string
+  ): Promise<WorktreeInfo> {
     try {
-      await this.execFile('git', ['worktree', 'add', worktreePath, '-b', branch], {
-        cwd: repoPath,
-      });
+      const args = ['worktree', 'add', worktreePath, '-b', branch];
+      if (startPoint) args.push(startPoint);
+      await this.execFile('git', args, { cwd: repoPath });
     } catch (error) {
       throw this.parseGitError(error);
     }
@@ -72,6 +81,38 @@ export class WorktreeService implements IWorktreeService {
   async exists(repoPath: string, branch: string): Promise<boolean> {
     const worktrees = await this.list(repoPath);
     return worktrees.some((w) => w.branch === branch);
+  }
+
+  async branchExists(repoPath: string, branch: string): Promise<boolean> {
+    try {
+      const { stdout } = await this.execFile('git', ['branch', '--list', branch], {
+        cwd: repoPath,
+      });
+      return stdout.trim().length > 0;
+    } catch {
+      return false;
+    }
+  }
+
+  async ensureGitRepository(repoPath: string): Promise<void> {
+    try {
+      await this.execFile('git', ['rev-parse', '--is-inside-work-tree'], { cwd: repoPath });
+      return; // Already a git repo
+    } catch {
+      // Not a git repo — initialize it
+    }
+
+    try {
+      mkdirSync(repoPath, { recursive: true });
+      await this.execFile('git', ['init'], { cwd: repoPath });
+      await this.execFile('git', ['config', 'user.name', GIT_AUTO_INIT_USER], { cwd: repoPath });
+      await this.execFile('git', ['config', 'user.email', GIT_AUTO_INIT_EMAIL], { cwd: repoPath });
+      await this.execFile('git', ['commit', '--allow-empty', '-m', 'Initial commit'], {
+        cwd: repoPath,
+      });
+    } catch (error) {
+      throw this.parseGitError(error);
+    }
   }
 
   getWorktreePath(repoPath: string, branch: string): string {

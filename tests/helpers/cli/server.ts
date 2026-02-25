@@ -70,7 +70,13 @@ export async function startCliServer(
   const timeout = options?.timeout ?? DEFAULT_STARTUP_TIMEOUT;
 
   const command = 'npx';
-  const commandArgs = ['tsx', CLI_PATH_DEV, 'ui', ...args.split(/\s+/).filter(Boolean)];
+  const commandArgs = [
+    'tsx',
+    CLI_PATH_DEV,
+    'ui',
+    '--no-open',
+    ...args.split(/\s+/).filter(Boolean),
+  ];
 
   const child = spawn(command, commandArgs, {
     cwd: PROJECT_ROOT,

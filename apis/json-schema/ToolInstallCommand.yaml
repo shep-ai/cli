@@ -1,0 +1,28 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ToolInstallCommand.yaml
+type: object
+properties:
+  command:
+    type: string
+    description: Shell command string to execute
+  platform:
+    type: string
+    description: Target platform identifier
+  timeout:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Execution timeout in milliseconds
+  toolName:
+    type: string
+    description: Tool name
+  packageManager:
+    type: string
+    description: Package manager identifier
+required:
+  - command
+  - platform
+  - timeout
+  - toolName
+  - packageManager
+description: Executable installation command for a tool

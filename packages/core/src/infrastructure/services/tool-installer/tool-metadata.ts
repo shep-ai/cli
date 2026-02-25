@@ -22,8 +22,11 @@ export interface ToolMetadata {
   /** Detailed description */
   description: string;
 
-  /** Tool category for grouping in listings */
-  category: 'ide' | 'cli-agent';
+  /** Tool tags for grouping in listings. A tool can belong to multiple categories. */
+  tags: ('ide' | 'cli-agent' | 'vcs')[];
+
+  /** URL to the tool's icon/logo image */
+  iconUrl?: string;
 
   /** Binary name to check with 'which' command (string or per-platform map) */
   binary: string | Record<string, string>;
@@ -46,15 +49,36 @@ export interface ToolMetadata {
   /** Whether the tool supports automated installation (default: true) */
   autoInstall?: boolean;
 
-  /** Command to open a directory in this tool (e.g., "code .") */
-  openDirectory?: string;
+  /** Whether this tool is required for the platform to function (default: false) */
+  required?: boolean;
+
+  /** Command to open a directory in this tool.
+   * String format: "code {dir}" — single command for all platforms.
+   * Object format: { "linux": "antigravity {dir}", "darwin": "agy {dir}" } — per-platform commands. */
+  openDirectory?: string | Record<string, string>;
+
+  /** Override default spawn options for the launch process.
+   * Defaults: { detached: true, stdio: "ignore" } (GUI IDEs).
+   * CLI agents should use { shell: true, stdio: "inherit" } to run in the current terminal. */
+  spawnOptions?: {
+    shell?: boolean;
+    stdio?: 'ignore' | 'inherit' | 'pipe';
+    detached?: boolean;
+  };
+
+  /** Platform-specific command to launch this tool in a new terminal window.
+   * Used when launching from the web UI where no terminal is available.
+   * When set, the launcher spawns a new terminal window with this command.
+   * Supports {dir} placeholder like openDirectory.
+   * Example: "x-terminal-emulator -e bash -c 'cd {dir} && claude'" */
+  terminalCommand?: string | Record<string, string>;
 }
 
 const REQUIRED_FIELDS: (keyof ToolMetadata)[] = [
   'name',
   'summary',
   'description',
-  'category',
+  'tags',
   'binary',
   'packageManager',
   'commands',
@@ -95,3 +119,12 @@ function loadToolMetadata(): Record<string, ToolMetadata> {
 }
 
 export const TOOL_METADATA: Record<string, ToolMetadata> = loadToolMetadata();
+
+/**
+ * Returns entries from TOOL_METADATA that can open a directory as an IDE.
+ * A tool qualifies if it has an `openDirectory` field, regardless of category.
+ * Each entry is [toolId, metadata].
+ */
+export function getIdeEntries(): [string, ToolMetadata][] {
+  return Object.entries(TOOL_METADATA).filter(([, meta]) => meta.openDirectory != null);
+}

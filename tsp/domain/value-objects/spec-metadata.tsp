@@ -8,8 +8,8 @@
  * ## Design Notes
  *
  * These are value objects (not entities) - they do NOT extend BaseEntity.
- * They are embedded within parent spec artifact entities (FeatureSpec, ResearchSpec,
- * PlanSpec, TasksSpec) and do not have independent identity.
+ * They are embedded within parent spec artifact entities (FeatureArtifact, ResearchArtifact,
+ * TechnicalPlanArtifact, TasksArtifact) and do not have independent identity.
  *
  * ## Usage
  *
@@ -18,7 +18,7 @@
  * ```typespec
  * import "./spec-metadata.tsp";
  *
- * model FeatureSpec extends SpecArtifactBase {
+ * model FeatureArtifact extends SpecArtifactBase {
  *   openQuestions: OpenQuestion[];
  * }
  * ```
@@ -92,6 +92,25 @@ model TechDecision {
 }
 
 /**
+ * Records a single rejection feedback entry for iteration tracking.
+ * Appended to spec.yaml's rejectionFeedback array on each rejection.
+ */
+@doc("Rejection feedback entry for iteration tracking")
+model RejectionFeedbackEntry {
+  @doc("Iteration number (1-based)")
+  iteration: int32;
+
+  @doc("User's feedback message explaining what needs to change")
+  message: string;
+
+  @doc("Which phase was rejected (e.g. 'requirements', 'plan')")
+  phase?: string;
+
+  @doc("When the rejection occurred")
+  timestamp: utcDateTime;
+}
+
+/**
  * Represents an implementation phase within a plan.
  *
  * PlanPhase groups related tasks into a logical implementation phase,
@@ -111,8 +130,8 @@ model PlanPhase {
   @doc("Whether tasks in this phase can be executed in parallel")
   parallel: boolean;
 
-  @doc("Task IDs belonging to this phase (e.g., ['task-1', 'task-2'])")
-  taskIds: string[];
+  @doc("Task IDs belonging to this phase (e.g., ['task-1', 'task-2']). Optional — not present in plan.yaml phases.")
+  taskIds?: string[];
 }
 
 /**

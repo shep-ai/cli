@@ -11,12 +11,14 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AgentRunStatus } from '@/domain/generated/output.js';
 import type { Feature, AgentRun, PhaseTiming } from '@/domain/generated/output.js';
 
-const { mockResolve, mockShowExecute, mockFindById, mockFindByRunId } = vi.hoisted(() => ({
-  mockResolve: vi.fn(),
-  mockShowExecute: vi.fn(),
-  mockFindById: vi.fn(),
-  mockFindByRunId: vi.fn(),
-}));
+const { mockResolve, mockShowExecute, mockFindById, mockFindByRunId, mockFindByFeatureId } =
+  vi.hoisted(() => ({
+    mockResolve: vi.fn(),
+    mockShowExecute: vi.fn(),
+    mockFindById: vi.fn(),
+    mockFindByRunId: vi.fn(),
+    mockFindByFeatureId: vi.fn(),
+  }));
 
 vi.mock('@/infrastructure/di/container.js', () => ({
   container: { resolve: (...args: unknown[]) => mockResolve(...args) },
@@ -40,6 +42,7 @@ function makeFeature(overrides?: Partial<Feature>): Feature {
     name: 'Test Feature',
     slug: 'test-feature',
     description: 'A test feature',
+    userQuery: 'I want to add a test feature',
     repositoryPath: '/repo',
     branch: 'feat/test-feature',
     lifecycle: 'Requirements' as any,
@@ -99,7 +102,8 @@ describe('createShowCommand - phase timing & approval', () => {
     mockResolve.mockImplementation((token: unknown) => {
       if (typeof token === 'string') {
         if (token === 'IAgentRunRepository') return { findById: mockFindById };
-        if (token === 'IPhaseTimingRepository') return { findByRunId: mockFindByRunId };
+        if (token === 'IPhaseTimingRepository')
+          return { findByRunId: mockFindByRunId, findByFeatureId: mockFindByFeatureId };
         return {};
       }
       // Class token (ShowFeatureUseCase)
@@ -117,7 +121,7 @@ describe('createShowCommand - phase timing & approval', () => {
       ];
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue(timings);
+      mockFindByFeatureId.mockResolvedValue(timings);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -136,7 +140,7 @@ describe('createShowCommand - phase timing & approval', () => {
       ];
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue(timings);
+      mockFindByFeatureId.mockResolvedValue(timings);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -154,7 +158,7 @@ describe('createShowCommand - phase timing & approval', () => {
       ];
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue(timings);
+      mockFindByFeatureId.mockResolvedValue(timings);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -177,7 +181,7 @@ describe('createShowCommand - phase timing & approval', () => {
       ];
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue(timings);
+      mockFindByFeatureId.mockResolvedValue(timings);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -192,7 +196,7 @@ describe('createShowCommand - phase timing & approval', () => {
       const run = makeRun({ status: AgentRunStatus.running });
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue([]);
+      mockFindByFeatureId.mockResolvedValue([]);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -202,13 +206,120 @@ describe('createShowCommand - phase timing & approval', () => {
     });
   });
 
+  describe('CI fix display', () => {
+    it('should show CI fix attempts count in PR section', async () => {
+      const feature = makeFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          ciStatus: 'Failure' as any,
+          ciFixAttempts: 2,
+        },
+      });
+      const run = makeRun({ status: AgentRunStatus.completed });
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByFeatureId.mockResolvedValue([]);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).toMatch(/CI Fixes/);
+      expect(output).toMatch(/2 attempt/);
+    });
+
+    it('should not show CI fix attempts when zero', async () => {
+      const feature = makeFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          ciStatus: 'Success' as any,
+        },
+      });
+      const run = makeRun({ status: AgentRunStatus.completed });
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByFeatureId.mockResolvedValue([]);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).not.toMatch(/CI Fixes/);
+    });
+
+    it('should display CI fix history text block with per-attempt details', async () => {
+      const feature = makeFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          ciStatus: 'Failure' as any,
+          ciFixAttempts: 2,
+          ciFixHistory: [
+            {
+              attempt: 1,
+              startedAt: '2025-06-01T10:00:00Z',
+              failureSummary: 'Test suite failed: 3 tests in auth module',
+              outcome: 'failed',
+            },
+            {
+              attempt: 2,
+              startedAt: '2025-06-01T10:05:00Z',
+              failureSummary: 'Lint error in utils.ts line 42',
+              outcome: 'fixed',
+            },
+          ],
+        },
+      });
+      const run = makeRun({ status: AgentRunStatus.completed });
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByFeatureId.mockResolvedValue([]);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).toMatch(/CI Fix History/);
+      expect(output).toMatch(/#1/);
+      expect(output).toMatch(/failed/);
+      expect(output).toMatch(/#2/);
+      expect(output).toMatch(/fixed/);
+    });
+
+    it('should not show CI fix history when no history exists', async () => {
+      const feature = makeFeature({
+        pr: {
+          url: 'https://github.com/org/repo/pull/42',
+          number: 42,
+          status: 'Open' as any,
+          ciStatus: 'Success' as any,
+        },
+      });
+      const run = makeRun({ status: AgentRunStatus.completed });
+      mockShowExecute.mockResolvedValue(feature);
+      mockFindById.mockResolvedValue(run);
+      mockFindByFeatureId.mockResolvedValue([]);
+
+      const cmd = createShowCommand();
+      await cmd.parseAsync(['feat-001'], { from: 'user' });
+
+      const output = logOutput.join('\n');
+      expect(output).not.toMatch(/CI Fix History/);
+    });
+  });
+
   describe('approval context', () => {
     it('should show approval instructions when waiting for approval', async () => {
       const feature = makeFeature();
       const run = makeRun({ status: AgentRunStatus.waitingApproval, result: 'node:plan' });
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue([]);
+      mockFindByFeatureId.mockResolvedValue([]);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });
@@ -223,7 +334,7 @@ describe('createShowCommand - phase timing & approval', () => {
       const run = makeRun({ status: AgentRunStatus.running });
       mockShowExecute.mockResolvedValue(feature);
       mockFindById.mockResolvedValue(run);
-      mockFindByRunId.mockResolvedValue([]);
+      mockFindByFeatureId.mockResolvedValue([]);
 
       const cmd = createShowCommand();
       await cmd.parseAsync(['feat-001'], { from: 'user' });

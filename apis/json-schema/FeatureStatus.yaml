@@ -1,0 +1,40 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureStatus.yaml
+type: object
+properties:
+  feature:
+    $ref: FeatureIdentity.yaml
+    description: Feature identity metadata
+  status:
+    $ref: FeatureStatusInfo.yaml
+    description: Current execution status and progress
+  prUrl:
+    type: string
+    description: PR URL if a pull request has been created
+  mergedAt:
+    type: string
+    description: ISO timestamp when the feature was merged
+  validation:
+    $ref: FeatureValidation.yaml
+    description: Validation gate results
+  tasks:
+    $ref: FeatureTaskTracking.yaml
+    description: Task execution tracking
+  checkpoints:
+    type: array
+    items:
+      $ref: FeatureCheckpoint.yaml
+    description: Milestone checkpoints recording phase completions
+  errors:
+    $ref: FeatureErrors.yaml
+    description: Error tracking state
+required:
+  - feature
+  - status
+  - validation
+  - tasks
+  - checkpoints
+  - errors
+allOf:
+  - $ref: BaseEntity.yaml
+description: Feature status tracking artifact (feature.yaml)

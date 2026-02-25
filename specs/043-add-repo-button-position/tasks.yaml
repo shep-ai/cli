@@ -1,0 +1,88 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: add-repo-button-position
+summary: >
+  2 tasks in 1 phase: fix the Panel margin class in features-canvas.tsx, then update
+  the Storybook story to visually verify the corrected layout.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Tailwind CSS
+  - '@xyflow/react (ReactFlow Panel)'
+  - React
+  - Storybook
+relatedLinks: []
+
+# Structured task list
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Fix Panel right margin in features-canvas.tsx'
+    description: >
+      Replace the mr-12 class with mr-16 on the ReactFlow <Panel position="top-right">
+      in features-canvas.tsx so the Add Repository button clears the ThemeToggle zone.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'The Panel element has className containing mr-16 (not mr-12)'
+      - 'No other className values on the Panel are changed'
+      - 'No other files are modified'
+    tdd:
+      red:
+        - >
+          In features-canvas.test.tsx (or existing test file), add a test that renders
+          FeaturesCanvas and asserts the Panel wrapper div has the class mr-16. Run the
+          test — it fails because the current class is mr-12.
+      green:
+        - >
+          In features-canvas.tsx line ~162, change mr-12 → mr-16 on the Panel className.
+          Re-run the test — it passes.
+      refactor:
+        - 'No refactor needed for a single class change. Confirm no lint errors.'
+    estimatedEffort: '10min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Update Storybook story to document corrected layout'
+    description: >
+      Update (or add a note/variant to) features-canvas.stories.tsx so the story
+      visually reflects the mr-16 panel position and confirms no overlap with the
+      ThemeToggle area.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'features-canvas.stories.tsx exists and includes a story that renders the Panel'
+      - 'Story renders without TypeScript or lint errors'
+      - 'Visual inspection in Storybook shows the Add Repository button does not overlap a simulated ThemeToggle zone at the top-right'
+    tdd:
+      red:
+        - >
+          Verify the existing story (if any) renders and shows the old mr-12 position
+          (or note the absence of a story). This is the baseline to replace/extend.
+      green:
+        - >
+          Update or create the Storybook story to render FeaturesCanvas with a mock
+          ThemeToggle overlay at top-right-3 (or a placeholder div) so the gap is
+          visually verifiable. Confirm the story compiles.
+      refactor:
+        - 'Remove any stale story variants that no longer apply. Confirm story titles are clear.'
+    estimatedEffort: '20min'
+
+# Total effort estimate
+totalEstimate: '30min'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation is a single phase with two sequential tasks. First, the one-line
+  Tailwind class change in `features-canvas.tsx` is made and verified with a focused
+  unit/render test asserting the correct class is present. Second, the Storybook story
+  is updated to provide a visual confirmation artefact, satisfying NFR-3 without
+  requiring a full browser run. No other files, layers, or dependencies are involved.

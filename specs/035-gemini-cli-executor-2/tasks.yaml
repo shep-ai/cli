@@ -1,0 +1,349 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: gemini-cli-executor-2
+summary: >
+  9 tasks across 3 phases. Phase 1 builds the core executor with execute(), arg building, auth,
+  errors, and feature support via TDD. Phase 2 integrates into factory, validator, and TUI.
+  Phase 3 adds streaming with stream-JSON event parsing.
+
+# Relationships
+relatedFeatures: []
+technologies:
+  - Google Gemini CLI (gemini binary, v0.29+)
+  - TypeScript
+  - Vitest
+  - node:child_process (spawn)
+relatedLinks: []
+
+# Structured task list
+tasks:
+  # ─── Phase 1: Core Executor — execute() with TDD ───────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Scaffold executor and test files with feature support'
+    description: >
+      Create the GeminiCliExecutorService file and its test file. Implement the constructor
+      (SpawnFunction + optional AgentConfig), agentType property, and supportsFeature() method
+      with the correct feature matrix (session-resume, streaming, tool-scoping = true; others = false).
+      Start with tests (RED) for feature declaration.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'GeminiCliExecutorService class exists with correct file path'
+      - 'Constructor accepts SpawnFunction and optional AgentConfig'
+      - 'agentType property returns "gemini-cli"'
+      - 'supportsFeature() returns true for session-resume, streaming, tool-scoping'
+      - 'supportsFeature() returns false for structured-output, system-prompt'
+      - 'Test file exists with passing feature support tests'
+    tdd:
+      red:
+        - 'Write test: agentType is "gemini-cli"'
+        - 'Write test: supportsFeature returns true for session-resume'
+        - 'Write test: supportsFeature returns true for streaming'
+        - 'Write test: supportsFeature returns true for tool-scoping'
+        - 'Write test: supportsFeature returns false for structured-output'
+        - 'Write test: supportsFeature returns false for system-prompt'
+      green:
+        - 'Create GeminiCliExecutorService with SUPPORTED_FEATURES set and supportsFeature() method'
+        - 'Add stub execute() and executeStream() methods (throw "not implemented" for now)'
+      refactor:
+        - 'Ensure SUPPORTED_FEATURES is a readonly Set following Cursor pattern'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Implement buildArgs() with all CLI flag combinations'
+    description: >
+      Implement the private buildArgs() method that constructs the gemini CLI argument array.
+      Core args: -p <prompt>, --output-format json, -y. Optional: --resume <sessionId>,
+      -m <model>, --allowed-tools <csv>. Silently ignore unsupported options (systemPrompt,
+      outputSchema, maxTurns, disableMcp) with debug logging.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'buildArgs() includes -p, --output-format, and -y for basic calls'
+      - '--resume appended when options.resumeSession is provided'
+      - '-m appended when options.model is provided'
+      - '--allowed-tools appended with comma-separated tools when options.allowedTools is non-empty'
+      - 'Unsupported options (systemPrompt, outputSchema, maxTurns, disableMcp) are silently ignored'
+      - 'Debug log emitted when systemPrompt or outputSchema is passed'
+    tdd:
+      red:
+        - 'Write test: basic args include -p <prompt>, --output-format json, -y'
+        - 'Write test: --resume included when resumeSession provided'
+        - 'Write test: -m included when model provided'
+        - 'Write test: --allowed-tools with comma-separated tools when allowedTools provided'
+        - 'Write test: unsupported options do not appear in args'
+      green:
+        - 'Implement buildArgs() with conditional arg appending for each supported option'
+        - 'Add debug log calls for ignored systemPrompt and outputSchema'
+      refactor:
+        - 'Extract output format as a parameter so execute() and executeStream() can share buildArgs()'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Implement execute() with JSON parsing and token auth'
+    description: >
+      Implement execute() method that spawns "gemini" with JSON output format, collects stdout,
+      parses the JSON response, and returns AgentExecutionResult with result, sessionId, and usage.
+      Handle token auth by injecting GEMINI_API_KEY into spawn env when authConfig has token auth.
+      Strip CLAUDECODE and other conflicting env vars.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'execute() spawns "gemini" binary with buildArgs() output'
+      - 'JSON response.response mapped to result field'
+      - 'JSON session_id mapped to sessionId field'
+      - 'JSON stats.models.<model>.tokens mapped to usage (prompt→inputTokens, candidates→outputTokens)'
+      - 'Missing usage/sessionId returns undefined (does not throw)'
+      - 'GEMINI_API_KEY set in spawn env when authConfig.authMethod is "token" and token is non-empty'
+      - 'GEMINI_API_KEY not set when authMethod is "session" or token is empty'
+      - 'CLAUDECODE env var stripped from spawn environment'
+      - 'cwd option passed through to spawn options'
+    tdd:
+      red:
+        - 'Write test: successful execute returns parsed result from JSON response field'
+        - 'Write test: sessionId extracted from session_id field'
+        - 'Write test: usage extracted from stats.models tokens (prompt→input, candidates→output)'
+        - 'Write test: missing stats returns undefined usage without error'
+        - 'Write test: token auth sets GEMINI_API_KEY in spawn env'
+        - 'Write test: session auth does not set GEMINI_API_KEY'
+        - 'Write test: CLAUDECODE stripped from spawn environment'
+        - 'Write test: cwd passed through to spawn options'
+      green:
+        - 'Implement buildSpawnOptions() for env construction (token injection, env stripping)'
+        - 'Implement execute() with stdout collection, JSON.parse, and result mapping'
+        - 'Map JSON fields to AgentExecutionResult properties'
+      refactor:
+        - 'Extract JSON response parsing into a private parseJsonResponse() method'
+    estimatedEffort: '45min'
+
+  - id: task-4
+    phaseId: phase-1
+    title: 'Implement error handling and timeout for execute()'
+    description: >
+      Add error handling for: non-zero exit codes (include exit code + stderr in error message),
+      unparseable JSON (include raw output), spawn failures (ENOENT for missing binary), and
+      timeout via process.kill() after options.timeout milliseconds.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'Non-zero exit code rejects with error including exit code number and stderr content'
+      - 'Unparseable JSON output rejects with error including raw stdout'
+      - 'Spawn ENOENT error rejects with descriptive "binary not found" message'
+      - 'Timeout kills process and rejects with "timed out" error message'
+      - 'Timeout timer is cleared on normal completion'
+    tdd:
+      red:
+        - 'Write test: non-zero exit code produces error with code and stderr'
+        - 'Write test: invalid JSON produces error with raw output snippet'
+        - 'Write test: spawn ENOENT produces binary not found error'
+        - 'Write test: timeout kills process and produces timeout error'
+        - 'Write test: timer cleared on normal exit (no hanging timers)'
+      green:
+        - 'Add exit code handling in close event listener'
+        - 'Wrap JSON.parse in try/catch with raw output in error'
+        - 'Add error event listener for spawn failures'
+        - 'Add setTimeout/clearTimeout with proc.kill() for timeout'
+      refactor:
+        - 'Ensure error messages are consistent with Cursor executor format'
+    estimatedEffort: '30min'
+
+  # ─── Phase 2: System Integration ───────────────────────────────────────
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Integrate into AgentExecutorFactory'
+    description: >
+      Add "gemini-cli" case to the factory switch statement, instantiating GeminiCliExecutorService
+      with spawn and authConfig. Add "gemini-cli" to getSupportedAgents() return array.
+      Update factory tests to verify instantiation and caching.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Factory createExecutor("gemini-cli") returns GeminiCliExecutorService instance'
+      - 'Factory passes authConfig to GeminiCliExecutorService constructor'
+      - 'getSupportedAgents() includes "gemini-cli"'
+      - 'Factory caches gemini-cli executor (same instance on second call)'
+      - 'Existing "throw for unsupported" test updated (gemini-cli no longer unsupported)'
+      - 'All existing factory tests still pass'
+    tdd:
+      red:
+        - 'Update factory test: createExecutor("gemini-cli") returns executor with correct agentType'
+        - 'Write test: gemini-cli executor is cached (same instance on repeat calls)'
+        - 'Update test: getSupportedAgents includes "gemini-cli"'
+        - 'Remove or update the "throw for gemini-cli" test'
+      green:
+        - 'Add case "gemini-cli" to createExecutor switch with new GeminiCliExecutorService(this.spawn, authConfig)'
+        - 'Add "gemini-cli" as AgentType to getSupportedAgents array'
+        - 'Import GeminiCliExecutorService in factory file'
+      refactor:
+        - 'Verify import ordering matches existing convention'
+    estimatedEffort: '20min'
+
+  - id: task-6
+    phaseId: phase-2
+    title: 'Integrate into AgentValidatorService'
+    description: >
+      Add "gemini-cli" to "gemini" binary mapping in AGENT_BINARY_MAP so isAvailable("gemini-cli")
+      checks for the gemini binary via "gemini --version". Update validator tests.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'AGENT_BINARY_MAP includes "gemini-cli" → "gemini"'
+      - 'isAvailable("gemini-cli") calls exec("gemini", ["--version"])'
+      - 'Existing "not supported" test for gemini-cli updated to "check gemini binary"'
+      - 'All existing validator tests still pass'
+    tdd:
+      red:
+        - 'Update validator test: isAvailable("gemini-cli") returns available when gemini binary found'
+        - 'Update validator test: isAvailable("gemini-cli") returns not available when binary missing'
+        - 'Remove or update any "gemini-cli not supported" test'
+      green:
+        - 'Add "gemini-cli": "gemini" to AGENT_BINARY_MAP object'
+      refactor:
+        - 'Ensure map entries are alphabetically ordered if convention requires'
+    estimatedEffort: '15min'
+
+  - id: task-7
+    phaseId: phase-2
+    title: 'Activate Gemini CLI in TUI agent-select prompt'
+    description: >
+      Remove "disabled: (Coming Soon)" from the Gemini CLI choice in agent-select.prompt.ts and
+      add a description matching the pattern of other enabled agents.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Gemini CLI choice no longer has disabled property'
+      - 'Gemini CLI choice has description "Google Gemini CLI"'
+      - 'Choice order unchanged (Gemini CLI stays in its current position)'
+    tdd:
+      red:
+        - 'No unit test needed — TUI prompts are config objects, verified by manual inspection and existing E2E'
+      green:
+        - 'Remove disabled property from GeminiCli choice'
+        - 'Add description: "Google Gemini CLI" to GeminiCli choice'
+      refactor:
+        - 'Verify the choice value still references AgentType.GeminiCli enum'
+    estimatedEffort: '5min'
+
+  # ─── Phase 3: Streaming — executeStream() with TDD ─────────────────────
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Implement executeStream() with stream-JSON event parsing'
+    description: >
+      Implement executeStream() as an async generator that spawns gemini with --output-format stream-json,
+      parses newline-delimited JSON events, and yields AgentExecutionStreamEvent objects. Uses the
+      async queue pattern (enqueue/waitForItem) from CursorExecutorService. Maps Gemini event types:
+      init → skip (extract session_id), message(user) → skip, message(assistant,delta) → progress,
+      tool_use → progress, tool_result → progress, result → result event, error → error event.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'executeStream() spawns gemini with --output-format stream-json'
+      - 'init events are skipped but session_id is extracted'
+      - 'User message events are skipped'
+      - 'Assistant message events with delta:true yield progress events with delta text'
+      - 'tool_use events yield progress events with [tool_use: name] format'
+      - 'tool_result events yield progress events with [tool_result: status] format'
+      - 'result event yields result event with response text'
+      - 'error events yield error events with message'
+      - 'Unknown event types are skipped (not errors)'
+      - 'Non-JSON lines are emitted as raw progress events'
+      - 'Partial line buffering handles split JSON across chunks'
+    tdd:
+      red:
+        - 'Write test: assistant delta message yields progress event with text content'
+        - 'Write test: result event yields result event with response'
+        - 'Write test: init event is skipped (no yield)'
+        - 'Write test: user message is skipped'
+        - 'Write test: tool_use yields progress with tool name'
+        - 'Write test: tool_result yields progress with status'
+        - 'Write test: error event yields error event'
+        - 'Write test: unknown event type is skipped gracefully'
+        - 'Write test: non-JSON line yields raw progress'
+        - 'Write test: usage extracted from result event stats'
+      green:
+        - 'Implement async queue pattern (enqueue, waitForItem, null sentinel)'
+        - 'Implement line buffer splitting for stdout chunks'
+        - 'Implement event type switch with mappings for all known types'
+        - 'Implement executeStream() async generator yielding from queue'
+      refactor:
+        - 'Extract event parsing into a private parseStreamEvent() method'
+        - 'Ensure consistent timestamp generation for all events'
+    estimatedEffort: '1h'
+
+  - id: task-9
+    phaseId: phase-3
+    title: 'Add stream error handling, timeout, and session resume'
+    description: >
+      Add error handling and timeout support to executeStream(): non-zero exit codes emit error
+      events, spawn failures emit error events, timeout kills process and emits error event.
+      Verify session resume (--resume) works with streaming mode. Verify token auth env var
+      injection works with streaming mode.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'Non-zero exit code in streaming mode emits error event with code and stderr'
+      - 'Spawn failure in streaming mode emits error event'
+      - 'Timeout in streaming mode kills process and emits error event'
+      - '--resume flag included in stream args when resumeSession provided'
+      - 'Token auth GEMINI_API_KEY set in streaming spawn env'
+      - 'All error scenarios properly close the event queue (null sentinel)'
+    tdd:
+      red:
+        - 'Write test: streaming non-zero exit emits error event'
+        - 'Write test: streaming spawn error emits error event'
+        - 'Write test: streaming timeout kills process and emits error'
+        - 'Write test: streaming with resumeSession includes --resume in args'
+        - 'Write test: streaming with token auth sets GEMINI_API_KEY'
+      green:
+        - 'Add error event listener to stream spawn process'
+        - 'Add close event listener with exit code checking'
+        - 'Add timeout handling with proc.kill() for streaming'
+        - 'Verify buildArgs() with stream-json format includes optional flags'
+      refactor:
+        - 'Extract shared timeout/error handling between execute() and executeStream() if patterns align'
+        - 'Final review: ensure file stays under 350 lines per NFR-6'
+    estimatedEffort: '30min'
+
+# Total effort estimate
+totalEstimate: '4.5h'
+
+# Open questions
+openQuestions: []
+
+# Markdown content (the full tasks document)
+content: |
+  ## Summary
+
+  The implementation consists of 9 tasks across 3 phases, estimated at ~4.5 hours total.
+
+  Phase 1 (tasks 1-4) builds the core `GeminiCliExecutorService` following strict TDD. We start
+  with the scaffold and feature support matrix, then build argument construction, then the execute()
+  method with JSON parsing and token auth, and finally error handling and timeout. Each task writes
+  tests first, then minimal implementation, then cleanup.
+
+  Phase 2 (tasks 5-7) wires the working executor into the system. The factory gets a new switch case,
+  the validator gets a binary mapping, and the TUI prompt gets activated. These three tasks are
+  independent of each other (all depend only on Phase 1 completion) and each touches a different file.
+
+  Phase 3 (tasks 8-9) adds streaming support via the async queue pattern. Task 8 implements the
+  core stream-JSON event parsing with all event type mappings. Task 9 adds error handling, timeout,
+  and verifies session resume and auth work in streaming mode.
+
+  All tasks follow the TDD RED-GREEN-REFACTOR cycle. The overall approach minimizes risk by
+  building and testing the foundation first, integrating second, and adding the most complex
+  feature (streaming) last when all patterns are established.

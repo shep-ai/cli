@@ -6,7 +6,7 @@ import { createRequirementsNode } from './nodes/requirements.node.js';
 import { createResearchNode } from './nodes/research.node.js';
 import { createPlanNode } from './nodes/plan.node.js';
 import { createImplementNode } from './nodes/implement.node.js';
-import { createMergeNode, type MergeNodeDeps } from './nodes/merge.node.js';
+import { createMergeNode, type MergeNodeDeps } from './nodes/merge/merge.node.js';
 import { createValidateNode } from './nodes/validate.node.js';
 import { createRepairNode } from './nodes/repair.node.js';
 import { validateSpecAnalyze, validateSpecRequirements } from './nodes/schemas/spec.schema.js';
@@ -23,7 +23,25 @@ export { FeatureAgentAnnotation, type FeatureAgentState } from './state.js';
  */
 export interface FeatureAgentGraphDeps {
   executor: IAgentExecutor;
-  mergeNodeDeps: MergeNodeDeps;
+  mergeNodeDeps?: Omit<MergeNodeDeps, 'executor'>;
+}
+
+/**
+ * Factory that creates a conditional edge function for re-execution routing.
+ *
+ * After an interruptible node resumes, it returns early with _needsReexecution
+ * set to true (rejection) or false (approval). This edge routes back to the
+ * same node on rejection for a fresh invocation, avoiding the stale interrupt
+ * replay bug caused by dual interrupt() calls.
+ */
+function routeReexecution(
+  selfNode: string,
+  nextNode: string
+): (state: FeatureAgentState) => string {
+  return (state: FeatureAgentState): string => {
+    if (state._needsReexecution) return selfNode;
+    return nextNode;
+  };
 }
 
 /**
@@ -146,9 +164,7 @@ export function createFeatureAgentGraph(
 ) {
   // Support legacy signature: createFeatureAgentGraph(executor, checkpointer)
   const deps: FeatureAgentGraphDeps =
-    'execute' in depsOrExecutor
-      ? { executor: depsOrExecutor, mergeNodeDeps: undefined as unknown as MergeNodeDeps }
-      : depsOrExecutor;
+    'execute' in depsOrExecutor ? { executor: depsOrExecutor } : depsOrExecutor;
   const { executor } = deps;
 
   const graph = new StateGraph(FeatureAgentAnnotation)
@@ -183,7 +199,10 @@ export function createFeatureAgentGraph(
     )
     .addEdge('repair_spec_analyze', 'validate_spec_analyze')
 
-    .addEdge('requirements', 'validate_spec_requirements')
+    .addConditionalEdges(
+      'requirements',
+      routeReexecution('requirements', 'validate_spec_requirements')
+    )
     .addConditionalEdges(
       'validate_spec_requirements',
       routeValidation('research', 'repair_spec_requirements')
@@ -194,16 +213,20 @@ export function createFeatureAgentGraph(
     .addConditionalEdges('validate_research', routeValidation('plan', 'repair_research'))
     .addEdge('repair_research', 'validate_research')
 
-    .addEdge('plan', 'validate_plan_tasks')
+    .addConditionalEdges('plan', routeReexecution('plan', 'validate_plan_tasks'))
     .addConditionalEdges('validate_plan_tasks', routeValidation('implement', 'repair_plan_tasks'))
     .addEdge('repair_plan_tasks', 'validate_plan_tasks');
 
   // --- Merge node: wired when deps are provided ---
   if (deps.mergeNodeDeps) {
+    const mergeNodeDeps: MergeNodeDeps = {
+      executor,
+      ...deps.mergeNodeDeps,
+    };
     graph
-      .addNode('merge', createMergeNode(deps.mergeNodeDeps))
+      .addNode('merge', createMergeNode(mergeNodeDeps))
       .addEdge('implement', 'merge')
-      .addEdge('merge', END);
+      .addConditionalEdges('merge', routeReexecution('merge', END));
   } else {
     graph.addEdge('implement', END);
   }

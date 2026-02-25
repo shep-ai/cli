@@ -18,8 +18,8 @@ out/
 # Generated files
 # =============================================================================
 # Note: src/domain/generated/ is TRACKED (TypeSpec-generated domain models)
+# Note: apis/ is TRACKED (JSON Schema files used at runtime for YAML validation)
 # These generated files are committed to ensure consistent types across environments
-apis/
 *.generated.*
 coverage/
 

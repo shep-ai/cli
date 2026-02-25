@@ -1,0 +1,33 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: Deployment.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for the deployment instance
+  state:
+    $ref: DeploymentState.yaml
+    description: Current state of the deployment (Booting, Ready, or Stopped)
+  url:
+    type: string
+    description: URL where the deployment is accessible (e.g., 'http://localhost:30100/' or 'http://172.33.0.20:5173')
+  ports:
+    type: array
+    items:
+      $ref: PortMap.yaml
+    description: List of port mappings for services exposed by this deployment
+  createdAt:
+    type: string
+    format: date-time
+    description: Timestamp when the deployment was created
+  stoppedAt:
+    type: string
+    format: date-time
+    description: Timestamp when the deployment was stopped (only present when state is Stopped)
+required:
+  - id
+  - state
+  - url
+  - ports
+  - createdAt
+description: A running deployment instance with network configuration and lifecycle management

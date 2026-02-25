@@ -1,0 +1,154 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repo-cli-commands
+summary: >
+  Add `shep repo ls` and `shep repo show <id>` CLI commands by mirroring the existing agent
+  command group pattern. Four new files in `src/presentation/cli/commands/repo/` (index, ls, show,
+  resolve helper) plus CLI bootstrap registration. Three test files follow TDD. All infrastructure
+  (Repository entity, IRepositoryRepository, ListRepositoriesUseCase, DI registrations) already
+  exists — zero changes to domain, application, or infrastructure layers.
+
+relatedFeatures:
+  - 'feat/038 - Repository promoted to first-class entity'
+
+technologies:
+  - Commander.js (CLI framework — existing)
+  - tsyringe (dependency injection — existing)
+  - better-sqlite3 (repository persistence — existing)
+  - picocolors (terminal colors via cli/ui — existing)
+  - vitest (unit testing — existing)
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Resolve Helper & Unit Tests'
+    description: >
+      Build and test the `resolveRepository` helper first since the `show` command depends on it.
+      Follows the resolve-run.ts pattern exactly: exact findById first, then prefix match via
+      list + startsWith. Testing in isolation ensures ID resolution logic is correct before any
+      command wiring. Also creates the command group index.ts as a structural foundation.
+    parallel: false
+
+  - id: phase-2
+    name: 'List Command & Unit Tests'
+    description: >
+      Implement `repo ls` with table rendering using renderListView. Uses ListRepositoriesUseCase
+      directly. Covers table rendering, empty state, and error handling.
+    parallel: false
+
+  - id: phase-3
+    name: 'Show Command & Unit Tests'
+    description: >
+      Implement `repo show <id>` with detail rendering using renderDetailView. Depends on the
+      resolveRepository helper from phase-1. Covers detail rendering, error states for not-found
+      and ambiguous matches.
+    parallel: false
+
+  - id: phase-4
+    name: 'CLI Bootstrap Integration & Validation'
+    description: >
+      Register createRepoCommand() in CLI bootstrap (src/presentation/cli/index.ts), run full
+      test suite, lint, format, and typecheck to ensure nothing is broken.
+    parallel: false
+
+filesToCreate:
+  - src/presentation/cli/commands/repo/index.ts
+  - src/presentation/cli/commands/repo/ls.command.ts
+  - src/presentation/cli/commands/repo/show.command.ts
+  - src/presentation/cli/commands/repo/resolve-repository.ts
+  - tests/unit/presentation/cli/commands/repo/ls.command.test.ts
+  - tests/unit/presentation/cli/commands/repo/show.command.test.ts
+  - tests/unit/presentation/cli/commands/repo/resolve-repository.test.ts
+
+filesToModify:
+  - src/presentation/cli/index.ts
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This feature adds a `repo` command group to the CLI presentation layer, following the identical
+  pattern established by the `agent/` and `feat/` command groups. The architecture stays within
+  the presentation layer — no changes to domain, application, or infrastructure layers are needed
+  since the Repository entity, IRepositoryRepository interface, SQLiteRepositoryRepository, and
+  ListRepositoriesUseCase are all fully implemented and registered in the DI container.
+
+  ### File Layout
+
+  ```
+  src/presentation/cli/commands/repo/
+  ├── index.ts                  # createRepoCommand() — group factory with addCommand() calls
+  ├── ls.command.ts             # createLsCommand() — list repos via ListRepositoriesUseCase
+  ├── show.command.ts           # createShowCommand() — show repo via resolveRepository helper
+  └── resolve-repository.ts     # resolveRepository(id) — exact/prefix ID resolution
+
+  tests/unit/presentation/cli/commands/repo/
+  ├── ls.command.test.ts
+  ├── show.command.test.ts
+  └── resolve-repository.test.ts
+  ```
+
+  ### Dependency Flow
+
+  ```
+  CLI Bootstrap (index.ts)
+    └── createRepoCommand() (repo/index.ts)
+          ├── createLsCommand() (repo/ls.command.ts)
+          │     └── container.resolve(ListRepositoriesUseCase)
+          └── createShowCommand() (repo/show.command.ts)
+                └── resolveRepository(id) (repo/resolve-repository.ts)
+                      └── container.resolve('IRepositoryRepository')
+                            ├── repo.findById(id)      — exact match
+                            └── repo.list() + filter   — prefix match
+  ```
+
+  ## Key Design Decisions
+
+  ### 1. In-Memory Prefix Resolution (from research)
+
+  The `resolveRepository` helper follows `resolve-run.ts` exactly: try `findById` first, fall back
+  to `list()` + `startsWith` filter. This avoids any changes to IRepositoryRepository or the SQLite
+  layer. The expected repository count (<50) makes in-memory filtering perfectly adequate.
+
+  **Difference from resolve-run.ts**: The agent resolver uses `GetAgentRunUseCase` and
+  `ListAgentRunsUseCase` (class-based resolution). For repositories, we resolve
+  `'IRepositoryRepository'` directly via string token since there is no `GetRepositoryUseCase`
+  and creating one would be a trivial pass-through. This matches the precedent set by
+  `agent/show.command.ts` which resolves `'IAgentRunRepository'` directly for read-only queries.
+
+  ### 2. Date Formatting (from research)
+
+  - **List view**: Relative time via `formatDuration(Date.now() - createdAt) + " ago"` with
+    `colors.muted()` — matches `feat/ls.command.ts` pattern
+  - **Detail view**: `new Date(date).toLocaleString()` — matches `agent/show.command.ts` pattern
+
+  ### 3. Column Selection (from spec)
+
+  Four columns: ID (width 10, 8-char prefix), Name (width 32), Path (width 40), Created (width 12).
+  Repositories rarely change after creation so updatedAt is omitted from the list view but shown
+  in the detail view.
+
+  ### 4. Show Detail Sections (from spec)
+
+  Two sections: (1) untitled section with ID, Name, Path; (2) "Timestamps" section with Created,
+  Updated, and Deleted (if present). No text blocks needed since Repository has no long-form content.
+
+  ## Implementation Strategy
+
+  The phases are ordered by dependency: the resolve helper is foundational (phase 1), the list
+  command is independent but shares the group index (phase 2), the show command depends on the
+  resolve helper (phase 3), and CLI registration is the final integration step (phase 4). Each
+  phase follows strict TDD with tests written before implementation.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Repository entity fields differ from expectations | Verified: Repository = SoftDeletableEntity & { name, path } = { id, createdAt, updatedAt, deletedAt?, name, path } |
+  | DI token mismatch for IRepositoryRepository | Verified: registered as `'IRepositoryRepository'` string token in container.ts line 147 |
+  | ListRepositoriesUseCase not registered | Verified: registered as singleton in container.ts line 294, also has string token alias at line 323 |
+  | renderListView/renderDetailView API mismatch | Verified from existing usage in agent/ls.command.ts and agent/show.command.ts |
+  | Import path convention differs | All commands use `@/` path alias for core imports and relative `../../ui/index.js` for UI utilities |

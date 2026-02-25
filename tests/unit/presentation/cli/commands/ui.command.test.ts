@@ -37,6 +37,16 @@ vi.mock('@/infrastructure/di/container.js', () => ({
       if (token === 'IWebServerService') {
         return mockWebServerService;
       }
+      // Return empty stubs for notification-related and PR sync services
+      if (
+        token === 'IAgentRunRepository' ||
+        token === 'IPhaseTimingRepository' ||
+        token === 'INotificationService' ||
+        token === 'IFeatureRepository' ||
+        token === 'IGitPrService'
+      ) {
+        return {};
+      }
       throw new Error(`Unknown token: ${token}`);
     }),
   },
@@ -55,8 +65,35 @@ vi.mock('@/infrastructure/services/web-server.service.js', () => ({
   }),
 }));
 
+// Mock notification watcher service (requires start/stop methods)
+vi.mock('@/infrastructure/services/notifications/notification-watcher.service.js', () => ({
+  initializeNotificationWatcher: vi.fn(),
+  getNotificationWatcher: vi.fn().mockReturnValue({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
+}));
+
+// Mock PR sync watcher service (requires start/stop methods)
+vi.mock('@/infrastructure/services/pr-sync/pr-sync-watcher.service.js', () => ({
+  initializePrSyncWatcher: vi.fn(),
+  getPrSyncWatcher: vi.fn().mockReturnValue({
+    start: vi.fn(),
+    stop: vi.fn(),
+  }),
+}));
+
+// Mock BrowserOpenerService — use a class so `new` works
+const mockBrowserOpen = vi.fn();
+vi.mock('@/infrastructure/services/browser-opener.service.js', () => ({
+  BrowserOpenerService: vi.fn().mockImplementation(function () {
+    return { open: mockBrowserOpen };
+  }),
+}));
+
 import { findAvailablePort } from '@/infrastructure/services/port.service.js';
 import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
+import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.service.js';
 import { createUiCommand } from '../../../../../src/presentation/cli/commands/ui.command.js';
 
 describe('UI Command', () => {
@@ -65,6 +102,7 @@ describe('UI Command', () => {
     (findAvailablePort as ReturnType<typeof vi.fn>).mockResolvedValue(4050);
     mockWebServerService.start.mockClear();
     mockWebServerService.stop.mockClear();
+    mockBrowserOpen.mockClear();
     process.exitCode = undefined;
   });
 
@@ -157,6 +195,48 @@ describe('UI Command', () => {
       const portOption = cmd.options.find((o) => o.long === '--port');
       expect(portOption).toBeDefined();
       expect(portOption!.flags).toContain('<number>');
+    });
+  });
+
+  describe('--no-open flag', () => {
+    it('should have a --no-open option', () => {
+      const cmd = createUiCommand();
+      const noOpenOption = cmd.options.find((o) => o.long === '--no-open');
+      expect(noOpenOption).toBeDefined();
+    });
+  });
+
+  describe('auto-open browser', () => {
+    it('should open browser with correct URL after server start by default', async () => {
+      const cmd = createUiCommand();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn());
+
+      await cmd.parseAsync([], { from: 'user' });
+
+      expect(BrowserOpenerService).toHaveBeenCalled();
+      expect(mockBrowserOpen).toHaveBeenCalledWith('http://localhost:4050');
+      consoleSpy.mockRestore();
+    });
+
+    it('should open browser with custom port URL', async () => {
+      (findAvailablePort as ReturnType<typeof vi.fn>).mockResolvedValue(9090);
+      const cmd = createUiCommand();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn());
+
+      await cmd.parseAsync(['--port', '9090'], { from: 'user' });
+
+      expect(mockBrowserOpen).toHaveBeenCalledWith('http://localhost:9090');
+      consoleSpy.mockRestore();
+    });
+
+    it('should NOT open browser when --no-open is passed', async () => {
+      const cmd = createUiCommand();
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(vi.fn());
+
+      await cmd.parseAsync(['--no-open'], { from: 'user' });
+
+      expect(mockBrowserOpen).not.toHaveBeenCalled();
+      consoleSpy.mockRestore();
     });
   });
 });

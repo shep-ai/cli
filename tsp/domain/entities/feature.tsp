@@ -233,6 +233,9 @@ model Feature extends BaseEntity {
   @doc("Human-readable name identifying this feature")
   name: string;
 
+  @doc("The exact user input that initiated this feature, preserved verbatim")
+  userQuery: string;
+
   /**
    * URL-friendly slug derived from the name.
    *
@@ -361,6 +364,9 @@ model Feature extends BaseEntity {
   @doc("Absolute path to the feature spec directory inside the worktree")
   specPath?: string;
 
+  @doc("ID of the Repository entity this feature belongs to")
+  repositoryId?: UUID;
+
   // ── Workflow Configuration ──────────────────────────────────
 
   @doc("Push branch to remote after implementation (default: false)")
@@ -379,4 +385,18 @@ model Feature extends BaseEntity {
 
   @doc("Pull request data (null until PR created)")
   pr?: PullRequest;
+
+  // ── Feature Dependencies ────────────────────────────────────
+
+  /**
+   * Optional reference to the parent feature in a dependency hierarchy.
+   *
+   * When set, this feature is a child of the referenced parent feature.
+   * Child features may be created in a Blocked state when the parent
+   * has not yet reached the Implementation lifecycle stage.
+   *
+   * @example "550e8400-e29b-41d4-a716-446655440000"
+   */
+  @doc("Parent feature ID for dependency tracking (optional)")
+  parentId?: UUID;
 }

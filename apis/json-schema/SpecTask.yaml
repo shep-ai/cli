@@ -1,0 +1,45 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: SpecTask.yaml
+type: object
+properties:
+  id:
+    type: string
+    description: Unique identifier for this task (e.g., 'task-1')
+  phaseId:
+    type: string
+    description: ID of the phase this task belongs to (e.g., 'phase-1')
+  title:
+    type: string
+    description: Task title or name
+  description:
+    type: string
+    description: Detailed description of what this task accomplishes
+  state:
+    $ref: TaskState.yaml
+    description: Current state of the task
+  dependencies:
+    type: array
+    items:
+      type: string
+    description: IDs of other SpecTasks that must complete before this task starts
+  acceptanceCriteria:
+    type: array
+    items:
+      type: string
+    description: List of acceptance criteria that define task completion
+  tdd:
+    $ref: TddCycle.yaml
+    description: TDD cycle definition for this task (if applicable)
+  estimatedEffort:
+    type: string
+    description: Estimated effort (e.g., '2 hours', '1 day')
+required:
+  - id
+  - phaseId
+  - title
+  - description
+  - state
+  - dependencies
+  - acceptanceCriteria
+  - estimatedEffort
+description: Task definition within a spec's task breakdown

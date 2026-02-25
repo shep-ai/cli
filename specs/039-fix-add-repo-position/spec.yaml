@@ -1,0 +1,239 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: fix-add-repo-position
+number: 039
+branch: feat/039-fix-add-repo-position
+oneLiner: >
+  Fix "Add Repository" node position shifting down when a new repository is added
+summary: >
+  The "Add Repository" button node in the React Flow canvas moves down below the last repository
+  every time a new repository is added. The fix requires changing the positioning logic in
+  handleAddRepository() so the new repository node is inserted above the "Add Repository" node
+  (which keeps its position) instead of below it (which forces it to shift down).
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React 19
+  - Next.js 16 (App Router)
+  - '@xyflow/react (React Flow)'
+  - '@dagrejs/dagre (layout algorithm)'
+  - TypeScript
+
+relatedLinks: []
+
+# Open questions (must be resolved before implementation)
+openQuestions:
+  - question: 'Should the "Add Repository" node shift down by one slot when a repo is added, or remain at its exact original position?'
+    resolved: true
+    options:
+      - option: 'Shift add-repo down by one slot'
+        description: >
+          Move the addRepositoryNode down by (repoHeight + gap) each time a new repo is added,
+          and insert the new repo node where addRepo was. This keeps repos stacked in order with
+          addRepo always at the bottom, but addRepo still moves — just in a controlled way.
+        selected: true
+      - option: 'Keep add-repo at exact original position'
+        description: >
+          Never move addRepo at all. Insert new repo nodes above it by calculating
+          position relative to existing repos. This means addRepo stays perfectly fixed, but
+          the repos stack upward (or need to fill the gap above addRepo), which may look odd
+          when the gap between the last repo and addRepo changes inconsistently.
+        selected: false
+    selectionRationale: >
+      Shifting addRepo down by exactly one slot per addition is the natural UX behavior.
+      The bug is that addRepo currently shifts by TWO node heights (the new repo is placed
+      below existing repos AND then addRepo is placed below the new repo). The fix should
+      place the new repo at the addRepo's current position and move addRepo down by one slot.
+      This maintains visual order (repos above, add-button below) and matches the initial
+      layout behavior in page.tsx where addRepo is positioned below the last repo.
+    answer: 'Shift add-repo down by one slot'
+
+  - question: 'How should the new repo node be positioned when there are no existing repos (first add)?'
+    resolved: true
+    options:
+      - option: 'Place at addRepo current position, shift addRepo down'
+        description: >
+          Use the addRepositoryNode's current Y position for the new repo, then move addRepo
+          down by (repoHeight + gap). This is consistent with the multi-repo case and
+          requires no special handling.
+        selected: true
+      - option: 'Place above addRepo with a fixed gap'
+        description: >
+          Calculate position as (addRepoY - repoHeight - gap) and leave addRepo in place.
+          This keeps addRepo fixed but means the first repo appears above its natural
+          position, potentially overlapping with other canvas elements.
+        selected: false
+    selectionRationale: >
+      Using the addRepo's current position for the first repo and shifting addRepo down
+      is consistent with how subsequent repos are handled. The current code already handles
+      the no-repos case by using addRepo's position as lastRepoBottomY (line 446), so
+      this approach minimizes the diff. It also ensures the first repo appears where the
+      user clicked the add button, which is intuitive.
+    answer: 'Place at addRepo current position, shift addRepo down'
+
+  - question: 'Should the error rollback restore the addRepositoryNode position on failure?'
+    resolved: true
+    options:
+      - option: 'No — rely on router.refresh() for full reset'
+        description: >
+          The current rollback only removes the temp node. Since router.refresh() triggers
+          a full server re-render with correct initial layout, the addRepo position will
+          be corrected automatically. Simpler code, no position tracking needed.
+        selected: false
+      - option: 'Yes — restore addRepo position on rollback'
+        description: >
+          Save the addRepo's original Y position before modification and restore it when
+          removing the temp node on error. This provides immediate visual consistency
+          without waiting for router.refresh(). Better UX since the user sees the layout
+          snap back correctly right away.
+        selected: true
+    selectionRationale: >
+      Restoring the addRepo position on rollback provides a better optimistic UI experience.
+      The current code already rolls back the temp node, so also rolling back the position
+      is a small addition that prevents the addRepo from being stuck at the wrong Y position
+      until the server refresh completes. The implementation only requires saving one Y value
+      before the setNodes call.
+    answer: 'Yes — restore addRepo position on rollback'
+
+content: |
+  ## Problem Statement
+
+  When a user clicks the "+ Add Repository" button on the control center canvas and selects a folder,
+  the "Add Repository" node moves down to sit below the newly added repository node. Each subsequent
+  add pushes it further down. The expected behavior is that the "Add Repository" node shifts down by
+  exactly one slot (repoHeight + gap) while the new repo node takes the position where addRepo was.
+
+  ### Root Cause
+
+  In `use-control-center-state.ts` (lines 423-509), the `handleAddRepository()` callback:
+
+  1. Calculates the new repository node's Y position as `lastRepoBottomY + gap` (line 449) — this places
+     the new repo BELOW all existing repos
+  2. Then recalculates the "Add Repository" node's Y as `newRepoY + repoHeight + gap` (line 459) — this
+     pushes addRepo below the NEW repo
+
+  The net effect: each add shifts addRepo down by TWO node heights + gaps instead of one. The new repo
+  should be placed at the addRepo's current position, and addRepo should shift down by exactly one slot.
+
+  ### Expected Behavior
+
+  When a new repository is added:
+  1. The new repo node takes the "Add Repository" node's current Y position
+  2. The "Add Repository" node moves down by exactly `repoHeight + gap` (one slot)
+  3. This maintains the visual order: all repos stacked vertically, addRepo always at the bottom
+
+  ## Success Criteria
+
+  - [ ] SC-1: New repo node is placed at the addRepositoryNode's current Y position
+  - [ ] SC-2: The addRepositoryNode shifts down by exactly (repoHeight + gap) from its pre-add position
+  - [ ] SC-3: Adding the first repository (no existing repos) works correctly — repo takes addRepo's spot, addRepo moves down one slot
+  - [ ] SC-4: Adding a second and third repository produces correct stacking (each new repo at addRepo's position, addRepo shifts down)
+  - [ ] SC-5: The X position of new repos matches the repo column X (same as existing repos or addRepo)
+  - [ ] SC-6: Error rollback (removing temp node on server failure) restores the addRepositoryNode to its pre-add Y position
+  - [ ] SC-7: Existing test "shifts add-repo node down when adding a repository" is updated to assert the correct behavior
+  - [ ] SC-8: All other existing tests in use-control-center-state.test.tsx continue to pass
+
+  ## Functional Requirements
+
+  - **FR-1**: When `handleAddRepository()` is called, the new repositoryNode MUST be placed at the addRepositoryNode's current `position.y` (not below the last existing repo)
+  - **FR-2**: The addRepositoryNode's Y position MUST increase by exactly `repoHeight + gap` (50 + 15 = 65px based on current constants) after each repo addition
+  - **FR-3**: The new repositoryNode's X position MUST match the addRepositoryNode's X position (repo column alignment)
+  - **FR-4**: When no existing repos are present, FR-1 and FR-2 still apply — the first repo takes addRepo's position
+  - **FR-5**: On server action error, the rollback MUST remove the temp repositoryNode AND restore the addRepositoryNode to its position before the failed add
+  - **FR-6**: On server action success, the temp node ID is replaced with the real repository ID (existing behavior, must be preserved)
+  - **FR-7**: The optimistic UI pattern (immediate node addition, async server persistence) MUST be preserved
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The position calculation change MUST be confined to the `handleAddRepository()` callback in `use-control-center-state.ts` — no changes to the dagre layout engine or initial server-side layout in `page.tsx`
+  - **NFR-2**: The fix MUST NOT introduce any new dependencies
+  - **NFR-3**: The existing test for `handleAddRepository` MUST be updated (not deleted) to assert the corrected positioning behavior
+  - **NFR-4**: All test assertions MUST use concrete expected values (not relative comparisons) to prevent regression
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Should addRepo shift down or stay fixed? | Shift down by one slot | Maintains natural stacking order; the bug is it shifts by two slots, not that it shifts at all |
+  | 2 | How to position first repo (no existing repos)? | Use addRepo's current position | Consistent with multi-repo behavior; minimal code change |
+  | 3 | Should error rollback restore addRepo position? | Yes, restore on rollback | Better optimistic UI; small implementation cost (save one Y value) |
+
+  ## Codebase Analysis
+
+  ### Project Structure
+
+  The web UI lives in `src/presentation/web/` using Next.js App Router. Key directories:
+
+  - `app/page.tsx` — Server component that builds initial nodes/edges and computes the initial layout
+  - `components/features/control-center/` — Client-side state management (use-control-center-state.ts)
+  - `components/features/features-canvas/` — React Flow canvas wrapper
+  - `components/common/add-repository-node/` — The "Add Repository" button component
+  - `components/common/repository-node/` — Repository display node component
+  - `lib/layout-with-dagre.ts` — Dagre-based automatic layout utility
+
+  ### Architecture Patterns
+
+  - **Server-side initial layout**: `app/page.tsx` fetches repositories and features, builds nodes, applies dagre layout, then manually positions the addRepositoryNode relative to feature/repo positions
+  - **Client-side dynamic updates**: `use-control-center-state.ts` manages React Flow state with optimistic UI updates. New nodes are added with manually calculated positions (no dagre re-layout)
+  - **Node types**: Three registered types — `repositoryNode`, `featureNode`, `addRepositoryNode`
+  - **Canvas is non-interactive**: nodes are not draggable, not connectable, not selectable
+
+  ### The Bug (Detailed)
+
+  **File**: `src/presentation/web/components/features/control-center/use-control-center-state.ts`
+  **Function**: `handleAddRepository()` (line 423)
+
+  Current logic (BUGGY):
+  ```
+  1. Find all repositoryNodes → compute lastRepoBottomY
+  2. New repo position.y = lastRepoBottomY + gap              (line 449)
+  3. addRepoY = newRepoPosition.y + repoHeight + gap          (line 459)
+  4. Update addRepositoryNode's y to addRepoY                  (line 463)
+  5. Concat new repositoryNode                                 (line 465)
+  ```
+
+  Correct logic (FIX):
+  ```
+  1. Find addRepositoryNode → use its current position.y for the new repo
+  2. New repo position = { x: addRepo.x, y: addRepo.position.y }
+  3. addRepoNewY = addRepo.position.y + repoHeight + gap
+  4. Update addRepositoryNode's y to addRepoNewY
+  5. Concat new repositoryNode
+  ```
+
+  **Existing test to update**: Line 579-591 — `"shifts add-repo node down when adding a repository"` currently asserts `addRepoAfter.position.y === 130` (50 + 80). This test asserts the BUGGY behavior. It must be updated to assert the correct position based on the new logic (addRepo's original Y 50 + repoHeight 50 + gap 15 = 115).
+
+  **Initial positioning (correct)**: In `app/page.tsx` (lines 122-150), the addRepoNode is placed either centered with features or below the last repo with a 200px gap — this is correct and does not need changes.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/features/control-center/use-control-center-state.ts` | High | Contains the buggy `handleAddRepository()` — the position calculation for both the new repo node and the addRepoNode must change |
+  | `tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx` | Medium | Existing test "shifts add-repo node down" asserts buggy behavior and must be updated; new tests should verify first-add and multi-add positioning |
+  | `src/presentation/web/app/page.tsx` | None | Initial positioning logic is correct; no changes needed |
+  | `src/presentation/web/lib/layout-with-dagre.ts` | None | No changes needed — dagre layout is only used for initial render and manual re-layout |
+
+  ## Dependencies
+
+  - `@xyflow/react` — React Flow node positioning API (position: {x, y})
+  - Existing test infrastructure in `tests/unit/presentation/web/features/control-center/`
+  - NODE_DIMENSIONS constants in `layout-with-dagre.ts` (repoHeight=50, addRepoHeight=50)
+
+  ## Size Estimate
+
+  **S** — This is a targeted bug fix in a single function (`handleAddRepository`). The change involves:
+  - Reversing the position calculation logic (~10 lines of code changed)
+  - Adding rollback position tracking (~3 lines for saving/restoring addRepo Y)
+  - Updating 1 existing test assertion and adding 2-3 new test cases for edge cases
+
+  No new files, no architectural changes, no new dependencies.
+
+  ---
+
+  _Requirements completed — proceed with research_

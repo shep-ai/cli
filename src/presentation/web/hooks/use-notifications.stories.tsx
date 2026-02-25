@@ -1,11 +1,19 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { Meta, StoryObj } from '@storybook/react';
 import { toast } from 'sonner';
 import { Toaster } from '@/components/ui/sonner';
 import { Button } from '@/components/ui/button';
+import { useSound } from './use-sound';
 
 /** Mirrors NotificationSeverity enum values (inlined to avoid @shepai/core import in Storybook). */
 type Severity = 'info' | 'warning' | 'success' | 'error';
+
+const SEVERITY_SOUNDS: Record<Severity, string> = {
+  success: 'celebration',
+  error: 'caution',
+  warning: 'notification',
+  info: 'button',
+};
 
 interface DemoEvent {
   eventType: string;
@@ -15,16 +23,37 @@ interface DemoEvent {
   phaseName?: string;
 }
 
-function simulateNotification(event: DemoEvent): void {
-  const method: 'success' | 'error' | 'warning' | 'info' = event.severity ?? 'info';
-  toast[method](event.featureName, { description: event.message });
-
-  if (globalThis.Notification?.permission === 'granted') {
-    new Notification(event.featureName, { body: event.message });
-  }
-}
-
 function NotificationDemo() {
+  const successSound = useSound('celebration', { volume: 0.5 });
+  const errorSound = useSound('caution', { volume: 0.5 });
+  const warningSound = useSound('notification', { volume: 0.5 });
+  const infoSound = useSound('button', { volume: 0.5 });
+
+  const soundsByName = useMemo<Record<string, { play: () => void }>>(
+    () => ({
+      celebration: successSound,
+      caution: errorSound,
+      notification: warningSound,
+      button: infoSound,
+    }),
+    [successSound, errorSound, warningSound, infoSound]
+  );
+
+  const simulateNotification = useCallback(
+    (event: DemoEvent) => {
+      const method = event.severity ?? 'info';
+      toast[method](event.featureName, { description: event.message });
+
+      if (globalThis.Notification?.permission === 'granted') {
+        new Notification(event.featureName, { body: event.message });
+      }
+
+      const soundName = SEVERITY_SOUNDS[event.severity];
+      soundsByName[soundName]?.play();
+    },
+    [soundsByName]
+  );
+
   const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(
     typeof globalThis.Notification !== 'undefined' ? globalThis.Notification.permission : 'default'
   );
@@ -52,7 +81,7 @@ function NotificationDemo() {
       <div className="flex flex-col gap-2">
         <h3 className="text-sm font-semibold">Simulate Notification Events</h3>
         <p className="text-muted-foreground text-xs">
-          Click a button to fire a toast and browser notification.
+          Click a button to fire a toast, browser notification, and sound.
         </p>
         <div className="flex flex-wrap gap-2">
           <Button

@@ -1,9 +1,17 @@
 import { describe, it, expect } from 'vitest';
-import { SdlcLifecycle, TaskState, AgentRunStatus, AgentType } from '@shepai/core/domain/generated';
+import {
+  SdlcLifecycle,
+  TaskState,
+  AgentRunStatus,
+  AgentType,
+  NotificationEventType,
+} from '@shepai/core/domain/generated';
 import type { Feature, AgentRun } from '@shepai/core/domain/generated';
 import {
   deriveNodeState,
   deriveProgress,
+  mapEventTypeToState,
+  mapPhaseNameToLifecycle,
 } from '@/components/common/feature-node/derive-feature-state';
 
 function createMinimalFeature(overrides: Partial<Feature> = {}): Feature {
@@ -12,6 +20,7 @@ function createMinimalFeature(overrides: Partial<Feature> = {}): Feature {
     name: 'Test Feature',
     slug: 'test-feature',
     description: 'A test feature',
+    userQuery: 'test user query',
     repositoryPath: '/test/repo',
     branch: 'feat/test',
     lifecycle: SdlcLifecycle.Implementation,
@@ -262,5 +271,57 @@ describe('deriveProgress', () => {
   it('returns 100 for Maintain lifecycle', () => {
     const feature = createMinimalFeature({ lifecycle: SdlcLifecycle.Maintain });
     expect(deriveProgress(feature)).toBe(100);
+  });
+});
+
+describe('mapEventTypeToState', () => {
+  it('maps agent_started to running', () => {
+    expect(mapEventTypeToState(NotificationEventType.AgentStarted)).toBe('running');
+  });
+
+  it('maps phase_completed to running', () => {
+    expect(mapEventTypeToState(NotificationEventType.PhaseCompleted)).toBe('running');
+  });
+
+  it('maps waiting_approval to action-required', () => {
+    expect(mapEventTypeToState(NotificationEventType.WaitingApproval)).toBe('action-required');
+  });
+
+  it('maps agent_completed to done', () => {
+    expect(mapEventTypeToState(NotificationEventType.AgentCompleted)).toBe('done');
+  });
+
+  it('maps agent_failed to error', () => {
+    expect(mapEventTypeToState(NotificationEventType.AgentFailed)).toBe('error');
+  });
+});
+
+describe('mapPhaseNameToLifecycle', () => {
+  it('maps "analyze" to requirements', () => {
+    expect(mapPhaseNameToLifecycle('analyze')).toBe('requirements');
+  });
+
+  it('maps "requirements" to requirements', () => {
+    expect(mapPhaseNameToLifecycle('requirements')).toBe('requirements');
+  });
+
+  it('maps "research" to research', () => {
+    expect(mapPhaseNameToLifecycle('research')).toBe('research');
+  });
+
+  it('maps "plan" to implementation', () => {
+    expect(mapPhaseNameToLifecycle('plan')).toBe('implementation');
+  });
+
+  it('maps "implement" to implementation', () => {
+    expect(mapPhaseNameToLifecycle('implement')).toBe('implementation');
+  });
+
+  it('returns undefined for undefined input', () => {
+    expect(mapPhaseNameToLifecycle(undefined)).toBeUndefined();
+  });
+
+  it('returns undefined for unrecognized phaseName', () => {
+    expect(mapPhaseNameToLifecycle('unknown_phase')).toBeUndefined();
   });
 });

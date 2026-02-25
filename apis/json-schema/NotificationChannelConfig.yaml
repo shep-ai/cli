@@ -1,0 +1,11 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: NotificationChannelConfig.yaml
+type: object
+properties:
+  enabled:
+    type: boolean
+    default: true
+    description: Whether this notification channel is enabled
+required:
+  - enabled
+description: Notification channel enable/disable configuration

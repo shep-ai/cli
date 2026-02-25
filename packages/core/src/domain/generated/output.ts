@@ -316,6 +316,28 @@ export type SystemConfig = {
 };
 
 /**
+ * Default approval gate settings for new features
+ */
+export type ApprovalGateDefaults = {
+  /**
+   * Auto-approve requirements phase (default: false)
+   */
+  allowPrd: boolean;
+  /**
+   * Auto-approve planning phase (default: false)
+   */
+  allowPlan: boolean;
+  /**
+   * Auto-approve merge phase (default: false)
+   */
+  allowMerge: boolean;
+  /**
+   * Push branch to remote on implementation complete (default: false)
+   */
+  pushOnImplementationComplete: boolean;
+};
+
+/**
  * Global workflow configuration defaults
  */
 export type WorkflowConfig = {
@@ -324,9 +346,21 @@ export type WorkflowConfig = {
    */
   openPrOnImplementationComplete: boolean;
   /**
-   * Auto-merge on implementation complete (default: false)
+   * Default approval gate preferences for new features
    */
-  autoMergeOnImplementationComplete: boolean;
+  approvalGateDefaults: ApprovalGateDefaults;
+  /**
+   * Maximum number of CI fix/push/watch iterations before giving up (default: 3)
+   */
+  ciMaxFixAttempts?: number;
+  /**
+   * Timeout in milliseconds for watching a CI run (default: 600000 = 10 minutes)
+   */
+  ciWatchTimeoutMs?: number;
+  /**
+   * Maximum characters of CI failure logs to pass to the executor (default: 50000)
+   */
+  ciLogMaxChars?: number;
 };
 export enum AgentType {
   ClaudeCode = 'claude-code',
@@ -334,6 +368,7 @@ export enum AgentType {
   Aider = 'aider',
   Continue = 'continue',
   Cursor = 'cursor',
+  Dev = 'dev',
 }
 export enum AgentAuthMethod {
   Session = 'session',
@@ -392,6 +427,22 @@ export type NotificationEventConfig = {
    * Notify when agent execution fails
    */
   agentFailed: boolean;
+  /**
+   * Notify when a pull request is merged on GitHub
+   */
+  prMerged: boolean;
+  /**
+   * Notify when a pull request is closed without merging on GitHub
+   */
+  prClosed: boolean;
+  /**
+   * Notify when pull request CI checks pass
+   */
+  prChecksPassed: boolean;
+  /**
+   * Notify when pull request CI checks fail
+   */
+  prChecksFailed: boolean;
 };
 
 /**
@@ -448,6 +499,10 @@ export type Settings = BaseEntity & {
    * Global workflow configuration defaults
    */
   workflow: WorkflowConfig;
+  /**
+   * Whether first-run onboarding has been completed (default: false)
+   */
+  onboardingComplete: boolean;
 };
 export enum TaskState {
   Todo = 'Todo',
@@ -595,6 +650,7 @@ export enum SdlcLifecycle {
   Implementation = 'Implementation',
   Review = 'Review',
   Maintain = 'Maintain',
+  Blocked = 'Blocked',
 }
 
 /**
@@ -626,6 +682,28 @@ export enum CiStatus {
 }
 
 /**
+ * Record of one CI fix attempt in the watch/fix loop
+ */
+export type CiFixRecord = {
+  /**
+   * 1-based attempt number
+   */
+  attempt: number;
+  /**
+   * ISO timestamp when this attempt started
+   */
+  startedAt: string;
+  /**
+   * First 500 chars of failure logs for this attempt
+   */
+  failureSummary: string;
+  /**
+   * Outcome of this attempt: fixed, failed, or timeout
+   */
+  outcome: string;
+};
+
+/**
  * Pull request tracking data for a feature
  */
 export type PullRequest = {
@@ -649,6 +727,14 @@ export type PullRequest = {
    * CI pipeline status
    */
   ciStatus?: CiStatus;
+  /**
+   * Number of CI fix attempts made
+   */
+  ciFixAttempts?: number;
+  /**
+   * History of CI fix attempts
+   */
+  ciFixHistory?: CiFixRecord[];
 };
 
 /**
@@ -659,6 +745,10 @@ export type Feature = BaseEntity & {
    * Human-readable name identifying this feature
    */
   name: string;
+  /**
+   * The exact user input that initiated this feature, preserved verbatim
+   */
+  userQuery: string;
   /**
    * URL-friendly identifier derived from name (unique within repository)
    */
@@ -700,6 +790,10 @@ export type Feature = BaseEntity & {
    */
   specPath?: string;
   /**
+   * ID of the Repository entity this feature belongs to
+   */
+  repositoryId?: UUID;
+  /**
    * Push branch to remote after implementation (default: false)
    */
   push: boolean;
@@ -719,6 +813,10 @@ export type Feature = BaseEntity & {
    * Pull request data (null until PR created)
    */
   pr?: PullRequest;
+  /**
+   * Parent feature ID for dependency tracking (optional)
+   */
+  parentId?: UUID;
 };
 
 /**
@@ -822,6 +920,28 @@ export type TechDecision = {
 };
 
 /**
+ * Rejection feedback entry for iteration tracking
+ */
+export type RejectionFeedbackEntry = {
+  /**
+   * Iteration number (1-based)
+   */
+  iteration: number;
+  /**
+   * User's feedback message explaining what needs to change
+   */
+  message: string;
+  /**
+   * Which phase was rejected (e.g. 'requirements', 'plan')
+   */
+  phase?: string;
+  /**
+   * When the rejection occurred
+   */
+  timestamp: any;
+};
+
+/**
  * Implementation phase grouping related tasks
  */
 export type PlanPhase = {
@@ -842,9 +962,9 @@ export type PlanPhase = {
    */
   parallel: boolean;
   /**
-   * Task IDs belonging to this phase (e.g., ['task-1', 'task-2'])
+   * Task IDs belonging to this phase (e.g., ['task-1', 'task-2']). Optional — not present in plan.yaml phases.
    */
-  taskIds: string[];
+  taskIds?: string[];
 };
 
 /**
@@ -908,9 +1028,9 @@ export type SpecTask = {
 };
 
 /**
- * Feature specification artifact defining requirements and scope
+ * Feature specification artifact (PRD) defining requirements and scope
  */
-export type FeatureSpec = SpecArtifactBase & {
+export type FeatureArtifact = SpecArtifactBase & {
   /**
    * Spec number (e.g., 11 for spec 011)
    */
@@ -931,12 +1051,16 @@ export type FeatureSpec = SpecArtifactBase & {
    * Size estimate: XS, S, M, L, or XL
    */
   sizeEstimate: string;
+  /**
+   * Rejection feedback history for PRD iterations (append-only)
+   */
+  rejectionFeedback?: RejectionFeedbackEntry[];
 };
 
 /**
  * Research artifact documenting technical analysis and decisions
  */
-export type ResearchSpec = SpecArtifactBase & {
+export type ResearchArtifact = SpecArtifactBase & {
   /**
    * Structured technology decisions with rationale
    */
@@ -944,11 +1068,11 @@ export type ResearchSpec = SpecArtifactBase & {
 };
 
 /**
- * Implementation plan artifact defining strategy and file changes
+ * Technical implementation plan artifact defining strategy and file changes
  */
-export type PlanSpec = SpecArtifactBase & {
+export type TechnicalPlanArtifact = SpecArtifactBase & {
   /**
-   * Structured implementation phases with task groupings
+   * Structured implementation phases
    */
   phases: PlanPhase[];
   /**
@@ -962,9 +1086,9 @@ export type PlanSpec = SpecArtifactBase & {
 };
 
 /**
- * Task breakdown artifact defining implementation tasks
+ * Task breakdown artifact defining implementation tasks grouped into phases
  */
-export type TasksSpec = SpecArtifactBase & {
+export type TasksArtifact = SpecArtifactBase & {
   /**
    * Structured task list with acceptance criteria and TDD phases
    */
@@ -1195,6 +1319,10 @@ export enum NotificationEventType {
   WaitingApproval = 'waiting_approval',
   AgentCompleted = 'agent_completed',
   AgentFailed = 'agent_failed',
+  PrMerged = 'pr_merged',
+  PrClosed = 'pr_closed',
+  PrChecksPassed = 'pr_checks_passed',
+  PrChecksFailed = 'pr_checks_failed',
 }
 export enum NotificationSeverity {
   Info = 'info',
@@ -1216,6 +1344,10 @@ export type NotificationEvent = {
    */
   agentRunId: string;
   /**
+   * ID of the feature that triggered this event
+   */
+  featureId: string;
+  /**
    * Human-readable feature name
    */
   featureName: string;
@@ -1235,6 +1367,20 @@ export type NotificationEvent = {
    * When the event occurred
    */
   timestamp: any;
+};
+
+/**
+ * A code repository tracked by the Shep platform
+ */
+export type Repository = SoftDeletableEntity & {
+  /**
+   * Human-readable name for the repository (typically the directory name)
+   */
+  name: string;
+  /**
+   * Absolute file system path to the repository root (unique)
+   */
+  path: string;
 };
 
 /**
@@ -1650,6 +1796,244 @@ export type PhaseTiming = BaseEntity & {
    * Duration in milliseconds (computed on completion)
    */
   durationMs?: bigint;
+  /**
+   * When the phase started waiting for user approval (null if no approval needed)
+   */
+  waitingApprovalAt?: any;
+  /**
+   * Duration in milliseconds the phase waited for user approval (null if no approval needed)
+   */
+  approvalWaitMs?: bigint;
+};
+
+/**
+ * Change to a question's selected option during PRD review
+ */
+export type QuestionSelectionChange = {
+  /**
+   * ID of the open question being changed (the question text)
+   */
+  questionId: string;
+  /**
+   * The option text that the user selected
+   */
+  selectedOption: string;
+};
+
+/**
+ * Payload sent when user approves a PRD with optional selection changes
+ */
+export type PrdApprovalPayload = {
+  /**
+   * Always true for approval payloads
+   */
+  approved: boolean;
+  /**
+   * List of selection changes the user made during review (empty if no changes)
+   */
+  changedSelections?: QuestionSelectionChange[];
+};
+
+/**
+ * Payload sent when user rejects a PRD with feedback for iteration
+ */
+export type PrdRejectionPayload = {
+  /**
+   * Always true for rejection payloads
+   */
+  rejected: boolean;
+  /**
+   * User's feedback explaining what needs to change
+   */
+  feedback: string;
+  /**
+   * Iteration number (1-based, derived from PhaseTiming row count)
+   */
+  iteration: number;
+};
+
+/**
+ * A single question with its options as presented in the review TUI
+ */
+export type ReviewQuestion = {
+  /**
+   * The question text
+   */
+  question: string;
+  /**
+   * Available options with selection state
+   */
+  options: QuestionOption[];
+  /**
+   * The option text that was selected by the user
+   */
+  selectedOption: string;
+  /**
+   * Whether the user changed the selection from the AI default
+   */
+  changed: boolean;
+};
+
+/**
+ * Result of the PRD review TUI interaction
+ */
+export type PrdReviewResult = {
+  /**
+   * All questions with their final selection state
+   */
+  questions: ReviewQuestion[];
+  /**
+   * User action: approve or reject
+   */
+  action: string;
+  /**
+   * Rejection feedback (only present when action is 'reject')
+   */
+  feedback?: string;
+};
+
+/**
+ * A single message within an agent provider CLI session
+ */
+export type AgentSessionMessage = {
+  /**
+   * Provider-native message UUID
+   */
+  uuid: string;
+  /**
+   * Message role — user turn or assistant turn
+   */
+  role: 'user' | 'assistant';
+  /**
+   * Normalized message content as plain text (tool calls and thinking blocks excluded)
+   */
+  content: string;
+  /**
+   * Timestamp when the message was recorded
+   */
+  timestamp: any;
+};
+
+/**
+ * An agent provider CLI session (conversation record read from provider local storage)
+ */
+export type AgentSession = BaseEntity & {
+  /**
+   * Agent executor type that owns this session (e.g. claude-code)
+   */
+  agentType: AgentType;
+  /**
+   * Tilde-abbreviated working directory path for the session (e.g. ~/repos/my-project)
+   */
+  projectPath: string;
+  /**
+   * Total number of user and assistant messages in the session
+   */
+  messageCount: number;
+  /**
+   * Truncated first user message text used as a session summary preview (optional)
+   */
+  preview?: string;
+  /**
+   * Conversation messages — populated only in the detail view (shep session show)
+   */
+  messages?: AgentSessionMessage[];
+  /**
+   * Timestamp of the first message in the session (optional)
+   */
+  firstMessageAt?: any;
+  /**
+   * Timestamp of the most recent message in the session (optional)
+   */
+  lastMessageAt?: any;
+};
+
+/**
+ * A selectable option within a PRD questionnaire question
+ */
+export type PrdOption = {
+  /**
+   * Unique identifier for this option
+   */
+  id: string;
+  /**
+   * Display label for this option
+   */
+  label: string;
+  /**
+   * Explanation of why this option is relevant
+   */
+  rationale: string;
+  /**
+   * Whether this option is recommended by AI analysis
+   */
+  recommended?: boolean;
+  /**
+   * Whether this option was newly added after refinement
+   */
+  isNew?: boolean;
+};
+
+/**
+ * A single question in the PRD questionnaire with selectable options
+ */
+export type PrdQuestion = {
+  /**
+   * Unique identifier for this question
+   */
+  id: string;
+  /**
+   * The question text displayed to the user
+   */
+  question: string;
+  /**
+   * Question interaction type (currently only single-select)
+   */
+  type: 'select';
+  /**
+   * Available options for this question
+   */
+  options: PrdOption[];
+};
+
+/**
+ * Configuration for the final action button in the questionnaire
+ */
+export type PrdFinalAction = {
+  /**
+   * Unique identifier for this action
+   */
+  id: string;
+  /**
+   * Button label text
+   */
+  label: string;
+  /**
+   * Description of what this action does
+   */
+  description: string;
+};
+
+/**
+ * Complete data for rendering a PRD questionnaire
+ */
+export type PrdQuestionnaireData = {
+  /**
+   * Header title text for the questionnaire
+   */
+  question: string;
+  /**
+   * Header context/description text
+   */
+  context: string;
+  /**
+   * Array of questions to display
+   */
+  questions: PrdQuestion[];
+  /**
+   * Configuration for the finalize/approve action button
+   */
+  finalAction: PrdFinalAction;
 };
 export enum AgentFeature {
   sessionResume = 'session-resume',
@@ -1657,6 +2041,7 @@ export enum AgentFeature {
   toolScoping = 'tool-scoping',
   structuredOutput = 'structured-output',
   systemPrompt = 'system-prompt',
+  sessionListing = 'session-listing',
 }
 export type DeployTarget = DeployTargetActionItem | DeployTargetTask | DeployTargetTasks;
 

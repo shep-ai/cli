@@ -1,0 +1,36 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PullRequest.yaml
+type: object
+properties:
+  url:
+    type: string
+    description: GitHub PR URL
+  number:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: GitHub PR number
+  status:
+    $ref: PrStatus.yaml
+    description: Current PR status
+  commitHash:
+    type: string
+    description: Final commit SHA after push
+  ciStatus:
+    $ref: CiStatus.yaml
+    description: CI pipeline status
+  ciFixAttempts:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Number of CI fix attempts made
+  ciFixHistory:
+    type: array
+    items:
+      $ref: CiFixRecord.yaml
+    description: History of CI fix attempts
+required:
+  - url
+  - number
+  - status
+description: Pull request tracking data for a feature

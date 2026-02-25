@@ -1,0 +1,29 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureAgent.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for this feature agent instance
+  feature:
+    $ref: Feature.yaml
+    description: The feature being managed by this agent throughout its lifecycle
+  agents:
+    type: array
+    items:
+      $ref: AgentInstance.yaml
+    description: Sub-agents spawned to handle specific tasks within the workflow
+  state:
+    $ref: FeatureAgentState.yaml
+    description: Current operational state determining what the agent is doing
+  createdAt:
+    type: string
+    format: date-time
+    description: Timestamp when this feature agent was created
+required:
+  - id
+  - feature
+  - agents
+  - state
+  - createdAt
+description: Main orchestrating agent - the 'brain' that manages the complete SDLC workflow for a feature

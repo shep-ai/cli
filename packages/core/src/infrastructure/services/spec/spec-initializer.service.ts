@@ -63,6 +63,8 @@ name: {{FEATURE_NAME}}
 number: {{NNN}}
 branch: feat/{{NNN}}-{{FEATURE_NAME}}
 oneLiner: {{DESCRIPTION}}
+userQuery: >
+  {{DESCRIPTION}}
 summary: >
   {{DESCRIPTION}}
 phase: Analysis

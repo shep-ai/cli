@@ -28,7 +28,7 @@ export function createRejectCommand(): Command {
         }
 
         const useCase = container.resolve(RejectAgentRunUseCase);
-        const result = await useCase.execute(resolved.run.id, opts.reason);
+        const result = await useCase.execute(resolved.run.id, opts.reason ?? 'Rejected by user');
 
         if (result.rejected) {
           messages.success(

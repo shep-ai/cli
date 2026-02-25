@@ -33,7 +33,6 @@ vi.mock('../../../../packages/core/src/infrastructure/persistence/sqlite/migrati
 vi.mock(
   '../../../../packages/core/src/infrastructure/services/notifications/notification-bus.js',
   () => ({
-    initializeNotificationBus: vi.fn(),
     getNotificationBus: vi.fn().mockReturnValue({}),
   })
 );

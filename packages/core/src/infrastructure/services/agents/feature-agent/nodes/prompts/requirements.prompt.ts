@@ -2,18 +2,57 @@
  * Requirements Phase Prompt
  *
  * Instructs the agent to build comprehensive requirements from the analysis,
- * including product questions with AI-recommended default answers.
+ * including product questions with structured QuestionOption[] arrays
+ * and AI-recommended default answers.
  * Writes back to spec.yaml with full requirements.
  */
 
+import yaml from 'js-yaml';
 import { readSpecFile } from '../node-helpers.js';
 import type { FeatureAgentState } from '../../state.js';
 
 export function buildRequirementsPrompt(state: FeatureAgentState): string {
   const specContent = readSpecFile(state.specDir, 'spec.yaml');
 
-  return `You are a product analyst performing the REQUIREMENTS phase of feature development.
+  // Extract rejection feedback if present
+  let rejectionFeedbackSection = '';
+  try {
+    const specData = yaml.load(specContent) as Record<string, unknown> | null;
+    const rejectionFeedback = specData?.rejectionFeedback as
+      | {
+          iteration: number;
+          message: string;
+          phase?: string;
+          timestamp: string;
+        }[]
+      | undefined;
+    if (rejectionFeedback && rejectionFeedback.length > 0) {
+      // Filter to requirements-phase rejections (or legacy entries without phase)
+      const reqRejections = rejectionFeedback.filter((e) => !e.phase || e.phase === 'requirements');
+      if (reqRejections.length > 0) {
+        const entries = reqRejections
+          .map(
+            (entry) => `- **Iteration ${entry.iteration}** (${entry.timestamp}): ${entry.message}`
+          )
+          .join('\n');
+        rejectionFeedbackSection = `
+## Previous Rejection Feedback
 
+The user has previously rejected this PRD with the following feedback. You MUST address these concerns in your revised output:
+
+${entries}
+
+Focus on the most recent feedback (highest iteration number) while ensuring earlier feedback is still addressed.
+
+`;
+      }
+    }
+  } catch {
+    // If YAML parsing fails, continue without rejection feedback
+  }
+
+  return `You are a product analyst performing the REQUIREMENTS phase of feature development.
+${rejectionFeedbackSection}
 ## Your Task
 
 1. Read the current spec with codebase analysis below
@@ -33,13 +72,20 @@ ${specContent}
 - **Non-functional requirements (NFR-N)**: performance, security, UX, maintainability constraints
 - **Success criteria**: measurable checkboxes that define "done"
 
-### Product Questions with AI Defaults
+### Product Questions with Structured Options
 For every ambiguous product decision, create an openQuestion entry with:
 - A clear question
 - resolved: true (your recommendation is the default)
-- Your recommended answer with reasoning
+- Structured options array with EXACTLY ONE option marked selected: true
+- A selectionRationale explaining the recommendation
+- An answer field containing the text of the selected option (for backward compatibility)
 
-The user can later review and override these defaults. This is the AI-recommended path — not the only option.
+Each option MUST have:
+- \`option\`: Short label for the approach (2-5 words)
+- \`description\`: Explanation of this option's trade-offs and benefits
+- \`selected\`: boolean — exactly ONE option per question must be true
+
+The user can later review and override these defaults via interactive TUI.
 
 ## Output Instructions
 
@@ -64,12 +110,28 @@ Write the COMPLETE file. Preserve name/number/branch/technologies from analysis 
   relatedLinks: (keep)
 
   openQuestions:
-    - question: 'Should X use approach A or B?'
+    - question: 'Should X use approach A, B, or C?'
       resolved: true
-      answer: 'Recommend A because [rationale]. Alternative: B if [condition].'
+      options:
+        - option: 'Approach A'
+          description: 'Benefits of A, when to use it, trade-offs'
+          selected: true
+        - option: 'Approach B'
+          description: 'Benefits of B, when to use it, trade-offs'
+          selected: false
+      selectionRationale: 'Approach A is recommended because [detailed reasoning]'
+      answer: 'Approach A'
     - question: 'What level of Y is needed?'
       resolved: true
-      answer: 'Recommend Z level because [rationale].'
+      options:
+        - option: 'Basic'
+          description: 'Minimal implementation, fast to build'
+          selected: false
+        - option: 'Advanced'
+          description: 'Full-featured, handles edge cases'
+          selected: true
+      selectionRationale: 'Advanced is recommended because [reasoning]'
+      answer: 'Advanced'
 
   content: |
     ## Problem Statement
@@ -113,7 +175,8 @@ Write the COMPLETE file. Preserve name/number/branch/technologies from analysis 
 ## Constraints
 
 - Write ONLY to ${state.specDir}/spec.yaml
-- Every open question MUST have an AI-recommended default answer (resolved: true)
+- Every open question MUST have structured options with exactly ONE option marked selected: true
+- Every open question MUST also have an \`answer\` field matching the selected option text
 - Requirements must be specific and testable, not vague
 - Do NOT create any other files
 - Do NOT modify any source code`;

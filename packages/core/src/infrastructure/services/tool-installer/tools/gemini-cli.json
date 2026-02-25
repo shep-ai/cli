@@ -1,0 +1,27 @@
+{
+  "name": "Gemini CLI",
+  "summary": "AI-powered coding agent from Google",
+  "description": "Gemini CLI is an open-source AI coding agent from Google that brings the power of Gemini directly to your terminal for code generation, debugging, and development workflows.",
+  "tags": ["cli-agent"],
+  "iconUrl": "https://cdn.simpleicons.org/googlegemini",
+  "binary": "gemini",
+  "packageManager": "npm",
+  "commands": {
+    "linux": "npm install -g @google/gemini-cli",
+    "darwin": "npm install -g @google/gemini-cli"
+  },
+  "timeout": 300000,
+  "documentationUrl": "https://github.com/google-gemini/gemini-cli",
+  "verifyCommand": "gemini --version",
+  "autoInstall": true,
+  "openDirectory": "cd {dir} && exec gemini",
+  "spawnOptions": {
+    "shell": true,
+    "stdio": "inherit",
+    "detached": false
+  },
+  "terminalCommand": {
+    "linux": "x-terminal-emulator -e bash -c 'cd {dir} && exec gemini'",
+    "darwin": "open -a Terminal.app bash -c 'cd {dir} && exec gemini'"
+  }
+}

@@ -1,0 +1,23 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentInstance.yaml
+type: object
+properties:
+  id:
+    $ref: UUID.yaml
+    description: Unique identifier for this agent instance
+  branch:
+    type: string
+    description: Git branch this agent is operating on for code changes
+  status:
+    $ref: AgentStatus.yaml
+    description: Current operational status of the agent (Idle, Running, Paused, or Stopped)
+  createdAt:
+    type: string
+    format: date-time
+    description: Timestamp when this agent instance was created
+required:
+  - id
+  - branch
+  - status
+  - createdAt
+description: A running agent instance that processes work and responds to queries

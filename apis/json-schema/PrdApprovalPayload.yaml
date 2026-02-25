@@ -1,0 +1,15 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PrdApprovalPayload.yaml
+type: object
+properties:
+  approved:
+    type: boolean
+    description: Always true for approval payloads
+  changedSelections:
+    type: array
+    items:
+      $ref: QuestionSelectionChange.yaml
+    description: List of selection changes the user made during review (empty if no changes)
+required:
+  - approved
+description: Payload sent when user approves a PRD with optional selection changes

@@ -1,0 +1,194 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-pr-push-flags
+summary: >
+  5 tasks across 3 phases. Phase 1 wires the server action with TDD tests. Phase 2 adds
+  the drawer UI (payload type, state hooks, GIT section, submit/reset). Phase 3 adds
+  Storybook stories for visual verification.
+
+relatedFeatures:
+  - '020-worktree-merge-flow'
+
+technologies:
+  - React 19
+  - Next.js 16+ (App Router, Server Actions)
+  - shadcn/ui (CheckboxGroupItem)
+  - Storybook
+  - Vitest
+  - TypeScript
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add push/openPr forwarding tests to create-feature.test.ts'
+    description: >
+      Write unit tests that verify the createFeature server action correctly passes push and
+      openPr values through to CreateFeatureUseCase.execute(). Tests follow the existing
+      approvalGates describe block pattern. This is the RED step — tests will fail until
+      the server action is updated in task-2.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'New describe("push/openPr forwarding") block in create-feature.test.ts'
+      - 'Test: both push=true and openPr=true are forwarded to mockExecute'
+      - 'Test: neither provided defaults both to false'
+      - 'Test: only push=true provided, openPr defaults to false'
+      - 'Test: only openPr=true provided, push defaults to false'
+      - 'Tests use expect.objectContaining() matching the approvalGates pattern'
+      - 'All 4 new tests fail (RED) because server action does not yet pass push/openPr'
+    tdd:
+      red:
+        - 'Add describe("push/openPr forwarding") block after the existing approvalGates block'
+        - 'Write 4 test cases: both provided, neither provided, push-only, openPr-only'
+        - 'Each test calls createFeature() with push/openPr values and asserts mockExecute was called with expect.objectContaining({ push: ..., openPr: ... })'
+      green:
+        - 'Deferred to task-2 — these tests intentionally fail at this point'
+      refactor:
+        - 'N/A — tests only'
+    estimatedEffort: '15min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Wire push/openPr through createFeature server action'
+    description: >
+      Add optional push and openPr fields to the server action's CreateFeatureInput interface
+      and pass them through to createFeatureUseCase.execute() with ?? false defaults. This
+      is the GREEN step — makes the tests from task-1 pass.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'CreateFeatureInput interface in create-feature.ts has push?: boolean and openPr?: boolean'
+      - 'Destructuring on line 52 extracts push and openPr from input'
+      - 'createFeatureUseCase.execute() call includes push: push ?? false and openPr: openPr ?? false'
+      - 'All 4 new tests from task-1 pass (GREEN)'
+      - 'All existing tests continue to pass (no regressions)'
+    tdd:
+      red:
+        - 'Tests already written in task-1 and failing'
+      green:
+        - 'Add push?: boolean and openPr?: boolean to CreateFeatureInput interface'
+        - 'Destructure push and openPr from input alongside existing fields'
+        - 'Pass push: push ?? false and openPr: openPr ?? false to useCase.execute()'
+      refactor:
+        - 'Verify all existing tests still pass — no code cleanup needed for this small change'
+    estimatedEffort: '10min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add push/openPr to FeatureCreatePayload and drawer state'
+    description: >
+      Extend the FeatureCreatePayload interface with push and openPr boolean fields. Add two
+      useState<boolean> hooks initialized to false. Update handleSubmit to include
+      push: push || openPr and openPr in the payload. Update resetForm to clear both to false.
+      Add push and openPr to the handleSubmit useCallback dependency array.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'FeatureCreatePayload has push: boolean and openPr: boolean fields'
+      - 'Two new useState<boolean>(false) hooks: [push, setPush] and [openPr, setOpenPr]'
+      - 'handleSubmit includes push: push || openPr and openPr in the onSubmit payload'
+      - 'resetForm sets push and openPr to false'
+      - 'handleSubmit dependency array includes push and openPr'
+      - 'TypeScript compiles without errors'
+    tdd:
+      red:
+        - 'Run typecheck — FeatureCreatePayload consumers may show type errors if they do not provide push/openPr (useControlCenterState passes the full object, so it will include the new fields once the drawer provides them)'
+      green:
+        - 'Add push: boolean and openPr: boolean to FeatureCreatePayload interface'
+        - 'Add const [push, setPush] = useState(false) and const [openPr, setOpenPr] = useState(false)'
+        - 'In handleSubmit, add push: push || openPr and openPr to the onSubmit() call'
+        - 'In resetForm, add setPush(false) and setOpenPr(false)'
+        - 'Add push and openPr to handleSubmit useCallback dependency array'
+      refactor:
+        - 'Verify typecheck passes across CLI and web packages'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Render GIT section with push/PR checkboxes and coupling logic'
+    description: >
+      Add a new "GIT" labeled section between the APPROVE and ATTACHMENTS sections in the
+      drawer form. Render two CheckboxGroupItem components: "Push" and "Create PR". Wire
+      the PR-implies-push coupling via derived props: Push checkbox shows
+      checked={push || openPr} and disabled={openPr || isSubmitting}. PR checkbox shows
+      checked={openPr} and disabled={isSubmitting}. Import CheckboxGroupItem.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'CheckboxGroupItem imported from @/components/ui/checkbox-group-item'
+      - 'New "GIT" section with Label styled text-muted-foreground text-xs font-semibold tracking-wider'
+      - 'GIT section rendered between APPROVE section and ATTACHMENTS section'
+      - 'Push CheckboxGroupItem with id="push", label="Push", description="Push branch to remote after implementation."'
+      - 'PR CheckboxGroupItem with id="open-pr", label="Create PR", description="Open a pull request after pushing."'
+      - 'Push checkbox: checked={push || openPr}, disabled={openPr || isSubmitting}, onCheckedChange={setPush}'
+      - 'PR checkbox: checked={openPr}, disabled={isSubmitting}, onCheckedChange={setOpenPr}'
+      - 'When PR is checked, Push appears checked and disabled'
+      - 'When PR is unchecked, Push returns to its independent state'
+      - 'Both disabled when isSubmitting is true'
+    tdd:
+      red:
+        - 'Visually verify in Storybook that the GIT section does not yet exist (baseline)'
+      green:
+        - 'Import CheckboxGroupItem from @/components/ui/checkbox-group-item'
+        - 'Add a new div.flex.flex-col.gap-1.5 between the APPROVE and ATTACHMENTS sections'
+        - 'Add Label "GIT" with the standard section header styling'
+        - 'Add div.flex.flex-col.gap-2 containing two CheckboxGroupItem instances'
+        - 'Wire Push: id="push", checked={push || openPr}, disabled={openPr || isSubmitting}, onCheckedChange={setPush}'
+        - 'Wire PR: id="open-pr", checked={openPr}, disabled={isSubmitting}, onCheckedChange={setOpenPr}'
+      refactor:
+        - 'Verify visual alignment matches APPROVE section spacing'
+        - 'Run lint and format to ensure code style consistency'
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Add PushOnly and PrChecked Storybook stories'
+    description: >
+      Add two new stories to feature-create-drawer.stories.tsx: PushOnly (clicks push checkbox)
+      and PrChecked (clicks PR checkbox, showing push auto-forced). Both use the existing
+      CreateDrawerTrigger + play() pattern with body-scoped queries via
+      within(canvasElement.ownerDocument.body).
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'PushOnly story: opens drawer, clicks Push checkbox, Push appears checked'
+      - 'PrChecked story: opens drawer, clicks Create PR checkbox, both PR and Push appear checked, Push is disabled'
+      - 'Both stories use CreateDrawerTrigger render pattern'
+      - 'Both stories use play() with within(canvasElement.ownerDocument.body) for portal queries'
+      - 'Stories appear in Storybook sidebar under Composed/FeatureCreateDrawer'
+      - 'Existing stories unaffected'
+    tdd:
+      red:
+        - 'Verify Storybook builds without the new stories (baseline)'
+      green:
+        - 'Add PushOnly story: render CreateDrawerTrigger, play() clicks trigger button then clicks Push checkbox by label'
+        - 'Add PrChecked story: render CreateDrawerTrigger, play() clicks trigger button then clicks Create PR checkbox by label'
+        - 'Place new stories in a "Git checkbox stories" section comment block after the existing auto-approve stories'
+      refactor:
+        - 'Run Storybook build to verify no story compilation errors'
+        - 'Verify stories render correctly in Storybook UI'
+    estimatedEffort: '15min'
+
+totalEstimate: '1h 15min'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a bottom-up approach across 3 phases. First, the server action
+  data contract is established with TDD tests (tasks 1-2), ensuring the push/openPr values
+  correctly flow from the server action to the use case. Then the drawer UI is built (tasks 3-4):
+  the payload type and state hooks are added first, followed by the visual GIT section with
+  CheckboxGroupItem components and the PR-implies-push coupling logic. Finally, Storybook stories
+  (task 5) document the new checkbox states for visual verification.
+
+  No domain, application, or infrastructure changes are needed — all work is confined to the
+  presentation layer. The useControlCenterState hook requires no changes because it already
+  passes the full FeatureCreatePayload object to the server action.

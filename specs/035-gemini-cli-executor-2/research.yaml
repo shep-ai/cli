@@ -1,0 +1,374 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: gemini-cli-executor-2
+summary: >
+  Technical research for implementing GeminiCliExecutorService. Key findings: use GEMINI_API_KEY (not GOOGLE_API_KEY)
+  for token auth, use -y flag for auto-approve, follow CursorExecutorService patterns closely for feature parity,
+  and implement defensive stream-JSON parsing since the format is relatively new and may evolve.
+
+relatedFeatures: []
+
+technologies:
+  - Google Gemini CLI (gemini binary, v0.29+)
+  - TypeScript
+  - tsyringe (DI)
+  - node:child_process (spawn)
+  - Vitest (unit tests)
+  - Commander.js (CLI)
+  - Inquirer.js (TUI wizard)
+
+relatedLinks:
+  - https://github.com/google-gemini/gemini-cli
+  - https://geminicli.com/docs/cli/headless/
+  - https://google-gemini.github.io/gemini-cli/docs/cli/headless.html
+  - https://geminicli.com/docs/get-started/authentication/
+  - https://github.com/google-gemini/gemini-cli/blob/main/docs/cli/headless.md
+
+decisions:
+  - title: 'Token Auth Environment Variable'
+    chosen: 'Pass GEMINI_API_KEY (not GOOGLE_API_KEY) to spawned process for token auth'
+    rejected:
+      - 'GOOGLE_API_KEY — This is for Vertex AI / Google Cloud API keys specifically, not for Gemini API keys from Google AI Studio. The spec originally recommended GOOGLE_API_KEY, but official Gemini CLI docs state GEMINI_API_KEY is the correct env var for API key auth.'
+      - 'No env var (let binary handle auth) — Would require users to manually configure env vars or .env files outside of Shep settings, breaking the seamless auth experience.'
+    rationale: >
+      Per official Gemini CLI authentication docs (geminicli.com/docs/get-started/authentication/),
+      GEMINI_API_KEY is the environment variable for Google AI Studio API keys. GOOGLE_API_KEY is
+      specifically for Google Cloud / Vertex AI usage and requires additional env vars like
+      GOOGLE_CLOUD_PROJECT. Since Shep's token auth stores a Gemini API key (from AI Studio),
+      GEMINI_API_KEY is the correct variable. If both are set, GOOGLE_API_KEY takes precedence,
+      which could cause confusion. NOTE: This contradicts the spec's open question answer — the spec
+      should be updated to use GEMINI_API_KEY instead of GOOGLE_API_KEY.
+
+  - title: 'Auto-Approve Flag Strategy'
+    chosen: 'Use -y flag (short for --yolo) as the primary auto-approve mechanism'
+    rejected:
+      - '--approval-mode yolo — While this is the newer/recommended approach, there have been reports of issues with --approval-mode in some versions (github issue #13561). The -y flag is more stable and widely tested.'
+      - 'No auto-approve flag — Would cause the process to hang on permission prompts during autonomous execution, breaking the agent workflow entirely.'
+    rationale: >
+      The -y flag is the established shorthand for --yolo and has been stable across Gemini CLI
+      versions. While --approval-mode is the newer parameter, -y is simpler, well-tested, and
+      matches the spec requirement. Both Claude Code (--dangerously-skip-permissions) and Cursor
+      (--force) use single-flag auto-approve patterns. If -y is deprecated in a future version,
+      we can switch to --approval-mode yolo at that time.
+
+  - title: 'Executor Constructor Pattern'
+    chosen: 'Constructor takes SpawnFunction + optional AgentConfig for auth, matching Cursor pattern with auth extension'
+    rejected:
+      - 'Constructor takes only SpawnFunction (like Cursor/Claude) and reads settings at call time — Would violate the existing pattern where executors are stateless singletons cached in the factory. Reading settings per-call works for the provider but not the executor.'
+      - 'Constructor takes SpawnFunction + token string directly — Too narrow; does not support session auth detection or future auth method extensions.'
+    rationale: >
+      The existing executors take only SpawnFunction because they don't need auth config (Claude Code
+      and Cursor handle auth internally). Gemini needs the token to pass as GEMINI_API_KEY env var.
+      Accepting the full AgentConfig allows the executor to check authMethod and token fields in
+      buildSpawnOptions(). The factory already receives _authConfig (currently unused) — it just
+      needs to pass it through for the gemini-cli case. This is the minimal change that enables
+      token auth without modifying the interface or other executors.
+
+  - title: 'Output Format for execute() Method'
+    chosen: 'Use --output-format json for execute() (non-streaming), --output-format stream-json for executeStream()'
+    rejected:
+      - 'Always use stream-json internally (like Claude Code does) — Claude Code uses stream-json even for execute() to enable real-time logging. However, Gemini JSON output is simpler and more reliable for single-shot execution. The stream-json format is newer (added via PR #10883) and has had reported issues (issue #9009). Using plain JSON for execute() is safer.'
+      - 'Use text output and parse manually — Would lose structured data (session_id, stats, error details), making it impossible to extract metadata reliably.'
+    rationale: >
+      Using json for execute() gives us a single, complete JSON object with response, stats, and
+      session_id — simple to parse and reliable. Using stream-json for executeStream() gives us
+      the real-time JSONL events needed for progress reporting. This split mirrors the conceptual
+      difference between the two methods and avoids the complexity of accumulating stream events
+      when a single response suffices. CursorExecutorService uses stream-json internally for both
+      (like Claude Code), but Gemini's JSON output is well-structured enough that we don't need to.
+
+  - title: 'Stream-JSON Event Parsing Strategy'
+    chosen: 'Defensive parsing with graceful fallbacks for unknown event types'
+    rejected:
+      - 'Strict parsing that throws on unknown event types — Would break if Gemini CLI adds new event types in future versions. Fragile and unnecessary since unknown events can be safely skipped.'
+      - 'Regex-based line parsing — Would miss structured data and be harder to maintain than JSON.parse() with try/catch.'
+    rationale: >
+      The stream-json format is relatively new (added mid-2025) and the exact event structures may
+      evolve. A defensive approach that: (1) parses each line as JSON, (2) handles known event types
+      (init, message, tool_use, tool_result, result, error), (3) skips unknown types with a debug
+      log, and (4) falls back to raw progress events for non-JSON lines — provides resilience against
+      format changes while extracting all available structured data. This matches the existing
+      pattern in both CursorExecutorService and ClaudeCodeExecutorService.
+
+  - title: 'Session ID Extraction Strategy'
+    chosen: 'Extract from JSON response session_id field and stream-json init event'
+    rejected:
+      - 'Parse session ID from file system (~/.gemini/sessions/) — Fragile, depends on internal storage format, and requires file system access. The CLI should provide session_id in its output.'
+      - 'Do not support session ID extraction — Would break the session-resume feature declaration. The spec requires it.'
+    rationale: >
+      For JSON output, the session_id is expected in the top-level response object. For stream-json,
+      the init event contains session metadata including session_id. If session_id is not present in
+      either format (some versions may not include it), return undefined — do not fail. The --resume
+      flag also supports the special value "latest" which doesn't require knowing the session_id.
+      Note: GitHub issue #8944 indicates session_id retrieval has been a pain point — our implementation
+      should be robust to its absence.
+
+  - title: 'Token Usage Extraction'
+    chosen: 'Best-effort extraction from stats object, return undefined if missing'
+    rejected:
+      - 'Require token usage or fail — Would cause unnecessary execution failures when stats are missing. Token usage is metadata, not a correctness requirement.'
+      - 'Calculate token usage from response length — Inaccurate and misleading. Better to return undefined than fabricate data.'
+    rationale: >
+      For JSON output, extract from stats.models.<model>.tokens (prompt → inputTokens, candidates →
+      outputTokens). For stream-json, extract from the result event stats (input_tokens, output_tokens).
+      The field names differ between formats — JSON uses prompt/candidates, stream-json uses
+      input_tokens/output_tokens. If stats are missing or field names change, return undefined for
+      usage. This matches the spec's "best-effort metadata" requirement.
+
+  - title: 'File Organization'
+    chosen: 'Single new file gemini-cli-executor.service.ts alongside existing executors in common/executors/'
+    rejected:
+      - 'Create a gemini-cli/ subdirectory with separate files for parsing, building args, etc. — Over-engineering for a ~250 line executor. The Cursor executor is 341 lines in a single file and works well.'
+      - 'Add to an existing shared executor base class — No shared base class exists, and creating one would violate NFR-2 (no new abstractions) and require refactoring Claude/Cursor executors.'
+    rationale: >
+      Following the exact pattern of CursorExecutorService (single file, self-contained, ~250-350 lines).
+      The file goes in packages/core/src/infrastructure/services/agents/common/executors/ alongside
+      claude-code-executor.service.ts and cursor-executor.service.ts. No shared utilities or base
+      classes — each executor is independently readable and testable.
+
+openQuestions:
+  - question: 'Should GEMINI_API_KEY or GOOGLE_API_KEY be used for token auth?'
+    resolved: true
+    answer: >
+      GEMINI_API_KEY. The spec's open question answer incorrectly states GOOGLE_API_KEY, but the
+      official Gemini CLI docs (geminicli.com/docs/get-started/authentication/) specify GEMINI_API_KEY
+      for Google AI Studio API keys. GOOGLE_API_KEY is for Vertex AI and requires additional config
+      (GOOGLE_CLOUD_PROJECT, etc.). This is the most impactful finding from the research phase.
+
+  - question: 'Are there exit codes beyond 0 and 1 that we should handle?'
+    resolved: true
+    answer: >
+      Yes. Gemini CLI uses specific exit codes: 0 (success), 1 (general error), 41 (auth failed),
+      42 (input error), 52 (user cancellation), 53 (turn limit exceeded), 54 (tool execution error).
+      The executor should include the exit code in error messages to aid debugging, but does not
+      need to handle each differently — all non-zero codes are errors. The error message should
+      include both the exit code and stderr content.
+
+  - question: 'Is the stream-json format stable enough to depend on?'
+    resolved: true
+    answer: >
+      The stream-json format was added via PR #10883 (mid-2025) and is documented in the official
+      headless mode reference. However, there have been issues reported (e.g., #9009 about JSON
+      output failures, #8203 requesting the feature). The implementation should use defensive
+      parsing (try/catch per line, skip unknown event types, fallback for non-JSON lines) to be
+      resilient against format changes. The known event types (init, message, tool_use, tool_result,
+      result, error) should be handled explicitly.
+
+  - question: 'Does the Gemini CLI output --output-format flag use the same syntax as Cursor?'
+    resolved: true
+    answer: >
+      Yes, both use --output-format with values json and stream-json. This is confirmed by the
+      official documentation and matches the Cursor executor pattern. The flag name is --output-format
+      (not -o), matching the existing buildArgs pattern in CursorExecutorService.
+
+  - question: 'How does factory caching interact with auth config changes?'
+    resolved: true
+    answer: >
+      The factory caches executors by agentType string. If a user changes their token, the cached
+      GeminiCliExecutorService would still hold the old AgentConfig. However, this is acceptable
+      because: (1) token changes require a settings update which typically restarts the agent system,
+      (2) the provider creates a new factory on each resolution cycle, and (3) the existing pattern
+      for Claude/Cursor also ignores auth config in caching. If this becomes an issue, the cache
+      key could include an auth hash, but that's a future optimization.
+
+content: |
+  ## Technology Decisions
+
+  ### 1. Token Auth Environment Variable
+
+  **Chosen:** Pass `GEMINI_API_KEY` to spawned process for token auth
+
+  **Rejected:**
+  - `GOOGLE_API_KEY` — Incorrect for Gemini API keys. This is for Vertex AI / Google Cloud specifically. The spec's open question answer should be corrected.
+  - No env var — Would break seamless auth experience through Shep settings.
+
+  **Rationale:** Per official Gemini CLI authentication docs, `GEMINI_API_KEY` is the correct env var for Google AI Studio API keys. `GOOGLE_API_KEY` is for Vertex AI and requires additional configuration (GOOGLE_CLOUD_PROJECT, etc.). This is the most impactful correction from research.
+
+  ### 2. Auto-Approve Flag Strategy
+
+  **Chosen:** Use `-y` flag (short for `--yolo`)
+
+  **Rejected:**
+  - `--approval-mode yolo` — Newer but has reported stability issues in some versions.
+  - No flag — Process would hang on permission prompts.
+
+  **Rationale:** The `-y` flag is well-established and stable. Matches the single-flag pattern of Claude Code (`--dangerously-skip-permissions`) and Cursor (`--force`).
+
+  ### 3. Executor Constructor Pattern
+
+  **Chosen:** `constructor(spawn: SpawnFunction, authConfig?: AgentConfig)`
+
+  **Rejected:**
+  - Only SpawnFunction — Cannot pass GEMINI_API_KEY to spawned process.
+  - SpawnFunction + token string — Too narrow for future auth extensions.
+
+  **Rationale:** Existing executors take only SpawnFunction because they don't need auth config. Gemini needs the token for env var injection. The factory already receives `_authConfig` — just needs to pass it through for gemini-cli.
+
+  ### 4. Output Format Strategy
+
+  **Chosen:** `--output-format json` for `execute()`, `--output-format stream-json` for `executeStream()`
+
+  **Rejected:**
+  - Always stream-json (like Claude Code) — Gemini JSON output is simpler and more reliable for single-shot execution.
+  - Text output — Loses structured data (session_id, stats).
+
+  **Rationale:** Split approach: JSON for execute() gives a single complete object; stream-json for executeStream() gives real-time JSONL events. Simpler and more reliable than accumulating stream events.
+
+  ### 5. Stream Event Parsing
+
+  **Chosen:** Defensive parsing with graceful fallbacks
+
+  **Rejected:**
+  - Strict parsing (throw on unknown) — Would break on new event types.
+  - Regex-based — Would miss structured data.
+
+  **Rationale:** Stream-json format is relatively new (mid-2025). Defensive approach: parse JSON, handle known types, skip unknown with debug log, fallback for non-JSON lines.
+
+  ### 6. Session ID Extraction
+
+  **Chosen:** Extract from JSON `session_id` field and stream-json `init` event
+
+  **Rejected:**
+  - Parse from file system — Fragile, depends on internal storage.
+  - Skip entirely — Breaks session-resume feature.
+
+  **Rationale:** Return undefined if absent (don't fail). The `--resume` flag supports "latest" which doesn't need session_id.
+
+  ### 7. Token Usage Extraction
+
+  **Chosen:** Best-effort from stats, undefined if missing
+
+  **Rejected:**
+  - Require or fail — Unnecessary failure for metadata.
+  - Estimate from response — Inaccurate.
+
+  **Rationale:** JSON format uses `stats.models.<model>.tokens` with fields `prompt` (input) and `candidates` (output). Stream-json uses `input_tokens`/`output_tokens` on the result event. Different field names between formats require format-aware extraction.
+
+  ### 8. File Organization
+
+  **Chosen:** Single file `gemini-cli-executor.service.ts` in `common/executors/`
+
+  **Rejected:**
+  - Subdirectory with separate files — Over-engineering for ~250 lines.
+  - Shared base class — No existing base; would require refactoring other executors.
+
+  **Rationale:** Follows CursorExecutorService pattern exactly. Self-contained, independently testable.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | node:child_process (spawn) | Process spawning | Use (existing) | Already used by all executors via SpawnFunction injection |
+  | node:events (EventEmitter) | Stream event queue | Use (existing) | Already used in async queue pattern for executeStream() |
+  | Vitest | Unit testing | Use (existing) | Project standard, used by all executor tests |
+  | tsyringe | DI container | Use (existing) | No DI changes needed; factory handles instantiation |
+  | @inquirer/prompts | TUI wizard | Use (existing) | Only change is enabling GeminiCli choice in agent-select prompt |
+  | No new libraries | — | N/A | Zero new dependencies required. Implementation uses only existing project dependencies. |
+
+  ## Security Considerations
+
+  1. **Token Handling:** GEMINI_API_KEY is passed as an env var to the spawned process. It is NOT logged, NOT included in error messages, and NOT persisted beyond the process lifetime. The env var is constructed fresh for each spawn call from the stored settings token.
+
+  2. **Environment Isolation:** Strip potentially conflicting env vars (CLAUDECODE, etc.) from the spawned process environment, matching existing executor patterns. This prevents nested-session detection issues.
+
+  3. **Auto-Approve Risk:** The -y flag auto-approves all tool executions. This is an inherent requirement for autonomous agent operation (same as Claude Code and Cursor). The risk is mitigated by the Shep agent system's own safety controls (plan approval, task scoping).
+
+  4. **Process Cleanup:** Timeout handling must kill the spawned process to prevent orphaned gemini processes consuming resources. Use `process.kill()` matching existing patterns.
+
+  5. **No Shell Injection:** Args are passed as an array to spawn() (not via shell string interpolation), preventing shell injection. The prompt is a single arg to -p, model name to -m, etc.
+
+  ## Performance Implications
+
+  1. **Process Spawning:** Each execute()/executeStream() call spawns a new gemini process. This is identical to Claude Code and Cursor — no optimization needed or possible at this layer.
+
+  2. **Stream Parsing:** Line-by-line JSON parsing is O(n) per line. No buffering concerns since we use the same line-buffer-split pattern as existing executors.
+
+  3. **Memory:** Stream events are yielded one at a time (async generator), not accumulated in memory. The only accumulation is the final result text, which is bounded by the model's output limit.
+
+  4. **Caching:** The factory caches executor instances by agentType, so constructor overhead is paid once per application lifecycle.
+
+  ## Architecture Notes
+
+  ### Integration Points (Minimal Surface Area)
+
+  The implementation touches exactly 4 existing files with minimal changes:
+
+  1. **AgentExecutorFactory** — Add `case 'gemini-cli':` to switch (3 lines)
+  2. **AgentValidatorService** — Add `'gemini-cli': 'gemini'` to AGENT_BINARY_MAP (1 line)
+  3. **agent-select.prompt.ts** — Remove `disabled`, add `description` (2 line changes)
+  4. **Factory test** — Change "throw for gemini-cli" test to "create gemini-cli" test (~5 lines)
+  5. **Validator test** — Change "not supported" test to "check gemini binary" test (~5 lines)
+
+  Plus 2 new files:
+  1. **gemini-cli-executor.service.ts** — New executor (~250-300 lines)
+  2. **gemini-cli-executor.test.ts** — New test suite (~350 lines)
+
+  ### Dependency Flow
+
+  ```
+  DI Container → AgentExecutorProvider → AgentExecutorFactory → GeminiCliExecutorService
+                                                                   ↓
+                                                              spawn('gemini', [...args], {env})
+  ```
+
+  No new interfaces, no DI changes, no TypeSpec changes. The executor fits entirely within the existing `IAgentExecutor` contract.
+
+  ### Key Gemini CLI Flags
+
+  | Flag | Purpose | When Used |
+  | ---- | ------- | --------- |
+  | `-p <prompt>` | Non-interactive prompt | Always |
+  | `--output-format json` | Single JSON response | execute() |
+  | `--output-format stream-json` | JSONL stream | executeStream() |
+  | `-y` | Auto-approve all actions | Always |
+  | `--resume <id>` | Resume session | When options.resumeSession set |
+  | `-m <model>` | Model selection | When options.model set |
+  | `--allowed-tools <csv>` | Tool scoping | When options.allowedTools set |
+
+  ### Gemini CLI JSON Output Structure
+
+  ```json
+  {
+    "response": "The model's answer text",
+    "session_id": "session-2025-...",
+    "stats": {
+      "models": {
+        "gemini-2.5-flash": {
+          "tokens": { "prompt": 100, "candidates": 200, "total": 300 }
+        }
+      }
+    },
+    "error": { "type": "string", "message": "string", "code": 1 }
+  }
+  ```
+
+  ### Gemini CLI Stream-JSON Event Types
+
+  | Event Type | Fields | Maps To |
+  | ---------- | ------ | ------- |
+  | `init` | type, timestamp, session_id, model | Skip (extract session_id) |
+  | `message` (role:user) | type, role, content | Skip (echoed input) |
+  | `message` (role:assistant, delta:true) | type, role, content, delta | progress event |
+  | `tool_use` | type, tool_name, parameters | progress `[tool_use: name]` |
+  | `tool_result` | type, tool_id, status, output | progress `[tool_result: status]` |
+  | `result` | type, response, stats | result event |
+  | `error` | type, message, code | error event |
+
+  ### Exit Codes
+
+  | Code | Meaning | Handling |
+  | ---- | ------- | -------- |
+  | 0 | Success | Normal flow |
+  | 1 | General error | Error with stderr |
+  | 41 | Auth failed | Error with stderr |
+  | 42 | Input error | Error with stderr |
+  | 53 | Turn limit | Error with stderr |
+  | 54 | Tool error | Error with stderr |
+
+  All non-zero codes are treated as errors with stderr content included in the error message.
+
+  ### Spec Correction Required
+
+  **IMPORTANT:** The spec's open question #1 answer recommends `GOOGLE_API_KEY`, but the correct
+  env var is `GEMINI_API_KEY`. The spec (FR-8) should be updated before implementation.

@@ -29,13 +29,31 @@ export {
 export { FeatureStatusBadges, type FeatureStatusBadgesProps } from './feature-status-badges';
 export { FeatureStatusGroup, type FeatureStatusGroupProps } from './feature-status-group';
 export { LoadingSkeleton } from './loading-skeleton';
+export { NotificationPermissionBanner } from './notification-permission-banner';
 export {
   RepositoryNode,
   type RepositoryNodeData,
   type RepositoryNodeType,
 } from './repository-node';
 export { PageHeader } from './page-header';
+export {
+  PrdQuestionnaire,
+  PrdQuestionnaireDrawer,
+  type PrdQuestionnaireProps,
+  type PrdQuestionnaireDrawerProps,
+  type PrdQuestion,
+  type PrdFinalAction,
+  type PrdOption,
+  type PrdQuestionnaireData,
+} from './prd-questionnaire';
 export { ShepLogo, type ShepLogoProps } from './shep-logo';
+export {
+  TechDecisionsReview,
+  TechDecisionsDrawer,
+  type TechDecisionsReviewProps,
+  type TechDecisionsDrawerProps,
+  type TechDecisionsReviewData,
+} from './tech-decisions-review';
 export { SidebarCollapseToggle, type SidebarCollapseToggleProps } from './sidebar-collapse-toggle';
 export { SidebarNavItem, type SidebarNavItemProps } from './sidebar-nav-item';
 export { SidebarSectionHeader, type SidebarSectionHeaderProps } from './sidebar-section-header';

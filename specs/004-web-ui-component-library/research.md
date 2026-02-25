@@ -94,7 +94,7 @@
 
 **Sources:** [shadcn/ui Unified Radix UI](https://ui.shadcn.com/docs/changelog/2026-02-radix-ui) | [Changelog](https://ui.shadcn.com/docs/changelog) | [Installation](https://ui.shadcn.com/docs/installation)
 
-### 4. Storybook 10 Integration with Next.js 16
+### 4. Storybook 8 Integration with Next.js 16
 
 **Options considered:**
 
@@ -102,11 +102,11 @@
 2. **Storybook with Vite** - Faster builds, modern tooling (recommended)
 3. **Skip Storybook** - Use only Next.js dev server for component development
 
-**Decision:** Use **Storybook 10 with Vite** (recommended framework)
+**Decision:** Use **Storybook 8 with Vite** (recommended framework)
 
 **Rationale:**
 
-- Storybook 10.1.11 has official Next.js 16 and Vitest 4 support
+- Storybook 8.6.15 has official Next.js 16 support
 - Vite integration provides faster builds and modern tooling
 - React 19.2 compatibility confirmed
 - ESM-only requirement (Node 20.16+, 22.19+, or 24+) matches our stack
@@ -126,7 +126,7 @@
 - Con: ESM-only (breaking change), requires modern Node
 - Con: React version inconsistency in some edge cases
 
-**Sources:** [Storybook 10 Docs](https://storybook.js.org/blog/storybook-10/) | [Next.js Integration](https://storybook.js.org/docs/get-started/frameworks/nextjs-vite) | [Migration Guide](https://storybook.js.org/docs/releases/migration-guide)
+**Sources:** [Storybook 8 Docs](https://storybook.js.org/blog/storybook-8/) | [Next.js Integration](https://storybook.js.org/docs/get-started/frameworks/nextjs-vite) | [Migration Guide](https://storybook.js.org/docs/releases/migration-guide)
 
 ### 5. Testing Infrastructure (Vitest + RTL + Playwright)
 
@@ -142,7 +142,7 @@
 
 **Vitest for Unit/Component Tests:**
 
-- Native ESM support (aligns with Next.js 16 and Storybook 10)
+- Native ESM support (aligns with Next.js 16 and Storybook 8)
 - Faster than Jest (designed for Vite-based projects)
 - Official Next.js guide: [Testing with Vitest](https://nextjs.org/docs/app/guides/testing/vitest)
 - Installation: `pnpm add -D vitest @vitejs/plugin-react jsdom @testing-library/react @testing-library/dom vite-tsconfig-paths`
@@ -359,7 +359,7 @@ packages:
 | tailwindcss            | 4.x     | CSS framework               | 5x faster builds, modern CSS features      | Breaking changes, CSS-first config       |
 | radix-ui               | 1.4.3   | Unified Radix primitives    | Single package, cleaner deps               | New approach (Feb 2026), less docs       |
 | shadcn                 | 3.7.0+  | Component CLI               | Supports unified radix-ui, well-maintained | Not a traditional npm package (CLI tool) |
-| @storybook/nextjs      | 10.1.11 | Component documentation     | Next 16 support, Vite integration, fast    | ESM-only, React version inconsistency    |
+| @storybook/nextjs      | 8.6.15  | Component documentation     | Next 16 support, Vite integration, fast    | ESM-only, React version inconsistency    |
 | vitest                 | 4.x     | Unit test runner            | Fast, ESM-native, Vite integration         | No async Server Component support        |
 | @testing-library/react | 16.3.1  | Component testing utilities | User-focused testing, React 19 compatible  | Requires @testing-library/dom peer dep   |
 | playwright             | 1.57+   | E2E testing                 | Chrome for Testing, unified API            | Heavier than unit tests, slower          |
@@ -410,7 +410,7 @@ All questions resolved. Key decisions finalized:
 - ✅ Next.js 16 setup approach (create-next-app)
 - ✅ Tailwind v4 dark mode strategy (manual class-based)
 - ✅ shadcn/ui installation (unified radix-ui package)
-- ✅ Storybook integration (v10 with Vite)
+- ✅ Storybook integration (v8 with Vite)
 - ✅ Testing stack (Vitest + RTL 16 + Playwright 1.57+)
 - ✅ CI/CD approach (extend existing ci.yml)
 - ✅ Design token system (@theme blocks)

@@ -23,4 +23,10 @@ model PhaseTiming extends BaseEntity {
 
   @doc("Duration in milliseconds (computed on completion)")
   durationMs?: int64;
+
+  @doc("When the phase started waiting for user approval (null if no approval needed)")
+  waitingApprovalAt?: utcDateTime;
+
+  @doc("Duration in milliseconds the phase waited for user approval (null if no approval needed)")
+  approvalWaitMs?: int64;
 }

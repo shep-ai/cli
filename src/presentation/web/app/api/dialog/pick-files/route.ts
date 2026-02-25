@@ -1,19 +1,17 @@
 import { NextResponse } from 'next/server';
-import { FileDialogService } from '@shepai/core/infrastructure/services/file-dialog.service';
+import {
+  FileDialogService,
+  type FileAttachment,
+} from '@shepai/core/infrastructure/services/file-dialog.service';
 
-export async function POST() {
+export async function POST(): Promise<NextResponse> {
   const service = new FileDialogService();
 
   try {
-    const files = service.pickFiles();
-
-    if (files === null) {
-      return NextResponse.json({ files: null, cancelled: true });
-    }
-
-    return NextResponse.json({ files, cancelled: false });
+    const files: FileAttachment[] | null = service.pickFiles();
+    return NextResponse.json({ files, cancelled: files === null });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : 'Failed to open file dialog';
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json({ files: null, cancelled: false, error: message }, { status: 500 });
   }
 }

@@ -78,7 +78,19 @@ Use this YAML structure:
   openQuestions:
     - question: '(Any technical question that arose)'
       resolved: true
-      answer: '(Resolution with technical reasoning)'
+      options:
+        - option: (Option A)
+          description: (What option A means and its trade-offs)
+          selected: true
+        - option: (Option B)
+          description: (What option B means and its trade-offs)
+          selected: false
+        - option: (Option C)
+          description: (What option C means and its trade-offs)
+          selected: false
+      selectionRationale: >
+        (Detailed reasoning for why this option was selected.
+        Reference codebase patterns and technical constraints.)
 
   content: |
     ## Technology Decisions
@@ -119,6 +131,7 @@ Use this YAML structure:
 - Write ONLY to ${state.specDir}/research.yaml
 - Every decision MUST have at least one rejected alternative with reasoning
 - Every decision MUST have clear rationale referencing the codebase where applicable
+- Every open question MUST have exactly 3 options to choose from
 - Prefer solutions that follow existing codebase patterns and conventions
 - Do NOT create any other files
 - Do NOT modify any source code`;

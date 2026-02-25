@@ -1,0 +1,345 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: repository-entity
+summary: Task breakdown for promoting Repository to a first-class domain entity
+
+# Relationships
+relatedFeatures:
+  - '031-repo-node-actions'
+technologies:
+  - TypeSpec
+  - TypeScript
+  - SQLite
+  - tsyringe
+  - Next.js
+  - React Flow
+relatedLinks: []
+
+# Structured task list — this is the single source of truth for tasks.
+# The content field below is a summary only; it does NOT duplicate task details.
+tasks:
+  - id: task-1
+    title: Create Repository TypeSpec model
+    description: >
+      Define Repository as a domain entity in TypeSpec extending BaseEntity.
+      Fields: id (UUID), name (string), path (string), createdAt, updatedAt.
+      Add unique constraint note for path.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'tsp/domain/entities/repository.tsp exists with proper model definition'
+      - 'Repository model extends BaseEntity with id, name, path, createdAt, updatedAt fields'
+      - 'Model is imported in tsp/main.tsp'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-2
+    title: Update Feature TypeSpec model and generate types
+    description: >
+      Add repositoryId (UUID) field to Feature entity in TypeSpec.
+      Run pnpm tsp:compile to regenerate output.ts with both Repository type
+      and updated Feature type.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Feature model in feature.tsp has repositoryId field of type UUID'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'output.ts contains Repository interface and updated Feature with repositoryId'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-3
+    title: Create database migration v15 for repositories table
+    description: >
+      Add migration v15 to migrations.ts that: (1) Creates repositories table with
+      path TEXT PRIMARY KEY, id TEXT NOT NULL, name TEXT NOT NULL, created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL. (2) Extracts unique repository_path values from features
+      into repository records with generated UUIDs. (3) Adds repository_id column to features.
+      (4) Backfills repository_id from matching repository records.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Migration v15 SQL creates repositories table with correct schema'
+      - 'Migration extracts unique repository_path values from features into repositories'
+      - 'Migration adds repository_id column to features table'
+      - 'Migration backfills repository_id on all existing features'
+      - 'Migration is idempotent and transaction-wrapped'
+      - 'LATEST_SCHEMA_VERSION updated to 15'
+    tdd:
+      red:
+        - 'Write migration integration test: verify repositories table exists after migration'
+        - 'Write test: verify existing features get repository_id populated'
+        - 'Write test: verify unique repositories created from duplicate paths'
+      green:
+        - 'Implement migration v15 SQL in migrations.ts'
+        - 'Use lower(hex(randomblob(4))||...) for UUID generation in SQLite'
+      refactor:
+        - 'Ensure SQL is readable with clear comments'
+    estimatedEffort: M
+
+  - id: task-4
+    title: Create repository mapper and update feature mapper
+    description: >
+      Create repository.mapper.ts with toDatabase/fromDatabase for Repository entity.
+      Update feature.mapper.ts to handle the new repository_id column.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'repository.mapper.ts has RepositoryRow interface, toDatabase(), fromDatabase() functions'
+      - 'feature.mapper.ts maps repository_id column to repositoryId field'
+      - 'FeatureRow interface updated with repository_id column'
+      - 'Date conversions follow INTEGER (unix millis) convention'
+    tdd:
+      red:
+        - 'Write unit tests for repository mapper toDatabase/fromDatabase round-trip'
+        - 'Write test for feature mapper handling repository_id'
+      green:
+        - 'Implement repository.mapper.ts with RepositoryRow, toDatabase, fromDatabase'
+        - 'Update feature.mapper.ts with repository_id mapping'
+      refactor:
+        - 'Ensure consistent naming and type handling across mappers'
+    estimatedEffort: S
+
+  - id: task-5
+    title: Create IRepositoryRepository port interface
+    description: >
+      Define IRepositoryRepository interface in application/ports/output/repositories/.
+      Methods: create(repository), findById(id), findByPath(path), list(), remove(id).
+      Update barrel export in index.ts.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'IRepositoryRepository interface exists with create, findById, findByPath, list, remove methods'
+      - 'Interface uses generated Repository type from output.ts'
+      - 'Barrel export updated in repositories/index.ts'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-6
+    title: Create AddRepository and ListRepositories use cases
+    description: >
+      Implement AddRepositoryUseCase (normalizes path, checks for duplicates via findByPath,
+      creates new Repository entity) and ListRepositoriesUseCase (returns all repositories).
+      Update feature-repository interface with repositoryId filter.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'AddRepositoryUseCase normalizes path (strips trailing slashes)'
+      - 'AddRepositoryUseCase returns existing repository if path already exists'
+      - 'AddRepositoryUseCase creates new Repository with generated UUID when path is new'
+      - 'ListRepositoriesUseCase returns all repositories from the repository'
+      - 'IFeatureRepository filters updated with optional repositoryId'
+    tdd:
+      red:
+        - 'Write test: AddRepositoryUseCase creates repository with normalized path'
+        - 'Write test: AddRepositoryUseCase returns existing repo for duplicate path'
+        - 'Write test: ListRepositoriesUseCase delegates to repository.list()'
+      green:
+        - 'Implement AddRepositoryUseCase with path normalization and dedup'
+        - 'Implement ListRepositoriesUseCase'
+      refactor:
+        - 'Extract path normalization to shared utility if needed'
+    estimatedEffort: M
+
+  - id: task-7
+    title: Implement SQLiteRepositoryRepository
+    description: >
+      Create SQLite implementation of IRepositoryRepository using better-sqlite3.
+      Follow patterns from SQLiteFeatureRepository: prepared statements, injectable
+      constructor, mapper usage.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-5
+    acceptanceCriteria:
+      - 'SQLiteRepositoryRepository implements all IRepositoryRepository methods'
+      - 'Uses prepared statements with parameterized queries'
+      - 'create() uses INSERT OR IGNORE for idempotency'
+      - 'findByPath() normalizes path before lookup'
+      - 'All methods use repository.mapper for conversion'
+    tdd:
+      red:
+        - 'Write integration test: create repository and retrieve by id'
+        - 'Write integration test: create repository and retrieve by path'
+        - 'Write integration test: list returns all repositories'
+        - 'Write integration test: remove deletes repository'
+        - 'Write integration test: duplicate path insert is idempotent'
+      green:
+        - 'Implement SQLiteRepositoryRepository with all CRUD operations'
+      refactor:
+        - 'Ensure error handling matches existing repository patterns'
+    estimatedEffort: M
+
+  - id: task-8
+    title: Register Repository in DI container
+    description: >
+      Wire IRepositoryRepository, AddRepositoryUseCase, and ListRepositoriesUseCase
+      into the DI container. Add string-token aliases for web route resolution.
+    state: Todo
+    dependencies:
+      - task-6
+      - task-7
+    acceptanceCriteria:
+      - 'IRepositoryRepository registered with factory pattern using Database instance'
+      - 'AddRepositoryUseCase and ListRepositoriesUseCase registered as singletons'
+      - "String tokens 'AddRepositoryUseCase' and 'ListRepositoriesUseCase' registered"
+      - "String token 'IRepositoryRepository' registered"
+      - 'Container initializes without errors'
+    tdd: null
+    estimatedEffort: S
+
+  - id: task-9
+    title: Update CreateFeatureUseCase to use Repository entity
+    description: >
+      Modify CreateFeatureUseCase to resolve or create a Repository entity from the
+      given repositoryPath before creating the Feature. Set repositoryId on the Feature.
+      Keep repositoryPath on Feature for backward compatibility during transition.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'CreateFeatureUseCase resolves existing repository by path or creates new one'
+      - 'Feature entity created with both repositoryId and repositoryPath set'
+      - 'Existing feature creation flow is preserved (no breaking changes)'
+      - 'Agent system continues to work with repositoryPath'
+    tdd:
+      red:
+        - 'Write test: feature creation resolves existing repository by path'
+        - 'Write test: feature creation creates new repository when path not found'
+        - 'Write test: created feature has repositoryId set'
+      green:
+        - 'Inject IRepositoryRepository into CreateFeatureUseCase'
+        - 'Add repository resolution logic before feature creation'
+        - 'Set repositoryId on feature entity'
+      refactor:
+        - 'Ensure clean separation between repository and feature creation logic'
+    estimatedEffort: M
+
+  - id: task-10
+    title: Create addRepository server action and update page.tsx
+    description: >
+      Create addRepository server action for web UI persistence. Update page.tsx to
+      load repositories from ListRepositoriesUseCase instead of inferring from features.
+      Merge with feature-derived data to build canvas nodes.
+    state: Todo
+    dependencies:
+      - task-8
+    acceptanceCriteria:
+      - 'addRepository server action validates path and calls AddRepositoryUseCase'
+      - 'page.tsx resolves ListRepositoriesUseCase and loads all repositories'
+      - 'Repository nodes built from DB data, not inferred from features'
+      - 'Features grouped by repositoryId and connected to correct repo nodes'
+      - 'Repositories without features still appear on the canvas'
+    tdd:
+      red:
+        - 'Write test: addRepository action returns error for empty path'
+        - 'Write test: addRepository action calls use case with normalized path'
+      green:
+        - 'Implement addRepository server action'
+        - 'Update page.tsx to load from ListRepositoriesUseCase'
+        - 'Build repo nodes from repository entities'
+        - 'Group features by repositoryId for edge connections'
+      refactor:
+        - 'Clean up old featuresByRepo grouping code'
+    estimatedEffort: M
+
+  - id: task-11
+    title: Fix control center state management bugs
+    description: >
+      Fix three bugs in use-control-center-state.ts: (1) Change node ID from
+      repo-${Date.now()} to repo-${repositoryId} after server action returns.
+      (2) Add repositoryPath and id to node data object. (3) Fix pendingRepositoryPath
+      to read from node data instead of parsing the ID string. Add server action
+      call in handleAddRepository with optimistic UI.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'handleAddRepository calls addRepository server action'
+      - 'Repository node data includes repositoryPath, id, and name fields'
+      - 'pendingRepositoryPath derived from node data, not from node ID parsing'
+      - 'Optimistic UI: node appears immediately, persisted async'
+      - 'router.refresh() called after successful server action'
+      - 'IDE/shell/folder action buttons work on newly added repositories'
+    tdd:
+      red:
+        - 'Write test: handleAddRepository calls addRepository server action'
+        - 'Write test: repository node data includes repositoryPath'
+        - 'Write test: pendingRepositoryPath reads from node data'
+      green:
+        - 'Import and call addRepository server action in handleAddRepository'
+        - 'Add repositoryPath and id to node data object'
+        - 'Rewrite pendingRepositoryPath to look up node data'
+      refactor:
+        - 'Simplify node ID generation to use repository ID consistently'
+    estimatedEffort: M
+
+  - id: task-12
+    title: Update create-feature server action and drawer for repositoryId
+    description: >
+      Update create-feature server action to accept repositoryId (or resolve from path).
+      Update FeatureCreateDrawer to pass repositoryId. Ensure feature creation flow
+      works end-to-end with the new Repository entity.
+    state: Todo
+    dependencies:
+      - task-9
+      - task-11
+    acceptanceCriteria:
+      - 'create-feature action passes repositoryId to CreateFeatureUseCase'
+      - 'FeatureCreateDrawer includes repositoryId in payload'
+      - 'End-to-end: add repo → create feature → refresh → both persist'
+      - 'pnpm validate passes (lint, typecheck, tsp:compile)'
+      - 'pnpm test passes with all existing and new tests'
+    tdd:
+      red:
+        - 'Write test: create-feature action includes repositoryId in use case call'
+      green:
+        - 'Update CreateFeatureInput to include optional repositoryId'
+        - 'Update server action to pass repositoryId'
+        - 'Update drawer payload to include repositoryId'
+      refactor:
+        - 'Remove any remaining repositoryPath-only code paths if safe'
+    estimatedEffort: M
+
+# Total effort estimate
+totalEstimate: L (12 tasks across 5 phases, estimated 2-3 days)
+
+# Open questions
+openQuestions: []
+
+# Markdown content — summary and acceptance checklist only.
+# Individual task details live in the tasks[] array above (no duplication).
+content: |
+  ## Summary
+
+  Promote Repository to a first-class domain entity — 12 tasks across 5 phases.
+
+  Phase 1 (Domain): TypeSpec models for Repository entity and Feature update.
+  Phase 2 (Database): Migration v15 with table creation and data backfill.
+  Phase 3 (Application): Port interface and use cases.
+  Phase 4 (Infrastructure): SQLite implementation and DI wiring.
+  Phase 5 (Presentation): Web UI server actions, page update, state bug fixes, CLI support.
+
+  ## Acceptance Checklist
+
+  Before marking feature complete:
+
+  - [ ] All tasks completed
+  - [ ] Tests passing (`pnpm test`)
+  - [ ] Linting clean (`pnpm lint`)
+  - [ ] Types valid (`pnpm typecheck`)
+  - [ ] TypeSpec compiles (`pnpm tsp:compile`)
+  - [ ] Repositories persist across page refresh
+  - [ ] Features reference repositories by ID
+  - [ ] Existing features migrated with repository_id
+  - [ ] PR created and reviewed
+
+  ---
+
+  _Task details are in the tasks[] array of tasks.yaml_

@@ -198,7 +198,7 @@ Running AI agents is easy. **Managing many of them through a full SDLC is the ha
 
 ## Features
 
-> 🚧 **Under active development** — Web UI screenshots are from the design spec. Core CLI (`feat new`, `feat ls`, `feat show`, `settings`, `ui`) works today. Some commands (`mem`, `start`) are still WIP.
+> 🚧 **Under active development** — Web UI screenshots are from the design spec. Core CLI (`feat new`, `feat ls`, `feat show`, `settings`, `ui`, `start`, `stop`, `status`) works today. The `mem` command is still WIP.
 
 <table>
 <tr>
@@ -338,25 +338,39 @@ Running AI agents is easy. **Managing many of them through a full SDLC is the ha
 ## Quick Start
 
 ```bash
-# Navigate to any repo and create a feature
-cd ~/projects/your-app
-shep feat new "Add user authentication with OAuth 2.0"
+# 1. Install
+npm i -g @shepai/cli
 
-# Open the control center to watch progress
-shep ui
+# 2. Run Shep — completes setup on first run, then opens the web UI
+shep
+
+# 3. Browser opens at http://localhost:4050 — you're in
+```
+
+## Daemon Management
+
+`shep` runs the web UI as a background daemon so your terminal stays free. Use these commands to manage it:
+
+```bash
+shep start              # Start (or re-open) the web UI daemon
+shep stop               # Gracefully stop the daemon
+shep status             # Show live PID, port, uptime, CPU%, and memory
 ```
 
 ## CLI
 
 ```
-shep start                            Start background service
+shep                                  Start daemon (onboarding on first run)
+shep start [--port <number>]          Start the web UI as a background daemon
+shep stop                             Stop the running web UI daemon
+shep status                           Show daemon status and live metrics
 shep feat new <description>           Create a new feature
 shep feat new --interactive           Interactive mode with human checkpoints
 shep feat new --allow-all             Full autonomous mode
 shep feat ls                          List features across repos
 shep feat show <id>                   Show feature details
 shep feat preview <id>                Preview feature dev environment
-shep ui                               Open the web control center
+shep ui                               Start the web UI in the foreground
 shep settings show                    Display current configuration
 shep settings agent                   Configure AI coding agent
 shep mem add <text> --global|--repo   Add agent memory
@@ -407,7 +421,7 @@ Breakpoints are configurable. In `--allow-all` mode, the agent handles everythin
 | TUI Framework   | [@inquirer/prompts](https://github.com/SBoudrias/Inquirer.js)                           |
 | Web UI          | Next.js 16 + React 19 + shadcn/ui ([@shepai/web](./src/presentation/web/))              |
 | Design System   | Storybook                                                                               |
-| Build Tool      | tsc + tsc-alias (prod), Vite (dev)                                                      |
+| Build Tool      | tsc + tsc-alias (prod), tsx (CLI dev), Next.js (web dev)                                |
 | Database        | SQLite                                                                                  |
 | Agent System    | [LangGraph](https://www.langchain.com/langgraph) (`@langchain/langgraph`)               |
 | Vector DB       | [LanceDB](https://lancedb.com/) (file-based)                                            |

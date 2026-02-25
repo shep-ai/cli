@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TechDecision.yaml
+type: object
+properties:
+  title:
+    type: string
+    description: Title or name of the decision being made
+  chosen:
+    type: string
+    description: The chosen technology, library, or approach
+  rejected:
+    type: array
+    items:
+      type: string
+    description: Alternative options that were considered but rejected
+  rationale:
+    type: string
+    description: Rationale explaining why the chosen option was selected
+required:
+  - title
+  - chosen
+  - rejected
+  - rationale
+description: Technology or approach decision with rationale

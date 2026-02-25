@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: NotificationEventType.yaml
+type: string
+enum:
+  - agent_started
+  - phase_completed
+  - waiting_approval
+  - agent_completed
+  - agent_failed
+  - pr_merged
+  - pr_closed
+  - pr_checks_passed
+  - pr_checks_failed
+description: Types of agent lifecycle notification events

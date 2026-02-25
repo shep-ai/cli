@@ -1,0 +1,16 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: EnvironmentConfig.yaml
+type: object
+properties:
+  defaultEditor:
+    $ref: EditorType.yaml
+    default: vscode
+    description: Preferred code editor
+  shellPreference:
+    type: string
+    default: bash
+    description: Preferred shell
+required:
+  - defaultEditor
+  - shellPreference
+description: Environment and tooling preferences

@@ -2,7 +2,7 @@
  * Notification Event Bus
  *
  * Typed EventEmitter singleton for in-process pub/sub of notification events.
- * Follows the getSettings() singleton pattern from settings.service.ts.
+ * Lazily initialized on first access — works in any context (CLI, web dev server, tests).
  *
  * Multiple listeners can subscribe to the 'notification' event for fan-out
  * delivery (SSE clients, desktop notifier, etc.).
@@ -26,45 +26,26 @@ export interface NotificationEventMap {
 
 export type NotificationBus = EventEmitter<NotificationEventMap>;
 
-let busInstance: NotificationBus | null = null;
-
 /**
- * Initialize the notification event bus singleton.
- * Must be called once during CLI bootstrap.
- *
- * @throws Error if the bus is already initialized
+ * Symbol key for storing the bus on globalThis.
+ * Using a symbol prevents accidental collisions and ensures the singleton
+ * is shared across module boundaries (e.g., Next.js Turbopack-bundled code
+ * vs. the dev-server process running via tsx).
  */
-export function initializeNotificationBus(): void {
-  if (busInstance !== null) {
-    throw new Error('Notification bus already initialized. Cannot re-initialize.');
-  }
-
-  busInstance = new EventEmitter<NotificationEventMap>();
-}
+const GLOBAL_KEY = Symbol.for('shep:notification-bus');
 
 /**
  * Get the notification event bus singleton.
+ * Lazily creates the bus on first access.
  *
- * @returns The notification event bus
- * @throws Error if the bus hasn't been initialized yet
+ * Uses globalThis to ensure a single instance across all module contexts
+ * (critical for Next.js where bundled routes and the server process
+ * may each get their own copy of module-level variables).
  */
 export function getNotificationBus(): NotificationBus {
-  if (busInstance === null) {
-    throw new Error(
-      'Notification bus not initialized. Call initializeNotificationBus() during CLI bootstrap.'
-    );
-  }
-
-  return busInstance;
-}
-
-/**
- * Check if the notification bus has been initialized.
- *
- * @returns True if the bus is initialized, false otherwise
- */
-export function hasNotificationBus(): boolean {
-  return busInstance !== null;
+  const g = globalThis as Record<symbol, NotificationBus | undefined>;
+  g[GLOBAL_KEY] ??= new EventEmitter<NotificationEventMap>();
+  return g[GLOBAL_KEY];
 }
 
 /**
@@ -74,8 +55,10 @@ export function hasNotificationBus(): boolean {
  * @internal
  */
 export function resetNotificationBus(): void {
-  if (busInstance !== null) {
-    busInstance.removeAllListeners();
+  const g = globalThis as Record<symbol, NotificationBus | undefined>;
+  const bus = g[GLOBAL_KEY];
+  if (bus) {
+    bus.removeAllListeners();
   }
-  busInstance = null;
+  g[GLOBAL_KEY] = undefined;
 }

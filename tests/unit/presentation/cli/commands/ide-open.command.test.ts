@@ -14,12 +14,16 @@ import { Command } from 'commander';
 
 vi.mock('@/infrastructure/di/container.js', () => ({
   container: {
-    resolve: vi.fn(() => ({ execute: vi.fn() })),
+    resolve: vi.fn(),
   },
 }));
 
 vi.mock('@/application/use-cases/features/show-feature.use-case.js', () => ({
-  ShowFeatureUseCase: class MockShowFeatureUseCase {},
+  ShowFeatureUseCase: class {},
+}));
+
+vi.mock('@/application/use-cases/ide/launch-ide.use-case.js', () => ({
+  LaunchIdeUseCase: class {},
 }));
 
 vi.mock('@/infrastructure/services/settings.service.js', () => ({
@@ -28,8 +32,25 @@ vi.mock('@/infrastructure/services/settings.service.js', () => ({
   })),
 }));
 
-vi.mock('@/infrastructure/services/ide-launchers/launch-ide.js', () => ({
-  launchIde: vi.fn(),
+vi.mock('@/infrastructure/services/tool-installer/tool-metadata.js', () => ({
+  getIdeEntries: vi.fn(() => [
+    ['vscode', { name: 'Visual Studio Code', summary: 'Code editor', openDirectory: 'code {dir}' }],
+    ['cursor', { name: 'Cursor', summary: 'AI editor', openDirectory: 'cursor {dir}' }],
+    ['windsurf', { name: 'Windsurf', summary: 'Windsurf editor', openDirectory: 'windsurf {dir}' }],
+    ['zed', { name: 'Zed', summary: 'Zed editor', openDirectory: 'zed {dir}' }],
+    [
+      'antigravity',
+      {
+        name: 'Antigravity',
+        summary: 'Google Antigravity IDE',
+        openDirectory: 'antigravity {dir}',
+      },
+    ],
+    [
+      'claude-code',
+      { name: 'Claude Code', summary: 'AI assistant', openDirectory: 'claude {dir}' },
+    ],
+  ]),
 }));
 
 vi.mock('../../../../../src/presentation/cli/ui/index.js', () => ({
@@ -47,12 +68,14 @@ vi.mock('../../../../../src/presentation/cli/ui/index.js', () => ({
 // Import after mocks
 import { createIdeOpenCommand } from '../../../../../src/presentation/cli/commands/ide-open.command.js';
 import { container } from '@/infrastructure/di/container.js';
+import { ShowFeatureUseCase } from '@/application/use-cases/features/show-feature.use-case.js';
+import { LaunchIdeUseCase } from '@/application/use-cases/ide/launch-ide.use-case.js';
 import { getSettings } from '@/infrastructure/services/settings.service.js';
-import { launchIde } from '@/infrastructure/services/ide-launchers/launch-ide.js';
 import { messages } from '../../../../../src/presentation/cli/ui/index.js';
 
 describe('IDE Open Command', () => {
-  let mockExecute: ReturnType<typeof vi.fn>;
+  let mockShowFeatureExecute: ReturnType<typeof vi.fn>;
+  let mockLaunchIdeExecute: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -61,18 +84,23 @@ describe('IDE Open Command', () => {
       environment: { defaultEditor: 'vscode' },
     } as any);
 
-    mockExecute = vi.fn().mockResolvedValue({
+    mockShowFeatureExecute = vi.fn().mockResolvedValue({
       id: 'feat-123-abc',
       name: 'test-feature',
       repositoryPath: '/home/user/project',
       branch: 'feat/test-feature',
     });
-    vi.mocked(container.resolve).mockReturnValue({ execute: mockExecute });
 
-    vi.mocked(launchIde).mockResolvedValue({
+    mockLaunchIdeExecute = vi.fn().mockResolvedValue({
       ok: true,
       editorName: 'VS Code',
       worktreePath: '/mock/.shep/repos/abc123/wt/feat-test-feature',
+    });
+
+    vi.mocked(container.resolve).mockImplementation((token: unknown) => {
+      if (token === ShowFeatureUseCase) return { execute: mockShowFeatureExecute };
+      if (token === LaunchIdeUseCase) return { execute: mockLaunchIdeExecute };
+      return { execute: vi.fn() };
     });
   });
 
@@ -95,34 +123,13 @@ describe('IDE Open Command', () => {
       expect(args[0].required).toBe(true);
     });
 
-    it('should have --vscode option flag', () => {
+    it('should dynamically generate IDE option flags from metadata', () => {
       const cmd = createIdeOpenCommand();
-      const opt = cmd.options.find((o) => o.long === '--vscode');
-      expect(opt).toBeDefined();
-    });
-
-    it('should have --cursor option flag', () => {
-      const cmd = createIdeOpenCommand();
-      const opt = cmd.options.find((o) => o.long === '--cursor');
-      expect(opt).toBeDefined();
-    });
-
-    it('should have --windsurf option flag', () => {
-      const cmd = createIdeOpenCommand();
-      const opt = cmd.options.find((o) => o.long === '--windsurf');
-      expect(opt).toBeDefined();
-    });
-
-    it('should have --zed option flag', () => {
-      const cmd = createIdeOpenCommand();
-      const opt = cmd.options.find((o) => o.long === '--zed');
-      expect(opt).toBeDefined();
-    });
-
-    it('should have --antigravity option flag', () => {
-      const cmd = createIdeOpenCommand();
-      const opt = cmd.options.find((o) => o.long === '--antigravity');
-      expect(opt).toBeDefined();
+      const expectedFlags = ['--vscode', '--cursor', '--windsurf', '--zed', '--antigravity'];
+      for (const flag of expectedFlags) {
+        const opt = cmd.options.find((o) => o.long === flag);
+        expect(opt, `Expected option ${flag}`).toBeDefined();
+      }
     });
   });
 
@@ -135,7 +142,9 @@ describe('IDE Open Command', () => {
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123']);
 
-      expect(launchIde).toHaveBeenCalledWith(expect.objectContaining({ editorId: 'vscode' }));
+      expect(mockLaunchIdeExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ editorId: 'vscode' })
+      );
       expect(messages.success).toHaveBeenCalledWith(expect.stringContaining('VS Code'));
     });
 
@@ -143,7 +152,7 @@ describe('IDE Open Command', () => {
       vi.mocked(getSettings).mockReturnValue({
         environment: { defaultEditor: 'vscode' },
       } as any);
-      vi.mocked(launchIde).mockResolvedValue({
+      mockLaunchIdeExecute.mockResolvedValue({
         ok: true,
         editorName: 'Cursor',
         worktreePath: '/mock/.shep/repos/abc123/wt/feat-test-feature',
@@ -152,7 +161,9 @@ describe('IDE Open Command', () => {
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123', '--cursor']);
 
-      expect(launchIde).toHaveBeenCalledWith(expect.objectContaining({ editorId: 'cursor' }));
+      expect(mockLaunchIdeExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ editorId: 'cursor' })
+      );
       expect(messages.success).toHaveBeenCalledWith(expect.stringContaining('Cursor'));
     });
 
@@ -160,7 +171,7 @@ describe('IDE Open Command', () => {
       vi.mocked(getSettings).mockReturnValue({
         environment: { defaultEditor: 'vscode' },
       } as any);
-      vi.mocked(launchIde).mockResolvedValue({
+      mockLaunchIdeExecute.mockResolvedValue({
         ok: true,
         editorName: 'Antigravity',
         worktreePath: '/mock/.shep/repos/abc123/wt/feat-test-feature',
@@ -169,8 +180,29 @@ describe('IDE Open Command', () => {
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123', '--antigravity']);
 
-      expect(launchIde).toHaveBeenCalledWith(expect.objectContaining({ editorId: 'antigravity' }));
+      expect(mockLaunchIdeExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ editorId: 'antigravity' })
+      );
       expect(messages.success).toHaveBeenCalledWith(expect.stringContaining('Antigravity'));
+    });
+
+    it('should use --claude-code flag (hyphenated) to override settings', async () => {
+      vi.mocked(getSettings).mockReturnValue({
+        environment: { defaultEditor: 'vscode' },
+      } as any);
+      mockLaunchIdeExecute.mockResolvedValue({
+        ok: true,
+        editorName: 'Claude Code',
+        worktreePath: '/mock/.shep/repos/abc123/wt/feat-test-feature',
+      });
+
+      const cmd = createIdeOpenCommand();
+      await cmd.parseAsync(['node', 'test', 'feat-123', '--claude-code']);
+
+      expect(mockLaunchIdeExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ editorId: 'claude-code' })
+      );
+      expect(messages.success).toHaveBeenCalledWith(expect.stringContaining('Claude Code'));
     });
   });
 
@@ -179,19 +211,29 @@ describe('IDE Open Command', () => {
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123']);
 
-      expect(mockExecute).toHaveBeenCalledWith('feat-123');
+      expect(mockShowFeatureExecute).toHaveBeenCalledWith('feat-123');
     });
 
-    it('should pass feature repositoryPath and branch to launchIde', async () => {
+    it('should pass feature repositoryPath and branch to LaunchIdeUseCase', async () => {
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'feat-123']);
 
-      expect(launchIde).toHaveBeenCalledWith(
+      expect(mockLaunchIdeExecute).toHaveBeenCalledWith(
         expect.objectContaining({
           repositoryPath: '/home/user/project',
           branch: 'feat/test-feature',
         })
       );
+    });
+  });
+
+  describe('use case resolution', () => {
+    it('should resolve both ShowFeatureUseCase and LaunchIdeUseCase from container', async () => {
+      const cmd = createIdeOpenCommand();
+      await cmd.parseAsync(['node', 'test', 'feat-123']);
+
+      expect(container.resolve).toHaveBeenCalledWith(ShowFeatureUseCase);
+      expect(container.resolve).toHaveBeenCalledWith(LaunchIdeUseCase);
     });
   });
 
@@ -206,7 +248,7 @@ describe('IDE Open Command', () => {
 
   describe('error handling', () => {
     it('should handle feature not found error', async () => {
-      mockExecute.mockRejectedValue(new Error('Feature not found'));
+      mockShowFeatureExecute.mockRejectedValue(new Error('Feature not found'));
 
       const cmd = createIdeOpenCommand();
       await cmd.parseAsync(['node', 'test', 'unknown-id']);
@@ -214,8 +256,8 @@ describe('IDE Open Command', () => {
       expect(messages.error).toHaveBeenCalled();
     });
 
-    it('should handle launchIde failure result', async () => {
-      vi.mocked(launchIde).mockResolvedValue({
+    it('should handle LaunchIdeUseCase failure result', async () => {
+      mockLaunchIdeExecute.mockResolvedValue({
         ok: false,
         code: 'unknown_editor',
         message: 'No launcher found for editor: notepad',

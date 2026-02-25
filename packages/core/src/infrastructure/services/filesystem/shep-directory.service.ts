@@ -40,6 +40,16 @@ export function getShepDbPath(): string {
 }
 
 /**
+ * Gets the path to the daemon state file.
+ * Uses SHEP_HOME env var if set (for test isolation), otherwise ~/.shep/daemon.json
+ *
+ * @returns Path to daemon.json
+ */
+export function getDaemonStatePath(): string {
+  return join(resolveShepHomeDir(), 'daemon.json');
+}
+
+/**
  * Ensures the shep home directory exists with correct permissions.
  * Creates the directory if it doesn't exist.
  * Safe to call multiple times (idempotent).

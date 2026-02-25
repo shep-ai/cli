@@ -1,0 +1,20 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PrdRejectionPayload.yaml
+type: object
+properties:
+  rejected:
+    type: boolean
+    description: Always true for rejection payloads
+  feedback:
+    type: string
+    description: User's feedback explaining what needs to change
+  iteration:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Iteration number (1-based, derived from PhaseTiming row count)
+required:
+  - rejected
+  - feedback
+  - iteration
+description: Payload sent when user rejects a PRD with feedback for iteration

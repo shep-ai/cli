@@ -1,0 +1,381 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: json-driven-ide-launch
+summary: >
+  11 tasks across 6 phases. Phases are dependency-ordered: port interface → JSON data updates →
+  JSON-driven service → use case → DI wiring + presentation refactor → cleanup. Every code task
+  follows TDD with explicit RED-GREEN-REFACTOR cycles.
+
+relatedFeatures: []
+technologies:
+  - TypeScript
+  - tsyringe
+  - Vitest
+  - Commander.js
+  - Next.js
+relatedLinks: []
+
+tasks:
+  # ── Phase 1: Port Interface & Result Types ──────────────────────────────
+
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create IIdeLauncherService port interface with LaunchIdeResult types'
+    description: >
+      Define the port interface in application/ports/output/services/ide-launcher-service.interface.ts.
+      Co-locate LaunchIdeResult, LaunchIdeSuccess, LaunchIdeFailed, and LaunchIdeInput types.
+      The interface has two methods: launch(editorId, directoryPath) and checkAvailability(editorId).
+      Export from the services index barrel. This establishes the contract all other code depends on.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'IIdeLauncherService interface exists with launch() returning Promise<LaunchIdeResult> and checkAvailability() returning Promise<boolean>'
+      - 'LaunchIdeResult discriminated union preserves ok: true/false pattern with error codes unknown_editor, editor_unavailable, launch_failed'
+      - 'LaunchIdeInput type includes editorId (string), directoryPath (string)'
+      - 'Types exported from application/ports/output/services/index.ts'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Write import test that verifies IIdeLauncherService and LaunchIdeResult types are importable from the ports index'
+        - 'Write type-level test asserting LaunchIdeResult is a union of LaunchIdeSuccess | LaunchIdeFailed'
+      green:
+        - 'Create ide-launcher-service.interface.ts with the interface, result types, and input type'
+        - 'Add exports to services/index.ts barrel file'
+      refactor:
+        - 'Verify JSDoc comments follow existing port interface conventions (see worktree-service.interface.ts)'
+    estimatedEffort: '30min'
+
+  # ── Phase 2: JSON Metadata Updates ──────────────────────────────────────
+
+  - id: task-2
+    phaseId: phase-2
+    title: 'Update ToolMetadata interface to support per-platform openDirectory'
+    description: >
+      Change the openDirectory field in the ToolMetadata interface from optional string to
+      optional string | Record<string, string>. This supports both simple ("code {dir}") and
+      per-platform ({ "linux": "antigravity {dir}", "darwin": "agy {dir}" }) values.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'ToolMetadata.openDirectory type is string | Record<string, string> | undefined'
+      - 'Existing tool-installer.service.ts code compiles without changes'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Write test that creates a ToolMetadata object with openDirectory as a Record<string, string> and asserts it type-checks'
+      green:
+        - 'Update the openDirectory field type in tool-metadata.ts interface definition'
+      refactor:
+        - 'Update JSDoc comment to document both string and object formats with examples'
+    estimatedEffort: '15min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Update 5 IDE JSON files with {dir} placeholder'
+    description: >
+      Replace "." with "{dir}" in all IDE JSON openDirectory fields. For vscode, cursor, windsurf,
+      zed: simple string replacement (e.g., "code ." → "code {dir}"). For antigravity: change from
+      string "agy ." to per-platform object { "linux": "antigravity {dir}", "darwin": "agy {dir}" }.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'vscode.json openDirectory is "code {dir}"'
+      - 'cursor.json openDirectory is "cursor {dir}"'
+      - 'windsurf.json openDirectory is "windsurf {dir}"'
+      - 'zed.json openDirectory is "zed {dir}"'
+      - 'antigravity.json openDirectory is { "linux": "antigravity {dir}", "darwin": "agy {dir}" }'
+      - 'All JSON files are valid and TOOL_METADATA loads without errors'
+    tdd:
+      red:
+        - 'Write test that imports TOOL_METADATA and asserts each IDE tool has {dir} in its openDirectory value'
+        - 'Write test that asserts antigravity openDirectory is a per-platform object with both linux and darwin keys'
+      green:
+        - 'Edit each JSON file to use {dir} placeholder'
+        - 'Change antigravity.json openDirectory to per-platform object'
+      refactor:
+        - 'Verify TOOL_METADATA loading still works by checking all 5 IDE entries are present'
+    estimatedEffort: '20min'
+
+  # ── Phase 3: JsonDrivenIdeLauncherService ───────────────────────────────
+
+  - id: task-4
+    phaseId: phase-3
+    title: 'Implement platform value resolution helper'
+    description: >
+      Create a helper function resolvePlatformValue(value: string | Record<string, string>): string
+      inside the json-driven-ide-launcher.service.ts file. When value is a string, return it directly.
+      When it is a record, return value[os.platform()] with fallback to Object.values(value)[0].
+      This mirrors the existing resolveBinary() pattern in tool-installer.service.ts.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'resolvePlatformValue("code") returns "code"'
+      - 'resolvePlatformValue({ linux: "antigravity", darwin: "agy" }) returns correct value for current platform'
+      - 'Falls back to first value when platform key is missing'
+    tdd:
+      red:
+        - 'Write test for string input returning the string directly'
+        - 'Write test for Record input with matching platform key (mock os.platform())'
+        - 'Write test for Record input with no matching key falling back to first value'
+      green:
+        - 'Implement resolvePlatformValue as an exported helper function'
+      refactor:
+        - 'Ensure function is pure (platform injected or imported, not hard-coupled)'
+    estimatedEffort: '20min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Implement JsonDrivenIdeLauncherService core'
+    description: >
+      Create the @injectable() service class implementing IIdeLauncherService. Constructor filters
+      TOOL_METADATA by category "ide" and presence of openDirectory to build an internal map.
+      launch() method: looks up editor, resolves platform-specific openDirectory, validates {dir}
+      placeholder is present, substitutes with directory path, splits on whitespace, spawns detached
+      process. checkAvailability() method: looks up editor, resolves platform-specific binary, runs
+      "which" via execFile to check PATH.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'Service implements IIdeLauncherService interface'
+      - 'launch() returns LaunchIdeSuccess with editorName and worktreePath on success'
+      - 'launch() returns LaunchIdeFailed with code "unknown_editor" for unrecognized editor ID, listing available editors'
+      - 'launch() returns LaunchIdeFailed with code "launch_failed" when spawn throws'
+      - 'launch() validates {dir} placeholder and returns error if missing'
+      - 'checkAvailability() returns true when "which" succeeds, false when it fails'
+      - 'checkAvailability() returns false for unknown editor ID'
+      - 'Non-IDE tools (category != "ide") are excluded from the editor map'
+      - 'Spawns with { detached: true, stdio: "ignore" } and calls child.unref()'
+    tdd:
+      red:
+        - 'Write test: launch() with valid editor ID returns LaunchIdeSuccess with correct editorName and worktreePath'
+        - 'Write test: launch() substitutes {dir} placeholder with provided directory path'
+        - 'Write test: launch() with unknown editor ID returns LaunchIdeFailed with code "unknown_editor"'
+        - 'Write test: launch() with openDirectory missing {dir} returns error'
+        - 'Write test: launch() when spawn throws returns LaunchIdeFailed with code "launch_failed"'
+        - 'Write test: checkAvailability() returns true when which succeeds'
+        - 'Write test: checkAvailability() returns false when which fails'
+        - 'Write test: service excludes non-IDE tools from editor map'
+        - 'Write test: per-platform binary resolution for antigravity on darwin returns "agy"'
+      green:
+        - 'Implement JsonDrivenIdeLauncherService with constructor building IDE map from TOOL_METADATA'
+        - 'Implement launch() with platform resolution, {dir} validation, substitution, split, and spawn'
+        - 'Implement checkAvailability() with platform binary resolution and which check'
+      refactor:
+        - 'Extract command parsing (split on whitespace) into a private method if complex'
+        - 'Verify error messages include actionable information (editor name, available editors, binary name)'
+    estimatedEffort: '1h30min'
+
+  # ── Phase 4: LaunchIdeUseCase ───────────────────────────────────────────
+
+  - id: task-6
+    phaseId: phase-4
+    title: 'Implement LaunchIdeUseCase'
+    description: >
+      Create @injectable() use case in application/use-cases/ide/launch-ide.use-case.ts. Accepts
+      LaunchIdeUseCaseInput (editorId, repositoryPath, optional branch, optional checkAvailability).
+      Computes worktree path using computeWorktreePath when branch is provided. If checkAvailability
+      is true, calls service.checkAvailability() first and returns editor_unavailable on failure.
+      Delegates to IIdeLauncherService.launch(). Returns LaunchIdeResult.
+    state: Todo
+    dependencies:
+      - task-5
+    acceptanceCriteria:
+      - 'Use case is @injectable() with @inject("IIdeLauncherService") constructor parameter'
+      - 'execute() computes worktree path when branch is provided, uses repositoryPath directly when not'
+      - 'execute() checks availability when checkAvailability is true and returns editor_unavailable LaunchIdeFailed on failure'
+      - 'execute() delegates to IIdeLauncherService.launch() with resolved directory path'
+      - 'execute() returns LaunchIdeResult from the service'
+    tdd:
+      red:
+        - 'Write test: execute() with branch computes worktree path and passes to service.launch()'
+        - 'Write test: execute() without branch passes repositoryPath directly to service.launch()'
+        - 'Write test: execute() with checkAvailability=true calls service.checkAvailability() first'
+        - 'Write test: execute() returns editor_unavailable when checkAvailability=true and service returns false'
+        - 'Write test: execute() skips availability check when checkAvailability is false/undefined'
+        - 'Write test: execute() returns the LaunchIdeResult from service.launch() unchanged'
+      green:
+        - 'Create launch-ide.use-case.ts with LaunchIdeUseCaseInput type and execute() method'
+        - 'Import computeWorktreePath from infrastructure/services/ide-launchers/compute-worktree-path'
+        - 'Implement conditional availability check and delegation to service'
+      refactor:
+        - 'Ensure use case follows single-responsibility — no business logic beyond orchestration'
+        - 'Verify input type naming follows conventions (see CreateFeatureInput in create-feature.use-case.ts)'
+    estimatedEffort: '45min'
+
+  # ── Phase 5: DI Registration & Presentation Refactor ────────────────────
+
+  - id: task-7
+    phaseId: phase-5
+    title: 'Register service and use case in DI container'
+    description: >
+      Add DI registrations in container.ts: (1) registerSingleton IIdeLauncherService →
+      JsonDrivenIdeLauncherService, (2) registerSingleton LaunchIdeUseCase class,
+      (3) string alias "LaunchIdeUseCase" for web route resolution. Follow existing patterns.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'container.registerSingleton<IIdeLauncherService>("IIdeLauncherService", JsonDrivenIdeLauncherService) in container.ts'
+      - 'container.registerSingleton(LaunchIdeUseCase) in container.ts'
+      - 'container.register("LaunchIdeUseCase", ...) string alias for web route resolution'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Write test that resolves LaunchIdeUseCase from the container after initialization'
+        - 'Write test that resolves "LaunchIdeUseCase" string token from the container'
+      green:
+        - 'Add import statements for JsonDrivenIdeLauncherService and LaunchIdeUseCase to container.ts'
+        - 'Add the three registration lines in the appropriate section of initializeContainer()'
+      refactor:
+        - 'Group IDE-related registrations together with a comment, following existing grouping style'
+    estimatedEffort: '20min'
+
+  - id: task-8
+    phaseId: phase-5
+    title: 'Refactor CLI ide-open command to use LaunchIdeUseCase'
+    description: >
+      Replace the direct import of launchIde() from infrastructure with container.resolve(LaunchIdeUseCase).
+      The command already resolves ShowFeatureUseCase from the container, so the pattern is established.
+      Remove the import of launchIde and add import of LaunchIdeUseCase. The execute() input shape
+      matches what the command already provides (editorId, repositoryPath, branch).
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'No import from infrastructure/services/ide-launchers/ in ide-open.command.ts'
+      - 'LaunchIdeUseCase resolved from container and execute() called'
+      - 'CLI output messages remain identical (success message, error messages)'
+      - 'Existing CLI test updated to mock LaunchIdeUseCase instead of launchIde()'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Update existing ide-open.command.test.ts to mock LaunchIdeUseCase.execute() instead of launchIde()'
+        - 'Assert the command resolves LaunchIdeUseCase from container'
+        - 'Assert execute() is called with correct input shape'
+      green:
+        - 'Replace launchIde import with LaunchIdeUseCase import'
+        - 'Resolve use case from container and call execute() with { editorId, repositoryPath, branch }'
+        - 'Keep all result handling logic (ok/!ok checks, messages) identical'
+      refactor:
+        - 'Remove unused launchIde import if not already removed'
+        - 'Ensure no infrastructure imports remain in the command file'
+    estimatedEffort: '30min'
+
+  - id: task-9
+    phaseId: phase-5
+    title: 'Refactor web API route to use LaunchIdeUseCase'
+    description: >
+      Replace the direct import of launchIde() with resolve<LaunchIdeUseCase>("LaunchIdeUseCase")
+      from @/lib/server-container. Follow the exact pattern of features/create/route.ts. Remove
+      the import of getSettings for editor resolution — the route should pass the editor from
+      settings to the use case. The use case handles checkAvailability.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'No import from @shepai/core/infrastructure/services/ide-launchers/ in route.ts'
+      - 'resolve<LaunchIdeUseCase>("LaunchIdeUseCase") used to get use case instance'
+      - 'HTTP response shape unchanged (success: true/error field, same status codes)'
+      - 'Existing web route test updated to mock LaunchIdeUseCase'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Update existing ide-open-route.test.ts to mock LaunchIdeUseCase.execute() instead of launchIde()'
+        - 'Assert resolve() is called with "LaunchIdeUseCase" string token'
+        - 'Assert HTTP responses remain identical for success and error cases'
+      green:
+        - 'Replace launchIde import with resolve import from server-container'
+        - 'Import LaunchIdeUseCase type for generic parameter'
+        - 'Call useCase.execute() with { editorId: editor, repositoryPath, branch, checkAvailability: true }'
+      refactor:
+        - 'Remove unused imports (launchIde, any direct infrastructure references)'
+        - 'Verify route still imports getSettings only for defaultEditor resolution'
+    estimatedEffort: '30min'
+
+  # ── Phase 6: Cleanup & Validation ───────────────────────────────────────
+
+  - id: task-10
+    phaseId: phase-6
+    title: 'Delete old launcher classes and legacy tests'
+    description: >
+      Delete the 5 hard-coded launcher files (vscode.launcher.ts, cursor.launcher.ts,
+      windsurf.launcher.ts, zed.launcher.ts, antigravity.launcher.ts), the old
+      ide-launcher.interface.ts, ide-launcher.registry.ts, and launch-ide.ts. Delete
+      the old ide-launcher.registry.test.ts. Remove any stale imports in container.ts
+      that referenced the old classes.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-9
+    acceptanceCriteria:
+      - 'vscode.launcher.ts, cursor.launcher.ts, windsurf.launcher.ts, zed.launcher.ts, antigravity.launcher.ts are deleted'
+      - 'ide-launcher.interface.ts and ide-launcher.registry.ts are deleted'
+      - 'launch-ide.ts is deleted'
+      - 'tests/unit/infrastructure/services/ide-launchers/ide-launcher.registry.test.ts is deleted'
+      - 'No remaining imports reference the deleted files'
+      - 'compute-worktree-path.ts is preserved (still needed by use case)'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Run pnpm typecheck to identify any remaining references to deleted files (expect failures after deletion)'
+      green:
+        - 'Delete the 8 old files listed above'
+        - 'Delete the old registry test file'
+        - 'Remove any old launcher imports from container.ts'
+      refactor:
+        - 'Verify no orphaned re-exports or barrel file references to deleted modules'
+    estimatedEffort: '20min'
+
+  - id: task-11
+    phaseId: phase-6
+    title: 'Full validation suite'
+    description: >
+      Run the complete validation pipeline: pnpm lint, pnpm format:check, pnpm typecheck,
+      pnpm test, and pnpm validate. Fix any issues found. This is the final gate before
+      the feature is ready for review.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'pnpm lint passes with no errors'
+      - 'pnpm format:check passes'
+      - 'pnpm typecheck passes'
+      - 'pnpm test passes with no regressions'
+      - 'pnpm validate passes (combined gate)'
+      - 'No presentation-layer file imports from infrastructure/services/ide-launchers/ except compute-worktree-path'
+    tdd: null
+    estimatedEffort: '20min'
+
+totalEstimate: '5h10min'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation proceeds in 6 dependency-ordered phases with 11 tasks totaling ~5 hours.
+
+  First, the port interface and result types are established in the application layer (phase 1),
+  providing the contract both the use case and service implementation depend on. Next, JSON
+  metadata files are updated with the {dir} placeholder and per-platform support (phase 2).
+
+  The core work happens in phase 3: building the JsonDrivenIdeLauncherService that reads from
+  TOOL_METADATA, resolves platform-specific values, validates placeholders, and spawns detached
+  processes. Phase 4 wraps this in a LaunchIdeUseCase that handles worktree path computation
+  and optional availability checking.
+
+  Phase 5 wires everything together: DI container registration, CLI command refactor, and web
+  route refactor. Both presentation consumers switch from direct infrastructure imports to
+  use-case resolution via the DI container.
+
+  Phase 6 is cleanup: deleting the 5 old launcher classes and running the full validation suite
+  to confirm zero regressions. The old code coexists with the new code until this final phase,
+  allowing incremental verification throughout.
+
+  Every code task follows TDD with explicit RED-GREEN-REFACTOR cycles. Tests are written first,
+  implementation is minimal to pass, and refactoring preserves green tests.

@@ -1,0 +1,30 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: FeatureSpec.yaml
+type: object
+properties:
+  number:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Spec number (e.g., 11 for spec 011)
+  branch:
+    type: string
+    description: Git branch name for this feature (e.g., 'feat/011-feature-name')
+  oneLiner:
+    type: string
+    description: One-line description of the feature
+  phase:
+    $ref: SdlcLifecycle.yaml
+    description: Current phase in the SDLC lifecycle
+  sizeEstimate:
+    type: string
+    description: "Size estimate: XS, S, M, L, or XL"
+required:
+  - number
+  - branch
+  - oneLiner
+  - phase
+  - sizeEstimate
+allOf:
+  - $ref: SpecArtifactBase.yaml
+description: Feature specification artifact defining requirements and scope

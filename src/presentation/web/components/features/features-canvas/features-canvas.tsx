@@ -12,6 +12,7 @@ import { RepositoryNode } from '@/components/common/repository-node';
 import type { RepositoryNodeType } from '@/components/common/repository-node';
 import { AddRepositoryNode } from '@/components/common/add-repository-node';
 import type { AddRepositoryNodeType } from '@/components/common/add-repository-node';
+import { DependencyEdge } from './dependency-edge';
 
 export type CanvasNodeType = FeatureNodeType | RepositoryNodeType | AddRepositoryNodeType;
 
@@ -25,6 +26,7 @@ export interface FeaturesCanvasProps {
   onNodeClick?: (event: React.MouseEvent, node: CanvasNodeType) => void;
   onPaneClick?: (event: React.MouseEvent) => void;
   onRepositoryAdd?: (repoNodeId: string) => void;
+  onRepositoryDelete?: (repositoryId: string) => void;
   onConnect?: (connection: Connection) => void;
   onRepositorySelect?: (path: string) => void;
   toolbar?: React.ReactNode;
@@ -42,6 +44,7 @@ export function FeaturesCanvas({
   onNodeClick,
   onPaneClick,
   onRepositoryAdd,
+  onRepositoryDelete,
   onRepositorySelect,
   toolbar,
   emptyState,
@@ -51,6 +54,13 @@ export function FeaturesCanvas({
       featureNode: FeatureNode,
       repositoryNode: RepositoryNode,
       addRepositoryNode: AddRepositoryNode,
+    }),
+    []
+  );
+
+  const edgeTypes = useMemo(
+    () => ({
+      dependencyEdge: DependencyEdge,
     }),
     []
   );
@@ -78,20 +88,30 @@ export function FeaturesCanvas({
         data: {
           ...node.data,
           showHandles: edges.length > 0,
-          ...(node.type === 'featureNode' &&
-            (node.data as FeatureNodeData).state !== 'creating' && {
-              onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
-              onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
-            }),
+          ...(node.type === 'featureNode' && (node.data as FeatureNodeData).state !== 'creating'
+            ? {
+                onAction: onNodeAction ? () => onNodeAction(node.id) : undefined,
+                onSettings: onNodeSettings ? () => onNodeSettings(node.id) : undefined,
+              }
+            : {}),
           ...(node.type === 'repositoryNode' && {
             onAdd: onRepositoryAdd ? () => onRepositoryAdd(node.id) : undefined,
+            onDelete: onRepositoryDelete,
           }),
           ...(node.type === 'addRepositoryNode' && {
             onSelect: onRepositorySelect ? (path: string) => onRepositorySelect(path) : undefined,
           }),
         },
       })) as CanvasNodeType[],
-    [nodes, edges.length, onNodeAction, onNodeSettings, onRepositoryAdd, onRepositorySelect]
+    [
+      nodes,
+      edges.length,
+      onNodeAction,
+      onNodeSettings,
+      onRepositoryAdd,
+      onRepositoryDelete,
+      onRepositorySelect,
+    ]
   );
 
   if (nodes.length === 0) {
@@ -125,6 +145,7 @@ export function FeaturesCanvas({
           nodes={enrichedNodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
           isValidConnection={isValidConnection}
           onConnect={onConnect}
           onNodesChange={onNodesChange}

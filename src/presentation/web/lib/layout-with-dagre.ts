@@ -17,7 +17,7 @@ export interface LayoutOptions {
 /** Known node-type dimensions for the canvas node types */
 const NODE_DIMENSIONS: Record<string, { width: number; height: number }> = {
   featureNode: { width: 288, height: 140 },
-  repositoryNode: { width: 224, height: 50 },
+  repositoryNode: { width: 288, height: 50 },
   addRepositoryNode: { width: 224, height: 50 },
 };
 
@@ -123,6 +123,9 @@ export function layoutWithDagre<N extends Node>(
       maxY = Math.max(maxY, n.position.y + size.height);
       minX = Math.min(minX, n.position.x);
     }
+
+    // When no graph nodes exist (all disconnected), default to origin
+    if (minX === Infinity) minX = 0;
 
     for (let i = 0; i < disconnectedNodes.length; i++) {
       const node = disconnectedNodes[i];

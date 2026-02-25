@@ -58,6 +58,14 @@ enum AgentType {
    */
   @doc("Cursor AI coding agent")
   Cursor: "cursor",
+
+  /**
+   * Local development mock executor.
+   * No agent binary required — simulates the full feature SDLC flow
+   * with realistic fixture YAML artifacts for local development and demos.
+   */
+  @doc("Local development mock — no agent binary required")
+  Dev: "dev",
 }
 
 /**

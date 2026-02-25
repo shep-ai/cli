@@ -1,0 +1,171 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: notification-replay-bug
+summary: >
+  5 tasks across 2 phases. Phase 1 writes all tests (RED). Phase 2 implements the fix (GREEN)
+  and verifies no regressions.
+
+relatedFeatures: []
+technologies: []
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add bootstrap suppression test block'
+    description: >
+      Add a new `describe("bootstrap suppression")` block to the existing test file with tests
+      that verify: (1) first poll with pre-existing active runs emits zero notifications,
+      (2) first poll with pre-existing completed phases emits zero notifications,
+      (3) second poll with a genuinely new run emits the correct notification,
+      (4) second poll with a new phase completion emits PhaseCompleted,
+      (5) second poll with unchanged runs emits zero notifications (no replay).
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'New describe("bootstrap suppression") block exists in notification-watcher.service.test.ts'
+      - 'Test: first poll with active runs → 0 notifications (currently FAILS — RED)'
+      - 'Test: first poll with completed phases → 0 phase notifications (currently FAILS — RED)'
+      - 'Test: second poll with new run → 1 notification (currently FAILS — RED)'
+      - 'Test: second poll with new phase completion → 1 PhaseCompleted (FAILS — RED)'
+      - 'Test: second poll with unchanged runs → 0 notifications (verifies no replay after bootstrap)'
+    tdd:
+      red:
+        - 'Write 5 test cases in a new describe("bootstrap suppression") block'
+        - 'Each test creates watcher, sets up mock runs/phases, starts watcher, advances timers'
+        - 'First-poll tests assert notificationService.notify call count is 0'
+        - 'Second-poll tests bootstrap with runs on first poll, add new data on second poll, assert correct emissions'
+        - 'All 5 tests FAIL against current code (confirming the bug)'
+      green:
+        - 'These are RED-only tests — implementation comes in task-3'
+      refactor:
+        - 'N/A — tests only'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Update existing tests for bootstrap-first-poll behavior'
+    description: >
+      Existing tests in "status transition detection" and "phase completion detection" assume
+      the first poll emits notifications. After the fix, the first poll is a silent bootstrap.
+      Update these tests to use a two-poll pattern: first poll bootstraps with empty runs (or
+      the setup runs), second poll delivers the actual test scenario. Add a helper function
+      `bootstrapWithEmptyRuns()` to encapsulate the bootstrap step.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Helper function bootstrapWithEmptyRuns() exists and encapsulates first-poll bootstrap'
+      - '"should emit agentStarted event" test bootstraps first, then asserts on second poll'
+      - '"should emit agentCompleted event" test updated for bootstrap'
+      - '"should emit agentFailed event" test updated for bootstrap'
+      - '"should emit waitingApproval event" test updated for bootstrap'
+      - '"should not emit duplicate event" test updated for bootstrap'
+      - '"should emit phaseCompleted event" test updated for bootstrap'
+      - '"should not re-emit for already seen completed phases" test updated for bootstrap'
+      - '"feature name resolution" test updated for bootstrap'
+      - 'All updated tests FAIL against current code (they now expect bootstrap behavior)'
+    tdd:
+      red:
+        - 'Create bootstrapWithEmptyRuns() helper that mocks list→[], starts watcher, advances timer, resets mock'
+        - 'Update each affected test to call bootstrapWithEmptyRuns() before the real test scenario'
+        - 'Adjust mock sequences (.mockResolvedValueOnce chains) to account for the bootstrap poll'
+        - 'Tests FAIL because current code emits on first poll and the bootstrap helper consumes the first mock return'
+      green:
+        - 'These are RED-only updates — implementation comes in task-3'
+      refactor:
+        - 'N/A — tests only'
+    estimatedEffort: '30min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add isBootstrapped flag and gate notify() calls'
+    description: >
+      Add `private isBootstrapped = false` to NotificationWatcherService. In processRuns(),
+      wrap the emitStatusEvent() call for new runs with `if (this.isBootstrapped)`. In
+      checkPhaseCompletions(), wrap the notify() call with `if (this.isBootstrapped)`. After
+      the for-loop in processRuns(), set `if (!this.isBootstrapped) this.isBootstrapped = true`.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'Private isBootstrapped field exists, initialized to false'
+      - 'emitStatusEvent() for new runs gated behind if (this.isBootstrapped)'
+      - 'notify() in checkPhaseCompletions() gated behind if (this.isBootstrapped)'
+      - 'isBootstrapped set to true after first complete processRuns() loop'
+      - 'All new bootstrap tests from task-1 PASS (GREEN)'
+      - 'All updated existing tests from task-2 PASS (GREEN)'
+      - 'Status change emissions (prevState.status !== run.status branch) NOT gated — they only fire for already-tracked runs'
+    tdd:
+      red:
+        - 'Tests already written in task-1 and task-2 — all currently failing'
+      green:
+        - 'Add private isBootstrapped = false field to class'
+        - 'In processRuns(), line 149: wrap this.emitStatusEvent(run, newState) with if (this.isBootstrapped)'
+        - 'In checkPhaseCompletions(), line 212: wrap this.notificationService.notify(event) with if (this.isBootstrapped)'
+        - 'After line 176 (cleanup loop), add: if (!this.isBootstrapped) { this.isBootstrapped = true; }'
+        - 'Run tests — all should pass'
+      refactor:
+        - 'Add a brief comment explaining the bootstrap flag purpose (1 line above the field declaration)'
+        - 'Verify no unnecessary changes leaked in'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Run full test suite and validate no regressions'
+    description: >
+      Run pnpm test:unit to verify all notification watcher tests pass and no other tests
+      are affected. Run pnpm typecheck to confirm no type errors. Run pnpm lint to
+      confirm code style compliance.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'pnpm test:unit passes with 0 failures'
+      - 'pnpm typecheck passes with 0 errors'
+      - 'pnpm lint passes with 0 errors'
+    tdd:
+      red:
+        - 'N/A — validation task'
+      green:
+        - 'N/A — validation task'
+      refactor:
+        - 'Fix any lint or type errors discovered during validation'
+    estimatedEffort: '10min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Manual smoke test with shep ui'
+    description: >
+      Start shep ui in a repository with existing agent runs. Verify no desktop notification
+      wave appears on startup. Then trigger a new agent run and verify the notification fires
+      correctly. This is the final acceptance gate matching the user's bug report.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'shep ui starts without any desktop notification wave for existing runs'
+      - 'A new agent run triggered after startup produces the expected desktop notification'
+      - 'Phase completions after startup produce PhaseCompleted notifications'
+    tdd: null
+    estimatedEffort: '10min'
+
+totalEstimate: '1.5h'
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation follows a strict RED-GREEN-REFACTOR cycle compressed into 2 phases.
+  Phase 1 writes all tests first — a new bootstrap suppression test block and updates to
+  existing tests that need to account for the bootstrap-first-poll behavior. All tests fail
+  against the current code (RED), confirming the bug.
+
+  Phase 2 adds the ~10-line production fix (isBootstrapped flag with notify() gating), making
+  all tests pass (GREEN). A full validation pass confirms no regressions, followed by a manual
+  smoke test matching the original bug report.
+
+  The bootstrap helper function (bootstrapWithEmptyRuns()) is the key test infrastructure
+  addition — it encapsulates the first-poll bootstrap pattern so existing and future tests
+  can cleanly start from a bootstrapped state.

@@ -1,0 +1,267 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pr-info-feature-drawer
+summary: >
+  8 tasks across 3 phases. Phase 1 extracts CiStatusBadge to a shared component with tests
+  and stories (3 tasks). Phase 2 extends FeatureNodeData and maps PR data in the server
+  component (2 tasks). Phase 3 builds the PrInfoSection UI with tests and stories (3 tasks).
+
+relatedFeatures: []
+technologies:
+  - React (Next.js App Router)
+  - TypeScript
+  - Tailwind CSS
+  - shadcn/ui (Badge)
+  - lucide-react
+  - Vitest + React Testing Library
+  - Storybook
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Create shared CiStatusBadge component with tests'
+    description: >
+      Extract the CiStatusBadge function from merge-review.tsx into a new shared component at
+      components/common/ci-status-badge/ci-status-badge.tsx with a barrel index.ts. Write unit
+      tests that cover all 3 CiStatus variants (Success → green "Passing", Pending → yellow
+      animated "Pending", Failure → red "Failing"). The component is a pure function taking a
+      CiStatus prop and returning a styled Badge — no hooks, no state.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'ci-status-badge.tsx exports a CiStatusBadge component accepting { status: CiStatus }'
+      - 'index.ts barrel exports CiStatusBadge'
+      - 'Unit test renders CiStatusBadge with CiStatus.Success and asserts "Passing" text and green styling'
+      - 'Unit test renders CiStatusBadge with CiStatus.Pending and asserts "Pending" text and animate-spin class'
+      - 'Unit test renders CiStatusBadge with CiStatus.Failure and asserts "Failing" text and red styling'
+      - 'All 3 tests pass'
+    tdd:
+      red:
+        - 'Write test file at tests/unit/presentation/web/components/common/ci-status-badge/ci-status-badge.test.tsx'
+        - 'Import CiStatusBadge from @/components/common/ci-status-badge (does not exist yet — test fails)'
+        - 'Write 3 test cases: renders "Passing" for Success, renders "Pending" with spinner for Pending, renders "Failing" for Failure'
+      green:
+        - 'Create ci-status-badge/ci-status-badge.tsx with the CiStatusBadge component (copy from merge-review.tsx lines 21-45)'
+        - 'Create ci-status-badge/index.ts with barrel export'
+        - 'Run tests — all 3 pass'
+      refactor:
+        - 'Ensure the component file has no unused imports'
+        - 'Verify Badge and icon imports use the same paths as merge-review'
+    estimatedEffort: '20min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add Storybook stories for CiStatusBadge'
+    description: >
+      Create ci-status-badge.stories.tsx in the shared component directory with stories for
+      all 3 CiStatus variants. Follow the codebase convention of one .stories.tsx per component.
+      This satisfies the MANDATORY Storybook stories rule from CLAUDE.md.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'ci-status-badge.stories.tsx exists in the ci-status-badge/ directory'
+      - 'Stories include Success, Pending, and Failure variants'
+      - 'Meta title follows naming convention (e.g., "Common/CiStatusBadge")'
+      - 'Stories render without errors in Storybook'
+    tdd: null
+    estimatedEffort: '10min'
+
+  - id: task-3
+    phaseId: phase-1
+    title: 'Update merge-review.tsx to import shared CiStatusBadge'
+    description: >
+      Remove the local CiStatusBadge function from merge-review.tsx. Add an import of
+      CiStatusBadge from @/components/common/ci-status-badge. Clean up icon imports that were
+      only used by CiStatusBadge: remove CheckCircle2 and XCircle from lucide-react imports,
+      remove CiStatus enum import from domain. Keep Loader2 (still used by DrawerActionBar
+      approve icon on line 211).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'merge-review.tsx no longer contains a local CiStatusBadge function definition'
+      - 'merge-review.tsx imports CiStatusBadge from @/components/common/ci-status-badge'
+      - 'CheckCircle2 and XCircle are removed from lucide-react import'
+      - 'CiStatus enum import is removed from merge-review.tsx'
+      - 'Loader2 remains in lucide-react import (used by approve icon)'
+      - 'TypeScript compilation passes with no errors'
+      - 'Existing merge-review behavior is unchanged (visual + functional)'
+    tdd:
+      red:
+        - 'Existing merge-review tests should pass before and after the change — verify they pass now'
+      green:
+        - 'Delete the local CiStatusBadge function (lines 21-45 of merge-review.tsx)'
+        - 'Add import: import { CiStatusBadge } from @/components/common/ci-status-badge'
+        - 'Remove CheckCircle2, XCircle from lucide-react import line'
+        - 'Remove CiStatus from the domain import line'
+        - 'Run TypeScript compilation and existing tests — all pass'
+      refactor:
+        - 'Verify no other unused imports remain in merge-review.tsx'
+    estimatedEffort: '10min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Extend FeatureNodeData interface with optional pr field'
+    description: >
+      Add an optional pr field to the FeatureNodeData interface in feature-node-state-config.ts.
+      The field is a presentation-layer subset of the domain PullRequest type: url (string),
+      number (number), status (PrStatus), ciStatus (optional CiStatus), commitHash (optional
+      string). Import PrStatus and CiStatus from domain generated output.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'FeatureNodeData has an optional pr field with the correct 5-field type'
+      - 'PrStatus and CiStatus are imported from @shepai/core/domain/generated/output'
+      - 'TypeScript compilation passes'
+      - 'All existing feature-drawer tests still pass (pr is optional, no existing data affected)'
+    tdd:
+      red:
+        - 'Write a type-level test or assertion that FeatureNodeData["pr"] accepts { url, number, status, ciStatus?, commitHash? }'
+        - 'Alternatively, add a test in the feature-drawer test file that creates a FeatureNodeData with pr field and asserts it compiles'
+      green:
+        - 'Add the pr field type to FeatureNodeData interface in feature-node-state-config.ts'
+        - 'Add PrStatus and CiStatus imports from domain generated output'
+      refactor:
+        - 'Verify the pr type aligns with MergeReviewPr shape for consistency'
+    estimatedEffort: '10min'
+
+  - id: task-5
+    phaseId: phase-2
+    title: 'Map feature.pr to FeatureNodeData in page.tsx'
+    description: >
+      In the server component page.tsx, add a conditional spread when constructing the nodeData
+      object to map feature.pr into the new FeatureNodeData.pr field. Extract only the 5
+      display-relevant fields (url, number, status, ciStatus, commitHash), excluding
+      ciFixAttempts and ciFixHistory from the domain PullRequest type.
+    state: Todo
+    dependencies:
+      - task-4
+    acceptanceCriteria:
+      - 'page.tsx maps feature.pr to FeatureNodeData.pr using conditional spread pattern'
+      - 'Only url, number, status, ciStatus, commitHash are included (not ciFixAttempts/ciFixHistory)'
+      - 'When feature.pr is undefined, the pr field is omitted from nodeData'
+      - 'TypeScript compilation passes'
+    tdd:
+      red:
+        - 'This is a server component data mapping — verify TypeScript compilation catches any type mismatches'
+      green:
+        - 'Add ...(feature.pr && { pr: { url: feature.pr.url, number: feature.pr.number, status: feature.pr.status, ciStatus: feature.pr.ciStatus, commitHash: feature.pr.commitHash } }) to the nodeData construction'
+      refactor:
+        - 'Ensure the spread pattern is consistent with the existing agentType/errorMessage/blockedBy spreads'
+    estimatedEffort: '5min'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Add PrInfoSection sub-component to feature-drawer.tsx'
+    description: >
+      Add a PrInfoSection private sub-component inside feature-drawer.tsx that renders a bordered
+      card containing: PR number as external link, PR status badge (colored by PrStatus), CI
+      status badge (shared CiStatusBadge, conditional on ciStatus), and abbreviated commit hash
+      (conditional on commitHash). Position the section between the Status section (after the
+      second Separator) and the DetailsSection. Add necessary icon and type imports.
+    state: Todo
+    dependencies:
+      - task-4
+      - task-1
+    acceptanceCriteria:
+      - 'PrInfoSection renders a bordered card when selectedNode.pr is defined'
+      - 'PrInfoSection returns null when selectedNode.pr is undefined'
+      - 'PR number displays as "#N" linking to pr.url with target="_blank" and rel="noopener noreferrer"'
+      - 'PR status renders as a colored Badge: Open → blue, Merged → purple, Closed → red'
+      - 'CI status renders CiStatusBadge when pr.ciStatus is defined, omitted otherwise'
+      - 'Commit hash displays first 7 chars with font-mono and GitCommitHorizontal icon when defined, omitted otherwise'
+      - 'Section has data-testid="feature-drawer-pr"'
+      - 'Section is positioned between Status and Details, with Separators'
+    tdd:
+      red:
+        - 'Write tests first in feature-drawer.test.tsx under a new describe("PR info section") block'
+        - 'Test 1: PR section visible when pr data is provided — assert testid="feature-drawer-pr" is in document'
+        - 'Test 2: PR section hidden when pr is undefined — assert testid not in document'
+        - 'Test 3: PR number displays as link with correct href and "#N" text'
+        - 'Tests fail because PrInfoSection does not exist yet'
+      green:
+        - 'Add PrInfoSection function to feature-drawer.tsx with bordered card layout'
+        - 'Add PR number link, status badge, conditional CI status, conditional commit hash'
+        - 'Insert PrInfoSection between Status and Details in the main FeatureDrawer component'
+        - 'Add necessary imports (ExternalLink, GitCommitHorizontal, PrStatus, CiStatus, Badge, CiStatusBadge)'
+        - 'All 3 initial tests pass'
+      refactor:
+        - 'Extract PrStatus-to-className mapping into a const object for readability'
+        - 'Ensure consistent spacing and styling with merge-review PR card'
+    estimatedEffort: '30min'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Add comprehensive PR section unit tests'
+    description: >
+      Expand the PR info section test suite to cover all PrStatus variants, all CiStatus
+      variants, missing optional fields (ciStatus, commitHash), and the complete absence of PR
+      data. Minimum 8 test cases as required by NFR-5.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'Test for each PrStatus value: Open displays blue badge, Merged displays purple badge, Closed displays red badge'
+      - 'Test for each CiStatus value: Success shows "Passing", Pending shows "Pending", Failure shows "Failing"'
+      - 'Test that CI badge is omitted when ciStatus is undefined'
+      - 'Test that commit hash is omitted when commitHash is undefined'
+      - 'Test that commit hash displays first 7 characters with font-mono styling'
+      - 'Test that PR link has target="_blank" and rel="noopener noreferrer"'
+      - 'At least 8 test cases total in the PR info section describe block'
+      - 'All existing feature-drawer tests continue to pass without modification'
+    tdd:
+      red:
+        - 'Write remaining test cases for PrStatus variants, CiStatus variants, optional field handling'
+        - 'Some may already pass from task-6 implementation; write them to ensure coverage'
+      green:
+        - 'Fix any test failures by adjusting PrInfoSection rendering logic'
+      refactor:
+        - 'Create a prData fixture helper to reduce test boilerplate'
+        - 'Ensure test data follows the same pattern as defaultData in the existing test file'
+    estimatedEffort: '25min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Add feature-drawer Storybook stories for PR variations'
+    description: >
+      Add PR data fixtures and new stories to feature-drawer.stories.tsx demonstrating: Done
+      feature with full PR data (all fields), Done feature with partial PR data (missing ciStatus
+      and commitHash), feature without PR data (existing stories already cover this), and
+      individual PrStatus variants (Open, Merged, Closed). Follow the existing DrawerTrigger
+      pattern.
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'New PR data fixtures added to the stories file (doneWithPrData, doneWithPartialPrData)'
+      - 'Story: DoneWithPr — shows feature drawer with full PR card (number, status, CI, commit)'
+      - 'Story: DoneWithPartialPr — shows PR card without CI status and commit hash'
+      - 'Story: PrStatusOpen — shows PR with Open status (blue badge)'
+      - 'Story: PrStatusMerged — shows PR with Merged status (purple badge)'
+      - 'Stories render without errors in Storybook'
+      - 'Existing stories are not modified'
+    tdd: null
+    estimatedEffort: '15min'
+
+totalEstimate: '2h 5min'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is split into 8 focused tasks across 3 phases. Phase 1 establishes the
+  shared CiStatusBadge foundation by extracting it from merge-review, adding tests and stories,
+  then updating merge-review to import from the shared location. Phase 2 extends the data
+  model by adding the optional PR type to FeatureNodeData and mapping it in the server component.
+  Phase 3 builds the UI: the PrInfoSection sub-component in feature-drawer.tsx, followed by
+  comprehensive test coverage (8+ test cases) and Storybook stories for all PR state variations.
+
+  Tasks are ordered by dependency — each task builds on the output of previous tasks. The
+  critical path runs through task-1 (shared component) → task-4 (type extension) → task-6
+  (UI rendering). Tasks 2 and 3 can proceed in parallel after task-1. Tasks 7 and 8 can
+  proceed in parallel after task-6.

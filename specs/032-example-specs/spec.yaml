@@ -1,300 +1,57 @@
-# Feature Specification (YAML)
+# Feature Specification (YAML) — FeatureArtifact schema
 # This is the source of truth. Markdown is auto-generated from this file.
 
-name: repo-open-folder-action
-number: 031
-branch: feat/031-repo-open-folder-action
-oneLiner: Add an "Open Folder" action button to the repository node in the web UI canvas
+name: artifact-schemas
+number: 032
+branch: feat/artifacts-schemas
+oneLiner: Create TypeSpec artifact schemas for spec YAML files with 1:1 field mapping
 summary: >
-  Add an "Open Folder" action to the repository node on the React Flow canvas.
-  Clicking it opens the repository's root directory in the OS file manager (Finder on macOS, file manager on Linux).
-  This requires a new API route with path-only validation, extending RepositoryNodeData to carry the full repositoryPath,
-  rendering an icon button on the node, and wiring the action through the established canvas prop chain.
-phase: Requirements
+  Define four TypeSpec artifact schemas (FeatureArtifact, ResearchArtifact, TechnicalPlanArtifact,
+  TasksArtifact) that map 1:1 to the spec YAML files (spec.yaml, research.yaml, plan.yaml,
+  tasks.yaml). All schemas extend SpecArtifactBase for shared metadata fields. Includes YAML
+  parsing tests that validate real spec files against the generated TypeScript types.
+phase: Implementation
 sizeEstimate: S
 
 # Relationships
 relatedFeatures: []
 
 technologies:
-  - Next.js App Router (API route)
-  - React Flow (@xyflow/react)
-  - shadcn/ui + Tailwind CSS
-  - Lucide React icons
-  - Node.js child_process (spawn)
-  - Storybook
+  - TypeSpec
+  - Vitest
+  - js-yaml
 
 relatedLinks: []
 
 # Open questions (must be resolved before implementation)
 openQuestions:
-  - question: 'Should the folder/open API route reuse validateToolbarInput (which requires branch) or create a new path-only validator?'
+  - question: 'Should PlanPhase.taskIds be required or optional?'
     resolved: true
     options:
-      - option: Reuse validateToolbarInput (make branch optional)
-        description: Extend the existing validator by making branch parameter optional.
+      - option: Required (always present)
+        description: Every phase must list its task IDs explicitly.
         selected: false
-      - option: Create new path-only validator (validateFolderInput)
-        description: Create a dedicated validation function that validates only repositoryPath.
+      - option: Optional (not always present)
+        description: Phases in plan.yaml may not reference tasks since tasks live in tasks.yaml.
         selected: true
-      - option: Create a generic flexible validator with optional parameters
-        description: Design a validator factory that accepts optional parameter sets to support multiple routes.
-        selected: false
-      - option: Embed validation inline in the API route
-        description: Put all validation logic directly in /api/folder/open/route.ts.
-        selected: false
-
     selectionRationale: >
-      Option 2 (Create new path-only validator) was selected because it maintains architectural clarity and validator contract integrity.
-      Making branch optional in validateToolbarInput would weaken a strict contract and create confusion about which parameters are required.
-      A separate small function is explicit about its purpose and keeps the codebase maintainable without premature generalization.
-
-  - question: 'Should the Open Folder button be always visible or only on hover (like the existing Add button)?'
-    resolved: true
-    options:
-      - option: Always visible
-        description: Display the Open Folder button prominently at all times on the repository node.
-        selected: false
-      - option: Visible on hover only
-        description: Show the button only when the mouse hovers over the repository node, consistent with the existing Add (+) button pattern.
-        selected: true
-      - option: Hidden by default with toggle button
-        description: Add a separate toggle or menu button to reveal/hide action buttons based on user preference.
-        selected: false
-      - option: Show based on user preference setting
-        description: Add a global or per-repository setting to control visibility.
-        selected: false
-
-    selectionRationale: >
-      Option 2 (Visible on hover only) was selected to maintain visual consistency with the existing Add button and keep the repository node clean.
-      The hover-reveal pattern is already established in the codebase and users are accustomed to it. This avoids UI clutter on crowded canvases
-      while still making the action discoverable through the standard hover affordance.
-
-  - question: 'Where should the Open Folder button be positioned relative to the existing Add button?'
-    resolved: true
-    options:
-      - option: Left of the Add button
-        description: Position Open Folder to the left, creating [Open Folder] [Add Feature].
-        selected: true
-      - option: Right of the Add button (to its right)
-        description: Position Open Folder to the right of Add.
-        selected: false
-      - option: Left side of the node (opposite end from Add)
-        description: Place Open Folder on the far left side of the node.
-        selected: false
-      - option: Below the node name as a secondary row
-        description: Add a second row below the node text to display action buttons vertically.
-        selected: false
-
-    selectionRationale: >
-      Option 1 (Left of Add button) was selected to group related actions together while preserving the visual hierarchy.
-      The Add button remains rightmost as the primary action for creating new features. Placing Open Folder to its left follows
-      left-to-right UI conventions where secondary actions precede primary actions, and maintains the established single-row layout pattern.
-
-  - question: 'Should the API route validate that the directory exists before attempting to open it?'
-    resolved: true
-    options:
-      - option: Yes, check with existsSync before spawning
-        description: Validate directory existence using fs.existsSync() and return a 404 error if path doesn't exist.
-        selected: true
-      - option: No, let the OS handle it
-        description: Skip validation and let spawn() fail if path is invalid.
-        selected: false
-      - option: Soft check with warning
-        description: Log a warning if path doesn't exist but still attempt to open it.
-        selected: false
-      - option: Make it configurable per route invocation
-        description: Accept an optional validateExists parameter in the request.
-        selected: false
-
-    selectionRationale: >
-      Option 1 (Yes, check with existsSync) was selected to provide predictable, consistent behavior across the codebase.
-      This approach aligns with existing patterns in /api/shell/open and delivers clear error feedback to users instead of silent OS-level failures.
-      The defense-in-depth principle ensures that validation happens at the API boundary, making error messages more meaningful and improving user experience.
-
-  - question: 'Should path traversal sequences (..) be blocked in the repositoryPath for the folder/open route?'
-    resolved: true
-    options:
-      - option: Yes, block .. and null bytes in repositoryPath
-        description: Validate that repositoryPath contains no path traversal sequences (..) or null bytes.
-        selected: true
-      - option: No, skip path traversal validation
-        description: Trust that the client only sends valid paths.
-        selected: false
-      - option: Only validate in production, skip in development
-        description: Add environment-based validation only when NODE_ENV='production'.
-        selected: false
-      - option: Use an allowlist of safe path patterns
-        description: Maintain a list of approved path patterns and reject non-matching paths.
-        selected: false
-
-    selectionRationale: >
-      Option 1 (Yes, block .. and null bytes) was selected to apply consistent security practices across all API routes in the presentation layer.
-      Although this API is local-only, defense-in-depth is a reasonable practice at negligible cost (~5 lines). This maintains consistency with the existing
-      validation patterns and prevents unexpected behavior when paths are passed to spawn(). The security benefit outweighs the minimal implementation cost.
+      plan.yaml phases describe implementation strategy without explicit task IDs. Task
+      breakdown lives in tasks.yaml. Making taskIds optional avoids forcing a field that is
+      not naturally part of the plan artifact.
 
 content: |
   ## Problem Statement
 
-  The web UI canvas displays repository nodes connected to their feature nodes. Feature nodes already have actions (settings gear, chain action), and the feature drawer has "Open in IDE" and "Open in Shell" buttons. However, there is no quick way to open a repository's root folder directly from the repository node on the canvas. Users need a one-click action to reveal the repo folder in their OS file manager for quick file browsing, drag-and-drop operations, or general navigation.
+  The spec YAML files (spec.yaml, research.yaml, plan.yaml, tasks.yaml) need TypeSpec schemas
+  that define their structure with a 1:1 field mapping. This ensures type-safe parsing and
+  validation of spec artifacts.
 
   ## Success Criteria
 
-  - [ ] Repository node displays an "Open Folder" icon button on hover (using `FolderOpen` from Lucide React)
-  - [ ] Clicking the button sends a POST request to `/api/folder/open` with the repository path
-  - [ ] The API route opens the repository's root directory in the OS file manager
-  - [ ] Works on macOS (Finder via `open <path>`) and Linux (via `xdg-open <path>`)
-  - [ ] Returns 501 for unsupported platforms with a descriptive error message
-  - [ ] Returns 404 if the repository path does not exist on disk
-  - [ ] Returns 400 for invalid input (missing path, non-absolute path, path traversal)
-  - [ ] `RepositoryNodeData` extended with `repositoryPath: string` and `onOpenFolder?: () => void`
-  - [ ] `page.tsx` passes the full `repositoryPath` to repository node data
-  - [ ] Action is wired through the full prop chain: ControlCenterState → ControlCenterInner → FeaturesCanvas → RepositoryNode
-  - [ ] Storybook stories updated with variants: default (no action), with open folder button, with both buttons
-  - [ ] Toast notification shown on API error (consistent with existing error handling patterns)
-  - [ ] All new code covered by tests following TDD (Red-Green-Refactor)
-
-  ## Functional Requirements
-
-  - **FR-1: Open Folder Button on Repository Node** — The `RepositoryNode` component MUST render a `FolderOpen` icon button when the `onOpenFolder` callback is present in `RepositoryNodeData`. The button MUST appear on hover, consistent with the existing `onAdd` button pattern. The button MUST have the `nodrag` class to prevent graph dragging when clicking.
-
-  - **FR-2: Repository Path in Node Data** — `RepositoryNodeData` MUST be extended with a `repositoryPath: string` field containing the full absolute path to the repository root. The `page.tsx` server component MUST populate this field using the `repoPath` grouping key (which already holds the full path).
-
-  - **FR-3: API Route POST /api/folder/open** — A new Next.js API route MUST accept POST requests with a JSON body `{ repositoryPath: string }`. It MUST validate the input (non-empty, absolute path, no traversal sequences, no null bytes), verify the directory exists on disk, then open it using a platform-specific command.
-
-  - **FR-4: Platform-Specific File Manager Launch** — The API route MUST use `spawn()` with `detached: true` and `stdio: 'ignore'` to launch the file manager:
-    - macOS: `open <repositoryPath>` (opens Finder)
-    - Linux: `xdg-open <repositoryPath>` (opens default file manager)
-    - Other platforms: return 501 with error message
-
-  - **FR-5: Action Wiring Through Canvas Prop Chain** — The open folder action MUST follow the established wiring pattern:
-    1. `useControlCenterState` adds a `handleOpenRepositoryFolder(repositoryPath: string)` handler that calls the API
-    2. `ControlCenterInner` passes the handler to `FeaturesCanvas` as `onRepositoryOpenFolder`
-    3. `FeaturesCanvas` wires the callback into `enrichedNodes` for repository nodes, binding the `repositoryPath`
-    4. `RepositoryNode` invokes `onOpenFolder()` on button click
-
-  - **FR-6: API Response Contract** — The API route MUST return:
-    - Success: `{ success: true, path: string }` with status 200
-    - Invalid input: `{ error: string }` with status 400
-    - Path not found: `{ error: string }` with status 404
-    - Unsupported platform: `{ error: string }` with status 501
-    - Spawn failure: `{ error: string }` with status 500
-
-  - **FR-7: Error Feedback** — When the API returns an error, the client-side handler MUST display a toast notification with the error message. This is consistent with how other action failures are communicated to users.
-
-  - **FR-8: Storybook Stories** — The repository node stories MUST be updated to include:
-    - Existing stories preserved (Default, WithAddButton, etc.)
-    - New story: `WithOpenFolderButton` — shows the open folder action
-    - New story: `WithAllActions` — shows both open folder and add buttons together
-
-  ## Non-Functional Requirements
-
-  - **NFR-1: Security — Input Validation** — The API route MUST validate that `repositoryPath` is a non-empty absolute path (starts with `/`), contains no path traversal sequences (`..`), and contains no null bytes (`\0`). This prevents unexpected behavior when the path is passed to `spawn()`.
-
-  - **NFR-2: Security — No Shell Execution** — The `spawn()` call MUST NOT use `shell: true`. Arguments MUST be passed as an array to avoid command injection. This follows the pattern established in `/api/shell/open`.
-
-  - **NFR-3: UX — Visual Consistency** — The Open Folder button MUST match the visual style of the existing Add button (icon-only, same size, hover-reveal behavior). It MUST use a recognizable folder icon (`FolderOpen` from Lucide React) and include a tooltip or `aria-label` for accessibility.
-
-  - **NFR-4: UX — Non-blocking Interaction** — The `spawn()` process MUST be detached and unreferenced (`child.unref()`) so the API response returns immediately without waiting for the file manager to close.
-
-  - **NFR-5: Performance — No Re-renders** — The `onOpenFolder` callback wired through `enrichedNodes` MUST be stable (memoized or bound once) to avoid unnecessary React Flow re-renders, following the pattern of the existing `onAdd` callback.
-
-  - **NFR-6: Maintainability — Separate Validator** — The folder/open route MUST use a dedicated path-only validation function rather than overloading `validateToolbarInput`. This keeps validator contracts strict and single-purpose.
-
-  - **NFR-7: Accessibility** — The Open Folder button MUST have an `aria-label="Open folder"` attribute for screen reader support.
-
-  ## Product Questions & AI Recommendations
-
-  | # | Question | AI Recommendation | Rationale |
-  | - | -------- | ----------------- | --------- |
-  | 1 | Reuse `validateToolbarInput` or create new path-only validator? | Create new `validateFolderInput` | Existing validator requires branch; making it optional weakens its contract. Path-only validator is ~15 lines and keeps both strict. |
-  | 2 | Button visibility: always visible or hover-only? | Hover-only | Consistent with existing Add button pattern. Keeps the node clean and minimal. |
-  | 3 | Button placement relative to Add button? | Left of Add button | Groups actions together. Add stays rightmost as the primary action. Left-to-right: secondary → primary. |
-  | 4 | Validate directory existence before opening? | Yes, check with `existsSync` | Consistent with shell/open route. Clear 404 is better than silent OS failure. |
-  | 5 | Block path traversal in repositoryPath? | Yes, block `..` and `\0` | Defense-in-depth. Negligible cost. Path goes to `spawn()` so sanitization is prudent. |
-
-  ## Codebase Analysis
-
-  ### Project Structure
-
-  The relevant code lives entirely in the web presentation layer:
-
-  ```
-  src/presentation/web/
-  ├── app/
-  │   ├── page.tsx                          # Server component - builds nodes from features
-  │   └── api/
-  │       ├── validate-toolbar-input.ts     # Shared input validator (repositoryPath + branch)
-  │       ├── shell/open/route.ts           # Existing: opens terminal at worktree path
-  │       └── ide/open/route.ts             # Existing: opens IDE at worktree path
-  ├── components/
-  │   ├── common/
-  │   │   └── repository-node/
-  │   │       ├── repository-node.tsx       # The component to modify
-  │   │       ├── repository-node-config.ts # RepositoryNodeData interface to extend
-  │   │       └── repository-node.stories.tsx # Stories to update
-  │   └── features/
-  │       ├── features-canvas/
-  │       │   └── features-canvas.tsx       # Enriches nodes with callbacks, passes props
-  │       └── control-center/
-  │           ├── control-center-inner.tsx   # Wires canvas props to state handlers
-  │           └── use-control-center-state.ts # Canvas interaction logic
-  ```
-
-  ### Architecture Patterns
-
-  **Action wiring chain** (established pattern for node actions):
-
-  1. `RepositoryNodeData` defines an optional callback (e.g., `onAdd?: () => void`)
-  2. `RepositoryNode` renders a button conditionally when the callback exists
-  3. `FeaturesCanvas` accepts a prop (e.g., `onRepositoryAdd`) and wires it into `enrichedNodes`
-  4. `ControlCenterInner` connects the canvas prop to a handler from `useControlCenterState`
-  5. The handler calls an API route via `fetch()`
-
-  **Existing "open" API pattern** (from `/api/shell/open`):
-
-  - Accepts `{ repositoryPath, branch }` via `validateToolbarInput()`
-  - Uses `spawn()` with platform-specific commands (macOS `open`, Linux `x-terminal-emulator`)
-  - Returns `{ success, path }`
-
-  ### Key Gap: RepositoryNodeData lacks repositoryPath
-
-  Currently, `RepositoryNodeData` only has `name` (the basename). The full `repositoryPath` is not passed to repository nodes — it only exists in child `FeatureNodeData`. The `page.tsx` server component uses `repoPath` as the grouping key and builds the node ID as `repo-${repoPath}`, but only passes `name: repoPath.split('/').pop()` to the node data.
-
-  To support the open folder action, `repositoryPath` must be added to `RepositoryNodeData` and populated in `page.tsx`.
-
-  ## Affected Areas
-
-  | Area | Impact | Reasoning |
-  | ---- | ------ | --------- |
-  | `components/common/repository-node/repository-node-config.ts` | High | Add `repositoryPath` and `onOpenFolder` to `RepositoryNodeData` |
-  | `components/common/repository-node/repository-node.tsx` | High | Render the open folder button with hover behavior |
-  | `components/common/repository-node/repository-node.stories.tsx` | Medium | Add story variants for the new action |
-  | `app/api/folder/open/route.ts` | High | New API route to open folder in OS file manager |
-  | `app/api/validate-folder-input.ts` | Medium | New path-only validation function |
-  | `app/page.tsx` | Low | Pass `repositoryPath` to repository node data (1-line change) |
-  | `components/features/features-canvas/features-canvas.tsx` | Medium | Add `onRepositoryOpenFolder` prop and wire into enrichedNodes |
-  | `components/features/control-center/control-center-inner.tsx` | Low | Pass new handler to FeaturesCanvas |
-  | `components/features/control-center/use-control-center-state.ts` | Medium | Add `handleOpenRepositoryFolder` handler with fetch call |
-
-  ## Dependencies
-
-  - **Existing pattern**: `/api/shell/open` route provides the template for spawning OS commands
-  - **Existing validation**: `validate-toolbar-input.ts` serves as reference for the new path-only validator
-  - **Lucide React**: Already installed, provides `FolderOpen` icon
-  - **No new npm packages required**
-
-  ## Size Estimate
-
-  **S** — This is a small, well-scoped feature. The codebase already has an established pattern for node actions and OS-interaction API routes. The work involves:
-
-  1. One new path-only validation function (~15 lines)
-  2. One new API route (~35 lines, following `/api/shell/open` pattern)
-  3. Extending one interface (2 new fields)
-  4. Adding one button to the repository node component (following existing Add button pattern)
-  5. Wiring through the existing prop chain (canvas → control center → state hook)
-  6. Passing `repositoryPath` in `page.tsx` (1-line addition)
-  7. Updating Storybook stories (2 new story variants)
-  8. Unit tests for validator and API route
-
-  All changes follow existing patterns with no architectural decisions needed.
+  - [ ] FeatureArtifact schema maps to spec.yaml fields
+  - [ ] ResearchArtifact schema maps to research.yaml fields
+  - [ ] TechnicalPlanArtifact schema maps to plan.yaml fields
+  - [ ] TasksArtifact schema maps to tasks.yaml fields
+  - [ ] All schemas extend SpecArtifactBase
+  - [ ] 4 unit tests parse real YAML files without errors
+  - [ ] PlanPhase.taskIds is optional to match YAML reality

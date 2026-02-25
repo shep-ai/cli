@@ -31,18 +31,22 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
 
     const stmt = this.db.prepare(`
       INSERT INTO features (
-        id, name, slug, description, repository_path, branch,
+        id, name, slug, description, user_query, repository_path, branch,
         lifecycle, messages, plan, related_artifacts,
         agent_run_id, spec_path,
         push, open_pr, auto_merge, allow_prd, allow_plan, allow_merge,
         pr_url, pr_number, pr_status, commit_hash, ci_status,
+        ci_fix_attempts, ci_fix_history,
+        parent_id,
         created_at, updated_at
       ) VALUES (
-        @id, @name, @slug, @description, @repository_path, @branch,
+        @id, @name, @slug, @description, @user_query, @repository_path, @branch,
         @lifecycle, @messages, @plan, @related_artifacts,
         @agent_run_id, @spec_path,
         @push, @open_pr, @auto_merge, @allow_prd, @allow_plan, @allow_merge,
         @pr_url, @pr_number, @pr_status, @commit_hash, @ci_status,
+        @ci_fix_attempts, @ci_fix_history,
+        @parent_id,
         @created_at, @updated_at
       )
     `);
@@ -107,6 +111,14 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
     return rows.map(fromDatabase);
   }
 
+  async findByParentId(parentId: string): Promise<Feature[]> {
+    const stmt = this.db.prepare(
+      'SELECT * FROM features WHERE parent_id = ? ORDER BY created_at ASC'
+    );
+    const rows = stmt.all(parentId) as FeatureRow[];
+    return rows.map(fromDatabase);
+  }
+
   async update(feature: Feature): Promise<void> {
     const row = toDatabase(feature);
 
@@ -115,6 +127,7 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         name = @name,
         slug = @slug,
         description = @description,
+        user_query = @user_query,
         repository_path = @repository_path,
         branch = @branch,
         lifecycle = @lifecycle,
@@ -134,6 +147,9 @@ export class SQLiteFeatureRepository implements IFeatureRepository {
         pr_status = @pr_status,
         commit_hash = @commit_hash,
         ci_status = @ci_status,
+        ci_fix_attempts = @ci_fix_attempts,
+        ci_fix_history = @ci_fix_history,
+        parent_id = @parent_id,
         updated_at = @updated_at
       WHERE id = @id
     `);

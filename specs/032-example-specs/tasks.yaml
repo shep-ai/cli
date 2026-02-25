@@ -1,428 +1,172 @@
-# Task Breakdown (YAML)
+# Task Breakdown (YAML) — TasksArtifact schema
 # This is the source of truth. Markdown is auto-generated from this file.
 
-name: repo-node-actions
+name: artifact-schemas
 summary: >
-  12 tasks across 4 phases implementing "Open in IDE" and "Open in Shell" action buttons on the
-  repository node. Phase 1 makes the API layer branch-optional (4 tasks), Phase 2 extracts the
-  shared ActionButton component (2 tasks), Phase 3 creates the repository actions hook and data
-  wiring (3 tasks), Phase 4 integrates the UI on the repository node (3 tasks).
+  6 tasks across 3 phases: rename TypeSpec models, update parser and tests, write validation tests.
 
-relatedFeatures:
-  - '018-feat-ide-open'
-  - '021-feature-toolbar'
+relatedFeatures: []
 
 technologies:
-  - '@xyflow/react (React Flow v12+)'
-  - 'Next.js 16+ (App Router, server components)'
-  - 'shadcn/ui (Button, Tooltip)'
-  - 'lucide-react (Code2, Terminal, Loader2, CircleAlert)'
-  - 'Tailwind CSS v4'
-  - 'Vitest + React Testing Library'
-  - 'Storybook'
+  - TypeSpec
+  - Vitest
+  - js-yaml
 
 relatedLinks: []
 
 tasks:
-  # ── Phase 1: Branch-Optional API Layer ──────────────────────────────────────
-
   - id: task-1
     phaseId: phase-1
-    title: 'Make branch optional in validateToolbarInput'
+    title: 'Rename TypeSpec models to *Artifact suffix'
     description: >
-      Update the ValidInput interface to make branch optional (string | undefined) and modify
-      validateToolbarInput to skip branch validation when the field is absent. When branch is
-      present, all existing checks (non-empty, no path traversal, no null bytes) still apply.
-      This is the first task because all API routes depend on this validation function.
-    state: Todo
+      Create new TSP files with renamed models (FeatureArtifact, ResearchArtifact,
+      TechnicalPlanArtifact, TasksArtifact). Delete old files. Update index.tsp imports.
+    state: Done
     dependencies: []
     acceptanceCriteria:
-      - 'ValidInput.branch type is string | undefined'
-      - 'When body has no branch field, returns { repositoryPath, branch: undefined } (no error)'
-      - 'When body.branch is a valid string, returns { repositoryPath, branch } (unchanged behavior)'
-      - 'When body.branch is empty string, returns error 400 (unchanged behavior)'
-      - "When body.branch contains '..', returns error 400 (unchanged behavior)"
-      - 'When body.branch contains null bytes, returns error 400 (unchanged behavior)'
-      - 'All 12 existing tests in validate-toolbar-input.test.ts pass without modification'
+      - 'FeatureArtifact model exists in feature-artifact.tsp'
+      - 'ResearchArtifact model exists in research-artifact.tsp'
+      - 'TechnicalPlanArtifact model exists in technical-plan-artifact.tsp'
+      - 'TasksArtifact model exists in tasks-artifact.tsp'
+      - 'Old *Spec TSP files deleted'
     tdd:
       red:
-        - "Add test: 'returns valid input when branch is omitted' — calls validateToolbarInput({ repositoryPath: '/home/user/project' }), expects { repositoryPath: '/home/user/project', branch: undefined }"
-        - "Add test: 'returns valid input when branch is undefined' — calls validateToolbarInput({ repositoryPath: '/home/user/project', branch: undefined }), expects same result"
+        - 'Verify old type names no longer exist in generated output'
       green:
-        - 'Change ValidInput interface: branch: string → branch: string | undefined'
-        - "Wrap branch validation block (lines 28-38) in a conditional: only validate if branch is present (typeof branch === 'string')"
-        - 'When branch is absent or undefined, return { repositoryPath, branch: undefined }'
+        - 'Create new TSP files with renamed models'
+        - 'Update index.tsp imports'
+        - 'Delete old TSP files'
       refactor:
-        - 'Update JSDoc comment for the function to document branch-optional behavior'
-    estimatedEffort: '20min'
+        - 'Verify clean compilation with tsp:compile'
+    estimatedEffort: '15min'
 
   - id: task-2
     phaseId: phase-1
-    title: 'Make branch optional in launchIde (core package)'
+    title: 'Make PlanPhase.taskIds optional'
     description: >
-      Update LaunchIdeInput.branch to be optional. When branch is undefined, use repositoryPath
-      directly as the target path instead of calling computeWorktreePath. Keep
-      LaunchIdeSuccess.worktreePath field name unchanged (it will contain repositoryPath when
-      no branch is provided).
-    state: Todo
-    dependencies:
-      - task-1
+      Change taskIds from required string[] to optional string[] in spec-metadata.tsp.
+      Update parser to return undefined when field is absent instead of empty array.
+    state: Done
+    dependencies: []
     acceptanceCriteria:
-      - 'LaunchIdeInput.branch type is branch?: string (optional)'
-      - 'When branch is undefined, launchIde uses repositoryPath directly as worktreePath'
-      - 'When branch is provided, launchIde calls computeWorktreePath (unchanged behavior)'
-      - 'LaunchIdeSuccess.worktreePath contains repositoryPath when branch is undefined'
-      - 'All 6 existing tests in launch-ide.test.ts pass without modification'
+      - 'PlanPhase.taskIds is optional in TypeSpec'
+      - 'Generated TypeScript type has taskIds?: string[]'
+      - 'Parser returns undefined for absent taskIds'
     tdd:
       red:
-        - "Add test: 'uses repositoryPath directly when branch is undefined' — mock launcher, call launchIde with { editorId, repositoryPath: '/repo', checkAvailability: false } (no branch), assert launcher.launch called with '/repo' and result.worktreePath === '/repo'"
-        - "Add test: 'does not call computeWorktreePath when branch is undefined' — verify computeWorktreePath mock is not called"
+        - 'Verify generated type has optional taskIds'
       green:
-        - "Change LaunchIdeInput.branch from 'branch: string' to 'branch?: string'"
-        - 'In launchIde try block (line 60-63), add conditional: const worktreePath = input.branch ? computeWorktreePath(input.repositoryPath, input.branch) : input.repositoryPath'
+        - 'Add ? to taskIds in PlanPhase model'
+        - 'Update parsePlanPhase to handle undefined'
       refactor:
-        - 'Update JSDoc for branch field to document optional behavior'
-    estimatedEffort: '20min'
+        - 'Update JSDoc for taskIds'
+    estimatedEffort: '10min'
 
   - id: task-3
-    phaseId: phase-1
-    title: 'Make shell route handle branch-optional requests'
+    phaseId: phase-2
+    title: 'Update parser type imports and return types'
     description: >
-      Update the POST /api/shell/open route to handle the case where branch is undefined
-      (returned by updated validateToolbarInput). When branch is undefined, use repositoryPath
-      directly instead of calling computeWorktreePath. The existsSync check and spawn logic
-      remain unchanged — only the target path resolution changes.
-    state: Todo
+      Update spec-yaml-parser.ts to import and use new type names (FeatureArtifact,
+      ResearchArtifact, TechnicalPlanArtifact, TasksArtifact) in function signatures.
+    state: Done
     dependencies:
       - task-1
     acceptanceCriteria:
-      - 'When branch is undefined, route uses repositoryPath directly as targetPath'
-      - 'When branch is defined, route calls computeWorktreePath (unchanged behavior)'
-      - 'existsSync check applies to the resolved targetPath in both cases'
-      - 'All 8 existing tests in shell-open-route.test.ts pass without modification'
+      - 'Parser imports new type names'
+      - 'Parser functions return new types'
+      - 'TypeScript compiles without errors'
     tdd:
       red:
-        - "Add test: 'uses repositoryPath directly when branch is not provided' — POST with only { repositoryPath: '/repo' }, mock existsSync to return true, assert spawn called with '/repo' as the path argument"
-        - "Add test: 'returns 404 when repositoryPath does not exist and no branch provided' — POST with { repositoryPath: '/nonexistent' }, mock existsSync to return false, expect 404"
+        - 'Verify old type names cause compilation errors'
       green:
-        - 'After destructuring { repositoryPath, branch } from validation, add: const targetPath = branch ? computeWorktreePath(repositoryPath, branch) : repositoryPath'
-        - 'Replace all references to worktreePath with targetPath in the rest of the route handler'
+        - 'Update import statement to new type names'
+        - 'Update function return type annotations'
       refactor:
-        - 'Rename the local variable from worktreePath to targetPath throughout the route for clarity'
-    estimatedEffort: '20min'
+        - 'Update JSDoc comments'
+    estimatedEffort: '10min'
 
   - id: task-4
-    phaseId: phase-1
-    title: 'Make IDE route pass optional branch to launchIde'
+    phaseId: phase-2
+    title: 'Update existing tests for renamed types'
     description: >
-      Update the POST /api/ide/open route to pass branch (possibly undefined) through to
-      launchIde. Since launchIde now handles the conditional internally (task-2), the route
-      change is minimal — just allow branch to be undefined in the launchIde call.
+      Update schema mapping tests and parser tests to reference new type names. Update
+      test descriptions and type annotations.
     state: Todo
     dependencies:
-      - task-1
-      - task-2
+      - task-3
     acceptanceCriteria:
-      - 'When branch is undefined, launchIde is called without branch (or with branch: undefined)'
-      - 'When branch is defined, launchIde is called with branch (unchanged behavior)'
-      - 'All 7 existing tests in ide-open-route.test.ts pass without modification'
+      - 'Schema mapping tests use new type names'
+      - 'Parser tests use new type names'
+      - 'All existing tests pass'
     tdd:
       red:
-        - "Add test: 'calls launchIde without branch when branch is not provided' — POST with only { repositoryPath: '/repo' }, mock launchIde to return success, verify launchIde called with { editorId, repositoryPath: '/repo', branch: undefined, checkAvailability: true }"
-        - "Add test: 'returns 200 with success when branch is not provided' — verify response is { success: true, editor, path }"
+        - 'Run tests to see compilation failures from old type names'
       green:
-        - 'No structural change needed — the route already destructures { repositoryPath, branch } from validation and passes them to launchIde. Since ValidInput.branch is now string | undefined, the undefined value flows through naturally.'
-        - 'TypeScript may require no code change at all if branch is spread correctly. Verify compilation.'
+        - 'Replace old type names with new ones in test imports and annotations'
       refactor:
-        - 'Verify the route compiles cleanly with the updated ValidInput type'
+        - 'Update test descriptions to match new naming'
     estimatedEffort: '15min'
-
-  # ── Phase 2: Shared Action Button Extraction ───────────────────────────────
 
   - id: task-5
     phaseId: phase-2
-    title: 'Extract ActionButton shared component from DrawerActionButton'
+    title: 'Rewrite spec YAMLs for this task'
     description: >
-      Create a new ActionButton component at components/common/action-button/ by extracting the
-      DrawerActionButton from feature-drawer.tsx. Add iconOnly prop (default false) that omits
-      the label text when true (label still used as aria-label). Add optional variant and size
-      props with defaults matching the current DrawerActionButton (variant='outline', size='sm').
-      Create index.ts barrel export.
-    state: Todo
+      Rewrite spec.yaml, research.yaml, plan.yaml, tasks.yaml in 032-example-specs to
+      describe this artifact schemas task. Ensure all fields match schemas 1:1.
+    state: Done
     dependencies: []
     acceptanceCriteria:
-      - 'ActionButton component exists at components/common/action-button/action-button.tsx'
-      - "Accepts props: label, onClick, loading, error, icon, iconOnly (default false), variant (default 'outline'), size (default 'sm')"
-      - 'When iconOnly is false, renders label text (current DrawerActionButton behavior)'
-      - 'When iconOnly is true, omits label text but keeps aria-label'
-      - 'Loading state shows Loader2 animate-spin and disables button'
-      - 'Error state shows CircleAlert with text-destructive styling'
-      - 'Normal state shows the provided icon'
-      - 'index.ts barrel exports ActionButton and its props type'
+      - 'spec.yaml fields match FeatureArtifact schema'
+      - 'research.yaml fields match ResearchArtifact schema'
+      - 'plan.yaml fields match TechnicalPlanArtifact schema'
+      - 'tasks.yaml fields match TasksArtifact schema'
     tdd:
       red:
-        - 'Write test: renders label text when iconOnly is false (default)'
-        - 'Write test: does not render label text when iconOnly is true'
-        - 'Write test: uses aria-label in both modes'
-        - 'Write test: renders Loader2 spinner when loading is true'
-        - 'Write test: renders CircleAlert when error is true'
-        - 'Write test: renders provided icon in normal state'
-        - 'Write test: button is disabled when loading'
-        - 'Write test: applies text-destructive class when error is true'
-        - 'Write test: accepts custom variant and size props'
+        - 'Parse each YAML and verify no parsing errors'
       green:
-        - 'Create components/common/action-button/action-button.tsx with ActionButton component'
-        - 'Port the DrawerActionButton logic: conditional icon rendering (Loader2/CircleAlert/Icon), cn() for error styling, Button with variant/size'
-        - 'Add iconOnly prop: when true, omit {label} from button children'
-        - 'Add variant and size optional props with defaults'
-        - 'Create components/common/action-button/index.ts with barrel exports'
+        - 'Write YAML files with all required fields'
       refactor:
-        - 'Ensure prop types are exported for consumers'
-        - 'Verify the component matches the existing DrawerActionButton visual output pixel-for-pixel when using default props'
-    estimatedEffort: '30min'
-
-  - id: task-6
-    phaseId: phase-2
-    title: 'Update feature-drawer to use shared ActionButton'
-    description: >
-      Replace the inline DrawerActionButton function in feature-drawer.tsx with an import of
-      ActionButton from the shared location. Remove the DrawerActionButton function definition
-      (lines 237-269). Update the DrawerActions component to use ActionButton with the same
-      props. Add Storybook stories for ActionButton showing all visual states.
-    state: Todo
-    dependencies:
-      - task-5
-    acceptanceCriteria:
-      - 'DrawerActionButton function removed from feature-drawer.tsx'
-      - 'DrawerActions uses ActionButton from @/components/common/action-button'
-      - "Feature-drawer renders identically to before (same props: variant='outline', size='sm', iconOnly=false)"
-      - 'All existing feature-drawer tests pass without modification'
-      - 'ActionButton stories exist showing: default, loading, error, iconOnly, icon-only-loading, icon-only-error states'
-    tdd:
-      red:
-        - 'Run existing feature-drawer tests to establish baseline (all should pass)'
-        - "Write ActionButton stories: Default (labeled, Code2 icon), Loading, Error, IconOnly, IconOnlyLoading, IconOnlyError, GhostVariant (variant='ghost' size='icon-xs')"
-      green:
-        - "In feature-drawer.tsx: add import { ActionButton } from '@/components/common/action-button'"
-        - 'In DrawerActions component: replace <DrawerActionButton .../> with <ActionButton .../> (same props)'
-        - 'Delete the DrawerActionButton function definition (lines 237-269)'
-        - 'Create action-button.stories.tsx with all story variants'
-      refactor:
-        - 'Remove unused imports from feature-drawer.tsx if DrawerActionButton was the only consumer of certain icons (check: Loader2, CircleAlert are still used indirectly via ActionButton)'
-        - 'Verify Storybook builds successfully'
-    estimatedEffort: '25min'
-
-  # ── Phase 3: Repository Actions Hook & Data Wiring ─────────────────────────
-
-  - id: task-7
-    phaseId: phase-3
-    title: 'Create useRepositoryActions hook'
-    description: >
-      Create a useRepositoryActions hook colocated with the repository-node component. It accepts
-      { repositoryPath: string } (no branch) and provides the same state interface as
-      useFeatureActions: openInIde, openInShell, ideLoading, shellLoading, ideError, shellError.
-      The POST body omits the branch field. Uses the same performAction pattern with auto-clear
-      timers and cleanup on unmount.
-    state: Todo
-    dependencies:
-      - task-1
-    acceptanceCriteria:
-      - 'Hook exists at components/common/repository-node/use-repository-actions.ts'
-      - 'Accepts { repositoryPath: string } input (no branch)'
-      - 'Returns { openInIde, openInShell, ideLoading, shellLoading, ideError, shellError }'
-      - 'POST to /api/ide/open sends { repositoryPath } (no branch field)'
-      - 'POST to /api/shell/open sends { repositoryPath } (no branch field)'
-      - 'Error auto-clears after 5000ms (ERROR_CLEAR_DELAY)'
-      - 'Timers cleaned up on unmount'
-      - 'Returns no-op functions when input is null'
-    tdd:
-      red:
-        - 'Write test: openInIde sends POST to /api/ide/open with { repositoryPath } body (no branch)'
-        - 'Write test: openInShell sends POST to /api/shell/open with { repositoryPath } body (no branch)'
-        - 'Write test: sets ideLoading to true during API call, false after'
-        - 'Write test: sets ideError on failed response, auto-clears after delay'
-        - 'Write test: returns no-op when input is null'
-      green:
-        - 'Create use-repository-actions.ts following the useFeatureActions pattern'
-        - 'Define RepositoryActionsInput as { repositoryPath: string }'
-        - 'Implement performAction with fetch, loading/error state, auto-clear timers'
-        - 'POST body: JSON.stringify({ repositoryPath: input.repositoryPath }) — no branch field'
-      refactor:
-        - 'Ensure consistent naming with useFeatureActions (same state interface shape)'
-        - 'Export the input/state types for consumers'
-    estimatedEffort: '30min'
-
-  - id: task-8
-    phaseId: phase-3
-    title: 'Extend RepositoryNodeData with repositoryPath'
-    description: >
-      Add repositoryPath as an optional field to the RepositoryNodeData interface. It must be
-      optional to maintain backward compatibility with existing stories and tests that create
-      RepositoryNodeData without repositoryPath.
-    state: Todo
-    dependencies: []
-    acceptanceCriteria:
-      - 'RepositoryNodeData has repositoryPath?: string field'
-      - 'RepositoryNodeType updated accordingly (automatic via Node<RepositoryNodeData>)'
-      - 'All existing repository-node tests pass without modification'
-      - 'All existing repository-node stories render without errors'
-    tdd:
-      red:
-        - "Write test: 'accepts repositoryPath in data' — render node with { name: 'test', repositoryPath: '/repo' }, verify no errors"
-      green:
-        - 'Add repositoryPath?: string to RepositoryNodeData interface in repository-node-config.ts'
-      refactor:
-        - 'Add JSDoc comment for the new field'
-    estimatedEffort: '10min'
-
-  - id: task-9
-    phaseId: phase-3
-    title: 'Pass repositoryPath from page.tsx server component'
-    description: >
-      Update the server component (page.tsx) to include repositoryPath in the repository node
-      data object. The repoPath variable is already available in the Object.entries(featuresByRepo)
-      loop (line 60) but only repoName is passed to the node data (line 67). Add
-      repositoryPath: repoPath to the data object.
-    state: Todo
-    dependencies:
-      - task-8
-    acceptanceCriteria:
-      - 'Repository node data includes repositoryPath: repoPath (the full absolute path)'
-      - 'Feature node data continues to include repositoryPath (unchanged)'
-      - 'RepositoryNodeData type accepts the new field (verified by TypeScript)'
-    tdd:
-      red:
-        - "This is a server component data-passing change — covered by the integration of task-11 (end-to-end rendering). No isolated unit test needed since it's a one-line data addition."
-      green:
-        - 'In page.tsx line 67, change: data: { name: repoName } to data: { name: repoName, repositoryPath: repoPath }'
-      refactor:
-        - 'Verify typecheck passes (pnpm typecheck:web)'
-    estimatedEffort: '5min'
-
-  # ── Phase 4: Repository Node UI Integration ────────────────────────────────
-
-  - id: task-10
-    phaseId: phase-4
-    title: 'Render action buttons on repository node'
-    description: >
-      Update the RepositoryNode component to render two ActionButton instances (IDE and Shell)
-      when repositoryPath is available. Use useRepositoryActions hook for state. Wrap buttons
-      in Tooltips. Handle click propagation with e.stopPropagation(). Increase node width from
-      w-56 to w-72. Add TooltipProvider locally if not present at app level.
-    state: Todo
-    dependencies:
-      - task-5
-      - task-7
-      - task-8
-    acceptanceCriteria:
-      - 'Repository node renders Code2 (IDE) and Terminal (Shell) icon-only action buttons when repositoryPath is present'
-      - 'Action buttons are always visible (not hover-gated)'
-      - "Action buttons use variant='ghost' size='icon-xs'"
-      - "Each button wrapped in Tooltip showing 'Open in IDE' or 'Open in Shell'"
-      - 'Click on action button calls e.stopPropagation() before action'
-      - 'Action buttons do not render when repositoryPath is absent'
-      - 'Node width is w-72 (increased from w-56)'
-      - 'Loading state shows Loader2 spinner'
-      - 'Error state shows CircleAlert with destructive styling'
-    tdd:
-      red:
-        - 'Write test: renders IDE and Shell buttons when repositoryPath is provided'
-        - 'Write test: does not render action buttons when repositoryPath is absent'
-        - 'Write test: IDE button click calls fetch with /api/ide/open'
-        - 'Write test: Shell button click calls fetch with /api/shell/open'
-        - 'Write test: action button click does not trigger parent onClick'
-        - 'Write test: shows tooltip text on button hover (or verify aria-label)'
-      green:
-        - 'Import ActionButton, useRepositoryActions, Tooltip components, Code2/Terminal icons'
-        - 'Call useRepositoryActions({ repositoryPath: data.repositoryPath }) when repositoryPath exists'
-        - 'Render two ActionButton instances between the name span and the add button div'
-        - 'Wrap each ActionButton in TooltipProvider > Tooltip > TooltipTrigger/TooltipContent'
-        - "Each button's onClick wrapper: (e) => { e.stopPropagation(); openInIde/openInShell(); }"
-        - 'Change w-56 to w-72 on the main button element'
-      refactor:
-        - 'Extract the action buttons section into a small inline component or fragment for readability'
-        - 'Ensure the flex layout flows correctly: Github icon → name → action buttons → add button'
-    estimatedEffort: '40min'
-
-  - id: task-11
-    phaseId: phase-4
-    title: 'Add Storybook stories for repository node with actions'
-    description: >
-      Add new Storybook stories to repository-node.stories.tsx demonstrating the action button
-      states: default with actions, IDE loading, shell loading, IDE error, shell error, both
-      loading. These stories require mocking fetch or using decorator-based state override.
-    state: Todo
-    dependencies:
-      - task-10
-    acceptanceCriteria:
-      - 'Story: WithActions — shows repo node with IDE and Shell buttons in default state'
-      - 'Story: WithActionsAndAddButton — shows both action buttons and the add button'
-      - 'Story: MultipleWithActions — shows multiple repo nodes with action buttons'
-      - 'All stories render without errors'
-      - 'Storybook builds successfully (pnpm build:storybook)'
-    tdd:
-      red:
-        - 'Stories are visual tests — write the stories and verify in Storybook that all states render correctly'
-      green:
-        - 'Add WithActions story: data includes repositoryPath'
-        - 'Add WithActionsAndAddButton story: data includes repositoryPath and onAdd'
-        - 'Add MultipleWithActions story: multiple repo nodes with repositoryPath'
-      refactor:
-        - 'Ensure story naming and organization follows existing patterns (Default, WithAddButton, etc.)'
-        - 'Verify all stories appear correctly in Storybook'
+        - 'Verify content is accurate and consistent'
     estimatedEffort: '20min'
 
-  - id: task-12
-    phaseId: phase-4
-    title: 'Run full validation suite and verify backward compatibility'
+  - id: task-6
+    phaseId: phase-3
+    title: 'Write 4 unit tests for YAML parsing validation'
     description: >
-      Run the complete validation suite (lint, format, typecheck, tests) to verify all changes
-      are correct and backward-compatible. Verify that no existing test was modified (NFR-1).
-      Run Storybook build to verify stories compile.
+      Write 4 focused unit tests that parse each spec YAML file (spec.yaml, research.yaml,
+      plan.yaml, tasks.yaml) and validate the result matches the generated TypeScript types.
     state: Todo
     dependencies:
-      - task-10
-      - task-11
+      - task-4
+      - task-5
     acceptanceCriteria:
-      - 'pnpm lint passes'
-      - 'pnpm format:check passes'
-      - 'pnpm typecheck passes'
-      - 'pnpm typecheck:web passes'
-      - 'pnpm test passes (all unit and integration tests)'
-      - 'pnpm build:storybook passes'
-      - 'No existing test files were modified (only new test cases added)'
-    tdd: null
+      - 'Test parses spec.yaml into FeatureArtifact without errors'
+      - 'Test parses research.yaml into ResearchArtifact without errors'
+      - 'Test parses plan.yaml into TechnicalPlanArtifact without errors'
+      - 'Test parses tasks.yaml into TasksArtifact without errors'
+      - 'All 4 tests pass'
+    tdd:
+      red:
+        - 'Write 4 tests that call parser functions with real YAML content'
+      green:
+        - 'Tests pass because parsers and YAMLs are already aligned'
+      refactor:
+        - 'Verify tests cover key fields from each schema'
     estimatedEffort: '15min'
 
-totalEstimate: '4h'
+totalEstimate: '1.5h'
 
 openQuestions: []
 
 content: |
   ## Summary
 
-  The implementation is broken into 12 tasks across 4 phases, following a bottom-up dependency chain.
+  6 tasks across 3 phases implementing TypeSpec artifact schema renaming and validation.
 
-  **Phase 1 (Branch-Optional API Layer, tasks 1-4)** establishes the foundation by making `branch`
-  optional at each layer of the API chain. This starts with `validateToolbarInput` (the shared
-  validation function), then `launchIde` (core package), then the shell and IDE routes. Each
-  change is additive — existing callers that provide branch see no behavioral change, and all
-  existing tests pass without modification. New tests cover the branch-absent paths.
+  **Phase 1 (TypeSpec Schema Renaming, tasks 1-2)** renames the 4 models and makes
+  PlanPhase.taskIds optional.
 
-  **Phase 2 (Shared Action Button, tasks 5-6)** extracts `DrawerActionButton` from feature-drawer.tsx
-  into a shared `ActionButton` component with an `iconOnly` prop. The feature-drawer is updated to
-  import from the shared location. Storybook stories demonstrate all visual states (labeled,
-  icon-only, loading, error). This phase is independent of phase 1.
+  **Phase 2 (Parser and Test Updates, tasks 3-5)** updates the parser, existing tests,
+  and rewrites spec YAML files.
 
-  **Phase 3 (Hook & Data Wiring, tasks 7-9)** creates the `useRepositoryActions` hook following
-  the `useFeatureActions` pattern (same state interface, no branch in POST body), extends
-  `RepositoryNodeData` with an optional `repositoryPath` field, and wires it from the server
-  component. This phase depends on phase 1 (API routes accept branch-optional).
-
-  **Phase 4 (UI Integration, tasks 10-12)** assembles everything on the repository node: renders
-  two `ActionButton` instances with tooltips, handles click propagation, adjusts the node width,
-  adds comprehensive stories, and runs the full validation suite. This phase depends on phases 2
-  and 3.
-
-  The total estimated effort is approximately 4 hours. All changes maintain strict backward
-  compatibility — no existing test should require modification (NFR-1).
+  **Phase 3 (Validation Tests, task 6)** writes 4 focused parsing tests.

@@ -35,12 +35,12 @@ Presentation → Application → Domain ← Infrastructure
 
 ## Layer Details
 
-### Domain Layer (`src/domain/`)
+### Domain Layer (`packages/core/src/domain/`)
 
 The innermost layer containing pure business logic.
 
 ```
-src/domain/
+packages/core/src/domain/
 ├── entities/
 │   ├── feature.ts          # Feature aggregate root
 │   ├── task.ts             # Task entity
@@ -67,7 +67,7 @@ src/domain/
 **Example Entity:**
 
 ```typescript
-// src/domain/entities/feature.ts
+// packages/core/src/domain/entities/feature.ts
 export class Feature {
   constructor(
     public readonly id: string,
@@ -97,12 +97,12 @@ export class Feature {
 }
 ```
 
-### Application Layer (`src/application/`)
+### Application Layer (`packages/core/src/application/`)
 
 Orchestrates domain logic through Use Cases.
 
 ```
-src/application/
+packages/core/src/application/
 ├── use-cases/
 │   ├── init-repository.ts
 │   ├── analyze-repository.ts
@@ -133,7 +133,7 @@ src/application/
 **Example Use Case:**
 
 ```typescript
-// src/application/use-cases/create-plan.ts
+// packages/core/src/application/use-cases/create-plan.ts
 export class CreatePlanUseCase {
   constructor(
     private readonly featureRepository: IFeatureRepository,
@@ -167,7 +167,7 @@ export class CreatePlanUseCase {
 **Example Port:**
 
 ```typescript
-// src/application/ports/output/feature-repository.port.ts
+// packages/core/src/application/ports/output/feature-repository.port.ts
 export interface IFeatureRepository {
   findById(id: string): Promise<Feature | null>;
   findByRepoPath(repoPath: string): Promise<Feature[]>;
@@ -176,12 +176,12 @@ export interface IFeatureRepository {
 }
 ```
 
-### Infrastructure Layer (`src/infrastructure/`)
+### Infrastructure Layer (`packages/core/src/infrastructure/`)
 
 Implements Application layer interfaces.
 
 ```
-src/infrastructure/
+packages/core/src/infrastructure/
 ├── repositories/
 │   ├── sqlite/
 │   │   ├── feature.repository.ts
@@ -214,7 +214,7 @@ src/infrastructure/
 **Example Repository:**
 
 ```typescript
-// src/infrastructure/repositories/sqlite/feature.repository.ts
+// packages/core/src/infrastructure/repositories/sqlite/feature.repository.ts
 export class SqliteFeatureRepository implements IFeatureRepository {
   constructor(private readonly db: Database) {}
 
@@ -282,7 +282,7 @@ src/presentation/
 Use a DI container to wire layers together:
 
 ```typescript
-// src/container.ts
+// packages/core/src/container.ts
 export function createContainer(config: Config): Container {
   const db = new Database(config.dbPath);
 

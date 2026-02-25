@@ -1,0 +1,52 @@
+feature:
+  id: 037-feature-pr-push-flags
+  name: feature-pr-push-flags
+  number: 37
+  branch: feat/feature-pr-push-flags
+  lifecycle: review
+  createdAt: '2026-02-23T12:00:13Z'
+
+status:
+  phase: in-review
+  progress:
+    completed: 5
+    total: 5
+    percentage: 100
+  currentTask: null
+  lastUpdated: '2026-02-23T18:00:00Z'
+  lastUpdatedBy: shep-kit:commit-pr
+  completedPhases:
+    - analyze
+    - requirements
+    - research
+    - plan
+    - phase-1
+    - phase-2
+    - phase-3
+
+prUrl: 'https://github.com/shep-ai/cli/pull/103'
+
+validation:
+  lastRun: null
+  gatesPassed: []
+  autoFixesApplied: []
+
+tasks:
+  current: null
+  blocked: []
+  failed: []
+
+checkpoints:
+  - phase: feature-created
+    completedAt: '2026-02-23T12:00:13Z'
+    completedBy: feature-agent
+  - phase: implementation-complete
+    completedAt: '2026-02-23T12:17:58Z'
+    completedBy: feature-agent:implement
+  - phase: pr-created
+    completedAt: '2026-02-23T18:00:00Z'
+    completedBy: shep-kit:commit-pr
+
+errors:
+  current: null
+  history: []

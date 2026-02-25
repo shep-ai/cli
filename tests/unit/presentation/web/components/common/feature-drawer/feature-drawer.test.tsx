@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { PrStatus, CiStatus } from '@shepai/core/domain/generated/output';
 import { FeatureDrawer } from '@/components/common/feature-drawer';
 import type { FeatureDrawerProps } from '@/components/common/feature-drawer';
 import { featureNodeStateConfig, lifecycleDisplayLabels } from '@/components/common/feature-node';
@@ -8,13 +10,17 @@ import type { FeatureNodeData, FeatureLifecyclePhase } from '@/components/common
 // Mock useFeatureActions hook
 const mockOpenInIde = vi.fn();
 const mockOpenInShell = vi.fn();
+const mockOpenSpecsFolder = vi.fn();
 let mockHookReturn = {
   openInIde: mockOpenInIde,
   openInShell: mockOpenInShell,
+  openSpecsFolder: mockOpenSpecsFolder,
   ideLoading: false,
   shellLoading: false,
+  specsLoading: false,
   ideError: null as string | null,
   shellError: null as string | null,
+  specsError: null as string | null,
 };
 
 vi.mock('@/components/common/feature-drawer/use-feature-actions', () => ({
@@ -46,13 +52,17 @@ describe('FeatureDrawer', () => {
     mockHookReturn = {
       openInIde: mockOpenInIde,
       openInShell: mockOpenInShell,
+      openSpecsFolder: mockOpenSpecsFolder,
       ideLoading: false,
       shellLoading: false,
+      specsLoading: false,
       ideError: null,
       shellError: null,
+      specsError: null,
     };
     mockOpenInIde.mockReset();
     mockOpenInShell.mockReset();
+    mockOpenSpecsFolder.mockReset();
   });
 
   describe('closed state', () => {
@@ -208,69 +218,50 @@ describe('FeatureDrawer', () => {
     });
   });
 
-  describe('action buttons', () => {
-    it('renders Open in IDE button when repositoryPath and branch are present', () => {
+  describe('open action menu', () => {
+    it('renders Open dropdown button when repositoryPath and branch are present', () => {
       renderDrawer(defaultData);
-      expect(screen.getByRole('button', { name: /open in ide/i })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /open/i })).toBeInTheDocument();
     });
 
-    it('renders Open in Shell button when repositoryPath and branch are present', () => {
-      renderDrawer(defaultData);
-      expect(screen.getByRole('button', { name: /open in shell/i })).toBeInTheDocument();
-    });
-
-    it('does not render action buttons when repositoryPath is empty', () => {
+    it('does not render Open button when repositoryPath is empty', () => {
       renderDrawer({ ...defaultData, repositoryPath: '', branch: 'feat/test' });
-      expect(screen.queryByRole('button', { name: /open in ide/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /open in shell/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^open$/i })).not.toBeInTheDocument();
     });
 
-    it('does not render action buttons when branch is empty', () => {
+    it('does not render Open button when branch is empty', () => {
       renderDrawer({ ...defaultData, repositoryPath: '/home/user/repo', branch: '' });
-      expect(screen.queryByRole('button', { name: /open in ide/i })).not.toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /open in shell/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole('button', { name: /^open$/i })).not.toBeInTheDocument();
     });
 
-    it('calls openInIde when IDE button is clicked', () => {
+    it('shows menu items when dropdown is opened', async () => {
+      const user = userEvent.setup();
       renderDrawer(defaultData);
-      screen.getByRole('button', { name: /open in ide/i }).click();
+      await user.click(screen.getByRole('button', { name: /open/i }));
+      expect(screen.getByText('IDE')).toBeInTheDocument();
+      expect(screen.getByText('Terminal')).toBeInTheDocument();
+    });
+
+    it('calls openInIde when IDE menu item is clicked', async () => {
+      const user = userEvent.setup();
+      renderDrawer(defaultData);
+      await user.click(screen.getByRole('button', { name: /open/i }));
+      await user.click(screen.getByText('IDE'));
       expect(mockOpenInIde).toHaveBeenCalledOnce();
     });
 
-    it('calls openInShell when Shell button is clicked', () => {
+    it('calls openInShell when Terminal menu item is clicked', async () => {
+      const user = userEvent.setup();
       renderDrawer(defaultData);
-      screen.getByRole('button', { name: /open in shell/i }).click();
+      await user.click(screen.getByRole('button', { name: /open/i }));
+      await user.click(screen.getByText('Terminal'));
       expect(mockOpenInShell).toHaveBeenCalledOnce();
     });
 
-    it('shows loading spinner on IDE button when ideLoading is true', () => {
+    it('disables Open button when any action is loading', () => {
       mockHookReturn = { ...mockHookReturn, ideLoading: true };
       renderDrawer(defaultData);
-      const button = screen.getByRole('button', { name: /open in ide/i });
-      expect(button).toBeDisabled();
-      expect(button.querySelector('.animate-spin')).toBeInTheDocument();
-    });
-
-    it('shows loading spinner on Shell button when shellLoading is true', () => {
-      mockHookReturn = { ...mockHookReturn, shellLoading: true };
-      renderDrawer(defaultData);
-      const button = screen.getByRole('button', { name: /open in shell/i });
-      expect(button).toBeDisabled();
-      expect(button.querySelector('.animate-spin')).toBeInTheDocument();
-    });
-
-    it('shows error styling on IDE button when ideError is set', () => {
-      mockHookReturn = { ...mockHookReturn, ideError: 'IDE not found' };
-      renderDrawer(defaultData);
-      const button = screen.getByRole('button', { name: /open in ide/i });
-      expect(button).toHaveClass('text-destructive');
-    });
-
-    it('shows error styling on Shell button when shellError is set', () => {
-      mockHookReturn = { ...mockHookReturn, shellError: 'Shell not available' };
-      renderDrawer(defaultData);
-      const button = screen.getByRole('button', { name: /open in shell/i });
-      expect(button).toHaveClass('text-destructive');
+      expect(screen.getByRole('button', { name: /open/i })).toBeDisabled();
     });
   });
 
@@ -346,6 +337,125 @@ describe('FeatureDrawer', () => {
 
       const triggerButton = screen.getByRole('button', { name: /delete feature/i });
       expect(triggerButton).toBeDisabled();
+    });
+  });
+
+  describe('PR info section', () => {
+    const prData: FeatureNodeData['pr'] = {
+      url: 'https://github.com/org/repo/pull/42',
+      number: 42,
+      status: PrStatus.Merged,
+      ciStatus: CiStatus.Success,
+      commitHash: 'abc1234567890',
+    };
+
+    it('renders PR section when pr data is provided', () => {
+      renderDrawer({ ...defaultData, state: 'done', progress: 100, pr: prData });
+      expect(screen.getByTestId('feature-drawer-pr')).toBeInTheDocument();
+    });
+
+    it('hides PR section when pr is undefined', () => {
+      renderDrawer({ ...defaultData, pr: undefined });
+      expect(screen.queryByTestId('feature-drawer-pr')).not.toBeInTheDocument();
+    });
+
+    it('displays PR number as link with correct href and text', () => {
+      renderDrawer({ ...defaultData, pr: prData });
+      const link = screen.getByRole('link', { name: /PR #42/i });
+      expect(link).toBeInTheDocument();
+      expect(link).toHaveAttribute('href', 'https://github.com/org/repo/pull/42');
+    });
+
+    it('PR link opens in new tab with noopener noreferrer', () => {
+      renderDrawer({ ...defaultData, pr: prData });
+      const link = screen.getByRole('link', { name: /PR #42/i });
+      expect(link).toHaveAttribute('target', '_blank');
+      expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+    });
+
+    it('displays blue badge for PrStatus.Open', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, status: PrStatus.Open },
+      });
+      const prSection = screen.getByTestId('feature-drawer-pr');
+      const badge = prSection.querySelector('[class*="bg-blue-50"]');
+      expect(badge).toBeInTheDocument();
+      expect(badge).toHaveTextContent('Open');
+    });
+
+    it('displays purple badge for PrStatus.Merged', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, status: PrStatus.Merged },
+      });
+      const badge = screen.getByText('Merged');
+      expect(badge).toBeInTheDocument();
+      expect(badge.className).toContain('bg-purple-50');
+    });
+
+    it('displays red badge for PrStatus.Closed', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, status: PrStatus.Closed },
+      });
+      const badge = screen.getByText('Closed');
+      expect(badge).toBeInTheDocument();
+      expect(badge.className).toContain('bg-red-50');
+    });
+
+    it('renders CiStatusBadge with "Passing" for CiStatus.Success', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, ciStatus: CiStatus.Success },
+      });
+      expect(screen.getByText('Passing')).toBeInTheDocument();
+    });
+
+    it('renders CiStatusBadge with "Pending" for CiStatus.Pending', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, ciStatus: CiStatus.Pending },
+      });
+      expect(screen.getByText('Pending')).toBeInTheDocument();
+    });
+
+    it('renders CiStatusBadge with "Failing" for CiStatus.Failure', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, ciStatus: CiStatus.Failure },
+      });
+      expect(screen.getByText('Failing')).toBeInTheDocument();
+    });
+
+    it('omits CI badge when ciStatus is undefined', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, ciStatus: undefined },
+      });
+      expect(screen.queryByText('Passing')).not.toBeInTheDocument();
+      expect(screen.queryByText('Pending')).not.toBeInTheDocument();
+      expect(screen.queryByText('Failing')).not.toBeInTheDocument();
+      expect(screen.queryByText('CI Status')).not.toBeInTheDocument();
+    });
+
+    it('displays first 7 chars of commit hash with font-mono', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, commitHash: 'abc1234567890' },
+      });
+      const code = screen.getByText('abc1234');
+      expect(code).toBeInTheDocument();
+      expect(code.tagName.toLowerCase()).toBe('code');
+      expect(code.className).toContain('font-mono');
+    });
+
+    it('omits commit hash when commitHash is undefined', () => {
+      renderDrawer({
+        ...defaultData,
+        pr: { ...prData, commitHash: undefined },
+      });
+      expect(screen.queryByText('Commit')).not.toBeInTheDocument();
     });
   });
 });

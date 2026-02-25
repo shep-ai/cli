@@ -60,12 +60,22 @@ describe('SQLiteSettingsRepository', () => {
         waitingApproval: true,
         agentCompleted: true,
         agentFailed: true,
+        prMerged: true,
+        prClosed: true,
+        prChecksPassed: true,
+        prChecksFailed: true,
       },
     },
     workflow: {
       openPrOnImplementationComplete: false,
-      autoMergeOnImplementationComplete: false,
+      approvalGateDefaults: {
+        allowPrd: false,
+        allowPlan: false,
+        allowMerge: false,
+        pushOnImplementationComplete: false,
+      },
     },
+    onboardingComplete: false,
   });
 
   beforeEach(async () => {

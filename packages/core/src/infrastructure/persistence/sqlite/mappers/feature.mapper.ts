@@ -26,6 +26,7 @@ export interface FeatureRow {
   name: string;
   slug: string;
   description: string;
+  user_query: string;
   repository_path: string;
   branch: string;
   lifecycle: string;
@@ -42,12 +43,18 @@ export interface FeatureRow {
   allow_plan: number;
   allow_merge: number;
   worktree_path: string | null;
+  // Repository reference
+  repository_id: string | null;
   // PR tracking (flat columns)
   pr_url: string | null;
   pr_number: number | null;
   pr_status: string | null;
   commit_hash: string | null;
   ci_status: string | null;
+  ci_fix_attempts: number | null;
+  ci_fix_history: string | null;
+  // Feature dependency
+  parent_id: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -65,6 +72,7 @@ export function toDatabase(feature: Feature): FeatureRow {
     name: feature.name,
     slug: feature.slug,
     description: feature.description,
+    user_query: feature.userQuery,
     repository_path: feature.repositoryPath,
     branch: feature.branch,
     lifecycle: feature.lifecycle,
@@ -81,12 +89,18 @@ export function toDatabase(feature: Feature): FeatureRow {
     allow_plan: feature.approvalGates?.allowPlan ? 1 : 0,
     allow_merge: feature.approvalGates?.allowMerge ? 1 : 0,
     worktree_path: feature.worktreePath ?? null,
+    // Repository reference
+    repository_id: feature.repositoryId ?? null,
     // Flatten pr to individual columns
     pr_url: feature.pr?.url ?? null,
     pr_number: feature.pr?.number ?? null,
     pr_status: feature.pr?.status ?? null,
     commit_hash: feature.pr?.commitHash ?? null,
     ci_status: feature.pr?.ciStatus ?? null,
+    ci_fix_attempts: feature.pr?.ciFixAttempts ?? null,
+    ci_fix_history: feature.pr?.ciFixHistory ? JSON.stringify(feature.pr.ciFixHistory) : null,
+    // Feature dependency
+    parent_id: feature.parentId ?? null,
     created_at: feature.createdAt instanceof Date ? feature.createdAt.getTime() : feature.createdAt,
     updated_at: feature.updatedAt instanceof Date ? feature.updatedAt.getTime() : feature.updatedAt,
   };
@@ -105,6 +119,7 @@ export function fromDatabase(row: FeatureRow): Feature {
     name: row.name,
     slug: row.slug,
     description: row.description,
+    userQuery: row.user_query,
     repositoryPath: row.repository_path,
     branch: row.branch,
     lifecycle: row.lifecycle as SdlcLifecycle,
@@ -112,9 +127,9 @@ export function fromDatabase(row: FeatureRow): Feature {
     relatedArtifacts: JSON.parse(row.related_artifacts),
     createdAt: new Date(row.created_at),
     updatedAt: new Date(row.updated_at),
-    ...(row.plan !== null && { plan: JSON.parse(row.plan) }),
-    ...(row.agent_run_id !== null && { agentRunId: row.agent_run_id }),
-    ...(row.spec_path !== null && { specPath: row.spec_path }),
+    ...(row.plan != null && { plan: JSON.parse(row.plan) }),
+    ...(row.agent_run_id != null && { agentRunId: row.agent_run_id }),
+    ...(row.spec_path != null && { specPath: row.spec_path }),
     // Assemble workflow flags from flat columns
     push: row.push === 1,
     openPr: row.open_pr === 1,
@@ -123,16 +138,22 @@ export function fromDatabase(row: FeatureRow): Feature {
       allowPlan: row.allow_plan === 1,
       allowMerge: row.allow_merge === 1,
     },
-    ...(row.worktree_path !== null && { worktreePath: row.worktree_path }),
+    ...(row.worktree_path != null && { worktreePath: row.worktree_path }),
+    // Repository reference
+    ...(row.repository_id != null && { repositoryId: row.repository_id }),
     // Assemble pr from flat columns (only when pr_url exists)
-    ...(row.pr_url !== null && {
+    ...(row.pr_url != null && {
       pr: {
         url: row.pr_url,
         number: row.pr_number!,
         status: row.pr_status as PrStatus,
-        ...(row.commit_hash !== null && { commitHash: row.commit_hash }),
-        ...(row.ci_status !== null && { ciStatus: row.ci_status as CiStatus }),
+        ...(row.commit_hash != null && { commitHash: row.commit_hash }),
+        ...(row.ci_status != null && { ciStatus: row.ci_status as CiStatus }),
+        ...(row.ci_fix_attempts != null && { ciFixAttempts: row.ci_fix_attempts }),
+        ...(row.ci_fix_history != null && { ciFixHistory: JSON.parse(row.ci_fix_history) }),
       },
     }),
+    // Feature dependency
+    ...(row.parent_id != null && { parentId: row.parent_id }),
   };
 }

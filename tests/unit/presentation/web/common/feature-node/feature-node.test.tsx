@@ -170,8 +170,39 @@ describe('FeatureNode', () => {
       expect(screen.getByTestId('feature-node-badge')).toBeInTheDocument();
     });
 
-    it('shows "User action required" text', () => {
-      renderFeatureNode({ state: 'action-required', progress: 60 });
+    it('shows "Review Merge Request" badge in review lifecycle', () => {
+      renderFeatureNode({ state: 'action-required', lifecycle: 'review', progress: 60 });
+      expect(screen.getByText('Review Merge Request')).toBeInTheDocument();
+    });
+
+    it('applies emerald badge classes in review lifecycle', () => {
+      renderFeatureNode({ state: 'action-required', lifecycle: 'review', progress: 60 });
+      const badge = screen.getByTestId('feature-node-badge');
+      expect(badge.className).toContain('text-emerald-700');
+      expect(badge.className).toContain('bg-emerald-50');
+    });
+
+    it('shows "Review Product Requirements" badge in requirements lifecycle', () => {
+      renderFeatureNode({
+        state: 'action-required',
+        lifecycle: 'requirements',
+      });
+      expect(screen.getByText('Review Product Requirements')).toBeInTheDocument();
+    });
+
+    it('shows "Review Technical Planning" badge in implementation lifecycle', () => {
+      renderFeatureNode({
+        state: 'action-required',
+        lifecycle: 'implementation',
+      });
+      expect(screen.getByText('Review Technical Planning')).toBeInTheDocument();
+    });
+
+    it('shows default "User action required" badge in other lifecycles', () => {
+      renderFeatureNode({
+        state: 'action-required',
+        lifecycle: 'research',
+      });
       expect(screen.getByText('User action required')).toBeInTheDocument();
     });
   });

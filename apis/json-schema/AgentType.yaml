@@ -1,0 +1,11 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentType.yaml
+type: string
+enum:
+  - claude-code
+  - gemini-cli
+  - aider
+  - continue
+  - cursor
+  - dev
+description: AI coding agent tool selection

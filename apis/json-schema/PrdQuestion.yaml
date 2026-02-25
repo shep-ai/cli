@@ -1,0 +1,25 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PrdQuestion.yaml
+type: object
+properties:
+  id:
+    type: string
+    description: Unique identifier for this question
+  question:
+    type: string
+    description: The question text displayed to the user
+  type:
+    type: string
+    const: select
+    description: Question interaction type (currently only single-select)
+  options:
+    type: array
+    items:
+      $ref: PrdOption.yaml
+    description: Available options for this question
+required:
+  - id
+  - question
+  - type
+  - options
+description: A single question in the PRD questionnaire with selectable options

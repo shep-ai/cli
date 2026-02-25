@@ -1,0 +1,18 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: TasksArtifact.yaml
+type: object
+properties:
+  tasks:
+    type: array
+    items:
+      $ref: SpecTask.yaml
+    description: Structured task list with acceptance criteria and TDD phases
+  totalEstimate:
+    type: string
+    description: Overall effort estimate for all tasks combined
+required:
+  - tasks
+  - totalEstimate
+allOf:
+  - $ref: SpecArtifactBase.yaml
+description: Task breakdown artifact defining implementation tasks grouped into phases

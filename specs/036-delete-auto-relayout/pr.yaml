@@ -1,0 +1,9 @@
+title: 'feat: delete-auto-relayout'
+body: |+
+  ## Summary
+
+baseBranch: main
+headBranch: feat/delete-auto-relayout
+labels:
+  - feature
+draft: false

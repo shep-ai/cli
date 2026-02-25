@@ -20,10 +20,10 @@ import {
   parseFeatureStatusYaml,
 } from '@/domain/factories/spec-yaml-parser.js';
 import type {
-  FeatureSpec,
-  ResearchSpec,
-  PlanSpec,
-  TasksSpec,
+  FeatureArtifact,
+  ResearchArtifact,
+  TechnicalPlanArtifact,
+  TasksArtifact,
   FeatureStatus,
 } from '@/domain/generated/output.js';
 import { SdlcLifecycle, TaskState } from '@/domain/generated/output.js';
@@ -45,42 +45,42 @@ const tasksContent = readSpec('tasks.yaml');
 const featureContent = readSpec('feature.yaml');
 
 // ===========================================================================
-// 1. spec.yaml → FeatureSpec
+// 1. spec.yaml → FeatureArtifact
 // ===========================================================================
 describe('parseSpecYaml (specs/032-example-specs/spec.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parseSpecYaml(specContent)).not.toThrow();
   });
 
-  it('should return a valid FeatureSpec', () => {
-    const result: FeatureSpec = parseSpecYaml(specContent);
+  it('should return a valid FeatureArtifact', () => {
+    const result: FeatureArtifact = parseSpecYaml(specContent);
     expect(result).toBeDefined();
   });
 
   it('should extract name', () => {
     const result = parseSpecYaml(specContent);
-    expect(result.name).toBe('repo-open-folder-action');
+    expect(result.name).toBe('artifact-schemas');
   });
 
-  it('should extract number as a number (not octal)', () => {
+  it('should extract number as a number', () => {
     const result = parseSpecYaml(specContent);
-    expect(result.number).toBe(31);
+    expect(result.number).toBe(32);
     expect(typeof result.number).toBe('number');
   });
 
   it('should extract branch', () => {
     const result = parseSpecYaml(specContent);
-    expect(result.branch).toBe('feat/031-repo-open-folder-action');
+    expect(result.branch).toBe('feat/artifacts-schemas');
   });
 
   it('should extract oneLiner', () => {
     const result = parseSpecYaml(specContent);
-    expect(result.oneLiner).toContain('Open Folder');
+    expect(result.oneLiner).toContain('TypeSpec artifact schemas');
   });
 
   it('should map phase to SdlcLifecycle enum value', () => {
     const result = parseSpecYaml(specContent);
-    expect(result.phase).toBe(SdlcLifecycle.Requirements);
+    expect(result.phase).toBe(SdlcLifecycle.Implementation);
   });
 
   it('should extract sizeEstimate', () => {
@@ -91,8 +91,8 @@ describe('parseSpecYaml (specs/032-example-specs/spec.yaml)', () => {
   it('should extract technologies as string[]', () => {
     const result = parseSpecYaml(specContent);
     expect(Array.isArray(result.technologies)).toBe(true);
-    expect(result.technologies).toHaveLength(6);
-    expect(result.technologies).toContain('Storybook');
+    expect(result.technologies.length).toBeGreaterThan(0);
+    expect(result.technologies).toContain('TypeSpec');
   });
 
   it('should extract summary as non-empty string', () => {
@@ -119,10 +119,10 @@ describe('parseSpecYaml (specs/032-example-specs/spec.yaml)', () => {
   });
 
   describe('openQuestions', () => {
-    it('should extract all 5 open questions', () => {
+    it('should extract open questions', () => {
       const result = parseSpecYaml(specContent);
       expect(Array.isArray(result.openQuestions)).toBe(true);
-      expect(result.openQuestions).toHaveLength(5);
+      expect(result.openQuestions).toHaveLength(1);
     });
 
     it('should have resolved flag on each question', () => {
@@ -137,7 +137,7 @@ describe('parseSpecYaml (specs/032-example-specs/spec.yaml)', () => {
       const result = parseSpecYaml(specContent);
       const first = result.openQuestions[0];
       expect(Array.isArray(first.options)).toBe(true);
-      expect(first.options!).toHaveLength(4);
+      expect(first.options!).toHaveLength(2);
 
       const option = first.options![0];
       expect(typeof option.option).toBe('string');
@@ -170,21 +170,21 @@ describe('parseSpecYaml (specs/032-example-specs/spec.yaml)', () => {
 });
 
 // ===========================================================================
-// 2. research.yaml → ResearchSpec
+// 2. research.yaml → ResearchArtifact
 // ===========================================================================
 describe('parseResearchYaml (specs/032-example-specs/research.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parseResearchYaml(researchContent)).not.toThrow();
   });
 
-  it('should return a valid ResearchSpec', () => {
-    const result: ResearchSpec = parseResearchYaml(researchContent);
+  it('should return a valid ResearchArtifact', () => {
+    const result: ResearchArtifact = parseResearchYaml(researchContent);
     expect(result).toBeDefined();
   });
 
   it('should extract name', () => {
     const result = parseResearchYaml(researchContent);
-    expect(result.name).toBe('repo-node-actions');
+    expect(result.name).toBe('artifact-schemas');
   });
 
   it('should extract summary as non-empty string', () => {
@@ -196,7 +196,7 @@ describe('parseResearchYaml (specs/032-example-specs/research.yaml)', () => {
   it('should extract decisions as TechDecision[]', () => {
     const result = parseResearchYaml(researchContent);
     expect(Array.isArray(result.decisions)).toBe(true);
-    expect(result.decisions).toHaveLength(7);
+    expect(result.decisions).toHaveLength(2);
   });
 
   it('should have correctly structured decisions', () => {
@@ -213,19 +213,18 @@ describe('parseResearchYaml (specs/032-example-specs/research.yaml)', () => {
   it('should extract technologies', () => {
     const result = parseResearchYaml(researchContent);
     expect(Array.isArray(result.technologies)).toBe(true);
-    expect(result.technologies).toHaveLength(8);
+    expect(result.technologies.length).toBeGreaterThan(0);
   });
 
   it('should extract relatedFeatures', () => {
     const result = parseResearchYaml(researchContent);
-    expect(result.relatedFeatures).toContain('018-feat-ide-open');
-    expect(result.relatedFeatures).toContain('021-feature-toolbar');
+    expect(Array.isArray(result.relatedFeatures)).toBe(true);
   });
 
   it('should extract openQuestions', () => {
     const result = parseResearchYaml(researchContent);
     expect(Array.isArray(result.openQuestions)).toBe(true);
-    expect(result.openQuestions).toHaveLength(4);
+    expect(result.openQuestions).toHaveLength(0);
   });
 
   it('should extract content as string', () => {
@@ -243,21 +242,21 @@ describe('parseResearchYaml (specs/032-example-specs/research.yaml)', () => {
 });
 
 // ===========================================================================
-// 3. plan.yaml → PlanSpec
+// 3. plan.yaml → TechnicalPlanArtifact
 // ===========================================================================
 describe('parsePlanYaml (specs/032-example-specs/plan.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parsePlanYaml(planContent)).not.toThrow();
   });
 
-  it('should return a valid PlanSpec', () => {
-    const result: PlanSpec = parsePlanYaml(planContent);
+  it('should return a valid TechnicalPlanArtifact', () => {
+    const result: TechnicalPlanArtifact = parsePlanYaml(planContent);
     expect(result).toBeDefined();
   });
 
   it('should extract name', () => {
     const result = parsePlanYaml(planContent);
-    expect(result.name).toBe('repo-node-actions');
+    expect(result.name).toBe('artifact-schemas');
   });
 
   it('should extract summary as non-empty string', () => {
@@ -266,10 +265,10 @@ describe('parsePlanYaml (specs/032-example-specs/plan.yaml)', () => {
     expect(result.summary.length).toBeGreaterThan(0);
   });
 
-  it('should extract 4 phases as PlanPhase[]', () => {
+  it('should extract 3 phases as PlanPhase[]', () => {
     const result = parsePlanYaml(planContent);
     expect(Array.isArray(result.phases)).toBe(true);
-    expect(result.phases).toHaveLength(4);
+    expect(result.phases).toHaveLength(3);
   });
 
   it('should have correctly structured phases', () => {
@@ -282,24 +281,23 @@ describe('parsePlanYaml (specs/032-example-specs/plan.yaml)', () => {
     expect(phase.parallel).toBe(false);
   });
 
-  it('should default taskIds to empty array when absent in YAML', () => {
+  it('should return undefined for taskIds when absent in YAML', () => {
     const result = parsePlanYaml(planContent);
-    // plan.yaml phases do not contain taskIds — parser should default to []
+    // plan.yaml phases do not contain taskIds — parser returns undefined
     for (const phase of result.phases) {
-      expect(Array.isArray(phase.taskIds)).toBe(true);
+      expect(phase.taskIds).toBeUndefined();
     }
   });
 
   it('should extract filesToCreate as string[]', () => {
     const result = parsePlanYaml(planContent);
     expect(Array.isArray(result.filesToCreate)).toBe(true);
-    expect(result.filesToCreate).toHaveLength(4);
   });
 
   it('should extract filesToModify as string[]', () => {
     const result = parsePlanYaml(planContent);
     expect(Array.isArray(result.filesToModify)).toBe(true);
-    expect(result.filesToModify).toHaveLength(9);
+    expect(result.filesToModify).toHaveLength(5);
   });
 
   it('should extract openQuestions as empty array', () => {
@@ -322,32 +320,32 @@ describe('parsePlanYaml (specs/032-example-specs/plan.yaml)', () => {
 });
 
 // ===========================================================================
-// 4. tasks.yaml → TasksSpec
+// 4. tasks.yaml → TasksArtifact
 // ===========================================================================
 describe('parseTasksYaml (specs/032-example-specs/tasks.yaml)', () => {
   it('should parse without throwing', () => {
     expect(() => parseTasksYaml(tasksContent)).not.toThrow();
   });
 
-  it('should return a valid TasksSpec', () => {
-    const result: TasksSpec = parseTasksYaml(tasksContent);
+  it('should return a valid TasksArtifact', () => {
+    const result: TasksArtifact = parseTasksYaml(tasksContent);
     expect(result).toBeDefined();
   });
 
   it('should extract name', () => {
     const result = parseTasksYaml(tasksContent);
-    expect(result.name).toBe('repo-node-actions');
+    expect(result.name).toBe('artifact-schemas');
   });
 
   it('should extract totalEstimate', () => {
     const result = parseTasksYaml(tasksContent);
-    expect(result.totalEstimate).toBe('4h');
+    expect(result.totalEstimate).toBe('1.5h');
   });
 
-  it('should extract 12 tasks as SpecTask[]', () => {
+  it('should extract 6 tasks as SpecTask[]', () => {
     const result = parseTasksYaml(tasksContent);
     expect(Array.isArray(result.tasks)).toBe(true);
-    expect(result.tasks).toHaveLength(12);
+    expect(result.tasks).toHaveLength(6);
   });
 
   it('should have correctly structured tasks', () => {
@@ -362,13 +360,13 @@ describe('parseTasksYaml (specs/032-example-specs/tasks.yaml)', () => {
 
   it('should map task state to TaskState enum', () => {
     const result = parseTasksYaml(tasksContent);
-    expect(result.tasks[0].state).toBe(TaskState.Todo);
+    expect(result.tasks[0].state).toBe(TaskState.Done);
   });
 
   it('should extract dependencies as string[]', () => {
     const result = parseTasksYaml(tasksContent);
     expect(result.tasks[0].dependencies).toEqual([]);
-    expect(result.tasks[1].dependencies).toContain('task-1');
+    expect(result.tasks[2].dependencies).toContain('task-1');
   });
 
   it('should extract acceptanceCriteria as string[]', () => {

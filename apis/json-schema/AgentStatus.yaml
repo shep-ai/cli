@@ -1,0 +1,9 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentStatus.yaml
+type: string
+enum:
+  - Idle
+  - Running
+  - Paused
+  - Stopped
+description: Operational states for AI agents

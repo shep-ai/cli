@@ -30,3 +30,11 @@ export type {
   PrCreateResult,
 } from './git-pr-service.interface.js';
 export { GitPrError, GitPrErrorCode } from './git-pr-service.interface.js';
+export type {
+  IIdeLauncherService,
+  LaunchIdeInput,
+  LaunchIdeResult,
+  LaunchIdeSuccess,
+  LaunchIdeFailed,
+} from './ide-launcher-service.interface.js';
+export type { IDaemonService, DaemonState } from './daemon-service.interface.js';

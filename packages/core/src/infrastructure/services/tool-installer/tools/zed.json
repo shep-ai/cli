@@ -2,7 +2,8 @@
   "name": "Zed",
   "summary": "High-performance code editor written in Rust",
   "description": "Zed is a high-performance code editor written in Rust, designed for speed and collaboration with modern developer workflows.",
-  "category": "ide",
+  "tags": ["ide"],
+  "iconUrl": "https://cdn.simpleicons.org/zedindustries",
   "binary": "zed",
   "packageManager": "curl",
   "commands": {
@@ -13,5 +14,5 @@
   "documentationUrl": "https://zed.dev/docs/installation",
   "verifyCommand": "zed --version",
   "autoInstall": true,
-  "openDirectory": "zed ."
+  "openDirectory": "zed {dir}"
 }

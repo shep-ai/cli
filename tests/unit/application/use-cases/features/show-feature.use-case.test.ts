@@ -20,6 +20,7 @@ function createMockFeature(id: string): Feature {
     name: 'Test',
     slug: 'test',
     description: 'Test feature',
+    userQuery: 'test user query',
     repositoryPath: '/repo',
     branch: 'feat/test',
     lifecycle: SdlcLifecycle.Requirements,
@@ -44,6 +45,7 @@ describe('ShowFeatureUseCase', () => {
       findByIdPrefix: vi.fn().mockResolvedValue(null),
       findBySlug: vi.fn(),
       list: vi.fn(),
+      findByParentId: vi.fn().mockResolvedValue([]),
       update: vi.fn(),
       delete: vi.fn(),
     };

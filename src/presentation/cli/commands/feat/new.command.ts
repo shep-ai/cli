@@ -16,6 +16,8 @@ import { join } from 'node:path';
 import { container } from '@/infrastructure/di/container.js';
 import { CreateFeatureUseCase } from '@/application/use-cases/features/create/create-feature.use-case.js';
 import type { ApprovalGates } from '@/domain/generated/output.js';
+import { SdlcLifecycle } from '@/domain/generated/output.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { colors, messages, spinner } from '../../ui/index.js';
 import { getShepHomeDir } from '@/infrastructure/services/filesystem/shep-directory.service.js';
 import { getSettings, hasSettings } from '@/infrastructure/services/settings.service.js';
@@ -28,18 +30,32 @@ interface NewOptions {
   allowPlan?: boolean;
   allowMerge?: boolean;
   allowAll?: boolean;
+  parent?: string;
 }
 
 /**
  * Read workflow defaults from settings, falling back to false if settings unavailable.
  */
-function getWorkflowDefaults(): { openPr: boolean } {
+interface WorkflowDefaults {
+  openPr: boolean;
+  allowPrd: boolean;
+  allowPlan: boolean;
+  allowMerge: boolean;
+  push: boolean;
+}
+
+function getWorkflowDefaults(): WorkflowDefaults {
   if (!hasSettings()) {
-    return { openPr: false };
+    return { openPr: false, allowPrd: false, allowPlan: false, allowMerge: false, push: false };
   }
   const settings = getSettings();
+  const gates = settings.workflow.approvalGateDefaults;
   return {
     openPr: settings.workflow.openPrOnImplementationComplete,
+    allowPrd: gates.allowPrd,
+    allowPlan: gates.allowPlan,
+    allowMerge: gates.allowMerge,
+    push: gates.pushOnImplementationComplete,
   };
 }
 
@@ -58,6 +74,7 @@ export function createNewCommand(): Command {
     .option('--allow-plan', 'Auto-approve through planning, pause at implementation')
     .option('--allow-merge', 'Auto-approve merge phase')
     .option('--allow-all', 'Run fully autonomous (no approval pauses)')
+    .option('--parent <fid>', 'Parent feature ID (full or partial prefix)')
     .action(async (description: string, options: NewOptions) => {
       try {
         const useCase = container.resolve(CreateFeatureUseCase);
@@ -67,16 +84,29 @@ export function createNewCommand(): Command {
         const defaults = getWorkflowDefaults();
         const openPr = options.pr ?? defaults.openPr;
 
-        // Build approval gates from flags (each flag controls only its own step)
+        // Build approval gates from flags, falling back to settings defaults
         const approvalGates: ApprovalGates = options.allowAll
           ? { allowPrd: true, allowPlan: true, allowMerge: true }
           : {
-              allowPrd: !!options.allowPrd,
-              allowPlan: !!options.allowPlan,
-              allowMerge: !!options.allowMerge,
+              allowPrd: options.allowPrd ?? defaults.allowPrd,
+              allowPlan: options.allowPlan ?? defaults.allowPlan,
+              allowMerge: options.allowMerge ?? defaults.allowMerge,
             };
 
-        const push = !!options.push;
+        const push = options.push ?? defaults.push;
+
+        // Resolve parent feature ID if --parent flag is provided
+        let parentId: string | undefined;
+        if (options.parent) {
+          const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
+          const parentFeature = await featureRepo.findByIdPrefix(options.parent);
+          if (!parentFeature) {
+            messages.error(`Parent feature not found: ${options.parent}`);
+            process.exitCode = 1;
+            return;
+          }
+          parentId = parentFeature.id;
+        }
 
         const result = await spinner('Thinking', () =>
           useCase.execute({
@@ -85,6 +115,7 @@ export function createNewCommand(): Command {
             approvalGates,
             push,
             openPr,
+            ...(parentId !== undefined && { parentId }),
           })
         );
 
@@ -98,6 +129,11 @@ export function createNewCommand(): Command {
           messages.warning(warning);
         }
         messages.success('Feature created');
+        if (feature.lifecycle === SdlcLifecycle.Blocked) {
+          messages.info(
+            `Feature created in Blocked state — waiting for parent to reach Implementation`
+          );
+        }
         console.log(`  ${colors.muted('ID:')}       ${colors.accent(feature.id)}`);
         console.log(`  ${colors.muted('Name:')}     ${feature.name}`);
         console.log(`  ${colors.muted('Branch:')}   ${colors.accent(feature.branch)}`);

@@ -5,6 +5,8 @@
  * Implementations manage PR creation, merging, and CI status checks.
  */
 
+import type { PrStatus } from '../../../../domain/generated/output.js';
+
 /**
  * Error codes for git PR operations.
  */
@@ -76,6 +78,20 @@ export interface PrCreateResult {
 }
 
 /**
+ * PR status information returned by batch status queries.
+ */
+export interface PrStatusInfo {
+  /** PR number */
+  number: number;
+  /** Current PR state (Open, Merged, or Closed) */
+  state: PrStatus;
+  /** URL of the pull request */
+  url: string;
+  /** Head branch name of the PR */
+  headRefName: string;
+}
+
+/**
  * Merge strategy for pull requests.
  */
 export type MergeStrategy = 'squash' | 'merge' | 'rebase';
@@ -84,6 +100,25 @@ export type MergeStrategy = 'squash' | 'merge' | 'rebase';
  * Service interface for git PR and merge operations.
  */
 export interface IGitPrService {
+  /**
+   * Check if the repository has any configured git remotes.
+   *
+   * @param cwd - Working directory path
+   * @returns True if at least one remote is configured
+   */
+  hasRemote(cwd: string): Promise<boolean>;
+
+  /**
+   * Detect the repository's default branch with robust fallback chain:
+   * 1. Remote HEAD (git symbolic-ref refs/remotes/origin/HEAD)
+   * 2. Local branches named main or master (in that order)
+   * 3. Current branch (git symbolic-ref HEAD)
+   *
+   * @param cwd - Working directory path
+   * @returns The default branch name (e.g. "main", "master", "develop")
+   */
+  getDefaultBranch(cwd: string): Promise<string>;
+
   /**
    * Check if the working directory has uncommitted changes.
    *
@@ -183,4 +218,38 @@ export interface IGitPrService {
    * @throws GitPrError with GIT_ERROR code
    */
   getPrDiffSummary(cwd: string, baseBranch: string): Promise<DiffSummary>;
+
+  /**
+   * List PR statuses for all open and recently-updated PRs in a repository.
+   *
+   * @param cwd - Working directory path (repository root)
+   * @returns Array of PR status info with number, state, and URL
+   * @throws GitPrError with GH_NOT_FOUND, AUTH_FAILURE, or GIT_ERROR code
+   */
+  listPrStatuses(cwd: string): Promise<PrStatusInfo[]>;
+
+  /**
+   * Verify that a feature branch has been merged into a base branch.
+   * Uses `git merge-base --is-ancestor` to check if featureBranch
+   * is an ancestor of baseBranch (meaning all its commits are reachable).
+   *
+   * @param cwd - Working directory path
+   * @param featureBranch - The branch that should have been merged
+   * @param baseBranch - The branch that should contain the merge
+   * @returns True if featureBranch is an ancestor of baseBranch
+   */
+  verifyMerge(cwd: string, featureBranch: string, baseBranch: string): Promise<boolean>;
+
+  /**
+   * Retrieve failure logs for a CI run via `gh run view --log-failed`.
+   * Output is truncated to the first `logMaxChars` characters (head truncation).
+   * A notice is appended when truncation occurs.
+   *
+   * @param runId - GitHub Actions run ID (numeric string)
+   * @param branch - Branch name (informational, used in truncation notice)
+   * @param logMaxChars - Maximum characters to return (default 50_000)
+   * @returns Truncated failure log output
+   * @throws GitPrError with GH_NOT_FOUND or GIT_ERROR code on failure
+   */
+  getFailureLogs(runId: string, branch: string, logMaxChars?: number): Promise<string>;
 }

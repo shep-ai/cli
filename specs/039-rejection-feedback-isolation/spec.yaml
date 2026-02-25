@@ -1,0 +1,87 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+# Retroactive spec: documents work implemented without prior specification.
+
+name: rejection-feedback-isolation
+number: 039
+branch: feat/realtime-feature-status
+oneLiner: Isolate rejection feedback by phase so plan/merge prompts receive only their relevant feedback
+userQuery: >
+  Fix: rejection feedback from one phase (e.g., PRD) should not leak into prompts for
+  another phase (e.g., plan). Each phase should only see its own rejection context.
+summary: >
+  Fix two bugs in the agent rejection flow: (1) the merge node entered an infinite
+  rejection loop because it re-emitted the same approval request without incorporating
+  user feedback, and (2) rejection feedback was not isolated by phase — a requirements
+  rejection message would leak into the plan prompt, confusing the LLM. The fix rewrites
+  the merge node to properly consume rejection feedback and route it to the correct
+  prompt, and updates plan/requirements/merge prompts to only receive phase-specific
+  rejection context. Also extends the reject-agent-run use case to store phase metadata
+  with rejection entries, and registers a REJECT_FEEDBACK_TOKEN in the DI container.
+phase: Implementation
+sizeEstimate: S
+
+relatedFeatures:
+  - 036-drawer-approval-rejection
+
+technologies:
+  - LangGraph (agent graph nodes, state annotations)
+  - tsyringe (DI container, injection tokens)
+  - TypeSpec-generated RejectionFeedbackEntry model
+
+relatedLinks: []
+
+openQuestions: []
+
+content: |
+  ## Problem Statement
+
+  Two related bugs in the agent rejection flow:
+
+  1. **Merge node rejection loop**: When a user rejected the merge approval, the merge
+     node would re-request approval without incorporating the rejection feedback. This
+     created an infinite loop where the agent kept asking for the same approval.
+
+  2. **Cross-phase feedback leakage**: Rejection feedback was stored as a flat array on
+     the agent run state. When the agent re-entered a phase after rejection, ALL rejection
+     messages (from any phase) were included in the prompt. A requirements rejection
+     message appearing in the plan prompt confused the LLM.
+
+  ## Success Criteria
+
+  - [x] Merge node properly consumes rejection feedback and adjusts behavior
+  - [x] Plan prompt only receives plan-phase rejection feedback
+  - [x] Requirements prompt only receives requirements-phase rejection feedback
+  - [x] Merge prompt only receives merge-phase rejection feedback
+  - [x] RejectionFeedbackEntry includes phase field for isolation
+  - [x] reject-agent-run use case stores phase with rejection entries
+  - [x] DI container registers REJECT_FEEDBACK_TOKEN
+  - [x] Integration tests verify rejection feedback propagation per phase
+  - [x] Merge flow integration tests verify no infinite loop
+
+  ## Functional Requirements
+
+  - **FR-1: Phase-Tagged Rejections** — reject-agent-run use case stores the current
+    agent phase (analyze, requirements, research, plan, implement, merge) with each
+    RejectionFeedbackEntry so feedback can be filtered by phase.
+
+  - **FR-2: Merge Node Rewrite** — merge.node.ts properly handles rejection by:
+    (a) reading the rejection feedback from state, (b) including it in the merge prompt,
+    (c) re-running the merge logic with the user's feedback incorporated.
+
+  - **FR-3: Prompt Isolation** — plan.prompt.ts, requirements.prompt.ts, and
+    merge-prompts.ts filter RejectionFeedbackEntry[] by phase before including in prompts.
+
+  - **FR-4: DI Registration** — REJECT_FEEDBACK_TOKEN registered in container.ts to
+    support injection of rejection feedback state.
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/merge.node.ts` | High | Rewritten to handle rejection loop |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/merge-prompts.ts` | High | Enhanced for rejection context |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/plan.prompt.ts` | Medium | Phase-filtered rejection feedback |
+  | `packages/core/src/infrastructure/services/agents/feature-agent/nodes/prompts/requirements.prompt.ts` | Medium | Phase-filtered rejection feedback |
+  | `packages/core/src/application/use-cases/agents/reject-agent-run.use-case.ts` | Medium | Stores phase with rejection |
+  | `packages/core/src/infrastructure/di/container.ts` | Low | REJECT_FEEDBACK_TOKEN registration |

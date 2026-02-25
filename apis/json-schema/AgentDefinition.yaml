@@ -1,0 +1,14 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: AgentDefinition.yaml
+type: object
+properties:
+  name:
+    type: string
+    description: Unique agent workflow name (e.g., analyze-repository)
+  description:
+    type: string
+    description: Human-readable description of what this agent does
+required:
+  - name
+  - description
+description: Agent workflow registration metadata

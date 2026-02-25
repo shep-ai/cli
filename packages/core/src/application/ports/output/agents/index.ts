@@ -18,3 +18,13 @@ export type { IAgentRunRepository } from './agent-run-repository.interface.js';
 export type { IPhaseTimingRepository } from './phase-timing-repository.interface.js';
 export type { IAgentValidator, AgentValidationResult } from './agent-validator.interface.js';
 export type { IFeatureAgentProcessService } from './feature-agent-process.interface.js';
+export type {
+  IStructuredAgentCaller,
+  StructuredCallOptions,
+} from './structured-agent-caller.interface.js';
+export { StructuredCallError } from './structured-call-error.js';
+export type {
+  IAgentSessionRepository,
+  ListSessionsOptions,
+  GetSessionOptions,
+} from './agent-session-repository.interface.js';

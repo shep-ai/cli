@@ -158,15 +158,42 @@ export const WithActionsAndAddButton: Story = {
   render: (args) => <RepositoryNodeCanvas data={args} />,
 };
 
+const onDelete = () => undefined;
+
+export const WithDeleteButton: Story = {
+  args: {
+    id: 'repo-abc-123',
+    repositoryPath: '/home/user/shep-ai/cli',
+  },
+  argTypes: {
+    onDelete: { action: 'onDelete' },
+  },
+  render: (args) => <RepositoryNodeCanvas data={args} style={{ width: 550, height: 250 }} />,
+};
+
 const multipleReposWithActions: RepositoryNodeData[] = [
-  { name: 'shep-ai/cli', repositoryPath: '/home/user/shep-ai/cli', onAdd },
-  { name: 'vercel/edge-runtime', repositoryPath: '/home/user/vercel/edge-runtime', onAdd },
+  { id: 'r1', name: 'shep-ai/cli', repositoryPath: '/home/user/shep-ai/cli', onAdd, onDelete },
   {
+    id: 'r2',
+    name: 'vercel/edge-runtime',
+    repositoryPath: '/home/user/vercel/edge-runtime',
+    onAdd,
+    onDelete,
+  },
+  {
+    id: 'r3',
     name: 'acme-corp/web-dashboard-v2',
     repositoryPath: '/home/user/acme-corp/web-dashboard-v2',
     onAdd,
+    onDelete,
   },
-  { name: 'openai/tiktoken', repositoryPath: '/home/user/openai/tiktoken', onAdd },
+  {
+    id: 'r4',
+    name: 'openai/tiktoken',
+    repositoryPath: '/home/user/openai/tiktoken',
+    onAdd,
+    onDelete,
+  },
 ];
 
 export const MultipleWithActions: Story = {

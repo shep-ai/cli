@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: RejectionFeedbackEntry.yaml
+type: object
+properties:
+  iteration:
+    type: integer
+    minimum: -2147483648
+    maximum: 2147483647
+    description: Iteration number (1-based)
+  message:
+    type: string
+    description: User's feedback message explaining what needs to change
+  phase:
+    type: string
+    description: Which phase was rejected (e.g. 'requirements', 'plan')
+  timestamp:
+    type: string
+    format: date-time
+    description: When the rejection occurred
+required:
+  - iteration
+  - message
+  - timestamp
+description: Rejection feedback entry for iteration tracking

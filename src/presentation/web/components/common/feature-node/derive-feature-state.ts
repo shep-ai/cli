@@ -5,9 +5,14 @@
  * and its associated AgentRun status (mirrors CLI feat ls logic).
  */
 
-import { SdlcLifecycle, AgentRunStatus, TaskState } from '@shepai/core/domain/generated';
+import {
+  SdlcLifecycle,
+  AgentRunStatus,
+  TaskState,
+  NotificationEventType,
+} from '@shepai/core/domain/generated';
 import type { Feature, AgentRun } from '@shepai/core/domain/generated';
-import type { FeatureNodeState } from './feature-node-state-config';
+import type { FeatureNodeState, FeatureLifecyclePhase } from './feature-node-state-config';
 
 /**
  * Derives the visual node state from a Feature and its optional AgentRun.
@@ -21,6 +26,11 @@ import type { FeatureNodeState } from './feature-node-state-config';
  * 6. No agent run → fall back to plan tasks / lifecycle
  */
 export function deriveNodeState(feature: Feature, agentRun?: AgentRun | null): FeatureNodeState {
+  // Blocked lifecycle takes priority — child waiting on parent regardless of agent run
+  if (feature.lifecycle === SdlcLifecycle.Blocked) {
+    return 'blocked';
+  }
+
   if (agentRun) {
     switch (agentRun.status) {
       case AgentRunStatus.waitingApproval:
@@ -79,4 +89,42 @@ export function deriveProgress(feature: Feature): number {
 
   const doneCount = tasks.filter((t) => t.state === TaskState.Done).length;
   return Math.round((doneCount / tasks.length) * 100);
+}
+
+/** Maps a NotificationEventType to the corresponding FeatureNodeState for optimistic UI updates. */
+export function mapEventTypeToState(eventType: NotificationEventType): FeatureNodeState {
+  switch (eventType) {
+    case NotificationEventType.AgentStarted:
+    case NotificationEventType.PhaseCompleted:
+      return 'running';
+    case NotificationEventType.WaitingApproval:
+      return 'action-required';
+    case NotificationEventType.AgentCompleted:
+      return 'done';
+    case NotificationEventType.AgentFailed:
+    case NotificationEventType.PrChecksFailed:
+      return 'error';
+    case NotificationEventType.PrMerged:
+    case NotificationEventType.PrChecksPassed:
+      return 'done';
+    case NotificationEventType.PrClosed:
+      return 'action-required';
+  }
+}
+
+/** Maps an SSE event phaseName to a FeatureLifecyclePhase. Mirrors page.tsx nodeToLifecyclePhase. */
+const phaseNameToLifecycle: Record<string, FeatureLifecyclePhase> = {
+  analyze: 'requirements',
+  requirements: 'requirements',
+  research: 'research',
+  plan: 'implementation',
+  implement: 'implementation',
+  merge: 'review',
+};
+
+export function mapPhaseNameToLifecycle(
+  phaseName: string | undefined
+): FeatureLifecyclePhase | undefined {
+  if (!phaseName) return undefined;
+  return phaseNameToLifecycle[phaseName];
 }

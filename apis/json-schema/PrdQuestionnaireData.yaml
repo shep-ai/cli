@@ -1,0 +1,24 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: PrdQuestionnaireData.yaml
+type: object
+properties:
+  question:
+    type: string
+    description: Header title text for the questionnaire
+  context:
+    type: string
+    description: Header context/description text
+  questions:
+    type: array
+    items:
+      $ref: PrdQuestion.yaml
+    description: Array of questions to display
+  finalAction:
+    $ref: PrdFinalAction.yaml
+    description: Configuration for the finalize/approve action button
+required:
+  - question
+  - context
+  - questions
+  - finalAction
+description: Complete data for rendering a PRD questionnaire

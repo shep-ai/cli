@@ -1,0 +1,166 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: ci-watch-integration-test
+number: 042
+branch: feat/042-ci-watch-integration-test
+oneLiner: Add a single complex integration test for GitPrService.watchCi covering polling, timeout, and output parsing
+userQuery: >
+  add singl integration test, but a complex one, no deep research or planning or analzying, shallow, you have all context
+summary: >
+  Add one complex integration test for the watchCi method on GitPrService. The test uses a
+  controlled fake ExecFunction that simulates real-world gh CLI output sequences (multi-line
+  pending → success, failure with non-matching conclusion, cancelled, and timeout), verifying the
+  full parsing and error-throwing logic including logExcerpt population, correct command
+  construction, and timeout forwarding. No new infrastructure; only a new test file.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - vitest
+  - TypeScript
+  - tsyringe
+  - GitPrService (packages/core/src/infrastructure/services/git/git-pr.service.ts)
+  - IGitPrService interface (packages/core/src/application/ports/output/services/git-pr-service.interface.ts)
+
+relatedLinks: []
+
+openQuestions:
+  - question: 'How many distinct watchCi scenarios should the integration test cover?'
+    resolved: true
+    options:
+      - option: 'Three scenarios'
+        description: >
+          Cover success, failure, and timeout. Minimal but hits all three exit paths.
+          Fast to write; leaves the cancelled/non-matching conclusion path untested.
+        selected: false
+      - option: 'Four scenarios'
+        description: >
+          Cover success, failure (non-matching stdout), cancelled (stdout with "cancelled"
+          keyword), and CI_TIMEOUT. Adds the "cancelled" conclusion as a distinct case that
+          exercises the same failure branch but with a more realistic conclusion string.
+          Still a single focused file; no over-engineering.
+        selected: true
+    selectionRationale: >
+      Four scenarios gives complete branch coverage of the watchCi return paths (success,
+      failure-by-content, failure-by-cancelled, throw-on-timeout) without bloating the file.
+      "Cancelled" is a real gh CLI conclusion value that production code sees; omitting it
+      leaves a gap the spec explicitly called out.
+    answer: 'Four scenarios'
+
+  - question: 'Should the logExcerpt assertion verify the exact trimmed value or just presence?'
+    resolved: true
+    options:
+      - option: 'Exact trimmed value'
+        description: >
+          Assert logExcerpt equals stdout.trim() precisely. Verifies the trim() call in the
+          implementation, catches regressions if whitespace handling changes, and makes test
+          intent explicit.
+        selected: true
+      - option: 'Presence only'
+        description: >
+          Assert logExcerpt is a non-empty truthy string. Less brittle if output format
+          changes, but misses the trim() behavior contract entirely.
+        selected: false
+    selectionRationale: >
+      The implementation contract is stdout.trim() — if that changes, the caller (which uses
+      logExcerpt for display) is affected. An exact assertion documents and protects this
+      contract. The fake output is controlled, so brittleness is not a concern here.
+    answer: 'Exact trimmed value'
+
+  - question: 'Should the test assert the timeoutMs is forwarded to exec options?'
+    resolved: true
+    options:
+      - option: 'Assert timeout forwarding'
+        description: >
+          Include a dedicated assertion that the ExecFunction receives `{ cwd, timeout: <value> }`
+          when timeoutMs is provided. Directly tests the integration between the caller-supplied
+          timeout and the underlying exec call.
+        selected: true
+      - option: 'Skip timeout forwarding assertion'
+        description: >
+          Rely on the existing unit test for timeout forwarding. Skip the assertion to keep the
+          integration test focused purely on output parsing.
+        selected: false
+    selectionRationale: >
+      The existing unit tests do NOT assert that timeoutMs is forwarded to exec options — they
+      only assert that a timeout rejection throws CI_TIMEOUT. This assertion fills that specific
+      gap and is exactly the kind of "wiring" check an integration test should own.
+    answer: 'Assert timeout forwarding'
+
+content: |
+  ## Problem Statement
+
+  `GitPrService.watchCi()` has only shallow unit tests (two cases: pass and timeout) using a
+  trivial mock. There is no integration-style test that exercises realistic `gh run watch`
+  output formats — multi-line output, the various conclusion strings (`success`, `failure`,
+  `cancelled`), the logExcerpt field population, and the timeout path with a realistic error
+  message. A single, richer test covers the gap between "mock returns a string" and "production
+  `gh` output arrives and is parsed correctly."
+
+  ## Success Criteria
+
+  - [ ] A new file `tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts` exists
+  - [ ] The file contains exactly one `describe('GitPrService.watchCi integration')` block with four `it` cases
+  - [ ] Case 1 (success): multi-line stdout containing "success" → `status === 'success'` and `logExcerpt === stdout.trim()`
+  - [ ] Case 2 (failure): multi-line stdout containing neither "success" nor "completed" → `status === 'failure'`
+  - [ ] Case 3 (cancelled): multi-line stdout containing "cancelled" → `status === 'failure'`
+  - [ ] Case 4 (CI_TIMEOUT): exec rejects with message containing "timed out" → throws `GitPrError` with `code === GitPrErrorCode.CI_TIMEOUT`
+  - [ ] The test asserts `gh run watch --branch <branch>` is the exact command passed to ExecFunction
+  - [ ] The test asserts `timeoutMs` is forwarded as `{ timeout: timeoutMs }` in exec options
+  - [ ] All fake stdout values are multi-line (≥3 lines) to simulate realistic terminal output
+  - [ ] `pnpm test:single tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts` passes
+  - [ ] No production source files are modified
+
+  ## Functional Requirements
+
+  - **FR-1**: The test file MUST import `reflect-metadata` as its very first import statement.
+  - **FR-2**: `GitPrService` MUST be instantiated directly via `new GitPrService(mockExec)` — no DI container setup.
+  - **FR-3**: The success scenario MUST use multi-line stdout (≥3 lines) where at least one line contains the word `success`, and MUST assert `result.status === 'success'` and `result.logExcerpt === stdout.trim()`.
+  - **FR-4**: The failure scenario MUST use multi-line stdout where no line contains `success` or `completed`, and MUST assert `result.status === 'failure'`.
+  - **FR-5**: The cancelled scenario MUST use multi-line stdout where a line contains `cancelled`, and MUST assert `result.status === 'failure'` (verifying `cancelled` does not accidentally trigger the success branch).
+  - **FR-6**: The timeout scenario MUST reject the exec mock with an `Error` whose message contains `timed out`, and MUST assert the thrown error is a `GitPrError` with `code === GitPrErrorCode.CI_TIMEOUT`.
+  - **FR-7**: At least one test case MUST assert the ExecFunction was called with `'gh'` and `['run', 'watch', '--branch', '<branch>']` as the first two arguments.
+  - **FR-8**: The timeout scenario MUST also assert the ExecFunction was called with `{ cwd: ..., timeout: <timeoutMs> }` in its options, confirming the forwarding path.
+  - **FR-9**: No production code file (including `git-pr.service.ts`) may be modified as part of this feature.
+  - **FR-10**: The test file MUST use the `@/` path alias for imports from the core package, consistent with existing test patterns.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1**: The test file MUST stay under 120 lines total (including imports and comments).
+  - **NFR-2**: Each `it` block MUST be independently self-contained; any shared state lives only in a `beforeEach` that resets the mock and re-instantiates the service.
+  - **NFR-3**: No new npm dependencies may be introduced. Only vitest primitives (`describe`, `it`, `expect`, `vi`, `beforeEach`) and existing package exports are permitted.
+  - **NFR-4**: The test MUST complete in under 100 ms (all execution is synchronous mocking — no timers, no filesystem, no network).
+  - **NFR-5**: The test file name MUST follow the pattern `<service>-<concern>.test.ts` — specifically `git-pr-ci-watch.test.ts` — to distinguish it from the existing `git-pr.service.test.ts` unit test.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | How many test scenarios? | Four (success, failure, cancelled, timeout) | Covers all three return-path branches plus the "cancelled" conclusion that existing tests miss |
+  | 2 | logExcerpt assertion depth? | Exact trimmed value | Implementation contract is `stdout.trim()`; exact assertion protects against silent regressions |
+  | 3 | Assert timeoutMs forwarding? | Yes, include the assertion | Existing unit tests don't verify forwarding; this is precisely the gap an integration test should close |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | tests/integration/infrastructure/services/git/git-pr-ci-watch.test.ts | High | New file — the only deliverable |
+  | packages/core/src/infrastructure/services/git/git-pr.service.ts | None | Read only; no production changes |
+
+  ## Dependencies
+
+  - `GitPrService` constructor (direct instantiation, no DI container needed)
+  - `ExecFunction` type from `@/infrastructure/services/git/worktree.service`
+  - `GitPrError`, `GitPrErrorCode`, `CiStatusResult` from `@/application/ports/output/services/git-pr-service.interface`
+  - `vi.fn()` / `vi.mocked()` for controlled fake ExecFunction returning or rejecting per-call
+  - `reflect-metadata` (required at top of every test file in this project)
+
+  ## Size Estimate
+
+  **S** — One new test file (~90–110 lines). No production code changes. No new infrastructure.
+  The watchCi method is already implemented and tested at unit level; this is purely additive
+  test coverage filling a documented gap in output parsing and wiring verification.

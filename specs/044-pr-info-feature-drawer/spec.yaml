@@ -1,0 +1,251 @@
+# Feature Specification (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: pr-info-feature-drawer
+number: 044
+branch: feat/044-pr-info-feature-drawer
+oneLiner: Display PR metadata (number, link, status, CI, commit) in the feature drawer for completed features
+userQuery: >
+  Feature: Add PR information to feature in status completed in feature drawer
+summary: >
+  When a feature has an associated pull request, display PR metadata (number, URL link, status
+  badge, CI status, commit hash) in a dedicated section within the feature drawer. The domain
+  model already contains PR data on the Feature entity; it needs to be piped through
+  FeatureNodeData and rendered in the drawer, reusing the existing CiStatusBadge from the
+  MergeReview component.
+phase: Requirements
+sizeEstimate: S
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js App Router, server components)
+  - TypeScript
+  - Tailwind CSS
+  - shadcn/ui (Badge component)
+  - lucide-react (ExternalLink, GitCommitHorizontal, CheckCircle2, XCircle, Loader2 icons)
+  - Vitest + React Testing Library (unit tests)
+  - Storybook (component stories)
+  - TypeSpec (domain model generation)
+
+relatedLinks: []
+
+# Open questions (resolved with AI recommendations)
+openQuestions:
+  - question: Should PR info display for all features with a PR, or only when state is "done"?
+    resolved: true
+    options:
+      - option: All features with PR data
+        description: >
+          Show the PR section whenever feature.pr is defined, regardless of feature state.
+          This gives users visibility into PR status during merge review, CI fixing, and
+          after completion. Since the domain only populates PR data once a PR is created
+          (typically at merge review or later), there is no risk of showing stale or premature
+          data. This avoids coupling display logic to specific states, keeping the component simpler.
+        selected: true
+      - option: Only in "done" state
+        description: >
+          Restrict PR section visibility to features in the done/completed state only.
+          This is more conservative but artificially hides useful information during
+          merge-review and ci-fixing states when a PR already exists. Requires additional
+          state-checking logic in the component.
+        selected: false
+    selectionRationale: >
+      Showing PR info for all features with PR data is recommended because: (1) the domain
+      only attaches PR data once a PR is actually created, so there's no premature display risk;
+      (2) users benefit from seeing PR status during merge-review and ci-fixing phases from the
+      drawer; (3) it keeps the component simpler — a single `if (pr)` guard rather than
+      `if (pr && state === 'done')`. The user's original request mentioned "completed" features,
+      but the natural UX is to show PR data whenever it exists.
+    answer: All features with PR data
+
+  - question: Should the CiStatusBadge be extracted into a shared component, or kept in merge-review and duplicated?
+    resolved: true
+    options:
+      - option: Extract to shared component
+        description: >
+          Move CiStatusBadge from merge-review.tsx into a shared location (e.g.,
+          components/common/ci-status-badge.tsx) and import it from both merge-review
+          and feature-drawer. Eliminates duplication, ensures consistent rendering,
+          and makes future changes to CI badge styling a single-point edit. Adds one
+          new file but reduces overall code and maintenance burden.
+        selected: true
+      - option: Duplicate in feature drawer
+        description: >
+          Copy the ~20-line CiStatusBadge function into feature-drawer.tsx. Pragmatic
+          and fast, avoids touching merge-review.tsx, but creates two copies that could
+          drift. Acceptable for a small component but introduces a maintenance smell.
+        selected: false
+    selectionRationale: >
+      Extracting CiStatusBadge to a shared component is recommended because: (1) the component
+      is already proven and stable in merge-review; (2) having two consumers makes extraction
+      the right time per DRY principles; (3) it's a ~20-line pure presentational component with
+      no dependencies beyond Badge and lucide icons, making extraction trivial; (4) it establishes
+      a reusable pattern for any future CI status display needs.
+    answer: Extract to shared component
+
+  - question: Where should the PR info section be positioned within the feature drawer?
+    resolved: true
+    options:
+      - option: Between Status and Details sections
+        description: >
+          Place PR info after the state/progress section and before the details section
+          (description, agent, runtime). This groups status-related information together —
+          feature state flows naturally into PR state. Follows information hierarchy from
+          high-level status down to implementation details.
+        selected: true
+      - option: Between Details and Delete sections
+        description: >
+          Place PR info after details (description, agent, runtime) and before the delete
+          button. Treats PR info as supplementary metadata appended at the bottom. This
+          position is less prominent and may be missed by users scrolling.
+        selected: false
+      - option: Inside Details section as additional rows
+        description: >
+          Add PR fields as DetailRow entries within the existing Details section. Avoids
+          adding a new section but mixes PR metadata with feature implementation details,
+          which are conceptually different. Also loses the card-style visual treatment from
+          merge-review.
+        selected: false
+    selectionRationale: >
+      Placing PR info between Status and Details is recommended because it follows the
+      information hierarchy: feature lifecycle state → PR state → implementation details.
+      Users checking a completed feature will naturally scan state badge, then PR outcome,
+      then details. This mirrors the merge-review flow where PR info is the primary focus
+      after status. The section gets a dedicated visual treatment (bordered card) consistent
+      with merge-review, making it scannable.
+    answer: Between Status and Details sections
+
+  - question: Should the PR section use the same bordered card style as merge-review, or a simpler inline style?
+    resolved: true
+    options:
+      - option: Bordered card style (match merge-review)
+        description: >
+          Use the same bordered rounded card with padding that merge-review uses for its PR
+          metadata display. Provides visual consistency across the app, clearly delineates PR
+          info as a cohesive block, and makes the section instantly recognizable to users who
+          have seen the merge-review UI.
+        selected: true
+      - option: Inline DetailRow style
+        description: >
+          Render PR fields as simple label-value rows matching the Details section style.
+          Lighter visual weight, integrates more seamlessly with the drawer, but loses the
+          visual distinction that signals "this is PR information" and diverges from the
+          established merge-review pattern.
+        selected: false
+    selectionRationale: >
+      The bordered card style is recommended for visual consistency with merge-review. Since
+      CiStatusBadge is being extracted as a shared component, the visual treatment should also
+      be consistent. Users will recognize the PR card pattern from the merge-review flow,
+      reducing cognitive load.
+    answer: Bordered card style (match merge-review)
+
+content: |
+  ## Problem Statement
+
+  When a feature has an associated pull request, the user has no visibility into PR metadata
+  from the feature drawer. The domain model already stores PR data (`Feature.pr?: PullRequest`
+  with url, number, status, ciStatus, commitHash) but this data is not passed through to
+  `FeatureNodeData` and not rendered in the feature drawer component.
+
+  The MergeReview component already has a polished PR metadata card UI with CiStatusBadge, but
+  this is only visible during the merge review flow — not accessible from the general feature
+  drawer. Users must navigate to the merge-review panel to see PR status for completed features,
+  which is unintuitive.
+
+  ## Success Criteria
+
+  - [ ] PR info section appears in feature drawer when the feature has PR data (`pr` field defined)
+  - [ ] PR info section is hidden when the feature has no PR data (`pr` field undefined)
+  - [ ] PR number is displayed as "#N" and links to the PR URL, opening in a new tab with `rel="noopener noreferrer"`
+  - [ ] PR status is displayed as a colored Badge matching PrStatus values: Open (blue), Merged (purple), Closed (red)
+  - [ ] CI status badge renders correctly for all 3 CiStatus values: Success/Passing (green), Pending (yellow/animated), Failure/Failing (red)
+  - [ ] CI status badge is omitted when `ciStatus` is undefined (not all PRs have CI)
+  - [ ] Commit hash displays first 7 characters with monospace font styling, omitted when `commitHash` is undefined
+  - [ ] CiStatusBadge is extracted from merge-review.tsx into a shared component and imported by both consumers
+  - [ ] `FeatureNodeData` interface includes an optional `pr` field with the required subset of PullRequest fields
+  - [ ] `page.tsx` server component maps `feature.pr` into `FeatureNodeData` when present
+  - [ ] Unit tests cover: PR section visible with full PR data, PR section hidden without PR data, all PrStatus variants, all CiStatus variants, missing optional fields (ciStatus, commitHash)
+  - [ ] Storybook stories demonstrate: Done + full PR, Done + PR without CI/commit, feature without PR, multiple PrStatus values
+  - [ ] All existing feature drawer tests continue to pass without modification
+  - [ ] No regressions in merge-review component after CiStatusBadge extraction
+
+  ## Functional Requirements
+
+  - **FR-1: Extend FeatureNodeData with PR data** — Add an optional `pr` field to the `FeatureNodeData` interface containing: `url: string`, `number: number`, `status: PrStatus`, `ciStatus?: CiStatus`, `commitHash?: string`. This is the presentation-layer subset of the domain PullRequest type (excludes `ciFixAttempts` and `ciFixHistory` which are not displayed).
+
+  - **FR-2: Map PR data in server component** — In `page.tsx`, when constructing `FeatureNodeData` from domain `Feature`, map `feature.pr` to the `pr` field when present. Use conditional spread: `...(feature.pr && { pr: { url, number, status, ciStatus, commitHash } })`.
+
+  - **FR-3: Render PR info section in feature drawer** — Add a `PrInfoSection` sub-component within feature-drawer.tsx that renders a bordered card containing PR metadata. The section renders only when `selectedNode.pr` is defined (no state-gating). Position it between the Status section and the Details section, separated by a `<Separator />`.
+
+  - **FR-4: Display PR number as external link** — Render the PR number as `#N` (e.g., "#42") wrapped in an anchor tag linking to `pr.url`. The link opens in a new tab (`target="_blank"`) with `rel="noopener noreferrer"`. Include an `ExternalLink` icon adjacent to the text.
+
+  - **FR-5: Display PR status badge** — Render `pr.status` as a shadcn/ui `Badge` with color coding: `Open` → blue/default variant, `Merged` → purple variant, `Closed` → red/destructive variant. Use the PrStatus enum value as display text.
+
+  - **FR-6: Display CI status badge** — When `pr.ciStatus` is defined, render the shared `CiStatusBadge` component showing: `Success` → green with CheckCircle2 icon and "Passing" text, `Pending` → yellow with animated Loader2 spinner and "Pending" text, `Failure` → red with XCircle icon and "Failing" text. When `pr.ciStatus` is undefined, omit the CI badge entirely.
+
+  - **FR-7: Display abbreviated commit hash** — When `pr.commitHash` is defined, render the first 7 characters with a `GitCommitHorizontal` icon and monospace font styling (`font-mono`). When `pr.commitHash` is undefined, omit the commit display entirely.
+
+  - **FR-8: Extract CiStatusBadge to shared component** — Move the existing `CiStatusBadge` component from `merge-review.tsx` into a new shared file (e.g., `components/common/ci-status-badge.tsx`). Update merge-review.tsx to import from the shared location. The feature-drawer also imports from the shared location. No behavioral changes to CiStatusBadge itself.
+
+  ## Non-Functional Requirements
+
+  - **NFR-1: Visual consistency** — The PR info card in the feature drawer must visually match the PR metadata card in merge-review.tsx (same border style, spacing, icon sizes, badge variants, font treatments). Users should recognize it as the same information.
+
+  - **NFR-2: Accessibility** — The PR link must have accessible text (the PR number serves as link text). Badge colors must not be the sole indicator of status — text labels are required alongside colors. The external link should indicate it opens a new window (via the ExternalLink icon as visual cue).
+
+  - **NFR-3: No performance regression** — Adding the optional `pr` field to FeatureNodeData and the conditional section render must not introduce measurable performance regression. The PR section should not render any DOM when `pr` is undefined (conditional render, not hidden via CSS).
+
+  - **NFR-4: Backward compatibility** — The `pr` field on FeatureNodeData is optional. All existing features without PR data continue to render identically. No changes to existing test fixtures or stories unless they explicitly test the new PR section.
+
+  - **NFR-5: Test coverage** — Unit tests must cover all PrStatus × CiStatus combinations, the absence of optional fields (ciStatus, commitHash), and the complete absence of PR data. Minimum: 8 test cases for PR section behavior.
+
+  - **NFR-6: Storybook documentation** — Stories must demonstrate all meaningful visual states: full PR data, partial PR data (missing CI, missing commit), no PR data, and each PrStatus value. Stories serve as living documentation for designers and developers.
+
+  ## Product Questions & AI Recommendations
+
+  | # | Question | AI Recommendation | Rationale |
+  | - | -------- | ----------------- | --------- |
+  | 1 | Show PR info for all features with PR data, or only "done" state? | All features with PR data | Domain only attaches PR once created; showing it always is simpler and more useful during merge-review/ci-fixing phases |
+  | 2 | Extract CiStatusBadge to shared component or duplicate? | Extract to shared component | Two consumers justifies extraction; ~20 lines, pure presentational, trivial to extract; prevents drift |
+  | 3 | Where to position PR section in drawer? | Between Status and Details | Follows information hierarchy: state → PR → details; most prominent position for PR info |
+  | 4 | Bordered card or inline row style? | Bordered card (match merge-review) | Visual consistency with merge-review; users recognize the pattern; clear visual delineation |
+
+  ## Affected Areas
+
+  | Area | Impact | Reasoning |
+  | ---- | ------ | --------- |
+  | `src/presentation/web/components/common/feature-node/feature-node-state-config.ts` | Medium | Add optional `pr` field to `FeatureNodeData` interface |
+  | `src/presentation/web/app/page.tsx` | Low | Map `feature.pr` into `FeatureNodeData` during node construction |
+  | `src/presentation/web/components/common/feature-drawer/feature-drawer.tsx` | High | Add new `PrInfoSection` sub-component to render PR metadata card |
+  | `src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx` | Medium | Add stories with PR data variations |
+  | `tests/unit/presentation/web/components/common/feature-drawer/feature-drawer.test.tsx` | Medium | Add test cases for PR section visibility and content |
+  | `src/presentation/web/components/common/merge-review/merge-review.tsx` | Medium | Extract `CiStatusBadge` to shared location, update import |
+  | `src/presentation/web/components/common/ci-status-badge.tsx` (new) | Medium | New shared CiStatusBadge component extracted from merge-review |
+
+  ## Dependencies
+
+  - Domain `PullRequest` type from `@shepai/core/domain/generated/output` (already exists)
+  - `PrStatus` and `CiStatus` enums from same module (already exist)
+  - `Badge` component from shadcn/ui (already in use)
+  - `ExternalLink`, `GitCommitHorizontal`, `CheckCircle2`, `Loader2`, `XCircle` icons from lucide-react (already installed)
+  - `Separator` component from shadcn/ui (already in use in feature-drawer)
+
+  ## Size Estimate
+
+  **S** — This is a small, well-scoped feature confined to the presentation layer. The domain
+  model and PR types already exist. The UI pattern is established in MergeReview. Implementation:
+  1. Add one optional field to FeatureNodeData interface (~5 lines)
+  2. One conditional spread in page.tsx mapping (~2 lines)
+  3. Extract CiStatusBadge to shared file (~25 lines, moved not written)
+  4. New PrInfoSection sub-component in feature-drawer.tsx (~50-60 lines)
+  5. Unit tests (~80-100 lines for 8+ test cases)
+  6. Storybook stories (~40-50 lines for 4+ stories)
+
+  Total new/modified code: ~200-250 lines across 7 files. No domain, infrastructure, or
+  TypeSpec changes required.
+
+  ---
+
+  _Requirements completed — proceed with research/planning_

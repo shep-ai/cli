@@ -1,0 +1,137 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-pr-push-flags
+summary: >
+  Presentation-layer-only implementation adding push and PR (openPr) checkbox controls to the
+  Web UI FeatureCreateDrawer. The domain model and core use case already support these fields;
+  the work is confined to wiring the UI (drawer component + server action) and adding test/story
+  coverage. Three phases: (1) server action passthrough with tests, (2) drawer UI with state
+  coupling, (3) Storybook stories.
+
+relatedFeatures:
+  - '020-worktree-merge-flow'
+
+technologies:
+  - React 19
+  - Next.js 16+ (App Router, Server Actions)
+  - shadcn/ui (Checkbox, CheckboxGroupItem, Label)
+  - Storybook
+  - Vitest
+  - TypeScript
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Server Action Passthrough'
+    description: >
+      Add push/openPr fields to the server action interface and wire them through to
+      CreateFeatureUseCase.execute(). This phase comes first because the server action is the
+      data boundary between the UI and the core — establishing this contract first lets the
+      UI work against a known API. Unit tests written first (TDD RED) to lock in the expected
+      behavior before touching production code.
+    parallel: false
+
+  - id: phase-2
+    name: 'Drawer UI & State Coupling'
+    description: >
+      Add push and openPr fields to FeatureCreatePayload, introduce two useState hooks in
+      FeatureCreateDrawer, render a GIT section with CheckboxGroupItem components between
+      APPROVE and ATTACHMENTS, and implement the PR-implies-push coupling via derived props.
+      Update handleSubmit to include push/openPr and resetForm to clear them. This is the
+      main UI work phase.
+    parallel: false
+
+  - id: phase-3
+    name: 'Storybook Stories'
+    description: >
+      Add PushOnly and PrChecked stories to the existing stories file using the established
+      CreateDrawerTrigger + play() pattern. These provide instant visual verification of the
+      new checkbox states and coupling behavior in the Storybook sidebar.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/app/actions/create-feature.ts
+  - tests/unit/presentation/web/actions/features/create-feature.test.ts
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  This is a pure **presentation-layer** change. The domain model (`Feature.push`, `Feature.openPr`)
+  and the application layer (`CreateFeatureInput.push?`, `CreateFeatureInput.openPr?`) already
+  fully support these fields. The CLI wires them through `new.command.ts` — this feature does
+  the equivalent wiring for the Web UI.
+
+  **Data flow after implementation:**
+
+  ```
+  FeatureCreateDrawer (push, openPr useState hooks)
+    → handleSubmit() computes { push: push || openPr, openPr }
+    → FeatureCreatePayload { ..., push, openPr }
+    → useControlCenterState.handleCreateFeatureSubmit(data)
+    → createFeature(data) server action
+    → destructure push, openPr with ?? false defaults
+    → createFeatureUseCase.execute({ ..., push, openPr })
+  ```
+
+  The `useControlCenterState` hook passes the full `FeatureCreatePayload` object directly to
+  `createFeature(data)` (line 313), so adding new fields to the payload type automatically
+  flows them through — no changes needed in the hook.
+
+  ## Key Design Decisions
+
+  ### 1. Standalone CheckboxGroupItem (not CheckboxGroup)
+
+  Push and PR are **not symmetric peers** — PR implies push but push does not imply PR. Using
+  `CheckboxGroup` with a parent toggle would incorrectly suggest equivalence. Instead, two
+  standalone `CheckboxGroupItem` components provide the same visual styling as approval gates
+  while correctly representing the asymmetric dependency. The component already accepts `id`,
+  `label`, `description`, `checked`, `onCheckedChange`, and `disabled` — exactly what's needed.
+
+  ### 2. Two useState + Derived Props (no reducer, no ref)
+
+  The push checkbox displays `checked={push || openPr}` and `disabled={openPr || isSubmitting}`.
+  The `push` state variable is never mutated by `openPr` toggling, preserving the user's manual
+  preference (FR-5). On submit, `push: push || openPr` enforces the invariant. This follows the
+  existing per-field useState pattern (name, description, attachments, approvalGates).
+
+  ### 3. Optional Fields in Server Action (backward compatible)
+
+  The server action's `CreateFeatureInput` adds `push?: boolean` and `openPr?: boolean` as
+  optional fields with `?? false` defaults, mirroring the core `CreateFeatureInput` and the
+  existing `approvalGates` defaulting pattern. No callers break.
+
+  ### 4. GIT Section Between APPROVE and ATTACHMENTS
+
+  Groups all behavioral configuration (approve → git) before file attachments. Uses the same
+  `Label` styling (`text-muted-foreground text-xs font-semibold tracking-wider`) as all other
+  section headers for visual consistency.
+
+  ## Implementation Strategy
+
+  **Phase 1** starts with the server action because it establishes the data contract. Tests
+  are written first (TDD) to define expected behavior — the production change is a 3-line diff
+  (add fields to interface, pass them through with defaults).
+
+  **Phase 2** is the main UI work: extending the payload type, adding state hooks, rendering
+  checkboxes, and wiring the coupling logic. It depends on Phase 1 being complete so the full
+  data path (drawer → action → use case) is wired end-to-end.
+
+  **Phase 3** adds Storybook stories last because they document the finished UI. Stories use
+  `play()` functions to programmatically click checkboxes, following the existing pattern.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | FeatureCreatePayload type change breaks consumers | The only consumer is `useControlCenterState` which passes the full object to `createFeature()` — adding required fields means the drawer always provides them. The server action uses optional fields. |
+  | PR-implies-push coupling creates impossible state | Derived props (`checked={push \|\| openPr}`, `disabled={openPr}`) make it structurally impossible to submit PR=true, push=false. The `handleSubmit` also enforces `push: push \|\| openPr`. |
+  | CheckboxGroupItem doesn't support disabled prop | Verified: the component accepts `disabled?: boolean` and passes it to the underlying `Checkbox` (checkbox-group-item.tsx:30). |
+  | Existing tests break from interface changes | Server action fields are optional with `?? false` defaults — all existing test calls omit push/openPr and get the same behavior as before. |

@@ -156,25 +156,16 @@ describe('HITL Approval Flow (Graph-level)', () => {
     // research + plan = 2 more calls (requirements NOT re-executed)
     expect(executor.execute).toHaveBeenCalledTimes(4);
 
-    // Step 3: Resume → plan skips (already complete), implement runs and interrupts
+    // Step 3: Resume → plan skips (already complete), implement runs to completion (no interrupt)
     const result3 = await graph.invoke(new Command({ resume: { approved: true } }), config);
     const interrupts3 = getInterrupts(result3);
-    expect(interrupts3.length).toBe(1);
-    expect(interrupts3[0].value.node).toBe('implement');
+    expect(interrupts3).toHaveLength(0);
 
-    // implement = 1 more call (plan NOT re-executed)
-    expect(executor.execute).toHaveBeenCalledTimes(5);
-
-    // Step 4: Resume → implement skips (already complete), graph reaches END
-    const result4 = await graph.invoke(new Command({ resume: { approved: true } }), config);
-    const interrupts4 = getInterrupts(result4);
-    expect(interrupts4).toHaveLength(0);
-
-    // No additional executor calls (implement NOT re-executed)
+    // implement = 1 more call (plan NOT re-executed), graph reaches END
     expect(executor.execute).toHaveBeenCalledTimes(5);
 
     // All nodes ran — verify messages accumulated
-    expect(result4.messages.length).toBeGreaterThanOrEqual(1);
+    expect(result3.messages.length).toBeGreaterThanOrEqual(1);
   });
 
   it('should resume from checkpoint with correct thread_id (regression: threadId bug)', async () => {
@@ -287,7 +278,7 @@ describe('HITL Approval Flow (Graph-level)', () => {
     expect(interrupts[0].value.node).toBe('plan');
   });
 
-  it('should skip requirements and plan gates when both allowed, interrupt at implement', async () => {
+  it('should skip requirements and plan gates when both allowed, complete without implement interrupt', async () => {
     const executor = createMockExecutor();
     const checkpointer = createCheckpointer(':memory:');
     const graph = createFeatureAgentGraph(executor, checkpointer);
@@ -304,11 +295,9 @@ describe('HITL Approval Flow (Graph-level)', () => {
       config
     );
 
-    // allowPrd + allowPlan skips requirements/plan gates, but implement always
-    // interrupts when gates are present and not fully autonomous (allowMerge=false)
+    // allowPrd + allowPlan skips requirements/plan gates, implement does not interrupt
     const interrupts = getInterrupts(result);
-    expect(interrupts).toHaveLength(1);
-    expect(interrupts[0].value.node).toBe('implement');
+    expect(interrupts).toHaveLength(0);
   });
 
   it('should trigger repair when spec.yaml is invalid, then continue after fix', async () => {
