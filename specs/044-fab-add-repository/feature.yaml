@@ -34,6 +34,7 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-25T14:59:05Z'
     completedBy: feature-agent
+prUrl: https://github.com/shep-ai/cli/pull/139
 errors:
   current: null
   history: []
