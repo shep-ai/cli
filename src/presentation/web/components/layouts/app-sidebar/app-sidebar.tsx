@@ -1,7 +1,7 @@
 'use client';
 
 import { usePathname } from 'next/navigation';
-import { Home, Wrench, Plus } from 'lucide-react';
+import { Home, Wrench, Puzzle, Plus } from 'lucide-react';
 import {
   Sidebar,
   SidebarHeader,
@@ -23,6 +23,7 @@ import { SidebarSectionHeader } from '@/components/common/sidebar-section-header
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
+import { featureFlags } from '@/lib/feature-flags';
 
 interface FeatureItem {
   name: string;
@@ -87,6 +88,14 @@ export function AppSidebar({
             href="/tools"
             active={pathname === '/tools'}
           />
+          {featureFlags.skills ? (
+            <SidebarNavItem
+              icon={Puzzle}
+              label="Skills"
+              href="/skills"
+              active={pathname === '/skills'}
+            />
+          ) : null}
         </SidebarMenu>
       </SidebarHeader>
 
