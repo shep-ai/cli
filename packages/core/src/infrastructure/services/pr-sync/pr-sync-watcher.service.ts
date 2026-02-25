@@ -29,6 +29,7 @@ import type {
 import type { INotificationService } from '../../../application/ports/output/services/notification-service.interface.js';
 
 const DEFAULT_POLL_INTERVAL_MS = 3000;
+const TAG = '[PrSyncWatcher]';
 
 interface PrWatcherState {
   prStatus: PrStatus;
@@ -49,6 +50,7 @@ export class PrSyncWatcherService {
   private readonly notificationService: INotificationService;
   private readonly pollIntervalMs: number;
   private readonly trackedFeatures = new Map<string, PrWatcherState>();
+  private readonly skippedRepos = new Set<string>();
   private intervalId: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -72,6 +74,9 @@ export class PrSyncWatcherService {
   start(): void {
     if (this.intervalId !== null) return;
 
+    // eslint-disable-next-line no-console
+    console.log(`${TAG} Starting (poll every ${this.pollIntervalMs}ms)`);
+
     // Run first poll immediately
     void this.poll();
 
@@ -84,6 +89,8 @@ export class PrSyncWatcherService {
     if (this.intervalId !== null) {
       clearInterval(this.intervalId);
       this.intervalId = null;
+      // eslint-disable-next-line no-console
+      console.log(`${TAG} Stopped`);
     }
   }
 
@@ -95,10 +102,14 @@ export class PrSyncWatcherService {
       const features = allFeatures.filter((f) => f.repositoryPath);
 
       if (features.length === 0) {
-        // Prune all tracked features since none are in Review
         this.trackedFeatures.clear();
         return;
       }
+
+      // eslint-disable-next-line no-console
+      console.log(
+        `${TAG} Polling ${features.length} feature(s) across ${new Set(features.map((f) => f.repositoryPath)).size} repo(s)`
+      );
 
       // Group features by repositoryPath for batch queries
       const byRepo = new Map<string, Feature[]>();
@@ -121,18 +132,34 @@ export class PrSyncWatcherService {
         }
       }
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       // eslint-disable-next-line no-console
-      console.warn('PrSyncWatcherService poll failed:', error);
+      console.warn(`${TAG} Poll failed: ${msg}`);
     }
   }
 
   private async processRepository(repoPath: string, features: Feature[]): Promise<void> {
+    if (this.skippedRepos.has(repoPath)) return;
+
+    // Skip repos without a git remote — gh pr list will always fail
+    try {
+      if (!(await this.gitPrService.hasRemote(repoPath))) {
+        // eslint-disable-next-line no-console
+        console.log(`${TAG} Skipping ${repoPath} (no git remote)`);
+        this.skippedRepos.add(repoPath);
+        return;
+      }
+    } catch {
+      return;
+    }
+
     let prStatuses: PrStatusInfo[];
     try {
       prStatuses = await this.gitPrService.listPrStatuses(repoPath);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       // eslint-disable-next-line no-console
-      console.warn(`PrSyncWatcherService: listPrStatuses failed for ${repoPath}:`, error);
+      console.warn(`${TAG} listPrStatuses failed for ${repoPath}: ${msg}`);
       return;
     }
 
@@ -159,9 +186,13 @@ export class PrSyncWatcherService {
     // If feature has no PR data, try to discover a PR by matching branch name
     if (!feature.pr) {
       const matchedPr = statusByBranch.get(feature.branch);
-      if (!matchedPr) return; // No matching PR found on GitHub
+      if (!matchedPr) return;
 
-      // Populate the feature's PR data from the discovered GitHub PR
+      // eslint-disable-next-line no-console
+      console.log(
+        `${TAG} Discovered PR #${matchedPr.number} (${matchedPr.state}) for "${feature.name}" via branch "${feature.branch}"`
+      );
+
       feature.pr = {
         url: matchedPr.url,
         number: matchedPr.number,
@@ -215,6 +246,11 @@ export class PrSyncWatcherService {
     if (prStatusInfo && prStatusInfo.state !== tracked.prStatus) {
       const newPrStatus = prStatusInfo.state;
 
+      // eslint-disable-next-line no-console
+      console.log(
+        `${TAG} PR #${pr.number} status changed: ${tracked.prStatus} -> ${newPrStatus} for "${feature.name}"`
+      );
+
       feature.pr = { ...pr, status: newPrStatus };
 
       if (newPrStatus === PrStatus.Merged) {
@@ -253,6 +289,11 @@ export class PrSyncWatcherService {
       const newCiStatus = CI_STATUS_MAP[ciResult.status] ?? CiStatus.Pending;
 
       if (newCiStatus !== tracked.ciStatus) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `${TAG} CI status changed: ${tracked.ciStatus ?? 'none'} -> ${newCiStatus} for "${feature.name}"`
+        );
+
         feature.pr = { ...(feature.pr ?? pr), ciStatus: newCiStatus };
 
         if (newCiStatus === CiStatus.Success) {
@@ -279,8 +320,9 @@ export class PrSyncWatcherService {
         needsUpdate = true;
       }
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       // eslint-disable-next-line no-console
-      console.warn(`PrSyncWatcherService: getCiStatus failed for feature ${feature.id}:`, error);
+      console.warn(`${TAG} getCiStatus failed for "${feature.name}": ${msg}`);
     }
 
     if (needsUpdate) {
@@ -292,13 +334,13 @@ export class PrSyncWatcherService {
   private async completeAgentRun(feature: Feature): Promise<void> {
     if (!feature.agentRunId) return;
     try {
+      // eslint-disable-next-line no-console
+      console.log(`${TAG} Completing agent run ${feature.agentRunId} for "${feature.name}"`);
       await this.agentRunRepo.updateStatus(feature.agentRunId, AgentRunStatus.completed);
     } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
       // eslint-disable-next-line no-console
-      console.warn(
-        `PrSyncWatcherService: failed to update agent run ${feature.agentRunId}:`,
-        error
-      );
+      console.warn(`${TAG} Failed to complete agent run ${feature.agentRunId}: ${msg}`);
     }
   }
 
