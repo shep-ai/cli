@@ -106,11 +106,6 @@ export class PrSyncWatcherService {
         return;
       }
 
-      // eslint-disable-next-line no-console
-      console.log(
-        `${TAG} Polling ${features.length} feature(s) across ${new Set(features.map((f) => f.repositoryPath)).size} repo(s)`
-      );
-
       // Group features by repositoryPath for batch queries
       const byRepo = new Map<string, Feature[]>();
       for (const feature of features) {
@@ -163,13 +158,18 @@ export class PrSyncWatcherService {
       return;
     }
 
-    // Build lookups by PR number and by head branch name
+    // Build lookups by PR number and by head branch name.
+    // Multiple PRs can share the same headRefName (e.g. old merged PR + new open PR).
+    // Prefer Open PRs so we don't match stale merged/closed ones.
     const statusByNumber = new Map<number, PrStatusInfo>();
     const statusByBranch = new Map<string, PrStatusInfo>();
     for (const pr of prStatuses) {
       statusByNumber.set(pr.number, pr);
       if (pr.headRefName) {
-        statusByBranch.set(pr.headRefName, pr);
+        const existing = statusByBranch.get(pr.headRefName);
+        if (!existing || (existing.state !== PrStatus.Open && pr.state === PrStatus.Open)) {
+          statusByBranch.set(pr.headRefName, pr);
+        }
       }
     }
 
@@ -183,42 +183,30 @@ export class PrSyncWatcherService {
     statusByNumber: Map<number, PrStatusInfo>,
     statusByBranch: Map<string, PrStatusInfo>
   ): Promise<void> {
-    // If feature has no PR data, try to discover a PR by matching branch name
+    // If feature has no PR data, try to discover an Open PR by matching branch name.
+    // Only link Open PRs — merged/closed PRs with the same branch are likely stale
+    // from a previous iteration. The watcher will catch Open→Merged transitions
+    // on subsequent polls once the PR is linked.
     if (!feature.pr) {
       const matchedPr = statusByBranch.get(feature.branch);
-      if (!matchedPr) return;
+      if (matchedPr?.state !== PrStatus.Open) return;
 
       // eslint-disable-next-line no-console
       console.log(
-        `${TAG} Discovered PR #${matchedPr.number} (${matchedPr.state}) for "${feature.name}" via branch "${feature.branch}"`
+        `${TAG} Discovered PR #${matchedPr.number} for "${feature.name}" via branch "${feature.branch}"`
       );
 
       feature.pr = {
         url: matchedPr.url,
         number: matchedPr.number,
-        status: matchedPr.state,
+        status: PrStatus.Open,
       };
 
-      // Initialize tracking with the discovered state
       this.trackedFeatures.set(feature.id, {
-        prStatus: matchedPr.state,
+        prStatus: PrStatus.Open,
         ciStatus: undefined,
         featureName: feature.name,
       });
-
-      // If already merged, transition immediately
-      if (matchedPr.state === PrStatus.Merged) {
-        feature.lifecycle = SdlcLifecycle.Maintain;
-        await this.completeAgentRun(feature);
-        this.emitNotification(
-          NotificationEventType.PrMerged,
-          feature.id,
-          feature.agentRunId ?? '',
-          feature.name,
-          `PR #${matchedPr.number} merged for ${feature.name}`,
-          NotificationSeverity.Success
-        );
-      }
 
       await this.featureRepo.update(feature);
       return;
@@ -334,8 +322,6 @@ export class PrSyncWatcherService {
   private async completeAgentRun(feature: Feature): Promise<void> {
     if (!feature.agentRunId) return;
     try {
-      // eslint-disable-next-line no-console
-      console.log(`${TAG} Completing agent run ${feature.agentRunId} for "${feature.name}"`);
       await this.agentRunRepo.updateStatus(feature.agentRunId, AgentRunStatus.completed);
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);

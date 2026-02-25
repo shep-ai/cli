@@ -466,7 +466,7 @@ describe('PrSyncWatcherService', () => {
       expect(prEvents[0]!.severity).toBe(NotificationSeverity.Warning);
     });
 
-    it('should discover merged PR by branch name when feature has no PR data', async () => {
+    it('should skip already-merged PRs during branch discovery (likely stale)', async () => {
       const feature = createMockFeature({
         id: 'feat-1',
         name: 'Externally Merged',
@@ -489,23 +489,9 @@ describe('PrSyncWatcherService', () => {
       watcher.start();
       await vi.advanceTimersByTimeAsync(0);
 
-      // Feature should be updated with discovered PR data and lifecycle → Maintain
-      expect(featureRepo.update).toHaveBeenCalledTimes(1);
-      const updatedFeature = vi.mocked(featureRepo.update).mock.calls[0][0];
-      expect(updatedFeature.pr!.url).toBe('https://github.com/org/repo/pull/42');
-      expect(updatedFeature.pr!.number).toBe(42);
-      expect(updatedFeature.pr!.status).toBe(PrStatus.Merged);
-      expect(updatedFeature.lifecycle).toBe(SdlcLifecycle.Maintain);
-
-      // Agent run should be marked as completed
-      expect(agentRunRepo.updateStatus).toHaveBeenCalledWith('run-1', AgentRunStatus.completed);
-
-      // PrMerged notification should be emitted
-      const prEvents = notificationService.receivedEvents.filter(
-        (e) => e.eventType === NotificationEventType.PrMerged
-      );
-      expect(prEvents).toHaveLength(1);
-      expect(prEvents[0]!.featureId).toBe('feat-1');
+      // Merged PRs should not be linked — they're likely from a previous branch iteration
+      expect(featureRepo.update).not.toHaveBeenCalled();
+      expect(agentRunRepo.updateStatus).not.toHaveBeenCalled();
     });
 
     it('should discover open PR by branch name and populate feature PR data', async () => {
