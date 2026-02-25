@@ -7,23 +7,73 @@
  * TDD Phase: RED
  */
 
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
-// ---- child_process.spawn mock ------------------------------------------------
-const { mockChild, mockSpawn } = vi.hoisted(() => {
-  const mockChild = {
+// ---- Lightweight EventEmitter-like mock for ChildProcess ----------------------
+type Listener = (...args: unknown[]) => void;
+
+interface MockStream {
+  on: (event: string, listener: Listener) => MockStream;
+  destroy: ReturnType<typeof vi.fn>;
+  _listeners: Record<string, Listener[]>;
+  _emit: (event: string, ...args: unknown[]) => void;
+}
+
+interface MockChild {
+  pid: number;
+  unref: ReturnType<typeof vi.fn>;
+  stderr: MockStream;
+  on: (event: string, listener: Listener) => MockChild;
+  _listeners: Record<string, Listener[]>;
+  _emit: (event: string, ...args: unknown[]) => void;
+}
+
+function createMockStream(): MockStream {
+  const stream: MockStream = {
+    _listeners: {},
+    on(event: string, listener: Listener) {
+      (stream._listeners[event] ??= []).push(listener);
+      return stream;
+    },
+    destroy: vi.fn(),
+    _emit(event: string, ...args: unknown[]) {
+      for (const l of stream._listeners[event] ?? []) l(...args);
+    },
+  };
+  return stream;
+}
+
+function createMockChild(): MockChild {
+  const child: MockChild = {
     pid: 9999,
     unref: vi.fn(),
+    stderr: createMockStream(),
+    _listeners: {},
+    on(event: string, listener: Listener) {
+      (child._listeners[event] ??= []).push(listener);
+      return child;
+    },
+    _emit(event: string, ...args: unknown[]) {
+      for (const l of child._listeners[event] ?? []) l(...args);
+    },
   };
-  const mockSpawn = vi.fn().mockReturnValue(mockChild);
-  return { mockChild, mockSpawn };
+  return child;
+}
+
+// ---- child_process.spawn mock ------------------------------------------------
+const { mockSpawn } = vi.hoisted(() => {
+  const mockSpawn = vi.fn();
+  return { mockSpawn };
 });
 
 vi.mock('node:child_process', () => ({
   spawn: mockSpawn,
 }));
 
-// ---- IDaemonService mock + BrowserOpenerService mock (hoisted — referenced in vi.mock factories) ----
+// Global mock child — reassigned per test in beforeEach
+let mockChild: MockChild;
+
+// ---- IDaemonService mock + BrowserOpenerService mock ----
 const { mockDaemonService, mockBrowserOpen } = vi.hoisted(() => {
   const mockDaemonService = {
     read: vi.fn(),
@@ -71,9 +121,11 @@ vi.mock('src/presentation/cli/ui/index.js', () => ({
   messages: {
     success: vi.fn(),
     info: vi.fn(),
+    error: vi.fn(),
     newline: vi.fn(),
     warning: vi.fn(),
   },
+  spinner: vi.fn((_label: string, fn: () => Promise<unknown>) => fn()),
 }));
 
 import { findAvailablePort } from '@/infrastructure/services/port.service.js';
@@ -81,13 +133,27 @@ import { BrowserOpenerService } from '@/infrastructure/services/browser-opener.s
 import { startDaemon } from '../../../../src/presentation/cli/commands/daemon/start-daemon.js';
 
 describe('startDaemon()', () => {
+  const originalEnv = process.env.SHEP_SKIP_READINESS_CHECK;
+
   beforeEach(() => {
     vi.clearAllMocks();
-    mockChild.unref.mockClear();
+    // Fresh mock child for each test
+    mockChild = createMockChild();
     mockSpawn.mockReturnValue(mockChild);
     mockDaemonService.read.mockResolvedValue(null);
     mockDaemonService.isAlive.mockReturnValue(false);
     (findAvailablePort as ReturnType<typeof vi.fn>).mockResolvedValue(4050);
+
+    // Skip readiness check in unit tests (avoids http.get calls)
+    process.env.SHEP_SKIP_READINESS_CHECK = '1';
+  });
+
+  afterEach(() => {
+    if (originalEnv === undefined) {
+      delete process.env.SHEP_SKIP_READINESS_CHECK;
+    } else {
+      process.env.SHEP_SKIP_READINESS_CHECK = originalEnv;
+    }
   });
 
   describe('already-running path (idempotent)', () => {
@@ -140,21 +206,34 @@ describe('startDaemon()', () => {
       );
     });
 
+    it('propagates process.execArgv to the child', async () => {
+      await startDaemon();
+      const spawnArgs = mockSpawn.mock.calls[0][1] as string[];
+      for (const arg of process.execArgv) {
+        expect(spawnArgs).toContain(arg);
+      }
+    });
+
     it('spawns with detached: true', async () => {
       await startDaemon();
       const spawnOpts = mockSpawn.mock.calls[0][2];
       expect(spawnOpts).toMatchObject({ detached: true });
     });
 
-    it('spawns with stdio: "ignore"', async () => {
+    it('spawns with stderr piped for error capture', async () => {
       await startDaemon();
       const spawnOpts = mockSpawn.mock.calls[0][2];
-      expect(spawnOpts).toMatchObject({ stdio: 'ignore' });
+      expect(spawnOpts).toMatchObject({ stdio: ['ignore', 'ignore', 'pipe'] });
     });
 
-    it('calls child.unref() immediately after spawn', async () => {
+    it('calls child.unref() after the settle check', async () => {
       await startDaemon();
       expect(mockChild.unref).toHaveBeenCalled();
+    });
+
+    it('destroys stderr before unreffing', async () => {
+      await startDaemon();
+      expect(mockChild.stderr.destroy).toHaveBeenCalled();
     });
 
     it('writes daemon.json with pid, port, and startedAt', async () => {
@@ -186,6 +265,45 @@ describe('startDaemon()', () => {
       (findAvailablePort as ReturnType<typeof vi.fn>).mockResolvedValue(7070);
       await startDaemon({ port: 7070 });
       expect(mockBrowserOpen).toHaveBeenCalledWith('http://localhost:7070');
+    });
+  });
+
+  describe('early crash detection', () => {
+    it('does NOT write daemon.json when child exits during settle window', async () => {
+      mockSpawn.mockImplementation(() => {
+        const child = createMockChild();
+        // Emit exit on next tick (before 500ms settle timeout)
+        process.nextTick(() => child._emit('exit', 1, null));
+        return child;
+      });
+
+      await startDaemon();
+
+      expect(mockDaemonService.write).not.toHaveBeenCalled();
+    });
+
+    it('cleans up stale daemon.json when child crashes at startup', async () => {
+      mockSpawn.mockImplementation(() => {
+        const child = createMockChild();
+        process.nextTick(() => child._emit('exit', 1, null));
+        return child;
+      });
+
+      await startDaemon();
+
+      expect(mockDaemonService.delete).toHaveBeenCalled();
+    });
+
+    it('does NOT open the browser when child crashes at startup', async () => {
+      mockSpawn.mockImplementation(() => {
+        const child = createMockChild();
+        process.nextTick(() => child._emit('exit', 1, null));
+        return child;
+      });
+
+      await startDaemon();
+
+      expect(mockBrowserOpen).not.toHaveBeenCalled();
     });
   });
 });
