@@ -23,8 +23,6 @@ import { SidebarSectionHeader } from '@/components/common/sidebar-section-header
 import { featureStatusConfig, featureStatusOrder } from '@/components/common/feature-status-config';
 import type { FeatureStatus } from '@/components/common/feature-status-config';
 import { useDeferredMount } from '@/hooks/use-deferred-mount';
-import { featureFlags } from '@/lib/feature-flags';
-
 interface FeatureItem {
   name: string;
   status: FeatureStatus;
@@ -34,6 +32,7 @@ interface FeatureItem {
 
 export interface AppSidebarProps {
   features: FeatureItem[];
+  skillsEnabled?: boolean;
   onNewFeature?: () => void;
   onFeatureClick?: (name: string) => void;
   onFeaturesFolderClick?: () => void;
@@ -42,6 +41,7 @@ export interface AppSidebarProps {
 
 export function AppSidebar({
   features,
+  skillsEnabled,
   onNewFeature,
   onFeatureClick,
   onFeaturesFolderClick,
@@ -88,7 +88,7 @@ export function AppSidebar({
             href="/tools"
             active={pathname === '/tools'}
           />
-          {featureFlags.skills ? (
+          {skillsEnabled ? (
             <SidebarNavItem
               icon={Puzzle}
               label="Skills"

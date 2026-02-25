@@ -53,10 +53,13 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         notif_in_app_enabled, notif_browser_enabled, notif_desktop_enabled,
         notif_evt_agent_started, notif_evt_phase_completed, notif_evt_waiting_approval,
         notif_evt_agent_completed, notif_evt_agent_failed,
+        notif_evt_pr_merged, notif_evt_pr_closed,
+        notif_evt_pr_checks_passed, notif_evt_pr_checks_failed,
         workflow_open_pr_on_impl_complete,
         onboarding_complete,
         approval_gate_allow_prd, approval_gate_allow_plan,
-        approval_gate_allow_merge, approval_gate_push_on_impl_complete
+        approval_gate_allow_merge, approval_gate_push_on_impl_complete,
+        exp_skills
       ) VALUES (
         @id, @created_at, @updated_at,
         @model_analyze, @model_requirements, @model_plan, @model_implement,
@@ -67,10 +70,13 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         @notif_in_app_enabled, @notif_browser_enabled, @notif_desktop_enabled,
         @notif_evt_agent_started, @notif_evt_phase_completed, @notif_evt_waiting_approval,
         @notif_evt_agent_completed, @notif_evt_agent_failed,
+        @notif_evt_pr_merged, @notif_evt_pr_closed,
+        @notif_evt_pr_checks_passed, @notif_evt_pr_checks_failed,
         @workflow_open_pr_on_impl_complete,
         @onboarding_complete,
         @approval_gate_allow_prd, @approval_gate_allow_plan,
-        @approval_gate_allow_merge, @approval_gate_push_on_impl_complete
+        @approval_gate_allow_merge, @approval_gate_push_on_impl_complete,
+        @exp_skills
       )
     `);
 
@@ -142,12 +148,17 @@ export class SQLiteSettingsRepository implements ISettingsRepository {
         notif_evt_waiting_approval = @notif_evt_waiting_approval,
         notif_evt_agent_completed = @notif_evt_agent_completed,
         notif_evt_agent_failed = @notif_evt_agent_failed,
+        notif_evt_pr_merged = @notif_evt_pr_merged,
+        notif_evt_pr_closed = @notif_evt_pr_closed,
+        notif_evt_pr_checks_passed = @notif_evt_pr_checks_passed,
+        notif_evt_pr_checks_failed = @notif_evt_pr_checks_failed,
         workflow_open_pr_on_impl_complete = @workflow_open_pr_on_impl_complete,
         onboarding_complete = @onboarding_complete,
         approval_gate_allow_prd = @approval_gate_allow_prd,
         approval_gate_allow_plan = @approval_gate_allow_plan,
         approval_gate_allow_merge = @approval_gate_allow_merge,
-        approval_gate_push_on_impl_complete = @approval_gate_push_on_impl_complete
+        approval_gate_push_on_impl_complete = @approval_gate_push_on_impl_complete,
+        exp_skills = @exp_skills
       WHERE id = @id
     `);
 

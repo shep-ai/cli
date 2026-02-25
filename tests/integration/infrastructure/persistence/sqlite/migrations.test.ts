@@ -655,4 +655,57 @@ describe('SQLite Migrations', () => {
       expect(indexes).toContain('idx_phase_timings_run');
     });
   });
+
+  describe('migration v23: experimental feature flags', () => {
+    beforeEach(async () => {
+      await runSQLiteMigrations(db);
+    });
+
+    it('should add exp_skills column to settings table', () => {
+      const schema = getTableSchema(db, 'settings');
+      const expSkills = schema.find((col) => col.name === 'exp_skills');
+
+      expect(expSkills).toBeDefined();
+      expect(expSkills?.type).toBe('INTEGER');
+      expect(expSkills?.notnull).toBe(1);
+    });
+
+    it('should default exp_skills to 0 (disabled)', () => {
+      const schema = getTableSchema(db, 'settings');
+      const expSkills = schema.find((col) => col.name === 'exp_skills');
+
+      expect(expSkills?.dflt_value).toBe('0');
+    });
+
+    it('should default exp_skills to 0 for new rows', () => {
+      db.prepare(
+        `INSERT INTO settings (id, created_at, updated_at, model_analyze, model_requirements, model_plan, model_implement,
+          env_default_editor, env_shell_preference, sys_auto_update, sys_log_level, agent_type, agent_auth_method)
+        VALUES ('test', '2025-01-01', '2025-01-01', 'm', 'm', 'm', 'm', 'vscode', 'bash', 1, 'info', 'claude-code', 'session')`
+      ).run();
+
+      const row = db.prepare('SELECT exp_skills FROM settings WHERE id = ?').get('test') as {
+        exp_skills: number;
+      };
+
+      expect(row.exp_skills).toBe(0);
+    });
+
+    it('should be idempotent (running migration twice does not error)', async () => {
+      const freshDb = createInMemoryDatabase();
+      await runSQLiteMigrations(freshDb);
+      await expect(runSQLiteMigrations(freshDb)).resolves.not.toThrow();
+
+      const schema = getTableSchema(freshDb, 'settings');
+      const expSkills = schema.find((col) => col.name === 'exp_skills');
+      expect(expSkills).toBeDefined();
+
+      freshDb.close();
+    });
+
+    it('should set schema version to 23', () => {
+      const version = getSchemaVersion(db);
+      expect(version).toBe(23);
+    });
+  });
 });

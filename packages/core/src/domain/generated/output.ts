@@ -468,6 +468,16 @@ export type NotificationPreferences = {
 };
 
 /**
+ * Experimental feature flags (all default to off)
+ */
+export type ExperimentalFeatures = {
+  /**
+   * Enable the experimental skills management page
+   */
+  skills: boolean;
+};
+
+/**
  * Global Shep platform settings (singleton)
  */
 export type Settings = BaseEntity & {
@@ -499,6 +509,10 @@ export type Settings = BaseEntity & {
    * Global workflow configuration defaults
    */
   workflow: WorkflowConfig;
+  /**
+   * Experimental feature flags
+   */
+  experimental: ExperimentalFeatures;
   /**
    * Whether first-run onboarding has been completed (default: false)
    */

@@ -8,6 +8,10 @@
  */
 
 import type { Settings } from '@/domain/generated/output.js';
+import {
+  EXPERIMENTAL_FLAGS,
+  type ExperimentalFlagKey,
+} from '@/domain/constants/experimental-flags.js';
 import { colors } from './colors.js';
 import pc from 'picocolors';
 
@@ -74,6 +78,17 @@ export class TableFormatter {
         ['Auth', s.agent.authMethod],
         ...(s.agent.token ? [['Token', '••••••••'] as [string, string | undefined]] : []),
       ])
+    );
+
+    // Experimental
+    lines.push(
+      ...TableFormatter.section(
+        'Experimental',
+        Object.entries(EXPERIMENTAL_FLAGS).map(([key, meta]) => [
+          meta.name,
+          String(s.experimental[key as ExperimentalFlagKey]),
+        ])
+      )
     );
 
     // Database

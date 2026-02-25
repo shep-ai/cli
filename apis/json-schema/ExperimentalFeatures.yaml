@@ -1,0 +1,11 @@
+$schema: https://json-schema.org/draft/2020-12/schema
+$id: ExperimentalFeatures.yaml
+type: object
+properties:
+  skills:
+    type: boolean
+    default: false
+    description: Enable the experimental skills management page
+required:
+  - skills
+description: Experimental feature flags (all default to off)

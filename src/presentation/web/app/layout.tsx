@@ -3,6 +3,7 @@ import '@xyflow/react/dist/base.css';
 import './globals.css';
 import { AppShell } from '@/components/layouts/app-shell';
 import { Toaster } from '@/components/ui/sonner';
+import { getFeatureFlags } from '@/lib/feature-flags';
 
 /** Force dynamic rendering for all pages since they depend on client-side context. */
 export const dynamic = 'force-dynamic';
@@ -52,7 +53,7 @@ export default function RootLayout({
         />
       </head>
       <body className="min-h-screen antialiased">
-        <AppShell>{children}</AppShell>
+        <AppShell skillsEnabled={getFeatureFlags().skills}>{children}</AppShell>
         <Toaster />
       </body>
     </html>

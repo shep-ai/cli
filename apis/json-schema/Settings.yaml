@@ -23,6 +23,9 @@ properties:
   workflow:
     $ref: WorkflowConfig.yaml
     description: Global workflow configuration defaults
+  experimental:
+    $ref: ExperimentalFeatures.yaml
+    description: Experimental feature flags
   onboardingComplete:
     type: boolean
     default: false
@@ -35,6 +38,7 @@ required:
   - agent
   - notifications
   - workflow
+  - experimental
   - onboardingComplete
 allOf:
   - $ref: BaseEntity.yaml

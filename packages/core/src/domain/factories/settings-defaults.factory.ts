@@ -23,6 +23,7 @@ import type {
   NotificationPreferences,
   WorkflowConfig,
   ApprovalGateDefaults,
+  ExperimentalFeatures,
 } from '../generated/output';
 import { AgentType, AgentAuthMethod, EditorType } from '../generated/output';
 
@@ -139,6 +140,10 @@ export function createDefaultSettings(): Settings {
     approvalGateDefaults,
   };
 
+  const experimental: ExperimentalFeatures = {
+    skills: false,
+  };
+
   return {
     id: randomUUID(),
     models,
@@ -148,6 +153,7 @@ export function createDefaultSettings(): Settings {
     agent,
     notifications,
     workflow,
+    experimental,
     onboardingComplete: false,
     createdAt: now,
     updatedAt: now,

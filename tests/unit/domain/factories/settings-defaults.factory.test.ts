@@ -293,6 +293,18 @@ describe('createDefaultSettings', () => {
     });
   });
 
+  describe('ExperimentalFeatures defaults', () => {
+    it('should have experimental field defined', () => {
+      const settings = createDefaultSettings();
+      expect(settings.experimental).toBeDefined();
+    });
+
+    it('should set experimental.skills to false', () => {
+      const settings = createDefaultSettings();
+      expect(settings.experimental.skills).toBe(false);
+    });
+  });
+
   describe('complete default object', () => {
     it('should return complete Settings object matching all TypeSpec defaults', () => {
       // Act

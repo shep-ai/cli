@@ -11,10 +11,11 @@ import { useNotifications } from '@/hooks/use-notifications';
 
 interface AppShellProps {
   children: ReactNode;
+  skillsEnabled?: boolean;
 }
 
 /** Inner shell that consumes the agent-events context for notifications. */
-function AppShellInner({ children }: AppShellProps) {
+function AppShellInner({ children, skillsEnabled }: AppShellProps) {
   // Subscribe to agent lifecycle events and dispatch toast/browser notifications
   useNotifications();
 
@@ -28,7 +29,7 @@ function AppShellInner({ children }: AppShellProps) {
 
   return (
     <SidebarProvider>
-      <AppSidebar features={[]} onNewFeature={handleNewFeature} />
+      <AppSidebar features={[]} skillsEnabled={skillsEnabled} onNewFeature={handleNewFeature} />
       <SidebarInset>
         <div className="relative h-full">
           <div className="absolute top-3 right-3 z-50 flex gap-1">
@@ -43,10 +44,10 @@ function AppShellInner({ children }: AppShellProps) {
   );
 }
 
-export function AppShell({ children }: AppShellProps) {
+export function AppShell({ children, skillsEnabled }: AppShellProps) {
   return (
     <AgentEventsProvider>
-      <AppShellInner>{children}</AppShellInner>
+      <AppShellInner skillsEnabled={skillsEnabled}>{children}</AppShellInner>
     </AgentEventsProvider>
   );
 }

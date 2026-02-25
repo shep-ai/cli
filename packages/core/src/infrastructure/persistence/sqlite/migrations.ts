@@ -372,6 +372,21 @@ ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
       add('notif_evt_pr_checks_failed');
     },
   },
+  {
+    version: 23,
+    // Migration 023: Add experimental feature flags to settings.
+    // Uses handler for conditional column add (safe re-run).
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      const add = (col: string) => {
+        if (!columns.some((c) => c.name === col)) {
+          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER NOT NULL DEFAULT 0`);
+        }
+      };
+      add('exp_skills');
+    },
+  },
 ];
 
 /**

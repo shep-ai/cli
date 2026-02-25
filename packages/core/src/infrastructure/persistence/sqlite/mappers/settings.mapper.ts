@@ -77,6 +77,9 @@ export interface SettingsRow {
   approval_gate_allow_plan: number;
   approval_gate_allow_merge: number;
   approval_gate_push_on_impl_complete: number;
+
+  // ExperimentalFeatures (experimental.*)
+  exp_skills: number;
 }
 
 /**
@@ -147,6 +150,9 @@ export function toDatabase(settings: Settings): SettingsRow {
       .pushOnImplementationComplete
       ? 1
       : 0,
+
+    // ExperimentalFeatures (boolean → INTEGER)
+    exp_skills: settings.experimental.skills ? 1 : 0,
   };
 }
 
@@ -225,6 +231,11 @@ export function fromDatabase(row: SettingsRow): Settings {
         allowMerge: row.approval_gate_allow_merge === 1,
         pushOnImplementationComplete: row.approval_gate_push_on_impl_complete === 1,
       },
+    },
+
+    // ExperimentalFeatures (INTEGER → boolean)
+    experimental: {
+      skills: row.exp_skills === 1,
     },
 
     // Onboarding (INTEGER → boolean)

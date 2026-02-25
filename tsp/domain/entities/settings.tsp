@@ -382,6 +382,19 @@ model NotificationPreferences {
 }
 
 /**
+ * Experimental Feature Flags
+ *
+ * Controls which experimental features are enabled. All flags default to off.
+ * Adding a new experimental feature requires adding a boolean field here,
+ * a migration column (exp_ prefix), a mapper line, and a registry entry.
+ */
+@doc("Experimental feature flags (all default to off)")
+model ExperimentalFeatures {
+  @doc("Enable the experimental skills management page")
+  skills: boolean = false;
+}
+
+/**
  * Settings Entity
  *
  * Global Shep platform settings stored as a singleton. This entity contains
@@ -497,6 +510,14 @@ model Settings extends BaseEntity {
    */
   @doc("Global workflow configuration defaults")
   workflow: WorkflowConfig;
+
+  /**
+   * Experimental feature flags.
+   * Controls which experimental features are enabled for this user.
+   * All flags default to off (disabled).
+   */
+  @doc("Experimental feature flags")
+  experimental: ExperimentalFeatures;
 
   /**
    * Whether the first-run onboarding wizard has been completed.

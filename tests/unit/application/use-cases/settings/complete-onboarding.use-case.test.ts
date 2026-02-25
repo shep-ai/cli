@@ -51,6 +51,9 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         pushOnImplementationComplete: false,
       },
     },
+    experimental: {
+      skills: false,
+    },
     onboardingComplete: false,
     ...overrides,
   };

@@ -28,6 +28,7 @@ describe('TableFormatter', () => {
       expect(result).toContain('Environment');
       expect(result).toContain('System');
       expect(result).toContain('Agent');
+      expect(result).toContain('Experimental');
     });
 
     it('should include model values', () => {
@@ -62,6 +63,24 @@ describe('TableFormatter', () => {
       const result = TableFormatter.createSettingsTable(sampleSettings);
 
       expect(result).not.toContain('Database');
+    });
+
+    it('should show experimental flags with disabled status by default', () => {
+      const result = TableFormatter.createSettingsTable(sampleSettings);
+
+      expect(result).toContain('Skills Page');
+      expect(result).toContain('false');
+    });
+
+    it('should show experimental flags with enabled status when on', () => {
+      const settingsWithSkills = {
+        ...sampleSettings,
+        experimental: { skills: true },
+      };
+      const result = TableFormatter.createSettingsTable(settingsWithSkills);
+
+      expect(result).toContain('Skills Page');
+      expect(result).toContain('true');
     });
 
     it('should mask token when present', () => {

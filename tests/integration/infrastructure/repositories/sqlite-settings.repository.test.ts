@@ -75,6 +75,9 @@ describe('SQLiteSettingsRepository', () => {
         pushOnImplementationComplete: false,
       },
     },
+    experimental: {
+      skills: false,
+    },
     onboardingComplete: false,
   });
 
@@ -543,6 +546,75 @@ describe('SQLiteSettingsRepository', () => {
       // Assert
       const loaded = await repository.load();
       expect(loaded?.environment.shellPreference).toBe('ba\'"sh');
+    });
+  });
+
+  describe('experimental features', () => {
+    it('should store experimental.skills=true as exp_skills=1', async () => {
+      const settings = createTestSettings();
+      settings.experimental.skills = true;
+      await repository.initialize(settings);
+
+      const row = db.prepare('SELECT exp_skills FROM settings WHERE id = ?').get('singleton') as {
+        exp_skills: number;
+      };
+      expect(row.exp_skills).toBe(1);
+    });
+
+    it('should store experimental.skills=false as exp_skills=0', async () => {
+      const settings = createTestSettings();
+      settings.experimental.skills = false;
+      await repository.initialize(settings);
+
+      const row = db.prepare('SELECT exp_skills FROM settings WHERE id = ?').get('singleton') as {
+        exp_skills: number;
+      };
+      expect(row.exp_skills).toBe(0);
+    });
+
+    it('should load experimental.skills correctly after initialize', async () => {
+      const settings = createTestSettings();
+      settings.experimental.skills = true;
+      await repository.initialize(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.experimental.skills).toBe(true);
+    });
+
+    it('should update experimental.skills from false to true', async () => {
+      const settings = createTestSettings();
+      settings.experimental.skills = false;
+      await repository.initialize(settings);
+
+      settings.experimental.skills = true;
+      settings.updatedAt = new Date('2025-01-02T00:00:00Z');
+      await repository.update(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.experimental.skills).toBe(true);
+    });
+
+    it('should update experimental.skills from true to false', async () => {
+      const settings = createTestSettings();
+      settings.experimental.skills = true;
+      await repository.initialize(settings);
+
+      settings.experimental.skills = false;
+      settings.updatedAt = new Date('2025-01-02T00:00:00Z');
+      await repository.update(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.experimental.skills).toBe(false);
+    });
+
+    it('should round-trip experimental.skills=true through initialize → load', async () => {
+      const settings = createTestSettings();
+      settings.experimental.skills = true;
+      await repository.initialize(settings);
+
+      const loaded = await repository.load();
+      expect(loaded?.experimental.skills).toBe(true);
+      expect(typeof loaded?.experimental.skills).toBe('boolean');
     });
   });
 

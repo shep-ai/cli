@@ -75,6 +75,9 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         pushOnImplementationComplete: false,
       },
     },
+    experimental: {
+      skills: false,
+    },
     onboardingComplete: false,
     ...overrides,
   };
@@ -121,6 +124,7 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     approval_gate_allow_plan: 0,
     approval_gate_allow_merge: 0,
     approval_gate_push_on_impl_complete: 0,
+    exp_skills: 0,
     ...overrides,
   };
 }
@@ -452,6 +456,50 @@ describe('Settings Mapper', () => {
         allowMerge: true,
         pushOnImplementationComplete: true,
       });
+    });
+  });
+
+  describe('toDatabase() - experimental features', () => {
+    it('should map experimental.skills=true to exp_skills=1', () => {
+      const settings = createTestSettings({ experimental: { skills: true } });
+      const row = toDatabase(settings);
+      expect(row.exp_skills).toBe(1);
+    });
+
+    it('should map experimental.skills=false to exp_skills=0', () => {
+      const settings = createTestSettings({ experimental: { skills: false } });
+      const row = toDatabase(settings);
+      expect(row.exp_skills).toBe(0);
+    });
+  });
+
+  describe('fromDatabase() - experimental features', () => {
+    it('should map exp_skills=1 to experimental.skills=true', () => {
+      const row = createTestRow({ exp_skills: 1 });
+      const settings = fromDatabase(row);
+      expect(settings.experimental.skills).toBe(true);
+    });
+
+    it('should map exp_skills=0 to experimental.skills=false', () => {
+      const row = createTestRow({ exp_skills: 0 });
+      const settings = fromDatabase(row);
+      expect(settings.experimental.skills).toBe(false);
+    });
+  });
+
+  describe('round-trip - experimental features', () => {
+    it('should preserve experimental.skills=true through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({ experimental: { skills: true } });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.experimental.skills).toBe(true);
+    });
+
+    it('should preserve experimental.skills=false through toDatabase → fromDatabase', () => {
+      const original = createTestSettings({ experimental: { skills: false } });
+      const row = toDatabase(original);
+      const restored = fromDatabase(row);
+      expect(restored.experimental.skills).toBe(false);
     });
   });
 });
