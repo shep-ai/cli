@@ -93,12 +93,14 @@ function HookTestHarness({
   initialNodes = [],
   initialEdges = [],
   onStateChange,
+  options,
 }: {
   initialNodes?: CanvasNodeType[];
   initialEdges?: Edge[];
   onStateChange?: (state: ControlCenterState) => void;
+  options?: { onFitView?: () => void };
 }) {
-  const state = useControlCenterState(initialNodes, initialEdges);
+  const state = useControlCenterState(initialNodes, initialEdges, options);
 
   if (onStateChange) {
     onStateChange(state);
@@ -170,6 +172,9 @@ function HookTestHarness({
       >
         Add Creating Feature
       </button>
+      <button data-testid="layout-lr" onClick={() => state.handleLayout('LR')}>
+        Layout LR
+      </button>
     </>
   );
 }
@@ -177,13 +182,15 @@ function HookTestHarness({
 function renderHook(
   initialNodes: CanvasNodeType[] = [],
   initialEdges: Edge[] = [],
-  onStateChange?: (state: ControlCenterState) => void
+  onStateChange?: (state: ControlCenterState) => void,
+  options?: { onFitView?: () => void }
 ) {
   return render(
     <HookTestHarness
       initialNodes={initialNodes}
       initialEdges={initialEdges}
       onStateChange={onStateChange}
+      options={options}
     />
   );
 }
@@ -407,6 +414,64 @@ describe('useControlCenterState', () => {
       });
 
       expect(screen.getByTestId('pending-parent-feature-id')).toHaveTextContent('none');
+    });
+
+    it('uses current edges (edgesRef) not stale closure-captured edges to resolve repo', () => {
+      const repoNode: RepositoryNodeType = {
+        id: 'repo-r1',
+        type: 'repositoryNode',
+        position: { x: 0, y: 0 },
+        data: { name: 'my-repo', repositoryPath: '/home/user/my-repo' },
+      };
+
+      let capturedState: ControlCenterState | null = null;
+
+      // Start with NO edges — feat-1 is disconnected from repo
+      render(
+        <HookTestHarness
+          initialNodes={[repoNode, mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Capture the handleAddFeatureToFeature callback BEFORE adding an edge
+      const staleHandler = capturedState!.handleAddFeatureToFeature;
+
+      // Connect feat-1 to repo-r1 by creating a feature from repo-r1
+      // This adds an edge repo-r1 → newFeature via setEdges (edgesRef.current updated)
+      // But we need a direct edge to feat-1. Let's use handleConnect instead.
+      // Actually, let's just add an edge directly via createFeatureNode from feat-1's parent.
+      // Simplest approach: rerender with new initial edges to trigger the sync effect.
+      // But that would also re-create the callback. Instead, let's add an edge
+      // by creating a feature from repo-r1 that happens to target feat-1.
+      // Actually — the cleanest way is to call createFeatureNode which triggers setEdges.
+
+      // Add a new feature from repo-r1. This creates an edge repo-r1 → newFeature
+      // but also updates edgesRef.current.
+      act(() => {
+        capturedState!.createFeatureNode('repo-r1');
+      });
+
+      // Now edgesRef has 1 edge (repo-r1 → newFeature). The stale callback has 0 edges.
+      // The handleAddFeatureToFeature looks for an edge targeting the given featureNodeId.
+      // If we call it with the new feature's node ID, the stale version won't find the edge.
+      const newFeatureNode = capturedState!.nodes.find(
+        (n) => n.id !== 'repo-r1' && n.id !== 'feat-1'
+      );
+      expect(newFeatureNode).toBeDefined();
+
+      // Call the STALE handler with the new feature node's ID
+      act(() => {
+        staleHandler(newFeatureNode!.id);
+      });
+
+      // If the handler used edgesRef.current, it finds the edge (repo-r1 → newFeature)
+      // and sets pendingRepoNodeId to 'repo-r1', which resolves the repo path.
+      // If it used stale closure edges (empty), repoNodeId would be null.
+      expect(screen.getByTestId('pending-repo-path')).toHaveTextContent('/home/user/my-repo');
     });
 
     it('resolves repo path from parent feature node', () => {
@@ -1171,10 +1236,66 @@ describe('useControlCenterState', () => {
       // Capture the callback reference after edges have changed
       const after = capturedState!.handleAddFeatureToFeature;
 
-      // handleAddFeatureToFeature depends on [edges] so it will be
-      // recreated when edges change (e.g. after createFeatureNode adds an edge).
-      // This is expected since it needs current edges to resolve repo paths.
-      expect(after).not.toBe(before);
+      // handleAddFeatureToFeature uses edgesRef.current instead of closure-captured
+      // edges, so it has an empty dependency array and maintains stable identity.
+      expect(after).toBe(before);
+    });
+  });
+
+  describe('handleLayout', () => {
+    it('uses current edges (edgesRef) not stale closure-captured edges for layout', () => {
+      let capturedState: ControlCenterState | null = null;
+
+      // Start with repo + feature but NO edges
+      render(
+        <HookTestHarness
+          initialNodes={[mockRepoNode, mockFeatureNode] as CanvasNodeType[]}
+          initialEdges={[]}
+          onStateChange={(state) => {
+            capturedState = state;
+          }}
+        />
+      );
+
+      // Capture handleLayout BEFORE adding edges
+      const staleHandleLayout = capturedState!.handleLayout;
+
+      // Add an edge by creating a feature from repo-1
+      act(() => {
+        capturedState!.createFeatureNode('repo-1');
+      });
+
+      // edgesRef now has 1 edge. The stale handleLayout has 0 edges in its closure.
+      expect(capturedState!.edges.length).toBe(1);
+
+      // Record positions before layout
+      const positionsBefore = new Map(capturedState!.nodes.map((n) => [n.id, { ...n.position }]));
+
+      // Invoke the STALE handleLayout
+      act(() => {
+        staleHandleLayout('LR');
+      });
+
+      // With edges, dagre would place connected nodes in a left-to-right chain.
+      // The repo node should be to the left of its child feature.
+      // If stale (empty) edges were used, all nodes would be disconnected and
+      // laid out in a single column instead of a chain.
+      const repoAfter = capturedState!.nodes.find((n) => n.id === 'repo-1')!;
+      const childNode = capturedState!.nodes.find(
+        (n) => n.type === 'featureNode' && n.id !== 'feat-1'
+      );
+
+      // With the edge, the child should be positioned to the right of repo (LR layout)
+      if (childNode) {
+        expect(childNode.position.x).toBeGreaterThan(repoAfter.position.x);
+      }
+
+      // Verify at least one node moved (layout was applied)
+      const anyMoved = capturedState!.nodes.some((n) => {
+        const before = positionsBefore.get(n.id);
+        return before && (n.position.x !== before.x || n.position.y !== before.y);
+      });
+      expect(anyMoved).toBe(true);
     });
   });
 
@@ -1584,6 +1705,150 @@ describe('useControlCenterState', () => {
         // Repo node height is 50px. Disconnected feat-2 should be below repo's bottom edge.
         const repoBottom = repoAfter.position.y + 50;
         expect(feat2After.position.y).toBeGreaterThan(repoBottom);
+      });
+
+      it('uses current edges (edgesRef) not stale closure-captured edges for relayout', async () => {
+        mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
+
+        let capturedState: ControlCenterState | null = null;
+
+        // Start with repo → feat-1 → feat-2 (2 edges)
+        render(
+          <HookTestHarness
+            initialNodes={[chainRepoNode, chainFeat1, chainFeat2] as CanvasNodeType[]}
+            initialEdges={[chainEdgeRepoToFeat1, chainEdgeFeat1ToFeat2]}
+            onStateChange={(state) => {
+              capturedState = state;
+            }}
+          />
+        );
+
+        // Capture the handleDeleteFeature callback BEFORE adding new edges.
+        // This is the stale closure scenario: the callback captures `edges`
+        // at creation time, but edges will change before it's invoked.
+        const staleHandleDelete = capturedState!.handleDeleteFeature;
+
+        // Add a new edge by creating a new feature node connected to repo-1.
+        // This calls setEdges internally, updating edgesRef.current.
+        act(() => {
+          capturedState!.createFeatureNode('repo-1');
+        });
+
+        // There should now be 3 edges (2 initial + 1 from createFeatureNode)
+        expect(capturedState!.edges.length).toBe(3);
+
+        // Invoke the STALE callback (captured before edge change).
+        // If the callback reads from closure-captured `edges`, it will only
+        // see the 2 initial edges, losing the new edge from createFeatureNode.
+        // If it reads from edgesRef.current, it will see all 3 edges.
+        await act(async () => {
+          staleHandleDelete('feat-1');
+        });
+
+        // feat-1 was connected to 2 of the 3 edges (repo→feat-1 and feat-1→feat-2).
+        // The third edge (repo→newFeature) should survive the deletion.
+        expect(capturedState!.edges.length).toBe(1);
+        const survivingEdge = capturedState!.edges[0];
+        expect(survivingEdge.source).toBe('repo-1');
+        // The surviving edge should connect to the newly created feature, not feat-1 or feat-2
+        expect(survivingEdge.target).not.toBe('feat-1');
+        expect(survivingEdge.target).not.toBe('feat-2');
+      });
+
+      it('calls onFitView after successful deletion relayout', async () => {
+        vi.useFakeTimers();
+        mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
+
+        const onFitView = vi.fn();
+
+        render(
+          <HookTestHarness
+            initialNodes={[chainRepoNode, chainFeat1, chainFeat2] as CanvasNodeType[]}
+            initialEdges={[chainEdgeRepoToFeat1, chainEdgeFeat1ToFeat2]}
+            options={{ onFitView }}
+          />
+        );
+
+        await act(async () => {
+          fireEvent.click(screen.getByTestId('delete-feature'));
+        });
+
+        // onFitView is called via setTimeout(0), so advance timers
+        act(() => {
+          vi.advanceTimersByTime(0);
+        });
+
+        expect(onFitView).toHaveBeenCalledTimes(1);
+
+        vi.useRealTimers();
+      });
+
+      it('does not call onFitView when deletion fails with server error', async () => {
+        vi.useFakeTimers();
+        mockDeleteFeature.mockResolvedValue({ error: 'Delete failed' });
+
+        const onFitView = vi.fn();
+
+        render(
+          <HookTestHarness
+            initialNodes={[chainRepoNode, chainFeat1, chainFeat2] as CanvasNodeType[]}
+            initialEdges={[chainEdgeRepoToFeat1, chainEdgeFeat1ToFeat2]}
+            options={{ onFitView }}
+          />
+        );
+
+        await act(async () => {
+          fireEvent.click(screen.getByTestId('delete-feature'));
+        });
+
+        act(() => {
+          vi.advanceTimersByTime(0);
+        });
+
+        expect(onFitView).not.toHaveBeenCalled();
+
+        vi.useRealTimers();
+      });
+
+      it('does not call onFitView when zero nodes remain after deletion', async () => {
+        vi.useFakeTimers();
+        mockDeleteFeature.mockResolvedValue({ feature: { id: 'f1' } });
+
+        const onFitView = vi.fn();
+        const singleNode: FeatureNodeType = {
+          id: 'feat-1',
+          type: 'featureNode',
+          position: { x: 100, y: 100 },
+          data: {
+            name: 'Only Feature',
+            featureId: '#f1',
+            lifecycle: 'implementation',
+            state: 'running',
+            progress: 0,
+            repositoryPath: '/home/user/repo',
+            branch: 'feat/only',
+          },
+        };
+
+        render(
+          <HookTestHarness
+            initialNodes={[singleNode] as CanvasNodeType[]}
+            initialEdges={[]}
+            options={{ onFitView }}
+          />
+        );
+
+        await act(async () => {
+          fireEvent.click(screen.getByTestId('delete-feature'));
+        });
+
+        act(() => {
+          vi.advanceTimersByTime(0);
+        });
+
+        expect(onFitView).not.toHaveBeenCalled();
+
+        vi.useRealTimers();
       });
 
       it('preserves correct node and edge counts after relayout', async () => {

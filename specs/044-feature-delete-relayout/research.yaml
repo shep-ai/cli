@@ -1,0 +1,420 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-delete-relayout
+summary: >
+  Research confirms the stale-edges bug exists in three callbacks (handleDeleteFeature,
+  handleLayout, handleAddFeatureToFeature) where closure-captured `edges` should be
+  `edgesRef.current`. The fitView integration requires passing a callback from
+  ControlCenterInner (which is already inside ReactFlowProvider) into the hook via
+  a new optional parameter. No new dependencies needed — all APIs are already available.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (useState, useCallback, useRef, useEffect)
+  - '@xyflow/react (ReactFlowProvider, useReactFlow, fitView)'
+  - '@dagrejs/dagre (hierarchical graph layout)'
+  - Next.js (server actions, router.refresh)
+  - Vitest + React Testing Library (unit tests)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Stale-edges fix strategy'
+    chosen: 'Replace closure-captured `edges` with `edgesRef.current` in all three callbacks'
+    rejected:
+      - >
+        Use functional updater for edges (setEdges(prev => ...)) — Would require restructuring
+        the callbacks significantly since they need to read edges synchronously to compute
+        the relayout, not inside a setter. The setNodes updater already provides current nodes
+        via the callback arg, but edges are needed in the same scope and there's no combined
+        setState for both. Would make code more convoluted for no benefit.
+      - >
+        Create a custom hook that merges nodes+edges into a single state atom — Over-engineering
+        for this bug. Would require rewriting the entire state management approach, touching
+        every callback. The edgesRef pattern is already established in the codebase (line 62-72
+        of use-control-center-state.ts) and works correctly for createFeatureNode.
+    rationale: >
+      The edgesRef synchronization pattern is already established in the hook (lines 62-72).
+      The `setEdges` wrapper already keeps `edgesRef.current` in sync on every update. Using
+      `edgesRef.current` in the three affected callbacks is the minimal, consistent fix that
+      follows the existing codebase pattern. It also removes `edges` from the dependency arrays,
+      reducing unnecessary callback re-creations on every edge change.
+
+  - title: 'fitView integration approach'
+    chosen: 'Call useReactFlow() in ControlCenterInner and pass fitView to the hook as an optional parameter'
+    rejected:
+      - >
+        Add a useEffect inside FeaturesCanvas that watches for node count changes and calls
+        fitView — This couples the fitView behavior to the canvas component rather than the
+        deletion logic. It would fire on every node count change (adds, deletes, SSE refreshes),
+        not just deletions. The canvas is a presentational component and should not contain
+        business logic about when to re-center the viewport.
+      - >
+        Use a custom event (window.dispatchEvent) to signal fitView from the hook — Anti-pattern
+        that bypasses React's data flow. Harder to test, harder to trace, and introduces
+        coupling via a global event bus. The codebase already uses prop/callback threading
+        (e.g., how handleAddFeature flows from hook → inner → canvas) and this should follow
+        the same pattern.
+      - >
+        Create an inner FitViewBridge component inside FeaturesCanvas that uses useReactFlow
+        and exposes fitView via a ref — Unnecessarily complex. ControlCenterInner is already
+        rendered inside ReactFlowProvider (control-center.tsx line 16-18 wraps ControlCenterInner
+        with ReactFlowProvider), so useReactFlow() can be called directly there.
+    rationale: >
+      The component hierarchy is: ControlCenter → ReactFlowProvider → ControlCenterInner →
+      FeaturesCanvas → ReactFlowProvider (inner) → ReactFlow. However, there's a critical
+      architectural detail: FeaturesCanvas wraps its own ReactFlowProvider (line 143), creating
+      a NESTED provider. The outer provider in control-center.tsx (line 16) wraps
+      ControlCenterInner, but useReactFlow() in ControlCenterInner would bind to the OUTER
+      provider, not the inner one that actually manages the ReactFlow instance. This means
+      fitView from the outer provider would be a no-op since it has no ReactFlow instance.
+
+      The correct approach is: (1) call useReactFlow() inside ControlCenterInner — this binds
+      to the outer ReactFlowProvider from control-center.tsx, (2) remove the nested
+      ReactFlowProvider from FeaturesCanvas since the outer one already exists, OR alternatively
+      (3) pass fitView from the hook via a ref that FeaturesCanvas sets from its inner
+      useReactFlow context.
+
+      The simplest correct approach: since ControlCenterInner is already inside a
+      ReactFlowProvider, and the FeaturesCanvas has its own nested provider, the cleanest
+      fix is to remove the redundant inner ReactFlowProvider from FeaturesCanvas and use
+      the outer one. Then useReactFlow() in ControlCenterInner will correctly reference the
+      ReactFlow instance. The fitView function can then be passed to the hook as an optional
+      parameter. This follows the existing codebase pattern of threading callbacks as parameters.
+
+  - title: 'fitView timing and parameters'
+    chosen: 'Call fitView({ duration: 300, padding: 0.2 }) in a microtask (queueMicrotask or setTimeout(0)) after setNodes/setEdges'
+    rejected:
+      - >
+        Call fitView synchronously after setNodes/setEdges — React batches state updates,
+        so the ReactFlow instance won't have the updated node positions yet when fitView
+        is called synchronously. The viewport pan would target stale positions or be a no-op.
+      - >
+        Use a useEffect that watches a fitView trigger flag — Adds state management overhead
+        (a boolean flag + effect + cleanup) for something that should be a simple one-shot
+        call. Effects also fire after the browser paint, which could cause a visible flash
+        of the un-centered viewport.
+    rationale: >
+      After setNodes and setEdges are called inside the setNodes updater callback, React
+      will re-render with the new positions. A microtask (queueMicrotask or setTimeout with
+      0ms delay) ensures fitView runs after React has committed the DOM update with new
+      positions. The duration of 300ms provides a smooth viewport transition without feeling
+      sluggish (per NFR-1). Padding of 0.2 ensures nodes aren't flush against the viewport
+      edges. This pattern is lightweight and doesn't require additional state or effects.
+
+  - title: 'Nested ReactFlowProvider resolution'
+    chosen: 'Remove the inner ReactFlowProvider from FeaturesCanvas, rely on the outer one in ControlCenter'
+    rejected:
+      - >
+        Keep both providers and use a ref bridge to pass fitView from inner to outer —
+        Overly complex. Having nested providers means two separate ReactFlow contexts,
+        which is confusing and can lead to subtle bugs where hooks bind to the wrong provider.
+        The inner provider was likely added when FeaturesCanvas was a standalone component;
+        now that it's always rendered inside ControlCenter's provider, the nesting is redundant.
+      - >
+        Move useReactFlow into FeaturesCanvas and pass fitView up via a callback prop —
+        Inverts the dependency direction. The state hook (which owns the deletion logic)
+        would need to receive fitView from a child component, creating a circular flow.
+        The component wouldn't have fitView available at mount time, requiring nullable
+        handling and potential race conditions.
+    rationale: >
+      control-center.tsx already wraps ControlCenterInner with ReactFlowProvider (line 16).
+      FeaturesCanvas adds a second nested ReactFlowProvider (line 143). Since FeaturesCanvas
+      is always rendered inside ControlCenter's provider hierarchy, the inner provider is
+      redundant. Removing it means the single ReactFlow instance uses the outer provider,
+      and useReactFlow() in ControlCenterInner correctly accesses the ReactFlow instance's
+      fitView. This simplifies the component tree and eliminates the dual-provider confusion.
+      FeaturesCanvas in Storybook stories may need their own provider wrapper, but that's
+      a story-level concern (and stories already use decorator patterns for providers).
+
+  - title: 'Test strategy for stale-edges verification'
+    chosen: 'Mutate edgesRef between callback creation and execution, assert relayout uses current edges'
+    rejected:
+      - >
+        Spy on layoutWithDagre and inspect the edges argument — Would require mocking the
+        layout module, which the existing tests intentionally avoid (they test actual layout
+        behavior, not mock calls). Adding a spy would be fragile and test implementation
+        details rather than behavior.
+      - >
+        Only test via the existing relayout assertions (no new stale-edge test) — The existing
+        tests happen to pass because edges don't change between callback creation and execution
+        in the test setup. They don't actually verify that stale edges are avoided. A dedicated
+        test is needed to prove the fix works for the race condition scenario.
+    rationale: >
+      The test should: (1) render the hook with initial edges, (2) simulate an edge change
+      (e.g., via the hook's own edge-mutating methods or by triggering a re-render with new
+      edges), (3) call handleDeleteFeature, and (4) verify the relayout result reflects the
+      updated edges, not the original ones. This directly tests the bug scenario (stale closure)
+      and verifies the fix (edgesRef.current is used). The HookTestHarness already exposes
+      the full state and supports onStateChange for inspection.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: 'Will removing the inner ReactFlowProvider from FeaturesCanvas break Storybook stories?'
+    resolved: true
+    options:
+      - option: 'Add ReactFlowProvider wrapper in story decorators'
+        description: >
+          Each FeaturesCanvas story wraps its content in a ReactFlowProvider decorator.
+          This is a standard Storybook pattern for context-dependent components. The
+          existing feature-node and repository-node stories already use ReactFlow wrappers
+          in their decorators. Minimal change — just move the provider from component to stories.
+        selected: true
+      - option: 'Keep inner provider and use ref bridge for fitView'
+        description: >
+          Keep the nested provider in FeaturesCanvas and create a ref-based bridge to pass
+          fitView from the inner context to the outer. More complex, maintains confusing
+          dual-provider architecture, and the bridge pattern is fragile.
+        selected: false
+      - option: 'Make ReactFlowProvider conditional based on a prop'
+        description: >
+          Add a `noProvider` prop to FeaturesCanvas that skips the inner provider when rendered
+          inside ControlCenter. Leaky abstraction — component shouldn't know about its parent's
+          context hierarchy. Makes the API surface more confusing.
+        selected: false
+    selectionRationale: >
+      Moving the provider to story decorators is the cleanest approach. The feature-node
+      stories (feature-node.stories.tsx) already demonstrate this pattern — they wrap content
+      in ReactFlowProvider via a decorator. FeaturesCanvas stories just need the same treatment.
+      This makes FeaturesCanvas a pure presentational component that assumes a ReactFlowProvider
+      exists in its ancestor tree, which is the standard @xyflow/react pattern.
+
+  - question: 'Should the hook accept fitView as an optional parameter or should it be retrieved via useReactFlow inside ControlCenterInner and called externally?'
+    resolved: true
+    options:
+      - option: 'Pass fitView as optional parameter to the hook'
+        description: >
+          Add an optional `onFitView` parameter to useControlCenterState. The hook calls it
+          internally after deletion relayout. This keeps the fitView timing logic co-located
+          with the deletion logic. The hook's interface grows by one optional callback, which
+          is consistent with how other callbacks (setNodes, setEdges) are used internally.
+        selected: true
+      - option: 'Return a post-delete callback from the hook that ControlCenterInner wraps with fitView'
+        description: >
+          The hook returns a raw handleDeleteFeature and ControlCenterInner wraps it to call
+          fitView afterwards. This splits the deletion logic across two locations — the hook
+          handles node/edge removal and relayout, while ControlCenterInner handles the viewport
+          adjustment. Harder to reason about, harder to test atomically.
+        selected: false
+      - option: 'Use a useEffect in ControlCenterInner that watches a deletion-counter state from the hook'
+        description: >
+          The hook increments a counter after each successful deletion. ControlCenterInner
+          uses a useEffect to detect counter changes and calls fitView. Adds unnecessary
+          state (counter), an effect, and latency (effects run after paint). Over-engineered
+          for a one-shot side effect.
+        selected: false
+    selectionRationale: >
+      Passing fitView as an optional parameter keeps all post-deletion behavior encapsulated
+      in the hook. The hook already manages the complete deletion flow (server call, node
+      removal, edge filtering, relayout). Adding a fitView call is a natural extension.
+      The optional nature means the hook works without fitView in tests (no ReactFlowProvider
+      needed in the test harness), maintaining backward compatibility with the existing test
+      suite. ControlCenterInner simply does `const { fitView } = useReactFlow()` and passes
+      it to the hook.
+
+  - question: 'How should the fitView callback be typed and passed to avoid the hook depending on @xyflow/react types?'
+    resolved: true
+    options:
+      - option: 'Use a simple callback type: () => void'
+        description: >
+          The hook accepts `onFitView?: () => void`. ControlCenterInner creates a wrapper:
+          `() => fitView({ duration: 300, padding: 0.2 })` and passes it. The hook doesn't
+          need to know about fitView options — the caller decides the parameters. Clean
+          separation of concerns, no @xyflow/react type imports needed in the hook.
+        selected: true
+      - option: 'Import FitViewOptions from @xyflow/react and accept (options?: FitViewOptions) => void'
+        description: >
+          The hook would import @xyflow/react types and accept the full fitView signature.
+          Couples the hook to @xyflow/react's API surface. Unnecessary since the hook doesn't
+          need to customize fitView options — the duration/padding are fixed requirements.
+        selected: false
+      - option: 'Accept the full useReactFlow() return value as a parameter'
+        description: >
+          Pass the entire ReactFlowInstance to the hook. Massively over-broad dependency —
+          the hook only needs fitView, not setViewport, getNodes, zoomIn, etc. Also couples
+          the hook's interface to @xyflow/react's full API.
+        selected: false
+    selectionRationale: >
+      A simple `() => void` callback is the minimal interface. The hook just needs to call
+      "re-center the viewport" without caring about implementation details. ControlCenterInner
+      binds the specific fitView options (duration, padding) when creating the callback. This
+      follows the Dependency Inversion Principle — the hook depends on an abstraction (a
+      callback), not a concrete library API. It also means tests don't need to mock any
+      @xyflow/react types.
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Stale-edges Fix Strategy
+
+  **Chosen:** Replace closure-captured `edges` with `edgesRef.current` in all three callbacks
+
+  **Rejected:**
+  - Functional updater for edges (`setEdges(prev => ...)`) — Would require restructuring callbacks
+    to compute relayout inside a setter, making code convoluted for no benefit
+  - Merge nodes+edges into single state atom — Over-engineering; would rewrite entire state
+    management for a 2-line fix
+
+  **Rationale:** The `edgesRef` synchronization pattern is already established at
+  `use-control-center-state.ts:62-72`. The `setEdges` wrapper keeps `edgesRef.current`
+  in sync on every update. Using `edgesRef.current` in the three affected callbacks
+  (lines 531, 597, 611) is the minimal fix that follows existing patterns. It also
+  eliminates `edges` from dependency arrays, reducing unnecessary callback re-creations.
+
+  ### 2. fitView Integration Approach
+
+  **Chosen:** Call `useReactFlow()` in `ControlCenterInner` and pass `fitView` to the hook
+  as an optional `onFitView?: () => void` parameter
+
+  **Rejected:**
+  - useEffect in FeaturesCanvas watching node count — Couples viewport logic to presentational
+    component, fires on all node changes not just deletions
+  - Custom window event — Anti-pattern bypassing React data flow, hard to test
+  - Ref bridge from inner to outer provider — Overly complex, maintains confusing dual-provider
+    architecture
+
+  **Rationale:** `ControlCenterInner` is already rendered inside `ReactFlowProvider`
+  (via `control-center.tsx:16`). However, `FeaturesCanvas` nests a second `ReactFlowProvider`
+  (line 143), creating dual providers. The inner provider is the one that actually hosts the
+  `ReactFlow` instance, so `useReactFlow()` in the outer context would be a no-op. Removing
+  the inner provider solves this: the single outer provider hosts both the `ReactFlow` instance
+  and the `useReactFlow()` call in `ControlCenterInner`.
+
+  ### 3. fitView Timing and Parameters
+
+  **Chosen:** Call `fitView({ duration: 300, padding: 0.2 })` via `setTimeout(fn, 0)` after
+  `setNodes`/`setEdges`
+
+  **Rejected:**
+  - Synchronous call after setState — React batches updates; ReactFlow won't have new positions yet
+  - useEffect with trigger flag — Adds state overhead for a simple one-shot call; effects run
+    after paint causing potential viewport flash
+
+  **Rationale:** After `setNodes`/`setEdges` are called, React re-renders with new positions.
+  A `setTimeout(0)` ensures `fitView` runs after React commits the DOM update. Duration of
+  300ms provides smooth transition per NFR-1. Padding of 0.2 prevents nodes from touching
+  viewport edges.
+
+  ### 4. Nested ReactFlowProvider Resolution
+
+  **Chosen:** Remove the inner `ReactFlowProvider` from `FeaturesCanvas`, rely on the outer
+  one in `ControlCenter`
+
+  **Rejected:**
+  - Keep both providers with ref bridge — Overly complex, confusing dual-provider architecture
+  - Move useReactFlow into FeaturesCanvas and pass up via callback — Inverts dependency direction,
+    circular flow, nullable handling
+
+  **Rationale:** `control-center.tsx:16` already provides `ReactFlowProvider`. The inner
+  provider in `features-canvas.tsx:143` is redundant. Removing it means the single provider
+  hosts both the `ReactFlow` instance and `useReactFlow()` calls. FeaturesCanvas Storybook
+  stories need their own provider wrapper in decorators, following the pattern already used
+  by `feature-node.stories.tsx` and `repository-node.stories.tsx`.
+
+  ### 5. Test Strategy for Stale-edges Verification
+
+  **Chosen:** Mutate edges between callback creation and execution, assert relayout uses
+  current edges
+
+  **Rejected:**
+  - Spy on layoutWithDagre — Tests implementation details, fragile, existing tests avoid mocking
+    the layout module
+  - Only existing assertions — Existing tests don't verify the stale-edges scenario since edges
+    don't change between callback creation and execution in those test setups
+
+  **Rationale:** The test should render the hook, simulate an edge change (via `createFeatureNode`
+  which adds an edge through `edgesRef`), then call `handleDeleteFeature` and verify the
+  relayout reflects the updated edges. The `HookTestHarness` already exposes full state
+  and supports `onStateChange` for result inspection.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | `@xyflow/react` | `useReactFlow().fitView()` for viewport centering | Use (existing) | Already installed. fitView supports `duration` for smooth transition and `padding` for spacing. No new dependency. |
+  | `@dagrejs/dagre` | Hierarchical graph layout | Use (existing) | Already used by `layoutWithDagre`. No changes needed to the layout function itself. |
+  | `framer-motion` | Potential node animation library | Reject | Not needed — fitView's built-in duration handles viewport animation. Per-node animation deferred to future enhancement. Would add ~30KB to bundle. |
+  | `react-spring` | Potential animation library | Reject | Same rationale as framer-motion. Over-engineering for the current scope. |
+
+  ## Security Considerations
+
+  - **No new attack surface**: Changes are purely client-side React state management and viewport
+    adjustments. No new server actions, API endpoints, or data flows are introduced.
+  - **No user input handling changes**: The deletion flow still goes through the existing
+    `deleteFeature` server action which handles authorization.
+  - **No XSS risk**: No new DOM manipulation or innerHTML usage. fitView is a ReactFlow API
+    that manipulates SVG transforms, not HTML content.
+
+  ## Performance Implications
+
+  - **Reduced callback re-creation**: Removing `edges` from three dependency arrays prevents
+    callbacks from being re-created on every edge change. In a canvas with many features,
+    edges change frequently (SSE events, server refreshes, user connections). This reduces
+    unnecessary re-renders of child components that receive these callbacks as props.
+  - **fitView overhead**: Negligible — fitView computes a bounding box over existing DOM nodes
+    and applies a CSS transform. The 300ms animation is CSS-based (transform transition),
+    not JS-based, so it doesn't block the main thread.
+  - **setTimeout(0) for fitView**: Adds one microtask to the event loop after deletion. No
+    measurable performance impact.
+  - **Single ReactFlowProvider**: Removing the nested provider eliminates one React context
+    layer, marginally reducing render overhead.
+
+  ## Architecture Notes
+
+  ### Component Hierarchy (Current)
+
+  ```
+  ControlCenter (ReactFlowProvider)
+    └─ ControlCenterInner (useControlCenterState hook)
+         └─ FeaturesCanvas (ReactFlowProvider ← REDUNDANT)
+              └─ ReactFlow instance
+  ```
+
+  ### Component Hierarchy (After Fix)
+
+  ```
+  ControlCenter (ReactFlowProvider)
+    └─ ControlCenterInner (useControlCenterState hook + useReactFlow)
+         └─ FeaturesCanvas (no provider — uses ancestor's)
+              └─ ReactFlow instance
+  ```
+
+  ### Files to Modify
+
+  | File | Changes |
+  | ---- | ------- |
+  | `use-control-center-state.ts` | Replace `edges` → `edgesRef.current` in 3 callbacks; remove `edges` from 3 dep arrays; add optional `onFitView` parameter; call `onFitView` after deletion relayout via setTimeout |
+  | `control-center-inner.tsx` | Import `useReactFlow`; create fitView wrapper; pass to `useControlCenterState` |
+  | `features-canvas.tsx` | Remove inner `ReactFlowProvider` wrapper |
+  | `features-canvas.stories.tsx` | Add `ReactFlowProvider` decorator to stories (if not already present) |
+  | `use-control-center-state.test.tsx` | Add stale-edge verification test; optionally add fitView mock test |
+
+  ### Hook Interface Change
+
+  ```typescript
+  // Before
+  export function useControlCenterState(
+    initialNodes: CanvasNodeType[],
+    initialEdges: Edge[]
+  ): ControlCenterState
+
+  // After
+  export function useControlCenterState(
+    initialNodes: CanvasNodeType[],
+    initialEdges: Edge[],
+    options?: { onFitView?: () => void }
+  ): ControlCenterState
+  ```
+
+  The options bag pattern is preferred over a third positional parameter to maintain
+  extensibility and readability. The optional nature means existing call sites (including
+  tests) don't need any changes.
+
+  ---
+
+  _Research completed 2026-02-25_

@@ -53,13 +53,16 @@ let nextFeatureId = 0;
 
 export function useControlCenterState(
   initialNodes: CanvasNodeType[],
-  initialEdges: Edge[]
+  initialEdges: Edge[],
+  options?: { onFitView?: () => void }
 ): ControlCenterState {
   const router = useRouter();
   const [nodes, setNodes] = useState<CanvasNodeType[]>(initialNodes);
   // eslint-disable-next-line react/hook-use-state -- raw setter renamed; public setEdges wrapper keeps edgesRef in sync
   const [edges, setEdgesRaw] = useState<Edge[]>(initialEdges);
   const edgesRef = useRef<Edge[]>(initialEdges);
+  const onFitViewRef = useRef(options?.onFitView);
+  onFitViewRef.current = options?.onFitView;
 
   // Wrapper that keeps edgesRef in sync with edges state, allowing
   // createFeatureNode to read current edges without a closure dependency.
@@ -528,7 +531,8 @@ export function useControlCenterState(
         setSelectedNode(null);
         setNodes((currentNodes) => {
           const remainingNodes = currentNodes.filter((n) => n.id !== featureId);
-          const remainingEdges = edges.filter(
+          // Use edgesRef.current to avoid stale closure-captured edges
+          const remainingEdges = edgesRef.current.filter(
             (e) => e.source !== featureId && e.target !== featureId
           );
           const result = layoutWithDagre(remainingNodes, remainingEdges, {
@@ -537,6 +541,12 @@ export function useControlCenterState(
             nodesep: 60,
           });
           setEdges(result.edges);
+
+          // Re-center viewport on remaining nodes after React commits new positions
+          if (result.nodes.length > 0 && onFitViewRef.current) {
+            setTimeout(onFitViewRef.current, 0);
+          }
+
           return result.nodes;
         });
         deleteSound.play();
@@ -548,7 +558,7 @@ export function useControlCenterState(
         setIsDeleting(false);
       }
     },
-    [router, edges, deleteSound, setEdges]
+    [router, deleteSound, setEdges]
   );
 
   const handleDeleteRepository = useCallback(
@@ -589,26 +599,25 @@ export function useControlCenterState(
     [clickSound]
   );
 
-  const handleAddFeatureToFeature = useCallback(
-    (featureNodeId: string) => {
-      // Extract feature ID from node ID (format: "feat-<uuid>")
-      const featureId = featureNodeId.startsWith('feat-') ? featureNodeId.slice(5) : featureNodeId;
-      // Find the repo node that owns this feature
-      const repoEdge = edges.find((e) => e.target === featureNodeId);
-      const repoNodeId = repoEdge?.source ?? null;
+  const handleAddFeatureToFeature = useCallback((featureNodeId: string) => {
+    // Extract feature ID from node ID (format: "feat-<uuid>")
+    const featureId = featureNodeId.startsWith('feat-') ? featureNodeId.slice(5) : featureNodeId;
+    // Find the repo node that owns this feature
+    // Use edgesRef.current to avoid stale closure-captured edges
+    const repoEdge = edgesRef.current.find((e) => e.target === featureNodeId);
+    const repoNodeId = repoEdge?.source ?? null;
 
-      setSelectedNode(null);
-      setPendingRepoNodeId(repoNodeId);
-      setPendingParentFeatureId(featureId);
-      setIsCreateDrawerOpen(true);
-    },
-    [edges]
-  );
+    setSelectedNode(null);
+    setPendingRepoNodeId(repoNodeId);
+    setPendingParentFeatureId(featureId);
+    setIsCreateDrawerOpen(true);
+  }, []);
 
   const handleLayout = useCallback(
     (direction: LayoutDirection) => {
       setNodes((currentNodes) => {
-        const currentEdges = edges;
+        // Use edgesRef.current to avoid stale closure-captured edges
+        const currentEdges = edgesRef.current;
         const result = layoutWithDagre(currentNodes, currentEdges, {
           direction,
           ranksep: 60,
@@ -618,7 +627,7 @@ export function useControlCenterState(
         return result.nodes;
       });
     },
-    [edges, setEdges]
+    [setEdges]
   );
 
   const handleAddRepository = useCallback(

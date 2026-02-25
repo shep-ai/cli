@@ -23,6 +23,7 @@ vi.mock('@/app/actions/approve-feature', () => ({
   approveFeature: (...args: unknown[]) => mockApproveFeature(...args),
 }));
 
+import { ReactFlowProvider } from '@xyflow/react';
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
 import type { FeaturesCanvasProps } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -106,7 +107,11 @@ const mergeReviewNode: CanvasNodeType = {
 const initialNodes: CanvasNodeType[] = [repoNodeDefault, featureNodeA, featureNodeB];
 
 function renderControlCenter(nodes = initialNodes) {
-  return render(<ControlCenterInner initialNodes={nodes} initialEdges={[]} />);
+  return render(
+    <ReactFlowProvider>
+      <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
+    </ReactFlowProvider>
+  );
 }
 
 const mergeReviewDataFixture: MergeReviewData = {

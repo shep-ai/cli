@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from '@storybook/react';
+import { ReactFlowProvider } from '@xyflow/react';
 import type { Edge } from '@xyflow/react';
 import { FeaturesCanvas } from './features-canvas';
 import type { CanvasNodeType } from './features-canvas';
@@ -17,7 +18,9 @@ const meta: Meta<typeof FeaturesCanvas> = {
   decorators: [
     (Story) => (
       <div style={{ height: '100vh' }}>
-        <Story />
+        <ReactFlowProvider>
+          <Story />
+        </ReactFlowProvider>
       </div>
     ),
   ],

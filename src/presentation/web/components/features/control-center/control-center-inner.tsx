@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useReactFlow } from '@xyflow/react';
 import type { Edge } from '@xyflow/react';
 import { toast } from 'sonner';
 import type {
@@ -35,6 +36,9 @@ interface ControlCenterInnerProps {
 }
 
 export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenterInnerProps) {
+  const { fitView } = useReactFlow();
+  const onFitView = useCallback(() => fitView({ duration: 300, padding: 0.2 }), [fitView]);
+
   const {
     nodes,
     edges,
@@ -56,7 +60,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
     closeCreateDrawer,
     selectFeatureById,
     pendingParentFeatureId,
-  } = useControlCenterState(initialNodes, initialEdges);
+  } = useControlCenterState(initialNodes, initialEdges, { onFitView });
 
   // Extract feature list for the parent selector in the create drawer
   const featureOptions = useMemo(

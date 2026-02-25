@@ -1,0 +1,145 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: feature-delete-relayout
+summary: >
+  Fix stale-edges closure bug in three callbacks (handleDeleteFeature, handleLayout,
+  handleAddFeatureToFeature) by replacing closure-captured `edges` with `edgesRef.current`.
+  Remove redundant nested ReactFlowProvider from FeaturesCanvas, then thread a fitView
+  callback from ControlCenterInner into useControlCenterState via an options bag so
+  handleDeleteFeature can re-center the viewport after relayout.
+
+relatedFeatures: []
+
+technologies:
+  - React (useState, useCallback, useRef)
+  - '@xyflow/react (ReactFlowProvider, useReactFlow, fitView)'
+  - '@dagrejs/dagre (layoutWithDagre)'
+  - Vitest + React Testing Library
+
+relatedLinks: []
+
+phases:
+  - id: phase-1
+    name: 'Stale-edges fix'
+    description: >
+      Replace closure-captured `edges` with `edgesRef.current` in all three affected
+      callbacks and remove `edges` from their dependency arrays. This is the core bug
+      fix and must land first since subsequent phases build on correct edge state.
+    parallel: false
+
+  - id: phase-2
+    name: 'ReactFlowProvider de-nesting'
+    description: >
+      Remove the redundant inner ReactFlowProvider from FeaturesCanvas so the single
+      outer provider in ControlCenter owns the ReactFlow instance. This unblocks
+      useReactFlow() access in ControlCenterInner and simplifies the component tree.
+      Update Storybook stories to add their own provider decorator.
+    parallel: false
+
+  - id: phase-3
+    name: 'fitView integration'
+    description: >
+      Add an optional onFitView callback to useControlCenterState via an options bag.
+      Call it after handleDeleteFeature relayout via setTimeout(0) to ensure React has
+      committed the new positions. Wire useReactFlow().fitView in ControlCenterInner
+      with duration 300ms and padding 0.2.
+    parallel: false
+
+  - id: phase-4
+    name: 'Validation'
+    description: >
+      Run the full test suite, build, lint, and validate to confirm no regressions.
+      Verify all success criteria from the spec are met.
+    parallel: false
+
+filesToCreate: []
+
+filesToModify:
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.tsx
+  - src/presentation/web/components/features/features-canvas/features-canvas.stories.tsx
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+
+openQuestions: []
+
+content: |
+  ## Architecture Overview
+
+  The feature canvas uses a Clean Architecture pattern with state management in a custom
+  hook (`useControlCenterState`), an orchestration component (`ControlCenterInner`), and
+  a presentational canvas component (`FeaturesCanvas`). The component hierarchy is:
+
+  ```
+  ControlCenter (ReactFlowProvider)
+    └─ ControlCenterInner (hook + business logic)
+         └─ FeaturesCanvas (ReactFlowProvider ← redundant, presentational)
+              └─ ReactFlow instance
+  ```
+
+  The hook maintains `edgesRef` (line 62) synced via a `setEdges` wrapper (lines 64-72)
+  to allow `createFeatureNode` to read current edges without a closure dependency. However,
+  three other callbacks (`handleDeleteFeature` at line 517, `handleAddFeatureToFeature`
+  at line 592, `handleLayout` at line 608) still read from the closure-captured `edges`
+  state instead of `edgesRef.current`, creating a stale data bug.
+
+  ## Key Design Decisions
+
+  ### 1. Use `edgesRef.current` (not functional updater)
+
+  The `edgesRef` synchronization pattern is already established in the codebase (lines 60-72).
+  Using `edgesRef.current` in the three affected callbacks is a 1-line change per callback
+  that follows the existing pattern. A functional updater (`setEdges(prev => ...)`) was
+  rejected because the callbacks need to read edges synchronously in the same scope as
+  `setNodes`, and there's no combined setState for both nodes and edges.
+
+  ### 2. Remove nested ReactFlowProvider from FeaturesCanvas
+
+  `control-center.tsx:16` already wraps `ControlCenterInner` with `ReactFlowProvider`.
+  `features-canvas.tsx:143` adds a second nested provider. Since `FeaturesCanvas` is always
+  rendered inside `ControlCenter`, the inner provider is redundant and creates a confusing
+  dual-provider hierarchy where `useReactFlow()` in `ControlCenterInner` would bind to the
+  outer (empty) provider instead of the inner one with the actual ReactFlow instance.
+  Removing the inner provider means the single outer provider hosts both the ReactFlow
+  instance and `useReactFlow()` calls. Storybook stories need their own provider decorator
+  (following the pattern already used by `feature-node.stories.tsx`).
+
+  ### 3. Options bag for `onFitView`
+
+  The hook signature changes from `(initialNodes, initialEdges)` to
+  `(initialNodes, initialEdges, options?)` where `options` has an optional `onFitView: () => void`.
+  This is preferred over a third positional parameter for extensibility. The `() => void` type
+  keeps the hook decoupled from `@xyflow/react` — `ControlCenterInner` binds the specific
+  `fitView({ duration: 300, padding: 0.2 })` call. Existing call sites (including tests)
+  need no changes.
+
+  ### 4. setTimeout(0) for fitView timing
+
+  After `setNodes`/`setEdges` inside the deletion callback, React batches state updates.
+  Calling `fitView` synchronously would target stale DOM positions. A `setTimeout(fn, 0)`
+  ensures fitView runs after React commits the new positions to the DOM.
+
+  ## Implementation Strategy
+
+  Phase 1 (stale-edges fix) is a pure refactor that changes no behavior — it only ensures
+  callbacks read from the ref instead of the closure. This is the highest-priority fix and
+  should be tested in isolation before adding new behavior.
+
+  Phase 2 (provider de-nesting) is a structural prerequisite for Phase 3. Removing the
+  inner provider makes `useReactFlow()` available in `ControlCenterInner`.
+
+  Phase 3 (fitView integration) builds on both prior phases: it needs correct edge state
+  (Phase 1) and `useReactFlow()` access (Phase 2) to call `fitView` after deletion relayout.
+
+  Phase 4 validates everything works end-to-end.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Removing inner ReactFlowProvider breaks FeaturesCanvas when rendered outside ControlCenter | Only Storybook stories render FeaturesCanvas standalone — add ReactFlowProvider to story decorators. Verify with `pnpm storybook:build` or visual check. |
+  | fitView called with zero nodes throws | ReactFlow's fitView is documented as a no-op when no nodes exist. Add a guard `if (nodes.length === 0) return` before calling onFitView as defense-in-depth. |
+  | setTimeout(0) races with component unmount | The deletion flow is user-initiated and the component persists after deletion. If the user navigates away mid-deletion, the setTimeout fires harmlessly (fitView on an unmounted ReactFlow is a no-op). |
+  | Existing tests break due to hook signature change | The options parameter is optional with no default side effects. All existing test harness calls pass 2 args and continue working unchanged. |
+  | Test harness needs ReactFlowProvider for onFitView tests | The stale-edge test does not require fitView. A separate fitView test can mock the callback as `vi.fn()` without needing a real ReactFlowProvider. |

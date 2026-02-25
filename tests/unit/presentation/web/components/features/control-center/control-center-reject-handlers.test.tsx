@@ -59,6 +59,7 @@ vi.mock('sonner', () => ({
 import { toast as mockToast } from 'sonner';
 
 // ── Component imports (after mocks) ──────────────────────────────────
+import { ReactFlowProvider } from '@xyflow/react';
 import { ControlCenterInner } from '@/components/features/control-center/control-center-inner';
 import type { FeaturesCanvasProps } from '@/components/features/features-canvas';
 import type { CanvasNodeType } from '@/components/features/features-canvas';
@@ -157,7 +158,11 @@ const techNode: CanvasNodeType = {
 };
 
 function renderControlCenter(nodes: CanvasNodeType[] = [repoNode, prdNode, techNode]) {
-  return render(<ControlCenterInner initialNodes={nodes} initialEdges={[]} />);
+  return render(
+    <ReactFlowProvider>
+      <ControlCenterInner initialNodes={nodes} initialEdges={[]} />
+    </ReactFlowProvider>
+  );
 }
 
 /**
