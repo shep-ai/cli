@@ -1,3 +1,9 @@
+# [1.58.0](https://github.com/shep-ai/cli/compare/v1.57.0...v1.58.0) (2026-02-25)
+
+### Features
+
+- **web:** replace add-repository pill button with floating action button ([#139](https://github.com/shep-ai/cli/issues/139)) ([ed07f63](https://github.com/shep-ai/cli/commit/ed07f63c8ca21d87c0478d01a07a014b3899edd1))
+
 # [1.57.0](https://github.com/shep-ai/cli/compare/v1.56.0...v1.57.0) (2026-02-25)
 
 ### Features
