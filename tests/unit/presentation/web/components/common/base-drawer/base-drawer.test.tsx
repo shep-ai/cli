@@ -1,0 +1,208 @@
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { BaseDrawer } from '@/components/common/base-drawer';
+
+describe('BaseDrawer', () => {
+  describe('rendering', () => {
+    it('renders children content when open=true', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()}>
+          <p>Drawer content</p>
+        </BaseDrawer>
+      );
+      expect(screen.getByText('Drawer content')).toBeInTheDocument();
+    });
+
+    it('does not render content when open=false', () => {
+      render(
+        <BaseDrawer open={false} onClose={vi.fn()}>
+          <p>Drawer content</p>
+        </BaseDrawer>
+      );
+      expect(document.querySelector('[data-slot="drawer-content"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('close button', () => {
+    it('calls onClose on click', async () => {
+      const user = userEvent.setup();
+      const onClose = vi.fn();
+      render(
+        <BaseDrawer open onClose={onClose}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const closeButton = screen.getByRole('button', { name: /close/i });
+      await user.click(closeButton);
+      expect(onClose).toHaveBeenCalledOnce();
+    });
+
+    it('has aria-label="Close" and sr-only "Close" text', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const closeButton = screen.getByRole('button', { name: /close/i });
+      expect(closeButton).toHaveAttribute('aria-label', 'Close');
+      expect(closeButton.querySelector('.sr-only')).toHaveTextContent('Close');
+    });
+
+    it('has data-testid={testid}-close-button when data-testid provided', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} data-testid="my-drawer">
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.getByTestId('my-drawer-close-button')).toBeInTheDocument();
+    });
+  });
+
+  describe('size variants', () => {
+    it('applies w-96 class when size="sm"', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} size="sm" data-testid="drawer">
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const content = screen.getByTestId('drawer');
+      expect(content.className).toContain('w-96');
+    });
+
+    it('applies w-xl class when size="md"', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} size="md" data-testid="drawer">
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const content = screen.getByTestId('drawer');
+      expect(content.className).toContain('w-xl');
+    });
+
+    it('defaults to sm (w-96) when no size prop is provided', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} data-testid="drawer">
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const content = screen.getByTestId('drawer');
+      expect(content.className).toContain('w-96');
+    });
+  });
+
+  describe('modal', () => {
+    it('renders DrawerOverlay when modal=true', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} modal>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(document.querySelector('[data-slot="drawer-overlay"]')).toBeInTheDocument();
+    });
+
+    it('does not render DrawerOverlay when modal=false (default)', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(document.querySelector('[data-slot="drawer-overlay"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('header slot', () => {
+    it('renders header content inside DrawerHeader when provided', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} header={<h2>My Header</h2>}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.getByText('My Header')).toBeInTheDocument();
+      expect(document.querySelector('[data-slot="drawer-header"]')).toBeInTheDocument();
+    });
+
+    it('does not render DrawerHeader when header prop is omitted', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(document.querySelector('[data-slot="drawer-header"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('footer slot', () => {
+    it('renders footer content inside DrawerFooter when provided', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} footer={<button type="button">Save</button>}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.getByText('Save')).toBeInTheDocument();
+      expect(document.querySelector('[data-slot="drawer-footer"]')).toBeInTheDocument();
+    });
+
+    it('does not render DrawerFooter when footer prop is omitted', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()}>
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(document.querySelector('[data-slot="drawer-footer"]')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('scrollable content', () => {
+    it('renders children inside scrollable container with overflow-y-auto', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} data-testid="drawer">
+          <p>Scrollable content</p>
+        </BaseDrawer>
+      );
+
+      const content = screen.getByText('Scrollable content');
+      // The scrollable wrapper is the parent of the inner flex-col div
+      const scrollContainer = content.closest('.overflow-y-auto');
+      expect(scrollContainer).toBeInTheDocument();
+      expect(scrollContainer?.className).toContain('flex-1');
+    });
+  });
+
+  describe('className passthrough', () => {
+    it('merges custom className onto DrawerContent', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} className="custom-class" data-testid="drawer">
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      const content = screen.getByTestId('drawer');
+      expect(content.className).toContain('custom-class');
+    });
+  });
+
+  describe('data-testid', () => {
+    it('propagates data-testid to DrawerContent', () => {
+      render(
+        <BaseDrawer open onClose={vi.fn()} data-testid="feature-drawer">
+          <p>Content</p>
+        </BaseDrawer>
+      );
+
+      expect(screen.getByTestId('feature-drawer')).toBeInTheDocument();
+    });
+  });
+});
