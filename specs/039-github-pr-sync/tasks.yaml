@@ -1,0 +1,412 @@
+# Task Breakdown (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: github-pr-sync
+summary: >
+  11 tasks across 5 phases implementing the PrSyncWatcherService. Phases progress from
+  TypeSpec domain model updates (2 tasks), through IGitPrService extension (2 tasks),
+  PrSyncWatcherService core (4 tasks), notification service integration (1 task), and
+  web server lifecycle wiring (2 tasks).
+
+relatedFeatures:
+  - '036-repository-entity'
+  - '038-repo-cli-commands'
+
+technologies:
+  - 'TypeSpec — enum and model extensions'
+  - 'GitHub CLI (gh) — batch PR status queries'
+  - 'Node.js setInterval — polling loop'
+  - 'tsyringe — DI container'
+  - 'better-sqlite3 — database migrations'
+  - 'vitest — unit testing with fake timers'
+
+relatedLinks: []
+
+tasks:
+  - id: task-1
+    phaseId: phase-1
+    title: 'Add 4 new NotificationEventType enum values to TypeSpec'
+    description: >
+      Extend the NotificationEventType enum in tsp/common/enums/notification.tsp with
+      PrMerged, PrClosed, PrChecksPassed, and PrChecksFailed values. Add @doc annotations.
+      Extend NotificationEventConfig in tsp/domain/entities/settings.tsp with 4 new boolean
+      fields (prMerged, prClosed, prChecksPassed, prChecksFailed) defaulting to true.
+      Run pnpm tsp:compile to regenerate output.ts. Verify the new enum values and config
+      fields appear in the generated TypeScript types.
+    state: Todo
+    dependencies: []
+    acceptanceCriteria:
+      - 'NotificationEventType enum in notification.tsp has PrMerged, PrClosed, PrChecksPassed, PrChecksFailed values'
+      - 'NotificationEventConfig in settings.tsp has prMerged, prClosed, prChecksPassed, prChecksFailed boolean fields (default true)'
+      - 'pnpm tsp:compile succeeds without errors'
+      - 'Generated output.ts contains the 4 new NotificationEventType values'
+      - 'Generated output.ts contains the 4 new NotificationEventConfig fields'
+    tdd:
+      red:
+        - 'Run pnpm tsp:compile — compiles clean but has no new enum values (baseline)'
+      green:
+        - 'Add PrMerged, PrClosed, PrChecksPassed, PrChecksFailed to NotificationEventType in notification.tsp'
+        - 'Add prMerged, prClosed, prChecksPassed, prChecksFailed fields to NotificationEventConfig in settings.tsp'
+        - 'Run pnpm tsp:compile — output.ts now contains all 4 new values and 4 new config fields'
+      refactor:
+        - 'Ensure @doc annotations follow existing style and severity mapping table is updated'
+    estimatedEffort: '30min'
+
+  - id: task-2
+    phaseId: phase-1
+    title: 'Add database migration for new notification settings columns'
+    description: >
+      Add migration version 19 to migrations.ts with 4 ALTER TABLE ADD COLUMN statements
+      adding pr_merged_notifications, pr_closed_notifications, pr_checks_passed_notifications,
+      pr_checks_failed_notifications (INTEGER NOT NULL DEFAULT 1) to the settings table.
+      Update any relevant mapper code in SQLiteSettingsRepository to read/write the new columns.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'Migration version 19 exists in MIGRATIONS array'
+      - '4 new INTEGER columns added to settings table with DEFAULT 1'
+      - 'LATEST_SCHEMA_VERSION equals 19'
+      - 'SQLiteSettingsRepository correctly maps the 4 new fields to/from database'
+      - 'pnpm test:unit passes for settings repository tests'
+    tdd:
+      red:
+        - 'Write test asserting LATEST_SCHEMA_VERSION === 19'
+        - 'Write test asserting settings round-trip preserves new notification config fields'
+      green:
+        - 'Add migration 19 with 4 ALTER TABLE ADD COLUMN statements'
+        - 'Update toDatabase/fromDatabase mappers in SQLiteSettingsRepository for the 4 new fields'
+      refactor:
+        - 'Verify column naming follows existing snake_case convention'
+        - 'Ensure migration SQL comments are descriptive'
+    estimatedEffort: '45min'
+
+  - id: task-3
+    phaseId: phase-2
+    title: 'Add PrStatusInfo type and listPrStatuses() to IGitPrService interface'
+    description: >
+      Define PrStatusInfo interface in git-pr-service.interface.ts with { number: number;
+      state: PrStatus; url: string }. Add listPrStatuses(cwd: string): Promise<PrStatusInfo[]>
+      method signature to IGitPrService interface. This is a contract-only change — no
+      implementation yet.
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'PrStatusInfo type exported from git-pr-service.interface.ts'
+      - 'PrStatusInfo has number (number), state (PrStatus), url (string) fields'
+      - 'IGitPrService has listPrStatuses(cwd: string): Promise<PrStatusInfo[]> method'
+      - 'pnpm typecheck passes'
+    tdd:
+      red:
+        - 'pnpm typecheck fails because GitPrService does not implement listPrStatuses()'
+      green:
+        - 'Add PrStatusInfo type definition to git-pr-service.interface.ts'
+        - 'Add listPrStatuses method to IGitPrService interface'
+        - "Add stub implementation in GitPrService that throws 'Not implemented'"
+      refactor:
+        - 'Ensure JSDoc comments on PrStatusInfo and listPrStatuses match existing style'
+    estimatedEffort: '15min'
+
+  - id: task-4
+    phaseId: phase-2
+    title: 'Implement listPrStatuses() in GitPrService'
+    description: >
+      Implement listPrStatuses() in git-pr.service.ts using gh pr list --json number,state,url
+      --state all --limit 100. Parse JSON output, normalize state strings from UPPERCASE
+      (OPEN/MERGED/CLOSED) to PrStatus enum values (Open/Merged/Closed). Handle gh CLI errors
+      by re-throwing as GitPrError. Write unit tests with mocked ExecFunction verifying
+      correct CLI arguments, JSON parsing, state normalization, and error handling.
+    state: Todo
+    dependencies:
+      - task-3
+    acceptanceCriteria:
+      - 'listPrStatuses calls gh pr list --json number,state,url --state all --limit 100'
+      - 'State values normalized: OPEN→Open, MERGED→Merged, CLOSED→Closed'
+      - 'Returns PrStatusInfo[] with correct number, state, url'
+      - 'gh CLI errors wrapped in GitPrError'
+      - 'Unit test covers: successful response, empty response, error handling, state normalization'
+    tdd:
+      red:
+        - 'Write test: listPrStatuses returns PrStatusInfo[] with correct state normalization'
+        - 'Write test: listPrStatuses returns empty array when no PRs exist'
+        - 'Write test: listPrStatuses throws GitPrError on gh CLI failure'
+      green:
+        - "Replace stub with implementation calling this.execFile('gh', ['pr', 'list', '--json', 'number,state,url', '--state', 'all', '--limit', '100'], { cwd })"
+        - 'Parse JSON response and normalize state strings to PrStatus enum'
+        - 'Wrap errors with parseGhError()'
+      refactor:
+        - 'Extract state normalization into a private helper method if warranted'
+        - 'Ensure consistent error handling with other GitPrService methods'
+    estimatedEffort: '45min'
+
+  - id: task-5
+    phaseId: phase-3
+    title: 'Create PrSyncWatcherService with lifecycle and singleton accessors'
+    description: >
+      Create pr-sync-watcher.service.ts in packages/core/src/infrastructure/services/pr-sync/.
+      Implement the class skeleton with constructor injection (IFeatureRepository, IGitPrService,
+      INotificationService, pollIntervalMs), start/stop/isRunning lifecycle methods matching
+      NotificationWatcherService exactly, and an empty poll() method. Add module-scoped
+      singleton accessors: initializePrSyncWatcher, getPrSyncWatcher, hasPrSyncWatcher,
+      resetPrSyncWatcher. Write unit tests for lifecycle (start, stop, double-start no-op,
+      isRunning) and singleton accessors (initialize, get, has, reset, double-init throws).
+    state: Todo
+    dependencies:
+      - task-1
+    acceptanceCriteria:
+      - 'PrSyncWatcherService class exists with constructor(featureRepo, gitPrService, notificationService, pollIntervalMs?)'
+      - 'start() runs immediate poll then sets interval; double-start is no-op'
+      - 'stop() clears interval'
+      - 'isRunning() returns boolean based on interval state'
+      - '4 singleton accessor functions exported and work correctly'
+      - 'Unit tests pass for all lifecycle and singleton behaviors'
+    tdd:
+      red:
+        - 'Write test: start() sets isRunning to true'
+        - 'Write test: stop() sets isRunning to false'
+        - 'Write test: start() when already running is no-op'
+        - 'Write test: initializePrSyncWatcher throws when already initialized'
+        - 'Write test: getPrSyncWatcher throws when not initialized'
+        - 'Write test: resetPrSyncWatcher stops and clears instance'
+      green:
+        - 'Create PrSyncWatcherService class with lifecycle methods matching NotificationWatcherService'
+        - 'Create singleton accessors following exact NotificationWatcherService pattern'
+        - 'Implement empty poll() method (placeholder for next task)'
+      refactor:
+        - 'Ensure file structure mirrors notification-watcher.service.ts layout'
+        - 'Add JSDoc comments matching existing watcher style'
+    estimatedEffort: '1h'
+
+  - id: task-6
+    phaseId: phase-3
+    title: 'Implement PR status polling and transition detection'
+    description: >
+      Implement the core poll() method: (1) query features with lifecycle=Review and non-null PR,
+      (2) group by repositoryPath, (3) call listPrStatuses per repo, (4) compare against
+      in-memory Map<featureId, PrWatcherState> to detect prStatus transitions, (5) on
+      Open→Merged: update pr.status, transition lifecycle to Maintain, persist, emit PrMerged
+      notification, (6) on Open→Closed: update pr.status, persist, emit PrClosed notification,
+      (7) prune features that left Review from the map. Write comprehensive unit tests.
+    state: Todo
+    dependencies:
+      - task-5
+      - task-4
+    acceptanceCriteria:
+      - 'poll() queries IFeatureRepository.list({ lifecycle: Review }) and filters for non-null PR'
+      - 'Features grouped by repositoryPath for batch listPrStatuses calls'
+      - 'In-memory PrWatcherState map tracks last-known prStatus per feature'
+      - 'Open→Merged: updates pr.status to Merged, lifecycle to Maintain, calls update(), emits PrMerged event'
+      - 'Open→Closed: updates pr.status to Closed, lifecycle stays Review, calls update(), emits PrClosed event'
+      - 'No-change: no database update and no notification emitted'
+      - 'Features removed from Review are pruned from tracking map'
+      - 'Unit tests cover: merge transition, close transition, no-change, multi-repo batching, pruning'
+    tdd:
+      red:
+        - 'Write test: poll detects Open→Merged, updates feature with pr.status=Merged and lifecycle=Maintain'
+        - 'Write test: poll detects Open→Closed, updates feature with pr.status=Closed and lifecycle=Review'
+        - 'Write test: poll with no status change does not call update()'
+        - 'Write test: features grouped by repositoryPath, one listPrStatuses call per repo'
+        - 'Write test: features leaving Review are pruned from tracking map'
+        - 'Write test: PrMerged notification emitted with correct eventType, featureName, severity'
+        - 'Write test: PrClosed notification emitted with correct eventType, featureName, severity'
+      green:
+        - 'Implement poll() with feature query, grouping, batch status fetch, transition detection'
+        - 'Implement PrWatcherState interface and Map<string, PrWatcherState>'
+        - 'Implement merge transition: update pr.status, set lifecycle=Maintain, persist, notify'
+        - 'Implement close transition: update pr.status, persist, notify'
+        - 'Implement map pruning for features no longer in Review'
+      refactor:
+        - 'Extract groupByRepository helper if grouping logic is complex'
+        - 'Extract emitPrEvent helper for notification construction'
+    estimatedEffort: '2h'
+
+  - id: task-7
+    phaseId: phase-3
+    title: 'Implement CI status polling and transition detection'
+    description: >
+      Extend poll() to check CI status for each feature via getCiStatus(cwd, branch).
+      Add ciStatus to PrWatcherState. Detect transitions: Pending→Success (emit
+      PrChecksPassed), Pending→Failure (emit PrChecksFailed). Update feature.pr.ciStatus
+      and persist on change. Handle getCiStatus errors gracefully (log and skip).
+    state: Todo
+    dependencies:
+      - task-6
+    acceptanceCriteria:
+      - 'CI status checked via getCiStatus(repositoryPath, feature.branch) per feature'
+      - 'PrWatcherState tracks ciStatus alongside prStatus'
+      - 'Pending→Success: updates pr.ciStatus to Success, emits PrChecksPassed notification'
+      - 'Pending→Failure: updates pr.ciStatus to Failure, emits PrChecksFailed notification'
+      - 'getCiStatus errors caught and logged, poll continues for remaining features'
+      - 'Unit tests cover: CI success transition, CI failure transition, no-change, error handling'
+    tdd:
+      red:
+        - 'Write test: poll detects CI Pending→Success, updates ciStatus, emits PrChecksPassed'
+        - 'Write test: poll detects CI Pending→Failure, updates ciStatus, emits PrChecksFailed'
+        - 'Write test: CI status unchanged does not trigger update or notification'
+        - 'Write test: getCiStatus error is caught and logged, remaining features still processed'
+      green:
+        - 'Add ciStatus to PrWatcherState interface'
+        - 'Call getCiStatus per feature in poll loop after PR status check'
+        - 'Map CiStatusResult.status to CiStatus enum (success→Success, failure→Failure, pending→Pending)'
+        - 'Detect transition, update feature.pr.ciStatus, persist, emit notification'
+        - 'Wrap getCiStatus call in try/catch with console.warn'
+      refactor:
+        - 'Consider combining PR and CI updates into a single IFeatureRepository.update() call per feature'
+        - 'Ensure CiStatus mapping is clean and testable'
+    estimatedEffort: '1h30min'
+
+  - id: task-8
+    phaseId: phase-3
+    title: 'Implement error handling and edge cases'
+    description: >
+      Ensure the poll() method is fully error-resilient: wrap the entire poll body in
+      try/catch with console.warn (matching NotificationWatcherService pattern). Handle
+      edge cases: features with no repositoryPath, features where PR number not found
+      in listPrStatuses response, empty feature list (early return, no API calls).
+      Test that errors in one repository don't prevent processing of other repositories.
+    state: Todo
+    dependencies:
+      - task-7
+    acceptanceCriteria:
+      - 'Top-level try/catch in poll() with console.warn on error'
+      - 'Empty feature list returns immediately with no API calls (NFR-7)'
+      - 'Features with missing repositoryPath are skipped gracefully'
+      - 'PR number not found in listPrStatuses response is handled (feature skipped, no crash)'
+      - "Error in one repo's listPrStatuses does not prevent other repos from being processed"
+      - 'Unit tests cover: empty features, missing repo path, PR not found, partial repo failure'
+    tdd:
+      red:
+        - 'Write test: poll with no Review features makes no API calls'
+        - 'Write test: listPrStatuses error for one repo does not block other repos'
+        - 'Write test: feature whose PR number is not in listPrStatuses response is skipped'
+        - 'Write test: poll-level error is caught and logged, watcher continues'
+      green:
+        - 'Add top-level try/catch to poll() with console.warn'
+        - 'Add early return when feature list is empty'
+        - 'Add per-repository try/catch so failures are isolated'
+        - 'Add PR number lookup guard (skip feature if not found in batch response)'
+      refactor:
+        - 'Review error handling for consistency with NotificationWatcherService'
+        - 'Ensure console.warn messages are descriptive for debugging'
+    estimatedEffort: '45min'
+
+  - id: task-9
+    phaseId: phase-4
+    title: 'Extend NotificationService EVENT_TYPE_TO_CONFIG_KEY map'
+    description: >
+      Add 4 new entries to the EVENT_TYPE_TO_CONFIG_KEY map in notification.service.ts:
+      PrMerged→prMerged, PrClosed→prClosed, PrChecksPassed→prChecksPassed,
+      PrChecksFailed→prChecksFailed. This enables the existing settings-driven per-type
+      notification filtering to work for PR events automatically.
+    state: Todo
+    dependencies:
+      - task-2
+    acceptanceCriteria:
+      - 'EVENT_TYPE_TO_CONFIG_KEY has entries for all 4 new NotificationEventType values'
+      - 'Each maps to the correct NotificationEventConfig field name'
+      - 'Existing event type mappings are unchanged'
+      - 'pnpm typecheck passes (Record<NotificationEventType, keyof NotificationEventConfig> is exhaustive)'
+    tdd:
+      red:
+        - 'pnpm typecheck fails because EVENT_TYPE_TO_CONFIG_KEY is no longer exhaustive (missing 4 new enum values)'
+      green:
+        - "Add PrMerged: 'prMerged', PrClosed: 'prClosed', PrChecksPassed: 'prChecksPassed', PrChecksFailed: 'prChecksFailed' entries"
+      refactor:
+        - 'Verify the map entries are alphabetically or logically grouped (agent events, then PR events)'
+    estimatedEffort: '15min'
+
+  - id: task-10
+    phaseId: phase-5
+    title: 'Wire PrSyncWatcherService into ui.command.ts'
+    description: >
+      Import initializePrSyncWatcher and getPrSyncWatcher from the new service module.
+      Resolve IFeatureRepository and IGitPrService from the DI container (INotificationService
+      is already resolved). Call initializePrSyncWatcher after the notification watcher
+      initialization. Call getPrSyncWatcher().start() to begin polling. Add
+      getPrSyncWatcher().stop() to the shutdown handler alongside the notification watcher stop.
+    state: Todo
+    dependencies:
+      - task-8
+      - task-9
+    acceptanceCriteria:
+      - 'PrSyncWatcherService initialized after NotificationWatcherService in ui.command.ts'
+      - 'IFeatureRepository resolved from DI container'
+      - 'IGitPrService resolved from DI container'
+      - 'getPrSyncWatcher().start() called after initialization'
+      - 'getPrSyncWatcher().stop() called in shutdown handler'
+      - 'No TypeScript errors; pnpm typecheck passes'
+    tdd:
+      red:
+        - 'Verify ui.command.ts currently has no PR sync watcher references (baseline)'
+      green:
+        - 'Add imports for initializePrSyncWatcher, getPrSyncWatcher'
+        - 'Add IFeatureRepository and IGitPrService resolution from container'
+        - 'Add initializePrSyncWatcher call with resolved dependencies'
+        - 'Add getPrSyncWatcher().start() call'
+        - 'Add getPrSyncWatcher().stop() to shutdown handler'
+      refactor:
+        - 'Ensure import ordering follows existing file conventions'
+        - 'Verify shutdown order is logical (stop watchers, then stop server)'
+    estimatedEffort: '30min'
+
+  - id: task-11
+    phaseId: phase-5
+    title: 'End-to-end validation and lint/typecheck pass'
+    description: >
+      Run the full validation suite: pnpm typecheck (both CLI and web), pnpm lint,
+      pnpm format:check, pnpm test:unit to ensure all changes integrate correctly.
+      Fix any issues discovered. Verify that the 4 new notification event types flow
+      through the generated output.ts, the migration creates the correct columns,
+      and all unit tests pass.
+    state: Todo
+    dependencies:
+      - task-10
+    acceptanceCriteria:
+      - 'pnpm typecheck passes with zero errors'
+      - 'pnpm typecheck:web passes with zero errors'
+      - 'pnpm lint passes with zero errors'
+      - 'pnpm format:check passes'
+      - 'pnpm test:unit passes with all tests green'
+      - 'No regressions in existing test suites'
+    tdd:
+      red:
+        - 'Run pnpm validate to identify any remaining issues'
+      green:
+        - 'Fix any type errors, lint violations, or formatting issues'
+        - 'Fix any failing tests'
+      refactor:
+        - 'Final review of all changed files for consistency and code quality'
+    estimatedEffort: '30min'
+
+totalEstimate: '8h 45min'
+
+openQuestions: []
+
+content: |
+  ## Summary
+
+  The implementation is broken into 11 tasks across 5 phases, progressing from foundational
+  type definitions through core implementation to integration wiring.
+
+  First, TypeSpec domain models are extended with 4 new notification event types and their
+  corresponding settings fields, followed by a database migration for the new columns. This
+  establishes the type foundation everything else depends on.
+
+  Next, the IGitPrService interface gets a new `listPrStatuses()` method with its GitPrService
+  implementation, enabling batch PR status queries via `gh pr list --json`. This is tested
+  independently with mocked ExecFunction.
+
+  The core PrSyncWatcherService is built in 4 incremental tasks: (1) class skeleton with
+  lifecycle and singleton accessors, (2) PR status polling with transition detection and
+  notifications, (3) CI status polling alongside PR status, (4) error handling and edge cases.
+  Each task adds a layer of functionality with comprehensive unit tests following TDD.
+
+  The notification service gets a small but critical update — extending the EVENT_TYPE_TO_CONFIG_KEY
+  map with 4 new entries so settings-driven per-type filtering works for PR events.
+
+  Finally, the watcher is wired into ui.command.ts alongside the existing notification watcher,
+  with a full validation pass to ensure everything integrates cleanly.
+
+  The estimated total effort is ~8h 45min, with the core watcher implementation (Phase 3)
+  accounting for the majority at ~5h 15min.

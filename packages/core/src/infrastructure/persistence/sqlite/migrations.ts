@@ -354,6 +354,24 @@ ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
       }
     },
   },
+  {
+    version: 22,
+    // Migration 022: Add PR notification event type filters to settings.
+    // Uses handler because these columns may already exist from the pre-rebase migration 19.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(settings)') as { name: string }[];
+      const add = (col: string) => {
+        if (!columns.some((c) => c.name === col)) {
+          db.exec(`ALTER TABLE settings ADD COLUMN ${col} INTEGER NOT NULL DEFAULT 1`);
+        }
+      };
+      add('notif_evt_pr_merged');
+      add('notif_evt_pr_closed');
+      add('notif_evt_pr_checks_passed');
+      add('notif_evt_pr_checks_failed');
+    },
+  },
 ];
 
 /**

@@ -156,12 +156,15 @@ describe('IGitPrService', () => {
         deletions: 0,
         commitCount: 0,
       }),
+      listPrStatuses: async () => [],
       verifyMerge: async () => true,
       getFailureLogs: async () => '',
     };
 
     // Verify all methods exist
     const methodNames: (keyof IGitPrService)[] = [
+      'hasRemote',
+      'getDefaultBranch',
       'hasUncommittedChanges',
       'commitAll',
       'push',
@@ -172,11 +175,12 @@ describe('IGitPrService', () => {
       'watchCi',
       'deleteBranch',
       'getPrDiffSummary',
+      'listPrStatuses',
       'verifyMerge',
       'getFailureLogs',
     ];
 
-    expect(methodNames).toHaveLength(12);
+    expect(methodNames).toHaveLength(15);
     for (const name of methodNames) {
       expect(typeof mock[name]).toBe('function');
     }

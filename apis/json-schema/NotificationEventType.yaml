@@ -7,4 +7,8 @@ enum:
   - waiting_approval
   - agent_completed
   - agent_failed
+  - pr_merged
+  - pr_closed
+  - pr_checks_passed
+  - pr_checks_failed
 description: Types of agent lifecycle notification events

@@ -21,6 +21,10 @@
  * | Waiting Approval   | warning  |
  * | Agent Completed    | success  |
  * | Agent Failed       | error    |
+ * | PR Merged          | success  |
+ * | PR Closed          | warning  |
+ * | PR Checks Passed   | success  |
+ * | PR Checks Failed   | error    |
  */
 /**
  * Types of agent lifecycle events that trigger notifications.
@@ -47,6 +51,18 @@ enum NotificationEventType {
 
   @doc("Agent execution failed with an error")
   AgentFailed: "agent_failed",
+
+  @doc("Pull request was merged on GitHub")
+  PrMerged: "pr_merged",
+
+  @doc("Pull request was closed without merging on GitHub")
+  PrClosed: "pr_closed",
+
+  @doc("Pull request CI checks passed")
+  PrChecksPassed: "pr_checks_passed",
+
+  @doc("Pull request CI checks failed")
+  PrChecksFailed: "pr_checks_failed",
 }
 
 /**

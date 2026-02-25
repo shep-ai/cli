@@ -60,6 +60,10 @@ function createTestSettings(overrides: Partial<Settings> = {}): Settings {
         waitingApproval: true,
         agentCompleted: true,
         agentFailed: true,
+        prMerged: true,
+        prClosed: true,
+        prChecksPassed: true,
+        prChecksFailed: true,
       },
     },
     workflow: {
@@ -107,6 +111,10 @@ function createTestRow(overrides: Partial<SettingsRow> = {}): SettingsRow {
     notif_evt_waiting_approval: 1,
     notif_evt_agent_completed: 1,
     notif_evt_agent_failed: 1,
+    notif_evt_pr_merged: 1,
+    notif_evt_pr_closed: 1,
+    notif_evt_pr_checks_passed: 1,
+    notif_evt_pr_checks_failed: 1,
     workflow_open_pr_on_impl_complete: 0,
     onboarding_complete: 0,
     approval_gate_allow_prd: 0,
@@ -131,6 +139,10 @@ describe('Settings Mapper', () => {
             waitingApproval: true,
             agentCompleted: true,
             agentFailed: true,
+            prMerged: true,
+            prClosed: true,
+            prChecksPassed: true,
+            prChecksFailed: true,
           },
         },
       });
@@ -152,6 +164,10 @@ describe('Settings Mapper', () => {
             waitingApproval: true,
             agentCompleted: true,
             agentFailed: true,
+            prMerged: true,
+            prClosed: true,
+            prChecksPassed: true,
+            prChecksFailed: true,
           },
         },
       });
@@ -173,6 +189,10 @@ describe('Settings Mapper', () => {
             waitingApproval: true,
             agentCompleted: true,
             agentFailed: true,
+            prMerged: true,
+            prClosed: true,
+            prChecksPassed: true,
+            prChecksFailed: true,
           },
         },
       });
@@ -184,7 +204,7 @@ describe('Settings Mapper', () => {
       expect(row.notif_desktop_enabled).toBe(1);
     });
 
-    it('should map all five event type flags', () => {
+    it('should map all event type flags', () => {
       const settings = createTestSettings({
         notifications: {
           inApp: { enabled: false },
@@ -196,6 +216,10 @@ describe('Settings Mapper', () => {
             waitingApproval: true,
             agentCompleted: true,
             agentFailed: false,
+            prMerged: true,
+            prClosed: false,
+            prChecksPassed: true,
+            prChecksFailed: false,
           },
         },
       });
@@ -261,7 +285,7 @@ describe('Settings Mapper', () => {
   });
 
   describe('round-trip - notification preferences', () => {
-    it('should preserve all 8 notification values through toDatabase → fromDatabase', () => {
+    it('should preserve all notification values through toDatabase → fromDatabase', () => {
       const original = createTestSettings({
         notifications: {
           inApp: { enabled: true },
@@ -273,6 +297,10 @@ describe('Settings Mapper', () => {
             waitingApproval: false,
             agentCompleted: true,
             agentFailed: false,
+            prMerged: true,
+            prClosed: false,
+            prChecksPassed: true,
+            prChecksFailed: false,
           },
         },
       });
@@ -299,6 +327,10 @@ describe('Settings Mapper', () => {
           waitingApproval: true,
           agentCompleted: true,
           agentFailed: true,
+          prMerged: true,
+          prClosed: true,
+          prChecksPassed: true,
+          prChecksFailed: true,
         },
       });
     });
