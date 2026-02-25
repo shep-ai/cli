@@ -1,3 +1,9 @@
+# [1.61.0](https://github.com/shep-ai/cli/compare/v1.60.0...v1.61.0) (2026-02-25)
+
+### Features
+
+- **web:** add centralized sound effects to all interactive ui actions ([#140](https://github.com/shep-ai/cli/issues/140)) ([794c34a](https://github.com/shep-ai/cli/commit/794c34ad8a9294fd167c9020392739eeb75f9717))
+
 # [1.60.0](https://github.com/shep-ai/cli/compare/v1.59.0...v1.60.0) (2026-02-25)
 
 ### Features
