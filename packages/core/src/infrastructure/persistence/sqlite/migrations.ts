@@ -322,11 +322,36 @@ ALTER TABLE features ADD COLUMN ci_fix_history TEXT;
     sql: '',
     handler: (db: Database.Database) => {
       const columns = db.pragma('table_info(features)') as { name: string }[];
+      // Backfill ci_fix columns for users whose old migration 19 added parent_id
+      // instead of ci_fix_attempts/ci_fix_history (pre-rebase ordering).
+      if (!columns.some((c) => c.name === 'ci_fix_attempts')) {
+        db.exec('ALTER TABLE features ADD COLUMN ci_fix_attempts INTEGER');
+      }
+      if (!columns.some((c) => c.name === 'ci_fix_history')) {
+        db.exec('ALTER TABLE features ADD COLUMN ci_fix_history TEXT');
+      }
       if (!columns.some((c) => c.name === 'parent_id')) {
         db.exec('ALTER TABLE features ADD COLUMN parent_id TEXT');
       }
       // CREATE INDEX IF NOT EXISTS is supported by SQLite
       db.exec('CREATE INDEX IF NOT EXISTS idx_features_parent_id ON features(parent_id)');
+    },
+  },
+  {
+    version: 21,
+    // Migration 021: Backfill columns that may be missing due to migration 19 rebase reordering.
+    // If the old migration 19 (parent_id) ran before the rebase, ci_fix_attempts/ci_fix_history
+    // were never added. Migration 20's handler now covers fresh installs; this covers
+    // databases that already ran migration 20 with the old handler.
+    sql: '',
+    handler: (db: Database.Database) => {
+      const columns = db.pragma('table_info(features)') as { name: string }[];
+      if (!columns.some((c) => c.name === 'ci_fix_attempts')) {
+        db.exec('ALTER TABLE features ADD COLUMN ci_fix_attempts INTEGER');
+      }
+      if (!columns.some((c) => c.name === 'ci_fix_history')) {
+        db.exec('ALTER TABLE features ADD COLUMN ci_fix_history TEXT');
+      }
     },
   },
 ];
