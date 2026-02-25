@@ -1,3 +1,9 @@
+## [1.55.1](https://github.com/shep-ai/cli/compare/v1.55.0...v1.55.1) (2026-02-25)
+
+### Bug Fixes
+
+- **domain:** use loose null checks in feature mapper for sqlite compat ([#134](https://github.com/shep-ai/cli/issues/134)) ([df812dd](https://github.com/shep-ai/cli/commit/df812dd4dde7badc688e94e58192fd919bd20849))
+
 # [1.55.0](https://github.com/shep-ai/cli/compare/v1.54.0...v1.55.0) (2026-02-25)
 
 ### Features
