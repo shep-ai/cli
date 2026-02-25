@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Loader2, CircleAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { useSoundAction } from '@/hooks/use-sound-action';
 
 export interface ActionButtonProps {
   label: string;
@@ -29,13 +30,20 @@ export function ActionButton({
   variant = 'outline',
   size = 'sm',
 }: ActionButtonProps) {
+  const clickSound = useSoundAction('click');
+
+  const handleClick = () => {
+    clickSound.play();
+    onClick();
+  };
+
   return (
     <Button
       variant={variant}
       size={size}
       aria-label={label}
       disabled={loading}
-      onClick={onClick}
+      onClick={handleClick}
       className={cn(
         'gap-1.5',
         error && 'text-destructive hover:text-destructive',

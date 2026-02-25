@@ -10,6 +10,21 @@ vi.mock('@/components/common/feature-create-drawer/pick-files', () => ({
   pickFiles: () => mockPickFiles(),
 }));
 
+const mockDrawerOpenPlay = vi.fn();
+const mockDrawerClosePlay = vi.fn();
+const mockCreatePlay = vi.fn();
+
+vi.mock('@/hooks/use-sound-action', () => ({
+  useSoundAction: vi.fn((action: string) => {
+    if (action === 'drawer-open')
+      return { play: mockDrawerOpenPlay, stop: vi.fn(), isPlaying: false };
+    if (action === 'drawer-close')
+      return { play: mockDrawerClosePlay, stop: vi.fn(), isPlaying: false };
+    if (action === 'create') return { play: mockCreatePlay, stop: vi.fn(), isPlaying: false };
+    return { play: vi.fn(), stop: vi.fn(), isPlaying: false };
+  }),
+}));
+
 // Vaul drawer uses pointer capture + getComputedStyle().transform in jsdom — stub to avoid exceptions
 beforeAll(() => {
   Element.prototype.setPointerCapture = vi.fn();
@@ -597,6 +612,41 @@ describe('FeatureCreateDrawer', () => {
       await user.click(screen.getByRole('button', { name: /add files/i }));
 
       expect(screen.queryByText('requirements.pdf')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('sound effects', () => {
+    beforeEach(() => {
+      mockDrawerOpenPlay.mockReset();
+      mockDrawerClosePlay.mockReset();
+      mockCreatePlay.mockReset();
+    });
+
+    it('plays drawer-open sound when opened', () => {
+      renderDrawer();
+      expect(mockDrawerOpenPlay).toHaveBeenCalledOnce();
+    });
+
+    it('plays drawer-close sound when close button is clicked', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+      await user.click(screen.getByRole('button', { name: /close/i }));
+      expect(mockDrawerClosePlay).toHaveBeenCalled();
+    });
+
+    it('plays drawer-close sound when cancel is clicked', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+      await user.click(screen.getByRole('button', { name: 'Cancel' }));
+      expect(mockDrawerClosePlay).toHaveBeenCalled();
+    });
+
+    it('plays create sound on form submit', async () => {
+      const user = userEvent.setup();
+      renderDrawer();
+      await user.type(screen.getByPlaceholderText('e.g. GitHub OAuth Login'), 'My Feature');
+      await user.click(screen.getByRole('button', { name: '+ Create Feature' }));
+      expect(mockCreatePlay).toHaveBeenCalledOnce();
     });
   });
 });

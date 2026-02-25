@@ -27,6 +27,19 @@ vi.mock('@/components/common/feature-drawer/use-feature-actions', () => ({
   useFeatureActions: () => mockHookReturn,
 }));
 
+const mockDrawerOpenPlay = vi.fn();
+const mockDrawerClosePlay = vi.fn();
+
+vi.mock('@/hooks/use-sound-action', () => ({
+  useSoundAction: vi.fn((action: string) => {
+    if (action === 'drawer-open')
+      return { play: mockDrawerOpenPlay, stop: vi.fn(), isPlaying: false };
+    if (action === 'drawer-close')
+      return { play: mockDrawerClosePlay, stop: vi.fn(), isPlaying: false };
+    return { play: vi.fn(), stop: vi.fn(), isPlaying: false };
+  }),
+}));
+
 const defaultData: FeatureNodeData = {
   name: 'Auth Module',
   description: 'Implement OAuth2 authentication flow',
@@ -337,6 +350,22 @@ describe('FeatureDrawer', () => {
 
       const triggerButton = screen.getByRole('button', { name: /delete feature/i });
       expect(triggerButton).toBeDisabled();
+    });
+  });
+
+  describe('sound effects', () => {
+    beforeEach(() => {
+      mockDrawerOpenPlay.mockReset();
+      mockDrawerClosePlay.mockReset();
+    });
+
+    it('plays drawer-close sound when close button is clicked', () => {
+      const onClose = vi.fn();
+      renderDrawer(defaultData, onClose);
+      const closeButton = screen.getByRole('button', { name: /close/i });
+      closeButton.click();
+      expect(mockDrawerClosePlay).toHaveBeenCalledOnce();
+      expect(onClose).toHaveBeenCalledOnce();
     });
   });
 

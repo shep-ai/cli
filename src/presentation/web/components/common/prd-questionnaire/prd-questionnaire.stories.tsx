@@ -194,7 +194,7 @@ const mockData: PrdQuestionnaireData = {
   finalAction: mockFinalAction,
 };
 
-/** Default state — first step shown, no selections. Click options to auto-advance. */
+/** Default state — first step shown, no selections. Click options to auto-advance. Plays "select" on option click, "navigate" on step/nav buttons. */
 export const Default: Story = {
   render: () => <InteractiveQuestionnaire data={mockData} />,
 };

@@ -25,8 +25,10 @@ const meta: Meta<typeof SidebarCollapseToggle> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Expanded state — clicking plays "collapse" sound. */
 export const Expanded: Story = {};
 
+/** Collapsed state — clicking plays "expand" sound. */
 export const Collapsed: Story = {
   decorators: [
     (Story) => (

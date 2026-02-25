@@ -1,0 +1,221 @@
+# Implementation Plan (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: action-sound-effects
+summary: >
+  Create a centralized useSoundAction hook backed by a SOUND_ACTION_MAP constant,
+  then systematically wire sound effects into ~13 UI components and migrate 9
+  existing useSound call sites. The implementation proceeds in four phases:
+  foundation (hook + map + tests + story), high-impact component wiring (7 components
+  including drawer-action-bar which provides inherited sounds to 3 consumers),
+  low-impact component wiring (6 simpler components), and migration of existing
+  sound calls with final validation. All work stays within the presentation/web
+  layer — no domain, application, or infrastructure changes.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js 16 — presentation/web layer)
+  - useSound custom hook (src/presentation/web/hooks/use-sound.ts)
+  - useSoundEnabled global toggle (src/presentation/web/hooks/use-sound-enabled.ts)
+  - Vitest + React Testing Library (unit tests)
+  - Storybook (mandatory .stories.tsx per component)
+  - shadcn/ui components (Button, Drawer, Dialog, Toggle, DropdownMenu)
+
+relatedLinks: []
+
+# Structured implementation phases
+phases:
+  - id: phase-1
+    name: 'Foundation — useSoundAction Hook & Map'
+    description: >
+      Create the SOUND_ACTION_MAP constant and useSoundAction hook in a new file
+      use-sound-action.ts. This is the single dependency for all subsequent work.
+      Includes comprehensive unit tests for the hook and a Storybook catalog story.
+      Must be completed before any component wiring begins.
+    parallel: false
+
+  - id: phase-2
+    name: 'Component Sound Wiring — High-Impact Components'
+    description: >
+      Wire sounds into the 7 most complex/important components: drawer-action-bar
+      (approve/reject sounds inherited by 3 consumers), feature-drawer,
+      feature-create-drawer, review-drawer-shell, open-action-menu,
+      reject-feedback-dialog, and drawer-revision-input. drawer-action-bar is
+      prioritized first because prd-questionnaire, tech-decisions-review, and
+      merge-review inherit its approve/reject sounds. This phase also creates the
+      2 missing .stories.tsx files (drawer-action-bar, drawer-revision-input).
+    parallel: false
+
+  - id: phase-3
+    name: 'Component Sound Wiring — Low-Impact & Navigation Components'
+    description: >
+      Wire sounds into the remaining 6 components: theme-toggle,
+      sidebar-collapse-toggle, sidebar-nav-item, prd-questionnaire (select +
+      navigate only — approve/reject inherited from drawer-action-bar),
+      tech-decisions-review (expand/collapse only), and action-button. These are
+      simpler changes (1-2 hooks each) with no inter-dependencies.
+    parallel: false
+
+  - id: phase-4
+    name: 'Migration & Validation'
+    description: >
+      Migrate 9 existing useSound call sites in use-control-center-state.ts
+      (3 calls + remove 1 silent closeSound), control-center-inner.tsx (1 call),
+      and use-notifications.ts (4 calls) to use useSoundAction. Update their
+      existing tests. Run pnpm validate and pnpm test as the final gate.
+    parallel: false
+
+# File change tracking
+filesToCreate:
+  - src/presentation/web/hooks/use-sound-action.ts
+  - src/presentation/web/hooks/use-sound-action.stories.tsx
+  - tests/unit/presentation/web/hooks/use-sound-action.test.ts
+  - src/presentation/web/components/common/drawer-action-bar/drawer-action-bar.stories.tsx
+  - src/presentation/web/components/common/drawer-revision-input/drawer-revision-input.stories.tsx
+
+filesToModify:
+  - src/presentation/web/components/common/drawer-action-bar/drawer-action-bar.tsx
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.tsx
+  - src/presentation/web/components/common/review-drawer-shell/review-drawer-shell.tsx
+  - src/presentation/web/components/common/open-action-menu/open-action-menu.tsx
+  - src/presentation/web/components/common/reject-feedback-dialog/reject-feedback-dialog.tsx
+  - src/presentation/web/components/common/drawer-revision-input/drawer-revision-input.tsx
+  - src/presentation/web/components/common/theme-toggle/theme-toggle.tsx
+  - src/presentation/web/components/common/sidebar-collapse-toggle/sidebar-collapse-toggle.tsx
+  - src/presentation/web/components/common/sidebar-nav-item/sidebar-nav-item.tsx
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.tsx
+  - src/presentation/web/components/common/tech-decisions-review/tech-decisions-review.tsx
+  - src/presentation/web/components/common/action-button/action-button.tsx
+  - src/presentation/web/components/features/control-center/use-control-center-state.ts
+  - src/presentation/web/components/features/control-center/control-center-inner.tsx
+  - src/presentation/web/hooks/use-notifications.ts
+  - tests/unit/presentation/web/features/control-center/use-control-center-state.test.tsx
+  - tests/unit/presentation/web/hooks/use-notifications.test.ts
+  - src/presentation/web/components/common/feature-drawer/feature-drawer.stories.tsx
+  - src/presentation/web/components/common/feature-create-drawer/feature-create-drawer.stories.tsx
+  - src/presentation/web/components/common/review-drawer-shell/review-drawer-shell.stories.tsx
+  - src/presentation/web/components/common/open-action-menu/open-action-menu.stories.tsx
+  - src/presentation/web/components/common/reject-feedback-dialog/reject-feedback-dialog.stories.tsx
+  - src/presentation/web/components/common/theme-toggle/theme-toggle.stories.tsx
+  - src/presentation/web/components/common/sidebar-collapse-toggle/sidebar-collapse-toggle.stories.tsx
+  - src/presentation/web/components/common/sidebar-nav-item/sidebar-nav-item.stories.tsx
+  - src/presentation/web/components/common/prd-questionnaire/prd-questionnaire.stories.tsx
+  - src/presentation/web/components/common/tech-decisions-review/tech-decisions-review.stories.tsx
+  - src/presentation/web/components/common/action-button/action-button.stories.tsx
+
+# Open questions (should all be resolved before implementation)
+openQuestions: []
+
+# Markdown content (the full plan document)
+content: |
+  ## Architecture Overview
+
+  This feature lives entirely within the **presentation/web** layer and introduces
+  no changes to domain, application, or infrastructure layers. The sound system
+  already has a solid foundation:
+
+  - `useSound(name, options)` — handles Audio element lifecycle, preloading, volume,
+    and the `useSoundEnabled` global toggle
+  - `useSoundEnabled()` — localStorage-persisted toggle with cross-tab sync
+  - 29 WAV files in `/public/sounds/` covering all needed action categories
+
+  The new `useSoundAction` hook is a thin semantic wrapper that maps action names
+  to `{ sound, volume }` pairs, then delegates to `useSound`. The dependency flow:
+
+  ```
+  Components → useSoundAction → useSound → useSoundEnabled → localStorage
+                                         → HTMLAudioElement → /public/sounds/*.wav
+  ```
+
+  No circular dependencies. `useSoundAction` is purely additive.
+
+  ## Key Design Decisions
+
+  ### 1. Centralized SOUND_ACTION_MAP (vs. scattered direct calls)
+
+  **Chosen:** A `Record<SoundAction, { sound: SoundName; volume: number }>` constant
+  exported from `use-sound-action.ts`. The `SoundAction` type is derived via
+  `keyof typeof SOUND_ACTION_MAP`.
+
+  **Rationale:** With 15+ components being wired, a centralized mapping provides a
+  single source of truth. Changing a sound for any action category requires editing
+  one line in one file. The existing control-center pattern of scattered `useSound`
+  calls already shows the maintenance burden of decentralized assignments. The
+  `keyof typeof` pattern for type derivation is already used for `SoundName` in
+  `use-sound.ts`.
+
+  ### 2. No volume overrides in useSoundAction
+
+  **Chosen:** `useSoundAction(action)` always uses the volume from `SOUND_ACTION_MAP`.
+  No optional volume parameter.
+
+  **Rationale:** The purpose of centralization is a single source of truth for volumes.
+  Allowing per-component overrides would reintroduce the scattered volume problem.
+  If a context needs a different volume, it should be a distinct action in the map.
+
+  ### 3. Sounds in drawer-action-bar (not parent components)
+
+  **Chosen:** `drawer-action-bar` owns approve/reject sounds internally. Consumer
+  components (prd-questionnaire, tech-decisions-review, merge-review) inherit them
+  automatically.
+
+  **Rationale:** Follows single-responsibility. Prevents duplicate sounds if both
+  parent and child play sounds for the same click. Any new consumer of
+  drawer-action-bar automatically gets consistent audio feedback. FR-17 confirms
+  merge-review needs no direct changes.
+
+  ### 4. Remove silent closeSound during migration
+
+  **Chosen:** The `closeSound` in `use-control-center-state.ts` (volume 0.01) is
+  removed rather than mapped to an action.
+
+  **Rationale:** Volume 0.01 is inaudible. The `clearSelection` function is called
+  when clicking empty canvas space — not a meaningful user action warranting audio
+  feedback. Removing it reduces migration from 5 to 4 call sites.
+
+  ### 5. Same-PR migration of existing calls
+
+  **Chosen:** Migrate all 9 existing `useSound` call sites alongside new wiring.
+
+  **Rationale:** Ensures one consistent pattern from day one. The migration is
+  mechanical and low-risk. Validates `SOUND_ACTION_MAP` covers all existing
+  assignments. Avoids a period where two patterns coexist.
+
+  ## Implementation Strategy
+
+  **Phase 1 (Foundation)** must complete first — it creates the hook and map that
+  every subsequent task depends on. The unit test and Storybook story for the hook
+  are written in this phase to validate the foundation before building on it.
+
+  **Phase 2 (High-impact components)** starts with `drawer-action-bar` because
+  three other components (prd-questionnaire, tech-decisions-review, merge-review)
+  inherit its approve/reject sounds. The remaining 6 components in this phase
+  are the more complex ones (drawers with open/close lifecycle, menus with
+  multiple interaction points). This phase also creates the 2 missing story files.
+
+  **Phase 3 (Low-impact components)** handles simpler components with 1-2 hooks
+  each (toggles, navigation, expand/collapse). These have no inter-dependencies
+  and can proceed in any order.
+
+  **Phase 4 (Migration + validation)** migrates existing `useSound` calls and
+  updates their tests. Runs `pnpm validate` and `pnpm test` as the final gate.
+  Migration is last because it's the lowest risk and validates that the map
+  covers all existing sound assignments.
+
+  ## Risk Mitigation
+
+  | Risk | Mitigation |
+  | ---- | ---------- |
+  | Duplicate sounds when drawer-action-bar and parent both play | Place sounds only in drawer-action-bar; parent components add sounds only for their unique interactions |
+  | Re-render performance from multiple useSound hooks | useSound uses useRef for isPlaying (not useState); play/stop are stable useCallback refs; max 3 hooks per component per NFR-1 |
+  | Existing tests break after migration | Update mocks from useSound to useSoundAction; run tests after each migration file |
+  | Browser autoplay policy blocks audio | Existing useSound error handling (catch + warn) is preserved; useSoundAction delegates entirely to useSound |
+  | Volume inconsistency across components | SOUND_ACTION_MAP is the sole source of truth; useSoundAction accepts no volume overrides |
+  | Missing Storybook stories block PR | Create stories for drawer-action-bar and drawer-revision-input (currently missing); update all other modified component stories |
+
+  ---
+
+  _Generated during planning phase — 2026-02-25_

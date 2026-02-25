@@ -1,0 +1,540 @@
+# Research Artifact (YAML)
+# This is the source of truth. Markdown is auto-generated from this file.
+
+name: action-sound-effects
+summary: >
+  The existing sound infrastructure (useSound hook, useSoundEnabled toggle, 29 WAV files) is
+  fully sufficient. The implementation creates a thin useSoundAction wrapper backed by a
+  SOUND_ACTION_MAP constant, then wires it into ~15 components and migrates 9 existing call
+  sites. No new dependencies, no new audio files, no architectural changes required.
+
+# Relationships
+relatedFeatures: []
+
+technologies:
+  - React (Next.js 16 — presentation/web layer)
+  - useSound custom hook (src/presentation/web/hooks/use-sound.ts)
+  - useSoundEnabled global toggle (src/presentation/web/hooks/use-sound-enabled.ts)
+  - Web Audio API (HTMLAudioElement via useSound)
+  - Vitest + React Testing Library (unit tests)
+  - Storybook (component documentation)
+  - shadcn/ui (Button, Drawer, Dialog, Toggle, etc.)
+
+relatedLinks: []
+
+# Structured technology decisions
+decisions:
+  - title: 'Hook Architecture — useSoundAction wrapper vs. direct useSound'
+    chosen: >
+      Create a useSoundAction(action: SoundAction) hook in use-sound-action.ts that
+      wraps useSound. The hook reads from a SOUND_ACTION_MAP constant to resolve the
+      SoundName and volume for each semantic action, then delegates to useSound.
+    rejected:
+      - >
+        Direct useSound calls in each component — This is the current pattern in
+        control-center. Each component chooses its own sound name and volume. With
+        15+ components being wired, this leads to scattered sound assignments across
+        the codebase with no single source of truth. Changing a sound for an action
+        category requires editing every component. Already painful with just 5 call
+        sites in control-center.
+      - >
+        Context-based sound provider — A React Context wrapping the entire app that
+        provides a play(action) function. Overly complex for this use case. Adds
+        unnecessary indirection and a provider component. The hook pattern is
+        simpler, more composable, and follows the existing useSound convention.
+    rationale: >
+      The wrapper hook follows the existing codebase pattern (custom hooks in
+      src/presentation/web/hooks/) and is the minimal abstraction needed. It provides
+      a single source of truth for sound-to-action mapping in SOUND_ACTION_MAP while
+      preserving the familiar {play, stop, isPlaying} interface from useSound. Each
+      component calls useSoundAction("approve") instead of useSound("celebration",
+      {volume: 0.5}), gaining semantic clarity. The mapping constant is trivially
+      testable, and the hook itself is a thin pass-through that needs minimal testing
+      beyond verifying it delegates correctly to useSound.
+
+  - title: 'SOUND_ACTION_MAP data structure'
+    chosen: >
+      A plain Record<SoundAction, { sound: SoundName; volume: number }> constant
+      exported from use-sound-action.ts. SoundAction is a string union type derived
+      from the map keys using keyof typeof SOUND_ACTION_MAP.
+    rejected:
+      - >
+        Map object — Adds no benefit over a plain object for a static, read-only
+        mapping. Plain objects are more ergonomic with TypeScript's typeof and keyof
+        operators, which automatically derive the SoundAction union type.
+      - >
+        Class-based registry with register/unregister methods — Over-engineered for
+        a static mapping. The sound-to-action assignments are known at compile time
+        and should not change at runtime. A mutable registry invites bugs and makes
+        the mapping harder to reason about.
+    rationale: >
+      A Record constant with as const satisfies provides compile-time type safety,
+      auto-derives the SoundAction union type, and is the simplest possible data
+      structure. It follows the codebase convention of co-locating constants with
+      their hooks (e.g., SOUND_NAMES in use-sound.ts, SEVERITY_TO_SOUND in
+      use-notifications.ts). The type derivation pattern (keyof typeof MAP) is
+      already used for SoundName in use-sound.ts.
+
+  - title: 'File placement for useSoundAction'
+    chosen: >
+      New file at src/presentation/web/hooks/use-sound-action.ts, alongside the
+      existing use-sound.ts and use-sound-enabled.ts.
+    rejected:
+      - >
+        Co-locate inside use-sound.ts — Mixing two hooks with different
+        responsibilities in one file violates single-responsibility. use-sound.ts
+        handles audio element lifecycle; use-sound-action.ts handles semantic
+        action-to-sound mapping. Keeping them separate makes each independently
+        testable and reviewable.
+      - >
+        New directory src/presentation/web/hooks/sound/ — Creates unnecessary
+        directory nesting for just 3 files. The flat hooks/ directory is the
+        established pattern and the existing sound hooks (use-sound.ts,
+        use-sound-enabled.ts) already live there.
+    rationale: >
+      The hooks/ directory is the established location for all custom hooks in the
+      web layer. Placing use-sound-action.ts alongside use-sound.ts and
+      use-sound-enabled.ts keeps the sound system files discoverable as a logical
+      group without introducing new directories. The Storybook story file
+      (use-sound-action.stories.tsx) will also go here, following the existing
+      pattern of use-sound.stories.tsx.
+
+  - title: 'Migration strategy for existing sound calls'
+    chosen: >
+      Migrate all 9 existing useSound call sites (4 in use-control-center-state.ts,
+      1 in control-center-inner.tsx, 4 in use-notifications.ts) to use useSoundAction
+      in the same PR as the new component wiring. Validate via tests that each
+      migrated site produces the same sound at the same volume.
+    rejected:
+      - >
+        Separate migration PR — Splitting into two PRs adds coordination overhead
+        and a period where two patterns coexist. The migration is low-risk (9 call
+        sites, same underlying hook) and can be validated by existing tests.
+      - >
+        Leave existing code unchanged — Creates two coexisting patterns. New
+        developers would be confused about which hook to use. The SOUND_ACTION_MAP
+        would be incomplete, missing the control-center and notification sounds.
+        Defeats the purpose of centralization.
+    rationale: >
+      A single PR ensures one consistent pattern across the entire codebase from day
+      one. The migration is mechanical — each useSound(soundName, {volume}) call
+      becomes useSoundAction(actionName) with the same sound/volume defined in the
+      map. The existing test for use-control-center-state.ts already mocks useSound;
+      updating the mock to target use-sound-action.ts is trivial. The use-notifications
+      test similarly mocks useSound and can be updated in the same pass.
+
+  - title: 'Component wiring approach — handler wrapping vs. callback composition'
+    chosen: >
+      Add useSoundAction calls directly in each component and invoke play() inside
+      existing onClick/onOpenChange handlers. For components that receive handlers
+      as props (e.g., drawer-action-bar receives onApprove/onReject), play the sound
+      before calling the prop handler.
+    rejected:
+      - >
+        Higher-order component (HOC) that wraps any component with sound — Too
+        abstract. Each component has different interaction points (onClick,
+        onOpenChange, onSubmit) and needs different sounds for different actions
+        within the same component. An HOC can't know which interaction maps to which
+        sound without per-component configuration, at which point it's more complex
+        than direct wiring.
+      - >
+        Event delegation at the app root — Listen for click/change events at the
+        document level and match targets to sound actions via data attributes.
+        Fragile, hard to test, breaks encapsulation. React's synthetic event system
+        and component-level hooks are the right abstraction for this.
+    rationale: >
+      Direct wiring in each component is the most explicit and testable approach.
+      Each component's test can verify that play() is called for the correct action
+      on the correct interaction. The pattern is already established in
+      control-center (where clickSound.play() is called inside handleNodeClick).
+      Components that have multiple interaction points (e.g., feature-drawer with
+      open/close/delete) simply declare multiple useSoundAction hooks. The max
+      recommended is 3 hooks per component (NFR-1), which is sufficient for all
+      target components.
+
+  - title: 'Testing strategy for sound behavior'
+    chosen: >
+      Mock use-sound-action module at the vi.mock level. Each component test verifies
+      that the correct action's play() function is called when the corresponding user
+      interaction occurs. The useSoundAction hook itself gets a dedicated unit test
+      that mocks useSound and verifies the mapping delegation.
+    rejected:
+      - >
+        Integration tests with real audio — Browser audio APIs are unavailable in
+        jsdom. Even with mocks, testing actual audio playback adds complexity
+        without verifying anything meaningful beyond what the mock approach covers.
+      - >
+        Snapshot testing for sound assignments — Snapshots capture the presence of
+        hook calls in rendered output but can't verify that play() is invoked on
+        the correct interaction. Behavioral tests with mock assertions are more
+        precise and maintainable.
+    rationale: >
+      The existing codebase uses vi.mock() extensively for hook mocking (seen in
+      use-notifications.test.ts, use-control-center-state.test.tsx). Mocking
+      use-sound-action follows the same pattern. For the useSoundAction hook itself,
+      a unit test mocking useSound verifies that each action maps to the correct
+      SoundName and volume. For components, tests verify play() is called on the
+      right user interaction (click, open, close, submit). This provides full
+      coverage with minimal test complexity.
+
+  - title: 'Storybook documentation approach'
+    chosen: >
+      Create a dedicated use-sound-action.stories.tsx that renders an interactive
+      catalog of all sound actions (buttons that play each action's sound). For
+      modified components, update existing stories to include a sound-enabled
+      decorator and note which sounds trigger on which interactions.
+    rejected:
+      - >
+        No dedicated hook story, only component stories — Misses the opportunity
+        to showcase the full SOUND_ACTION_MAP in one place. Developers need a
+        single reference to see all available actions and hear their sounds.
+      - >
+        Separate Storybook addon for sound visualization — Over-engineered. The
+        existing use-sound.stories.tsx already demonstrates a catalog pattern
+        with SoundButton components. Reusing that pattern for useSoundAction
+        is simpler and consistent.
+    rationale: >
+      The use-sound.stories.tsx already establishes the pattern of a SoundButton
+      catalog for the raw hook. A parallel use-sound-action.stories.tsx provides
+      the semantic action view (buttons labeled "approve", "reject", "navigate"
+      etc.) giving developers a quick reference. Component stories get minimal
+      updates — primarily ensuring the sound toggle is accessible so reviewers
+      can hear sounds during Storybook interaction.
+
+# Open questions (resolved during research)
+openQuestions:
+  - question: >
+      Should useSoundAction accept optional volume overrides, or should the
+      SOUND_ACTION_MAP be the sole source of volume levels?
+    resolved: true
+    options:
+      - option: 'Map-only volumes (no overrides)'
+        description: >
+          useSoundAction(action) always uses the volume defined in SOUND_ACTION_MAP.
+          Components cannot override volumes. Guarantees consistency — every
+          "navigate" action plays at exactly 0.2 regardless of where it's used.
+          Simpler hook API.
+        selected: true
+      - option: 'Optional volume override parameter'
+        description: >
+          useSoundAction(action, { volume?: number }) allows components to override
+          the map's default volume. Provides flexibility for edge cases where the
+          same action type needs different volumes in different contexts. Risks
+          inconsistency — defeats the purpose of centralized mapping.
+        selected: false
+      - option: 'Volume multiplier parameter'
+        description: >
+          useSoundAction(action, { volumeMultiplier?: number }) takes a multiplier
+          (e.g., 0.5 for half volume) applied to the map's base volume. Preserves
+          relative volume hierarchy while allowing contextual adjustments. More
+          complex API for marginal benefit.
+        selected: false
+    selectionRationale: >
+      The entire purpose of SOUND_ACTION_MAP is to be the single source of truth
+      for sound assignments including volumes. Allowing per-component overrides
+      would reintroduce the scattered volume problem that the centralized approach
+      solves. If a specific context needs a different volume, it should be a
+      distinct action in the map (e.g., "drawer-close" at 0.4 vs the existing
+      closeSound at 0.01 in use-control-center-state which is effectively silent
+      and should just not play a sound). The 0.01 volume closeSound in
+      use-control-center-state.ts is effectively a silent sound that can be removed
+      during migration rather than preserved as a special case.
+
+  - question: >
+      How should the use-control-center-state.ts closeSound (volume 0.01) be handled
+      during migration?
+    resolved: true
+    options:
+      - option: 'Remove it entirely — it is effectively silent'
+        description: >
+          The closeSound at volume 0.01 is inaudible and serves no purpose. During
+          migration, simply remove this call site rather than mapping it to a
+          useSoundAction. The clearSelection function just needs to clear state,
+          not play an inaudible sound.
+        selected: true
+      - option: 'Map it to drawer-close at 0.4 volume'
+        description: >
+          Replace the 0.01 volume with the standard drawer-close action at 0.4.
+          This would make clearSelection suddenly audible, which may surprise
+          users since it was always silent before. Clearing selection is a
+          background action, not a user-initiated drawer close.
+        selected: false
+      - option: 'Create a dedicated silent/subtle action category'
+        description: >
+          Add a "clear-selection" action to the map at volume 0.01. Preserves
+          the original behavior while using the centralized system. But
+          maintaining an action that plays an inaudible sound is pointless
+          complexity.
+        selected: false
+    selectionRationale: >
+      The closeSound at volume 0.01 in use-control-center-state.ts (line 265) is
+      effectively silent — no human can hear a sound at 1% volume. It was likely
+      added as a placeholder or accidentally set too low. Removing it during
+      migration is the cleanest approach. The clearSelection function (line 267-269)
+      is called when clicking empty canvas space, which is not a meaningful user
+      action warranting audio feedback. This reduces the migration from 5 to 4 call
+      sites in use-control-center-state.ts.
+
+  - question: >
+      Should components that use drawer-action-bar (prd-questionnaire,
+      tech-decisions-review, merge-review) add their own sounds, or rely on
+      drawer-action-bar handling approve/reject sounds?
+    resolved: true
+    options:
+      - option: 'Sounds in drawer-action-bar only (parent components inherit)'
+        description: >
+          drawer-action-bar adds useSoundAction("approve") and useSoundAction("reject")
+          internally. Parent components (prd-questionnaire, tech-decisions-review,
+          merge-review) get approve/reject sounds for free without any changes.
+          Follows single-responsibility — the action bar owns its interaction
+          feedback. Prevents duplicate sounds if both parent and child play sounds
+          for the same click.
+        selected: true
+      - option: 'Sounds in parent components only'
+        description: >
+          Parent components add sounds around their onApprove/onReject handlers.
+          drawer-action-bar stays sound-free. Gives parents full control but
+          requires every consumer of drawer-action-bar to independently add sounds.
+          Inconsistent if a new consumer forgets to add sounds.
+        selected: false
+      - option: 'Sounds in both parent and child'
+        description: >
+          Both layers play sounds. Creates duplicate audio feedback — two sounds
+          playing simultaneously on a single click. Confusing and jarring UX.
+        selected: false
+    selectionRationale: >
+      Placing sounds in drawer-action-bar ensures every consumer automatically
+      gets consistent approve/reject audio feedback. This matches the spec's
+      FR-17 which states merge-review needs no additional wiring because it
+      inherits from drawer-action-bar. The same principle applies to
+      prd-questionnaire and tech-decisions-review. These parent components
+      only need to add sounds for their own unique interactions (e.g.,
+      prd-questionnaire's option selection and step navigation).
+
+# Markdown content (the full research document)
+content: |
+  ## Technology Decisions
+
+  ### 1. Hook Architecture — useSoundAction wrapper vs. direct useSound
+
+  **Chosen:** Create a `useSoundAction(action: SoundAction)` hook in
+  `use-sound-action.ts` that wraps `useSound` via a `SOUND_ACTION_MAP` constant.
+
+  **Rejected:**
+  - Direct `useSound` calls in each component — Scatters sound assignments across
+    15+ files with no single source of truth. Already problematic in control-center.
+  - Context-based sound provider — Overly complex for a static mapping. Adds
+    unnecessary indirection and a provider component.
+
+  **Rationale:** The wrapper hook follows the existing custom hooks convention in
+  `src/presentation/web/hooks/`. It provides semantic clarity (`useSoundAction("approve")`
+  vs `useSound("celebration", {volume: 0.5})`) while preserving the familiar
+  `{play, stop, isPlaying}` interface. The mapping constant is trivially testable.
+
+  ### 2. SOUND_ACTION_MAP Data Structure
+
+  **Chosen:** `Record<SoundAction, { sound: SoundName; volume: number }>` with
+  `SoundAction` derived via `keyof typeof SOUND_ACTION_MAP`.
+
+  **Rejected:**
+  - Map object — No ergonomic benefit over plain objects for TypeScript type derivation.
+  - Class-based registry — Over-engineered for a static, compile-time mapping.
+
+  **Rationale:** Follows the `SOUND_NAMES` / `SEVERITY_TO_SOUND` constant pattern
+  already used in the codebase. Auto-derives the union type from keys.
+
+  ### 3. File Placement
+
+  **Chosen:** `src/presentation/web/hooks/use-sound-action.ts`
+
+  **Rejected:**
+  - Inside `use-sound.ts` — Violates single-responsibility.
+  - New `hooks/sound/` directory — Unnecessary nesting for 3 files.
+
+  **Rationale:** Flat `hooks/` directory is the established pattern. Keeps the
+  sound system files discoverable as a group.
+
+  ### 4. Migration Strategy
+
+  **Chosen:** Migrate all 9 existing `useSound` call sites in the same PR.
+
+  **Rejected:**
+  - Separate migration PR — Adds coordination overhead.
+  - Leave existing code unchanged — Creates two coexisting patterns.
+
+  **Rationale:** One PR ensures one consistent pattern. The migration is mechanical
+  and low-risk. Validates that `SOUND_ACTION_MAP` covers all existing assignments.
+
+  ### 5. Component Wiring Approach
+
+  **Chosen:** Direct `useSoundAction` calls in each component, invoking `play()`
+  inside existing handlers.
+
+  **Rejected:**
+  - Higher-order component — Can't distinguish multiple interaction types per component.
+  - Event delegation at app root — Fragile, breaks encapsulation, hard to test.
+
+  **Rationale:** Most explicit and testable approach. Already the pattern in
+  control-center. Max 3 hooks per component satisfies NFR-1.
+
+  ### 6. Testing Strategy
+
+  **Chosen:** Mock `use-sound-action` module via `vi.mock()`. Verify `play()` calls
+  per interaction. Dedicated unit test for the hook itself.
+
+  **Rejected:**
+  - Integration tests with real audio — jsdom has no audio API.
+  - Snapshot testing — Can't verify behavioral triggers.
+
+  **Rationale:** Follows existing `vi.mock()` patterns in the codebase
+  (use-notifications.test.ts, use-control-center-state.test.tsx).
+
+  ### 7. Storybook Documentation
+
+  **Chosen:** Dedicated `use-sound-action.stories.tsx` catalog + minimal updates
+  to modified component stories.
+
+  **Rejected:**
+  - No dedicated hook story — Misses centralized action reference.
+  - Storybook addon — Over-engineered for this use case.
+
+  **Rationale:** Parallels existing `use-sound.stories.tsx` catalog pattern.
+
+  ## Library Analysis
+
+  | Library | Purpose | Decision | Reasoning |
+  | ------- | ------- | -------- | --------- |
+  | useSound (internal hook) | Audio playback | Use (wrap) | Core audio lifecycle already implemented; useSoundAction delegates to it |
+  | useSoundEnabled (internal hook) | Global sound toggle | Use (via useSound) | Already integrated into useSound; no direct usage needed in useSoundAction |
+  | Web Audio API (HTMLAudioElement) | Browser audio | Use (via useSound) | Already used by useSound; no direct usage needed |
+  | howler.js | Audio library | Reject | Would add ~12KB dependency for features already covered by useSound |
+  | use-sound (npm) | React sound hook | Reject | External dependency for what the codebase already implements natively |
+  | tone.js | Web Audio synthesis | Reject | Massive overkill; designed for music synthesis, not UI sound effects |
+
+  ## Security Considerations
+
+  - **No security impact.** This feature adds client-side audio playback to existing
+    UI interactions. No new data flows, API calls, authentication changes, or user
+    input processing.
+  - Sound files are static WAV assets served from `/public/sounds/`. No user-uploaded
+    audio. No dynamic URL construction for audio sources.
+  - The `useSoundEnabled` toggle persists to `localStorage` only (no server state).
+    No sensitive data is stored or transmitted.
+  - The existing `useSound` hook catches and suppresses audio playback errors
+    (browser autoplay policy). This error handling is preserved; no new error
+    surfaces are introduced.
+
+  ## Performance Implications
+
+  - **Audio preloading:** Each `useSoundAction` call internally creates one
+    `useSound` instance, which preloads one WAV file via `HTMLAudioElement.preload = 'auto'`.
+    WAV files are small (<100KB each). NFR-1 limits components to max 3 simultaneous
+    preloads. Most components need 1-2.
+  - **Render performance:** `useSoundAction` is a thin wrapper over `useSound`. It
+    returns stable `play`/`stop` callbacks via `useCallback`. The `isPlaying` flag
+    uses `useRef` (not `useState`), so playing a sound does not trigger re-renders.
+    This is critical for components like `sidebar-nav-item` that render frequently
+    during navigation.
+  - **Bundle size:** The `SOUND_ACTION_MAP` constant and `useSoundAction` hook add
+    <1KB to the JS bundle (NFR-4). No new dependencies.
+  - **Audio latency:** Preloaded WAV files play within the 50ms target (NFR-2).
+    The existing `HTMLAudioElement` preload strategy is preserved unchanged.
+  - **Memory:** 29 WAV files × ~50-100KB = ~1.5-3MB total if all preloaded. In
+    practice, only components mounted in the current view preload sounds. React
+    unmount cleanup (in `useSound`'s useEffect return) releases audio resources.
+
+  ## Architecture Notes
+
+  ### Layering
+
+  This feature lives entirely within the **presentation/web** layer. No changes
+  to domain, application, or infrastructure layers. The sound system is a UI
+  concern with no business logic dependencies.
+
+  ```
+  presentation/web/
+  ├── hooks/
+  │   ├── use-sound.ts              (unchanged — audio lifecycle)
+  │   ├── use-sound-enabled.ts      (unchanged — global toggle)
+  │   ├── use-sound-action.ts       (NEW — semantic action mapping)
+  │   └── use-sound-action.stories.tsx (NEW — Storybook catalog)
+  ├── components/
+  │   ├── common/
+  │   │   ├── drawer-action-bar/    (wired: approve, reject sounds)
+  │   │   ├── action-button/        (wired: click sound)
+  │   │   ├── feature-drawer/       (wired: drawer-open, drawer-close)
+  │   │   ├── feature-create-drawer/(wired: drawer-open, drawer-close, create)
+  │   │   ├── theme-toggle/         (wired: toggle-on, toggle-off)
+  │   │   ├── sidebar-collapse-toggle/ (wired: expand, collapse)
+  │   │   ├── sidebar-nav-item/     (wired: navigate)
+  │   │   ├── open-action-menu/     (wired: menu-open, menu-item, copy)
+  │   │   ├── reject-feedback-dialog/ (wired: reject)
+  │   │   ├── drawer-revision-input/  (wired: submit)
+  │   │   ├── review-drawer-shell/  (wired: drawer-open, drawer-close)
+  │   │   ├── prd-questionnaire/    (wired: select, navigate)
+  │   │   ├── tech-decisions-review/(wired: expand, collapse)
+  │   │   └── merge-review/         (inherits from drawer-action-bar)
+  │   └── features/
+  │       └── control-center/
+  │           ├── use-control-center-state.ts (migrated: 3 calls + 1 removed)
+  │           └── control-center-inner.tsx    (migrated: 1 call)
+  └── hooks/
+      └── use-notifications.ts      (migrated: 4 calls)
+  ```
+
+  ### Dependency Flow
+
+  ```
+  useSoundAction → useSound → useSoundEnabled → localStorage
+                            → HTMLAudioElement → /public/sounds/*.wav
+  ```
+
+  No circular dependencies. `useSoundAction` is additive — it depends on `useSound`
+  but nothing depends on `useSoundAction` except the components that use it.
+
+  ### Component Impact Summary
+
+  | Component | Hooks Added | Sounds | Stories Exist |
+  | --------- | ----------- | ------ | ------------- |
+  | drawer-action-bar | 2 | approve, reject | ❌ Create new |
+  | action-button | 1 | click | ✅ Update |
+  | feature-drawer | 2 | drawer-open, drawer-close | ✅ Update |
+  | feature-create-drawer | 3 | drawer-open, drawer-close, create | ✅ Update |
+  | theme-toggle | 2 | toggle-on, toggle-off | ✅ Update |
+  | sidebar-collapse-toggle | 2 | expand, collapse | ✅ Update |
+  | sidebar-nav-item | 1 | navigate | ✅ Update |
+  | open-action-menu | 3 | menu-open, menu-item, copy | ✅ Update |
+  | reject-feedback-dialog | 1 | reject | ✅ Update |
+  | drawer-revision-input | 1 | submit | ❌ Create new |
+  | review-drawer-shell | 2 | drawer-open, drawer-close | ✅ Update |
+  | prd-questionnaire | 2 | select, navigate | ✅ Update |
+  | tech-decisions-review | 2 | expand, collapse | ✅ Update |
+  | merge-review | 0 | (inherits) | ✅ No change |
+  | use-control-center-state | 0 (migrate 3) | delete, create, click | N/A |
+  | control-center-inner | 0 (migrate 1) | reject | N/A |
+  | use-notifications | 0 (migrate 4) | 4 notification sounds | N/A |
+
+  ### Key Implementation Notes
+
+  1. **closeSound removal:** The `closeSound` in `use-control-center-state.ts`
+     (line 265, volume 0.01) is effectively silent and should be removed during
+     migration rather than mapped to an action.
+
+  2. **drawer-action-bar inheritance:** Components that use `DrawerActionBar`
+     (prd-questionnaire, tech-decisions-review, merge-review) inherit approve/reject
+     sounds automatically. They only add sounds for their own unique interactions.
+
+  3. **Missing stories:** `drawer-action-bar` and `drawer-revision-input` lack
+     `.stories.tsx` files. These must be created as part of this feature (mandatory
+     per CLAUDE.md rules).
+
+  4. **Sound count:** 29 WAV files exist (not 27 as stated in the spec — the spec
+     likely excluded `disabled.wav` and `progress_loop.wav` from the count). All
+     sounds needed for the SOUND_ACTION_MAP are present.
+
+  5. **SoundAction type completeness:** The 22 actions defined in FR-1 cover all
+     component interactions identified in FR-4 through FR-20. No gaps found.
+
+  ---
+
+  _Research completed 2026-02-25_

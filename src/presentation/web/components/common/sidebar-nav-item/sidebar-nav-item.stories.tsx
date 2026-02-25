@@ -24,6 +24,7 @@ const meta: Meta<typeof SidebarNavItem> = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Default — clicking plays "navigate" sound. */
 export const Default: Story = {
   args: {
     icon: Home,

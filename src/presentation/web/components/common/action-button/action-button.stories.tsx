@@ -24,7 +24,7 @@ function noop() {
   // intentional no-op for stories
 }
 
-/** Default labeled button with outline variant. */
+/** Default labeled button with outline variant. Plays "click" sound on press. */
 export const Default: Story = {
   args: {
     onClick: noop,

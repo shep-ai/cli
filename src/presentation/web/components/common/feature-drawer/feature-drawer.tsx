@@ -3,6 +3,7 @@
 import { XIcon, Loader2, Trash2, ExternalLink, GitCommitHorizontal } from 'lucide-react';
 import { PrStatus } from '@shepai/core/domain/generated/output';
 import { cn } from '@/lib/utils';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import { OpenActionMenu } from '@/components/common/open-action-menu';
 import {
   Drawer,
@@ -44,6 +45,9 @@ export function FeatureDrawer({
   onDelete,
   isDeleting = false,
 }: FeatureDrawerProps) {
+  const drawerOpenSound = useSoundAction('drawer-open');
+  const drawerCloseSound = useSoundAction('drawer-close');
+
   return (
     <Drawer
       direction="right"
@@ -51,7 +55,12 @@ export function FeatureDrawer({
       handleOnly
       open={selectedNode !== null}
       onOpenChange={(open) => {
-        if (!open) onClose();
+        if (open) {
+          drawerOpenSound.play();
+        } else {
+          drawerCloseSound.play();
+          onClose();
+        }
       }}
     >
       <DrawerContent direction="right" className="w-96" showCloseButton={false}>
@@ -61,7 +70,10 @@ export function FeatureDrawer({
             <button
               type="button"
               aria-label="Close"
-              onClick={onClose}
+              onClick={() => {
+                drawerCloseSound.play();
+                onClose();
+              }}
               className="ring-offset-background focus:ring-ring absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden"
             >
               <XIcon className="size-4" />

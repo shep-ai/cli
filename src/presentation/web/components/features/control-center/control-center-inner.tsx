@@ -25,7 +25,7 @@ import type { PrdQuestionnaireData } from '@/components/common/prd-questionnaire
 import { TechDecisionsDrawer } from '@/components/common/tech-decisions-review';
 import { MergeReviewDrawer } from '@/components/common/merge-review';
 import { NotificationPermissionBanner } from '@/components/common/notification-permission-banner';
-import { useSound } from '@/hooks/use-sound';
+import { useSoundAction } from '@/hooks/use-sound-action';
 import { ControlCenterEmptyState } from './control-center-empty-state';
 import { useControlCenterState } from './use-control-center-state';
 
@@ -88,7 +88,7 @@ export function ControlCenterInner({ initialNodes, initialEdges }: ControlCenter
 
   // Reject state (shared by both drawers)
   const [isRejecting, setIsRejecting] = useState(false);
-  const rejectSound = useSound('caution', { volume: 0.5 });
+  const rejectSound = useSoundAction('reject');
 
   // Tech decisions drawer state
   const [techDecisionsData, setTechDecisionsData] = useState<TechDecisionsReviewData | null>(null);
