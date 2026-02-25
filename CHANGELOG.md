@@ -1,3 +1,9 @@
+# [1.60.0](https://github.com/shep-ai/cli/compare/v1.59.0...v1.60.0) (2026-02-25)
+
+### Features
+
+- **web:** add global skills page with feature flag ([#143](https://github.com/shep-ai/cli/issues/143)) ([76e8e7e](https://github.com/shep-ai/cli/commit/76e8e7e4caf6912e79f75172a59a11d70e8436c5))
+
 # [1.59.0](https://github.com/shep-ai/cli/compare/v1.58.0...v1.59.0) (2026-02-25)
 
 ### Features
