@@ -90,7 +90,7 @@ Examples:
 
         // Start PR sync watcher to detect PR/CI status transitions on GitHub
         const gitPrService = container.resolve<IGitPrService>('IGitPrService');
-        initializePrSyncWatcher(featureRepo, gitPrService, notificationService);
+        initializePrSyncWatcher(featureRepo, runRepo, gitPrService, notificationService);
         getPrSyncWatcher().start();
 
         const url = `http://localhost:${port}`;

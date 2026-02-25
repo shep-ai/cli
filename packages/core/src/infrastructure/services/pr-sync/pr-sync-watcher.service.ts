@@ -15,10 +15,12 @@ import {
   SdlcLifecycle,
   PrStatus,
   CiStatus,
+  AgentRunStatus,
   NotificationEventType,
   NotificationSeverity,
 } from '../../../domain/generated/output.js';
 import type { IFeatureRepository } from '../../../application/ports/output/repositories/feature-repository.interface.js';
+import type { IAgentRunRepository } from '../../../application/ports/output/agents/agent-run-repository.interface.js';
 import type { IGitPrService } from '../../../application/ports/output/services/git-pr-service.interface.js';
 import type {
   CiStatusResult,
@@ -42,6 +44,7 @@ const CI_STATUS_MAP: Record<string, CiStatus> = {
 
 export class PrSyncWatcherService {
   private readonly featureRepo: IFeatureRepository;
+  private readonly agentRunRepo: IAgentRunRepository;
   private readonly gitPrService: IGitPrService;
   private readonly notificationService: INotificationService;
   private readonly pollIntervalMs: number;
@@ -50,11 +53,13 @@ export class PrSyncWatcherService {
 
   constructor(
     featureRepo: IFeatureRepository,
+    agentRunRepo: IAgentRunRepository,
     gitPrService: IGitPrService,
     notificationService: INotificationService,
     pollIntervalMs: number = DEFAULT_POLL_INTERVAL_MS
   ) {
     this.featureRepo = featureRepo;
+    this.agentRunRepo = agentRunRepo;
     this.gitPrService = gitPrService;
     this.notificationService = notificationService;
     this.pollIntervalMs = pollIntervalMs;
@@ -172,8 +177,24 @@ export class PrSyncWatcherService {
 
       if (newPrStatus === PrStatus.Merged) {
         feature.lifecycle = SdlcLifecycle.Maintain;
+
+        // Mark associated agent run as completed so UI reflects "done" state
+        if (feature.agentRunId) {
+          try {
+            await this.agentRunRepo.updateStatus(feature.agentRunId, AgentRunStatus.completed);
+          } catch (error) {
+            // eslint-disable-next-line no-console
+            console.warn(
+              `PrSyncWatcherService: failed to update agent run ${feature.agentRunId}:`,
+              error
+            );
+          }
+        }
+
         this.emitNotification(
           NotificationEventType.PrMerged,
+          feature.id,
+          feature.agentRunId ?? '',
           feature.name,
           `PR #${pr.number} merged for ${feature.name}`,
           NotificationSeverity.Success
@@ -181,6 +202,8 @@ export class PrSyncWatcherService {
       } else if (newPrStatus === PrStatus.Closed) {
         this.emitNotification(
           NotificationEventType.PrClosed,
+          feature.id,
+          feature.agentRunId ?? '',
           feature.name,
           `PR #${pr.number} closed for ${feature.name}`,
           NotificationSeverity.Warning
@@ -205,6 +228,8 @@ export class PrSyncWatcherService {
         if (newCiStatus === CiStatus.Success) {
           this.emitNotification(
             NotificationEventType.PrChecksPassed,
+            feature.id,
+            feature.agentRunId ?? '',
             feature.name,
             `CI checks passed for ${feature.name}`,
             NotificationSeverity.Success
@@ -212,6 +237,8 @@ export class PrSyncWatcherService {
         } else if (newCiStatus === CiStatus.Failure) {
           this.emitNotification(
             NotificationEventType.PrChecksFailed,
+            feature.id,
+            feature.agentRunId ?? '',
             feature.name,
             `CI checks failed for ${feature.name}`,
             NotificationSeverity.Error
@@ -233,14 +260,16 @@ export class PrSyncWatcherService {
 
   private emitNotification(
     eventType: NotificationEventType,
+    featureId: string,
+    agentRunId: string,
     featureName: string,
     message: string,
     severity: NotificationSeverity
   ): void {
     const event: NotificationEvent = {
       eventType,
-      featureId: '',
-      agentRunId: '',
+      featureId,
+      agentRunId,
       featureName,
       message,
       severity,
@@ -263,6 +292,7 @@ let watcherInstance: PrSyncWatcherService | null = null;
  */
 export function initializePrSyncWatcher(
   featureRepo: IFeatureRepository,
+  agentRunRepo: IAgentRunRepository,
   gitPrService: IGitPrService,
   notificationService: INotificationService,
   pollIntervalMs?: number
@@ -273,6 +303,7 @@ export function initializePrSyncWatcher(
 
   watcherInstance = new PrSyncWatcherService(
     featureRepo,
+    agentRunRepo,
     gitPrService,
     notificationService,
     pollIntervalMs

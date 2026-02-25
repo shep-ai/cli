@@ -24,8 +24,10 @@ import {
   resetPrSyncWatcher,
 } from '@/infrastructure/services/pr-sync/pr-sync-watcher.service.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
+import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IGitPrService } from '@/application/ports/output/services/git-pr-service.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
+import { AgentRunStatus } from '@/domain/generated/output.js';
 
 function createMockFeature(overrides: Partial<Feature> = {}): Feature {
   return {
@@ -87,6 +89,18 @@ function createMockGitPrService(): IGitPrService {
   };
 }
 
+function createMockAgentRunRepository(): IAgentRunRepository {
+  return {
+    create: vi.fn(),
+    findById: vi.fn().mockResolvedValue(null),
+    findByThreadId: vi.fn().mockResolvedValue(null),
+    updateStatus: vi.fn(),
+    findRunningByPid: vi.fn().mockResolvedValue([]),
+    list: vi.fn().mockResolvedValue([]),
+    delete: vi.fn(),
+  };
+}
+
 function createMockNotificationService(): INotificationService & {
   receivedEvents: NotificationEvent[];
 } {
@@ -101,6 +115,7 @@ function createMockNotificationService(): INotificationService & {
 
 describe('PrSyncWatcherService', () => {
   let featureRepo: IFeatureRepository;
+  let agentRunRepo: IAgentRunRepository;
   let gitPrService: IGitPrService;
   let notificationService: ReturnType<typeof createMockNotificationService>;
   let watcher: PrSyncWatcherService;
@@ -109,9 +124,15 @@ describe('PrSyncWatcherService', () => {
     vi.useFakeTimers();
 
     featureRepo = createMockFeatureRepository();
+    agentRunRepo = createMockAgentRunRepository();
     gitPrService = createMockGitPrService();
     notificationService = createMockNotificationService();
-    watcher = new PrSyncWatcherService(featureRepo, gitPrService, notificationService);
+    watcher = new PrSyncWatcherService(
+      featureRepo,
+      agentRunRepo,
+      gitPrService,
+      notificationService
+    );
   });
 
   afterEach(() => {
@@ -183,6 +204,7 @@ describe('PrSyncWatcherService', () => {
       vi.mocked(featureRepo.list).mockResolvedValue([]);
       const customWatcher = new PrSyncWatcherService(
         featureRepo,
+        agentRunRepo,
         gitPrService,
         notificationService,
         1000
@@ -200,7 +222,35 @@ describe('PrSyncWatcherService', () => {
   });
 
   describe('PR status polling and transition detection', () => {
-    it('should detect Open→Merged transition and update feature', async () => {
+    it('should detect Open→Merged transition and update feature and agent run', async () => {
+      const feature = createMockFeature({
+        id: 'feat-1',
+        name: 'My Feature',
+        repositoryPath: '/repo/path',
+        branch: 'feat/test',
+        agentRunId: 'run-1',
+        pr: { url: 'https://github.com/org/repo/pull/1', number: 1, status: PrStatus.Open },
+      });
+
+      vi.mocked(featureRepo.list).mockResolvedValue([feature]);
+      vi.mocked(gitPrService.listPrStatuses).mockResolvedValue([
+        { number: 1, state: PrStatus.Merged, url: 'https://github.com/org/repo/pull/1' },
+      ]);
+      vi.mocked(gitPrService.getCiStatus).mockResolvedValue({ status: 'pending' });
+
+      watcher.start();
+      await vi.advanceTimersByTimeAsync(0);
+
+      expect(featureRepo.update).toHaveBeenCalledTimes(1);
+      const updatedFeature = vi.mocked(featureRepo.update).mock.calls[0][0];
+      expect(updatedFeature.pr!.status).toBe(PrStatus.Merged);
+      expect(updatedFeature.lifecycle).toBe(SdlcLifecycle.Maintain);
+
+      // Agent run should be marked as completed
+      expect(agentRunRepo.updateStatus).toHaveBeenCalledWith('run-1', AgentRunStatus.completed);
+    });
+
+    it('should skip agent run update when feature has no agentRunId', async () => {
       const feature = createMockFeature({
         id: 'feat-1',
         name: 'My Feature',
@@ -219,9 +269,7 @@ describe('PrSyncWatcherService', () => {
       await vi.advanceTimersByTimeAsync(0);
 
       expect(featureRepo.update).toHaveBeenCalledTimes(1);
-      const updatedFeature = vi.mocked(featureRepo.update).mock.calls[0][0];
-      expect(updatedFeature.pr!.status).toBe(PrStatus.Merged);
-      expect(updatedFeature.lifecycle).toBe(SdlcLifecycle.Maintain);
+      expect(agentRunRepo.updateStatus).not.toHaveBeenCalled();
     });
 
     it('should detect Open→Closed transition and update feature without lifecycle change', async () => {
@@ -332,10 +380,11 @@ describe('PrSyncWatcherService', () => {
       expect(gitPrService.listPrStatuses).toHaveBeenCalledTimes(1);
     });
 
-    it('should emit PrMerged notification with correct fields', async () => {
+    it('should emit PrMerged notification with correct fields including featureId and agentRunId', async () => {
       const feature = createMockFeature({
         id: 'feat-1',
         name: 'Merged Feature',
+        agentRunId: 'run-1',
         repositoryPath: '/repo/path',
         pr: { url: 'https://github.com/org/repo/pull/1', number: 1, status: PrStatus.Open },
       });
@@ -353,15 +402,17 @@ describe('PrSyncWatcherService', () => {
         (e) => e.eventType === NotificationEventType.PrMerged
       );
       expect(prEvents).toHaveLength(1);
+      expect(prEvents[0]!.featureId).toBe('feat-1');
+      expect(prEvents[0]!.agentRunId).toBe('run-1');
       expect(prEvents[0]!.featureName).toBe('Merged Feature');
       expect(prEvents[0]!.severity).toBe(NotificationSeverity.Success);
-      expect(prEvents[0]!.agentRunId).toBe('');
     });
 
-    it('should emit PrClosed notification with correct fields', async () => {
+    it('should emit PrClosed notification with correct fields including featureId', async () => {
       const feature = createMockFeature({
         id: 'feat-1',
         name: 'Closed Feature',
+        agentRunId: 'run-1',
         repositoryPath: '/repo/path',
         pr: { url: 'https://github.com/org/repo/pull/1', number: 1, status: PrStatus.Open },
       });
@@ -379,9 +430,10 @@ describe('PrSyncWatcherService', () => {
         (e) => e.eventType === NotificationEventType.PrClosed
       );
       expect(prEvents).toHaveLength(1);
+      expect(prEvents[0]!.featureId).toBe('feat-1');
+      expect(prEvents[0]!.agentRunId).toBe('run-1');
       expect(prEvents[0]!.featureName).toBe('Closed Feature');
       expect(prEvents[0]!.severity).toBe(NotificationSeverity.Warning);
-      expect(prEvents[0]!.agentRunId).toBe('');
     });
 
     it('should not emit duplicate notification on subsequent polls with same status', async () => {
@@ -726,7 +778,7 @@ describe('PrSyncWatcherService', () => {
     });
 
     it('should initialize and return watcher via get', () => {
-      initializePrSyncWatcher(featureRepo, gitPrService, notificationService);
+      initializePrSyncWatcher(featureRepo, agentRunRepo, gitPrService, notificationService);
 
       expect(hasPrSyncWatcher()).toBe(true);
 
@@ -735,10 +787,10 @@ describe('PrSyncWatcherService', () => {
     });
 
     it('should throw when initializing twice', () => {
-      initializePrSyncWatcher(featureRepo, gitPrService, notificationService);
+      initializePrSyncWatcher(featureRepo, agentRunRepo, gitPrService, notificationService);
 
       expect(() => {
-        initializePrSyncWatcher(featureRepo, gitPrService, notificationService);
+        initializePrSyncWatcher(featureRepo, agentRunRepo, gitPrService, notificationService);
       }).toThrow('PR sync watcher already initialized');
     });
 
@@ -753,7 +805,7 @@ describe('PrSyncWatcherService', () => {
     });
 
     it('should stop and clear instance on reset', () => {
-      initializePrSyncWatcher(featureRepo, gitPrService, notificationService);
+      initializePrSyncWatcher(featureRepo, agentRunRepo, gitPrService, notificationService);
       const instance = getPrSyncWatcher();
       vi.mocked(featureRepo.list).mockResolvedValue([]);
       instance.start();
