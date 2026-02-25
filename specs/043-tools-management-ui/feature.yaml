@@ -3,17 +3,18 @@ feature:
   name: tools-management-ui
   number: 43
   branch: feat/043-tools-management-ui
-  lifecycle: research
+  lifecycle: review
+  prUrl: 'https://github.com/shep-ai/cli/pull/133'
   createdAt: '2026-02-25T11:46:35Z'
 status:
-  phase: implementation-complete
+  phase: in-review
   progress:
     completed: 15
     total: 15
     percentage: 100
   currentTask: null
-  lastUpdated: '2026-02-25T12:35:26.764Z'
-  lastUpdatedBy: feature-agent:implement
+  lastUpdated: '2026-02-25T12:40:00.000Z'
+  lastUpdatedBy: shep-kit:commit-pr
   completedPhases:
     - analyze
     - requirements
@@ -35,6 +36,9 @@ checkpoints:
   - phase: feature-created
     completedAt: '2026-02-25T11:46:35Z'
     completedBy: feature-agent
+  - phase: pr-created
+    completedAt: '2026-02-25T12:40:00.000Z'
+    completedBy: shep-kit:commit-pr
 errors:
   current: null
   history: []
