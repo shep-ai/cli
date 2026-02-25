@@ -37,6 +37,7 @@ import type { IWebServerService } from '@/application/ports/output/services/web-
 import type { IAgentRunRepository } from '@/application/ports/output/agents/agent-run-repository.interface.js';
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 
 function parsePort(value: string): number {
   const port = parseInt(value, 10);
@@ -79,8 +80,9 @@ export function createServeCommand(): Command {
         // Start notification watcher
         const runRepo = container.resolve<IAgentRunRepository>('IAgentRunRepository');
         const phaseTimingRepo = container.resolve<IPhaseTimingRepository>('IPhaseTimingRepository');
+        const featureRepo = container.resolve<IFeatureRepository>('IFeatureRepository');
         const notificationService = container.resolve<INotificationService>('INotificationService');
-        initializeNotificationWatcher(runRepo, phaseTimingRepo, notificationService);
+        initializeNotificationWatcher(runRepo, phaseTimingRepo, featureRepo, notificationService);
         getNotificationWatcher().start();
 
         // Graceful shutdown handler — identical pattern to ui.command.ts

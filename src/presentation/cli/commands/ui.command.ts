@@ -24,6 +24,7 @@ import type { IAgentRunRepository } from '@/application/ports/output/agents/agen
 import type { IPhaseTimingRepository } from '@/application/ports/output/agents/phase-timing-repository.interface.js';
 import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import type { INotificationService } from '@/application/ports/output/services/notification-service.interface.js';
+import type { IFeatureRepository } from '@/application/ports/output/repositories/feature-repository.interface.js';
 import { setVersionEnvVars } from '@/infrastructure/services/version.service.js';
 import { resolveWebDir } from '@/infrastructure/services/web-server.service.js';
 import {
